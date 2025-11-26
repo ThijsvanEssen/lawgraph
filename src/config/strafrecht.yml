@@ -1,0 +1,224 @@
+version: 1
+
+topic:
+  id: "topic:strafrecht"
+  slug: "strafrecht"
+  name: "Strafrecht"
+  description: >
+    Materieel strafrecht, strafprocesrecht en aanpalende wetgeving
+    (Wetboek van Strafrecht, Wetboek van Strafvordering, bijzondere
+    strafwetten, Europese strafrechtelijke instrumenten).
+  labels:
+    - "Strafrecht"
+    - "Criminal law"
+  tags:
+    - "strafrecht"
+    - "strafprocesrecht"
+    - "materieel-strafrecht"
+    - "strafvordering"
+
+nl_instruments:
+  # Kern-wetboeken
+  - id: "nl:wetboek:Sr"
+    bwb_id: "BWBR0001854"
+    title: "Wetboek van Strafrecht"
+    short_title: "Sr"
+    jurisdiction: "NL"
+    kind: "wetboek"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "NL"
+      - "Wetboek"
+      - "Strafrecht"
+    notes: "Hoofdbron materieel strafrecht."
+
+  - id: "nl:wetboek:Sv"
+    bwb_id: "BWBR0001903"
+    title: "Wetboek van Strafvordering"
+    short_title: "Sv"
+    jurisdiction: "NL"
+    kind: "wetboek"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "NL"
+      - "Wetboek"
+      - "Strafvordering"
+    notes: "Hoofdbron strafprocesrecht."
+
+  # Enkele veelgebruikte bijzondere strafwetten
+  - id: "nl:wet:Opiumwet"
+    bwb_id: "BWBR0001941"
+    title: "Opiumwet"
+    jurisdiction: "NL"
+    kind: "bijzondere-strafwet"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "NL"
+      - "Opiumwet"
+      - "Bijzondere strafwet"
+    notes: "Drugsdelicten."
+
+  - id: "nl:wet:WWM"
+    bwb_id: "BWBR0008804"
+    title: "Wet wapens en munitie"
+    short_title: "WWM"
+    jurisdiction: "NL"
+    kind: "bijzondere-strafwet"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "NL"
+      - "WWM"
+      - "Bijzondere strafwet"
+    notes: "Wapendelicten."
+
+  - id: "nl:wet:WVW"
+    bwb_id: "BWBR0006622"
+    title: "Wegenverkeerswet 1994"
+    short_title: "WVW 1994"
+    jurisdiction: "NL"
+    kind: "bijzondere-strafwet"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "NL"
+      - "WVW"
+      - "Bijzondere strafwet"
+    notes: "Verkeersstrafrecht (o.a. art. 6 WVW)."
+
+eu_instruments:
+  # EVRM (optioneel via CELEX)
+  - id: "eu:convention:EVRM"
+    celex: "21970A0718(02)"
+    title: "Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden (EVRM)"
+    short_title: "EVRM"
+    jurisdiction: "EU/CoE"
+    kind: "verdrag"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "EVRM"
+      - "Mensenrechten"
+      - "Strafrecht"
+    notes: >
+      Relevante artikelen voor strafrecht o.a. art. 5, 6 en 7 EVRM.
+
+  # Procedurele-rechten-richtlijnen (voorbeeld-selectie)
+  - id: "eu:directive:2010/64/EU"
+    celex: "32010L0064"
+    title: "Richtlijn 2010/64/EU inzake het recht op vertolking en vertaling in strafprocedures"
+    jurisdiction: "EU"
+    kind: "richtlijn"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "EU"
+      - "Procedurele rechten"
+      - "Strafprocesrecht"
+
+  - id: "eu:directive:2012/13/EU"
+    celex: "32012L0013"
+    title: "Richtlijn 2012/13/EU betreffende het recht op informatie in strafprocedures"
+    jurisdiction: "EU"
+    kind: "richtlijn"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "EU"
+      - "Procedurele rechten"
+      - "Strafprocesrecht"
+
+  - id: "eu:directive:2013/48/EU"
+    celex: "32013L0048"
+    title: "Richtlijn 2013/48/EU inzake het recht op toegang tot een raadsman"
+    jurisdiction: "EU"
+    kind: "richtlijn"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "EU"
+      - "Procedurele rechten"
+      - "Strafprocesrecht"
+
+  # Europees aanhoudingsbevel
+  - id: "eu:framework-decision:EAB"
+    celex: "32002F0584"
+    title: "Kaderbesluit 2002/584/JBZ inzake het Europees aanhoudingsbevel"
+    jurisdiction: "EU"
+    kind: "kaderbesluit"
+    topics:
+      - "topic:strafrecht"
+    labels:
+      - "EU"
+      - "EAB"
+      - "Strafrecht"
+
+filters:
+  rechtspraak:
+    # Gericht zoeken op strafrechtelijke uitspraken
+    rechtsgebieden:
+      - "Strafrecht"
+      - "Strafprocesrecht"
+    ecli_prefixes:
+      - "ECLI:NL:HR"
+      - "ECLI:NL:RVS"
+      - "ECLI:NL:GHARL"
+      - "ECLI:NL:GHAMS"
+    # Vrije tekst / trefwoorden voor de index search
+    search_terms:
+      - "strafrecht"
+      - "strafprocesrecht"
+      - "strafvordering"
+      - "art. 6 EVRM"
+      - "doodslag"
+      - "moord"
+      - "poging"
+      - "medeplegen"
+      - "medeplichtigheid"
+
+  tk:
+    # Hint voor OData-filters bij Zaak/DocumentVersie
+    title_contains:
+      - "strafrecht"
+      - "strafvordering"
+      - "Wetboek van Strafrecht"
+      - "Wetboek van Strafvordering"
+      - "Opiumwet"
+      - "Wet wapens en munitie"
+      - "Wegenverkeerswet 1994"
+    dossier_keywords:
+      - "wijziging van het Wetboek van Strafrecht"
+      - "wijziging van het Wetboek van Strafvordering"
+      - "wijziging van het Wetboek van Strafrecht en het Wetboek van Strafvordering"
+
+  eurlex:
+    celex_ids:
+      - "32010L0064"
+      - "32012L0013"
+      - "32013L0048"
+      - "32002F0584"
+    subject_keywords:
+      - "criminal law"
+      - "police and judicial cooperation in criminal matters"
+      - "procedural rights"
+
+seed_examples:
+  # Eventuele voorbeeld-ECLIs om initieel op te halen
+  rechtspraak_eclis:
+    - "ECLI:NL:HR:2019:793"
+    - "ECLI:NL:HR:2020:712"
+  # Mogelijke extra CELEXen om later uit te breiden
+  extra_celex_candidates:
+    - "32016L0343"
+
+bwb:
+  default_date: "2024-01-01"
+  ids:
+    - "BWBR0001854"
+    - "BWBR0001903"
+    - "BWBR0001941"
+    - "BWBR0008804"
+    - "BWBR0006622"

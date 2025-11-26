@@ -1,0 +1,14 @@
+services:
+  arangodb:
+    image: arangodb:3.12
+    container_name: arango-lawgraph
+    ports:
+      - "8529:8529"
+    environment:
+      - ARANGO_ROOT_PASSWORD=${ARANGO_ROOT_PASSWORD}
+    volumes:
+      - arango_data:/var/lib/arangodb3
+      - arango_apps:/var/lib/arangodb3-apps
+volumes:
+  arango_data:
+  arango_apps:

@@ -15,6 +15,7 @@ authors = [
 ]
 
 dependencies = [
+  "pyyaml>=6.0.0",
   "requests>=2.31.0",
   "python-arango>=7.6.0",
   "python-dotenv>=1.0.0",
@@ -35,6 +36,17 @@ Source = "https://example.com/lawgraph.git"
 lawgraph-parliament = "lawgraph.cli.parliament:main"
 lawgraph-case-law   = "lawgraph.cli.case_law:main"
 lawgraph-eu-law     = "lawgraph.cli.eu_law:main"
+lawgraph-retrieve-tk = "lawgraph.cli.retrieve_tk:main"
+lawgraph-retrieve-rechtspraak = "lawgraph.cli.retrieve_rechtspraak:main"
+lawgraph-retrieve-eurlex = "lawgraph.cli.retrieve_eurlex:main"
+lawgraph-retrieve-bwb = "lawgraph.cli.retrieve_bwb:main"
+lawgraph-retrieve-all = "lawgraph.cli.retrieve_all:main"
+lawgraph-normalize-tk = "lawgraph.cli.normalize_tk:main"
+lawgraph-normalize-rechtspraak = "lawgraph.cli.normalize_rechtspraak:main"
+lawgraph-normalize-eurlex = "lawgraph.cli.normalize_eurlex:main"
+lawgraph-normalize-bwb = "lawgraph.cli.normalize_bwb:main"
+lawgraph-normalize-all = "lawgraph.cli.normalize_all:main"
+lawgraph-strafrecht-seed = "lawgraph.cli.strafrecht_seed:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
