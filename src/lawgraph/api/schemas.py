@@ -9,15 +9,15 @@ from pydantic import BaseModel, ConfigDict
 _DROP_PROPS_KEYS = ("raw_xml",)
 
 
-def _build_node_payload(doc: dict[str, Any], *, drop_props_keys: tuple[str, ...] | None = None) -> dict[str, Any]:
+def _build_node_payload(
+    doc: dict[str, Any], *, drop_props_keys: tuple[str, ...] | None = None
+) -> dict[str, Any]:
     props: dict[str, Any] = {}
     raw_props = doc.get("props")
     if isinstance(raw_props, dict):
         props = raw_props
     sanitized = {
-        key: value
-        for key, value in props.items()
-        if key not in (drop_props_keys or ())
+        key: value for key, value in props.items() if key not in (drop_props_keys or ())
     }
     return {
         "id": doc["_id"],
@@ -54,39 +54,53 @@ class BaseNodeDTO(BaseModel):
         return cls(**payload)
 
 
-class InstrumentDTO(BaseNodeDTO):
-    """Instrument view model used by article and relation responses."""
+class InstrumentSummaryDTO(BaseModel):
+    """Korte representatie van een instrument voor respondenten."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    display_name: str | None
 
     @classmethod
     def from_document(
         cls,
         doc: dict[str, Any],
-        *,
-        drop_props_keys: tuple[str, ...] | None = _DROP_PROPS_KEYS,
-    ) -> InstrumentDTO:
-        base = BaseNodeDTO.from_document(doc, drop_props_keys=drop_props_keys)
-        return cls(**base.model_dump())
+    ) -> InstrumentSummaryDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            display_name=props.get("display_name"),
+        )
 
 
-class ArticleDTO(BaseNodeDTO):
-    """Dedicated article view model that exposes identifiers."""
+class ArticleSummaryDTO(BaseModel):
+    """Samenvatting van een artikel met identificatie en tekst."""
 
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
     bwb_id: str | None
     article_number: str | None
+    display_name: str | None
+    text: str | None
 
     @classmethod
     def from_document(
         cls,
         doc: dict[str, Any],
-        *,
-        drop_props_keys: tuple[str, ...] | None = _DROP_PROPS_KEYS,
-    ) -> ArticleDTO:
-        base = BaseNodeDTO.from_document(doc, drop_props_keys=drop_props_keys)
-        props = base.props or {}
+    ) -> ArticleSummaryDTO:
+        props = doc.get("props") or {}
         return cls(
-            **base.model_dump(),
+            id=doc["_id"],
+            key=doc["_key"],
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
+            display_name=props.get("display_name"),
+            text=props.get("text"),
         )
 
 
@@ -143,7 +157,7 @@ class ArticleRelationDTO(BaseModel):
     display_name: str | None
     bwb_id: str | None
     article_number: str | None
-    instrument: InstrumentDTO | None
+    instrument: InstrumentSummaryDTO | None
 
     @classmethod
     def from_documents(
@@ -152,8 +166,11 @@ class ArticleRelationDTO(BaseModel):
         instrument_doc: dict[str, Any] | None,
     ) -> ArticleRelationDTO:
         props = article_doc.get("props") or {}
-        instrument = InstrumentDTO.from_document(
-            instrument_doc) if instrument_doc else None
+        instrument = (
+            InstrumentSummaryDTO.from_document(instrument_doc)
+            if instrument_doc
+            else None
+        )
         return cls(
             id=article_doc["_id"],
             key=article_doc["_key"],
@@ -165,10 +182,10 @@ class ArticleRelationDTO(BaseModel):
 
 
 class ArticleDetailResponse(BaseModel):
-    """Response model for article detail endpoint."""
+    """Response model voor het artikel endpoint."""
 
-    article: ArticleDTO
-    instrument: InstrumentDTO | None
+    article: ArticleSummaryDTO
+    instrument: InstrumentSummaryDTO | None
     judgments: list[JudgmentSummaryDTO]
     metadata: dict[str, Any] | None
 
@@ -206,7 +223,9 @@ class NeighborDTO(BaseModel):
         confidence: float | None,
     ) -> NeighborDTO:
         payload = _build_node_payload(doc)
-        return cls(**payload, relation=relation, direction=direction, confidence=confidence)
+        return cls(
+            **payload, relation=relation, direction=direction, confidence=confidence
+        )
 
 
 class NodeNeighborsDTO(BaseModel):

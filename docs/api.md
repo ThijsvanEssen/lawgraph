@@ -47,20 +47,28 @@ sequenceDiagram
 
 ### Endpoint-overzicht
 
-- **`/api/articles/{bwb_id}/{article_number}`**  
+- **`/api/articles/{bwb_id}/{article_number}`**
   Stuurt `ArticleDetailResponse` terug met het artikel, optioneel de parent-instrument node en alle actuele arresten die het artikel noemen.
-- **`/api/judgments/{ecli}`**  
+- **`/api/judgments/{ecli}`**
   Levert `JudgmentDetailResponse` met de arresten, alle gelinkte artikelen en metadata over het aantal gevonden relaties.
-- **`/api/nodes/{collection}/{key}`**  
+- **`/api/nodes/{collection}/{key}`**
   Retourneert een `NodeGraphResponse` met de gevraagde node en zijn strikte/semantische buren. Alleen collecties in `_ALLOWED_NODE_COLLECTIONS` zijn toegestaan.
 
 ## Schema's en sanitatie
 
-- **`BaseNodeDTO`** & `NeighborDTO`: gebruiken `_build_node_payload` om `_id`, `_key`, `labels` en `props` (zonder `raw_xml`) te verzamelen. `InstrumentDTO`, `ArticleDTO` en `JudgmentDTO` bouwen hierop voort.
+- **`BaseNodeDTO`** & `NeighborDTO`: gebruiken `_build_node_payload` om `_id`, `_key`, `labels` en `props` (zonder `raw_xml`) te verzamelen.
+- **`ArticleSummaryDTO`**: levert id, BWB-gegevens en de tekst van een artikel zodat de frontend meteen kan renderen zonder extra props-lookup.
+- **`InstrumentSummaryDTO`**: geeft het parent-instrument met minimale metadata terug die gemakkelijk te gebruiken is bij relatievisualisaties.
 - **Metadata**: `ArticleDetailResponse` en `JudgmentDetailResponse` voegen `metadata` toe, bijvoorbeeld `judgment_count` of `article_count`, zodat clients geen extra queries hoeven te doen voor eenvoudige tellingen.
 - **Relational mapping**: `ArticleRelationDTO` combineert een artikel met zijn parent-instrument en exposeert labels/identifiers voor direct gebruik door een front-end.
 
+## Uitvoeren
 
-## Monitoring
+- Start het API-service met `uvicorn lawgraph.api.app:app` (gebruik best practice omgevingvariabelen uit `.env` en de CORS-configuratie).
+- Zorg dat ArangoDB draait en dat `ArangoStore` dezelfde connectie gebruikt als andere onderdelen van het project.
+- Regenereren van de OpenAPI-definitie kan met `python scripts/export_openapi.py`; dat schrijft `openapi.json` in de repo-root.
+
+## Monitoring en uitbreiding
 
 - **Logging**: routers gebruiken `lawgraph.logging.get_logger` en loggen 404/400 fouten.
+- **Nieuwe endpoints**: voeg routers, DTO's en queryhelpers toe onder `lawgraph.api.routes`, `schemas`, `queries`; hou schema's up-to-date met OpenAPI.
