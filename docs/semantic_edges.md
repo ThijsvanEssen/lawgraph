@@ -14,3 +14,5 @@ Leg uit hoe deze semantische kanten zich verhouden tot entiteiten, profielen en 
 
 ## Overige opmerkingen
 Noteer hier welke tooling of visualisaties van deze kanten afhangt en waar aanvullende data (zoals weight of confidence) wordt bewaard.
+
+TODO - invullen na merge van feature branch
