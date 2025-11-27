@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 _DROP_PROPS_KEYS = ("raw_xml",)
 
@@ -104,6 +104,32 @@ class ArticleSummaryDTO(BaseModel):
         )
 
 
+class ArticleCitationTarget(BaseModel):
+    """Minimal metadata describing the referenced article."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    collection: str
+    bwb_id: str | None
+    article_number: str | None
+    display_name: str | None
+
+
+class ArticleCitationSpan(BaseModel):
+    """Character span for an internal citation inside the source article."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start: int | None
+    end: int | None
+    text: str | None
+    target: ArticleCitationTarget
+    kind: str = "article"
+    confidence: float | None = None
+
+
 class JudgmentDTO(BaseNodeDTO):
     """Rich judgment DTO that hides raw XML but exposes metadata."""
 
@@ -187,6 +213,7 @@ class ArticleDetailResponse(BaseModel):
     article: ArticleSummaryDTO
     instrument: InstrumentSummaryDTO | None
     judgments: list[JudgmentSummaryDTO]
+    citations: list[ArticleCitationSpan] = Field(default_factory=list)
     metadata: dict[str, Any] | None
 
 
