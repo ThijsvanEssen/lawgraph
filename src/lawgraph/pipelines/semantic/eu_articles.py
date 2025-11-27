@@ -12,17 +12,18 @@ from config.config import load_domain_config
 from lawgraph.config.settings import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_INSTRUMENTS,
+    RELATION_MENTIONS_ARTICLE,
+    SEMANTIC_EDGE_COLLECTION,
 )
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
 from lawgraph.models import Node, make_node_key
+from lawgraph.utils.time import describe_since
 
 logger = get_logger(__name__)
 
 CodeMapping = dict[str, str]
 
-SEMANTIC_EDGE_COLLECTION = "edges_semantic"
-RELATION_MENTIONS_ARTICLE = "MENTIONS_ARTICLE"
 SEMANTIC_SOURCE = "eu-article-linker"
 
 _SNIPPET_WINDOW = 40
@@ -83,6 +84,15 @@ def _format_celex(kind: Literal["directive", "regulation"], year: str, number: s
 
 
 def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHit]:
+    """Return references to EU or BWBR documents in the provided text.
+
+    Args:
+        text: Text to scan for CELEX or alias mentions.
+        code_aliases: Mapping between document aliases and BWBR identifiers.
+
+    Returns:
+        Hits describing which instruments or articles were mentioned.
+    """
     if not text:
         return []
 
@@ -218,6 +228,7 @@ class EUArticleSemanticPipeline:
         self._domain_config = domain_config
 
     def run(self, *, since: dt.datetime | None = None) -> int:
+        """Inspect EU instruments for referenced articles and persist semantic edges."""
         documents = list(self._load_eu_documents())
         if not documents:
             logger.debug("No EU instrument nodes found for semantic linking.")
@@ -225,8 +236,9 @@ class EUArticleSemanticPipeline:
 
         code_aliases = self._load_code_aliases()
         logger.info(
-            "Processing %d EU instruments for semantic article linking.",
+            "Processing %d EU instruments for semantic article linking (since=%s).",
             len(documents),
+            describe_since(since),
         )
 
         edges_created = 0
@@ -250,15 +262,18 @@ class EUArticleSemanticPipeline:
         return edges_created
 
     def _load_eu_documents(self) -> Iterable[Node]:
-        aql = """
-        FOR doc IN instruments
+        """Yield EU instrument nodes that participate in the semantic pipeline."""
+        collection = COLLECTION_INSTRUMENTS
+        aql = f"""
+        FOR doc IN {collection}
             FILTER "EU" IN doc.labels
             RETURN doc
         """
         for doc in self.store.query(aql):
-            yield Node.from_document("instruments", doc)
+            yield Node.from_document(collection, doc)
 
     def _extract_document_text(self, document: Node) -> str | None:
+        """Concatenate text fragments that represent the document content."""
         fragments: list[str] = []
         for key in ("title", "official_title", "display_name"):
             candidate = document.props.get(key)

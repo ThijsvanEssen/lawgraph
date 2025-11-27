@@ -14,17 +14,17 @@ from lawgraph.config.settings import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_PROCEDURES,
     COLLECTION_PUBLICATIONS,
+    RELATION_MENTIONS_ARTICLE,
+    SEMANTIC_EDGE_COLLECTION,
 )
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
 from lawgraph.models import Node, make_node_key
+from lawgraph.utils.time import describe_since
 
 logger = get_logger(__name__)
 
 CodeMapping = dict[str, str]
-
-SEMANTIC_EDGE_COLLECTION = "edges_semantic"
-RELATION_MENTIONS_ARTICLE = "MENTIONS_ARTICLE"
 SEMANTIC_SOURCE = "tk-article-linker"
 
 _SNIPPET_WINDOW = 40
@@ -121,6 +121,16 @@ def detect_tk_citations(
     code_aliases: dict[str, str],
     instrument_aliases: dict[str, tuple[str | None, str | None]],
 ) -> list[CitationHit]:
+    """Return KW articles/instruments referenced in the provided TK text.
+
+    Args:
+        text: Text to inspect.
+        code_aliases: Mapping of code aliases (e.g. Sr, Sv) to BWBR IDs.
+        instrument_aliases: Named instruments with optional BWBR and CELEX references.
+
+    Returns:
+        Hits describing each decoded citation.
+    """
     if not text:
         return []
 
@@ -234,6 +244,7 @@ class TKArticleSemanticPipeline:
         self._domain_config = domain_config
 
     def run(self, *, since: dt.datetime | None = None) -> int:
+        """Scan stored TK documents and create semantic edges for referenced articles."""
         documents = list(self._load_tk_documents())
         if not documents:
             logger.debug("No TK documents found for semantic linking.")
@@ -246,8 +257,9 @@ class TKArticleSemanticPipeline:
             return 0
 
         logger.info(
-            "Processing %d TK documents for semantic linking.",
+            "Processing %d TK documents for semantic linking (since=%s).",
             len(documents),
+            describe_since(since),
         )
 
         edges_created = 0
