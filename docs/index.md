@@ -11,6 +11,7 @@ Deze sectie verzamelt de belangrijkste hulppagina's voor ontwikkelaars en archit
 - `configuration.md`: geeft richting aan welke configuratiebestanden en omgevingsvariabelen worden gebruikt, inclusief standaarden voor verschillende omgevingen.
 - `cli.md`: verzamelt de beschikbare commandoregelcommando's, voorbeeldworkflows en tips om problemen na te gaan.
 - `semantic_edges.md`: specificeren we de betekenis van semantische kanten, welke regels gelden voor naamgeving en hoe ze zich verhouden tot andere modeldelen.
+- `api.md`: beschrijft hoe de FastAPI-laag is opgebouwd, welke routes er zijn, hoe DTO's en queries werken en hoe je de service start.
 
 ## Bijdragen
 Voor nieuwe inzichten of verbeteringen maak je een pull request aan en verwijs je naar de relevante sectie. Voeg screenshots of diagrammen toe als dat de uitleg versterkt, zodat reviewers snel de context zien.
