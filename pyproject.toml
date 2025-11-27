@@ -48,6 +48,8 @@ lawgraph-normalize-bwb = "lawgraph.cli.normalize_bwb:main"
 lawgraph-normalize-all = "lawgraph.cli.normalize_all:main"
 lawgraph-strafrecht-seed = "lawgraph.cli.strafrecht_seed:main"
 lawgraph-semantic-rechtspraak-articles = "lawgraph.cli.semantic_rechtspraak_articles:main"
+lawgraph-semantic-tk-articles = "lawgraph.cli.semantic_tk_articles:main"
+lawgraph-semantic-eu-articles = "lawgraph.cli.semantic_eu_articles:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
