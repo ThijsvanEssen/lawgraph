@@ -54,7 +54,7 @@ lawgraph-semantic-rechtspraak-articles = "lawgraph.cli.semantic_rechtspraak_arti
 lawgraph-semantic-tk-articles = "lawgraph.cli.semantic_tk_articles:main"
 lawgraph-semantic-eu-articles = "lawgraph.cli.semantic_eu_articles:main"
 lawgraph-semantic-bwb-articles = "lawgraph.cli.semantic_bwb_articles:main"
-lawgraph-api = "lawgraph.api.app:app"
+lawgraph-semantic-all = "lawgraph.cli.semantic_all:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
