@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lawgraph"
-version = "0.1.0"
+version = "0.3.0"
 description = "Pipelines voor NL/EU wetgeving en rechtspraak naar een ArangoDB knowledge graph."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 
 authors = [
-  { name = "You", email = "you@example.com" }
+  { name = "Thijs van Essen", email = "hi@thijsvanessen.nl" }
 ]
 
 dependencies = [
@@ -20,6 +20,7 @@ dependencies = [
   "python-arango>=7.6.0",
   "python-dotenv>=1.0.0",
   "typing-extensions>=4.12.0",
+  "fastapi>=0.110.0,<1",
 ]
 
 [project.optional-dependencies]
@@ -50,6 +51,7 @@ lawgraph-strafrecht-seed = "lawgraph.cli.strafrecht_seed:main"
 lawgraph-semantic-rechtspraak-articles = "lawgraph.cli.semantic_rechtspraak_articles:main"
 lawgraph-semantic-tk-articles = "lawgraph.cli.semantic_tk_articles:main"
 lawgraph-semantic-eu-articles = "lawgraph.cli.semantic_eu_articles:main"
+lawgraph-api = "lawgraph.api.app:app"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
