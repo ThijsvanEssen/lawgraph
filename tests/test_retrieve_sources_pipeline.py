@@ -5,13 +5,12 @@ from typing import Sequence
 
 from lawgraph.config.settings import (
     RAW_KIND_EU_CELEX,
-    RAW_KIND_RS_CONTENT,
     RAW_KIND_RS_INDEX,
     RAW_KIND_TK_DOCUMENTVERSIE,
     RAW_KIND_TK_ZAAK,
-    SOURCE_EURLEx,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
+    SOURCE_EURLEx,
 )
 from lawgraph.pipelines.retrieve import RetrieveSourcesPipeline
 
@@ -53,7 +52,9 @@ class FakeTKClient:
             {"Id": "Z2", "Titel": "Zaak 2"},
         ]
 
-    def documentversies_modified_since(self, since: dt.datetime, top: int = 100) -> list[dict]:
+    def documentversies_modified_since(
+        self, since: dt.datetime, top: int = 100
+    ) -> list[dict]:
         return [{"Id": "D1", "Naam": "Document"}]
 
 

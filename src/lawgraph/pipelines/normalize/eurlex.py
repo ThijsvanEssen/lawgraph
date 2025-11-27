@@ -14,7 +14,6 @@ from lawgraph.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 from lawgraph.utils.display import make_display_name
 
-
 logger = get_logger(__name__)
 
 
@@ -75,8 +74,7 @@ class EUNormalizePipeline(NormalizePipeline):
             if meta:
                 props["meta"] = meta
 
-            is_strafrecht = self._is_strafrecht_eu_instrument(
-                celex, payload_text)
+            is_strafrecht = self._is_strafrecht_eu_instrument(celex, payload_text)
             labels = ["EU"]
             if is_strafrecht:
                 labels.append("Strafrecht")
@@ -133,8 +131,7 @@ class EUNormalizePipeline(NormalizePipeline):
                 ):
                     edge_count += 1
         else:
-            logger.debug(
-                "No strafrecht topic found; skipping related-topic edges.")
+            logger.debug("No strafrecht topic found; skipping related-topic edges.")
 
         logger.info(
             "EUNormalizePipeline created %d semantic edges.",
@@ -160,7 +157,9 @@ class EUNormalizePipeline(NormalizePipeline):
         if celex and (celex in instrument_celex or celex in celex_ids):
             return True
 
-        if payload_text and self._text_contains_keywords(payload_text, subject_keywords):
+        if payload_text and self._text_contains_keywords(
+            payload_text, subject_keywords
+        ):
             return True
 
         return False

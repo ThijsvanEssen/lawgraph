@@ -7,10 +7,7 @@ from typing import Any
 from lawgraph.clients.eu import EUClient
 from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.clients.tk import TKClient
-from lawgraph.config.settings import (
-    RAW_KIND_TK_DOCUMENTVERSIE,
-    RAW_KIND_TK_ZAAK,
-)
+from lawgraph.config.settings import RAW_KIND_TK_DOCUMENTVERSIE, RAW_KIND_TK_ZAAK
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
 
@@ -50,7 +47,9 @@ class RetrieveSourcesPipeline:
             documentversie_filter=documentversie_filter,
         )
         zaak_count = sum(1 for rec in records if rec.kind == RAW_KIND_TK_ZAAK)
-        documentversie_count = sum(1 for rec in records if rec.kind == RAW_KIND_TK_DOCUMENTVERSIE)
+        documentversie_count = sum(
+            1 for rec in records if rec.kind == RAW_KIND_TK_DOCUMENTVERSIE
+        )
         logger.info(
             "Stored %d TK Zaak and %d TK DocumentVersie retrieve records.",
             zaak_count,

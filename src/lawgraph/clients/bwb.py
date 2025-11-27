@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-# Structural changes:
-# - SRU endpoint and base URL now live in lawgraph.config.settings.
-# - Added docstrings to the public helpers managing BWB toestanden.
-
 import datetime as dt
 import xml.etree.ElementTree as ET
-from typing import TypedDict
+from typing import Callable, TypedDict
 
 from requests import Session
 
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
 from lawgraph.logging import get_logger
+
+# Structural changes:
+# - SRU endpoint and base URL now live in lawgraph.config.settings.
+# - Added docstrings to the public helpers managing BWB toestanden.
+
 
 logger = get_logger(__name__)
 
@@ -69,8 +70,7 @@ class BWBClient(BaseClient):
         try:
             root = ET.fromstring(resp.text)
         except ET.ParseError as exc:
-            logger.error(
-                "Kon SRU-antwoord voor %s niet parsen: %s", bwb_id, exc)
+            logger.error("Kon SRU-antwoord voor %s niet parsen: %s", bwb_id, exc)
             return []
 
         toestanden: list[ToestandMeta] = []
@@ -97,12 +97,11 @@ class BWBClient(BaseClient):
         if still_valid:
             selected = still_valid[0]
         else:
+
             def sort_key(meta: ToestandMeta) -> tuple[dt.date, dt.date]:
                 return (
-                    self._date_for_sort(
-                        meta.get("geldigheidsperiode_einddatum")),
-                    self._date_for_sort(
-                        meta.get("geldigheidsperiode_startdatum")),
+                    self._date_for_sort(meta.get("geldigheidsperiode_einddatum")),
+                    self._date_for_sort(meta.get("geldigheidsperiode_startdatum")),
                 )
 
             selected = sorted(toestanden, key=sort_key, reverse=True)[0]
@@ -134,43 +133,59 @@ class BWBClient(BaseClient):
 
     def _parse_record(self, record: ET.Element) -> ToestandMeta | None:
         """Extract identifiers and URIs from a single SRU record element."""
-        bwb_id: str | None = None
-        locatie_toestand: str | None = None
-        locatie_wti: str | None = None
-        locatie_manifest: str | None = None
-        startdatum: str | None = None
-        einddatum: str | None = None
+        field_values: dict[str, str | None] = {
+            "bwb_id": None,
+            "locatie_toestand": None,
+            "locatie_wti": None,
+            "locatie_manifest": None,
+            "geldigheidsperiode_startdatum": None,
+            "geldigheidsperiode_einddatum": None,
+        }
+
+        def _set_if_missing(key: str, value: str) -> None:
+            if not field_values[key]:
+                field_values[key] = value
+
+        handlers: dict[str, Callable[[str], None]] = {
+            "bwb-id": lambda value: _set_if_missing("bwb_id", value),
+            "identifier": lambda value: _set_if_missing("bwb_id", value),
+            "locatie_toestand": lambda value: _set_if_missing(
+                "locatie_toestand", value
+            ),
+            "locatie_wti": lambda value: _set_if_missing("locatie_wti", value),
+            "locatie_manifest": lambda value: _set_if_missing(
+                "locatie_manifest", value
+            ),
+            "geldigheidsperiode_startdatum": lambda value: _set_if_missing(
+                "geldigheidsperiode_startdatum", value
+            ),
+            "geldigheidsperiode_einddatum": lambda value: _set_if_missing(
+                "geldigheidsperiode_einddatum", value
+            ),
+        }
 
         for element in record.iter():
             text = (element.text or "").strip()
             if not text:
                 continue
-            local = self._local_name(element.tag)
-            if local == "bwb-id":
-                bwb_id = text
-            elif local == "identifier" and bwb_id is None:
-                bwb_id = text
-            elif local == "locatie_toestand":
-                locatie_toestand = text
-            elif local == "locatie_wti":
-                locatie_wti = text
-            elif local == "locatie_manifest":
-                locatie_manifest = text
-            elif local == "geldigheidsperiode_startdatum":
-                startdatum = text
-            elif local == "geldigheidsperiode_einddatum":
-                einddatum = text
+            handler = handlers.get(self._local_name(element.tag))
+            if handler:
+                handler(text)
 
-        if not bwb_id or not locatie_toestand:
+        if not field_values["bwb_id"] or not field_values["locatie_toestand"]:
             return None
 
         return {
-            "bwb_id": bwb_id,
-            "locatie_toestand": locatie_toestand,
-            "locatie_wti": locatie_wti,
-            "locatie_manifest": locatie_manifest,
-            "geldigheidsperiode_startdatum": startdatum,
-            "geldigheidsperiode_einddatum": einddatum,
+            "bwb_id": field_values["bwb_id"],
+            "locatie_toestand": field_values["locatie_toestand"],
+            "locatie_wti": field_values["locatie_wti"],
+            "locatie_manifest": field_values["locatie_manifest"],
+            "geldigheidsperiode_startdatum": field_values[
+                "geldigheidsperiode_startdatum"
+            ],
+            "geldigheidsperiode_einddatum": field_values[
+                "geldigheidsperiode_einddatum"
+            ],
         }
 
     @staticmethod

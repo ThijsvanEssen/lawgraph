@@ -7,9 +7,9 @@ from typing import Any
 
 import requests
 
-from lawgraph.clients.tk import TKClient
-from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.clients.eu import EUClient
+from lawgraph.clients.rechtspraak import RechtspraakClient
+from lawgraph.clients.tk import TKClient
 
 
 class DummyResponse(requests.Response):

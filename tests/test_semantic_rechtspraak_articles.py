@@ -13,7 +13,9 @@ from lawgraph.pipelines.semantic.rechtspraak_articles import (
 
 
 class FakeStore:
-    def __init__(self, judgments: list[dict[str, Any]], articles: dict[str, dict[str, Any]]) -> None:
+    def __init__(
+        self, judgments: list[dict[str, Any]], articles: dict[str, dict[str, Any]]
+    ) -> None:
         self._judgments = judgments
         self._articles = articles
         self.edges: dict[str, dict[str, Any]] = {}

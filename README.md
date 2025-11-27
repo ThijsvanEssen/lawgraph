@@ -1,13 +1,13 @@
-# Lawgraph  
+# Lawgraph
 
-Lawgraph bouwt een NL/EU-wetgeving en rechtspraak knowledge graph in **ArangoDB**.  
+Lawgraph bouwt een NL/EU-wetgeving en rechtspraak knowledge graph in **ArangoDB**.
 De pipelines halen data uit Tweede Kamer, Rechtspraak.nl, EUR-Lex en wetten.overheid.nl (BWB), normaliseren die tot instrument-, uitspraak- en topic-knopen en voeren ze in via deterministische `_key`s in document- en edgecollecties. Het doel is een aggregator/back-end; een UI of explorer verschijnt later bovenop de gepopuleerde graph.
 
 ## Functionaliteiten
 
-- **Bronsupport**: retrieve-pipelines praten met de Tweede Kamer OData-API, Rechtspraak-index (met vervolgcontent), EUR-Lex/CELEX en wetten.overheid.nl (regelingen + toestanden).  
-- **Retrieve-laag**: elke `lawgraph-retrieve-*` CLI vult `raw_sources` met ruwe payloads en metadata. Filters, profielen en query parameters leven in `src/config/*.yml`, niet in de pipelinecode.  
-- **Normalize-laag**: `lawgraph-normalize-*`-pipelines halen relevante `raw_sources` op, mappen records naar geklasseerde `Node`-objecten (instrumenten, instrumentartikelen, procedures, publicaties, uitspraken, topics) en bouwen edges (`edges_strict`/`edges_semantic`).  
+- **Bronsupport**: retrieve-pipelines praten met de Tweede Kamer OData-API, Rechtspraak-index (met vervolgcontent), EUR-Lex/CELEX en wetten.overheid.nl (regelingen + toestanden).
+- **Retrieve-laag**: elke `lawgraph-retrieve-*` CLI vult `raw_sources` met ruwe payloads en metadata. Filters, profielen en query parameters leven in `src/config/*.yml`, niet in de pipelinecode.
+- **Normalize-laag**: `lawgraph-normalize-*`-pipelines halen relevante `raw_sources` op, mappen records naar geklasseerde `Node`-objecten (instrumenten, instrumentartikelen, procedures, publicaties, uitspraken, topics) en bouwen edges (`edges_strict`/`edges_semantic`).
 - **Profielen**: bijvoorbeeld `strafrecht` (in `src/config/strafrecht.yml`) bepaalt BWB-IDs, CELEX-lijsten, Rechtspraak-filters en topic-metadata. Deze profielen worden door CLI’s ingeladen via `LAWGRAPH_PROFILE` of `--profile`.
 - **Seed CLI**: `lawgraph-strafrecht-seed` kan profielen en hun startdata in de graph injecteren; handig bij een nieuwe database of voor specifiek domeinwerk.
 
@@ -50,7 +50,7 @@ graph LR
 
 ## Installatie
 
-1. Vereisten: Python **3.11+**, een ArangoDB 3.x/4.x instance (`docker-compose up -d arangodb` wordt meegeleverd) en optioneel Docker om de database lokaal te draaien.  
+1. Vereisten: Python **3.11+**, een ArangoDB 3.x/4.x instance (`docker-compose up -d arangodb` wordt meegeleverd) en optioneel Docker om de database lokaal te draaien.
 2. Clone de repository en maak een virtuele omgeving:
 
    ```bash
@@ -92,7 +92,7 @@ graph LR
 
 ## Gebruik (CLI)
 
-1. Kies een profiel (bijv. `LAWGRAPH_PROFILE=strafrecht`). Je kunt ook `--profile strafrecht` meegeven aan individuele commands.  
+1. Kies een profiel (bijv. `LAWGRAPH_PROFILE=strafrecht`). Je kunt ook `--profile strafrecht` meegeven aan individuele commands.
 2. Run retrieve-commando’s:
 
    ```bash
@@ -125,8 +125,8 @@ Na een volledige run zie je in ArangoDB: instrumenten uit BWB en EU, artikelen m
 
 ## Ontwikkeling
 
-- Tests: `pytest tests/`. Gebruik `ALLOW_NETWORK_TESTS=1 pytest tests/` als je echte API-calls wilt toestaan.  
-- Linting: `ruff check src tests`.  
+- Tests: `pytest tests/`. Gebruik `ALLOW_NETWORK_TESTS=1 pytest tests/` als je echte API-calls wilt toestaan.
+- Linting: `ruff check src tests`.
 - Logging en retries zijn centraal geconfigureerd in `lawgraph.logging`.
 
 ## Licentie
@@ -135,7 +135,7 @@ Lawgraph is MIT-gegeven (zie `LICENSE`). Gebruik en hergebruik zijn toegestaan o
 
 ## Voorlopige ontwerpbeslissingen
 
-1. **Geen harde constants**: API-bases, collectionnamen en filters leven in `.env` en in `src/config/*.yml`, zodat profielen en deployment-instellingen niet in de business logic zitten.  
-2. **Deterministische `_key`s en upserts**: `lawgraph.models.make_node_key` en `ArangoStore.insert_or_update` garanderen identieke records bij meerdere runs (idem voor edges).  
-3. **Edges: strict vs semantic**: `edges_strict` bevat expliciete, reproduceerbare relaties zoals `PART_OF_INSTRUMENT`, `PART_OF_PROCEDURE`. `edges_semantic` mag later signalen bevatten zoals `RELATED_TOPIC` of NLP/label-links die niet tot dezelfde paden hoeven te leiden.  
+1. **Geen harde constants**: API-bases, collectionnamen en filters leven in `.env` en in `src/config/*.yml`, zodat profielen en deployment-instellingen niet in de business logic zitten.
+2. **Deterministische `_key`s en upserts**: `lawgraph.models.make_node_key` en `ArangoStore.insert_or_update` garanderen identieke records bij meerdere runs (idem voor edges).
+3. **Edges: strict vs semantic**: `edges_strict` bevat expliciete, reproduceerbare relaties zoals `PART_OF_INSTRUMENT`, `PART_OF_PROCEDURE`. `edges_semantic` mag later signalen bevatten zoals `RELATED_TOPIC` of NLP/label-links die niet tot dezelfde paden hoeven te leiden.
 4. **Aggregator/back-end**: dit project voert pipelines uit en bewaakt de graph. Een UI/explorer zal later via AQL of GraphQL bovenop deze gegevens verstaanbaar worden gemaakt.

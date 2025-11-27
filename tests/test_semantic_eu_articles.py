@@ -11,7 +11,9 @@ from lawgraph.pipelines.semantic.eu_articles import (
 )
 
 
-def _make_instrument(key: str, celex: str | None = None, html: str | None = None) -> dict[str, Any]:
+def _make_instrument(
+    key: str, celex: str | None = None, html: str | None = None
+) -> dict[str, Any]:
     props: dict[str, Any] = {}
     if celex:
         props["celex"] = celex
@@ -80,13 +82,17 @@ def test_detect_eu_citations_richtlijn_article() -> None:
 def test_detect_eu_citations_bwb_article_alias() -> None:
     hits = detect_eu_citations("zoals bedoeld in artikel 287 Sr", {"Sr": "BWBR0001854"})
     assert hits
-    assert any(hit.bwb_id == "BWBR0001854" and hit.article_number == "287" for hit in hits)
+    assert any(
+        hit.bwb_id == "BWBR0001854" and hit.article_number == "287" for hit in hits
+    )
 
 
 def test_eu_pipeline_links_celex_target() -> None:
     source_key = "eu-source"
     target_key = make_node_key("32019L1158")
-    source_doc = _make_instrument(source_key, html="<p>Implementing act under CELEX:32019L1158</p>")
+    source_doc = _make_instrument(
+        source_key, html="<p>Implementing act under CELEX:32019L1158</p>"
+    )
     target_doc = _make_instrument(target_key, celex="32019L1158")
     store = FakeStore(
         documents=[source_doc],
@@ -111,7 +117,9 @@ def test_eu_pipeline_links_bwb_article() -> None:
     source_key = "eu-source-2"
     doc = _make_instrument(source_key, html="<p>zoals bedoeld in artikel 287 Sr</p>")
     article_key = make_node_key("BWBR0001854", "287")
-    article_doc = _make_bwb_article(article_key, {"bwb_id": "BWBR0001854", "article_number": "287"})
+    article_doc = _make_bwb_article(
+        article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
+    )
     store = FakeStore(
         documents=[doc],
         instruments={},
@@ -130,7 +138,9 @@ def test_eu_pipeline_links_bwb_article() -> None:
 
 def test_eu_pipeline_idempotent_edges() -> None:
     source_key = "eu-source-3"
-    doc = _make_instrument(source_key, html="<p>Implementing act under CELEX:32019L1158</p>")
+    doc = _make_instrument(
+        source_key, html="<p>Implementing act under CELEX:32019L1158</p>"
+    )
     target_key = make_node_key("32019L1158")
     target_doc = _make_instrument(target_key, celex="32019L1158")
     store = FakeStore(

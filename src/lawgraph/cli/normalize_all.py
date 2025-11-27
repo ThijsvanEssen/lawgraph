@@ -7,9 +7,7 @@ from dotenv import load_dotenv
 
 from lawgraph.cli.normalize_bwb import main as normalize_bwb_main
 from lawgraph.cli.normalize_eurlex import main as normalize_eurlex_main
-from lawgraph.cli.normalize_rechtspraak import (
-    main as normalize_rechtspraak_main,
-)
+from lawgraph.cli.normalize_rechtspraak import main as normalize_rechtspraak_main
 from lawgraph.cli.normalize_tk import main as normalize_tk_main
 from lawgraph.cli.strafrecht_seed import main as strafrecht_seed_main
 from lawgraph.logging import get_logger, setup_logging

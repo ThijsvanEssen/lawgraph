@@ -1,12 +1,12 @@
 # src/lawgraph/clients/eu.py
 from __future__ import annotations
 
-# Structural changes:
-# - Default base URL now comes from lawgraph.config.settings and method is documented.
-
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import EU_BASE_URL
 from lawgraph.logging import get_logger
+
+# Structural changes:
+# - Default base URL now comes from lawgraph.config.settings and method is documented.
 
 
 logger = get_logger(__name__)

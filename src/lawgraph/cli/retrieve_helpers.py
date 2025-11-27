@@ -94,14 +94,10 @@ def merge_celex_ids(
 ) -> list[str]:
     candidate_ids: list[str] = []
     candidate_ids.extend(
-        str(item)
-        for item in eurlex_filters.get("celex_ids", [])
-        if item
+        str(item) for item in eurlex_filters.get("celex_ids", []) if item
     )
     candidate_ids.extend(
-        str(item)
-        for item in seed_examples.get("extra_celex_candidates", [])
-        if item
+        str(item) for item in seed_examples.get("extra_celex_candidates", []) if item
     )
 
     return list(dict.fromkeys(candidate_ids))

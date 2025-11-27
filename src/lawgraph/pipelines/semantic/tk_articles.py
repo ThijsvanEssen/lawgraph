@@ -5,10 +5,9 @@ from __future__ import annotations
 import datetime as dt
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable, Literal
+from typing import Any, Callable, Iterable, Literal
 
 from config.config import load_domain_config
-
 from lawgraph.config.settings import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_INSTRUMENTS,
@@ -49,8 +48,12 @@ _ARTICLE_ALIAS_PATTERNS = (
     re.compile(r"\bart\.\s*(\d+[a-z]?)\s*(Sr|Sv|BW)\b", re.IGNORECASE),
 )
 _CELEX_DIRECT_PATTERN = re.compile(r"\bCELEX:([0-9A-Z()\\/\.\-]+)\b", re.IGNORECASE)
-_RICHTLIJN_PATTERN = re.compile(r"\bRichtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE)
-_VERORDENING_PATTERN = re.compile(r"\bVerordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE)
+_RICHTLIJN_PATTERN = re.compile(
+    r"\bRichtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
+)
+_VERORDENING_PATTERN = re.compile(
+    r"\bVerordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
+)
 
 
 def _make_snippet(text: str, span: tuple[int, int]) -> str:
@@ -69,7 +72,9 @@ def _normalize_code_aliases(mapping: dict[str, str]) -> dict[str, str]:
     return normalized
 
 
-def _parse_instrument_aliases(raw_aliases: dict[str, Any]) -> dict[str, tuple[str | None, str | None]]:
+def _parse_instrument_aliases(
+    raw_aliases: dict[str, Any]
+) -> dict[str, tuple[str | None, str | None]]:
     aliases: dict[str, tuple[str | None, str | None]] = {}
     for alias, value in raw_aliases.items():
         label = str(alias or "").strip()
@@ -106,7 +111,9 @@ def _build_named_act_patterns(
     return patterns
 
 
-def _format_celex(kind: Literal["directive", "regulation"], year: str, number: str) -> str:
+def _format_celex(
+    kind: Literal["directive", "regulation"], year: str, number: str
+) -> str:
     letter = "L" if kind == "directive" else "R"
     padded = 0
     try:
@@ -121,16 +128,7 @@ def detect_tk_citations(
     code_aliases: dict[str, str],
     instrument_aliases: dict[str, tuple[str | None, str | None]],
 ) -> list[CitationHit]:
-    """Return KW articles/instruments referenced in the provided TK text.
-
-    Args:
-        text: Text to inspect.
-        code_aliases: Mapping of code aliases (e.g. Sr, Sv) to BWBR IDs.
-        instrument_aliases: Named instruments with optional BWBR and CELEX references.
-
-    Returns:
-        Hits describing each decoded citation.
-    """
+    """Return KW articles/instruments referenced in the provided TK text."""
     if not text:
         return []
 
@@ -147,31 +145,79 @@ def detect_tk_citations(
         seen.add(key)
         hits.append(hit)
 
-    for _, pattern, bwb_id, celex in named_act_patterns:
-        for match in pattern.finditer(text):
-            hit = CitationHit(
-                kind="instrument",
-                bwb_id=bwb_id,
-                celex=celex,
-                confidence=0.6,
-                raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
-            )
-            _record(hit)
+    _collect_named_act_hits(text, named_act_patterns, _record)
+    _collect_bwbr_hits(text, _record)
+    _collect_article_alias_hits(text, normalized_codes, _record)
+    _collect_celex_hits(text, _record)
+    _collect_eu_hits(text, _record)
 
+    return hits
+
+
+def _make_hit_snippet(
+    text: str,
+    match: re.Match[str],
+    *,
+    kind: ArticleKind,
+    bwb_id: str | None = None,
+    article_number: str | None = None,
+    celex: str | None = None,
+    confidence: float = 0.0,
+) -> CitationHit:
+    return CitationHit(
+        kind=kind,
+        bwb_id=bwb_id,
+        article_number=article_number,
+        celex=celex,
+        confidence=confidence,
+        raw_match=match.group(0),
+        snippet=_make_snippet(text, match.span()),
+    )
+
+
+def _collect_named_act_hits(
+    text: str,
+    patterns: list[tuple[str, re.Pattern[str], str | None, str | None]],
+    record: Callable[[CitationHit], None],
+) -> None:
+    for _, pattern, bwb_id, celex in patterns:
+        for match in pattern.finditer(text):
+            record(
+                _make_hit_snippet(
+                    text,
+                    match,
+                    kind="instrument",
+                    bwb_id=bwb_id,
+                    celex=celex,
+                    confidence=0.6,
+                )
+            )
+
+
+def _collect_bwbr_hits(
+    text: str,
+    record: Callable[[CitationHit], None],
+) -> None:
     for match in _BWBR_PATTERN.finditer(text):
         identifier = match.group(1)
         if not identifier:
             continue
-        hit = CitationHit(
-            kind="instrument",
-            bwb_id=identifier.upper(),
-            confidence=0.75,
-            raw_match=match.group(0),
-            snippet=_make_snippet(text, match.span()),
+        record(
+            _make_hit_snippet(
+                text,
+                match,
+                kind="instrument",
+                bwb_id=identifier.upper(),
+                confidence=0.75,
+            )
         )
-        _record(hit)
 
+
+def _collect_article_alias_hits(
+    text: str,
+    normalized_codes: dict[str, str],
+    record: Callable[[CitationHit], None],
+) -> None:
     for pattern in _ARTICLE_ALIAS_PATTERNS:
         for match in pattern.finditer(text):
             article_number = match.group(1)
@@ -181,52 +227,56 @@ def detect_tk_citations(
             bwb_id = normalized_codes.get(alias.strip().upper())
             if not bwb_id:
                 continue
-            hit = CitationHit(
-                kind="article",
-                bwb_id=bwb_id,
-                article_number=article_number.strip(),
-                confidence=0.95,
-                raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
+            record(
+                _make_hit_snippet(
+                    text,
+                    match,
+                    kind="article",
+                    bwb_id=bwb_id,
+                    article_number=article_number.strip(),
+                    confidence=0.95,
+                )
             )
-            _record(hit)
 
+
+def _collect_celex_hits(
+    text: str,
+    record: Callable[[CitationHit], None],
+) -> None:
     for match in _CELEX_DIRECT_PATTERN.finditer(text):
         celex_value = match.group(1)
         if not celex_value:
             continue
-        hit = CitationHit(
-            kind="instrument",
-            celex=celex_value.upper(),
-            confidence=0.9,
-            raw_match=match.group(0),
-            snippet=_make_snippet(text, match.span()),
+        record(
+            _make_hit_snippet(
+                text,
+                match,
+                kind="instrument",
+                celex=celex_value.upper(),
+                confidence=0.9,
+            )
         )
-        _record(hit)
 
-    for match in _RICHTLIJN_PATTERN.finditer(text):
-        celex_value = _format_celex("directive", match.group(1), match.group(2))
-        hit = CitationHit(
-            kind="instrument",
-            celex=celex_value,
-            confidence=0.65,
-            raw_match=match.group(0),
-            snippet=_make_snippet(text, match.span()),
-        )
-        _record(hit)
 
-    for match in _VERORDENING_PATTERN.finditer(text):
-        celex_value = _format_celex("regulation", match.group(1), match.group(2))
-        hit = CitationHit(
-            kind="instrument",
-            celex=celex_value,
-            confidence=0.65,
-            raw_match=match.group(0),
-            snippet=_make_snippet(text, match.span()),
-        )
-        _record(hit)
-
-    return hits
+def _collect_eu_hits(
+    text: str,
+    record: Callable[[CitationHit], None],
+) -> None:
+    for pattern, kind in (
+        (_RICHTLIJN_PATTERN, "directive"),
+        (_VERORDENING_PATTERN, "regulation"),
+    ):
+        for match in pattern.finditer(text):
+            celex_value = _format_celex(kind, match.group(1), match.group(2))
+            record(
+                _make_hit_snippet(
+                    text,
+                    match,
+                    kind="instrument",
+                    celex=celex_value,
+                    confidence=0.65,
+                )
+            )
 
 
 class TKArticleSemanticPipeline:
@@ -253,7 +303,9 @@ class TKArticleSemanticPipeline:
         code_aliases = self._load_code_aliases()
         instrument_aliases = self._load_instrument_aliases()
         if not code_aliases and not instrument_aliases:
-            logger.warning("No instrument or code aliases configured for TK semantic linking.")
+            logger.warning(
+                "No instrument or code aliases configured for TK semantic linking."
+            )
             return 0
 
         logger.info(
@@ -345,7 +397,9 @@ class TKArticleSemanticPipeline:
             return False
 
         edge_key = (
-            f"{make_node_key(document.key)}__{make_node_key(target.key)}__{RELATION_MENTIONS_ARTICLE}"
+            f"{make_node_key(document.key)}__"
+            f"{make_node_key(target.key)}__"
+            f"{RELATION_MENTIONS_ARTICLE}"
         )
         meta: dict[str, Any] = {}
         if hit.raw_match:
@@ -380,7 +434,9 @@ class TKArticleSemanticPipeline:
             fragments.append(text_value)
             total_length += len(text_value)
 
-        total_length = self._collect_raw_text(document.props.get("raw"), fragments, total_length)
+        total_length = self._collect_raw_text(
+            document.props.get("raw"), fragments, total_length
+        )
         if not fragments:
             return None
         return "\n".join(fragments)
@@ -400,7 +456,9 @@ class TKArticleSemanticPipeline:
                 current_length += len(snippet)
         elif isinstance(value, dict):
             for child in value.values():
-                current_length = self._collect_raw_text(child, fragments, current_length)
+                current_length = self._collect_raw_text(
+                    child, fragments, current_length
+                )
                 if current_length >= _MAX_TEXT_LENGTH:
                     break
         elif isinstance(value, list):

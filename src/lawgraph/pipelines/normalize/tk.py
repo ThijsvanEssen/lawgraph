@@ -14,8 +14,8 @@ from lawgraph.config.settings import (
     SOURCE_TK,
 )
 from lawgraph.db import ArangoStore
-from lawgraph.models import Node, NodeType, make_node_key
 from lawgraph.logging import get_logger
+from lawgraph.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 from lawgraph.utils.display import make_display_name
 
@@ -92,13 +92,11 @@ class TkNormalizePipeline(NormalizePipeline):
 
         strict_edge_count = 0
         for publication in publications:
-            procedure_external_id = publication.props.get(
-                "procedure_external_id")
+            procedure_external_id = publication.props.get("procedure_external_id")
             if not procedure_external_id:
                 continue
 
-            procedure_node = procedures_by_external_id.get(
-                procedure_external_id)
+            procedure_node = procedures_by_external_id.get(procedure_external_id)
             if not procedure_node or not procedure_node.id or not publication.id:
                 logger.warning(
                     "Cannot link publication %s to procedure %s (missing node).",
@@ -137,11 +135,11 @@ class TkNormalizePipeline(NormalizePipeline):
                 ):
                     semantic_edge_count += 1
         else:
-            logger.debug(
-                "No strafrecht topic found; skipping TK related-topic edges.")
+            logger.debug("No strafrecht topic found; skipping TK related-topic edges.")
 
         logger.info(
-            "TK normalization completed: %d procedures, %d publications, %d strict edges, %d semantic edges.",
+            "TK normalization completed: "
+            "%d procedures, %d publications, %d strict edges, %d semantic edges.",
             len(procedures_by_external_id),
             len(publications),
             strict_edge_count,
@@ -173,8 +171,10 @@ class TkNormalizePipeline(NormalizePipeline):
                 )
                 continue
 
-            title_value = payload.get("Titel") or payload.get("ZaakTitel") or payload.get(
-                "Omschrijving"
+            title_value = (
+                payload.get("Titel")
+                or payload.get("ZaakTitel")
+                or payload.get("Omschrijving")
             )
 
             props: dict[str, Any] = {
@@ -250,8 +250,7 @@ class TkNormalizePipeline(NormalizePipeline):
             if procedure_external_id:
                 props["procedure_external_id"] = procedure_external_id
 
-            title_value = payload.get(
-                "Titel") or payload.get("TitelMetBijlagen")
+            title_value = payload.get("Titel") or payload.get("TitelMetBijlagen")
             if title_value:
                 props["title"] = title_value
 

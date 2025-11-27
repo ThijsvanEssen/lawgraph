@@ -13,14 +13,17 @@ from lawgraph.config.settings import (
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
 
-from .base import RetrieveRecord, RetrievePipelineBase
+from .base import RetrievePipelineBase, RetrieveRecord
 
 logger = get_logger(__name__)
 
 
 class RechtspraakRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline that handles Rechtspraak index snapshots and contents."""
-    def __init__(self, store: ArangoStore, rs_client: RechtspraakClient | None = None) -> None:
+
+    def __init__(
+        self, store: ArangoStore, rs_client: RechtspraakClient | None = None
+    ) -> None:
         super().__init__(store)
         self.rs = rs_client or RechtspraakClient()
 

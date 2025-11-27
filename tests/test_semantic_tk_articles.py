@@ -88,7 +88,9 @@ def _load_config() -> dict[str, Any]:
 
 def test_detect_tk_citations_include_article_alias() -> None:
     text = "Wijziging van artikel 287 Sr"
-    hits = detect_tk_citations(text, _load_config()["code_aliases"], _load_config()["instrument_aliases"])
+    hits = detect_tk_citations(
+        text, _load_config()["code_aliases"], _load_config()["instrument_aliases"]
+    )
     assert hits
     article_hits = [hit for hit in hits if hit.kind == "article"]
     assert article_hits
@@ -99,10 +101,16 @@ def test_detect_tk_citations_include_article_alias() -> None:
 def test_tk_pipeline_links_to_article_node() -> None:
     doc = _make_tk_document("tk-1", "Wijziging van artikel 287 Sr")
     article_key = make_node_key("BWBR0001854", "287")
-    article = _make_article(article_key, {"bwb_id": "BWBR0001854", "article_number": "287"})
+    article = _make_article(
+        article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
+    )
     store = FakeStore(
         documents=[doc],
-        instruments={make_node_key("BWBR0001854"): _make_instrument(make_node_key("BWBR0001854"), {"bwb_id": "BWBR0001854"})},
+        instruments={
+            make_node_key("BWBR0001854"): _make_instrument(
+                make_node_key("BWBR0001854"), {"bwb_id": "BWBR0001854"}
+            )
+        },
         articles={article_key: article},
     )
     pipeline = TKArticleSemanticPipeline(
@@ -164,10 +172,16 @@ def test_tk_pipeline_links_named_act_to_instrument() -> None:
 def test_tk_pipeline_idempotent_edges() -> None:
     doc = _make_tk_document("tk-4", "Wijziging van artikel 287 Sr")
     article_key = make_node_key("BWBR0001854", "287")
-    article = _make_article(article_key, {"bwb_id": "BWBR0001854", "article_number": "287"})
+    article = _make_article(
+        article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
+    )
     store = FakeStore(
         documents=[doc],
-        instruments={make_node_key("BWBR0001854"): _make_instrument(make_node_key("BWBR0001854"), {"bwb_id": "BWBR0001854"})},
+        instruments={
+            make_node_key("BWBR0001854"): _make_instrument(
+                make_node_key("BWBR0001854"), {"bwb_id": "BWBR0001854"}
+            )
+        },
         articles={article_key: article},
     )
     pipeline = TKArticleSemanticPipeline(

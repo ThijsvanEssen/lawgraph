@@ -1,10 +1,6 @@
 # src/lawgraph/clients/base.py
 from __future__ import annotations
 
-# Structural changes:
-# - Documented all helpers and added a paginated getter shared across clients.
-# - Ensured load_dotenv runs once while keeping consistent HTTP debug logging.
-
 import os
 from typing import Any, Iterator
 
@@ -12,6 +8,10 @@ import requests
 from dotenv import load_dotenv
 
 from lawgraph.logging import get_logger
+
+# Structural changes:
+# - Documented all helpers and added a paginated getter shared across clients.
+# - Ensured load_dotenv runs once while keeping consistent HTTP debug logging.
 
 
 logger = get_logger(__name__)
@@ -131,24 +131,32 @@ class BaseClient:
 
     @staticmethod
     def _iter_page_entries(data: Any, result_key: str) -> Iterator[dict[str, Any]]:
-        """Extract the iterable of entries from a page, accepting dict or list payloads."""
+        """Extract entry dictionaries from paged payloads."""
         if isinstance(data, dict):
-            entries = data.get(result_key)
-            if isinstance(entries, list):
-                for entry in entries:
-                    if isinstance(entry, dict):
-                        yield entry
-            else:
-                # Fallback to iterating over dict values when another key is used.
-                for value in data.values():
-                    if isinstance(value, list):
-                        for element in value:
-                            if isinstance(element, dict):
-                                yield element
+            yield from BaseClient._extract_entries_from_dict(data, result_key)
         elif isinstance(data, list):
-            for entry in data:
-                if isinstance(entry, dict):
-                    yield entry
+            yield from BaseClient._extract_entries_from_list(data)
+
+    @staticmethod
+    def _extract_entries_from_dict(
+        payload: dict[str, Any], result_key: str
+    ) -> Iterator[dict[str, Any]]:
+        entries = payload.get(result_key)
+        if isinstance(entries, list):
+            yield from BaseClient._extract_entries_from_list(entries)
+            return
+
+        for value in payload.values():
+            if isinstance(value, list):
+                yield from BaseClient._extract_entries_from_list(value)
+
+    @staticmethod
+    def _extract_entries_from_list(
+        candidate_list: list[Any],
+    ) -> Iterator[dict[str, Any]]:
+        for entry in candidate_list:
+            if isinstance(entry, dict):
+                yield entry
 
     @staticmethod
     def _extract_next_link(data: Any, key: str | None) -> str | None:

@@ -11,15 +11,14 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
 COLOR_RESET = "\033[0m"
 LEVEL_COLORS = {
-    logging.DEBUG: "\033[36m",    # cyan
-    logging.INFO: "\033[32m",     # green
+    logging.DEBUG: "\033[36m",  # cyan
+    logging.INFO: "\033[32m",  # green
     logging.WARNING: "\033[33m",  # yellow
-    logging.ERROR: "\033[31m",    # red
+    logging.ERROR: "\033[31m",  # red
     logging.CRITICAL: "\033[41m",  # red background
 }
 

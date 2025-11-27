@@ -12,14 +12,14 @@ from typing import Any
 class NodeType(str, Enum):
     """High-level domain types for nodes in the legal graph."""
 
-    INSTRUMENT = "instrument"          # EU/NL law, directive, regulation, act
-    ARTICLE = "article"                # Individual article of an instrument
-    PROCEDURE = "procedure"            # Parliamentary / legislative procedure
-    PUBLICATION = "publication"        # Staatsblad, Staatscourant, OJ, TK-stuk
+    INSTRUMENT = "instrument"  # EU/NL law, directive, regulation, act
+    ARTICLE = "article"  # Individual article of an instrument
+    PROCEDURE = "procedure"  # Parliamentary / legislative procedure
+    PUBLICATION = "publication"  # Staatsblad, Staatscourant, OJ, TK-stuk
     # Case law (Raad van State, Hoge Raad, EU)
     JUDGMENT = "judgment"
-    ACTOR = "actor"                    # Institution, court, chamber, ministry
-    TOPIC = "topic"                    # Semantic topic node (asielrecht, etc.)
+    ACTOR = "actor"  # Institution, court, chamber, ministry
+    TOPIC = "topic"  # Semantic topic node (asielrecht, etc.)
 
 
 @dataclass
@@ -79,9 +79,7 @@ class Node:
             props = dict(props_field)
         else:
             props = {
-                k: v
-                for k, v in doc.items()
-                if k not in {"_key", "type", "labels"}
+                k: v for k, v in doc.items() if k not in {"_key", "type", "labels"}
             }
 
         return cls(
@@ -120,8 +118,7 @@ def _sanitize_key(value: str, *, fallback: str = "node") -> str:
 
 
 def make_node_key(*parts: str, fallback: str = "node") -> str:
-    joined = "_".join(
-        part for part in parts if part is not None and part.strip())
+    joined = "_".join(part for part in parts if part is not None and part.strip())
     if not joined:
         joined = fallback
     return _sanitize_key(joined, fallback=fallback)
@@ -134,11 +131,11 @@ class EdgeType(str, Enum):
     You don't have to use this everywhere, but it helps structure queries.
     """
 
-    ENACTS = "ENACTS"              # publication → instrument
-    AMENDS = "AMENDS"              # instrument → instrument
-    IMPLEMENTS = "IMPLEMENTS"      # national law → EU directive
+    ENACTS = "ENACTS"  # publication → instrument
+    AMENDS = "AMENDS"  # instrument → instrument
+    IMPLEMENTS = "IMPLEMENTS"  # national law → EU directive
     PART_OF_PROCEDURE = "PART_OF_PROCEDURE"  # document → procedure
-    DISCUSSES = "DISCUSSES"        # procedure → instrument
-    APPLIES = "APPLIES"            # judgment → instrument/article
-    REFERS_TO = "REFERS_TO"        # judgment → instrument/article
+    DISCUSSES = "DISCUSSES"  # procedure → instrument
+    APPLIES = "APPLIES"  # judgment → instrument/article
+    REFERS_TO = "REFERS_TO"  # judgment → instrument/article
     RELATED_TOPIC = "RELATED_TOPIC"

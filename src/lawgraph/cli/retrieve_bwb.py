@@ -1,18 +1,19 @@
-from __future__ import annotations
-
 """CLI for retrieving BWB toestanden via the BWB SRU service."""
+
+from __future__ import annotations
 
 import argparse
 import os
 
 from dotenv import load_dotenv
 
-from lawgraph.config import list_domain_profiles
 from lawgraph.clients.bwb import BWBClient
+from lawgraph.config import list_domain_profiles
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger, setup_logging
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 
+load_dotenv()
 logger = get_logger(__name__)
 PROFILE_CHOICES = list_domain_profiles()
 

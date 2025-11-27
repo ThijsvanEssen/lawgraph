@@ -7,7 +7,7 @@ from lawgraph.config.settings import RAW_KIND_EU_CELEX, SOURCE_EURLEx
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
 
-from .base import RetrieveRecord, RetrievePipelineBase
+from .base import RetrievePipelineBase, RetrieveRecord
 
 logger = get_logger(__name__)
 

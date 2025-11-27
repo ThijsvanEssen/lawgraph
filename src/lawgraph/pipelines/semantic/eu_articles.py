@@ -5,10 +5,9 @@ from __future__ import annotations
 import datetime as dt
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable, Literal
+from typing import Any, Callable, Iterable, Literal
 
 from config.config import load_domain_config
-
 from lawgraph.config.settings import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_INSTRUMENTS,
@@ -43,8 +42,12 @@ class CitationHit:
 
 
 _CELEX_PATTERN = re.compile(r"\bCELEX:([0-9A-Z()\\/\.\-]+)\b", re.IGNORECASE)
-_RICHTLIJN_PATTERN = re.compile(r"\bRichtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE)
-_VERORDENING_PATTERN = re.compile(r"\bVerordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE)
+_RICHTLIJN_PATTERN = re.compile(
+    r"\bRichtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
+)
+_VERORDENING_PATTERN = re.compile(
+    r"\bVerordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
+)
 _ARTICLE_WITH_DIRECTIVE_PATTERN = re.compile(
     r"\bartikel\s+(\d+[a-z]?)\s+van\s+Richtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b",
     re.IGNORECASE,
@@ -54,7 +57,9 @@ _ARTICLE_WITH_REGULATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _BWB_PATTERN = re.compile(r"\bbwb[rR]0\d{6}\b", re.IGNORECASE)
-_ARTICLE_BWB_ALIAS_PATTERN = re.compile(r"\bartikel\s+(\d+[a-z]?)\s*(Sr|Sv|BW)\b", re.IGNORECASE)
+_ARTICLE_BWB_ALIAS_PATTERN = re.compile(
+    r"\bartikel\s+(\d+[a-z]?)\s*(Sr|Sv|BW)\b", re.IGNORECASE
+)
 
 
 def _make_snippet(text: str, span: tuple[int, int]) -> str:
@@ -73,7 +78,9 @@ def _normalize_code_aliases(mapping: CodeMapping) -> dict[str, str]:
     return normalized
 
 
-def _format_celex(kind: Literal["directive", "regulation"], year: str, number: str) -> str:
+def _format_celex(
+    kind: Literal["directive", "regulation"], year: str, number: str
+) -> str:
     letter = "L" if kind == "directive" else "R"
     padded = 0
     try:
@@ -84,15 +91,7 @@ def _format_celex(kind: Literal["directive", "regulation"], year: str, number: s
 
 
 def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHit]:
-    """Return references to EU or BWBR documents in the provided text.
-
-    Args:
-        text: Text to scan for CELEX or alias mentions.
-        code_aliases: Mapping between document aliases and BWBR identifiers.
-
-    Returns:
-        Hits describing which instruments or articles were mentioned.
-    """
+    """Return references to EU or BWBR documents in the provided text."""
     if not text:
         return []
 
@@ -107,76 +106,105 @@ def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHi
         seen.add(key)
         hits.append(hit)
 
-    for match in _ARTICLE_WITH_DIRECTIVE_PATTERN.finditer(text):
+    _collect_article_matches(
+        text,
+        _ARTICLE_WITH_DIRECTIVE_PATTERN,
+        "directive",
+        0.85,
+        _record,
+    )
+    _collect_article_matches(
+        text,
+        _ARTICLE_WITH_REGULATION_PATTERN,
+        "regulation",
+        0.85,
+        _record,
+    )
+    _collect_celex_hits(
+        text,
+        _CELEX_PATTERN,
+        "instrument",
+        0.9,
+        _record,
+    )
+    _collect_celex_hits(
+        text,
+        _RICHTLIJN_PATTERN,
+        "instrument",
+        0.7,
+        _record,
+        directive_kind="directive",
+    )
+    _collect_celex_hits(
+        text,
+        _VERORDENING_PATTERN,
+        "instrument",
+        0.7,
+        _record,
+        directive_kind="regulation",
+    )
+    _collect_bwb_alias_hits(text, normalized_codes, _record)
+    _collect_bwb_hits(text, _record)
+
+    return hits
+
+
+def _collect_article_matches(
+    text: str,
+    pattern: re.Pattern[str],
+    kind_label: Literal["directive", "regulation"],
+    confidence: float,
+    record: Callable[[CitationHit], None],
+) -> None:
+    for match in pattern.finditer(text):
         article_number = match.group(1)
         year = match.group(2)
         number_value = match.group(3)
-        celex = _format_celex("directive", year, number_value)
-        _record(
+        celex = _format_celex(kind_label, year, number_value)
+        record(
             CitationHit(
                 kind="article",
                 celex=celex,
                 article_number=article_number.strip(),
-                confidence=0.85,
+                confidence=confidence,
                 raw_match=match.group(0),
                 snippet=_make_snippet(text, match.span()),
             )
         )
 
-    for match in _ARTICLE_WITH_REGULATION_PATTERN.finditer(text):
-        article_number = match.group(1)
-        year = match.group(2)
-        number_value = match.group(3)
-        celex = _format_celex("regulation", year, number_value)
-        _record(
-            CitationHit(
-                kind="article",
-                celex=celex,
-                article_number=article_number.strip(),
-                confidence=0.85,
-                raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
-            )
-        )
 
-    for match in _CELEX_PATTERN.finditer(text):
-        celex_value = match.group(1)
+def _collect_celex_hits(
+    text: str,
+    pattern: re.Pattern[str],
+    kind: ArticleKind,
+    confidence: float,
+    record: Callable[[CitationHit], None],
+    *,
+    directive_kind: Literal["directive", "regulation"] | None = None,
+) -> None:
+    for match in pattern.finditer(text):
+        if directive_kind:
+            celex_value = _format_celex(directive_kind, match.group(1), match.group(2))
+        else:
+            celex_value = match.group(1)
         if not celex_value:
             continue
-        _record(
+        record(
             CitationHit(
-                kind="instrument",
+                kind=kind,
                 celex=celex_value.upper(),
-                confidence=0.9,
+                confidence=confidence,
                 raw_match=match.group(0),
                 snippet=_make_snippet(text, match.span()),
             )
         )
 
-    for match in _RICHTLIJN_PATTERN.finditer(text):
-        celex_value = _format_celex("directive", match.group(1), match.group(2))
-        _record(
-            CitationHit(
-                kind="instrument",
-                celex=celex_value,
-                confidence=0.7,
-                raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
-            )
-        )
 
-    for match in _VERORDENING_PATTERN.finditer(text):
-        celex_value = _format_celex("regulation", match.group(1), match.group(2))
-        _record(
-            CitationHit(
-                kind="instrument",
-                celex=celex_value,
-                confidence=0.7,
-                raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
-            )
-        )
-
+def _collect_bwb_alias_hits(
+    text: str,
+    normalized_codes: dict[str, str],
+    record: Callable[[CitationHit], None],
+) -> None:
     for match in _ARTICLE_BWB_ALIAS_PATTERN.finditer(text):
         article_number = match.group(1)
         alias = match.group(2)
@@ -185,7 +213,7 @@ def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHi
         bwb_id = normalized_codes.get(alias.strip().upper())
         if not bwb_id or not article_number:
             continue
-        _record(
+        record(
             CitationHit(
                 kind="article",
                 bwb_id=bwb_id,
@@ -196,11 +224,16 @@ def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHi
             )
         )
 
+
+def _collect_bwb_hits(
+    text: str,
+    record: Callable[[CitationHit], None],
+) -> None:
     for match in _BWB_PATTERN.finditer(text):
         bwb_id = match.group(0)
         if not bwb_id:
             continue
-        _record(
+        record(
             CitationHit(
                 kind="instrument",
                 bwb_id=bwb_id.upper(),
@@ -209,8 +242,6 @@ def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHi
                 snippet=_make_snippet(text, match.span()),
             )
         )
-
-    return hits
 
 
 class EUArticleSemanticPipeline:
@@ -339,7 +370,9 @@ class EUArticleSemanticPipeline:
             return False
 
         edge_key = (
-            f"{make_node_key(document.key)}__{make_node_key(target.key)}__{RELATION_MENTIONS_ARTICLE}"
+            f"{make_node_key(document.key)}__"
+            f"{make_node_key(target.key)}__"
+            f"{RELATION_MENTIONS_ARTICLE}"
         )
         meta: dict[str, Any] = {}
         if hit.raw_match:

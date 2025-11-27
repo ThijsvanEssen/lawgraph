@@ -80,7 +80,7 @@ Gebruik `LAWGRAPH_PROFILE` of `--profile <naam>` om de juiste filters en metadat
 ## Tests
 
 - Unit- en integratietests draaien met `pytest tests/`.
-- Netwerktests vereisen echte API-keys, dus ze zijn opt-in:  
+- Netwerktests vereisen echte API-keys, dus ze zijn opt-in:
   ```bash
   ALLOW_NETWORK_TESTS=1 pytest tests/
   ```

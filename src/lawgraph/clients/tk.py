@@ -1,15 +1,15 @@
 # src/lawgraph/clients/tk.py
 from __future__ import annotations
 
-# Structural changes:
-# - TK API base URL now sourced from lawgraph.config.settings and helpers carry docstrings.
-
 import datetime as dt
 from typing import Any, Iterable
 
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import TK_BASE_URL
 from lawgraph.logging import get_logger
+
+# Structural changes:
+# - TK API base URL now sourced from lawgraph.config.settings and helpers carry docstrings.
 
 
 logger = get_logger(__name__)
@@ -45,7 +45,9 @@ class TKClient(BaseClient):
         value = value.replace(microsecond=0, tzinfo=None)
         return value.isoformat() + "Z"
 
-    def _paged_get(self, path: str, params: dict | None = None) -> Iterable[dict[str, Any]]:
+    def _paged_get(
+        self, path: str, params: dict | None = None
+    ) -> Iterable[dict[str, Any]]:
         """Yields paged TK OData entries via the shared BaseClient helper."""
         return super()._paged_get(
             path,
@@ -64,7 +66,9 @@ class TKClient(BaseClient):
         logger.info("Fetching Zaak modified since %s", since_string)
         return list(self._paged_get("Zaak", params=params))
 
-    def documentversies_modified_since(self, since: dt.datetime, top: int = 100) -> list[dict]:
+    def documentversies_modified_since(
+        self, since: dt.datetime, top: int = 100
+    ) -> list[dict]:
         """Return TK documentversie records that were modified since the supplied datetime."""
         since_string = TKClient._format_odata_datetime(since)
         params = {

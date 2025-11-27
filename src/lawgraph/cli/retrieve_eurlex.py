@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """CLI for retrieving EUR-Lex records based on configurable CELEX lists."""
+
+from __future__ import annotations
 
 import argparse
 import os
@@ -13,10 +13,10 @@ from lawgraph.logging import get_logger, setup_logging
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 
 from .retrieve_helpers import (
-    load_profile_config,
     eurlex_filters,
-    seed_examples,
+    load_profile_config,
     merge_celex_ids,
+    seed_examples,
 )
 
 logger = get_logger(__name__)

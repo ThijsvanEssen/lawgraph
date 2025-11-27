@@ -16,7 +16,6 @@ from lawgraph.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 from lawgraph.utils.display import make_display_name
 
-
 logger = get_logger(__name__)
 
 
@@ -34,7 +33,8 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
         """Read Rechtspraak index and content raw_sources records."""
         kinds = list(RAW_SOURCE_KINDS[SOURCE_RECHTSPRAAK])
         rows = self._query_raw_sources(
-            source=SOURCE_RECHTSPRAAK, kinds=kinds, since=since)
+            source=SOURCE_RECHTSPRAAK, kinds=kinds, since=since
+        )
         grouped = self._group_by_kind(rows, kinds=kinds)
 
         index_records = grouped.get(RAW_KIND_RS_INDEX, [])
@@ -78,8 +78,7 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
             if meta:
                 props["meta"] = meta
 
-            is_strafrecht = self._is_strafrecht_judgment(
-                payload_text, meta, ecli)
+            is_strafrecht = self._is_strafrecht_judgment(payload_text, meta, ecli)
             labels = ["Rechtspraak"]
             if is_strafrecht:
                 labels.append("Strafrecht")
@@ -135,8 +134,7 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
                 ):
                     edge_count += 1
         else:
-            logger.debug(
-                "No strafrecht topic found; skipping related-topic edges.")
+            logger.debug("No strafrecht topic found; skipping related-topic edges.")
 
         logger.info(
             "Rechtspraak normalization created %d semantic edges.",
@@ -151,38 +149,57 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
         ecli: str,
     ) -> bool:
         config = self._load_domain_config()
-        filters = config.get("filters", {}).get("rechtspraak", {})
-        rechtsgebieden: list[str] = filters.get("rechtsgebieden", [])
-        ecli_prefixes: list[str] = filters.get("ecli_prefixes", [])
-        search_terms: list[str] = filters.get("search_terms", [])
+        filtros = config.get("filters", {}).get("rechtspraak", {})
+        rechtsgebieden: list[str] = filtros.get("rechtsgebieden", [])
+        ecli_prefixes: list[str] = filtros.get("ecli_prefixes", [])
+        search_terms: list[str] = filtros.get("search_terms", [])
+        seed_eclis = config.get("seed_examples", {}).get("rechtspraak_eclis", [])
 
-        if ecli:
-            seed_eclis = config.get("seed_examples", {}).get(
-                "rechtspraak_eclis", [])
-            if ecli in seed_eclis:
-                return True
-            for prefix in ecli_prefixes:
-                if ecli.startswith(prefix):
-                    return True
-
-        if payload_text and self._text_contains_keywords(payload_text, search_terms):
+        if self._matches_seed_or_prefix(ecli, seed_eclis, ecli_prefixes):
+            return True
+        if self._contains_search_terms(payload_text, search_terms):
+            return True
+        if self._matches_rechtsgebied(meta, rechtsgebieden):
             return True
 
-        rechtsgebied_value = meta.get("rechtsgebied")
-        if rechtsgebied_value:
-            area_values: list[str] = []
-            if isinstance(rechtsgebied_value, str):
-                area_values = [
-                    item.strip()
-                    for item in rechtsgebied_value.split(",")
-                    if item.strip()
-                ]
-            elif isinstance(rechtsgebied_value, list):
-                area_values = [str(item).strip()
-                               for item in rechtsgebied_value if item]
-            for area in area_values:
-                for candidate in rechtsgebieden:
-                    if area.lower() == candidate.lower():
-                        return True
+        return False
 
+    def _matches_seed_or_prefix(
+        self,
+        ecli: str,
+        seed_eclis: list[str],
+        prefixes: list[str],
+    ) -> bool:
+        if not ecli:
+            return False
+        if ecli in seed_eclis:
+            return True
+        return any(ecli.startswith(prefix) for prefix in prefixes)
+
+    def _contains_search_terms(
+        self,
+        payload_text: str | None,
+        search_terms: list[str],
+    ) -> bool:
+        return bool(
+            payload_text and self._text_contains_keywords(payload_text, search_terms)
+        )
+
+    def _matches_rechtsgebied(
+        self,
+        meta: dict[str, Any],
+        rechtsgebieden: list[str],
+    ) -> bool:
+        if not rechtsgebieden:
+            return False
+        raw_value = meta.get("rechtsgebied")
+        values: list[str] = []
+        if isinstance(raw_value, str):
+            values = [item.strip() for item in raw_value.split(",") if item.strip()]
+        elif isinstance(raw_value, list):
+            values = [str(item).strip() for item in raw_value if item]
+        lowered_targets = {candidate.lower() for candidate in rechtsgebieden}
+        for area in values:
+            if area.lower() in lowered_targets:
+                return True
         return False

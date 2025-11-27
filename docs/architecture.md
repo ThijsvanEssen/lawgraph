@@ -5,15 +5,15 @@ Deze pagina beschrijft het overzicht van de Lawgraph-pijplijnen die wetgeving en
 
 ## Belangrijkste componenten
 
-- **Retrieve-pijplijnen (TK, Rechtspraak, EUR-Lex, BWB)**  
+- **Retrieve-pijplijnen (TK, Rechtspraak, EUR-Lex, BWB)**
   Klanten (`lawgraph.clients.*`) spreken externe API’s aan en leveren ruwe payloads aan `ArangoStore.insert_raw_source`. Elke pipeline implementeert `RetrievePipelineBase`, definieert domainspecifieke filters vanuit profielen en schrijft `raw_sources` met metadata (bron, kind, timestamp).
-- **Normalize-laag**  
+- **Normalize-laag**
   Het normaliseren gebeurt in `lawgraph.pipelines.normalize.*`. Deze pijplijnen lezen `raw_sources`, mappen payloads naar `Node`-objecten (`instrumenten`, `instrument_articles`, `procedures`, `publications`, `judgments`, `topics`) en gebruiken deterministische `_key`s via `make_node_key`. Edgecreatie (`PART_OF_*`, `RELATED_TOPIC`) gebeurt met `ArangoStore.insert_or_update` zodat meerdere runs idempotent zijn.
-- **Semantic linkage pipelines**  
+- **Semantic linkage pipelines**
   De TK-, EU- en Rechtspraak-semanticpipelines detecteren verwijzingen in teksten en leggen `MENTIONS_ARTICLE`-edges in `edges_semantic`. Ze laden domeinprofielen (`config/*.yml`) voor aliasgegevens en delen utilitaires zoals `lawgraph.utils.time.describe_since`.
-- **Configuratie & profielen**  
+- **Configuratie & profielen**
   `lawgraph.config.settings` centraliseert collection-, edge- en relationnamen en leest `.env`-variables. Domeinspecifieke profielen (bijvoorbeeld `src/config/strafrecht.yml`) bepalen code aliasen, instrumentlijsten, filters en seedwaarden. CLI’s (onder `lawgraph.cli`) bieden `--profile` of `LAWGRAPH_PROFILE` voor selectie.
-- **ArangoDB & helpers**  
+- **ArangoDB & helpers**
   De `ArangoStore`-wrapper houdt de DB-verbinding en biedt helpers voor `insert_raw_source`, `insert_or_update` (nodes/edges) en `query`. `lawgraph.models` bevat `Node`, `NodeType` en helpers voor display-namen, terwijl `lawgraph.utils.display` en nieuwe helpers (`lawgraph.utils.time`) gedeelde logica bevatten.
 
 ## Datastromen en interfaces

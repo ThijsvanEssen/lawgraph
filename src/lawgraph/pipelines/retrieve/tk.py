@@ -13,13 +13,14 @@ from lawgraph.config.settings import (
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
 
-from .base import RetrieveRecord, RetrievePipelineBase
+from .base import RetrievePipelineBase, RetrieveRecord
 
 logger = get_logger(__name__)
 
 
 class TKRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for TK Zaak and DocumentVersie raw sources."""
+
     def __init__(self, store: ArangoStore, tk_client: TKClient | None = None) -> None:
         super().__init__(store)
         self.tk = tk_client or TKClient()

@@ -5,14 +5,14 @@ from __future__ import annotations
 import datetime as dt
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from config.config import load_domain_config
 from lawgraph.config.settings import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_JUDGMENTS,
-    RELATION_MENTIONS_ARTICLE,
     RAW_KIND_RS_CONTENT,
+    RELATION_MENTIONS_ARTICLE,
     SEMANTIC_EDGE_COLLECTION,
     SOURCE_RECHTSPRAAK,
 )
@@ -60,9 +60,7 @@ def detect_article_references(
         return []
 
     normalized_mapping: CodeMapping = {
-        alias.upper(): bwb_id
-        for alias, bwb_id in mapping.items()
-        if alias and bwb_id
+        alias.upper(): bwb_id for alias, bwb_id in mapping.items() if alias and bwb_id
     }
 
     hits: list[ArticleHit] = []
@@ -75,55 +73,85 @@ def detect_article_references(
         finish = min(len(text), end + _SNIPPET_WINDOW)
         return text[begin:finish].strip()
 
+    def _record_alias(match: re.Match[str], bwb_id: str) -> None:
+        article_number = match.group(1)
+        if not article_number:
+            return
+        pair = (bwb_id, article_number)
+        if pair in seen_pairs:
+            return
+        seen_pairs.add(pair)
+        alias_spans.append(match.span())
+        hits.append(
+            ArticleHit(
+                bwb_id=bwb_id,
+                article_number=article_number,
+                confidence=0.95,
+                raw_match=match.group(0),
+                snippet=_snippet(match.span()),
+            )
+        )
+
+    def _record_number(match: re.Match[str]) -> None:
+        span = match.span()
+        if any(
+            not (span[1] <= span_start or span[0] >= span_end)
+            for span_start, span_end in alias_spans
+        ):
+            return
+        article_number = match.group(1)
+        if not article_number:
+            return
+        pair = ("", article_number)
+        if pair in seen_pairs:
+            return
+        seen_pairs.add(pair)
+        hits.append(
+            ArticleHit(
+                bwb_id="",
+                article_number=article_number,
+                confidence=0.35,
+                raw_match=match.group(0),
+                snippet=_snippet(span),
+            )
+        )
+
+    _collect_alias_patterns(text, normalized_mapping, _record_alias)
+    _collect_number_patterns(text, alias_spans, _record_number)
+
+    return hits
+
+
+def _collect_alias_patterns(
+    text: str,
+    normalized_mapping: CodeMapping,
+    record: Callable[[re.Match[str], str], None],
+) -> None:
     for pattern in _ALIAS_PATTERNS:
         for match in pattern.finditer(text):
-            article_number = match.group(1)
             alias = match.group(2)
-            if not article_number or not alias:
+            if not alias:
                 continue
-            bwb_id = normalized_mapping.get(alias.upper(), "")
+            bwb_id = normalized_mapping.get(alias.upper())
             if not bwb_id:
                 continue
-            pair = (bwb_id, article_number)
-            if pair in seen_pairs:
-                continue
+            record(match, bwb_id)
 
-            seen_pairs.add(pair)
-            alias_spans.append(match.span())
 
-            hits.append(
-                ArticleHit(
-                    bwb_id=bwb_id,
-                    article_number=article_number,
-                    confidence=0.95,
-                    raw_match=match.group(0),
-                    snippet=_snippet(match.span()),
-                )
-            )
-
+def _collect_number_patterns(
+    text: str,
+    alias_spans: list[tuple[int, int]],
+    record: Callable[[re.Match[str]], None],
+) -> None:
     for pattern in _NUMBER_PATTERNS:
         for match in pattern.finditer(text):
             span = match.span()
-            if any(not (span[1] <= span_start or span[0] >= span_end) for span_start, span_end in alias_spans):
+            if any(
+                not (span[1] <= span_start or span[0] >= span_end)
+                for span_start, span_end in alias_spans
+            ):
                 continue
-            article_number = match.group(1)
-            if not article_number:
-                continue
-            pair = ("", article_number)
-            if pair in seen_pairs:
-                continue
-            seen_pairs.add(pair)
-            hits.append(
-                ArticleHit(
-                    bwb_id="",
-                    article_number=article_number,
-                    confidence=0.35,
-                    raw_match=match.group(0),
-                    snippet=_snippet(span),
-                )
-            )
-
-    return hits
+            record(match)
 
 
 class RechtspraakArticleSemanticPipeline:
@@ -216,7 +244,11 @@ class RechtspraakArticleSemanticPipeline:
         if judgment.id is None or article.id is None:
             return False
 
-        edge_key = f"{make_node_key(judgment.key)}__{make_node_key(article.key)}__{RELATION_MENTIONS_ARTICLE}"
+        edge_key = (
+            f"{make_node_key(judgment.key)}__"
+            f"{make_node_key(article.key)}__"
+            f"{RELATION_MENTIONS_ARTICLE}"
+        )
         meta = {}
         if hit.raw_match:
             meta["raw_match"] = hit.raw_match

@@ -39,7 +39,8 @@ class ArangoStore:
 
         client = ArangoClient(hosts=self.url)
         self.db = client.db(
-            self.db_name, username=self.username, password=self.password)
+            self.db_name, username=self.username, password=self.password
+        )
 
         self._ensure_collections()
 
@@ -91,8 +92,7 @@ class ArangoStore:
         meta: dict | None = None,
     ) -> dict[str, Any]:
         """Unified helper to store raw dumps in the raw_sources collection."""
-        fetched_at = dt.datetime.now(dt.timezone.utc).replace(
-            microsecond=0).isoformat()
+        fetched_at = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
         if fetched_at.endswith("+00:00"):
             fetched_at = fetched_at.replace("+00:00", "Z")
 

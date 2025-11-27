@@ -62,6 +62,4 @@ def main(argv: list[str] | None = None) -> None:
         since.isoformat() if since else "full",
     )
     created = pipeline.run(since=since)
-    logger.info(
-        "Rechtspraak semantic pipeline created %d edges.", created
-    )
+    logger.info("Rechtspraak semantic pipeline created %d edges.", created)

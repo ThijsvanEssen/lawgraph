@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 from lawgraph.db import ArangoStore
@@ -20,14 +20,11 @@ class RetrieveRecord:
 @runtime_checkable
 class RetrievePipelineProtocol(Protocol):
     @property
-    def store(self) -> ArangoStore:
-        ...
+    def store(self) -> ArangoStore: ...
 
-    def fetch(self, *args: object, **kwargs: Any) -> Sequence[RetrieveRecord]:
-        ...
+    def fetch(self, *args: object, **kwargs: Any) -> Sequence[RetrieveRecord]: ...
 
-    def dump(self, *args: object, **kwargs: Any) -> list[RetrieveRecord]:
-        ...
+    def dump(self, *args: object, **kwargs: Any) -> list[RetrieveRecord]: ...
 
 
 class RetrievePipelineBase(RetrievePipelineProtocol):

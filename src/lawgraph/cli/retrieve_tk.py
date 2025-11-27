@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """CLI for retrieving Tweede Kamer Zaak and DocumentVersie records."""
+
+from __future__ import annotations
 
 import argparse
 import datetime as dt
@@ -13,10 +13,7 @@ from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger, setup_logging
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 
-from .retrieve_helpers import (
-    load_profile_config,
-    make_tk_filter,
-)
+from .retrieve_helpers import load_profile_config, make_tk_filter
 
 logger = get_logger(__name__)
 PROFILE_CHOICES = list_domain_profiles()
@@ -25,7 +22,8 @@ PROFILE_CHOICES = list_domain_profiles()
 def main(argv: list[str] | None = None) -> None:
     """Entry point for the TK retrieve pipeline using the selected profile filters."""
     parser = argparse.ArgumentParser(
-        description="Retrieve TK zaak and documentversie data.")
+        description="Retrieve TK zaak and documentversie data."
+    )
     parser.add_argument(
         "--profile",
         choices=PROFILE_CHOICES or None,
@@ -53,8 +51,7 @@ def main(argv: list[str] | None = None) -> None:
     store = ArangoStore()
     pipeline = TKRetrievePipeline(store)
 
-    since = dt.datetime.now(dt.timezone.utc) - \
-        dt.timedelta(days=args.since_days)
+    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=args.since_days)
 
     logger.info(
         "Starting TK retrieve (profile=%s, limit=%d, since=%s).",

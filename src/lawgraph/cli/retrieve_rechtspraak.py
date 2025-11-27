@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """CLI for retrieving Rechtspraak index snapshots and content."""
+
+from __future__ import annotations
 
 import argparse
 import datetime as dt
@@ -14,8 +14,8 @@ from lawgraph.logging import get_logger, setup_logging
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 
 from .retrieve_helpers import (
-    load_profile_config,
     build_rechtspraak_params,
+    load_profile_config,
     seed_examples,
 )
 
@@ -26,7 +26,8 @@ PROFILE_CHOICES = list_domain_profiles()
 def main(argv: list[str] | None = None) -> None:
     """Entry point to fetch Rechtspraak snapshots and specific ECLI contents."""
     parser = argparse.ArgumentParser(
-        description="Retrieve Rechtspraak index and contents.")
+        description="Retrieve Rechtspraak index and contents."
+    )
     parser.add_argument(
         "--profile",
         choices=PROFILE_CHOICES or None,
@@ -57,8 +58,7 @@ def main(argv: list[str] | None = None) -> None:
     since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=args.since_days)
     config = load_profile_config(profile)
 
-    params = build_rechtspraak_params(
-        config.get("filters", {}).get("rechtspraak", {}))
+    params = build_rechtspraak_params(config.get("filters", {}).get("rechtspraak", {}))
     eclis: list[str] = []
     if args.ecli:
         eclis = args.ecli

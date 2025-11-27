@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from config.config import CONFIG_DIR, load_domain_config, list_domain_configs
+from config.config import CONFIG_DIR, list_domain_configs, load_domain_config
 
 STAFRECHT_CONFIG_PATH = CONFIG_DIR / "strafrecht.yml"
 

@@ -14,6 +14,7 @@ logger = get_logger(__name__)
 
 class BWBRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline that fetches BWB toestanden for configured IDs."""
+
     def __init__(
         self,
         store: ArangoStore,

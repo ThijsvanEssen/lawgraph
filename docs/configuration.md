@@ -23,8 +23,8 @@ Configuratie bestaat uit een `.env` voor secrets/connection strings en domeinpro
 - `ArangoStore` (in `lawgraph/db.py`) gebruikt settings voor `collections`/`edge_collections` en accepteert `insert_or_update` paremeters zodat pipelines geen constants hoeven te dupliceren.
 
 ## Wijzigingsproces
-1. Pas `.env` of een profiel aan in een feature branch; commit changes met beschrijving en verwijder nooit credentials (gebruik placeholders).  
-2. Draai `ruff check src tests` en `pytest tests/` (zonder network calls tenzij `ALLOW_NETWORK_TESTS=1`).  
-3. Verifieer CLI usage (bijv. `LAWGRAPH_PROFILE=strafrecht lawgraph-retrieve-tk`) en bekijk logs voor `describe_since()`/edge counts.  
-4. Na review merge je en deploy je `.env`/secret updates via je infrastructuur (bijv. Kubernetes secrets of `.env` in CI).  
+1. Pas `.env` of een profiel aan in een feature branch; commit changes met beschrijving en verwijder nooit credentials (gebruik placeholders).
+2. Draai `ruff check src tests` en `pytest tests/` (zonder network calls tenzij `ALLOW_NETWORK_TESTS=1`).
+3. Verifieer CLI usage (bijv. `LAWGRAPH_PROFILE=strafrecht lawgraph-retrieve-tk`) en bekijk logs voor `describe_since()`/edge counts.
+4. Na review merge je en deploy je `.env`/secret updates via je infrastructuur (bijv. Kubernetes secrets of `.env` in CI).
 5. Voor rollback restore je de vorige versie van `.env`/profiel of geef een oude `LAWGRAPH_PROFILE` door; pipelines blijven idempotent dankzij deterministic `_key`s. All changes must be documented in corresponding docs (`docs/profiles.md`, `docs/configuration.md`, etc.).
