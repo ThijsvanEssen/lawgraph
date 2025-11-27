@@ -1,0 +1,36 @@
+name: Feature request
+about: Suggest ideas to improve Lawgraph
+title: "[FEATURE] "
+labels: enhancement
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      description: Short summary of the feature request.
+      placeholder: e.g. "Add data ingestion pipeline for ..."
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem description
+      description: Describe the current limitations or pain points.
+  - type: textarea
+    id: desired
+    attributes:
+      label: Desired solution
+      description: What would success look like?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative solutions
+      description: Other ideas you considered.
+  - type: textarea
+    id: affected
+    attributes:
+      label: Affected pipelines / clients / models
+      description: Which parts of the project would be impacted?
+  - type: textarea
+    id: config
+    attributes:
+      label: Config changes required
+      description: Any configuration updates that would be needed.

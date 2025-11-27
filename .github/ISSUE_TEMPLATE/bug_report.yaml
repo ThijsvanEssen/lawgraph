@@ -1,0 +1,65 @@
+name: Bug report
+description: Use this template for reporting bugs in the Lawgraph project.
+title: ''
+labels: ['bug']
+body:
+  - type: input
+    id: description
+    attributes:
+      label: Description
+      description: Briefly describe what went wrong.
+      placeholder: >
+        Steps, what you expected, what happened, errors, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Describe the exact steps to trigger the bug.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected behavior
+      description: What result did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual behavior
+      description: What actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Specify OS, Python version, ArangoDB version, etc.
+      placeholder: |
+        OS: macOS 14.2
+        Python: 3.12.0
+        ArangoDB: 3.11.17
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Paste relevant log output or error messages.
+  - type: single_select
+    id: network_tests
+    attributes:
+      label: Network tests run?
+      description: Did you run any network tests as part of this report?
+      options:
+        - label: Yes
+          value: yes
+        - label: No
+          value: no
