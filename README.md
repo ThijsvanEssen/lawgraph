@@ -83,6 +83,8 @@ graph LR
   BWB_BASE=https://wetten.overheid.nl/
   BWB_SRU_ENDPOINT=https://zoekservice.overheid.nl/sru/Search
   LAWGRAPH_PROFILE=strafrecht
+  LAWGRAPH_SEMANTIC_EDGE_COLLECTION=edges_semantic
+  LAWGRAPH_RELATION_MENTIONS_ARTICLE=MENTIONS_ARTICLE
   ```
 
 - Document- en edgecollecties zijn configureerbaar via `LAWGRAPH_DOCUMENT_COLLECTIONS` en `LAWGRAPH_EDGE_COLLECTIONS`, zodat extra collecties gecreëerd kunnen worden zonder codewijziging.

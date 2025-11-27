@@ -22,6 +22,11 @@ code_aliases:
   Sv: "BWBR0001903"
   WVW: "BWBR0006622"
 
+instrument_aliases:
+  "Wetboek van Strafrecht": "BWBR0001854"
+  "Wetboek van Strafvordering": "BWBR0001903"
+  "Wegenverkeerswet": "BWBR0006622"
+
 nl_instruments:
   # Kern-wetboeken
   - id: "nl:wetboek:Sr"

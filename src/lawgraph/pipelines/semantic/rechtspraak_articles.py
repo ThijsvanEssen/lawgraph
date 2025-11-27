@@ -8,17 +8,23 @@ from dataclasses import dataclass
 from typing import Any, Iterable
 
 from config.config import load_domain_config
-from lawgraph.config.settings import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.config.settings import (
+    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_JUDGMENTS,
+    RELATION_MENTIONS_ARTICLE,
+    RAW_KIND_RS_CONTENT,
+    SEMANTIC_EDGE_COLLECTION,
+    SOURCE_RECHTSPRAAK,
+)
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
 from lawgraph.models import Node, make_node_key
+from lawgraph.utils.time import describe_since, iso_timestamp
 
 logger = get_logger(__name__)
 
 CodeMapping = dict[str, str]
 
-SEMANTIC_EDGE_COLLECTION = "edges_semantic"
-RELATION_MENTIONS_ARTICLE = "MENTIONS_ARTICLE"
 SEMANTIC_SOURCE = "rechtspraak-article-linker"
 
 _ALIAS_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -135,8 +141,15 @@ class RechtspraakArticleSemanticPipeline:
         self._domain_config = domain_config
 
     def run(self, *, since: dt.datetime | None = None) -> int:
-        """Add MENTIONS_ARTICLE edges for newly referenced articles."""
-        since_iso = self._since_iso(since)
+        """Create semantic edges for Rechtspraak judgments referencing BWB articles.
+
+        Args:
+            since: Optional datetime to limit which raw sources are scanned.
+
+        Returns:
+            Number of semantic edges created or updated.
+        """
+        since_iso = iso_timestamp(since)
         eclis = self._recent_rechtspraak_eclis(since_iso)
         judgments = list(self._load_judgments(eclis))
 
@@ -148,12 +161,12 @@ class RechtspraakArticleSemanticPipeline:
         logger.info(
             "Processing %d Rechtspraak judgments (since=%s).",
             len(judgments),
-            self._describe_since(since),
+            describe_since(since),
         )
 
         edges_created = 0
         for doc in judgments:
-            judgment = Node.from_document("judgments", doc)
+            judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
             text = self._extract_judgment_text(judgment)
             hits = detect_article_references(text, mapping)
             if not hits:
@@ -190,7 +203,7 @@ class RechtspraakArticleSemanticPipeline:
 
     def _resolve_article(self, hit: ArticleHit) -> Node | None:
         article_key = make_node_key(hit.bwb_id, hit.article_number)
-        return self.store.get_node("instrument_articles", article_key)
+        return self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
 
     def _create_semantic_edge(
         self,
@@ -254,16 +267,17 @@ class RechtspraakArticleSemanticPipeline:
         return eclis
 
     def _load_judgments(self, eclis: Iterable[str]) -> Iterable[dict[str, Any]]:
+        collection = COLLECTION_JUDGMENTS
         if eclis:
             bind_vars = {"eclis": list(eclis)}
-            aql = """
-            FOR doc IN judgments
+            aql = f"""
+            FOR doc IN {collection}
                 FILTER doc.props.meta.ecli IN @eclis
             RETURN doc
             """
         else:
             bind_vars = {}
-            aql = "FOR doc IN judgments RETURN doc"
+            aql = f"FOR doc IN {collection} RETURN doc"
 
         return self.store.query(aql, bind_vars=bind_vars)
 
@@ -296,22 +310,3 @@ class RechtspraakArticleSemanticPipeline:
             self._domain_config = {}
 
         return self._domain_config
-
-    @staticmethod
-    def _since_iso(since: dt.datetime | None) -> str | None:
-        if since is None:
-            return None
-
-        if since.tzinfo is None:
-            since = since.replace(tzinfo=dt.timezone.utc)
-
-        iso = since.astimezone(dt.timezone.utc).isoformat()
-        if iso.endswith("+00:00"):
-            return iso.replace("+00:00", "Z")
-        return iso
-
-    @staticmethod
-    def _describe_since(since: dt.datetime | None) -> str:
-        if since is None:
-            return "full history"
-        return RechtspraakArticleSemanticPipeline._since_iso(since) or "full history"
