@@ -1,16 +1,16 @@
 # Documentatie-index
 
 ## Doel van deze map
-Leg hier uit wie deze documentatie leest, welk probleem deze pagina's oplossen en hoe de volgorde van bestanden het beste tot zijn recht komt.
+Deze sectie verzamelt de belangrijkste hulppagina's voor ontwikkelaars en architecten die met LawGraph werken. De inhoud helpt nieuwe teamleden om snel inzicht te krijgen in architectuur, datastromen, graafmodellen en hoe je wijzigingen uitvoert zonder het overzicht te verliezen.
 
 ## Overzicht van hoofdstukken
-- `architecture.md`: beschrijf hier in één zin dat deze pagina een architectuurbeschrijving bevat en welke afdelingen of teams hier invulling aan moeten geven.
-- `pipelines.md`: noteer dat pijplijnen, datastromen en batch-/realtime-fasen op die pagina behandeld worden.
-- `graph_model.md`: vertel dat deze pagina het graafmodel met entiteiten, relaties en eigenschappen behandelt.
-- `profiles.md`: vermeld dat deze pagina de verschillende profieltypes, hun attributen en gebruiksscenario's beschrijft.
-- `configuration.md`: verduidelijk dat configuratiebestanden, omgevingsvariabelen en standaardwaarden aan bod komen.
-- `cli.md`: geef aan dat hier de commandoregelinterface, voorbeelden en opties worden uitgelegd.
-- `semantic_edges.md`: geef aan dat dit document de semantische kanten en hun betekenis uitlegt.
+- `architecture.md`: bevat een overzicht van de kerncomponenten, deploymentlagen en datastromen zodat teams een gemeenschappelijk referentiekader hebben.
+- `pipelines.md`: beschrijft welke data wordt opgehaald, hoe transformaties verlopen en welke orkestratiepatronen we hanteren (batch versus realtime).
+- `graph_model.md`: documenteert de entiteiten, relaties en metadata van het graafmodel zodat data-engineers en productteams weten welke knooppunten beschikbaar zijn.
+- `profiles.md`: legt uit welke profieltypes (personen, organisaties, rollen) support bieden, welke attributen verplicht zijn en hoe deze profielen gevalideerd worden.
+- `configuration.md`: geeft richting aan welke configuratiebestanden en omgevingsvariabelen worden gebruikt, inclusief standaarden voor verschillende omgevingen.
+- `cli.md`: verzamelt de beschikbare commandoregelcommando's, voorbeeldworkflows en tips om problemen na te gaan.
+- `semantic_edges.md`: specificeren we de betekenis van semantische kanten, welke regels gelden voor naamgeving en hoe ze zich verhouden tot andere modeldelen.
 
 ## Bijdragen
-Laat weten hoe je aanvullingen of correcties voor deze documenten wilt ontvangen, bijvoorbeeld via pull requests of een specifieke reviewroute.
+Voor nieuwe inzichten of verbeteringen maak je een pull request aan en verwijs je naar de relevante sectie. Voeg screenshots of diagrammen toe als dat de uitleg versterkt, zodat reviewers snel de context zien.
