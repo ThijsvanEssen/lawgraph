@@ -17,6 +17,11 @@ topic:
     - "materieel-strafrecht"
     - "strafvordering"
 
+code_aliases:
+  Sr: "BWBR0001854"
+  Sv: "BWBR0001903"
+  WVW: "BWBR0006622"
+
 nl_instruments:
   # Kern-wetboeken
   - id: "nl:wetboek:Sr"

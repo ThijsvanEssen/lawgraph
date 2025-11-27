@@ -47,6 +47,7 @@ lawgraph-normalize-eurlex = "lawgraph.cli.normalize_eurlex:main"
 lawgraph-normalize-bwb = "lawgraph.cli.normalize_bwb:main"
 lawgraph-normalize-all = "lawgraph.cli.normalize_all:main"
 lawgraph-strafrecht-seed = "lawgraph.cli.strafrecht_seed:main"
+lawgraph-semantic-rechtspraak-articles = "lawgraph.cli.semantic_rechtspraak_articles:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

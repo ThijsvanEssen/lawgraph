@@ -165,6 +165,34 @@ class ArangoStore:
 
         return Node.from_document(node.collection, cast(dict[str, Any], updated))
 
+    def insert_or_update_edge(
+        self,
+        *,
+        collection_name: str,
+        doc: dict[str, Any],
+    ) -> tuple[dict[str, Any], bool]:
+        """
+        Insert or update an edge document with a deterministic `_key`.
+        Returns the stored document and a flag indicating whether it was created.
+        """
+        edge_key = doc.get("_key")
+        if not isinstance(edge_key, str):
+            raise ValueError("Edge document must include a `_key` string.")
+
+        collection = self.db.collection(collection_name)
+        created = not collection.has(edge_key)
+
+        if created:
+            collection.insert(doc)
+        else:
+            collection.update(doc)
+
+        stored = collection.get(edge_key)
+        if stored is None:
+            raise RuntimeError("Failed to retrieve edge document after upsert.")
+
+        return cast(dict[str, Any], stored), created
+
     def update_node(self, node: Node) -> Node:
         """Update an existing Node (must already have a key set)."""
         if node.key is None:
