@@ -39,6 +39,16 @@ _ALLOWED_NODE_COLLECTIONS = {
 
 
 @dataclass
+class InstrumentStats:
+    """Aggregate statistics for a single instrument (law/regulation)."""
+
+    article_count: int = 0
+    judgment_count: int = 0
+    inbound_citation_count: int = 0
+    outbound_citation_count: int = 0
+
+
+@dataclass
 class ArticleDetailData:
     article: dict[str, Any]
     instrument: dict[str, Any] | None
@@ -295,6 +305,62 @@ def get_dossier_timeline(
         }}
     """
     return list(store.query(aql, bind_vars))
+
+
+def get_dossier_documents(
+    store: ArangoStore,
+    dossier_id: str,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Return publications (Kamerstuk documents) linked to this dossier.
+
+    Looks for publications connected via DEEL_VAN_DOSSIER edges, either directly
+    or indirectly via the procedure chain (publication → procedure → dossier).
+    Returns a paginated list sorted by datum descending.
+    """
+    aql = f"""
+    LET direct = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == @dossier_id AND e.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+            LET node = DOCUMENT(e._from)
+            FILTER node != null AND SPLIT(e._from, '/')[0] == 'publications'
+            RETURN node
+    )
+    LET via_procedure = (
+        FOR e1 IN {COLLECTION_EDGES}
+            FILTER e1._to == @dossier_id AND e1.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+            FILTER SPLIT(e1._from, '/')[0] == 'procedures'
+            FOR e2 IN {COLLECTION_EDGES}
+                FILTER e2._to == e1._from AND e2.relation == 'PART_OF_PROCEDURE'
+                LET pub = DOCUMENT(e2._from)
+                FILTER pub != null AND SPLIT(e2._from, '/')[0] == 'publications'
+                RETURN pub
+    )
+    LET all_docs = UNIQUE(APPEND(direct, via_procedure))
+    LET total = LENGTH(all_docs)
+    LET items = (
+        FOR doc IN all_docs
+            SORT doc.props.datum DESC
+            LIMIT @offset, @limit
+            RETURN {{
+                id: doc._id,
+                key: doc._key,
+                soort: doc.props.soort,
+                titel: (doc.props.title != null ? doc.props.title : doc.props.display_name),
+                datum: doc.props.datum,
+                display_name: doc.props.display_name
+            }}
+    )
+    RETURN {{ total: total, items: items }}
+    """  # noqa: E501
+    rows = list(
+        store.query(aql, {"dossier_id": dossier_id, "limit": limit, "offset": offset})
+    )
+    if not rows:
+        return {"total": 0, "items": []}
+    return rows[0]
 
 
 def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]:
@@ -775,6 +841,26 @@ def search_all(
         """
         results["dossiers"] = list(store.query(aql, bind_vars))
 
+    if "commissies" in types:
+        aql = """
+        FOR doc IN commissies
+            FILTER
+                CONTAINS(LOWER(doc.props.naam), @term)
+                OR CONTAINS(LOWER(doc.props.afkorting), @term)
+            SORT doc.props.naam ASC
+            LIMIT @limit
+            RETURN {
+                id: doc._id,
+                key: doc._key,
+                collection: 'commissies',
+                type: doc.type,
+                display_name: doc.props.naam,
+                snippet: doc.props.afkorting,
+                extra: { slug: doc.props.slug, afkorting: doc.props.afkorting }
+            }
+        """
+        results["commissies"] = list(store.query(aql, {"term": term, "limit": limit}))
+
     if "publications" in types:
         soort_clause = ""
         bind_vars_pub: dict[str, Any] = {"term": term, "limit": limit}
@@ -807,6 +893,98 @@ def search_all(
         results["publications"] = list(store.query(aql, bind_vars_pub))
 
     return results
+
+
+# ── Stemmingen browser queries ────────────────────────────────────────────────
+
+
+def get_stemmingen(
+    store: ArangoStore,
+    *,
+    aangenomen: bool | None = None,
+    partij: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """Return a paginated list of stemmingen, newest first.
+
+    Optional filters: aangenomen (bool), partij (party name match in voor/tegen/onthouding).
+    """
+    bind_vars: dict[str, Any] = {"limit": limit, "offset": offset}
+    aangenomen_filter = ""
+    if aangenomen is not None:
+        aangenomen_filter = "FILTER doc.props.aangenomen == @aangenomen"
+        bind_vars["aangenomen"] = aangenomen
+
+    partij_filter = ""
+    if partij:
+        bind_vars["partij"] = partij.strip().lower()
+        partij_filter = """
+        FILTER LENGTH(
+            FOR p IN APPEND(
+                doc.props.voor != null ? doc.props.voor : [],
+                APPEND(
+                    doc.props.tegen != null ? doc.props.tegen : [],
+                    doc.props.onthouding != null ? doc.props.onthouding : []
+                )
+            )
+            FILTER CONTAINS(LOWER(p.partij), @partij)
+            LIMIT 1
+            RETURN 1
+        ) > 0"""
+
+    aql = f"""
+    LET total = LENGTH(
+        FOR doc IN stemmingen
+            {aangenomen_filter}
+            {partij_filter}
+            RETURN 1
+    )
+    LET items = (
+        FOR doc IN stemmingen
+            {aangenomen_filter}
+            {partij_filter}
+            SORT doc.props.datum DESC
+            LIMIT @offset, @limit
+            RETURN {{
+                id: doc._id,
+                key: doc._key,
+                datum: doc.props.datum,
+                onderwerp: doc.props.onderwerp,
+                aangenomen: doc.props.aangenomen,
+                voor_count: LENGTH(doc.props.voor != null ? doc.props.voor : []),
+                tegen_count: LENGTH(doc.props.tegen != null ? doc.props.tegen : []),
+                onthouding_count: LENGTH(doc.props.onthouding != null ? doc.props.onthouding : [])
+            }}
+    )
+    RETURN {{ total: total, items: items }}
+    """  # noqa: E501
+    rows = list(store.query(aql, bind_vars))
+    if not rows:
+        return {"total": 0, "items": []}
+    return rows[0]
+
+
+def get_stemming_detail(store: ArangoStore, key: str) -> dict[str, Any] | None:
+    """Return a single stemming with full voor/tegen/onthouding breakdown."""
+    aql = """
+    LET doc = DOCUMENT(CONCAT('stemmingen/', @key))
+    FILTER doc != null
+    RETURN {
+        id: doc._id,
+        key: doc._key,
+        datum: doc.props.datum,
+        onderwerp: doc.props.onderwerp,
+        aangenomen: doc.props.aangenomen,
+        besluit_id: doc.props.besluit_id,
+        voor: doc.props.voor,
+        tegen: doc.props.tegen,
+        onthouding: doc.props.onthouding
+    }
+    """
+    for row in store.query(aql, {"key": key}):
+        return row
+    return None
 
 
 # ── Bulk node overlay queries ──────────────────────────────────────────────────

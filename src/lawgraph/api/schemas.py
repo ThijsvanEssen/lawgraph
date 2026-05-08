@@ -62,17 +62,40 @@ class InstrumentSummaryDTO(BaseModel):
     id: str
     key: str
     display_name: str | None
+    article_count: int = 0
+    judgment_count: int = 0
+    inbound_citation_count: int = 0
+    outbound_citation_count: int = 0
 
     @classmethod
     def from_document(
         cls,
         doc: dict[str, Any],
+        *,
+        stats: Any = None,
     ) -> InstrumentSummaryDTO:
         props = doc.get("props") or {}
+        s = stats or {}
         return cls(
             id=doc["_id"],
             key=doc["_key"],
             display_name=props.get("display_name"),
+            article_count=int(
+                getattr(s, "article_count", 0)
+                or (s.get("article_count", 0) if isinstance(s, dict) else 0)
+            ),  # noqa: E501
+            judgment_count=int(
+                getattr(s, "judgment_count", 0)
+                or (s.get("judgment_count", 0) if isinstance(s, dict) else 0)
+            ),  # noqa: E501
+            inbound_citation_count=int(
+                getattr(s, "inbound_citation_count", 0)
+                or (s.get("inbound_citation_count", 0) if isinstance(s, dict) else 0)
+            ),  # noqa: E501
+            outbound_citation_count=int(
+                getattr(s, "outbound_citation_count", 0)
+                or (s.get("outbound_citation_count", 0) if isinstance(s, dict) else 0)
+            ),  # noqa: E501
         )
 
 
@@ -734,7 +757,9 @@ class PartyColorsResponse(BaseModel):
 
 # ── Search schemas ────────────────────────────────────────────────────────────
 
-SEARCH_TYPES = frozenset({"articles", "judgments", "dossiers", "publications"})
+SEARCH_TYPES = frozenset(
+    {"articles", "judgments", "dossiers", "publications", "commissies"}
+)
 
 
 class SearchResultItem(BaseModel):

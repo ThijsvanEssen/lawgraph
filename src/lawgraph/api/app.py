@@ -12,6 +12,7 @@ from lawgraph.api.routes.graph import router as graph_router
 from lawgraph.api.routes.publications import router as publications_router
 from lawgraph.api.routes.search import router as search_router
 from lawgraph.api.routes.stats import router as stats_router
+from lawgraph.api.routes.stemmingen import router as stemmingen_router
 from lawgraph.api.routes.watches import router as watches_router
 
 app = FastAPI(
@@ -38,6 +39,7 @@ app.include_router(
 app.include_router(search_router, prefix="/api/search", tags=["search"])
 app.include_router(stats_router, prefix="/api/stats", tags=["stats"])
 app.include_router(watches_router, prefix="/api/watches", tags=["watches"])
+app.include_router(stemmingen_router, prefix="/api/stemmingen", tags=["stemmingen"])
 
 origins = [
     "http://localhost:5173",

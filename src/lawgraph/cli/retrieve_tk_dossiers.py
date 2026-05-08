@@ -52,17 +52,38 @@ def main() -> None:
         action="store_true",
         help="Skip Persoon fetch (slow; only needed for full refreshes).",
     )
+    parser.add_argument(
+        "--skip-stemmingen",
+        action="store_true",
+        help="Skip Stemming fetch entirely.",
+    )
+    parser.add_argument(
+        "--stemmingen-since",
+        default=None,
+        metavar="DATE",
+        help=(
+            "Only fetch Stemming records modified since this date. "
+            "Overrides --since for stemmingen only. "
+            "Use e.g. '730d' to limit to the last 2 years."
+        ),
+    )
     args = parser.parse_args()
 
     try:
         since = _parse_since(args.since)
+        stemmingen_since = _parse_since(args.stemmingen_since)
     except ValueError as exc:
         parser.error(str(exc))
         return
 
     store = ArangoStore()
     pipeline = TkDossiersRetrievePipeline(store=store)
-    result = pipeline.run(since=since, skip_personen=args.skip_personen)
+    result = pipeline.run(
+        since=since,
+        stemmingen_since=stemmingen_since,
+        skip_personen=args.skip_personen,
+        skip_stemmingen=args.skip_stemmingen,
+    )
     print(result.summary())
     if result.errors:
         for err in result.errors:

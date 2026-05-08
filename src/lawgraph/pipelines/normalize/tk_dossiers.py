@@ -311,8 +311,18 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             omschrijving = payload.get("Omschrijving") or ""
             soort = payload.get("Soort") or ""
 
-            # Agendapunt expand has no Dossier sub-property; dossier links resolved later
+            # Extract dossier nummers via Agendapunt → Zaak → Kamerstukdossier chain
+            _seen: set[str] = set()
             dossier_nummers: list[str] = []
+            for agendapunt in payload.get("Agendapunt") or []:
+                for zaak in agendapunt.get("Zaak") or []:
+                    for dossier in zaak.get("Kamerstukdossier") or []:
+                        nummer = dossier.get("Nummer")
+                        if nummer:
+                            n = str(nummer)
+                            if n not in _seen:
+                                _seen.add(n)
+                                dossier_nummers.append(n)
 
             commissie_id: str | None = None
             if payload.get("Voortouwcommissie_Id"):

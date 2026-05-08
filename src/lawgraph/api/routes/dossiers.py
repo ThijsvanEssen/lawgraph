@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
     get_dossier_by_nummer,
+    get_dossier_documents,
     get_dossier_mutations,
     get_dossier_timeline,
     get_open_dossiers,
@@ -197,6 +198,25 @@ def get_timeline(
         order=order_val,
         entries=entries,
     )
+
+
+@router.get(
+    "/{kamerstuknummer}/documents",
+    summary="Dossier documenten",
+    description=(
+        "Geeft de Kamerstuk-documenten (publicaties) die aan dit dossier zijn gekoppeld "
+        "via DEEL_VAN_DOSSIER-edges, gepagineerd op datum aflopend."
+    ),
+    tags=["dossiers"],
+)
+def get_dossier_documents_route(
+    kamerstuknummer: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict:
+    dossier = _dossier_or_404(store, kamerstuknummer)
+    return get_dossier_documents(store, dossier["_id"], limit=limit, offset=offset)
 
 
 @router.get(

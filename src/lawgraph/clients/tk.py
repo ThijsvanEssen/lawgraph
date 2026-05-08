@@ -54,6 +54,30 @@ class TKClient(BaseClient):
             next_link_key="@odata.nextLink",
         )
 
+    def _skip_paged_get(
+        self,
+        path: str,
+        params: dict | None = None,
+        page_size: int = 250,
+    ) -> Iterable[dict[str, Any]]:
+        """OData skip-based pagination for endpoints that don't return nextLink.
+
+        The TK API returns no @odata.nextLink even when more records exist.
+        We iterate using $skip until a page returns fewer records than page_size.
+        """
+        base_params = dict(params or {})
+        base_params["$top"] = page_size
+        skip = 0
+        while True:
+            page_params = dict(base_params)
+            page_params["$skip"] = skip
+            page = self._get_json(path, params=page_params)
+            entries = page.get("value", []) if isinstance(page, dict) else []
+            yield from entries
+            if len(entries) < page_size:
+                break
+            skip += page_size
+
     # ── Existing entity fetchers ───────────────────────────────────────────────
 
     def zaken_modified_since(
@@ -108,15 +132,20 @@ class TKClient(BaseClient):
         since: dt.datetime | None = None,
         top: int = 250,
     ) -> list[dict]:
-        """Fetch Kamerstukdossier records, optionally filtered by modification date."""
-        params: dict[str, Any] = {"$top": top}
+        """Fetch Kamerstukdossier records, optionally filtered by modification date.
+
+        Uses skip-based pagination because the TK API does not emit nextLink.
+        """
+        params: dict[str, Any] = {}
         if since is not None:
             since_string = self._format_odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
             logger.info("Fetching Kamerstukdossier modified since %s", since_string)
         else:
             logger.info("Fetching all Kamerstukdossier records")
-        return list(self._paged_get("Kamerstukdossier", params=params))
+        return list(
+            self._skip_paged_get("Kamerstukdossier", params=params, page_size=top)
+        )
 
     def fetch_activiteiten(
         self,
@@ -125,12 +154,12 @@ class TKClient(BaseClient):
     ) -> list[dict]:
         """Fetch Activiteit (debate/hearing) records.
 
-        The API does not support nested $expand (e.g. Agendapunt($expand=Dossier)),
-        so we expand Agendapunt only one level deep.
+        Uses a 3-level nested expand to resolve dossier links via the chain
+        Agendapunt → Zaak → Kamerstukdossier. Skip-based pagination is used
+        because the TK API does not emit nextLink.
         """
         params: dict[str, Any] = {
-            "$top": top,
-            "$expand": "Agendapunt",
+            "$expand": "Agendapunt($expand=Zaak($expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)))",  # noqa: E501
         }
         if since is not None:
             since_string = self._format_odata_datetime(since)
@@ -138,7 +167,7 @@ class TKClient(BaseClient):
             logger.info("Fetching Activiteit modified since %s", since_string)
         else:
             logger.info("Fetching all Activiteit records")
-        return list(self._paged_get("Activiteit", params=params))
+        return list(self._skip_paged_get("Activiteit", params=params, page_size=top))
 
     def fetch_stemmingen(
         self,
@@ -152,14 +181,14 @@ class TKClient(BaseClient):
         Relevant fields: ActorFractie (party), Soort (Voor/Tegen/Onthouden),
         FractieGrootte (seats), Vergissing (mistaken vote).
         """
-        params: dict[str, Any] = {"$top": top, "$expand": "Besluit"}
+        params: dict[str, Any] = {"$expand": "Besluit"}
         if since is not None:
             since_string = self._format_odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
             logger.info("Fetching Stemming modified since %s", since_string)
         else:
             logger.info("Fetching all Stemming records")
-        return list(self._paged_get("Stemming", params=params))
+        return list(self._skip_paged_get("Stemming", params=params, page_size=top))
 
     def fetch_toezeggingen(
         self,
@@ -167,29 +196,28 @@ class TKClient(BaseClient):
         top: int = 250,
     ) -> list[dict]:
         """Fetch Toezegging (ministerial commitment) records."""
-        params: dict[str, Any] = {"$top": top}
+        params: dict[str, Any] = {}
         if since is not None:
             since_string = self._format_odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
             logger.info("Fetching Toezegging modified since %s", since_string)
         else:
             logger.info("Fetching all Toezegging records")
-        return list(self._paged_get("Toezegging", params=params))
+        return list(self._skip_paged_get("Toezegging", params=params, page_size=top))
 
-    def fetch_commissies(self, top: int = 200) -> list[dict]:
+    def fetch_commissies(self, top: int = 250) -> list[dict]:
         """Fetch Commissie (committee) records with CommissieZetel members expanded."""
         params: dict[str, Any] = {
-            "$top": top,
             "$expand": "CommissieZetel($expand=CommissieZetelVastPersoon)",
         }
         logger.info("Fetching Commissie records")
-        return list(self._paged_get("Commissie", params=params))
+        return list(self._skip_paged_get("Commissie", params=params, page_size=top))
 
     def fetch_personen(self, top: int = 250) -> list[dict]:
         """Fetch Persoon (parliamentary member) records.
 
         The Fractielabel field contains the party label directly — no expand needed.
         """
-        params: dict[str, Any] = {"$top": top}
+        params: dict[str, Any] = {}
         logger.info("Fetching Persoon records")
-        return list(self._paged_get("Persoon", params=params))
+        return list(self._skip_paged_get("Persoon", params=params, page_size=top))

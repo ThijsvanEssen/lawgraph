@@ -45,71 +45,64 @@ class TkDossiersRetrievePipeline:
         self,
         *,
         since: dt.datetime | None = None,
+        stemmingen_since: dt.datetime | None = None,
         skip_personen: bool = False,
+        skip_stemmingen: bool = False,
     ) -> PipelineResult:
         """Fetch and store all parliamentary entity types.
+
+        Each entity type is stored immediately after fetching, so a mid-run
+        interruption preserves already-completed entity types.
 
         Args:
             since: Only fetch records modified since this datetime.
                    Pass None for a full refresh.
+            stemmingen_since: Override ``since`` for Stemming only.
+                   Use to limit the very large stemmingen dataset to a window.
             skip_personen: Skip the Persoon fetch (slow, only needed periodically).
+            skip_stemmingen: Skip the Stemming fetch entirely.
         """
         result = PipelineResult()
 
-        fetches: list[tuple[str, str, list[dict]]] = []
-
-        try:
-            dossiers = self.client.fetch_dossiers(since=since)
-            fetches.append((RAW_KIND_TK_DOSSIER, "Id", dossiers))
-            logger.info("Retrieved %d Kamerstukdossier records", len(dossiers))
-        except Exception as exc:
-            result.add_error(f"fetch_dossiers failed: {exc}")
-            logger.error("fetch_dossiers failed: %s", exc)
-
-        try:
-            activiteiten = self.client.fetch_activiteiten(since=since)
-            fetches.append((RAW_KIND_TK_ACTIVITEIT, "Id", activiteiten))
-            logger.info("Retrieved %d Activiteit records", len(activiteiten))
-        except Exception as exc:
-            result.add_error(f"fetch_activiteiten failed: {exc}")
-            logger.error("fetch_activiteiten failed: %s", exc)
-
-        try:
-            stemmingen = self.client.fetch_stemmingen(since=since)
-            fetches.append((RAW_KIND_TK_STEMMING, "Id", stemmingen))
-            logger.info("Retrieved %d Stemming records", len(stemmingen))
-        except Exception as exc:
-            result.add_error(f"fetch_stemmingen failed: {exc}")
-            logger.error("fetch_stemmingen failed: %s", exc)
-
-        try:
-            toezeggingen = self.client.fetch_toezeggingen(since=since)
-            fetches.append((RAW_KIND_TK_TOEZEGGING, "Id", toezeggingen))
-            logger.info("Retrieved %d Toezegging records", len(toezeggingen))
-        except Exception as exc:
-            result.add_error(f"fetch_toezeggingen failed: {exc}")
-            logger.error("fetch_toezeggingen failed: %s", exc)
-
-        try:
-            commissies = self.client.fetch_commissies()
-            fetches.append((RAW_KIND_TK_COMMISSIE, "Id", commissies))
-            logger.info("Retrieved %d Commissie records", len(commissies))
-        except Exception as exc:
-            result.add_error(f"fetch_commissies failed: {exc}")
-            logger.error("fetch_commissies failed: %s", exc)
-
+        self._fetch_and_store(
+            result,
+            RAW_KIND_TK_DOSSIER,
+            "Id",
+            lambda: self.client.fetch_dossiers(since=since),
+        )
+        self._fetch_and_store(
+            result,
+            RAW_KIND_TK_ACTIVITEIT,
+            "Id",
+            lambda: self.client.fetch_activiteiten(since=since),
+        )
+        if not skip_stemmingen:
+            stem_since = stemmingen_since if stemmingen_since is not None else since
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_STEMMING,
+                "Id",
+                lambda: self.client.fetch_stemmingen(since=stem_since),
+            )
+        self._fetch_and_store(
+            result,
+            RAW_KIND_TK_TOEZEGGING,
+            "Id",
+            lambda: self.client.fetch_toezeggingen(since=since),
+        )
+        self._fetch_and_store(
+            result,
+            RAW_KIND_TK_COMMISSIE,
+            "Id",
+            lambda: self.client.fetch_commissies(),
+        )
         if not skip_personen:
-            try:
-                personen = self.client.fetch_personen()
-                fetches.append((RAW_KIND_TK_PERSOON, "Id", personen))
-                logger.info("Retrieved %d Persoon records", len(personen))
-            except Exception as exc:
-                result.add_error(f"fetch_personen failed: {exc}")
-                logger.error("fetch_personen failed: %s", exc)
-
-        for kind, id_field, records in fetches:
-            stored = self._store_records(kind, id_field, records)
-            result.created += stored
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_PERSOON,
+                "Id",
+                lambda: self.client.fetch_personen(),
+            )
 
         logger.info(
             "TkDossiersRetrievePipeline: stored %d raw records, %d errors.",
@@ -117,6 +110,24 @@ class TkDossiersRetrievePipeline:
             len(result.errors),
         )
         return result
+
+    def _fetch_and_store(
+        self,
+        result: Any,
+        kind: str,
+        id_field: str,
+        fetch_fn: Any,
+    ) -> None:
+        """Fetch records with *fetch_fn*, store immediately, update *result*."""
+        try:
+            records = fetch_fn()
+            logger.info("Retrieved %d %s records", len(records), kind)
+        except Exception as exc:
+            result.add_error(f"fetch {kind} failed: {exc}")
+            logger.error("fetch %s failed: %s", kind, exc)
+            return
+        stored = self._store_records(kind, id_field, records)
+        result.created += stored
 
     def _store_records(
         self,
