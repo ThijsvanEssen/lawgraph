@@ -3,21 +3,48 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
+_LID_QUALIFIER = r"(?:(?:eerste|tweede|derde|laatste|volgende)\s+lid[,\s]*)?"
+_ARTICLE_NUMBER_PATTERN = re.compile(r"\d+[a-zA-Z]{0,4}(?:\.\d+)?")
 _ARTICLE_REFERENCE_PATTERN = re.compile(
     (
         r"\b(?:de\s+)?(?:artikel(?:en)?|art(?:ikel)?\.?)\s+"
-        r"(?P<numbers>\d+[a-zA-Z]{0,4}(?:\s*(?:tot\s+en\s+met|tot|en|,|&|-)\s*"
-        r"\d+[a-zA-Z]{0,4})*)"
+        r"(?P<numbers>\d+[a-zA-Z]{0,4}(?:\.\d+)?(?:\s*(?:tot\s+en\s+met|tot|en|,|&|-)\s*"
+        + _LID_QUALIFIER
+        + r"\d+[a-zA-Z]{0,4}(?:\.\d+)?)*)"
     ),
     re.IGNORECASE,
 )
-_ARTICLE_NUMBER_PATTERN = re.compile(r"\d+[a-zA-Z]{0,4}")
+
+# Matches "art. 126aa Sv" or "artikel 3.01 Awb" — short mixed-case abbreviation after number.
+# Must start uppercase, be 2-5 chars, and not be a common Dutch word (van/de/het/lid/een).
+_CROSS_LAW_CODE_PATTERN = re.compile(
+    r"\bart(?:ikel)?\.?\s+"
+    r"(?P<number>\d+[a-zA-Z]{0,4}(?:\.\d+)?)"
+    r"\s+(?P<code>(?!(?:van|de|het|lid|een|als|van)\b)[A-Z][A-Za-z]{1,4})\b(?!\s*\d)",
+)
+
+# Matches "art. 3.01 van de Wegenverkeerswet 1994" or "artikel 51 van het Wetboek van Strafrecht".
+# Captures everything after "van de/het" up to sentence-ending punctuation or end-of-string.
+_CROSS_LAW_VAN_DE_PATTERN = re.compile(
+    r"\bart(?:ikel)?\.?\s+"
+    r"(?P<number>\d+[a-zA-Z]{0,4}(?:\.\d+)?)"
+    r"\s+van\s+(?:de\s+|het\s+)"
+    r"(?P<law>[A-Z][^,;.\n\d]{2,80}?)(?=\s*[\d,;.]|\s*$)",
+    re.IGNORECASE,
+)
 
 _DEFAULT_CONFIDENCE = 0.95
 _RANGE_CONFIDENCE = 0.8
+_CROSS_LAW_CONFIDENCE = 0.9
+
+# Dutch laws rarely exceed ~1000 articles; anything larger is almost certainly a fine,
+# year, or other numeric literal that happens to follow "artikel".
+_MAX_ARTICLE_NUMBER = 1999
+# Prevent generating thousands of intermediate range hits from bogus ranges.
+_MAX_RANGE_SPAN = 200
 
 
 @dataclass
@@ -27,9 +54,10 @@ class ArticleCitationHit:
     start: int
     end: int
     text: str
-    bwb_id: str
+    bwb_id: str | None
     article_number: str
     confidence: float
+    cross_law: bool = field(default=False)
 
 
 def detect_bwb_article_citations(
@@ -37,7 +65,13 @@ def detect_bwb_article_citations(
     bwb_id: str,
     config: dict[str, Any] | None = None,
 ) -> list[ArticleCitationHit]:
-    """Return citations to other articles that appear in the provided text."""
+    """Return citations to other articles that appear in the provided text.
+
+    Detects both within-document references ("de artikelen 105, 174...") and
+    explicit cross-law references ("art. 126aa Sv", "art. 3.01 van de Awb").
+    Cross-law hits carry the resolved bwb_id when the alias is known, or
+    ``bwb_id=None`` when the law name cannot be resolved.
+    """
     if not text or not bwb_id:
         return []
 
@@ -50,10 +84,58 @@ def detect_bwb_article_citations(
         conf_map.get("confidence_range", _RANGE_CONFIDENCE),
         _RANGE_CONFIDENCE,
     )
+    code_aliases: dict[str, str] = conf_map.get("code_aliases") or {}
+    instrument_aliases: dict[str, str] = conf_map.get("instrument_aliases") or {}
 
     hits: list[ArticleCitationHit] = []
     seen: set[tuple[int, int, str]] = set()
 
+    # --- explicit cross-law references first (higher specificity) ---
+    # "art. 126aa Sv", "artikel 3.01 AWB"
+    for match in _CROSS_LAW_CODE_PATTERN.finditer(text):
+        code = match.group("code")
+        resolved = code_aliases.get(code)
+        article_number = match.group("number")
+        int_val = _parse_article_int(article_number)
+        if int_val is not None and int_val > _MAX_ARTICLE_NUMBER:
+            continue
+        hit = ArticleCitationHit(
+            start=match.start("number"),
+            end=match.end("number"),
+            text=article_number,
+            bwb_id=resolved,
+            article_number=article_number,
+            confidence=_CROSS_LAW_CONFIDENCE,
+            cross_law=True,
+        )
+        key = (hit.start, hit.end, article_number.lower())
+        if key not in seen:
+            seen.add(key)
+            hits.append(hit)
+
+    # "art. 3.01 van de Wegenverkeerswet 1994"
+    for match in _CROSS_LAW_VAN_DE_PATTERN.finditer(text):
+        law_name = match.group("law").strip()
+        resolved = _resolve_law_name(law_name, instrument_aliases)
+        article_number = match.group("number")
+        int_val = _parse_article_int(article_number)
+        if int_val is not None and int_val > _MAX_ARTICLE_NUMBER:
+            continue
+        hit = ArticleCitationHit(
+            start=match.start("number"),
+            end=match.end("number"),
+            text=article_number,
+            bwb_id=resolved,
+            article_number=article_number,
+            confidence=_CROSS_LAW_CONFIDENCE,
+            cross_law=True,
+        )
+        key = (hit.start, hit.end, article_number.lower())
+        if key not in seen:
+            seen.add(key)
+            hits.append(hit)
+
+    # --- within-document enumeration references ---
     for match in _ARTICLE_REFERENCE_PATTERN.finditer(text):
         block_start = match.start("numbers")
         block_end = match.end("numbers")
@@ -68,6 +150,9 @@ def detect_bwb_article_citations(
         for number_match in number_matches:
             article_number = number_match.group(0).strip()
             if not article_number:
+                continue
+            int_val = _parse_article_int(article_number)
+            if int_val is not None and int_val > _MAX_ARTICLE_NUMBER:
                 continue
             start = block_start + number_match.start()
             end = block_start + number_match.end()
@@ -103,6 +188,19 @@ def detect_bwb_article_citations(
     return hits
 
 
+def _resolve_law_name(name: str, instrument_aliases: dict[str, str]) -> str | None:
+    """Match a law name string against instrument_aliases, longest match first."""
+    name_lower = name.lower().strip()
+    best: str | None = None
+    best_len = 0
+    for alias, bwb_id in instrument_aliases.items():
+        alias_lower = alias.lower()
+        if name_lower.startswith(alias_lower) and len(alias_lower) > best_len:
+            best = bwb_id
+            best_len = len(alias_lower)
+    return best
+
+
 def _collect_range_hits(
     *,
     full_text: str,
@@ -130,6 +228,8 @@ def _collect_range_hits(
         lower = min(start_value, end_value)
         upper = max(start_value, end_value)
         if upper - lower <= 1:
+            continue
+        if upper > _MAX_ARTICLE_NUMBER or upper - lower > _MAX_RANGE_SPAN:
             continue
 
         span_text = full_text[block_start:block_end].strip()

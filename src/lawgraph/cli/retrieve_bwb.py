@@ -13,6 +13,8 @@ from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger, setup_logging
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 
+from .retrieve_helpers import load_profile_config
+
 load_dotenv()
 logger = get_logger(__name__)
 PROFILE_CHOICES = list_domain_profiles()
@@ -47,28 +49,28 @@ def main(argv: list[str] | None = None) -> None:
         cli_ids=args.bwb_ids,
         env_ids=_ids_from_env(),
         profile=normalized_profile,
+        config=load_profile_config(profile),
     )
 
     if not candidate_ids:
         logger.warning(
-            "Geen BWB-IDs gevonden voor profiel %s; niks te doen.",
+            "No BWB IDs found for profile %s; nothing to do.",
             profile or "default",
         )
         return
 
     store = ArangoStore()
-    pipeline = BWBRetrievePipeline(
-        store=store,
-        client=BWBClient(),
-        bwb_ids=candidate_ids,
-    )
-    records = pipeline.fetch()
+    pipeline = BWBRetrievePipeline(store=store, client=BWBClient())
+    result = pipeline.run(bwb_ids=candidate_ids)
 
     logger.info(
-        "BWB retrieve run completed (profile=%s); %d raw_sources opgeslagen.",
+        "BWB retrieve completed (profile=%s): %s.",
         profile or "default",
-        len(records),
+        result.summary(),
     )
+    if result.errors:
+        for err in result.errors:
+            logger.warning("BWB retrieve error: %s", err)
 
 
 def _resolve_bwb_ids(
@@ -76,11 +78,17 @@ def _resolve_bwb_ids(
     cli_ids: list[str] | None,
     env_ids: list[str],
     profile: str | None,
+    config: dict | None,
 ) -> list[str]:
     if cli_ids:
         return _clean_ids(cli_ids)
     if env_ids:
         return env_ids
+    if config:
+        bwb_section = config.get("bwb")
+        if isinstance(bwb_section, dict):
+            ids = bwb_section.get("ids", [])
+            return _clean_ids([str(v) for v in ids if v])
     return []
 
 

@@ -72,3 +72,9 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "C", "I"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 28
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E501"]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import xml.etree.ElementTree as ET
 from typing import Any
 
 from lawgraph.config.settings import (
@@ -78,6 +79,22 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
             if meta:
                 props["meta"] = meta
 
+            summary, text = self._extract_judgment_text(payload_text)
+            if summary:
+                props["summary"] = summary
+            if text:
+                props["text"] = text
+
+            judgment_meta, subjects = self._extract_rdf_metadata(payload_text)
+            if judgment_meta:
+                props["judgment_metadata"] = judgment_meta
+            if subjects:
+                props["subjects"] = subjects
+
+            sections = self._extract_sections(payload_text)
+            if sections:
+                props["paragraphs"] = sections
+
             is_strafrecht = self._is_strafrecht_judgment(payload_text, meta, ecli)
             labels = ["Rechtspraak"]
             if is_strafrecht:
@@ -141,6 +158,182 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
             edge_count,
         )
         return edge_count
+
+    @staticmethod
+    def _local_name(tag: str) -> str:
+        return tag.split("}", 1)[-1] if "}" in tag else tag
+
+    @staticmethod
+    def _extract_judgment_text(
+        payload_text: str | None,
+    ) -> tuple[str | None, str | None]:
+        """Return (summary, full_text) extracted from Rechtspraak XML."""
+        if not payload_text:
+            return None, None
+        try:
+            root = ET.fromstring(payload_text)
+        except ET.ParseError:
+            return None, None
+
+        def _local(tag: str) -> str:
+            return tag.split("}", 1)[-1] if "}" in tag else tag
+
+        def _itertext(el: ET.Element) -> str:
+            return " ".join(el.itertext()).strip()
+
+        summary: str | None = None
+        for el in root.iter():
+            if _local(el.tag) == "inhoudsindicatie":
+                text = _itertext(el)
+                if text:
+                    summary = text
+                break
+
+        full_text: str | None = None
+        parts: list[str] = []
+        for el in root.iter():
+            if _local(el.tag) == "uitspraak":
+                parts.append(_itertext(el))
+        if parts:
+            full_text = "\n\n".join(p for p in parts if p) or None
+
+        return summary, full_text
+
+    @staticmethod
+    def _extract_rdf_metadata(
+        payload_text: str | None,
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Return (judgment_metadata, subjects) from <rdf:Description>."""
+        if not payload_text:
+            return {}, []
+        try:
+            root = ET.fromstring(payload_text)
+        except ET.ParseError:
+            return {}, []
+
+        def _local(tag: str) -> str:
+            return tag.split("}", 1)[-1] if "}" in tag else tag
+
+        meta: dict[str, Any] = {}
+        subjects: list[str] = []
+
+        for el in root.iter():
+            tag = _local(el.tag)
+            text = (el.text or "").strip()
+            if not text:
+                continue
+            if tag == "creator" and "court" not in meta:
+                meta["court"] = text
+            elif tag == "date" and "date" not in meta:
+                meta["date"] = text
+            elif tag == "zaaknummer" and "case_number" not in meta:
+                meta["case_number"] = text
+            elif tag == "procedure" and "type" not in meta:
+                meta["type"] = text
+            elif tag == "subject":
+                subjects.append(text)
+
+        return meta, subjects
+
+    @staticmethod
+    def _extract_sections(
+        payload_text: str | None,
+    ) -> list[dict[str, Any]]:
+        """Return one entry per semantic unit (heading / subheading / body) in <uitspraak>.
+
+        Each section becomes a heading entry, each <title>/<uitspraak.info> becomes a
+        subheading, and each <para>/<al> becomes a body entry.  Offsets inside citaties
+        always refer to the specific entry's text, so the list must not be concatenated.
+        """
+        if not payload_text:
+            return []
+        try:
+            root = ET.fromstring(payload_text)
+        except ET.ParseError:
+            return []
+
+        def _local(tag: str) -> str:
+            return tag.split("}", 1)[-1] if "}" in tag else tag
+
+        def _clean(el: ET.Element) -> str:
+            return " ".join(el.itertext()).strip()
+
+        paragraphs: list[dict[str, Any]] = []
+
+        def _process_section(section: ET.Element, depth: int = 0) -> None:
+            nr = section.attrib.get("nr", "").strip() or None
+            kind = "heading" if depth == 0 else "subheading"
+
+            # Emit a heading entry for the section itself (title text only, not all children)
+            title_text: str | None = None
+            for child in section:
+                local = _local(child.tag)
+                if local == "title":
+                    title_text = _clean(child)
+                    break
+            # Fall back: first direct text of the section element (not itertext of all children)
+            if not title_text:
+                title_text = (section.text or "").strip() or None
+
+            if title_text or nr:
+                paragraphs.append(
+                    {
+                        "number": nr,
+                        "kind": kind,
+                        "text": title_text or "",
+                    }
+                )
+
+            # Walk direct children for body content and nested sections
+            for child in section:
+                local = _local(child.tag)
+                if local == "title":
+                    continue  # already handled above
+                elif local == "section":
+                    _process_section(child, depth=depth + 1)
+                elif local in ("para", "al"):
+                    text = _clean(child)
+                    if text:
+                        paragraphs.append(
+                            {"number": None, "kind": "body", "text": text}
+                        )
+                elif local in ("uitspraak.info",):
+                    text = _clean(child)
+                    if text:
+                        paragraphs.append(
+                            {"number": None, "kind": "subheading", "text": text}
+                        )
+                elif local == "footnote":
+                    pass  # skip footnotes
+                else:
+                    # Generic fallback: emit as body if it has meaningful text
+                    text = _clean(child)
+                    if text and local not in ("nr",):
+                        paragraphs.append(
+                            {"number": None, "kind": "body", "text": text}
+                        )
+
+        for el in root.iter():
+            if _local(el.tag) == "uitspraak":
+                for child in el:
+                    local = _local(child.tag)
+                    if local == "section":
+                        _process_section(child, depth=0)
+                    elif local == "uitspraak.info":
+                        text = _clean(child)
+                        if text:
+                            paragraphs.append(
+                                {"number": None, "kind": "subheading", "text": text}
+                            )
+                    elif local in ("para", "al"):
+                        text = _clean(child)
+                        if text:
+                            paragraphs.append(
+                                {"number": None, "kind": "body", "text": text}
+                            )
+                break
+
+        return paragraphs
 
     def _is_strafrecht_judgment(
         self,

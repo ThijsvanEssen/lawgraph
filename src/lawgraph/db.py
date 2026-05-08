@@ -102,7 +102,7 @@ class ArangoStore:
             ("publications", ["props.soort"], False),
             ("publications", ["props.datum"], False),
             ("publications", ["props.dossier_nummer"], False),
-            ("kamerstukdossiers", ["props.nummer"], True),
+            ("kamerstukdossiers", ["props.nummer"], False),
             ("kamerstukdossiers", ["props.afgedaan"], False),
             ("kamerstukdossiers", ["props.gesloten_op"], False),
             ("activiteiten", ["props.dossier_id"], False),
@@ -130,12 +130,12 @@ class ArangoStore:
             key = tuple(fields)
             if key in existing_by_fields:
                 existing_idx = existing_by_fields[key]
-                if unique and not existing_idx.get("unique"):
-                    try:
-                        coll.delete_index(existing_idx["id"])
-                    except Exception:
-                        continue
-                else:
+                existing_unique = existing_idx.get("unique", False)
+                if existing_unique == unique:
+                    continue
+                try:
+                    coll.delete_index(existing_idx["id"])
+                except Exception:
                     continue
             try:
                 coll.add_persistent_index(fields=fields, unique=unique, sparse=True)

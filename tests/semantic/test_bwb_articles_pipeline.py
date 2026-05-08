@@ -104,7 +104,7 @@ def test_pipeline_creates_refers_to_edges() -> None:
     pipeline = _create_pipeline(store)
     created = pipeline.run()
 
-    assert created == 1
+    assert created.created == 1
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
     assert edge["relation"] == RELATION_REFERS_TO_ARTICLE
@@ -136,8 +136,8 @@ def test_pipeline_is_idempotent() -> None:
     first = pipeline.run()
     second = pipeline.run()
 
-    assert first == 1
-    assert second == 0
+    assert first.created == 1
+    assert second.created == 0
     assert len(store.edges) == 1
 
 

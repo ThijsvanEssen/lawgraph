@@ -62,6 +62,7 @@ class BWBClient(BaseClient):
             "version": "1.2",
             "x-connection": "BWB",
             "query": f"dcterms.identifier=={bwb_id}",
+            "maximumRecords": "500",
         }
         logger.debug("SRU Search voor %s (%s)", bwb_id, params)
         resp = self.session.get(BWB_SRU_ENDPOINT, params=params, timeout=30)
@@ -89,22 +90,19 @@ class BWBClient(BaseClient):
             logger.warning("Geen BWB-toestand gevonden voor %s", bwb_id)
             return None
 
+        def sort_key(meta: ToestandMeta) -> tuple[dt.date, dt.date]:
+            return (
+                self._date_for_sort(meta.get("geldigheidsperiode_einddatum")),
+                self._date_for_sort(meta.get("geldigheidsperiode_startdatum")),
+            )
+
         still_valid = [
             meta
             for meta in toestanden
             if meta.get("geldigheidsperiode_einddatum") == "9999-12-31"
         ]
-        if still_valid:
-            selected = still_valid[0]
-        else:
-
-            def sort_key(meta: ToestandMeta) -> tuple[dt.date, dt.date]:
-                return (
-                    self._date_for_sort(meta.get("geldigheidsperiode_einddatum")),
-                    self._date_for_sort(meta.get("geldigheidsperiode_startdatum")),
-                )
-
-            selected = sorted(toestanden, key=sort_key, reverse=True)[0]
+        candidates = still_valid if still_valid else toestanden
+        selected = sorted(candidates, key=sort_key, reverse=True)[0]
 
         logger.debug(
             "Gekozen toestand voor %s -> %s / %s",

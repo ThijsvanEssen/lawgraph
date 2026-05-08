@@ -123,6 +123,10 @@ De retrieve-commando’s vullen `raw_sources` met payloads en `src/lawgraph/conf
 
 Na een volledige run zie je in ArangoDB: instrumenten uit BWB en EU, artikelen met `PART_OF_INSTRUMENT`, publicaties/judgments gekoppeld aan topics en procedures via de edgecollecties. Topics worden aangekleed met metadata en tags uit profielen.
 
+## API server starten
+
+De API-server draait lokaal met Uvicorn; voer `uvicorn lawgraph.api.app:app --reload` uit vanuit de projectroot om deze te starten en hot reload bij codewijzigingen te krijgen.
+
 ## Ontwikkeling
 
 - Tests: `pytest tests/`. Gebruik `ALLOW_NETWORK_TESTS=1 pytest tests/` als je echte API-calls wilt toestaan.

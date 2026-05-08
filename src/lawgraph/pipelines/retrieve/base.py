@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 from lawgraph.db import ArangoStore
+from lawgraph.logging import get_logger
+from lawgraph.models import PipelineResult
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -24,19 +28,35 @@ class RetrievePipelineProtocol(Protocol):
 
     def fetch(self, *args: object, **kwargs: Any) -> Sequence[RetrieveRecord]: ...
 
-    def dump(self, *args: object, **kwargs: Any) -> list[RetrieveRecord]: ...
+    def run(self, *args: object, **kwargs: Any) -> PipelineResult: ...
 
 
 class RetrievePipelineBase(RetrievePipelineProtocol):
     def __init__(self, store: ArangoStore) -> None:
         self._store = store
 
-    def dump(self, *args: object, **kwargs: Any) -> list[RetrieveRecord]:
-        """Fetch records and store them in the raw_sources collection."""
-        records = list(self.fetch(*args, **kwargs))
+    def run(self, *args: object, **kwargs: Any) -> PipelineResult:
+        """Fetch records and store them with per-record error handling."""
+        result = PipelineResult()
+        try:
+            records = list(self.fetch(*args, **kwargs))
+        except Exception as exc:
+            msg = f"fetch() failed: {exc}"
+            logger.error(msg)
+            result.add_error(msg)
+            return result
+
         for record in records:
-            self._insert(record)
-        return records
+            try:
+                self._insert(record)
+                result.created += 1
+            except Exception as exc:
+                msg = f"Failed to store {record.source}/{record.kind}/{record.external_id}: {exc}"
+                logger.error(msg)
+                result.add_error(msg)
+                result.skipped += 1
+
+        return result
 
     def fetch(self, *args: object, **kwargs: Any) -> Sequence[RetrieveRecord]:
         """Return the raw source records that should be stored."""

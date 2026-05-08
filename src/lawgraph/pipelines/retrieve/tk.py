@@ -32,9 +32,15 @@ class TKRetrievePipeline(RetrievePipelineBase):
         limit: int = 100,
         zaak_filter: Callable[[dict[str, Any]], bool] | None = None,
         documentversie_filter: Callable[[dict[str, Any]], bool] | None = None,
+        keywords: list[str] | None = None,
         **kwargs: object,
     ) -> Sequence[RetrieveRecord]:
-        """Return records for TK Zaak and DocumentVersie that match the filters."""
+        """Return records for TK Zaak and DocumentVersie that match the filters.
+
+        If *keywords* is provided, keyword matching is pushed into the OData
+        query so the API only returns relevant records (avoids fetching 30k+
+        records and discarding most of them client-side).
+        """
         logger.info(
             "Fetching TK Zaak and DocumentVersie since %s (limit %d)",
             since.isoformat(),
@@ -43,7 +49,12 @@ class TKRetrievePipeline(RetrievePipelineBase):
 
         records: list[RetrieveRecord] = []
 
-        zaken = self.tk.zaken_modified_since(since, top=limit)
+        zaken = self.tk.zaken_modified_since(
+            since,
+            top=limit if not keywords else 0,
+            keyword_fields=["Onderwerp", "Titel"] if keywords else None,
+            keywords=keywords,
+        )
         for zaak in zaken:
             if zaak_filter and not zaak_filter(zaak):
                 continue
@@ -67,7 +78,15 @@ class TKRetrievePipeline(RetrievePipelineBase):
                 )
             )
 
-        documentversies = self.tk.documentversies_modified_since(since, top=limit)
+        # Fetch Document (not DocumentVersie) because Document carries Titel,
+        # Onderwerp, and Soort which are needed for content filtering. Each
+        # Document record is expanded with its parent Zaak for procedure linking.
+        documentversies = self.tk.documents_modified_since(
+            since,
+            top=limit if not keywords else 0,
+            keyword_fields=["Titel", "Onderwerp"] if keywords else None,
+            keywords=keywords,
+        )
         for documentversie in documentversies:
             if documentversie_filter and not documentversie_filter(documentversie):
                 continue

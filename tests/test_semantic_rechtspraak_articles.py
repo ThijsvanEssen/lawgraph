@@ -108,7 +108,7 @@ def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
     )
 
     created_first = pipeline.run()
-    assert created_first == 1
+    assert created_first.created == 1
     assert len(store.edges) == 1
 
     key = next(iter(store.edges))
@@ -124,5 +124,5 @@ def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
     assert isinstance(edge["confidence"], float)
 
     created_second = pipeline.run()
-    assert created_second == 0
+    assert created_second.created == 0
     assert len(store.edges) == 1

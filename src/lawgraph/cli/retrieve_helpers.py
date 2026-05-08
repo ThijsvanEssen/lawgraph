@@ -47,12 +47,17 @@ def make_tk_filter(filters: dict[str, Any]) -> Callable[[dict[str, Any]], bool]:
     ]
 
     def matcher(record: dict[str, Any]) -> bool:
+        # Gather text fields from the record itself and from an expanded Document.
+        doc = record.get("Document") or {}
         candidates = [
             record.get("Titel"),
+            record.get("Onderwerp"),
             record.get("ZaakTitel"),
             record.get("Omschrijving"),
             record.get("TitelMetBijlagen"),
             record.get("ZaakNummer"),
+            doc.get("Titel"),
+            doc.get("Onderwerp"),
         ]
         for candidate in candidates:
             text = str(candidate) if candidate is not None else None

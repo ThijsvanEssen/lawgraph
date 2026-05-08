@@ -1,4 +1,4 @@
-"""CLI entry point for the BWB article-to-article semantic pipeline."""
+"""CLI for detecting AMENDS_INSTRUMENT and IMPLEMENTS_DIRECTIVE edges."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from lawgraph.cli.retrieve_helpers import load_profile_config
 from lawgraph.config import list_domain_profiles
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger, setup_logging
-from lawgraph.pipelines.semantic.bwb_articles import BwbArticlesSemanticPipeline
+from lawgraph.pipelines.semantic.instrument_relations import InstrumentRelationsPipeline
 
 logger = get_logger(__name__)
 PROFILE_CHOICES = list_domain_profiles()
@@ -19,19 +19,16 @@ PROFILE_CHOICES = list_domain_profiles()
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Detect BWB article references and store semantic REFERS_TO_ARTICLE edges."
+        description=(
+            "Detect AMENDS_INSTRUMENT edges from TK titles and "
+            "IMPLEMENTS_DIRECTIVE edges from BWB source text."
+        )
     )
     parser.add_argument(
         "--profile",
         choices=PROFILE_CHOICES or None,
-        help="Domain profile that defines target BWB IDs (default: strafrecht).",
+        help="Domain profile containing instrument_aliases (e.g. strafrecht).",
     )
-    parser.add_argument(
-        "--store-citations",
-        action="store_true",
-        help="Store detected citations on the source article documents.",
-    )
-
     args = parser.parse_args(argv)
 
     load_dotenv()
@@ -40,20 +37,17 @@ def main(argv: list[str] | None = None) -> None:
     profile = args.profile or os.getenv("LAWGRAPH_PROFILE")
     store = ArangoStore()
     config = load_profile_config(profile)
-    pipeline = BwbArticlesSemanticPipeline(
+    pipeline = InstrumentRelationsPipeline(
         store=store,
         domain_profile=profile,
         domain_config=config,
-        store_citations=args.store_citations,
     )
 
     logger.info(
-        "Starting BWB article semantic pipeline (profile=%s, store_citations=%s).",
-        profile or "default",
-        args.store_citations,
+        "Starting instrument relations pipeline (profile=%s).", profile or "default"
     )
     result = pipeline.run()
-    logger.info("BWB article semantic pipeline: %s.", result.summary())
+    logger.info("Instrument relations: %s.", result.summary())
     if result.errors:
         for err in result.errors:
-            logger.warning("BWB semantic error: %s", err)
+            logger.warning("Instrument relations error: %s", err)

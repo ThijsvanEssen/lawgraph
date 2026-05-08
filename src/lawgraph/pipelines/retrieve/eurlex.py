@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from lawgraph.clients.eu import EUClient
-from lawgraph.config.settings import RAW_KIND_EU_CELEX, SOURCE_EURLEx
+from lawgraph.config.settings import RAW_KIND_EU_CELEX, SOURCE_EURLEX
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
 
@@ -30,10 +30,14 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         logger.info("Fetching EUR-Lex CELEX ids: %s", celex_ids)
         records: list[RetrieveRecord] = []
         for celex in celex_ids:
-            html = self.eu.fetch_celex_html(celex, lang=lang)
+            try:
+                html = self.eu.fetch_celex_html(celex, lang=lang)
+            except Exception as exc:
+                logger.warning("Skipping CELEX %s: %s", celex, exc)
+                continue
             records.append(
                 RetrieveRecord(
-                    source=SOURCE_EURLEx,
+                    source=SOURCE_EURLEX,
                     kind=RAW_KIND_EU_CELEX,
                     external_id=celex,
                     payload_text=html,

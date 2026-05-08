@@ -64,7 +64,11 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
 
         if eclis:
             for ecli in eclis:
-                xml = self.rs.fetch_ecli_content(ecli)
+                try:
+                    xml = self.rs.fetch_ecli_content(ecli)
+                except Exception as exc:
+                    logger.warning("Skipping ECLI %s: %s", ecli, exc)
+                    continue
                 records.append(
                     RetrieveRecord(
                         source=SOURCE_RECHTSPRAAK,

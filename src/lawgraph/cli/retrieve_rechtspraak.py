@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> None:
     elif config:
         eclis = list(seed_examples(config).get("rechtspraak_eclis", []))
 
-    pipeline.dump(
+    result = pipeline.run(
         fetch_index=True,
         since=since,
         extra_params=params,
@@ -73,6 +73,10 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     logger.info(
-        "Rechtspraak retrieve run completed (profile=%s).",
+        "Rechtspraak retrieve completed (profile=%s): %s.",
         profile or "default",
+        result.summary(),
     )
+    if result.errors:
+        for err in result.errors:
+            logger.warning("Rechtspraak retrieve error: %s", err)

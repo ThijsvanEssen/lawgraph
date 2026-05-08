@@ -61,18 +61,34 @@ def main(argv: list[str] | None = None) -> None:
     )
     config = load_profile_config(profile)
     tk_filter = None
+    keywords: list[str] | None = None
     if config:
-        filters = config.get("filters", {})
-        tk_filter = make_tk_filter(filters.get("tk", {}))
+        tk_cfg = config.get("filters", {}).get("tk", {})
+        tk_filter = make_tk_filter(tk_cfg)
+        all_keywords = [
+            kw.strip()
+            for kw in tk_cfg.get("title_contains", [])
+            if isinstance(kw, str) and kw.strip()
+        ]
+        # TK OData API rejects filters with too many OR clauses (fields × keywords).
+        # Pass at most 3 short keywords for server-side pre-filtering; the full
+        # make_tk_filter runs client-side on every returned record.
+        _MAX_API_KEYWORDS = 3
+        keywords = all_keywords[:_MAX_API_KEYWORDS] or None
 
-    pipeline.dump(
+    result = pipeline.run(
         since=since,
         limit=args.limit,
         zaak_filter=tk_filter,
         documentversie_filter=tk_filter,
+        keywords=keywords,
     )
 
     logger.info(
-        "TK retrieve run completed (profile=%s).",
+        "TK retrieve completed (profile=%s): %s.",
         profile or "default",
+        result.summary(),
     )
+    if result.errors:
+        for err in result.errors:
+            logger.warning("TK retrieve error: %s", err)

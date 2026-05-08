@@ -235,8 +235,15 @@ class TkNormalizePipeline(NormalizePipeline):
                 )
                 continue
 
+            # Payload is a Document record with an optional expanded Zaak list.
+            zaak_list = payload.get("Zaak")
+            zaak = (
+                zaak_list[0] if isinstance(zaak_list, list) and zaak_list else None
+            ) or {}
             procedure_external_id = self._first_non_empty(
                 [
+                    zaak.get("Id"),
+                    zaak.get("Nummer"),
                     payload.get("ZaakId"),
                     payload.get("ZaakNummer"),
                 ]
@@ -252,6 +259,11 @@ class TkNormalizePipeline(NormalizePipeline):
             title_value = payload.get("Titel") or payload.get("TitelMetBijlagen")
             if title_value:
                 props["title"] = title_value
+            onderwerp = payload.get("Onderwerp")
+            if onderwerp:
+                props["onderwerp"] = onderwerp
+            if payload.get("Soort"):
+                props["soort"] = payload["Soort"]
 
             is_strafrecht = self._is_strafrecht_tk_payload(payload)
             labels = ["TK"]
@@ -289,6 +301,7 @@ class TkNormalizePipeline(NormalizePipeline):
 
         title_candidates = [
             payload.get("Titel"),
+            payload.get("Onderwerp"),
             payload.get("ZaakTitel"),
             payload.get("Omschrijving"),
             payload.get("TitelMetBijlagen"),

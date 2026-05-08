@@ -5,7 +5,7 @@ Processing order matters:
   2. Personen    — no dependencies
   3. Dossiers    — no dependencies
   4. Activiteiten — depend on Commissie nodes
-  5. Stemmingen  — depend on Zaak nodes (procedures collection)
+  5. Stemmingen  — grouped by Besluit_Id (expanded Besluit record)
   6. Toezeggingen — depend on Activiteit nodes
 
 Edges written:
@@ -13,7 +13,6 @@ Edges written:
   - Publication → Kamerstukdossier   (DEEL_VAN_DOSSIER, via dossier_nummer prop)
   - Activiteit → Kamerstukdossier    (DEEL_VAN_DOSSIER)
   - Activiteit → Commissie           (BEHANDELD_DOOR)
-  - Stemming → Activiteit            (GESTEMD_IN)
   - Toezegging → Activiteit          (GEDAAN_IN)
   - Lid → Commissie                  (LID_VAN, from CommissieZetel)
 """
@@ -28,7 +27,6 @@ from lawgraph.config.settings import (
     COLLECTION_COMMISSIES,
     COLLECTION_KAMERSTUKDOSSIERS,
     COLLECTION_LEDEN,
-    COLLECTION_PROCEDURES,
     COLLECTION_STEMMINGEN,
     COLLECTION_TOEZEGGINGEN,
     EDGE_STATUS_CANONIEK,
@@ -41,7 +39,6 @@ from lawgraph.config.settings import (
     RELATION_BEHANDELD_DOOR,
     RELATION_DEEL_VAN_DOSSIER,
     RELATION_GEDAAN_IN,
-    RELATION_GESTEMD_IN,
     SOURCE_TK,
 )
 from lawgraph.db import ArangoStore
@@ -210,12 +207,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             ).strip()
             naam = " ".join(naam.split())  # collapse whitespace
 
-            # Best-effort party from FractieZetel expansion
-            fractie = ""
-            fractie_zetel_list = payload.get("FractieZetel") or []
-            if isinstance(fractie_zetel_list, list) and fractie_zetel_list:
-                first = fractie_zetel_list[0]
-                fractie = str(first.get("Fractie", {}).get("Afkorting") or "")
+            fractie = str(payload.get("Fractielabel") or "")
 
             props: dict[str, Any] = {
                 "external_id": external_id,
@@ -319,18 +311,12 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             omschrijving = payload.get("Omschrijving") or ""
             soort = payload.get("Soort") or ""
 
-            # Extract dossier numbers from expanded Agendapunt.Dossier links
+            # Agendapunt expand has no Dossier sub-property; dossier links resolved later
             dossier_nummers: list[str] = []
-            for agendapunt in payload.get("Agendapunt") or []:
-                for dossier in agendapunt.get("Dossier") or []:
-                    nummer = dossier.get("Nummer")
-                    if nummer:
-                        dossier_nummers.append(str(nummer))
 
-            # Commissie from ActiviteitActor or separate field
             commissie_id: str | None = None
-            if payload.get("CommissieId"):
-                commissie_id = str(payload["CommissieId"])
+            if payload.get("Voortouwcommissie_Id"):
+                commissie_id = str(payload["Voortouwcommissie_Id"])
 
             display_name = f"{datum or '?'} — {omschrijving or soort}"
             props: dict[str, Any] = {
@@ -362,33 +348,36 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
     def _normalize_stemmingen(
         self, raw_records: list[dict[str, Any]]
     ) -> dict[str, Node]:
-        """Group individual Stemming rows by ZaakId, produce one node per Zaak.
+        """Group individual Stemming rows by Besluit_Id, one node per motion.
 
-        The TK API returns one Stemming record per fractie per motion. We
-        aggregate them into a single Stemming node per motion (Zaak) with
+        The TK API returns one Stemming record per fractie per Besluit. We
+        aggregate them into a single Stemming node per Besluit with
         voor/tegen/onthouding breakdowns.
+        Fields: ActorFractie (party name), Soort (Voor/Tegen/Onthouden),
+        FractieGrootte (seats). Besluit expand: BesluitSoort, BesluitTekst.
         """
-        by_zaak: dict[str, list[dict[str, Any]]] = {}
-        zaak_payloads: dict[str, dict[str, Any]] = {}
+        by_besluit: dict[str, list[dict[str, Any]]] = {}
+        besluit_payloads: dict[str, dict[str, Any]] = {}
 
         for raw in raw_records:
             payload = self._payload_json(raw)
-            zaak_id = str(payload.get("ZaakId") or "")
-            if not zaak_id:
+            besluit_id = str(payload.get("Besluit_Id") or "")
+            if not besluit_id:
                 continue
-            by_zaak.setdefault(zaak_id, []).append(payload)
-            if "Zaak" in payload and isinstance(payload["Zaak"], dict):
-                zaak_payloads[zaak_id] = payload["Zaak"]
+            by_besluit.setdefault(besluit_id, []).append(payload)
+            if "Besluit" in payload and isinstance(payload["Besluit"], dict):
+                besluit_payloads[besluit_id] = payload["Besluit"]
 
         nodes: dict[str, Node] = {}
-        for zaak_id, votes in by_zaak.items():
-            zaak = zaak_payloads.get(zaak_id, {})
-            onderwerp = (
-                zaak.get("Titel") or zaak.get("Omschrijving") or f"Zaak {zaak_id[:8]}"
-            )
-            datum = _iso_date(zaak.get("Datum")) or _iso_date(
-                votes[0].get("GewijzigdOp")
-            )
+        for besluit_id, votes in by_besluit.items():
+            besluit = besluit_payloads.get(besluit_id, {})
+            onderwerp = besluit.get("BesluitTekst") or f"Besluit {besluit_id[:8]}"
+            datum = _iso_date(votes[0].get("GewijzigdOp"))
+            agendapunt_id = str(besluit.get("Agendapunt_Id") or "")
+
+            besluit_soort = (
+                besluit.get("BesluitSoort") or besluit.get("StemmingsSoort") or ""
+            ).lower()
 
             voor: list[dict[str, Any]] = []
             tegen: list[dict[str, Any]] = []
@@ -397,7 +386,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             for vote in votes:
                 soort = (vote.get("Soort") or "").lower()
                 partij_entry = {
-                    "partij": vote.get("ActorNaam") or vote.get("FractieNaam") or "",
+                    "partij": vote.get("ActorFractie") or "",
                     "aantal_zetels": vote.get("FractieGrootte") or 0,
                 }
                 if "voor" in soort:
@@ -407,26 +396,28 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                 else:
                     onthouding.append(partij_entry)
 
-            zetels_voor = sum(v["aantal_zetels"] for v in voor)
-            zetels_tegen = sum(v["aantal_zetels"] for v in tegen)
-            aangenomen = zetels_voor > zetels_tegen
-
-            stemwijze = votes[0].get("Stemwijze") or "fractie"
+            if "aangenomen" in besluit_soort:
+                aangenomen = True
+            elif "verworpen" in besluit_soort:
+                aangenomen = False
+            else:
+                zetels_voor = sum(v["aantal_zetels"] for v in voor)
+                zetels_tegen = sum(v["aantal_zetels"] for v in tegen)
+                aangenomen = zetels_voor > zetels_tegen
 
             props: dict[str, Any] = {
-                "zaak_id": zaak_id,
-                "dossier_id": str(zaak.get("KamerstukdossierId") or ""),
+                "besluit_id": besluit_id,
+                "agendapunt_id": agendapunt_id,
                 "datum": datum,
                 "onderwerp": onderwerp,
                 "voor": voor,
                 "tegen": tegen,
                 "onthouding": onthouding,
                 "aangenomen": aangenomen,
-                "stemwijze": stemwijze,
                 "display_name": f"Stemming: {onderwerp[:80]}",
             }
 
-            key = make_node_key("stemming", zaak_id)
+            key = make_node_key("stemming", besluit_id)
             node = Node(
                 collection=COLLECTION_STEMMINGEN,
                 type=NodeType.STEMMING,
@@ -435,7 +426,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                 props=props,
             )
             inserted = self.store.insert_or_update(node)
-            nodes[zaak_id] = inserted
+            nodes[besluit_id] = inserted
 
         logger.info(
             "Normalized %d stemmingen (from %d raw votes).",
@@ -662,50 +653,15 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         stemming_nodes: dict[str, Node],
     ) -> int:
         edges = 0
-        for zaak_id, stemming_node in stemming_nodes.items():
+        for _besluit_id, stemming_node in stemming_nodes.items():
             if not stemming_node.id:
                 continue
 
-            # → Zaak (procedure)
-            zaak_key = make_node_key(zaak_id)
-            zaak_node = self.store.get_node(COLLECTION_PROCEDURES, zaak_key)
-            if zaak_node and zaak_node.id:
-                try:
-                    self.store.create_edge(
-                        from_id=stemming_node.id,
-                        to_id=zaak_node.id,
-                        relation=RELATION_GESTEMD_IN,
-                        source="tk-dossiers",
-                        status=EDGE_STATUS_CANONIEK,
-                    )
-                    edges += 1
-                except Exception as exc:
-                    logger.error("Stemming→zaak edge failed: %s", exc)
+            # Stemming links to Activiteit via Agendapunt_Id when we have it; skipped
+            # for now as Activiteit nodes are keyed by external_id (Activiteit.Id),
+            # not Agendapunt.Id — no reliable join available without extra lookups.
 
-            # → Kamerstukdossier (via props.dossier_id)
-            dossier_external_id = stemming_node.props.get("dossier_id")
-            if dossier_external_id:
-                dossier_key = make_node_key(dossier_external_id)
-                dossier_node = self.store.get_node(
-                    COLLECTION_KAMERSTUKDOSSIERS, dossier_key
-                )
-                if not dossier_node:
-                    # Try by nummer
-                    dossier_node = self._find_dossier_by_external_id(
-                        dossier_external_id
-                    )
-                if dossier_node and dossier_node.id:
-                    try:
-                        self.store.create_edge(
-                            from_id=stemming_node.id,
-                            to_id=dossier_node.id,
-                            relation=RELATION_DEEL_VAN_DOSSIER,
-                            source="tk-dossiers",
-                            status=EDGE_STATUS_CANONIEK,
-                        )
-                        edges += 1
-                    except Exception as exc:
-                        logger.error("Stemming→dossier edge failed: %s", exc)
+            pass
 
         logger.info("Built %d stemming edges.", edges)
         return edges
@@ -758,7 +714,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
             for zetel in payload.get("CommissieZetel") or []:
                 for vaste in zetel.get("CommissieZetelVastPersoon") or []:
-                    persoon_id = str(vaste.get("PersoonId") or "")
+                    persoon_id = str(vaste.get("Persoon_Id") or "")
                     if not persoon_id:
                         continue
                     lid_key = make_node_key(persoon_id)

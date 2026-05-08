@@ -57,5 +57,8 @@ def main(argv: list[str] | None = None) -> None:
         profile or "default",
         since.isoformat() if since else "full",
     )
-    created = pipeline.run(since=since)
-    logger.info("EU semantic pipeline created %d edges.", created)
+    result = pipeline.run(since=since)
+    logger.info("EU semantic pipeline: %s.", result.summary())
+    if result.errors:
+        for err in result.errors:
+            logger.warning("EU semantic error: %s", err)

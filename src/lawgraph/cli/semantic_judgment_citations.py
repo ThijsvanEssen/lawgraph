@@ -1,4 +1,4 @@
-"""CLI for linking TK documents to articles via semantic edges."""
+"""CLI for detecting ECLI cross-references between judgments (CITES_JUDGMENT)."""
 
 from __future__ import annotations
 
@@ -8,11 +8,12 @@ import os
 
 from dotenv import load_dotenv
 
-from lawgraph.cli.retrieve_helpers import load_profile_config
 from lawgraph.config import list_domain_profiles
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger, setup_logging
-from lawgraph.pipelines.semantic.tk_articles import TKArticleSemanticPipeline
+from lawgraph.pipelines.semantic.judgment_citations import (
+    JudgmentCitationsSemanticPipeline,
+)
 
 logger = get_logger(__name__)
 PROFILE_CHOICES = list_domain_profiles()
@@ -20,12 +21,12 @@ PROFILE_CHOICES = list_domain_profiles()
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Detect TK references to Dutch and EU articles via semantic edges."
+        description="Detect ECLI cross-references in judgments and create CITES_JUDGMENT edges."
     )
     parser.add_argument(
         "--profile",
         choices=PROFILE_CHOICES or None,
-        help="Domain profile that contains alias mappings (e.g. strafrecht).",
+        help="Domain profile (optional; no aliases needed for ECLI detection).",
     )
     parser.add_argument(
         "--since-days",
@@ -39,26 +40,22 @@ def main(argv: list[str] | None = None) -> None:
     setup_logging()
 
     profile = args.profile or os.getenv("LAWGRAPH_PROFILE")
-    if args.since_days and args.since_days > 0:
-        since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=args.since_days)
-    else:
-        since = None
-
-    store = ArangoStore()
-    config = load_profile_config(profile)
-    pipeline = TKArticleSemanticPipeline(
-        store=store,
-        domain_profile=profile,
-        domain_config=config,
+    since = (
+        dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=args.since_days)
+        if args.since_days and args.since_days > 0
+        else None
     )
 
+    store = ArangoStore()
+    pipeline = JudgmentCitationsSemanticPipeline(store=store, domain_profile=profile)
+
     logger.info(
-        "Starting TK semantic article linker (profile=%s, since=%s).",
+        "Starting judgment citation linker (profile=%s, since=%s).",
         profile or "default",
         since.isoformat() if since else "full",
     )
     result = pipeline.run(since=since)
-    logger.info("TK semantic pipeline: %s.", result.summary())
+    logger.info("Judgment citation linker: %s.", result.summary())
     if result.errors:
         for err in result.errors:
-            logger.warning("TK semantic error: %s", err)
+            logger.warning("Judgment citation error: %s", err)

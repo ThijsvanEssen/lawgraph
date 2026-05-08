@@ -52,11 +52,8 @@ def main() -> None:
 
     store = ArangoStore()
     pipeline = TkDossiersNormalizePipeline(store=store)
-    result = pipeline.run(since=since)
-    print(result.summary())
-    if result.errors:
-        for err in result.errors:
-            print(f"  ERROR: {err}")
+    pipeline.run(since=since)
+    print("Done.")
 
 
 if __name__ == "__main__":

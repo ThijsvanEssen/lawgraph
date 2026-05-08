@@ -119,7 +119,7 @@ def test_tk_pipeline_links_to_article_node() -> None:
     )
 
     created = pipeline.run()
-    assert created == 1
+    assert created.created == 1
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
     assert edge["relation"] == "MENTIONS_ARTICLE"
@@ -143,7 +143,7 @@ def test_tk_pipeline_links_to_celex_instrument() -> None:
     )
 
     created = pipeline.run()
-    assert created == 1
+    assert created.created == 1
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
     assert edge["_to"].split("/")[0] == "instruments"
@@ -165,7 +165,7 @@ def test_tk_pipeline_links_named_act_to_instrument() -> None:
     )
 
     created = pipeline.run()
-    assert created == 1
+    assert created.created == 1
     assert len(store.edges) == 1
 
 
@@ -191,6 +191,6 @@ def test_tk_pipeline_idempotent_edges() -> None:
 
     first = pipeline.run()
     second = pipeline.run()
-    assert first == 1
-    assert second == 0
+    assert first.created == 1
+    assert second.created == 0
     assert len(store.edges) == 1

@@ -60,9 +60,16 @@ def main(argv: list[str] | None = None) -> None:
         logger.warning("No EUR-Lex CELEX identifiers were provided or configured.")
         return
 
-    pipeline.dump(
+    result = pipeline.run(
         celex_ids=candidates,
         lang=args.lang,
     )
 
-    logger.info("EUR-Lex retrieve run completed (profile=%s).", profile or "default")
+    logger.info(
+        "EUR-Lex retrieve completed (profile=%s): %s.",
+        profile or "default",
+        result.summary(),
+    )
+    if result.errors:
+        for err in result.errors:
+            logger.warning("EUR-Lex retrieve error: %s", err)

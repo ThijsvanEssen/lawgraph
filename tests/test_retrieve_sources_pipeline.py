@@ -46,16 +46,26 @@ class FakeStore:
 
 
 class FakeTKClient:
-    def zaken_modified_since(self, since: dt.datetime, top: int = 100) -> list[dict]:
+    def zaken_modified_since(
+        self,
+        since: dt.datetime,
+        top: int = 100,
+        keyword_fields: list | None = None,
+        keywords: list | None = None,
+    ) -> list[dict]:
         return [
             {"Id": "Z1", "Titel": "Zaak 1"},
             {"Id": "Z2", "Titel": "Zaak 2"},
         ]
 
-    def documentversies_modified_since(
-        self, since: dt.datetime, top: int = 100
+    def documents_modified_since(
+        self,
+        since: dt.datetime,
+        top: int = 100,
+        keyword_fields: list | None = None,
+        keywords: list | None = None,
     ) -> list[dict]:
-        return [{"Id": "D1", "Naam": "Document"}]
+        return [{"Id": "D1", "Titel": "Document 1", "Onderwerp": "Test"}]
 
 
 class FakeRechtspraakClient:

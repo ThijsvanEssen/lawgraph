@@ -106,7 +106,7 @@ class TKClient(BaseClient):
     def fetch_dossiers(
         self,
         since: dt.datetime | None = None,
-        top: int = 500,
+        top: int = 250,
     ) -> list[dict]:
         """Fetch Kamerstukdossier records, optionally filtered by modification date."""
         params: dict[str, Any] = {"$top": top}
@@ -121,12 +121,16 @@ class TKClient(BaseClient):
     def fetch_activiteiten(
         self,
         since: dt.datetime | None = None,
-        top: int = 500,
+        top: int = 250,
     ) -> list[dict]:
-        """Fetch Activiteit (debate/hearing) records with expanded agenda items."""
+        """Fetch Activiteit (debate/hearing) records.
+
+        The API does not support nested $expand (e.g. Agendapunt($expand=Dossier)),
+        so we expand Agendapunt only one level deep.
+        """
         params: dict[str, Any] = {
             "$top": top,
-            "$expand": "Agendapunt($expand=Dossier)",
+            "$expand": "Agendapunt",
         }
         if since is not None:
             since_string = self._format_odata_datetime(since)
@@ -139,14 +143,16 @@ class TKClient(BaseClient):
     def fetch_stemmingen(
         self,
         since: dt.datetime | None = None,
-        top: int = 1000,
+        top: int = 250,
     ) -> list[dict]:
-        """Fetch Stemming (vote) records with the parent Zaak expanded.
+        """Fetch Stemming (vote) records with the parent Besluit expanded.
 
-        Each Stemming record is one fractie's vote on one Zaak. Caller must
-        group by ZaakId to reconstruct the full vote breakdown per motion.
+        Each Stemming record is one fractie's vote on one Besluit. Caller must
+        group by Besluit_Id to reconstruct the full vote breakdown per decision.
+        Relevant fields: ActorFractie (party), Soort (Voor/Tegen/Onthouden),
+        FractieGrootte (seats), Vergissing (mistaken vote).
         """
-        params: dict[str, Any] = {"$top": top, "$expand": "Zaak"}
+        params: dict[str, Any] = {"$top": top, "$expand": "Besluit"}
         if since is not None:
             since_string = self._format_odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
@@ -158,7 +164,7 @@ class TKClient(BaseClient):
     def fetch_toezeggingen(
         self,
         since: dt.datetime | None = None,
-        top: int = 500,
+        top: int = 250,
     ) -> list[dict]:
         """Fetch Toezegging (ministerial commitment) records."""
         params: dict[str, Any] = {"$top": top}
@@ -171,7 +177,7 @@ class TKClient(BaseClient):
         return list(self._paged_get("Toezegging", params=params))
 
     def fetch_commissies(self, top: int = 200) -> list[dict]:
-        """Fetch Commissie (committee) records with members expanded."""
+        """Fetch Commissie (committee) records with CommissieZetel members expanded."""
         params: dict[str, Any] = {
             "$top": top,
             "$expand": "CommissieZetel($expand=CommissieZetelVastPersoon)",
@@ -179,8 +185,11 @@ class TKClient(BaseClient):
         logger.info("Fetching Commissie records")
         return list(self._paged_get("Commissie", params=params))
 
-    def fetch_personen(self, top: int = 1000) -> list[dict]:
-        """Fetch Persoon (parliamentary member) records."""
-        params: dict[str, Any] = {"$top": top, "$expand": "FractieZetel"}
+    def fetch_personen(self, top: int = 250) -> list[dict]:
+        """Fetch Persoon (parliamentary member) records.
+
+        The Fractielabel field contains the party label directly — no expand needed.
+        """
+        params: dict[str, Any] = {"$top": top}
         logger.info("Fetching Persoon records")
         return list(self._paged_get("Persoon", params=params))

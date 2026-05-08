@@ -105,10 +105,10 @@ def test_eu_pipeline_links_celex_target() -> None:
     )
 
     created = pipeline.run()
-    assert created == 1
+    assert created.created == 1
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
-    assert edge["relation"] == "MENTIONS_ARTICLE"
+    assert edge["relation"] == "MENTIONS_INSTRUMENT"
     assert edge["source"] == "eu-article-linker"
     assert edge["_to"].startswith("instruments/")
 
@@ -131,7 +131,7 @@ def test_eu_pipeline_links_bwb_article() -> None:
     )
 
     created = pipeline.run()
-    assert created == 1
+    assert created.created == 1
     edge = next(iter(store.edges.values()))
     assert edge["_to"].startswith("instrument_articles/")
 
@@ -155,11 +155,11 @@ def test_eu_pipeline_idempotent_edges() -> None:
 
     first = pipeline.run()
     second = pipeline.run()
-    assert first == 1
-    assert second == 0
+    assert first.created == 1
+    assert second.created == 0
     assert len(store.edges) == 1
     key = next(iter(store.edges))
     expected_key = (
-        f"{make_node_key(source_key)}__{make_node_key(target_key)}__MENTIONS_ARTICLE"
+        f"{make_node_key(source_key)}__{make_node_key(target_key)}__MENTIONS_INSTRUMENT"
     )
     assert key == expected_key
