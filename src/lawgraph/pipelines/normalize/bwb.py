@@ -162,8 +162,7 @@ class BWBNormalizePipeline(NormalizePipeline):
                         from_id=instrument.id,
                         to_id=article.id,
                         relation=RELATION_PART_OF_INSTRUMENT,
-                        strict=True,
-                        meta={"source": "bwb-normalize"},
+                        source="bwb-normalize",
                     )
                     edge_count += 1
                 except Exception as exc:
@@ -232,10 +231,10 @@ class BWBNormalizePipeline(NormalizePipeline):
 
     @classmethod
     def _extract_article_text(cls, article: ET.Element) -> str:
-        lids = cls._collect_lid_texts(article)
-        if lids:
-            return "\n".join(lids).strip()
-        return "\n".join(cls._collect_al_texts(article)).strip()
+        lid_texts = cls._collect_lid_texts(article)
+        if lid_texts:
+            return "\n".join(lid_texts).strip()
+        return cls._collect_fallback_texts(article)
 
     @classmethod
     def _collect_lid_texts(cls, article: ET.Element) -> list[str]:
@@ -243,7 +242,11 @@ class BWBNormalizePipeline(NormalizePipeline):
         for element in article.iter():
             if cls._local_name(element.tag) != "lid":
                 continue
-            parts = cls._gather_al_parts(element)
+            parts = [
+                cls._text_from_element(child)
+                for child in element
+                if cls._local_name(child.tag) == "al" and cls._text_from_element(child)
+            ]
             if not parts:
                 continue
             lidnr_elem = cls._find_descendant(element, "lidnr")
@@ -253,25 +256,14 @@ class BWBNormalizePipeline(NormalizePipeline):
         return lid_texts
 
     @classmethod
-    def _collect_al_texts(cls, article: ET.Element) -> list[str]:
-        fallback: list[str] = []
+    def _collect_fallback_texts(cls, article: ET.Element) -> str:
+        parts: list[str] = []
         for element in article.iter():
             if cls._local_name(element.tag) == "al":
                 text = cls._text_from_element(element)
                 if text:
-                    fallback.append(text)
-        return fallback
-
-    @classmethod
-    def _gather_al_parts(cls, element: ET.Element) -> list[str]:
-        parts: list[str] = []
-        for child in element:
-            if cls._local_name(child.tag) != "al":
-                continue
-            text = cls._text_from_element(child)
-            if text:
-                parts.append(text)
-        return parts
+                    parts.append(text)
+        return "\n".join(parts).strip()
 
     @staticmethod
     def _local_name(tag: str) -> str:

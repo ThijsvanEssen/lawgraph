@@ -235,7 +235,7 @@ class NormalizePipeline(NormalizePipelineProtocol):
             "relation": "RELATED_TOPIC",
         }
         aql = """
-        FOR edge IN edges_semantic
+        FOR edge IN edges
             FILTER edge._from == @from_id
             FILTER edge._to == @to_id
             FILTER edge.relation == @relation
@@ -252,8 +252,8 @@ class NormalizePipeline(NormalizePipelineProtocol):
             from_id=node.id,
             to_id=topic_node.id,
             relation="RELATED_TOPIC",
-            strict=False,
-            meta=edge_meta,
+            source=edge_meta.get("source", ""),
+            meta={k: v for k, v in edge_meta.items() if k != "source"},
         )
         return True
 

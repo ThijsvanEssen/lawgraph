@@ -256,10 +256,459 @@ class NeighborDTO(BaseModel):
 
 
 class NodeNeighborsDTO(BaseModel):
-    strict: list[NeighborDTO]
-    semantic: list[NeighborDTO]
+    all: list[NeighborDTO] = Field(default_factory=list)
+    # Backwards-compat aliases — kept so old consumers don't break.
+    strict: list[NeighborDTO] = Field(default_factory=list)
+    semantic: list[NeighborDTO] = Field(default_factory=list)
 
 
 class NodeGraphResponse(BaseModel):
     node: BaseNodeDTO
     neighbors: NodeNeighborsDTO
+
+
+# ── Parliamentary dossier schemas ─────────────────────────────────────────────
+
+
+class PartijStemDTO(BaseModel):
+    """One party's contribution to a vote."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    partij: str
+    aantal_zetels: int
+
+
+class StemmingDTO(BaseModel):
+    """Aggregated vote result for one motion/wetsvoorstel."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    datum: str | None = None
+    onderwerp: str | None = None
+    aangenomen: bool
+    stemwijze: str = "fractie"
+    voor: list[PartijStemDTO] = Field(default_factory=list)
+    tegen: list[PartijStemDTO] = Field(default_factory=list)
+    onthouding: list[PartijStemDTO] = Field(default_factory=list)
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> StemmingDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            datum=props.get("datum"),
+            onderwerp=props.get("onderwerp"),
+            aangenomen=bool(props.get("aangenomen")),
+            stemwijze=props.get("stemwijze") or "fractie",
+            voor=[
+                PartijStemDTO(**v)
+                for v in (props.get("voor") or [])
+                if isinstance(v, dict)
+            ],
+            tegen=[
+                PartijStemDTO(**v)
+                for v in (props.get("tegen") or [])
+                if isinstance(v, dict)
+            ],
+            onthouding=[
+                PartijStemDTO(**v)
+                for v in (props.get("onthouding") or [])
+                if isinstance(v, dict)
+            ],
+        )
+
+
+class ToezeggingDTO(BaseModel):
+    """Ministerial commitment made during a debate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    tekst: str | None = None
+    minister_naam: str | None = None
+    minister_functie: str | None = None
+    gedaan_op: str | None = None
+    verwachte_afhandeling: str | None = None
+    status: str = "open"
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> ToezeggingDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            tekst=props.get("tekst"),
+            minister_naam=props.get("minister_naam"),
+            minister_functie=props.get("minister_functie"),
+            gedaan_op=props.get("gedaan_op"),
+            verwachte_afhandeling=props.get("verwachte_afhandeling"),
+            status=props.get("status") or "open",
+        )
+
+
+class ActiviteitDTO(BaseModel):
+    """Parliamentary debate or hearing entry."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    datum: str | None = None
+    agenda_titel: str | None = None
+    soort: str | None = None
+    commissie_id: str | None = None
+    video_url: str | None = None
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> ActiviteitDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            datum=props.get("datum"),
+            agenda_titel=props.get("agenda_titel"),
+            soort=props.get("soort"),
+            commissie_id=props.get("commissie_id"),
+            video_url=props.get("video_url"),
+        )
+
+
+class PublicationSummaryDTO(BaseModel):
+    """Lightweight TK publication for timeline listing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    datum: str | None = None
+    soort: str | None = None
+    titel: str | None = None
+    external_id: str | None = None
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> PublicationSummaryDTO:
+        props = doc.get("props") or {}
+        raw = props.get("raw") or {}
+        datum = props.get("datum") or raw.get("Datum")
+        if datum and "T" in str(datum):
+            datum = str(datum).split("T")[0]
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            datum=datum,
+            soort=props.get("soort"),
+            titel=props.get("title") or props.get("display_name"),
+            external_id=props.get("external_id"),
+        )
+
+
+class TimelineEntryDTO(BaseModel):
+    """One entry in a dossier timeline.
+
+    The `body` field is a discriminated union: its contents depend on `soort`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    datum: str | None
+    soort: str
+    titel: str | None
+    node_id: str
+    node_type: str
+    body: dict[str, Any] = Field(default_factory=dict)
+
+
+class DossierSummaryDTO(BaseModel):
+    """Short representation of a Kamerstukdossier for list views."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    kamerstuknummer: str
+    titel: str | None = None
+    huidige_fase: str | None = None
+    afgedaan: bool = False
+    geopend_op: str | None = None
+    gesloten_op: str | None = None
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> DossierSummaryDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            kamerstuknummer=props.get("kamerstuknummer")
+            or str(props.get("nummer") or ""),
+            titel=props.get("titel"),
+            huidige_fase=props.get("huidige_fase"),
+            afgedaan=bool(props.get("afgedaan")),
+            geopend_op=props.get("geopend_op"),
+            gesloten_op=props.get("gesloten_op"),
+        )
+
+
+class DossierDetailResponse(BaseModel):
+    """Full dossier detail response."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    kamerstuknummer: str
+    titel: str | None = None
+    huidige_fase: str | None = None
+    afgedaan: bool = False
+    geopend_op: str | None = None
+    gesloten_op: str | None = None
+    document_count: int = 0
+    activiteit_count: int = 0
+    stemming_count: int = 0
+    toezegging_count: int = 0
+
+    @classmethod
+    def from_document(
+        cls,
+        doc: dict[str, Any],
+        *,
+        document_count: int = 0,
+        activiteit_count: int = 0,
+        stemming_count: int = 0,
+        toezegging_count: int = 0,
+    ) -> DossierDetailResponse:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            kamerstuknummer=props.get("kamerstuknummer")
+            or str(props.get("nummer") or ""),
+            titel=props.get("titel"),
+            huidige_fase=props.get("huidige_fase"),
+            afgedaan=bool(props.get("afgedaan")),
+            geopend_op=props.get("geopend_op"),
+            gesloten_op=props.get("gesloten_op"),
+            document_count=document_count,
+            activiteit_count=activiteit_count,
+            stemming_count=stemming_count,
+            toezegging_count=toezegging_count,
+        )
+
+
+class DossierTimelineResponse(BaseModel):
+    """Dossier timeline — ordered list of documents, activiteiten, stemmingen, toezeggingen."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kamerstuknummer: str
+    total: int
+    order: str
+    entries: list[TimelineEntryDTO]
+
+
+class DossierMutationNode(BaseModel):
+    """A node in the pending-mutation subgraph."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    collection: str
+    type: str
+    display_name: str | None
+    labels: list[str]
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> DossierMutationNode:
+        props = doc.get("props") or {}
+        raw_id = doc.get("_id", "")
+        return cls(
+            id=raw_id,
+            key=doc.get("_key", ""),
+            collection=raw_id.split("/")[0] if "/" in raw_id else "",
+            type=doc.get("type", ""),
+            display_name=props.get("display_name"),
+            labels=list(doc.get("labels") or []),
+        )
+
+
+class DossierMutationEdge(BaseModel):
+    """An edge in the pending-mutation subgraph."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    from_id: str | None
+    to_id: str | None
+    relation: str | None
+    status: str | None
+    meta: dict[str, Any] | None = None
+
+
+class DossierMutationsResponse(BaseModel):
+    """Pending-mutation subgraph for a dossier.
+
+    Shape is compatible with the existing graph endpoint so the frontend can
+    render it directly.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kamerstuknummer: str
+    nodes: list[DossierMutationNode]
+    edges: list[DossierMutationEdge]
+
+
+class LegislativeHistoryEntry(BaseModel):
+    """One entry in the legislative history of an article."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dossier_id: str | None = None
+    dossier_nummer: str | None = None
+    dossier_titel: str | None = None
+    datum: str | None = None
+    soort: str | None = None
+    status: str | None = None
+    samenvatting: str | None = None
+    document_id: str | None = None
+
+
+class ArticleLegislativeHistoryResponse(BaseModel):
+    """Legislative history for an article."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    article_id: str
+    entries: list[LegislativeHistoryEntry]
+    total: int
+
+
+class ArticleInFluxResponse(BaseModel):
+    """In-flux status for an article."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    article_id: str
+    in_flux: bool
+    open_dossier_count: int
+
+
+class CommissieDTO(BaseModel):
+    """Parliamentary committee."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    naam: str | None = None
+    afkorting: str | None = None
+    slug: str | None = None
+    active_dossier_count: int = 0
+
+    @classmethod
+    def from_document(
+        cls, doc: dict[str, Any], *, active_dossier_count: int = 0
+    ) -> CommissieDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            naam=props.get("naam"),
+            afkorting=props.get("afkorting"),
+            slug=props.get("slug"),
+            active_dossier_count=active_dossier_count,
+        )
+
+
+class LidDTO(BaseModel):
+    """Parliamentary member or minister."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    naam: str | None = None
+    partij: str | None = None
+    actief: bool = True
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> LidDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            naam=props.get("naam"),
+            partij=props.get("partij"),
+            actief=bool(props.get("actief", True)),
+        )
+
+
+# ── Party colors ─────────────────────────────────────────────────────────────
+# Canonical brand colors for Dutch parliamentary parties.
+# Used by the frontend to color stemming chips.
+
+PARTY_COLORS: dict[str, str] = {
+    "VVD": "#003082",
+    "D66": "#1DB954",
+    "PVV": "#002868",
+    "CDA": "#399E48",
+    "SP": "#EE1C25",
+    "PvdA": "#E63325",
+    "GroenLinks": "#46962B",
+    "GL-PvdA": "#46962B",
+    "ChristenUnie": "#4F95D4",
+    "Volt": "#592D82",
+    "NSC": "#1B4F72",
+    "BBB": "#9ECA3C",
+    "JA21": "#CC0000",
+    "SGP": "#FF6600",
+    "FvD": "#8B0000",
+    "DENK": "#39B54A",
+    "BIJ1": "#FFCC00",
+    "50PLUS": "#8B008B",
+    "PvdD": "#4CAF50",
+    "Groep Van Haga": "#002868",
+}
+
+
+class PartyColorsResponse(BaseModel):
+    """Party abbreviation → hex color map for the frontend."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    colors: dict[str, str]
+
+
+# ── Search schemas ────────────────────────────────────────────────────────────
+
+SEARCH_TYPES = frozenset({"articles", "judgments", "dossiers", "publications"})
+
+
+class SearchResultItem(BaseModel):
+    """One search hit, typed by collection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    collection: str
+    type: str
+    display_name: str | None
+    snippet: str | None = None
+    score: float = 1.0
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class SearchResponse(BaseModel):
+    """Full-text search response, grouped by type."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    q: str
+    types: list[str]
+    total: int
+    results: dict[str, list[SearchResultItem]]

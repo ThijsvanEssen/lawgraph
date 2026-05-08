@@ -110,8 +110,7 @@ class TkNormalizePipeline(NormalizePipeline):
                     from_id=publication.id,
                     to_id=procedure_node.id,
                     relation=RELATION_PART_OF_PROCEDURE,
-                    strict=True,
-                    meta={"source": "tk-documentversie"},
+                    source="tk-documentversie",
                 )
                 strict_edge_count += 1
             except Exception as exc:  # pragma: no cover - logging only
@@ -138,8 +137,8 @@ class TkNormalizePipeline(NormalizePipeline):
             logger.debug("No strafrecht topic found; skipping TK related-topic edges.")
 
         logger.info(
-            "TK normalization completed: "
-            "%d procedures, %d publications, %d strict edges, %d semantic edges.",
+            "TK normalization: %d procedures, %d publications, "
+            "%d strict edges, %d semantic edges.",
             len(procedures_by_external_id),
             len(publications),
             strict_edge_count,
