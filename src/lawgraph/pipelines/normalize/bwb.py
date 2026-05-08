@@ -5,8 +5,8 @@ import xml.etree.ElementTree as ET
 from typing import Any
 
 from lawgraph.config.settings import (
-    COLLECTION_INSTRUMENTS,
     COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_INSTRUMENTS,
     RAW_SOURCE_KINDS,
     RELATION_PART_OF_INSTRUMENT,
     SOURCE_BWB,
@@ -93,8 +93,7 @@ class BWBNormalizePipeline(NormalizePipeline):
             for article in article_elements:
                 article_number = self._extract_article_number(article)
                 if not article_number:
-                    logger.debug(
-                        "Artikel in %s zonder nummer; overslaan.", bwb_id)
+                    logger.debug("Artikel in %s zonder nummer; overslaan.", bwb_id)
                     continue
 
                 article_text = self._extract_article_text(article)
@@ -163,8 +162,7 @@ class BWBNormalizePipeline(NormalizePipeline):
                         from_id=instrument.id,
                         to_id=article.id,
                         relation=RELATION_PART_OF_INSTRUMENT,
-                        strict=True,
-                        meta={"source": "bwb-normalize"},
+                        source="bwb-normalize",
                     )
                     edge_count += 1
                 except Exception as exc:
@@ -224,7 +222,7 @@ class BWBNormalizePipeline(NormalizePipeline):
         label = (article.attrib.get("label") or "").strip()
         prefix = "artikel"
         if label and label.lower().startswith(prefix):
-            remainder = label[len(prefix):]
+            remainder = label[len(prefix) :]
             remainder = remainder.lstrip(":. ").strip()
             if remainder:
                 return remainder
@@ -233,37 +231,39 @@ class BWBNormalizePipeline(NormalizePipeline):
 
     @classmethod
     def _extract_article_text(cls, article: ET.Element) -> str:
-        lid_texts: list[str] = []
+        lid_texts = cls._collect_lid_texts(article)
+        if lid_texts:
+            return "\n".join(lid_texts).strip()
+        return cls._collect_fallback_texts(article)
 
+    @classmethod
+    def _collect_lid_texts(cls, article: ET.Element) -> list[str]:
+        lid_texts: list[str] = []
         for element in article.iter():
             if cls._local_name(element.tag) != "lid":
                 continue
-            parts: list[str] = []
-            for child in element:
-                if cls._local_name(child.tag) != "al":
-                    continue
-                text = cls._text_from_element(child)
-                if text:
-                    parts.append(text)
+            parts = [
+                cls._text_from_element(child)
+                for child in element
+                if cls._local_name(child.tag) == "al" and cls._text_from_element(child)
+            ]
             if not parts:
                 continue
             lidnr_elem = cls._find_descendant(element, "lidnr")
-            lidnr = cls._text_from_element(
-                lidnr_elem) if lidnr_elem is not None else ""
+            lidnr = cls._text_from_element(lidnr_elem) if lidnr_elem is not None else ""
             prefix = f"{lidnr}. " if lidnr else ""
             lid_texts.append(f"{prefix}{' '.join(parts)}")
+        return lid_texts
 
-        if lid_texts:
-            return "\n".join(lid_texts).strip()
-
-        fallback: list[str] = []
+    @classmethod
+    def _collect_fallback_texts(cls, article: ET.Element) -> str:
+        parts: list[str] = []
         for element in article.iter():
             if cls._local_name(element.tag) == "al":
                 text = cls._text_from_element(element)
                 if text:
-                    fallback.append(text)
-
-        return "\n".join(fallback).strip()
+                    parts.append(text)
+        return "\n".join(parts).strip()
 
     @staticmethod
     def _local_name(tag: str) -> str:
@@ -278,7 +278,9 @@ class BWBNormalizePipeline(NormalizePipeline):
         return "".join(element.itertext()).strip()
 
     @classmethod
-    def _find_descendant(cls, element: ET.Element, local_name: str) -> ET.Element | None:
+    def _find_descendant(
+        cls, element: ET.Element, local_name: str
+    ) -> ET.Element | None:
         for node in element.iter():
             if node is element:
                 continue

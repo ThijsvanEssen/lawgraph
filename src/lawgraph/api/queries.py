@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Literal, cast
-
-from arango.collection import StandardCollection
+from typing import Any, Literal, cast
 
 from lawgraph.config.settings import (
+    COLLECTION_EDGE_STATUS_LOG,
+    COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
+    EDGE_STATUS_VOORGESTELD,
+    RELATION_DEEL_VAN_DOSSIER,
     RELATION_MENTIONS_ARTICLE,
     RELATION_PART_OF_INSTRUMENT,
     RELATION_REFERS_TO_ARTICLE,
@@ -23,15 +26,16 @@ _ALLOWED_NODE_COLLECTIONS = {
     "procedures",
     "publications",
     "topics",
+    "kamerstukdossiers",
+    "activiteiten",
+    "stemmingen",
+    "toezeggingen",
+    "commissies",
+    "leden",
 }
 
 
-DIRECTION_BINDINGS: tuple[
-    tuple[Literal["outbound"], str], tuple[Literal["inbound"], str]
-] = (
-    ("outbound", "_from"),
-    ("inbound", "_to"),
-)
+# ── Shared dataclasses ─────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -66,8 +70,7 @@ class NeighborEntry:
 @dataclass
 class NodeGraphData:
     node: dict[str, Any]
-    strict_neighbors: list[NeighborEntry]
-    semantic_neighbors: list[NeighborEntry]
+    neighbors: list[NeighborEntry]
 
 
 @dataclass
@@ -77,6 +80,9 @@ class ArticleCitationEntry:
     end: int | None
     text: str | None
     confidence: float | None
+
+
+# ── Existing query helpers ─────────────────────────────────────────────────────
 
 
 def get_article_with_relations(
@@ -118,24 +124,22 @@ def get_article_citations(
     citations: list[ArticleCitationEntry] = []
     seen: set[tuple[str, int | None, int | None, str | None]] = set()
 
-    edges = _iter_edges(
-        store.edges_semantic,
-        {"_from": article_id, "relation": RELATION_REFERS_TO_ARTICLE},
-    )
-    for edge in edges:
+    aql = f"""
+    FOR edge IN {COLLECTION_EDGES}
+        FILTER edge._from == @article_id
+        FILTER edge.relation == @relation
+        RETURN edge
+    """
+    for edge in store.query(
+        aql, {"article_id": article_id, "relation": RELATION_REFERS_TO_ARTICLE}
+    ):
         target_doc = _load_document_by_ref(store, edge.get("_to"))
         if not target_doc:
             continue
         start, end, text = _extract_span(edge)
         confidence = _extract_confidence(edge)
         _record_article_citation(
-            citations,
-            seen,
-            target_doc,
-            start,
-            end,
-            text,
-            confidence,
+            citations, seen, target_doc, start, end, text, confidence
         )
 
     props = doc.get("props") or {}
@@ -152,30 +156,28 @@ def get_article_citations(
             text = _coerce_text(entry.get("text"))
             confidence = _coerce_float(entry.get("confidence"))
             _record_article_citation(
-                citations,
-                seen,
-                target_doc,
-                start,
-                end,
-                text,
-                confidence,
+                citations, seen, target_doc, start, end, text, confidence
             )
 
     return citations
 
 
 def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetailData:
-    """Fetch a judgment and related articles via semantic edges."""
+    """Fetch a judgment and related articles via edges."""
     judgment_doc = _load_judgment(store, ecli)
     if judgment_doc is None:
         raise ValueError("judgment not found")
 
     article_relations: list[JudgmentArticleRelation] = []
-    edges = _iter_edges(
-        store.edges_semantic,
-        {"_from": judgment_doc["_id"], "relation": RELATION_MENTIONS_ARTICLE},
-    )
-    for edge in edges:
+    aql = f"""
+    FOR edge IN {COLLECTION_EDGES}
+        FILTER edge._from == @jid
+        FILTER edge.relation == @relation
+        RETURN edge
+    """
+    for edge in store.query(
+        aql, {"jid": judgment_doc["_id"], "relation": RELATION_MENTIONS_ARTICLE}
+    ):
         article_doc = _load_document_by_ref(store, edge.get("_to"))
         if not article_doc:
             continue
@@ -186,9 +188,7 @@ def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetail
 
     metadata = {"article_count": len(article_relations)}
     return JudgmentDetailData(
-        judgment=judgment_doc,
-        articles=article_relations,
-        metadata=metadata,
+        judgment=judgment_doc, articles=article_relations, metadata=metadata
     )
 
 
@@ -197,10 +197,9 @@ def get_node_with_neighbors(
     collection: str,
     key: str,
 ) -> NodeGraphData:
-    """Retrieve a node together with strict/semantic neighbors."""
+    """Retrieve a node together with its unified-edge neighbors."""
     if collection not in _ALLOWED_NODE_COLLECTIONS:
         raise ValueError("unsupported collection")
-
     if not store.db.has_collection(collection):
         raise ValueError(f"collection {collection} not found")
 
@@ -212,58 +211,590 @@ def get_node_with_neighbors(
     if node_doc is None:
         raise ValueError("node not found")
 
-    strict_neighbors = _collect_neighbors(store, node_doc["_id"], store.edges_strict)
-    semantic_neighbors = _collect_neighbors(
-        store, node_doc["_id"], store.edges_semantic
+    neighbors = _collect_neighbors(store, node_doc["_id"])
+    return NodeGraphData(node=node_doc, neighbors=neighbors)
+
+
+# ── Parliamentary dossier query helpers ────────────────────────────────────────
+
+
+def get_dossier_by_nummer(
+    store: ArangoStore, kamerstuknummer: str
+) -> dict[str, Any] | None:
+    """Fetch a Kamerstukdossier by its kamerstuknummer (e.g. '36558')."""
+    aql = """
+    FOR doc IN kamerstukdossiers
+        FILTER doc.props.kamerstuknummer == @nummer
+        LIMIT 1
+        RETURN doc
+    """
+    for doc in store.query(aql, {"nummer": kamerstuknummer}):
+        return doc
+    return None
+
+
+def get_dossier_timeline(
+    store: ArangoStore,
+    dossier_id: str,
+    *,
+    order: Literal["desc", "asc"] = "desc",
+    soort_filter: list[str] | None = None,
+    limit: int = 200,
+    cursor: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return ordered timeline entries (pubs, activiteiten, stemmingen, toezeggingen) for a dossier.
+
+    Each entry has shape: {datum, soort, titel, body, _cursor_key}.
+    """
+    sort_dir = "DESC" if order == "desc" else "ASC"
+
+    soort_clause = ""
+    bind_vars: dict[str, Any] = {"dossier_id": dossier_id, "limit": limit}
+    if soort_filter:
+        soort_clause = "FILTER LOWER(item.soort) IN @soort_filter"
+        bind_vars["soort_filter"] = [s.lower() for s in soort_filter]
+
+    cursor_clause = ""
+    if cursor:
+        op = "<" if order == "desc" else ">"
+        cursor_clause = f"FILTER item.datum {op} @cursor"
+        bind_vars["cursor"] = cursor
+
+    aql = f"""
+    LET docs = (
+        FOR edge IN {COLLECTION_EDGES}
+            FILTER edge._to == @dossier_id OR edge._from == @dossier_id
+            FILTER edge.relation == "{RELATION_DEEL_VAN_DOSSIER}"
+            LET node_id = (edge._to == @dossier_id ? edge._from : edge._to)
+            LET col = SPLIT(node_id, '/')[0]
+            FILTER col IN ['publications', 'activiteiten', 'stemmingen', 'toezeggingen']
+            LET doc = DOCUMENT(node_id)
+            FILTER doc != null
+            RETURN doc
+    )
+    FOR item IN docs
+        LET soort = (item.props.soort != null ? item.props.soort :
+                     item.type == 'activiteit' ? 'Activiteit' :
+                     item.type == 'stemming' ? 'Stemming' :
+                     item.type == 'toezegging' ? 'Toezegging' : 'Document')
+        LET datum = (item.props.datum != null ? item.props.datum :
+                     item.props.gedaan_op != null ? item.props.gedaan_op : null)
+        FILTER datum != null
+        {soort_clause}
+        {cursor_clause}
+        SORT datum {sort_dir}
+        LIMIT @limit
+        RETURN {{
+            datum: datum,
+            soort: soort,
+            titel: item.props.display_name,
+            body: item.props,
+            node_id: item._id,
+            node_type: item.type
+        }}
+    """
+    return list(store.query(aql, bind_vars))
+
+
+def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]:
+    """Return the pending-mutation subgraph for this dossier.
+
+    'Mutations' are edges with status='voorgesteld' that originated from
+    documents that are DEEL_VAN_DOSSIER this dossier.  Returns nodes + edges
+    in the same shape as the existing graph endpoint.
+    """
+    aql = f"""
+    LET member_ids = (
+        FOR edge IN {COLLECTION_EDGES}
+            FILTER edge._to == @dossier_id OR edge._from == @dossier_id
+            FILTER edge.relation == "{RELATION_DEEL_VAN_DOSSIER}"
+            RETURN (edge._to == @dossier_id ? edge._from : edge._to)
+    )
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e._from IN member_ids OR e._to IN member_ids
+        FILTER e.status == "{EDGE_STATUS_VOORGESTELD}"
+        LET from_node = DOCUMENT(e._from)
+        LET to_node = DOCUMENT(e._to)
+        RETURN {{
+            edge: e,
+            from_node: from_node,
+            to_node: to_node
+        }}
+    """
+    rows = list(store.query(aql, {"dossier_id": dossier_id}))
+    nodes_by_id: dict[str, dict[str, Any]] = {}
+    edges_out: list[dict[str, Any]] = []
+    for row in rows:
+        e = row.get("edge") or {}
+        fn = row.get("from_node")
+        tn = row.get("to_node")
+        if fn:
+            nodes_by_id[fn["_id"]] = fn
+        if tn:
+            nodes_by_id[tn["_id"]] = tn
+        edges_out.append(
+            {
+                "from_id": e.get("_from"),
+                "to_id": e.get("_to"),
+                "relation": e.get("relation"),
+                "status": e.get("status"),
+                "meta": e.get("meta"),
+            }
+        )
+    return {"nodes": list(nodes_by_id.values()), "edges": edges_out}
+
+
+def get_open_dossiers(
+    store: ArangoStore,
+    *,
+    commissie_slug: str | None = None,
+    onderwerp: str | None = None,
+    fase: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """Return all open (non-afgedaan) dossiers with optional filters."""
+    filters = [
+        "doc.props.afgedaan == false OR doc.props.afgedaan == null",
+        "doc.props.gesloten_op == null",
+    ]
+    bind_vars: dict[str, Any] = {"limit": limit}
+
+    if fase:
+        filters.append("doc.props.huidige_fase == @fase")
+        bind_vars["fase"] = fase
+    if onderwerp:
+        filters.append("CONTAINS(LOWER(doc.props.titel), LOWER(@onderwerp))")
+        bind_vars["onderwerp"] = onderwerp
+
+    filter_clause = " AND ".join(f"FILTER {f}" for f in filters)
+
+    # commissie filter: dossiers that have an activiteit BEHANDELD_DOOR that commissie
+    commissie_join = ""
+    if commissie_slug:
+        bind_vars["commissie_slug"] = commissie_slug
+        commissie_join = f"""
+        LET commissie_match = FIRST(
+            FOR c IN commissies FILTER c.props.slug == @commissie_slug LIMIT 1 RETURN c
+        )
+        FILTER commissie_match != null
+        FILTER LENGTH(
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._to == commissie_match._id AND e.relation == 'BEHANDELD_DOOR'
+                FOR e2 IN {COLLECTION_EDGES}
+                    FILTER e2._from == e._from AND e2._to == doc._id
+                    AND e2.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+                    RETURN 1
+        ) > 0
+        """
+
+    aql = f"""
+    FOR doc IN kamerstukdossiers
+        {filter_clause}
+        {commissie_join}
+        SORT doc.props.geopend_op DESC
+        LIMIT @limit
+        RETURN doc
+    """
+    return list(store.query(aql, bind_vars))
+
+
+def get_recent_dossiers(
+    store: ArangoStore, *, days: int = 30, limit: int = 50
+) -> list[dict[str, Any]]:
+    """Return dossiers that had activity in the last N days."""
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).strftime(
+        "%Y-%m-%d"
+    )
+    aql = f"""
+    FOR doc IN activiteiten
+        FILTER doc.props.datum >= @cutoff
+        FOR edge IN {COLLECTION_EDGES}
+            FILTER edge._from == doc._id AND edge.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+            LET dossier = DOCUMENT(edge._to)
+            FILTER dossier != null AND SPLIT(edge._to, '/')[0] == 'kamerstukdossiers'
+            RETURN DISTINCT dossier
+    LIMIT @limit
+    """
+    return list(store.query(aql, {"cutoff": cutoff, "limit": limit}))
+
+
+def get_article_legislative_history(
+    store: ArangoStore,
+    bwb_id: str,
+    article_number: str,
+) -> list[dict[str, Any]]:
+    """Return dossiers/documents that introduced, amended, or propose to amend an article.
+
+    Each entry: {dossier_id, dossier_titel, datum, soort, status, samenvatting}.
+    """
+    article_key = make_node_key(bwb_id, article_number)
+    article_id = f"instrument_articles/{article_key}"
+
+    # Edges pointing TO this article from publications (wijzigt/introduceert/trekt_in)
+    # plus edges from the unified collection
+    mutation_relations = [
+        "WIJZIGT",
+        "INTRODUCEERT",
+        "TREKT_IN",
+        "LICHT_TOE",
+        "MENTIONS_ARTICLE",
+    ]
+    aql = f"""
+    FOR edge IN {COLLECTION_EDGES}
+        FILTER edge._to == @article_id
+        FILTER edge.relation IN @relations
+        LET doc = DOCUMENT(edge._from)
+        FILTER doc != null
+        LET col = SPLIT(edge._from, '/')[0]
+        LET dossier = FIRST(
+            FOR e2 IN {COLLECTION_EDGES}
+                FILTER e2._from == edge._from AND e2.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+                LET d = DOCUMENT(e2._to)
+                FILTER d != null AND SPLIT(e2._to, '/')[0] == 'kamerstukdossiers'
+                LIMIT 1 RETURN d
+        )
+        SORT edge.status == '{EDGE_STATUS_VOORGESTELD}' ? 0 : 1, doc.props.datum DESC
+        RETURN {{
+            dossier_id: (dossier != null ? dossier._id : null),
+            dossier_nummer: (dossier != null ? dossier.props.kamerstuknummer : null),
+            dossier_titel: (dossier != null ? dossier.props.titel : null),
+            datum: doc.props.datum,
+            soort: doc.props.soort,
+            status: edge.status,
+            samenvatting: doc.props.display_name,
+            document_id: doc._id
+        }}
+    """
+    return list(
+        store.query(
+            aql,
+            {
+                "article_id": article_id,
+                "relations": mutation_relations,
+            },
+        )
     )
 
-    return NodeGraphData(
-        node=node_doc,
-        strict_neighbors=strict_neighbors,
-        semantic_neighbors=semantic_neighbors,
+
+def get_article_in_flux(
+    store: ArangoStore, bwb_id: str, article_number: str
+) -> dict[str, Any]:
+    """Return in-flux status for an article: boolean + count of open dossiers targeting it."""
+    article_key = make_node_key(bwb_id, article_number)
+    article_id = f"instrument_articles/{article_key}"
+
+    aql = f"""
+    LET voorgesteld_count = LENGTH(
+        FOR edge IN {COLLECTION_EDGES}
+            FILTER edge._to == @article_id
+            FILTER edge.status == '{EDGE_STATUS_VOORGESTELD}'
+            RETURN 1
     )
+    RETURN {{ in_flux: voorgesteld_count > 0, open_dossier_count: voorgesteld_count }}
+    """
+    rows = list(store.query(aql, {"article_id": article_id}))
+    if rows:
+        return rows[0]
+    return {"in_flux": False, "open_dossier_count": 0}
+
+
+def get_commissie_by_slug(store: ArangoStore, slug: str) -> dict[str, Any] | None:
+    aql = """
+    FOR doc IN commissies
+        FILTER doc.props.slug == @slug
+        LIMIT 1
+        RETURN doc
+    """
+    for doc in store.query(aql, {"slug": slug}):
+        return doc
+    return None
+
+
+def get_all_commissies(store: ArangoStore) -> list[dict[str, Any]]:
+    aql = f"""
+    FOR doc IN commissies
+        LET active_dossier_count = LENGTH(
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._to == doc._id AND e.relation == 'BEHANDELD_DOOR'
+                FOR e2 IN {COLLECTION_EDGES}
+                    FILTER e2._from == e._from AND e2.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+                    LET d = DOCUMENT(e2._to)
+                    FILTER d != null AND d.props.afgedaan == false
+                    RETURN 1
+        )
+        SORT doc.props.naam ASC
+        RETURN MERGE(doc, {{ active_dossier_count: active_dossier_count }})
+    """
+    return list(store.query(aql))
+
+
+def get_lid_votes(
+    store: ArangoStore, lid_id: str, *, limit: int = 100
+) -> list[dict[str, Any]]:
+    """Return a paginated voting record for a parliamentary member."""
+    aql = """
+    FOR stemming IN stemmingen
+        FOR voor_item IN (stemming.props.voor != null ? stemming.props.voor : [])
+            FILTER voor_item.partij == DOCUMENT(@lid_id).props.partij
+            RETURN { stemming: stemming, soort: 'voor' }
+    LIMIT @limit
+    """
+    return list(store.query(aql, {"lid_id": lid_id, "limit": limit}))
+
+
+def get_edge_status_log(
+    store: ArangoStore, *, limit: int = 200
+) -> list[dict[str, Any]]:
+    """Return recent edge-status flip audit entries, newest first."""
+    aql = f"""
+    FOR entry IN {COLLECTION_EDGE_STATUS_LOG}
+        SORT entry.timestamp DESC
+        LIMIT @limit
+        RETURN entry
+    """
+    return list(store.query(aql, {"limit": limit}))
+
+
+def search_all(
+    store: ArangoStore,
+    *,
+    q: str,
+    types: list[str],
+    soort: list[str] | None = None,
+    limit: int = 20,
+) -> dict[str, list[dict[str, Any]]]:
+    """Full-text search across requested entity types.
+
+    Returns a dict keyed by type name with a list of hit dicts each containing
+    {id, key, collection, type, display_name, snippet, extra}.
+
+    Uses simple CONTAINS/LIKE matching — no dedicated search index required.
+    """
+    results: dict[str, list[dict[str, Any]]] = {}
+    term = q.strip().lower()
+    if not term:
+        return {t: [] for t in types}
+
+    if "articles" in types:
+        aql = """
+        FOR doc IN instrument_articles
+            FILTER
+                CONTAINS(LOWER(doc.props.display_name), @term)
+                OR CONTAINS(LOWER(doc.props.text), @term)
+                OR CONTAINS(LOWER(doc.props.article_number), @term)
+                OR CONTAINS(LOWER(doc.props.bwb_id), @term)
+            SORT doc.props.display_name ASC
+            LIMIT @limit
+            RETURN {
+                id: doc._id,
+                key: doc._key,
+                collection: 'instrument_articles',
+                type: doc.type,
+                display_name: doc.props.display_name,
+                snippet: LEFT(doc.props.text, 200),
+                extra: {
+                    bwb_id: doc.props.bwb_id,
+                    article_number: doc.props.article_number
+                }
+            }
+        """
+        results["articles"] = list(store.query(aql, {"term": term, "limit": limit}))
+
+    if "judgments" in types:
+        aql = """
+        FOR doc IN judgments
+            FILTER
+                CONTAINS(LOWER(doc.props.display_name), @term)
+                OR CONTAINS(LOWER(doc.props.ecli), @term)
+                OR CONTAINS(LOWER(doc.props.summary), @term)
+            SORT doc.props.display_name ASC
+            LIMIT @limit
+            RETURN {
+                id: doc._id,
+                key: doc._key,
+                collection: 'judgments',
+                type: doc.type,
+                display_name: doc.props.display_name,
+                snippet: LEFT(doc.props.summary, 200),
+                extra: { ecli: doc.props.ecli }
+            }
+        """
+        results["judgments"] = list(store.query(aql, {"term": term, "limit": limit}))
+
+    if "dossiers" in types:
+        soort_clause = ""
+        bind_vars: dict[str, Any] = {"term": term, "limit": limit}
+        if soort:
+            soort_clause = "FILTER LOWER(doc.props.huidige_fase) IN @soort_filter"
+            bind_vars["soort_filter"] = [s.lower() for s in soort]
+
+        aql = f"""
+        FOR doc IN kamerstukdossiers
+            FILTER
+                CONTAINS(LOWER(doc.props.titel), @term)
+                OR CONTAINS(LOWER(doc.props.kamerstuknummer), @term)
+                OR CONTAINS(LOWER(doc.props.display_name), @term)
+            {soort_clause}
+            SORT doc.props.geopend_op DESC
+            LIMIT @limit
+            RETURN {{
+                id: doc._id,
+                key: doc._key,
+                collection: 'kamerstukdossiers',
+                type: doc.type,
+                display_name: (doc.props.titel != null ? doc.props.titel : doc.props.display_name),
+                snippet: doc.props.kamerstuknummer,
+                extra: {{
+                    kamerstuknummer: doc.props.kamerstuknummer,
+                    huidige_fase: doc.props.huidige_fase,
+                    afgedaan: doc.props.afgedaan
+                }}
+            }}
+        """
+        results["dossiers"] = list(store.query(aql, bind_vars))
+
+    if "publications" in types:
+        soort_clause = ""
+        bind_vars_pub: dict[str, Any] = {"term": term, "limit": limit}
+        if soort:
+            soort_clause = "FILTER LOWER(doc.props.soort) IN @soort_filter"
+            bind_vars_pub["soort_filter"] = [s.lower() for s in soort]
+
+        aql = f"""
+        FOR doc IN publications
+            FILTER
+                CONTAINS(LOWER(doc.props.display_name), @term)
+                OR CONTAINS(LOWER(doc.props.title), @term)
+                OR CONTAINS(LOWER(doc.props.external_id), @term)
+            {soort_clause}
+            SORT doc.props.display_name ASC
+            LIMIT @limit
+            RETURN {{
+                id: doc._id,
+                key: doc._key,
+                collection: 'publications',
+                type: doc.type,
+                display_name: (doc.props.title != null ? doc.props.title : doc.props.display_name),
+                snippet: doc.props.soort,
+                extra: {{
+                    soort: doc.props.soort,
+                    external_id: doc.props.external_id
+                }}
+            }}
+        """
+        results["publications"] = list(store.query(aql, bind_vars_pub))
+
+    return results
+
+
+# ── Private helpers ────────────────────────────────────────────────────────────
 
 
 def _find_instrument_for_article(
-    store: ArangoStore,
-    article_id: str,
+    store: ArangoStore, article_id: str
 ) -> dict[str, Any] | None:
-    edges = _iter_edges(
-        store.edges_strict,
-        {"_from": article_id, "relation": RELATION_PART_OF_INSTRUMENT},
-    )
-    for edge in edges:
-        return _load_document_by_ref(store, edge.get("_to"))
+    aql = f"""
+    FOR edge IN {COLLECTION_EDGES}
+        FILTER edge._from == @article_id AND edge.relation == @relation
+        LIMIT 1
+        RETURN DOCUMENT(edge._to)
+    """
+    for doc in store.query(
+        aql, {"article_id": article_id, "relation": RELATION_PART_OF_INSTRUMENT}
+    ):
+        return doc
     return None
 
 
 def _find_judgments_for_article(
-    store: ArangoStore,
-    article_id: str,
+    store: ArangoStore, article_id: str
 ) -> list[dict[str, Any]]:
-    results: list[dict[str, Any]] = []
-    edges = _iter_edges(
-        store.edges_semantic,
-        {"_to": article_id, "relation": RELATION_MENTIONS_ARTICLE},
+    aql = f"""
+    FOR edge IN {COLLECTION_EDGES}
+        FILTER edge._to == @article_id AND edge.relation == @relation
+        LET j = DOCUMENT(edge._from)
+        FILTER j != null
+        RETURN j
+    """
+    return list(
+        store.query(
+            aql, {"article_id": article_id, "relation": RELATION_MENTIONS_ARTICLE}
+        )
     )
-    for edge in edges:
-        judgment_doc = _load_document_by_ref(store, edge.get("_from"))
-        if judgment_doc:
-            results.append(judgment_doc)
-    return results
+
+
+def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
+    key = make_node_key(ecli)
+    raw_doc = store.judgments.get(key)
+    doc = _ensure_doc(raw_doc)
+    if doc is not None:
+        return doc
+    aql = f"""
+    FOR candidate IN {COLLECTION_JUDGMENTS}
+        FILTER candidate.props.ecli == @ecli
+        LIMIT 1
+        RETURN candidate
+    """
+    for result in store.query(aql, {"ecli": ecli}):
+        return result
+    return None
+
+
+def _collect_neighbors(store: ArangoStore, node_id: str) -> list[NeighborEntry]:
+    aql = f"""
+    FOR edge IN {COLLECTION_EDGES}
+        FILTER edge._from == @node_id OR edge._to == @node_id
+        LET neighbor_id = (edge._from == @node_id ? edge._to : edge._from)
+        LET direction = (edge._from == @node_id ? 'outbound' : 'inbound')
+        LET neighbor = DOCUMENT(neighbor_id)
+        FILTER neighbor != null
+        RETURN {{ edge: edge, neighbor: neighbor, direction: direction }}
+    """
+    neighbors: list[NeighborEntry] = []
+    for row in store.query(aql, {"node_id": node_id}):
+        neighbors.append(
+            NeighborEntry(
+                doc=row["neighbor"],
+                relation=row["edge"].get("relation"),
+                direction=row["direction"],
+                confidence=_extract_confidence(row["edge"]),
+            )
+        )
+    return neighbors
+
+
+def _load_document_by_ref(store: ArangoStore, ref: str | None) -> dict[str, Any] | None:
+    if not ref or "/" not in ref:
+        return None
+    collection_name, key = ref.split("/", 1)
+    if not store.db.has_collection(collection_name):
+        return None
+    collection = store.db.collection(collection_name)
+    raw_doc = collection.get(key)
+    return _ensure_doc(raw_doc)
 
 
 def _extract_span(edge: dict[str, Any]) -> tuple[int | None, int | None, str | None]:
     meta = edge.get("meta")
     if isinstance(meta, dict):
-        start = _coerce_int(meta.get("start"))
-        end = _coerce_int(meta.get("end"))
-        text = _coerce_text(meta.get("text"))
-    else:
-        start = None
-        end = None
-        text = None
-    return start, end, text
+        return (
+            _coerce_int(meta.get("start")),
+            _coerce_int(meta.get("end")),
+            _coerce_text(meta.get("text")),
+        )
+    return None, None, None
+
+
+def _extract_confidence(edge: dict[str, Any]) -> float | None:
+    raw = edge.get("confidence")
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    meta = edge.get("meta")
+    if isinstance(meta, dict):
+        conf = meta.get("confidence")
+        if isinstance(conf, (int, float)):
+            return float(conf)
+    return None
 
 
 def _coerce_int(value: Any) -> int | None:
@@ -315,18 +846,13 @@ def _record_article_citation(
     seen.add(key)
     citations.append(
         ArticleCitationEntry(
-            target=target_doc,
-            start=start,
-            end=end,
-            text=text,
-            confidence=confidence,
+            target=target_doc, start=start, end=end, text=text, confidence=confidence
         )
     )
 
 
 def _resolve_target_from_entry(
-    store: ArangoStore,
-    entry: dict[str, Any],
+    store: ArangoStore, entry: dict[str, Any]
 ) -> dict[str, Any] | None:
     bwb_id = entry.get("target_bwb_id")
     article_number = entry.get("target_article_number")
@@ -337,82 +863,7 @@ def _resolve_target_from_entry(
     return _ensure_doc(doc)
 
 
-def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
-    key = make_node_key(ecli)
-    raw_doc = store.judgments.get(key)
-    doc = _ensure_doc(raw_doc)
-    if doc is not None:
-        return doc
-
-    query = """
-        FOR candidate IN {}
-            FILTER candidate.props.ecli == @ecli
-            LIMIT 1
-            RETURN candidate
-    """.format(
-        COLLECTION_JUDGMENTS
-    )
-    for result in store.query(query, {"ecli": ecli}):
-        return result
-    return None
-
-
-def _load_document_by_ref(store: ArangoStore, ref: str | None) -> dict[str, Any] | None:
-    if not ref or "/" not in ref:
-        return None
-    collection_name, key = ref.split("/", 1)
-    if not store.db.has_collection(collection_name):
-        return None
-    collection = store.db.collection(collection_name)
-    raw_doc = collection.get(key)
-    return _ensure_doc(raw_doc)
-
-
-def _iter_edges(
-    collection: StandardCollection,
-    filter_doc: dict[str, Any],
-) -> Iterable[dict[str, Any]]:
-    cursor = collection.find(filter_doc)
-    return cast(Iterable[dict[str, Any]], cursor)
-
-
-def _ensure_doc(doc: Any | None) -> dict[str, Any] | None:
+def _ensure_doc(doc: Any) -> dict[str, Any] | None:
     if not doc:
         return None
     return cast(dict[str, Any], doc)
-
-
-def _collect_neighbors(
-    store: ArangoStore,
-    node_id: str,
-    collection: StandardCollection,
-) -> list[NeighborEntry]:
-    neighbors: list[NeighborEntry] = []
-    for direction, binding in DIRECTION_BINDINGS:
-        edges = _iter_edges(collection, {binding: node_id})
-        for edge in edges:
-            neighbor_ref = edge.get("_to" if field == "_from" else "_from")
-            neighbor_doc = _load_document_by_ref(store, neighbor_ref)
-            if not neighbor_doc:
-                continue
-            neighbors.append(
-                NeighborEntry(
-                    doc=neighbor_doc,
-                    relation=edge.get("relation"),
-                    direction=direction,
-                    confidence=_extract_confidence(edge),
-                )
-            )
-    return neighbors
-
-
-def _extract_confidence(edge: dict[str, Any]) -> float | None:
-    raw_confidence = edge.get("confidence")
-    if isinstance(raw_confidence, (int, float)):
-        return float(raw_confidence)
-    meta = edge.get("meta")
-    if isinstance(meta, dict):
-        confidence = meta.get("confidence")
-        if isinstance(confidence, (int, float)):
-            return float(confidence)
-    return None

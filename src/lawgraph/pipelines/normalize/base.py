@@ -17,17 +17,13 @@ class NormalizePipelineProtocol(Protocol):
 
     store: ArangoStore
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
-        ...
+    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any: ...
 
-    def normalize_nodes(self, raw: Any) -> Any:
-        ...
+    def normalize_nodes(self, raw: Any) -> Any: ...
 
-    def build_edges(self, raw: Any, normalized: Any) -> int:
-        ...
+    def build_edges(self, raw: Any, normalized: Any) -> int: ...
 
-    def run(self, *, since: dt.datetime | None = None) -> None:
-        ...
+    def run(self, *, since: dt.datetime | None = None) -> None: ...
 
 
 class NormalizePipeline(NormalizePipelineProtocol):
@@ -239,7 +235,7 @@ class NormalizePipeline(NormalizePipelineProtocol):
             "relation": "RELATED_TOPIC",
         }
         aql = """
-        FOR edge IN edges_semantic
+        FOR edge IN edges
             FILTER edge._from == @from_id
             FILTER edge._to == @to_id
             FILTER edge.relation == @relation
@@ -256,8 +252,8 @@ class NormalizePipeline(NormalizePipelineProtocol):
             from_id=node.id,
             to_id=topic_node.id,
             relation="RELATED_TOPIC",
-            strict=False,
-            meta=edge_meta,
+            source=edge_meta.get("source", ""),
+            meta={k: v for k, v in edge_meta.items() if k != "source"},
         )
         return True
 

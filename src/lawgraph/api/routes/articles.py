@@ -5,17 +5,26 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import get_article_citations, get_article_with_relations
+from lawgraph.api.queries import (
+    get_article_citations,
+    get_article_in_flux,
+    get_article_legislative_history,
+    get_article_with_relations,
+)
 from lawgraph.api.schemas import (
     ArticleCitationSpan,
     ArticleCitationTarget,
     ArticleDetailResponse,
+    ArticleInFluxResponse,
+    ArticleLegislativeHistoryResponse,
     ArticleSummaryDTO,
     InstrumentSummaryDTO,
     JudgmentSummaryDTO,
+    LegislativeHistoryEntry,
 )
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
+from lawgraph.models import make_node_key
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -69,6 +78,60 @@ async def get_article_detail(
         judgments=judgments,
         citations=citations,
         metadata=data.metadata or None,
+    )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/legislative-history",
+    response_model=ArticleLegislativeHistoryResponse,
+    summary="Wetgevingsgeschiedenis van een artikel",
+    description=(
+        "Geeft alle dossiers en documenten terug die dit artikel hebben ingevoerd, "
+        "gewijzigd of voortaan willen wijzigen. Bevat zowel canonieke als voorgestelde "
+        "wijzigingen (status='voorgesteld'). Retourneert een lege lijst als er geen "
+        "geschiedenis is — nooit een 404."
+    ),
+    tags=["articles"],
+)
+def get_legislative_history(
+    bwb_id: str,
+    article_number: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+) -> ArticleLegislativeHistoryResponse:
+    article_key = make_node_key(bwb_id, article_number)
+    article_id = f"instrument_articles/{article_key}"
+    raw_entries = get_article_legislative_history(store, bwb_id, article_number)
+    entries = [LegislativeHistoryEntry(**e) for e in raw_entries]
+    return ArticleLegislativeHistoryResponse(
+        article_id=article_id,
+        entries=entries,
+        total=len(entries),
+    )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/in-flux",
+    response_model=ArticleInFluxResponse,
+    summary="In-flux status van een artikel",
+    description=(
+        "Goedkope check of dit artikel momenteel doelwit is van een of meer open "
+        "wetsvoorstellen. Retourneert een boolean en het aantal open dossiers. "
+        "Agressief gecached — altijd 200, nooit 404."
+    ),
+    tags=["articles"],
+)
+def get_in_flux(
+    bwb_id: str,
+    article_number: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+) -> ArticleInFluxResponse:
+    article_key = make_node_key(bwb_id, article_number)
+    article_id = f"instrument_articles/{article_key}"
+    result = get_article_in_flux(store, bwb_id, article_number)
+    return ArticleInFluxResponse(
+        article_id=article_id,
+        in_flux=result.get("in_flux", False),
+        open_dossier_count=result.get("open_dossier_count", 0),
     )
 
 
