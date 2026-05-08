@@ -69,6 +69,7 @@ class ArangoStore:
         self.commissies = self.db.collection("commissies")
         self.leden = self.db.collection("leden")
         self.edge_status_log = self.db.collection(COLLECTION_EDGE_STATUS_LOG)
+        self.watches = self.db.collection("watches")
         self.edges = self.db.collection(COLLECTION_EDGES)
 
     def _ensure_collections(self) -> None:
@@ -111,6 +112,7 @@ class ArangoStore:
             ("stemmingen", ["props.aangenomen"], False),
             ("toezeggingen", ["props.dossier_id"], False),
             ("toezeggingen", ["props.status"], False),
+            ("watches", ["node_id"], False),
             # Edge indexes — critical for all traversal queries
             (COLLECTION_EDGES, ["relation"], False),
             (COLLECTION_EDGES, ["_from", "relation"], False),
@@ -283,6 +285,7 @@ class ArangoStore:
         Parliamentary proposed-mutation edges should pass status="voorgesteld".
         """
         edge_key = _edge_key(from_id, relation, to_id)
+        now = dt.datetime.now(dt.timezone.utc).isoformat()
         doc: dict[str, Any] = {
             "_key": edge_key,
             "_from": from_id,
@@ -290,6 +293,7 @@ class ArangoStore:
             "relation": relation,
             "source": source,
             "status": status,
+            "created_at": now,
             "meta": dict(meta or {}),
         }
         if confidence is not None:

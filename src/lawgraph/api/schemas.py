@@ -135,6 +135,7 @@ class JudgmentDTO(BaseNodeDTO):
 
     ecli: str | None
     summary: str | None
+    paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
 
     @classmethod
     def from_document(
@@ -145,10 +146,21 @@ class JudgmentDTO(BaseNodeDTO):
     ) -> JudgmentDTO:
         base = BaseNodeDTO.from_document(doc, drop_props_keys=drop_props_keys)
         props = doc.get("props") or {}
+        raw_paragraphs = props.get("paragraphs") or []
+        paragraphs = [
+            JudgmentParagraph(
+                number=p.get("number"),
+                kind=p.get("kind"),
+                text=p.get("text") or "",
+            )
+            for p in raw_paragraphs
+            if isinstance(p, dict) and p.get("text")
+        ]
         return cls(
             **base.model_dump(),
             ecli=props.get("ecli"),
             summary=props.get("summary") or props.get("strafrecht_profile"),
+            paragraphs=paragraphs,
         )
 
 
@@ -217,11 +229,23 @@ class ArticleDetailResponse(BaseModel):
     metadata: dict[str, Any] | None
 
 
+class JudgmentParagraph(BaseModel):
+    """A single paragraph from a judgment, optionally with inline article citations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    number: int | None = None
+    kind: str | None = None
+    text: str
+    citaties: list[ArticleCitationSpan] = Field(default_factory=list)
+
+
 class JudgmentDetailResponse(BaseModel):
     """Response model for judgment detail endpoint."""
 
     judgment: JudgmentDTO
     articles: list[ArticleRelationDTO]
+    cited_judgments: list[JudgmentSummaryDTO] = Field(default_factory=list)
     metadata: dict[str, Any] | None
 
 
@@ -647,6 +671,31 @@ class LidDTO(BaseModel):
         )
 
 
+class CommissieDetailDTO(CommissieDTO):
+    """Committee detail with leden and recent dossiers."""
+
+    leden: list[LidDTO] = []
+    dossiers: list[DossierSummaryDTO] = []
+
+    @classmethod
+    def from_detail_document(cls, doc: dict[str, Any]) -> CommissieDetailDTO:
+        props = doc.get("props") or {}
+        leden = [LidDTO.from_document(lid) for lid in doc.get("leden") or []]
+        dossiers = [
+            DossierSummaryDTO.from_document(d) for d in doc.get("dossiers") or []
+        ]
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            naam=props.get("naam"),
+            afkorting=props.get("afkorting"),
+            slug=props.get("slug"),
+            active_dossier_count=len([d for d in dossiers if not d.afgedaan]),
+            leden=leden,
+            dossiers=dossiers,
+        )
+
+
 # ── Party colors ─────────────────────────────────────────────────────────────
 # Canonical brand colors for Dutch parliamentary parties.
 # Used by the frontend to color stemming chips.
@@ -712,3 +761,196 @@ class SearchResponse(BaseModel):
     types: list[str]
     total: int
     results: dict[str, list[SearchResultItem]]
+
+
+class EdgeStatsDTO(BaseModel):
+    """Edge counts: total and per relation type."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    by_relation: dict[str, int]
+
+
+class InstrumentLayerInstrumentDTO(BaseModel):
+    """Instrument node in the instrument-layer graph."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    bwb_id: str | None = None
+    display_name: str | None = None
+    citation_title: str | None = None
+    title: str | None = None
+    shorthand: str | None = None
+    jurisdiction: str | None = None
+    stub: bool = False
+    citation_count: int = 0
+
+    @classmethod
+    def from_document(
+        cls,
+        doc: dict[str, Any],
+        *,
+        stats: dict[str, Any] | None = None,
+    ) -> InstrumentLayerInstrumentDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            bwb_id=props.get("bwb_id"),
+            display_name=(
+                props.get("display_name")
+                or props.get("citation_title")
+                or props.get("title")
+            ),
+            citation_title=props.get("citation_title"),
+            title=props.get("title"),
+            shorthand=props.get("short_title") or props.get("shorthand"),
+            jurisdiction=props.get("jurisdiction"),
+            stub=bool(props.get("stub", False)),
+            citation_count=int((stats or {}).get("citation_count", 0)),
+        )
+
+
+class JudgmentGraphNodeDTO(BaseModel):
+    """Judgment node in the judgment-layer or global graph."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    display_name: str | None = None
+    shorthand: str | None = None
+    ecli: str | None = None
+    stub: bool = False
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> JudgmentGraphNodeDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            display_name=props.get("display_name") or props.get("ecli"),
+            shorthand=props.get("shorthand"),
+            ecli=props.get("ecli"),
+            stub=bool(props.get("stub", False)),
+        )
+
+
+class ArticleGraphNodeDTO(BaseModel):
+    """Article node for the global graph."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    bwb_id: str | None = None
+    article_number: str | None = None
+    display_name: str | None = None
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> ArticleGraphNodeDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            bwb_id=props.get("bwb_id"),
+            article_number=props.get("article_number"),
+            display_name=props.get("display_name"),
+        )
+
+
+class GraphEdgeDTO(BaseModel):
+    """Graph edge with optional text annotation (for global/article-level graphs)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    from_id: str
+    to_id: str
+    relation_type: str
+    start: int | None = None
+    end: int | None = None
+    text: str | None = None
+    confidence: float | None = None
+
+
+class InstrumentEdgeDTO(BaseModel):
+    """Aggregated instrument-layer edge with weight."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    from_id: str
+    to_id: str
+    relation_type: str
+    weight: float | None = None
+    confidence: float | None = None
+
+
+class InstrumentLayerGraphResponse(BaseModel):
+    """Response for GET /api/graph/instruments."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instruments: list[InstrumentLayerInstrumentDTO]
+    edges: list[InstrumentEdgeDTO]
+    metadata: dict[str, Any] | None = None
+
+
+class JudgmentLayerGraphResponse(BaseModel):
+    """Response for GET /api/graph/judgments."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    judgments: list[JudgmentGraphNodeDTO]
+    instruments: list[InstrumentLayerInstrumentDTO]
+    edges: list[InstrumentEdgeDTO]
+    metadata: dict[str, Any] | None = None
+
+
+class PublicationSummary(BaseModel):
+    """Lightweight TK publication row for the publications index page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    title: str | None = None
+    soort: str | None = None
+    datum: str | None = None
+    external_id: str | None = None
+    has_text: bool = False
+    linked_articles: int = 0
+
+
+class PublicationListResponse(BaseModel):
+    """Paginated list of TK publication summaries."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    items: list[PublicationSummary]
+
+
+class PublicationTextResponse(BaseModel):
+    """Full TK publication with text content."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    publication_id: str
+    title: str | None = None
+    soort: str | None = None
+    datum: str | None = None
+    external_id: str | None = None
+    tk_url: str | None = None
+    text: str | None = None
+
+
+class StatsResponse(BaseModel):
+    """Database statistics: document counts per collection and edge counts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nodes: dict[str, int]
+    edges: EdgeStatsDTO

@@ -56,6 +56,7 @@ class JudgmentArticleRelation:
 class JudgmentDetailData:
     judgment: dict[str, Any]
     articles: list[JudgmentArticleRelation]
+    cited_judgments: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -366,7 +367,7 @@ def get_open_dossiers(
         filters.append("CONTAINS(LOWER(doc.props.titel), LOWER(@onderwerp))")
         bind_vars["onderwerp"] = onderwerp
 
-    filter_clause = " AND ".join(f"FILTER {f}" for f in filters)
+    filter_clause = "\n        ".join(f"FILTER {f}" for f in filters)
 
     # commissie filter: dossiers that have an activiteit BEHANDELD_DOOR that commissie
     commissie_join = ""
@@ -406,14 +407,18 @@ def get_recent_dossiers(
         "%Y-%m-%d"
     )
     aql = f"""
-    FOR doc IN activiteiten
-        FILTER doc.props.datum >= @cutoff
-        FOR edge IN {COLLECTION_EDGES}
-            FILTER edge._from == doc._id AND edge.relation == '{RELATION_DEEL_VAN_DOSSIER}'
-            LET dossier = DOCUMENT(edge._to)
-            FILTER dossier != null AND SPLIT(edge._to, '/')[0] == 'kamerstukdossiers'
-            RETURN DISTINCT dossier
-    LIMIT @limit
+    LET recent = (
+        FOR doc IN activiteiten
+            FILTER doc.props.datum >= @cutoff
+            FOR edge IN {COLLECTION_EDGES}
+                FILTER edge._from == doc._id AND edge.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+                LET dossier = DOCUMENT(edge._to)
+                FILTER dossier != null AND SPLIT(edge._to, '/')[0] == 'kamerstukdossiers'
+                RETURN DISTINCT dossier
+    )
+    FOR d IN recent
+        LIMIT @limit
+        RETURN d
     """
     return list(store.query(aql, {"cutoff": cutoff, "limit": limit}))
 
@@ -510,9 +515,45 @@ def get_commissie_by_slug(store: ArangoStore, slug: str) -> dict[str, Any] | Non
     return None
 
 
+def get_commissie_detail(store: ArangoStore, slug: str) -> dict[str, Any] | None:
+    """Return commissie with leden (via LID_VAN edges) and recent dossiers (via BEHANDELD_DOOR)."""
+    aql = f"""
+    FOR commissie IN commissies
+        FILTER commissie.props.slug == @slug
+        LIMIT 1
+
+        LET leden = (
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._to == commissie._id AND e.relation == 'LID_VAN'
+                LET lid = DOCUMENT(e._from)
+                FILTER lid != null
+                SORT lid.props.naam ASC
+                RETURN lid
+        )
+
+        LET dossiers = (
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._to == commissie._id AND e.relation == 'BEHANDELD_DOOR'
+                FOR e2 IN {COLLECTION_EDGES}
+                    FILTER e2._from == e._from AND e2.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+                    LET dossier = DOCUMENT(e2._to)
+                    FILTER dossier != null AND SPLIT(dossier._id, "/")[0] == "kamerstukdossiers"
+                    RETURN DISTINCT dossier
+        )
+
+        RETURN MERGE(commissie, {{ leden: leden, dossiers: dossiers }})
+    """
+    for doc in store.query(aql, {"slug": slug}):
+        return doc
+    return None
+
+
 def get_all_commissies(store: ArangoStore) -> list[dict[str, Any]]:
     aql = f"""
     FOR doc IN commissies
+        LET naam = doc.props.naam
+        FILTER naam != null AND naam != ""
+        FILTER NOT REGEX_TEST(naam, "^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$", true)
         LET active_dossier_count = LENGTH(
             FOR e IN {COLLECTION_EDGES}
                 FILTER e._to == doc._id AND e.relation == 'BEHANDELD_DOOR'
@@ -540,6 +581,47 @@ def get_lid_votes(
     LIMIT @limit
     """
     return list(store.query(aql, {"lid_id": lid_id, "limit": limit}))
+
+
+def get_db_stats(store: ArangoStore) -> dict[str, Any]:
+    """Return document counts per collection and edge counts per relation type."""
+    node_collections = [
+        "instruments",
+        "instrument_articles",
+        "judgments",
+        "publications",
+        "procedures",
+        "topics",
+        "kamerstukdossiers",
+        "activiteiten",
+        "stemmingen",
+        "toezeggingen",
+        "commissies",
+        "leden",
+    ]
+    nodes: dict[str, int] = {}
+    for name in node_collections:
+        if store.db.has_collection(name):
+            nodes[name] = store.db.collection(name).count()
+        else:
+            nodes[name] = 0
+
+    edges_total = store.edges.count() if store.db.has_collection("edges") else 0
+
+    aql = f"""
+    FOR edge IN {COLLECTION_EDGES}
+        COLLECT relation = edge.relation WITH COUNT INTO n
+        RETURN {{ relation: relation, count: n }}
+    """
+    by_relation: dict[str, int] = {}
+    for row in store.query(aql):
+        key = row.get("relation") or "unknown"
+        by_relation[key] = row.get("count", 0)
+
+    return {
+        "nodes": nodes,
+        "edges": {"total": edges_total, "by_relation": by_relation},
+    }
 
 
 def get_edge_status_log(
@@ -685,6 +767,82 @@ def search_all(
         results["publications"] = list(store.query(aql, bind_vars_pub))
 
     return results
+
+
+# ── Bulk node overlay queries ──────────────────────────────────────────────────
+
+
+def get_in_flux_counts(store: ArangoStore) -> dict[str, int]:
+    """Return a map of node_id → count of VOORGESTELD edges targeting that node.
+
+    Only nodes with at least one open mutation are included, so the frontend
+    can efficiently decide which nodes to ring without iterating everything.
+    """
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.status == '{EDGE_STATUS_VOORGESTELD}'
+        COLLECT target = e._to WITH COUNT INTO cnt
+        RETURN {{ id: target, count: cnt }}
+    """
+    return {row["id"]: row["count"] for row in store.query(aql)}
+
+
+def get_heat_counts(store: ArangoStore, *, months: int = 6) -> dict[str, int]:
+    """Return a map of node_id → activity count over the past *months* months.
+
+    Activity is measured as the number of edges created within the time window
+    pointing *to* each node (i.e. how often something referenced it recently).
+    """
+    cutoff = (
+        dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=30 * months)
+    ).isoformat()
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.created_at >= @cutoff
+        COLLECT target = e._to WITH COUNT INTO cnt
+        RETURN {{ id: target, count: cnt }}
+    """
+    return {row["id"]: row["count"] for row in store.query(aql, {"cutoff": cutoff})}
+
+
+# ── Watch helpers ──────────────────────────────────────────────────────────────
+
+
+def list_watches(store: ArangoStore) -> list[dict[str, Any]]:
+    """Return all watches, newest first."""
+    aql = """
+    FOR doc IN watches
+        SORT doc.created_at DESC
+        RETURN doc
+    """
+    return list(store.query(aql))
+
+
+def create_watch(
+    store: ArangoStore, *, node_id: str, label: str | None, collection: str | None
+) -> dict[str, Any]:
+    """Insert a new watch document and return it with its generated _key."""
+    import uuid
+
+    now = dt.datetime.now(dt.timezone.utc).isoformat()
+    doc = {
+        "_key": str(uuid.uuid4()).replace("-", ""),
+        "node_id": node_id,
+        "label": label,
+        "collection": collection,
+        "created_at": now,
+    }
+    store.db.collection("watches").insert(doc)
+    return doc
+
+
+def delete_watch(store: ArangoStore, watch_id: str) -> bool:
+    """Delete a watch by its _key. Returns True if found and deleted."""
+    try:
+        store.db.collection("watches").delete(watch_id)
+        return True
+    except Exception:
+        return False
 
 
 # ── Private helpers ────────────────────────────────────────────────────────────
@@ -867,3 +1025,294 @@ def _ensure_doc(doc: Any) -> dict[str, Any] | None:
     if not doc:
         return None
     return cast(dict[str, Any], doc)
+
+
+# ── Graph layer query results ─────────────────────────────────────────────────
+
+
+@dataclass
+class _GraphEdge:
+    from_id: str
+    to_id: str
+    relation_type: str
+    weight: float | None = None
+    confidence: float | None = None
+    start: int | None = None
+    end: int | None = None
+    text: str | None = None
+
+
+@dataclass
+class InstrumentLayerData:
+    instruments: list[dict[str, Any]]
+    edges: list[_GraphEdge]
+    stats: dict[str, dict[str, Any]]
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass
+class JudgmentGraphData:
+    judgments: list[dict[str, Any]]
+    instruments: list[dict[str, Any]]
+    edges: list[_GraphEdge]
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass
+class GlobalGraphData:
+    instruments: list[dict[str, Any]]
+    articles: list[dict[str, Any]]
+    judgments: list[dict[str, Any]]
+    edges: list[_GraphEdge]
+    metadata: dict[str, Any] | None = None
+
+
+def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
+    """Return all non-stub instruments and aggregated inter-instrument citation edges."""
+    instruments: list[dict[str, Any]] = list(
+        store.query(
+            """
+        FOR inst IN instruments
+            FILTER inst.props.stub != true OR inst.props.stub == null
+            RETURN inst
+    """
+        )
+    )
+
+    bwb_to_id: dict[str, str] = {}
+    for inst in instruments:
+        bwb = (inst.get("props") or {}).get("bwb_id")
+        if bwb:
+            bwb_to_id[bwb] = inst["_id"]
+
+    # Aggregate article-level citations into instrument-level weighted edges.
+    # REFERS_TO_ARTICLE is the primary article→article cross-reference relation.
+    rows: list[dict[str, Any]] = list(
+        store.query(
+            f"""
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e.relation == "REFERS_TO_ARTICLE"
+            LET fa = DOCUMENT(e._from)
+            LET ta = DOCUMENT(e._to)
+            FILTER fa != null AND ta != null
+            FILTER fa.props.bwb_id != null AND ta.props.bwb_id != null
+            FILTER fa.props.bwb_id != ta.props.bwb_id
+            COLLECT fbwb = fa.props.bwb_id, tbwb = ta.props.bwb_id WITH COUNT INTO cnt
+            FILTER cnt >= 2
+            RETURN {{from_bwb: fbwb, to_bwb: tbwb, weight: cnt}}
+    """
+        )
+    )
+
+    graph_edges: list[_GraphEdge] = []
+    for row in rows:
+        fid = bwb_to_id.get(row["from_bwb"])
+        tid = bwb_to_id.get(row["to_bwb"])
+        if fid and tid:
+            graph_edges.append(
+                _GraphEdge(
+                    from_id=fid,
+                    to_id=tid,
+                    relation_type="verwijst_naar",
+                    weight=float(row["weight"]),
+                )
+            )
+
+    # Direct instrument-to-instrument edges.
+    direct: list[dict[str, Any]] = list(
+        store.query(
+            f"""
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e.relation IN ["IMPLEMENTS_DIRECTIVE", "AMENDS_INSTRUMENT", "MENTIONS_INSTRUMENT"]
+            FILTER SPLIT(e._from, "/")[0] IN ["instruments", "instrument_articles"]
+            FILTER SPLIT(e._to, "/")[0] == "instruments"
+            RETURN {{from_id: e._from, to_id: e._to, relation_type: e.relation}}
+    """
+        )
+    )
+    for de in direct:
+        graph_edges.append(
+            _GraphEdge(
+                from_id=de["from_id"],
+                to_id=de["to_id"],
+                relation_type=de["relation_type"],
+            )
+        )
+
+    # Compute in-degree as citation_count per instrument.
+    stats: dict[str, dict[str, Any]] = {
+        inst["_id"]: {"citation_count": 0} for inst in instruments
+    }
+    for e in graph_edges:
+        if e.to_id in stats:
+            stats[e.to_id]["citation_count"] = stats[e.to_id][  # noqa: E501
+                "citation_count"
+            ] + (int(e.weight or 1))
+
+    return InstrumentLayerData(instruments=instruments, edges=graph_edges, stats=stats)
+
+
+def get_judgment_graph(
+    store: ArangoStore,
+    *,
+    max_judgments: int = 1000,
+    include_stubs: bool = False,
+) -> JudgmentGraphData:
+    """Return judgments, their cited instruments, and aggregated citation edges."""
+    stub_filter = (
+        "" if include_stubs else "FILTER j.props.stub != true OR j.props.stub == null"
+    )
+    judgments: list[dict[str, Any]] = list(
+        store.query(
+            f"""
+        FOR j IN {COLLECTION_JUDGMENTS}
+            {stub_filter}
+            LIMIT @limit
+            RETURN j
+    """,
+            {"limit": max_judgments},
+        )
+    )
+
+    if not judgments:
+        return JudgmentGraphData(judgments=[], instruments=[], edges=[])
+
+    judgment_ids = {j["_id"] for j in judgments}
+
+    # For each judgment, aggregate how many articles it cites per instrument.
+    # CITES_ARTICLE is the judgment → article relation.
+    rows = list(
+        store.query(
+            f"""
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e.relation == "CITES_ARTICLE"
+            FILTER SPLIT(e._from, "/")[0] == "judgments"
+            FILTER SPLIT(e._to, "/")[0] == "instrument_articles"
+            LET art = DOCUMENT(e._to)
+            FILTER art != null AND art.props.bwb_id != null
+            RETURN {{judgment_id: e._from, bwb_id: art.props.bwb_id}}
+    """
+        )
+    )
+
+    # Aggregate: (judgment_id, bwb_id) → count
+    edge_weights: dict[tuple[str, str], int] = {}
+    cited_bwb: set[str] = set()
+    for row in rows:
+        if row["judgment_id"] not in judgment_ids:
+            continue
+        key = (row["judgment_id"], row["bwb_id"])
+        edge_weights[key] = edge_weights.get(key, 0) + 1
+        cited_bwb.add(row["bwb_id"])
+
+    instruments: list[dict[str, Any]] = []
+    bwb_to_id: dict[str, str] = {}
+    if cited_bwb:
+        instruments = list(
+            store.query(
+                """
+            FOR i IN instruments
+                FILTER i.props.bwb_id IN @bwb_ids
+                RETURN i
+        """,
+                {"bwb_ids": list(cited_bwb)},
+            )
+        )
+        bwb_to_id = {
+            (i.get("props") or {}).get("bwb_id"): i["_id"] for i in instruments
+        }
+
+    graph_edges: list[_GraphEdge] = []
+    for (jid, bwb), weight in edge_weights.items():
+        iid = bwb_to_id.get(bwb)
+        if iid:
+            graph_edges.append(
+                _GraphEdge(
+                    from_id=jid,
+                    to_id=iid,
+                    relation_type="citeert_wet",
+                    weight=float(weight),
+                )
+            )
+
+    return JudgmentGraphData(
+        judgments=judgments, instruments=instruments, edges=graph_edges
+    )
+
+
+def get_global_graph(
+    store: ArangoStore,
+    *,
+    include_judgments: bool = True,
+    max_judgments: int = 500,
+) -> GlobalGraphData:
+    """Return a sample global graph: all instruments, stub articles, and optional judgments."""
+    instruments: list[dict[str, Any]] = list(
+        store.query(
+            """
+        FOR inst IN instruments
+            FILTER inst.props.stub != true OR inst.props.stub == null
+            RETURN inst
+    """
+        )
+    )
+    articles: list[dict[str, Any]] = list(
+        store.query(
+            """
+        FOR art IN instrument_articles
+            LIMIT 5000
+            RETURN art
+    """
+        )
+    )
+    judgments: list[dict[str, Any]] = []
+    if include_judgments:
+        judgments = list(
+            store.query(
+                f"""
+            FOR j IN {COLLECTION_JUDGMENTS}
+                FILTER j.props.stub != true OR j.props.stub == null
+                LIMIT @limit
+                RETURN j
+        """,
+                {"limit": max_judgments},
+            )
+        )
+
+    all_ids = (
+        {inst["_id"] for inst in instruments}
+        | {art["_id"] for art in articles}
+        | {j["_id"] for j in judgments}
+    )
+
+    edges: list[dict[str, Any]] = list(
+        store.query(
+            f"""
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e.relation IN [
+                "CITES_ARTICLE", "MENTIONS_ARTICLE", "EXPLAINS_ARTICLE",
+                "PART_OF_INSTRUMENT", "IMPLEMENTS_DIRECTIVE", "AMENDS_INSTRUMENT"
+            ]
+            LIMIT 10000
+            RETURN {{from_id: e._from, to_id: e._to, relation_type: e.relation, confidence: e.confidence}}
+    """
+        )
+    )
+
+    graph_edges = [
+        _GraphEdge(
+            from_id=e["from_id"],
+            to_id=e["to_id"],
+            relation_type=e["relation_type"],
+            confidence=e.get("confidence"),
+        )
+        for e in edges
+        if e["from_id"] in all_ids and e["to_id"] in all_ids
+    ]
+
+    return GlobalGraphData(
+        instruments=instruments,
+        articles=articles,
+        judgments=judgments,
+        edges=graph_edges,
+    )

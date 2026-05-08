@@ -16,7 +16,7 @@ from lawgraph.api.schemas import (
     GraphEdgeDTO,
     InstrumentEdgeDTO,
     InstrumentLayerGraphResponse,
-    InstrumentSummaryDTO,
+    InstrumentLayerInstrumentDTO,
     JudgmentGraphNodeDTO,
     JudgmentLayerGraphResponse,
 )
@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 
 
 class GlobalGraphResponse(BaseModel):
-    instruments: list[InstrumentSummaryDTO]
+    instruments: list[InstrumentLayerInstrumentDTO]
     articles: list[ArticleGraphNodeDTO]
     judgments: list[JudgmentGraphNodeDTO]
     edges: list[GraphEdgeDTO]
@@ -76,7 +76,7 @@ def get_global_graph_route(
 
     return GlobalGraphResponse(
         instruments=[
-            InstrumentSummaryDTO.from_document(doc) for doc in data.instruments
+            InstrumentLayerInstrumentDTO.from_document(doc) for doc in data.instruments
         ],
         articles=[ArticleGraphNodeDTO.from_document(doc) for doc in data.articles],
         judgments=[JudgmentGraphNodeDTO.from_document(doc) for doc in data.judgments],
@@ -115,7 +115,9 @@ def get_instrument_layer_graph_route(
 
     return InstrumentLayerGraphResponse(
         instruments=[
-            InstrumentSummaryDTO.from_document(doc, stats=data.stats.get(doc["_id"]))
+            InstrumentLayerInstrumentDTO.from_document(
+                doc, stats=data.stats.get(doc["_id"])
+            )
             for doc in data.instruments
         ],
         edges=edges,
@@ -167,7 +169,7 @@ def get_judgment_graph_route(
     return JudgmentLayerGraphResponse(
         judgments=[JudgmentGraphNodeDTO.from_document(doc) for doc in data.judgments],
         instruments=[
-            InstrumentSummaryDTO.from_document(doc) for doc in data.instruments
+            InstrumentLayerInstrumentDTO.from_document(doc) for doc in data.instruments
         ],
         edges=edges,
         metadata=data.metadata,

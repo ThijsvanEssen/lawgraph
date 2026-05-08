@@ -35,6 +35,8 @@ DEFAULT_DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     "leden",
     # Immutable audit trail for edge-status flips (§ observability)
     "edge_status_log",
+    # User watch-list (persisted server-side, keyed by UUID)
+    "watches",
 )
 
 DOCUMENT_COLLECTIONS: list[str] = _env_list(
@@ -125,6 +127,7 @@ COLLECTION_TOEZEGGINGEN = "toezeggingen"
 COLLECTION_COMMISSIES = "commissies"
 COLLECTION_LEDEN = "leden"
 COLLECTION_EDGE_STATUS_LOG = "edge_status_log"
+COLLECTION_WATCHES = "watches"
 
 # ── Edge status values ────────────────────────────────────────────────────────
 # Every edge carries a `status` field (top-level, indexed).

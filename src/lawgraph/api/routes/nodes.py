@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import get_node_with_neighbors
+from lawgraph.api.queries import (
+    get_heat_counts,
+    get_in_flux_counts,
+    get_node_with_neighbors,
+)
 from lawgraph.api.schemas import (
     BaseNodeDTO,
     NeighborDTO,
@@ -17,6 +21,45 @@ from lawgraph.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+@router.get(
+    "/in-flux",
+    response_model=dict[str, int],
+    summary="Bulk in-flux teller per node",
+    description=(
+        "Geeft een map van node-ID → aantal open voorgestelde mutaties. "
+        "Alleen nodes met ≥1 open mutatie zijn opgenomen. "
+        "Gebruik dit om de in-flux ring op graafnodes te renderen."
+    ),
+    tags=["nodes"],
+)
+async def bulk_in_flux(
+    store: Annotated[ArangoStore, Depends(get_store)],
+) -> dict[str, int]:
+    """Return all nodes that have at least one VOORGESTELD edge, with counts."""
+    return get_in_flux_counts(store)
+
+
+@router.get(
+    "/heat",
+    response_model=dict[str, int],
+    summary="Bulk activiteitsscore per node (heat layer)",
+    description=(
+        "Geeft een map van node-ID → activiteitscount over de afgelopen N maanden. "
+        "Activiteit = aantal inkomende edges aangemaakt in de periode. "
+        "Gebruik months=3 voor een 90-dagenvenster."
+    ),
+    tags=["nodes"],
+)
+async def bulk_heat(
+    store: Annotated[ArangoStore, Depends(get_store)],
+    months: int = Query(
+        default=6, ge=1, le=24, description="Terugkijkvenster in maanden"
+    ),
+) -> dict[str, int]:
+    """Return activity counts per node for the heat-layer overlay."""
+    return get_heat_counts(store, months=months)
 
 
 @router.get(

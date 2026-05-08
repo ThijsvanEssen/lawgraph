@@ -8,7 +8,11 @@ from lawgraph.api.routes.commissies import leden_router
 from lawgraph.api.routes.commissies import router as commissies_router
 from lawgraph.api.routes.dossiers import party_router
 from lawgraph.api.routes.dossiers import router as dossiers_router
+from lawgraph.api.routes.graph import router as graph_router
+from lawgraph.api.routes.publications import router as publications_router
 from lawgraph.api.routes.search import router as search_router
+from lawgraph.api.routes.stats import router as stats_router
+from lawgraph.api.routes.watches import router as watches_router
 
 app = FastAPI(
     title="Lawgraph API",
@@ -27,7 +31,13 @@ app.include_router(dossiers_router, prefix="/api/dossiers", tags=["dossiers"])
 app.include_router(commissies_router, prefix="/api/commissies", tags=["commissies"])
 app.include_router(leden_router, prefix="/api/leden", tags=["leden"])
 app.include_router(party_router, prefix="/api/partijen", tags=["partijen"])
+app.include_router(graph_router, prefix="/api/graph", tags=["graph"])
+app.include_router(
+    publications_router, prefix="/api/publications", tags=["publications"]
+)
 app.include_router(search_router, prefix="/api/search", tags=["search"])
+app.include_router(stats_router, prefix="/api/stats", tags=["stats"])
+app.include_router(watches_router, prefix="/api/watches", tags=["watches"])
 
 origins = [
     "http://localhost:5173",

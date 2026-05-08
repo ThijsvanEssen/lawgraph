@@ -13,12 +13,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
-    get_all_commissies,
-    get_commissie_by_slug,
-    get_lid_votes,
-)
-from lawgraph.api.schemas import CommissieDTO, LidDTO
+from lawgraph.api.queries import get_all_commissies, get_commissie_detail, get_lid_votes
+from lawgraph.api.schemas import CommissieDetailDTO, CommissieDTO, LidDTO
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
@@ -46,21 +42,21 @@ def list_commissies(
 
 @router.get(
     "/{slug}",
-    response_model=CommissieDTO,
+    response_model=CommissieDetailDTO,
     summary="Commissie detail",
-    description="Detail van één commissie, inclusief leden en recente activiteiten.",
+    description="Detail van één commissie, inclusief leden en recente behandelde dossiers.",
     tags=["commissies"],
 )
 def get_commissie(
     slug: str,
     store: Annotated[ArangoStore, Depends(get_store)],
-) -> CommissieDTO:
-    doc = get_commissie_by_slug(store, slug)
+) -> CommissieDetailDTO:
+    doc = get_commissie_detail(store, slug)
     if doc is None:
         raise HTTPException(
             status_code=404, detail=f"Commissie '{slug}' niet gevonden."
         )
-    return CommissieDTO.from_document(doc)
+    return CommissieDetailDTO.from_detail_document(doc)
 
 
 @leden_router.get(
