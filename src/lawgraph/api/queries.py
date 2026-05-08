@@ -572,13 +572,53 @@ def get_all_commissies(store: ArangoStore) -> list[dict[str, Any]]:
 def get_lid_votes(
     store: ArangoStore, lid_id: str, *, limit: int = 100
 ) -> list[dict[str, Any]]:
-    """Return a paginated voting record for a parliamentary member."""
+    """Return a paginated voting record for a parliamentary member.
+
+    Matches by partij (party label) stored on the Lid node. Returns stemmingen
+    where the member's party appears in voor, tegen, or onthouding, together
+    with the soort (Voor/Tegen/Onthouden) and the number of seats.
+    """
     aql = """
+    LET lid = DOCUMENT(@lid_id)
+    LET partij = lid != null ? lid.props.partij : null
+    FILTER partij != null AND partij != ""
+
     FOR stemming IN stemmingen
-        FOR voor_item IN (stemming.props.voor != null ? stemming.props.voor : [])
-            FILTER voor_item.partij == DOCUMENT(@lid_id).props.partij
-            RETURN { stemming: stemming, soort: 'voor' }
-    LIMIT @limit
+        LET voor_match = FIRST(
+            FOR v IN (stemming.props.voor != null ? stemming.props.voor : [])
+                FILTER v.partij == partij
+                RETURN v
+        )
+        LET tegen_match = FIRST(
+            FOR v IN (stemming.props.tegen != null ? stemming.props.tegen : [])
+                FILTER v.partij == partij
+                RETURN v
+        )
+        LET onthouding_match = FIRST(
+            FOR v IN (stemming.props.onthouding != null ? stemming.props.onthouding : [])
+                FILTER v.partij == partij
+                RETURN v
+        )
+        LET match = voor_match != null ? voor_match
+                  : tegen_match != null ? tegen_match
+                  : onthouding_match
+        FILTER match != null
+
+        LET soort = voor_match != null ? "Voor"
+                  : tegen_match != null ? "Tegen"
+                  : "Onthouden"
+
+        SORT stemming.props.datum DESC
+        LIMIT @limit
+        RETURN {
+            stemming_id:  stemming._id,
+            besluit_id:   stemming.props.besluit_id,
+            datum:        stemming.props.datum,
+            onderwerp:    stemming.props.onderwerp,
+            aangenomen:   stemming.props.aangenomen,
+            soort:        soort,
+            aantal_zetels: match.aantal_zetels
+        }
     """
     return list(store.query(aql, {"lid_id": lid_id, "limit": limit}))
 
