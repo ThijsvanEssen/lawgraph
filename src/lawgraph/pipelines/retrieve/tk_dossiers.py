@@ -21,6 +21,7 @@ from lawgraph.clients.tk import TKClient
 from lawgraph.config.settings import (
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
+    RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_STEMMING,
@@ -46,8 +47,11 @@ class TkDossiersRetrievePipeline:
         *,
         since: dt.datetime | None = None,
         stemmingen_since: dt.datetime | None = None,
+        documents_since: dt.datetime | None = None,
         skip_personen: bool = False,
         skip_stemmingen: bool = False,
+        skip_documents: bool = False,
+        dossier_nummer: int | None = None,
     ) -> PipelineResult:
         """Fetch and store all parliamentary entity types.
 
@@ -59,10 +63,36 @@ class TkDossiersRetrievePipeline:
                    Pass None for a full refresh.
             stemmingen_since: Override ``since`` for Stemming only.
                    Use to limit the very large stemmingen dataset to a window.
+            documents_since: Override ``since`` for Document only.
+                   Recommended: pass '730d' (2 years) as a starting window;
+                   a full fetch is ~400K+ records.
             skip_personen: Skip the Persoon fetch (slow, only needed periodically).
             skip_stemmingen: Skip the Stemming fetch entirely.
+            skip_documents: Skip the Document (Kamerstuk) fetch entirely.
+            dossier_nummer: Targeted backfill — fetch only Documents that link
+                to this Kamerstukdossier nummer, ignoring date filters and
+                skipping all other entity types. Used to fill gaps for
+                dormant dossiers whose stukken predate the documents-since
+                window.
         """
         result = PipelineResult()
+
+        if dossier_nummer is not None:
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_DOCUMENT,
+                "Id",
+                lambda: self.client.fetch_documents(
+                    since=None, dossier_nummer=dossier_nummer
+                ),
+            )
+            logger.info(
+                "TkDossiersRetrievePipeline (dossier=%d): stored %d raw records, %d errors.",
+                dossier_nummer,
+                result.created,
+                len(result.errors),
+            )
+            return result
 
         self._fetch_and_store(
             result,
@@ -102,6 +132,14 @@ class TkDossiersRetrievePipeline:
                 RAW_KIND_TK_PERSOON,
                 "Id",
                 lambda: self.client.fetch_personen(),
+            )
+        if not skip_documents:
+            doc_since = documents_since if documents_since is not None else since
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_DOCUMENT,
+                "Id",
+                lambda: self.client.fetch_documents(since=doc_since),
             )
 
         logger.info(

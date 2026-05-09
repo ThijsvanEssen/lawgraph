@@ -159,7 +159,7 @@ class TKClient(BaseClient):
         because the TK API does not emit nextLink.
         """
         params: dict[str, Any] = {
-            "$expand": "Agendapunt($expand=Zaak($expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)))",  # noqa: E501
+            "$expand": "Agendapunt($expand=Zaak($select=Id,Soort,Titel,Nummer;$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)))",  # noqa: E501
         }
         if since is not None:
             since_string = self._format_odata_datetime(since)
@@ -181,7 +181,9 @@ class TKClient(BaseClient):
         Relevant fields: ActorFractie (party), Soort (Voor/Tegen/Onthouden),
         FractieGrootte (seats), Vergissing (mistaken vote).
         """
-        params: dict[str, Any] = {"$expand": "Besluit"}
+        params: dict[str, Any] = {
+            "$expand": "Besluit($expand=Agendapunt($expand=Zaak($select=Id,Soort,Titel,Nummer;$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel))))",  # noqa: E501
+        }
         if since is not None:
             since_string = self._format_odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
@@ -212,6 +214,48 @@ class TKClient(BaseClient):
         }
         logger.info("Fetching Commissie records")
         return list(self._skip_paged_get("Commissie", params=params, page_size=top))
+
+    def fetch_documents(
+        self,
+        since: dt.datetime | None = None,
+        top: int = 250,
+        dossier_nummer: int | None = None,
+    ) -> list[dict]:
+        """Fetch Document (Kamerstuk) records with Zaak soort context.
+
+        Each Document corresponds to one Kamerstuk with a Nummer (dossier number)
+        and Volgnummer (document number within the dossier). Relevant fields:
+        Soort (Motie/Amendement/Brief/etc.), Titel, Datum, Vergaderjaar.
+
+        Uses skip-based pagination. A full fetch yields ~400K+ records; use
+        ``since`` to limit to a recent window (e.g. 730 days), or
+        ``dossier_nummer`` to backfill the documents of a single dossier
+        regardless of last-modified date.
+        """
+        params: dict[str, Any] = {
+            "$expand": "Zaak($select=Id,Soort,Titel,Nummer;$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel))",  # noqa: E501
+        }
+        filters: list[str] = []
+        if since is not None:
+            since_string = self._format_odata_datetime(since)
+            filters.append(f"ApiGewijzigdOp ge {since_string}")
+        if dossier_nummer is not None:
+            filters.append(
+                f"Zaak/any(z:z/Kamerstukdossier/any(k:k/Nummer eq {int(dossier_nummer)}))"
+            )
+        if filters:
+            params["$filter"] = " and ".join(filters)
+        if dossier_nummer is not None:
+            logger.info(
+                "Fetching Document for Kamerstukdossier nummer=%d%s",
+                dossier_nummer,
+                f" (modified since {filters[0]})" if since is not None else "",
+            )
+        elif since is not None:
+            logger.info("Fetching Document modified since %s", filters[0])
+        else:
+            logger.info("Fetching all Document records")
+        return list(self._skip_paged_get("Document", params=params, page_size=top))
 
     def fetch_personen(self, top: int = 250) -> list[dict]:
         """Fetch Persoon (parliamentary member) records.

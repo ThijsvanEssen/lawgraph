@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import sys
 
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
+from lawgraph.logging import get_logger, setup_logging
 from lawgraph.pipelines.retrieve.tk_dossiers import TkDossiersRetrievePipeline
 
 logger = get_logger(__name__)
@@ -38,7 +39,7 @@ def _parse_since(value: str | None) -> dt.datetime | None:
         ) from exc
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Retrieve parliamentary dossier entities from the TK OData API."
     )
@@ -67,27 +68,60 @@ def main() -> None:
             "Use e.g. '730d' to limit to the last 2 years."
         ),
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--skip-documents",
+        action="store_true",
+        help="Skip Document (Kamerstuk) fetch.",
+    )
+    parser.add_argument(
+        "--documents-since",
+        default=None,
+        metavar="DATE",
+        help=(
+            "Only fetch Document records modified since this date. "
+            "Overrides --since for documents only. "
+            "Recommended: '730d' or '365d' — a full fetch is ~400K+ records."
+        ),
+    )
+    parser.add_argument(
+        "--dossier-nummer",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Targeted backfill: fetch only Documents linked to this "
+            "Kamerstukdossier nummer, ignoring date filters and skipping all "
+            "other entity types. Use to fill gaps for dormant dossiers whose "
+            "stukken predate the documents-since window."
+        ),
+    )
+    args = parser.parse_args(argv)
 
     try:
         since = _parse_since(args.since)
         stemmingen_since = _parse_since(args.stemmingen_since)
+        documents_since = _parse_since(args.documents_since)
     except ValueError as exc:
         parser.error(str(exc))
         return
 
+    setup_logging()
     store = ArangoStore()
     pipeline = TkDossiersRetrievePipeline(store=store)
     result = pipeline.run(
         since=since,
         stemmingen_since=stemmingen_since,
+        documents_since=documents_since,
         skip_personen=args.skip_personen,
         skip_stemmingen=args.skip_stemmingen,
+        skip_documents=args.skip_documents,
+        dossier_nummer=args.dossier_nummer,
     )
-    print(result.summary())
+    logger.info(result.summary())
     if result.errors:
         for err in result.errors:
-            print(f"  ERROR: {err}")
+            logger.error(err)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
