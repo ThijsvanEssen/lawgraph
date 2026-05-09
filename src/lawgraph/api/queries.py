@@ -299,6 +299,7 @@ def get_dossier_timeline(
             datum: datum,
             soort: soort,
             titel: item.props.display_name,
+            tk_url: item.props.tk_url,
             body: item.props,
             node_id: item._id,
             node_type: item.type
@@ -348,8 +349,14 @@ def get_dossier_documents(
                 id: doc._id,
                 key: doc._key,
                 soort: doc.props.soort,
-                titel: (doc.props.title != null ? doc.props.title : doc.props.display_name),
+                titel: (doc.props.titel != null ? doc.props.titel :
+                        doc.props.title != null ? doc.props.title :
+                        doc.props.display_name),
+                volgnummer: doc.props.volgnummer,
+                dossier_nummer: doc.props.dossier_nummer,
+                vergaderjaar: doc.props.vergaderjaar,
                 datum: doc.props.datum,
+                tk_url: doc.props.tk_url,
                 display_name: doc.props.display_name
             }}
     )
@@ -366,11 +373,12 @@ def get_dossier_documents(
 def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]:
     """Return the pending-mutation subgraph for this dossier.
 
-    'Mutations' are edges with status='voorgesteld' that originated from
-    documents that are DEEL_VAN_DOSSIER this dossier.  Returns nodes + edges
-    in the same shape as the existing graph endpoint.
+    Primary signal: VOORGESTELD edges from documents that are DEEL_VAN_DOSSIER
+    this dossier.  Fallback (when no VOORGESTELD edges exist): articles that are
+    mentioned (MENTIONS_ARTICLE) by TK publications whose dossier_nummer matches
+    this dossier's kamerstuknummer — a reliable proxy for legislative activity.
     """
-    aql = f"""
+    aql_primary = f"""
     LET member_ids = (
         FOR edge IN {COLLECTION_EDGES}
             FILTER edge._to == @dossier_id OR edge._from == @dossier_id
@@ -388,9 +396,10 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
             to_node: to_node
         }}
     """
-    rows = list(store.query(aql, {"dossier_id": dossier_id}))
+    rows = list(store.query(aql_primary, {"dossier_id": dossier_id}))
     nodes_by_id: dict[str, dict[str, Any]] = {}
     edges_out: list[dict[str, Any]] = []
+
     for row in rows:
         e = row.get("edge") or {}
         fn = row.get("from_node")
@@ -408,6 +417,54 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
                 "meta": e.get("meta"),
             }
         )
+
+    if nodes_by_id:
+        return {"nodes": list(nodes_by_id.values()), "edges": edges_out}
+
+    # Fallback: derive kamerstuknummer from the dossier document and look up
+    # articles mentioned by publications with a matching dossier_nummer.
+    dossier_doc = store.db.collection("kamerstukdossiers").get(
+        dossier_id.split("/", 1)[-1]
+    )
+    if not dossier_doc:
+        return {"nodes": [], "edges": []}
+
+    nummer = str(dossier_doc.get("props", {}).get("nummer", ""))
+    if not nummer:
+        return {"nodes": [], "edges": []}
+
+    aql_fallback = """
+    FOR pub IN publications
+        FILTER pub.props.dossier_nummer == @nummer
+            OR @nummer IN (pub.props.dossier_nummers OR [])
+        FOR e IN edges_semantic
+            FILTER e._from == pub._id
+            FILTER e.relation == "MENTIONS_ARTICLE"
+            LET article = DOCUMENT(e._to)
+            FILTER article != null
+            RETURN DISTINCT {
+                article: article,
+                pub_id: pub._id,
+                edge_relation: e.relation,
+                pub_soort: pub.props.soort
+            }
+    """
+    for row in store.query(aql_fallback, {"nummer": nummer}):
+        article = row.get("article") or {}
+        article_id = article.get("_id")
+        if not article_id:
+            continue
+        nodes_by_id[article_id] = article
+        edges_out.append(
+            {
+                "from_id": row.get("pub_id"),
+                "to_id": article_id,
+                "relation": row.get("edge_relation"),
+                "status": None,
+                "meta": {"pub_soort": row.get("pub_soort")},
+            }
+        )
+
     return {"nodes": list(nodes_by_id.values()), "edges": edges_out}
 
 
@@ -951,6 +1008,7 @@ def get_stemmingen(
                 key: doc._key,
                 datum: doc.props.datum,
                 onderwerp: doc.props.onderwerp,
+                dossier_nummers: doc.props.dossier_nummers,
                 aangenomen: doc.props.aangenomen,
                 voor_count: LENGTH(doc.props.voor != null ? doc.props.voor : []),
                 tegen_count: LENGTH(doc.props.tegen != null ? doc.props.tegen : []),
@@ -975,6 +1033,7 @@ def get_stemming_detail(store: ArangoStore, key: str) -> dict[str, Any] | None:
         key: doc._key,
         datum: doc.props.datum,
         onderwerp: doc.props.onderwerp,
+        dossier_nummers: doc.props.dossier_nummers,
         aangenomen: doc.props.aangenomen,
         besluit_id: doc.props.besluit_id,
         voor: doc.props.voor,
@@ -991,36 +1050,70 @@ def get_stemming_detail(store: ArangoStore, key: str) -> dict[str, Any] | None:
 
 
 def get_in_flux_counts(store: ArangoStore) -> dict[str, int]:
-    """Return a map of node_id → count of VOORGESTELD edges targeting that node.
+    """Return a map of node_id → count of pending-mutation signals per node.
 
-    Only nodes with at least one open mutation are included, so the frontend
-    can efficiently decide which nodes to ring without iterating everything.
+    Primary signal: VOORGESTELD edges in the main edges collection.
+    Fallback: TK publications that mention the article via MENTIONS_ARTICLE
+    in edges_semantic, used when VOORGESTELD edges are not yet populated.
     """
-    aql = f"""
+    aql_primary = f"""
     FOR e IN {COLLECTION_EDGES}
         FILTER e.status == '{EDGE_STATUS_VOORGESTELD}'
         COLLECT target = e._to WITH COUNT INTO cnt
         RETURN {{ id: target, count: cnt }}
     """
-    return {row["id"]: row["count"] for row in store.query(aql)}
+    result = {row["id"]: row["count"] for row in store.query(aql_primary)}
+    if result:
+        return result
+
+    # Fallback: publications mentioning an article act as an in-flux signal.
+    aql_fallback = """
+    FOR e IN edges_semantic
+        FILTER e.relation == "MENTIONS_ARTICLE"
+        FILTER STARTS_WITH(e._from, "publications/")
+        COLLECT target = e._to WITH COUNT INTO cnt
+        RETURN { id: target, count: cnt }
+    """
+    return {row["id"]: row["count"] for row in store.query(aql_fallback)}
 
 
 def get_heat_counts(store: ArangoStore, *, months: int = 6) -> dict[str, int]:
-    """Return a map of node_id → activity count over the past *months* months.
+    """Return a map of node_id → activity count.
 
-    Activity is measured as the number of edges created within the time window
-    pointing *to* each node (i.e. how often something referenced it recently).
+    Combines two signals:
+    - Recent parliamentary activity: edges with created_at within the past
+      *months* months (commissies, dossiers, activiteiten).
+    - Judicial citation activity: CITES_ARTICLE edges from judgments targeting
+      instrument_articles (citation edges have no created_at timestamps so they
+      are always included as a supplemental article-layer signal).
     """
     cutoff = (
         dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=30 * months)
     ).isoformat()
-    aql = f"""
+    aql_parliament = f"""
     FOR e IN {COLLECTION_EDGES}
         FILTER e.created_at >= @cutoff
         COLLECT target = e._to WITH COUNT INTO cnt
         RETURN {{ id: target, count: cnt }}
     """
-    return {row["id"]: row["count"] for row in store.query(aql, {"cutoff": cutoff})}
+    result = {
+        row["id"]: row["count"]
+        for row in store.query(aql_parliament, {"cutoff": cutoff})
+    }
+
+    # Always supplement with judicial citation counts for article nodes.
+    aql_judicial = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == "CITES_ARTICLE"
+        FILTER STARTS_WITH(e._from, "judgments/")
+        COLLECT target = e._to WITH COUNT INTO cnt
+        RETURN {{ id: target, count: cnt }}
+    """
+    for row in store.query(aql_judicial):
+        node_id = row["id"]
+        result[node_id] = result.get(node_id, 0) + row["count"]
+
+    return result
 
 
 # ── Watch helpers ──────────────────────────────────────────────────────────────
