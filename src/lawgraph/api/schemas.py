@@ -765,7 +765,7 @@ class PartyColorsResponse(BaseModel):
 # ── Search schemas ────────────────────────────────────────────────────────────
 
 SEARCH_TYPES = frozenset(
-    {"articles", "judgments", "dossiers", "publications", "commissies"}
+    {"articles", "instruments", "judgments", "dossiers", "publications", "commissies"}
 )
 
 

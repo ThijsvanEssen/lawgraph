@@ -711,11 +711,11 @@ def get_article_in_flux(
 def get_commissie_by_slug(store: ArangoStore, slug: str) -> dict[str, Any] | None:
     aql = """
     FOR doc IN commissies
-        FILTER doc.props.slug == @slug
+        FILTER LOWER(doc.props.slug) == @slug
         LIMIT 1
         RETURN doc
     """
-    for doc in store.query(aql, {"slug": slug}):
+    for doc in store.query(aql, {"slug": slug.lower()}):
         return doc
     return None
 
@@ -724,7 +724,7 @@ def get_commissie_detail(store: ArangoStore, slug: str) -> dict[str, Any] | None
     """Return commissie with leden (via LID_VAN edges) and recent dossiers (via BEHANDELD_DOOR)."""
     aql = f"""
     FOR commissie IN commissies
-        FILTER commissie.props.slug == @slug
+        FILTER LOWER(commissie.props.slug) == @slug
         LIMIT 1
 
         LET leden = (
@@ -748,7 +748,7 @@ def get_commissie_detail(store: ArangoStore, slug: str) -> dict[str, Any] | None
 
         RETURN MERGE(commissie, {{ leden: leden, dossiers: dossiers }})
     """
-    for doc in store.query(aql, {"slug": slug}):
+    for doc in store.query(aql, {"slug": slug.lower()}):
         return doc
     return None
 
@@ -882,6 +882,16 @@ def get_edge_status_log(
     return list(store.query(aql, {"limit": limit}))
 
 
+def _tokenize_search_query(q: str) -> list[str]:
+    """Split a free-text query into lowercase tokens for AND-matching.
+
+    Whitespace is the only separator; punctuation is preserved inside tokens
+    so identifiers like ``BWBR0001903`` or ``ECLI:NL:HR:2023:1`` remain intact.
+    Tokens of length 1 are dropped to avoid pathological scans.
+    """
+    return [t for t in q.strip().lower().split() if len(t) > 1]
+
+
 def search_all(
     store: ArangoStore,
     *,
@@ -895,72 +905,124 @@ def search_all(
     Returns a dict keyed by type name with a list of hit dicts each containing
     {id, key, collection, type, display_name, snippet, extra}.
 
-    Uses simple CONTAINS/LIKE matching — no dedicated search index required.
+    Uses CONTAINS matching across a per-collection haystack of relevant
+    fields. The query is tokenised on whitespace and *every* token must
+    appear in the haystack (AND-semantics) — so ``"strafvordering 537"``
+    matches an article whose title mentions Strafvordering and whose
+    article_number is 537. No dedicated search index required.
     """
     results: dict[str, list[dict[str, Any]]] = {}
-    term = q.strip().lower()
-    if not term:
+    tokens = _tokenize_search_query(q)
+    if not tokens:
         return {t: [] for t in types}
 
+    # Single re-usable filter clause: every token in @tokens must appear in
+    # the local LET haystack. Short-circuits via LIMIT 1 in the inner FOR.
+    _all_tokens_filter = (
+        "FILTER LENGTH(FOR t IN @tokens "
+        "FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0"
+    )
+
     if "articles" in types:
-        aql = """
+        aql = f"""
         FOR doc IN instrument_articles
-            FILTER
-                CONTAINS(LOWER(doc.props.display_name), @term)
-                OR CONTAINS(LOWER(doc.props.text), @term)
-                OR CONTAINS(LOWER(doc.props.article_number), @term)
-                OR CONTAINS(LOWER(doc.props.bwb_id), @term)
+            LET haystack = CONCAT_SEPARATOR(" ",
+                LOWER(doc.props.display_name OR ""),
+                LOWER(doc.props.text OR ""),
+                LOWER(doc.props.article_number OR ""),
+                LOWER(doc.props.bwb_id OR "")
+            )
+            {_all_tokens_filter}
             SORT doc.props.display_name ASC
             LIMIT @limit
-            RETURN {
+            RETURN {{
                 id: doc._id,
                 key: doc._key,
                 collection: 'instrument_articles',
                 type: doc.type,
                 display_name: doc.props.display_name,
                 snippet: LEFT(doc.props.text, 200),
-                extra: {
+                extra: {{
                     bwb_id: doc.props.bwb_id,
                     article_number: doc.props.article_number
-                }
-            }
+                }}
+            }}
         """
-        results["articles"] = list(store.query(aql, {"term": term, "limit": limit}))
+        results["articles"] = list(store.query(aql, {"tokens": tokens, "limit": limit}))
+
+    if "instruments" in types:
+        aql = f"""
+        FOR doc IN instruments
+            LET haystack = CONCAT_SEPARATOR(" ",
+                LOWER(doc.props.title OR ""),
+                LOWER(doc.props.citation_title OR ""),
+                LOWER(doc.props.official_title OR ""),
+                LOWER(doc.props.display_name OR ""),
+                LOWER(doc.props.bwb_id OR "")
+            )
+            {_all_tokens_filter}
+            SORT doc.props.display_name ASC, doc.props.title ASC
+            LIMIT @limit
+            RETURN {{
+                id: doc._id,
+                key: doc._key,
+                collection: 'instruments',
+                type: doc.type,
+                display_name: (
+                    doc.props.citation_title != null ? doc.props.citation_title :
+                    (doc.props.display_name != null ? doc.props.display_name : doc.props.title)
+                ),
+                snippet: LEFT(doc.props.title, 200),
+                extra: {{
+                    bwb_id: doc.props.bwb_id,
+                    citation_title: doc.props.citation_title
+                }}
+            }}
+        """
+        results["instruments"] = list(
+            store.query(aql, {"tokens": tokens, "limit": limit})
+        )
 
     if "judgments" in types:
-        aql = """
+        aql = f"""
         FOR doc IN judgments
-            FILTER
-                CONTAINS(LOWER(doc.props.display_name), @term)
-                OR CONTAINS(LOWER(doc.props.ecli), @term)
-                OR CONTAINS(LOWER(doc.props.summary), @term)
+            LET haystack = CONCAT_SEPARATOR(" ",
+                LOWER(doc.props.display_name OR ""),
+                LOWER(doc.props.ecli OR ""),
+                LOWER(doc.props.summary OR "")
+            )
+            {_all_tokens_filter}
             SORT doc.props.display_name ASC
             LIMIT @limit
-            RETURN {
+            RETURN {{
                 id: doc._id,
                 key: doc._key,
                 collection: 'judgments',
                 type: doc.type,
                 display_name: doc.props.display_name,
                 snippet: LEFT(doc.props.summary, 200),
-                extra: { ecli: doc.props.ecli }
-            }
+                extra: {{ ecli: doc.props.ecli }}
+            }}
         """
-        results["judgments"] = list(store.query(aql, {"term": term, "limit": limit}))
+        results["judgments"] = list(
+            store.query(aql, {"tokens": tokens, "limit": limit})
+        )
 
     if "dossiers" in types:
         soort_clause = ""
-        bind_vars: dict[str, Any] = {"term": term, "limit": limit}
+        bind_vars: dict[str, Any] = {"tokens": tokens, "limit": limit}
         if soort:
             soort_clause = "FILTER LOWER(doc.props.huidige_fase) IN @soort_filter"
             bind_vars["soort_filter"] = [s.lower() for s in soort]
 
         aql = f"""
         FOR doc IN kamerstukdossiers
-            FILTER
-                CONTAINS(LOWER(doc.props.titel), @term)
-                OR CONTAINS(LOWER(doc.props.kamerstuknummer), @term)
-                OR CONTAINS(LOWER(doc.props.display_name), @term)
+            LET haystack = CONCAT_SEPARATOR(" ",
+                LOWER(doc.props.titel OR ""),
+                LOWER(doc.props.kamerstuknummer OR ""),
+                LOWER(doc.props.display_name OR "")
+            )
+            {_all_tokens_filter}
             {soort_clause}
             SORT doc.props.geopend_op DESC
             LIMIT @limit
@@ -981,38 +1043,45 @@ def search_all(
         results["dossiers"] = list(store.query(aql, bind_vars))
 
     if "commissies" in types:
-        aql = """
+        aql = f"""
         FOR doc IN commissies
-            FILTER
-                CONTAINS(LOWER(doc.props.naam), @term)
-                OR CONTAINS(LOWER(doc.props.afkorting), @term)
+            LET haystack = CONCAT_SEPARATOR(" ",
+                LOWER(doc.props.naam OR ""),
+                LOWER(doc.props.afkorting OR "")
+            )
+            {_all_tokens_filter}
             SORT doc.props.naam ASC
             LIMIT @limit
-            RETURN {
+            RETURN {{
                 id: doc._id,
                 key: doc._key,
                 collection: 'commissies',
                 type: doc.type,
                 display_name: doc.props.naam,
                 snippet: doc.props.afkorting,
-                extra: { slug: doc.props.slug, afkorting: doc.props.afkorting }
-            }
+                extra: {{ slug: doc.props.slug, afkorting: doc.props.afkorting }}
+            }}
         """
-        results["commissies"] = list(store.query(aql, {"term": term, "limit": limit}))
+        results["commissies"] = list(
+            store.query(aql, {"tokens": tokens, "limit": limit})
+        )
 
     if "publications" in types:
         soort_clause = ""
-        bind_vars_pub: dict[str, Any] = {"term": term, "limit": limit}
+        bind_vars_pub: dict[str, Any] = {"tokens": tokens, "limit": limit}
         if soort:
             soort_clause = "FILTER LOWER(doc.props.soort) IN @soort_filter"
             bind_vars_pub["soort_filter"] = [s.lower() for s in soort]
 
         aql = f"""
         FOR doc IN publications
-            FILTER
-                CONTAINS(LOWER(doc.props.display_name), @term)
-                OR CONTAINS(LOWER(doc.props.title), @term)
-                OR CONTAINS(LOWER(doc.props.external_id), @term)
+            LET haystack = CONCAT_SEPARATOR(" ",
+                LOWER(doc.props.display_name OR ""),
+                LOWER(doc.props.title OR ""),
+                LOWER(doc.props.titel OR ""),
+                LOWER(doc.props.external_id OR "")
+            )
+            {_all_tokens_filter}
             {soort_clause}
             SORT doc.props.display_name ASC
             LIMIT @limit
@@ -1295,11 +1364,11 @@ def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
         return doc
     aql = f"""
     FOR candidate IN {COLLECTION_JUDGMENTS}
-        FILTER candidate.props.ecli == @ecli
+        FILTER LOWER(candidate.props.ecli) == @ecli
         LIMIT 1
         RETURN candidate
     """
-    for result in store.query(aql, {"ecli": ecli}):
+    for result in store.query(aql, {"ecli": ecli.lower()}):
         return result
     return None
 

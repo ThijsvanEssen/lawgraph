@@ -118,7 +118,8 @@ def get_publication_text(
     It is ``null`` when the hydration pipeline has not yet run for this
     document (e.g. scanned PDFs without a text layer).
     """
-    doc = store.publications.get(key)
+    # Publication keys are sanitised to lowercase at ingest; accept any case.
+    doc = store.publications.get(key.lower())
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Publication '{key}' not found.")
 

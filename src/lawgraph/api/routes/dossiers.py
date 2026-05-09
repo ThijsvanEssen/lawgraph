@@ -136,7 +136,7 @@ def get_dossier_detail(
         str,
         Path(
             description="Parliamentary dossier number, e.g. 29684 or 29684-I",
-            pattern=r"^\d+(-[A-Z]+)?$",
+            pattern=r"^\d+(-[A-Za-z]+)?$",
         ),
     ],
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -168,7 +168,7 @@ def get_timeline(
         str,
         Path(
             description="Parliamentary dossier number, e.g. 29684 or 29684-I",
-            pattern=r"^\d+(-[A-Z]+)?$",
+            pattern=r"^\d+(-[A-Za-z]+)?$",
         ),
     ],
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -227,7 +227,7 @@ def get_dossier_documents_route(
         str,
         Path(
             description="Parliamentary dossier number, e.g. 29684 or 29684-I",
-            pattern=r"^\d+(-[A-Z]+)?$",
+            pattern=r"^\d+(-[A-Za-z]+)?$",
         ),
     ],
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -254,7 +254,7 @@ def get_mutations(
         str,
         Path(
             description="Parliamentary dossier number, e.g. 29684 or 29684-I",
-            pattern=r"^\d+(-[A-Z]+)?$",
+            pattern=r"^\d+(-[A-Za-z]+)?$",
         ),
     ],
     store: Annotated[ArangoStore, Depends(get_store)],
