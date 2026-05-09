@@ -10,9 +10,9 @@ GET /api/partijen/kleuren                     — party color map for the fronte
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
@@ -47,7 +47,7 @@ def _dossier_or_404(store: ArangoStore, kamerstuknummer: str) -> dict:
     dossier = get_dossier_by_nummer(store, kamerstuknummer)
     if dossier is None:
         raise HTTPException(
-            status_code=404, detail=f"Dossier {kamerstuknummer} niet gevonden."
+            status_code=404, detail=f"Dossier {kamerstuknummer} not found."
         )
     return dossier
 
@@ -132,7 +132,13 @@ def list_recent_dossiers(
     tags=["dossiers"],
 )
 def get_dossier_detail(
-    kamerstuknummer: str,
+    kamerstuknummer: Annotated[
+        str,
+        Path(
+            description="Parliamentary dossier number, e.g. 29684 or 29684-I",
+            pattern=r"^\d+(-[A-Z]+)?$",
+        ),
+    ],
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> DossierDetailResponse:
     dossier = _dossier_or_404(store, kamerstuknummer)
@@ -158,10 +164,17 @@ def get_dossier_detail(
     tags=["dossiers"],
 )
 def get_timeline(
-    kamerstuknummer: str,
+    kamerstuknummer: Annotated[
+        str,
+        Path(
+            description="Parliamentary dossier number, e.g. 29684 or 29684-I",
+            pattern=r"^\d+(-[A-Z]+)?$",
+        ),
+    ],
     store: Annotated[ArangoStore, Depends(get_store)],
     order: Annotated[
-        str, Query(description="Sorteervolgorde: 'desc' (nieuwste eerst) of 'asc'.")
+        Literal["asc", "desc"],
+        Query(description="Sorteervolgorde: 'desc' (nieuwste eerst) of 'asc'."),
     ] = "desc",
     soort: Annotated[
         str | None, Query(description="Komma-gescheiden lijst van documenttypes.")
@@ -172,12 +185,11 @@ def get_timeline(
     dossier_id = dossier["_id"]
 
     soort_filter = [s.strip() for s in soort.split(",")] if soort else None
-    order_val = "asc" if order.lower() == "asc" else "desc"
 
     rows = get_dossier_timeline(
         store,
         dossier_id,
-        order=order_val,
+        order=order,
         soort_filter=soort_filter,
         limit=limit,
     )
@@ -188,6 +200,7 @@ def get_timeline(
             titel=row.get("titel"),
             node_id=row.get("node_id") or "",
             node_type=row.get("node_type") or "",
+            tk_url=row.get("tk_url"),
             body=row.get("body") or {},
         )
         for row in rows
@@ -195,7 +208,7 @@ def get_timeline(
     return DossierTimelineResponse(
         kamerstuknummer=kamerstuknummer,
         total=len(entries),
-        order=order_val,
+        order=order,
         entries=entries,
     )
 
@@ -210,7 +223,13 @@ def get_timeline(
     tags=["dossiers"],
 )
 def get_dossier_documents_route(
-    kamerstuknummer: str,
+    kamerstuknummer: Annotated[
+        str,
+        Path(
+            description="Parliamentary dossier number, e.g. 29684 or 29684-I",
+            pattern=r"^\d+(-[A-Z]+)?$",
+        ),
+    ],
     store: Annotated[ArangoStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -231,7 +250,13 @@ def get_dossier_documents_route(
     tags=["dossiers"],
 )
 def get_mutations(
-    kamerstuknummer: str,
+    kamerstuknummer: Annotated[
+        str,
+        Path(
+            description="Parliamentary dossier number, e.g. 29684 or 29684-I",
+            pattern=r"^\d+(-[A-Z]+)?$",
+        ),
+    ],
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> DossierMutationsResponse:
     dossier = _dossier_or_404(store, kamerstuknummer)
@@ -246,6 +271,7 @@ def get_mutations(
                 relation=e.get("relation"),
                 status=e.get("status"),
                 meta=e.get("meta"),
+                kind=e.get("kind", "mutation"),
             )
             for e in raw.get("edges", [])
         ],

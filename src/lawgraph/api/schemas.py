@@ -467,6 +467,7 @@ class TimelineEntryDTO(BaseModel):
     titel: str | None
     node_id: str
     node_type: str
+    tk_url: str | None = None
     body: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -557,6 +558,9 @@ class DossierTimelineResponse(BaseModel):
     entries: list[TimelineEntryDTO]
 
 
+DossierMutationKind = Literal["mutation", "explanation"]
+
+
 class DossierMutationNode(BaseModel):
     """A node in the pending-mutation subgraph."""
 
@@ -568,6 +572,7 @@ class DossierMutationNode(BaseModel):
     type: str
     display_name: str | None
     labels: list[str]
+    kind: DossierMutationKind
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> DossierMutationNode:
@@ -580,6 +585,7 @@ class DossierMutationNode(BaseModel):
             type=doc.get("type", ""),
             display_name=props.get("display_name"),
             labels=list(doc.get("labels") or []),
+            kind=doc.get("_kind", "mutation"),
         )
 
 
@@ -593,6 +599,7 @@ class DossierMutationEdge(BaseModel):
     relation: str | None
     status: str | None
     meta: dict[str, Any] | None = None
+    kind: DossierMutationKind
 
 
 class DossierMutationsResponse(BaseModel):

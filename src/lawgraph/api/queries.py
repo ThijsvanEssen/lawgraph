@@ -11,10 +11,15 @@ from lawgraph.config.settings import (
     COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_VOORGESTELD,
+    RELATION_CITES_ARTICLE,
     RELATION_DEEL_VAN_DOSSIER,
+    RELATION_EXPLAINS_ARTICLE,
+    RELATION_INTRODUCEERT,
     RELATION_MENTIONS_ARTICLE,
     RELATION_PART_OF_INSTRUMENT,
     RELATION_REFERS_TO_ARTICLE,
+    RELATION_TREKT_IN,
+    RELATION_WIJZIGT,
 )
 from lawgraph.db import ArangoStore
 from lawgraph.models import make_node_key
@@ -370,13 +375,50 @@ def get_dossier_documents(
     return rows[0]
 
 
-def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]:
-    """Return the pending-mutation subgraph for this dossier.
+_MUTATION_RELATIONS = frozenset(
+    {
+        RELATION_WIJZIGT,
+        RELATION_INTRODUCEERT,
+        RELATION_TREKT_IN,
+        RELATION_REFERS_TO_ARTICLE,
+        RELATION_MENTIONS_ARTICLE,
+    }
+)
+_EXPLANATION_RELATIONS = frozenset({RELATION_EXPLAINS_ARTICLE})
 
-    Primary signal: VOORGESTELD edges from documents that are DEEL_VAN_DOSSIER
-    this dossier.  Fallback (when no VOORGESTELD edges exist): articles that are
-    mentioned (MENTIONS_ARTICLE) by TK publications whose dossier_nummer matches
-    this dossier's kamerstuknummer — a reliable proxy for legislative activity.
+
+def _classify_relation(relation: str | None) -> str:
+    """Map an edge relation to a coarse kind: 'mutation' or 'explanation'.
+
+    Mutation edges flag pending changes to article text (WIJZIGT/INTRODUCEERT/
+    TREKT_IN) or strong references to articles in a wijzigingsvoorstel
+    (REFERS_TO_ARTICLE/MENTIONS_ARTICLE). Explanation edges (EXPLAINS_ARTICLE)
+    are MvT-style discussion of an article without proposing a change. The
+    frontend renders these as separate overlays, so the discriminator must be
+    preserved in the response.
+    """
+    if relation in _EXPLANATION_RELATIONS:
+        return "explanation"
+    return "mutation"
+
+
+def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]:
+    """Return the pending-mutation + MvT-explanation subgraph for this dossier.
+
+    Primary signal: edges from publications/procedures that are
+    DEEL_VAN_DOSSIER this dossier, in either of two kinds:
+      - ``mutation``    — VOORGESTELD status, or relation in
+        WIJZIGT/INTRODUCEERT/TREKT_IN/REFERS_TO_ARTICLE/MENTIONS_ARTICLE
+      - ``explanation`` — relation EXPLAINS_ARTICLE (MvT-style discussion)
+
+    Fallback (when the primary returns nothing — e.g. no DEEL_VAN_DOSSIER
+    links yet): same relations, scoped via publication ``dossier_nummer``
+    instead of the edge graph.
+
+    Each edge carries a ``kind`` discriminator so the frontend can render
+    the two channels as separate overlays. Each node's ``kind`` is the
+    strongest kind across its incident edges (``mutation`` wins over
+    ``explanation``).
     """
     aql_primary = f"""
     LET member_ids = (
@@ -388,6 +430,15 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
     FOR e IN {COLLECTION_EDGES}
         FILTER e._from IN member_ids OR e._to IN member_ids
         FILTER e.status == "{EDGE_STATUS_VOORGESTELD}"
+            OR e.relation IN [
+                "{RELATION_WIJZIGT}",
+                "{RELATION_INTRODUCEERT}",
+                "{RELATION_TREKT_IN}",
+                "{RELATION_REFERS_TO_ARTICLE}",
+                "{RELATION_MENTIONS_ARTICLE}",
+                "{RELATION_EXPLAINS_ARTICLE}"
+            ]
+        FILTER STARTS_WITH(e._to, "instrument_articles/")
         LET from_node = DOCUMENT(e._from)
         LET to_node = DOCUMENT(e._to)
         RETURN {{
@@ -398,7 +449,14 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
     """
     rows = list(store.query(aql_primary, {"dossier_id": dossier_id}))
     nodes_by_id: dict[str, dict[str, Any]] = {}
+    node_kinds: dict[str, str] = {}
     edges_out: list[dict[str, Any]] = []
+
+    def _bump_kind(node_id: str | None, kind: str) -> None:
+        if not node_id:
+            return
+        if node_kinds.get(node_id) != "mutation":
+            node_kinds[node_id] = kind
 
     for row in rows:
         e = row.get("edge") or {}
@@ -408,6 +466,9 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
             nodes_by_id[fn["_id"]] = fn
         if tn:
             nodes_by_id[tn["_id"]] = tn
+        kind = _classify_relation(e.get("relation"))
+        _bump_kind(e.get("_from"), kind)
+        _bump_kind(e.get("_to"), kind)
         edges_out.append(
             {
                 "from_id": e.get("_from"),
@@ -415,11 +476,16 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
                 "relation": e.get("relation"),
                 "status": e.get("status"),
                 "meta": e.get("meta"),
+                "kind": kind,
             }
         )
 
     if nodes_by_id:
-        return {"nodes": list(nodes_by_id.values()), "edges": edges_out}
+        nodes_with_kind = [
+            {**doc, "_kind": node_kinds.get(node_id, "mutation")}
+            for node_id, doc in nodes_by_id.items()
+        ]
+        return {"nodes": nodes_with_kind, "edges": edges_out}
 
     # Fallback: derive kamerstuknummer from the dossier document and look up
     # articles mentioned by publications with a matching dossier_nummer.
@@ -433,21 +499,29 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
     if not nummer:
         return {"nodes": [], "edges": []}
 
-    aql_fallback = """
+    aql_fallback = f"""
     FOR pub IN publications
         FILTER pub.props.dossier_nummer == @nummer
             OR @nummer IN (pub.props.dossier_nummers OR [])
-        FOR e IN edges_semantic
+        FOR e IN {COLLECTION_EDGES}
             FILTER e._from == pub._id
-            FILTER e.relation == "MENTIONS_ARTICLE"
+            FILTER e.relation IN [
+                "{RELATION_REFERS_TO_ARTICLE}",
+                "{RELATION_MENTIONS_ARTICLE}",
+                "{RELATION_EXPLAINS_ARTICLE}",
+                "{RELATION_WIJZIGT}",
+                "{RELATION_INTRODUCEERT}",
+                "{RELATION_TREKT_IN}"
+            ]
+            FILTER STARTS_WITH(e._to, "instrument_articles/")
             LET article = DOCUMENT(e._to)
             FILTER article != null
-            RETURN DISTINCT {
+            RETURN DISTINCT {{
                 article: article,
                 pub_id: pub._id,
                 edge_relation: e.relation,
                 pub_soort: pub.props.soort
-            }
+            }}
     """
     for row in store.query(aql_fallback, {"nummer": nummer}):
         article = row.get("article") or {}
@@ -455,6 +529,9 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
         if not article_id:
             continue
         nodes_by_id[article_id] = article
+        kind = _classify_relation(row.get("edge_relation"))
+        _bump_kind(article_id, kind)
+        _bump_kind(row.get("pub_id"), kind)
         edges_out.append(
             {
                 "from_id": row.get("pub_id"),
@@ -462,10 +539,15 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
                 "relation": row.get("edge_relation"),
                 "status": None,
                 "meta": {"pub_soort": row.get("pub_soort")},
+                "kind": kind,
             }
         )
 
-    return {"nodes": list(nodes_by_id.values()), "edges": edges_out}
+    nodes_with_kind = [
+        {**doc, "_kind": node_kinds.get(node_id, "mutation")}
+        for node_id, doc in nodes_by_id.items()
+    ]
+    return {"nodes": nodes_with_kind, "edges": edges_out}
 
 
 def get_open_dossiers(
@@ -1101,15 +1183,28 @@ def get_heat_counts(store: ArangoStore, *, months: int = 6) -> dict[str, int]:
         for row in store.query(aql_parliament, {"cutoff": cutoff})
     }
 
-    # Always supplement with judicial citation counts for article nodes.
-    aql_judicial = f"""
+    # Always supplement with all article-citation signals regardless of timestamp.
+    # Covers judicial citations (CITES_ARTICLE), TK/EU semantic links
+    # (REFERS_TO_ARTICLE), and amendment-scanner edges (WIJZIGT, INTRODUCEERT,
+    # TREKT_IN).  These edges may be old (no created_at) but are permanent
+    # signals of legislative activity on an article.
+    _ARTICLE_CITATION_RELATIONS = [
+        RELATION_CITES_ARTICLE,
+        RELATION_REFERS_TO_ARTICLE,
+        RELATION_WIJZIGT,
+        RELATION_INTRODUCEERT,
+        RELATION_TREKT_IN,
+    ]
+    aql_article_citations = f"""
     FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation == "CITES_ARTICLE"
-        FILTER STARTS_WITH(e._from, "judgments/")
+        FILTER e.relation IN @relations
+        FILTER STARTS_WITH(e._to, "instrument_articles/")
         COLLECT target = e._to WITH COUNT INTO cnt
         RETURN {{ id: target, count: cnt }}
     """
-    for row in store.query(aql_judicial):
+    for row in store.query(
+        aql_article_citations, {"relations": _ARTICLE_CITATION_RELATIONS}
+    ):
         node_id = row["id"]
         result[node_id] = result.get(node_id, 0) + row["count"]
 
