@@ -148,6 +148,7 @@ def run_migration() -> None:
             key=det_key,
             labels=list(orphan.labels),
             props=dict(orphan.props),
+            _skip_validation=True,  # props are a full copy of an existing node; already valid
         )
         store.insert_or_update(extra_node)
         merged += 1

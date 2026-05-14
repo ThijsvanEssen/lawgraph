@@ -92,6 +92,7 @@ class StrafrechtSeedPipeline:
             key=existing_node.key if existing_node else None,
             labels=labels,
             props=props,
+            _skip_validation=True,  # props are config-driven and may carry arbitrary keys
         )
 
         if existing_node:
@@ -133,6 +134,7 @@ class StrafrechtSeedPipeline:
             key=existing_node.key if existing_node else None,
             labels=labels,
             props=props,
+            _skip_validation=True,  # props are YAML config-driven and carry arbitrary keys
         )
 
         if existing_node:

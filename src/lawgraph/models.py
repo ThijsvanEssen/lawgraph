@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from enum import Enum
 from typing import Any
+
+from pydantic import ValidationError
 
 
 @dataclass
@@ -71,6 +73,9 @@ class Node:
       - type: semantic node type (NodeType enum)
       - labels: domain tags (e.g. ["Strafrecht", "TK"])
       - props: domain-specific metadata (should always include `display_name`)
+      - _skip_validation: pass True to bypass props schema validation. Only use
+        this for internal copies (from_document, with_key) or trusted tools that
+        write partial/arbitrary props outside the normalize pipeline contract.
     """
 
     collection: str
@@ -78,6 +83,24 @@ class Node:
     key: str | None = None
     labels: list[str] = field(default_factory=list)
     props: dict[str, Any] = field(default_factory=dict)
+    _skip_validation: InitVar[bool] = False
+
+    def __post_init__(self, _skip_validation: bool) -> None:
+        if _skip_validation:
+            return
+        from lawgraph.props import (  # deferred to avoid circular import
+            COLLECTION_SCHEMAS,
+        )
+
+        schema = COLLECTION_SCHEMAS.get(self.collection)
+        if schema is None:
+            return
+        try:
+            schema.model_validate(self.props)
+        except ValidationError as exc:
+            raise ValueError(
+                f"Invalid props for collection {self.collection!r}:\n{exc}"
+            ) from exc
 
     @property
     def id(self) -> str | None:
@@ -97,6 +120,7 @@ class Node:
 
     @classmethod
     def from_document(cls, collection: str, doc: dict[str, Any]) -> Node:
+        """Deserialise a raw ArangoDB document — bypasses props validation."""
         key = doc.get("_key")
         type_str = doc.get("type", NodeType.TOPIC.value)
         try:
@@ -113,13 +137,15 @@ class Node:
                 k: v for k, v in doc.items() if k not in {"_key", "type", "labels"}
             }
 
-        return cls(
-            collection=collection,
-            key=key,
-            type=node_type,
-            labels=labels,
-            props=props,
-        )
+        # Use object.__new__ to bypass __init__ (and __post_init__ validation).
+        # DB documents may contain legacy fields not yet in the current schema.
+        instance = object.__new__(cls)
+        instance.collection = collection
+        instance.key = key
+        instance.type = node_type
+        instance.labels = labels
+        instance.props = props
+        return instance
 
     def with_key(self, key: str) -> Node:
         return Node(
@@ -128,6 +154,7 @@ class Node:
             key=key,
             labels=list(self.labels),
             props=dict(self.props),
+            _skip_validation=True,  # props were already validated at construction
         )
 
 
