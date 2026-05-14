@@ -4,7 +4,7 @@ from lawgraph.pipelines.semantic.bwb_detect import detect_bwb_article_citations
 
 
 def test_detect_single_article_reference() -> None:
-    text = "Artikel 24c van het Wetboek van Strafrecht staat centraal."
+    text = "Zie artikel 24c voor de van toepassing zijnde bepalingen."
     hits = detect_bwb_article_citations(text, "BWBR0001854")
 
     assert len(hits) == 1

@@ -45,7 +45,7 @@ def test_get_node_graph_returns_neighbors(monkeypatch):
     """Verifieer het node explorer endpoint via een gesimuleerde graph."""
     monkeypatch.setattr(
         "lawgraph.api.routes.nodes.get_node_with_neighbors",
-        lambda store, collection, key: _build_payload(),
+        lambda store, collection, key, **kwargs: _build_payload(),
     )
 
     response = client.get("/api/nodes/instruments/BWBR0000123")

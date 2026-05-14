@@ -124,7 +124,7 @@ def test_get_commissie_detail_returns_404_for_unknown(monkeypatch):
     """GET /api/commissies/{slug} returns 404 when commissie is not found."""
     monkeypatch.setattr(
         "lawgraph.api.routes.commissies.get_commissie_detail",
-        lambda store, slug: None,
+        lambda store, slug, **kwargs: None,
     )
     response = client.get("/api/commissies/onbekend")
     assert response.status_code == 404

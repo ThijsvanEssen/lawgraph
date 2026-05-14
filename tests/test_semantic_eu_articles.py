@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.pipelines.semantic.base import _sha1_edge_key
 from lawgraph.pipelines.semantic.eu_articles import (
     EUArticleSemanticPipeline,
     detect_eu_citations,
@@ -18,7 +19,7 @@ def _make_instrument(
     if celex:
         props["celex"] = celex
     if html:
-        props["raw_html"] = html
+        props["text"] = html
     return {
         "_key": key,
         "labels": ["EU"],
@@ -60,8 +61,6 @@ class FakeStore:
 
     def insert_or_update_edge(
         self,
-        *,
-        collection_name: str,
         doc: dict[str, Any],
     ) -> tuple[dict[str, Any], bool]:
         key = doc["_key"]
@@ -159,7 +158,7 @@ def test_eu_pipeline_idempotent_edges() -> None:
     assert second.created == 0
     assert len(store.edges) == 1
     key = next(iter(store.edges))
-    expected_key = (
-        f"{make_node_key(source_key)}__{make_node_key(target_key)}__MENTIONS_INSTRUMENT"
-    )
+    from_id = f"instrument_articles/{source_key}"
+    to_id = f"instruments/{target_key}"
+    expected_key = _sha1_edge_key(from_id, "MENTIONS_INSTRUMENT", to_id)
     assert key == expected_key

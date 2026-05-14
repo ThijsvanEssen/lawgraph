@@ -148,14 +148,14 @@ def test_euclient_fetch_celex_html_builds_correct_url() -> None:
     html_body = "<html>CELEX</html>"
     session = DummySession(DummyResponse(text=html_body))
     client = EUClient(session=session)
-    client.base_url = "https://eur-lex.example.org/"
 
     # Act
     result = client.fetch_celex_html("32019L1158", lang="NL")
 
-    # Assert
+    # Assert — implementation uses the CELLAR publications server directly (no base_url)
     assert session.calls == 1
-    assert session.last_url == "https://eur-lex.example.org/legal-content/NL/TXT/"
-    assert session.last_params is not None
-    assert session.last_params.get("uri") == "CELEX:32019L1158"
+    assert (
+        session.last_url == "https://publications.europa.eu/resource/celex/32019L1158"
+    )
+    assert session.last_params == {}
     assert result == html_body

@@ -34,8 +34,6 @@ class FakeStore:
 
     def insert_or_update_edge(
         self,
-        *,
-        collection_name: str,
         doc: dict[str, Any],
     ) -> tuple[dict[str, Any], bool]:
         key = doc["_key"]
