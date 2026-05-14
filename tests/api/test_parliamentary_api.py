@@ -145,3 +145,52 @@ def test_list_stemmingen_returns_200(monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert "total" in body
+
+
+# ---------------------------------------------------------------------------
+# Parlement tests
+# ---------------------------------------------------------------------------
+
+_FRACTIE_DOC = {
+    "_id": "fracties/vvd",
+    "_key": "vvd",
+    "labels": ["Fractie"],
+    "props": {
+        "naam": "Volkspartij voor Vrijheid en Democratie",
+        "afkorting": "VVD",
+        "aantal_zetels": 24,
+        "actief": True,
+    },
+    "member_count": 24,
+}
+
+
+def test_get_zetels_returns_200(monkeypatch):
+    """GET /api/parlement/zetels returns 200 with fractie seat data."""
+    monkeypatch.setattr(
+        "lawgraph.api.routes.parlement.get_all_fracties",
+        lambda store, **kwargs: [_FRACTIE_DOC],
+    )
+    response = client.get("/api/parlement/zetels")
+    assert response.status_code == 200
+    body = response.json()
+    assert "total_seats" in body
+    assert "fracties" in body
+    assert isinstance(body["fracties"], list)
+
+
+# ---------------------------------------------------------------------------
+# Watches tests
+# ---------------------------------------------------------------------------
+
+
+def test_list_watches_returns_200(monkeypatch):
+    """GET /api/watches returns 200 and a list."""
+    monkeypatch.setattr(
+        "lawgraph.api.routes.watches.list_watches",
+        lambda store: [],
+    )
+    response = client.get("/api/watches")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)

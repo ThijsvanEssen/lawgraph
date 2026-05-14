@@ -11,8 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any, Iterable
 
-from lawgraph.config.settings import (  # noqa: F401 – kept for future use
-    COLLECTION_INSTRUMENT_ARTICLES,
+from lawgraph.config.settings import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_PROCEDURES,
     COLLECTION_PUBLICATIONS,

@@ -72,8 +72,11 @@ class ArticleProps(_StrictBase):
     bwb_id: str | None = None
     celex: str | None = None
     article_number: str | None = None
+    label: str | None = None
+    title: str | None = None
     text: str | None = None
     instrument_citation_title: str | None = None
+    instrument_id: str | None = None
     strafrecht_profile: str | bool | None = None
     stub: bool | None = None
 

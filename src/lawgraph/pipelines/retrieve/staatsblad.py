@@ -150,8 +150,10 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
                 if exists:
                     result.skipped += 1
                     continue
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug(
+                    "Staatsblad existence check failed for %s: %s", identifier, exc
+                )
 
             xml = self.client.fetch_publication_xml(identifier)
             if xml is None:

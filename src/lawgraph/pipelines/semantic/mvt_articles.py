@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "mvt-article-linker"
 
 _HEADING_PATTERN = re.compile(r"artikelsgewijze\s+toelichting", re.IGNORECASE)
-_ARTICLE_PATTERN = re.compile(r"\bArtikelen?\s+(\d+[a-z]*)\b", re.IGNORECASE)
+_ARTICLE_PATTERN = re.compile(r"\bArtikel(?:en)?\s+(\d+[a-z]*)\b", re.IGNORECASE)
 
 _MAX_HITS_PER_PUB = 200
 
