@@ -1,4 +1,23 @@
-"""DTO definitions for the FastAPI layer."""
+"""DTO definitions for the FastAPI layer.
+
+Conventions across the API
+--------------------------
+* Every DTO has ``model_config = ConfigDict(extra="forbid")``. Unknown
+  fields in inputs/outputs raise validation errors so contract drift
+  surfaces immediately instead of being silently tolerated.
+* Node-id references always use ``id`` (the Arango ``_id``,
+  ``collection/key``) and ``key`` (the Arango ``_key``). Never
+  ``article_id``/``dossier_id`` etc. — readers can split ``id`` if they
+  need the collection prefix.
+* Edges use ``from``/``to`` (matching the Arango edge shape and the
+  graph-rendering convention).
+* List responses expose two fields: ``items`` (the page, after ``limit``
+  /``offset``) and ``total`` (the **absolute** count of matches,
+  independent of ``limit`` — for "+N more" badges and pagination).
+* Bulk endpoints return ``response_class=JSONResponse`` only when the
+  payload is a free-form map (``dict[str, int]``: heat counts, in-flux
+  counts). Every other response is a typed Pydantic model.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +26,22 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 _DROP_PROPS_KEYS = ("raw_xml",)
+
+# Props that bloat the wire size of graph-view payloads without serving any
+# frontend rendering need. Stripped from focal node + every neighbor on the
+# /api/nodes/{coll}/{key} response. The detail endpoints
+# (/api/judgments/{ecli}, /api/articles/...) still return them when the
+# reader actually needs the body.
+_DROP_PROPS_KEYS_GRAPH = (
+    "raw_xml",
+    "text",
+    "paragraphs",
+    "leden",
+    "subjects",
+    "judgment_metadata",
+    "raw_data",
+    "raw",  # publications carry the source TK payload here
+)
 
 
 def _build_node_payload(
@@ -127,6 +162,256 @@ class ArticleSummaryDTO(BaseModel):
         )
 
 
+class InstrumentArticleBreadcrumbDTO(BaseModel):
+    """One step in an article's chapter/section path."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: str | None = None
+    label: str | None = None
+
+
+class InstrumentArticleNodeDTO(BaseModel):
+    """Lightweight article shape for the graph-loader.
+
+    No full ``text`` field — that would balloon the payload when loading
+    hundreds of articles for a single instrument. ``text_preview`` carries
+    the first few characters so the FE has something to render on the node;
+    use /api/articles/{bwb_id}/{article_number} for full content.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    bwb_id: str | None
+    article_number: str | None
+    display_name: str | None
+    breadcrumb: list[InstrumentArticleBreadcrumbDTO] = []
+    stub: bool = False
+    text_preview: str | None = None
+
+    @classmethod
+    def from_document(
+        cls, doc: dict[str, Any], *, text_preview_chars: int = 160
+    ) -> InstrumentArticleNodeDTO:
+        props = doc.get("props") or {}
+        text = props.get("text") or ""
+        raw_crumbs = props.get("breadcrumb") or []
+        crumbs = [
+            InstrumentArticleBreadcrumbDTO(type=c.get("type"), label=c.get("label"))
+            for c in raw_crumbs
+            if isinstance(c, dict)
+        ]
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            bwb_id=props.get("bwb_id"),
+            article_number=props.get("article_number"),
+            display_name=props.get("display_name"),
+            breadcrumb=crumbs,
+            stub=bool(props.get("stub", False)),
+            text_preview=(text[:text_preview_chars] if text else None),
+        )
+
+
+class InstrumentArticlesResponse(BaseModel):
+    """Response for GET /api/instruments/{bwb_id}/articles."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str
+    total: int = Field(
+        ...,
+        description=(
+            "Absolute count of articles matching the request, independent "
+            "of ``limit`` — use to render a '+N more' badge."
+        ),
+    )
+    items: list[InstrumentArticleNodeDTO]
+
+
+# ── /api/instruments/{bwb_id}/citations (bulk edges) ──────────────────────
+
+
+class InstrumentCitationEdge(BaseModel):
+    """One edge incident to an article of the focal instrument.
+
+    Edges keep ``from``/``to`` (not ``source``/``target``) — that matches
+    the ArangoDB edge shape and the citation graph rendering convention.
+    For an article-node id reference inside other DTOs, ``id``/``key`` are
+    used instead.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    from_id: str = Field(..., alias="from", description="Edge source node _id")
+    to_id: str = Field(..., alias="to", description="Edge target node _id")
+    relation: str = Field(..., description="Edge relation type, e.g. CITES_ARTICLE")
+    direction: Literal["in", "out", "intra"] = Field(
+        ...,
+        description=(
+            "Relative to the focal instrument: ``out`` = source is in this "
+            "wet, ``in`` = target is in this wet, ``intra`` = both sides."
+        ),
+    )
+    meta: dict[str, Any] | None = Field(
+        None, description="Optional edge metadata as written by the pipeline."
+    )
+
+
+class InstrumentCitationsResponse(BaseModel):
+    """Response for GET /api/instruments/{bwb_id}/citations.
+
+    One-shot bundle of every edge incident to the instrument's articles plus
+    the foreign endpoints those edges point at, grouped by collection.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str
+    article_count: int = Field(
+        ..., description="Number of articles in the focal instrument."
+    )
+    total_edges: int = Field(
+        ..., description="Number of edges in the response (capped by ``max_edges``)."
+    )
+    edges: list[InstrumentCitationEdge]
+    nodes: dict[str, list[dict[str, Any]]] = Field(
+        ...,
+        description=(
+            "Foreign endpoints grouped by collection name "
+            "(e.g. ``{'judgments': [...], 'instrument_articles': [...]}``)."
+        ),
+    )
+
+
+# ── /api/instruments/{bwb_id}/judgments ───────────────────────────────────
+
+
+class CitedArticleRef(BaseModel):
+    """Reference to one cited article inside a judgment-citation list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(
+        ...,
+        description="ArangoDB document _id, e.g. ``instrument_articles/bwbr0001854_287``.",
+    )
+    key: str = Field(..., description="ArangoDB document _key.")
+    article_number: str | None = None
+    display_name: str | None = None
+
+
+class InstrumentJudgmentItem(BaseModel):
+    """One judgment that cites this instrument."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(
+        ...,
+        description="ArangoDB document _id, e.g. ``judgments/ecli_nl_hr_2014_1496``.",
+    )
+    key: str
+    ecli: str | None = None
+    display_name: str | None = None
+    cited_articles: list[CitedArticleRef] = Field(
+        default_factory=list,
+        description="Articles of the focal instrument that this judgment cites.",
+    )
+
+
+class InstrumentJudgmentsResponse(BaseModel):
+    """Response for GET /api/instruments/{bwb_id}/judgments."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str
+    total: int = Field(
+        ...,
+        description=(
+            "Absolute number of judgments citing this instrument "
+            "(independent of ``limit``)."
+        ),
+    )
+    items: list[InstrumentJudgmentItem]
+
+
+# ── /api/instruments/{bwb_id}/dossiers ────────────────────────────────────
+
+
+class InstrumentDossierItem(BaseModel):
+    """One Kamerstukdossier touching this instrument."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    kamerstuknummer: str | None = None
+    titel: str | None = None
+    display_name: str | None = None
+    huidige_fase: str | None = None
+    geopend_op: str | None = None
+    afgedaan: bool | None = None
+
+
+class InstrumentDossiersResponse(BaseModel):
+    """Response for GET /api/instruments/{bwb_id}/dossiers."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str
+    total: int = Field(
+        ...,
+        description=(
+            "Absolute number of dossiers touching this instrument "
+            "(independent of ``limit``)."
+        ),
+    )
+    items: list[InstrumentDossierItem]
+
+
+# ── /api/instruments/{bwb_id}/related-instruments ─────────────────────────
+
+
+class InstrumentRelatedItem(BaseModel):
+    """One other instrument linked via cross-article REFERS_TO_ARTICLE."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    bwb_id: str | None = None
+    display_name: str | None = None
+    citation_title: str | None = None
+    outbound_count: int = Field(
+        ...,
+        description=(
+            "Number of REFERS_TO_ARTICLE edges from articles of the focal "
+            "instrument to articles of this related instrument."
+        ),
+    )
+    inbound_count: int = Field(
+        ...,
+        description="Mirror of ``outbound_count`` in the opposite direction.",
+    )
+
+
+class InstrumentRelatedResponse(BaseModel):
+    """Response for GET /api/instruments/{bwb_id}/related-instruments."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str
+    total: int = Field(
+        ...,
+        description=(
+            "Absolute number of related instruments " "(independent of ``limit``)."
+        ),
+    )
+    items: list[InstrumentRelatedItem]
+
+
 class ArticleCitationTarget(BaseModel):
     """Minimal metadata describing the referenced article."""
 
@@ -155,6 +440,8 @@ class ArticleCitationSpan(BaseModel):
 
 class JudgmentDTO(BaseNodeDTO):
     """Rich judgment DTO that hides raw XML but exposes metadata."""
+
+    model_config = ConfigDict(extra="forbid")
 
     ecli: str | None
     summary: str | None
@@ -243,7 +530,9 @@ class ArticleRelationDTO(BaseModel):
 
 
 class ArticleDetailResponse(BaseModel):
-    """Response model voor het artikel endpoint."""
+    """Response for GET /api/articles/{bwb_id}/{article_number}."""
+
+    model_config = ConfigDict(extra="forbid")
 
     article: ArticleSummaryDTO
     instrument: InstrumentSummaryDTO | None
@@ -264,12 +553,175 @@ class JudgmentParagraph(BaseModel):
 
 
 class JudgmentDetailResponse(BaseModel):
-    """Response model for judgment detail endpoint."""
+    """Response for GET /api/judgments/{ecli}."""
+
+    model_config = ConfigDict(extra="forbid")
 
     judgment: JudgmentDTO
     articles: list[ArticleRelationDTO]
     cited_judgments: list[JudgmentSummaryDTO] = Field(default_factory=list)
     metadata: dict[str, Any] | None
+
+
+class InstrumentListItemDTO(BaseModel):
+    """Row in the paginated /api/instruments list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    collection: str = "instruments"
+    bwb_id: str | None
+    celex: str | None
+    title: str | None
+    short_title: str | None
+    citation_title: str | None
+    jurisdiction: str | None
+    kind: str | None
+    article_count: int
+    judgment_citation_count: int | None = None
+    last_article_mutation: str | None = None
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
+        return cls(
+            id=row["_id"],
+            key=row["_key"],
+            bwb_id=row.get("bwb_id"),
+            celex=row.get("celex"),
+            title=row.get("title"),
+            short_title=row.get("short_title"),
+            citation_title=row.get("citation_title"),
+            jurisdiction=row.get("jurisdiction") or None,
+            kind=row.get("kind"),
+            article_count=int(row.get("article_count") or 0),
+        )
+
+
+class InstrumentListResponse(BaseModel):
+    """Paginated list envelope for instruments."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[InstrumentListItemDTO]
+    total: int
+
+
+class InstrumentVersionDTO(BaseModel):
+    """One historical version (toestand) of a BWB instrument."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    bwb_id: str
+    valid_from: str | None = None
+    valid_until: str | None = None
+    current: bool = False
+    toestand_url: str | None = None
+    article_count: int | None = None
+
+    @classmethod
+    def from_doc(cls, doc: dict[str, Any]) -> "InstrumentVersionDTO":
+        props = doc.get("props") or {}
+        return cls(
+            key=doc["_key"],
+            bwb_id=props.get("bwb_id", ""),
+            valid_from=props.get("valid_from"),
+            valid_until=props.get("valid_until"),
+            current=bool(props.get("current", False)),
+            toestand_url=props.get("toestand_url"),
+            article_count=props.get("article_count"),
+        )
+
+
+class InstrumentVersionsResponse(BaseModel):
+    """Paginated list of historical versions for one instrument."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str
+    total: int
+    items: list[InstrumentVersionDTO]
+
+
+class InstrumentArticleVersionDTO(BaseModel):
+    """One historical version of a single BWB article."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    bwb_id: str
+    article_number: str
+    valid_from: str | None = None
+    valid_until: str | None = None
+    current: bool = False
+    text: str | None = None
+    diff: str | None = None  # unified diff vs previous version (computed on-the-fly)
+
+
+class InstrumentArticleVersionsResponse(BaseModel):
+    """All historical versions of one article, newest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str
+    article_number: str
+    items: list[InstrumentArticleVersionDTO]
+
+
+class InstrumentArticlesAtResponse(BaseModel):
+    """Articles of an instrument as-of a specific date."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str
+    at_date: str
+    total: int
+    items: list[InstrumentArticleVersionDTO]
+
+
+class JudgmentListItemDTO(BaseModel):
+    """Row in the paginated /api/judgments list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    collection: str = "judgments"
+    ecli: str | None
+    display_name: str | None
+    court: str | None
+    tier: str | None
+    date: str | None
+    summary: str | None
+    source: str | None = None
+    inbound_citation_count: int | None
+    outbound_citation_count: int | None = None
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> JudgmentListItemDTO:
+        inbound = row.get("inbound_citation_count")
+        return cls(
+            id=row["_id"],
+            key=row["_key"],
+            ecli=row.get("ecli"),
+            display_name=row.get("display_name"),
+            court=row.get("court_code"),
+            tier=row.get("tier"),
+            date=row.get("date"),
+            summary=row.get("summary"),
+            source=row.get("source"),
+            inbound_citation_count=int(inbound) if inbound is not None else None,
+        )
+
+
+class JudgmentListResponse(BaseModel):
+    """Paginated list envelope for judgments."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[JudgmentListItemDTO]
+    total: int
 
 
 class NeighborDTO(BaseModel):
@@ -296,22 +748,56 @@ class NeighborDTO(BaseModel):
         direction: Literal["outbound", "inbound"],
         confidence: float | None,
     ) -> NeighborDTO:
-        payload = _build_node_payload(doc)
+        payload = _build_node_payload(doc, drop_props_keys=_DROP_PROPS_KEYS_GRAPH)
         return cls(
             **payload, relation=relation, direction=direction, confidence=confidence
         )
 
 
 class NodeNeighborsDTO(BaseModel):
+    """Neighbor sets returned by /api/nodes/{collection}/{key}.
+
+    ``all`` is authoritative. ``strict``/``semantic`` are deprecated
+    back-compat aliases that mirror ``all``; new consumers should ignore them.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     all: list[NeighborDTO] = Field(default_factory=list)
-    # Backwards-compat aliases — kept so old consumers don't break.
     strict: list[NeighborDTO] = Field(default_factory=list)
     semantic: list[NeighborDTO] = Field(default_factory=list)
 
 
 class NodeGraphResponse(BaseModel):
+    """Response for GET /api/nodes/{collection}/{key}."""
+
+    model_config = ConfigDict(extra="forbid")
+
     node: BaseNodeDTO
     neighbors: NodeNeighborsDTO
+
+
+class NodeNeighborhoodEdge(BaseModel):
+    """Edge in a BFS-neighborhood response."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    source: str
+    target: str
+    relation: str | None
+    confidence: float | None = None
+    status: str | None = None
+
+
+class NodeNeighborhoodResponse(BaseModel):
+    """One-shot N-hop neighborhood: focal + reachable nodes + spanning edges."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    focal_id: str
+    nodes: list[BaseNodeDTO]
+    edges: list[NodeNeighborhoodEdge]
 
 
 # ── Parliamentary dossier schemas ─────────────────────────────────────────────
@@ -336,6 +822,7 @@ class StemmingDTO(BaseModel):
     datum: str | None = None
     onderwerp: str | None = None
     aangenomen: bool
+    chamber: str | None = None
     stemwijze: str = "fractie"
     voor: list[PartijStemDTO] = Field(default_factory=list)
     tegen: list[PartijStemDTO] = Field(default_factory=list)
@@ -471,8 +958,250 @@ class TimelineEntryDTO(BaseModel):
     body: dict[str, Any] = Field(default_factory=dict)
 
 
+DossierStage = Literal[
+    "wetsvoorstel",
+    "mvt",
+    "advies_rvs",
+    "nota",
+    "verslag",
+    "amendementen",
+    "stemming",
+    "afgehandeld",
+    "onbekend",
+]
+
+
+def _coerce_dossier_stage(value: Any) -> str | None:
+    """Map legacy / unknown huidige_fase sentinels onto None.
+
+    'overig' was an earlier sentinel meaning 'no recognised stage'; the read
+    path already treats it as missing (see queries.enrich_dossier_docs), but
+    the persisted props still carry it on legacy rows. Anything outside the
+    DossierStage Literal collapses to None so the DTO validates.
+    """
+    if value in DossierStage.__args__:  # type: ignore[attr-defined]
+        return value  # type: ignore[return-value]
+    return None
+
+
+def _coerce_stages_list(values: Any) -> list[str]:
+    return [v for v in (values or []) if v in DossierStage.__args__]  # type: ignore[attr-defined]
+
+
+TitelSource = Literal["dossier", "document", "activiteit"]
+TrajectKind = Literal[
+    "wetsvoorstel",
+    "initiatiefwetsvoorstel",
+    "begroting",
+    "motie",
+    "overig",
+]
+
+
+class LidVoteEntryDTO(BaseModel):
+    """One historical vote cast by a parliamentary member.
+
+    The member's party at the time of the vote is preserved on
+    ``partij_at_time`` (their party may have changed after the vote).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    stemming_id: str = Field(..., description="Arango _id of the stemming.")
+    stemming_key: str
+    besluit_id: str | None = None
+    datum: str | None = Field(None, description="Date of the vote (YYYY-MM-DD).")
+    onderwerp: str | None = None
+    aangenomen: bool | None = None
+    soort: Literal["Voor", "Tegen", "Onthouden"] = Field(
+        ..., description="How the member's party voted."
+    )
+    aantal_zetels: int | None = Field(
+        None, description="Seats the member's party brought to the vote."
+    )
+    partij_at_time: str | None = Field(
+        None,
+        description=(
+            "Short label of the member's party as of ``datum``. May differ "
+            "from the member's current party."
+        ),
+    )
+    fractie_key: str | None = None
+
+
+class LidVotesResponse(BaseModel):
+    """Response for GET /api/leden/{key}/votes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lid_id: str | None = Field(
+        None, description="Arango _id of the lid; null when the lid is unknown."
+    )
+    total: int = Field(
+        ...,
+        description=(
+            "Number of votes returned. The underlying query is capped by "
+            "``limit``; this matches that count, not the absolute history."
+        ),
+    )
+    votes: list[LidVoteEntryDTO]
+
+
+class TouchedInstrumentDTO(BaseModel):
+    """One law that an actor (lid or fractie) has touched.
+
+    Returned by ``/api/leden/{key}/touched-instruments`` and
+    ``/api/fracties/{key}/touched-instruments``. ``count`` is the number
+    of distinct publications by the actor that wijzigen / introduceren /
+    trekken in articles of this instrument.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(..., description="Arango _id of the instrument.")
+    key: str
+    display_name: str | None = None
+    title: str | None = None
+    short_title: str | None = None
+    citation_title: str | None = None
+    bwb_id: str | None = None
+    celex: str | None = None
+    count: int = Field(
+        ..., description="Distinct publications by the actor that touch this wet."
+    )
+
+
+class TouchedInstrumentsResponse(BaseModel):
+    """Wrapper for actor → touched-instruments lists."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    actor_id: str = Field(
+        ...,
+        description=(
+            "Arango _id of the actor (``leden/...`` or ``fracties/...``). "
+            "Unified field name so the same response model serves both "
+            "endpoints."
+        ),
+    )
+    total: int = Field(
+        ...,
+        description=("Number of instruments returned (capped by ``limit``)."),
+    )
+    items: list[TouchedInstrumentDTO]
+
+
+class FractieDetailDTO(BaseModel):
+    """Response for GET /api/fracties/{key}."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    type: str = Field(..., description="Node type label (e.g. ``fractie``).")
+    labels: list[str]
+    props: dict[str, Any] | None = Field(
+        None, description="Raw fractie props as stored on the node."
+    )
+
+
+class StemmingSummaryItemDTO(BaseModel):
+    """One row in the /api/stemmingen browser list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    datum: str | None = None
+    onderwerp: str | None = None
+    dossier_nummers: list[str] = Field(default_factory=list)
+    aangenomen: bool | None = None
+    voor_count: int = 0
+    tegen_count: int = 0
+    onthouding_count: int = 0
+    chamber: str | None = None
+
+
+class StemmingListResponse(BaseModel):
+    """Response for GET /api/stemmingen."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int = Field(
+        ...,
+        description=(
+            "Absolute number of stemmingen matching the filters "
+            "(independent of ``limit``)."
+        ),
+    )
+    items: list[StemmingSummaryItemDTO]
+
+
+class DossierDocumentDTO(BaseModel):
+    """One TK publication linked to a dossier."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    soort: str | None = None
+    titel: str | None = None
+    volgnummer: int | None = None
+    dossier_nummer: str | None = None
+    vergaderjaar: str | None = None
+    datum: str | None = None
+    tk_url: str | None = None
+    display_name: str | None = None
+
+
+class DossierDocumentsResponse(BaseModel):
+    """Response for GET /api/dossiers/{kamerstuknummer}/documents."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int = Field(
+        ...,
+        description=(
+            "Absolute number of documents in the dossier " "(independent of ``limit``)."
+        ),
+    )
+    items: list[DossierDocumentDTO]
+
+
+class DossierDocumentsBulkResponse(BaseModel):
+    """Response for GET /api/dossiers/documents/bulk.
+
+    Wrapper around a ``{kamerstuknummer: [docs...]}`` map so the response
+    can carry a typed schema and the response_model validates each entry.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: dict[str, list[DossierDocumentDTO]] = Field(
+        ...,
+        description=(
+            "Map keyed by kamerstuknummer. Each value is the per-dossier "
+            "list of documents (capped at ``per_dossier_limit``), most "
+            "recent first."
+        ),
+    )
+
+
 class DossierSummaryDTO(BaseModel):
-    """Short representation of a Kamerstukdossier for list views."""
+    """Short representation of a Kamerstukdossier for list views.
+
+    `traject_kind` is the canonical *kind* of dossier — wetsvoorstel /
+    initiatiefwetsvoorstel / begroting / motie / overig — derived from the
+    Zaak.Soort chain. It does *not* change as the dossier progresses; use
+    this for "is this a wetsvoorstel?" bucketing.
+
+    `huidige_fase` is the *latest recognised* legislative stage seen on the
+    dossier's documents/activiteiten (or `'afgehandeld'` for closed dossiers,
+    `'onbekend'` for dossiers that have signals but none classify, `null` for
+    empty dossiers). `stages_present` lists every stage with at least one
+    matching signal, in chronological order — use this for any "which stages
+    are present?" UI rather than `huidige_fase`.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -480,7 +1209,10 @@ class DossierSummaryDTO(BaseModel):
     key: str
     kamerstuknummer: str
     titel: str | None = None
-    huidige_fase: str | None = None
+    titel_source: TitelSource | None = None
+    traject_kind: TrajectKind | None = None
+    huidige_fase: DossierStage | None = None
+    stages_present: list[DossierStage] = Field(default_factory=list)
     afgedaan: bool = False
     geopend_op: str | None = None
     gesloten_op: str | None = None
@@ -494,7 +1226,10 @@ class DossierSummaryDTO(BaseModel):
             kamerstuknummer=props.get("kamerstuknummer")
             or str(props.get("nummer") or ""),
             titel=props.get("titel"),
-            huidige_fase=props.get("huidige_fase"),
+            titel_source=props.get("titel_source"),
+            traject_kind=props.get("traject_kind"),
+            huidige_fase=_coerce_dossier_stage(props.get("huidige_fase")),
+            stages_present=_coerce_stages_list(props.get("stages_present")),
             afgedaan=bool(props.get("afgedaan")),
             geopend_op=props.get("geopend_op"),
             gesloten_op=props.get("gesloten_op"),
@@ -502,7 +1237,11 @@ class DossierSummaryDTO(BaseModel):
 
 
 class DossierDetailResponse(BaseModel):
-    """Full dossier detail response."""
+    """Full dossier detail response.
+
+    See `DossierSummaryDTO` for the semantics of `huidige_fase`,
+    `stages_present`, and `titel_source`.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -510,7 +1249,10 @@ class DossierDetailResponse(BaseModel):
     key: str
     kamerstuknummer: str
     titel: str | None = None
-    huidige_fase: str | None = None
+    titel_source: TitelSource | None = None
+    traject_kind: TrajectKind | None = None
+    huidige_fase: DossierStage | None = None
+    stages_present: list[DossierStage] = Field(default_factory=list)
     afgedaan: bool = False
     geopend_op: str | None = None
     gesloten_op: str | None = None
@@ -536,7 +1278,10 @@ class DossierDetailResponse(BaseModel):
             kamerstuknummer=props.get("kamerstuknummer")
             or str(props.get("nummer") or ""),
             titel=props.get("titel"),
-            huidige_fase=props.get("huidige_fase"),
+            titel_source=props.get("titel_source"),
+            traject_kind=props.get("traject_kind"),
+            huidige_fase=_coerce_dossier_stage(props.get("huidige_fase")),
+            stages_present=_coerce_stages_list(props.get("stages_present")),
             afgedaan=bool(props.get("afgedaan")),
             geopend_op=props.get("geopend_op"),
             gesloten_op=props.get("gesloten_op"),
@@ -678,6 +1423,54 @@ class CommissieDTO(BaseModel):
         )
 
 
+class FractieDTO(BaseModel):
+    """Parliamentary party (fractie) summary."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    naam: str | None = None
+    afkorting: str | None = None
+    aliases: list[str] = []
+    actief: bool = True
+    aantal_zetels: int | None = None
+    datum_actief: str | None = None
+    datum_inactief: str | None = None
+    member_count: int = 0
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any], *, member_count: int = 0) -> FractieDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            naam=props.get("naam"),
+            afkorting=props.get("afkorting"),
+            aliases=list(props.get("aliases") or []),
+            actief=bool(props.get("actief", True)),
+            aantal_zetels=props.get("aantal_zetels"),
+            datum_actief=props.get("datum_actief"),
+            datum_inactief=props.get("datum_inactief"),
+            member_count=member_count,
+        )
+
+
+class FractieMembershipDTO(BaseModel):
+    """One [van, tot_en_met] interval of a Lid's membership of a Fractie."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fractie_id: str
+    fractie_key: str
+    naam: str | None = None
+    afkorting: str | None = None
+    aliases: list[str] = []
+    van: str | None = None
+    tot_en_met: str | None = None
+    functie: str | None = None
+
+
 class LidDTO(BaseModel):
     """Parliamentary member or minister."""
 
@@ -688,6 +1481,10 @@ class LidDTO(BaseModel):
     naam: str | None = None
     partij: str | None = None
     actief: bool = True
+    fractielidmaatschappen: list[FractieMembershipDTO] = []
+    # Commissie-membership window from LID_VAN edge meta; null geldig_tot = current member
+    geldig_van: str | None = None
+    geldig_tot: str | None = None
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> LidDTO:
@@ -698,11 +1495,48 @@ class LidDTO(BaseModel):
             naam=props.get("naam"),
             partij=props.get("partij"),
             actief=bool(props.get("actief", True)),
+            fractielidmaatschappen=[
+                FractieMembershipDTO(**m)
+                for m in (props.get("fractielidmaatschappen") or [])
+            ],
+            geldig_van=doc.get("geldig_van"),
+            geldig_tot=doc.get("geldig_tot"),
+        )
+
+
+class CommissieWithLedenDTO(CommissieDTO):
+    """Commissie + its members. Served by GET /api/commissies/with-leden.
+
+    Lean variant of CommissieDetailDTO: no dossiers payload, since the
+    Lagen view only needs the leden halo around each committee.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    leden: list[LidDTO] = []
+
+    @classmethod
+    def from_document(
+        cls, doc: dict[str, Any], *, active_dossier_count: int = 0
+    ) -> CommissieWithLedenDTO:
+        props = doc.get("props") or {}
+        leden = [LidDTO.from_document(lid) for lid in doc.get("leden") or []]
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            naam=props.get("naam"),
+            afkorting=props.get("afkorting"),
+            slug=props.get("slug"),
+            active_dossier_count=props.get("active_dossier_count")
+            or active_dossier_count,
+            leden=leden,
         )
 
 
 class CommissieDetailDTO(CommissieDTO):
-    """Committee detail with leden and recent dossiers."""
+    """Committee detail. Served by GET /api/commissies/{slug}."""
+
+    model_config = ConfigDict(extra="forbid")
 
     leden: list[LidDTO] = []
     dossiers: list[DossierSummaryDTO] = []
@@ -739,6 +1573,7 @@ PARTY_COLORS: dict[str, str] = {
     "PvdA": "#E63325",
     "GroenLinks": "#46962B",
     "GL-PvdA": "#46962B",
+    "GroenLinks-PvdA": "#46962B",
     "ChristenUnie": "#4F95D4",
     "Volt": "#592D82",
     "NSC": "#1B4F72",
@@ -746,12 +1581,40 @@ PARTY_COLORS: dict[str, str] = {
     "JA21": "#CC0000",
     "SGP": "#FF6600",
     "FvD": "#8B0000",
+    "FVD": "#8B0000",
     "DENK": "#39B54A",
     "BIJ1": "#FFCC00",
     "50PLUS": "#8B008B",
     "PvdD": "#4CAF50",
     "Groep Van Haga": "#002868",
+    "Groep Markuszower": "#1F2A44",
+    "Lid Keijzer": "#999999",
 }
+
+
+class FractieZetelDTO(BaseModel):
+    """A fractie's current seat allocation, for the hemicycle view."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    afkorting: str | None
+    naam: str | None
+    aantal_zetels: int
+    color: str | None
+    order: int
+
+
+class ParlementZetelsResponse(BaseModel):
+    """Current seat composition of the Tweede Kamer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_seats: int
+    assigned_seats: int
+    as_of: str
+    fracties: list[FractieZetelDTO]
 
 
 class PartyColorsResponse(BaseModel):
@@ -765,7 +1628,16 @@ class PartyColorsResponse(BaseModel):
 # ── Search schemas ────────────────────────────────────────────────────────────
 
 SEARCH_TYPES = frozenset(
-    {"articles", "instruments", "judgments", "dossiers", "publications", "commissies"}
+    {
+        "articles",
+        "instruments",
+        "judgments",
+        "dossiers",
+        "publications",
+        "commissies",
+        "leden",
+        "fracties",
+    }
 )
 
 
@@ -942,7 +1814,7 @@ class JudgmentLayerGraphResponse(BaseModel):
 
 
 class PublicationSummary(BaseModel):
-    """Lightweight TK publication row for the publications index page."""
+    """Lightweight publication row for the publications index page."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -951,6 +1823,7 @@ class PublicationSummary(BaseModel):
     soort: str | None = None
     datum: str | None = None
     external_id: str | None = None
+    source: str | None = None
     has_text: bool = False
     linked_articles: int = 0
 
@@ -979,6 +1852,13 @@ class PublicationTextResponse(BaseModel):
     text: str | None = None
 
 
+class InstrumentStatsDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    by_kind: dict[str, int] = {}
+    by_jurisdiction: dict[str, int] = {}
+
+
 class StatsResponse(BaseModel):
     """Database statistics: document counts per collection and edge counts."""
 
@@ -986,3 +1866,5 @@ class StatsResponse(BaseModel):
 
     nodes: dict[str, int]
     edges: EdgeStatsDTO
+    by_source: dict[str, dict[str, int]] = {}
+    instruments: InstrumentStatsDTO = InstrumentStatsDTO()

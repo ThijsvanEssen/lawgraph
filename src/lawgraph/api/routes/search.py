@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import search_all
@@ -40,9 +40,17 @@ async def search(
     ] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> SearchResponse:
-    requested_types = [t.strip() for t in types.split(",") if t.strip() in SEARCH_TYPES]
-    if not requested_types:
-        requested_types = list(SEARCH_TYPES)
+    raw_types = [t.strip() for t in types.split(",") if t.strip()]
+    unknown = [t for t in raw_types if t not in SEARCH_TYPES]
+    if unknown:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unknown types: {', '.join(sorted(set(unknown)))}. "
+                f"Allowed: {', '.join(sorted(SEARCH_TYPES))}."
+            ),
+        )
+    requested_types = raw_types or list(SEARCH_TYPES)
 
     soort_list = [s.strip() for s in soort.split(",")] if soort else None
 

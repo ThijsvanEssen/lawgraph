@@ -56,6 +56,9 @@ class NodeType(str, Enum):
     TOEZEGGING = "toezegging"  # Ministerial commitment made during a debate
     COMMISSIE = "commissie"  # Parliamentary committee
     LID = "lid"  # Parliamentary member / minister
+    FRACTIE = "fractie"  # Parliamentary party / political group
+    INSTRUMENT_VERSION = "instrument_version"  # Historical version of an instrument
+    ARTICLE_VERSION = "article_version"  # Historical version of an article
 
 
 @dataclass

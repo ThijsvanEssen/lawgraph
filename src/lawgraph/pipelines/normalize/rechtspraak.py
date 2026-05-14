@@ -71,6 +71,7 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
                 continue
 
             props: dict[str, Any] = {
+                "source": SOURCE_RECHTSPRAAK,
                 "ecli": ecli,
                 "raw_xml": payload_text,
             }
@@ -102,6 +103,29 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
                 props["strafrecht_profile"] = "rechtspraak"
 
             props["display_name"] = make_display_name(NodeType.JUDGMENT, props)
+            # List-endpoint sort/filter keys — kept in sync with
+            # backfill_list_stats. Derive from ECLI + meta so /api/judgments
+            # can use persistent indexes instead of inline derivation.
+            ecli_parts = ecli.split(":")
+            court_code = ecli_parts[2].upper() if len(ecli_parts) >= 3 else None
+            props["court_code"] = court_code
+            if court_code == "HR":
+                tier = "hoge_raad"
+            elif court_code and court_code.startswith("GH"):
+                tier = "gerechtshof"
+            elif court_code and court_code.startswith("RB"):
+                tier = "rechtbank"
+            else:
+                tier = "bijzonder" if court_code else None
+            props["tier"] = tier
+            # Date priority mirrors get_judgments_list / backfill_list_stats:
+            # judgment_metadata.date (RDF-extracted) → meta.date → bare date.
+            jm_date = (
+                judgment_meta.get("date") if isinstance(judgment_meta, dict) else None
+            )
+            props["date_eff"] = (
+                jm_date or (meta.get("date") if meta else None) or props.get("date")
+            )
             key = make_node_key(ecli)
             node = Node(
                 collection=COLLECTION_JUDGMENTS,
@@ -119,6 +143,40 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
         logger.info(
             "Created %d Rechtspraak judgment nodes.",
             len(judgments_by_ecli),
+        )
+
+        # Create lightweight ECLI stub nodes from index records.
+        # This enables automatic ECLI discovery without needing the full content.
+        index_records = raw.get("index", [])
+        stubs_created = 0
+        for raw_entry in index_records:
+            meta = self._meta(raw_entry)
+            ecli = meta.get("ecli")
+            if not ecli:
+                continue
+            key = make_node_key(ecli)
+            # Don't overwrite full judgment nodes with stubs
+            existing = self.store.get_node(COLLECTION_JUDGMENTS, key)
+            if existing is not None and not existing.props.get("stub"):
+                continue
+            stub_node = Node(
+                collection=COLLECTION_JUDGMENTS,
+                type=NodeType.JUDGMENT,
+                key=key,
+                labels=["Rechtspraak", "Stub"],
+                props={
+                    "source": SOURCE_RECHTSPRAAK,
+                    "ecli": ecli,
+                    "stub": True,
+                    "display_name": ecli,
+                },
+            )
+            self.store.insert_or_update(stub_node)
+            stubs_created += 1
+
+        logger.info(
+            "Created/updated %d Rechtspraak ECLI stub nodes from index records.",
+            stubs_created,
         )
 
         return {

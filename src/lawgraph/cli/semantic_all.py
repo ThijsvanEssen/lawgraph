@@ -9,25 +9,15 @@ from typing import Callable
 
 from dotenv import load_dotenv
 
-from lawgraph.cli.semantic_bwb_articles import main as semantic_bwb_main
-from lawgraph.cli.semantic_eu_articles import main as semantic_eu_main
-from lawgraph.cli.semantic_instrument_relations import (
-    main as semantic_instrument_relations_main,
-)
-from lawgraph.cli.semantic_judgment_citations import (
-    main as semantic_judgment_citations_main,
-)
-from lawgraph.cli.semantic_rechtspraak_articles import main as semantic_rechtspraak_main
-from lawgraph.cli.semantic_tk_articles import main as semantic_tk_main
 from lawgraph.config import list_domain_profiles
 from lawgraph.logging import get_logger, setup_logging
+from lawgraph.sources import SOURCES
 
 logger = get_logger(__name__)
 _TRUE_VALUES = {"1", "true"}
-PROFILE_CHOICES = list_domain_profiles()
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     setup_logging()
 
@@ -36,10 +26,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--profile",
-        choices=PROFILE_CHOICES or None,
+        choices=list_domain_profiles() or None,
         help="Domain profile to use for all sub-pipelines.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     profile = args.profile or os.getenv("LAWGRAPH_PROFILE")
 
@@ -47,42 +37,28 @@ def main() -> None:
 
     base_argv = ["--profile", profile] if profile else []
 
-    steps = [
-        (
-            "TK semantic linking",
-            "LAWGRAPH_SEMANTIC_SKIP_TK",
-            lambda: semantic_tk_main(argv=base_argv),
-        ),
-        (
-            "Rechtspraak semantic linking",
-            "LAWGRAPH_SEMANTIC_SKIP_RECHTSPRAAK",
-            lambda: semantic_rechtspraak_main(argv=base_argv),
-        ),
-        (
-            "EU semantic linking",
-            "LAWGRAPH_SEMANTIC_SKIP_EU",
-            lambda: semantic_eu_main(argv=base_argv),
-        ),
-        (
-            "BWB article semantic linking",
-            "LAWGRAPH_SEMANTIC_SKIP_BWB",
-            lambda: semantic_bwb_main(argv=base_argv),
-        ),
-        (
-            "Judgment citation linking",
-            "LAWGRAPH_SEMANTIC_SKIP_JUDGMENT_CITATIONS",
-            lambda: semantic_judgment_citations_main(argv=base_argv),
-        ),
-        (
-            "Instrument relations (AMENDS/IMPLEMENTS)",
-            "LAWGRAPH_SEMANTIC_SKIP_INSTRUMENT_RELATIONS",
-            lambda: semantic_instrument_relations_main(argv=base_argv),
-        ),
-    ]
+    steps: list[tuple[str, str, Callable[[], None]]] = []
+    for source in SOURCES:
+        if source.semantic_main is None:
+            continue
+        main_fn = source.semantic_main
+
+        def _make_runner(
+            fn: Callable[..., None], _argv: list[str]
+        ) -> Callable[[], None]:
+            return lambda: fn(argv=_argv)
+
+        steps.append(
+            (
+                source.display_name,
+                source.semantic_skip_env or "",
+                _make_runner(main_fn, base_argv),
+            )
+        )
 
     results: list[tuple[str, str]] = []
     for name, env_var, runner in steps:
-        if _should_skip(env_var):
+        if env_var and _should_skip(env_var):
             logger.info("%s skipped (%s set).", name, env_var)
             results.append((name, "skipped"))
             continue

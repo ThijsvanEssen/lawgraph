@@ -1,0 +1,142 @@
+"""Semantic pipeline: kamerstukdossier → RESULTED_IN → BWB instrument.
+
+Matches closed/aangenomen kamerstukdossiers to the BWB law they produced by:
+  1. Comparing the dossier citeertitel against instrument citation_title / title
+  2. Following RAAKT edges from the dossier to candidate instruments
+  3. Checking if the dossier's titel matches a BWB instrument's citation_title
+
+Only creates edges for dossiers with outcome=='aangenomen' or where the
+Citeertitel exactly matches a BWB instrument.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from lawgraph.config.settings import (
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_KAMERSTUKDOSSIERS,
+    RELATION_RESULTED_IN,
+)
+from lawgraph.logging import get_logger
+from lawgraph.models import Node, NodeType, PipelineResult
+
+from .base import SemanticPipelineBase
+
+logger = get_logger(__name__)
+
+SEMANTIC_SOURCE = "dossier-law-linker"
+
+
+class DossierLawLinkPipeline(SemanticPipelineBase):
+    """Links aangenomen kamerstukdossiers to their resulting BWB instrument."""
+
+    def run(self, *, since: Any = None) -> PipelineResult:
+        result = PipelineResult()
+
+        # Strategy 1: exact citeertitel match — dossier.props.titel → instrument.props.citation_title  # noqa: E501
+        aql_cite = """
+FOR dos IN kamerstukdossiers
+  FILTER dos.props.afgedaan == true OR dos.props.outcome == 'aangenomen'
+  FILTER dos.props.titel != null AND LENGTH(dos.props.titel) > 5
+  FOR inst IN instruments
+    FILTER inst.props.citation_title != null
+    FILTER LOWER(TRIM(dos.props.titel)) == LOWER(TRIM(inst.props.citation_title))
+    RETURN {
+      dos_id: dos._id,
+      dos_key: dos._key,
+      inst_id: inst._id,
+      inst_key: inst._key,
+      match_type: 'citation_title'
+    }
+"""
+
+        # Strategy 2: RAAKT edges from dossier to instrument + title similarity
+        aql_raakt = """
+FOR dos IN kamerstukdossiers
+  FILTER dos.props.afgedaan == true OR dos.props.outcome == 'aangenomen'
+  FILTER dos.props.titel != null AND LENGTH(dos.props.titel) > 5
+  FOR e IN edges
+    FILTER e._from == dos._id AND e.relation == 'RAAKT'
+    FOR inst IN instruments
+      FILTER inst._id == e._to
+      FILTER inst.props.bwb_id != null
+      FILTER inst.props.citation_title != null
+          OR (inst.props.title != null AND CONTAINS(
+                  LOWER(dos.props.titel), LOWER(SPLIT(inst.props.title, '(')[0])
+              ))
+      RETURN {
+        dos_id: dos._id,
+        dos_key: dos._key,
+        inst_id: inst._id,
+        inst_key: inst._key,
+        match_type: 'raakt_title'
+      }
+"""
+
+        rows: list[dict[str, Any]] = []
+        for aql in (aql_cite, aql_raakt):
+            try:
+                rows.extend(self.store.query(aql))
+            except Exception as exc:
+                logger.warning("DossierLawLink semantic query failed: %s", exc)
+
+        if not rows:
+            logger.debug(
+                "DossierLawLink: no aangenomen dossiers found with matching instruments."
+            )
+            return result
+
+        logger.info(
+            "DossierLawLink: processing %d dossier-instrument pairs.", len(rows)
+        )
+
+        seen: set[tuple[str, str]] = set()
+
+        for row in rows:
+            dos_id = row.get("dos_id")
+            dos_key = row.get("dos_key")
+            inst_id = row.get("inst_id")
+            inst_key = row.get("inst_key")
+            match_type = row.get("match_type", "citation_title")
+
+            if not dos_id or not inst_id:
+                result.skipped += 1
+                continue
+
+            pair = (dos_id, inst_id)
+            if pair in seen:
+                continue
+            seen.add(pair)
+
+            confidence = 0.90 if match_type == "citation_title" else 0.65
+
+            dos_node = Node(
+                collection=COLLECTION_KAMERSTUKDOSSIERS,
+                type=NodeType.DOSSIER,
+                key=dos_key,
+                props={},
+            )
+            inst_node = Node(
+                collection=COLLECTION_INSTRUMENTS,
+                type=NodeType.INSTRUMENT,
+                key=inst_key,
+                props={},
+            )
+
+            created = self._create_semantic_edge(
+                from_node=dos_node,
+                to_node=inst_node,
+                relation=RELATION_RESULTED_IN,
+                source=SEMANTIC_SOURCE,
+                confidence=confidence,
+                meta={"match_type": match_type},
+                result=result,
+            )
+            if created:
+                result.created += 1
+            else:
+                result.updated += 1
+
+        logger.info("DossierLawLink: %s.", result.summary())
+        return result

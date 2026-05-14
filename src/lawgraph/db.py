@@ -17,6 +17,8 @@ from lawgraph.config.settings import (
     ARANGO_USER,
     COLLECTION_EDGE_STATUS_LOG,
     COLLECTION_EDGES,
+    COLLECTION_INSTRUMENT_ARTICLE_VERSIONS,
+    COLLECTION_INSTRUMENT_VERSIONS,
     DOCUMENT_COLLECTIONS,
     EDGE_STATUS_CANONIEK,
 )
@@ -40,7 +42,7 @@ class ArangoStore:
         self.username = ARANGO_USER
         self.password = ARANGO_PASSWORD
 
-        client = ArangoClient(hosts=self.url)
+        client = ArangoClient(hosts=self.url, request_timeout=620)
         try:
             self.db = client.db(
                 self.db_name, username=self.username, password=self.password
@@ -57,6 +59,10 @@ class ArangoStore:
 
         self.instruments = self.db.collection("instruments")
         self.instrument_articles = self.db.collection("instrument_articles")
+        self.instrument_versions = self.db.collection(COLLECTION_INSTRUMENT_VERSIONS)
+        self.instrument_article_versions = self.db.collection(
+            COLLECTION_INSTRUMENT_ARTICLE_VERSIONS
+        )
         self.procedures = self.db.collection("procedures")
         self.publications = self.db.collection("publications")
         self.judgments = self.db.collection("judgments")
@@ -84,10 +90,188 @@ class ArangoStore:
             logger.info("Created edge collection %s", COLLECTION_EDGES)
 
         self._ensure_indexes()
+        self._ensure_analyzers()
+        self._ensure_search_views()
+
+    def _ensure_analyzers(self) -> None:
+        """Ensure custom analyzers used by /api/search exist.
+
+        * ``lawgraph_ngram_v2`` — 3..12 char ngrams over lowercased UTF-8, so
+          substring queries like 'Vordering' resolve against compound words
+          like 'Wetboek van Strafvordering' (which standard stemmers split
+          on whitespace only).
+        * ``lawgraph_norm`` — lowercased identity, so identifier fields like
+          ``bwb_id='BWBR0001903'`` match a case-insensitive prefix query.
+        """
+        specs = [
+            {
+                # Pipeline: lowercase → ngram. The bare ngram analyzer is
+                # case-preserving, which would cause 'Vordering' (capital V)
+                # to miss 'Strafvordering' (lowercase v mid-word).
+                "name": "lawgraph_ngram_v2",
+                "type": "pipeline",
+                "properties": {
+                    "pipeline": [
+                        {
+                            "type": "norm",
+                            "properties": {
+                                "locale": "en",
+                                "case": "lower",
+                                "accent": False,
+                            },
+                        },
+                        {
+                            "type": "ngram",
+                            "properties": {
+                                "min": 3,
+                                "max": 12,
+                                "preserveOriginal": False,
+                                "streamType": "utf8",
+                            },
+                        },
+                    ],
+                },
+                "features": ["position", "frequency", "norm"],
+            },
+            {
+                "name": "lawgraph_norm",
+                "type": "norm",
+                "properties": {"locale": "en", "case": "lower", "accent": False},
+                "features": ["frequency", "norm"],
+            },
+        ]
+        # Analyzers are immutable in ArangoDB — to change properties, bump the
+        # name (e.g. _v2 → _v3) rather than trying to drop-and-recreate, since
+        # any view referencing the analyzer would block the drop. Stored
+        # properties are also normalised on read (defaults injected,
+        # field ordering changes), so comparing them is unreliable.
+        existing = {a["name"].split("::")[-1] for a in self.db.analyzers()}
+        for spec in specs:
+            if spec["name"] in existing:
+                continue
+            try:
+                self.db.create_analyzer(
+                    name=spec["name"],
+                    analyzer_type=spec["type"],
+                    properties=spec["properties"],
+                    features=spec["features"],
+                )
+                logger.info("Created analyzer %s", spec["name"])
+            except Exception as exc:
+                logger.warning("Failed to create analyzer %s: %s", spec["name"], exc)
+
+    def _ensure_search_views(self) -> None:
+        """Ensure ArangoSearch views back the /api/search text-search path.
+
+        Each searchable collection gets its own view linking the relevant
+        nested ``props`` fields with the right analyzers:
+          * ``text_en`` — tokenises and lowercases display_name, title,
+            text, summary, etc. Used for "every token must appear" queries.
+          * ``identity`` — keeps article_number, bwb_id, ecli, slug intact
+            so exact-match short queries hit the inverted index.
+
+        Indexes are populated asynchronously by the engine; the first
+        request after a fresh start may briefly miss recent docs.
+        """
+        # Conventions:
+        #   * text_en       — token+stem matches across whitespace
+        #   * identity      — exact case-sensitive (legacy, keep for back-compat)
+        #   * lawgraph_norm — lowercased identifier match (e.g. bwb_id, ecli)
+        #   * lawgraph_ngram_v2 — substring match within compound words
+        view_specs: dict[str, dict[str, Any]] = {
+            "search_articles": {
+                "instrument_articles": {
+                    "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
+                    "text": ["text_en"],
+                    "article_number": ["text_en", "identity", "lawgraph_norm"],
+                    "bwb_id": ["text_en", "identity", "lawgraph_norm"],
+                },
+            },
+            "search_instruments": {
+                "instruments": {
+                    "title": ["text_en", "lawgraph_ngram_v2"],
+                    "citation_title": ["text_en", "identity", "lawgraph_ngram_v2"],
+                    "official_title": ["text_en", "lawgraph_ngram_v2"],
+                    "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
+                    "short_title": ["identity", "lawgraph_norm"],
+                    "bwb_id": ["identity", "lawgraph_norm"],
+                },
+            },
+            "search_judgments": {
+                "judgments": {
+                    "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
+                    "summary": ["text_en"],
+                    "ecli": ["identity", "lawgraph_norm"],
+                    "appno": ["identity", "lawgraph_norm"],
+                },
+            },
+            "search_dossiers": {
+                "kamerstukdossiers": {
+                    "titel": ["text_en", "lawgraph_ngram_v2"],
+                    "display_name": ["text_en", "lawgraph_ngram_v2"],
+                    "kamerstuknummer": ["identity", "lawgraph_norm"],
+                },
+            },
+            "search_publications": {
+                "publications": {
+                    "title": ["text_en", "lawgraph_ngram_v2"],
+                    "titel": ["text_en", "lawgraph_ngram_v2"],
+                    "display_name": ["text_en", "lawgraph_ngram_v2"],
+                    "external_id": ["identity", "lawgraph_norm"],
+                },
+            },
+            "search_commissies": {
+                "commissies": {
+                    "naam": ["text_en", "lawgraph_ngram_v2"],
+                    "afkorting": ["text_en", "identity", "lawgraph_norm"],
+                },
+            },
+        }
+        existing_views = {v["name"] for v in self.db.views()}
+        for view_name, links in view_specs.items():
+            view_links: dict[str, Any] = {}
+            for coll, fields in links.items():
+                view_links[coll] = {
+                    "includeAllFields": False,
+                    "storeValues": "id",
+                    "analyzers": ["identity"],
+                    "fields": {
+                        "props": {
+                            "fields": {
+                                fname: {"analyzers": list(analyzers)}
+                                for fname, analyzers in fields.items()
+                            }
+                        }
+                    },
+                }
+            properties = {"links": view_links}
+            try:
+                if view_name not in existing_views:
+                    self.db.create_arangosearch_view(view_name, properties=properties)
+                    logger.info("Created ArangoSearch view %s", view_name)
+                else:
+                    # Idempotent reconcile: keep links in sync with the spec.
+                    self.db.update_arangosearch_view(view_name, properties=properties)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Failed to ensure ArangoSearch view %s: %s", view_name, exc
+                )
 
     def _ensure_indexes(self) -> None:
-        """Ensure performance-critical persistent indexes exist."""
-        index_specs: list[tuple[str, list[str], bool]] = [
+        """Ensure performance-critical persistent indexes exist.
+
+        Each spec is ``(collection, fields, unique, sparse)``. Use
+        ``sparse=False`` whenever the field is a sort key for a list
+        endpoint — sparse indexes drop null entries, which forces the
+        optimiser back to a collection scan for ``SORT field DESC LIMIT n``
+        because the result must include nulls. Equality filters are fine
+        with sparse indexes (the filter inherently excludes nulls).
+        """
+        # 4-tuple: (collection, fields, unique, sparse). Default sparse for
+        # backwards-compat with the historical 3-tuple shape.
+        index_specs: list[
+            tuple[str, list[str], bool] | tuple[str, list[str], bool, bool]
+        ] = [
             # Array indexes on labels
             ("instrument_articles", ["labels[*]"], False),
             ("publications", ["labels[*]"], False),
@@ -99,7 +283,46 @@ class ArangoStore:
             ("instruments", ["props.celex"], True),
             ("instrument_articles", ["props.bwb_id", "props.article_number"], True),
             ("instrument_articles", ["props.celex", "props.article_number"], True),
+            # Law history version indexes
+            ("instrument_versions", ["props.bwb_id", "props.valid_from"], False, False),
+            ("instrument_versions", ["props.bwb_id", "props.current"], False, True),
+            (
+                "instrument_article_versions",
+                ["props.bwb_id", "props.article_number", "props.valid_from"],
+                False,
+                False,
+            ),
+            (
+                "instrument_article_versions",
+                ["props.bwb_id", "props.valid_from"],
+                False,
+                False,
+            ),
+            (
+                "instrument_article_versions",
+                ["props.bwb_id", "props.article_number", "props.current"],
+                False,
+                True,
+            ),
             ("judgments", ["props.ecli"], True),
+            ("judgments", ["props.source"], False, True),
+            ("publications", ["props.source"], False, True),
+            # Precomputed list-endpoint indexes — back-filled by the
+            # backfill-stats migrations and maintained by the normalize
+            # pipelines. Required for index-served filters/sorts on
+            # /api/instruments and /api/judgments. The sort-key indexes
+            # (article_count, date_eff) are non-sparse so the optimiser
+            # uses them for ``SORT field DESC LIMIT n``; the rest stay
+            # sparse since they only serve equality filters.
+            ("instruments", ["props.jurisdiction"], False, True),
+            ("instruments", ["props.kind"], False, True),
+            ("instruments", ["props.article_count"], False, False),
+            ("judgments", ["props.tier"], False, True),
+            ("judgments", ["props.court_code"], False, True),
+            ("judgments", ["props.date_eff"], False, False),
+            ("judgments", ["props.inbound_citation_count"], False, False),
+            # Title-sort key for /api/instruments default list.
+            ("instruments", ["props.citation_title"], False, False),
             ("publications", ["props.soort"], False),
             ("publications", ["props.datum"], False),
             ("publications", ["props.dossier_nummer"], False),
@@ -113,14 +336,30 @@ class ArangoStore:
             ("toezeggingen", ["props.dossier_id"], False),
             ("toezeggingen", ["props.status"], False),
             ("watches", ["node_id"], False),
+            # raw_sources — needed for normalize pipelines scanning by source+kind
+            ("raw_sources", ["source", "kind"], False),
             # Edge indexes — critical for all traversal queries
             (COLLECTION_EDGES, ["relation"], False),
             (COLLECTION_EDGES, ["_from", "relation"], False),
             (COLLECTION_EDGES, ["_to", "relation"], False),
             (COLLECTION_EDGES, ["status"], False),
             (COLLECTION_EDGES, ["status", "relation"], False),
+            # edge_status_log indexes — for audit log time-range and key lookups
+            ("edge_status_log", ["timestamp"], False),
+            ("edge_status_log", ["edge_key"], False),
+            # edges confidence — for semantic filtering by confidence threshold
+            (COLLECTION_EDGES, ["confidence"], False),
+            # NOTE: we deliberately *don't* index ``edges.created_at``. The
+            # planner picks it up for the heat-window scan, but the index
+            # range covers 25% of the collection so it triggers a
+            # MaterializeNode (load full doc per match) — about 2× slower
+            # than the bare collection scan, which already has the doc in
+            # memory. A covering index with storedValues=["_to"] would help,
+            # but the gain is small (~100 ms) for the added write cost.
         ]
-        for coll_name, fields, unique in index_specs:
+        for spec in index_specs:
+            coll_name, fields, unique = spec[0], spec[1], spec[2]
+            sparse = spec[3] if len(spec) > 3 else True
             if not self.db.has_collection(coll_name):
                 continue
             coll = self.db.collection(coll_name)
@@ -133,16 +372,21 @@ class ArangoStore:
             if key in existing_by_fields:
                 existing_idx = existing_by_fields[key]
                 existing_unique = existing_idx.get("unique", False)
-                if existing_unique == unique:
+                existing_sparse = existing_idx.get("sparse", False)
+                if existing_unique == unique and existing_sparse == sparse:
                     continue
                 try:
                     coll.delete_index(existing_idx["id"])
                 except Exception:
                     continue
             try:
-                coll.add_persistent_index(fields=fields, unique=unique, sparse=True)
+                coll.add_persistent_index(fields=fields, unique=unique, sparse=sparse)
                 logger.info(
-                    "Created index on %s %s (unique=%s)", coll_name, fields, unique
+                    "Created index on %s %s (unique=%s, sparse=%s)",
+                    coll_name,
+                    fields,
+                    unique,
+                    sparse,
                 )
             except Exception as exc:
                 logger.warning(
@@ -155,9 +399,13 @@ class ArangoStore:
         self,
         aql: str,
         bind_vars: dict | None = None,
+        *,
+        max_runtime: float = 600.0,
     ) -> Iterable[dict[str, Any]]:
         """Execute an AQL query and return results."""
-        cursor = self.db.aql.execute(aql, bind_vars=bind_vars or {})
+        cursor = self.db.aql.execute(
+            aql, bind_vars=bind_vars or {}, max_runtime=max_runtime
+        )
         result_attr = getattr(cursor, "result", None)
         if callable(result_attr):
             cursor = result_attr()
@@ -284,6 +532,8 @@ class ArangoStore:
         The `status` parameter defaults to "canoniek" for structural/semantic edges.
         Parliamentary proposed-mutation edges should pass status="voorgesteld".
         """
+        if confidence is not None and not (0.0 <= confidence <= 1.0):
+            raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
         edge_key = _edge_key(from_id, relation, to_id)
         now = dt.datetime.now(dt.timezone.utc).isoformat()
         doc: dict[str, Any] = {

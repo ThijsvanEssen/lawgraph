@@ -159,7 +159,13 @@ class TKClient(BaseClient):
         because the TK API does not emit nextLink.
         """
         params: dict[str, Any] = {
-            "$expand": "Agendapunt($expand=Zaak($select=Id,Soort,Titel,Nummer;$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)))",  # noqa: E501
+            "$expand": (
+                "Agendapunt("
+                "$expand=Zaak("
+                "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
+                "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)"
+                "))"
+            ),
         }
         if since is not None:
             since_string = self._format_odata_datetime(since)
@@ -182,7 +188,13 @@ class TKClient(BaseClient):
         FractieGrootte (seats), Vergissing (mistaken vote).
         """
         params: dict[str, Any] = {
-            "$expand": "Besluit($expand=Agendapunt($expand=Zaak($select=Id,Soort,Titel,Nummer;$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel))))",  # noqa: E501
+            "$expand": (
+                "Besluit($expand=Agendapunt("
+                "$expand=Zaak("
+                "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
+                "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)"
+                ")))"
+            ),
         }
         if since is not None:
             since_string = self._format_odata_datetime(since)
@@ -233,7 +245,11 @@ class TKClient(BaseClient):
         regardless of last-modified date.
         """
         params: dict[str, Any] = {
-            "$expand": "Zaak($select=Id,Soort,Titel,Nummer;$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel))",  # noqa: E501
+            "$expand": (
+                "Zaak($select=Id,Soort,Titel,Nummer;"
+                "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)),"
+                "DocumentActor($select=Id,ActorNaam,ActorFractie,Relatie,Persoon_Id,Fractie_Id)"
+            ),
         }
         filters: list[str] = []
         if since is not None:
@@ -260,8 +276,31 @@ class TKClient(BaseClient):
     def fetch_personen(self, top: int = 250) -> list[dict]:
         """Fetch Persoon (parliamentary member) records.
 
-        The Fractielabel field contains the party label directly — no expand needed.
+        Fractielabel is a *current-snapshot* field, only populated for
+        currently-seated MPs. For historic / cross-party affiliations use
+        fetch_fractie_zetel_personen() instead.
         """
         params: dict[str, Any] = {}
         logger.info("Fetching Persoon records")
         return list(self._skip_paged_get("Persoon", params=params, page_size=top))
+
+    def fetch_fracties(self, top: int = 250) -> list[dict]:
+        """Fetch all Fractie records (canonical party list, current + historic)."""
+        logger.info("Fetching Fractie records")
+        return list(self._skip_paged_get("Fractie", params={}, page_size=top))
+
+    def fetch_fractie_zetel_personen(self, top: int = 250) -> list[dict]:
+        """Fetch FractieZetelPersoon (date-bounded seat holdings).
+
+        Each row is one Persoon's membership of one Fractie over a
+        [Van, TotEnMet] interval (TotEnMet=null means current). Multiple
+        rows per Persoon represent party switches over time. FractieZetel
+        is expanded so we can resolve Fractie_Id without a second request.
+        """
+        params: dict[str, Any] = {
+            "$expand": "FractieZetel($select=Id,Fractie_Id)",
+        }
+        logger.info("Fetching FractieZetelPersoon records")
+        return list(
+            self._skip_paged_get("FractieZetelPersoon", params=params, page_size=top)
+        )

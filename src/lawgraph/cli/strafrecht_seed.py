@@ -10,7 +10,7 @@ from lawgraph.pipelines.strafrecht_seed import StrafrechtSeedPipeline
 logger = get_logger(__name__)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     setup_logging()
 

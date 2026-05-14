@@ -23,6 +23,8 @@ from lawgraph.config.settings import (
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
+    RAW_KIND_TK_FRACTIE,
+    RAW_KIND_TK_FRACTIEZETELPERSOON,
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_STEMMING,
     RAW_KIND_TK_TOEZEGGING,
@@ -132,6 +134,18 @@ class TkDossiersRetrievePipeline:
                 RAW_KIND_TK_PERSOON,
                 "Id",
                 lambda: self.client.fetch_personen(),
+            )
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_FRACTIE,
+                "Id",
+                lambda: self.client.fetch_fracties(),
+            )
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_FRACTIEZETELPERSOON,
+                "Id",
+                lambda: self.client.fetch_fractie_zetel_personen(),
             )
         if not skip_documents:
             doc_since = documents_since if documents_since is not None else since

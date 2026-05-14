@@ -25,8 +25,10 @@ logger = get_logger(__name__)
 class TkNormalizePipeline(NormalizePipeline):
     """Normalization pipeline that turns TK raw dumps into domain nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
-        super().__init__(store=store, domain_profile="strafrecht")
+    def __init__(
+        self, *, store: ArangoStore, domain_profile: str = "strafrecht"
+    ) -> None:
+        super().__init__(store=store, domain_profile=domain_profile)
 
     def fetch_raw(
         self,
@@ -177,12 +179,19 @@ class TkNormalizePipeline(NormalizePipeline):
             )
 
             props: dict[str, Any] = {
+                "source": SOURCE_TK,
                 "external_id": external_id,
                 "raw": payload,
             }
 
             if title_value:
                 props["title"] = title_value
+
+            # Store kamerstuknummer so TkDossiersNormalizePipeline._link_zaken_to_dossiers
+            # can create DEEL_VAN_DOSSIER edges between procedures and kamerstukdossiers.
+            zaak_nummer = payload.get("Nummer") or payload.get("ZaakNummer")
+            if zaak_nummer:
+                props["kamerstuknummer"] = str(zaak_nummer)
 
             is_strafrecht = self._is_strafrecht_tk_payload(payload)
             labels = ["TK"]
@@ -250,6 +259,7 @@ class TkNormalizePipeline(NormalizePipeline):
             )
 
             props: dict[str, Any] = {
+                "source": SOURCE_TK,
                 "external_id": external_id,
                 "raw": payload,
             }

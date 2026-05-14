@@ -8,9 +8,9 @@ from lawgraph.config.settings import (
     RAW_KIND_RS_INDEX,
     RAW_KIND_TK_DOCUMENTVERSIE,
     RAW_KIND_TK_ZAAK,
+    SOURCE_EURLEX,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
-    SOURCE_EURLEx,
 )
 from lawgraph.pipelines.retrieve import RetrieveSourcesPipeline
 
@@ -140,7 +140,7 @@ def test_dump_eurlex_celex_list_writes_one_document_per_celex() -> None:
     assert len(store.inserted) == 2
     seen_ids: set[str] = set()
     for doc in store.inserted:
-        assert doc["source"] == SOURCE_EURLEx
+        assert doc["source"] == SOURCE_EURLEX
         assert doc["kind"] == RAW_KIND_EU_CELEX
         assert doc["external_id"] in celex_ids
         assert doc["payload_json"] is None

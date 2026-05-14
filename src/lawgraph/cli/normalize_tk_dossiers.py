@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import sys
 
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
@@ -33,7 +34,7 @@ def _parse_since(value: str | None) -> dt.datetime | None:
         raise ValueError(f"Cannot parse --since value '{value}'.") from exc
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Normalize raw TK dossier records into graph nodes and edges."
     )
@@ -42,7 +43,7 @@ def main() -> None:
         default=None,
         help="Only process raw records fetched since this date (ISO 8601 or '7d').",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     try:
         since = _parse_since(args.since)
@@ -52,8 +53,12 @@ def main() -> None:
 
     store = ArangoStore()
     pipeline = TkDossiersNormalizePipeline(store=store)
-    pipeline.run(since=since)
-    print("Done.")
+    try:
+        pipeline.run(since=since)
+    except Exception as exc:
+        logger.error("TK dossiers normalization failed: %s", exc)
+        sys.exit(1)
+    logger.info("TK dossiers normalization complete.")
 
 
 if __name__ == "__main__":

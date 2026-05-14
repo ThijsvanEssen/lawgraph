@@ -37,8 +37,7 @@ def _build_payload() -> NodeGraphData:
     )
     return NodeGraphData(
         node=_NODE_DOC,
-        strict_neighbors=[strict],
-        semantic_neighbors=[semantic],
+        neighbors=[strict, semantic],
     )
 
 

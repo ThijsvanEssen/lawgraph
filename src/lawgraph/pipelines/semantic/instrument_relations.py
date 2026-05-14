@@ -37,7 +37,7 @@ _AMENDS_PATTERN = re.compile(
     r"\bwijziging\s+van\b",
     re.IGNORECASE,
 )
-_CELEX_PATTERN = re.compile(r"\b3\d{4}[LRD]\d{4}\b", re.IGNORECASE)
+_CELEX_PATTERN = re.compile(r"\b3\d{4}[CLRDF]\d{4}\b", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------

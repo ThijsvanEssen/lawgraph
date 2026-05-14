@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 import re
 from html.parser import HTMLParser
 from typing import Any
@@ -78,7 +79,7 @@ class _TextExtractor(HTMLParser):
         return "".join(self._parts)
 
 
-_EU_MAX_ARTICLE_NUMBER = 200
+_EU_MAX_ARTICLE_NUMBER: int = int(os.getenv("EURLEX_MAX_ARTICLE_NUMBER", "200"))
 
 
 def _html_to_text(html: str) -> str:
@@ -126,8 +127,10 @@ def _extract_eu_articles(html: str, celex: str) -> list[dict[str, str]]:
 class EUNormalizePipeline(NormalizePipeline):
     """Normalization pipeline that turns EUR-Lex raw dumps into instrument + article nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
-        super().__init__(store=store, domain_profile="strafrecht")
+    def __init__(
+        self, *, store: ArangoStore, domain_profile: str | None = None
+    ) -> None:
+        super().__init__(store=store, domain_profile=domain_profile)
 
     def fetch_raw(
         self,
@@ -173,13 +176,20 @@ class EUNormalizePipeline(NormalizePipeline):
                 continue
 
             # --- instrument node ---
-            props: dict[str, Any] = {"celex": celex}
+            props: dict[str, Any] = {
+                "source": SOURCE_EURLEX,
+                "celex": celex,
+                "jurisdiction": "eu",
+            }
             if lang:
                 props["lang"] = lang
             if meta:
                 props["meta"] = meta
 
-            is_strafrecht = self._is_strafrecht_eu_instrument(celex, payload_text)
+            is_strafrecht = (
+                self._domain_profile_name == "strafrecht"
+                and self._is_strafrecht_eu_instrument(celex, payload_text)
+            )
             labels = ["EU"]
             if is_strafrecht:
                 labels.append("Strafrecht")
@@ -285,20 +295,21 @@ class EUNormalizePipeline(NormalizePipeline):
                 )
                 edge_count += 1
 
-        # Instrument → topic edges
-        topic_node = self._get_domain_topic_node()
-        if topic_node:
-            for node in normalized.get("strafrecht_nodes", []):
-                if not node.id:
-                    continue
-                if self._ensure_related_topic_edge(
-                    node=node,
-                    topic_node=topic_node,
-                    source="eu-normalize",
-                ):
-                    edge_count += 1
-        else:
-            logger.debug("No strafrecht topic found; skipping related-topic edges.")
+        # Instrument → topic edges (only when strafrecht profile is active)
+        if self._domain_profile_name == "strafrecht":
+            topic_node = self._get_domain_topic_node()
+            if topic_node:
+                for node in normalized.get("strafrecht_nodes", []):
+                    if not node.id:
+                        continue
+                    if self._ensure_related_topic_edge(
+                        node=node,
+                        topic_node=topic_node,
+                        source="eu-normalize",
+                    ):
+                        edge_count += 1
+            else:
+                logger.debug("No strafrecht topic found; skipping related-topic edges.")
 
         logger.info(
             "EUNormalizePipeline created %d semantic edges.",

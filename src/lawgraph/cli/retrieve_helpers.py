@@ -4,7 +4,7 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from config.config import load_domain_config
+from lawgraph.config import load_domain_config
 
 
 def load_profile_config(profile: str | None) -> dict[str, Any]:

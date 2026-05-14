@@ -13,13 +13,14 @@ from lawgraph.config.settings import (
     RELATION_MENTIONS_INSTRUMENT,
 )
 from lawgraph.logging import get_logger
-from lawgraph.models import Node, PipelineResult, make_node_key
+from lawgraph.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.utils.time import describe_since
 
 from .base import SemanticPipelineBase
 from .citation_detect import (
     ArticleKind,
     CitationHit,
+    _hit_reason,
     coerce_text,
     format_celex,
     make_snippet,
@@ -196,7 +197,10 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Inspect EU instruments for referenced articles and persist semantic edges."""
         result = PipelineResult()
-        documents = list(self._load_eu_documents())
+        from lawgraph.utils.time import iso_timestamp
+
+        since_iso = iso_timestamp(since)
+        documents = list(self._load_eu_documents(since_iso=since_iso))
         if not documents:
             logger.debug("No EU instrument nodes found for semantic linking.")
             return result
@@ -238,6 +242,7 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
                         for k, v in {
                             "raw_match": hit.raw_match,
                             "snippet": hit.snippet,
+                            "reason": _hit_reason(hit),
                         }.items()
                         if v
                     },
@@ -251,16 +256,47 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
         logger.info("EU article linker: %s.", result.summary())
         return result
 
-    def _load_eu_documents(self) -> Iterable[Node]:
+    def _load_eu_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
         # Scan EU instrument *articles* — their props.text contains the actual
         # directive body, which is where cross-references to other articles live.
-        aql = f"""
-        FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
-            FILTER doc.props.celex != null
-            RETURN doc
-        """
-        for doc in self.store.query(aql):
-            yield Node.from_document(COLLECTION_INSTRUMENT_ARTICLES, doc)
+        if since_iso is not None:
+            from lawgraph.config.settings import SOURCE_EURLEX
+
+            recent_celex: set[str] = set()
+            aql = """
+            FOR raw IN raw_sources
+                FILTER raw.source == @source
+                FILTER raw.fetched_at >= @since
+                FILTER raw.meta.celex != null
+            RETURN raw.meta.celex
+            """
+            for row in self.store.query(
+                aql, bind_vars={"source": SOURCE_EURLEX, "since": since_iso}
+            ):
+                if isinstance(row, str):
+                    recent_celex.add(row)
+                elif isinstance(row, dict):
+                    c = row.get("meta", {}).get("celex")
+                    if c:
+                        recent_celex.add(str(c))
+            if not recent_celex:
+                return
+            celex_list = list(recent_celex)
+            aql = f"""
+            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+                FILTER doc.props.celex IN @celex_list
+                RETURN doc
+            """
+            for doc in self.store.query(aql, bind_vars={"celex_list": celex_list}):
+                yield Node.from_document(COLLECTION_INSTRUMENT_ARTICLES, doc)
+        else:
+            aql = f"""
+            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+                FILTER doc.props.celex != null
+                RETURN doc
+            """
+            for doc in self.store.query(aql):
+                yield Node.from_document(COLLECTION_INSTRUMENT_ARTICLES, doc)
 
     def _extract_document_text(self, document: Node) -> str | None:
         # EU instrument_articles store their text directly in props.text.
@@ -274,16 +310,74 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
         # Dutch article: BWB id + article number.
         if hit.kind == "article" and hit.bwb_id and hit.article_number:
             key = make_node_key(hit.bwb_id, hit.article_number)
-            return self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+            if node is None and hit.confidence >= 0.85:
+                stub = Node(
+                    collection=COLLECTION_INSTRUMENT_ARTICLES,
+                    key=key,
+                    type=NodeType.ARTICLE,
+                    props={
+                        "bwb_id": hit.bwb_id,
+                        "article_number": hit.article_number,
+                        "stub": True,
+                        "display_name": f"Artikel {hit.article_number} ({hit.bwb_id})",
+                    },
+                )
+                node = self.store.insert_or_update(stub)
+            if node is None:
+                logger.debug(
+                    "EU semantic: no node found for %s %s (confidence=%.2f)",
+                    hit.kind,
+                    hit.bwb_id or hit.celex,
+                    hit.confidence,
+                )
+            return node
         # EU article: CELEX + article number (cross-reference within or between directives).
         if hit.kind == "article" and hit.celex and hit.article_number:
             key = make_node_key(hit.celex, hit.article_number)
-            return self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+            if node is None and hit.confidence >= 0.85:
+                stub = Node(
+                    collection=COLLECTION_INSTRUMENT_ARTICLES,
+                    key=key,
+                    type=NodeType.ARTICLE,
+                    props={
+                        "celex": hit.celex,
+                        "article_number": hit.article_number,
+                        "stub": True,
+                        "display_name": f"Artikel {hit.article_number} ({hit.celex})",
+                    },
+                )
+                node = self.store.insert_or_update(stub)
+            if node is None:
+                logger.debug(
+                    "EU semantic: no node found for %s %s (confidence=%.2f)",
+                    hit.kind,
+                    hit.bwb_id or hit.celex,
+                    hit.confidence,
+                )
+            return node
         # Whole-instrument reference.
         if hit.celex:
             key = make_node_key(hit.celex)
-            return self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            node = self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            if node is None:
+                logger.debug(
+                    "EU semantic: no node found for %s %s (confidence=%.2f)",
+                    hit.kind,
+                    hit.bwb_id or hit.celex,
+                    hit.confidence,
+                )
+            return node
         if hit.bwb_id:
             key = make_node_key(hit.bwb_id)
-            return self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            node = self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            if node is None:
+                logger.debug(
+                    "EU semantic: no node found for %s %s (confidence=%.2f)",
+                    hit.kind,
+                    hit.bwb_id or hit.celex,
+                    hit.confidence,
+                )
+            return node
         return None

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
@@ -25,6 +26,31 @@ from lawgraph.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+# Layer-graph endpoints aggregate citation edges across the whole corpus —
+# the underlying AQL takes ~250 ms even with the article-id→bwb_id MERGE
+# trick. The result is a slow-moving analytic signal (it only changes when
+# the semantic pipeline writes new edges, which happens on the backfill/
+# normalize schedule). A short TTL cache means the heavy AQL fires at most
+# once a minute regardless of viewer concurrency.
+_LAYER_CACHE: dict[str, tuple[float, Any]] = {}
+_LAYER_TTL_SECONDS = 60.0
+
+
+def _layer_cache_get(key: str) -> Any | None:
+    entry = _LAYER_CACHE.get(key)
+    if entry is None:
+        return None
+    expires_at, value = entry
+    if time.monotonic() > expires_at:
+        _LAYER_CACHE.pop(key, None)
+        return None
+    return value
+
+
+def _layer_cache_set(key: str, value: Any) -> None:
+    _LAYER_CACHE[key] = (time.monotonic() + _LAYER_TTL_SECONDS, value)
 
 
 class GlobalGraphResponse(BaseModel):
@@ -100,6 +126,10 @@ def get_global_graph_route(
 def get_instrument_layer_graph_route(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> InstrumentLayerGraphResponse:
+    cached = _layer_cache_get("instrument_layer")
+    if cached is not None:
+        return cached
+
     data = get_instrument_layer_graph(store)
 
     edges = [
@@ -113,7 +143,7 @@ def get_instrument_layer_graph_route(
         for e in data.edges
     ]
 
-    return InstrumentLayerGraphResponse(
+    response = InstrumentLayerGraphResponse(
         instruments=[
             InstrumentLayerInstrumentDTO.from_document(
                 doc, stats=data.stats.get(doc["_id"])
@@ -123,6 +153,8 @@ def get_instrument_layer_graph_route(
         edges=edges,
         metadata=data.metadata,
     )
+    _layer_cache_set("instrument_layer", response)
+    return response
 
 
 @router.get(
@@ -151,6 +183,11 @@ def get_judgment_graph_route(
         Query(description="Voeg stub-uitspraken toe (nog niet geladen)"),
     ] = False,
 ) -> JudgmentLayerGraphResponse:
+    cache_key = f"judgment_layer:n={max_judgments}:stubs={int(include_stubs)}"
+    cached = _layer_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     data = get_judgment_graph(
         store,
         max_judgments=max_judgments,
@@ -166,7 +203,7 @@ def get_judgment_graph_route(
         )
         for e in data.edges
     ]
-    return JudgmentLayerGraphResponse(
+    response = JudgmentLayerGraphResponse(
         judgments=[JudgmentGraphNodeDTO.from_document(doc) for doc in data.judgments],
         instruments=[
             InstrumentLayerInstrumentDTO.from_document(doc) for doc in data.instruments
@@ -174,3 +211,5 @@ def get_judgment_graph_route(
         edges=edges,
         metadata=data.metadata,
     )
+    _layer_cache_set(cache_key, response)
+    return response

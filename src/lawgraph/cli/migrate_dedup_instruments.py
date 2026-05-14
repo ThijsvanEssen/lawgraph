@@ -216,5 +216,9 @@ def run_migration() -> None:
     logger.info("Done.")
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> None:
     run_migration()
+
+
+if __name__ == "__main__":
+    main()

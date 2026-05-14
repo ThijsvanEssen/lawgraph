@@ -7,21 +7,18 @@ from typing import Callable
 
 from dotenv import load_dotenv
 
-from lawgraph.cli.normalize_bwb import main as normalize_bwb_main
-from lawgraph.cli.normalize_eurlex import main as normalize_eurlex_main
-from lawgraph.cli.normalize_rechtspraak import main as normalize_rechtspraak_main
-from lawgraph.cli.normalize_tk import main as normalize_tk_main
+from lawgraph.cli.backfill_list_stats import main as backfill_list_stats_main
 from lawgraph.cli.strafrecht_seed import main as strafrecht_seed_main
 from lawgraph.config import list_domain_profiles
 from lawgraph.logging import get_logger, setup_logging
+from lawgraph.sources import SOURCES
 
 logger = get_logger(__name__)
 
 _TRUE_VALUES = {"1", "true"}
-_PROFILE_CHOICES = list_domain_profiles()
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     setup_logging()
 
@@ -30,10 +27,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--profile",
-        choices=_PROFILE_CHOICES or None,
+        choices=list_domain_profiles() or None,
         help="Domain profile to use for all sub-pipelines.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     profile = args.profile or os.getenv("LAWGRAPH_PROFILE")
     normalized_profile = profile.lower() if profile else None
@@ -42,34 +39,47 @@ def main() -> None:
 
     steps: list[tuple[str, str, Callable[[], None]]] = []
 
-    if not _should_skip("LAWGRAPH_NORMALIZE_SKIP_STRAFRECHT_SEED"):
-        if normalized_profile in (None, "strafrecht"):
-            steps.append(
-                (
-                    "Strafrecht seed",
-                    "LAWGRAPH_NORMALIZE_SKIP_STRAFRECHT_SEED",
-                    strafrecht_seed_main,
-                )
+    if normalized_profile in (None, "strafrecht"):
+        steps.append(
+            (
+                "Strafrecht seed",
+                "LAWGRAPH_NORMALIZE_SKIP_STRAFRECHT_SEED",
+                strafrecht_seed_main,
             )
+        )
 
-    steps += [
-        ("TK normalization", "LAWGRAPH_NORMALIZE_SKIP_TK", normalize_tk_main),
+    for source in SOURCES:
+        if source.normalize_main is None:
+            continue
+        main_fn = source.normalize_main
+
+        def _make_runner(
+            fn: Callable[..., None], _argv: list[str]
+        ) -> Callable[[], None]:
+            return lambda: fn(argv=_argv)
+
+        steps.append(
+            (
+                source.display_name,
+                source.normalize_skip_env or "",
+                _make_runner(main_fn, []),
+            )
+        )
+
+    # Refresh precomputed sort/filter stats consumed by /api/instruments and
+    # /api/judgments. article_count depends on edges from BWB/EurLex above,
+    # so this must run last.
+    steps.append(
         (
-            "Rechtspraak normalization",
-            "LAWGRAPH_NORMALIZE_SKIP_RECHTSPRAAK",
-            normalize_rechtspraak_main,
-        ),
-        (
-            "EurLex normalization",
-            "LAWGRAPH_NORMALIZE_SKIP_EURLEX",
-            normalize_eurlex_main,
-        ),
-        ("BWB normalization", "LAWGRAPH_NORMALIZE_SKIP_BWB", normalize_bwb_main),
-    ]
+            "List-endpoint stats backfill",
+            "LAWGRAPH_NORMALIZE_SKIP_LIST_STATS",
+            backfill_list_stats_main,
+        )
+    )
 
     results: list[tuple[str, str]] = []
     for name, env_var, runner in steps:
-        if _should_skip(env_var):
+        if env_var and _should_skip(env_var):
             logger.info("%s skipped (%s set).", name, env_var)
             results.append((name, "skipped"))
             continue

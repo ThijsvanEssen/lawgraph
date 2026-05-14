@@ -3,10 +3,10 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any, Iterable, Protocol, runtime_checkable
 
-from config.config import load_domain_config
+from lawgraph.config import load_domain_config
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
-from lawgraph.models import Node
+from lawgraph.models import Node, PipelineResult
 
 logger = get_logger(__name__)
 
@@ -23,7 +23,7 @@ class NormalizePipelineProtocol(Protocol):
 
     def build_edges(self, raw: Any, normalized: Any) -> int: ...
 
-    def run(self, *, since: dt.datetime | None = None) -> None: ...
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult: ...
 
 
 class NormalizePipeline(NormalizePipelineProtocol):
@@ -40,6 +40,7 @@ class NormalizePipeline(NormalizePipelineProtocol):
         self._domain_profile_name = domain_profile
         self._domain_config: dict[str, Any] | None = domain_config
         self._domain_topic_node: Node | None = None
+        self._result: PipelineResult = PipelineResult()
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
         """Fetch raw_sources records relevant for this pipeline."""
@@ -53,8 +54,9 @@ class NormalizePipeline(NormalizePipelineProtocol):
         """Create edges between normalized nodes; returns number of edges created."""
         raise NotImplementedError
 
-    def run(self, *, since: dt.datetime | None = None) -> None:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Orchestrate the normalization pipeline steps with logging."""
+        self._result = PipelineResult()
         since_desc = self._describe_since(since)
         logger.info(
             "Starting %s normalization pipeline (since=%s).",
@@ -62,15 +64,22 @@ class NormalizePipeline(NormalizePipelineProtocol):
             since_desc,
         )
 
-        raw = self.fetch_raw(since=since)
-        normalized = self.normalize_nodes(raw)
-        edge_count = self.build_edges(raw, normalized)
+        try:
+            raw = self.fetch_raw(since=since)
+            normalized = self.normalize_nodes(raw)
+            edge_count = self.build_edges(raw, normalized)
+        except Exception as exc:
+            msg = f"{self.__class__.__name__} pipeline failed: {exc}"
+            logger.error(msg)
+            self._result.add_error(msg)
+            return self._result
 
         logger.info(
             "%s normalization pipeline created %d edges.",
             self.__class__.__name__,
             edge_count,
         )
+        return self._result
 
     @staticmethod
     def _since_iso(since: dt.datetime | None) -> str | None:
@@ -226,23 +235,9 @@ class NormalizePipeline(NormalizePipelineProtocol):
         source: str,
         meta: dict[str, Any] | None = None,
     ) -> bool:
+        from lawgraph.config.settings import RELATION_RELATED_TOPIC
+
         if node.id is None or topic_node.id is None:
-            return False
-
-        bind_vars = {
-            "from_id": node.id,
-            "to_id": topic_node.id,
-            "relation": "RELATED_TOPIC",
-        }
-        aql = """
-        FOR edge IN edges
-            FILTER edge._from == @from_id
-            FILTER edge._to == @to_id
-            FILTER edge.relation == @relation
-        RETURN edge
-        """
-
-        for _ in self.store.query(aql, bind_vars=bind_vars):
             return False
 
         edge_meta = dict(meta or {})
@@ -251,7 +246,7 @@ class NormalizePipeline(NormalizePipelineProtocol):
         self.store.create_edge(
             from_id=node.id,
             to_id=topic_node.id,
-            relation="RELATED_TOPIC",
+            relation=RELATION_RELATED_TOPIC,
             source=edge_meta.get("source", ""),
             meta={k: v for k, v in edge_meta.items() if k != "source"},
         )

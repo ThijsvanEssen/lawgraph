@@ -9,8 +9,12 @@ from typing import Iterable
 from lawgraph.config.settings import (
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_KAMERSTUKDOSSIERS,
     COLLECTION_PUBLICATIONS,
+    EDGE_STATUS_CANONIEK,
+    EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS_INSTRUMENT,
+    RELATION_DEEL_VAN_DOSSIER,
     RELATION_INTRODUCEERT,
     RELATION_TREKT_IN,
     RELATION_WIJZIGT,
@@ -142,12 +146,14 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
         # the instrument_relations pipeline links them to instrument nodes,
         # which we can mine for the bwb_id needed to scope amendment scanning.
         amends_index = self._load_amends_instrument_index()
+        open_pub_ids = self._load_open_publication_ids()
 
         logger.info(
-            "Scanning %d TK publications for amendment language (%d publications "
-            "have AMENDS_INSTRUMENT context).",
+            "Scanning %d TK publications for amendment language (%d with "
+            "AMENDS_INSTRUMENT context, %d from open dossiers).",
             len(documents),
             len(amends_index),
+            len(open_pub_ids),
         )
 
         for document in documents:
@@ -169,6 +175,12 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
             if not text:
                 result.skipped += 1
                 continue
+
+            edge_status = (
+                EDGE_STATUS_VOORGESTELD
+                if document.id in open_pub_ids
+                else EDGE_STATUS_CANONIEK
+            )
 
             for bwb_id in bwb_ids:
                 hits = detect_amendment_citations(text, bwb_id)
@@ -195,6 +207,7 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
                         confidence=hit.confidence,
                         meta={"reason": "amendment_text", "snippet": hit.snippet},
                         result=result,
+                        status=edge_status,
                     )
                     if created:
                         result.created += 1
@@ -258,6 +271,26 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
             if bwb_str and bwb_str not in bucket:
                 bucket.append(bwb_str)
         return index
+
+    def _load_open_publication_ids(self) -> set[str]:
+        """Return IDs of publications whose dossier is not yet afgedaan.
+
+        A single AQL traversal follows DEEL_VAN_DOSSIER edges from publications
+        to their kamerstukdossier and filters on afgedaan == false.
+        """
+        aql = f"""
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e.relation == @relation
+            FILTER STARTS_WITH(e._from, "{COLLECTION_PUBLICATIONS}/")
+            FILTER STARTS_WITH(e._to, "{COLLECTION_KAMERSTUKDOSSIERS}/")
+            LET dossier = DOCUMENT(e._to)
+            FILTER dossier != null AND dossier.props.afgedaan == false
+            RETURN DISTINCT e._from
+        """
+        return {
+            str(row)
+            for row in self.store.query(aql, {"relation": RELATION_DEEL_VAN_DOSSIER})
+        }
 
     def _resolve_bwb_ids(
         self, document: Node, amends_index: dict[str, list[str]]

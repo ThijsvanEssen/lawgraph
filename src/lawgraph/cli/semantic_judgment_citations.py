@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -16,7 +17,6 @@ from lawgraph.pipelines.semantic.judgment_citations import (
 )
 
 logger = get_logger(__name__)
-PROFILE_CHOICES = list_domain_profiles()
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -25,7 +25,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument(
         "--profile",
-        choices=PROFILE_CHOICES or None,
+        choices=list_domain_profiles() or None,
         help="Domain profile (optional; no aliases needed for ECLI detection).",
     )
     parser.add_argument(
@@ -59,3 +59,4 @@ def main(argv: list[str] | None = None) -> None:
     if result.errors:
         for err in result.errors:
             logger.warning("Judgment citation error: %s", err)
+        sys.exit(1)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -14,7 +15,6 @@ from lawgraph.logging import get_logger, setup_logging
 from lawgraph.pipelines.semantic.instrument_relations import InstrumentRelationsPipeline
 
 logger = get_logger(__name__)
-PROFILE_CHOICES = list_domain_profiles()
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument(
         "--profile",
-        choices=PROFILE_CHOICES or None,
+        choices=list_domain_profiles() or None,
         help="Domain profile containing instrument_aliases (e.g. strafrecht).",
     )
     args = parser.parse_args(argv)
@@ -51,3 +51,4 @@ def main(argv: list[str] | None = None) -> None:
     if result.errors:
         for err in result.errors:
             logger.warning("Instrument relations error: %s", err)
+        sys.exit(1)

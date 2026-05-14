@@ -21,6 +21,8 @@ def _env_list(name: str, default: tuple[str, ...]) -> list[str]:
 DEFAULT_DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     "instruments",
     "instrument_articles",
+    "instrument_versions",
+    "instrument_article_versions",
     "procedures",
     "publications",
     "judgments",
@@ -33,6 +35,7 @@ DEFAULT_DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     "toezeggingen",
     "commissies",
     "leden",
+    "fracties",
     # Immutable audit trail for edge-status flips (§ observability)
     "edge_status_log",
     # User watch-list (persisted server-side, keyed by UUID)
@@ -73,13 +76,45 @@ TK_BASE_URL = os.getenv("TK_API_BASE", DEFAULT_TK_BASE)
 DEFAULT_BWB_SRU_ENDPOINT = "https://zoekservice.overheid.nl/sru/Search"
 BWB_SRU_ENDPOINT = os.getenv("BWB_SRU_ENDPOINT", DEFAULT_BWB_SRU_ENDPOINT)
 
+DEFAULT_EURLEX_SPARQL_ENDPOINT = "https://publications.europa.eu/webapi/rdf/sparql"
+EURLEX_SPARQL_ENDPOINT = os.getenv(
+    "EURLEX_SPARQL_ENDPOINT", DEFAULT_EURLEX_SPARQL_ENDPOINT
+)
+
+DEFAULT_STAATSBLAD_SRU_ENDPOINT = "https://sru.officielebekendmakingen.nl/sru/Search"
+STAATSBLAD_SRU_ENDPOINT = os.getenv(
+    "STAATSBLAD_SRU_ENDPOINT", DEFAULT_STAATSBLAD_SRU_ENDPOINT
+)
+DEFAULT_STAATSBLAD_REPO_BASE = "https://repository.overheid.nl"
+STAATSBLAD_REPO_BASE = os.getenv("STAATSBLAD_REPO_BASE", DEFAULT_STAATSBLAD_REPO_BASE)
+
+DEFAULT_STAATSCOURANT_SRU_ENDPOINT = "https://sru.officielebekendmakingen.nl/sru/Search"
+STAATSCOURANT_SRU_ENDPOINT = os.getenv(
+    "STAATSCOURANT_SRU_ENDPOINT", DEFAULT_STAATSCOURANT_SRU_ENDPOINT
+)
+
+DEFAULT_EERSTEKAMER_BASE = "https://gegevensmagazijn.eerstekamer.nl/OData/v4/2.0/"
+EERSTEKAMER_BASE_URL = os.getenv("EERSTEKAMER_BASE", DEFAULT_EERSTEKAMER_BASE)
+
+DEFAULT_ECHR_HUDOC_BASE = "https://hudoc.echr.coe.int"
+ECHR_HUDOC_BASE_URL = os.getenv("ECHR_HUDOC_BASE", DEFAULT_ECHR_HUDOC_BASE)
+
+DEFAULT_VERDRAGENBANK_SPARQL = "https://linkeddata.overheid.nl/front/portal/sparql"
+VERDRAGENBANK_SPARQL_ENDPOINT = os.getenv(
+    "VERDRAGENBANK_SPARQL", DEFAULT_VERDRAGENBANK_SPARQL
+)
+
 # ── Source & raw-kind identifiers ─────────────────────────────────────────────
 
 SOURCE_TK = "tk"
 SOURCE_RECHTSPRAAK = "rechtspraak"
 SOURCE_EURLEX = "eurlex"
-SOURCE_EURLEx = SOURCE_EURLEX  # backwards-compat alias (old mixed-case name)
 SOURCE_BWB = "bwb"
+SOURCE_STAATSBLAD = "staatsblad"
+SOURCE_STAATSCOURANT = "staatscourant"
+SOURCE_EERSTEKAMER = "eerstekamer"
+SOURCE_ECHR = "echr"
+SOURCE_VERDRAGENBANK = "verdragenbank"
 
 RAW_KIND_TK_ZAAK = "tk-zaak"
 RAW_KIND_TK_DOCUMENTVERSIE = "tk-documentversie"
@@ -89,11 +124,20 @@ RAW_KIND_TK_STEMMING = "tk-stemming"
 RAW_KIND_TK_TOEZEGGING = "tk-toezegging"
 RAW_KIND_TK_COMMISSIE = "tk-commissie"
 RAW_KIND_TK_PERSOON = "tk-persoon"
+RAW_KIND_TK_DOCUMENT = "tk-document"
+RAW_KIND_TK_FRACTIE = "tk-fractie"
+RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
 RAW_KIND_RS_INDEX = "rs-index"
 RAW_KIND_RS_CONTENT = "rs-content"
 RAW_KIND_EU_CELEX = "eu-celex-html"
 RAW_KIND_BWB_REGELING = "bwb-regeling-xml"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
+RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
+RAW_KIND_STB_AMVB = "stb-amvb-xml"
+RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
+RAW_KIND_EK_STUK = "ek-stuk-json"
+RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
+RAW_KIND_VERDRAG = "verdrag-json"
 
 RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_TK: (
@@ -105,16 +149,30 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_TOEZEGGING,
         RAW_KIND_TK_COMMISSIE,
         RAW_KIND_TK_PERSOON,
+        RAW_KIND_TK_DOCUMENT,
+        RAW_KIND_TK_FRACTIE,
+        RAW_KIND_TK_FRACTIEZETELPERSOON,
     ),
     SOURCE_RECHTSPRAAK: (RAW_KIND_RS_INDEX, RAW_KIND_RS_CONTENT),
     SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),
-    SOURCE_BWB: (RAW_KIND_BWB_REGELING, RAW_KIND_BWB_TOESTAND),
+    SOURCE_BWB: (
+        RAW_KIND_BWB_REGELING,
+        RAW_KIND_BWB_TOESTAND,
+        RAW_KIND_BWB_TOESTAND_ALL,
+    ),
+    SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
+    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING,),
+    SOURCE_EERSTEKAMER: (RAW_KIND_EK_STUK,),
+    SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
+    SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
 }
 
 # ── Collection name constants ─────────────────────────────────────────────────
 
 COLLECTION_INSTRUMENTS = "instruments"
 COLLECTION_INSTRUMENT_ARTICLES = "instrument_articles"
+COLLECTION_INSTRUMENT_VERSIONS = "instrument_versions"
+COLLECTION_INSTRUMENT_ARTICLE_VERSIONS = "instrument_article_versions"
 COLLECTION_PROCEDURES = "procedures"
 COLLECTION_PUBLICATIONS = "publications"
 COLLECTION_JUDGMENTS = "judgments"
@@ -126,6 +184,7 @@ COLLECTION_STEMMINGEN = "stemmingen"
 COLLECTION_TOEZEGGINGEN = "toezeggingen"
 COLLECTION_COMMISSIES = "commissies"
 COLLECTION_LEDEN = "leden"
+COLLECTION_FRACTIES = "fracties"
 COLLECTION_EDGE_STATUS_LOG = "edge_status_log"
 COLLECTION_WATCHES = "watches"
 
@@ -160,9 +219,12 @@ RELATION_LICHT_TOE = "LICHT_TOE"  # mvt → article (explains legislative intent
 RELATION_BESLUIT = "BESLUIT"  # stemming → document (finalizes or rejects)
 RELATION_BETREFT = "BETREFT"  # toezegging → article (optional specific article)
 RELATION_BEHANDELD_DOOR = "BEHANDELD_DOOR"  # activiteit → commissie
-RELATION_AUTEUR_VAN = "AUTEUR_VAN"  # lid → document
+RELATION_LID_VAN = "LID_VAN"  # lid → commissie
 RELATION_GEDAAN_IN = "GEDAAN_IN"  # toezegging → activiteit
+RELATION_AUTEUR_VAN = "AUTEUR_VAN"  # lid → document
 RELATION_GESTEMD_IN = "GESTEMD_IN"  # stemming → activiteit
+RELATION_LID_VAN_FRACTIE = "LID_VAN_FRACTIE"  # lid → fractie (party membership)
+RELATION_STEMT = "STEMT"  # fractie → stemming (group vote, with meta.stem)
 
 # Semantic — written by semantic pipelines, confidence-weighted.
 RELATION_REFERS_TO_ARTICLE = os.getenv(
@@ -188,3 +250,40 @@ RELATION_IMPLEMENTS_DIRECTIVE = os.getenv(
     "LAWGRAPH_RELATION_IMPLEMENTS_DIRECTIVE", "IMPLEMENTS_DIRECTIVE"
 )
 RELATION_RELATED_TOPIC = "RELATED_TOPIC"
+RELATION_EXPLAINS_INSTRUMENT = (
+    "EXPLAINS_INSTRUMENT"  # publication → instrument (NvT, explanatory)
+)
+RELATION_DELEGATED_BY = (
+    "DELEGATED_BY"  # instrument (AMvB) → article (legal delegation basis)
+)
+RELATION_RESULTED_IN = "RESULTED_IN"  # kamerstukdossier → instrument (enacted law)
+RELATION_SUPERSEDES = (
+    "SUPERSEDES"  # newer instrument_version → older instrument_version
+)
+RELATION_VERSION_OF = "VERSION_OF"  # instrument_version → instrument
+RELATION_PART_OF_VERSION = "PART_OF_VERSION"  # article_version → instrument_version
+RELATION_CAUSED_VERSION = (
+    "CAUSED_VERSION"  # publication → instrument_article_version (legislative cause)
+)
+
+
+# ── Semantic confidence overrides ─────────────────────────────────────────────
+# Env-var-driven per-pattern floor adjustments.
+# Format: dict[pattern_name, float] where pattern_name matches the detector's
+# internal pattern identifier. Detectors read this via get_confidence_override().
+
+
+def get_confidence_override(pattern_name: str, default: float) -> float:
+    """Return a per-pattern confidence value, overridable via env var.
+
+    Env var: LAWGRAPH_CONFIDENCE_<PATTERN_NAME_UPPER>
+    Example: LAWGRAPH_CONFIDENCE_BWB_EXPLICIT=0.95
+    """
+    env_key = f"LAWGRAPH_CONFIDENCE_{pattern_name.upper()}"
+    raw = os.getenv(env_key)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default

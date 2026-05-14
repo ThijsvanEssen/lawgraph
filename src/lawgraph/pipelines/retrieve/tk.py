@@ -29,7 +29,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
         self,
         *args: object,
         since: dt.datetime,
-        limit: int = 100,
+        limit: int = 0,
         zaak_filter: Callable[[dict[str, Any]], bool] | None = None,
         documentversie_filter: Callable[[dict[str, Any]], bool] | None = None,
         keywords: list[str] | None = None,
@@ -40,18 +40,27 @@ class TKRetrievePipeline(RetrievePipelineBase):
         If *keywords* is provided, keyword matching is pushed into the OData
         query so the API only returns relevant records (avoids fetching 30k+
         records and discarding most of them client-side).
+
+        ``limit`` is kept for backwards compatibility but is no longer used as
+        an OData ``$top`` cap — doing so silently dropped records beyond the
+        limit. All pages are now fetched via nextLink pagination. Pass
+        ``limit > 0`` only to hard-cap the in-memory result list after fetching
+        (useful for smoke-test / development runs).
         """
         logger.info(
-            "Fetching TK Zaak and DocumentVersie since %s (limit %d)",
+            "Fetching TK Zaak and DocumentVersie since %s%s",
             since.isoformat(),
-            limit,
+            f" (dev cap: {limit})" if limit else "",
         )
 
         records: list[RetrieveRecord] = []
 
+        # Always pass top=0 (no $top) so _paged_get follows @odata.nextLink
+        # across all pages. Previously passing top=limit capped the OData
+        # result set at `limit` records total, silently dropping the rest.
         zaken = self.tk.zaken_modified_since(
             since,
-            top=limit if not keywords else 0,
+            top=0,
             keyword_fields=["Onderwerp", "Titel"] if keywords else None,
             keywords=keywords,
         )
@@ -73,20 +82,25 @@ class TKRetrievePipeline(RetrievePipelineBase):
                     meta={
                         "endpoint": "Zaak",
                         "since": since.isoformat(),
-                        "limit": limit,
                     },
                 )
             )
+            if limit and len(records) >= limit:
+                logger.warning(
+                    "Dev cap of %d records reached for Zaak — stopping.", limit
+                )
+                break
 
         # Fetch Document (not DocumentVersie) because Document carries Titel,
         # Onderwerp, and Soort which are needed for content filtering. Each
         # Document record is expanded with its parent Zaak for procedure linking.
         documentversies = self.tk.documents_modified_since(
             since,
-            top=limit if not keywords else 0,
+            top=0,
             keyword_fields=["Titel", "Onderwerp"] if keywords else None,
             keywords=keywords,
         )
+        doc_count = 0
         for documentversie in documentversies:
             if documentversie_filter and not documentversie_filter(documentversie):
                 continue
@@ -104,17 +118,23 @@ class TKRetrievePipeline(RetrievePipelineBase):
                     meta={
                         "endpoint": "DocumentVersie",
                         "since": since.isoformat(),
-                        "limit": limit,
                     },
                 )
             )
+            doc_count += 1
+            if limit and doc_count >= limit:
+                logger.warning(
+                    "Dev cap of %d records reached for DocumentVersie — stopping.",
+                    limit,
+                )
+                break
 
         zaak_count = sum(1 for rec in records if rec.kind == RAW_KIND_TK_ZAAK)
         documentversie_count = sum(
             1 for rec in records if rec.kind == RAW_KIND_TK_DOCUMENTVERSIE
         )
         logger.info(
-            "TK retrieve produced %d records (%d zaken, %d documentversies).",
+            "TK retrieve complete: %d records total (%d zaken, %d documentversies).",
             len(records),
             zaak_count,
             documentversie_count,

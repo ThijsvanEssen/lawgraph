@@ -40,7 +40,7 @@ class BWBNormalizePipeline(NormalizePipeline):
             kinds=kinds,
             since=since,
         )
-        logger.info("Gelezen %d BWB raw_sources.", len(rows))
+        logger.info("Loaded %d BWB raw_sources.", len(rows))
         return rows
 
     def normalize_nodes(
@@ -56,7 +56,7 @@ class BWBNormalizePipeline(NormalizePipeline):
             payload_text = self._payload_text(record)
             if not payload_text:
                 logger.warning(
-                    "BWB-record %s heeft geen text payload; overslaan.",
+                    "BWB record %s has no text payload; skipping.",
                     record.get("_key"),
                 )
                 continue
@@ -65,21 +65,25 @@ class BWBNormalizePipeline(NormalizePipeline):
             bwb_id = meta.get("bwb_id") or record.get("external_id")
             if not bwb_id:
                 logger.warning(
-                    "BWB-record %s mist bwb_id; overslaan.",
+                    "BWB record %s missing bwb_id; skipping.",
                     record.get("_key"),
                 )
                 continue
 
             instrument = instruments_by_bwb.get(bwb_id)
             if not instrument:
-                instrument = self._get_or_create_instrument(bwb_id)
+                titel = self._extract_instrument_title(payload_text, bwb_id)
+                citation_title = self._extract_citation_title(payload_text)
+                instrument = self._get_or_create_instrument(
+                    bwb_id, title=titel, citation_title=citation_title
+                )
                 instruments_by_bwb[bwb_id] = instrument
 
             try:
                 root = ET.fromstring(payload_text)
             except ET.ParseError as exc:
                 logger.warning(
-                    "XML-parsing voor BWB %s faalde: %s",
+                    "XML parsing failed for BWB %s: %s",
                     bwb_id,
                     exc,
                 )
@@ -87,19 +91,19 @@ class BWBNormalizePipeline(NormalizePipeline):
 
             article_elements = self._find_article_elements(root)
             if not article_elements:
-                logger.debug("Geen artikelen gevonden in BWB %s.", bwb_id)
+                logger.debug("No articles found in BWB %s.", bwb_id)
                 continue
 
             for article in article_elements:
                 article_number = self._extract_article_number(article)
                 if not article_number:
-                    logger.debug("Artikel in %s zonder nummer; overslaan.", bwb_id)
+                    logger.debug("Article in %s has no number; skipping.", bwb_id)
                     continue
 
                 article_text = self._extract_article_text(article)
                 if not article_text:
                     logger.debug(
-                        "Artikel %s van %s bevat geen tekst; overslaan.",
+                        "Article %s in %s has no text; skipping.",
                         article_number,
                         bwb_id,
                     )
@@ -129,7 +133,7 @@ class BWBNormalizePipeline(NormalizePipeline):
                 article_count += 1
 
         logger.info(
-            "Genormaliseerd %d BWB-artikels voor %d instrumenten.",
+            "Normalized %d BWB articles for %d instruments.",
             article_count,
             len(instruments_by_bwb),
         )
@@ -167,21 +171,96 @@ class BWBNormalizePipeline(NormalizePipeline):
                     edge_count += 1
                 except Exception as exc:
                     logger.error(
-                        "Kon BWB edge %s → %s niet aanmaken: %s",
+                        "Could not create BWB edge %s → %s: %s",
                         instrument.id,
                         article.id,
                         exc,
                     )
 
-        logger.info("BWB-normalisatie voegde %d strict edges toe.", edge_count)
+        logger.info("BWB normalization created %d edges.", edge_count)
         return edge_count
 
-    def _get_or_create_instrument(self, bwb_id: str) -> Node:
+    @staticmethod
+    def _extract_instrument_title(
+        xml_text: str | None,
+        bwb_id: str,
+    ) -> str:
+        """Extract the human-readable law title from BWB toestand XML.
+
+        Tries element names in preference order:
+          citeertitel → officiele-titel / officieleTitel → intitule
+        Falls back to 'BWB-regeling {bwb_id}' if no title element is found.
+        """
+        if not xml_text:
+            return f"BWB-regeling {bwb_id}"
+        try:
+            root = ET.fromstring(xml_text)
+        except ET.ParseError:
+            return f"BWB-regeling {bwb_id}"
+
+        def _local(tag: str) -> str:
+            return tag.split("}", 1)[-1] if "}" in tag else tag
+
+        # Map normalised local names → priority (lower = higher priority)
+        _TITLE_PRIORITY: dict[str, int] = {
+            "citeertitel": 0,
+            "officiele-titel": 1,
+            "officietitel": 1,  # camelCase without dash
+            "intitule": 2,
+        }
+
+        best: tuple[int, str] | None = None
+        for el in root.iter():
+            local = _local(el.tag).lower()
+            priority = _TITLE_PRIORITY.get(local)
+            if priority is None:
+                continue
+            text = " ".join((el.text or "").split()).strip()
+            if not text:
+                continue
+            if best is None or priority < best[0]:
+                best = (priority, text)
+
+        return best[1] if best else f"BWB-regeling {bwb_id}"
+
+    @staticmethod
+    def _extract_citation_title(xml_text: str | None) -> str | None:
+        """Extract only the <citeertitel> element from BWB XML.
+
+        Returns the citeertitel text if found, or None if absent.
+        """
+        if not xml_text:
+            return None
+        try:
+            root = ET.fromstring(xml_text)
+        except ET.ParseError:
+            return None
+
+        def _local(tag: str) -> str:
+            return tag.split("}", 1)[-1] if "}" in tag else tag
+
+        for el in root.iter():
+            if _local(el.tag).lower() == "citeertitel":
+                text = " ".join((el.text or "").split()).strip()
+                if text:
+                    return text
+        return None
+
+    def _get_or_create_instrument(
+        self,
+        bwb_id: str,
+        title: str | None = None,
+        citation_title: str | None = None,
+    ) -> Node:
         instrument_key = make_node_key(bwb_id)
         instrument_props: dict[str, Any] = {
+            "source": SOURCE_BWB,
             "bwb_id": bwb_id,
-            "title": f"BWB-regeling {bwb_id}",
+            "title": title if title is not None else f"BWB-regeling {bwb_id}",
+            "jurisdiction": "nl",
         }
+        if citation_title:
+            instrument_props["citation_title"] = citation_title
         instrument_props["display_name"] = make_display_name(
             NodeType.INSTRUMENT, instrument_props
         )

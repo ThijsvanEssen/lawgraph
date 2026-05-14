@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import get_db_stats
-from lawgraph.api.schemas import EdgeStatsDTO, StatsResponse
+from lawgraph.api.schemas import EdgeStatsDTO, InstrumentStatsDTO, StatsResponse
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
@@ -24,4 +24,6 @@ def get_stats(store: Annotated[ArangoStore, Depends(get_store)]) -> StatsRespons
     return StatsResponse(
         nodes=data["nodes"],
         edges=EdgeStatsDTO(**data["edges"]),
+        by_source=data.get("by_source", {}),
+        instruments=InstrumentStatsDTO(**data.get("instruments", {})),
     )

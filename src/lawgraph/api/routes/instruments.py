@@ -1,312 +1,602 @@
+"""Instrument list endpoint — paginated catalogue of laws and regulations."""
+
 from __future__ import annotations
 
-from typing import Annotated
+import datetime as dt
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
-    InstrumentStats,
-    get_instrument_graph,
-    get_instrument_history,
-    get_instrument_index,
-    get_instrument_publications,
-    get_instrument_reader,
+    INSTRUMENT_SORTS,
+    get_instrument_article_history,
+    get_instrument_articles,
+    get_instrument_articles_at,
+    get_instrument_dossiers,
+    get_instrument_edges_bundle,
+    get_instrument_judgments,
+    get_instrument_related_instruments,
+    get_instrument_versions,
+    get_instruments_list,
 )
 from lawgraph.api.schemas import (
-    ArticleGraphNodeDTO,
-    GraphEdgeDTO,
-    InstrumentGraphResponse,
-    InstrumentIndexResponse,
-    InstrumentProceduresResponse,
-    InstrumentPublicationLinkDTO,
-    InstrumentPublicationsResponse,
-    InstrumentReaderResponse,
-    InstrumentSummaryDTO,
-    JudgmentGraphNodeDTO,
-    ParliamentaryProcedureDTO,
-    ReaderArticleDTO,
-)
-from lawgraph.config.settings import (
-    RELATION_CITES_ARTICLE,
-    RELATION_MENTIONS_ARTICLE,
-    RELATION_PART_OF_INSTRUMENT,
-    RELATION_REFERS_TO_ARTICLE,
+    CitedArticleRef,
+    InstrumentArticleNodeDTO,
+    InstrumentArticlesAtResponse,
+    InstrumentArticlesResponse,
+    InstrumentArticleVersionDTO,
+    InstrumentArticleVersionsResponse,
+    InstrumentCitationEdge,
+    InstrumentCitationsResponse,
+    InstrumentDossierItem,
+    InstrumentDossiersResponse,
+    InstrumentJudgmentItem,
+    InstrumentJudgmentsResponse,
+    InstrumentListItemDTO,
+    InstrumentListResponse,
+    InstrumentRelatedItem,
+    InstrumentRelatedResponse,
+    InstrumentVersionDTO,
+    InstrumentVersionsResponse,
 )
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import make_node_key
+
+# Field whitelists for the side-payload nodes on /citations. Kept lean so the
+# graph-loader payload doesn't carry full article text or judgment paragraphs.
+_NODE_FIELD_WHITELIST: dict[str, tuple[str, ...]] = {
+    "instrument_articles": (
+        "bwb_id",
+        "celex",
+        "article_number",
+        "display_name",
+        # ``short_title`` is not a real article prop — we lift it from the
+        # article's parent instrument in _minimise_articles_with_short_title.
+        # Listed here so the whitelist allows it through after enrichment.
+        "short_title",
+        "stub",
+    ),
+    "judgments": ("ecli", "display_name"),
+    "publications": (
+        "soort",
+        "titel",
+        "title",
+        "datum",
+        "volgnummer",
+        "dossier_nummer",
+        "tk_url",
+        "display_name",
+    ),
+    "kamerstukdossiers": (
+        "kamerstuknummer",
+        "titel",
+        "display_name",
+        "huidige_fase",
+    ),
+    "instruments": (
+        "bwb_id",
+        "display_name",
+        "citation_title",
+        "short_title",
+    ),
+}
+
+
+# Articles loaded via stub fall back to a verbose display_name that bakes the
+# full instrument title plus a trailing " (niet geladen)" marker. The FE
+# label pipeline assembles its own "short_title + article_number" label, so
+# we strip both the suffix and the long title here, leaving a clean
+# "Artikel <num>" that callers can decorate.
+_STUB_SUFFIX = " (niet geladen)"
+
+
+def _clean_article_display_name(
+    display_name: str | None, article_number: str | None
+) -> str | None:
+    if not display_name:
+        return display_name
+    name = display_name
+    if name.endswith(_STUB_SUFFIX):
+        name = name[: -len(_STUB_SUFFIX)].rstrip()
+    # A typical stub label is "Artikel 5 <full instrument title>". Trim back
+    # to the canonical "Artikel <num>" shape — the FE rebuilds the wet part
+    # itself from short_title.
+    if article_number:
+        prefix = f"Artikel {article_number}"
+        if name.lower().startswith(prefix.lower()):
+            return prefix
+    return name
+
+
+def _minimise_node(doc: dict, collection: str) -> dict:
+    """Project one side-payload node down to its whitelisted props."""
+    props = doc.get("props") or {}
+    whitelist = _NODE_FIELD_WHITELIST.get(collection, ())
+    return {
+        "id": doc.get("_id"),
+        "key": doc.get("_key"),
+        "collection": collection,
+        "props": {k: props.get(k) for k in whitelist if k in props},
+    }
+
+
+def _minimise_articles_with_short_title(
+    store: ArangoStore, docs: list[dict]
+) -> list[dict]:
+    """Project foreign articles, joining short_title from their parent wet.
+
+    The graph-loader displays article labels as ``<short_title> <article_number>``
+    (e.g. "Sr 287"). For articles outside the focal instrument we don't ship
+    full text — but we *do* need the parent wet's short_title so the FE's
+    label pipeline can render the friendly form without a second round-trip.
+    """
+    if not docs:
+        return []
+
+    # Collect unique parent identifiers across this side payload.
+    bwb_ids: set[str] = set()
+    celexes: set[str] = set()
+    for doc in docs:
+        props = doc.get("props") or {}
+        bwb = props.get("bwb_id")
+        if isinstance(bwb, str) and bwb:
+            bwb_ids.add(bwb)
+        celex = props.get("celex")
+        if isinstance(celex, str) and celex:
+            celexes.add(celex)
+
+    # One AQL pass — uses the (props.bwb_id) and (props.celex) indexes.
+    short_by_bwb: dict[str, str] = {}
+    short_by_celex: dict[str, str] = {}
+    if bwb_ids or celexes:
+        for inst in store.query(
+            """
+            FOR i IN instruments
+                FILTER i.props.bwb_id IN @bwbs OR i.props.celex IN @celexes
+                RETURN {
+                    bwb_id: i.props.bwb_id,
+                    celex: i.props.celex,
+                    short_title: i.props.short_title,
+                    citation_title: i.props.citation_title
+                }
+            """,
+            {"bwbs": list(bwb_ids), "celexes": list(celexes)},
+        ):
+            # Prefer short_title; fall back to citation_title when the wet
+            # doesn't carry an abbreviated form.
+            short = inst.get("short_title") or inst.get("citation_title")
+            if not short:
+                continue
+            if inst.get("bwb_id"):
+                short_by_bwb[inst["bwb_id"]] = short
+            if inst.get("celex"):
+                short_by_celex[inst["celex"]] = short
+
+    enriched: list[dict] = []
+    for doc in docs:
+        props = doc.get("props") or {}
+        article_number = props.get("article_number")
+        bwb = props.get("bwb_id")
+        celex = props.get("celex")
+        short_title: str | None = None
+        if isinstance(bwb, str) and bwb in short_by_bwb:
+            short_title = short_by_bwb[bwb]
+        elif isinstance(celex, str) and celex in short_by_celex:
+            short_title = short_by_celex[celex]
+
+        enriched.append(
+            {
+                "id": doc.get("_id"),
+                "key": doc.get("_key"),
+                "collection": "instrument_articles",
+                "props": {
+                    "bwb_id": bwb,
+                    "celex": celex,
+                    "article_number": article_number,
+                    "display_name": _clean_article_display_name(
+                        props.get("display_name"), article_number
+                    ),
+                    "short_title": short_title,
+                    "stub": bool(props.get("stub", False)),
+                },
+            }
+        )
+    return enriched
+
+
+def _compute_article_diffs(versions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Annotate each version with a unified diff vs its predecessor (older version)."""
+    import difflib
+
+    # versions are newest-first; predecessor = next item in list
+    result = []
+    for i, doc in enumerate(versions):
+        props = doc.get("props") or {}
+        current_text = props.get("text") or ""
+        if i + 1 < len(versions):
+            prev_props = versions[i + 1].get("props") or {}
+            prev_text = prev_props.get("text") or ""
+        else:
+            prev_text = ""
+        if current_text != prev_text:
+            diff_lines = list(
+                difflib.unified_diff(
+                    prev_text.splitlines(keepends=True),
+                    current_text.splitlines(keepends=True),
+                    lineterm="",
+                )
+            )
+            diff = "".join(diff_lines) if diff_lines else None
+        else:
+            diff = None
+        result.append({**doc, "_diff": diff})
+    return result
+
 
 router = APIRouter()
-logger = get_logger(__name__)
 
 
 @router.get(
     "",
-    response_model=InstrumentIndexResponse,
-    summary="Alle instrumenten met geaggregeerde statistieken",
+    response_model=InstrumentListResponse,
+    summary="Gepagineerde lijst van instrumenten",
     description=(
-        "Geeft alle instrumenten (NL en EU) terug als een platte lijst, elk aangevuld met "
-        "geaggregeerde statistieken: aantal artikelen, aantal uitspraken dat het instrument "
-        "citeert, en inkomende/uitgaande inter-wet citaties. "
-        "Geen artikelen of edges — geschikt voor overzichtstabellen en picker-UIs."
+        "Geeft een gepagineerde lijst van wetten, regelingen en EU-instrumenten. "
+        "Ondersteunt vrije-tekstzoek (`q`), jurisdictie-filter (`nl`/`eu`), "
+        "kind-filter en een minimum-artikelcount filter."
     ),
     tags=["instruments"],
 )
-def get_instrument_index_route(
+def list_instruments(
     store: Annotated[ArangoStore, Depends(get_store)],
-) -> InstrumentIndexResponse:
-    data = get_instrument_index(store)
-    instruments = [
-        InstrumentSummaryDTO.from_document(doc, stats=data.stats.get(doc["_id"]))
-        for doc in data.instruments
-    ]
-    return InstrumentIndexResponse(
-        instruments=instruments,
-        total=len(instruments),
-        metadata=data.metadata,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    q: Annotated[str | None, Query(description="Free-text match")] = None,
+    jurisdiction: Annotated[Literal["nl", "eu"] | None, Query()] = None,
+    kind: Annotated[str | None, Query()] = None,
+    article_count_min: Annotated[int | None, Query(ge=0)] = None,
+    sort: Annotated[
+        Literal["title", "article_count", "recent_mutation"], Query()
+    ] = "title",
+) -> InstrumentListResponse:
+    if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
+        sort = "title"
+    data = get_instruments_list(
+        store,
+        q=q,
+        jurisdiction=jurisdiction,
+        kind=kind,
+        article_count_min=article_count_min,
+        sort=sort,
+        limit=limit,
+        offset=offset,
     )
+    items = [InstrumentListItemDTO.from_row(row) for row in data.get("items", [])]
+    return InstrumentListResponse(items=items, total=int(data.get("total", 0)))
 
 
 @router.get(
-    "/{bwb_id}/graph",
-    response_model=InstrumentGraphResponse,
-    summary="Bulk instrument graph — alle artikelen + intra-wet citaties",
+    "/{bwb_id}/articles",
+    response_model=InstrumentArticlesResponse,
+    summary="Alle artikelen van een instrument",
     description=(
-        "Geeft alle artikelen van het instrument plus alle `REFERS_TO_ARTICLE`-edges "
-        "tussen die artikelen terug als één payload. Vermijdt N round-trips vanuit de client."
+        "Lijst van artikelen die bij dit BWB-instrument horen, gesorteerd op "
+        "natuurlijke artikelnummering (Artikel 9 vóór Artikel 10, '24c' tussen "
+        "'24' en '25'). Bedoeld voor graph-loaders; tekst is een korte preview, "
+        "gebruik /api/articles/{bwb_id}/{article_number} voor de volledige inhoud."
     ),
     tags=["instruments"],
 )
-def get_instrument_graph_route(
+def list_instrument_articles(
     bwb_id: str,
     store: Annotated[ArangoStore, Depends(get_store)],
-) -> InstrumentGraphResponse:
-    try:
-        data = get_instrument_graph(store, bwb_id)
-    except ValueError as err:
-        logger.debug("Instrument %s not found", bwb_id)
-        raise HTTPException(status_code=404, detail="Instrument not found") from err
-
-    articles = [ArticleGraphNodeDTO.from_document(doc) for doc in data.articles]
-    judgments = [JudgmentGraphNodeDTO.from_document(doc) for doc in data.judgments]
-    edges = [
-        GraphEdgeDTO(
-            from_id=e.from_id,
-            to_id=e.to_id,
-            relation_type=e.relation_type,
-            start=e.start,
-            end=e.end,
-            text=e.text,
-            confidence=e.confidence,
-        )
-        for e in data.edges
-    ]
-
-    related_instruments = [
-        InstrumentSummaryDTO.from_document(doc) for doc in data.related_instruments
-    ]
-
-    return InstrumentGraphResponse(
-        instrument=InstrumentSummaryDTO.from_document(data.instrument),
-        articles=articles,
-        judgments=judgments,
-        edges=edges,
-        related_instruments=related_instruments,
-        citation_title=data.metadata.get("citation_title"),
-        metadata=data.metadata,
+    include_stubs: Annotated[
+        bool,
+        Query(description="Include placeholder/stub articles (default: false)"),
+    ] = False,
+    text_preview_chars: Annotated[
+        int, Query(ge=0, le=600, description="Chars of text to inline as preview")
+    ] = 160,
+    limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> InstrumentArticlesResponse:
+    docs, total = get_instrument_articles(
+        store,
+        bwb_id,
+        include_stubs=include_stubs,
+        limit=limit,
+        offset=offset,
     )
-
-
-@router.get(
-    "/{bwb_id}/reader",
-    response_model=InstrumentReaderResponse,
-    summary="Leesweergave — alle artikelen in volgorde met volledige tekst en sectiecontext",
-    description=(
-        "Geeft alle artikelen van het instrument terug in natuurlijke leesvolgorde "
-        "(artikel 1, 1a, 2, … 10), inclusief volledige tekst, leden en breadcrumb "
-        "(boek/titeldeel/hoofdstuk/afdeling/paragraaf). Bedoeld voor een reader-view."
-    ),
-    tags=["instruments"],
-)
-def get_instrument_reader_route(
-    bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> InstrumentReaderResponse:
-    try:
-        data = get_instrument_reader(store, bwb_id)
-    except ValueError as err:
-        logger.debug("Instrument %s not found", bwb_id)
-        raise HTTPException(status_code=404, detail="Instrument not found") from err
-
-    instrument_id = data.instrument.get("_id", "")
-    history_entries = (
-        get_instrument_history(store, instrument_id) if instrument_id else []
-    )
-    history = [
-        ParliamentaryProcedureDTO.from_entry(e.procedure, e.publications)
-        for e in history_entries
-    ]
-
-    return InstrumentReaderResponse(
-        instrument=InstrumentSummaryDTO.from_document(data.instrument),
-        articles=[ReaderArticleDTO.from_document(doc) for doc in data.articles],
-        history=history,
-        citation_title=data.metadata.get("citation_title"),
-        metadata=data.metadata,
-    )
-
-
-@router.get(
-    "/{bwb_id}/procedures",
-    response_model=InstrumentProceduresResponse,
-    summary="TK-procedures die dit instrument hebben gewijzigd",
-    description=(
-        "Geeft alle Tweede Kamer-zaken (procedures) terug die via AMENDS_INSTRUMENT "
-        "aan dit instrument zijn gekoppeld, elk met hun bijbehorende publicaties."
-    ),
-    tags=["instruments"],
-)
-def get_instrument_procedures_route(
-    bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> InstrumentProceduresResponse:
-    instrument_id = f"instruments/{make_node_key(bwb_id)}"
-    entries = get_instrument_history(store, instrument_id)
-    procedures = [
-        ParliamentaryProcedureDTO.from_entry(e.procedure, e.publications)
-        for e in entries
-    ]
-    return InstrumentProceduresResponse(
-        instrument_id=instrument_id,
-        procedures=procedures,
-        total=len(procedures),
-    )
-
-
-@router.get(
-    "/{bwb_id}/publications",
-    response_model=InstrumentPublicationsResponse,
-    summary="TK-publicaties die dit instrument noemen of wijzigen",
-    description=(
-        "Geeft Tweede Kamer-publicaties terug die dit instrument noemen (`mentions`) "
-        "of wijzigen (`amends`). Gebruik de query-parameter `relation` om te filteren."
-    ),
-    tags=["instruments"],
-)
-def get_instrument_publications_route(
-    bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-    relation: Annotated[
-        str | None,
-        Query(description="Filter op 'amends' of 'mentions'. Leeg = beide."),
-    ] = None,
-) -> InstrumentPublicationsResponse:
-    instrument_id = f"instruments/{make_node_key(bwb_id)}"
-    entries = get_instrument_publications(store, instrument_id, relation=relation)
-    publications = [
-        InstrumentPublicationLinkDTO.from_entry(e.publication, e.relation)
-        for e in entries
-    ]
-    return InstrumentPublicationsResponse(
-        instrument_id=instrument_id,
-        publications=publications,
-        total=len(publications),
-    )
-
-
-@router.get(
-    "/{bwb_id}",
-    response_model=InstrumentSummaryDTO,
-    summary="Instrument metadata met statistieken — geen artikelen",
-    description=(
-        "Geeft metadata van één instrument (bwb_id of celex) terug, inclusief "
-        "geaggregeerde statistieken (artikelcount, uitspraakcount, citaties). "
-        "Geen artikelen geladen — gebruik `/{bwb_id}/graph` of `/{bwb_id}/reader` "
-        "als je de volledige inhoud nodig hebt."
-    ),
-    tags=["instruments"],
-)
-def get_instrument_detail_route(
-    bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> InstrumentSummaryDTO:
-    # Fetch the instrument document (same lookup as get_instrument_graph).
-    instrument_key = bwb_id.lower()
-    db = store.db
-    doc = db.collection("instruments").get(instrument_key)
-    if doc is None:
-        # Try by bwb_id prop or celex prop.
-        rows = list(
-            store.query(
-                """
-                FOR inst IN instruments
-                    FILTER inst.props.bwb_id == @id OR inst.props.celex == @id
-                    LIMIT 1 RETURN inst
-                """,
-                {"id": bwb_id},
+    return InstrumentArticlesResponse(
+        bwb_id=bwb_id,
+        total=total,
+        items=[
+            InstrumentArticleNodeDTO.from_document(
+                d, text_preview_chars=text_preview_chars
             )
-        )
-        doc = rows[0] if rows else None
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Instrument not found")
+            for d in docs
+        ],
+    )
 
-    inst_id = doc["_id"]
 
-    # Compute per-instrument stats in a single AQL (no art_inst needed for counts).
-    aql = """
-        LET art_inst = MERGE(
-            FOR e IN edges FILTER e.relation == @part_of RETURN {[e._to]: e._from}
-        )
+# ── Citation-graph bulk + per-layer endpoints ─────────────────────────────────
 
-        LET article_count = LENGTH(
-            FOR e IN edges FILTER e._from == @inst_id AND e.relation == @part_of RETURN 1
-        )
 
-        LET judgment_count = LENGTH(UNIQUE(
-            FOR e IN edges
-                FILTER e.relation IN @judgment_rels
-                    AND STARTS_WITH(e._from, "judgments/")
-                LET inst = art_inst[e._to]
-                FILTER inst == @inst_id
-                RETURN e._from
-        ))
-
-        LET cross_refs = (
-            FOR e IN edges
-                FILTER e.relation == @refers_to
-                LET fi = art_inst[e._from]
-                LET ti = art_inst[e._to]
-                FILTER fi != null AND ti != null AND fi != ti
-                FILTER fi == @inst_id OR ti == @inst_id
-                RETURN {fi, ti}
-        )
-
-        LET outbound = LENGTH([
-            FOR cr IN cross_refs FILTER cr.fi == @inst_id RETURN 1
-        ])
-        LET inbound = LENGTH([
-            FOR cr IN cross_refs FILTER cr.ti == @inst_id RETURN 1
-        ])
-
-        RETURN {article_count, judgment_count, outbound, inbound}
-    """
-    rows = list(
-        store.query(
-            aql,
+@router.get(
+    "/{bwb_id}/citations",
+    response_model=InstrumentCitationsResponse,
+    summary="Alle edges incident op dit instrument (bulk)",
+    description=(
+        "Eén round-trip met alle edges die raken aan een artikel van deze wet: "
+        "REFERS_TO_ARTICLE (intra + cross-wet), CITES_ARTICLE (jurisprudentie), "
+        "WIJZIGT/INTRODUCEERT/TREKT_IN/LICHT_TOE (wetshistorie), enz. "
+        "PART_OF_INSTRUMENT is standaard uitgesloten — dat is de structurele "
+        "backbone, geen citatie. Naast `edges` levert dit endpoint ook een "
+        "`nodes` side-payload met de buitenliggende eindpunten, gegroepeerd "
+        "per collection."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_citations(
+    bwb_id: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    relations: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Comma-separated whitelist van relaties. Default = alle, "
+                "behalve PART_OF_INSTRUMENT."
+            )
+        ),
+    ] = None,
+    include_part_of_instrument: Annotated[
+        bool,
+        Query(description="Voeg de structurele article→instrument edges toe."),
+    ] = False,
+    max_edges: Annotated[int, Query(ge=1, le=100000)] = 20000,
+) -> InstrumentCitationsResponse:
+    relation_list = (
+        [r.strip() for r in relations.split(",") if r.strip()] if relations else None
+    )
+    bundle = get_instrument_edges_bundle(
+        store,
+        bwb_id,
+        relations=relation_list,
+        include_part_of_instrument=include_part_of_instrument,
+        max_edges=max_edges,
+    )
+    raw_nodes = bundle.get("nodes") or {}
+    minimised_nodes: dict[str, list[dict]] = {}
+    for coll, docs in raw_nodes.items():
+        if coll == "instrument_articles":
+            # Special-case: lift parent-wet short_title onto each article
+            # and strip the stub-suffix from display_name so the FE label
+            # path renders "Sr 287" without extra adapter code.
+            minimised_nodes[coll] = _minimise_articles_with_short_title(store, docs)
+        else:
+            minimised_nodes[coll] = [_minimise_node(d, coll) for d in docs]
+    edges = [
+        InstrumentCitationEdge.model_validate(
             {
-                "inst_id": inst_id,
-                "part_of": RELATION_PART_OF_INSTRUMENT,
-                "judgment_rels": [RELATION_CITES_ARTICLE, RELATION_MENTIONS_ARTICLE],
-                "refers_to": RELATION_REFERS_TO_ARTICLE,
-            },
+                "from": e["from"],
+                "to": e["to"],
+                "relation": e["relation"],
+                "direction": e["direction"],
+                "meta": e.get("meta"),
+            }
         )
+        for e in bundle["edges"]
+    ]
+    return InstrumentCitationsResponse(
+        bwb_id=bundle["bwb_id"],
+        article_count=bundle["article_count"],
+        total_edges=bundle["total_edges"],
+        edges=edges,
+        nodes=minimised_nodes,
     )
-    r = rows[0] if rows else {}
-    stats = InstrumentStats(
-        article_count=int(r.get("article_count") or 0),
-        judgment_count=int(r.get("judgment_count") or 0),
-        inbound_citation_count=int(r.get("inbound") or 0),
-        outbound_citation_count=int(r.get("outbound") or 0),
+
+
+@router.get(
+    "/{bwb_id}/judgments",
+    response_model=InstrumentJudgmentsResponse,
+    summary="Alle uitspraken die dit instrument citeren",
+    description=(
+        "Per uitspraak: light metadata + de specifieke artikelen waarnaar "
+        "verwezen wordt. Bedoeld voor de jurisprudentie-laag in de graph. "
+        "``total`` is het absolute aantal (onafhankelijk van ``limit``)."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_judgments_route(
+    bwb_id: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+) -> InstrumentJudgmentsResponse:
+    rows, total = get_instrument_judgments(store, bwb_id, limit=limit)
+    items = [
+        InstrumentJudgmentItem(
+            id=(row.get("judgment") or {}).get("_id"),
+            key=(row.get("judgment") or {}).get("_key"),
+            ecli=((row.get("judgment") or {}).get("props") or {}).get("ecli"),
+            display_name=((row.get("judgment") or {}).get("props") or {}).get(
+                "display_name"
+            ),
+            cited_articles=[
+                CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
+            ],
+        )
+        for row in rows
+    ]
+    return InstrumentJudgmentsResponse(bwb_id=bwb_id, total=total, items=items)
+
+
+@router.get(
+    "/{bwb_id}/dossiers",
+    response_model=InstrumentDossiersResponse,
+    summary="Kamerstukdossiers die deze wet raken",
+    description=(
+        "Combineert direct (dossier -RAAKT-> instrument) en afgeleid "
+        "(kamerstuk wijzigt/introduceert/etc. een artikel). ``total`` is "
+        "het absolute aantal (onafhankelijk van ``limit``)."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_dossiers_route(
+    bwb_id: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+) -> InstrumentDossiersResponse:
+    rows, total = get_instrument_dossiers(store, bwb_id, limit=limit)
+    items = [
+        InstrumentDossierItem(
+            id=d.get("_id"),
+            key=d.get("_key"),
+            kamerstuknummer=(d.get("props") or {}).get("kamerstuknummer"),
+            titel=(d.get("props") or {}).get("titel"),
+            display_name=(d.get("props") or {}).get("display_name"),
+            huidige_fase=(d.get("props") or {}).get("huidige_fase"),
+            geopend_op=(d.get("props") or {}).get("geopend_op"),
+            afgedaan=(d.get("props") or {}).get("afgedaan"),
+        )
+        for d in rows
+    ]
+    return InstrumentDossiersResponse(bwb_id=bwb_id, total=total, items=items)
+
+
+@router.get(
+    "/{bwb_id}/related-instruments",
+    response_model=InstrumentRelatedResponse,
+    summary="Andere instrumenten die hieraan refereren (of waarvan dit refereert)",
+    description=(
+        "Aggregatie van REFERS_TO_ARTICLE edges tussen artikelen van deze wet "
+        "en artikelen van andere wetten. Per gerelateerd instrument staat "
+        "`outbound_count` (refs vanuit deze wet naar de andere) en "
+        "`inbound_count` (refs vanuit de andere wet naar deze). ``total`` is "
+        "het absolute aantal (onafhankelijk van ``limit``)."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_related_route(
+    bwb_id: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> InstrumentRelatedResponse:
+    rows, total = get_instrument_related_instruments(store, bwb_id, limit=limit)
+    items = [
+        InstrumentRelatedItem(
+            id=(r.get("instrument") or {}).get("_id"),
+            key=(r.get("instrument") or {}).get("_key"),
+            bwb_id=((r.get("instrument") or {}).get("props") or {}).get("bwb_id"),
+            display_name=((r.get("instrument") or {}).get("props") or {}).get(
+                "display_name"
+            ),
+            citation_title=((r.get("instrument") or {}).get("props") or {}).get(
+                "citation_title"
+            ),
+            outbound_count=int(r.get("outbound_count") or 0),
+            inbound_count=int(r.get("inbound_count") or 0),
+        )
+        for r in rows
+    ]
+    return InstrumentRelatedResponse(bwb_id=bwb_id, total=total, items=items)
+
+
+@router.get(
+    "/{bwb_id}/versions",
+    response_model=InstrumentVersionsResponse,
+    summary="Historische versies van een instrument",
+    description=(
+        "Alle historische toestanden (versies) van een BWB-wet, gesorteerd van "
+        "nieuwste naar oudste. Elke versie heeft een geldigheidsperiode "
+        "(valid_from, valid_until). De huidige versie heeft ``current=true``."
+    ),
+    tags=["instruments"],
+)
+def list_instrument_versions(
+    bwb_id: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+) -> InstrumentVersionsResponse:
+    docs = get_instrument_versions(store, bwb_id)
+    items = [InstrumentVersionDTO.from_doc(d) for d in docs]
+    return InstrumentVersionsResponse(bwb_id=bwb_id, total=len(items), items=items)
+
+
+@router.get(
+    "/{bwb_id}/articles/at/{at_date}",
+    response_model=InstrumentArticlesAtResponse,
+    summary="Artikelen op een specifieke datum",
+    description=(
+        "Geeft alle artikelen van een BWB-instrument zoals ze golden op ``at_date`` "
+        "(formaat YYYY-MM-DD). Gebruikt de historische versie-tabel; valt terug op "
+        "lege lijst als er geen historische data beschikbaar is."
+    ),
+    tags=["instruments"],
+)
+def list_instrument_articles_at(
+    bwb_id: str,
+    at_date: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+) -> InstrumentArticlesAtResponse:
+    try:
+        dt.date.fromisoformat(at_date)
+    except ValueError:
+        raise HTTPException(
+            status_code=422, detail="at_date must be YYYY-MM-DD"
+        ) from None
+    docs = get_instrument_articles_at(store, bwb_id, at_date)
+    items = [
+        InstrumentArticleVersionDTO(
+            key=d["_key"],
+            bwb_id=(d.get("props") or {}).get("bwb_id", ""),
+            article_number=(d.get("props") or {}).get("article_number", ""),
+            valid_from=(d.get("props") or {}).get("valid_from"),
+            valid_until=(d.get("props") or {}).get("valid_until"),
+            current=bool((d.get("props") or {}).get("current", False)),
+            text=(d.get("props") or {}).get("text"),
+        )
+        for d in docs
+    ]
+    return InstrumentArticlesAtResponse(
+        bwb_id=bwb_id,
+        at_date=at_date,
+        total=len(items),
+        items=items,
     )
-    return InstrumentSummaryDTO.from_document(doc, stats=stats)
+
+
+@router.get(
+    "/{bwb_id}/articles/{article_number}/history",
+    response_model=InstrumentArticleVersionsResponse,
+    summary="Historische versies van één artikel",
+    description=(
+        "Volledige versiegeschiedenis van één artikel, nieuwste versie eerst. "
+        "Elk item bevat de artikeltekst en een ``diff`` ten opzichte van de "
+        "vorige versie (unified diff formaat)."
+    ),
+    tags=["instruments"],
+)
+def get_article_version_history(
+    bwb_id: str,
+    article_number: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+) -> InstrumentArticleVersionsResponse:
+    docs = get_instrument_article_history(store, bwb_id, article_number)
+    annotated = _compute_article_diffs(docs)
+    items = [
+        InstrumentArticleVersionDTO(
+            key=d["_key"],
+            bwb_id=(d.get("props") or {}).get("bwb_id", ""),
+            article_number=(d.get("props") or {}).get("article_number", ""),
+            valid_from=(d.get("props") or {}).get("valid_from"),
+            valid_until=(d.get("props") or {}).get("valid_until"),
+            current=bool((d.get("props") or {}).get("current", False)),
+            text=(d.get("props") or {}).get("text"),
+            diff=d.get("_diff"),
+        )
+        for d in annotated
+    ]
+    return InstrumentArticleVersionsResponse(
+        bwb_id=bwb_id,
+        article_number=article_number,
+        items=items,
+    )

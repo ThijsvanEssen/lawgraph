@@ -1,17 +1,23 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import get_judgment_with_relations
+from lawgraph.api.queries import (
+    JUDGMENT_SORTS,
+    get_judgment_with_relations,
+    get_judgments_list,
+)
 from lawgraph.api.schemas import (
     ArticleCitationSpan,
     ArticleCitationTarget,
     ArticleRelationDTO,
     JudgmentDetailResponse,
     JudgmentDTO,
+    JudgmentListItemDTO,
+    JudgmentListResponse,
     JudgmentParagraph,
     JudgmentSummaryDTO,
 )
@@ -30,6 +36,67 @@ _ARTICLE_CODE_MAPPING: dict[str, str] = {
     "Sv": "BWBR0001903",
     "WVW": "BWBR0006622",
 }
+
+
+@router.get(
+    "",
+    response_model=JudgmentListResponse,
+    summary="Gepagineerde lijst van uitspraken",
+    description=(
+        "Gepagineerde lijst van uitspraken (arresten) met filters op court (ECLI-code), "
+        "tier (hoge_raad/gerechtshof/rechtbank/bijzonder), datumbereik en citatiedrempel."
+    ),
+    tags=["judgments"],
+)
+def list_judgments(
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    q: Annotated[
+        str | None, Query(description="Free-text over display_name/ecli/summary")
+    ] = None,
+    court: Annotated[
+        str | None,
+        Query(description="ECLI court code, e.g. 'HR', 'RBAMS', 'GHARL'"),
+    ] = None,
+    tier: Annotated[
+        Literal["hoge_raad", "gerechtshof", "rechtbank", "bijzonder"] | None,
+        Query(),
+    ] = None,
+    source: Annotated[
+        str | None,
+        Query(description="Filter op bron, e.g. 'rechtspraak', 'echr', 'cjeu'"),
+    ] = None,
+    date_from: Annotated[
+        str | None,
+        Query(alias="from", description="Lower bound on judgment date, YYYY-MM-DD"),
+    ] = None,
+    date_to: Annotated[
+        str | None,
+        Query(alias="to", description="Upper bound on judgment date, YYYY-MM-DD"),
+    ] = None,
+    cited_by_min: Annotated[int | None, Query(ge=0)] = None,
+    sort: Annotated[
+        Literal["date_desc", "date_asc", "citation_count"], Query()
+    ] = "date_desc",
+) -> JudgmentListResponse:
+    if sort not in JUDGMENT_SORTS:
+        sort = "date_desc"
+    data = get_judgments_list(
+        store,
+        q=q,
+        court=court,
+        tier=tier,
+        source=source,
+        date_from=date_from,
+        date_to=date_to,
+        cited_by_min=cited_by_min,
+        sort=sort,
+        limit=limit,
+        offset=offset,
+    )
+    items = [JudgmentListItemDTO.from_row(row) for row in data.get("items", [])]
+    return JudgmentListResponse(items=items, total=int(data.get("total", 0)))
 
 
 @router.get(

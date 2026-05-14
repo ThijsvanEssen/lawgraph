@@ -4,7 +4,8 @@ import datetime as dt
 import hashlib
 from typing import Any
 
-from config.config import load_domain_config
+from lawgraph.config import load_domain_config
+from lawgraph.config.settings import EDGE_STATUS_CANONIEK
 from lawgraph.db import ArangoStore
 from lawgraph.logging import get_logger
 from lawgraph.models import Node, PipelineResult
@@ -70,12 +71,60 @@ class SemanticPipelineBase:
             return {}
         return {str(k).strip(): str(v).strip() for k, v in aliases.items() if k and v}
 
+    def _build_graph_instrument_index(self) -> InstrumentAliasMap:
+        """Query the instruments collection to build a name → (bwb_id, celex) map.
+
+        Only includes instruments that have a bwb_id or celex prop. Both the
+        ``title`` and ``citation_title`` props are indexed as keys. First-write
+        wins — if two instruments share a name, the first one encountered wins.
+        Returns an empty dict if the store is unavailable.
+        """
+        aql = """
+        FOR inst IN instruments
+            FILTER inst.props.bwb_id != null OR inst.props.celex != null
+            RETURN {
+                bwb_id: inst.props.bwb_id,
+                celex: inst.props.celex,
+                title: inst.props.title,
+                citation_title: inst.props.citation_title
+            }
+        """
+        index: InstrumentAliasMap = {}
+        try:
+            rows = list(self.store.query(aql))
+        except Exception as exc:
+            logger.debug("Graph instrument index unavailable: %s", exc)
+            return index
+
+        for row in rows:
+            bwb_id = row.get("bwb_id")
+            celex = row.get("celex")
+            bwb_norm = str(bwb_id).strip().upper() if bwb_id else None
+            celex_norm = str(celex).strip().upper() if celex else None
+            pair: tuple[str | None, str | None] = (bwb_norm, celex_norm)
+
+            for name_field in ("title", "citation_title"):
+                name = row.get(name_field)
+                if not name:
+                    continue
+                label = str(name).strip()
+                if label and label not in index:
+                    index[label] = pair
+
+        return index
+
     def _load_instrument_aliases(self) -> InstrumentAliasMap:
+        # 1. Broad graph-derived index (first-write wins within the graph)
+        merged = self._build_graph_instrument_index()
+
+        # 2. Profile aliases override/extend the graph index
         config = self._load_domain_config()
         raw = config.get("instrument_aliases", {})
-        if not isinstance(raw, dict):
-            return {}
-        return _parse_instrument_aliases(raw)
+        if isinstance(raw, dict):
+            profile_aliases = _parse_instrument_aliases(raw)
+            merged.update(profile_aliases)  # profile takes precedence
+
+        return merged
 
     # ------------------------------------------------------------------ edges
 
@@ -89,6 +138,7 @@ class SemanticPipelineBase:
         confidence: float = 0.0,
         meta: dict[str, Any] | None = None,
         result: PipelineResult | None = None,
+        status: str = EDGE_STATUS_CANONIEK,
     ) -> bool:
         """Upsert a semantic edge via the unified edges collection.
 
@@ -110,6 +160,7 @@ class SemanticPipelineBase:
             "relation": relation,
             "confidence": confidence,
             "source": source,
+            "status": status,
             "meta": dict(meta or {}),
         }
 

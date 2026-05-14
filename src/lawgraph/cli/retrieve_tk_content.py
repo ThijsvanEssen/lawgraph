@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
 from dotenv import load_dotenv
 
@@ -52,3 +53,4 @@ def main(argv: list[str] | None = None) -> None:
     if result.errors:
         for err in result.errors:
             logger.warning("Error: %s", err)
+        sys.exit(1)

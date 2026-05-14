@@ -1,0 +1,137 @@
+"""Semantic pipeline: links Staatsblad NvT publications to instruments via EXPLAINS_INSTRUMENT."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from lawgraph.config.settings import (
+    COLLECTION_INSTRUMENTS,
+    RELATION_EXPLAINS_INSTRUMENT,
+    SOURCE_STAATSBLAD,
+)
+from lawgraph.logging import get_logger
+from lawgraph.models import Node, NodeType, PipelineResult
+
+from .base import SemanticPipelineBase
+
+logger = get_logger(__name__)
+
+SEMANTIC_SOURCE = "staatsblad-nvt-linker"
+
+
+class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
+    """Pipeline linking Staatsblad NvT publications to BWB instruments via EXPLAINS_INSTRUMENT."""
+
+    def run(self, *, since: Any = None) -> PipelineResult:
+        result = PipelineResult()
+
+        # Strategy 1: publications with explicit bwb_id stored during normalization
+        aql_bwb = """
+FOR pub IN publications
+  FILTER pub.props.source == @source
+  FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
+  FILTER pub.props.bwb_id != null
+  LET inst = (
+    FOR i IN instruments
+      FILTER i.props.bwb_id == pub.props.bwb_id
+      LIMIT 1
+      RETURN i
+  )[0]
+  FILTER inst != null
+  RETURN { pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
+           match_type: 'bwb_id' }
+"""
+
+        # Strategy 2: title matching for publications without bwb_id
+        aql_title = """
+FOR pub IN publications
+  FILTER pub.props.source == @source
+  FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
+  FILTER pub.props.bwb_id == null
+  FOR inst IN instruments
+    FILTER inst.props.citation_title != null
+    FILTER CONTAINS(LOWER(pub.props.title), LOWER(inst.props.citation_title))
+    LIMIT 1
+    RETURN { pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
+             match_type: 'title' }
+"""
+
+        bind_vars = {"source": SOURCE_STAATSBLAD}
+
+        rows: list[dict[str, Any]] = []
+        try:
+            rows.extend(self.store.query(aql_bwb, bind_vars=bind_vars))
+        except Exception as exc:
+            logger.warning("Staatsblad NvT semantic (bwb_id query) failed: %s", exc)
+
+        try:
+            rows.extend(self.store.query(aql_title, bind_vars=bind_vars))
+        except Exception as exc:
+            logger.warning("Staatsblad NvT semantic (title query) failed: %s", exc)
+
+        if not rows:
+            logger.debug(
+                "No Staatsblad NvT publications found for EXPLAINS_INSTRUMENT linking."
+            )
+            return result
+
+        logger.info(
+            "Staatsblad NvT semantic linker: processing %d publication-instrument pairs.",
+            len(rows),
+        )
+
+        # Deduplicate by (pub_id, inst_id)
+        seen: set[tuple[str, str]] = set()
+
+        for row in rows:
+            pub_id = row.get("pub_id")
+            pub_key = row.get("pub_key")
+            inst_id = row.get("inst_id")
+            inst_key = row.get("inst_key")
+            match_type = row.get("match_type", "bwb_id")
+
+            if not pub_id or not inst_id:
+                result.skipped += 1
+                continue
+
+            pair = (pub_id, inst_id)
+            if pair in seen:
+                continue
+            seen.add(pair)
+
+            confidence = 0.85 if match_type == "bwb_id" else 0.60
+
+            pub_collection = pub_id.split("/")[0] if "/" in pub_id else "publications"
+            inst_collection = (
+                inst_id.split("/")[0] if "/" in inst_id else COLLECTION_INSTRUMENTS
+            )
+
+            pub_node = Node(
+                collection=pub_collection,
+                type=NodeType.PUBLICATION,
+                key=pub_key,
+                props={},
+            )
+            inst_node = Node(
+                collection=inst_collection,
+                type=NodeType.INSTRUMENT,
+                key=inst_key,
+                props={},
+            )
+
+            created = self._create_semantic_edge(
+                from_node=pub_node,
+                to_node=inst_node,
+                relation=RELATION_EXPLAINS_INSTRUMENT,
+                source=SEMANTIC_SOURCE,
+                confidence=confidence,
+                meta={"match_type": match_type},
+                result=result,
+            )
+            if created:
+                result.created += 1
+            else:
+                result.updated += 1
+
+        logger.info("Staatsblad NvT semantic linker: %s.", result.summary())
+        return result

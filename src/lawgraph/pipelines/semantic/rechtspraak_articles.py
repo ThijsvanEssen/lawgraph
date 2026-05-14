@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-import re
-from typing import Any, Callable, Iterable
+from typing import Any, Iterable
 
 from lawgraph.config.settings import (
     COLLECTION_INSTRUMENT_ARTICLES,
@@ -18,130 +17,50 @@ from lawgraph.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.utils.time import describe_since, iso_timestamp
 
 from .base import SemanticPipelineBase
-from .citation_detect import CitationHit, make_snippet, strip_xml
+from .citation_detect import CitationHit, DutchCitationExtractor, _hit_reason, strip_xml
 
 logger = get_logger(__name__)
 
-CodeMapping = dict[str, str]  # re-exported for backwards compatibility
+# Exported for backward compatibility with existing tests and callers.
+CodeMapping = dict[str, str]
+
 SEMANTIC_SOURCE = "rechtspraak-article-linker"
 
-_ALIAS_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\bart\.\s*(\d+[a-z]?)\s*(Sr|Sv|WVW|EVRM|BW)\b", re.IGNORECASE),
-    re.compile(r"\bartikel\s+(\d+[a-z]?)\s*(Sr|Sv|WVW|EVRM|BW)\b", re.IGNORECASE),
-)
 
-_NUMBER_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\bartikel\s+(\d+[a-z]?)\b", re.IGNORECASE),
-    re.compile(r"\bart\.\s*(\d+[a-z]?)\b", re.IGNORECASE),
-)
+# ---------------------------------------------------------------------------
+# Backward-compat public function
+# ---------------------------------------------------------------------------
 
 
 def detect_article_references(
     text: str | None,
     mapping: dict[str, str],
 ) -> list[CitationHit]:
-    """Return article hints detected in the text together with confidence values."""
+    """Return article citations detected in *text*.
+
+    Thin wrapper around ``DutchCitationExtractor`` kept for backward compat.
+    Also appends bare ``artikel X`` hits (no law code, confidence 0.35) so
+    that callers which depend on low-confidence bare detection still work.
+    """
     if not text:
         return []
-
-    normalized_mapping: dict[str, str] = {
-        alias.upper(): bwb_id for alias, bwb_id in mapping.items() if alias and bwb_id
-    }
-
-    hits: list[CitationHit] = []
-    seen_pairs: set[tuple[str, str]] = set()
-    alias_spans: list[tuple[int, int]] = []
-
-    def _record_alias(match: re.Match[str], identifier: str) -> None:
-        article_number = match.group(1)
-        if not article_number:
-            return
-        pair = (identifier, article_number)
-        if pair in seen_pairs:
-            return
-        seen_pairs.add(pair)
-        alias_spans.append(match.span())
-        is_bwb = identifier.upper().startswith("BWBR")
-        hits.append(
-            CitationHit(
-                kind="article",
-                bwb_id=identifier if is_bwb else None,
-                celex=None if is_bwb else identifier,
-                article_number=article_number,
-                confidence=0.95,
-                raw_match=match.group(0),
-                snippet=make_snippet(text, match.span()),
-            )
-        )
-
-    def _record_number(match: re.Match[str]) -> None:
-        span = match.span()
-        if any(
-            not (span[1] <= span_start or span[0] >= span_end)
-            for span_start, span_end in alias_spans
-        ):
-            return
-        article_number = match.group(1)
-        if not article_number:
-            return
-        pair = ("", article_number)
-        if pair in seen_pairs:
-            return
-        seen_pairs.add(pair)
-        hits.append(
-            CitationHit(
-                kind="article",
-                bwb_id=None,
-                article_number=article_number,
-                confidence=0.35,
-                raw_match=match.group(0),
-                snippet=make_snippet(text, span),
-            )
-        )
-
-    _collect_alias_patterns(text, normalized_mapping, _record_alias)
-    _collect_number_patterns(text, alias_spans, _record_number)
-
+    extractor = DutchCitationExtractor(code_aliases=mapping)
+    hits = extractor.extract(text)
+    coded_nums = {h.article_number for h in hits if h.article_number}
+    bare = extractor.extract_bare(text, confidence=0.35)
+    hits.extend(b for b in bare if b.article_number not in coded_nums)
     return hits
 
 
-def _collect_alias_patterns(
-    text: str,
-    normalized_mapping: dict[str, str],
-    record: Callable[[re.Match[str], str], None],
-) -> None:
-    for pattern in _ALIAS_PATTERNS:
-        for match in pattern.finditer(text):
-            alias = match.group(2)
-            if not alias:
-                continue
-            identifier = normalized_mapping.get(alias.upper())
-            if not identifier:
-                continue
-            record(match, identifier)
-
-
-def _collect_number_patterns(
-    text: str,
-    alias_spans: list[tuple[int, int]],
-    record: Callable[[re.Match[str]], None],
-) -> None:
-    for pattern in _NUMBER_PATTERNS:
-        for match in pattern.finditer(text):
-            span = match.span()
-            if any(
-                not (span[1] <= span_start or span[0] >= span_end)
-                for span_start, span_end in alias_spans
-            ):
-                continue
-            record(match)
+# ---------------------------------------------------------------------------
+# Pipeline
+# ---------------------------------------------------------------------------
 
 
 class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
     """Link Rechtspraak judgments to BWB articles via semantic edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        """Create semantic edges for Rechtspraak judgments referencing BWB articles."""
         result = PipelineResult()
         since_iso = iso_timestamp(since)
         eclis = self._recent_rechtspraak_eclis(since_iso)
@@ -152,6 +71,8 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
             logger.warning("No code_aliases configured; skipping semantic linkage.")
             return result
 
+        extractor = DutchCitationExtractor(code_aliases=mapping)
+
         logger.info(
             "Processing %d Rechtspraak judgments for article references (since=%s).",
             len(judgments),
@@ -161,10 +82,8 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
         for doc in judgments:
             judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
             raw_text = self._extract_judgment_text(judgment)
-            # Strip XML/HTML tags before running regex patterns — a reference split
-            # across a tag boundary would be missed; content inside attributes matched.
             text = strip_xml(raw_text) if raw_text else None
-            hits = detect_article_references(text, mapping)
+            hits = extractor.extract(text or "")
             if not hits:
                 continue
 
@@ -187,6 +106,8 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
                         for k, v in {
                             "raw_match": hit.raw_match,
                             "snippet": hit.snippet,
+                            "reason": _hit_reason(hit),
+                            "qualifier": hit.qualifier,
                         }.items()
                         if v
                     },
@@ -201,12 +122,6 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
         return result
 
     def _resolve_article(self, hit: CitationHit) -> Node | None:
-        """Resolve a citation hit to an article node, creating a stub if needed.
-
-        Only stubs are created for high-confidence (≥ 0.9) hits so that
-        low-quality bare-number matches don't litter the graph with noise.
-        """
-        # Dutch article: BWB id + article number.
         if hit.bwb_id and hit.article_number:
             article_key = make_node_key(hit.bwb_id, hit.article_number)
             node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
@@ -217,8 +132,15 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
                     NodeType.ARTICLE,
                     props={"bwb_id": hit.bwb_id, "article_number": hit.article_number},
                 )
+            if node is None:
+                logger.debug(
+                    "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",
+                    hit.bwb_id,
+                    hit.article_number,
+                    hit.confidence,
+                )
             return node
-        # EU/treaty article: CELEX + article number (e.g. EVRM).
+
         if hit.celex and hit.article_number:
             article_key = make_node_key(hit.celex, hit.article_number)
             node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
@@ -229,7 +151,15 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
                     NodeType.ARTICLE,
                     props={"celex": hit.celex, "article_number": hit.article_number},
                 )
+            if node is None:
+                logger.debug(
+                    "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",
+                    hit.celex,
+                    hit.article_number,
+                    hit.confidence,
+                )
             return node
+
         return None
 
     def _recent_rechtspraak_eclis(self, since_iso: str | None) -> set[str]:
@@ -241,7 +171,6 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
             "kind": RAW_KIND_RS_CONTENT,
             "since": since_iso,
         }
-
         aql = """
         FOR raw IN raw_sources
             FILTER raw.source == @source
@@ -250,7 +179,6 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
             FILTER raw.meta.ecli != null
         RETURN raw.meta.ecli
         """
-
         eclis: set[str] = set()
         for raw in self.store.query(aql, bind_vars=bind_vars):
             ecli_value = raw.get("meta", {}).get("ecli")
@@ -270,15 +198,13 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
         else:
             bind_vars = {}
             aql = f"FOR doc IN {collection} RETURN doc"
-
         return self.store.query(aql, bind_vars=bind_vars)
 
     def _extract_judgment_text(self, judgment: Node) -> str | None:
         props = judgment.props
-        text = props.get("raw_xml")
-        if isinstance(text, str) and text.strip():
-            return text
-        alternative = props.get("text")
-        if isinstance(alternative, str) and alternative.strip():
-            return alternative
-        return None
+        fragments: list[str] = []
+        for key in ("raw_xml", "text", "summary"):
+            value = props.get(key)
+            if isinstance(value, str) and value.strip():
+                fragments.append(value.strip())
+        return "\n\n".join(fragments) if fragments else None

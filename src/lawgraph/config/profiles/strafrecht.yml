@@ -24,6 +24,9 @@ code_aliases:
   WWM: BWBR0008804
   Pbw: BWBR0020438
   EVRM: 21970A0718(02)
+  Wwft: BWBR0024282
+  WED: BWBR0002063
+  Rv: BWBR0001827
 instrument_aliases:
   Wetboek van Strafrecht: BWBR0001854
   Wetboek van Strafvordering: BWBR0001903

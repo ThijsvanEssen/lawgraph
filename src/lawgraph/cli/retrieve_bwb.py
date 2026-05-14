@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -15,9 +16,7 @@ from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 
 from .retrieve_helpers import load_profile_config
 
-load_dotenv()
 logger = get_logger(__name__)
-PROFILE_CHOICES = list_domain_profiles()
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -27,7 +26,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument(
         "--profile",
-        choices=PROFILE_CHOICES or None,
+        choices=list_domain_profiles() or None,
         help="Optioneel domeinprofiel dat een set standaard BWB-IDs kiest.",
     )
     parser.add_argument(
@@ -36,41 +35,56 @@ def main(argv: list[str] | None = None) -> None:
         action="append",
         help="Specifieke BWB-ID om op te halen; herhaalbaar.",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["incremental", "full"],
+        default="incremental",
+        help="'incremental' uses the provided IDs/profile; 'full' enumerates all laws via SRU wildcard.",  # noqa: E501
+    )
     args = parser.parse_args(argv)
 
     load_dotenv()
     setup_logging()
 
     profile = args.profile or os.getenv("LAWGRAPH_PROFILE")
-    logger.info("Starting BWB retrieve (profile=%s).", profile or "default")
+    mode = args.mode
+    logger.info(
+        "Starting BWB retrieve (profile=%s, mode=%s).", profile or "default", mode
+    )
     normalized_profile = profile.lower() if profile else None
 
-    candidate_ids = _resolve_bwb_ids(
-        cli_ids=args.bwb_ids,
-        env_ids=_ids_from_env(),
-        profile=normalized_profile,
-        config=load_profile_config(profile),
-    )
-
-    if not candidate_ids:
-        logger.warning(
-            "No BWB IDs found for profile %s; nothing to do.",
-            profile or "default",
-        )
-        return
-
     store = ArangoStore()
-    pipeline = BWBRetrievePipeline(store=store, client=BWBClient())
-    result = pipeline.run(bwb_ids=candidate_ids)
+    client = BWBClient()
+    pipeline = BWBRetrievePipeline(store=store, client=client)
+
+    if mode == "full":
+        logger.info("Full-load mode: enumerating all BWB laws via SRU wildcard.")
+        result = pipeline.run_full()
+    else:
+        candidate_ids = _resolve_bwb_ids(
+            cli_ids=args.bwb_ids,
+            env_ids=_ids_from_env(),
+            profile=normalized_profile,
+            config=load_profile_config(profile),
+        )
+        if not candidate_ids:
+            logger.warning(
+                "No BWB IDs found for profile %s; nothing to do.",
+                profile or "default",
+            )
+            return
+        result = pipeline.run(bwb_ids=candidate_ids)
 
     logger.info(
-        "BWB retrieve completed (profile=%s): %s.",
+        "BWB retrieve completed (profile=%s, mode=%s): %s.",
         profile or "default",
+        mode,
         result.summary(),
     )
     if result.errors:
         for err in result.errors:
             logger.warning("BWB retrieve error: %s", err)
+        sys.exit(1)
 
 
 def _resolve_bwb_ids(

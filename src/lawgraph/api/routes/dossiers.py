@@ -16,6 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
+    enrich_dossier_docs,
+    get_documents_for_dossiers,
     get_dossier_by_nummer,
     get_dossier_documents,
     get_dossier_mutations,
@@ -26,6 +28,9 @@ from lawgraph.api.queries import (
 from lawgraph.api.schemas import (
     PARTY_COLORS,
     DossierDetailResponse,
+    DossierDocumentDTO,
+    DossierDocumentsBulkResponse,
+    DossierDocumentsResponse,
     DossierMutationEdge,
     DossierMutationNode,
     DossierMutationsResponse,
@@ -89,17 +94,38 @@ def list_open_dossiers(
         str | None, Query(description="Vrije-tekst filter op dossier-titel.")
     ] = None,
     fase: Annotated[
-        str | None, Query(description="Filter op huidige_fase (bijv. 'wetsvoorstel').")
+        str | None,
+        Query(
+            description=(
+                "Filter op huidige_fase: de meest recente herkende stage van het "
+                "dossier (bijv. 'wetsvoorstel', 'mvt', 'amendementen'). Voor "
+                "filters op aanwezigheid van een stage, gebruik `has_stage`."
+            )
+        ),
+    ] = None,
+    has_stage: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Komma-gescheiden lijst van stages; geeft alleen dossiers terug "
+                "die *alle* genoemde stages bevatten (bijv. `mvt,advies_rvs`)."
+            )
+        ),
     ] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> list[DossierSummaryDTO]:
+    has_stage_list = (
+        [s.strip() for s in has_stage.split(",") if s.strip()] if has_stage else None
+    )
     docs = get_open_dossiers(
         store,
         commissie_slug=commissie,
         onderwerp=onderwerp,
         fase=fase,
+        has_stage=has_stage_list,
         limit=limit,
     )
+    enrich_dossier_docs(store, docs)
     return [DossierSummaryDTO.from_document(d) for d in docs]
 
 
@@ -118,6 +144,7 @@ def list_recent_dossiers(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[DossierSummaryDTO]:
     docs = get_recent_dossiers(store, days=days, limit=limit)
+    enrich_dossier_docs(store, docs)
     return [DossierSummaryDTO.from_document(d) for d in docs]
 
 
@@ -142,6 +169,7 @@ def get_dossier_detail(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> DossierDetailResponse:
     dossier = _dossier_or_404(store, kamerstuknummer)
+    enrich_dossier_docs(store, [dossier])
     dossier_id = dossier["_id"]
     return DossierDetailResponse.from_document(
         dossier,
@@ -214,11 +242,61 @@ def get_timeline(
 
 
 @router.get(
+    "/documents/bulk",
+    response_model=DossierDocumentsBulkResponse,
+    summary="Documenten voor meerdere dossiers in één call",
+    description=(
+        "Bulk-variant van /api/dossiers/{kamerstuknummer}/documents: "
+        "geeft de top-N publicaties per dossier voor een lijst van "
+        "kamerstuknummers. Vervangt N parallelle calls tijdens de "
+        "Lagen-load. ``items`` is een map ``{kamerstuknummer: [docs]}``."
+    ),
+    tags=["dossiers"],
+)
+def get_documents_for_dossiers_route(
+    store: Annotated[ArangoStore, Depends(get_store)],
+    nummers: Annotated[
+        str,
+        Query(
+            description="Comma-separated kamerstuknummers, e.g. '29684,29515-Z'.",
+            min_length=1,
+        ),
+    ],
+    per_dossier_limit: Annotated[int, Query(ge=1, le=50)] = 8,
+) -> DossierDocumentsBulkResponse:
+    nummer_list = [n.strip() for n in nummers.split(",") if n.strip()]
+    if not nummer_list:
+        return DossierDocumentsBulkResponse(items={})
+    aql = """
+    FOR d IN kamerstukdossiers
+        FILTER d.props.kamerstuknummer IN @nummers
+        RETURN { nummer: d.props.kamerstuknummer, id: d._id }
+    """
+    nummer_to_id: dict[str, str] = {}
+    for row in store.query(aql, {"nummers": nummer_list}):
+        nummer_to_id[row["nummer"]] = row["id"]
+    if not nummer_to_id:
+        return DossierDocumentsBulkResponse(items={})
+    by_id = get_documents_for_dossiers(
+        store,
+        list(nummer_to_id.values()),
+        per_dossier_limit=per_dossier_limit,
+    )
+    items = {
+        nummer: [DossierDocumentDTO(**d) for d in by_id.get(did, [])]
+        for nummer, did in nummer_to_id.items()
+    }
+    return DossierDocumentsBulkResponse(items=items)
+
+
+@router.get(
     "/{kamerstuknummer}/documents",
+    response_model=DossierDocumentsResponse,
     summary="Dossier documenten",
     description=(
         "Geeft de Kamerstuk-documenten (publicaties) die aan dit dossier zijn gekoppeld "
-        "via DEEL_VAN_DOSSIER-edges, gepagineerd op datum aflopend."
+        "via DEEL_VAN_DOSSIER-edges, gepagineerd op datum aflopend. ``total`` is "
+        "het absolute aantal documenten (onafhankelijk van ``limit``)."
     ),
     tags=["dossiers"],
 )
@@ -233,9 +311,13 @@ def get_dossier_documents_route(
     store: Annotated[ArangoStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> dict:
+) -> DossierDocumentsResponse:
     dossier = _dossier_or_404(store, kamerstuknummer)
-    return get_dossier_documents(store, dossier["_id"], limit=limit, offset=offset)
+    raw = get_dossier_documents(store, dossier["_id"], limit=limit, offset=offset)
+    return DossierDocumentsResponse(
+        total=int(raw.get("total") or 0),
+        items=[DossierDocumentDTO(**d) for d in raw.get("items") or []],
+    )
 
 
 @router.get(

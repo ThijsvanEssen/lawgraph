@@ -44,7 +44,7 @@ def _backfill(store: ArangoStore, *, dry_run: bool = False) -> int:
     return count
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Backfill status=canoniek on all edges that lack the field."
     )

@@ -39,15 +39,30 @@ def list_publications(
     soort: str | None = Query(
         None, description="Filter op documentsoort (exact match)."
     ),
+    chamber: str | None = Query(
+        None,
+        description="Filter op kamer: 'TK' voor Tweede Kamer, 'EK' voor Eerste Kamer.",
+    ),
+    source: str | None = Query(
+        None,
+        description="Filter op bron (props.source), e.g. 'eerstekamer', 'staatscourant'.",
+    ),
 ) -> PublicationListResponse:
-    """Return a list of all TK publications, optionally filtered.
+    """Return a paginated list of publications across all sources.
 
     Intended for the publications index page; only lightweight metadata is
-    returned (no full text).  With 372 documents the full list fits
-    comfortably in a single response.
+    returned (no full text).
     """
-    aql_filters = ['FILTER "TK" IN doc.labels']
+    aql_filters: list[str] = []
     bind_vars: dict = {}
+
+    if chamber:
+        aql_filters.append("FILTER @chamber IN doc.labels")
+        bind_vars["chamber"] = chamber.upper()
+
+    if source:
+        aql_filters.append("FILTER doc.props.source == @source")
+        bind_vars["source"] = source
 
     if soort:
         aql_filters.append("FILTER doc.props.soort == @soort")
@@ -78,6 +93,7 @@ FOR doc IN publications
         soort: doc.props.soort,
         datum: doc.props.datum,
         external_id: doc.props.external_id,
+        source: doc.props.source,
         has_text: doc.props.text != null,
         linked_articles: linked
     }}
@@ -96,6 +112,7 @@ FOR doc IN publications
                 soort=row.get("soort") or None,
                 datum=datum,
                 external_id=row.get("external_id") or None,
+                source=row.get("source") or None,
                 has_text=bool(row.get("has_text")),
                 linked_articles=int(row.get("linked_articles") or 0),
             )
@@ -126,9 +143,9 @@ def get_publication_text(
     props: dict = doc.get("props") or {}
     external_id: str | None = props.get("external_id")
 
-    # Construct direct TK API resource URL when we have an external_id.
+    # Construct direct TK API resource URL only for TK-sourced publications.
     tk_url: str | None = None
-    if external_id:
+    if external_id and props.get("source") == "tk":
         tk_url = _TK_DOCUMENT_RESOURCE.format(external_id=external_id)
 
     datum = _normalise_datum(props)

@@ -55,6 +55,73 @@ class BWBClient(BaseClient):
     #     logger.info("Ophalen BWB-regeling %s voor %s", bwb_id, date)
     #     return self._get_text(path, timeout=actual_timeout)
 
+    def enumerate_all_ids(
+        self,
+        *,
+        types: tuple[str, ...] = ("wet", "amvb", "ministerieelebesluit", "regeling"),
+        max_records: int = 50000,
+    ) -> list[str]:
+        """Enumerate all BWBR IDs via SRU wildcard queries, one query per document type.
+
+        The SRU service at zoekservice.overheid.nl supports CQL queries with
+        ``dcterms.type=<type>`` and paginates via ``startRecord``. We collect
+        all distinct BWBR IDs across the requested document types.
+
+        ``max_records`` is a safety cap per type to avoid runaway fetches.
+        """
+        all_ids: list[str] = []
+        seen: set[str] = set()
+        page_size = 100
+
+        for doc_type in types:
+            logger.info("Enumerating BWB IDs for type=%s", doc_type)
+            start = 1
+            while start <= max_records:
+                params = {
+                    "operation": "searchRetrieve",
+                    "version": "1.2",
+                    "x-connection": "BWB",
+                    "query": f"dcterms.type={doc_type}",
+                    "maximumRecords": str(page_size),
+                    "startRecord": str(start),
+                    "recordSchema": "http://standaarden.overheid.nl/sru",
+                }
+                try:
+                    resp = self.session.get(BWB_SRU_ENDPOINT, params=params, timeout=60)
+                    resp.raise_for_status()
+                    root = ET.fromstring(resp.text)
+                except Exception as exc:
+                    logger.warning(
+                        "SRU enumeration error (type=%s, start=%d): %s",
+                        doc_type,
+                        start,
+                        exc,
+                    )
+                    break
+
+                found_in_page = 0
+                for element in root.iter():
+                    if self._local_name(element.tag) != "record":
+                        continue
+                    meta = self._parse_record(element)
+                    if meta and meta["bwb_id"] and meta["bwb_id"] not in seen:
+                        seen.add(meta["bwb_id"])
+                        all_ids.append(meta["bwb_id"])
+                    found_in_page += 1
+
+                if found_in_page < page_size:
+                    break
+                start += page_size
+
+            logger.info(
+                "Enumerated %d unique BWB IDs so far (type=%s done).",
+                len(all_ids),
+                doc_type,
+            )
+
+        logger.info("BWB enumeration complete: %d unique IDs total.", len(all_ids))
+        return all_ids
+
     def search_toestanden(self, bwb_id: str) -> list[ToestandMeta]:
         """Search the BWB SRU endpoint for all available toestanden for a BWBR ID."""
         params = {

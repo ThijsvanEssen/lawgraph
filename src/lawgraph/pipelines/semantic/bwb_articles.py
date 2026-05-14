@@ -48,7 +48,10 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
             )
             return result
 
-        articles = list(self._load_articles(bwb_ids))
+        from lawgraph.utils.time import iso_timestamp
+
+        since_iso = iso_timestamp(since) if since is not None else None
+        articles = list(self._load_articles(bwb_ids, since_iso=since_iso))
         if not articles:
             logger.info("No BWB articles found for semantic linking.")
             return result
@@ -112,15 +115,56 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
         )
         return result
 
-    def _load_articles(self, bwb_ids: list[str]) -> Iterable[dict[str, Any]]:
-        bind_vars = {"bwb_ids": bwb_ids}
-        aql = f"""
-        FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
-            FILTER doc.props.bwb_id IN @bwb_ids
-            FILTER doc.props.text != null
-        RETURN doc
-        """
-        return self.store.query(aql, bind_vars=bind_vars)
+    def _load_articles(
+        self,
+        bwb_ids: list[str],
+        *,
+        since_iso: str | None = None,
+    ) -> Iterable[dict[str, Any]]:
+        if not bwb_ids:
+            return
+        if since_iso is not None:
+            from lawgraph.config.settings import SOURCE_BWB
+
+            # Get recently fetched BWB IDs from raw_sources
+            recent_bwb_ids_aql = """
+            FOR raw IN raw_sources
+                FILTER raw.source == @source
+                FILTER raw.fetched_at >= @since
+                FILTER raw.meta.bwb_id != null
+            RETURN DISTINCT raw.meta.bwb_id
+            """
+            recent_ids: set[str] = set()
+            for row in self.store.query(
+                recent_bwb_ids_aql,
+                bind_vars={"source": SOURCE_BWB, "since": since_iso},
+            ):
+                if isinstance(row, str):
+                    recent_ids.add(row)
+                elif isinstance(row, dict):
+                    b = row.get("meta", {}).get("bwb_id")
+                    if b:
+                        recent_ids.add(str(b))
+            # Intersect with configured bwb_ids
+            filtered_ids = [bid for bid in bwb_ids if bid in recent_ids]
+            if not filtered_ids:
+                return
+            # Load articles for those BWB IDs only
+            aql = f"""
+            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+                FILTER doc.props.bwb_id IN @bwb_ids
+                FILTER doc.props.text != null
+            RETURN doc
+            """
+            yield from self.store.query(aql, bind_vars={"bwb_ids": filtered_ids})
+        else:
+            aql = f"""
+            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+                FILTER doc.props.bwb_id IN @bwb_ids
+                FILTER doc.props.text != null
+            RETURN doc
+            """
+            yield from self.store.query(aql, bind_vars={"bwb_ids": bwb_ids})
 
     def _resolve_article(self, hit: ArticleCitationHit) -> Node | None:
         if not hit.bwb_id or not hit.article_number:

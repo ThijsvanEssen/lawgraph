@@ -73,9 +73,24 @@ async def add_watch(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> WatchOut:
     """Create a new watch for a node."""
+    node_id = body.node_id
+    if "/" not in node_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Node '{node_id}' not found.",
+        )
+    collection, key = node_id.split("/", 1)
+    if (
+        not store.db.has_collection(collection)
+        or store.db.collection(collection).get(key) is None
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Node '{node_id}' not found.",
+        )
     doc = create_watch(
         store,
-        node_id=body.node_id,
+        node_id=node_id,
         label=body.label,
         collection=body.collection,
     )
@@ -86,6 +101,10 @@ async def add_watch(
     "/{watch_id}",
     status_code=204,
     summary="Watch verwijderen",
+    description=(
+        "Verwijdert een watch op zijn ``_key``. Returns HTTP 204 zonder "
+        "body bij succes, 404 als de watch niet bestaat."
+    ),
     tags=["watches"],
 )
 async def remove_watch(
@@ -94,6 +113,4 @@ async def remove_watch(
 ) -> None:
     """Delete a watch by its ID."""
     if not delete_watch(store, watch_id):
-        raise HTTPException(
-            status_code=404, detail=f"Watch '{watch_id}' niet gevonden."
-        )
+        raise HTTPException(status_code=404, detail=f"Watch '{watch_id}' not found.")
