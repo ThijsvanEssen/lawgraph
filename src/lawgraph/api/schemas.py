@@ -21,7 +21,7 @@ Conventions across the API
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -979,13 +979,15 @@ def _coerce_dossier_stage(value: Any) -> str | None:
     the persisted props still carry it on legacy rows. Anything outside the
     DossierStage Literal collapses to None so the DTO validates.
     """
-    if value in DossierStage.__args__:  # type: ignore[attr-defined]
-        return value  # type: ignore[return-value]
+    _valid = get_args(DossierStage)
+    if value in _valid:
+        return value
     return None
 
 
 def _coerce_stages_list(values: Any) -> list[str]:
-    return [v for v in (values or []) if v in DossierStage.__args__]  # type: ignore[attr-defined]
+    _valid = get_args(DossierStage)
+    return [v for v in (values or []) if v in _valid]
 
 
 TitelSource = Literal["dossier", "document", "activiteit"]

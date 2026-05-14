@@ -118,7 +118,8 @@ class EchrClient(BaseClient):
             # Try to get JSON; HUDOC may return HTML or docx
             try:
                 return resp.json()
-            except Exception:
+            except (ValueError, UnicodeDecodeError) as exc:
+                logger.debug("ECHR: non-JSON response for %s: %s", item_id, exc)
                 return {"raw_text": resp.text[:50000]}
         except Exception as exc:
             logger.warning("ECHR: failed to fetch detail for %s: %s", item_id, exc)

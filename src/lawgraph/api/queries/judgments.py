@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from lawgraph.api.queries._helpers import (
-    _find_instrument_for_article,
-    _load_document_by_ref,
-    _load_judgment,
+from lawgraph.api.queries._helpers import _load_judgment
+from lawgraph.config.settings import (
+    COLLECTION_EDGES,
+    RELATION_MENTIONS_ARTICLE,
+    RELATION_PART_OF_INSTRUMENT,
 )
-from lawgraph.config.settings import COLLECTION_EDGES, RELATION_MENTIONS_ARTICLE
 from lawgraph.db import ArangoStore
 
 
@@ -41,28 +41,45 @@ _TIER_BY_PREFIX = (
 
 
 def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetailData:
-    """Fetch a judgment and related articles via edges."""
+    """Fetch a judgment and its referenced articles in a single AQL pass.
+
+    Previous implementation issued 2N+1 queries (edges list + per-article
+    document fetch + per-article instrument lookup). This version collapses
+    everything into one query: DOCUMENT() inline lookups and a nested
+    FIRST(...) subquery for the PART_OF_INSTRUMENT edge, so ArangoDB resolves
+    all joins server-side.
+    """
     judgment_doc = _load_judgment(store, ecli)
     if judgment_doc is None:
         raise ValueError("judgment not found")
 
-    article_relations: list[JudgmentArticleRelation] = []
     aql = f"""
     FOR edge IN {COLLECTION_EDGES}
-        FILTER edge._from == @jid
-        FILTER edge.relation == @relation
-        RETURN edge
-    """
-    for edge in store.query(
-        aql, {"jid": judgment_doc["_id"], "relation": RELATION_MENTIONS_ARTICLE}
-    ):
-        article_doc = _load_document_by_ref(store, edge.get("_to"))
-        if not article_doc:
-            continue
-        instrument_doc = _find_instrument_for_article(store, article_doc["_id"])
-        article_relations.append(
-            JudgmentArticleRelation(article=article_doc, instrument=instrument_doc)
+        FILTER edge._from == @jid AND edge.relation == @mentions
+        LET article = DOCUMENT(edge._to)
+        FILTER article != null
+        LET instrument = FIRST(
+            FOR ie IN {COLLECTION_EDGES}
+                FILTER ie._from == article._id AND ie.relation == @part_of
+                LIMIT 1
+                RETURN DOCUMENT(ie._to)
         )
+        RETURN {{ article: article, instrument: instrument }}
+    """
+    rows = list(
+        store.query(
+            aql,
+            {
+                "jid": judgment_doc["_id"],
+                "mentions": RELATION_MENTIONS_ARTICLE,
+                "part_of": RELATION_PART_OF_INSTRUMENT,
+            },
+        )
+    )
+    article_relations = [
+        JudgmentArticleRelation(article=r["article"], instrument=r.get("instrument"))
+        for r in rows
+    ]
 
     metadata = {"article_count": len(article_relations)}
     return JudgmentDetailData(

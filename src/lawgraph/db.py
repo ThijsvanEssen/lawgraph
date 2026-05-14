@@ -401,10 +401,21 @@ class ArangoStore:
         bind_vars: dict | None = None,
         *,
         max_runtime: float = 600.0,
+        batch_size: int = 1000,
     ) -> Iterable[dict[str, Any]]:
-        """Execute an AQL query and return results."""
+        """Execute an AQL query and stream results in batches.
+
+        ``batch_size`` controls how many documents ArangoDB sends per HTTP
+        response.  The default of 1000 keeps memory bounded for large result
+        sets while reducing round-trips compared to the driver default of 100.
+        Pipeline callers that do list() on the result see no difference;
+        streaming callers benefit automatically.
+        """
         cursor = self.db.aql.execute(
-            aql, bind_vars=bind_vars or {}, max_runtime=max_runtime
+            aql,
+            bind_vars=bind_vars or {},
+            max_runtime=max_runtime,
+            batch_size=batch_size,
         )
         result_attr = getattr(cursor, "result", None)
         if callable(result_attr):
@@ -505,10 +516,12 @@ class ArangoStore:
         return node
 
     def get_node(self, collection: str, key: str) -> Node | None:
-        """Fetch a Node by collection and key. Returns None if not found."""
+        """Fetch a Node by collection and key. Returns None if not found.
+
+        Uses a single get() call rather than has() + get() to avoid two
+        round-trips per lookup.
+        """
         coll = self.db.collection(collection)
-        if not coll.has(key):
-            return None
         raw = coll.get(key)
         if raw is None:
             return None
@@ -566,6 +579,45 @@ class ArangoStore:
         was_created = result.get("old") is None
         stored = result.get("new") or result
         return cast(dict[str, Any], stored), was_created
+
+    def bulk_insert_or_update_edges(
+        self,
+        docs: list[dict[str, Any]],
+    ) -> tuple[int, int]:
+        """Batch-upsert multiple edges. Returns (created_count, updated_count).
+
+        Uses a single AQL UPSERT loop rather than N individual insert() calls,
+        giving ArangoDB the chance to optimise the batch as a transaction.
+        For semantic pipelines writing hundreds of edges per run, this reduces
+        HTTP round-trips from O(N) to 1.
+        """
+        if not docs:
+            return 0, 0
+
+        aql = f"""
+        LET results = (
+            FOR doc IN @docs
+                UPSERT {{_key: doc._key}}
+                INSERT doc
+                UPDATE {{
+                    confidence: doc.confidence,
+                    source: doc.source,
+                    status: doc.status,
+                    meta: MERGE(OLD.meta, doc.meta)
+                }}
+                IN {COLLECTION_EDGES}
+                RETURN {{was_new: OLD == null}}
+        )
+        RETURN {{
+            created: LENGTH(FOR r IN results FILTER r.was_new RETURN 1),
+            updated: LENGTH(FOR r IN results FILTER NOT r.was_new RETURN 1)
+        }}
+        """
+        rows = list(self.db.aql.execute(aql, bind_vars={"docs": docs}))
+        if rows:
+            row = rows[0]
+            return int(row.get("created", 0)), int(row.get("updated", 0))
+        return 0, 0
 
     def flip_edge_status(
         self,

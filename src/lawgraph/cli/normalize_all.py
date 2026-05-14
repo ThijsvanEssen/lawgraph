@@ -7,7 +7,13 @@ from typing import Callable
 
 from dotenv import load_dotenv
 
+from lawgraph.cli.backfill_auteur_van import main as backfill_auteur_van_main
+from lawgraph.cli.backfill_edge_status import main as backfill_edge_status_main
+from lawgraph.cli.backfill_fractie_memberships import (
+    main as backfill_fractie_memberships_main,
+)
 from lawgraph.cli.backfill_list_stats import main as backfill_list_stats_main
+from lawgraph.cli.normalize_bwb_history import main as normalize_bwb_history_main
 from lawgraph.cli.strafrecht_seed import main as strafrecht_seed_main
 from lawgraph.config import list_domain_profiles
 from lawgraph.logging import get_logger, setup_logging
@@ -65,6 +71,38 @@ def main(argv: list[str] | None = None) -> None:
                 _make_runner(main_fn, []),
             )
         )
+
+    # Normalize historical BWB toestanden into versioned instrument/article
+    # nodes. Runs after the main BWB normalize so current nodes already exist.
+    steps.append(
+        (
+            "BWB history normalization",
+            "LAWGRAPH_NORMALIZE_SKIP_BWB_HISTORY",
+            normalize_bwb_history_main,
+        )
+    )
+
+    # Backfills that enrich existing nodes/edges with derived data.
+    # These run after all source normalizations so the base graph is complete.
+    steps.extend(
+        [
+            (
+                "Backfill: fractie memberships",
+                "LAWGRAPH_NORMALIZE_SKIP_BACKFILL_FRACTIES",
+                backfill_fractie_memberships_main,
+            ),
+            (
+                "Backfill: auteur_van edges",
+                "LAWGRAPH_NORMALIZE_SKIP_BACKFILL_AUTEUR_VAN",
+                backfill_auteur_van_main,
+            ),
+            (
+                "Backfill: edge status",
+                "LAWGRAPH_NORMALIZE_SKIP_BACKFILL_EDGE_STATUS",
+                backfill_edge_status_main,
+            ),
+        ]
+    )
 
     # Refresh precomputed sort/filter stats consumed by /api/instruments and
     # /api/judgments. article_count depends on edges from BWB/EurLex above,

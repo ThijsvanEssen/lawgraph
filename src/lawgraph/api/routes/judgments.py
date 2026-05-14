@@ -5,11 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
-    JUDGMENT_SORTS,
-    get_judgment_with_relations,
-    get_judgments_list,
-)
+from lawgraph.api.queries import get_judgment_with_relations, get_judgments_list
 from lawgraph.api.schemas import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -80,8 +76,6 @@ def list_judgments(
         Literal["date_desc", "date_asc", "citation_count"], Query()
     ] = "date_desc",
 ) -> JudgmentListResponse:
-    if sort not in JUDGMENT_SORTS:
-        sort = "date_desc"
     data = get_judgments_list(
         store,
         q=q,
@@ -147,18 +141,44 @@ def _enrich_paragraphs(
     paragraphs: list[JudgmentParagraph],
     store: ArangoStore,
 ) -> list[JudgmentParagraph]:
-    """Add inline article citation spans to each paragraph."""
-    result: list[JudgmentParagraph] = []
+    """Add inline article citation spans to each paragraph.
+
+    All article lookups are batched into a single AQL query so we pay one
+    round-trip for the whole judgment instead of one per citation hit.
+    """
+    # First pass: collect all hits across all paragraphs.
+    para_hits: list[tuple[JudgmentParagraph, list]] = []
+    all_keys: list[str] = []
     for para in paragraphs:
         hits = detect_article_references(para.text, _ARTICLE_CODE_MAPPING)
+        valid = [h for h in hits if h.bwb_id]
+        para_hits.append((para, valid))
+        for h in valid:
+            all_keys.append(make_node_key(h.bwb_id, h.article_number))
+
+    if not all_keys:
+        return list(paragraphs)
+
+    # Single bulk fetch for all referenced article keys.
+    aql = f"""
+    FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+        FILTER doc._key IN @keys
+        RETURN doc
+    """
+    article_by_key = {
+        doc["_key"]: doc for doc in store.query(aql, {"keys": list(set(all_keys))})
+    }
+
+    # Second pass: build enriched paragraphs.
+    result: list[JudgmentParagraph] = []
+    for para, hits in para_hits:
         citaties: list[ArticleCitationSpan] = []
         for hit in hits:
-            if not hit.bwb_id:
-                continue
             article_key = make_node_key(hit.bwb_id, hit.article_number)
-            article_node = store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
-            if article_node is None:
+            doc = article_by_key.get(article_key)
+            if doc is None:
                 continue
+            props = doc.get("props") or {}
             start: int | None = None
             end: int | None = None
             if hit.raw_match:
@@ -172,12 +192,12 @@ def _enrich_paragraphs(
                     end=end,
                     text=hit.raw_match,
                     target=ArticleCitationTarget(
-                        id=article_node.id or "",
-                        key=article_node.key or "",
-                        collection=article_node.collection,
-                        bwb_id=article_node.props.get("bwb_id"),
-                        article_number=article_node.props.get("article_number"),
-                        display_name=article_node.props.get("display_name"),
+                        id=doc["_id"],
+                        key=doc["_key"],
+                        collection=COLLECTION_INSTRUMENT_ARTICLES,
+                        bwb_id=props.get("bwb_id"),
+                        article_number=props.get("article_number"),
+                        display_name=props.get("display_name"),
                     ),
                     confidence=hit.confidence,
                 )

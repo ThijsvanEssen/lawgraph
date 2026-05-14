@@ -8,6 +8,7 @@ IMPLEMENTS_DIRECTIVE — NL statute whose BWB source text contains a CELEX
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any, Iterable
 
@@ -86,17 +87,19 @@ def detect_celex_references(text: str | None) -> list[str]:
 class InstrumentRelationsPipeline(SemanticPipelineBase):
     """Writes AMENDS_INSTRUMENT and IMPLEMENTS_DIRECTIVE edges."""
 
-    def run(self, **_kwargs: Any) -> PipelineResult:  # type: ignore[override]
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        result = result.merge(self._run_amends_instrument())
-        result = result.merge(self._run_implements_directive())
-        result = result.merge(self._run_discusses_instrument())
+        result = result.merge(self._run_amends_instrument(since=since))
+        result = result.merge(self._run_implements_directive(since=since))
+        result = result.merge(self._run_discusses_instrument(since=since))
         logger.info("Instrument relations pipeline: %s.", result.summary())
         return result
 
     # ------------------------------------------------------------------ amends
 
-    def _run_amends_instrument(self) -> PipelineResult:
+    def _run_amends_instrument(
+        self, since: dt.datetime | None = None
+    ) -> PipelineResult:
         result = PipelineResult()
         instrument_aliases = self._load_instrument_aliases()
         if not instrument_aliases:
@@ -105,7 +108,7 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
             )
             return result
 
-        for doc_node in self._load_tk_documents():
+        for doc_node in self._load_tk_documents(since=since):
             title = doc_node.props.get("title") or doc_node.props.get("display_name")
             hits = detect_amends_instrument(
                 str(title) if title else None, instrument_aliases
@@ -133,13 +136,20 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
 
     # ------------------------------------------------------------------ discusses
 
-    def _run_discusses_instrument(self) -> PipelineResult:
+    def _run_discusses_instrument(
+        self, since: dt.datetime | None = None
+    ) -> PipelineResult:
         """Write DISCUSSES edges from TK procedures that discuss a known instrument.
 
         DISCUSSES is a weaker relation than AMENDS — it means the procedure
         references or debates the instrument but does not necessarily change it.
         Only procedures (TK Zaken) are linked; publications get MENTIONS_INSTRUMENT
         via the TK article semantic pipeline instead.
+
+        Performance: instead of an O(procedures × aliases) double loop with
+        re.search per combination, we build a single combined OR-pattern from
+        all alias labels and scan each title once, then resolve only the
+        matched aliases. This cuts regex evaluations from M×N to N.
         """
         result = PipelineResult()
         instrument_aliases = self._load_instrument_aliases()
@@ -149,12 +159,33 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
             )
             return result
 
+        # Pre-compile a combined pattern: one search surfaces all matches.
+        alias_labels = [
+            label
+            for label, (bwb, celex) in instrument_aliases.items()
+            if (bwb or celex)
+        ]
+        if not alias_labels:
+            return result
+        combined_pattern = re.compile(
+            "|".join(re.escape(lbl) for lbl in alias_labels), re.IGNORECASE
+        )
+
+        since_filter = ""
+        bind_vars: dict[str, Any] = {}
+        if since is not None:
+            since_filter = (
+                "FILTER doc.props.datum >= @since OR doc.props.fetched_at >= @since"
+            )
+            bind_vars["since"] = since.isoformat()
+
         aql = (
             f"FOR doc IN {COLLECTION_PROCEDURES}\n"
             '    FILTER "TK" IN doc.labels\n'
+            f"    {since_filter}\n"
             "    RETURN doc"
         )
-        for doc in self.store.query(aql):
+        for doc in self.store.query(aql, bind_vars or None):
             proc_node = Node.from_document(COLLECTION_PROCEDURES, doc)
             title = (
                 proc_node.props.get("title")
@@ -164,10 +195,24 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
             if not title:
                 continue
 
-            for label, (bwb_id, celex) in instrument_aliases.items():
-                if not (bwb_id or celex):
+            matched_labels = {m.group(0) for m in combined_pattern.finditer(title)}
+            if not matched_labels:
+                continue
+
+            for label in matched_labels:
+                # Resolve the canonical label (case-insensitive match).
+                pair = next(
+                    (
+                        v
+                        for k, v in instrument_aliases.items()
+                        if k.lower() == label.lower()
+                    ),
+                    None,
+                )
+                if pair is None:
                     continue
-                if not re.search(re.escape(label), title, re.IGNORECASE):
+                bwb_id, celex = pair
+                if not (bwb_id or celex):
                     continue
                 target = self._resolve_instrument(bwb_id=bwb_id, celex=celex)
                 if not target:
@@ -189,23 +234,34 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
         logger.info("DISCUSSES: %s.", result.summary())
         return result
 
-    def _load_tk_documents(self) -> Iterable[Node]:
+    def _load_tk_documents(self, since: dt.datetime | None = None) -> Iterable[Node]:
+        since_filter = ""
+        bind_vars: dict[str, Any] | None = None
+        if since is not None:
+            since_filter = (
+                "FILTER doc.props.datum >= @since OR doc.props.fetched_at >= @since"
+            )
+            bind_vars = {"since": since.isoformat()}
+
         for collection in (COLLECTION_PUBLICATIONS, COLLECTION_PROCEDURES):
             aql = (
                 f"FOR doc IN {collection}\n"
                 '    FILTER "TK" IN doc.labels\n'
+                f"    {since_filter}\n"
                 "    RETURN doc"
             )
-            for doc in self.store.query(aql):
+            for doc in self.store.query(aql, bind_vars):
                 yield Node.from_document(collection, doc)
 
     # ------------------------------------------------------------------ implements
 
-    def _run_implements_directive(self) -> PipelineResult:
+    def _run_implements_directive(
+        self, since: dt.datetime | None = None
+    ) -> PipelineResult:
         result = PipelineResult()
 
         # First pass: auto-detect CELEX references inside BWB raw texts.
-        for bwb_id, raw_text in self._load_bwb_raw_texts():
+        for bwb_id, raw_text in self._load_bwb_raw_texts(since=since):
             instrument_node = self._resolve_instrument(bwb_id=bwb_id)
             if not instrument_node:
                 continue
@@ -257,16 +313,23 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
         logger.info("IMPLEMENTS_DIRECTIVE: %s.", result.summary())
         return result
 
-    def _load_bwb_raw_texts(self) -> Iterable[tuple[str, str]]:
+    def _load_bwb_raw_texts(
+        self, since: dt.datetime | None = None
+    ) -> Iterable[tuple[str, str]]:
         """Yield (bwb_id, raw_text) for each BWB raw_source record."""
         kinds = [RAW_KIND_BWB_REGELING, RAW_KIND_BWB_TOESTAND]
         bind_vars: dict[str, Any] = {"source": SOURCE_BWB, "kinds": kinds}
-        aql = """
+        since_filter = ""
+        if since is not None:
+            since_filter = "FILTER raw.fetched_at >= @since"
+            bind_vars["since"] = since.isoformat()
+        aql = f"""
         FOR raw IN raw_sources
             FILTER raw.source == @source
             FILTER raw.kind IN @kinds
             FILTER raw.meta.bwb_id != null
-            RETURN { bwb_id: raw.meta.bwb_id, text: raw.payload_text }
+            {since_filter}
+            RETURN {{ bwb_id: raw.meta.bwb_id, text: raw.payload_text }}
         """
         for row in self.store.query(aql, bind_vars=bind_vars):
             bwb_id = row.get("bwb_id")

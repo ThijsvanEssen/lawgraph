@@ -140,14 +140,10 @@ class SemanticPipelineBase:
         result: PipelineResult | None = None,
         status: str = EDGE_STATUS_CANONIEK,
     ) -> bool:
-        """Upsert a semantic edge via the unified edges collection.
+        """Upsert a single semantic edge. Returns True if newly created.
 
-        Returns True if the edge was newly created, False if it already existed
-        OR if a database error occurred.
-
-        Pass ``result`` to have errors appended to ``result.errors`` instead of
-        being silently swallowed.  This lets callers distinguish "0 created because
-        nothing matched" from "0 created because the database was unreachable."
+        For high-throughput pipelines prefer ``_flush_edge_batch()`` which
+        amortises N individual round-trips into one AQL batch call.
         """
         if not from_node.id or not to_node.id:
             return False
@@ -176,6 +172,60 @@ class SemanticPipelineBase:
             if result is not None:
                 result.add_error(msg)
             return False
+
+    def _flush_edge_batch(
+        self,
+        batch: list[dict[str, Any]],
+        result: PipelineResult | None = None,
+    ) -> tuple[int, int]:
+        """Batch-upsert a list of pre-built edge documents in one AQL call.
+
+        Returns (created, updated). On error, logs and appends to result.errors
+        but does not raise so the pipeline can continue with the next batch.
+
+        Build edge docs with ``_make_edge_doc()`` then call this once per
+        batch rather than calling ``_create_semantic_edge()`` in a tight loop.
+        """
+        if not batch:
+            return 0, 0
+        try:
+            created, updated = self.store.bulk_insert_or_update_edges(batch)
+            return created, updated
+        except Exception as exc:
+            msg = f"Batch edge upsert failed ({len(batch)} docs): {exc}"
+            logger.error(msg)
+            if result is not None:
+                result.add_error(msg)
+            return 0, 0
+
+    def _make_edge_doc(
+        self,
+        *,
+        from_node: Node,
+        to_node: Node,
+        relation: str,
+        source: str,
+        confidence: float = 0.0,
+        meta: dict[str, Any] | None = None,
+        status: str = EDGE_STATUS_CANONIEK,
+    ) -> dict[str, Any] | None:
+        """Build an edge document dict without writing to the DB.
+
+        Returns None when from_node or to_node have no id (skip silently).
+        """
+        if not from_node.id or not to_node.id:
+            return None
+        edge_key = _sha1_edge_key(from_node.id, relation, to_node.id)
+        return {
+            "_key": edge_key,
+            "_from": from_node.id,
+            "_to": to_node.id,
+            "relation": relation,
+            "confidence": confidence,
+            "source": source,
+            "status": status,
+            "meta": dict(meta or {}),
+        }
 
 
 def _parse_instrument_aliases(raw: dict[str, Any]) -> InstrumentAliasMap:

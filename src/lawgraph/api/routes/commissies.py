@@ -8,11 +8,11 @@ GET /api/leden/{key}/votes                — paginated voting record
 
 from __future__ import annotations
 
-import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from lawgraph.api.cache import TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
     get_actor_touched_instruments,
@@ -45,23 +45,7 @@ fracties_router = APIRouter()
 # Bulk commissies-with-leden is a slow-moving signal (committee membership
 # changes infrequently). Cache the materialised response for 60 s so cold
 # clicks on the parliamentary Lagen layer don't all pay the AQL.
-_BULK_CACHE: dict[str, tuple[float, Any]] = {}
-_BULK_TTL_SECONDS = 60.0
-
-
-def _cache_get(key: str) -> Any | None:
-    entry = _BULK_CACHE.get(key)
-    if entry is None:
-        return None
-    expires_at, value = entry
-    if time.monotonic() > expires_at:
-        _BULK_CACHE.pop(key, None)
-        return None
-    return value
-
-
-def _cache_set(key: str, value: Any) -> None:
-    _BULK_CACHE[key] = (time.monotonic() + _BULK_TTL_SECONDS, value)
+_bulk_cache: TTLCache[str, Any] = TTLCache(maxsize=32)
 
 
 @router.get(
@@ -97,12 +81,12 @@ def list_commissies(
 def list_commissies_with_leden(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> list[CommissieWithLedenDTO]:
-    cached = _cache_get("with_leden")
+    cached = _bulk_cache.get("with_leden")
     if cached is not None:
         return cached
     docs = get_all_commissies_with_leden(store)
     response = [CommissieWithLedenDTO.from_document(d) for d in docs]
-    _cache_set("with_leden", response)
+    _bulk_cache.set("with_leden", response)
     return response
 
 

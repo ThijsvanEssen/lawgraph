@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
+from lawgraph.api.cache import TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
     get_heat_counts,
@@ -31,24 +31,9 @@ logger = get_logger(__name__)
 # In-memory TTL cache for the bulk overlay endpoints. Heat/in-flux are
 # slow-moving signals (recompute on every page load is wasteful) and the
 # AQL pass takes ~400 ms uncached. A 60 s TTL caps the lag at one slow
-# request per minute regardless of concurrent viewers.
-_OVERLAY_CACHE: dict[str, tuple[float, Any]] = {}
-_OVERLAY_TTL_SECONDS = 60.0
-
-
-def _cache_get(key: str) -> Any | None:
-    entry = _OVERLAY_CACHE.get(key)
-    if entry is None:
-        return None
-    expires_at, value = entry
-    if time.monotonic() > expires_at:
-        _OVERLAY_CACHE.pop(key, None)
-        return None
-    return value
-
-
-def _cache_set(key: str, value: Any) -> None:
-    _OVERLAY_CACHE[key] = (time.monotonic() + _OVERLAY_TTL_SECONDS, value)
+# request per minute regardless of concurrent viewers. maxsize=128 covers
+# all realistic (months, min_count) combinations with a bounded footprint.
+_overlay_cache: TTLCache[str, Any] = TTLCache(maxsize=128)
 
 
 @router.get(
@@ -66,10 +51,10 @@ async def bulk_in_flux(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> JSONResponse:
     """Return all nodes that have at least one VOORGESTELD edge, with counts."""
-    cached = _cache_get("in_flux")
+    cached = _overlay_cache.get("in_flux")
     if cached is None:
         cached = get_in_flux_counts(store)
-        _cache_set("in_flux", cached)
+        _overlay_cache.set("in_flux", cached)
     return JSONResponse(cached)
 
 
@@ -104,10 +89,10 @@ async def bulk_heat(
 ) -> JSONResponse:
     """Return activity counts per node for the heat-layer overlay."""
     cache_key = f"heat:m={months}:mc={min_count}"
-    cached = _cache_get(cache_key)
+    cached = _overlay_cache.get(cache_key)
     if cached is None:
         cached = get_heat_counts(store, months=months, min_count=min_count)
-        _cache_set(cache_key, cached)
+        _overlay_cache.set(cache_key, cached)
     return JSONResponse(cached)
 
 
