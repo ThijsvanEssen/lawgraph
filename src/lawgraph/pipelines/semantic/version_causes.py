@@ -14,18 +14,21 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from lawgraph.config.settings import (
-    COLLECTION_EDGES,
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLE_VERSIONS,
     COLLECTION_PUBLICATIONS,
+    EDGE_STATUS_CANONIEK,
     RELATION_CAUSED_VERSION,
     RELATION_INTRODUCEERT,
     RELATION_TREKT_IN,
     RELATION_WIJZIGT,
 )
+from lawgraph.config.settings import COLLECTION_EDGES
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
+from lawgraph.db import _edge_key as _sha1_edge_key
+from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
@@ -33,7 +36,7 @@ _AMENDMENT_RELATIONS = [RELATION_WIJZIGT, RELATION_INTRODUCEERT, RELATION_TREKT_
 _DEFAULT_WINDOW_DAYS = 365
 
 
-class VersionCausesSemanticPipeline:
+class VersionCausesSemanticPipeline(PipelineBase):
     """Create CAUSED_VERSION edges from publications to instrument_article_versions.
 
     For each (bwb_id, article_number, valid_from) version node, this pipeline
@@ -45,7 +48,7 @@ class VersionCausesSemanticPipeline:
     def __init__(
         self, *, store: ArangoStore, window_days: int = _DEFAULT_WINDOW_DAYS
     ) -> None:
-        self.store = store
+        super().__init__(store)
         self.window_days = window_days
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
@@ -108,26 +111,36 @@ class VersionCausesSemanticPipeline:
                 }}
         """
 
-        edge_count = 0
+        edge_docs: list[dict[str, Any]] = []
         for row in self.store.query(aql, bind_vars):
             av_id = row.get("av_id")
             pub_id = row.get("pub_id")
             if not av_id or not pub_id:
                 continue
-            try:
-                self.store.create_edge(
-                    from_id=pub_id,
-                    to_id=av_id,
-                    relation=RELATION_CAUSED_VERSION,
-                    source="version-causes",
-                )
-                edge_count += 1
-            except Exception as exc:
-                logger.error(
-                    "Could not create CAUSED_VERSION edge %s → %s: %s",
-                    pub_id,
-                    av_id,
-                    exc,
-                )
+            edge_docs.append(
+                {
+                    "_key": _sha1_edge_key(pub_id, RELATION_CAUSED_VERSION, av_id),
+                    "_from": pub_id,
+                    "_to": av_id,
+                    "relation": RELATION_CAUSED_VERSION,
+                    "source": "version-causes",
+                    "status": EDGE_STATUS_CANONIEK,
+                    "meta": {},
+                }
+            )
 
-        return edge_count
+        if not edge_docs:
+            return 0
+
+        _BATCH_SIZE = 500
+        created_total = 0
+        for start in range(0, len(edge_docs), _BATCH_SIZE):
+            batch = edge_docs[start : start + _BATCH_SIZE]
+            try:
+                created, _ = self.store.bulk_insert_or_update_edges(batch)
+                created_total += created
+            except Exception as exc:
+                logger.error("CAUSED_VERSION edge batch failed: %s", exc)
+                raise
+
+        return created_total

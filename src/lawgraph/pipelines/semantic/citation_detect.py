@@ -30,6 +30,10 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from lawgraph.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 # ---------------------------------------------------------------------------
 # Types
 # ---------------------------------------------------------------------------
@@ -120,7 +124,7 @@ def format_celex(
     try:
         padded = int(number)
     except ValueError:
-        pass
+        logger.debug("Could not parse CELEX number %r; using 0 as fallback", number)
     return f"3{year}{letter}{padded:04d}"
 
 

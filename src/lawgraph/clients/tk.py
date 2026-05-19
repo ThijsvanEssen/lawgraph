@@ -3,22 +3,23 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Iterable
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import TK_BASE_URL
-from lawgraph.logging import get_logger
+from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 
 def _build_contains_filter(fields: list[str], keywords: list[str]) -> str:
     """Build an OData OR expression: (contains(tolower(F),'kw') or ...)."""
-    clauses = [
-        f"contains(tolower({field}),'{kw.lower()}')"
-        for field in fields
-        for kw in keywords
-    ]
+    clauses = []
+    for field in fields:
+        for kw in keywords:
+            escaped = kw.lower().replace("'", "''")
+            clauses.append(f"contains(tolower({field}),'{escaped}')")
     return "(" + " or ".join(clauses) + ")"
 
 
@@ -44,9 +45,9 @@ class TKClient(BaseClient):
         value = value.replace(microsecond=0, tzinfo=None)
         return value.isoformat() + "Z"
 
-    def _paged_get(
-        self, path: str, params: dict | None = None
-    ) -> Iterable[dict[str, Any]]:
+    def _paged_get(  # type: ignore[override]
+        self, path: str, *, params: dict | None = None
+    ) -> Iterator[dict[str, Any]]:
         return super()._paged_get(
             path,
             params=params,

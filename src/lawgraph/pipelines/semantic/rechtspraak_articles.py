@@ -5,16 +5,16 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any, Iterable
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_JUDGMENTS,
     RAW_KIND_RS_CONTENT,
     RELATION_CITES_ARTICLE,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.utils.time import describe_since, iso_timestamp
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import describe_since, iso_timestamp
 
 from .base import SemanticPipelineBase
 from .citation_detect import CitationHit, DutchCitationExtractor, _hit_reason, strip_xml
@@ -192,6 +192,7 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
             bind_vars = {"eclis": list(eclis)}
             aql = f"""
             FOR doc IN {collection}
+                FILTER doc.props.meta != null
                 FILTER doc.props.meta.ecli IN @eclis
             RETURN doc
             """

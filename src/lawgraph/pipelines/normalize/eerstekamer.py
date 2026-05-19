@@ -5,29 +5,19 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_PUBLICATIONS,
     COLLECTION_STEMMINGEN,
     RAW_KIND_EK_STUK,
     RELATION_BESLUIT,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
-
-
-def _iso_date(val: Any) -> str | None:
-    if not val:
-        return None
-    s = str(val)
-    if "T" in s:
-        return s[:10]
-    if len(s) >= 10 and s[4] == "-":
-        return s[:10]
-    return s or None
 
 
 class EerstekamerNormalizePipeline(NormalizePipeline):
@@ -45,14 +35,16 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
         logger.info("Loaded %d EK raw_sources.", len(rows))
         return rows
 
-    def normalize_nodes(self, raw: list[dict[str, Any]]) -> dict[str, Node]:
+    def normalize_nodes(
+        self, raw: list[dict[str, Any]], result: PipelineResult
+    ) -> dict[str, Node]:
         nodes: dict[str, Node] = {}
         stemmingen = 0
 
         for record in raw:
             payload = self._payload_json(record)
             if not payload or not isinstance(payload, dict):
-                self._result.skipped += 1
+                result.skipped += 1
                 continue
 
             # Detect record type from meta field or payload structure
@@ -64,18 +56,18 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
             )
 
             if record_type == "stemming":
-                node = self._normalize_stemming(record, payload)
+                node = self._normalize_stemming(record, payload, result)
                 if node:
                     stemmingen += 1
-                    self._result.created += 1
+                    result.created += 1
                     item_id = str(payload.get("Id") or "")
                     nodes[f"stemming:{item_id}"] = node
             else:
-                node = self._normalize_kamerstuk(record, payload)
+                node = self._normalize_kamerstuk(record, payload, result)
                 if node:
                     item_id = str(payload.get("Id") or "")
                     nodes[item_id] = node
-                    self._result.created += 1
+                    result.created += 1
 
         logger.info(
             "EK normalize: %d publications, %d stemmingen processed.",
@@ -85,11 +77,11 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
         return nodes
 
     def _normalize_kamerstuk(
-        self, record: dict[str, Any], payload: dict[str, Any]
+        self, record: dict[str, Any], payload: dict[str, Any], result: PipelineResult
     ) -> Node | None:
         item_id = str(payload.get("Id") or "")
         if not item_id:
-            self._result.skipped += 1
+            result.skipped += 1
             return None
 
         nummer = payload.get("Nummer") or ""
@@ -126,11 +118,11 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
         return self.store.insert_or_update(node)
 
     def _normalize_stemming(
-        self, record: dict[str, Any], payload: dict[str, Any]
+        self, record: dict[str, Any], payload: dict[str, Any], result: PipelineResult
     ) -> Node | None:
         item_id = str(payload.get("Id") or "")
         if not item_id:
-            self._result.skipped += 1
+            result.skipped += 1
             return None
 
         kamerstuk_id = str(payload.get("KamerstukId") or "")
@@ -191,11 +183,19 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
                 continue
             kamerstuk_key = make_node_key("ek", kamerstuk_id)
             kamerstuk_arangoid = f"{COLLECTION_PUBLICATIONS}/{kamerstuk_key}"
-            self.store.create_edge(
-                from_id=node.id,
-                to_id=kamerstuk_arangoid,
-                relation=RELATION_BESLUIT,
-                source=SOURCE_EERSTEKAMER,
-            )
-            edges += 1
+            try:
+                self.store.create_edge(
+                    from_id=node.id,
+                    to_id=kamerstuk_arangoid,
+                    relation=RELATION_BESLUIT,
+                    source=SOURCE_EERSTEKAMER,
+                )
+                edges += 1
+            except Exception as exc:
+                logger.error(
+                    "EK edge creation failed %s → %s: %s",
+                    node.id,
+                    kamerstuk_arangoid,
+                    exc,
+                )
         return edges

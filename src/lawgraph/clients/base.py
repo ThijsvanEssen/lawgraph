@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import requests
 from dotenv import load_dotenv
 
-from lawgraph.logging import get_logger
+from lawgraph.core.logging import get_logger
 
 # Structural changes:
 # - Documented all helpers and added a paginated getter shared across clients.
@@ -119,7 +120,11 @@ class BaseClient:
                     exc,
                 )
                 time.sleep(wait)
-        raise last_exc  # type: ignore[misc]
+        if last_exc is None:
+            raise RuntimeError(
+                f"_get_raw_with_retry called with retries={retries}; no attempt was made"
+            )
+        raise last_exc
 
     def _get_json(
         self,
@@ -194,10 +199,11 @@ class BaseClient:
         if isinstance(entries, list):
             yield from BaseClient._extract_entries_from_list(entries)
             return
-
-        for value in payload.values():
-            if isinstance(value, list):
-                yield from BaseClient._extract_entries_from_list(value)
+        logger.warning(
+            "Paged response missing expected key %r; keys present: %s",
+            result_key,
+            list(payload.keys()),
+        )
 
     @staticmethod
     def _extract_entries_from_list(
