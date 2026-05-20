@@ -12,7 +12,6 @@ from arango.client import ArangoClient
 from arango.exceptions import DocumentInsertError
 
 from lawgraph.config.constants import (
-    COLLECTION_EDGE_STATUS_LOG,
     COLLECTION_INSTRUMENT_ARTICLE_VERSIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     EDGE_STATUS_CANONIEK,
@@ -20,6 +19,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import (
     ARANGO_DB_NAME,
     ARANGO_PASSWORD,
+    ARANGO_REQUEST_TIMEOUT,
     ARANGO_URL,
     ARANGO_USER,
     COLLECTION_EDGES,
@@ -35,25 +35,57 @@ def _edge_key(from_id: str, relation: str, to_id: str) -> str:
     return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
 
 
+# AQL templates shared between single-doc and batch upsert methods.
+_NODE_UPSERT_UPDATE = """
+    type: doc.type,
+    labels: UNIQUE(APPEND(OLD.labels, doc.labels)),
+    props: MERGE(OLD.props, doc.props)
+"""
+
+_EDGE_UPSERT_UPDATE = """
+    confidence: doc.confidence,
+    source: doc.source,
+    status: doc.status,
+    meta: MERGE(OLD.meta, doc.meta)
+"""
+
+# All document collection names that ArangoStore manages.
+_ALL_COLLECTION_NAMES = [
+    "instruments",
+    "instrument_articles",
+    "instrument_versions",
+    "instrument_article_versions",
+    "procedures",
+    "publications",
+    "judgments",
+    "topics",
+    "raw_sources",
+    "kamerstukdossiers",
+    "activiteiten",
+    "stemmingen",
+    "toezeggingen",
+    "commissies",
+    "leden",
+    "fracties",
+    "edge_status_log",
+    "watches",
+]
+
+
 class ArangoStore:
     """Encapsulation of the ArangoDB client, collections, and CRUD helpers."""
 
     def __init__(self) -> None:
-        self.url = ARANGO_URL
-        self.db_name = ARANGO_DB_NAME
-        self.username = ARANGO_USER
-        self.password = ARANGO_PASSWORD
-
-        client = ArangoClient(hosts=self.url, request_timeout=620)
+        client = ArangoClient(hosts=ARANGO_URL, request_timeout=ARANGO_REQUEST_TIMEOUT)
         try:
             self.db = client.db(
-                self.db_name, username=self.username, password=self.password
+                ARANGO_DB_NAME, username=ARANGO_USER, password=ARANGO_PASSWORD
             )
             self.db.version()
         except Exception as exc:
             raise ConnectionError(
-                f"Cannot connect to ArangoDB at {self.url} "
-                f"(db={self.db_name}, user={self.username}). "
+                f"Cannot connect to ArangoDB at {ARANGO_URL} "
+                f"(db={ARANGO_DB_NAME}, user={ARANGO_USER}). "
                 f"Original error: {exc}"
             ) from exc
 
@@ -61,27 +93,37 @@ class ArangoStore:
 
         ensure_schema(self.db)
 
-        self.instruments = self.db.collection("instruments")
-        self.instrument_articles = self.db.collection("instrument_articles")
-        self.instrument_versions = self.db.collection(COLLECTION_INSTRUMENT_VERSIONS)
-        self.instrument_article_versions = self.db.collection(
+        self._collections = {
+            name: self.db.collection(name) for name in _ALL_COLLECTION_NAMES
+        }
+        self._collections[COLLECTION_EDGES] = self.db.collection(COLLECTION_EDGES)
+
+        # Typed shorthand properties for the most frequently accessed collections.
+        self.instruments = self._collections["instruments"]
+        self.instrument_articles = self._collections["instrument_articles"]
+        self.instrument_versions = self._collections[COLLECTION_INSTRUMENT_VERSIONS]
+        self.instrument_article_versions = self._collections[
             COLLECTION_INSTRUMENT_ARTICLE_VERSIONS
-        )
-        self.procedures = self.db.collection("procedures")
-        self.publications = self.db.collection("publications")
-        self.judgments = self.db.collection("judgments")
-        self.topics = self.db.collection("topics")
-        self.raw_sources = self.db.collection("raw_sources")
-        self.kamerstukdossiers = self.db.collection("kamerstukdossiers")
-        self.activiteiten = self.db.collection("activiteiten")
-        self.stemmingen = self.db.collection("stemmingen")
-        self.toezeggingen = self.db.collection("toezeggingen")
-        self.commissies = self.db.collection("commissies")
-        self.leden = self.db.collection("leden")
-        self.fracties = self.db.collection("fracties")
-        self.edge_status_log = self.db.collection(COLLECTION_EDGE_STATUS_LOG)
-        self.watches = self.db.collection("watches")
-        self.edges = self.db.collection(COLLECTION_EDGES)
+        ]
+        self.procedures = self._collections["procedures"]
+        self.publications = self._collections["publications"]
+        self.judgments = self._collections["judgments"]
+        self.topics = self._collections["topics"]
+        self.raw_sources = self._collections["raw_sources"]
+        self.kamerstukdossiers = self._collections["kamerstukdossiers"]
+        self.activiteiten = self._collections["activiteiten"]
+        self.stemmingen = self._collections["stemmingen"]
+        self.toezeggingen = self._collections["toezeggingen"]
+        self.commissies = self._collections["commissies"]
+        self.leden = self._collections["leden"]
+        self.fracties = self._collections["fracties"]
+        self.edge_status_log = self._collections["edge_status_log"]
+        self.watches = self._collections["watches"]
+        self.edges = self._collections[COLLECTION_EDGES]
+
+    def collection(self, name: str) -> Any:
+        """Return the collection handle for *name*. Raises KeyError if unknown."""
+        return self._collections[name]
 
     # ── Query ──────────────────────────────────────────────────────────────────
 
@@ -219,11 +261,7 @@ class ArangoStore:
             FOR doc IN @docs
                 UPSERT {{_key: doc._key}}
                 INSERT doc
-                UPDATE {{
-                    type: doc.type,
-                    labels: UNIQUE(APPEND(OLD.labels, doc.labels)),
-                    props: MERGE(OLD.props, doc.props)
-                }}
+                UPDATE {{{_NODE_UPSERT_UPDATE}}}
                 IN {collection}
                 RETURN {{was_new: OLD == null}}
         )
@@ -381,12 +419,7 @@ class ArangoStore:
             FOR doc IN @docs
                 UPSERT {{_key: doc._key}}
                 INSERT doc
-                UPDATE {{
-                    confidence: doc.confidence,
-                    source: doc.source,
-                    status: doc.status,
-                    meta: MERGE(OLD.meta, doc.meta)
-                }}
+                UPDATE {{{_EDGE_UPSERT_UPDATE}}}
                 IN {COLLECTION_EDGES}
                 RETURN {{was_new: OLD == null}}
         )

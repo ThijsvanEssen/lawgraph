@@ -55,6 +55,7 @@ ARANGO_URL = os.getenv("ARANGO_URL", "http://localhost:8529")
 ARANGO_DB_NAME = os.getenv("ARANGO_DB_NAME", "lawgraph")
 ARANGO_USER = os.getenv("ARANGO_USER", "root")
 ARANGO_PASSWORD = os.getenv("ARANGO_PASSWORD", "")
+ARANGO_REQUEST_TIMEOUT = 620
 
 # ── External API base URLs ────────────────────────────────────────────────────
 
