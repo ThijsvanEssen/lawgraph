@@ -57,5 +57,5 @@ def parse_since(value: str | None) -> dt.datetime | None:
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=dt.timezone.utc)
         return parsed
-    except ValueError:
-        raise ValueError(f"Cannot parse --since value '{value}'.") from None
+    except ValueError as exc:
+        raise ValueError(f"Cannot parse --since value '{value}'.") from exc

@@ -60,7 +60,7 @@ ARANGO_REQUEST_TIMEOUT = 620
 # ── External API base URLs ────────────────────────────────────────────────────
 
 BWB_BASE_URL = os.getenv("BWB_BASE", "https://wetten.overheid.nl/")
-EU_BASE_URL = os.getenv("EURLEX_BASE", "https://eur-lex.europa.eu/")
+EURLEX_BASE_URL = os.getenv("EURLEX_BASE", "https://eur-lex.europa.eu/")
 RECHTSPRAAK_BASE_URL = os.getenv("RECHTSPRAAK_BASE", "https://data.rechtspraak.nl/")
 TK_BASE_URL = os.getenv(
     "TK_API_BASE", "https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/"

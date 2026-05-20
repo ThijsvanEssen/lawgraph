@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from lawgraph.clients.base import BaseClient
-from lawgraph.config.settings import EU_BASE_URL, EURLEX_SPARQL_ENDPOINT
-from lawgraph.logging import get_logger
+from lawgraph.config.settings import EURLEX_BASE_URL, EURLEX_SPARQL_ENDPOINT
+from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -18,7 +18,7 @@ class EUClient(BaseClient):
     def __init__(self, session=None) -> None:
         super().__init__(
             env_var="EURLEX_BASE",
-            default_base_url=EU_BASE_URL,
+            default_base_url=EURLEX_BASE_URL,
             session=session,
         )
 

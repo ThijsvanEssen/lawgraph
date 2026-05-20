@@ -142,6 +142,8 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
 # ── Party colors ──────────────────────────────────────────────────────────────
 # Canonical brand colors for Dutch parliamentary parties.
 # Keyed by the party abbreviation as it appears in fractie.afkorting.
+# GL-PvdA, GroenLinks, and GroenLinks-PvdA are all intentional duplicates:
+# different API versions use different abbreviations for the same merged party.
 
 PARTY_COLORS: dict[str, str] = {
     "VVD": "#003082",
