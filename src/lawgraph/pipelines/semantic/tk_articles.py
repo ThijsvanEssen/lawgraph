@@ -6,7 +6,7 @@ import datetime as dt
 import re
 from typing import Any, Callable, Iterable
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_PROCEDURES,
@@ -15,11 +15,11 @@ from lawgraph.config.settings import (
     RELATION_MENTIONS_ARTICLE,
     RELATION_MENTIONS_INSTRUMENT,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.utils.time import describe_since
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import describe_since
 
-from .base import InstrumentAliasMap, SemanticPipelineBase, _parse_instrument_aliases
+from .base import InstrumentAliasMap, SemanticPipelineBase
 from .citation_detect import (
     CitationHit,
     DutchCitationExtractor,
@@ -178,7 +178,7 @@ def _collect_eu_instrument_hits(
         (_VERORDENING_PATTERN, "regulation"),
     ):
         for match in pattern.finditer(text):
-            celex_value = format_celex(kind, match.group(1), match.group(2))
+            celex_value = format_celex(kind, match.group(1), match.group(2))  # type: ignore[arg-type]
             record(
                 CitationHit(
                     kind="instrument",
@@ -235,7 +235,9 @@ def detect_tk_citations(
     if not text:
         return []
 
-    parsed_aliases: InstrumentAliasMap = _parse_instrument_aliases(instrument_aliases)
+    parsed_aliases: InstrumentAliasMap = SemanticPipelineBase._parse_instrument_aliases(
+        instrument_aliases
+    )
 
     # Build name_aliases: {full name → first non-None id (bwb or celex)}
     name_aliases: dict[str, str] = {}
@@ -281,13 +283,9 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        from lawgraph.utils.time import iso_timestamp
+        from lawgraph.core.time import iso_timestamp
 
         since_iso = iso_timestamp(since)
-        documents = list(self._load_tk_documents(since_iso=since_iso))
-        if not documents:
-            logger.debug("No TK documents found for semantic linking.")
-            return result
 
         code_aliases = self._load_code_aliases()
         instrument_aliases = self._load_instrument_aliases()
@@ -311,12 +309,15 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
         named_act_patterns = _build_named_act_patterns(instrument_aliases)
 
         logger.info(
-            "Processing %d TK documents for semantic linking (since=%s).",
-            len(documents),
+            "Processing TK documents for semantic linking (since=%s).",
             describe_since(since),
         )
 
-        for document in documents:
+        edge_batch: list[dict[str, Any]] = []
+        doc_count = 0
+
+        for document in self._load_tk_documents(since_iso=since_iso):
+            doc_count += 1
             text = self._extract_document_text(document)
             if not text:
                 result.skipped += 1
@@ -341,21 +342,32 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
                     }.items()
                     if v
                 }
-                created = self._create_semantic_edge(
+                edge_doc = self._make_edge_doc(
                     from_node=document,
                     to_node=target_node,
                     relation=relation,
                     source=SEMANTIC_SOURCE,
                     confidence=hit.confidence,
                     meta=meta,
-                    result=result,
                 )
-                if created:
-                    result.created += 1
-                else:
-                    result.updated += 1
+                if edge_doc:
+                    edge_batch.append(edge_doc)
+                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                        created, updated = self._flush_edge_batch(edge_batch, result)
+                        result.created += created
+                        result.updated += updated
+                        edge_batch = []
 
-        logger.info("TK semantic article linker: %s.", result.summary())
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
+
+        logger.info(
+            "TK semantic article linker: processed %d documents, %s.",
+            doc_count,
+            result.summary(),
+        )
         return result
 
     def _collect_all_hits(
@@ -387,7 +399,7 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
 
     def _load_tk_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
         if since_iso is not None:
-            from lawgraph.config.settings import (
+            from lawgraph.config.constants import (
                 RAW_KIND_TK_DOCUMENTVERSIE,
                 RAW_KIND_TK_ZAAK,
                 SOURCE_TK,

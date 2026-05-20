@@ -6,9 +6,10 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
+from lawgraph.clients._sru import parse_sru_records
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import STAATSBLAD_REPO_BASE, STAATSBLAD_SRU_ENDPOINT
-from lawgraph.logging import get_logger
+from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -83,50 +84,11 @@ class StaatsbladClient(BaseClient):
 
     def _parse_sru_records(self, root: ET.Element) -> list[dict[str, Any]]:
         """Parse SRU response XML into a list of record dicts."""
-        records: list[dict[str, Any]] = []
-        ns_strip = re.compile(r"\{[^}]+\}")
-
-        def strip_ns(tag: str) -> str:
-            return ns_strip.sub("", tag)
-
-        def find_text(elem: ET.Element, local_name: str) -> str | None:
-            """Find first element with matching local name, return its text."""
-            for child in elem.iter():
-                if strip_ns(child.tag) == local_name:
-                    return (child.text or "").strip() or None
-            return None
-
-        for record_elem in root.iter():
-            if strip_ns(record_elem.tag) != "record":
-                continue
-
-            identifier = find_text(record_elem, "identifier") or find_text(
-                record_elem, "recordIdentifier"
-            )
-            if not identifier:
-                continue
-
-            # Extract year/number from identifier like stb-2023-450
-            m = _STB_ID_PATTERN.search(identifier)
-            if not m:
-                continue
-
-            year = m.group(1)
-            number = m.group(2)
-            title = find_text(record_elem, "title") or f"Staatsblad {year}/{number}"
-            content_url = find_text(record_elem, "contentURL")
-
-            records.append(
-                {
-                    "identifier": identifier,
-                    "year": year,
-                    "number": number,
-                    "title": title,
-                    "content_url": content_url,
-                }
-            )
-
-        return records
+        return parse_sru_records(
+            root,
+            id_pattern=_STB_ID_PATTERN,
+            default_title_prefix="Staatsblad",
+        )
 
     def fetch_publication_xml(self, identifier: str) -> str | None:
         """Fetch the XML for a Staatsblad publication by identifier.

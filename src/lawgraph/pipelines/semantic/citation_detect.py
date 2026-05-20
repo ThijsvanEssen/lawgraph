@@ -30,6 +30,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from lawgraph.config.constants import BWB_ID_PREFIX
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -331,7 +332,7 @@ class DutchCitationExtractor:
                 continue
 
             qual = (match.group("qual") or "").strip(", ") or None
-            is_bwb = law_id.upper().startswith("BWBR")
+            is_bwb = law_id.upper().startswith(BWB_ID_PREFIX)
 
             for art_num in article_numbers:
                 dedup_key = (

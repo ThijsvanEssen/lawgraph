@@ -13,18 +13,14 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
+from lawgraph.clients._sru import parse_sru_records
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import STAATSBLAD_REPO_BASE, STAATSCOURANT_SRU_ENDPOINT
-from lawgraph.logging import get_logger
+from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 _STCRT_ID_PATTERN = re.compile(r"stcrt-(\d{4})-(\d+)", re.IGNORECASE)
-_NS_STRIP = re.compile(r"\{[^}]+\}")
-
-
-def _strip_ns(tag: str) -> str:
-    return _NS_STRIP.sub("", tag)
 
 
 class StaatscourantClient(BaseClient):
@@ -93,46 +89,12 @@ class StaatscourantClient(BaseClient):
 
     def _parse_sru_records(self, root: ET.Element) -> list[dict[str, Any]]:
         """Parse SRU response XML into record dicts."""
-        records: list[dict[str, Any]] = []
-
-        def find_text(elem: ET.Element, local_name: str) -> str | None:
-            for child in elem.iter():
-                if _strip_ns(child.tag) == local_name:
-                    return (child.text or "").strip() or None
-            return None
-
-        for record_elem in root.iter():
-            if _strip_ns(record_elem.tag) != "record":
-                continue
-
-            identifier = find_text(record_elem, "identifier") or find_text(
-                record_elem, "recordIdentifier"
-            )
-            if not identifier:
-                continue
-
-            m = _STCRT_ID_PATTERN.search(identifier)
-            if not m:
-                continue
-
-            year = m.group(1)
-            number = m.group(2)
-            title = find_text(record_elem, "title") or f"Staatscourant {year}/{number}"
-            content_url = find_text(record_elem, "contentURL")
-            date = find_text(record_elem, "date")
-
-            records.append(
-                {
-                    "identifier": identifier,
-                    "year": year,
-                    "number": number,
-                    "title": title,
-                    "content_url": content_url,
-                    "date": date,
-                }
-            )
-
-        return records
+        return parse_sru_records(
+            root,
+            id_pattern=_STCRT_ID_PATTERN,
+            extra_fields=("date",),
+            default_title_prefix="Staatscourant",
+        )
 
     def fetch_publication_xml(self, identifier: str) -> str | None:
         """Fetch the XML for a Staatscourant publication by identifier."""

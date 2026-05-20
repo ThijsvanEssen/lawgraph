@@ -12,6 +12,7 @@ from lawgraph.api.queries import (
     get_stemming_publication,
     get_stemmingen,
 )
+from lawgraph.api.routes.publications import _build_publication_text_response
 from lawgraph.api.schemas import (
     PartijStemDTO,
     PublicationTextResponse,
@@ -19,38 +20,8 @@ from lawgraph.api.schemas import (
     StemmingListResponse,
     StemmingSummaryItemDTO,
 )
-from lawgraph.config.settings import TK_BASE_URL
+from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-
-_TK_DOCUMENT_RESOURCE = TK_BASE_URL.rstrip("/") + "/Document({external_id})/resource"
-
-
-def _publication_text_response(doc: dict) -> PublicationTextResponse:
-    props: dict = doc.get("props") or {}
-    external_id: str | None = props.get("external_id")
-    tk_url = (
-        _TK_DOCUMENT_RESOURCE.format(external_id=external_id)
-        if external_id and props.get("source") == "tk"
-        else None
-    )
-    datum: str | None = props.get("datum")
-    if datum is None:
-        raw = props.get("raw") or {}
-        datum = raw.get("Datum")
-    if datum and "T" in str(datum):
-        datum = str(datum).split("T")[0]
-    return PublicationTextResponse(
-        key=doc["_key"],
-        publication_id=doc["_id"],
-        title=props.get("title"),
-        soort=props.get("soort"),
-        datum=datum,
-        external_id=external_id,
-        tk_url=tk_url,
-        text=props.get("text"),
-    )
-
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -121,6 +92,7 @@ async def get_stemming(
         key=doc["key"],
         datum=doc.get("datum"),
         onderwerp=doc.get("onderwerp"),
+        besluit_id=doc.get("besluit_id"),
         aangenomen=bool(doc.get("aangenomen")),
         chamber=doc.get("chamber"),
         voor=[
@@ -160,4 +132,4 @@ async def get_stemming_publication_route(
             status_code=404,
             detail=f"No publication resolvable for stemming '{key}'.",
         )
-    return _publication_text_response(pub)
+    return _build_publication_text_response(pub)

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
+    COLLECTION_PUBLICATIONS,
     RELATION_EXPLAINS_INSTRUMENT,
     SOURCE_STAATSBLAD,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, PipelineResult
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
 
 from .base import SemanticPipelineBase
 
@@ -101,10 +102,8 @@ FOR pub IN publications
 
             confidence = 0.85 if match_type == "bwb_id" else 0.60
 
-            pub_collection = pub_id.split("/")[0] if "/" in pub_id else "publications"
-            inst_collection = (
-                inst_id.split("/")[0] if "/" in inst_id else COLLECTION_INSTRUMENTS
-            )
+            pub_collection = collection_from_id(pub_id, COLLECTION_PUBLICATIONS)
+            inst_collection = collection_from_id(inst_id, COLLECTION_INSTRUMENTS)
 
             pub_node = Node(
                 collection=pub_collection,

@@ -6,8 +6,8 @@ import datetime as dt
 import re
 from typing import Iterable
 
-from lawgraph.config.settings import (
-    COLLECTION_EDGES,
+from lawgraph.config.constants import (
+    BWB_ID_PREFIX,
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_KAMERSTUKDOSSIERS,
     COLLECTION_PUBLICATIONS,
@@ -19,8 +19,9 @@ from lawgraph.config.settings import (
     RELATION_TREKT_IN,
     RELATION_WIJZIGT,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, PipelineResult, make_node_key
+from lawgraph.config.settings import COLLECTION_EDGES
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 from lawgraph.pipelines.semantic.citation_detect import (
     CitationHit,
@@ -136,27 +137,23 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
         """Scan TK publications for amendment language and create semantic edges."""
         result = PipelineResult()
 
-        documents = list(self._load_tk_publications(since=since))
-        if not documents:
-            logger.debug("No TK publications found for amendment scanning.")
-            return result
-
-        # Pre-load AMENDS_INSTRUMENT edges so we can map a publication → BWB ids
-        # without N round-trips. Most TK publications carry no props.bwb_id but
-        # the instrument_relations pipeline links them to instrument nodes,
-        # which we can mine for the bwb_id needed to scope amendment scanning.
+        # Pre-load indexes before streaming documents.
         amends_index = self._load_amends_instrument_index()
         open_pub_ids = self._load_open_publication_ids()
 
         logger.info(
-            "Scanning %d TK publications for amendment language (%d with "
-            "AMENDS_INSTRUMENT context, %d from open dossiers).",
-            len(documents),
+            "Scanning TK publications for amendment language (%d with "
+            "AMENDS_INSTRUMENT context, %d from open dossiers, since=%s).",
             len(amends_index),
             len(open_pub_ids),
+            since,
         )
 
-        for document in documents:
+        edge_batch: list[dict] = []
+        doc_count = 0
+
+        for document in self._load_tk_publications(since=since):
+            doc_count += 1
             bwb_ids = self._resolve_bwb_ids(document, amends_index)
             if not bwb_ids:
                 logger.debug(
@@ -188,7 +185,7 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
                     continue
 
                 for hit, relation in hits:
-                    key = make_node_key(hit.bwb_id, hit.article_number)
+                    key = make_node_key(hit.bwb_id or "", hit.article_number or "")
                     target_node = self.store.get_node(
                         COLLECTION_INSTRUMENT_ARTICLES, key
                     )
@@ -199,22 +196,35 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
                         )
                         continue
 
-                    created = self._create_semantic_edge(
+                    edge_doc = self._make_edge_doc(
                         from_node=document,
                         to_node=target_node,
                         relation=relation,
                         source=SEMANTIC_SOURCE,
                         confidence=hit.confidence,
                         meta={"reason": "amendment_text", "snippet": hit.snippet},
-                        result=result,
                         status=edge_status,
                     )
-                    if created:
-                        result.created += 1
-                    else:
-                        result.updated += 1
+                    if edge_doc:
+                        edge_batch.append(edge_doc)
+                        if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                            created, updated = self._flush_edge_batch(
+                                edge_batch, result
+                            )
+                            result.created += created
+                            result.updated += updated
+                            edge_batch = []
 
-        logger.info("Amendment article linker: %s.", result.summary())
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
+
+        logger.info(
+            "Amendment article linker: processed %d documents, %s.",
+            doc_count,
+            result.summary(),
+        )
         return result
 
     def _load_tk_publications(
@@ -222,7 +232,7 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
     ) -> Iterable[Node]:
         since_iso: str | None = None
         if since is not None:
-            from lawgraph.utils.time import iso_timestamp
+            from lawgraph.core.time import iso_timestamp
 
             since_iso = iso_timestamp(since)
 
@@ -314,13 +324,13 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
         code_aliases = document.props.get("code_aliases")
         if isinstance(code_aliases, dict):
             for value in code_aliases.values():
-                if isinstance(value, str) and value.upper().startswith("BWBR"):
+                if isinstance(value, str) and value.upper().startswith(BWB_ID_PREFIX):
                     stripped = value.strip()
                     if stripped and stripped not in bwb_ids:
                         bwb_ids.append(stripped)
 
         # Edge-based fallback — the common path for hydrated TK publications.
-        for bwb_id in amends_index.get(document.id, []):
+        for bwb_id in amends_index.get(document.id or "", []):
             if bwb_id not in bwb_ids:
                 bwb_ids.append(bwb_id)
 

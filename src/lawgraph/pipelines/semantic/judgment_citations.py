@@ -6,10 +6,15 @@ import datetime as dt
 import re
 from typing import Any, Iterable
 
-from lawgraph.config.settings import COLLECTION_JUDGMENTS, RELATION_CITES_JUDGMENT
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.utils.time import describe_since
+from lawgraph.config.constants import (
+    COLLECTION_JUDGMENTS,
+    EDGE_STATUS_CANONIEK,
+    RELATION_CITES_JUDGMENT,
+)
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import describe_since
+from lawgraph.db import _edge_key as _sha1_edge_key
 
 from .base import SemanticPipelineBase
 
@@ -41,86 +46,118 @@ def detect_ecli_references(text: str | None) -> list[str]:
 class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create CITES_JUDGMENT edges."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:  # noqa: C901
         result = PipelineResult()
-        judgments = list(self._load_judgments())
 
-        if not judgments:
-            logger.debug("No judgments found for ECLI citation linking.")
-            return result
+        # Phase 1: stream judgments, collect (judgment_id, cited_ecli) pairs.
+        # Avoids materialising the full corpus into Python heap.
+        pending: list[tuple[str, str]] = []
+        all_cited_eclis: set[str] = set()
+        doc_count = 0
 
-        logger.info(
-            "Scanning %d judgments for ECLI cross-references (since=%s).",
-            len(judgments),
-            describe_since(since),
-        )
-
-        for doc in judgments:
+        for doc in self._load_judgments(since=since):
             judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
             text = self._extract_text(judgment)
             eclis = detect_ecli_references(text)
+            if not eclis:
+                continue
 
+            source_ecli = (judgment.props.get("ecli") or "").upper()
+            doc_count += 1
+            if not judgment.id:
+                continue
             for ecli in eclis:
-                # Do not create self-references.
-                if ecli.upper() == (judgment.props.get("ecli") or "").upper():
+                if ecli == source_ecli:
                     continue
+                pending.append((judgment.id, ecli))
+                all_cited_eclis.add(ecli)
 
-                target = self._resolve_or_stub_judgment(ecli)
-                if target is None:
-                    continue
+        if not pending:
+            logger.debug(
+                "No ECLI cross-references found (since=%s).", describe_since(since)
+            )
+            return result
 
-                created = self._create_semantic_edge(
-                    from_node=judgment,
-                    to_node=target,
-                    relation=RELATION_CITES_JUDGMENT,
-                    source=SEMANTIC_SOURCE,
-                    confidence=0.95,
-                    meta={"cited_ecli": ecli},
-                    result=result,
-                )
-                if created:
-                    result.created += 1
-                else:
-                    result.updated += 1
+        logger.info(
+            "Found %d ECLI references across %d judgments (since=%s).",
+            len(pending),
+            doc_count,
+            describe_since(since),
+        )
+
+        # Phase 2: batch-resolve all cited ECLIs to node IDs in one query.
+        ecli_to_id: dict[str, str] = {}
+        aql = f"""
+        FOR doc IN {COLLECTION_JUDGMENTS}
+            FILTER doc.props.ecli IN @eclis
+            RETURN {{ ecli: doc.props.ecli, id: doc._id }}
+        """
+        for row in self.store.query(aql, bind_vars={"eclis": list(all_cited_eclis)}):
+            ecli_val = (row.get("ecli") or "").upper()
+            node_id = row.get("id") or ""
+            if ecli_val and node_id:
+                ecli_to_id[ecli_val] = node_id
+
+        # Create stubs for ECLIs not yet in the corpus.
+        for ecli in all_cited_eclis:
+            if ecli in ecli_to_id:
+                continue
+            key = make_node_key(ecli)
+            node = self.store.ensure_stub_node(
+                COLLECTION_JUDGMENTS,
+                key,
+                NodeType.JUDGMENT,
+                props={"ecli": ecli},
+            )
+            if node and node.id:
+                ecli_to_id[ecli] = node.id
+
+        # Phase 3: build and flush edge docs in one batch AQL call.
+        edge_batch: list[dict[str, Any]] = []
+
+        for from_id, cited_ecli in pending:
+            to_id = ecli_to_id.get(cited_ecli)
+            if not to_id:
+                continue
+            edge_doc: dict[str, Any] = {
+                "_key": _sha1_edge_key(from_id, RELATION_CITES_JUDGMENT, to_id),
+                "_from": from_id,
+                "_to": to_id,
+                "relation": RELATION_CITES_JUDGMENT,
+                "confidence": 0.95,
+                "source": SEMANTIC_SOURCE,
+                "status": EDGE_STATUS_CANONIEK,
+                "meta": {"cited_ecli": cited_ecli},
+            }
+            edge_batch.append(edge_doc)
+            if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                created, updated = self._flush_edge_batch(edge_batch, result)
+                result.created += created
+                result.updated += updated
+                edge_batch = []
+
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
 
         logger.info("Judgment citation linker: %s.", result.summary())
         return result
 
-    def _load_judgments(self) -> Iterable[dict[str, Any]]:
-        aql = f"FOR doc IN {COLLECTION_JUDGMENTS} RETURN doc"
-        return self.store.query(aql)
+    def _load_judgments(
+        self, since: dt.datetime | None = None
+    ) -> Iterable[dict[str, Any]]:
+        if since is not None:
+            from lawgraph.core.time import iso_timestamp
 
-    def _resolve_or_stub_judgment(self, ecli: str) -> Node | None:
-        """Return the judgment node for *ecli*, creating a stub if it isn't in the DB yet."""
-        key = make_node_key(ecli)
-        node = self.store.get_node(COLLECTION_JUDGMENTS, key)
-        if node is not None:
-            return node
-
-        # Try secondary lookup by props.ecli (handles legacy non-deterministic keys).
-        aql = f"""
-        FOR doc IN {COLLECTION_JUDGMENTS}
-            FILTER doc.props.ecli == @ecli
-            LIMIT 1
-            RETURN doc
-        """
-        for doc in self.store.query(aql, bind_vars={"ecli": ecli}):
-            return Node.from_document(COLLECTION_JUDGMENTS, doc)
-
-        # Judgment isn't loaded yet — create a stub so the graph stays connected
-        # and the frontend can surface "click here to import this judgment."
-        logger.debug("Creating stub judgment for %s", ecli)
-        return self.store.ensure_stub_node(
-            COLLECTION_JUDGMENTS,
-            key,
-            NodeType.JUDGMENT,
-            props={"ecli": ecli},
-        )
+            since_iso = iso_timestamp(since)
+            aql = f"""
+            FOR doc IN {COLLECTION_JUDGMENTS}
+                FILTER doc.props.fetched_at >= @since
+                RETURN doc
+            """
+            return self.store.query(aql, bind_vars={"since": since_iso})
+        return self.store.query(f"FOR doc IN {COLLECTION_JUDGMENTS} RETURN doc")
 
     def _extract_text(self, judgment: Node) -> str | None:
-        props = judgment.props
-        for key in ("raw_xml", "text", "body"):
-            value = props.get(key)
-            if isinstance(value, str) and value.strip():
-                return value
-        return None
+        return self._extract_props_text(judgment.props, "raw_xml", "text", "body")

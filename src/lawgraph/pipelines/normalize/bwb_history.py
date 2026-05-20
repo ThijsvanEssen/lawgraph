@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db import _edge_key as _sha1_edge_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 
 logger = get_logger(__name__)
@@ -197,8 +198,6 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
         normalized: dict[str, Any],
     ) -> int:
         """Create VERSION_OF, PART_OF_VERSION, and SUPERSEDES edges."""
-        import hashlib
-
         instruments: dict[str, Node] = normalized.get("instruments_by_bwb", {})
         versions: dict[str, Node] = normalized.get("versions_by_key", {})
         article_versions: dict[str, Node] = normalized.get(
@@ -216,9 +215,9 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
             instrument = instruments.get(bwb_id)
             if not instrument or not instrument.id:
                 continue
-            edge_key = hashlib.sha1(
-                f"{version_node.id}:{RELATION_VERSION_OF}:{instrument.id}".encode()
-            ).hexdigest()
+            edge_key = _sha1_edge_key(
+                version_node.id, RELATION_VERSION_OF, instrument.id
+            )
             edge_docs.append(
                 {
                     "_key": edge_key,
@@ -244,9 +243,9 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
             linked_version = versions.get(version_key)
             if not linked_version or not linked_version.id:
                 continue
-            edge_key = hashlib.sha1(
-                f"{article_version_node.id}:{RELATION_PART_OF_VERSION}:{linked_version.id}".encode()
-            ).hexdigest()
+            edge_key = _sha1_edge_key(
+                article_version_node.id, RELATION_PART_OF_VERSION, linked_version.id
+            )
             edge_docs.append(
                 {
                     "_key": edge_key,
@@ -273,9 +272,7 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
                 newer_id = db_versions[i]["_id"]
                 older_id = db_versions[i + 1]["_id"]
                 if newer_id and older_id:
-                    edge_key = hashlib.sha1(
-                        f"{newer_id}:{RELATION_SUPERSEDES}:{older_id}".encode()
-                    ).hexdigest()
+                    edge_key = _sha1_edge_key(newer_id, RELATION_SUPERSEDES, older_id)
                     edge_docs.append(
                         {
                             "_key": edge_key,

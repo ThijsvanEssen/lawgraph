@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import datetime as dt
-import hashlib
 from typing import Any
 
-from lawgraph.config import load_domain_config
-from lawgraph.config.settings import EDGE_STATUS_CANONIEK
-from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, PipelineResult
+from lawgraph.config.constants import BWB_ID_PREFIX, EDGE_STATUS_CANONIEK
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, PipelineResult
+from lawgraph.db import _edge_key as _sha1_edge_key
+from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
@@ -16,68 +14,52 @@ CodeMapping = dict[str, str]
 InstrumentAliasMap = dict[str, tuple[str | None, str | None]]
 
 
-def _sha1_edge_key(from_id: str, relation: str, to_id: str) -> str:
-    """Deterministic SHA-1 edge key — identical scheme used by ArangoStore.create_edge."""
-    return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
-
-
-class SemanticPipelineBase:
+class SemanticPipelineBase(PipelineBase):
     """Shared base for all semantic pipelines.
 
-    Provides domain config loading, alias resolution, and the canonical
-    _create_semantic_edge() helper so subclasses only implement run().
+    Provides alias resolution and edge helpers so subclasses only implement run().
     """
 
-    def __init__(
-        self,
-        *,
-        store: ArangoStore,
-        domain_profile: str | None = None,
-        domain_config: dict[str, Any] | None = None,
-    ) -> None:
-        self.store = store
-        self._domain_profile_name = domain_profile
-        self._domain_config = domain_config
-
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        raise NotImplementedError
+    _EDGE_BATCH_SIZE: int = 500
 
     # ------------------------------------------------------------------ config
 
-    def _load_domain_config(self) -> dict[str, Any]:
-        if self._domain_config is not None:
-            return self._domain_config
-
-        if not self._domain_profile_name:
-            self._domain_config = {}
-            return self._domain_config
-
-        try:
-            self._domain_config = load_domain_config(self._domain_profile_name)
-        except FileNotFoundError as exc:
-            logger.warning(
-                "Unable to load profile %s: %s",
-                self._domain_profile_name,
-                exc,
-            )
-            self._domain_config = {}
-
-        return self._domain_config
-
     def _load_code_aliases(self) -> CodeMapping:
-        config = self._load_domain_config()
-        aliases = config.get("code_aliases", {})
-        if not isinstance(aliases, dict):
-            return {}
-        return {str(k).strip(): str(v).strip() for k, v in aliases.items() if k and v}
+        """Build short_title → bwb_id/celex map from instruments in the graph."""
+        aql = """
+        FOR inst IN instruments
+            FILTER inst.props.short_title != null
+            FILTER inst.props.bwb_id != null OR inst.props.celex != null
+            RETURN {
+                short_title: inst.props.short_title,
+                bwb_id: inst.props.bwb_id,
+                celex: inst.props.celex
+            }
+        """
+        mapping: CodeMapping = {}
+        try:
+            for row in self.store.query(aql):
+                key = str(row["short_title"]).strip()
+                if not key:
+                    continue
+                bwb_id = row.get("bwb_id")
+                celex = row.get("celex")
+                if bwb_id:
+                    mapping[key] = str(bwb_id).strip()
+                elif celex:
+                    mapping[key] = str(celex).strip()
+        except Exception as exc:
+            logger.debug("Code alias query unavailable: %s", exc)
+        return mapping
 
-    def _build_graph_instrument_index(self) -> InstrumentAliasMap:
+    def _load_instrument_aliases(self) -> InstrumentAliasMap:
         """Query the instruments collection to build a name → (bwb_id, celex) map.
 
-        Only includes instruments that have a bwb_id or celex prop. Both the
-        ``title`` and ``citation_title`` props are indexed as keys. First-write
-        wins — if two instruments share a name, the first one encountered wins.
-        Returns an empty dict if the store is unavailable.
+        Only includes instruments that have a bwb_id or celex prop. The
+        ``title`` and ``citation_title`` props are indexed as keys (not
+        ``short_title``, which is used by ``_load_code_aliases`` instead).
+        First-write wins — if two instruments share a name, the first one
+        encountered wins. Returns an empty dict if the store is unavailable.
         """
         aql = """
         FOR inst IN instruments
@@ -112,19 +94,6 @@ class SemanticPipelineBase:
                     index[label] = pair
 
         return index
-
-    def _load_instrument_aliases(self) -> InstrumentAliasMap:
-        # 1. Broad graph-derived index (first-write wins within the graph)
-        merged = self._build_graph_instrument_index()
-
-        # 2. Profile aliases override/extend the graph index
-        config = self._load_domain_config()
-        raw = config.get("instrument_aliases", {})
-        if isinstance(raw, dict):
-            profile_aliases = _parse_instrument_aliases(raw)
-            merged.update(profile_aliases)  # profile takes precedence
-
-        return merged
 
     # ------------------------------------------------------------------ edges
 
@@ -227,30 +196,46 @@ class SemanticPipelineBase:
             "meta": dict(meta or {}),
         }
 
+    @staticmethod
+    def _extract_props_text(props: dict[str, Any], *keys: str) -> str | None:
+        """Return the first non-empty string value found under the given keys."""
+        for key in keys:
+            value = props.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+        return None
 
-def _parse_instrument_aliases(raw: dict[str, Any]) -> InstrumentAliasMap:
-    aliases: InstrumentAliasMap = {}
-    for alias, value in raw.items():
-        label = str(alias or "").strip()
-        if not label:
-            continue
-        # Already a parsed tuple — pass through.
-        if isinstance(value, tuple) and len(value) == 2:
-            aliases[label] = value  # type: ignore[assignment]
-            continue
-        if isinstance(value, dict):
-            bwb_id = value.get("bwb_id")
-            celex = value.get("celex")
-            aliases[label] = (
-                str(bwb_id).strip().upper() if bwb_id else None,
-                str(celex).strip().upper() if celex else None,
-            )
-            continue
-        scalar = str(value or "").strip()
-        if not scalar:
-            continue
-        if scalar.upper().startswith("BWBR"):
-            aliases[label] = (scalar.upper(), None)
-        else:
-            aliases[label] = (None, scalar.upper())
-    return aliases
+    @staticmethod
+    def _parse_instrument_aliases(raw: dict[str, Any]) -> InstrumentAliasMap:
+        """Parse a dict of instrument alias entries into a normalised InstrumentAliasMap.
+
+        Accepts values in several forms:
+        - a (bwb_id, celex) tuple
+        - a dict with ``bwb_id`` and/or ``celex`` keys
+        - a scalar string (BWBR… → bwb_id, anything else → celex)
+        """
+        aliases: InstrumentAliasMap = {}
+        for alias, value in raw.items():
+            label = str(alias or "").strip()
+            if not label:
+                continue
+            # Already a parsed tuple — pass through.
+            if isinstance(value, tuple) and len(value) == 2:
+                aliases[label] = value  # type: ignore[assignment]
+                continue
+            if isinstance(value, dict):
+                bwb_id = value.get("bwb_id")
+                celex = value.get("celex")
+                aliases[label] = (
+                    str(bwb_id).strip().upper() if bwb_id else None,
+                    str(celex).strip().upper() if celex else None,
+                )
+                continue
+            scalar = str(value or "").strip()
+            if not scalar:
+                continue
+            if scalar.upper().startswith(BWB_ID_PREFIX):
+                aliases[label] = (scalar.upper(), None)
+            else:
+                aliases[label] = (None, scalar.upper())
+        return aliases

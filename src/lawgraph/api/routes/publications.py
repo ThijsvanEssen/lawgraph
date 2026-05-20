@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -12,14 +12,18 @@ from lawgraph.api.schemas import (
     PublicationSummary,
     PublicationTextResponse,
 )
-from lawgraph.config.settings import TK_BASE_URL
+from lawgraph.config.constants import (
+    RELATION_CITES_ARTICLE,
+    RELATION_EXPLAINS_ARTICLE,
+    RELATION_MENTIONS_ARTICLE,
+)
+from lawgraph.config.settings import TK_DOCUMENT_RESOURCE_URL
+from lawgraph.core.logging import get_logger
+from lawgraph.core.time import strip_time_component
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
-
-_TK_DOCUMENT_RESOURCE = TK_BASE_URL.rstrip("/") + "/Document({external_id})/resource"
 
 
 def _normalise_datum(props: dict) -> str | None:
@@ -27,9 +31,28 @@ def _normalise_datum(props: dict) -> str | None:
     if datum is None:
         raw = props.get("raw") or {}
         datum = raw.get("Datum")
-    if datum and "T" in str(datum):
-        datum = str(datum).split("T")[0]
-    return datum
+    return strip_time_component(datum)
+
+
+def _build_publication_text_response(doc: dict) -> PublicationTextResponse:
+    """Build a PublicationTextResponse from a raw ArangoDB publication document."""
+    props: dict = doc.get("props") or {}
+    external_id: str | None = props.get("external_id")
+    tk_url = (
+        TK_DOCUMENT_RESOURCE_URL.format(external_id=external_id)
+        if external_id and props.get("source") == "tk"
+        else None
+    )
+    return PublicationTextResponse(
+        key=doc["_key"],
+        publication_id=doc["_id"],
+        title=props.get("title"),
+        soort=props.get("soort"),
+        datum=_normalise_datum(props),
+        external_id=external_id,
+        tk_url=tk_url,
+        text=props.get("text"),
+    )
 
 
 @router.get("", response_model=PublicationListResponse)
@@ -76,6 +99,10 @@ def list_publications(
         )
         bind_vars["q"] = q
 
+    bind_vars["r_mentions"] = RELATION_MENTIONS_ARTICLE
+    bind_vars["r_explains"] = RELATION_EXPLAINS_ARTICLE
+    bind_vars["r_cites"] = RELATION_CITES_ARTICLE
+
     filters_str = "\n    ".join(aql_filters)
     aql = f"""
 FOR doc IN publications
@@ -84,7 +111,7 @@ FOR doc IN publications
     LET linked = LENGTH(
         FOR e IN edges
             FILTER e._from == doc._id
-            FILTER e.relation IN ["MENTIONS_ARTICLE", "EXPLAINS_ARTICLE", "CITES_ARTICLE"]
+            FILTER e.relation IN [@r_mentions, @r_explains, @r_cites]
             RETURN 1
     )
     RETURN {{
@@ -102,9 +129,7 @@ FOR doc IN publications
 
     items: list[PublicationSummary] = []
     for row in rows:
-        datum = row.get("datum")
-        if datum and "T" in str(datum):
-            datum = str(datum).split("T")[0]
+        datum = strip_time_component(row.get("datum"))
         items.append(
             PublicationSummary(
                 key=row["key"],
@@ -136,27 +161,9 @@ def get_publication_text(
     document (e.g. scanned PDFs without a text layer).
     """
     # Publication keys are sanitised to lowercase at ingest; accept any case.
-    doc = store.publications.get(key.lower())
-    if doc is None:
+    raw_doc = store.publications.get(key.lower())
+    if raw_doc is None:
         raise HTTPException(status_code=404, detail=f"Publication '{key}' not found.")
 
-    props: dict = doc.get("props") or {}
-    external_id: str | None = props.get("external_id")
-
-    # Construct direct TK API resource URL only for TK-sourced publications.
-    tk_url: str | None = None
-    if external_id and props.get("source") == "tk":
-        tk_url = _TK_DOCUMENT_RESOURCE.format(external_id=external_id)
-
-    datum = _normalise_datum(props)
-
-    return PublicationTextResponse(
-        key=key,
-        publication_id=doc["_id"],
-        title=props.get("title"),
-        soort=props.get("soort"),
-        datum=datum,
-        external_id=external_id,
-        tk_url=tk_url,
-        text=props.get("text"),
-    )
+    doc = cast(dict, raw_doc)
+    return _build_publication_text_response(doc)

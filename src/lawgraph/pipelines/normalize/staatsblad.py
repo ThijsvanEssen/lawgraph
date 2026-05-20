@@ -7,42 +7,19 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_PUBLICATIONS,
     RAW_KIND_STB_AMVB,
     SOURCE_STAATSBLAD,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.pipelines.normalize._xml import extract_section_text, find_text
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
 
-_NS_STRIP = re.compile(r"\{[^}]+\}")
 _STB_ID_PATTERN = re.compile(r"stb-(\d{4})-(\d+)", re.IGNORECASE)
-
-
-def _strip_ns(tag: str) -> str:
-    return _NS_STRIP.sub("", tag)
-
-
-def _find_text(elem: ET.Element, *local_names: str) -> str | None:
-    """Find the first element whose local name matches any of local_names, return its text."""
-    for child in elem.iter():
-        if _strip_ns(child.tag) in local_names:
-            text = "".join(child.itertext()).strip()
-            if text:
-                return text
-    return None
-
-
-def _extract_section_text(elem: ET.Element, *section_names: str) -> str | None:
-    """Find a section element by local name and return all its itertext."""
-    for child in elem.iter():
-        if _strip_ns(child.tag) in section_names:
-            text = " ".join(child.itertext()).strip()
-            return text if text else None
-    return None
 
 
 class StaatsbladNormalizePipeline(NormalizePipeline):
@@ -60,7 +37,9 @@ class StaatsbladNormalizePipeline(NormalizePipeline):
         logger.info("Loaded %d Staatsblad raw_sources.", len(rows))
         return rows
 
-    def normalize_nodes(self, raw: list[dict[str, Any]]) -> dict[str, Node]:
+    def normalize_nodes(
+        self, raw: list[dict[str, Any]], result: PipelineResult
+    ) -> dict[str, Node]:
         """Parse Staatsblad XML into Publication nodes."""
         nodes: dict[str, Node] = {}
 
@@ -71,17 +50,17 @@ class StaatsbladNormalizePipeline(NormalizePipeline):
                 logger.warning(
                     "Staatsblad record %s has no text payload; skipping.", identifier
                 )
-                self._result.skipped += 1
+                result.skipped += 1
                 continue
 
             node = self._parse_publication(identifier, payload_text)
             if node is None:
-                self._result.skipped += 1
+                result.skipped += 1
                 continue
 
             node = self.store.insert_or_update(node)
             nodes[identifier] = node
-            self._result.created += 1
+            result.created += 1
 
         logger.info("Staatsblad normalize: %d publications processed.", len(nodes))
         return nodes
@@ -100,25 +79,25 @@ class StaatsbladNormalizePipeline(NormalizePipeline):
             year = m.group(1)
             number = m.group(2)
         else:
-            year_text = _find_text(root, "publicatiejaar")
-            number_text = _find_text(root, "publicatienummer")
+            year_text = find_text(root, "publicatiejaar")
+            number_text = find_text(root, "publicatienummer")
             year = year_text or ""
             number = number_text or ""
 
         # Extract title
         title = (
-            _find_text(root, "citeertitel")
-            or _find_text(root, "officiele-titel", "officieletitel")
-            or _find_text(root, "titel")
+            find_text(root, "citeertitel")
+            or find_text(root, "officiele-titel", "officieletitel")
+            or find_text(root, "titel")
             or f"Staatsblad {year}/{number}"
         )
 
         # Extract NvT text from nota-van-toelichting section
-        nvt_text = _extract_section_text(
+        nvt_text = extract_section_text(
             root, "nota-van-toelichting", "nota_van_toelichting"
         )
         if not nvt_text:
-            nvt_text = _extract_section_text(root, "toelichting")
+            nvt_text = extract_section_text(root, "toelichting")
 
         # Try to extract BWB ID from grondslagen or other references
         bwb_id = _extract_bwb_id(root)

@@ -10,9 +10,14 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from lawgraph.config.settings import COLLECTION_INSTRUMENT_ARTICLES, RELATION_LICHT_TOE
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, PipelineResult
+from lawgraph.config.constants import (
+    COLLECTION_INSTRUMENT_ARTICLES,
+    RELATION_LICHT_TOE,
+    RELATION_RAAKT,
+    RELATION_RESULTED_IN,
+)
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
 
 from .base import SemanticPipelineBase
 
@@ -34,9 +39,9 @@ class MvtArticleSemanticPipeline(SemanticPipelineBase):
 
         # Build optional since filter for the publications query
         since_filter = ""
-        bind_vars: dict[str, Any] = {}
+        bind_vars: dict[str, Any] = {"s1_rels": [RELATION_RESULTED_IN, RELATION_RAAKT]}
         if since is not None:
-            from lawgraph.utils.time import iso_timestamp
+            from lawgraph.core.time import iso_timestamp
 
             since_iso = iso_timestamp(since)
             if since_iso:
@@ -64,7 +69,7 @@ FOR pub IN publications
   LET s1 = (
     FOR did IN dossier_ids
       FOR e2 IN edges
-        FILTER e2._from == did AND e2.relation IN ['RESULTED_IN', 'RAAKT']
+        FILTER e2._from == did AND e2.relation IN @s1_rels
         LET inst = DOCUMENT(e2._to)
         FILTER inst != null AND (inst.props.bwb_id != null OR inst.props.celex != null)
         RETURN DISTINCT {{id: inst._id, bwb_id: inst.props.bwb_id, celex: inst.props.celex}}
@@ -101,6 +106,18 @@ FOR pub IN publications
 
         logger.info("MvT article linker: processing %d publications.", len(rows))
 
+        # Collect all distinct (bwb_id, celex) pairs so we can load article
+        # maps once per instrument rather than once per (publication × instrument).
+        distinct_pairs: set[tuple[str | None, str | None]] = set()
+        for row in rows:
+            for inst in row.get("instruments") or []:
+                distinct_pairs.add((inst.get("bwb_id"), inst.get("celex")))
+
+        article_map_cache: dict[tuple[str | None, str | None], dict[str, Node]] = {
+            pair: self._load_article_map(bwb_id=pair[0], celex=pair[1])
+            for pair in distinct_pairs
+        }
+
         for row in rows:
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")
@@ -121,7 +138,7 @@ FOR pub IN publications
             for inst in instruments:
                 bwb_id = inst.get("bwb_id")
                 celex = inst.get("celex")
-                article_map = self._load_article_map(bwb_id=bwb_id, celex=celex)
+                article_map = article_map_cache.get((bwb_id, celex))
                 if not article_map:
                     continue
 
@@ -170,11 +187,7 @@ FOR art IN instrument_articles
             if not number or not art_id:
                 continue
             num_str = str(number).strip().lower()
-            collection = (
-                art_id.split("/")[0]
-                if "/" in art_id
-                else COLLECTION_INSTRUMENT_ARTICLES
-            )
+            collection = collection_from_id(art_id, COLLECTION_INSTRUMENT_ARTICLES)
             node = Node(
                 collection=collection,
                 type=NodeType.ARTICLE,

@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db import _edge_key as _sha1_edge_key
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
@@ -169,8 +170,6 @@ class BWBNormalizePipeline(NormalizePipeline):
         normalized: dict[str, Any],
     ) -> int:
         """Link BWB articles to their instruments via strict PART_OF_INSTRUMENT edges."""
-        import hashlib
-
         instruments: dict[str, Node] = normalized.get("instruments_by_bwb", {})
         articles: dict[str, list[Node]] = normalized.get("articles_by_bwb", {})
         edge_docs: list[dict[str, Any]] = []
@@ -181,9 +180,9 @@ class BWBNormalizePipeline(NormalizePipeline):
             for article in articles.get(bwb_id, []):
                 if not article.id:
                     continue
-                edge_key = hashlib.sha1(
-                    f"{instrument.id}:{RELATION_PART_OF_INSTRUMENT}:{article.id}".encode()
-                ).hexdigest()
+                edge_key = _sha1_edge_key(
+                    instrument.id, RELATION_PART_OF_INSTRUMENT, article.id
+                )
                 edge_docs.append(
                     {
                         "_key": edge_key,

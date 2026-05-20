@@ -12,7 +12,7 @@ import datetime as dt
 import re
 from typing import Any, Iterable
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_PROCEDURES,
     COLLECTION_PUBLICATIONS,
@@ -23,10 +23,10 @@ from lawgraph.config.settings import (
     RELATION_IMPLEMENTS_DIRECTIVE,
     SOURCE_BWB,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, PipelineResult, make_node_key
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 
-from .base import InstrumentAliasMap, SemanticPipelineBase, _parse_instrument_aliases
+from .base import InstrumentAliasMap, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -108,6 +108,7 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
             )
             return result
 
+        edge_batch: list[dict] = []
         for doc_node in self._load_tk_documents(since=since):
             title = doc_node.props.get("title") or doc_node.props.get("display_name")
             hits = detect_amends_instrument(
@@ -117,19 +118,26 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
                 target = self._resolve_instrument(bwb_id=bwb_id, celex=celex)
                 if not target:
                     continue
-                created = self._create_semantic_edge(
+                edge_doc = self._make_edge_doc(
                     from_node=doc_node,
                     to_node=target,
                     relation=RELATION_AMENDS_INSTRUMENT,
                     source=SEMANTIC_SOURCE_AMENDS,
                     confidence=confidence,
                     meta={"title": title},
-                    result=result,
                 )
-                if created:
-                    result.created += 1
-                else:
-                    result.updated += 1
+                if edge_doc:
+                    edge_batch.append(edge_doc)
+                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                        created, updated = self._flush_edge_batch(edge_batch, result)
+                        result.created += created
+                        result.updated += updated
+                        edge_batch = []
+
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
 
         logger.info("AMENDS_INSTRUMENT: %s.", result.summary())
         return result
@@ -185,6 +193,7 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
             f"    {since_filter}\n"
             "    RETURN doc"
         )
+        edge_batch: list[dict] = []
         for doc in self.store.query(aql, bind_vars or None):
             proc_node = Node.from_document(COLLECTION_PROCEDURES, doc)
             title = (
@@ -217,19 +226,26 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
                 target = self._resolve_instrument(bwb_id=bwb_id, celex=celex)
                 if not target:
                     continue
-                created = self._create_semantic_edge(
+                edge_doc = self._make_edge_doc(
                     from_node=proc_node,
                     to_node=target,
                     relation=RELATION_DISCUSSES,
                     source="tk-procedure-discusses",
                     confidence=0.7,
                     meta={"title": title, "matched_alias": label},
-                    result=result,
                 )
-                if created:
-                    result.created += 1
-                else:
-                    result.updated += 1
+                if edge_doc:
+                    edge_batch.append(edge_doc)
+                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                        created, updated = self._flush_edge_batch(edge_batch, result)
+                        result.created += created
+                        result.updated += updated
+                        edge_batch = []
+
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
 
         logger.info("DISCUSSES: %s.", result.summary())
         return result
@@ -259,6 +275,7 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
         self, since: dt.datetime | None = None
     ) -> PipelineResult:
         result = PipelineResult()
+        edge_batch: list[dict] = []
 
         # First pass: auto-detect CELEX references inside BWB raw texts.
         for bwb_id, raw_text in self._load_bwb_raw_texts(since=since):
@@ -271,23 +288,26 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
                     continue
                 if eu_node.key == instrument_node.key:
                     continue
-                created = self._create_semantic_edge(
+                edge_doc = self._make_edge_doc(
                     from_node=instrument_node,
                     to_node=eu_node,
                     relation=RELATION_IMPLEMENTS_DIRECTIVE,
                     source=SEMANTIC_SOURCE_IMPLEMENTS,
                     confidence=0.75,
                     meta={"celex": celex},
-                    result=result,
                 )
-                if created:
-                    result.created += 1
-                else:
-                    result.updated += 1
+                if edge_doc:
+                    edge_batch.append(edge_doc)
+                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                        created, updated = self._flush_edge_batch(edge_batch, result)
+                        result.created += created
+                        result.updated += updated
+                        edge_batch = []
 
         # Second pass: explicit profile-level implements mappings (nl_id → eu_celex).
-        config = self._load_domain_config()
-        for entry in config.get("implements", []):
+        # (No profile config — this pass is a no-op; kept for future extension.)
+        entries: list[dict[str, Any]] = []
+        for entry in entries:
             nl_id = entry.get("nl_id")
             eu_celex = entry.get("eu_celex")
             if not nl_id or not eu_celex:
@@ -296,19 +316,26 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
             eu_node = self._resolve_instrument(celex=eu_celex)
             if not nl_node or not eu_node:
                 continue
-            created = self._create_semantic_edge(
+            edge_doc = self._make_edge_doc(
                 from_node=nl_node,
                 to_node=eu_node,
                 relation=RELATION_IMPLEMENTS_DIRECTIVE,
                 source="profile-implements",
                 confidence=1.0,
                 meta={"celex": eu_celex},
-                result=result,
             )
-            if created:
-                result.created += 1
-            else:
-                result.updated += 1
+            if edge_doc:
+                edge_batch.append(edge_doc)
+                if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                    created, updated = self._flush_edge_batch(edge_batch, result)
+                    result.created += created
+                    result.updated += updated
+                    edge_batch = []
+
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
 
         logger.info("IMPLEMENTS_DIRECTIVE: %s.", result.summary())
         return result
@@ -359,4 +386,4 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
 
 def build_instrument_alias_map(raw: dict[str, Any]) -> InstrumentAliasMap:
     """Parse a raw profile instrument_aliases dict into an InstrumentAliasMap."""
-    return _parse_instrument_aliases(raw)
+    return SemanticPipelineBase._parse_instrument_aliases(raw)
