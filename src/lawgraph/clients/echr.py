@@ -13,7 +13,7 @@ from typing import Any
 
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import ECHR_HUDOC_BASE_URL
-from lawgraph.logging import get_logger
+from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -73,12 +73,11 @@ class EchrClient(BaseClient):
             }
 
             try:
-                resp = self.session.get(
-                    self.base_url.rstrip("/") + "/app/query/results",
+                resp = self._get_raw_with_retry(
+                    "/app/query/results",
                     params=params,
                     timeout=60,
                 )
-                resp.raise_for_status()
                 data = resp.json()
             except Exception as exc:
                 logger.warning("ECHR HUDOC search failed (start=%d): %s", start, exc)

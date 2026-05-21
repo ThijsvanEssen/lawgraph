@@ -20,14 +20,12 @@ from __future__ import annotations
 import time
 from typing import Any
 
-import requests
-
+from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import VERDRAGENBANK_SPARQL_ENDPOINT
-from lawgraph.logging import get_logger
+from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-_REQUEST_DELAY = 0.3
 _PAGE_SIZE = 200
 
 
@@ -54,12 +52,15 @@ OFFSET {offset}
 """
 
 
-class VerdragenbankClient:
+class VerdragenbankClient(BaseClient):
     """Client for fetching treaties from the Dutch Verdragenbank via SPARQL."""
 
-    def __init__(self, session: requests.Session | None = None) -> None:
-        self.endpoint = VERDRAGENBANK_SPARQL_ENDPOINT
-        self.session = session or requests.Session()
+    def __init__(self, session=None) -> None:
+        super().__init__(
+            env_var="VERDRAGENBANK_SPARQL",
+            default_base_url=VERDRAGENBANK_SPARQL_ENDPOINT,
+            session=session,
+        )
         self.session.headers.update({"Accept": "application/sparql-results+json"})
 
     def enumerate_treaties(self, max_records: int = 10000) -> list[dict[str, Any]]:
@@ -74,7 +75,7 @@ class VerdragenbankClient:
             query = _SPARQL_QUERY.format(limit=_PAGE_SIZE, offset=offset)
             try:
                 resp = self.session.post(
-                    self.endpoint,
+                    self.base_url,
                     data={"query": query},
                     timeout=60,
                 )
@@ -114,7 +115,7 @@ class VerdragenbankClient:
                 break
 
             offset += _PAGE_SIZE
-            time.sleep(_REQUEST_DELAY)
+            time.sleep(0.3)
 
         logger.info("Verdragenbank: enumerated %d treaties.", len(results))
         return results
