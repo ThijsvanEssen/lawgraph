@@ -14,6 +14,8 @@ from lawgraph.db import ArangoStore
 
 router = APIRouter()
 
+TOTAL_PARLIAMENT_SEATS: int = 150
+
 # Conventional left-to-right seating order in the Tweede Kamer hemicycle.
 # Keyed by fractie key (make_node_key of the afkorting). Fracties not listed
 # fall to the right end. Maintained by hand — there is no machine-readable
@@ -95,7 +97,7 @@ def get_zetels(
     items.sort(key=lambda x: x.order)
 
     return ParlementZetelsResponse(
-        total_seats=150,
+        total_seats=TOTAL_PARLIAMENT_SEATS,
         assigned_seats=assigned,
         as_of=dt.date.today().isoformat(),
         fracties=items,

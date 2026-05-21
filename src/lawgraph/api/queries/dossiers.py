@@ -5,10 +5,9 @@ from __future__ import annotations
 import datetime as dt
 import re
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
-from lawgraph.config.settings import (
-    COLLECTION_EDGES,
+from lawgraph.config.constants import (
     EDGE_STATUS_VOORGESTELD,
     RELATION_DEEL_VAN_DOSSIER,
     RELATION_EXPLAINS_ARTICLE,
@@ -19,6 +18,7 @@ from lawgraph.config.settings import (
     RELATION_TREKT_IN,
     RELATION_WIJZIGT,
 )
+from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 # ── Dossier stage classification ──────────────────────────────────────────────
@@ -141,13 +141,12 @@ class DossierEnrichment:
 
     titel: str | None = None
     titel_source: str | None = None  # 'dossier' | 'document' | None
-    huidige_fase: str | None = (
-        None  # latest recognised stage, 'afgehandeld', 'onbekend', or None
-    )
+    huidige_fase: str | None = None  # latest recognised stage, 'afgehandeld', or None
     stages_present: list[str] = field(default_factory=list)
     traject_kind: str | None = (
         None  # canonical kind: wetsvoorstel / initiatief / begroting / motie / overig
     )
+    geopend_op: str | None = None  # earliest dated doc/activiteit, best-effort proxy
 
 
 def enrich_dossier_docs(
@@ -175,7 +174,7 @@ def enrich_dossier_docs(
         if (
             not props.get("titel")
             or not props.get("stages_present")
-            or props.get("huidige_fase") in (None, "overig")
+            or props.get("huidige_fase") in (None, "overig", "onbekend")
             or not props.get("traject_kind")
         ):
             needs_enrich = True
@@ -214,7 +213,106 @@ def enrich_dossier_docs(
                 props["huidige_fase"] = enrichment.huidige_fase
         if not props.get("traject_kind") and enrichment.traject_kind:
             props["traject_kind"] = enrichment.traject_kind
+        if not props.get("geopend_op") and enrichment.geopend_op:
+            props["geopend_op"] = enrichment.geopend_op
     return dossiers
+
+
+def _select_titel(
+    props: dict[str, Any], docs: list[dict[str, Any]]
+) -> tuple[str | None, str | None]:
+    """Return (titel, titel_source) for a dossier, falling back to linked docs."""
+    raw_titel = props.get("titel")
+    nummer = props.get("kamerstuknummer") or str(props.get("nummer") or "")
+    # Treat placeholder titel == kamerstuknummer as missing.
+    has_real_titel = bool(raw_titel) and raw_titel != nummer
+    if has_real_titel:
+        return raw_titel, "dossier"
+    if not docs:
+        return None, None
+    # Prefer wetsvoorstel → mvt → any document with a title.
+    for target_stage in ("wetsvoorstel", "mvt", None):
+        for d in docs:
+            if not d.get("titel"):
+                continue
+            if (
+                target_stage is None
+                or classify_doc_soort(d.get("soort")) == target_stage
+            ):
+                return d["titel"], "document"
+    return None, None
+
+
+def _accumulate_stages(
+    docs: list[dict[str, Any]],
+    activiteiten: list[dict[str, Any]],
+    stemmingen: list[dict[str, Any]],
+    zaak_soorten: list[str],
+) -> tuple[dict[str, str], dict[str, str], bool]:
+    """Build stage_first, stage_last dicts and any_signal flag from all signals."""
+    stage_first: dict[str, str] = {}
+    stage_last: dict[str, str] = {}
+    any_signal = False
+
+    def _record(stage: str | None, datum: str | None) -> None:
+        nonlocal any_signal
+        if stage is None:
+            return
+        any_signal = True
+        d = datum or ""
+        if stage not in stage_first or (d and d < stage_first[stage]):
+            stage_first[stage] = d
+        if stage not in stage_last or (d and d > stage_last[stage]):
+            stage_last[stage] = d
+
+    for doc in docs:
+        _record(classify_doc_soort(doc.get("soort")), doc.get("datum"))
+
+    for act in activiteiten:
+        stage = classify_doc_soort(act.get("soort")) or classify_zaak_soort(
+            act.get("soort")
+        )
+        _record(stage, act.get("datum"))
+
+    # Dossier-level Zaak.Soort roll-up — presence-only, no datum.
+    for soort in zaak_soorten:
+        stage = classify_zaak_soort(soort)
+        if stage is not None and stage not in stage_first:
+            any_signal = True
+            stage_first[stage] = ""
+            stage_last[stage] = ""
+
+    if stemmingen:
+        datums = [s.get("datum") for s in stemmingen if s.get("datum")]
+        _record("stemming", min(datums) if datums else None)
+        if datums:
+            stage_last["stemming"] = max(datums)
+
+    return stage_first, stage_last, any_signal
+
+
+def _pick_huidige_fase(
+    stage_first: dict[str, str],
+    stage_last: dict[str, str],
+    any_signal: bool,
+    afgedaan: bool,
+) -> tuple[str | None, list[str]]:
+    """Return (huidige_fase, stages_present) given the accumulated stage dicts."""
+    stages_present = sorted(
+        stage_first.keys(),
+        key=lambda st: (stage_first[st] or "", DOSSIER_STAGES.index(st)),
+    )
+    if afgedaan:
+        if "afgehandeld" not in stages_present:
+            stages_present = [*stages_present, "afgehandeld"]
+        return "afgehandeld", stages_present
+    if any_signal:
+        huidige_fase = max(
+            stage_last.keys(),
+            key=lambda st: (stage_last[st] or "", DOSSIER_STAGES.index(st)),
+        )
+        return huidige_fase, stages_present
+    return None, stages_present
 
 
 def _enrich_dossiers(
@@ -226,8 +324,7 @@ def _enrich_dossiers(
     DEEL_VAN_DOSSIER, or via a procedure) and classifies its `soort`. Stages
     that fire at least once become `stages_present` (chronologically by first
     appearance). `huidige_fase` is the chronologically latest stage; falls
-    back to 'onbekend' when documents exist but none classify, to
-    'afgehandeld' when the dossier is afgedaan, or to None for empty dossiers.
+    back to 'afgehandeld' when the dossier is afgedaan, or to None for empty dossiers.
     """
     if not dossiers:
         return {}
@@ -289,10 +386,9 @@ def _enrich_dossiers(
         }}
     """
     rows = list(store.query(aql, {"dossier_ids": dossier_ids}))
-
-    by_id: dict[str, DossierEnrichment] = {}
     rows_by_id: dict[str, dict[str, Any]] = {row["dossier_id"]: row for row in rows}
 
+    by_id: dict[str, DossierEnrichment] = {}
     for dossier in dossiers:
         did = dossier["_id"]
         props = dossier.get("props") or {}
@@ -302,119 +398,20 @@ def _enrich_dossiers(
         stemmingen = row.get("stemmingen") or []
         zaak_soorten = list(props.get("zaak_soorten") or [])
 
-        # ── Titel fallback ────────────────────────────────────────────────
-        raw_titel = props.get("titel")
-        nummer = props.get("kamerstuknummer") or str(props.get("nummer") or "")
-        # Treat the placeholder titel == kamerstuknummer (set during ingest
-        # when the source had no Titel/Citeertitel) as missing.
-        has_real_titel = bool(raw_titel) and raw_titel != nummer
-
-        titel: str | None = raw_titel if has_real_titel else None
-        titel_source: str | None = "dossier" if has_real_titel else None
-
-        if not has_real_titel and docs:
-            # Prefer voorstel-van-wet / wetsvoorstel as the canonical title source,
-            # then memorie van toelichting, then any document with a title.
-            wetsvoorstel_titels = [
-                d.get("titel")
-                for d in docs
-                if d.get("titel")
-                and classify_doc_soort(d.get("soort")) == "wetsvoorstel"
-            ]
-            mvt_titels = [
-                d.get("titel")
-                for d in docs
-                if d.get("titel") and classify_doc_soort(d.get("soort")) == "mvt"
-            ]
-            any_titels = [d.get("titel") for d in docs if d.get("titel")]
-            picked = (
-                (wetsvoorstel_titels[0] if wetsvoorstel_titels else None)
-                or (mvt_titels[0] if mvt_titels else None)
-                or (any_titels[0] if any_titels else None)
-            )
-            if picked:
-                titel = picked
-                titel_source = "document"
-
-        # ── Stages ────────────────────────────────────────────────────────
-        # Combine signals from documents (richest), activiteiten (their own
-        # soort + the dossier-level zaak_soorten roll-up), and stemmingen
-        # (presence implies the 'stemming' stage). Each signal contributes a
-        # (stage, datum) sample; stage_first/stage_last drive ordering of
-        # stages_present and the huidige_fase pick.
-        stage_first: dict[str, str] = {}
-        stage_last: dict[str, str] = {}
-
-        def _record(
-            stage: str | None,
-            datum: str | None,
-            _sf: dict = stage_first,
-            _sl: dict = stage_last,
-        ) -> None:
-            if stage is None:
-                return
-            d = datum or ""
-            if stage not in _sf or (d and d < _sf[stage]):
-                _sf[stage] = d
-            if stage not in _sl or (d and d > _sl[stage]):
-                _sl[stage] = d
-
-        any_signal = False
-        for d in docs:
-            stage = classify_doc_soort(d.get("soort"))
-            if stage is not None:
-                any_signal = True
-            _record(stage, d.get("datum"))
-
-        for a in activiteiten:
-            stage = classify_doc_soort(a.get("soort")) or classify_zaak_soort(
-                a.get("soort")
-            )
-            if stage is not None:
-                any_signal = True
-            _record(stage, a.get("datum"))
-
-        # Dossier-level Zaak.Soort roll-up (no datum — this is "we know it
-        # happened, but not when"). Treated as a presence-only signal that
-        # never wins the latest-stage race against dated samples.
-        for soort in zaak_soorten:
-            stage = classify_zaak_soort(soort)
-            if stage is not None and stage not in stage_first:
-                any_signal = True
-                stage_first[stage] = ""
-                stage_last[stage] = ""
-
-        if stemmingen:
-            any_signal = True
-            datums = [s.get("datum") for s in stemmingen if s.get("datum")]
-            _record("stemming", min(datums) if datums else None)
-            if datums:
-                stage_last["stemming"] = max(datums)
-
-        stages_present = sorted(
-            stage_first.keys(),
-            key=lambda st: (stage_first[st] or "", DOSSIER_STAGES.index(st)),
+        titel, titel_source = _select_titel(props, docs)
+        stage_first, stage_last, any_signal = _accumulate_stages(
+            docs, activiteiten, stemmingen, zaak_soorten
         )
-
         afgedaan = bool(props.get("afgedaan")) or bool(props.get("gesloten_op"))
-        if afgedaan:
-            huidige_fase = "afgehandeld"
-            if "afgehandeld" not in stages_present:
-                stages_present = [*stages_present, "afgehandeld"]
-        elif any_signal:
-            # Latest stage by datum, breaking ties by canonical stage order.
-            huidige_fase = max(
-                stage_last.keys(),
-                key=lambda st: (stage_last[st] or "", DOSSIER_STAGES.index(st)),
-            )
-        elif docs or activiteiten:
-            huidige_fase = "onbekend"
-        else:
-            huidige_fase = None
-
+        huidige_fase, stages_present = _pick_huidige_fase(
+            stage_first, stage_last, any_signal, afgedaan
+        )
         traject_kind = classify_traject_kind(
             zaak_soorten, titel=titel or props.get("titel")
         )
+        all_dated = [d.get("datum") for d in docs if d.get("datum")] + [
+            a.get("datum") for a in activiteiten if a.get("datum")
+        ]
 
         by_id[did] = DossierEnrichment(
             titel=titel,
@@ -422,6 +419,7 @@ def _enrich_dossiers(
             huidige_fase=huidige_fase,
             stages_present=stages_present,
             traject_kind=traject_kind,
+            geopend_op=min(all_dated) if all_dated else None,
         )
 
     return by_id
@@ -588,15 +586,15 @@ def get_dossier_timeline(
         cursor_clause = f"FILTER item.datum {op} @cursor"
         bind_vars["cursor"] = cursor
 
+    # DEEL_VAN_DOSSIER edges consistently point FROM linked nodes TO the dossier,
+    # so filtering only on _to avoids the OR that prevented index use.
     aql = f"""
     LET docs = (
         FOR edge IN {COLLECTION_EDGES}
-            FILTER edge._to == @dossier_id OR edge._from == @dossier_id
-            FILTER edge.relation == "{RELATION_DEEL_VAN_DOSSIER}"
-            LET node_id = (edge._to == @dossier_id ? edge._from : edge._to)
-            LET col = SPLIT(node_id, '/')[0]
+            FILTER edge._to == @dossier_id AND edge.relation == "{RELATION_DEEL_VAN_DOSSIER}"
+            LET col = SPLIT(edge._from, '/')[0]
             FILTER col IN ['publications', 'activiteiten', 'stemmingen', 'toezeggingen']
-            LET doc = DOCUMENT(node_id)
+            LET doc = DOCUMENT(edge._from)
             FILTER doc != null
             RETURN doc
     )
@@ -689,7 +687,7 @@ def get_dossier_documents(
             }}
     )
     RETURN {{ total: total, items: items }}
-    """  # noqa: E501
+    """
     rows = list(
         store.query(aql, {"dossier_id": dossier_id, "limit": limit, "offset": offset})
     )
@@ -807,15 +805,18 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
     strongest kind across its incident edges (``mutation`` wins over
     ``explanation``).
     """
+    # DEEL_VAN_DOSSIER edges point FROM nodes TO the dossier — use only _to to
+    # leverage the index. The second filter drops the OR on _from/_to: since
+    # STARTS_WITH(e._to, "instrument_articles/") is required and dossier member
+    # IDs are never instrument_articles, only e._from IN member_ids can fire.
     aql_primary = f"""
     LET member_ids = (
         FOR edge IN {COLLECTION_EDGES}
-            FILTER edge._to == @dossier_id OR edge._from == @dossier_id
-            FILTER edge.relation == "{RELATION_DEEL_VAN_DOSSIER}"
-            RETURN (edge._to == @dossier_id ? edge._from : edge._to)
+            FILTER edge._to == @dossier_id AND edge.relation == "{RELATION_DEEL_VAN_DOSSIER}"
+            RETURN edge._from
     )
     FOR e IN {COLLECTION_EDGES}
-        FILTER e._from IN member_ids OR e._to IN member_ids
+        FILTER e._from IN member_ids
         FILTER e.status == "{EDGE_STATUS_VOORGESTELD}"
             OR e.relation IN [
                 "{RELATION_WIJZIGT}",
@@ -876,8 +877,9 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
 
     # Fallback: derive kamerstuknummer from the dossier document and look up
     # articles mentioned by publications with a matching dossier_nummer.
-    dossier_doc = store.db.collection("kamerstukdossiers").get(
-        dossier_id.split("/", 1)[-1]
+    dossier_doc = cast(
+        dict[str, Any] | None,
+        store.db.collection("kamerstukdossiers").get(dossier_id.split("/", 1)[-1]),
     )
     if not dossier_doc:
         return {"nodes": [], "edges": []}
@@ -945,8 +947,12 @@ def get_open_dossiers(
     fase: str | None = None,
     has_stage: list[str] | None = None,
     limit: int = 100,
-) -> list[dict[str, Any]]:
-    """Return all open (non-afgedaan) dossiers with optional filters.
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Return open (non-afgedaan) dossiers with optional filters, paginated.
+
+    Returns ``{"total": int, "items": [...]}``.  ``total`` is the absolute
+    count of matching dossiers, independent of ``limit``/``offset``.
 
     `has_stage` filters to dossiers whose `stages_present` contains every
     listed stage (intersection semantics).
@@ -955,7 +961,7 @@ def get_open_dossiers(
         "doc.props.afgedaan == false OR doc.props.afgedaan == null",
         "doc.props.gesloten_op == null",
     ]
-    bind_vars: dict[str, Any] = {"limit": limit}
+    bind_vars: dict[str, Any] = {"limit": limit, "offset": offset}
 
     if fase:
         filters.append("doc.props.huidige_fase == @fase")
@@ -969,34 +975,49 @@ def get_open_dossiers(
 
     filter_clause = "\n        ".join(f"FILTER {f}" for f in filters)
 
-    # commissie filter: dossiers that have an activiteit BEHANDELD_DOOR that commissie
-    commissie_join = ""
+    # Commissie filter: pre-compute the set of dossier _ids linked to this
+    # commissie ONCE (as a top-level LET), then use a cheap IN-set check per
+    # dossier row. The previous nested traversal inside the FOR loop was
+    # O(D × E_commissie × E_activiteit).
+    commissie_pre = ""
+    commissie_filter = ""
     if commissie_slug:
         bind_vars["commissie_slug"] = commissie_slug
-        commissie_join = f"""
-        LET commissie_match = FIRST(
-            FOR c IN commissies FILTER c.props.slug == @commissie_slug LIMIT 1 RETURN c
-        )
-        FILTER commissie_match != null
-        FILTER LENGTH(
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == commissie_match._id AND e.relation == 'BEHANDELD_DOOR'
-                FOR e2 IN {COLLECTION_EDGES}
-                    FILTER e2._from == e._from AND e2._to == doc._id
-                    AND e2.relation == '{RELATION_DEEL_VAN_DOSSIER}'
-                    RETURN 1
-        ) > 0
+        commissie_pre = f"""
+    LET _commissie = FIRST(
+        FOR c IN commissies FILTER c.props.slug == @commissie_slug LIMIT 1 RETURN c
+    )
+    LET _commissie_dossier_ids = _commissie != null ? UNIQUE(
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == _commissie._id AND e.relation == 'BEHANDELD_DOOR'
+            FOR e2 IN {COLLECTION_EDGES}
+                FILTER e2._from == e._from AND e2.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+                FILTER STARTS_WITH(e2._to, 'kamerstukdossiers/')
+                RETURN e2._to
+    ) : []
         """
+        commissie_filter = "FILTER doc._id IN _commissie_dossier_ids"
 
     aql = f"""
-    FOR doc IN kamerstukdossiers
-        {filter_clause}
-        {commissie_join}
-        SORT doc.props.geopend_op DESC
-        LIMIT @limit
-        RETURN doc
+    {commissie_pre}
+    LET total = LENGTH(
+        FOR doc IN kamerstukdossiers
+            {filter_clause}
+            {commissie_filter}
+            RETURN 1
+    )
+    LET items = (
+        FOR doc IN kamerstukdossiers
+            {filter_clause}
+            {commissie_filter}
+            SORT doc.props.geopend_op DESC
+            LIMIT @offset, @limit
+            RETURN doc
+    )
+    RETURN {{ total: total, items: items }}
     """
-    return list(store.query(aql, bind_vars))
+    rows = list(store.query(aql, bind_vars))
+    return rows[0] if rows else {"total": 0, "items": []}
 
 
 def get_recent_dossiers(
@@ -1021,3 +1042,22 @@ def get_recent_dossiers(
         RETURN d
     """
     return list(store.query(aql, {"cutoff": cutoff, "limit": limit}))
+
+
+def count_dossier_members(store: ArangoStore, dossier_id: str) -> dict[str, int]:
+    """Return member counts for all 4 collections linked to a dossier."""
+    aql = f"""
+    LET colls = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == @dossier_id AND e.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+            RETURN SPLIT(e._from, '/')[0]
+    )
+    RETURN {{
+        publications:  LENGTH(FOR c IN colls FILTER c == 'publications'  RETURN 1),
+        activiteiten:  LENGTH(FOR c IN colls FILTER c == 'activiteiten'  RETURN 1),
+        stemmingen:    LENGTH(FOR c IN colls FILTER c == 'stemmingen'    RETURN 1),
+        toezeggingen:  LENGTH(FOR c IN colls FILTER c == 'toezeggingen'  RETURN 1)
+    }}
+    """
+    rows = list(store.query(aql, {"dossier_id": dossier_id}))
+    return rows[0] if rows else {}

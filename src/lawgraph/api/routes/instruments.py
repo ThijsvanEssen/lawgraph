@@ -42,6 +42,21 @@ from lawgraph.api.schemas import (
 )
 from lawgraph.db import ArangoStore
 
+
+def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
+    judgment = row.get("judgment") or {}
+    props = judgment.get("props") or {}
+    return InstrumentJudgmentItem(
+        id=judgment.get("_id") or "",
+        key=judgment.get("_key") or "",
+        ecli=props.get("ecli"),
+        display_name=props.get("display_name"),
+        cited_articles=[
+            CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
+        ],
+    )
+
+
 # Field whitelists for the side-payload nodes on /citations. Kept lean so the
 # graph-loader payload doesn't carry full article text or judgment paragraphs.
 _NODE_FIELD_WHITELIST: dict[str, tuple[str, ...]] = {
@@ -271,7 +286,7 @@ def list_instruments(
         limit=limit,
         offset=offset,
     )
-    items = [InstrumentListItemDTO.from_row(row) for row in data.get("items", [])]
+    items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
     return InstrumentListResponse(items=items, total=int(data.get("total", 0)))
 
 
@@ -413,20 +428,7 @@ def get_instrument_judgments_route(
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentJudgmentsResponse:
     rows, total = get_instrument_judgments(store, bwb_id, limit=limit)
-    items = [
-        InstrumentJudgmentItem(
-            id=(row.get("judgment") or {}).get("_id"),
-            key=(row.get("judgment") or {}).get("_key"),
-            ecli=((row.get("judgment") or {}).get("props") or {}).get("ecli"),
-            display_name=((row.get("judgment") or {}).get("props") or {}).get(
-                "display_name"
-            ),
-            cited_articles=[
-                CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
-            ],
-        )
-        for row in rows
-    ]
+    items = [_extract_judgment_item(row) for row in rows]
     return InstrumentJudgmentsResponse(bwb_id=bwb_id, total=total, items=items)
 
 
@@ -449,8 +451,8 @@ def get_instrument_dossiers_route(
     rows, total = get_instrument_dossiers(store, bwb_id, limit=limit)
     items = [
         InstrumentDossierItem(
-            id=d.get("_id"),
-            key=d.get("_key"),
+            id=d.get("_id") or "",
+            key=d.get("_key") or "",
             kamerstuknummer=(d.get("props") or {}).get("kamerstuknummer"),
             titel=(d.get("props") or {}).get("titel"),
             display_name=(d.get("props") or {}).get("display_name"),
@@ -484,8 +486,8 @@ def get_instrument_related_route(
     rows, total = get_instrument_related_instruments(store, bwb_id, limit=limit)
     items = [
         InstrumentRelatedItem(
-            id=(r.get("instrument") or {}).get("_id"),
-            key=(r.get("instrument") or {}).get("_key"),
+            id=(r.get("instrument") or {}).get("_id") or "",
+            key=(r.get("instrument") or {}).get("_key") or "",
             bwb_id=((r.get("instrument") or {}).get("props") or {}).get("bwb_id"),
             display_name=((r.get("instrument") or {}).get("props") or {}).get(
                 "display_name"
@@ -517,7 +519,7 @@ def list_instrument_versions(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> InstrumentVersionsResponse:
     docs = get_instrument_versions(store, bwb_id)
-    items = [InstrumentVersionDTO.from_doc(d) for d in docs]
+    items = [InstrumentVersionDTO.from_document(d) for d in docs]
     return InstrumentVersionsResponse(bwb_id=bwb_id, total=len(items), items=items)
 
 

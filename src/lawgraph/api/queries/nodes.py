@@ -9,6 +9,15 @@ from lawgraph.api.queries._helpers import _ensure_doc, _extract_confidence
 from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
+
+class NodeNotFoundError(ValueError):
+    """Raised when a requested node does not exist in the collection."""
+
+
+class UnsupportedCollectionError(ValueError):
+    """Raised when a collection name is not in the allowed set."""
+
+
 _ALLOWED_NODE_COLLECTIONS = {
     "instruments",
     "instrument_articles",
@@ -61,17 +70,17 @@ def get_node_with_neighbors(
 ) -> NodeGraphData:
     """Retrieve a node together with its unified-edge neighbors."""
     if collection not in _ALLOWED_NODE_COLLECTIONS:
-        raise ValueError("unsupported collection")
+        raise UnsupportedCollectionError("unsupported collection")
     if not store.db.has_collection(collection):
-        raise ValueError(f"collection {collection} not found")
+        raise NodeNotFoundError(f"collection {collection} not found")
 
     coll = store.db.collection(collection)
     raw_node = coll.get(key)
     if raw_node is None:
-        raise ValueError("node not found")
+        raise NodeNotFoundError("node not found")
     node_doc = _ensure_doc(raw_node)
     if node_doc is None:
-        raise ValueError("node not found")
+        raise NodeNotFoundError("node not found")
 
     neighbors = _collect_neighbors(
         store, node_doc["_id"], neighbor_limit=neighbor_limit
@@ -106,17 +115,17 @@ def get_node_neighborhood(
     second pass) so the frontend can render the full subgraph.
     """
     if collection not in _ALLOWED_NODE_COLLECTIONS:
-        raise ValueError("unsupported collection")
+        raise UnsupportedCollectionError("unsupported collection")
     if not store.db.has_collection(collection):
-        raise ValueError(f"collection {collection} not found")
+        raise NodeNotFoundError(f"collection {collection} not found")
 
     coll = store.db.collection(collection)
     raw_focal = coll.get(key)
     if raw_focal is None:
-        raise ValueError("node not found")
+        raise NodeNotFoundError("node not found")
     focal_doc = _ensure_doc(raw_focal)
     if focal_doc is None:
-        raise ValueError("node not found")
+        raise NodeNotFoundError("node not found")
 
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, 1000))

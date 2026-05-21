@@ -25,6 +25,8 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.config.constants import PARTY_COLORS as PARTY_COLORS
+
 _DROP_PROPS_KEYS = ("raw_xml",)
 
 # Props that bloat the wire size of graph-view payloads without serving any
@@ -42,6 +44,19 @@ _DROP_PROPS_KEYS_GRAPH = (
     "raw_data",
     "raw",  # publications carry the source TK payload here
 )
+
+
+def _derive_source_from_ecli(ecli: str | None) -> str | None:
+    """Derive judgment source from ECLI prefix when props.source is not stored."""
+    if not ecli:
+        return None
+    if ecli.startswith("ECLI:NL:"):
+        return "rechtspraak"
+    if ecli.startswith("ECLI:CE:ECHR:"):
+        return "echr"
+    if ecli.startswith("ECLI:EU:"):
+        return "cjeu"
+    return None
 
 
 def _build_node_payload(
@@ -118,19 +133,19 @@ class InstrumentSummaryDTO(BaseModel):
             article_count=int(
                 getattr(s, "article_count", 0)
                 or (s.get("article_count", 0) if isinstance(s, dict) else 0)
-            ),  # noqa: E501
+            ),
             judgment_count=int(
                 getattr(s, "judgment_count", 0)
                 or (s.get("judgment_count", 0) if isinstance(s, dict) else 0)
-            ),  # noqa: E501
+            ),
             inbound_citation_count=int(
                 getattr(s, "inbound_citation_count", 0)
                 or (s.get("inbound_citation_count", 0) if isinstance(s, dict) else 0)
-            ),  # noqa: E501
+            ),
             outbound_citation_count=int(
                 getattr(s, "outbound_citation_count", 0)
                 or (s.get("outbound_citation_count", 0) if isinstance(s, dict) else 0)
-            ),  # noqa: E501
+            ),
         )
 
 
@@ -444,6 +459,7 @@ class JudgmentDTO(BaseNodeDTO):
     model_config = ConfigDict(extra="forbid")
 
     ecli: str | None
+    source: str | None = None
     summary: str | None
     paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
 
@@ -466,10 +482,13 @@ class JudgmentDTO(BaseNodeDTO):
             for p in raw_paragraphs
             if isinstance(p, dict) and p.get("text")
         ]
+        ecli = props.get("ecli")
+        source = props.get("source") or _derive_source_from_ecli(ecli)
         return cls(
             **base.model_dump(),
-            ecli=props.get("ecli"),
-            summary=props.get("summary") or props.get("strafrecht_profile"),
+            ecli=ecli,
+            source=source,
+            summary=props.get("summary"),
             paragraphs=paragraphs,
         )
 
@@ -583,7 +602,7 @@ class InstrumentListItemDTO(BaseModel):
     last_article_mutation: str | None = None
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
+    def from_document(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
         return cls(
             id=row["_id"],
             key=row["_key"],
@@ -621,7 +640,7 @@ class InstrumentVersionDTO(BaseModel):
     article_count: int | None = None
 
     @classmethod
-    def from_doc(cls, doc: dict[str, Any]) -> "InstrumentVersionDTO":
+    def from_document(cls, doc: dict[str, Any]) -> "InstrumentVersionDTO":
         props = doc.get("props") or {}
         return cls(
             key=doc["_key"],
@@ -699,18 +718,20 @@ class JudgmentListItemDTO(BaseModel):
     outbound_citation_count: int | None = None
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> JudgmentListItemDTO:
+    def from_document(cls, row: dict[str, Any]) -> JudgmentListItemDTO:
         inbound = row.get("inbound_citation_count")
+        ecli = row.get("ecli")
+        source = row.get("source") or _derive_source_from_ecli(ecli)
         return cls(
             id=row["_id"],
             key=row["_key"],
-            ecli=row.get("ecli"),
-            display_name=row.get("display_name"),
+            ecli=ecli,
+            display_name=row.get("display_name") or ecli,
             court=row.get("court_code"),
             tier=row.get("tier"),
             date=row.get("date"),
             summary=row.get("summary"),
-            source=row.get("source"),
+            source=source,
             inbound_citation_count=int(inbound) if inbound is not None else None,
         )
 
@@ -821,6 +842,7 @@ class StemmingDTO(BaseModel):
     key: str
     datum: str | None = None
     onderwerp: str | None = None
+    besluit_id: str | None = None
     aangenomen: bool
     chamber: str | None = None
     stemwijze: str = "fractie"
@@ -836,6 +858,7 @@ class StemmingDTO(BaseModel):
             key=doc["_key"],
             datum=props.get("datum"),
             onderwerp=props.get("onderwerp"),
+            besluit_id=props.get("besluit_id"),
             aangenomen=bool(props.get("aangenomen")),
             stemwijze=props.get("stemwijze") or "fractie",
             voor=[
@@ -967,17 +990,16 @@ DossierStage = Literal[
     "amendementen",
     "stemming",
     "afgehandeld",
-    "onbekend",
 ]
 
 
-def _coerce_dossier_stage(value: Any) -> str | None:
+def _coerce_dossier_stage(value: Any) -> DossierStage | None:
     """Map legacy / unknown huidige_fase sentinels onto None.
 
-    'overig' was an earlier sentinel meaning 'no recognised stage'; the read
-    path already treats it as missing (see queries.enrich_dossier_docs), but
-    the persisted props still carry it on legacy rows. Anything outside the
-    DossierStage Literal collapses to None so the DTO validates.
+    'overig' and 'onbekend' were earlier sentinels meaning 'no recognised
+    stage'; the read path treats them as missing. Anything outside the
+    DossierStage Literal collapses to None so the DTO validates and callers
+    see a single null sentinel rather than two.
     """
     _valid = get_args(DossierStage)
     if value in _valid:
@@ -985,7 +1007,7 @@ def _coerce_dossier_stage(value: Any) -> str | None:
     return None
 
 
-def _coerce_stages_list(values: Any) -> list[str]:
+def _coerce_stages_list(values: Any) -> list[DossierStage]:
     _valid = get_args(DossierStage)
     return [v for v in (values or []) if v in _valid]
 
@@ -1108,7 +1130,15 @@ class FractieDetailDTO(BaseModel):
 
 
 class StemmingSummaryItemDTO(BaseModel):
-    """One row in the /api/stemmingen browser list."""
+    """One row in the /api/stemmingen browser list.
+
+    ``voor_fracties`` / ``tegen_fracties`` / ``onthouding_fracties`` count the
+    number of *fracties* (parties) in each camp — typically 10–17.
+    ``voor_zetels`` / ``tegen_zetels`` / ``onthouding_zetels`` sum the
+    *seats* each camp brings, which is the number to display for a vote result.
+    ``besluit_id`` uniquely identifies the motion within a debate; use it to
+    link to the motie-tekst rather than ``onderwerp`` which is debate-level.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1116,11 +1146,15 @@ class StemmingSummaryItemDTO(BaseModel):
     key: str
     datum: str | None = None
     onderwerp: str | None = None
+    besluit_id: str | None = None
     dossier_nummers: list[str] = Field(default_factory=list)
     aangenomen: bool | None = None
-    voor_count: int = 0
-    tegen_count: int = 0
-    onthouding_count: int = 0
+    voor_fracties: int = 0
+    voor_zetels: int = 0
+    tegen_fracties: int = 0
+    tegen_zetels: int = 0
+    onthouding_fracties: int = 0
+    onthouding_zetels: int = 0
     chamber: str | None = None
 
 
@@ -1199,10 +1233,9 @@ class DossierSummaryDTO(BaseModel):
 
     `huidige_fase` is the *latest recognised* legislative stage seen on the
     dossier's documents/activiteiten (or `'afgehandeld'` for closed dossiers,
-    `'onbekend'` for dossiers that have signals but none classify, `null` for
-    empty dossiers). `stages_present` lists every stage with at least one
-    matching signal, in chronological order — use this for any "which stages
-    are present?" UI rather than `huidige_fase`.
+    `null` for dossiers with no classifiable signals). `stages_present` lists
+    every stage with at least one matching signal, in chronological order —
+    use this for any "which stages are present?" UI rather than `huidige_fase`.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1229,13 +1262,25 @@ class DossierSummaryDTO(BaseModel):
             or str(props.get("nummer") or ""),
             titel=props.get("titel"),
             titel_source=props.get("titel_source"),
-            traject_kind=props.get("traject_kind"),
+            traject_kind=props.get("traject_kind") or "overig",
             huidige_fase=_coerce_dossier_stage(props.get("huidige_fase")),
             stages_present=_coerce_stages_list(props.get("stages_present")),
             afgedaan=bool(props.get("afgedaan")),
             geopend_op=props.get("geopend_op"),
             gesloten_op=props.get("gesloten_op"),
         )
+
+
+class DossierListResponse(BaseModel):
+    """Paginated list response for GET /api/dossiers/open and similar list endpoints."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int = Field(
+        ...,
+        description="Absolute count of matching dossiers (independent of limit/offset).",
+    )
+    items: list[DossierSummaryDTO]
 
 
 class DossierDetailResponse(BaseModel):
@@ -1281,7 +1326,7 @@ class DossierDetailResponse(BaseModel):
             or str(props.get("nummer") or ""),
             titel=props.get("titel"),
             titel_source=props.get("titel_source"),
-            traject_kind=props.get("traject_kind"),
+            traject_kind=props.get("traject_kind") or "overig",
             huidige_fase=_coerce_dossier_stage(props.get("huidige_fase")),
             stages_present=_coerce_stages_list(props.get("stages_present")),
             afgedaan=bool(props.get("afgedaan")),
@@ -1399,7 +1444,13 @@ class ArticleInFluxResponse(BaseModel):
 
 
 class CommissieDTO(BaseModel):
-    """Parliamentary committee."""
+    """Parliamentary committee.
+
+    ``type`` distinguishes standing committees ('vast'), temporary committees
+    ('tijdelijk'), special committees ('bijzonder'), and parliamentary inquiry
+    committees ('parlementaire_enquete'). Null when the source data doesn't
+    carry a type signal — treat as 'onbekend'.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1408,6 +1459,7 @@ class CommissieDTO(BaseModel):
     naam: str | None = None
     afkorting: str | None = None
     slug: str | None = None
+    type: str | None = None
     active_dossier_count: int = 0
 
     @classmethod
@@ -1421,6 +1473,7 @@ class CommissieDTO(BaseModel):
             naam=props.get("naam"),
             afkorting=props.get("afkorting"),
             slug=props.get("slug"),
+            type=props.get("type"),
             active_dossier_count=active_dossier_count,
         )
 
@@ -1444,14 +1497,20 @@ class FractieDTO(BaseModel):
     @classmethod
     def from_document(cls, doc: dict[str, Any], *, member_count: int = 0) -> FractieDTO:
         props = doc.get("props") or {}
+        actief = bool(props.get("actief", True))
+        aantal_zetels = props.get("aantal_zetels")
+        # Active fracties must have an explicit seat count; default to 0 rather
+        # than null so API consumers can always compare numerically.
+        if actief and aantal_zetels is None:
+            aantal_zetels = 0
         return cls(
             id=doc["_id"],
             key=doc["_key"],
             naam=props.get("naam"),
             afkorting=props.get("afkorting"),
             aliases=list(props.get("aliases") or []),
-            actief=bool(props.get("actief", True)),
-            aantal_zetels=props.get("aantal_zetels"),
+            actief=actief,
+            aantal_zetels=aantal_zetels,
             datum_actief=props.get("datum_actief"),
             datum_inactief=props.get("datum_inactief"),
             member_count=member_count,
@@ -1474,7 +1533,19 @@ class FractieMembershipDTO(BaseModel):
 
 
 class LidDTO(BaseModel):
-    """Parliamentary member or minister."""
+    """Parliamentary member or minister.
+
+    ``actief`` is true when the lid has at least one open fractielidmaatschap
+    (``tot_en_met`` is null) — i.e. currently seated. ~150 of ~800 ever-MPs
+    qualify. ``partij`` is derived from the most recent (or currently open)
+    fractielidmaatschap afkorting, so it is consistent with the
+    ``fractielidmaatschappen`` list.
+
+    ``geldig_van`` / ``geldig_tot`` are only populated when the lid is
+    returned as part of a commissie query (GET /api/commissies/{slug} or
+    /api/commissies/with-leden); they carry the LID_VAN edge metadata for
+    that commissie. They are always null from GET /api/leden.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1482,25 +1553,45 @@ class LidDTO(BaseModel):
     key: str
     naam: str | None = None
     partij: str | None = None
-    actief: bool = True
+    actief: bool = False
     fractielidmaatschappen: list[FractieMembershipDTO] = []
-    # Commissie-membership window from LID_VAN edge meta; null geldig_tot = current member
     geldig_van: str | None = None
     geldig_tot: str | None = None
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> LidDTO:
         props = doc.get("props") or {}
+        memberships = [
+            FractieMembershipDTO(**m)
+            for m in (props.get("fractielidmaatschappen") or [])
+        ]
+        # Derive actief: currently seated = has open membership
+        open_memberships = [m for m in memberships if m.tot_en_met is None]
+        actief = bool(open_memberships)
+
+        # Derive partij: prefer open membership, else most recent by van date
+        current = (
+            open_memberships[-1]
+            if open_memberships
+            else (max(memberships, key=lambda m: m.van or "") if memberships else None)
+        )
+        if current:
+            derived_partij = (
+                current.afkorting
+                if current.afkorting and current.afkorting != current.naam
+                else current.naam
+            )
+        else:
+            derived_partij = None
+        partij = derived_partij or props.get("partij")
+
         return cls(
             id=doc["_id"],
             key=doc["_key"],
             naam=props.get("naam"),
-            partij=props.get("partij"),
-            actief=bool(props.get("actief", True)),
-            fractielidmaatschappen=[
-                FractieMembershipDTO(**m)
-                for m in (props.get("fractielidmaatschappen") or [])
-            ],
+            partij=partij,
+            actief=actief,
+            fractielidmaatschappen=memberships,
             geldig_van=doc.get("geldig_van"),
             geldig_tot=doc.get("geldig_tot"),
         )
@@ -1529,6 +1620,7 @@ class CommissieWithLedenDTO(CommissieDTO):
             naam=props.get("naam"),
             afkorting=props.get("afkorting"),
             slug=props.get("slug"),
+            type=props.get("type"),
             active_dossier_count=props.get("active_dossier_count")
             or active_dossier_count,
             leden=leden,
@@ -1556,42 +1648,11 @@ class CommissieDetailDTO(CommissieDTO):
             naam=props.get("naam"),
             afkorting=props.get("afkorting"),
             slug=props.get("slug"),
+            type=props.get("type"),
             active_dossier_count=len([d for d in dossiers if not d.afgedaan]),
             leden=leden,
             dossiers=dossiers,
         )
-
-
-# ── Party colors ─────────────────────────────────────────────────────────────
-# Canonical brand colors for Dutch parliamentary parties.
-# Used by the frontend to color stemming chips.
-
-PARTY_COLORS: dict[str, str] = {
-    "VVD": "#003082",
-    "D66": "#1DB954",
-    "PVV": "#002868",
-    "CDA": "#399E48",
-    "SP": "#EE1C25",
-    "PvdA": "#E63325",
-    "GroenLinks": "#46962B",
-    "GL-PvdA": "#46962B",
-    "GroenLinks-PvdA": "#46962B",
-    "ChristenUnie": "#4F95D4",
-    "Volt": "#592D82",
-    "NSC": "#1B4F72",
-    "BBB": "#9ECA3C",
-    "JA21": "#CC0000",
-    "SGP": "#FF6600",
-    "FvD": "#8B0000",
-    "FVD": "#8B0000",
-    "DENK": "#39B54A",
-    "BIJ1": "#FFCC00",
-    "50PLUS": "#8B008B",
-    "PvdD": "#4CAF50",
-    "Groep Van Haga": "#002868",
-    "Groep Markuszower": "#1F2A44",
-    "Lid Keijzer": "#999999",
-}
 
 
 class FractieZetelDTO(BaseModel):

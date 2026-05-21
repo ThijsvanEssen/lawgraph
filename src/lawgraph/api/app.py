@@ -4,6 +4,7 @@ import collections
 import logging
 import os
 import time
+import uuid
 from contextlib import asynccontextmanager
 from typing import Annotated
 
@@ -28,16 +29,21 @@ from lawgraph.db import ArangoStore
 
 _logger = logging.getLogger(__name__)
 
+CACHE_TTL_ARTICLES = 1800
+CACHE_TTL_JUDGMENTS = 3600
+CACHE_TTL_STATS = 300
+CACHE_TTL_DEFAULT = 60
+
 
 class _CacheControlMiddleware:
     """Inject Cache-Control headers on successful GET responses."""
 
     _RULES: tuple[tuple[str, str], ...] = (
-        ("/api/articles/", "public, max-age=1800"),
-        ("/api/judgments/", "public, max-age=3600"),
-        ("/api/stats", "public, max-age=300"),
+        ("/api/articles/", f"public, max-age={CACHE_TTL_ARTICLES}"),
+        ("/api/judgments/", f"public, max-age={CACHE_TTL_JUDGMENTS}"),
+        ("/api/stats", f"public, max-age={CACHE_TTL_STATS}"),
     )
-    _DEFAULT = "private, max-age=60"
+    _DEFAULT = f"private, max-age={CACHE_TTL_DEFAULT}"
 
     def __init__(self, app) -> None:
         self._app = app
@@ -80,6 +86,11 @@ class _RateLimitMiddleware:
       LAWGRAPH_RATE_LIMIT_PERIOD   — window in seconds (default 60)
       LAWGRAPH_TRUSTED_PROXIES     — comma-separated IPs that may set
                                      X-Forwarded-For (default loopback only)
+
+    Note: state is stored in-process. With multiple uvicorn workers the
+    effective limit is N_workers × LAWGRAPH_RATE_LIMIT_CALLS. Use a
+    single worker or an external rate limiter when a hard per-IP cap is
+    required.
     """
 
     _LOOPBACK_PROXIES = frozenset({"127.0.0.1", "::1"})
@@ -137,11 +148,18 @@ class _RateLimitMiddleware:
         ip = self._client_ip(scope, headers, self._trusted_proxies)
         now = time.time()
         cutoff = now - self._period
-        bucket = self._history[ip]
 
-        # Prune old timestamps
-        self._history[ip] = [t for t in bucket if t > cutoff]
-        if len(self._history[ip]) >= self._calls:
+        # Prune stale timestamps; delete the key entirely when empty so the
+        # dict doesn't grow unboundedly for long-lived servers with many IPs.
+        bucket = self._history.get(ip)
+        if bucket is not None:
+            pruned = [t for t in bucket if t > cutoff]
+            if pruned:
+                self._history[ip] = pruned
+            else:
+                del self._history[ip]
+
+        if len(self._history.get(ip, [])) >= self._calls:
             body = b'{"detail":"Rate limit exceeded. Try again later."}'
             response = StarletteResponse(
                 content=body,
@@ -157,7 +175,7 @@ class _RateLimitMiddleware:
 
 
 @asynccontextmanager
-async def _lifespan(application: FastAPI):  # noqa: ARG001
+async def _lifespan(application: FastAPI):
     """Validate environment variables at startup."""
     recommended = {
         "ARANGO_URL": "ArangoDB URL",
@@ -211,14 +229,25 @@ origins = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()]
 
 @app.middleware("http")
 async def _log_requests(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
     start = time.perf_counter()
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
+    response.headers["X-Request-ID"] = request_id
+    path = request.url.path
+    if request.url.query:
+        path = f"{path}?{request.url.query}"
+    client = request.client.host if request.client else "-"
+    size = response.headers.get("content-length", "-")
     _logger.info(
-        "%s %s → %d (%.1fms)",
+        "[%s] %s %s %s → %d %sb (%.1fms)",
+        request_id[:8],
+        client,
         request.method,
-        request.url.path,
+        path,
         response.status_code,
+        size,
         duration_ms,
     )
     return response
@@ -251,3 +280,16 @@ async def health(store: Annotated[ArangoStore, Depends(get_store)]) -> dict:
         raise HTTPException(
             status_code=503, detail=f"Database unavailable: {exc}"
         ) from exc
+
+
+def _run_server() -> None:
+    """Entry point for the ``lawgraph-api`` CLI script."""
+    import uvicorn
+
+    uvicorn.run(
+        "lawgraph.api.app:app",
+        host=os.getenv("LAWGRAPH_API_HOST", "0.0.0.0"),
+        port=int(os.getenv("LAWGRAPH_API_PORT", "8000")),
+        reload=False,
+        access_log=False,
+    )

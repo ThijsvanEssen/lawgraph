@@ -17,10 +17,10 @@ from lawgraph.api.schemas import (
     JudgmentParagraph,
     JudgmentSummaryDTO,
 )
-from lawgraph.config.settings import COLLECTION_INSTRUMENT_ARTICLES
+from lawgraph.config.constants import COLLECTION_INSTRUMENT_ARTICLES
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import make_node_key
 from lawgraph.pipelines.semantic.rechtspraak_articles import detect_article_references
 
 router = APIRouter()
@@ -89,7 +89,7 @@ def list_judgments(
         limit=limit,
         offset=offset,
     )
-    items = [JudgmentListItemDTO.from_row(row) for row in data.get("items", [])]
+    items = [JudgmentListItemDTO.from_document(row) for row in data.get("items", [])]
     return JudgmentListResponse(items=items, total=int(data.get("total", 0)))
 
 
@@ -154,7 +154,7 @@ def _enrich_paragraphs(
         valid = [h for h in hits if h.bwb_id]
         para_hits.append((para, valid))
         for h in valid:
-            all_keys.append(make_node_key(h.bwb_id, h.article_number))
+            all_keys.append(make_node_key(h.bwb_id or "", h.article_number or ""))
 
     if not all_keys:
         return list(paragraphs)
@@ -174,7 +174,7 @@ def _enrich_paragraphs(
     for para, hits in para_hits:
         citaties: list[ArticleCitationSpan] = []
         for hit in hits:
-            article_key = make_node_key(hit.bwb_id, hit.article_number)
+            article_key = make_node_key(hit.bwb_id or "", hit.article_number or "")
             doc = article_by_key.get(article_key)
             if doc is None:
                 continue

@@ -62,16 +62,18 @@ app.dependency_overrides[get_store] = lambda: _MockStore()
 
 
 def test_list_open_dossiers_returns_200(monkeypatch):
-    """GET /api/dossiers/open returns 200 and a non-empty list."""
+    """GET /api/dossiers/open returns 200 with total + items wrapper."""
     monkeypatch.setattr(
         "lawgraph.api.routes.dossiers.get_open_dossiers",
-        lambda store, **kwargs: [_DOSSIER_DOC],
+        lambda store, **kwargs: {"total": 1, "items": [_DOSSIER_DOC]},
     )
     response = client.get("/api/dossiers/open")
     assert response.status_code == 200
     body = response.json()
-    assert isinstance(body, list)
-    assert len(body) >= 1
+    assert "total" in body
+    assert "items" in body
+    assert body["total"] >= 1
+    assert len(body["items"]) >= 1
 
 
 def test_get_dossier_detail_returns_404_for_unknown(monkeypatch):
@@ -90,11 +92,9 @@ def test_get_dossier_detail_returns_200(monkeypatch):
         "lawgraph.api.routes.dossiers.get_dossier_by_nummer",
         lambda store, nummer: _DOSSIER_DOC,
     )
-    # _count_members uses store.query; the MockStore already returns an empty iter
-    # which causes rows[0] to fail — patch _count_members directly instead.
     monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers._count_members",
-        lambda store, dossier_id, collection: 0,
+        "lawgraph.api.routes.dossiers.count_dossier_members",
+        lambda store, dossier_id: {},
     )
     response = client.get("/api/dossiers/36000")
     assert response.status_code == 200

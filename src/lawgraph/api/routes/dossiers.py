@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
+    count_dossier_members,
     enrich_dossier_docs,
     get_documents_for_dossiers,
     get_dossier_by_nummer,
@@ -31,6 +32,7 @@ from lawgraph.api.schemas import (
     DossierDocumentDTO,
     DossierDocumentsBulkResponse,
     DossierDocumentsResponse,
+    DossierListResponse,
     DossierMutationEdge,
     DossierMutationNode,
     DossierMutationsResponse,
@@ -39,10 +41,11 @@ from lawgraph.api.schemas import (
     PartyColorsResponse,
     TimelineEntryDTO,
 )
-from lawgraph.config.settings import COLLECTION_EDGES, RELATION_DEEL_VAN_DOSSIER
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
+
+_DOSSIER_NUMMER_PATTERN = r"^\d+(-[A-Za-z]+)?$"
 
 
 # ── Helper ─────────────────────────────────────────────────────────────────────
@@ -57,30 +60,16 @@ def _dossier_or_404(store: ArangoStore, kamerstuknummer: str) -> dict:
     return dossier
 
 
-def _count_members(store: ArangoStore, dossier_id: str, collection: str) -> int:
-    aql = f"""
-    RETURN LENGTH(
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to == @dossier_id OR e._from == @dossier_id
-            FILTER e.relation == '{RELATION_DEEL_VAN_DOSSIER}'
-            LET node_id = (e._to == @dossier_id ? e._from : e._to)
-            FILTER SPLIT(node_id, '/')[0] == @collection
-            RETURN 1
-    )
-    """
-    rows = list(store.query(aql, {"dossier_id": dossier_id, "collection": collection}))
-    return rows[0] if rows else 0
-
-
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
 
 @router.get(
     "/open",
-    response_model=list[DossierSummaryDTO],
+    response_model=DossierListResponse,
     summary="Alle open kamerstukdossiers",
     description=(
         "Geeft alle dossiers terug die nog niet zijn afgehandeld. "
+        "``total`` is het absolute aantal (onafhankelijk van ``limit``). "
         "Ondersteunt filters op commissie-slug, onderwerp-tekst en parlementaire fase."
     ),
     tags=["dossiers"],
@@ -113,20 +102,26 @@ def list_open_dossiers(
         ),
     ] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
-) -> list[DossierSummaryDTO]:
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> DossierListResponse:
     has_stage_list = (
         [s.strip() for s in has_stage.split(",") if s.strip()] if has_stage else None
     )
-    docs = get_open_dossiers(
+    raw = get_open_dossiers(
         store,
         commissie_slug=commissie,
         onderwerp=onderwerp,
         fase=fase,
         has_stage=has_stage_list,
         limit=limit,
+        offset=offset,
     )
+    docs = raw.get("items") or []
     enrich_dossier_docs(store, docs)
-    return [DossierSummaryDTO.from_document(d) for d in docs]
+    return DossierListResponse(
+        total=int(raw.get("total") or 0),
+        items=[DossierSummaryDTO.from_document(d) for d in docs],
+    )
 
 
 @router.get(
@@ -163,7 +158,7 @@ def get_dossier_detail(
         str,
         Path(
             description="Parliamentary dossier number, e.g. 29684 or 29684-I",
-            pattern=r"^\d+(-[A-Za-z]+)?$",
+            pattern=_DOSSIER_NUMMER_PATTERN,
         ),
     ],
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -171,12 +166,13 @@ def get_dossier_detail(
     dossier = _dossier_or_404(store, kamerstuknummer)
     enrich_dossier_docs(store, [dossier])
     dossier_id = dossier["_id"]
+    counts = count_dossier_members(store, dossier_id)
     return DossierDetailResponse.from_document(
         dossier,
-        document_count=_count_members(store, dossier_id, "publications"),
-        activiteit_count=_count_members(store, dossier_id, "activiteiten"),
-        stemming_count=_count_members(store, dossier_id, "stemmingen"),
-        toezegging_count=_count_members(store, dossier_id, "toezeggingen"),
+        document_count=counts.get("publications", 0),
+        activiteit_count=counts.get("activiteiten", 0),
+        stemming_count=counts.get("stemmingen", 0),
+        toezegging_count=counts.get("toezeggingen", 0),
     )
 
 
@@ -196,7 +192,7 @@ def get_timeline(
         str,
         Path(
             description="Parliamentary dossier number, e.g. 29684 or 29684-I",
-            pattern=r"^\d+(-[A-Za-z]+)?$",
+            pattern=_DOSSIER_NUMMER_PATTERN,
         ),
     ],
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -305,7 +301,7 @@ def get_dossier_documents_route(
         str,
         Path(
             description="Parliamentary dossier number, e.g. 29684 or 29684-I",
-            pattern=r"^\d+(-[A-Za-z]+)?$",
+            pattern=_DOSSIER_NUMMER_PATTERN,
         ),
     ],
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -336,7 +332,7 @@ def get_mutations(
         str,
         Path(
             description="Parliamentary dossier number, e.g. 29684 or 29684-I",
-            pattern=r"^\d+(-[A-Za-z]+)?$",
+            pattern=_DOSSIER_NUMMER_PATTERN,
         ),
     ],
     store: Annotated[ArangoStore, Depends(get_store)],

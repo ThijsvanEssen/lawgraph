@@ -9,8 +9,8 @@ from pydantic import BaseModel, ConfigDict
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import create_watch, delete_watch, list_watches
+from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -38,7 +38,7 @@ class WatchOut(BaseModel):
     created_at: str
 
     @classmethod
-    def from_doc(cls, doc: dict) -> WatchOut:
+    def from_document(cls, doc: dict) -> WatchOut:
         return cls(
             id=doc["_key"],
             node_id=doc["node_id"],
@@ -58,7 +58,7 @@ async def get_watches(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> list[WatchOut]:
     """Return all saved watches, newest first."""
-    return [WatchOut.from_doc(doc) for doc in list_watches(store)]
+    return [WatchOut.from_document(doc) for doc in list_watches(store)]
 
 
 @router.post(
@@ -94,7 +94,7 @@ async def add_watch(
         label=body.label,
         collection=body.collection,
     )
-    return WatchOut.from_doc(doc)
+    return WatchOut.from_document(doc)
 
 
 @router.delete(

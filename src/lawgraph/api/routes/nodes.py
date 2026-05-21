@@ -13,6 +13,7 @@ from lawgraph.api.queries import (
     get_node_neighborhood,
     get_node_with_neighbors,
 )
+from lawgraph.api.queries.nodes import NodeNotFoundError, UnsupportedCollectionError
 from lawgraph.api.schemas import (
     _DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
@@ -22,8 +23,8 @@ from lawgraph.api.schemas import (
     NodeNeighborhoodResponse,
     NodeNeighborsDTO,
 )
+from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -129,11 +130,12 @@ async def get_node_graph(
         data = get_node_with_neighbors(
             store, collection, key, neighbor_limit=neighbor_limit
         )
-    except ValueError as err:
-        message = str(err)
-        status = 400 if "unsupported" in message else 404
-        logger.debug("Node lookup %s/%s failed: %s", collection, key, message)
-        raise HTTPException(status_code=status, detail=message) from err
+    except UnsupportedCollectionError as err:
+        logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    except NodeNotFoundError as err:
+        logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
+        raise HTTPException(status_code=404, detail=str(err)) from err
 
     all_neighbors = [
         NeighborDTO.from_entry(
@@ -177,10 +179,10 @@ async def get_node_neighborhood_route(
 ) -> NodeNeighborhoodResponse:
     try:
         data = get_node_neighborhood(store, collection, key, depth=depth, cap=cap)
-    except ValueError as err:
-        message = str(err)
-        status = 400 if "unsupported" in message else 404
-        raise HTTPException(status_code=status, detail=message) from err
+    except UnsupportedCollectionError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    except NodeNotFoundError as err:
+        raise HTTPException(status_code=404, detail=str(err)) from err
 
     focal = data["focal"]
     nodes = [
