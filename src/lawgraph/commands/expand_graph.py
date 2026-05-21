@@ -1,38 +1,22 @@
-"""Iteratively expand the graph until no new documents are discovered.
-
-Runs the fill_gaps → normalize_all → semantic_all loop until fill_gaps reports
-nothing new to retrieve, or until --max-iterations is reached.
-
-Usage:
-    python -m lawgraph.cli.expand_graph
-    python -m lawgraph.cli.expand_graph --max-iterations 5
-    python -m lawgraph.cli.expand_graph --dry-run  # diagnose without changing
-"""
+"""Iteratively expand the graph until no new documents are discovered."""
 
 from __future__ import annotations
 
 import argparse
-import os
 
 from dotenv import load_dotenv
 
-from lawgraph.config import list_domain_profiles
+from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
 
 def _count_stubs(store: ArangoStore) -> int:
-    """Count total stub nodes (articles + judgments) in the graph."""
     aql = """
     RETURN {
-        stub_articles: LENGTH(
-            FOR d IN instrument_articles FILTER d.props.stub == true RETURN 1
-        ),
-        stub_judgments: LENGTH(
-            FOR j IN judgments FILTER j.props.stub == true RETURN 1
-        )
+        stub_articles: LENGTH(FOR d IN instrument_articles FILTER d.props.stub == true RETURN 1),
+        stub_judgments: LENGTH(FOR j IN judgments FILTER j.props.stub == true RETURN 1)
     }
     """
     try:
@@ -45,44 +29,23 @@ def _count_stubs(store: ArangoStore) -> int:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description=(
-            "Iteratively expand the graph by running fill_gaps → normalize_all → semantic_all "
-            "until no new documents are found or max iterations is reached."
-        )
+        description="Expand the graph by iterating fill_gaps → normalize_all → semantic_all.",
     )
-    parser.add_argument(
-        "--max-iterations",
-        type=int,
-        default=10,
-        help="Maximum number of expansion iterations (default: 10).",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Diagnose gaps without applying any changes.",
-    )
-    parser.add_argument(
-        "--profile",
-        choices=list_domain_profiles() or None,
-        help="Domain profile to use for all sub-pipelines.",
-    )
+    parser.add_argument("--max-iterations", type=int, default=10)
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
     load_dotenv()
     setup_logging()
 
-    profile = args.profile or os.getenv("LAWGRAPH_PROFILE")
-    profile_argv = ["--profile", profile] if profile else []
-
     store = ArangoStore()
 
-    from lawgraph.cli.fill_gaps import main as fill_gaps_main
-    from lawgraph.cli.normalize_all import main as normalize_all_main
-    from lawgraph.cli.semantic_all import main as semantic_all_main
+    from lawgraph.commands.fill_gaps import main as fill_gaps_main
+    from lawgraph.pipelines.orchestration import run_normalize_all as normalize_all_main
+    from lawgraph.pipelines.orchestration import run_semantic_all as semantic_all_main
 
     logger.info(
-        "expand_graph: starting (profile=%s, max_iterations=%d, dry_run=%s).",
-        profile or "default",
+        "expand_graph: starting (max_iterations=%d, dry_run=%s).",
         args.max_iterations,
         args.dry_run,
     )
@@ -96,8 +59,6 @@ def main(argv: list[str] | None = None) -> None:
         before = _count_stubs(store)
 
         fill_argv = ["--apply"] if not args.dry_run else []
-        if profile:
-            fill_argv += ["--profile", profile]
 
         try:
             fill_gaps_main(argv=fill_argv)
@@ -120,7 +81,7 @@ def main(argv: list[str] | None = None) -> None:
             break
 
         after = _count_stubs(store)
-        resolved = before - after  # stubs resolved = docs added
+        resolved = before - after
 
         if resolved <= 0:
             logger.info(
@@ -153,7 +114,7 @@ def main(argv: list[str] | None = None) -> None:
             )
 
         try:
-            semantic_all_main(argv=profile_argv)
+            semantic_all_main(argv=[])
         except SystemExit as exc:
             if exc.code not in (None, 0):
                 logger.warning(
@@ -173,3 +134,7 @@ def main(argv: list[str] | None = None) -> None:
         iteration,
         total_resolved,
     )
+
+
+if __name__ == "__main__":
+    main()

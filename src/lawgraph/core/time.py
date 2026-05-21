@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 from typing import Any
 
 
@@ -23,14 +24,19 @@ def describe_since(value: dt.datetime | None) -> str:
     return iso_timestamp(value) or "full history"
 
 
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
 def iso_date(val: Any) -> str | None:
     """Extract a YYYY-MM-DD string from a date/datetime value or OData datetime string."""
     if not val:
         return None
     s = str(val)
     if "T" in s:
-        return s.split("T")[0]
-    return s[:10] if len(s) >= 10 else s or None
+        s = s.split("T")[0]
+    elif len(s) >= 10:
+        s = s[:10]
+    return s if _DATE_RE.match(s) else None
 
 
 def strip_time_component(value: str | None) -> str | None:

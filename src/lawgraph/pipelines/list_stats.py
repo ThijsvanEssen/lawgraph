@@ -9,16 +9,14 @@ Fields written:
 instruments
     props.jurisdiction   — 'nl' (bwb_id present) | 'eu' (celex present) | null
     props.article_count  — count of PART_OF_INSTRUMENT edges pointing at it
-    props.kind           — lower-cased copy of props.kind when present (no-op
-                           when already lowercase; keeps the field around so
-                           the persistent index exists)
+    props.kind           — lower-cased copy of props.kind when present
 
 judgments
     props.court_code     — uppercase ECLI court segment (e.g. 'HR', 'GHARN')
     props.tier           — coarse tier label ('hoge_raad' / 'gerechtshof' /
                            'rechtbank' / 'bijzonder')
-    props.date_eff       — effective judgment date, picking
-                           ``props.meta.date`` over ``props.date``
+    props.date_eff       — effective judgment date
+    props.inbound_citation_count — count of inbound CITES_JUDGMENT edges
 
 Idempotent: only writes when the computed value differs from what's already
 on the document. Safe to re-run; new docs created after this runs are
@@ -28,17 +26,18 @@ covered by the normalize pipelines (see pipelines/normalize/*).
 from __future__ import annotations
 
 import argparse
+from typing import cast
 
-from lawgraph.config.settings import (
-    COLLECTION_EDGES,
+from lawgraph.config.constants import (
     RELATION_CITES_ARTICLE,
     RELATION_CITES_JUDGMENT,
     RELATION_EXPLAINS_ARTICLE,
     RELATION_LICHT_TOE,
     RELATION_PART_OF_INSTRUMENT,
 )
+from lawgraph.config.settings import COLLECTION_EDGES
+from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -153,14 +152,13 @@ def _backfill_articles(store: ArangoStore, *, dry_run: bool) -> int:
             RETURN n
         """
         rows = list(store.query(check_aql, bind))
-        return rows[0] if rows else 0
+        return cast(int, rows[0]) if rows else 0
     updated = list(store.query(_ARTICLES_AQL, bind))
     return len(updated)
 
 
 def _backfill_instruments(store: ArangoStore, *, dry_run: bool) -> int:
     if dry_run:
-        # Count rows that would be updated without writing.
         check_aql = f"""
         FOR inst IN instruments
             LET props = inst.props
@@ -182,7 +180,7 @@ def _backfill_instruments(store: ArangoStore, *, dry_run: bool) -> int:
             RETURN n
         """
         rows = list(store.query(check_aql, {"part_of": RELATION_PART_OF_INSTRUMENT}))
-        return rows[0] if rows else 0
+        return cast(int, rows[0]) if rows else 0
 
     updated = list(
         store.query(_INSTRUMENTS_AQL, {"part_of": RELATION_PART_OF_INSTRUMENT})
@@ -249,17 +247,12 @@ def _backfill_commissies(store: ArangoStore, *, dry_run: bool) -> int:
             RETURN n
         """
         rows = list(store.query(check_aql))
-        return rows[0] if rows else 0
+        return cast(int, rows[0]) if rows else 0
     return len(list(store.query(_COMMISSIES_AQL)))
 
 
 def _backfill_judgments(store: ArangoStore, *, dry_run: bool) -> int:
-    # Inbound = other judgments citing this one. Articles cited by this
-    # judgment go the other way; they're irrelevant to the "how often is
-    # this judgment cited?" metric.
-    bind = {
-        "inbound_rels": [RELATION_CITES_JUDGMENT],
-    }
+    bind = {"inbound_rels": [RELATION_CITES_JUDGMENT]}
     if dry_run:
         check_aql = """
         FOR doc IN judgments
@@ -292,7 +285,7 @@ def _backfill_judgments(store: ArangoStore, *, dry_run: bool) -> int:
             RETURN n
         """
         rows = list(store.query(check_aql, bind))
-        return rows[0] if rows else 0
+        return cast(int, rows[0]) if rows else 0
 
     updated = list(store.query(_JUDGMENTS_AQL, bind))
     return len(updated)
@@ -333,25 +326,22 @@ def main(argv: list[str] | None = None) -> None:
         or args.commissies_only
         or args.articles_only
     )
+    verb = "Would update" if args.dry_run else "Updated"
 
     if not only_one or args.instruments_only:
         n = _backfill_instruments(store, dry_run=args.dry_run)
-        verb = "Would update" if args.dry_run else "Updated"
         logger.info("%s %d instruments.", verb, n)
 
     if not only_one or args.judgments_only:
         n = _backfill_judgments(store, dry_run=args.dry_run)
-        verb = "Would update" if args.dry_run else "Updated"
         logger.info("%s %d judgments.", verb, n)
 
     if not only_one or args.commissies_only:
         n = _backfill_commissies(store, dry_run=args.dry_run)
-        verb = "Would update" if args.dry_run else "Updated"
         logger.info("%s %d commissies.", verb, n)
 
     if not only_one or args.articles_only:
         n = _backfill_articles(store, dry_run=args.dry_run)
-        verb = "Would update" if args.dry_run else "Updated"
         logger.info("%s %d instrument_articles.", verb, n)
 
 
