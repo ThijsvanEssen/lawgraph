@@ -9,11 +9,12 @@ from the Senate's data magazine.
 
 from __future__ import annotations
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import EERSTEKAMER_BASE_URL
-from lawgraph.logging import get_logger
+from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
 

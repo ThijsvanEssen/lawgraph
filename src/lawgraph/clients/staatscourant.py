@@ -105,7 +105,7 @@ class StaatscourantClient(BaseClient):
 
         year = m.group(1)
         num = m.group(2).zfill(4)
-        clean_id = f"stcrt-{year}-{m.group(2)}"
+        clean_id = f"stcrt-{year}-{num}"
 
         path = f"/frbr/officielepublicaties/stcrt/{year}/{num}/{clean_id}/xml"
         try:

@@ -103,7 +103,7 @@ class StaatsbladClient(BaseClient):
 
         year = m.group(1)
         num = m.group(2).zfill(4)
-        clean_id = f"stb-{year}-{m.group(2)}"
+        clean_id = f"stb-{year}-{num}"
 
         # Direct URL pattern
         path = f"/frbr/officielepublicaties/stb/{year}/{num}/{clean_id}/xml"

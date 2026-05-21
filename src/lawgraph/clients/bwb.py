@@ -6,9 +6,13 @@ from typing import Callable, TypedDict
 
 from requests import Session
 
+from lawgraph.clients._sru import _local_name
 from lawgraph.clients.base import BaseClient
-from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
-from lawgraph.logging import get_logger
+from lawgraph.config.settings import (
+    BWB_BASE_URL,
+    BWB_SRU_ENDPOINT,
+)
+from lawgraph.core.logging import get_logger
 
 # Structural changes:
 # - SRU endpoint and base URL now live in lawgraph.config.settings.
@@ -101,7 +105,7 @@ class BWBClient(BaseClient):
 
                 found_in_page = 0
                 for element in root.iter():
-                    if self._local_name(element.tag) != "record":
+                    if _local_name(element.tag) != "record":
                         continue
                     meta = self._parse_record(element)
                     if meta and meta["bwb_id"] and meta["bwb_id"] not in seen:
@@ -143,7 +147,7 @@ class BWBClient(BaseClient):
 
         toestanden: list[ToestandMeta] = []
         for element in root.iter():
-            if self._local_name(element.tag) != "record":
+            if _local_name(element.tag) != "record":
                 continue
             meta = self._parse_record(element)
             if meta:
@@ -233,7 +237,7 @@ class BWBClient(BaseClient):
             text = (element.text or "").strip()
             if not text:
                 continue
-            handler = handlers.get(self._local_name(element.tag))
+            handler = handlers.get(_local_name(element.tag))
             if handler:
                 handler(text)
 
@@ -252,13 +256,6 @@ class BWBClient(BaseClient):
                 "geldigheidsperiode_einddatum"
             ],
         }
-
-    @staticmethod
-    def _local_name(tag: str) -> str:
-        """Strip the XML namespace from a tag and return its local part."""
-        if "}" in tag:
-            return tag.split("}", 1)[1]
-        return tag
 
     @staticmethod
     def _date_for_sort(value: str | None) -> dt.date:

@@ -23,9 +23,11 @@ from lawgraph.config.settings import (
     ARANGO_URL,
     ARANGO_USER,
     COLLECTION_EDGES,
+    DOCUMENT_COLLECTIONS as _ALL_COLLECTION_NAMES,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node
+from lawgraph.core.time import iso_timestamp
 
 logger = get_logger(__name__)
 
@@ -48,28 +50,6 @@ _EDGE_UPSERT_UPDATE = """
     status: doc.status,
     meta: MERGE(OLD.meta, doc.meta)
 """
-
-# All document collection names that ArangoStore manages.
-_ALL_COLLECTION_NAMES = [
-    "instruments",
-    "instrument_articles",
-    "instrument_versions",
-    "instrument_article_versions",
-    "procedures",
-    "publications",
-    "judgments",
-    "topics",
-    "raw_sources",
-    "kamerstukdossiers",
-    "activiteiten",
-    "stemmingen",
-    "toezeggingen",
-    "commissies",
-    "leden",
-    "fracties",
-    "edge_status_log",
-    "watches",
-]
 
 
 class ArangoStore:
@@ -149,6 +129,7 @@ class ArangoStore:
             max_runtime=max_runtime,  # type: ignore[arg-type]
             batch_size=batch_size,
         )
+        # python-arango <8.0 returns a cursor; >=8.0 returns a list directly
         result_attr = getattr(cursor, "result", None)
         if callable(result_attr):
             cursor = result_attr()
@@ -167,9 +148,7 @@ class ArangoStore:
         meta: dict | None = None,
     ) -> dict[str, Any]:
         """Upsert a raw source record keyed by (source, kind, external_id)."""
-        fetched_at = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
-        if fetched_at.endswith("+00:00"):
-            fetched_at = fetched_at.replace("+00:00", "Z")
+        fetched_at = iso_timestamp(dt.datetime.now(dt.timezone.utc).replace(microsecond=0))
 
         if external_id is not None:
             record_key = hashlib.sha1(
@@ -195,10 +174,12 @@ class ArangoStore:
 
     def insert_node(self, node: Node) -> Node:
         """Insert a Node and return it with its resolved key."""
+        if node.key is None:
+            raise ValueError(f"insert_node requires a key; got node with type={node.type!r}")
         collection = self.db.collection(node.collection)
         doc = node.to_document()
         inserted = cast(dict[str, Any], collection.insert(doc))
-        new_key = inserted.get("_key") or node.key or str(uuid4())
+        new_key = inserted.get("_key") or node.key
         return node.with_key(str(new_key))
 
     def insert_or_update(self, node: Node) -> Node:
@@ -210,6 +191,9 @@ class ArangoStore:
         """
         if node.key is None:
             raise ValueError("Node must have a deterministic key.")
+
+        if node.collection not in _ALL_COLLECTION_NAMES:
+            raise ValueError(f"Unknown collection: {node.collection!r}")
 
         doc = node.to_document()
         props = doc.get("props") or {}
@@ -243,15 +227,17 @@ class ArangoStore:
             return Node.from_document(node.collection, rows[0])
         return node
 
-    def bulk_insert_or_update_nodes(
+    def _bulk_upsert(
         self,
         collection: str,
         docs: list[dict[str, Any]],
+        update_clause: str,
     ) -> tuple[int, int]:
-        """Batch-upsert multiple node documents. Returns (created_count, updated_count).
+        """Execute a single AQL UPSERT loop for *docs* into *collection*.
 
-        Uses a single AQL UPSERT loop per collection — reduces N individual
-        round-trips to 1 for high-throughput normalize pipelines.
+        Returns (created_count, updated_count). The *update_clause* string is
+        interpolated verbatim — callers must pass one of the module-level
+        ``_NODE_UPSERT_UPDATE`` or ``_EDGE_UPSERT_UPDATE`` constants.
         """
         if not docs:
             return 0, 0
@@ -261,7 +247,7 @@ class ArangoStore:
             FOR doc IN @docs
                 UPSERT {{_key: doc._key}}
                 INSERT doc
-                UPDATE {{{_NODE_UPSERT_UPDATE}}}
+                UPDATE {{{update_clause}}}
                 IN {collection}
                 RETURN {{was_new: OLD == null}}
         )
@@ -281,6 +267,18 @@ class ArangoStore:
             return int(row.get("created", 0)), int(row.get("updated", 0))
         return 0, 0
 
+    def bulk_insert_or_update_nodes(
+        self,
+        collection: str,
+        docs: list[dict[str, Any]],
+    ) -> tuple[int, int]:
+        """Batch-upsert multiple node documents. Returns (created_count, updated_count).
+
+        Uses a single AQL UPSERT loop per collection — reduces N individual
+        round-trips to 1 for high-throughput normalize pipelines.
+        """
+        return self._bulk_upsert(collection, docs, _NODE_UPSERT_UPDATE)
+
     def ensure_stub_node(
         self,
         collection: str,
@@ -295,10 +293,6 @@ class ArangoStore:
         that isn't in the corpus). The stub carries ``props.stub=True`` so
         the frontend can surface it as a pending import.
         """
-        existing = self.get_node(collection, key)
-        if existing is not None:
-            return existing
-
         stub_props = dict(props)
         stub_props["stub"] = True
         node_type_val = (
@@ -411,33 +405,7 @@ class ArangoStore:
         For semantic pipelines writing hundreds of edges per run, this reduces
         HTTP round-trips from O(N) to 1.
         """
-        if not docs:
-            return 0, 0
-
-        aql = f"""
-        LET results = (
-            FOR doc IN @docs
-                UPSERT {{_key: doc._key}}
-                INSERT doc
-                UPDATE {{{_EDGE_UPSERT_UPDATE}}}
-                IN {COLLECTION_EDGES}
-                RETURN {{was_new: OLD == null}}
-        )
-        RETURN {{
-            created: LENGTH(FOR r IN results FILTER r.was_new RETURN 1),
-            updated: LENGTH(FOR r IN results FILTER NOT r.was_new RETURN 1)
-        }}
-        """
-        rows = list(
-            cast(
-                Iterable[dict[str, Any]],
-                self.db.aql.execute(aql, bind_vars={"docs": docs}),
-            )
-        )
-        if rows:
-            row = rows[0]
-            return int(row.get("created", 0)), int(row.get("updated", 0))
-        return 0, 0
+        return self._bulk_upsert(COLLECTION_EDGES, docs, _EDGE_UPSERT_UPDATE)
 
     def flip_edge_status(
         self,
@@ -461,11 +429,9 @@ class ArangoStore:
         if old_status == new_status:
             return existing
 
-        self.edges.update({"_key": edge_key, "status": new_status})
+        timestamp = iso_timestamp(dt.datetime.now(dt.timezone.utc).replace(microsecond=0))
 
-        timestamp = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
-        if timestamp.endswith("+00:00"):
-            timestamp = timestamp.replace("+00:00", "Z")
+        self.edges.update({"_key": edge_key, "status": new_status, "updated_at": timestamp})
 
         log_entry: dict[str, Any] = {
             "_key": str(uuid4()),
@@ -487,4 +453,5 @@ class ArangoStore:
             new_status,
             triggering_stemming_id,
         )
-        return cast(dict[str, Any], self.edges.get(edge_key))
+        updated_doc = {**existing, "status": new_status, "updated_at": timestamp}
+        return updated_doc
