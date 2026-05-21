@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from lawgraph.clients.echr import EchrClient
-from lawgraph.config.settings import RAW_KIND_ECHR_JUDGMENT, SOURCE_ECHR
+from lawgraph.config.constants import RAW_KIND_ECHR_JUDGMENT, SOURCE_ECHR
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 from .base import RetrievePipelineBase, RetrieveRecord
 

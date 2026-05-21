@@ -3,14 +3,14 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from lawgraph.clients.bwb import BWBClient
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -99,38 +99,6 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             len(result.errors),
         )
         return result
-
-    def fetch(
-        self,
-        *args: object,
-        bwb_ids: Sequence[NormalizedBWBID] | None = None,
-        **kwargs: object,
-    ) -> Sequence[RetrieveRecord]:
-        """Return RetrieveRecords for each BWB ID without storing them."""
-        normalized = self._normalize_ids(bwb_ids)
-        records: list[RetrieveRecord] = []
-
-        for bwb_id in normalized:
-            meta = self.client.latest_toestand(bwb_id)
-            if meta is None:
-                continue
-            xml_text = self.client.fetch_toestand_xml(meta)
-            records.append(
-                RetrieveRecord(
-                    source=SOURCE_BWB,
-                    kind=RAW_KIND_BWB_TOESTAND,
-                    external_id=bwb_id,
-                    payload_text=xml_text,
-                    meta={
-                        "bwb_id": bwb_id,
-                        "toestand_url": meta["locatie_toestand"],
-                        "start_date": meta.get("geldigheidsperiode_startdatum"),
-                        "end_date": meta.get("geldigheidsperiode_einddatum"),
-                    },
-                )
-            )
-
-        return records
 
     def run_history(
         self,

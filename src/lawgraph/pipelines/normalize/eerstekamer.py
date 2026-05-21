@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
+from lawgraph.db.store import ArangoStore
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
@@ -23,7 +24,7 @@ logger = get_logger(__name__)
 class EerstekamerNormalizePipeline(NormalizePipeline):
     """Normalize EK Kamerstukken into Publication nodes and stemmingen into Stemming nodes."""
 
-    def __init__(self, *, store: Any) -> None:
+    def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:

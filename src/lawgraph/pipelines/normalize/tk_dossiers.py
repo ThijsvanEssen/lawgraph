@@ -150,11 +150,9 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         # Fractie raws are loaded yet (older snapshots), so backwards-compat
         # is preserved during the migration.
         fractie_raws = raw.get(RAW_KIND_TK_FRACTIE, [])
-        # Stash stemmingen raws so _normalize_fracties can derive aliases from
-        # ActorFractie strings (TK abbrev. inconsistency: e.g. NSC).
-        self._raw_stemmingen_cache = raw.get(RAW_KIND_TK_STEMMING, [])
+        stemmingen_raws = raw.get(RAW_KIND_TK_STEMMING, [])
         if fractie_raws:
-            fractie_nodes = self._normalize_fracties(fractie_raws)
+            fractie_nodes = self._normalize_fracties(fractie_raws, stemmingen_raws)
         else:
             fractie_nodes = self._normalize_fracties_from_stemmingen(
                 raw.get(RAW_KIND_TK_STEMMING, [])
@@ -1061,7 +1059,9 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         return aliases
 
     def _normalize_fracties(
-        self, fractie_raws: list[dict[str, Any]]
+        self,
+        fractie_raws: list[dict[str, Any]],
+        stemmingen_raws: list[dict[str, Any]] | None = None,
     ) -> dict[str, Node]:
         """Build canonical Fractie nodes from the TK Fractie endpoint.
 
@@ -1074,7 +1074,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         # Collect ActorFractie strings from stemmingen so we can map them to
         # canonical fracties as aliases.
         stemming_labels: set[str] = set()
-        for raw in getattr(self, "_raw_stemmingen_cache", []) or []:
+        for raw in stemmingen_raws or []:
             payload = self._payload_json(raw)
             label = (payload.get("ActorFractie") or "").strip()
             if label:

@@ -3,10 +3,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from lawgraph.clients.eu import EUClient
-from lawgraph.config.settings import RAW_KIND_EU_CELEX, SOURCE_EURLEX
+from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -20,9 +20,9 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.eu = eu_client or EUClient()
 
-    def fetch(
+    def fetch(  # type: ignore[override]
         self,
-        *args: object,
+        *,
         celex_ids: Sequence[str],
         lang: str = "NL",
         **kwargs: object,

@@ -5,31 +5,24 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     RAW_KIND_ECHR_JUDGMENT,
     SOURCE_ECHR,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import iso_date as _iso_date
+from lawgraph.db.store import ArangoStore
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
 
 
-def _iso_date(val: Any) -> str | None:
-    if not val:
-        return None
-    s = str(val)
-    if "T" in s:
-        return s[:10]
-    return s[:10] if len(s) >= 10 else s
-
-
 class EchrNormalizePipeline(NormalizePipeline):
     """Normalize ECHR HUDOC judgment JSON into Judgment nodes."""
 
-    def __init__(self, *, store: Any) -> None:
+    def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:
@@ -41,18 +34,18 @@ class EchrNormalizePipeline(NormalizePipeline):
         logger.info("Loaded %d ECHR raw_sources.", len(rows))
         return rows
 
-    def normalize_nodes(self, raw: list[dict[str, Any]]) -> dict[str, Node]:
+    def normalize_nodes(self, raw: list[dict[str, Any]], result: PipelineResult) -> dict[str, Node]:
         nodes: dict[str, Node] = {}
 
         for record in raw:
             payload = self._payload_json(record)
             if not payload or not isinstance(payload, dict):
-                self._result.skipped += 1
+                result.skipped += 1
                 continue
 
             item_id = str(payload.get("itemid") or record.get("external_id") or "")
             if not item_id:
-                self._result.skipped += 1
+                result.skipped += 1
                 continue
 
             appno = payload.get("appno") or ""
@@ -95,7 +88,7 @@ class EchrNormalizePipeline(NormalizePipeline):
             )
             node = self.store.insert_or_update(node)
             nodes[item_id] = node
-            self._result.created += 1
+            result.created += 1
 
         logger.info("ECHR normalize: %d judgments processed.", len(nodes))
         return nodes

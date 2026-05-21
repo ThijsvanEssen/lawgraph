@@ -6,14 +6,14 @@ from collections.abc import Sequence
 from typing import Any
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     RAW_KIND_RS_INDEX,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 from .base import RetrievePipelineBase, RetrieveRecord
 

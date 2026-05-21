@@ -15,6 +15,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore
 from lawgraph.db import _edge_key as _sha1_edge_key
+from lawgraph.pipelines.normalize._xml import _local_name
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
@@ -223,7 +224,7 @@ class BWBNormalizePipeline(NormalizePipeline):
         }
         best: tuple[int, str] | None = None
         for el in root.iter():
-            local = cls._local_name(el.tag).lower()
+            local = _local_name(el.tag).lower()
             priority = _TITLE_PRIORITY.get(local)
             if priority is None:
                 continue
@@ -238,7 +239,7 @@ class BWBNormalizePipeline(NormalizePipeline):
     def _extract_citation_title_from_root(cls, root: ET.Element) -> str | None:
         """Extract <citeertitel> from a pre-parsed XML root."""
         for el in root.iter():
-            if cls._local_name(el.tag).lower() == "citeertitel":
+            if _local_name(el.tag).lower() == "citeertitel":
                 text = " ".join((el.text or "").split()).strip()
                 if text:
                     return text
@@ -275,7 +276,7 @@ class BWBNormalizePipeline(NormalizePipeline):
     def _find_article_elements(root: ET.Element) -> list[ET.Element]:
         articles: list[ET.Element] = []
         for element in root.iter():
-            local = BWBNormalizePipeline._local_name(element.tag)
+            local = _local_name(element.tag)
             if local == "artikel":
                 articles.append(element)
                 continue
@@ -317,12 +318,12 @@ class BWBNormalizePipeline(NormalizePipeline):
     def _collect_lid_texts(cls, article: ET.Element) -> list[str]:
         lid_texts: list[str] = []
         for element in article.iter():
-            if cls._local_name(element.tag) != "lid":
+            if _local_name(element.tag) != "lid":
                 continue
             parts = [
                 cls._text_from_element(child)
                 for child in element
-                if cls._local_name(child.tag) == "al" and cls._text_from_element(child)
+                if _local_name(child.tag) == "al" and cls._text_from_element(child)
             ]
             if not parts:
                 continue
@@ -336,17 +337,11 @@ class BWBNormalizePipeline(NormalizePipeline):
     def _collect_fallback_texts(cls, article: ET.Element) -> str:
         parts: list[str] = []
         for element in article.iter():
-            if cls._local_name(element.tag) == "al":
+            if _local_name(element.tag) == "al":
                 text = cls._text_from_element(element)
                 if text:
                     parts.append(text)
         return "\n".join(parts).strip()
-
-    @staticmethod
-    def _local_name(tag: str) -> str:
-        if "}" in tag:
-            return tag.split("}", 1)[1]
-        return tag
 
     @staticmethod
     def _text_from_element(element: ET.Element | None) -> str:
@@ -361,6 +356,6 @@ class BWBNormalizePipeline(NormalizePipeline):
         for node in element.iter():
             if node is element:
                 continue
-            if cls._local_name(node.tag) == local_name:
+            if _local_name(node.tag) == local_name:
                 return node
         return None

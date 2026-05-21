@@ -18,7 +18,7 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
@@ -30,9 +30,9 @@ from lawgraph.config.settings import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 logger = get_logger(__name__)
 

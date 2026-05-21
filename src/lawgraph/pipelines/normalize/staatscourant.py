@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.db.store import ArangoStore
 from lawgraph.pipelines.normalize._xml import find_text
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
@@ -26,7 +27,7 @@ _BWBR_PATTERN = re.compile(r"\b(BWBR0\d{6})\b", re.IGNORECASE)
 class StaatscourantNormalizePipeline(NormalizePipeline):
     """Normalize Staatscourant ministeriele regelingen XML into Publication nodes."""
 
-    def __init__(self, *, store: Any) -> None:
+    def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:

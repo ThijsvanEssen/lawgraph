@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from lawgraph.clients.verdragenbank import VerdragenbankClient
-from lawgraph.config.settings import RAW_KIND_VERDRAG, SOURCE_VERDRAGENBANK
+from lawgraph.config.constants import RAW_KIND_VERDRAG, SOURCE_VERDRAGENBANK
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -22,7 +22,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or VerdragenbankClient()
 
-    def fetch(self, *, max_records: int = 10000, **kwargs) -> list[RetrieveRecord]:
+    def fetch(self, *, max_records: int = 10000, **kwargs: object) -> list[RetrieveRecord]:
         treaties = self.client.enumerate_treaties(max_records=max_records)
         records: list[RetrieveRecord] = []
 
