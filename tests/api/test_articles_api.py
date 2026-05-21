@@ -70,6 +70,18 @@ def test_get_article_detail_returns_expected_fields(monkeypatch):
     assert payload["citations"] == []
 
 
+def test_get_article_detail_returns_404_for_unknown_key(monkeypatch):
+    """GET /api/articles/{bwb_id}/{article_number} returns 404 when the article is not found."""
+    monkeypatch.setattr(
+        "lawgraph.api.routes.articles.get_article_with_relations",
+        lambda store, bwb_id, article_number: (_ for _ in ()).throw(
+            ValueError("article not found")
+        ),
+    )
+    response = client.get("/api/articles/instrument_articles/nonexistent-key-xyz")
+    assert response.status_code == 404
+
+
 def test_get_article_detail_exposes_citations(monkeypatch):
     """Controleren dat gevonden referenties via REFERS_TO_ARTICLE terugkomen."""
     monkeypatch.setattr(

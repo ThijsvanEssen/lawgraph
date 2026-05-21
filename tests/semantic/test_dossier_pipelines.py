@@ -49,7 +49,7 @@ def test_dossier_law_link_creates_resulted_in_edge() -> None:
         }
     ]
     store = _FakeStore(rows=rows)
-    pipeline = DossierLawLinkPipeline(store=store, domain_config={})
+    pipeline = DossierLawLinkPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -67,14 +67,14 @@ def test_dossier_law_link_deduplicates_pairs() -> None:
         "match_type": "citation_title",
     }
     store = _FakeStore(rows=[row, row])
-    pipeline = DossierLawLinkPipeline(store=store, domain_config={})
+    pipeline = DossierLawLinkPipeline(store=store)
     result = pipeline.run()
     assert result.created == 1
 
 
 def test_dossier_law_link_returns_empty_when_no_rows() -> None:
     store = _FakeStore(rows=[])
-    pipeline = DossierLawLinkPipeline(store=store, domain_config={})
+    pipeline = DossierLawLinkPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
 
@@ -95,7 +95,7 @@ def test_ek_dossier_link_creates_deel_van_dossier_edge() -> None:
         }
     ]
     store = _FakeStore(rows=rows)
-    pipeline = EerstekamerDossierLinkPipeline(store=store, domain_config={})
+    pipeline = EerstekamerDossierLinkPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -106,7 +106,7 @@ def test_ek_dossier_link_creates_deel_van_dossier_edge() -> None:
 
 def test_ek_dossier_link_returns_empty_when_no_rows() -> None:
     store = _FakeStore(rows=[])
-    pipeline = EerstekamerDossierLinkPipeline(store=store, domain_config={})
+    pipeline = EerstekamerDossierLinkPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
 
@@ -127,7 +127,7 @@ def test_staatsblad_nvt_creates_explains_instrument_edge() -> None:
         }
     ]
     store = _FakeStore(rows=rows)
-    pipeline = StaatsbladNvtSemanticPipeline(store=store, domain_config={})
+    pipeline = StaatsbladNvtSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -154,7 +154,7 @@ def test_staatscourant_regeling_creates_explains_instrument_edge() -> None:
     # The pipeline calls query three times: bwb query, title query, text-scan query.
     # All return the same row — dedup ensures only 1 edge is created.
     store = _FakeStore(rows=rows)
-    pipeline = StaatscourantRegelingSemanticPipeline(store=store, domain_config={})
+    pipeline = StaatscourantRegelingSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1

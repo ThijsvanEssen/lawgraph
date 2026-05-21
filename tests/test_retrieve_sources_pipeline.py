@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Sequence
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     RAW_KIND_EU_CELEX,
     RAW_KIND_RS_INDEX,
     RAW_KIND_TK_DOCUMENTVERSIE,

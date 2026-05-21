@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import _parse_search_query, _tokenize_search_query
+from lawgraph.api.queries import parse_search_query, tokenize_search_query
 
 # ── Pure-function tests for the parser ────────────────────────────────────────
 
@@ -38,36 +38,36 @@ _ALIAS_MAP = {
 def test_parse_search_query_recognises_article_intent(
     query, expected_bwb, expected_article
 ):
-    parsed = _parse_search_query(query, _ALIAS_MAP)
+    parsed = parse_search_query(query, _ALIAS_MAP)
     assert parsed["kind"] == "article"
     assert parsed["bwb_id"] == expected_bwb
     assert parsed["article_number"] == expected_article
 
 
 def test_parse_search_query_handles_article_without_law():
-    parsed = _parse_search_query("art 1", _ALIAS_MAP)
+    parsed = parse_search_query("art 1", _ALIAS_MAP)
     assert parsed == {"kind": "article", "bwb_id": None, "article_number": "1"}
 
 
 def test_parse_search_query_recognises_ecli():
-    parsed = _parse_search_query("ECLI:NL:HR:2023:123", _ALIAS_MAP)
+    parsed = parse_search_query("ECLI:NL:HR:2023:123", _ALIAS_MAP)
     assert parsed["kind"] == "ecli"
     assert parsed["ecli"] == "ECLI:NL:HR:2023:123"
 
 
 def test_parse_search_query_falls_back_to_text_when_law_unknown():
     # "Wetboek 287" — "Wetboek" is too generic to resolve in alias_map
-    assert _parse_search_query("Wetboek 287", _ALIAS_MAP) == {"kind": "text"}
+    assert parse_search_query("Wetboek 287", _ALIAS_MAP) == {"kind": "text"}
 
 
 def test_parse_search_query_empty_returns_text():
-    assert _parse_search_query("", _ALIAS_MAP) == {"kind": "text"}
-    assert _parse_search_query("   ", _ALIAS_MAP) == {"kind": "text"}
+    assert parse_search_query("", _ALIAS_MAP) == {"kind": "text"}
+    assert parse_search_query("   ", _ALIAS_MAP) == {"kind": "text"}
 
 
 def test_tokenize_drops_short_tokens_and_lowercases():
-    assert _tokenize_search_query("Art. 1 Grondwet") == ["art.", "grondwet"]
-    assert _tokenize_search_query("BWBR0001854 a b cd") == ["bwbr0001854", "cd"]
+    assert tokenize_search_query("Art. 1 Grondwet") == ["art.", "grondwet"]
+    assert tokenize_search_query("BWBR0001854 a b cd") == ["bwbr0001854", "cd"]
 
 
 # ── Route-level tests with a stubbed store ────────────────────────────────────
@@ -137,7 +137,7 @@ class _StubStore:
         self._alias_rows = alias_rows
         self._hits = hits
 
-    def query(self, aql: str, bind_vars: dict[str, Any] | None = None):  # noqa: ARG002
+    def query(self, aql: str, bind_vars: dict[str, Any] | None = None):
         # Alias-map loader: distinctive `short: i.props.short_title` projection.
         if "short: i.props.short_title" in aql:
             return list(self._alias_rows)

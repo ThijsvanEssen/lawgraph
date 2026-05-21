@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.models import Node, NodeType
+from lawgraph.core.models import Node, NodeType, PipelineResult
 
 # ---------------------------------------------------------------------------
 # Shared FakeStore — just enough surface to support normalize_nodes()
@@ -61,7 +61,7 @@ def test_staatsblad_normalize_creates_publication():
 
     store = FakeStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("stb-2015-134", payload_text=_STB_XML)])
+    nodes = pipeline.normalize_nodes([_raw("stb-2015-134", payload_text=_STB_XML)], PipelineResult())
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))
@@ -76,7 +76,7 @@ def test_staatsblad_normalize_skips_empty_payload():
 
     store = FakeStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("stb-2020-1", payload_text="")])
+    nodes = pipeline.normalize_nodes([_raw("stb-2020-1", payload_text="")], PipelineResult())
     assert len(nodes) == 0
 
 
@@ -101,7 +101,7 @@ def test_staatscourant_normalize_creates_publication():
 
     store = FakeStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("stcrt-2020-55", payload_text=_STCRT_XML)])
+    nodes = pipeline.normalize_nodes([_raw("stcrt-2020-55", payload_text=_STCRT_XML)], PipelineResult())
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))
@@ -117,7 +117,7 @@ def test_staatscourant_normalize_skips_empty_payload():
 
     store = FakeStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("stcrt-2020-55", payload_text="")])
+    nodes = pipeline.normalize_nodes([_raw("stcrt-2020-55", payload_text="")], PipelineResult())
     assert len(nodes) == 0
 
 
@@ -143,7 +143,7 @@ def test_echr_normalize_creates_judgment():
 
     store = FakeStore()
     pipeline = EchrNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("001-12345", payload_json=_ECHR_PAYLOAD)])
+    nodes = pipeline.normalize_nodes([_raw("001-12345", payload_json=_ECHR_PAYLOAD)], PipelineResult())
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))
@@ -158,7 +158,7 @@ def test_echr_normalize_skips_empty_payload():
 
     store = FakeStore()
     pipeline = EchrNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("x", payload_json=None)])
+    nodes = pipeline.normalize_nodes([_raw("x", payload_json=None)], PipelineResult())
     assert len(nodes) == 0
 
 
@@ -186,7 +186,7 @@ def test_verdragenbank_normalize_creates_instrument():
 
     store = FakeStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("12345", payload_json=_VERDRAG_PAYLOAD)])
+    nodes = pipeline.normalize_nodes([_raw("12345", payload_json=_VERDRAG_PAYLOAD)], PipelineResult())
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))
@@ -208,7 +208,7 @@ def test_verdragenbank_normalize_multilateral():
     }
     store = FakeStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("99", payload_json=payload)])
+    nodes = pipeline.normalize_nodes([_raw("99", payload_json=payload)], PipelineResult())
 
     node = next(iter(nodes.values()))
     assert node.props["kind"] == "multilateraalverdrag"
@@ -237,7 +237,7 @@ def test_eerstekamer_normalize_creates_publication():
 
     store = FakeStore()
     pipeline = EerstekamerNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("ek-stuk-abc123", payload_json=_EK_PAYLOAD)])
+    nodes = pipeline.normalize_nodes([_raw("ek-stuk-abc123", payload_json=_EK_PAYLOAD)], PipelineResult())
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))
@@ -251,5 +251,5 @@ def test_eerstekamer_normalize_skips_missing_id():
 
     store = FakeStore()
     pipeline = EerstekamerNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("", payload_json={})])
+    nodes = pipeline.normalize_nodes([_raw("", payload_json={})], PipelineResult())
     assert len(nodes) == 0

@@ -58,7 +58,7 @@ def test_pipeline_creates_licht_toe_edge() -> None:
     article_rows = [_make_article_row(article_key, bwb_id, "91")]
 
     store = _FakeStore(pub_rows=pub_rows, article_rows=article_rows)
-    pipeline = MvtArticleSemanticPipeline(store=store, domain_config={})
+    pipeline = MvtArticleSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -70,7 +70,7 @@ def test_pipeline_creates_licht_toe_edge() -> None:
 
 def test_pipeline_returns_empty_when_no_publications() -> None:
     store = _FakeStore(pub_rows=[])
-    pipeline = MvtArticleSemanticPipeline(store=store, domain_config={})
+    pipeline = MvtArticleSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
     assert len(store.edges) == 0

@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.queries import NeighborEntry, NodeGraphData
+from lawgraph.api.queries.nodes import NodeNotFoundError
 
 client = TestClient(app)
 
@@ -39,6 +40,18 @@ def _build_payload() -> NodeGraphData:
         node=_NODE_DOC,
         neighbors=[strict, semantic],
     )
+
+
+def test_get_node_neighbors_returns_404_for_unknown_collection(monkeypatch):
+    """GET /api/nodes/{collection}/{key} returns 404 when the node is not found."""
+    monkeypatch.setattr(
+        "lawgraph.api.routes.nodes.get_node_with_neighbors",
+        lambda store, collection, key, **kwargs: (_ for _ in ()).throw(
+            NodeNotFoundError("node not found")
+        ),
+    )
+    response = client.get("/api/nodes/instruments/nonexistent-key-xyz")
+    assert response.status_code == 404
 
 
 def test_get_node_graph_returns_neighbors(monkeypatch):

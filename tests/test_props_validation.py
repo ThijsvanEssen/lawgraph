@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from lawgraph.models import Node, NodeType
+from lawgraph.core.models import Node, NodeType
 
 # ---------------------------------------------------------------------------
 # Happy-path: valid props should construct without error

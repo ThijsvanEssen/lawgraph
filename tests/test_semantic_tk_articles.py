@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.tk_articles import (
     TKArticleSemanticPipeline,
     detect_tk_citations,
@@ -28,6 +28,19 @@ class FakeStore:
             return list(self._documents)
         if "FOR doc IN procedures" in aql:
             return []
+        if "FOR inst IN instruments" in aql:
+            # Return alias data so _load_code_aliases / _load_instrument_aliases work.
+            rows = []
+            for doc in self._instruments.values():
+                props = doc.get("props", {})
+                rows.append({
+                    "bwb_id": props.get("bwb_id"),
+                    "celex": props.get("celex"),
+                    "title": props.get("title"),
+                    "citation_title": props.get("citation_title"),
+                    "short_title": props.get("short_title"),
+                })
+            return rows
         return []
 
     def get_node(self, collection: str, key: str) -> Node | None:
@@ -45,6 +58,21 @@ class FakeStore:
         created = key not in self.edges
         self.edges[key] = dict(doc)
         return self.edges[key], created
+
+    def bulk_insert_or_update_edges(
+        self, docs: list[dict[str, Any]]
+    ) -> tuple[int, int]:
+        created = 0
+        updated = 0
+        for doc in docs:
+            key = doc["_key"]
+            was_created = key not in self.edges
+            self.edges[key] = dict(doc)
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+        return created, updated
 
 
 def _make_tk_document(key: str, text: str) -> dict[str, Any]:
@@ -106,15 +134,13 @@ def test_tk_pipeline_links_to_article_node() -> None:
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
-                make_node_key("BWBR0001854"), {"bwb_id": "BWBR0001854"}
+                make_node_key("BWBR0001854"),
+                {"bwb_id": "BWBR0001854", "short_title": "Sr", "title": "Wetboek van Strafrecht"},
             )
         },
         articles={article_key: article},
     )
-    pipeline = TKArticleSemanticPipeline(
-        store=store,
-        domain_config=_load_config(),
-    )
+    pipeline = TKArticleSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -135,10 +161,7 @@ def test_tk_pipeline_links_to_celex_instrument() -> None:
         instruments={celex_key: instrument},
         articles={},
     )
-    pipeline = TKArticleSemanticPipeline(
-        store=store,
-        domain_config=_load_config(),
-    )
+    pipeline = TKArticleSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -151,16 +174,15 @@ def test_tk_pipeline_links_named_act_to_instrument() -> None:
     text = "Deze wijziging betreft het Wetboek van Strafrecht."
     doc = _make_tk_document("tk-3", text)
     instr_key = make_node_key("BWBR0001854")
-    instrument = _make_instrument(instr_key, {"bwb_id": "BWBR0001854"})
+    instrument = _make_instrument(
+        instr_key, {"bwb_id": "BWBR0001854", "title": "Wetboek van Strafrecht"}
+    )
     store = FakeStore(
         documents=[doc],
         instruments={instr_key: instrument},
         articles={},
     )
-    pipeline = TKArticleSemanticPipeline(
-        store=store,
-        domain_config=_load_config(),
-    )
+    pipeline = TKArticleSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -177,15 +199,13 @@ def test_tk_pipeline_idempotent_edges() -> None:
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
-                make_node_key("BWBR0001854"), {"bwb_id": "BWBR0001854"}
+                make_node_key("BWBR0001854"),
+                {"bwb_id": "BWBR0001854", "short_title": "Sr", "title": "Wetboek van Strafrecht"},
             )
         },
         articles={article_key: article},
     )
-    pipeline = TKArticleSemanticPipeline(
-        store=store,
-        domain_config=_load_config(),
-    )
+    pipeline = TKArticleSemanticPipeline(store=store)
 
     first = pipeline.run()
     second = pipeline.run()
