@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -11,15 +12,14 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
 COLOR_RESET = "\033[0m"
 LEVEL_COLORS = {
-    logging.DEBUG: "\033[36m",    # cyan
-    logging.INFO: "\033[32m",     # green
+    logging.DEBUG: "\033[36m",  # cyan
+    logging.INFO: "\033[32m",  # green
     logging.WARNING: "\033[33m",  # yellow
-    logging.ERROR: "\033[31m",    # red
+    logging.ERROR: "\033[31m",  # red
     logging.CRITICAL: "\033[41m",  # red background
 }
 
@@ -93,6 +93,30 @@ def setup_logging(level: Optional[int] = None) -> None:
     # Optioneel: externe libs iets stiller zetten
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
+
+    if os.getenv("LAWGRAPH_LOG_FORMAT", "").lower() == "json":
+        setup_json_logging()
+
+
+class _JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        entry = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            entry["exc"] = self.formatException(record.exc_info)
+        return json.dumps(entry, ensure_ascii=False)
+
+
+def setup_json_logging() -> None:
+    """Replace the root handler formatter with a JSON formatter."""
+    formatter = _JsonFormatter()
+    root = logging.getLogger()
+    for handler in root.handlers:
+        handler.setFormatter(formatter)
 
 
 def get_logger(name: str) -> logging.Logger:

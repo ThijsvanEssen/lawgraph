@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -14,7 +15,6 @@ from lawgraph.logging import get_logger, setup_logging
 from lawgraph.pipelines.semantic.bwb_articles import BwbArticlesSemanticPipeline
 
 logger = get_logger(__name__)
-PROFILE_CHOICES = list_domain_profiles()
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -23,7 +23,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument(
         "--profile",
-        choices=PROFILE_CHOICES or None,
+        choices=list_domain_profiles() or None,
         help="Domain profile that defines target BWB IDs (default: strafrecht).",
     )
     parser.add_argument(
@@ -52,5 +52,9 @@ def main(argv: list[str] | None = None) -> None:
         profile or "default",
         args.store_citations,
     )
-    created = pipeline.run()
-    logger.info("Created %d REFERS_TO_ARTICLE edges.", created)
+    result = pipeline.run()
+    logger.info("BWB article semantic pipeline: %s.", result.summary())
+    if result.errors:
+        for err in result.errors:
+            logger.warning("BWB semantic error: %s", err)
+        sys.exit(1)

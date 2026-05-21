@@ -6,6 +6,19 @@ from typing import Any
 
 from lawgraph.models import NodeType
 
+# Known abbreviations for Dutch national legislation (uppercase BWB ID → shorthand).
+BWB_SHORTHANDS: dict[str, str] = {
+    "BWBR0001854": "Sr.",
+    "BWBR0001903": "Sv.",
+    "BWBR0005289": "BW",
+    "BWBR0003045": "Sr BES",
+    "BWBR0006622": "WVW",
+    "BWBR0008804": "WWM",
+    "BWBR0001941": "OW",
+    "BWBR0020438": "Pbw",
+    "BWBR0011756": "Sv BES",
+}
+
 
 def make_display_name(node_type: NodeType, props: dict[str, Any]) -> str:
     """Return a human-friendly display_name for the given node type."""
@@ -48,9 +61,6 @@ def _instrument_display_name(props: dict[str, Any]) -> str:
     celex = _first_prop(props, "celex")
 
     if title:
-        suffix = bwb_id or celex
-        if suffix:
-            return f"{title} ({suffix})"
         return title
     if bwb_id:
         return f"BWB {bwb_id}"
@@ -59,11 +69,50 @@ def _instrument_display_name(props: dict[str, Any]) -> str:
     return "Instrument"
 
 
+# Known shorthands for EU/CoE instruments (uppercase CELEX → shorthand).
+CELEX_SHORTHANDS: dict[str, str] = {
+    "21970A0718(02)": "EVRM",
+    "32010L0064": "Richtlijn 2010/64/EU",
+    "32012L0013": "Richtlijn 2012/13/EU",
+    "32013L0048": "Richtlijn 2013/48/EU",
+    "32002F0584": "Kaderbesluit 2002/584/JBZ",
+    "32016L0343": "Richtlijn 2016/343/EU",
+    "32016L0800": "Richtlijn 2016/800/EU",
+    "32016L1919": "Richtlijn 2016/1919/EU",
+    "32017L0541": "Richtlijn 2017/541/EU",
+    "32011L0093": "Richtlijn 2011/93/EU",
+}
+
+
 def _article_display_name(props: dict[str, Any]) -> str:
+    """Return a display name for an article node.
+
+    Priority for the law suffix:
+    1. Hardcoded shorthand (BWB_SHORTHANDS / CELEX_SHORTHANDS) — e.g. "Sr.", "EVRM"
+    2. instrument_citation_title stored on the article — e.g. "Awb"
+    3. No suffix — bare "Artikel {number}"
+    """
     article_number = _first_prop(props, "article_number")
-    if article_number:
-        return f"Art. {article_number}"
-    return "Artikel"
+    if not article_number:
+        return "Artikel"
+
+    bwb_id = (_first_prop(props, "bwb_id") or "").upper()
+    law = BWB_SHORTHANDS.get(bwb_id)
+    if law:
+        return f"Artikel {article_number} {law}"
+
+    celex = (_first_prop(props, "celex") or "").upper()
+    eu_law = CELEX_SHORTHANDS.get(celex)
+    if eu_law:
+        return f"Artikel {article_number} {eu_law}"
+
+    # Fall back to the citation title stored on the article itself (populated by
+    # the normalization pipelines so every article carries its parent law's name).
+    ct = _first_prop(props, "instrument_citation_title")
+    if ct:
+        return f"Artikel {article_number} {ct}"
+
+    return f"Artikel {article_number}"
 
 
 def _judgment_display_name(props: dict[str, Any]) -> str:

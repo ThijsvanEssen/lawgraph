@@ -4,21 +4,28 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from dataclasses import dataclass
-from typing import Any, Iterable, Literal
+from typing import Callable, Iterable, Literal
 
-from config.config import load_domain_config
-
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_INSTRUMENTS,
     RELATION_MENTIONS_ARTICLE,
-    SEMANTIC_EDGE_COLLECTION,
+    RELATION_MENTIONS_INSTRUMENT,
 )
-from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, make_node_key
-from lawgraph.utils.time import describe_since
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import describe_since
+
+from .base import SemanticPipelineBase
+from .citation_detect import (
+    ArticleKind,
+    CitationHit,
+    _hit_reason,
+    coerce_text,
+    format_celex,
+    make_snippet,
+    normalize_code_aliases,
+)
 
 logger = get_logger(__name__)
 
@@ -26,25 +33,23 @@ CodeMapping = dict[str, str]
 
 SEMANTIC_SOURCE = "eu-article-linker"
 
-_SNIPPET_WINDOW = 40
-_MAX_TEXT_LENGTH = 40_000
-ArticleKind = Literal["instrument", "article"]
+_MAX_TEXT_LENGTH = 200_000
 
-
-@dataclass
-class CitationHit:
-    kind: ArticleKind
-    celex: str | None = None
-    bwb_id: str | None = None
-    article_number: str | None = None
-    confidence: float = 0.0
-    raw_match: str | None = None
-    snippet: str | None = None
-
+_CONFIDENCE_ARTICLE_EXACT = (
+    0.85  # article match via directive/regulation + year + number
+)
+_CONFIDENCE_CELEX_EXACT = 0.90  # CELEX ID literal in text
+_CONFIDENCE_DIRECTIVE_YEAR = 0.70  # directive/regulation matched via year + number only
+_CONFIDENCE_BWB_ALIAS = 0.95  # "artikel X Sr/Sv/BW" via known short alias
+_CONFIDENCE_BWB_ID = 0.70  # bare BWBR number in text
 
 _CELEX_PATTERN = re.compile(r"\bCELEX:([0-9A-Z()\\/\.\-]+)\b", re.IGNORECASE)
-_RICHTLIJN_PATTERN = re.compile(r"\bRichtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE)
-_VERORDENING_PATTERN = re.compile(r"\bVerordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE)
+_RICHTLIJN_PATTERN = re.compile(
+    r"\bRichtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
+)
+_VERORDENING_PATTERN = re.compile(
+    r"\bVerordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
+)
 _ARTICLE_WITH_DIRECTIVE_PATTERN = re.compile(
     r"\bartikel\s+(\d+[a-z]?)\s+van\s+Richtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b",
     re.IGNORECASE,
@@ -54,49 +59,17 @@ _ARTICLE_WITH_REGULATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _BWB_PATTERN = re.compile(r"\bbwb[rR]0\d{6}\b", re.IGNORECASE)
-_ARTICLE_BWB_ALIAS_PATTERN = re.compile(r"\bartikel\s+(\d+[a-z]?)\s*(Sr|Sv|BW)\b", re.IGNORECASE)
-
-
-def _make_snippet(text: str, span: tuple[int, int]) -> str:
-    start, end = span
-    begin = max(0, start - _SNIPPET_WINDOW)
-    finish = min(len(text), end + _SNIPPET_WINDOW)
-    return text[begin:finish].strip()
-
-
-def _normalize_code_aliases(mapping: CodeMapping) -> dict[str, str]:
-    normalized: dict[str, str] = {}
-    for alias, target in mapping.items():
-        if not alias or not target:
-            continue
-        normalized[alias.strip().upper()] = target.strip().upper()
-    return normalized
-
-
-def _format_celex(kind: Literal["directive", "regulation"], year: str, number: str) -> str:
-    letter = "L" if kind == "directive" else "R"
-    padded = 0
-    try:
-        padded = int(number)
-    except ValueError:
-        pass
-    return f"3{year}{letter}{padded:04d}"
+_ARTICLE_BWB_ALIAS_PATTERN = re.compile(
+    r"\bartikel\s+(\d+[a-z]?)\s*(Sr|Sv|BW)\b", re.IGNORECASE
+)
 
 
 def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHit]:
-    """Return references to EU or BWBR documents in the provided text.
-
-    Args:
-        text: Text to scan for CELEX or alias mentions.
-        code_aliases: Mapping between document aliases and BWBR identifiers.
-
-    Returns:
-        Hits describing which instruments or articles were mentioned.
-    """
+    """Return references to EU or BWBR documents in the provided text."""
     if not text:
         return []
 
-    normalized_codes = _normalize_code_aliases(code_aliases)
+    normalized_codes = normalize_code_aliases(code_aliases)
     hits: list[CitationHit] = []
     seen: set[tuple[ArticleKind, str | None, str | None, str | None]] = set()
 
@@ -107,76 +80,101 @@ def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHi
         seen.add(key)
         hits.append(hit)
 
-    for match in _ARTICLE_WITH_DIRECTIVE_PATTERN.finditer(text):
+    _collect_article_matches(
+        text,
+        _ARTICLE_WITH_DIRECTIVE_PATTERN,
+        "directive",
+        _CONFIDENCE_ARTICLE_EXACT,
+        _record,
+    )
+    _collect_article_matches(
+        text,
+        _ARTICLE_WITH_REGULATION_PATTERN,
+        "regulation",
+        _CONFIDENCE_ARTICLE_EXACT,
+        _record,
+    )
+    _collect_celex_hits(
+        text, _CELEX_PATTERN, "instrument", _CONFIDENCE_CELEX_EXACT, _record
+    )
+    _collect_celex_hits(
+        text,
+        _RICHTLIJN_PATTERN,
+        "instrument",
+        _CONFIDENCE_DIRECTIVE_YEAR,
+        _record,
+        directive_kind="directive",
+    )
+    _collect_celex_hits(
+        text,
+        _VERORDENING_PATTERN,
+        "instrument",
+        _CONFIDENCE_DIRECTIVE_YEAR,
+        _record,
+        directive_kind="regulation",
+    )
+    _collect_bwb_alias_hits(text, normalized_codes, _record)
+    _collect_bwb_hits(text, _record)
+
+    return hits
+
+
+def _collect_article_matches(
+    text: str,
+    pattern: re.Pattern[str],
+    kind_label: Literal["directive", "regulation"],
+    confidence: float,
+    record: Callable[[CitationHit], None],
+) -> None:
+    for match in pattern.finditer(text):
         article_number = match.group(1)
         year = match.group(2)
         number_value = match.group(3)
-        celex = _format_celex("directive", year, number_value)
-        _record(
+        celex = format_celex(kind_label, year, number_value)
+        record(
             CitationHit(
                 kind="article",
                 celex=celex,
                 article_number=article_number.strip(),
-                confidence=0.85,
+                confidence=confidence,
                 raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
+                snippet=make_snippet(text, match.span()),
             )
         )
 
-    for match in _ARTICLE_WITH_REGULATION_PATTERN.finditer(text):
-        article_number = match.group(1)
-        year = match.group(2)
-        number_value = match.group(3)
-        celex = _format_celex("regulation", year, number_value)
-        _record(
-            CitationHit(
-                kind="article",
-                celex=celex,
-                article_number=article_number.strip(),
-                confidence=0.85,
-                raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
-            )
-        )
 
-    for match in _CELEX_PATTERN.finditer(text):
-        celex_value = match.group(1)
+def _collect_celex_hits(
+    text: str,
+    pattern: re.Pattern[str],
+    kind: ArticleKind,
+    confidence: float,
+    record: Callable[[CitationHit], None],
+    *,
+    directive_kind: Literal["directive", "regulation"] | None = None,
+) -> None:
+    for match in pattern.finditer(text):
+        if directive_kind:
+            celex_value = format_celex(directive_kind, match.group(1), match.group(2))
+        else:
+            celex_value = match.group(1)
         if not celex_value:
             continue
-        _record(
+        record(
             CitationHit(
-                kind="instrument",
+                kind=kind,
                 celex=celex_value.upper(),
-                confidence=0.9,
+                confidence=confidence,
                 raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
+                snippet=make_snippet(text, match.span()),
             )
         )
 
-    for match in _RICHTLIJN_PATTERN.finditer(text):
-        celex_value = _format_celex("directive", match.group(1), match.group(2))
-        _record(
-            CitationHit(
-                kind="instrument",
-                celex=celex_value,
-                confidence=0.7,
-                raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
-            )
-        )
 
-    for match in _VERORDENING_PATTERN.finditer(text):
-        celex_value = _format_celex("regulation", match.group(1), match.group(2))
-        _record(
-            CitationHit(
-                kind="instrument",
-                celex=celex_value,
-                confidence=0.7,
-                raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
-            )
-        )
-
+def _collect_bwb_alias_hits(
+    text: str,
+    normalized_codes: dict[str, str],
+    record: Callable[[CitationHit], None],
+) -> None:
     for match in _ARTICLE_BWB_ALIAS_PATTERN.finditer(text):
         article_number = match.group(1)
         alias = match.group(2)
@@ -185,54 +183,50 @@ def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHi
         bwb_id = normalized_codes.get(alias.strip().upper())
         if not bwb_id or not article_number:
             continue
-        _record(
+        record(
             CitationHit(
                 kind="article",
                 bwb_id=bwb_id,
                 article_number=article_number.strip(),
-                confidence=0.95,
+                confidence=_CONFIDENCE_BWB_ALIAS,
                 raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
+                snippet=make_snippet(text, match.span()),
             )
         )
 
+
+def _collect_bwb_hits(
+    text: str,
+    record: Callable[[CitationHit], None],
+) -> None:
     for match in _BWB_PATTERN.finditer(text):
         bwb_id = match.group(0)
         if not bwb_id:
             continue
-        _record(
+        record(
             CitationHit(
                 kind="instrument",
                 bwb_id=bwb_id.upper(),
-                confidence=0.7,
+                confidence=_CONFIDENCE_BWB_ID,
                 raw_match=match.group(0),
-                snippet=_make_snippet(text, match.span()),
+                snippet=make_snippet(text, match.span()),
             )
         )
 
-    return hits
 
-
-class EUArticleSemanticPipeline:
+class EUArticleSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking EU instruments to BWB/EU articles via semantic edges."""
 
-    def __init__(
-        self,
-        *,
-        store: ArangoStore,
-        domain_profile: str | None = None,
-        domain_config: dict[str, Any] | None = None,
-    ) -> None:
-        self.store = store
-        self._domain_profile_name = domain_profile
-        self._domain_config = domain_config
-
-    def run(self, *, since: dt.datetime | None = None) -> int:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Inspect EU instruments for referenced articles and persist semantic edges."""
-        documents = list(self._load_eu_documents())
+        result = PipelineResult()
+        from lawgraph.core.time import iso_timestamp
+
+        since_iso = iso_timestamp(since)
+        documents = list(self._load_eu_documents(since_iso=since_iso))
         if not documents:
             logger.debug("No EU instrument nodes found for semantic linking.")
-            return 0
+            return result
 
         code_aliases = self._load_code_aliases()
         logger.info(
@@ -241,10 +235,10 @@ class EUArticleSemanticPipeline:
             describe_since(since),
         )
 
-        edges_created = 0
         for document in documents:
             text = self._extract_document_text(document)
             if not text:
+                result.skipped += 1
                 continue
 
             hits = detect_eu_citations(text, code_aliases)
@@ -255,124 +249,158 @@ class EUArticleSemanticPipeline:
                 target = self._resolve_target(hit)
                 if not target:
                     continue
-                if self._create_semantic_edge(document, target, hit):
-                    edges_created += 1
+                relation = (
+                    RELATION_MENTIONS_ARTICLE
+                    if hit.kind == "article"
+                    else RELATION_MENTIONS_INSTRUMENT
+                )
+                created = self._create_semantic_edge(
+                    from_node=document,
+                    to_node=target,
+                    relation=relation,
+                    source=SEMANTIC_SOURCE,
+                    confidence=hit.confidence,
+                    meta={
+                        k: v
+                        for k, v in {
+                            "raw_match": hit.raw_match,
+                            "snippet": hit.snippet,
+                            "reason": _hit_reason(hit),
+                        }.items()
+                        if v
+                    },
+                    result=result,
+                )
+                if created:
+                    result.created += 1
+                else:
+                    result.updated += 1
 
-        logger.info("EU article linker created %d semantic edges.", edges_created)
-        return edges_created
+        logger.info("EU article linker: %s.", result.summary())
+        return result
 
-    def _load_eu_documents(self) -> Iterable[Node]:
-        """Yield EU instrument nodes that participate in the semantic pipeline."""
-        collection = COLLECTION_INSTRUMENTS
-        aql = f"""
-        FOR doc IN {collection}
-            FILTER "EU" IN doc.labels
-            RETURN doc
-        """
-        for doc in self.store.query(aql):
-            yield Node.from_document(collection, doc)
+    def _load_eu_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
+        # Scan EU instrument *articles* — their props.text contains the actual
+        # directive body, which is where cross-references to other articles live.
+        if since_iso is not None:
+            from lawgraph.config.constants import SOURCE_EURLEX
+
+            recent_celex: set[str] = set()
+            aql = """
+            FOR raw IN raw_sources
+                FILTER raw.source == @source
+                FILTER raw.fetched_at >= @since
+                FILTER raw.meta.celex != null
+            RETURN raw.meta.celex
+            """
+            for row in self.store.query(
+                aql, bind_vars={"source": SOURCE_EURLEX, "since": since_iso}
+            ):
+                if isinstance(row, str):
+                    recent_celex.add(row)
+                elif isinstance(row, dict):
+                    c = row.get("meta", {}).get("celex")
+                    if c:
+                        recent_celex.add(str(c))
+            if not recent_celex:
+                return
+            celex_list = list(recent_celex)
+            aql = f"""
+            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+                FILTER doc.props.celex IN @celex_list
+                RETURN doc
+            """
+            for doc in self.store.query(aql, bind_vars={"celex_list": celex_list}):
+                yield Node.from_document(COLLECTION_INSTRUMENT_ARTICLES, doc)
+        else:
+            aql = f"""
+            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+                FILTER doc.props.celex != null
+                RETURN doc
+            """
+            for doc in self.store.query(aql):
+                yield Node.from_document(COLLECTION_INSTRUMENT_ARTICLES, doc)
 
     def _extract_document_text(self, document: Node) -> str | None:
-        """Concatenate text fragments that represent the document content."""
-        fragments: list[str] = []
-        for key in ("title", "official_title", "display_name"):
-            candidate = document.props.get(key)
-            text = _coerce_text(candidate)
-            if text:
-                fragments.append(text)
-
-        raw_html = _coerce_text(document.props.get("raw_html"))
-        if raw_html:
-            fragments.append(_strip_html(raw_html))
-
-        if not fragments:
-            return None
-
-        joined = "\n".join(fragments)
-        if len(joined) > _MAX_TEXT_LENGTH:
-            joined = joined[:_MAX_TEXT_LENGTH]
-        return joined
-
-    def _load_domain_config(self) -> dict[str, Any]:
-        if self._domain_config is not None:
-            return self._domain_config
-        if not self._domain_profile_name:
-            self._domain_config = {}
-            return self._domain_config
-        try:
-            self._domain_config = load_domain_config(self._domain_profile_name)
-        except FileNotFoundError as exc:
-            logger.warning(
-                "Unable to load profile %s: %s",
-                self._domain_profile_name,
-                exc,
-            )
-            self._domain_config = {}
-        return self._domain_config
-
-    def _load_code_aliases(self) -> CodeMapping:
-        config = self._load_domain_config()
-        aliases = config.get("code_aliases", {})
-        if not isinstance(aliases, dict):
-            return {}
-        return {str(k).strip(): str(v).strip() for k, v in aliases.items() if k and v}
+        # EU instrument_articles store their text directly in props.text.
+        text = coerce_text(document.props.get("text"))
+        if text:
+            return text[:_MAX_TEXT_LENGTH]
+        # Fallback: title only (gives minimal signal but avoids skipping entirely)
+        return coerce_text(document.props.get("display_name"))
 
     def _resolve_target(self, hit: CitationHit) -> Node | None:
-        if hit.article_number and hit.bwb_id:
+        # Dutch article: BWB id + article number.
+        if hit.kind == "article" and hit.bwb_id and hit.article_number:
             key = make_node_key(hit.bwb_id, hit.article_number)
-            return self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+            if node is None and hit.confidence >= 0.85:
+                stub = Node(
+                    collection=COLLECTION_INSTRUMENT_ARTICLES,
+                    key=key,
+                    type=NodeType.ARTICLE,
+                    props={
+                        "bwb_id": hit.bwb_id,
+                        "article_number": hit.article_number,
+                        "stub": True,
+                        "display_name": f"Artikel {hit.article_number} ({hit.bwb_id})",
+                    },
+                )
+                node = self.store.insert_or_update(stub)
+            if node is None:
+                logger.debug(
+                    "EU semantic: no node found for %s %s (confidence=%.2f)",
+                    hit.kind,
+                    hit.bwb_id or hit.celex,
+                    hit.confidence,
+                )
+            return node
+        # EU article: CELEX + article number (cross-reference within or between directives).
+        if hit.kind == "article" and hit.celex and hit.article_number:
+            key = make_node_key(hit.celex, hit.article_number)
+            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+            if node is None and hit.confidence >= 0.85:
+                stub = Node(
+                    collection=COLLECTION_INSTRUMENT_ARTICLES,
+                    key=key,
+                    type=NodeType.ARTICLE,
+                    props={
+                        "celex": hit.celex,
+                        "article_number": hit.article_number,
+                        "stub": True,
+                        "display_name": f"Artikel {hit.article_number} ({hit.celex})",
+                    },
+                )
+                node = self.store.insert_or_update(stub)
+            if node is None:
+                logger.debug(
+                    "EU semantic: no node found for %s %s (confidence=%.2f)",
+                    hit.kind,
+                    hit.bwb_id or hit.celex,
+                    hit.confidence,
+                )
+            return node
+        # Whole-instrument reference.
         if hit.celex:
             key = make_node_key(hit.celex)
-            return self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            node = self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            if node is None:
+                logger.debug(
+                    "EU semantic: no node found for %s %s (confidence=%.2f)",
+                    hit.kind,
+                    hit.bwb_id or hit.celex,
+                    hit.confidence,
+                )
+            return node
         if hit.bwb_id:
             key = make_node_key(hit.bwb_id)
-            return self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            node = self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            if node is None:
+                logger.debug(
+                    "EU semantic: no node found for %s %s (confidence=%.2f)",
+                    hit.kind,
+                    hit.bwb_id or hit.celex,
+                    hit.confidence,
+                )
+            return node
         return None
-
-    def _create_semantic_edge(
-        self,
-        document: Node,
-        target: Node,
-        hit: CitationHit,
-    ) -> bool:
-        if not document.key or not target.key or not document.id or not target.id:
-            return False
-
-        edge_key = (
-            f"{make_node_key(document.key)}__{make_node_key(target.key)}__{RELATION_MENTIONS_ARTICLE}"
-        )
-        meta: dict[str, Any] = {}
-        if hit.raw_match:
-            meta["raw_match"] = hit.raw_match
-        if hit.snippet:
-            meta["snippet"] = hit.snippet
-
-        edge_doc = {
-            "_key": edge_key,
-            "_from": document.id,
-            "_to": target.id,
-            "relation": RELATION_MENTIONS_ARTICLE,
-            "confidence": hit.confidence,
-            "source": SEMANTIC_SOURCE,
-            "strict": False,
-            "meta": meta,
-        }
-        _, created = self.store.insert_or_update_edge(
-            collection_name=SEMANTIC_EDGE_COLLECTION,
-            doc=edge_doc,
-        )
-        return created
-
-
-def _strip_html(value: str) -> str:
-    cleaned = re.sub(r"<[^>]+>", " ", value)
-    return re.sub(r"\s+", " ", cleaned).strip()
-
-
-def _coerce_text(value: Any) -> str | None:
-    if value is None:
-        return None
-    candidate = str(value).strip()
-    if candidate:
-        return candidate
-    return None

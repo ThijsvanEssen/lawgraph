@@ -5,18 +5,21 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.pipelines.semantic.base import _sha1_edge_key
 from lawgraph.pipelines.semantic.eu_articles import (
     EUArticleSemanticPipeline,
     detect_eu_citations,
 )
 
 
-def _make_instrument(key: str, celex: str | None = None, html: str | None = None) -> dict[str, Any]:
+def _make_instrument(
+    key: str, celex: str | None = None, html: str | None = None
+) -> dict[str, Any]:
     props: dict[str, Any] = {}
     if celex:
         props["celex"] = celex
     if html:
-        props["raw_html"] = html
+        props["text"] = html
     return {
         "_key": key,
         "labels": ["EU"],
@@ -58,8 +61,6 @@ class FakeStore:
 
     def insert_or_update_edge(
         self,
-        *,
-        collection_name: str,
         doc: dict[str, Any],
     ) -> tuple[dict[str, Any], bool]:
         key = doc["_key"]
@@ -80,13 +81,17 @@ def test_detect_eu_citations_richtlijn_article() -> None:
 def test_detect_eu_citations_bwb_article_alias() -> None:
     hits = detect_eu_citations("zoals bedoeld in artikel 287 Sr", {"Sr": "BWBR0001854"})
     assert hits
-    assert any(hit.bwb_id == "BWBR0001854" and hit.article_number == "287" for hit in hits)
+    assert any(
+        hit.bwb_id == "BWBR0001854" and hit.article_number == "287" for hit in hits
+    )
 
 
 def test_eu_pipeline_links_celex_target() -> None:
     source_key = "eu-source"
     target_key = make_node_key("32019L1158")
-    source_doc = _make_instrument(source_key, html="<p>Implementing act under CELEX:32019L1158</p>")
+    source_doc = _make_instrument(
+        source_key, html="<p>Implementing act under CELEX:32019L1158</p>"
+    )
     target_doc = _make_instrument(target_key, celex="32019L1158")
     store = FakeStore(
         documents=[source_doc],
@@ -99,10 +104,10 @@ def test_eu_pipeline_links_celex_target() -> None:
     )
 
     created = pipeline.run()
-    assert created == 1
+    assert created.created == 1
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
-    assert edge["relation"] == "MENTIONS_ARTICLE"
+    assert edge["relation"] == "MENTIONS_INSTRUMENT"
     assert edge["source"] == "eu-article-linker"
     assert edge["_to"].startswith("instruments/")
 
@@ -111,7 +116,9 @@ def test_eu_pipeline_links_bwb_article() -> None:
     source_key = "eu-source-2"
     doc = _make_instrument(source_key, html="<p>zoals bedoeld in artikel 287 Sr</p>")
     article_key = make_node_key("BWBR0001854", "287")
-    article_doc = _make_bwb_article(article_key, {"bwb_id": "BWBR0001854", "article_number": "287"})
+    article_doc = _make_bwb_article(
+        article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
+    )
     store = FakeStore(
         documents=[doc],
         instruments={},
@@ -123,14 +130,16 @@ def test_eu_pipeline_links_bwb_article() -> None:
     )
 
     created = pipeline.run()
-    assert created == 1
+    assert created.created == 1
     edge = next(iter(store.edges.values()))
     assert edge["_to"].startswith("instrument_articles/")
 
 
 def test_eu_pipeline_idempotent_edges() -> None:
     source_key = "eu-source-3"
-    doc = _make_instrument(source_key, html="<p>Implementing act under CELEX:32019L1158</p>")
+    doc = _make_instrument(
+        source_key, html="<p>Implementing act under CELEX:32019L1158</p>"
+    )
     target_key = make_node_key("32019L1158")
     target_doc = _make_instrument(target_key, celex="32019L1158")
     store = FakeStore(
@@ -145,11 +154,11 @@ def test_eu_pipeline_idempotent_edges() -> None:
 
     first = pipeline.run()
     second = pipeline.run()
-    assert first == 1
-    assert second == 0
+    assert first.created == 1
+    assert second.created == 0
     assert len(store.edges) == 1
     key = next(iter(store.edges))
-    expected_key = (
-        f"{make_node_key(source_key)}__{make_node_key(target_key)}__MENTIONS_ARTICLE"
-    )
+    from_id = f"instrument_articles/{source_key}"
+    to_id = f"instruments/{target_key}"
+    expected_key = _sha1_edge_key(from_id, "MENTIONS_INSTRUMENT", to_id)
     assert key == expected_key

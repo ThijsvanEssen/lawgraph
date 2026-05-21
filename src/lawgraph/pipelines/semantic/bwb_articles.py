@@ -2,76 +2,82 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, Iterable
 
-from config.config import load_domain_config
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
     RELATION_REFERS_TO_ARTICLE,
-    SEMANTIC_EDGE_COLLECTION,
 )
-from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, make_node_key
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.pipelines.semantic.bwb_detect import (
     ArticleCitationHit,
     detect_bwb_article_citations,
 )
 
+from .base import SemanticPipelineBase
+
 logger = get_logger(__name__)
 SEMANTIC_SOURCE = "bwb-article-text"
 
 
-class BwbArticlesSemanticPipeline:
+class BwbArticlesSemanticPipeline(SemanticPipelineBase):
     """Detect article-to-article references inside BWB article texts."""
 
     def __init__(
         self,
         *,
-        store: ArangoStore,
-        domain_profile: str | None = None,
-        domain_config: dict[str, Any] | None = None,
+        store: Any,
         store_citations: bool = False,
     ) -> None:
-        self.store = store
-        self._domain_profile_name = domain_profile
-        self._domain_config = domain_config
+        super().__init__(store=store)
         self._store_citations = store_citations
 
-    def run(self) -> int:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Create semantic edges for article references detected inside BWB articles."""
-        config = self._load_domain_config()
-        bwb_ids = self._load_bwb_ids(config)
+        result = PipelineResult()
+        code_aliases = self._load_code_aliases()
+        instrument_aliases = self._load_instrument_aliases()
+        bwb_ids = self._load_bwb_ids_from_graph()
         if not bwb_ids:
             logger.warning(
-                "No BWB IDs configured for semantic linking; skipping detection."
+                "No BWB IDs found in graph for semantic linking; skipping detection."
             )
-            return 0
+            return result
 
-        articles = list(self._load_articles(bwb_ids))
+        from lawgraph.core.time import iso_timestamp
+
+        since_iso = iso_timestamp(since) if since is not None else None
+        articles = list(self._load_articles(bwb_ids, since_iso=since_iso))
         if not articles:
             logger.info("No BWB articles found for semantic linking.")
-            return 0
+            return result
 
         logger.info(
-            "Scanning %d BWB articles for internal references (profile=%s).",
+            "Scanning %d BWB articles for internal references.",
             len(articles),
-            self._domain_profile_name or "default",
         )
 
-        edges_created = 0
         hits_detected = 0
+        edge_batch: list[dict] = []
+        detect_config = {
+            "code_aliases": code_aliases,
+            "instrument_aliases": instrument_aliases,
+        }
         for doc in articles:
             article = Node.from_document(COLLECTION_INSTRUMENT_ARTICLES, doc)
             text = self._extract_article_text(article)
             if not text:
+                result.skipped += 1
                 continue
 
             bwb_id = str(article.props.get("bwb_id") or "")
             if not bwb_id:
+                result.skipped += 1
                 continue
 
-            hits = detect_bwb_article_citations(text, bwb_id, config)
+            hits = detect_bwb_article_citations(text, bwb_id, detect_config)
             hits_detected += len(hits)
             self._store_article_citations(article, hits)
 
@@ -85,69 +91,103 @@ class BwbArticlesSemanticPipeline:
                     )
                     continue
 
-                if self._create_semantic_edge(article, target, hit):
-                    edges_created += 1
+                edge_doc = self._make_edge_doc(
+                    from_node=article,
+                    to_node=target,
+                    relation=RELATION_REFERS_TO_ARTICLE,
+                    source=SEMANTIC_SOURCE,
+                    confidence=hit.confidence,
+                    meta={"start": hit.start, "end": hit.end, "text": hit.text},
+                )
+                if edge_doc:
+                    edge_batch.append(edge_doc)
+                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                        created, updated = self._flush_edge_batch(edge_batch, result)
+                        result.created += created
+                        result.updated += updated
+                        edge_batch = []
+
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
 
         logger.info(
-            "Detected %d citations and created %d REFERS_TO_ARTICLE edges.",
+            "BWB article linker: %d citations detected, %s.",
             hits_detected,
-            edges_created,
+            result.summary(),
         )
-        return edges_created
+        return result
 
-    def _load_articles(self, bwb_ids: list[str]) -> Iterable[dict[str, Any]]:
-        bind_vars = {"bwb_ids": bwb_ids}
+    def _load_bwb_ids_from_graph(self) -> list[str]:
+        """Return all distinct BWB IDs that have article nodes in the graph."""
         aql = f"""
         FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
-            FILTER doc.props.bwb_id IN @bwb_ids
-            FILTER doc.props.text != null
-        RETURN doc
+            FILTER doc.props.bwb_id != null
+            RETURN DISTINCT doc.props.bwb_id
         """
-        return self.store.query(aql, bind_vars=bind_vars)
+        try:
+            return [str(row) for row in self.store.query(aql) if row]
+        except Exception as exc:
+            logger.debug("Could not load BWB IDs from graph: %s", exc)
+            return []
+
+    def _load_articles(
+        self,
+        bwb_ids: list[str],
+        *,
+        since_iso: str | None = None,
+    ) -> Iterable[dict[str, Any]]:
+        if not bwb_ids:
+            return
+        if since_iso is not None:
+            from lawgraph.config.constants import SOURCE_BWB
+
+            # Get recently fetched BWB IDs from raw_sources
+            recent_bwb_ids_aql = """
+            FOR raw IN raw_sources
+                FILTER raw.source == @source
+                FILTER raw.fetched_at >= @since
+                FILTER raw.meta.bwb_id != null
+            RETURN DISTINCT raw.meta.bwb_id
+            """
+            recent_ids: set[str] = set()
+            for row in self.store.query(
+                recent_bwb_ids_aql,
+                bind_vars={"source": SOURCE_BWB, "since": since_iso},
+            ):
+                if isinstance(row, str):
+                    recent_ids.add(row)
+                elif isinstance(row, dict):
+                    bwb_id_value = row.get("meta", {}).get("bwb_id")
+                    if bwb_id_value:
+                        recent_ids.add(str(bwb_id_value))
+            # Intersect with known bwb_ids
+            filtered_ids = [bid for bid in bwb_ids if bid in recent_ids]
+            if not filtered_ids:
+                return
+            # Load articles for those BWB IDs only
+            aql = f"""
+            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+                FILTER doc.props.bwb_id IN @bwb_ids
+                FILTER doc.props.text != null
+            RETURN doc
+            """
+            yield from self.store.query(aql, bind_vars={"bwb_ids": filtered_ids})
+        else:
+            aql = f"""
+            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+                FILTER doc.props.bwb_id IN @bwb_ids
+                FILTER doc.props.text != null
+            RETURN doc
+            """
+            yield from self.store.query(aql, bind_vars={"bwb_ids": bwb_ids})
 
     def _resolve_article(self, hit: ArticleCitationHit) -> Node | None:
         if not hit.bwb_id or not hit.article_number:
             return None
         key = make_node_key(hit.bwb_id, hit.article_number)
         return self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
-
-    def _create_semantic_edge(
-        self,
-        source: Node,
-        target: Node,
-        hit: ArticleCitationHit,
-    ) -> bool:
-        if not source.id or not target.id or not source.key or not target.key:
-            return False
-
-        edge_key = (
-            f"{make_node_key(source.key)}__"
-            f"{make_node_key(target.key)}__"
-            f"{RELATION_REFERS_TO_ARTICLE}"
-        )
-
-        meta: dict[str, Any] = {
-            "start": hit.start,
-            "end": hit.end,
-            "text": hit.text,
-        }
-
-        edge_doc = {
-            "_key": edge_key,
-            "_from": source.id,
-            "_to": target.id,
-            "relation": RELATION_REFERS_TO_ARTICLE,
-            "confidence": hit.confidence,
-            "source": SEMANTIC_SOURCE,
-            "strict": False,
-            "meta": meta,
-        }
-
-        _, created = self.store.insert_or_update_edge(
-            collection_name=SEMANTIC_EDGE_COLLECTION,
-            doc=edge_doc,
-        )
-        return created
 
     def _extract_article_text(self, article: Node) -> str | None:
         text = article.props.get("text")
@@ -177,31 +217,3 @@ class BwbArticlesSemanticPipeline:
 
         article.props["citations"] = citations
         self.store.insert_or_update(article)
-
-    def _load_bwb_ids(self, config: dict[str, Any]) -> list[str]:
-        bwb_section = config.get("bwb")
-        if not isinstance(bwb_section, dict):
-            return []
-
-        ids = bwb_section.get("ids", [])
-        return [str(value).strip() for value in ids if value]
-
-    def _load_domain_config(self) -> dict[str, Any]:
-        if self._domain_config is not None:
-            return self._domain_config
-
-        if not self._domain_profile_name:
-            self._domain_config = {}
-            return self._domain_config
-
-        try:
-            self._domain_config = load_domain_config(self._domain_profile_name)
-        except FileNotFoundError as exc:
-            logger.warning(
-                "Unable to load profile %s: %s",
-                self._domain_profile_name,
-                exc,
-            )
-            self._domain_config = {}
-
-        return self._domain_config

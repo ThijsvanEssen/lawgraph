@@ -8,9 +8,9 @@ from lawgraph.api.queries import JudgmentArticleRelation, JudgmentDetailData
 client = TestClient(app)
 
 _JUDGMENT_DOC = {
-    "_id": "judgments/NL:HR:2020:123",
-    "_key": "NL:HR:2020:123",
-    "props": {"display_name": "HR 2020", "ecli": "NL:HR:2020:123"},
+    "_id": "judgments/ECLI:NL:HR:2020:123",
+    "_key": "ECLI:NL:HR:2020:123",
+    "props": {"display_name": "HR 2020", "ecli": "ECLI:NL:HR:2020:123"},
     "labels": ["Judgment"],
 }
 
@@ -49,13 +49,13 @@ def test_get_judgment_detail_returns_linked_articles(monkeypatch):
         lambda store, ecli: _build_payload(),
     )
 
-    response = client.get("/api/judgments/NL:HR:2020:123")
+    response = client.get("/api/judgments/ECLI:NL:HR:2020:123")
     assert response.status_code == 200
     payload = response.json()
 
     judgment = payload["judgment"]
     assert judgment["display_name"] == "HR 2020"
-    assert judgment["ecli"] == "NL:HR:2020:123"
+    assert judgment["ecli"] == "ECLI:NL:HR:2020:123"
 
     articles = payload["articles"]
     assert isinstance(articles, list) and len(articles) == 1

@@ -92,6 +92,7 @@ class StrafrechtSeedPipeline:
             key=existing_node.key if existing_node else None,
             labels=labels,
             props=props,
+            _skip_validation=True,  # props are config-driven and may carry arbitrary keys
         )
 
         if existing_node:
@@ -133,6 +134,7 @@ class StrafrechtSeedPipeline:
             key=existing_node.key if existing_node else None,
             labels=labels,
             props=props,
+            _skip_validation=True,  # props are YAML config-driven and carry arbitrary keys
         )
 
         if existing_node:
@@ -158,7 +160,7 @@ class StrafrechtSeedPipeline:
             "relation": "RELATED_TOPIC",
         }
         aql = """
-        FOR edge IN edges_semantic
+        FOR edge IN edges
             FILTER edge._from == @from_id
             FILTER edge._to == @to_id
             FILTER edge.relation == @relation
@@ -177,8 +179,8 @@ class StrafrechtSeedPipeline:
             from_id=from_node.id,
             to_id=to_topic_node.id,
             relation="RELATED_TOPIC",
-            strict=False,
-            meta=meta,
+            source=meta.get("source", "strafrecht-seed"),
+            meta={k: v for k, v in meta.items() if k != "source"},
         )
         return True
 

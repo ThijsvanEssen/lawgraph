@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import datetime as dt
-import json
 from typing import Any, Iterable
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_PROCEDURES,
     COLLECTION_PUBLICATIONS,
     RAW_KIND_TK_DOCUMENTVERSIE,
@@ -13,11 +12,11 @@ from lawgraph.config.settings import (
     RELATION_PART_OF_PROCEDURE,
     SOURCE_TK,
 )
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.models import Node, NodeType, make_node_key
-from lawgraph.logging import get_logger
+from lawgraph.db import _edge_key as _sha1_edge_key
 from lawgraph.pipelines.normalize.base import NormalizePipeline
-from lawgraph.utils.display import make_display_name
 
 logger = get_logger(__name__)
 
@@ -26,7 +25,7 @@ class TkNormalizePipeline(NormalizePipeline):
     """Normalization pipeline that turns TK raw dumps into domain nodes."""
 
     def __init__(self, *, store: ArangoStore) -> None:
-        super().__init__(store=store, domain_profile="strafrecht")
+        super().__init__(store=store)
 
     def fetch_raw(
         self,
@@ -52,25 +51,18 @@ class TkNormalizePipeline(NormalizePipeline):
     def normalize_nodes(
         self,
         raw: dict[str, list[dict[str, Any]]],
+        result: PipelineResult,
     ) -> dict[str, Any]:
         """Translate raw TK payloads into procedure and publication nodes."""
         raw_zaken = raw.get("zaken", [])
         raw_docs = raw.get("documentversies", [])
 
-        (
-            procedures_by_external_id,
-            procedure_strafrecht_nodes,
-        ) = self._normalize_procedures(raw_zaken)
-        publications, publication_strafrecht_nodes = self._normalize_publications(
-            raw_docs
-        )
-
-        strafrecht_nodes = procedure_strafrecht_nodes + publication_strafrecht_nodes
+        procedures_by_external_id = self._normalize_procedures(raw_zaken)
+        publications = self._normalize_publications(raw_docs)
 
         return {
             "procedures_by_external_id": procedures_by_external_id,
             "publications": publications,
-            "strafrecht_nodes": strafrecht_nodes,
         }
 
     def build_edges(
@@ -78,7 +70,7 @@ class TkNormalizePipeline(NormalizePipeline):
         raw: dict[str, list[dict[str, Any]]],
         normalized: dict[str, Any],
     ) -> int:
-        """Create strict PART_OF_PROCEDURE edges and semantic topic connections."""
+        """Create PART_OF_PROCEDURE edges."""
         procedures_by_external_id: dict[str, Node] = normalized[
             "procedures_by_external_id"
         ]
@@ -90,15 +82,13 @@ class TkNormalizePipeline(NormalizePipeline):
             len(raw_docs),
         )
 
-        strict_edge_count = 0
+        edge_docs: list[dict[str, Any]] = []
         for publication in publications:
-            procedure_external_id = publication.props.get(
-                "procedure_external_id")
+            procedure_external_id = publication.props.get("procedure_external_id")
             if not procedure_external_id:
                 continue
 
-            procedure_node = procedures_by_external_id.get(
-                procedure_external_id)
+            procedure_node = procedures_by_external_id.get(procedure_external_id)
             if not procedure_node or not procedure_node.id or not publication.id:
                 logger.warning(
                     "Cannot link publication %s to procedure %s (missing node).",
@@ -107,55 +97,49 @@ class TkNormalizePipeline(NormalizePipeline):
                 )
                 continue
 
-            try:
-                self.store.create_edge(
-                    from_id=publication.id,
-                    to_id=procedure_node.id,
-                    relation=RELATION_PART_OF_PROCEDURE,
-                    strict=True,
-                    meta={"source": "tk-documentversie"},
-                )
-                strict_edge_count += 1
-            except Exception as exc:  # pragma: no cover - logging only
-                logger.error(
-                    "Failed to create edge TK publication %s → procedure %s: %s",
-                    publication.id,
-                    procedure_node.id,
-                    exc,
-                )
+            edge_key = _sha1_edge_key(
+                publication.id, RELATION_PART_OF_PROCEDURE, procedure_node.id
+            )
+            edge_docs.append(
+                {
+                    "_key": edge_key,
+                    "_from": publication.id,
+                    "_to": procedure_node.id,
+                    "relation": RELATION_PART_OF_PROCEDURE,
+                    "source": "tk-documentversie",
+                    "status": "canoniek",
+                    "meta": {},
+                }
+            )
 
-        semantic_edge_count = 0
-        topic_node = self._get_domain_topic_node()
-        if topic_node:
-            for node in normalized.get("strafrecht_nodes", []):
-                if not node.id:
-                    continue
-                if self._ensure_related_topic_edge(
-                    node=node,
-                    topic_node=topic_node,
-                    source="tk-normalize",
-                ):
-                    semantic_edge_count += 1
-        else:
-            logger.debug(
-                "No strafrecht topic found; skipping TK related-topic edges.")
+        edge_count = 0
+        _EDGE_BATCH = 500
+        for batch_start in range(0, len(edge_docs), _EDGE_BATCH):
+            batch = edge_docs[batch_start : batch_start + _EDGE_BATCH]
+            try:
+                created, _ = self.store.bulk_insert_or_update_edges(batch)
+                edge_count += created
+            except Exception as exc:  # pragma: no cover - logging only
+                logger.error("TK edge batch upsert failed: %s", exc)
 
         logger.info(
-            "TK normalization completed: %d procedures, %d publications, %d strict edges, %d semantic edges.",
+            "TK normalization: %d procedures, %d publications, %d edges.",
             len(procedures_by_external_id),
             len(publications),
-            strict_edge_count,
-            semantic_edge_count,
+            edge_count,
         )
 
-        return strict_edge_count + semantic_edge_count
+        return edge_count
+
+    _NODE_BATCH_SIZE = 200
 
     def _normalize_procedures(
         self,
         raw_zaken: list[dict[str, Any]],
-    ) -> tuple[dict[str, Node], list[Node]]:
+    ) -> dict[str, Node]:
         procedures_by_external_id: dict[str, Node] = {}
-        strafrecht_nodes: list[Node] = []
+        pending_docs: list[dict[str, Any]] = []
+        pending_nodes: list[Node] = []
 
         for raw in raw_zaken:
             payload = self._payload_json(raw)
@@ -173,53 +157,68 @@ class TkNormalizePipeline(NormalizePipeline):
                 )
                 continue
 
-            title_value = payload.get("Titel") or payload.get("ZaakTitel") or payload.get(
-                "Omschrijving"
+            title_value = (
+                payload.get("Titel")
+                or payload.get("ZaakTitel")
+                or payload.get("Omschrijving")
             )
+            citeertitel = payload.get("Citeertitel")
 
             props: dict[str, Any] = {
+                "source": SOURCE_TK,
                 "external_id": external_id,
                 "raw": payload,
             }
 
             if title_value:
                 props["title"] = title_value
+            if citeertitel:
+                props["citation_title"] = citeertitel
 
-            is_strafrecht = self._is_strafrecht_tk_payload(payload)
-            labels = ["TK"]
-            if is_strafrecht:
-                labels.append("Strafrecht")
-                props["strafrecht_profile"] = "tk"
+            # Store kamerstuknummer so TkDossiersNormalizePipeline._link_zaken_to_dossiers
+            # can create DEEL_VAN_DOSSIER edges between procedures and kamerstukdossiers.
+            zaak_nummer = payload.get("Nummer") or payload.get("ZaakNummer")
+            if zaak_nummer:
+                props["kamerstuknummer"] = str(zaak_nummer)
 
-            props["display_name"] = make_display_name(NodeType.PROCEDURE, props)
+            props["display_name"] = props.get("title") or f"Procedure {external_id}"
             key = make_node_key(external_id)
 
             node = Node(
                 collection=COLLECTION_PROCEDURES,
                 type=NodeType.PROCEDURE,
                 key=key,
-                labels=labels,
+                labels=["TK"],
                 props=props,
             )
 
-            inserted_node = self.store.insert_or_update(node)
-            procedures_by_external_id[external_id] = inserted_node
-            if is_strafrecht:
-                strafrecht_nodes.append(inserted_node)
+            pending_docs.append(node.to_document())
+            pending_nodes.append(node)
+
+        # Batch-upsert all procedure nodes.
+        for batch_start in range(0, len(pending_docs), self._NODE_BATCH_SIZE):
+            self.store.bulk_insert_or_update_nodes(
+                COLLECTION_PROCEDURES,
+                pending_docs[batch_start : batch_start + self._NODE_BATCH_SIZE],
+            )
+
+        for node in pending_nodes:
+            if node.props.get("external_id"):
+                procedures_by_external_id[node.props["external_id"]] = node
 
         logger.info(
             "Normalized %d TK procedures into nodes.",
             len(procedures_by_external_id),
         )
 
-        return procedures_by_external_id, strafrecht_nodes
+        return procedures_by_external_id
 
     def _normalize_publications(
         self,
         raw_docs: list[dict[str, Any]],
-    ) -> tuple[list[Node], list[Node]]:
+    ) -> list[Node]:
         publications: list[Node] = []
-        strafrecht_nodes: list[Node] = []
+        pending_docs: list[dict[str, Any]] = []
 
         for raw in raw_docs:
             payload = self._payload_json(raw)
@@ -236,76 +235,81 @@ class TkNormalizePipeline(NormalizePipeline):
                 )
                 continue
 
+            # Payload is a Document record with an optional expanded Zaak list.
+            zaak_list = payload.get("Zaak")
+            zaak = (
+                zaak_list[0] if isinstance(zaak_list, list) and zaak_list else None
+            ) or {}
             procedure_external_id = self._first_non_empty(
                 [
+                    zaak.get("Id"),
+                    zaak.get("Nummer"),
                     payload.get("ZaakId"),
                     payload.get("ZaakNummer"),
                 ]
             )
 
             props: dict[str, Any] = {
+                "source": SOURCE_TK,
                 "external_id": external_id,
                 "raw": payload,
             }
             if procedure_external_id:
                 props["procedure_external_id"] = procedure_external_id
 
-            title_value = payload.get(
-                "Titel") or payload.get("TitelMetBijlagen")
+            title_value = (
+                payload.get("Titel")
+                or payload.get("TitelMetBijlagen")
+                or payload.get("Onderwerp")
+            )
+            citeertitel = payload.get("Citeertitel")
+            document_number = payload.get("DocumentNummer")
+            onderwerp = payload.get("Onderwerp")
+
             if title_value:
                 props["title"] = title_value
+            if citeertitel:
+                props["citation_title"] = citeertitel
+            if document_number:
+                props["document_number"] = document_number
+            if onderwerp:
+                props["onderwerp"] = onderwerp
+            if payload.get("Soort"):
+                props["soort"] = payload["Soort"]
 
-            is_strafrecht = self._is_strafrecht_tk_payload(payload)
-            labels = ["TK"]
-            if is_strafrecht:
-                labels.append("Strafrecht")
-                props["strafrecht_profile"] = "tk"
-
-            props["display_name"] = make_display_name(NodeType.PUBLICATION, props)
+            title = props.get("title")
+            doc_num = props.get("document_number")
+            props["display_name"] = (
+                f"{title} ({doc_num})"
+                if title and doc_num
+                else title or props.get("soort") or "Publicatie"
+            )
             key = make_node_key(external_id)
 
             node = Node(
                 collection=COLLECTION_PUBLICATIONS,
                 type=NodeType.PUBLICATION,
                 key=key,
-                labels=labels,
+                labels=["TK"],
                 props=props,
             )
 
-            published_node = self.store.insert_or_update(node)
-            publications.append(published_node)
-            if is_strafrecht:
-                strafrecht_nodes.append(published_node)
+            pending_docs.append(node.to_document())
+            publications.append(node)
+
+        # Batch-upsert all publication nodes.
+        for batch_start in range(0, len(pending_docs), self._NODE_BATCH_SIZE):
+            self.store.bulk_insert_or_update_nodes(
+                COLLECTION_PUBLICATIONS,
+                pending_docs[batch_start : batch_start + self._NODE_BATCH_SIZE],
+            )
 
         logger.info(
             "Created %d TK publication nodes.",
             len(publications),
         )
 
-        return publications, strafrecht_nodes
-
-    def _is_strafrecht_tk_payload(self, payload: dict[str, Any]) -> bool:
-        filters = self._load_domain_config().get("filters", {}).get("tk", {})
-        title_keywords = filters.get("title_contains", [])
-        dossier_keywords = filters.get("dossier_keywords", [])
-
-        title_candidates = [
-            payload.get("Titel"),
-            payload.get("ZaakTitel"),
-            payload.get("Omschrijving"),
-            payload.get("TitelMetBijlagen"),
-        ]
-        for candidate in title_candidates:
-            text = str(candidate) if candidate is not None else None
-            if self._text_contains_keywords(text, title_keywords):
-                return True
-
-        if dossier_keywords:
-            raw_payload = json.dumps(payload, default=str)
-            if self._text_contains_keywords(raw_payload, dossier_keywords):
-                return True
-
-        return False
+        return publications
 
     @staticmethod
     def _first_non_empty(values: Iterable[Any]) -> str | None:

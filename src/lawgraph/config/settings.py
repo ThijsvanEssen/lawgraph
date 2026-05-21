@@ -1,8 +1,6 @@
-"""LawGraph runtime configuration helpers.
+"""LawGraph runtime configuration — env-var derived values only.
 
-Structural changes:
-- Centralize collection, Arango and client endpoints so no module contains raw constants.
-- Provide env-aware defaults so pipelines/clients can stay consistent.
+Domain constants (relation types, collection names, source IDs) live in constants.py.
 """
 
 from __future__ import annotations
@@ -15,95 +13,103 @@ load_dotenv()
 
 
 def _env_list(name: str, default: tuple[str, ...]) -> list[str]:
-    """Return a cleaned list for a comma-separated env variable, falling back to default."""
     raw_value = os.getenv(name)
     if raw_value:
-        return [segment.strip() for segment in raw_value.split(",") if segment.strip()]
+        return [s.strip() for s in raw_value.split(",") if s.strip()]
     return list(default)
 
+
+# ── Collections (env-var driven) ──────────────────────────────────────────────
 
 DEFAULT_DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     "instruments",
     "instrument_articles",
+    "instrument_versions",
+    "instrument_article_versions",
     "procedures",
     "publications",
     "judgments",
     "topics",
     "raw_sources",
+    "kamerstukdossiers",
+    "activiteiten",
+    "stemmingen",
+    "toezeggingen",
+    "commissies",
+    "leden",
+    "fracties",
+    "edge_status_log",
+    "watches",
 )
-
-DEFAULT_EDGE_COLLECTIONS: tuple[str, ...] = ("edges_strict", "edges_semantic")
 
 DOCUMENT_COLLECTIONS: list[str] = _env_list(
     "LAWGRAPH_DOCUMENT_COLLECTIONS", DEFAULT_DOCUMENT_COLLECTIONS
 )
-EDGE_COLLECTIONS: list[str] = _env_list(
-    "LAWGRAPH_EDGE_COLLECTIONS", DEFAULT_EDGE_COLLECTIONS
+
+# Single unified edge collection (env-var overridable).
+COLLECTION_EDGES = os.getenv("LAWGRAPH_EDGE_COLLECTION", "edges")
+
+# ── ArangoDB connection ───────────────────────────────────────────────────────
+
+ARANGO_URL = os.getenv("ARANGO_URL", "http://localhost:8529")
+ARANGO_DB_NAME = os.getenv("ARANGO_DB_NAME", "lawgraph")
+ARANGO_USER = os.getenv("ARANGO_USER", "root")
+ARANGO_PASSWORD = os.getenv("ARANGO_PASSWORD", "")
+ARANGO_REQUEST_TIMEOUT = 620
+
+# ── External API base URLs ────────────────────────────────────────────────────
+
+BWB_BASE_URL = os.getenv("BWB_BASE", "https://wetten.overheid.nl/")
+EURLEX_BASE_URL = os.getenv("EURLEX_BASE", "https://eur-lex.europa.eu/")
+RECHTSPRAAK_BASE_URL = os.getenv("RECHTSPRAAK_BASE", "https://data.rechtspraak.nl/")
+TK_BASE_URL = os.getenv(
+    "TK_API_BASE", "https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/"
+)
+TK_DOCUMENT_RESOURCE_URL = TK_BASE_URL.rstrip("/") + "/Document({external_id})/resource"
+
+BWB_SRU_ENDPOINT = os.getenv(
+    "BWB_SRU_ENDPOINT", "https://zoekservice.overheid.nl/sru/Search"
 )
 
-DEFAULT_ARANGO_URL = "http://localhost:8529"
-DEFAULT_ARANGO_DB_NAME = "lawgraph"
-DEFAULT_ARANGO_USER = "root"
-DEFAULT_ARANGO_PASSWORD = ""
-
-ARANGO_URL = os.getenv("ARANGO_URL", DEFAULT_ARANGO_URL)
-ARANGO_DB_NAME = os.getenv("ARANGO_DB_NAME", DEFAULT_ARANGO_DB_NAME)
-ARANGO_USER = os.getenv("ARANGO_USER", DEFAULT_ARANGO_USER)
-ARANGO_PASSWORD = os.getenv("ARANGO_PASSWORD", DEFAULT_ARANGO_PASSWORD)
-
-DEFAULT_BWB_BASE = "https://wetten.overheid.nl/"
-DEFAULT_EU_BASE = "https://eur-lex.europa.eu/"
-DEFAULT_RECHTSPRAAK_BASE = "https://data.rechtspraak.nl/"
-DEFAULT_TK_BASE = "https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/"
-
-BWB_BASE_URL = os.getenv("BWB_BASE", DEFAULT_BWB_BASE)
-EU_BASE_URL = os.getenv("EURLEX_BASE", DEFAULT_EU_BASE)
-RECHTSPRAAK_BASE_URL = os.getenv("RECHTSPRAAK_BASE", DEFAULT_RECHTSPRAAK_BASE)
-TK_BASE_URL = os.getenv("TK_API_BASE", DEFAULT_TK_BASE)
-
-DEFAULT_BWB_SRU_ENDPOINT = "https://zoekservice.overheid.nl/sru/Search"
-BWB_SRU_ENDPOINT = os.getenv("BWB_SRU_ENDPOINT", DEFAULT_BWB_SRU_ENDPOINT)
-
-
-SOURCE_TK = "tk"
-SOURCE_RECHTSPRAAK = "rechtspraak"
-SOURCE_EURLEx = "eurlex"
-SOURCE_BWB = "bwb"
-
-RAW_KIND_TK_ZAAK = "tk-zaak"
-RAW_KIND_TK_DOCUMENTVERSIE = "tk-documentversie"
-RAW_KIND_RS_INDEX = "rs-index"
-RAW_KIND_RS_CONTENT = "rs-content"
-RAW_KIND_EU_CELEX = "eu-celex-html"
-RAW_KIND_BWB_REGELING = "bwb-regeling-xml"
-RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
-
-RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
-    SOURCE_TK: (RAW_KIND_TK_ZAAK, RAW_KIND_TK_DOCUMENTVERSIE),
-    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_INDEX, RAW_KIND_RS_CONTENT),
-    SOURCE_EURLEx: (RAW_KIND_EU_CELEX,),
-    SOURCE_BWB: (RAW_KIND_BWB_REGELING, RAW_KIND_BWB_TOESTAND),
-}
-
-COLLECTION_INSTRUMENTS = "instruments"
-COLLECTION_INSTRUMENT_ARTICLES = "instrument_articles"
-COLLECTION_PROCEDURES = "procedures"
-COLLECTION_PUBLICATIONS = "publications"
-COLLECTION_JUDGMENTS = "judgments"
-COLLECTION_TOPICS = "topics"
-COLLECTION_RAW_SOURCES = "raw_sources"
-
-DEFAULT_SEMANTIC_EDGE_COLLECTION = "edges_semantic"
-SEMANTIC_EDGE_COLLECTION = os.getenv(
-    "LAWGRAPH_SEMANTIC_EDGE_COLLECTION", DEFAULT_SEMANTIC_EDGE_COLLECTION
+EURLEX_SPARQL_ENDPOINT = os.getenv(
+    "EURLEX_SPARQL_ENDPOINT", "https://publications.europa.eu/webapi/rdf/sparql"
 )
 
-RELATION_PART_OF_INSTRUMENT = "PART_OF_INSTRUMENT"
-RELATION_PART_OF_PROCEDURE = "PART_OF_PROCEDURE"
-RELATION_RELATED_TOPIC = "RELATED_TOPIC"
-RELATION_MENTIONS_ARTICLE = os.getenv(
-    "LAWGRAPH_RELATION_MENTIONS_ARTICLE", "MENTIONS_ARTICLE"
+STAATSBLAD_SRU_ENDPOINT = os.getenv(
+    "STAATSBLAD_SRU_ENDPOINT", "https://sru.officielebekendmakingen.nl/sru/Search"
 )
-RELATION_REFERS_TO_ARTICLE = os.getenv(
-    "LAWGRAPH_RELATION_REFERS_TO_ARTICLE", "REFERS_TO_ARTICLE"
+STAATSBLAD_REPO_BASE = os.getenv(
+    "STAATSBLAD_REPO_BASE", "https://repository.overheid.nl"
 )
+
+STAATSCOURANT_SRU_ENDPOINT = os.getenv(
+    "STAATSCOURANT_SRU_ENDPOINT", "https://sru.officielebekendmakingen.nl/sru/Search"
+)
+
+EERSTEKAMER_BASE_URL = os.getenv(
+    "EERSTEKAMER_BASE", "https://gegevensmagazijn.eerstekamer.nl/OData/v4/2.0/"
+)
+
+ECHR_HUDOC_BASE_URL = os.getenv("ECHR_HUDOC_BASE", "https://hudoc.echr.coe.int")
+
+VERDRAGENBANK_SPARQL_ENDPOINT = os.getenv(
+    "VERDRAGENBANK_SPARQL", "https://linkeddata.overheid.nl/front/portal/sparql"
+)
+
+# ── Semantic confidence overrides ─────────────────────────────────────────────
+
+
+def get_confidence_override(pattern_name: str, default: float) -> float:
+    """Return a per-pattern confidence value, overridable via env var.
+
+    Env var: LAWGRAPH_CONFIDENCE_<PATTERN_NAME_UPPER>
+    Example: LAWGRAPH_CONFIDENCE_BWB_EXPLICIT=0.95
+    """
+    env_key = f"LAWGRAPH_CONFIDENCE_{pattern_name.upper()}"
+    raw = os.getenv(env_key)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default

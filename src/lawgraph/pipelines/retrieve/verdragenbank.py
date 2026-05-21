@@ -1,0 +1,64 @@
+"""Retrieve pipeline for Dutch Verdragenbank (treaty register)."""
+
+from __future__ import annotations
+
+from lawgraph.clients.verdragenbank import VerdragenbankClient
+from lawgraph.config.settings import RAW_KIND_VERDRAG, SOURCE_VERDRAGENBANK
+from lawgraph.db import ArangoStore
+from lawgraph.logging import get_logger
+from lawgraph.models import PipelineResult
+
+from .base import RetrievePipelineBase, RetrieveRecord
+
+logger = get_logger(__name__)
+
+
+class VerdragenbankRetrievePipeline(RetrievePipelineBase):
+    """Retrieve treaty metadata from the Verdragenbank SPARQL endpoint."""
+
+    def __init__(
+        self, store: ArangoStore, client: VerdragenbankClient | None = None
+    ) -> None:
+        super().__init__(store)
+        self.client = client or VerdragenbankClient()
+
+    def fetch(self, *, max_records: int = 10000, **kwargs) -> list[RetrieveRecord]:
+        treaties = self.client.enumerate_treaties(max_records=max_records)
+        records: list[RetrieveRecord] = []
+
+        for treaty in treaties:
+            uri = treaty.get("uri") or ""
+            if not uri:
+                continue
+            # Use the last path segment as the external ID
+            external_id = uri.rstrip("/").rsplit("/", 1)[-1] or uri
+
+            records.append(
+                RetrieveRecord(
+                    source=SOURCE_VERDRAGENBANK,
+                    kind=RAW_KIND_VERDRAG,
+                    external_id=external_id,
+                    payload_json=treaty,
+                    meta={
+                        "verdragsnummer": treaty.get("verdragsnummer"),
+                        "status": treaty.get("status"),
+                    },
+                )
+            )
+
+        logger.info("Verdragenbank retrieve: prepared %d treaty records.", len(records))
+        return records
+
+    def run(self, *, max_records: int = 10000, **kwargs) -> PipelineResult:
+        result = PipelineResult()
+        records = self.fetch(max_records=max_records)
+        for record in records:
+            try:
+                self._insert(record)
+                result.created += 1
+            except Exception as exc:
+                msg = f"Failed to store treaty {record.external_id}: {exc}"
+                logger.error(msg)
+                result.add_error(msg)
+                result.skipped += 1
+        return result

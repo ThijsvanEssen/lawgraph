@@ -7,9 +7,9 @@ import os
 
 import pytest
 
-from lawgraph.clients.tk import TKClient
-from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.clients.eu import EUClient
+from lawgraph.clients.rechtspraak import RechtspraakClient
+from lawgraph.clients.tk import TKClient
 
 RUN_NETWORK = os.getenv("ALLOW_NETWORK_TESTS") == "1"
 skip_if_no_net = pytest.mark.skipif(
@@ -45,8 +45,7 @@ def test_rechtspraak_search_endpoint_reachable_and_returns_xml() -> None:
     """
     client = RechtspraakClient()
 
-    xml_index = client.search_ecli_index(
-        modified_since=None, extra_params=None)
+    xml_index = client.search_ecli_index(modified_since=None, extra_params=None)
 
     assert isinstance(xml_index, str)
     # minimale sanity check: XML-achtig

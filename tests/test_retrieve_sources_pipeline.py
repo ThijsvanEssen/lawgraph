@@ -5,11 +5,10 @@ from typing import Sequence
 
 from lawgraph.config.settings import (
     RAW_KIND_EU_CELEX,
-    RAW_KIND_RS_CONTENT,
     RAW_KIND_RS_INDEX,
     RAW_KIND_TK_DOCUMENTVERSIE,
     RAW_KIND_TK_ZAAK,
-    SOURCE_EURLEx,
+    SOURCE_EURLEX,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
@@ -47,14 +46,26 @@ class FakeStore:
 
 
 class FakeTKClient:
-    def zaken_modified_since(self, since: dt.datetime, top: int = 100) -> list[dict]:
+    def zaken_modified_since(
+        self,
+        since: dt.datetime,
+        top: int = 100,
+        keyword_fields: list | None = None,
+        keywords: list | None = None,
+    ) -> list[dict]:
         return [
             {"Id": "Z1", "Titel": "Zaak 1"},
             {"Id": "Z2", "Titel": "Zaak 2"},
         ]
 
-    def documentversies_modified_since(self, since: dt.datetime, top: int = 100) -> list[dict]:
-        return [{"Id": "D1", "Naam": "Document"}]
+    def documents_modified_since(
+        self,
+        since: dt.datetime,
+        top: int = 100,
+        keyword_fields: list | None = None,
+        keywords: list | None = None,
+    ) -> list[dict]:
+        return [{"Id": "D1", "Titel": "Document 1", "Onderwerp": "Test"}]
 
 
 class FakeRechtspraakClient:
@@ -129,7 +140,7 @@ def test_dump_eurlex_celex_list_writes_one_document_per_celex() -> None:
     assert len(store.inserted) == 2
     seen_ids: set[str] = set()
     for doc in store.inserted:
-        assert doc["source"] == SOURCE_EURLEx
+        assert doc["source"] == SOURCE_EURLEX
         assert doc["kind"] == RAW_KIND_EU_CELEX
         assert doc["external_id"] in celex_ids
         assert doc["payload_json"] is None

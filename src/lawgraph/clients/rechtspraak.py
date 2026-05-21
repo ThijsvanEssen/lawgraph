@@ -1,14 +1,14 @@
 # src/lawgraph/clients/rechtspraak.py
 from __future__ import annotations
 
-# Structural changes:
-# - Base URL defers to lawgraph.config.settings and public methods now feature docstrings.
-
 import datetime as dt
 
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import RECHTSPRAAK_BASE_URL
 from lawgraph.logging import get_logger
+
+# Structural changes:
+# - Base URL defers to lawgraph.config.settings and public methods now feature docstrings.
 
 
 logger = get_logger(__name__)
@@ -42,8 +42,7 @@ class RechtspraakClient(BaseClient):
 
         if modified_since is not None:
             # exacte param-naam even afstemmen met de officiële doc
-            params["modifiedsince"] = modified_since.replace(
-                microsecond=0).isoformat()
+            params["modifiedsince"] = modified_since.replace(microsecond=0).isoformat()
 
         logger.info("Rechtspraak search index with params=%r", params)
         return self._get_text("uitspraken/zoeken", params=params)

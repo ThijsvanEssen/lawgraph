@@ -3,152 +3,65 @@
 from __future__ import annotations
 
 import datetime as dt
-import re
-from dataclasses import dataclass
 from typing import Any, Iterable
 
-from config.config import load_domain_config
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_JUDGMENTS,
-    RELATION_MENTIONS_ARTICLE,
     RAW_KIND_RS_CONTENT,
-    SEMANTIC_EDGE_COLLECTION,
+    RELATION_CITES_ARTICLE,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, make_node_key
-from lawgraph.utils.time import describe_since, iso_timestamp
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import describe_since, iso_timestamp
+
+from .base import SemanticPipelineBase
+from .citation_detect import CitationHit, DutchCitationExtractor, _hit_reason, strip_xml
 
 logger = get_logger(__name__)
 
+# Exported for backward compatibility with existing tests and callers.
 CodeMapping = dict[str, str]
 
 SEMANTIC_SOURCE = "rechtspraak-article-linker"
 
-_ALIAS_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\bart\.\s*(\d+[a-z]?)\s*(Sr|Sv|WVW)\b", re.IGNORECASE),
-    re.compile(r"\bartikel\s+(\d+[a-z]?)\s*(Sr|Sv|WVW)\b", re.IGNORECASE),
-)
 
-_NUMBER_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\bartikel\s+(\d+[a-z]?)\b", re.IGNORECASE),
-    re.compile(r"\bart\.\s*(\d+[a-z]?)\b", re.IGNORECASE),
-)
-
-_SNIPPET_WINDOW = 40
-
-
-@dataclass
-class ArticleHit:
-    """Detected reference to a BWB article inside judgment text."""
-
-    bwb_id: str
-    article_number: str
-    confidence: float
-    raw_match: str | None = None
-    snippet: str | None = None
+# ---------------------------------------------------------------------------
+# Backward-compat public function
+# ---------------------------------------------------------------------------
 
 
 def detect_article_references(
     text: str | None,
-    mapping: CodeMapping,
-) -> list[ArticleHit]:
-    """Return article hints detected in the text together with confidence values."""
+    mapping: dict[str, str],
+) -> list[CitationHit]:
+    """Return article citations detected in *text*.
+
+    Thin wrapper around ``DutchCitationExtractor`` kept for backward compat.
+    Also appends bare ``artikel X`` hits (no law code, confidence 0.35) so
+    that callers which depend on low-confidence bare detection still work.
+    """
     if not text:
         return []
-
-    normalized_mapping: CodeMapping = {
-        alias.upper(): bwb_id
-        for alias, bwb_id in mapping.items()
-        if alias and bwb_id
-    }
-
-    hits: list[ArticleHit] = []
-    seen_pairs: set[tuple[str, str]] = set()
-    alias_spans: list[tuple[int, int]] = []
-
-    def _snippet(match_span: tuple[int, int]) -> str:
-        start, end = match_span
-        begin = max(0, start - _SNIPPET_WINDOW)
-        finish = min(len(text), end + _SNIPPET_WINDOW)
-        return text[begin:finish].strip()
-
-    for pattern in _ALIAS_PATTERNS:
-        for match in pattern.finditer(text):
-            article_number = match.group(1)
-            alias = match.group(2)
-            if not article_number or not alias:
-                continue
-            bwb_id = normalized_mapping.get(alias.upper(), "")
-            if not bwb_id:
-                continue
-            pair = (bwb_id, article_number)
-            if pair in seen_pairs:
-                continue
-
-            seen_pairs.add(pair)
-            alias_spans.append(match.span())
-
-            hits.append(
-                ArticleHit(
-                    bwb_id=bwb_id,
-                    article_number=article_number,
-                    confidence=0.95,
-                    raw_match=match.group(0),
-                    snippet=_snippet(match.span()),
-                )
-            )
-
-    for pattern in _NUMBER_PATTERNS:
-        for match in pattern.finditer(text):
-            span = match.span()
-            if any(not (span[1] <= span_start or span[0] >= span_end) for span_start, span_end in alias_spans):
-                continue
-            article_number = match.group(1)
-            if not article_number:
-                continue
-            pair = ("", article_number)
-            if pair in seen_pairs:
-                continue
-            seen_pairs.add(pair)
-            hits.append(
-                ArticleHit(
-                    bwb_id="",
-                    article_number=article_number,
-                    confidence=0.35,
-                    raw_match=match.group(0),
-                    snippet=_snippet(span),
-                )
-            )
-
+    extractor = DutchCitationExtractor(code_aliases=mapping)
+    hits = extractor.extract(text)
+    coded_nums = {h.article_number for h in hits if h.article_number}
+    bare = extractor.extract_bare(text, confidence=0.35)
+    hits.extend(b for b in bare if b.article_number not in coded_nums)
     return hits
 
 
-class RechtspraakArticleSemanticPipeline:
+# ---------------------------------------------------------------------------
+# Pipeline
+# ---------------------------------------------------------------------------
+
+
+class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
     """Link Rechtspraak judgments to BWB articles via semantic edges."""
 
-    def __init__(
-        self,
-        *,
-        store: ArangoStore,
-        domain_profile: str | None = None,
-        domain_config: dict[str, Any] | None = None,
-    ) -> None:
-        self.store = store
-        self._domain_profile_name = domain_profile
-        self._domain_config = domain_config
-
-    def run(self, *, since: dt.datetime | None = None) -> int:
-        """Create semantic edges for Rechtspraak judgments referencing BWB articles.
-
-        Args:
-            since: Optional datetime to limit which raw sources are scanned.
-
-        Returns:
-            Number of semantic edges created or updated.
-        """
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        result = PipelineResult()
         since_iso = iso_timestamp(since)
         eclis = self._recent_rechtspraak_eclis(since_iso)
         judgments = list(self._load_judgments(eclis))
@@ -156,89 +69,98 @@ class RechtspraakArticleSemanticPipeline:
         mapping = self._load_code_aliases()
         if not mapping:
             logger.warning("No code_aliases configured; skipping semantic linkage.")
-            return 0
+            return result
+
+        extractor = DutchCitationExtractor(code_aliases=mapping)
 
         logger.info(
-            "Processing %d Rechtspraak judgments (since=%s).",
+            "Processing %d Rechtspraak judgments for article references (since=%s).",
             len(judgments),
             describe_since(since),
         )
 
-        edges_created = 0
         for doc in judgments:
             judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
-            text = self._extract_judgment_text(judgment)
-            hits = detect_article_references(text, mapping)
+            raw_text = self._extract_judgment_text(judgment)
+            text = strip_xml(raw_text) if raw_text else None
+            hits = extractor.extract(text or "")
             if not hits:
                 continue
 
             for hit in hits:
-                if not hit.bwb_id:
+                if not hit.bwb_id and not hit.celex:
                     continue
 
                 article = self._resolve_article(hit)
                 if article is None:
                     continue
 
-                if self._create_semantic_edge(judgment, article, hit):
-                    edges_created += 1
+                created = self._create_semantic_edge(
+                    from_node=judgment,
+                    to_node=article,
+                    relation=RELATION_CITES_ARTICLE,
+                    source=SEMANTIC_SOURCE,
+                    confidence=hit.confidence,
+                    meta={
+                        k: v
+                        for k, v in {
+                            "raw_match": hit.raw_match,
+                            "snippet": hit.snippet,
+                            "reason": _hit_reason(hit),
+                            "qualifier": hit.qualifier,
+                        }.items()
+                        if v
+                    },
+                    result=result,
+                )
+                if created:
+                    result.created += 1
+                else:
+                    result.updated += 1
 
-        logger.info(
-            "Rechtspraak article linker created %d semantic edges.", edges_created
-        )
-        return edges_created
+        logger.info("Rechtspraak article linker: %s.", result.summary())
+        return result
 
-    def _load_code_aliases(self) -> CodeMapping:
-        config = self._load_domain_config()
-        aliases = config.get("code_aliases", {})
-        mapping: CodeMapping = {}
-        if not isinstance(aliases, dict):
-            return mapping
-        for alias, value in aliases.items():
-            if not alias or not value:
-                continue
-            key = str(alias).strip().upper()
-            mapping[key] = str(value).strip()
-        return mapping
+    def _resolve_article(self, hit: CitationHit) -> Node | None:
+        if hit.bwb_id and hit.article_number:
+            article_key = make_node_key(hit.bwb_id, hit.article_number)
+            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
+            if node is None and hit.confidence >= 0.9:
+                node = self.store.ensure_stub_node(
+                    COLLECTION_INSTRUMENT_ARTICLES,
+                    article_key,
+                    NodeType.ARTICLE,
+                    props={"bwb_id": hit.bwb_id, "article_number": hit.article_number},
+                )
+            if node is None:
+                logger.debug(
+                    "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",
+                    hit.bwb_id,
+                    hit.article_number,
+                    hit.confidence,
+                )
+            return node
 
-    def _resolve_article(self, hit: ArticleHit) -> Node | None:
-        article_key = make_node_key(hit.bwb_id, hit.article_number)
-        return self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
+        if hit.celex and hit.article_number:
+            article_key = make_node_key(hit.celex, hit.article_number)
+            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
+            if node is None and hit.confidence >= 0.9:
+                node = self.store.ensure_stub_node(
+                    COLLECTION_INSTRUMENT_ARTICLES,
+                    article_key,
+                    NodeType.ARTICLE,
+                    props={"celex": hit.celex, "article_number": hit.article_number},
+                )
+            if node is None:
+                logger.debug(
+                    "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",
+                    hit.celex,
+                    hit.article_number,
+                    hit.confidence,
+                )
+            return node
 
-    def _create_semantic_edge(
-        self,
-        judgment: Node,
-        article: Node,
-        hit: ArticleHit,
-    ) -> bool:
-        if judgment.key is None or article.key is None:
-            return False
-        if judgment.id is None or article.id is None:
-            return False
-
-        edge_key = f"{make_node_key(judgment.key)}__{make_node_key(article.key)}__{RELATION_MENTIONS_ARTICLE}"
-        meta = {}
-        if hit.raw_match:
-            meta["raw_match"] = hit.raw_match
-        if hit.snippet:
-            meta["snippet"] = hit.snippet
-
-        edge_doc: dict[str, Any] = {
-            "_key": edge_key,
-            "_from": judgment.id,
-            "_to": article.id,
-            "relation": RELATION_MENTIONS_ARTICLE,
-            "confidence": hit.confidence,
-            "source": SEMANTIC_SOURCE,
-            "strict": False,
-            "meta": meta,
-        }
-
-        _, created = self.store.insert_or_update_edge(
-            collection_name=SEMANTIC_EDGE_COLLECTION,
-            doc=edge_doc,
-        )
-        return created
+        return None
 
     def _recent_rechtspraak_eclis(self, since_iso: str | None) -> set[str]:
         if since_iso is None:
@@ -249,7 +171,6 @@ class RechtspraakArticleSemanticPipeline:
             "kind": RAW_KIND_RS_CONTENT,
             "since": since_iso,
         }
-
         aql = """
         FOR raw IN raw_sources
             FILTER raw.source == @source
@@ -258,7 +179,6 @@ class RechtspraakArticleSemanticPipeline:
             FILTER raw.meta.ecli != null
         RETURN raw.meta.ecli
         """
-
         eclis: set[str] = set()
         for raw in self.store.query(aql, bind_vars=bind_vars):
             ecli_value = raw.get("meta", {}).get("ecli")
@@ -272,41 +192,20 @@ class RechtspraakArticleSemanticPipeline:
             bind_vars = {"eclis": list(eclis)}
             aql = f"""
             FOR doc IN {collection}
+                FILTER doc.props.meta != null
                 FILTER doc.props.meta.ecli IN @eclis
             RETURN doc
             """
         else:
             bind_vars = {}
             aql = f"FOR doc IN {collection} RETURN doc"
-
         return self.store.query(aql, bind_vars=bind_vars)
 
     def _extract_judgment_text(self, judgment: Node) -> str | None:
         props = judgment.props
-        text = props.get("raw_xml")
-        if isinstance(text, str) and text.strip():
-            return text
-        alternative = props.get("text")
-        if isinstance(alternative, str) and alternative.strip():
-            return alternative
-        return None
-
-    def _load_domain_config(self) -> dict[str, Any]:
-        if self._domain_config is not None:
-            return self._domain_config
-
-        if not self._domain_profile_name:
-            self._domain_config = {}
-            return self._domain_config
-
-        try:
-            self._domain_config = load_domain_config(self._domain_profile_name)
-        except FileNotFoundError as exc:
-            logger.warning(
-                "Unable to load profile %s: %s",
-                self._domain_profile_name,
-                exc,
-            )
-            self._domain_config = {}
-
-        return self._domain_config
+        fragments: list[str] = []
+        for key in ("raw_xml", "text", "summary"):
+            value = props.get(key)
+            if isinstance(value, str) and value.strip():
+                fragments.append(value.strip())
+        return "\n\n".join(fragments) if fragments else None

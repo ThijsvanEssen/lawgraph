@@ -4,7 +4,7 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from config.config import load_domain_config
+from lawgraph.config import load_domain_config
 
 
 def load_profile_config(profile: str | None) -> dict[str, Any]:
@@ -47,12 +47,17 @@ def make_tk_filter(filters: dict[str, Any]) -> Callable[[dict[str, Any]], bool]:
     ]
 
     def matcher(record: dict[str, Any]) -> bool:
+        # Gather text fields from the record itself and from an expanded Document.
+        doc = record.get("Document") or {}
         candidates = [
             record.get("Titel"),
+            record.get("Onderwerp"),
             record.get("ZaakTitel"),
             record.get("Omschrijving"),
             record.get("TitelMetBijlagen"),
             record.get("ZaakNummer"),
+            doc.get("Titel"),
+            doc.get("Onderwerp"),
         ]
         for candidate in candidates:
             text = str(candidate) if candidate is not None else None
@@ -94,14 +99,10 @@ def merge_celex_ids(
 ) -> list[str]:
     candidate_ids: list[str] = []
     candidate_ids.extend(
-        str(item)
-        for item in eurlex_filters.get("celex_ids", [])
-        if item
+        str(item) for item in eurlex_filters.get("celex_ids", []) if item
     )
     candidate_ids.extend(
-        str(item)
-        for item in seed_examples.get("extra_celex_candidates", [])
-        if item
+        str(item) for item in seed_examples.get("extra_celex_candidates", []) if item
     )
 
     return list(dict.fromkeys(candidate_ids))

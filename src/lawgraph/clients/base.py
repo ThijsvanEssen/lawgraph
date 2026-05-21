@@ -1,18 +1,22 @@
 # src/lawgraph/clients/base.py
 from __future__ import annotations
 
-# Structural changes:
-# - Documented all helpers and added a paginated getter shared across clients.
-# - Ensured load_dotenv runs once while keeping consistent HTTP debug logging.
-
 import os
-from typing import Any, Iterator
+import time
+from collections.abc import Iterator
+from typing import Any
 
 import requests
 from dotenv import load_dotenv
 
-from lawgraph.logging import get_logger
+from lawgraph.core.logging import get_logger
 
+# Structural changes:
+# - Documented all helpers and added a paginated getter shared across clients.
+# - Ensured load_dotenv runs once while keeping consistent HTTP debug logging.
+
+# Load .env once at module import time
+load_dotenv()
 
 logger = get_logger(__name__)
 
@@ -35,8 +39,6 @@ class BaseClient:
         session: requests.Session | None = None,
     ) -> None:
         """Load env vars and configure the HTTP session with a normalized base URL."""
-        load_dotenv()
-
         base = os.getenv(env_var, default_base_url)
         # forceer trailing slash
         self.base_url = base.rstrip("/") + "/"
@@ -71,6 +73,58 @@ class BaseClient:
         )
         resp.raise_for_status()
         return resp
+
+    def _get_raw_with_retry(
+        self,
+        path: str,
+        *,
+        params: dict | None = None,
+        timeout: int = 30,
+        retries: int = 3,
+        backoff_factor: float = 2.0,
+    ) -> requests.Response:
+        """GET with exponential backoff on 429, 503, and connection errors."""
+        last_exc: Exception | None = None
+        for attempt in range(retries):
+            try:
+                resp = self._get_raw(path, params=params, timeout=timeout)
+                # _get_raw already calls raise_for_status, but 429/503 need retry
+                return resp
+            except requests.exceptions.HTTPError as exc:
+                if exc.response is not None and exc.response.status_code in (429, 503):
+                    last_exc = exc
+                    wait = backoff_factor**attempt
+                    logger.warning(
+                        "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
+                        exc.response.status_code,
+                        path,
+                        attempt + 1,
+                        retries,
+                        wait,
+                    )
+                    time.sleep(wait)
+                    continue
+                raise  # non-retryable HTTP error
+            except (
+                requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError,
+            ) as exc:
+                last_exc = exc
+                wait = backoff_factor**attempt
+                logger.warning(
+                    "Connection error on %s (attempt %d/%d), retrying in %.1fs: %s",
+                    path,
+                    attempt + 1,
+                    retries,
+                    wait,
+                    exc,
+                )
+                time.sleep(wait)
+        if last_exc is None:
+            raise RuntimeError(
+                f"_get_raw_with_retry called with retries={retries}; no attempt was made"
+            )
+        raise last_exc
 
     def _get_json(
         self,
@@ -131,24 +185,33 @@ class BaseClient:
 
     @staticmethod
     def _iter_page_entries(data: Any, result_key: str) -> Iterator[dict[str, Any]]:
-        """Extract the iterable of entries from a page, accepting dict or list payloads."""
+        """Extract entry dictionaries from paged payloads."""
         if isinstance(data, dict):
-            entries = data.get(result_key)
-            if isinstance(entries, list):
-                for entry in entries:
-                    if isinstance(entry, dict):
-                        yield entry
-            else:
-                # Fallback to iterating over dict values when another key is used.
-                for value in data.values():
-                    if isinstance(value, list):
-                        for element in value:
-                            if isinstance(element, dict):
-                                yield element
+            yield from BaseClient._extract_entries_from_dict(data, result_key)
         elif isinstance(data, list):
-            for entry in data:
-                if isinstance(entry, dict):
-                    yield entry
+            yield from BaseClient._extract_entries_from_list(data)
+
+    @staticmethod
+    def _extract_entries_from_dict(
+        payload: dict[str, Any], result_key: str
+    ) -> Iterator[dict[str, Any]]:
+        entries = payload.get(result_key)
+        if isinstance(entries, list):
+            yield from BaseClient._extract_entries_from_list(entries)
+            return
+        logger.warning(
+            "Paged response missing expected key %r; keys present: %s",
+            result_key,
+            list(payload.keys()),
+        )
+
+    @staticmethod
+    def _extract_entries_from_list(
+        candidate_list: list[Any],
+    ) -> Iterator[dict[str, Any]]:
+        for entry in candidate_list:
+            if isinstance(entry, dict):
+                yield entry
 
     @staticmethod
     def _extract_next_link(data: Any, key: str | None) -> str | None:

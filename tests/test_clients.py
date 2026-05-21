@@ -7,9 +7,9 @@ from typing import Any
 
 import requests
 
-from lawgraph.clients.tk import TKClient
-from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.clients.eu import EUClient
+from lawgraph.clients.rechtspraak import RechtspraakClient
+from lawgraph.clients.tk import TKClient
 
 
 class DummyResponse(requests.Response):
@@ -148,14 +148,49 @@ def test_euclient_fetch_celex_html_builds_correct_url() -> None:
     html_body = "<html>CELEX</html>"
     session = DummySession(DummyResponse(text=html_body))
     client = EUClient(session=session)
-    client.base_url = "https://eur-lex.example.org/"
 
     # Act
     result = client.fetch_celex_html("32019L1158", lang="NL")
 
-    # Assert
+    # Assert — implementation uses the CELLAR publications server directly (no base_url)
     assert session.calls == 1
-    assert session.last_url == "https://eur-lex.example.org/legal-content/NL/TXT/"
-    assert session.last_params is not None
-    assert session.last_params.get("uri") == "CELEX:32019L1158"
+    assert (
+        session.last_url == "https://publications.europa.eu/resource/celex/32019L1158"
+    )
+    assert session.last_params == {}
     assert result == html_body
+
+
+# --------------------------------------------------------------------
+# Single-quote escaping in TK OData filter
+# --------------------------------------------------------------------
+
+
+def test_tkclient_keyword_with_single_quote_does_not_corrupt_odata_filter() -> None:
+    """A keyword containing ' must be escaped as '' to produce valid OData."""
+    from lawgraph.clients.tk import _build_contains_filter
+
+    result = _build_contains_filter(["Titel"], ["l'homme"])
+    # The single quote must be doubled, not left bare (which would break OData).
+    assert "l''homme" in result
+    assert "l'homme'" not in result.replace("l''homme", "")
+
+
+# --------------------------------------------------------------------
+# BaseClient retries=0 raises RuntimeError, not TypeError
+# --------------------------------------------------------------------
+
+
+def test_base_client_retries_zero_raises_runtime_error() -> None:
+    """When retries=0 the loop never executes; RuntimeError must be raised, not TypeError."""
+    import pytest
+
+    from lawgraph.clients.base import BaseClient
+
+    client = BaseClient(
+        env_var="__nonexistent__",
+        default_base_url="http://localhost:1/",
+        session=DummySession(DummyResponse(status=429)),
+    )
+    with pytest.raises(RuntimeError, match="no attempt was made"):
+        client._get_raw_with_retry("/test", retries=0)

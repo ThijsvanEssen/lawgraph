@@ -13,7 +13,9 @@ from lawgraph.pipelines.semantic.rechtspraak_articles import (
 
 
 class FakeStore:
-    def __init__(self, judgments: list[dict[str, Any]], articles: dict[str, dict[str, Any]]) -> None:
+    def __init__(
+        self, judgments: list[dict[str, Any]], articles: dict[str, dict[str, Any]]
+    ) -> None:
         self._judgments = judgments
         self._articles = articles
         self.edges: dict[str, dict[str, Any]] = {}
@@ -31,8 +33,6 @@ class FakeStore:
 
     def insert_or_update_edge(
         self,
-        *,
-        collection_name: str,
         doc: dict[str, Any],
     ) -> tuple[dict[str, Any], bool]:
         key = doc["_key"]
@@ -106,21 +106,14 @@ def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
     )
 
     created_first = pipeline.run()
-    assert created_first == 1
+    assert created_first.created == 1
     assert len(store.edges) == 1
 
-    key = next(iter(store.edges))
-    expected_key = (
-        f"{make_node_key(judgment_doc['_key'])}"
-        f"__{make_node_key(article_doc['_key'])}__MENTIONS_ARTICLE"
-    )
-    assert key == expected_key
-    edge = store.edges[key]
-    assert edge["relation"] == "MENTIONS_ARTICLE"
+    edge = next(iter(store.edges.values()))
+    assert edge["relation"] == "CITES_ARTICLE"
     assert edge["source"] == "rechtspraak-article-linker"
-    assert not edge["strict"]
     assert isinstance(edge["confidence"], float)
 
     created_second = pipeline.run()
-    assert created_second == 0
+    assert created_second.created == 0
     assert len(store.edges) == 1
