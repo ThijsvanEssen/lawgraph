@@ -5,9 +5,9 @@ import importlib
 import pytest
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def stub_store(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Voorkom dat tests de echte ArangoStore openen door een stub te gebruiken."""
+    """Stub get_store in route modules to prevent opening a real ArangoStore."""
     store_stub = object()
     for module_name in (
         "lawgraph.api.routes.articles",

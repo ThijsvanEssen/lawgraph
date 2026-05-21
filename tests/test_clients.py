@@ -159,3 +159,38 @@ def test_euclient_fetch_celex_html_builds_correct_url() -> None:
     )
     assert session.last_params == {}
     assert result == html_body
+
+
+# --------------------------------------------------------------------
+# Single-quote escaping in TK OData filter
+# --------------------------------------------------------------------
+
+
+def test_tkclient_keyword_with_single_quote_does_not_corrupt_odata_filter() -> None:
+    """A keyword containing ' must be escaped as '' to produce valid OData."""
+    from lawgraph.clients.tk import _build_contains_filter
+
+    result = _build_contains_filter(["Titel"], ["l'homme"])
+    # The single quote must be doubled, not left bare (which would break OData).
+    assert "l''homme" in result
+    assert "l'homme'" not in result.replace("l''homme", "")
+
+
+# --------------------------------------------------------------------
+# BaseClient retries=0 raises RuntimeError, not TypeError
+# --------------------------------------------------------------------
+
+
+def test_base_client_retries_zero_raises_runtime_error() -> None:
+    """When retries=0 the loop never executes; RuntimeError must be raised, not TypeError."""
+    import pytest
+
+    from lawgraph.clients.base import BaseClient
+
+    client = BaseClient(
+        env_var="__nonexistent__",
+        default_base_url="http://localhost:1/",
+        session=DummySession(DummyResponse(status=429)),
+    )
+    with pytest.raises(RuntimeError, match="no attempt was made"):
+        client._get_raw_with_retry("/test", retries=0)
