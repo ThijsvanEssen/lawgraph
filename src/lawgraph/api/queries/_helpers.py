@@ -10,7 +10,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF_INSTRUMENT,
 )
 from lawgraph.config.settings import COLLECTION_EDGES
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, parse_arango_id
 from lawgraph.db import ArangoStore
 
 
@@ -67,19 +67,12 @@ def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
     return None
 
 
-_known_collections: set[str] = set()
-
-
 def _load_document_by_ref(store: ArangoStore, ref: str | None) -> dict[str, Any] | None:
     if not ref or "/" not in ref:
         return None
-    collection_name, key = ref.split("/", 1)
-    # Cache the set of known collection names so we don't query the database
-    # on every single call (this function is called once per edge in loops).
-    if collection_name not in _known_collections:
-        if not store.db.has_collection(collection_name):
-            return None
-        _known_collections.add(collection_name)
+    collection_name, key = parse_arango_id(ref)
+    if not store.db.has_collection(collection_name):
+        return None
     collection = store.db.collection(collection_name)
     raw_doc = collection.get(key)
     return _ensure_doc(raw_doc)

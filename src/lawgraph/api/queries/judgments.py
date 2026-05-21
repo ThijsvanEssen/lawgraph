@@ -6,11 +6,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.api.queries._helpers import _load_judgment
-from lawgraph.config.settings import (
-    COLLECTION_EDGES,
+from lawgraph.config.constants import (
     RELATION_MENTIONS_ARTICLE,
     RELATION_PART_OF_INSTRUMENT,
 )
+from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 
@@ -116,12 +116,12 @@ def get_judgments_list(
       * ``total`` is exact when filtered, otherwise the collection
         cardinality. The frontend uses ``has_more`` for paging.
     """
-    from lawgraph.api.queries.search import _build_search_clause, _tokenize_search_query
+    from lawgraph.api.queries.search import build_search_clause, tokenize_search_query
 
     # Precomputed inbound count lives on ``props.inbound_citation_count``,
     # back-filled and indexed. SORT/FILTER on citation count are served by
     # the persistent index — no per-row edge subquery on the list path.
-    tokens = _tokenize_search_query(q) if q else []
+    tokens = tokenize_search_query(q) if q else []
     use_search = bool(tokens)
     has_filter = bool(
         use_search
@@ -133,7 +133,7 @@ def get_judgments_list(
         or cited_by_min is not None
     )
     search_clause, tok_bind = (
-        _build_search_clause(tokens, ["display_name", "summary", "ecli"])
+        build_search_clause(tokens, ["display_name", "summary", "ecli"])
         if tokens
         else ("true", {})
     )
@@ -168,7 +168,7 @@ def get_judgments_list(
     if cited_by_min is not None:
         bind_vars["cited_by_min"] = cited_by_min
 
-    source = (
+    from_clause = (
         f'FOR doc IN search_judgments SEARCH ANALYZER({search_clause}, "text_en")'
         if use_search
         else "FOR doc IN judgments"
@@ -179,12 +179,24 @@ def get_judgments_list(
     # ever materialised. The "LET base = (…) FOR row IN base SORT …"
     # two-stage shape we used before blocked the index optimisation and
     # forced a full-collection sort.
+    # Source derivation from ECLI prefix — covers records where props.source
+    # was never backfilled. Applied both in the FILTER (so ?source=echr works)
+    # and in the RETURN projection.
+    _source_expr = (
+        "doc.props.source != null ? doc.props.source"
+        " : (STARTS_WITH(_ecli, 'ECLI:NL:') ? 'rechtspraak'"
+        "  : (STARTS_WITH(_ecli, 'ECLI:CE:ECHR:') ? 'echr'"
+        "   : (STARTS_WITH(_ecli, 'ECLI:EU:') ? 'cjeu' : null)))"
+    )
+
     aql = f"""
     LET items = (
-        {source}
+        {from_clause}
             FILTER @court == null OR doc.props.court_code == @court
             FILTER @tier == null OR doc.props.tier == @tier
-            FILTER @source == null OR doc.props.source == @source
+            LET _ecli = doc.props.ecli != null ? doc.props.ecli : doc._key
+            LET _source = {_source_expr}
+            FILTER @source == null OR _source == @source
             FILTER @from == null
                 OR (doc.props.date_eff != null AND doc.props.date_eff >= @from)
             FILTER @to == null
@@ -193,7 +205,7 @@ def get_judgments_list(
             {sort_clause}
             LIMIT @offset, @limit
             LET props = doc.props
-            LET ecli = props.ecli != null ? props.ecli : doc._key
+            LET ecli = _ecli
             LET ecli_parts = SPLIT(ecli, ':')
             LET court_code = (
                 props.court_code != null ? props.court_code :
@@ -222,7 +234,7 @@ def get_judgments_list(
                 court_code: court_code,
                 tier: tier,
                 date: judgment_date,
-                source: props.source,
+                source: _source,
                 inbound_citation_count: props.inbound_citation_count
             }}
     )
@@ -233,17 +245,19 @@ def get_judgments_list(
     # round-trip because it scans an indexed collection and never builds
     # docs.
     if has_filter:
-        count_source = (
+        count_from_clause = (
             f'FOR doc IN search_judgments SEARCH ANALYZER({search_clause}, "text_en")'
             if use_search
             else "FOR doc IN judgments"
         )
         aql += f"""
     LET total = LENGTH(
-        {count_source}
+        {count_from_clause}
             FILTER @court == null OR doc.props.court_code == @court
             FILTER @tier == null OR doc.props.tier == @tier
-            FILTER @source == null OR doc.props.source == @source
+            LET _ecli = doc.props.ecli != null ? doc.props.ecli : doc._key
+            LET _source = {_source_expr}
+            FILTER @source == null OR _source == @source
             FILTER @from == null
                 OR (doc.props.date_eff != null AND doc.props.date_eff >= @from)
             FILTER @to == null

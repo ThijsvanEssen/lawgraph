@@ -5,6 +5,8 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
+from arango.exceptions import DocumentDeleteError
+
 from lawgraph.db import ArangoStore
 
 
@@ -41,5 +43,5 @@ def delete_watch(store: ArangoStore, watch_id: str) -> bool:
     try:
         store.db.collection("watches").delete(watch_id)
         return True
-    except Exception:
+    except DocumentDeleteError:
         return False

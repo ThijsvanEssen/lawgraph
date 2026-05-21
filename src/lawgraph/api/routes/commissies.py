@@ -214,8 +214,8 @@ def _touched_instrument_row_to_dto(row: dict) -> TouchedInstrumentDTO:
     the canonical ``id``/``key`` everywhere — same fix as cited_articles.
     """
     return TouchedInstrumentDTO(
-        id=row.get("instrument_id") or row.get("id"),
-        key=row.get("instrument_key") or row.get("key"),
+        id=row.get("instrument_id") or row.get("id") or "",
+        key=row.get("instrument_key") or row.get("key") or "",
         display_name=row.get("display_name"),
         title=row.get("title"),
         short_title=row.get("short_title"),

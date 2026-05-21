@@ -40,12 +40,13 @@ from lawgraph.api.schemas import (
     InstrumentVersionDTO,
     InstrumentVersionsResponse,
 )
+from lawgraph.api.queries._helpers import _props
 from lawgraph.db import ArangoStore
 
 
 def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
     judgment = row.get("judgment") or {}
-    props = judgment.get("props") or {}
+    props = _props(judgment)
     return InstrumentJudgmentItem(
         id=judgment.get("_id") or "",
         key=judgment.get("_key") or "",
@@ -125,7 +126,7 @@ def _clean_article_display_name(
 
 def _minimise_node(doc: dict, collection: str) -> dict:
     """Project one side-payload node down to its whitelisted props."""
-    props = doc.get("props") or {}
+    props = _props(doc)
     whitelist = _NODE_FIELD_WHITELIST.get(collection, ())
     return {
         "id": doc.get("_id"),
@@ -152,7 +153,7 @@ def _minimise_articles_with_short_title(
     bwb_ids: set[str] = set()
     celexes: set[str] = set()
     for doc in docs:
-        props = doc.get("props") or {}
+        props = _props(doc)
         bwb = props.get("bwb_id")
         if isinstance(bwb, str) and bwb:
             bwb_ids.add(bwb)
@@ -189,7 +190,7 @@ def _minimise_articles_with_short_title(
 
     enriched: list[dict] = []
     for doc in docs:
-        props = doc.get("props") or {}
+        props = _props(doc)
         article_number = props.get("article_number")
         bwb = props.get("bwb_id")
         celex = props.get("celex")
@@ -226,10 +227,10 @@ def _compute_article_diffs(versions: list[dict[str, Any]]) -> list[dict[str, Any
     # versions are newest-first; predecessor = next item in list
     result = []
     for i, doc in enumerate(versions):
-        props = doc.get("props") or {}
+        props = _props(doc)
         current_text = props.get("text") or ""
         if i + 1 < len(versions):
-            prev_props = versions[i + 1].get("props") or {}
+            prev_props = _props(versions[i + 1])
             prev_text = prev_props.get("text") or ""
         else:
             prev_text = ""
@@ -271,7 +272,7 @@ def list_instruments(
     kind: Annotated[str | None, Query()] = None,
     article_count_min: Annotated[int | None, Query(ge=0)] = None,
     sort: Annotated[
-        Literal["title", "article_count", "recent_mutation"], Query()
+        Literal["title", "article_count"], Query()
     ] = "title",
 ) -> InstrumentListResponse:
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
@@ -453,12 +454,12 @@ def get_instrument_dossiers_route(
         InstrumentDossierItem(
             id=d.get("_id") or "",
             key=d.get("_key") or "",
-            kamerstuknummer=(d.get("props") or {}).get("kamerstuknummer"),
-            titel=(d.get("props") or {}).get("titel"),
-            display_name=(d.get("props") or {}).get("display_name"),
-            huidige_fase=(d.get("props") or {}).get("huidige_fase"),
-            geopend_op=(d.get("props") or {}).get("geopend_op"),
-            afgedaan=(d.get("props") or {}).get("afgedaan"),
+            kamerstuknummer=_props(d).get("kamerstuknummer"),
+            titel=_props(d).get("titel"),
+            display_name=_props(d).get("display_name"),
+            huidige_fase=_props(d).get("huidige_fase"),
+            geopend_op=_props(d).get("geopend_op"),
+            afgedaan=_props(d).get("afgedaan"),
         )
         for d in rows
     ]
@@ -549,12 +550,12 @@ def list_instrument_articles_at(
     items = [
         InstrumentArticleVersionDTO(
             key=d["_key"],
-            bwb_id=(d.get("props") or {}).get("bwb_id", ""),
-            article_number=(d.get("props") or {}).get("article_number", ""),
-            valid_from=(d.get("props") or {}).get("valid_from"),
-            valid_until=(d.get("props") or {}).get("valid_until"),
-            current=bool((d.get("props") or {}).get("current", False)),
-            text=(d.get("props") or {}).get("text"),
+            bwb_id=_props(d).get("bwb_id", ""),
+            article_number=_props(d).get("article_number", ""),
+            valid_from=_props(d).get("valid_from"),
+            valid_until=_props(d).get("valid_until"),
+            current=bool(_props(d).get("current", False)),
+            text=_props(d).get("text"),
         )
         for d in docs
     ]
@@ -587,12 +588,12 @@ def get_article_version_history(
     items = [
         InstrumentArticleVersionDTO(
             key=d["_key"],
-            bwb_id=(d.get("props") or {}).get("bwb_id", ""),
-            article_number=(d.get("props") or {}).get("article_number", ""),
-            valid_from=(d.get("props") or {}).get("valid_from"),
-            valid_until=(d.get("props") or {}).get("valid_until"),
-            current=bool((d.get("props") or {}).get("current", False)),
-            text=(d.get("props") or {}).get("text"),
+            bwb_id=_props(d).get("bwb_id", ""),
+            article_number=_props(d).get("article_number", ""),
+            valid_from=_props(d).get("valid_from"),
+            valid_until=_props(d).get("valid_until"),
+            current=bool(_props(d).get("current", False)),
+            text=_props(d).get("text"),
             diff=d.get("_diff"),
         )
         for d in annotated

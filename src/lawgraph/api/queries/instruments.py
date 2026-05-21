@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.api.queries.search import _build_search_clause, _tokenize_search_query
-from lawgraph.config.settings import COLLECTION_EDGES, RELATION_PART_OF_INSTRUMENT
+from lawgraph.api.queries.search import build_search_clause, tokenize_search_query
+from lawgraph.config.constants import RELATION_PART_OF_INSTRUMENT, RELATION_RAAKT
+from lawgraph.config.settings import COLLECTION_EDGES
+from lawgraph.core.models import parse_arango_id
 from lawgraph.db import ArangoStore
 
 
@@ -20,7 +22,7 @@ class InstrumentStats:
     outbound_citation_count: int = 0
 
 
-INSTRUMENT_SORTS = ("title", "article_count", "recent_mutation")
+INSTRUMENT_SORTS = ("title", "article_count")
 
 
 def get_instrument_articles(
@@ -37,12 +39,12 @@ def get_instrument_articles(
     and '24c' lands between '24' and '25') derived in AQL via a numeric/string
     split on the article_number. Returns ``(items, total)``.
     """
-    bwb_lc = bwb_id.lower()
+    bwb_uc = bwb_id.upper()
     stub_filter = "" if include_stubs else "FILTER doc.props.stub != true"
     aql = f"""
     LET filtered = (
         FOR doc IN instrument_articles
-            FILTER LOWER(doc.props.bwb_id) == @bwb_id
+            FILTER doc.props.bwb_id == @bwb_id
             {stub_filter}
             RETURN doc
     )
@@ -60,7 +62,7 @@ def get_instrument_articles(
     )
     RETURN {{ total: total, items: items }}
     """
-    rows = list(store.query(aql, {"bwb_id": bwb_lc, "limit": limit, "offset": offset}))
+    rows = list(store.query(aql, {"bwb_id": bwb_uc, "limit": limit, "offset": offset}))
     if not rows:
         return [], 0
     row = rows[0]
@@ -90,8 +92,7 @@ def get_instrument_edges_bundle(
     ``relations`` is an explicit whitelist; when None, all relations except
     PART_OF_INSTRUMENT are returned.
     """
-    bwb_lc = bwb_id.lower()
-    bind: dict[str, Any] = {"bwb": bwb_lc, "max_edges": max_edges}
+    bind: dict[str, Any] = {"bwb": bwb_id.upper(), "max_edges": max_edges}
 
     rel_filter = ""
     if relations:
@@ -100,28 +101,42 @@ def get_instrument_edges_bundle(
     elif not include_part_of_instrument:
         rel_filter = "FILTER e.relation != 'PART_OF_INSTRUMENT'"
 
+    # Split the OR (e._from IN focal_ids OR e._to IN focal_ids) into two
+    # index-friendly sub-queries so each can use the _from / _to B-tree index.
+    # Intra-instrument edges (both ends in focal_ids) appear only in out_edges;
+    # in_edges excludes them via FILTER e._from NOT IN focal_ids.
     aql = f"""
     LET focal_ids = (
         FOR a IN instrument_articles
-            FILTER LOWER(a.props.bwb_id) == @bwb
+            FILTER a.props.bwb_id == @bwb
             RETURN a._id
     )
-    LET edges = (
+    LET out_edges = (
         FOR e IN {COLLECTION_EDGES}
-            FILTER e._from IN focal_ids OR e._to IN focal_ids
+            FILTER e._from IN focal_ids
             {rel_filter}
-            LIMIT @max_edges
-            LET direction = e._from IN focal_ids
-                ? (e._to IN focal_ids ? "intra" : "out")
-                : "in"
             RETURN {{
                 from: e._from,
                 to: e._to,
                 relation: e.relation,
-                direction: direction,
+                direction: e._to IN focal_ids ? "intra" : "out",
                 meta: e.meta
             }}
     )
+    LET in_edges = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to IN focal_ids
+            FILTER e._from NOT IN focal_ids
+            {rel_filter}
+            RETURN {{
+                from: e._from,
+                to: e._to,
+                relation: e.relation,
+                direction: "in",
+                meta: e.meta
+            }}
+    )
+    LET edges = SLICE(APPEND(out_edges, in_edges), 0, @max_edges)
     LET foreign_ids = UNIQUE(
         FOR e IN edges
             FOR id IN [e.from, e.to]
@@ -153,7 +168,7 @@ def get_instrument_edges_bundle(
     edges = list(row.get("edges") or [])
     nodes_by_coll: dict[str, list[dict[str, Any]]] = {}
     for doc in row.get("foreign_docs") or []:
-        coll = (doc.get("_id") or "").split("/", 1)[0]
+        coll = parse_arango_id(doc.get("_id") or "")[0]
         if not coll:
             continue
         nodes_by_coll.setdefault(coll, []).append(doc)
@@ -179,44 +194,45 @@ def get_instrument_judgments(
     naming used everywhere else in the API), not ``article_id``/
     ``article_key``.
     """
-    aql = """
+    aql = f"""
     LET focal_ids = (
         FOR a IN instrument_articles
-            FILTER LOWER(a.props.bwb_id) == @bwb
+            FILTER a.props.bwb_id == @bwb
             RETURN a._id
     )
     LET grouped = (
-        FOR e IN edges
+        FOR e IN {COLLECTION_EDGES}
             FILTER e.relation == 'CITES_ARTICLE' AND e._to IN focal_ids
             FILTER STARTS_WITH(e._from, 'judgments/')
             COLLECT judgment_id = e._from INTO arts = e._to
-            RETURN { judgment_id: judgment_id, arts: arts }
+            RETURN {{ judgment_id: judgment_id, arts: arts }}
     )
     LET total = LENGTH(grouped)
     LET items = (
         FOR row IN grouped
             LET judgment = DOCUMENT(row.judgment_id)
             FILTER judgment != null
-            SORT judgment.props.display_name ASC
+            LET cited_count = LENGTH(UNIQUE(row.arts))
+            SORT cited_count DESC, judgment.props.date_eff DESC
             LIMIT @limit
-            RETURN {
+            RETURN {{
                 judgment: judgment,
                 cited_articles: (
                     FOR aid IN UNIQUE(row.arts)
                         LET a = DOCUMENT(aid)
                         FILTER a != null
-                        RETURN {
+                        RETURN {{
                             id: a._id,
                             key: a._key,
                             article_number: a.props.article_number,
                             display_name: a.props.display_name
-                        }
+                        }}
                 )
-            }
+            }}
     )
-    RETURN { total: total, items: items }
+    RETURN {{ total: total, items: items }}
     """
-    rows = list(store.query(aql, {"bwb": bwb_id.lower(), "limit": limit}))
+    rows = list(store.query(aql, {"bwb": bwb_id.upper(), "limit": limit}))
     if not rows:
         return [], 0
     row = rows[0]
@@ -234,31 +250,31 @@ def get_instrument_dossiers(
                  article-of-this-instrument, and that publication is
                  -DEEL_VAN_DOSSIER-> dossier.
     """
-    aql = """
+    aql = f"""
     LET focal_article_ids = (
         FOR a IN instrument_articles
-            FILTER LOWER(a.props.bwb_id) == @bwb
+            FILTER a.props.bwb_id == @bwb
             RETURN a._id
     )
     LET instrument_id = FIRST(
         FOR i IN instruments
-            FILTER LOWER(i.props.bwb_id) == @bwb
+            FILTER i.props.bwb_id == @bwb
             LIMIT 1 RETURN i._id
     )
     LET direct = (
-        FOR e IN edges
-            FILTER e.relation == 'RAAKT' AND e._to == instrument_id
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e.relation == @raakt AND e._to == instrument_id
             LET d = DOCUMENT(e._from)
             FILTER d != null AND STARTS_WITH(d._id, 'kamerstukdossiers/')
             RETURN d
     )
     LET derived = (
-        FOR e1 IN edges
+        FOR e1 IN {COLLECTION_EDGES}
             FILTER e1._to IN focal_article_ids
             FILTER e1.relation IN ['WIJZIGT','TREKT_IN','INTRODUCEERT','LICHT_TOE','MENTIONS_ARTICLE']
             LET pub_id = e1._from
             FILTER STARTS_WITH(pub_id, 'publications/')
-            FOR e2 IN edges
+            FOR e2 IN {COLLECTION_EDGES}
                 FILTER e2._from == pub_id AND e2.relation == 'DEEL_VAN_DOSSIER'
                 LET d = DOCUMENT(e2._to)
                 FILTER d != null AND STARTS_WITH(d._id, 'kamerstukdossiers/')
@@ -272,9 +288,9 @@ def get_instrument_dossiers(
             LIMIT @limit
             RETURN d
     )
-    RETURN { total: total, items: items }
+    RETURN {{ total: total, items: items }}
     """
-    rows = list(store.query(aql, {"bwb": bwb_id.lower(), "limit": limit}))
+    rows = list(store.query(aql, {"bwb": bwb_id.upper(), "limit": limit, "raakt": RELATION_RAAKT}))
     if not rows:
         return [], 0
     row = rows[0]
@@ -289,44 +305,49 @@ def get_instrument_related_instruments(
     Returns ``{instrument, outbound_count, inbound_count}`` per related
     instrument, sorted by total reference count descending.
     """
-    aql = """
+    # MERGE-based O(B) lookup replaces the previous O(B²) FIRST(FILTER) pattern.
+    # COLLECT uses the raw (uppercase) bwb_id so the instrument lookup can use
+    # the props.bwb_id B-tree index with a direct equality filter.
+    aql = f"""
     LET focal_article_ids = (
         FOR a IN instrument_articles
-            FILTER LOWER(a.props.bwb_id) == @bwb
+            FILTER a.props.bwb_id == @bwb
             RETURN a._id
     )
     LET out_buckets = (
-        FOR e IN edges
+        FOR e IN {COLLECTION_EDGES}
             FILTER e.relation == 'REFERS_TO_ARTICLE'
             FILTER e._from IN focal_article_ids AND e._to NOT IN focal_article_ids
             LET target = DOCUMENT(e._to)
             FILTER target != null AND STARTS_WITH(target._id, 'instrument_articles/')
-            COLLECT bwb = LOWER(target.props.bwb_id) WITH COUNT INTO n
+            COLLECT bwb = target.props.bwb_id WITH COUNT INTO n
             FILTER bwb != null AND bwb != @bwb
-            RETURN {bwb: bwb, outbound_count: n}
+            RETURN {{bwb: bwb, outbound_count: n}}
     )
     LET in_buckets = (
-        FOR e IN edges
+        FOR e IN {COLLECTION_EDGES}
             FILTER e.relation == 'REFERS_TO_ARTICLE'
             FILTER e._to IN focal_article_ids AND e._from NOT IN focal_article_ids
             LET src = DOCUMENT(e._from)
             FILTER src != null AND STARTS_WITH(src._id, 'instrument_articles/')
-            COLLECT bwb = LOWER(src.props.bwb_id) WITH COUNT INTO n
+            COLLECT bwb = src.props.bwb_id WITH COUNT INTO n
             FILTER bwb != null AND bwb != @bwb
-            RETURN {bwb: bwb, inbound_count: n}
+            RETURN {{bwb: bwb, inbound_count: n}}
     )
+    LET out_map = MERGE(FOR o IN out_buckets RETURN {{[o.bwb]: o.outbound_count}})
+    LET in_map  = MERGE(FOR i IN in_buckets  RETURN {{[i.bwb]: i.inbound_count}})
     LET all_bwbs = UNIQUE(APPEND(out_buckets[*].bwb, in_buckets[*].bwb))
     LET resolved = (
         FOR b IN all_bwbs
-            LET out_n = FIRST(FOR o IN out_buckets FILTER o.bwb == b RETURN o.outbound_count) || 0
-            LET in_n  = FIRST(FOR i IN in_buckets  FILTER i.bwb == b RETURN i.inbound_count)  || 0
+            LET out_n = out_map[b] != null ? out_map[b] : 0
+            LET in_n  = in_map[b]  != null ? in_map[b]  : 0
             LET inst = FIRST(
                 FOR i IN instruments
-                    FILTER LOWER(i.props.bwb_id) == b
+                    FILTER i.props.bwb_id == b
                     LIMIT 1 RETURN i
             )
             FILTER inst != null
-            RETURN { instrument: inst, outbound_count: out_n, inbound_count: in_n }
+            RETURN {{ instrument: inst, outbound_count: out_n, inbound_count: in_n }}
     )
     LET total = LENGTH(resolved)
     LET items = (
@@ -335,9 +356,9 @@ def get_instrument_related_instruments(
             LIMIT @limit
             RETURN r
     )
-    RETURN { total: total, items: items }
+    RETURN {{ total: total, items: items }}
     """
-    rows = list(store.query(aql, {"bwb": bwb_id.lower(), "limit": limit}))
+    rows = list(store.query(aql, {"bwb": bwb_id.upper(), "limit": limit}))
     if not rows:
         return [], 0
     row = rows[0]
@@ -375,7 +396,7 @@ def get_instruments_list(
       * ``article_count`` is read from the document; when missing, fetched
         per page row only (O(limit), not O(N)).
     """
-    tokens = _tokenize_search_query(q) if q else []
+    tokens = tokenize_search_query(q) if q else []
     use_search = bool(tokens)
     # When q tokenises to nothing (single-char query, only punctuation), the
     # query degrades to "no filter" — keep the cheap COLLECTION_COUNT path
@@ -385,7 +406,7 @@ def get_instruments_list(
     )
 
     search_clause, tok_bind = (
-        _build_search_clause(
+        build_search_clause(
             tokens,
             [
                 "title",
@@ -406,7 +427,6 @@ def get_instruments_list(
     sort_clause = {
         "title": "SORT doc.props.citation_title ASC",
         "article_count": "SORT doc.props.article_count DESC",
-        "recent_mutation": "SORT doc.props.citation_title ASC",
     }[sort]
 
     bind_vars: dict[str, Any] = {
@@ -420,7 +440,7 @@ def get_instruments_list(
     }
 
     # Source clause: SEARCH view when we have a free-text query (BM25-ranked,
-    # uses the inverted index), otherwise the raw collection. `_build_search_clause`
+    # uses the inverted index), otherwise the raw collection. `build_search_clause`
     # hardcodes ``doc.props.<field>``, so the loop variable must be ``doc``.
     source = (
         f'FOR doc IN search_instruments SEARCH ANALYZER({search_clause}, "text_en")'
@@ -505,11 +525,11 @@ def get_instrument_versions(
     """Return all historical versions for an instrument, newest first."""
     aql = """
     FOR doc IN instrument_versions
-        FILTER LOWER(doc.props.bwb_id) == @bwb_id
+        FILTER doc.props.bwb_id == @bwb_id
         SORT doc.props.valid_from DESC
         RETURN doc
     """
-    return list(store.query(aql, {"bwb_id": bwb_id.lower()}))
+    return list(store.query(aql, {"bwb_id": bwb_id.upper()}))
 
 
 def get_instrument_articles_at(
@@ -521,7 +541,7 @@ def get_instrument_articles_at(
     aql = """
     LET filtered = (
         FOR doc IN instrument_article_versions
-            FILTER LOWER(doc.props.bwb_id) == @bwb_id
+            FILTER doc.props.bwb_id == @bwb_id
             FILTER doc.props.valid_from <= @at_date
             FILTER doc.props.valid_until > @at_date OR doc.props.valid_until == null
             RETURN doc
@@ -534,7 +554,7 @@ def get_instrument_articles_at(
         SORT num_int ASC, suffix ASC
         RETURN doc
     """
-    return list(store.query(aql, {"bwb_id": bwb_id.lower(), "at_date": at_date}))
+    return list(store.query(aql, {"bwb_id": bwb_id.upper(), "at_date": at_date}))
 
 
 def get_instrument_article_history(
@@ -545,11 +565,11 @@ def get_instrument_article_history(
     """Return all versions of one article, newest first."""
     aql = """
     FOR doc IN instrument_article_versions
-        FILTER LOWER(doc.props.bwb_id) == @bwb_id
+        FILTER doc.props.bwb_id == @bwb_id
         FILTER doc.props.article_number == @article_number
         SORT doc.props.valid_from DESC
         RETURN doc
     """
     return list(
-        store.query(aql, {"bwb_id": bwb_id.lower(), "article_number": article_number})
+        store.query(aql, {"bwb_id": bwb_id.upper(), "article_number": article_number})
     )

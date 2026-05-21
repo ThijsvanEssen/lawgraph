@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
 
+from lawgraph.api.cache import TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
     get_global_graph,
@@ -13,7 +12,7 @@ from lawgraph.api.queries import (
     get_judgment_graph,
 )
 from lawgraph.api.schemas import (
-    ArticleGraphNodeDTO,
+    GlobalGraphResponse,
     GraphEdgeDTO,
     InstrumentEdgeDTO,
     InstrumentLayerGraphResponse,
@@ -21,12 +20,11 @@ from lawgraph.api.schemas import (
     JudgmentGraphNodeDTO,
     JudgmentLayerGraphResponse,
 )
+from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
-
 
 # Layer-graph endpoints aggregate citation edges across the whole corpus —
 # the underlying AQL takes ~250 ms even with the article-id→bwb_id MERGE
@@ -34,31 +32,7 @@ logger = get_logger(__name__)
 # the semantic pipeline writes new edges, which happens on the backfill/
 # normalize schedule). A short TTL cache means the heavy AQL fires at most
 # once a minute regardless of viewer concurrency.
-_LAYER_CACHE: dict[str, tuple[float, Any]] = {}
-_LAYER_TTL_SECONDS = 60.0
-
-
-def _layer_cache_get(key: str) -> Any | None:
-    entry = _LAYER_CACHE.get(key)
-    if entry is None:
-        return None
-    expires_at, value = entry
-    if time.monotonic() > expires_at:
-        _LAYER_CACHE.pop(key, None)
-        return None
-    return value
-
-
-def _layer_cache_set(key: str, value: Any) -> None:
-    _LAYER_CACHE[key] = (time.monotonic() + _LAYER_TTL_SECONDS, value)
-
-
-class GlobalGraphResponse(BaseModel):
-    instruments: list[InstrumentLayerInstrumentDTO]
-    articles: list[ArticleGraphNodeDTO]
-    judgments: list[JudgmentGraphNodeDTO]
-    edges: list[GraphEdgeDTO]
-    metadata: dict[str, Any] | None = None
+_layer_cache: TTLCache[str, Any] = TTLCache(maxsize=16, ttl=60.0)
 
 
 @router.get(
@@ -81,6 +55,11 @@ def get_global_graph_route(
         int, Query(ge=1, le=5000, description="Maximaal aantal uitspraken")
     ] = 500,
 ) -> GlobalGraphResponse:
+    cache_key = f"global:j={int(include_judgments)}:n={max_judgments}"
+    cached = _layer_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     data = get_global_graph(
         store,
         include_judgments=include_judgments,
@@ -100,7 +79,7 @@ def get_global_graph_route(
         for e in data.edges
     ]
 
-    return GlobalGraphResponse(
+    response = GlobalGraphResponse(
         instruments=[
             InstrumentLayerInstrumentDTO.from_document(doc) for doc in data.instruments
         ],
@@ -109,6 +88,8 @@ def get_global_graph_route(
         edges=edges,
         metadata=data.metadata,
     )
+    _layer_cache.set(cache_key, response)
+    return response
 
 
 @router.get(
@@ -126,7 +107,7 @@ def get_global_graph_route(
 def get_instrument_layer_graph_route(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> InstrumentLayerGraphResponse:
-    cached = _layer_cache_get("instrument_layer")
+    cached = _layer_cache.get("instrument_layer")
     if cached is not None:
         return cached
 
@@ -153,7 +134,7 @@ def get_instrument_layer_graph_route(
         edges=edges,
         metadata=data.metadata,
     )
-    _layer_cache_set("instrument_layer", response)
+    _layer_cache.set("instrument_layer", response)
     return response
 
 
@@ -184,7 +165,7 @@ def get_judgment_graph_route(
     ] = False,
 ) -> JudgmentLayerGraphResponse:
     cache_key = f"judgment_layer:n={max_judgments}:stubs={int(include_stubs)}"
-    cached = _layer_cache_get(cache_key)
+    cached = _layer_cache.get(cache_key)
     if cached is not None:
         return cached
 
@@ -211,5 +192,5 @@ def get_judgment_graph_route(
         edges=edges,
         metadata=data.metadata,
     )
-    _layer_cache_set(cache_key, response)
+    _layer_cache.set(cache_key, response)
     return response

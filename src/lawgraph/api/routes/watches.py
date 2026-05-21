@@ -54,7 +54,7 @@ class WatchOut(BaseModel):
     summary="Alle watches ophalen",
     tags=["watches"],
 )
-async def get_watches(
+def get_watches(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> list[WatchOut]:
     """Return all saved watches, newest first."""
@@ -68,7 +68,7 @@ async def get_watches(
     summary="Node toevoegen aan watchlist",
     tags=["watches"],
 )
-async def add_watch(
+def add_watch(
     body: WatchIn,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> WatchOut:
@@ -107,7 +107,7 @@ async def add_watch(
     ),
     tags=["watches"],
 )
-async def remove_watch(
+def remove_watch(
     watch_id: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> None:

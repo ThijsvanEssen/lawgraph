@@ -34,7 +34,7 @@ _DROP_PROPS_KEYS = ("raw_xml",)
 # /api/nodes/{coll}/{key} response. The detail endpoints
 # (/api/judgments/{ecli}, /api/articles/...) still return them when the
 # reader actually needs the body.
-_DROP_PROPS_KEYS_GRAPH = (
+DROP_PROPS_KEYS_GRAPH = (
     "raw_xml",
     "text",
     "paragraphs",
@@ -124,28 +124,16 @@ class InstrumentSummaryDTO(BaseModel):
         *,
         stats: Any = None,
     ) -> InstrumentSummaryDTO:
+        """Build from an ArangoDB document and an optional InstrumentStats dataclass."""
         props = doc.get("props") or {}
-        s = stats or {}
         return cls(
             id=doc["_id"],
             key=doc["_key"],
             display_name=props.get("display_name"),
-            article_count=int(
-                getattr(s, "article_count", 0)
-                or (s.get("article_count", 0) if isinstance(s, dict) else 0)
-            ),
-            judgment_count=int(
-                getattr(s, "judgment_count", 0)
-                or (s.get("judgment_count", 0) if isinstance(s, dict) else 0)
-            ),
-            inbound_citation_count=int(
-                getattr(s, "inbound_citation_count", 0)
-                or (s.get("inbound_citation_count", 0) if isinstance(s, dict) else 0)
-            ),
-            outbound_citation_count=int(
-                getattr(s, "outbound_citation_count", 0)
-                or (s.get("outbound_citation_count", 0) if isinstance(s, dict) else 0)
-            ),
+            article_count=int(getattr(stats, "article_count", 0) or 0),
+            judgment_count=int(getattr(stats, "judgment_count", 0) or 0),
+            inbound_citation_count=int(getattr(stats, "inbound_citation_count", 0) or 0),
+            outbound_citation_count=int(getattr(stats, "outbound_citation_count", 0) or 0),
         )
 
 
@@ -568,7 +556,7 @@ class JudgmentParagraph(BaseModel):
     number: int | None = None
     kind: str | None = None
     text: str
-    citaties: list[ArticleCitationSpan] = Field(default_factory=list)
+    citations: list[ArticleCitationSpan] = Field(default_factory=list)
 
 
 class JudgmentDetailResponse(BaseModel):
@@ -769,7 +757,7 @@ class NeighborDTO(BaseModel):
         direction: Literal["outbound", "inbound"],
         confidence: float | None,
     ) -> NeighborDTO:
-        payload = _build_node_payload(doc, drop_props_keys=_DROP_PROPS_KEYS_GRAPH)
+        payload = _build_node_payload(doc, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
         return cls(
             **payload, relation=relation, direction=direction, confidence=confidence
         )
@@ -785,8 +773,8 @@ class NodeNeighborsDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     all: list[NeighborDTO] = Field(default_factory=list)
-    strict: list[NeighborDTO] = Field(default_factory=list)
-    semantic: list[NeighborDTO] = Field(default_factory=list)
+    strict: list[NeighborDTO] = Field(default_factory=list, deprecated=True)
+    semantic: list[NeighborDTO] = Field(default_factory=list, deprecated=True)
 
 
 class NodeGraphResponse(BaseModel):
@@ -1621,8 +1609,7 @@ class CommissieWithLedenDTO(CommissieDTO):
             afkorting=props.get("afkorting"),
             slug=props.get("slug"),
             type=props.get("type"),
-            active_dossier_count=props.get("active_dossier_count")
-            or active_dossier_count,
+            active_dossier_count=props.get("active_dossier_count") if props.get("active_dossier_count") is not None else active_dossier_count,
             leden=leden,
         )
 
@@ -1649,7 +1636,7 @@ class CommissieDetailDTO(CommissieDTO):
             afkorting=props.get("afkorting"),
             slug=props.get("slug"),
             type=props.get("type"),
-            active_dossier_count=len([d for d in dossiers if not d.afgedaan]),
+            active_dossier_count=sum(1 for d in dossiers if not d.afgedaan),
             leden=leden,
             dossiers=dossiers,
         )
@@ -1865,6 +1852,18 @@ class InstrumentLayerGraphResponse(BaseModel):
     metadata: dict[str, Any] | None = None
 
 
+class GlobalGraphResponse(BaseModel):
+    """Response for GET /api/graph/global."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instruments: list[InstrumentLayerInstrumentDTO]
+    articles: list[ArticleGraphNodeDTO]
+    judgments: list[JudgmentGraphNodeDTO]
+    edges: list[GraphEdgeDTO]
+    metadata: dict[str, Any] | None = None
+
+
 class JudgmentLayerGraphResponse(BaseModel):
     """Response for GET /api/graph/judgments."""
 
@@ -1913,6 +1912,35 @@ class PublicationTextResponse(BaseModel):
     external_id: str | None = None
     tk_url: str | None = None
     text: str | None = None
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> PublicationTextResponse:
+        """Build from a raw ArangoDB publication document."""
+        from lawgraph.config.settings import TK_DOCUMENT_RESOURCE_URL
+        from lawgraph.core.time import strip_time_component
+
+        props: dict[str, Any] = doc.get("props") or {}
+        external_id: str | None = props.get("external_id")
+        tk_url = (
+            TK_DOCUMENT_RESOURCE_URL.format(external_id=external_id)
+            if external_id and props.get("source") == "tk"
+            else None
+        )
+        datum: str | None = props.get("datum")
+        if datum is None:
+            raw = props.get("raw") or {}
+            datum = raw.get("Datum")
+        datum = strip_time_component(datum)
+        return cls(
+            key=doc["_key"],
+            publication_id=doc["_id"],
+            title=props.get("title"),
+            soort=props.get("soort"),
+            datum=datum,
+            external_id=external_id,
+            tk_url=tk_url,
+            text=props.get("text"),
+        )
 
 
 class InstrumentStatsDTO(BaseModel):

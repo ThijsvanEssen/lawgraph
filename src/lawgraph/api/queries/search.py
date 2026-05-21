@@ -5,10 +5,36 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from lawgraph.api.cache import TTLCache
 from lawgraph.db import ArangoStore
 
+_alias_map_cache: TTLCache[str, dict[str, str]] = TTLCache(maxsize=4, ttl=60.0)
 
-def _build_search_clause(
+# Shared LET block that pre-loads bwb→instrument metadata once per query.
+# Used by article search branches to annotate hits with parent law info.
+_INSTRUMENT_ENRICH_AQL = """
+LET bwb_to_inst = MERGE(
+    FOR i IN instruments
+        FILTER i.props.bwb_id != null
+        RETURN {
+            [i.props.bwb_id]: {
+                citation_title: i.props.citation_title,
+                short_title: i.props.short_title,
+                title: i.props.title
+            }
+        }
+)
+"""
+
+_ARTICLE_RETURN = """{
+    bwb_id: doc.props.bwb_id,
+    article_number: doc.props.article_number,
+    citation_title: bwb_to_inst[doc.props.bwb_id].citation_title,
+    short_title: bwb_to_inst[doc.props.bwb_id].short_title
+}"""
+
+
+def build_search_clause(
     tokens: list[str], fields: list[str]
 ) -> tuple[str, dict[str, Any]]:
     """Build an ArangoSearch clause: every token must appear in any of *fields*.
@@ -63,7 +89,7 @@ def _build_search_clause(
     return " AND ".join(parts), bind_vars
 
 
-def _tokenize_search_query(q: str) -> list[str]:
+def tokenize_search_query(q: str) -> list[str]:
     """Split a free-text query into lowercase tokens for AND-matching.
 
     Whitespace is the only separator; punctuation is preserved inside tokens
@@ -86,14 +112,17 @@ _ARTICLE_SUFFIX_RE = re.compile(
 _ECLI_RE = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9._-]+$", re.IGNORECASE)
 
 
-def _load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
+def load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
     """Return a lowercased alias → bwb_id map for known instruments.
 
     Aliases come from each instrument's ``short_title``, ``citation_title``,
-    and ``title`` props. The instruments collection is small (~tens of
-    documents on a strafrecht profile) so a per-call AQL scan is cheap and
-    keeps the map fresh without explicit invalidation.
+    and ``title`` props. Result is cached for 60 s so repeated searches within
+    the same minute share one round-trip instead of issuing one per request.
     """
+    cached = _alias_map_cache.get("map")
+    if cached is not None:
+        return cached
+
     aql = """
     FOR i IN instruments
         FILTER i.props.bwb_id != null
@@ -113,10 +142,11 @@ def _load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
             value = row.get(key)
             if isinstance(value, str) and value.strip():
                 alias_map[value.strip().lower()] = bwb
+    _alias_map_cache.set("map", alias_map)
     return alias_map
 
 
-def _parse_search_query(q: str, alias_map: dict[str, str]) -> dict[str, Any]:
+def parse_search_query(q: str, alias_map: dict[str, str]) -> dict[str, Any]:
     """Inspect *q* for known reference patterns.
 
     Returns one of:
@@ -175,6 +205,317 @@ def _parse_search_query(q: str, alias_map: dict[str, str]) -> dict[str, Any]:
     return {"kind": "text"}
 
 
+# ── Per-type search helpers ───────────────────────────────────────────────────
+
+
+def _two_phase_search(
+    store: ArangoStore,
+    precise_aql: str,
+    precise_vars: dict[str, Any],
+    text_aql: str,
+    text_vars: dict[str, Any],
+    limit: int,
+) -> list[dict[str, Any]]:
+    """Run a precise lookup then a full-text fallback, deduplicating by id."""
+    seen: set[str] = set()
+    results: list[dict[str, Any]] = []
+    for row in store.query(precise_aql, precise_vars):
+        rid = row.get("id")
+        if rid and rid not in seen:
+            seen.add(rid)
+            results.append(row)
+    if len(results) < limit:
+        for row in store.query(text_aql, text_vars):
+            if row.get("id") not in seen:
+                seen.add(row["id"])
+                results.append(row)
+    return results[:limit]
+
+
+def _search_articles(
+    store: ArangoStore,
+    tokens: list[str],
+    intent: dict[str, Any],
+    limit: int,
+) -> list[dict[str, Any]]:
+    clause, tok_bind = build_search_clause(
+        tokens, ["display_name", "text", "article_number", "bwb_id"]
+    )
+    text_aql = f"""
+    {_INSTRUMENT_ENRICH_AQL}
+    FOR doc IN search_articles
+        SEARCH {clause}
+        SORT BM25(doc) DESC
+        LIMIT @limit
+        RETURN {{
+            id: doc._id, key: doc._key,
+            collection: 'instrument_articles', type: doc.type,
+            display_name: doc.props.display_name,
+            snippet: LEFT(doc.props.text, 200),
+            extra: {_ARTICLE_RETURN}
+        }}
+    """
+
+    if intent.get("kind") == "article" and intent.get("article_number"):
+        precise_aql = f"""
+        {_INSTRUMENT_ENRICH_AQL}
+        FOR doc IN instrument_articles
+            FILTER doc.props.article_number == @article_number
+            FILTER @bwb_id == null OR doc.props.bwb_id == @bwb_id
+            SORT doc.props.bwb_id ASC
+            LIMIT @limit
+            RETURN {{
+                id: doc._id, key: doc._key,
+                collection: 'instrument_articles', type: doc.type,
+                display_name: doc.props.display_name,
+                snippet: LEFT(doc.props.text, 200),
+                extra: {_ARTICLE_RETURN}
+            }}
+        """
+        precise_vars: dict[str, Any] = {
+            "article_number": intent["article_number"],
+            "bwb_id": intent.get("bwb_id"),
+            "limit": limit,
+        }
+        results = _two_phase_search(
+            store,
+            precise_aql,
+            precise_vars,
+            text_aql,
+            {**tok_bind, "limit": limit},
+            limit,
+        )
+        # Skip full-text scan when intent already matched — precise lookup is always better.
+        if intent.get("kind") == "article":
+            return results
+        return results
+
+    return list(store.query(text_aql, {**tok_bind, "limit": limit}))[:limit]
+
+
+def _search_instruments(
+    store: ArangoStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    clause, tok_bind = build_search_clause(
+        tokens, ["title", "citation_title", "official_title", "display_name", "short_title", "bwb_id"]
+    )
+    aql = f"""
+    FOR doc IN search_instruments
+        SEARCH {clause}
+        SORT BM25(doc) DESC
+        LIMIT @limit
+        RETURN {{
+            id: doc._id, key: doc._key,
+            collection: 'instruments', type: doc.type,
+            display_name: (
+                doc.props.citation_title != null ? doc.props.citation_title :
+                (doc.props.display_name != null ? doc.props.display_name : doc.props.title)
+            ),
+            snippet: LEFT(doc.props.title, 200),
+            extra: {{ bwb_id: doc.props.bwb_id, citation_title: doc.props.citation_title }}
+        }}
+    """
+    return list(store.query(aql, {**tok_bind, "limit": limit}))
+
+
+def _search_judgments(
+    store: ArangoStore,
+    tokens: list[str],
+    intent: dict[str, Any],
+    limit: int,
+) -> list[dict[str, Any]]:
+    clause, tok_bind = build_search_clause(tokens, ["display_name", "summary", "ecli", "appno"])
+    text_aql = f"""
+    FOR doc IN search_judgments
+        SEARCH {clause}
+        SORT BM25(doc) DESC
+        LIMIT @limit
+        RETURN {{
+            id: doc._id, key: doc._key,
+            collection: 'judgments', type: doc.type,
+            display_name: doc.props.display_name,
+            snippet: LEFT(doc.props.summary, 200),
+            extra: {{ ecli: doc.props.ecli, appno: doc.props.appno }}
+        }}
+    """
+
+    if intent.get("kind") == "ecli" and intent.get("ecli"):
+        ecli_aql = """
+        FOR doc IN judgments
+            FILTER doc.props.ecli == @ecli
+            LIMIT @limit
+            RETURN {
+                id: doc._id, key: doc._key,
+                collection: 'judgments', type: doc.type,
+                display_name: doc.props.display_name,
+                snippet: LEFT(doc.props.summary, 200),
+                extra: { ecli: doc.props.ecli }
+            }
+        """
+        return _two_phase_search(
+            store,
+            ecli_aql,
+            {"ecli": intent["ecli"].upper(), "limit": limit},
+            text_aql,
+            {**tok_bind, "limit": limit},
+            limit,
+        )
+
+    return list(store.query(text_aql, {**tok_bind, "limit": limit}))[:limit]
+
+
+def _search_dossiers(
+    store: ArangoStore,
+    tokens: list[str],
+    soort: list[str] | None,
+    limit: int,
+) -> list[dict[str, Any]]:
+    clause, tok_bind = build_search_clause(tokens, ["titel", "display_name", "kamerstuknummer"])
+    bind_vars: dict[str, Any] = {**tok_bind, "limit": limit}
+    soort_clause = ""
+    if soort:
+        soort_clause = "FILTER LOWER(doc.props.huidige_fase) IN @soort_filter"
+        bind_vars["soort_filter"] = [s.lower() for s in soort]
+    aql = f"""
+    FOR doc IN search_dossiers
+        SEARCH {clause}
+        {soort_clause}
+        SORT BM25(doc) DESC
+        LIMIT @limit
+        RETURN {{
+            id: doc._id, key: doc._key,
+            collection: 'kamerstukdossiers', type: doc.type,
+            display_name: (doc.props.titel != null ? doc.props.titel : doc.props.display_name),
+            snippet: doc.props.kamerstuknummer,
+            extra: {{
+                kamerstuknummer: doc.props.kamerstuknummer,
+                huidige_fase: doc.props.huidige_fase,
+                afgedaan: doc.props.afgedaan
+            }}
+        }}
+    """
+    return list(store.query(aql, bind_vars))
+
+
+def _search_commissies(
+    store: ArangoStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    clause, tok_bind = build_search_clause(tokens, ["naam", "afkorting"])
+    aql = f"""
+    FOR doc IN search_commissies
+        SEARCH {clause}
+        SORT BM25(doc) DESC
+        LIMIT @limit
+        RETURN {{
+            id: doc._id, key: doc._key,
+            collection: 'commissies', type: doc.type,
+            display_name: doc.props.naam,
+            snippet: doc.props.afkorting,
+            extra: {{ slug: doc.props.slug, afkorting: doc.props.afkorting }}
+        }}
+    """
+    return list(store.query(aql, {**tok_bind, "limit": limit}))
+
+
+def _search_leden(
+    store: ArangoStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    aql = """
+    FOR doc IN leden
+        LET membership_labels = (
+            FOR m IN (doc.props.fractielidmaatschappen OR [])
+                RETURN CONCAT_SEPARATOR(" ",
+                    m.afkorting != null ? m.afkorting : "",
+                    m.naam != null ? m.naam : "",
+                    CONCAT_SEPARATOR(" ", m.aliases OR [])
+                )
+        )
+        LET haystack = LOWER(CONCAT_SEPARATOR(" ",
+            doc.props.naam OR "",
+            doc.props.partij OR "",
+            CONCAT_SEPARATOR(" ", membership_labels)
+        ))
+        FILTER LENGTH(FOR t IN @tokens FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0
+        SORT doc.props.actief DESC, doc.props.naam ASC
+        LIMIT @limit
+        RETURN {
+            id: doc._id, key: doc._key,
+            collection: 'leden', type: doc.type,
+            display_name: doc.props.naam,
+            snippet: doc.props.partij,
+            extra: { partij: doc.props.partij, actief: doc.props.actief }
+        }
+    """
+    return list(store.query(aql, {"tokens": tokens, "limit": limit}))
+
+
+def _search_fracties(
+    store: ArangoStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    aql = """
+    FOR doc IN fracties
+        LET haystack = LOWER(CONCAT_SEPARATOR(" ",
+            doc.props.naam OR "",
+            doc.props.afkorting OR "",
+            CONCAT_SEPARATOR(" ", doc.props.aliases OR [])
+        ))
+        FILTER LENGTH(FOR t IN @tokens FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0
+        SORT doc.props.actief DESC,
+             (doc.props.aantal_zetels != null ? doc.props.aantal_zetels : 0) DESC,
+             doc.props.naam ASC
+        LIMIT @limit
+        RETURN {
+            id: doc._id, key: doc._key,
+            collection: 'fracties', type: doc.type,
+            display_name: doc.props.naam,
+            snippet: doc.props.afkorting,
+            extra: {
+                afkorting: doc.props.afkorting,
+                aantal_zetels: doc.props.aantal_zetels,
+                actief: doc.props.actief
+            }
+        }
+    """
+    return list(store.query(aql, {"tokens": tokens, "limit": limit}))
+
+
+def _search_publications(
+    store: ArangoStore,
+    tokens: list[str],
+    soort: list[str] | None,
+    limit: int,
+) -> list[dict[str, Any]]:
+    clause, tok_bind = build_search_clause(
+        tokens, ["display_name", "title", "titel", "external_id"]
+    )
+    bind_vars: dict[str, Any] = {**tok_bind, "limit": limit}
+    soort_clause = ""
+    if soort:
+        soort_clause = "FILTER LOWER(doc.props.soort) IN @soort_filter"
+        bind_vars["soort_filter"] = [s.lower() for s in soort]
+    # Hydrated PDF text isn't indexed in the view (~500 KB rows are too
+    # bulky for sub-200-ms search); identifier and title fields cover
+    # the UI use cases. A dedicated full-text endpoint can opt-in.
+    aql = f"""
+    FOR doc IN search_publications
+        SEARCH {clause}
+        {soort_clause}
+        SORT BM25(doc) DESC
+        LIMIT @limit
+        RETURN {{
+            id: doc._id, key: doc._key,
+            collection: 'publications', type: doc.type,
+            display_name: (doc.props.title != null ? doc.props.title : doc.props.display_name),
+            snippet: doc.props.soort,
+            extra: {{ soort: doc.props.soort, external_id: doc.props.external_id }}
+        }}
+    """
+    return list(store.query(aql, bind_vars))
+
+
+# ── Main search dispatcher ────────────────────────────────────────────────────
+
+
 def search_all(
     store: ArangoStore,
     *,
@@ -188,370 +529,32 @@ def search_all(
     Returns a dict keyed by type name with a list of hit dicts each containing
     {id, key, collection, type, display_name, snippet, extra}.
 
-    Uses CONTAINS matching across a per-collection haystack of relevant
-    fields. The query is tokenised on whitespace and *every* token must
-    appear in the haystack (AND-semantics) — so ``"strafvordering 537"``
-    matches an article whose title mentions Strafvordering and whose
-    article_number is 537. No dedicated search index required.
+    Uses ArangoSearch views for indexed types and CONTAINS for small
+    collections (leden, fracties). Every token must appear — AND semantics.
     """
-    results: dict[str, list[dict[str, Any]]] = {}
-    tokens = _tokenize_search_query(q)
+    tokens = tokenize_search_query(q)
     if not tokens:
         return {t: [] for t in types}
 
-    # Single re-usable filter clause: every token in @tokens must appear in
-    # the local LET haystack. Short-circuits via LIMIT 1 in the inner FOR.
-    _all_tokens_filter = (
-        "FILTER LENGTH(FOR t IN @tokens "
-        "FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0"
-    )
+    alias_map = load_instrument_alias_map(store) if "articles" in types else {}
+    intent = parse_search_query(q, alias_map)
 
-    # Try to recognise structured patterns before falling back to AND-tokens.
-    alias_map = _load_instrument_alias_map(store) if "articles" in types else {}
-    intent = _parse_search_query(q, alias_map)
-
-    # Pre-load the bwb → instrument enrichment dict once. Used to populate
-    # extra.citation_title / extra.short_title on every article hit so the
-    # frontend can render a parent-law label without a second roundtrip.
-    _instrument_enrich_aql = """
-    LET bwb_to_inst = MERGE(
-        FOR i IN instruments
-            FILTER i.props.bwb_id != null
-            RETURN {
-                [i.props.bwb_id]: {
-                    citation_title: i.props.citation_title,
-                    short_title: i.props.short_title,
-                    title: i.props.title
-                }
-            }
-    )
-    """
-
-    def _article_extra() -> str:
-        return """{
-            bwb_id: doc.props.bwb_id,
-            article_number: doc.props.article_number,
-            citation_title: bwb_to_inst[doc.props.bwb_id].citation_title,
-            short_title: bwb_to_inst[doc.props.bwb_id].short_title
-        }"""
-
-    if "articles" in types:
-        article_hits: list[dict[str, Any]] = []
-        seen_ids: set[str] = set()
-
-        # Intent-aware precise lookup: when the query parses as an article
-        # reference, pull the exact match first so it always tops the list.
-        if intent.get("kind") == "article" and intent.get("article_number"):
-            precise_aql = f"""
-            {_instrument_enrich_aql}
-            FOR doc IN instrument_articles
-                FILTER LOWER(doc.props.article_number) == @article_number
-                FILTER @bwb_id == null OR doc.props.bwb_id == @bwb_id
-                SORT doc.props.bwb_id ASC
-                LIMIT @limit
-                RETURN {{
-                    id: doc._id,
-                    key: doc._key,
-                    collection: 'instrument_articles',
-                    type: doc.type,
-                    display_name: doc.props.display_name,
-                    snippet: LEFT(doc.props.text, 200),
-                    extra: {_article_extra()}
-                }}
-            """
-            for row in store.query(
-                precise_aql,
-                {
-                    "article_number": intent["article_number"],
-                    "bwb_id": intent.get("bwb_id"),
-                    "limit": limit,
-                },
-            ):
-                rid = row.get("id")
-                if rid and rid not in seen_ids:
-                    seen_ids.add(rid)
-                    article_hits.append(row)
-
-        # Skip full-text scan when article-intent already matched: the precise
-        # lookup is by definition the best answer, and a 60K-row CONTAINS scan
-        # over article text dominates total latency. Run text search only as
-        # the fallback path for free-form queries.
-        skip_text_search = intent.get("kind") == "article" and len(article_hits) > 0
-        if not skip_text_search and len(article_hits) < limit:
-            # ArangoSearch view + BM25 ranking — orders of magnitude faster
-            # than CONCAT+CONTAINS over the full collection.
-            clause, tok_bind = _build_search_clause(
-                tokens, ["display_name", "text", "article_number", "bwb_id"]
-            )
-            text_aql = f"""
-            {_instrument_enrich_aql}
-            FOR doc IN search_articles
-                SEARCH {clause}
-                SORT BM25(doc) DESC
-                LIMIT @limit
-                RETURN {{
-                    id: doc._id,
-                    key: doc._key,
-                    collection: 'instrument_articles',
-                    type: doc.type,
-                    display_name: doc.props.display_name,
-                    snippet: LEFT(doc.props.text, 200),
-                    extra: {_article_extra()}
-                }}
-            """
-            for row in store.query(text_aql, {**tok_bind, "limit": limit}):
-                rid = row.get("id")
-                if rid and rid not in seen_ids:
-                    seen_ids.add(rid)
-                    article_hits.append(row)
-                    if len(article_hits) >= limit:
-                        break
-
-        results["articles"] = article_hits[:limit]
-
-    if "instruments" in types:
-        clause, tok_bind = _build_search_clause(
-            tokens,
-            [
-                "title",
-                "citation_title",
-                "official_title",
-                "display_name",
-                "short_title",
-                "bwb_id",
-            ],
-        )
-        aql = f"""
-        FOR doc IN search_instruments
-            SEARCH {clause}
-            SORT BM25(doc) DESC
-            LIMIT @limit
-            RETURN {{
-                id: doc._id,
-                key: doc._key,
-                collection: 'instruments',
-                type: doc.type,
-                display_name: (
-                    doc.props.citation_title != null ? doc.props.citation_title :
-                    (doc.props.display_name != null ? doc.props.display_name : doc.props.title)
-                ),
-                snippet: LEFT(doc.props.title, 200),
-                extra: {{
-                    bwb_id: doc.props.bwb_id,
-                    citation_title: doc.props.citation_title
-                }}
-            }}
-        """
-        results["instruments"] = list(store.query(aql, {**tok_bind, "limit": limit}))
-
-    if "judgments" in types:
-        judgment_hits: list[dict[str, Any]] = []
-        seen_judgment_ids: set[str] = set()
-
-        if intent.get("kind") == "ecli" and intent.get("ecli"):
-            ecli_aql = """
-            FOR doc IN judgments
-                FILTER LOWER(doc.props.ecli) == @ecli
-                LIMIT @limit
-                RETURN {
-                    id: doc._id,
-                    key: doc._key,
-                    collection: 'judgments',
-                    type: doc.type,
-                    display_name: doc.props.display_name,
-                    snippet: LEFT(doc.props.summary, 200),
-                    extra: { ecli: doc.props.ecli }
-                }
-            """
-            for row in store.query(
-                ecli_aql, {"ecli": intent["ecli"].lower(), "limit": limit}
-            ):
-                rid = row.get("id")
-                if rid and rid not in seen_judgment_ids:
-                    seen_judgment_ids.add(rid)
-                    judgment_hits.append(row)
-
-        # Same intent-shortcut as articles: skip text-scan when the ECLI
-        # already gave us a hit. Long summary fields dominate scan cost.
-        skip_text_search = intent.get("kind") == "ecli" and len(judgment_hits) > 0
-        if not skip_text_search and len(judgment_hits) < limit:
-            clause, tok_bind = _build_search_clause(
-                tokens, ["display_name", "summary", "ecli", "appno"]
-            )
-            text_aql = f"""
-            FOR doc IN search_judgments
-                SEARCH {clause}
-                SORT BM25(doc) DESC
-                LIMIT @limit
-                RETURN {{
-                    id: doc._id,
-                    key: doc._key,
-                    collection: 'judgments',
-                    type: doc.type,
-                    display_name: doc.props.display_name,
-                    snippet: LEFT(doc.props.summary, 200),
-                    extra: {{ ecli: doc.props.ecli, appno: doc.props.appno }}
-                }}
-            """
-            for row in store.query(text_aql, {**tok_bind, "limit": limit}):
-                rid = row.get("id")
-                if rid and rid not in seen_judgment_ids:
-                    seen_judgment_ids.add(rid)
-                    judgment_hits.append(row)
-                    if len(judgment_hits) >= limit:
-                        break
-
-        results["judgments"] = judgment_hits[:limit]
-
-    if "dossiers" in types:
-        soort_clause = ""
-        clause, tok_bind = _build_search_clause(
-            tokens, ["titel", "display_name", "kamerstuknummer"]
-        )
-        bind_vars: dict[str, Any] = {**tok_bind, "limit": limit}
-        if soort:
-            soort_clause = "FILTER LOWER(doc.props.huidige_fase) IN @soort_filter"
-            bind_vars["soort_filter"] = [s.lower() for s in soort]
-
-        aql = f"""
-        FOR doc IN search_dossiers
-            SEARCH {clause}
-            {soort_clause}
-            SORT BM25(doc) DESC
-            LIMIT @limit
-            RETURN {{
-                id: doc._id,
-                key: doc._key,
-                collection: 'kamerstukdossiers',
-                type: doc.type,
-                display_name: (doc.props.titel != null ? doc.props.titel : doc.props.display_name),
-                snippet: doc.props.kamerstuknummer,
-                extra: {{
-                    kamerstuknummer: doc.props.kamerstuknummer,
-                    huidige_fase: doc.props.huidige_fase,
-                    afgedaan: doc.props.afgedaan
-                }}
-            }}
-        """
-        results["dossiers"] = list(store.query(aql, bind_vars))
-
-    if "commissies" in types:
-        clause, tok_bind = _build_search_clause(tokens, ["naam", "afkorting"])
-        aql = f"""
-        FOR doc IN search_commissies
-            SEARCH {clause}
-            SORT BM25(doc) DESC
-            LIMIT @limit
-            RETURN {{
-                id: doc._id,
-                key: doc._key,
-                collection: 'commissies',
-                type: doc.type,
-                display_name: doc.props.naam,
-                snippet: doc.props.afkorting,
-                extra: {{ slug: doc.props.slug, afkorting: doc.props.afkorting }}
-            }}
-        """
-        results["commissies"] = list(store.query(aql, {**tok_bind, "limit": limit}))
-
-    if "leden" in types:
-        # Plain CONTAINS over leden — only ~4.5k docs, no view needed. Build
-        # a haystack from naam + partij + every alias on every membership so
-        # 'NSC' matches a lid whose canonical partij is 'Nieuw Sociaal Contract'.
-        aql = """
-        FOR doc IN leden
-            LET membership_labels = (
-                FOR m IN (doc.props.fractielidmaatschappen OR [])
-                    RETURN CONCAT_SEPARATOR(" ",
-                        m.afkorting != null ? m.afkorting : "",
-                        m.naam != null ? m.naam : "",
-                        CONCAT_SEPARATOR(" ", m.aliases OR [])
-                    )
-            )
-            LET haystack = LOWER(CONCAT_SEPARATOR(" ",
-                doc.props.naam OR "",
-                doc.props.partij OR "",
-                CONCAT_SEPARATOR(" ", membership_labels)
-            ))
-            FILTER LENGTH(FOR t IN @tokens FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0
-            SORT doc.props.actief DESC, doc.props.naam ASC
-            LIMIT @limit
-            RETURN {
-                id: doc._id,
-                key: doc._key,
-                collection: 'leden',
-                type: doc.type,
-                display_name: doc.props.naam,
-                snippet: doc.props.partij,
-                extra: {
-                    partij: doc.props.partij,
-                    actief: doc.props.actief
-                }
-            }
-        """
-        results["leden"] = list(store.query(aql, {"tokens": tokens, "limit": limit}))
-
-    if "fracties" in types:
-        aql = """
-        FOR doc IN fracties
-            LET haystack = LOWER(CONCAT_SEPARATOR(" ",
-                doc.props.naam OR "",
-                doc.props.afkorting OR "",
-                CONCAT_SEPARATOR(" ", doc.props.aliases OR [])
-            ))
-            FILTER LENGTH(FOR t IN @tokens FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0
-            SORT doc.props.actief DESC,
-                 (doc.props.aantal_zetels != null ? doc.props.aantal_zetels : 0) DESC,
-                 doc.props.naam ASC
-            LIMIT @limit
-            RETURN {
-                id: doc._id,
-                key: doc._key,
-                collection: 'fracties',
-                type: doc.type,
-                display_name: doc.props.naam,
-                snippet: doc.props.afkorting,
-                extra: {
-                    afkorting: doc.props.afkorting,
-                    aantal_zetels: doc.props.aantal_zetels,
-                    actief: doc.props.actief
-                }
-            }
-        """
-        results["fracties"] = list(store.query(aql, {"tokens": tokens, "limit": limit}))
-
-    if "publications" in types:
-        soort_clause = ""
-        clause, tok_bind = _build_search_clause(
-            tokens, ["display_name", "title", "titel", "external_id"]
-        )
-        bind_vars_pub: dict[str, Any] = {**tok_bind, "limit": limit}
-        if soort:
-            soort_clause = "FILTER LOWER(doc.props.soort) IN @soort_filter"
-            bind_vars_pub["soort_filter"] = [s.lower() for s in soort]
-
-        # Hydrated PDF text isn't indexed in the view (~500 KB rows are too
-        # bulky for sub-200-ms search); identifier and title fields cover
-        # the UI use cases. A dedicated full-text endpoint can opt-in.
-        aql = f"""
-        FOR doc IN search_publications
-            SEARCH {clause}
-            {soort_clause}
-            SORT BM25(doc) DESC
-            LIMIT @limit
-            RETURN {{
-                id: doc._id,
-                key: doc._key,
-                collection: 'publications',
-                type: doc.type,
-                display_name: (doc.props.title != null ? doc.props.title : doc.props.display_name),
-                snippet: doc.props.soort,
-                extra: {{
-                    soort: doc.props.soort,
-                    external_id: doc.props.external_id
-                }}
-            }}
-        """
-        results["publications"] = list(store.query(aql, bind_vars_pub))
-
+    results: dict[str, list[dict[str, Any]]] = {}
+    for t in types:
+        if t == "articles":
+            results[t] = _search_articles(store, tokens, intent, limit)
+        elif t == "instruments":
+            results[t] = _search_instruments(store, tokens, limit)
+        elif t == "judgments":
+            results[t] = _search_judgments(store, tokens, intent, limit)
+        elif t == "dossiers":
+            results[t] = _search_dossiers(store, tokens, soort, limit)
+        elif t == "commissies":
+            results[t] = _search_commissies(store, tokens, limit)
+        elif t == "leden":
+            results[t] = _search_leden(store, tokens, limit)
+        elif t == "fracties":
+            results[t] = _search_fracties(store, tokens, limit)
+        elif t == "publications":
+            results[t] = _search_publications(store, tokens, soort, limit)
     return results

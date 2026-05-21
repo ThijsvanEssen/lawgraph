@@ -5,12 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.config.settings import COLLECTION_EDGES, COLLECTION_JUDGMENTS
+from lawgraph.config.constants import COLLECTION_JUDGMENTS
+from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 
 @dataclass
-class _GraphEdge:
+class GraphEdge:
     from_id: str
     to_id: str
     relation_type: str
@@ -24,7 +25,7 @@ class _GraphEdge:
 @dataclass
 class InstrumentLayerData:
     instruments: list[dict[str, Any]]
-    edges: list[_GraphEdge]
+    edges: list[GraphEdge]
     stats: dict[str, dict[str, Any]]
     metadata: dict[str, Any] | None = None
 
@@ -33,7 +34,7 @@ class InstrumentLayerData:
 class JudgmentGraphData:
     judgments: list[dict[str, Any]]
     instruments: list[dict[str, Any]]
-    edges: list[_GraphEdge]
+    edges: list[GraphEdge]
     metadata: dict[str, Any] | None = None
 
 
@@ -42,7 +43,7 @@ class GlobalGraphData:
     instruments: list[dict[str, Any]]
     articles: list[dict[str, Any]]
     judgments: list[dict[str, Any]]
-    edges: list[_GraphEdge]
+    edges: list[GraphEdge]
     metadata: dict[str, Any] | None = None
 
 
@@ -111,13 +112,13 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
         )
     )
 
-    graph_edges: list[_GraphEdge] = []
+    graph_edges: list[GraphEdge] = []
     for row in rows:
         fid = bwb_to_id.get(row["from_bwb"])
         tid = bwb_to_id.get(row["to_bwb"])
         if fid and tid:
             graph_edges.append(
-                _GraphEdge(
+                GraphEdge(
                     from_id=fid,
                     to_id=tid,
                     relation_type="verwijst_naar",
@@ -139,7 +140,7 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
     )
     for de in direct:
         graph_edges.append(
-            _GraphEdge(
+            GraphEdge(
                 from_id=de["from_id"],
                 to_id=de["to_id"],
                 relation_type=de["relation_type"],
@@ -152,7 +153,7 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
     }
     for e in graph_edges:
         if e.to_id in stats:
-            stats[e.to_id]["citation_count"] = stats[e.to_id][  # noqa: E501
+            stats[e.to_id]["citation_count"] = stats[e.to_id][
                 "citation_count"
             ] + (int(e.weight or 1))
 
@@ -245,15 +246,16 @@ def get_judgment_graph(
             )
         )
         bwb_to_id = {
-            (i.get("props") or {}).get("bwb_id"): i["_id"] for i in instruments
+            (i.get("props") or {}).get("bwb_id"): i["_id"]  # type: ignore[misc]
+            for i in instruments
         }
 
-    graph_edges: list[_GraphEdge] = []
+    graph_edges: list[GraphEdge] = []
     for (jid, bwb), weight in edge_weights.items():
         iid = bwb_to_id.get(bwb)
         if iid:
             graph_edges.append(
-                _GraphEdge(
+                GraphEdge(
                     from_id=jid,
                     to_id=iid,
                     relation_type="citeert_wet",
@@ -305,12 +307,14 @@ def get_global_graph(
             )
         )
 
-    all_ids = (
+    all_ids = list(
         {inst["_id"] for inst in instruments}
         | {art["_id"] for art in articles}
         | {j["_id"] for j in judgments}
     )
 
+    # Push the all_ids filter into AQL so the DB uses the _from index and
+    # never materialises edges whose endpoints are outside the loaded set.
     edges: list[dict[str, Any]] = list(
         store.query(
             f"""
@@ -319,21 +323,22 @@ def get_global_graph(
                 "CITES_ARTICLE", "MENTIONS_ARTICLE", "EXPLAINS_ARTICLE",
                 "PART_OF_INSTRUMENT", "IMPLEMENTS_DIRECTIVE", "AMENDS_INSTRUMENT"
             ]
+            FILTER e._from IN @ids AND e._to IN @ids
             LIMIT 10000
             RETURN {{from_id: e._from, to_id: e._to, relation_type: e.relation, confidence: e.confidence}}
-    """
+    """,
+            {"ids": all_ids},
         )
     )
 
     graph_edges = [
-        _GraphEdge(
+        GraphEdge(
             from_id=e["from_id"],
             to_id=e["to_id"],
             relation_type=e["relation_type"],
             confidence=e.get("confidence"),
         )
         for e in edges
-        if e["from_id"] in all_ids and e["to_id"] in all_ids
     ]
 
     return GlobalGraphData(

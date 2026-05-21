@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.settings import COLLECTION_EDGES, RELATION_PART_OF_PROCEDURE
+from lawgraph.config.constants import RELATION_PART_OF_PROCEDURE
+from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 
@@ -16,7 +17,7 @@ def get_stemmingen(
     chamber: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> dict:
+) -> dict[str, Any]:
     """Return a paginated list of stemmingen, newest first.
 
     Optional filters: aangenomen (bool), partij (party name match in voor/tegen/onthouding).
@@ -66,21 +67,28 @@ def get_stemmingen(
             {partij_filter}
             SORT doc.props.datum DESC
             LIMIT @offset, @limit
+            LET _voor = doc.props.voor != null ? doc.props.voor : []
+            LET _tegen = doc.props.tegen != null ? doc.props.tegen : []
+            LET _ont = doc.props.onthouding != null ? doc.props.onthouding : []
             RETURN {{
                 id: doc._id,
                 key: doc._key,
                 datum: doc.props.datum,
                 onderwerp: doc.props.onderwerp,
+                besluit_id: doc.props.besluit_id,
                 dossier_nummers: doc.props.dossier_nummers,
                 aangenomen: doc.props.aangenomen,
                 chamber: doc.props.chamber,
-                voor_count: LENGTH(doc.props.voor != null ? doc.props.voor : []),
-                tegen_count: LENGTH(doc.props.tegen != null ? doc.props.tegen : []),
-                onthouding_count: LENGTH(doc.props.onthouding != null ? doc.props.onthouding : [])
+                voor_fracties: LENGTH(_voor),
+                voor_zetels: SUM(FOR v IN _voor RETURN (v.aantal_zetels != null ? v.aantal_zetels : 0)),
+                tegen_fracties: LENGTH(_tegen),
+                tegen_zetels: SUM(FOR v IN _tegen RETURN (v.aantal_zetels != null ? v.aantal_zetels : 0)),
+                onthouding_fracties: LENGTH(_ont),
+                onthouding_zetels: SUM(FOR v IN _ont RETURN (v.aantal_zetels != null ? v.aantal_zetels : 0))
             }}
     )
     RETURN {{ total: total, items: items }}
-    """  # noqa: E501
+    """
     rows = list(store.query(aql, bind_vars))
     if not rows:
         return {"total": 0, "items": []}

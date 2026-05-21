@@ -26,7 +26,9 @@ from lawgraph.pipelines.semantic.rechtspraak_articles import detect_article_refe
 router = APIRouter()
 logger = get_logger(__name__)
 
-# Maps citation aliases to BWB identifiers for inline citation detection.
+# Citation alias → BWB identifier map for inline article detection in judgment text.
+# Sr = Wetboek van Strafrecht, Sv = Wetboek van Strafvordering, WVW = Wegenverkeerswet.
+# Update this dict when new shorthand aliases need to be recognised.
 _ARTICLE_CODE_MAPPING: dict[str, str] = {
     "Sr": "BWBR0001854",
     "Sv": "BWBR0001903",
@@ -172,7 +174,7 @@ def _enrich_paragraphs(
     # Second pass: build enriched paragraphs.
     result: list[JudgmentParagraph] = []
     for para, hits in para_hits:
-        citaties: list[ArticleCitationSpan] = []
+        citations: list[ArticleCitationSpan] = []
         for hit in hits:
             article_key = make_node_key(hit.bwb_id or "", hit.article_number or "")
             doc = article_by_key.get(article_key)
@@ -186,7 +188,7 @@ def _enrich_paragraphs(
                 if pos >= 0:
                     start = pos
                     end = pos + len(hit.raw_match)
-            citaties.append(
+            citations.append(
                 ArticleCitationSpan(
                     start=start,
                     end=end,
@@ -204,7 +206,7 @@ def _enrich_paragraphs(
             )
         result.append(
             JudgmentParagraph(
-                number=para.number, kind=para.kind, text=para.text, citaties=citaties
+                number=para.number, kind=para.kind, text=para.text, citations=citations
             )
         )
     return result

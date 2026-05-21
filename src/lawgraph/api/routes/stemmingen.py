@@ -12,7 +12,6 @@ from lawgraph.api.queries import (
     get_stemming_publication,
     get_stemmingen,
 )
-from lawgraph.api.routes.publications import _build_publication_text_response
 from lawgraph.api.schemas import (
     PartijStemDTO,
     PublicationTextResponse,
@@ -39,7 +38,7 @@ logger = get_logger(__name__)
     ),
     tags=["stemmingen"],
 )
-async def list_stemmingen(
+def list_stemmingen(
     store: Annotated[ArangoStore, Depends(get_store)],
     aangenomen: bool | None = Query(
         default=None, description="Filter op aangenomen (true/false)"
@@ -77,7 +76,7 @@ async def list_stemmingen(
     ),
     tags=["stemmingen"],
 )
-async def get_stemming(
+def get_stemming(
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> StemmingDTO:
@@ -119,7 +118,7 @@ async def get_stemming(
     ),
     tags=["stemmingen"],
 )
-async def get_stemming_publication_route(
+def get_stemming_publication_route(
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> PublicationTextResponse:
@@ -132,4 +131,4 @@ async def get_stemming_publication_route(
             status_code=404,
             detail=f"No publication resolvable for stemming '{key}'.",
         )
-    return _build_publication_text_response(pub)
+    return PublicationTextResponse.from_document(pub)
