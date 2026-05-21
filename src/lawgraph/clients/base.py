@@ -1,4 +1,3 @@
-# src/lawgraph/clients/base.py
 from __future__ import annotations
 
 import os
@@ -7,16 +6,8 @@ from collections.abc import Iterator
 from typing import Any
 
 import requests
-from dotenv import load_dotenv
 
 from lawgraph.core.logging import get_logger
-
-# Structural changes:
-# - Documented all helpers and added a paginated getter shared across clients.
-# - Ensured load_dotenv runs once while keeping consistent HTTP debug logging.
-
-# Load .env once at module import time
-load_dotenv()
 
 logger = get_logger(__name__)
 
@@ -40,7 +31,7 @@ class BaseClient:
     ) -> None:
         """Load env vars and configure the HTTP session with a normalized base URL."""
         base = os.getenv(env_var, default_base_url)
-        # forceer trailing slash
+        # force trailing slash
         self.base_url = base.rstrip("/") + "/"
         self.session: requests.Session = session or requests.Session()
 
@@ -52,7 +43,7 @@ class BaseClient:
         )
 
     def _build_url(self, path: str) -> str:
-        """Construct a normalized URL that ensures a single trailing slash."""
+        """Join base_url (which has a trailing slash) with path (leading slash stripped)."""
         return self.base_url + path.lstrip("/")
 
     def _get_raw(

@@ -1,15 +1,10 @@
-# src/lawgraph/clients/rechtspraak.py
 from __future__ import annotations
 
 import datetime as dt
 
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import RECHTSPRAAK_BASE_URL
-from lawgraph.logging import get_logger
-
-# Structural changes:
-# - Base URL defers to lawgraph.config.settings and public methods now feature docstrings.
-
+from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -179,6 +179,17 @@ def collection_from_id(node_id: str, fallback: str) -> str:
     return node_id.split("/")[0] if "/" in node_id else fallback
 
 
+def parse_arango_id(arango_id: str) -> tuple[str, str]:
+    """Split an ArangoDB document ID into (collection, key).
+
+    Raises ValueError if the ID does not contain a '/'.
+    """
+    if "/" not in arango_id:
+        raise ValueError(f"Not a valid ArangoDB document ID: {arango_id!r}")
+    collection, key = arango_id.split("/", 1)
+    return collection, key
+
+
 def make_node_key(*parts: str, fallback: str = "node") -> str:
     joined = "_".join(part for part in parts if part is not None and part.strip())
     if not joined:

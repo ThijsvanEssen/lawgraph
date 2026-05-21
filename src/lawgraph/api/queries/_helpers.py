@@ -4,24 +4,26 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from lawgraph.config.settings import COLLECTION_JUDGMENTS
+from lawgraph.config.constants import (
+    COLLECTION_JUDGMENTS,
+    RELATION_MENTIONS_ARTICLE,
+    RELATION_PART_OF_INSTRUMENT,
+)
+from lawgraph.config.settings import COLLECTION_EDGES
+from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.models import make_node_key
 
 
 def _find_instrument_for_article(
     store: ArangoStore, article_id: str
 ) -> dict[str, Any] | None:
-    from lawgraph.config.settings import COLLECTION_EDGES
-    from lawgraph.config.settings import RELATION_PART_OF_INSTRUMENT as _RPIO
-
     aql = f"""
     FOR edge IN {COLLECTION_EDGES}
         FILTER edge._from == @article_id AND edge.relation == @relation
         LIMIT 1
         RETURN DOCUMENT(edge._to)
     """
-    for doc in store.query(aql, {"article_id": article_id, "relation": _RPIO}):
+    for doc in store.query(aql, {"article_id": article_id, "relation": RELATION_PART_OF_INSTRUMENT}):
         return doc
     return None
 
@@ -29,9 +31,6 @@ def _find_instrument_for_article(
 def _find_judgments_for_article(
     store: ArangoStore, article_id: str
 ) -> list[dict[str, Any]]:
-    from lawgraph.config.settings import COLLECTION_EDGES
-    from lawgraph.config.settings import RELATION_MENTIONS_ARTICLE as _RMA
-
     aql = f"""
     FOR edge IN {COLLECTION_EDGES}
         FILTER edge._to == @article_id AND edge.relation == @relation
@@ -39,7 +38,7 @@ def _find_judgments_for_article(
         FILTER j != null
         RETURN j
     """
-    return list(store.query(aql, {"article_id": article_id, "relation": _RMA}))
+    return list(store.query(aql, {"article_id": article_id, "relation": RELATION_MENTIONS_ARTICLE}))
 
 
 def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
@@ -140,8 +139,16 @@ def _coerce_text(value: Any) -> str | None:
     return None
 
 
+def _props(doc: dict[str, Any]) -> dict[str, Any]:
+    """Return the props sub-dict from a raw ArangoDB document, never None."""
+    return doc.get("props") or {}
+
+
 def _ensure_doc(doc: Any) -> dict[str, Any] | None:
+    """Cast a truthy ArangoDB result to dict, returning None for empty/null."""
     if not doc:
+        return None
+    if not isinstance(doc, dict):
         return None
     return cast(dict[str, Any], doc)
 

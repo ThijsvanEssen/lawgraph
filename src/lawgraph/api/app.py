@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+# Load .env and configure logging before any settings modules are imported.
+from dotenv import load_dotenv
+load_dotenv()
+
+from lawgraph.core.logging import setup_logging
+setup_logging()
+
 import collections
 import logging
 import os
@@ -255,7 +262,7 @@ async def _log_requests(request: Request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # in dev: dit lijstje
+    allow_origins=origins,  # populated from LAWGRAPH_ALLOWED_ORIGINS env var
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

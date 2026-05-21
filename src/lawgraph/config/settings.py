@@ -7,9 +7,30 @@ from __future__ import annotations
 
 import os
 
-from dotenv import load_dotenv
+from lawgraph.core.logging import get_logger
 
-load_dotenv()
+from lawgraph.config.constants import (
+    COLLECTION_ACTIVITEITEN,
+    COLLECTION_COMMISSIES,
+    COLLECTION_EDGE_STATUS_LOG,
+    COLLECTION_FRACTIES,
+    COLLECTION_INSTRUMENT_ARTICLE_VERSIONS,
+    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_KAMERSTUKDOSSIERS,
+    COLLECTION_LEDEN,
+    COLLECTION_PROCEDURES,
+    COLLECTION_PUBLICATIONS,
+    COLLECTION_RAW_SOURCES,
+    COLLECTION_STEMMINGEN,
+    COLLECTION_TOEZEGGINGEN,
+    COLLECTION_TOPICS,
+    COLLECTION_WATCHES,
+)
+
+logger = get_logger(__name__)
 
 
 def _env_list(name: str, default: tuple[str, ...]) -> list[str]:
@@ -22,24 +43,24 @@ def _env_list(name: str, default: tuple[str, ...]) -> list[str]:
 # ── Collections (env-var driven) ──────────────────────────────────────────────
 
 DEFAULT_DOCUMENT_COLLECTIONS: tuple[str, ...] = (
-    "instruments",
-    "instrument_articles",
-    "instrument_versions",
-    "instrument_article_versions",
-    "procedures",
-    "publications",
-    "judgments",
-    "topics",
-    "raw_sources",
-    "kamerstukdossiers",
-    "activiteiten",
-    "stemmingen",
-    "toezeggingen",
-    "commissies",
-    "leden",
-    "fracties",
-    "edge_status_log",
-    "watches",
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_INSTRUMENT_ARTICLE_VERSIONS,
+    COLLECTION_PROCEDURES,
+    COLLECTION_PUBLICATIONS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_TOPICS,
+    COLLECTION_RAW_SOURCES,
+    COLLECTION_KAMERSTUKDOSSIERS,
+    COLLECTION_ACTIVITEITEN,
+    COLLECTION_STEMMINGEN,
+    COLLECTION_TOEZEGGINGEN,
+    COLLECTION_COMMISSIES,
+    COLLECTION_LEDEN,
+    COLLECTION_FRACTIES,
+    COLLECTION_EDGE_STATUS_LOG,
+    COLLECTION_WATCHES,
 )
 
 DOCUMENT_COLLECTIONS: list[str] = _env_list(
@@ -112,4 +133,7 @@ def get_confidence_override(pattern_name: str, default: float) -> float:
     try:
         return float(raw)
     except ValueError:
+        logger.warning(
+            "Invalid value for env var %s=%r; using default %s.", env_key, raw, default
+        )
         return default
