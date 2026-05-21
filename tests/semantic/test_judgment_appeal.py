@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import re
-
-from lawgraph.pipelines.semantic.judgment_appeal import _APPEAL_PROCEDURES
+from lawgraph.pipelines.semantic.judgment_appeal import _APPEAL_PATTERN
 
 
 def _is_appeal(procedure: str) -> bool:
     """Replicate the word-boundary check used in JudgmentAppealPipeline."""
-    procedure_lower = procedure.strip().lower()
-    return any(
-        re.search(rf"\b{re.escape(p)}\b", procedure_lower, re.IGNORECASE)
-        for p in _APPEAL_PROCEDURES
-    )
+    return bool(_APPEAL_PATTERN.search(procedure.strip()))
 
 
 class TestAppealDetection:

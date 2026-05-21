@@ -13,6 +13,7 @@ We also link judgments to any NL/EU instruments mentioned in the judgment
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any
 
@@ -88,7 +89,6 @@ class EchrCitationsPipeline(SemanticPipelineBase):
         self,
         result: PipelineResult,
         judgments: list[dict],
-        bwb_instruments: dict[str, Node],
         convention: Node,
         article_cache: dict[str, Node | None],
         edge_batch: list[dict],
@@ -204,7 +204,7 @@ class EchrCitationsPipeline(SemanticPipelineBase):
 
         return edge_batch
 
-    def run(self, *, since: Any = None) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
         # Fetch all ECHR judgment nodes
@@ -275,7 +275,7 @@ FOR inst IN instruments
         edge_batch: list[dict] = []
 
         edge_batch = self._link_convention_articles(
-            result, rows, bwb_id_to_node, convention, article_cache, edge_batch
+            result, rows, convention, article_cache, edge_batch
         )
         edge_batch = self._link_bwb_mentions(result, rows, bwb_id_to_node, edge_batch)
 

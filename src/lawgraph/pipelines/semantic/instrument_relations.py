@@ -175,8 +175,9 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
         ]
         if not alias_labels:
             return result
+        sorted_labels = sorted(alias_labels, key=len, reverse=True)
         combined_pattern = re.compile(
-            "|".join(re.escape(lbl) for lbl in alias_labels), re.IGNORECASE
+            "|".join(re.escape(lbl) for lbl in sorted_labels), re.IGNORECASE
         )
 
         since_filter = ""

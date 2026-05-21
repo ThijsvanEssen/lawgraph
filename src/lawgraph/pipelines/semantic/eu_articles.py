@@ -11,25 +11,24 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     RELATION_MENTIONS_ARTICLE,
     RELATION_MENTIONS_INSTRUMENT,
+    SOURCE_EURLEX,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.core.time import describe_since
+from lawgraph.core.time import describe_since, iso_timestamp
 
-from .base import SemanticPipelineBase
+from .base import CodeMapping, SemanticPipelineBase
 from .citation_detect import (
     ArticleKind,
     CitationHit,
-    _hit_reason,
     coerce_text,
     format_celex,
+    hit_reason,
     make_snippet,
     normalize_code_aliases,
 )
 
 logger = get_logger(__name__)
-
-CodeMapping = dict[str, str]
 
 SEMANTIC_SOURCE = "eu-article-linker"
 
@@ -220,8 +219,6 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Inspect EU instruments for referenced articles and persist semantic edges."""
         result = PipelineResult()
-        from lawgraph.core.time import iso_timestamp
-
         since_iso = iso_timestamp(since)
         documents = list(self._load_eu_documents(since_iso=since_iso))
         if not documents:
@@ -265,7 +262,7 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
                         for k, v in {
                             "raw_match": hit.raw_match,
                             "snippet": hit.snippet,
-                            "reason": _hit_reason(hit),
+                            "reason": hit_reason(hit),
                         }.items()
                         if v
                     },
@@ -283,8 +280,6 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
         # Scan EU instrument *articles* — their props.text contains the actual
         # directive body, which is where cross-references to other articles live.
         if since_iso is not None:
-            from lawgraph.config.constants import SOURCE_EURLEX
-
             recent_celex: set[str] = set()
             aql = """
             FOR raw IN raw_sources
@@ -329,57 +324,40 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
         # Fallback: title only (gives minimal signal but avoids skipping entirely)
         return coerce_text(document.props.get("display_name"))
 
+    def _resolve_article_node(
+        self, hit: CitationHit, identifier: str, id_prop: str
+    ) -> Node | None:
+        key = make_node_key(identifier, hit.article_number)
+        node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+        if node is None and hit.confidence >= 0.85:
+            stub = Node(
+                collection=COLLECTION_INSTRUMENT_ARTICLES,
+                key=key,
+                type=NodeType.ARTICLE,
+                props={
+                    id_prop: identifier,
+                    "article_number": hit.article_number,
+                    "stub": True,
+                    "display_name": f"Artikel {hit.article_number} ({identifier})",
+                },
+            )
+            node = self.store.insert_or_update(stub)
+        if node is None:
+            logger.debug(
+                "EU semantic: no node found for %s %s (confidence=%.2f)",
+                hit.kind,
+                identifier,
+                hit.confidence,
+            )
+        return node
+
     def _resolve_target(self, hit: CitationHit) -> Node | None:
         # Dutch article: BWB id + article number.
         if hit.kind == "article" and hit.bwb_id and hit.article_number:
-            key = make_node_key(hit.bwb_id, hit.article_number)
-            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
-            if node is None and hit.confidence >= 0.85:
-                stub = Node(
-                    collection=COLLECTION_INSTRUMENT_ARTICLES,
-                    key=key,
-                    type=NodeType.ARTICLE,
-                    props={
-                        "bwb_id": hit.bwb_id,
-                        "article_number": hit.article_number,
-                        "stub": True,
-                        "display_name": f"Artikel {hit.article_number} ({hit.bwb_id})",
-                    },
-                )
-                node = self.store.insert_or_update(stub)
-            if node is None:
-                logger.debug(
-                    "EU semantic: no node found for %s %s (confidence=%.2f)",
-                    hit.kind,
-                    hit.bwb_id or hit.celex,
-                    hit.confidence,
-                )
-            return node
+            return self._resolve_article_node(hit, hit.bwb_id, "bwb_id")
         # EU article: CELEX + article number (cross-reference within or between directives).
         if hit.kind == "article" and hit.celex and hit.article_number:
-            key = make_node_key(hit.celex, hit.article_number)
-            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
-            if node is None and hit.confidence >= 0.85:
-                stub = Node(
-                    collection=COLLECTION_INSTRUMENT_ARTICLES,
-                    key=key,
-                    type=NodeType.ARTICLE,
-                    props={
-                        "celex": hit.celex,
-                        "article_number": hit.article_number,
-                        "stub": True,
-                        "display_name": f"Artikel {hit.article_number} ({hit.celex})",
-                    },
-                )
-                node = self.store.insert_or_update(stub)
-            if node is None:
-                logger.debug(
-                    "EU semantic: no node found for %s %s (confidence=%.2f)",
-                    hit.kind,
-                    hit.bwb_id or hit.celex,
-                    hit.confidence,
-                )
-            return node
+            return self._resolve_article_node(hit, hit.celex, "celex")
         # Whole-instrument reference.
         if hit.celex:
             key = make_node_key(hit.celex)

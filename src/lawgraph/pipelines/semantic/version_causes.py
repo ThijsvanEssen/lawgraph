@@ -45,6 +45,8 @@ class VersionCausesSemanticPipeline(PipelineBase):
     current article with the same bwb_id/article_number.
     """
 
+    _BATCH_SIZE: int = 500
+
     def __init__(
         self, *, store: ArangoStore, window_days: int = _DEFAULT_WINDOW_DAYS
     ) -> None:
@@ -53,15 +55,16 @@ class VersionCausesSemanticPipeline(PipelineBase):
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        linked = self._link_versions(since=since)
-        result.created = linked
+        created, updated = self._link_versions(since=since)
+        result.created = created
+        result.updated = updated
         logger.info(
             "VersionCausesSemanticPipeline: %d CAUSED_VERSION edges created/updated.",
-            linked,
+            created + updated,
         )
         return result
 
-    def _link_versions(self, *, since: dt.datetime | None) -> int:
+    def _link_versions(self, *, since: dt.datetime | None) -> tuple[int, int]:
         """Create CAUSED_VERSION edges by starting from amendment edges (not article versions).
 
         Inverted approach: iterate the small set of WIJZIGT/INTRODUCEERT/TREKT_IN edges
@@ -130,17 +133,18 @@ class VersionCausesSemanticPipeline(PipelineBase):
             )
 
         if not edge_docs:
-            return 0
+            return 0, 0
 
-        _BATCH_SIZE = 500
         created_total = 0
-        for start in range(0, len(edge_docs), _BATCH_SIZE):
-            batch = edge_docs[start : start + _BATCH_SIZE]
+        updated_total = 0
+        for start in range(0, len(edge_docs), self._BATCH_SIZE):
+            batch = edge_docs[start : start + self._BATCH_SIZE]
             try:
-                created, _ = self.store.bulk_insert_or_update_edges(batch)
+                created, updated = self.store.bulk_insert_or_update_edges(batch)
                 created_total += created
+                updated_total += updated
             except Exception as exc:
                 logger.error("CAUSED_VERSION edge batch failed: %s", exc)
                 raise
 
-        return created_total
+        return created_total, updated_total

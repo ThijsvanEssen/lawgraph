@@ -10,17 +10,16 @@ the prior judgment.
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
-    EDGE_STATUS_CANONIEK,
     RELATION_APPEAL_OF,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import NodeType, PipelineResult, make_node_key
-from lawgraph.db import _edge_key as _sha1_edge_key
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 
 from .base import SemanticPipelineBase
 
@@ -28,13 +27,13 @@ logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "judgment-appeal-linker"
 
-_APPEAL_PROCEDURES = frozenset({"hoger beroep", "cassatie"})
+_APPEAL_PATTERN = re.compile(r"\b(?:hoger beroep|cassatie)\b", re.IGNORECASE)
 
 
 class JudgmentAppealPipeline(SemanticPipelineBase):
     """Create APPEAL_OF edges from appeal judgments to their prior proceedings."""
 
-    def run(self, *, since: Any = None) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
         aql = f"""
@@ -56,10 +55,7 @@ FOR j IN {COLLECTION_JUDGMENTS}
         appeal_rows: list[dict[str, Any]] = []
         for row in rows:
             procedure = (row.get("procedure_type") or "").strip().lower()
-            if not any(
-                re.search(rf"\b{re.escape(p)}\b", procedure, re.IGNORECASE)
-                for p in _APPEAL_PROCEDURES
-            ):
+            if not _APPEAL_PATTERN.search(procedure):
                 continue
             for ecli in row.get("related_eclis") or []:
                 all_related.add(ecli.upper())
@@ -103,23 +99,35 @@ FOR doc IN {COLLECTION_JUDGMENTS}
         edge_batch: list[dict[str, Any]] = []
         for row in appeal_rows:
             from_id = row["j_id"]
+            from_key = from_id.split("/", 1)[-1] if "/" in from_id else from_id
             procedure_type = row.get("procedure_type") or ""
+            from_node = Node(
+                collection=COLLECTION_JUDGMENTS,
+                type=NodeType.JUDGMENT,
+                key=from_key,
+                props={},
+            )
             for ecli in row.get("related_eclis") or []:
                 to_id = ecli_to_id.get(ecli.upper())
                 if not to_id:
                     continue
-                edge_batch.append(
-                    {
-                        "_key": _sha1_edge_key(from_id, RELATION_APPEAL_OF, to_id),
-                        "_from": from_id,
-                        "_to": to_id,
-                        "relation": RELATION_APPEAL_OF,
-                        "confidence": 0.95,
-                        "source": SEMANTIC_SOURCE,
-                        "status": EDGE_STATUS_CANONIEK,
-                        "meta": {"procedure_type": procedure_type},
-                    }
+                to_key = to_id.split("/", 1)[-1] if "/" in to_id else to_id
+                to_node = Node(
+                    collection=COLLECTION_JUDGMENTS,
+                    type=NodeType.JUDGMENT,
+                    key=to_key,
+                    props={},
                 )
+                edge_doc = self._make_edge_doc(
+                    from_node=from_node,
+                    to_node=to_node,
+                    relation=RELATION_APPEAL_OF,
+                    source=SEMANTIC_SOURCE,
+                    confidence=0.95,
+                    meta={"procedure_type": procedure_type},
+                )
+                if edge_doc:
+                    edge_batch.append(edge_doc)
 
         if edge_batch:
             created, updated = self._flush_edge_batch(edge_batch, result)

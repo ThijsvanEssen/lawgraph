@@ -16,6 +16,7 @@ or via child elements:
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -122,7 +123,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
     """Creates DELEGATED_BY edges from AMvB instruments to their grondslag articles."""
 
     def _collect_grondslagen_needs(
-        self, result: PipelineResult, since: Any
+        self, result: PipelineResult
     ) -> GrondslagenNeeds:
         """Fetch toestand XML records, parse grondslagen, and collect lookup needs."""
         aql = """
@@ -331,10 +332,10 @@ FOR art IN instrument_articles
 
         return edge_batch, processed
 
-    def run(self, *, since: Any = None) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
-        needs = self._collect_grondslagen_needs(result, since)
+        needs = self._collect_grondslagen_needs(result)
         if not needs.parsed_rows:
             return result
 

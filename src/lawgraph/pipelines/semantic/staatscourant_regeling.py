@@ -10,6 +10,7 @@ law (the grondslag). We link via three strategies, in descending confidence:
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any
 
@@ -38,7 +39,7 @@ _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
 class StaatscourantRegelingSemanticPipeline(SemanticPipelineBase):
     """Links Staatscourant ministeriele regelingen to BWB instruments via EXPLAINS_INSTRUMENT."""
 
-    def run(self, *, since: Any = None) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
         # Strategy 1: explicit bwb_id stored during normalization
@@ -117,9 +118,8 @@ FOR pub IN publications
                 continue
             seen.add(pair)
 
-            assert (
-                match_type in _CONFIDENCE_BY_MATCH_TYPE
-            ), f"Unknown match_type: {match_type!r}"
+            if match_type not in _CONFIDENCE_BY_MATCH_TYPE:
+                raise ValueError(f"Unknown match_type: {match_type!r}")
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
             pub_node = Node(
@@ -170,6 +170,9 @@ FOR pub IN publications
             logger.debug("Staatscourant text scan query failed: %s", exc)
             return results
 
+        # Collect all (pub, bwb_id) pairs first, then batch-resolve instruments.
+        pub_bwb_pairs: list[tuple[str, str, str]] = []  # (pub_id, pub_key, bwb_id)
+        all_bwb_ids: set[str] = set()
         for pub in pubs:
             pub_id = pub.get("pub_id")
             if pub_id in already_matched:
@@ -177,25 +180,40 @@ FOR pub IN publications
             text = pub.get("text") or ""
             bwb_ids = {m.group(1).upper() for m in _BWBR_PATTERN.finditer(text)}
             for bwb_id in bwb_ids:
-                inst_aql = """
+                pub_bwb_pairs.append((pub_id, pub.get("pub_key") or "", bwb_id))
+                all_bwb_ids.add(bwb_id)
+
+        if not all_bwb_ids:
+            return results
+
+        # Single batch query to resolve all bwb_ids to instruments.
+        inst_aql = """
 FOR inst IN instruments
-  FILTER UPPER(inst.props.bwb_id) == @bwb_id
-  LIMIT 1
-  RETURN { inst_id: inst._id, inst_key: inst._key }
+  FILTER UPPER(inst.props.bwb_id) IN @bwb_ids
+  RETURN { bwb_id: UPPER(inst.props.bwb_id), inst_id: inst._id, inst_key: inst._key }
 """
-                try:
-                    inst_rows = list(self.store.query(inst_aql, {"bwb_id": bwb_id}))
-                except Exception:
-                    continue
-                for inst_row in inst_rows:
-                    results.append(
-                        {
-                            "pub_id": pub_id,
-                            "pub_key": pub.get("pub_key"),
-                            "inst_id": inst_row["inst_id"],
-                            "inst_key": inst_row["inst_key"],
-                            "match_type": "text_scan",
-                        }
-                    )
+        bwb_to_inst: dict[str, dict[str, str]] = {}
+        try:
+            for inst_row in self.store.query(inst_aql, {"bwb_ids": list(all_bwb_ids)}):
+                bwb_key = inst_row.get("bwb_id") or ""
+                if bwb_key and bwb_key not in bwb_to_inst:
+                    bwb_to_inst[bwb_key] = inst_row
+        except Exception as exc:
+            logger.debug("Staatscourant text scan instrument batch query failed: %s", exc)
+            return results
+
+        for pub_id, pub_key, bwb_id in pub_bwb_pairs:
+            inst_row = bwb_to_inst.get(bwb_id)
+            if not inst_row:
+                continue
+            results.append(
+                {
+                    "pub_id": pub_id,
+                    "pub_key": pub_key,
+                    "inst_id": inst_row["inst_id"],
+                    "inst_key": inst_row["inst_key"],
+                    "match_type": "text_scan",
+                }
+            )
 
         return results

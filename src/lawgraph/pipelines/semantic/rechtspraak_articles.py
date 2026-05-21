@@ -17,7 +17,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
 from .base import SemanticPipelineBase
-from .citation_detect import CitationHit, DutchCitationExtractor, _hit_reason, strip_xml
+from .citation_detect import CitationHit, DutchCitationExtractor, hit_reason, strip_xml
 
 logger = get_logger(__name__)
 
@@ -106,7 +106,7 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
                         for k, v in {
                             "raw_match": hit.raw_match,
                             "snippet": hit.snippet,
-                            "reason": _hit_reason(hit),
+                            "reason": hit_reason(hit),
                             "qualifier": hit.qualifier,
                         }.items()
                         if v

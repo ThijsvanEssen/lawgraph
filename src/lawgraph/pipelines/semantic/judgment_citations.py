@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.core.time import describe_since
+from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import _edge_key as _sha1_edge_key
 
 from .base import SemanticPipelineBase
@@ -148,8 +148,6 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
         self, since: dt.datetime | None = None
     ) -> Iterable[dict[str, Any]]:
         if since is not None:
-            from lawgraph.core.time import iso_timestamp
-
             since_iso = iso_timestamp(since)
             aql = f"""
             FOR doc IN {COLLECTION_JUDGMENTS}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -24,15 +25,8 @@ _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
     "title": 0.60,
 }
 
-
-class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
-    """Pipeline linking Staatsblad NvT publications to BWB instruments via EXPLAINS_INSTRUMENT."""
-
-    def run(self, *, since: Any = None) -> PipelineResult:
-        result = PipelineResult()
-
-        # Strategy 1: publications with explicit bwb_id stored during normalization
-        aql_bwb = """
+# Strategy 1: publications with explicit bwb_id stored during normalization
+_AQL_BWB = """
 FOR pub IN publications
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
@@ -48,8 +42,8 @@ FOR pub IN publications
            match_type: 'bwb_id' }
 """
 
-        # Strategy 2: title matching for publications without bwb_id
-        aql_title = """
+# Strategy 2: title matching for publications without bwb_id
+_AQL_TITLE = """
 FOR pub IN publications
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
@@ -62,16 +56,23 @@ FOR pub IN publications
              match_type: 'title' }
 """
 
+
+class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
+    """Pipeline linking Staatsblad NvT publications to BWB instruments via EXPLAINS_INSTRUMENT."""
+
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        result = PipelineResult()
+
         bind_vars = {"source": SOURCE_STAATSBLAD}
 
         rows: list[dict[str, Any]] = []
         try:
-            rows.extend(self.store.query(aql_bwb, bind_vars=bind_vars))
+            rows.extend(self.store.query(_AQL_BWB, bind_vars=bind_vars))
         except Exception as exc:
             logger.warning("Staatsblad NvT semantic (bwb_id query) failed: %s", exc)
 
         try:
-            rows.extend(self.store.query(aql_title, bind_vars=bind_vars))
+            rows.extend(self.store.query(_AQL_TITLE, bind_vars=bind_vars))
         except Exception as exc:
             logger.warning("Staatsblad NvT semantic (title query) failed: %s", exc)
 
@@ -105,9 +106,8 @@ FOR pub IN publications
                 continue
             seen.add(pair)
 
-            assert (
-                match_type in _CONFIDENCE_BY_MATCH_TYPE
-            ), f"Unknown match_type: {match_type!r}"
+            if match_type not in _CONFIDENCE_BY_MATCH_TYPE:
+                raise ValueError(f"Unknown match_type: {match_type!r}")
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
             pub_collection = collection_from_id(pub_id, COLLECTION_PUBLICATIONS)

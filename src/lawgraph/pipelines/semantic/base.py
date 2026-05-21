@@ -24,6 +24,34 @@ class SemanticPipelineBase(PipelineBase):
 
     # ------------------------------------------------------------------ config
 
+    def _load_alias_index(
+        self, aql: str, key_field: str, value_fields: tuple[str, ...]
+    ) -> dict[str, str]:
+        """Build a normalised key → value alias mapping from an AQL query.
+
+        For each row returned by *aql*, the value at *key_field* becomes the
+        dict key. The first non-empty value found across *value_fields* (in
+        order) becomes the dict value. First-write-wins — subsequent rows that
+        produce the same key are ignored. Keys and values are stripped.
+        Returns an empty dict if the store is unavailable.
+        """
+        index: dict[str, str] = {}
+        try:
+            for row in self.store.query(aql):
+                key = str(row.get(key_field) or "").strip()
+                if not key:
+                    continue
+                if key in index:
+                    continue
+                for field in value_fields:
+                    val = row.get(field)
+                    if val:
+                        index[key] = str(val).strip()
+                        break
+        except Exception as exc:
+            logger.debug("Alias index query unavailable: %s", exc)
+        return index
+
     def _load_code_aliases(self) -> CodeMapping:
         """Build short_title → bwb_id/celex map from instruments in the graph."""
         aql = """
@@ -36,21 +64,7 @@ class SemanticPipelineBase(PipelineBase):
                 celex: inst.props.celex
             }
         """
-        mapping: CodeMapping = {}
-        try:
-            for row in self.store.query(aql):
-                key = str(row["short_title"]).strip()
-                if not key:
-                    continue
-                bwb_id = row.get("bwb_id")
-                celex = row.get("celex")
-                if bwb_id:
-                    mapping[key] = str(bwb_id).strip()
-                elif celex:
-                    mapping[key] = str(celex).strip()
-        except Exception as exc:
-            logger.debug("Code alias query unavailable: %s", exc)
-        return mapping
+        return self._load_alias_index(aql, "short_title", ("bwb_id", "celex"))
 
     def _load_instrument_aliases(self) -> InstrumentAliasMap:
         """Query the instruments collection to build a name → (bwb_id, celex) map.

@@ -11,6 +11,7 @@ Citeertitel exactly matches a BWB instrument.
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -33,15 +34,8 @@ _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
     "raakt_title": 0.65,
 }
 
-
-class DossierLawLinkPipeline(SemanticPipelineBase):
-    """Links aangenomen kamerstukdossiers to their resulting BWB instrument."""
-
-    def run(self, *, since: Any = None) -> PipelineResult:
-        result = PipelineResult()
-
-        # Strategy 1: exact citeertitel match — dossier.props.titel → instrument.props.citation_title  # noqa: E501
-        aql_cite = """
+# Strategy 1: exact citeertitel match — dossier.props.titel → instrument.props.citation_title
+_AQL_CITE = """
 FOR dos IN kamerstukdossiers
   FILTER dos.props.afgedaan == true OR dos.props.outcome == 'aangenomen'
   FILTER dos.props.titel != null AND LENGTH(dos.props.titel) > 5
@@ -58,8 +52,8 @@ FOR dos IN kamerstukdossiers
     }
 """
 
-        # Strategy 2: RAAKT edges from dossier to instrument + title similarity
-        aql_raakt = """
+# Strategy 2: RAAKT edges from dossier to instrument + title similarity
+_AQL_RAAKT = """
 FOR dos IN kamerstukdossiers
   FILTER dos.props.afgedaan == true OR dos.props.outcome == 'aangenomen'
   FILTER dos.props.titel != null AND LENGTH(dos.props.titel) > 5
@@ -82,9 +76,16 @@ FOR dos IN kamerstukdossiers
       }
 """
 
+
+class DossierLawLinkPipeline(SemanticPipelineBase):
+    """Links aangenomen kamerstukdossiers to their resulting BWB instrument."""
+
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        result = PipelineResult()
+
         rows: list[dict[str, Any]] = []
         raakt_vars: dict[str, Any] = {"raakt": RELATION_RAAKT}
-        for aql, bvars in ((aql_cite, None), (aql_raakt, raakt_vars)):
+        for aql, bvars in ((_AQL_CITE, None), (_AQL_RAAKT, raakt_vars)):
             try:
                 rows.extend(self.store.query(aql, bvars))
             except Exception as exc:
@@ -118,9 +119,8 @@ FOR dos IN kamerstukdossiers
                 continue
             seen.add(pair)
 
-            assert (
-                match_type in _CONFIDENCE_BY_MATCH_TYPE
-            ), f"Unknown match_type: {match_type!r}"
+            if match_type not in _CONFIDENCE_BY_MATCH_TYPE:
+                raise ValueError(f"Unknown match_type: {match_type!r}")
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
             dos_node = Node(
