@@ -130,9 +130,11 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
         soort = payload.get("Soort") or ""
         aangenomen_raw = payload.get("Aangenomen")
 
-        # OData: true/false or "Aangenomen"/"Verworpen" string
+        # OData: true/false, int 0/1, or "Aangenomen"/"Verworpen" string
         if isinstance(aangenomen_raw, bool):
             aangenomen = aangenomen_raw
+        elif isinstance(aangenomen_raw, int):
+            aangenomen = bool(aangenomen_raw)
         elif isinstance(aangenomen_raw, str):
             aangenomen = aangenomen_raw.lower() in ("true", "aangenomen", "ja")
         else:

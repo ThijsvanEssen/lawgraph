@@ -28,10 +28,9 @@ from lawgraph.api.queries import (
     classify_traject_kind,
     classify_zaak_soort,
 )
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_ACTIVITEITEN,
     COLLECTION_COMMISSIES,
-    COLLECTION_EDGES,
     COLLECTION_FRACTIES,
     COLLECTION_KAMERSTUKDOSSIERS,
     COLLECTION_LEDEN,
@@ -57,9 +56,11 @@ from lawgraph.config.settings import (
     RELATION_STEMT,
     SOURCE_TK,
 )
+from lawgraph.config.settings import COLLECTION_EDGES
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
@@ -70,16 +71,6 @@ _TOEZEGGING_STATUS_MAP = {
     "Niet nagekomen": "vervallen",
     "Nagekomen": "gedaan",
 }
-
-
-def _iso_date(value: Any) -> str | None:
-    """Extract a YYYY-MM-DD string from an OData datetime value."""
-    if value is None:
-        return None
-    s = str(value)
-    if "T" in s:
-        return s.split("T")[0]
-    return s[:10] if len(s) >= 10 else s
 
 
 def _compute_dossier_outcome(
@@ -142,7 +133,11 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             )
         return grouped
 
-    def normalize_nodes(self, raw: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    def normalize_nodes(
+        self,
+        raw: dict[str, list[dict[str, Any]]],
+        result: PipelineResult,
+    ) -> dict[str, Any]:
         commissie_nodes = self._normalize_commissies(raw.get(RAW_KIND_TK_COMMISSIE, []))
         lid_nodes = self._normalize_personen(raw.get(RAW_KIND_TK_PERSOON, []))
         dossier_nodes = self._normalize_dossiers(raw.get(RAW_KIND_TK_DOSSIER, []))
@@ -472,7 +467,99 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
     # ── Dossier titel + stage backfill ─────────────────────────────────────────
 
-    def _backfill_dossier_titel_and_stages(  # noqa: C901
+    @staticmethod
+    def _derive_titel_for_dossier(
+        props: dict[str, Any], docs: list[dict[str, Any]]
+    ) -> tuple[str | None, str | None]:
+        """Return (picked_titel, display_name) derived from linked documents.
+
+        Priority: wetsvoorstel title → MvT title → any document with a title.
+        Returns (None, None) when no title can be found or one is already set.
+        """
+        if props.get("titel"):
+            return None, None
+        wets: str | None = None
+        mvt: str | None = None
+        any_titel: str | None = None
+        for d in docs:
+            titel = d.get("titel")
+            if not titel:
+                continue
+            if any_titel is None:
+                any_titel = titel
+            soort = classify_doc_soort(d.get("soort"))
+            if soort == "wetsvoorstel" and wets is None:
+                wets = titel
+            elif soort == "mvt" and mvt is None:
+                mvt = titel
+            if wets and mvt:
+                break
+        picked = wets or mvt or any_titel
+        if not picked:
+            return None, None
+        nummer = props.get("kamerstuknummer") or props.get("key") or ""
+        toevoeging = props.get("toevoeging") or ""
+        display_name = f"Kamerstukdossier {nummer}"
+        if toevoeging:
+            display_name += f"-{toevoeging}"
+        display_name += f": {picked}"
+        return picked, display_name
+
+    @staticmethod
+    def _derive_stage_signals(
+        docs: list[dict[str, Any]],
+        activiteiten: list[dict[str, Any]],
+        zaak_soorten: list[str],
+        stemmingen: list[dict[str, Any]],
+    ) -> tuple[dict[str, str], dict[str, str], bool]:
+        """Accumulate stage_first, stage_last, and any_signal from all evidence.
+
+        Returns (stage_first, stage_last, any_signal).
+        """
+        stage_first: dict[str, str] = {}
+        stage_last: dict[str, str] = {}
+        any_signal = False
+
+        def _record(stage: str | None, datum: str | None) -> None:
+            if stage is None:
+                return
+            d = datum or ""
+            if stage not in stage_first or (d and d < stage_first[stage]):
+                stage_first[stage] = d
+            if stage not in stage_last or (d and d > stage_last[stage]):
+                stage_last[stage] = d
+
+        for doc in docs:
+            stage = classify_doc_soort(doc.get("soort"))
+            if stage is not None:
+                any_signal = True
+            _record(stage, doc.get("datum"))
+
+        for act in activiteiten:
+            stage = classify_doc_soort(act.get("soort")) or classify_zaak_soort(
+                act.get("soort")
+            )
+            if stage is not None:
+                any_signal = True
+            _record(stage, act.get("datum"))
+
+        for soort in zaak_soorten:
+            stage = classify_zaak_soort(soort)
+            if stage is not None and stage not in stage_first:
+                any_signal = True
+                stage_first[stage] = ""
+                stage_last[stage] = ""
+
+        if stemmingen:
+            any_signal = True
+            datums = [s.get("datum") for s in stemmingen if s.get("datum")]
+            _record("stemming", min(datums) if datums else None)
+            if datums:
+                stage_last["stemming"] = max(datums)
+
+        return stage_first, stage_last, any_signal
+
+    def _backfill_dossier_titel_and_stages(
         self, dossier_nodes: dict[str, Node]
     ) -> None:
         """Persist titel (when missing) + stage signals onto each dossier.
@@ -496,7 +583,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         for node in dossier_nodes.values():
             if node.props.get("external_id") in seen:
                 continue
-            seen.add(node.props.get("external_id") or node.key)
+            seen.add(str(node.props.get("external_id") or node.key or ""))
             unique_nodes.append(node)
 
         if not unique_nodes:
@@ -586,89 +673,21 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             zaak_soorten = list(node.props.get("zaak_soorten") or [])
 
             # ── Titel ─────────────────────────────────────────────────────
-            if not node.props.get("titel"):
-                wets = next(
-                    (
-                        d.get("titel")
-                        for d in docs
-                        if d.get("titel")
-                        and classify_doc_soort(d.get("soort")) == "wetsvoorstel"
-                    ),
-                    None,
-                )
-                mvt = next(
-                    (
-                        d.get("titel")
-                        for d in docs
-                        if d.get("titel")
-                        and classify_doc_soort(d.get("soort")) == "mvt"
-                    ),
-                    None,
-                )
-                any_titel = next((d.get("titel") for d in docs if d.get("titel")), None)
-                picked = wets or mvt or any_titel
-                if picked:
-                    node.props["titel"] = picked
-                    node.props["titel_source"] = "document"
-                    nummer = node.props.get("kamerstuknummer") or node.key
-                    toevoeging = node.props.get("toevoeging") or ""
-                    display_name = f"Kamerstukdossier {nummer}"
-                    if toevoeging:
-                        display_name += f"-{toevoeging}"
-                    display_name += f": {picked}"
-                    node.props["display_name"] = display_name
-                    updated_titel += 1
+            picked, display_name = self._derive_titel_for_dossier(node.props, docs)
+            if picked:
+                node.props["titel"] = picked
+                node.props["titel_source"] = "document"
+                node.props["display_name"] = display_name
+                updated_titel += 1
 
             # ── Stages ────────────────────────────────────────────────────
             # Combine signals from documents (richest), activiteiten and the
             # dossier-level zaak_soorten roll-up (coarser, but available even
             # when no documents are linked), and stemmingen (presence implies
             # the 'stemming' stage).
-            stage_first: dict[str, str] = {}
-            stage_last: dict[str, str] = {}
-
-            def _record(
-                stage: str | None,
-                datum: str | None,
-                _sf: dict = stage_first,
-                _sl: dict = stage_last,
-            ) -> None:
-                if stage is None:
-                    return
-                d = datum or ""
-                if stage not in _sf or (d and d < _sf[stage]):
-                    _sf[stage] = d
-                if stage not in _sl or (d and d > _sl[stage]):
-                    _sl[stage] = d
-
-            any_signal = False
-            for d in docs:
-                stage = classify_doc_soort(d.get("soort"))
-                if stage is not None:
-                    any_signal = True
-                _record(stage, d.get("datum"))
-
-            for a in activiteiten:
-                stage = classify_doc_soort(a.get("soort")) or classify_zaak_soort(
-                    a.get("soort")
-                )
-                if stage is not None:
-                    any_signal = True
-                _record(stage, a.get("datum"))
-
-            for soort in zaak_soorten:
-                stage = classify_zaak_soort(soort)
-                if stage is not None and stage not in stage_first:
-                    any_signal = True
-                    stage_first[stage] = ""
-                    stage_last[stage] = ""
-
-            if stemmingen:
-                any_signal = True
-                datums = [s.get("datum") for s in stemmingen if s.get("datum")]
-                _record("stemming", min(datums) if datums else None)
-                if datums:
-                    stage_last["stemming"] = max(datums)
+            stage_first, stage_last, any_signal = self._derive_stage_signals(
+                docs, activiteiten, zaak_soorten, stemmingen
+            )
 
             stages_present = sorted(
                 stage_first.keys(),
@@ -804,7 +823,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
     # ── Stemmingen ─────────────────────────────────────────────────────────────
 
-    def _normalize_stemmingen(
+    def _normalize_stemmingen(  # noqa: C901
         self, raw_records: list[dict[str, Any]]
     ) -> dict[str, Node]:
         """Group individual Stemming rows by Besluit_Id, one node per motion.
@@ -1006,6 +1025,41 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
     # ── Fracties ────────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _build_fractie_aliases(
+        afkorting: str,
+        naam_nl: str,
+        label: str,
+        stemming_labels: set[str],
+    ) -> set[str]:
+        """Derive the full alias set for a fractie.
+
+        Includes the afkorting and NaamNL directly, plus any auto-acronym
+        validated against known stemming labels, plus any stemming label that
+        key-sanitises to the same canonical key as ``label``.
+        """
+        aliases: set[str] = set()
+        if afkorting:
+            aliases.add(afkorting)
+        if naam_nl:
+            aliases.add(naam_nl)
+        # Auto-acronym: NaamNL='Nieuw Sociaal Contract' → 'NSC'. Only accept
+        # the acronym if a stemming actually uses it (proves cross-endpoint
+        # identity); otherwise keep the alias set tight.
+        if naam_nl:
+            acro = "".join(
+                w[0] for w in naam_nl.split() if w and w[0].isalpha()
+            ).upper()
+            if len(acro) >= 2 and acro in stemming_labels:
+                aliases.add(acro)
+        # Accept any stemming label that key-sanitises to the same key
+        # (covers casing/whitespace variants).
+        target_key = make_node_key(label)
+        for sl in stemming_labels:
+            if make_node_key(sl) == target_key:
+                aliases.add(sl)
+        return aliases
+
     def _normalize_fracties(
         self, fractie_raws: list[dict[str, Any]]
     ) -> dict[str, Node]:
@@ -1025,9 +1079,6 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             label = (payload.get("ActorFractie") or "").strip()
             if label:
                 stemming_labels.add(label)
-
-        def _acronym(name: str) -> str:
-            return "".join(w[0] for w in name.split() if w and w[0].isalpha()).upper()
 
         nodes: dict[str, Node] = {}
         by_label: dict[str, Node] = {}
@@ -1065,24 +1116,9 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             if not label:
                 continue
 
-            aliases: set[str] = set()
-            if afkorting:
-                aliases.add(afkorting)
-            if naam_nl:
-                aliases.add(naam_nl)
-            # Auto-acronym: NaamNL='Nieuw Sociaal Contract' → 'NSC'. Only
-            # accept the acronym if a stemming actually uses it (proves
-            # cross-endpoint identity); otherwise keep the alias set tight.
-            if naam_nl:
-                acro = _acronym(naam_nl)
-                if len(acro) >= 2 and acro in stemming_labels:
-                    aliases.add(acro)
-            # Accept any stemming label that key-sanitises to the same key
-            # (covers casing/whitespace variants).
-            target_key = make_node_key(label)
-            for sl in stemming_labels:
-                if make_node_key(sl) == target_key:
-                    aliases.add(sl)
+            aliases = self._build_fractie_aliases(
+                afkorting, naam_nl, label, stemming_labels
+            )
 
             props: dict[str, Any] = {
                 "external_id": external_id,
@@ -1178,7 +1214,11 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             )
             verwacht = _iso_date(payload.get("VerwachteAfhandeling"))
             raw_status = payload.get("Status") or "Openstaand"
-            status = _TOEZEGGING_STATUS_MAP.get(raw_status, "open")
+            status = _TOEZEGGING_STATUS_MAP.get(raw_status, "unknown")
+            if status == "unknown":
+                logger.warning(
+                    "Unknown toezegging status %r, defaulting to 'unknown'", raw_status
+                )
             activiteit_nummer = str(payload.get("ActiviteitNummer") or "")
             dossier_id = str(payload.get("KamerstukdossierId") or "")
 
@@ -1573,6 +1613,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         aql = """
         FOR doc IN publications
             FILTER doc.props.dossier_nummer != null
+            LIMIT 50000
             RETURN { _id: doc._id, dossier_nummer: doc.props.dossier_nummer }
         """
         edges = 0
@@ -1701,25 +1742,36 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         toezegging_nodes: dict[str, Node],
     ) -> int:
         edges = 0
+
+        # Bulk-fetch all activiteit IDs needed by this batch of toezeggingen in
+        # one query instead of one query per toezegging.
+        activiteit_nummers = {
+            node.props.get("activiteit_nummer")
+            for node in toezegging_nodes.values()
+            if node.props.get("activiteit_nummer")
+        }
+        activiteit_id_by_nummer: dict[str, str] = {}
+        if activiteit_nummers:
+            aql = """
+FOR act IN activiteiten
+  FILTER act.props.nummer IN @nummers
+  RETURN {nummer: act.props.nummer, id: act._id}
+"""
+            for row in self.store.query(aql, {"nummers": list(activiteit_nummers)}):
+                activiteit_id_by_nummer[row["nummer"]] = row["id"]
+
         for _external_id, toezegging_node in toezegging_nodes.items():
             if not toezegging_node.id:
                 continue
 
             activiteit_nummer = toezegging_node.props.get("activiteit_nummer") or ""
             if activiteit_nummer:
-                # Look up activiteit by its nummer field (e.g. "2024A05766")
-                aql = """
-FOR a IN activiteiten
-  FILTER a.props.nummer == @nummer
-  LIMIT 1
-  RETURN a._id
-"""
-                act_ids = list(self.store.query(aql, {"nummer": activiteit_nummer}))
-                if act_ids:
+                act_id = activiteit_id_by_nummer.get(activiteit_nummer)
+                if act_id:
                     try:
                         self.store.create_edge(
                             from_id=toezegging_node.id,
-                            to_id=act_ids[0],
+                            to_id=act_id,
                             relation=RELATION_GEDAAN_IN,
                             source="tk-dossiers",
                             status=EDGE_STATUS_CANONIEK,

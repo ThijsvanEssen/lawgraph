@@ -21,6 +21,8 @@ from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 
 logger = get_logger(__name__)
 
+_OPEN_ENDED_DATE = "9999-12-31"
+
 
 class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
     """Normalize all historical BWB toestanden into versioned article nodes.
@@ -112,7 +114,7 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
                 "bwb_id": bwb_id,
                 "valid_from": start_date,
                 "valid_until": end_date,
-                "current": end_date == "9999-12-31",
+                "current": end_date == _OPEN_ENDED_DATE,
                 "toestand_url": toestand_url,
             }
             version_node = Node(
@@ -158,7 +160,7 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
                     "article_number": article_number,
                     "valid_from": start_date,
                     "valid_until": end_date,
-                    "current": end_date == "9999-12-31",
+                    "current": end_date == _OPEN_ENDED_DATE,
                     "text": article_text,
                     "display_name": f"Artikel {article_number} {ct}".strip(),
                 }
