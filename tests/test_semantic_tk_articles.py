@@ -9,19 +9,20 @@ from lawgraph.pipelines.semantic.tk_articles import (
     TKArticleSemanticPipeline,
     detect_tk_citations,
 )
+from tests.conftest import _BaseFakeStore
 
 
-class FakeStore:
+class _FakeStore(_BaseFakeStore):
     def __init__(
         self,
         documents: list[dict[str, Any]],
         instruments: dict[str, dict[str, Any]],
         articles: dict[str, dict[str, Any]],
     ) -> None:
+        super().__init__()
         self._documents = documents
         self._instruments = instruments
         self._articles = articles
-        self.edges: dict[str, dict[str, Any]] = {}
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
         if "FOR doc IN publications" in aql:
@@ -130,7 +131,7 @@ def test_tk_pipeline_links_to_article_node() -> None:
     article = _make_article(
         article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
     )
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
@@ -156,7 +157,7 @@ def test_tk_pipeline_links_to_celex_instrument() -> None:
     doc = _make_tk_document("tk-2", text)
     celex_key = make_node_key("32019L1158")
     instrument = _make_instrument(celex_key, {"celex": "32019L1158"})
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={celex_key: instrument},
         articles={},
@@ -177,7 +178,7 @@ def test_tk_pipeline_links_named_act_to_instrument() -> None:
     instrument = _make_instrument(
         instr_key, {"bwb_id": "BWBR0001854", "title": "Wetboek van Strafrecht"}
     )
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={instr_key: instrument},
         articles={},
@@ -195,7 +196,7 @@ def test_tk_pipeline_idempotent_edges() -> None:
     article = _make_article(
         article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
     )
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(

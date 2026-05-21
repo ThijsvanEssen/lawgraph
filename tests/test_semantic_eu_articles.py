@@ -10,6 +10,7 @@ from lawgraph.pipelines.semantic.eu_articles import (
     EUArticleSemanticPipeline,
     detect_eu_citations,
 )
+from tests.conftest import _BaseFakeStore
 
 
 def _make_instrument(
@@ -37,17 +38,17 @@ def _make_bwb_article(key: str, article_props: dict[str, Any]) -> dict[str, Any]
     }
 
 
-class FakeStore:
+class _FakeStore(_BaseFakeStore):
     def __init__(
         self,
         documents: list[dict[str, Any]],
         instruments: dict[str, dict[str, Any]],
         articles: dict[str, dict[str, Any]],
     ) -> None:
+        super().__init__()
         self._documents = documents
         self._instruments = instruments
         self._articles = articles
-        self.edges: dict[str, dict[str, Any]] = {}
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
         if "FOR inst IN instruments" in aql:
@@ -106,7 +107,7 @@ def test_eu_pipeline_links_celex_target() -> None:
         source_key, html="<p>Implementing act under CELEX:32019L1158</p>"
     )
     target_doc = _make_instrument(target_key, celex="32019L1158")
-    store = FakeStore(
+    store = _FakeStore(
         documents=[source_doc],
         instruments={target_key: target_doc},
         articles={},
@@ -134,7 +135,7 @@ def test_eu_pipeline_links_bwb_article() -> None:
     sr_doc = _make_instrument(sr_key, celex=None)
     sr_doc["props"]["bwb_id"] = "BWBR0001854"
     sr_doc["props"]["short_title"] = "Sr"
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={sr_key: sr_doc},
         articles={article_key: article_doc},
@@ -154,7 +155,7 @@ def test_eu_pipeline_idempotent_edges() -> None:
     )
     target_key = make_node_key("32019L1158")
     target_doc = _make_instrument(target_key, celex="32019L1158")
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={target_key: target_doc},
         articles={},

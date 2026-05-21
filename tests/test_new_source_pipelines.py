@@ -15,7 +15,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult
 # ---------------------------------------------------------------------------
 
 
-class FakeStore:
+class _FakeStore:
     def __init__(self) -> None:
         self.upserted: list[Node] = []
 
@@ -59,7 +59,7 @@ _STB_XML = """<?xml version="1.0"?>
 def test_staatsblad_normalize_creates_publication():
     from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("stb-2015-134", payload_text=_STB_XML)], PipelineResult())
 
@@ -74,7 +74,7 @@ def test_staatsblad_normalize_creates_publication():
 def test_staatsblad_normalize_skips_empty_payload():
     from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("stb-2020-1", payload_text="")], PipelineResult())
     assert len(nodes) == 0
@@ -99,7 +99,7 @@ def test_staatscourant_normalize_creates_publication():
         StaatscourantNormalizePipeline,
     )
 
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("stcrt-2020-55", payload_text=_STCRT_XML)], PipelineResult())
 
@@ -115,7 +115,7 @@ def test_staatscourant_normalize_skips_empty_payload():
         StaatscourantNormalizePipeline,
     )
 
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("stcrt-2020-55", payload_text="")], PipelineResult())
     assert len(nodes) == 0
@@ -141,7 +141,7 @@ _ECHR_PAYLOAD = {
 def test_echr_normalize_creates_judgment():
     from lawgraph.pipelines.normalize.echr import EchrNormalizePipeline
 
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = EchrNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("001-12345", payload_json=_ECHR_PAYLOAD)], PipelineResult())
 
@@ -156,7 +156,7 @@ def test_echr_normalize_creates_judgment():
 def test_echr_normalize_skips_empty_payload():
     from lawgraph.pipelines.normalize.echr import EchrNormalizePipeline
 
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = EchrNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("x", payload_json=None)], PipelineResult())
     assert len(nodes) == 0
@@ -184,7 +184,7 @@ def test_verdragenbank_normalize_creates_instrument():
         VerdragenbankNormalizePipeline,
     )
 
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("12345", payload_json=_VERDRAG_PAYLOAD)], PipelineResult())
 
@@ -206,7 +206,7 @@ def test_verdragenbank_normalize_multilateral():
         "treaty_type": "multilateral",
         "uri": "https://vb/99",
     }
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("99", payload_json=payload)], PipelineResult())
 
@@ -235,7 +235,7 @@ _EK_PAYLOAD = {
 def test_eerstekamer_normalize_creates_publication():
     from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
 
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = EerstekamerNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("ek-stuk-abc123", payload_json=_EK_PAYLOAD)], PipelineResult())
 
@@ -249,7 +249,7 @@ def test_eerstekamer_normalize_creates_publication():
 def test_eerstekamer_normalize_skips_missing_id():
     from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
 
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = EerstekamerNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("", payload_json={})], PipelineResult())
     assert len(nodes) == 0

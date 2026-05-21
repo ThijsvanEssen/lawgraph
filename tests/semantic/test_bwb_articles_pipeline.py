@@ -7,12 +7,13 @@ from typing import Any
 from lawgraph.config.constants import RELATION_REFERS_TO_ARTICLE
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.bwb_articles import BwbArticlesSemanticPipeline
+from tests.conftest import _BaseFakeStore
 
 
-class FakeStore:
+class _FakeStore(_BaseFakeStore):
     def __init__(self, articles: dict[str, dict[str, Any]]) -> None:
+        super().__init__()
         self._articles = articles
-        self.edges: dict[str, dict[str, Any]] = {}
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
         # Return distinct bwb_ids when asked (for _load_bwb_ids_from_graph)
@@ -100,7 +101,7 @@ def _create_pipeline(
 def test_pipeline_creates_refers_to_edges() -> None:
     source_key = make_node_key("BWBR0001854", "1")
     target_key = make_node_key("BWBR0001854", "24c")
-    store = FakeStore(
+    store = _FakeStore(
         articles={
             source_key: _make_article(
                 source_key,
@@ -131,7 +132,7 @@ def test_pipeline_creates_refers_to_edges() -> None:
 def test_pipeline_is_idempotent() -> None:
     source_key = make_node_key("BWBR0001854", "1")
     target_key = make_node_key("BWBR0001854", "24c")
-    store = FakeStore(
+    store = _FakeStore(
         articles={
             source_key: _make_article(
                 source_key,
@@ -160,7 +161,7 @@ def test_pipeline_is_idempotent() -> None:
 def test_pipeline_stores_citations_when_requested() -> None:
     source_key = make_node_key("BWBR0001854", "10")
     target_key = make_node_key("BWBR0001854", "15")
-    store = FakeStore(
+    store = _FakeStore(
         articles={
             source_key: _make_article(
                 source_key,

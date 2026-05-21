@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
 from lawgraph.pipelines.retrieve import RetrieveSourcesPipeline
 
 
-class FakeStore:
+class _FakeStore:
     """Minimal store that records raw documents instead of writing to Arango."""
 
     def __init__(self) -> None:
@@ -86,7 +86,7 @@ class FakeEUClient:
 
 
 def test_dump_tk_writes_expected_raw_documents() -> None:
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = RetrieveSourcesPipeline(
         store=store,
         tk_client=FakeTKClient(),
@@ -106,7 +106,7 @@ def test_dump_tk_writes_expected_raw_documents() -> None:
 
 
 def test_dump_rechtspraak_index_writes_single_raw_document() -> None:
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = RetrieveSourcesPipeline(
         store=store,
         tk_client=FakeTKClient(),
@@ -126,7 +126,7 @@ def test_dump_rechtspraak_index_writes_single_raw_document() -> None:
 
 
 def test_dump_eurlex_celex_list_writes_one_document_per_celex() -> None:
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = RetrieveSourcesPipeline(
         store=store,
         tk_client=FakeTKClient(),

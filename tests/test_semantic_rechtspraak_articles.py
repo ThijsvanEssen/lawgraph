@@ -8,19 +8,20 @@ from lawgraph.pipelines.semantic.rechtspraak_articles import (
     RechtspraakArticleSemanticPipeline,
     detect_article_references,
 )
+from tests.conftest import _BaseFakeStore
 
 
-class FakeStore:
+class _FakeStore(_BaseFakeStore):
     def __init__(
         self,
         judgments: list[dict[str, Any]],
         articles: dict[str, dict[str, Any]],
         instruments: list[dict[str, Any]] | None = None,
     ) -> None:
+        super().__init__()
         self._judgments = judgments
         self._articles = articles
         self._instruments = instruments or []
-        self.edges: dict[str, dict[str, Any]] = {}
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
         if "FOR doc IN judgments" in aql:
@@ -105,7 +106,7 @@ def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
         "bwb_id": "BWBR0001854",
         "celex": None,
     }
-    store = FakeStore(
+    store = _FakeStore(
         judgments=[judgment_doc],
         articles={article_doc["_key"]: article_doc},
         instruments=[instrument_row],

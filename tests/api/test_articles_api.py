@@ -3,11 +3,9 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import ArticleCitationEntry, ArticleDetailData
 
 client = TestClient(app)
-app.dependency_overrides[get_store] = lambda: None
 
 _ARTICLE_DOC = {
     "_id": "instrument_articles/BWBR0001854-287",
@@ -38,20 +36,19 @@ _JUDGMENT_DOC = {
 }
 
 
-def _build_payload() -> ArticleDetailData:
-    return ArticleDetailData(
-        article=_ARTICLE_DOC,
-        instrument=_INSTRUMENT_DOC,
-        judgments=[_JUDGMENT_DOC],
-        metadata={"judgment_count": 1},
-    )
+_PAYLOAD = ArticleDetailData(
+    article=_ARTICLE_DOC,
+    instrument=_INSTRUMENT_DOC,
+    judgments=[_JUDGMENT_DOC],
+    metadata={"judgment_count": 1},
+)
 
 
 def test_get_article_detail_returns_expected_fields(monkeypatch):
     """Verifiëren dat het artikel endpoint de summarisatievelden teruggeeft."""
     monkeypatch.setattr(
         "lawgraph.api.routes.articles.get_article_with_relations",
-        lambda store, bwb_id, article_number: _build_payload(),
+        lambda store, bwb_id, article_number: _PAYLOAD,
     )
     monkeypatch.setattr(
         "lawgraph.api.routes.articles.get_article_citations",
@@ -86,7 +83,7 @@ def test_get_article_detail_exposes_citations(monkeypatch):
     """Controleren dat gevonden referenties via REFERS_TO_ARTICLE terugkomen."""
     monkeypatch.setattr(
         "lawgraph.api.routes.articles.get_article_with_relations",
-        lambda store, bwb_id, article_number: _build_payload(),
+        lambda store, bwb_id, article_number: _PAYLOAD,
     )
     citation_target = {
         "_id": "instrument_articles/BWBR0001854-24c",
