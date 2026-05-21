@@ -6,15 +6,15 @@ import datetime as dt
 import re
 from typing import Callable, Iterable, Literal
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_INSTRUMENTS,
     RELATION_MENTIONS_ARTICLE,
     RELATION_MENTIONS_INSTRUMENT,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.utils.time import describe_since
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import describe_since
 
 from .base import SemanticPipelineBase
 from .citation_detect import (
@@ -34,6 +34,14 @@ CodeMapping = dict[str, str]
 SEMANTIC_SOURCE = "eu-article-linker"
 
 _MAX_TEXT_LENGTH = 200_000
+
+_CONFIDENCE_ARTICLE_EXACT = (
+    0.85  # article match via directive/regulation + year + number
+)
+_CONFIDENCE_CELEX_EXACT = 0.90  # CELEX ID literal in text
+_CONFIDENCE_DIRECTIVE_YEAR = 0.70  # directive/regulation matched via year + number only
+_CONFIDENCE_BWB_ALIAS = 0.95  # "artikel X Sr/Sv/BW" via known short alias
+_CONFIDENCE_BWB_ID = 0.70  # bare BWBR number in text
 
 _CELEX_PATTERN = re.compile(r"\bCELEX:([0-9A-Z()\\/\.\-]+)\b", re.IGNORECASE)
 _RICHTLIJN_PATTERN = re.compile(
@@ -73,20 +81,35 @@ def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHi
         hits.append(hit)
 
     _collect_article_matches(
-        text, _ARTICLE_WITH_DIRECTIVE_PATTERN, "directive", 0.85, _record
+        text,
+        _ARTICLE_WITH_DIRECTIVE_PATTERN,
+        "directive",
+        _CONFIDENCE_ARTICLE_EXACT,
+        _record,
     )
     _collect_article_matches(
-        text, _ARTICLE_WITH_REGULATION_PATTERN, "regulation", 0.85, _record
+        text,
+        _ARTICLE_WITH_REGULATION_PATTERN,
+        "regulation",
+        _CONFIDENCE_ARTICLE_EXACT,
+        _record,
     )
-    _collect_celex_hits(text, _CELEX_PATTERN, "instrument", 0.9, _record)
     _collect_celex_hits(
-        text, _RICHTLIJN_PATTERN, "instrument", 0.7, _record, directive_kind="directive"
+        text, _CELEX_PATTERN, "instrument", _CONFIDENCE_CELEX_EXACT, _record
+    )
+    _collect_celex_hits(
+        text,
+        _RICHTLIJN_PATTERN,
+        "instrument",
+        _CONFIDENCE_DIRECTIVE_YEAR,
+        _record,
+        directive_kind="directive",
     )
     _collect_celex_hits(
         text,
         _VERORDENING_PATTERN,
         "instrument",
-        0.7,
+        _CONFIDENCE_DIRECTIVE_YEAR,
         _record,
         directive_kind="regulation",
     )
@@ -165,7 +188,7 @@ def _collect_bwb_alias_hits(
                 kind="article",
                 bwb_id=bwb_id,
                 article_number=article_number.strip(),
-                confidence=0.95,
+                confidence=_CONFIDENCE_BWB_ALIAS,
                 raw_match=match.group(0),
                 snippet=make_snippet(text, match.span()),
             )
@@ -184,7 +207,7 @@ def _collect_bwb_hits(
             CitationHit(
                 kind="instrument",
                 bwb_id=bwb_id.upper(),
-                confidence=0.7,
+                confidence=_CONFIDENCE_BWB_ID,
                 raw_match=match.group(0),
                 snippet=make_snippet(text, match.span()),
             )
@@ -197,7 +220,7 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Inspect EU instruments for referenced articles and persist semantic edges."""
         result = PipelineResult()
-        from lawgraph.utils.time import iso_timestamp
+        from lawgraph.core.time import iso_timestamp
 
         since_iso = iso_timestamp(since)
         documents = list(self._load_eu_documents(since_iso=since_iso))
@@ -260,7 +283,7 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
         # Scan EU instrument *articles* — their props.text contains the actual
         # directive body, which is where cross-references to other articles live.
         if since_iso is not None:
-            from lawgraph.config.settings import SOURCE_EURLEX
+            from lawgraph.config.constants import SOURCE_EURLEX
 
             recent_celex: set[str] = set()
             aql = """

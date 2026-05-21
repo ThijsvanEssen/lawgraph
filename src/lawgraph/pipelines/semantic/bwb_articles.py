@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, Iterable
 
 from lawgraph.config.constants import (
@@ -33,7 +34,7 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
         super().__init__(store=store)
         self._store_citations = store_citations
 
-    def run(self, *, since: Any = None) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Create semantic edges for article references detected inside BWB articles."""
         result = PipelineResult()
         code_aliases = self._load_code_aliases()
@@ -158,9 +159,9 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
                 if isinstance(row, str):
                     recent_ids.add(row)
                 elif isinstance(row, dict):
-                    b = row.get("meta", {}).get("bwb_id")
-                    if b:
-                        recent_ids.add(str(b))
+                    bwb_id_value = row.get("meta", {}).get("bwb_id")
+                    if bwb_id_value:
+                        recent_ids.add(str(bwb_id_value))
             # Intersect with known bwb_ids
             filtered_ids = [bid for bid in bwb_ids if bid in recent_ids]
             if not filtered_ids:

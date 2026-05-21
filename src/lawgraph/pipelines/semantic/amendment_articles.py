@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Iterable
+from typing import Any, Iterable
 
 from lawgraph.config.constants import (
     BWB_ID_PREFIX,
@@ -149,7 +149,7 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
             since,
         )
 
-        edge_batch: list[dict] = []
+        edge_batch: list[dict[str, Any]] = []
         doc_count = 0
 
         for document in self._load_tk_publications(since=since):

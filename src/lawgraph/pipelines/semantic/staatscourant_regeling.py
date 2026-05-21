@@ -13,13 +13,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     RELATION_EXPLAINS_INSTRUMENT,
     SOURCE_STAATSCOURANT,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, PipelineResult
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult
 
 from .base import SemanticPipelineBase
 
@@ -27,6 +27,12 @@ logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "staatscourant-regeling-linker"
 _BWBR_PATTERN = re.compile(r"\b(BWBR0\d{6})\b", re.IGNORECASE)
+
+_CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
+    "bwb_id": 0.92,
+    "title": 0.65,
+    "text_scan": 0.75,
+}
 
 
 class StaatscourantRegelingSemanticPipeline(SemanticPipelineBase):
@@ -111,9 +117,10 @@ FOR pub IN publications
                 continue
             seen.add(pair)
 
-            confidence = {"bwb_id": 0.92, "title": 0.65, "text_scan": 0.75}.get(
-                match_type, 0.60
-            )
+            assert (
+                match_type in _CONFIDENCE_BY_MATCH_TYPE
+            ), f"Unknown match_type: {match_type!r}"
+            confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
             pub_node = Node(
                 collection=pub_id.split("/")[0],
@@ -153,6 +160,7 @@ FOR pub IN publications
 FOR pub IN publications
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 100
+  LIMIT 5000
   RETURN { pub_id: pub._id, pub_key: pub._key, text: pub.props.text }
 """
         results: list[dict[str, Any]] = []

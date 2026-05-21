@@ -12,6 +12,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_PUBLICATIONS,
     RELATION_LICHT_TOE,
     RELATION_RAAKT,
     RELATION_RESULTED_IN,
@@ -129,7 +130,7 @@ FOR pub IN publications
                 continue
 
             pub_node = Node(
-                collection="publications",
+                collection=COLLECTION_PUBLICATIONS,
                 type=NodeType.PUBLICATION,
                 key=pub_key,
                 props={},

@@ -19,6 +19,11 @@ logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "staatsblad-nvt-linker"
 
+_CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
+    "bwb_id": 0.85,
+    "title": 0.60,
+}
+
 
 class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking Staatsblad NvT publications to BWB instruments via EXPLAINS_INSTRUMENT."""
@@ -100,7 +105,10 @@ FOR pub IN publications
                 continue
             seen.add(pair)
 
-            confidence = 0.85 if match_type == "bwb_id" else 0.60
+            assert (
+                match_type in _CONFIDENCE_BY_MATCH_TYPE
+            ), f"Unknown match_type: {match_type!r}"
+            confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
             pub_collection = collection_from_id(pub_id, COLLECTION_PUBLICATIONS)
             inst_collection = collection_from_id(inst_id, COLLECTION_INSTRUMENTS)

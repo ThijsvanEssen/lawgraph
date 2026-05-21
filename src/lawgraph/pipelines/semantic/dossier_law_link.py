@@ -13,19 +13,25 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_KAMERSTUKDOSSIERS,
+    RELATION_RAAKT,
     RELATION_RESULTED_IN,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, PipelineResult
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult
 
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "dossier-law-linker"
+
+_CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
+    "citation_title": 0.90,
+    "raakt_title": 0.65,
+}
 
 
 class DossierLawLinkPipeline(SemanticPipelineBase):
@@ -42,6 +48,7 @@ FOR dos IN kamerstukdossiers
   FOR inst IN instruments
     FILTER inst.props.citation_title != null
     FILTER LOWER(TRIM(dos.props.titel)) == LOWER(TRIM(inst.props.citation_title))
+    LIMIT 1000
     RETURN {
       dos_id: dos._id,
       dos_key: dos._key,
@@ -57,7 +64,7 @@ FOR dos IN kamerstukdossiers
   FILTER dos.props.afgedaan == true OR dos.props.outcome == 'aangenomen'
   FILTER dos.props.titel != null AND LENGTH(dos.props.titel) > 5
   FOR e IN edges
-    FILTER e._from == dos._id AND e.relation == 'RAAKT'
+    FILTER e._from == dos._id AND e.relation == @raakt
     FOR inst IN instruments
       FILTER inst._id == e._to
       FILTER inst.props.bwb_id != null
@@ -65,6 +72,7 @@ FOR dos IN kamerstukdossiers
           OR (inst.props.title != null AND CONTAINS(
                   LOWER(dos.props.titel), LOWER(SPLIT(inst.props.title, '(')[0])
               ))
+      LIMIT 1000
       RETURN {
         dos_id: dos._id,
         dos_key: dos._key,
@@ -75,9 +83,10 @@ FOR dos IN kamerstukdossiers
 """
 
         rows: list[dict[str, Any]] = []
-        for aql in (aql_cite, aql_raakt):
+        raakt_vars: dict[str, Any] = {"raakt": RELATION_RAAKT}
+        for aql, bvars in ((aql_cite, None), (aql_raakt, raakt_vars)):
             try:
-                rows.extend(self.store.query(aql))
+                rows.extend(self.store.query(aql, bvars))
             except Exception as exc:
                 logger.warning("DossierLawLink semantic query failed: %s", exc)
 
@@ -109,7 +118,10 @@ FOR dos IN kamerstukdossiers
                 continue
             seen.add(pair)
 
-            confidence = 0.90 if match_type == "citation_title" else 0.65
+            assert (
+                match_type in _CONFIDENCE_BY_MATCH_TYPE
+            ), f"Unknown match_type: {match_type!r}"
+            confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
             dos_node = Node(
                 collection=COLLECTION_KAMERSTUKDOSSIERS,

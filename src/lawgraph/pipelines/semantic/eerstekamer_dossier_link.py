@@ -13,14 +13,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_KAMERSTUKDOSSIERS,
     COLLECTION_PUBLICATIONS,
     RELATION_DEEL_VAN_DOSSIER,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, PipelineResult
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult
 
 from .base import SemanticPipelineBase
 
@@ -36,10 +36,12 @@ class EerstekamerDossierLinkPipeline(SemanticPipelineBase):
         result = PipelineResult()
 
         # EK stukken that have a dossier_nummer
-        aql = """
+        since_filter = "FILTER pub.props.fetched_at >= @since" if since else ""
+        aql = f"""
 FOR pub IN publications
   FILTER pub.props.source == @source
   FILTER pub.props.dossier_nummer != null
+  {since_filter}
   LET dos = FIRST(
     FOR d IN kamerstukdossiers
       FILTER TO_STRING(d.props.nummer) == TO_STRING(pub.props.dossier_nummer)
@@ -48,14 +50,20 @@ FOR pub IN publications
       RETURN d
   )
   FILTER dos != null
-  RETURN {
+  LIMIT 10000
+  RETURN {{
     pub_id: pub._id, pub_key: pub._key,
     dos_id: dos._id, dos_key: dos._key,
     dossier_nummer: pub.props.dossier_nummer
-  }
+  }}
 """
+        bind_vars: dict[str, Any] = {"source": SOURCE_EERSTEKAMER}
+        if since:
+            bind_vars["since"] = (
+                since.isoformat() if hasattr(since, "isoformat") else str(since)
+            )
         try:
-            rows = list(self.store.query(aql, {"source": SOURCE_EERSTEKAMER}))
+            rows = list(self.store.query(aql, bind_vars))
         except Exception as exc:
             logger.warning("EK dossier link query failed: %s", exc)
             return result

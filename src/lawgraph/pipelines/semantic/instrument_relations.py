@@ -304,34 +304,6 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
                         result.updated += updated
                         edge_batch = []
 
-        # Second pass: explicit profile-level implements mappings (nl_id → eu_celex).
-        # (No profile config — this pass is a no-op; kept for future extension.)
-        entries: list[dict[str, Any]] = []
-        for entry in entries:
-            nl_id = entry.get("nl_id")
-            eu_celex = entry.get("eu_celex")
-            if not nl_id or not eu_celex:
-                continue
-            nl_node = self.store.get_node(COLLECTION_INSTRUMENTS, make_node_key(nl_id))
-            eu_node = self._resolve_instrument(celex=eu_celex)
-            if not nl_node or not eu_node:
-                continue
-            edge_doc = self._make_edge_doc(
-                from_node=nl_node,
-                to_node=eu_node,
-                relation=RELATION_IMPLEMENTS_DIRECTIVE,
-                source="profile-implements",
-                confidence=1.0,
-                meta={"celex": eu_celex},
-            )
-            if edge_doc:
-                edge_batch.append(edge_doc)
-                if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                    created, updated = self._flush_edge_batch(edge_batch, result)
-                    result.created += created
-                    result.updated += updated
-                    edge_batch = []
-
         if edge_batch:
             created, updated = self._flush_edge_batch(edge_batch, result)
             result.created += created

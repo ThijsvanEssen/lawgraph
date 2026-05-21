@@ -552,15 +552,31 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
                 fragments.append(snippet)
                 current_length += len(snippet)
         elif isinstance(value, dict):
-            for child in value.values():
-                current_length = self._collect_raw_text(
-                    child, fragments, current_length
-                )
-                if current_length >= _MAX_TEXT_LENGTH:
-                    break
+            current_length = self._collect_from_dict(value, fragments, current_length)
         elif isinstance(value, list):
-            for item in value:
-                current_length = self._collect_raw_text(item, fragments, current_length)
-                if current_length >= _MAX_TEXT_LENGTH:
-                    break
+            current_length = self._collect_from_list(value, fragments, current_length)
+        return current_length
+
+    def _collect_from_dict(
+        self,
+        value: dict[str, Any],
+        fragments: list[str],
+        current_length: int,
+    ) -> int:
+        for child in value.values():
+            current_length = self._collect_raw_text(child, fragments, current_length)
+            if current_length >= _MAX_TEXT_LENGTH:
+                break
+        return current_length
+
+    def _collect_from_list(
+        self,
+        value: list[Any],
+        fragments: list[str],
+        current_length: int,
+    ) -> int:
+        for item in value:
+            current_length = self._collect_raw_text(item, fragments, current_length)
+            if current_length >= _MAX_TEXT_LENGTH:
+                break
         return current_length
