@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.clients.base import BaseClient
@@ -45,16 +45,6 @@ class TKClient(BaseClient):
         value = value.replace(microsecond=0, tzinfo=None)
         return value.isoformat() + "Z"
 
-    def _paged_get(  # type: ignore[override]
-        self, path: str, *, params: dict | None = None
-    ) -> Iterator[dict[str, Any]]:
-        return super()._paged_get(
-            path,
-            params=params,
-            result_key="value",
-            next_link_key="@odata.nextLink",
-        )
-
     def _skip_paged_get(
         self,
         path: str,
@@ -84,7 +74,7 @@ class TKClient(BaseClient):
     def zaken_modified_since(
         self,
         since: dt.datetime,
-        top: int = 100,
+        top: int | None = 100,
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
     ) -> list[dict]:
@@ -94,7 +84,7 @@ class TKClient(BaseClient):
         if keywords and keyword_fields:
             odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
         params: dict[str, Any] = {"$filter": odata_filter}
-        if top:
+        if top is not None:
             params["$top"] = top
         logger.info("Fetching Zaak modified since %s", since_string)
         return list(self._paged_get("Zaak", params=params))
@@ -102,7 +92,7 @@ class TKClient(BaseClient):
     def documents_modified_since(
         self,
         since: dt.datetime,
-        top: int = 100,
+        top: int | None = 100,
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
     ) -> list[dict]:
@@ -112,7 +102,7 @@ class TKClient(BaseClient):
         if keywords and keyword_fields:
             odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
         params: dict[str, Any] = {"$filter": odata_filter, "$expand": "Zaak"}
-        if top:
+        if top is not None:
             params["$top"] = top
         logger.info("Fetching Document modified since %s", since_string)
         return list(self._paged_get("Document", params=params))

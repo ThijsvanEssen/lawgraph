@@ -8,7 +8,9 @@ from typing import Any, Iterable
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
     RELATION_REFERS_TO_ARTICLE,
+    SOURCE_BWB,
 )
+from lawgraph.core.time import iso_timestamp
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.pipelines.semantic.bwb_detect import (
@@ -45,8 +47,6 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
                 "No BWB IDs found in graph for semantic linking; skipping detection."
             )
             return result
-
-        from lawgraph.core.time import iso_timestamp
 
         since_iso = iso_timestamp(since) if since is not None else None
         articles = list(self._load_articles(bwb_ids, since_iso=since_iso))
@@ -141,8 +141,6 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
         if not bwb_ids:
             return
         if since_iso is not None:
-            from lawgraph.config.constants import SOURCE_BWB
-
             # Get recently fetched BWB IDs from raw_sources
             recent_bwb_ids_aql = """
             FOR raw IN raw_sources
@@ -158,10 +156,6 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
             ):
                 if isinstance(row, str):
                     recent_ids.add(row)
-                elif isinstance(row, dict):
-                    bwb_id_value = row.get("meta", {}).get("bwb_id")
-                    if bwb_id_value:
-                        recent_ids.add(str(bwb_id_value))
             # Intersect with known bwb_ids
             filtered_ids = [bid for bid in bwb_ids if bid in recent_ids]
             if not filtered_ids:

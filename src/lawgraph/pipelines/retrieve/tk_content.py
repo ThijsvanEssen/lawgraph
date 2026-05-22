@@ -19,9 +19,9 @@ from io import BytesIO
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 logger = get_logger(__name__)
 
@@ -44,7 +44,7 @@ def _extract_pdf_text(content: bytes) -> str | None:
 
         text = extract_text(BytesIO(content)).strip()
         return text if text else None
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.debug("PDF text extraction failed: %s", exc)
         return None
 
@@ -140,7 +140,7 @@ class TKTextHydratePipeline:
         try:
             logger.info("Fetching %s — %s", external_id, title[:80])
             content = self.tk.fetch_document_bytes(external_id)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Failed to fetch %s: %s", external_id, exc)
             result.errors.append(f"{external_id}: fetch failed — {exc}")
             return

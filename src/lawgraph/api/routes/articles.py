@@ -22,9 +22,10 @@ from lawgraph.api.schemas import (
     JudgmentSummaryDTO,
     LegislativeHistoryEntry,
 )
+from lawgraph.config.constants import COLLECTION_INSTRUMENT_ARTICLES
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import make_node_key, parse_arango_id
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import make_node_key
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -41,7 +42,7 @@ logger = get_logger(__name__)
     ),
     tags=["articles"],
 )
-async def get_article_detail(
+def get_article_detail(
     bwb_id: str,
     article_number: str,
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -99,8 +100,10 @@ def get_legislative_history(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleLegislativeHistoryResponse:
     article_key = make_node_key(bwb_id, article_number)
-    article_id = f"instrument_articles/{article_key}"
-    raw_entries = get_article_legislative_history(store, bwb_id, article_number)
+    article_id = f"{COLLECTION_INSTRUMENT_ARTICLES}/{article_key}"
+    raw_entries = get_article_legislative_history(
+        store, bwb_id, article_number, article_id=article_id
+    )
     entries = [LegislativeHistoryEntry(**e) for e in raw_entries]
     return ArticleLegislativeHistoryResponse(
         article_id=article_id,
@@ -126,8 +129,8 @@ def get_in_flux(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleInFluxResponse:
     article_key = make_node_key(bwb_id, article_number)
-    article_id = f"instrument_articles/{article_key}"
-    result = get_article_in_flux(store, bwb_id, article_number)
+    article_id = f"{COLLECTION_INSTRUMENT_ARTICLES}/{article_key}"
+    result = get_article_in_flux(store, bwb_id, article_number, article_id=article_id)
     return ArticleInFluxResponse(
         article_id=article_id,
         in_flux=result.get("in_flux", False),
@@ -137,7 +140,7 @@ def get_in_flux(
 
 def _build_article_citation_target(doc: dict[str, Any]) -> ArticleCitationTarget:
     props = doc.get("props") or {}
-    collection = doc["_id"].split("/", 1)[0] if "/" in doc["_id"] else doc["_id"]
+    collection = parse_arango_id(doc["_id"])[0]
     return ArticleCitationTarget(
         id=doc["_id"],
         key=doc["_key"],

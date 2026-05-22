@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Sequence
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     RAW_KIND_EU_CELEX,
     RAW_KIND_RS_INDEX,
     RAW_KIND_TK_DOCUMENTVERSIE,
@@ -15,7 +15,7 @@ from lawgraph.config.settings import (
 from lawgraph.pipelines.retrieve import RetrieveSourcesPipeline
 
 
-class FakeStore:
+class _FakeStore:
     """Minimal store that records raw documents instead of writing to Arango."""
 
     def __init__(self) -> None:
@@ -69,7 +69,7 @@ class FakeTKClient:
 
 
 class FakeRechtspraakClient:
-    def search_ecli_index(
+    def fetch_ecli_index_xml(
         self,
         modified_since: dt.datetime | None = None,
         extra_params: dict | None = None,
@@ -86,7 +86,7 @@ class FakeEUClient:
 
 
 def test_dump_tk_writes_expected_raw_documents() -> None:
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = RetrieveSourcesPipeline(
         store=store,
         tk_client=FakeTKClient(),
@@ -106,7 +106,7 @@ def test_dump_tk_writes_expected_raw_documents() -> None:
 
 
 def test_dump_rechtspraak_index_writes_single_raw_document() -> None:
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = RetrieveSourcesPipeline(
         store=store,
         tk_client=FakeTKClient(),
@@ -126,7 +126,7 @@ def test_dump_rechtspraak_index_writes_single_raw_document() -> None:
 
 
 def test_dump_eurlex_celex_list_writes_one_document_per_celex() -> None:
-    store = FakeStore()
+    store = _FakeStore()
     pipeline = RetrieveSourcesPipeline(
         store=store,
         tk_client=FakeTKClient(),

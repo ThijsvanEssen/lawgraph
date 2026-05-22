@@ -80,6 +80,10 @@ class RetrieveCtx:
     def since_arg(self) -> list[str]:
         return ["--since-days", str(self.since_days)]
 
+    def as_argv(self) -> list[str]:
+        """Return combined [--mode, <mode>, --since-days, <days>] argv."""
+        return [*self.mode_arg, *self.since_arg]
+
 
 @dataclass(frozen=True)
 class SourceDescriptor:
@@ -131,6 +135,20 @@ def _version_causes_extra_kwargs(args: argparse.Namespace) -> dict:
     return {"window_days": args.window_days}
 
 
+# ── Shared retrieve-argv builder helpers ─────────────────────────────────
+
+
+def _no_argv(ctx: RetrieveCtx) -> list[str]:
+    return []
+
+
+def _mode_only_argv(ctx: RetrieveCtx) -> list[str]:
+    return [*ctx.mode_arg]
+
+
+_NO_ARGV: Callable[[RetrieveCtx], list[str]] = _no_argv
+_MODE_ONLY_ARGV: Callable[[RetrieveCtx], list[str]] = _mode_only_argv
+
 # ── Named retrieve-argv builders for complex argv shapes ─────────────────
 
 
@@ -172,7 +190,7 @@ def _register_tk() -> list[SourceDescriptor]:
             id="tk",
             display_name="Tweede Kamer (zaken & documenten)",
             retrieve_main=retrieve_tk,
-            retrieve_argv_builder=lambda ctx: [*ctx.mode_arg, *ctx.since_arg],
+            retrieve_argv_builder=RetrieveCtx.as_argv,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_TK",
             normalize_main=normalize,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_TK",
@@ -209,7 +227,7 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
             id="rechtspraak",
             display_name="Rechtspraak (uitspraken)",
             retrieve_main=retrieve_rechtspraak,
-            retrieve_argv_builder=lambda ctx: [*ctx.mode_arg, *ctx.since_arg],
+            retrieve_argv_builder=RetrieveCtx.as_argv,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_RECHTSPRAAK",
             normalize_main=normalize,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_RECHTSPRAAK",
@@ -236,12 +254,12 @@ def _register_eurlex() -> list[SourceDescriptor]:
             id="eurlex",
             display_name="EUR-Lex (EU-wetgeving)",
             retrieve_main=retrieve_eurlex,
-            retrieve_argv_builder=lambda ctx: [*ctx.mode_arg],
+            retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_EURLEX",
             normalize_main=normalize,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_EURLEX",
             semantic_main=semantic,
-            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_EU",
+            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_EURLEX",
             supports_full_load=True,
         ),
     ]
@@ -273,7 +291,7 @@ def _register_bwb() -> list[SourceDescriptor]:
             id="bwb",
             display_name="BWB (Nederlandse wetgeving)",
             retrieve_main=retrieve_bwb,
-            retrieve_argv_builder=lambda ctx: [*ctx.mode_arg],
+            retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_BWB",
             normalize_main=normalize,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_BWB",
@@ -312,7 +330,7 @@ def _register_staatsblad() -> list[SourceDescriptor]:
             id="staatsblad",
             display_name="Staatsblad (NvT voor AMvBs)",
             retrieve_main=retrieve_staatsblad,
-            retrieve_argv_builder=lambda ctx: [],
+            retrieve_argv_builder=_NO_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_STAATSBLAD",
             normalize_main=normalize,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_STAATSBLAD",
@@ -337,12 +355,12 @@ def _register_staatscourant() -> list[SourceDescriptor]:
             id="staatscourant",
             display_name="Staatscourant (ministeriele regelingen)",
             retrieve_main=retrieve_staatscourant,
-            retrieve_argv_builder=lambda ctx: [*ctx.mode_arg],
+            retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_STAATSCOURANT",
             normalize_main=normalize,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_STAATSCOURANT",
             semantic_main=semantic,
-            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_STAATSCOURANT_REGELING",
+            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_STAATSCOURANT",
             supports_full_load=True,
         ),
     ]
@@ -362,12 +380,12 @@ def _register_eerstekamer() -> list[SourceDescriptor]:
             id="eerstekamer",
             display_name="Eerste Kamer (kamerstukken & stemmingen)",
             retrieve_main=retrieve_eerstekamer,
-            retrieve_argv_builder=lambda ctx: [*ctx.mode_arg],
+            retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_EERSTEKAMER",
             normalize_main=normalize,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_EERSTEKAMER",
             semantic_main=semantic,
-            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_EK_DOSSIER_LINK",
+            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_EERSTEKAMER",
             supports_full_load=True,
         ),
     ]
@@ -387,12 +405,12 @@ def _register_echr() -> list[SourceDescriptor]:
             id="echr",
             display_name="ECHR HUDOC (Europees Hof voor de Rechten van de Mens)",
             retrieve_main=retrieve_echr,
-            retrieve_argv_builder=lambda ctx: [*ctx.mode_arg],
+            retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_ECHR",
             normalize_main=normalize,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_ECHR",
             semantic_main=semantic,
-            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_ECHR_CITATIONS",
+            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_ECHR",
             supports_full_load=True,
         ),
     ]
@@ -408,7 +426,7 @@ def _register_verdragenbank() -> list[SourceDescriptor]:
             id="verdragenbank",
             display_name="Verdragenbank (Nederlandse verdragen)",
             retrieve_main=retrieve_verdragenbank,
-            retrieve_argv_builder=lambda ctx: [],
+            retrieve_argv_builder=_NO_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_VERDRAGENBANK",
             normalize_main=normalize,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_VERDRAGENBANK",

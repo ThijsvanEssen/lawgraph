@@ -8,8 +8,8 @@ from lawgraph.clients.bwb import BWBClient
 from lawgraph.clients.eu import EUClient
 from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.clients.tk import TKClient
+from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 
 from .eurlex import EurlexRetrievePipeline

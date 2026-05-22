@@ -129,7 +129,7 @@ def format_celex(
     return f"3{year}{letter}{padded:04d}"
 
 
-def _hit_reason(hit: CitationHit) -> str:
+def hit_reason(hit: CitationHit) -> str:
     """Derive a short reason label from a CitationHit's populated fields."""
     if hit.bwb_id and hit.article_number:
         return "bwb_article"
@@ -379,7 +379,7 @@ class DutchCitationExtractor:
         seen_nums: set[str] = set()
         for match in _BARE_ARTIKEL_PAT.finditer(text):
             span = match.span()
-            if any(not (span[1] <= s or span[0] >= e) for s, e in covered):
+            if any(span[0] < e and span[1] > s for s, e in covered):
                 continue
             nums_raw = (match.group("nums") or "").strip()
             for art_num in _parse_article_nums(nums_raw):

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
-from lawgraph.config.settings import COLLECTION_EDGE_STATUS_LOG, COLLECTION_EDGES
+from lawgraph.config.constants import COLLECTION_EDGE_STATUS_LOG
+from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 
@@ -27,7 +28,7 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
     nodes: dict[str, int] = {}
     for name in node_collections:
         if store.db.has_collection(name):
-            nodes[name] = store.db.collection(name).count()
+            nodes[name] = cast(int, store.db.collection(name).count())
         else:
             nodes[name] = 0
 
@@ -46,32 +47,36 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
     # Source breakdown for judgments
     judgments_by_source: dict[str, int] = {}
     if store.db.has_collection("judgments"):
-        for row in store.query(
+        aql_judgments_by_source = (
             "FOR j IN judgments COLLECT src = j.props.source WITH COUNT INTO n RETURN {src, n}"
-        ):
+        )
+        for row in store.query(aql_judgments_by_source):
             judgments_by_source[row.get("src") or "unknown"] = row.get("n", 0)
 
     # Kind/jurisdiction breakdown for instruments
     instruments_by_kind: dict[str, int] = {}
     if store.db.has_collection("instruments"):
-        for row in store.query(
+        aql_instruments_by_kind = (
             "FOR i IN instruments COLLECT k = i.props.kind WITH COUNT INTO n RETURN {k, n}"
-        ):
+        )
+        for row in store.query(aql_instruments_by_kind):
             instruments_by_kind[row.get("k") or "unknown"] = row.get("n", 0)
 
     instruments_by_jurisdiction: dict[str, int] = {}
     if store.db.has_collection("instruments"):
-        for row in store.query(
+        aql_instruments_by_jurisdiction = (
             "FOR i IN instruments COLLECT j = i.props.jurisdiction WITH COUNT INTO n RETURN {j, n}"
-        ):
+        )
+        for row in store.query(aql_instruments_by_jurisdiction):
             instruments_by_jurisdiction[row.get("j") or "unknown"] = row.get("n", 0)
 
     # Source breakdown for publications
     publications_by_source: dict[str, int] = {}
     if store.db.has_collection("publications"):
-        for row in store.query(
+        aql_publications_by_source = (
             "FOR p IN publications COLLECT src = p.props.source WITH COUNT INTO n RETURN {src, n}"
-        ):
+        )
+        for row in store.query(aql_publications_by_source):
             publications_by_source[row.get("src") or "unknown"] = row.get("n", 0)
 
     return {

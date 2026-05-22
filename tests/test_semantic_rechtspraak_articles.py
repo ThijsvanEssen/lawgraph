@@ -2,27 +2,32 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.cli.semantic_rechtspraak_articles import (
-    RechtspraakArticleSemanticPipeline,
-)
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.rechtspraak_articles import (
     CodeMapping,
+    RechtspraakArticleSemanticPipeline,
     detect_article_references,
 )
+from tests.conftest import _BaseFakeStore
 
 
-class FakeStore:
+class _FakeStore(_BaseFakeStore):
     def __init__(
-        self, judgments: list[dict[str, Any]], articles: dict[str, dict[str, Any]]
+        self,
+        judgments: list[dict[str, Any]],
+        articles: dict[str, dict[str, Any]],
+        instruments: list[dict[str, Any]] | None = None,
     ) -> None:
+        super().__init__()
         self._judgments = judgments
         self._articles = articles
-        self.edges: dict[str, dict[str, Any]] = {}
+        self._instruments = instruments or []
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
         if "FOR doc IN judgments" in aql:
             return list(self._judgments)
+        if "FOR inst IN instruments" in aql:
+            return list(self._instruments)
         return []
 
     def get_node(self, collection: str, key: str) -> Node | None:
@@ -95,15 +100,18 @@ def test_detect_article_references_no_alias_lower_confidence() -> None:
 def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
     judgment_doc = _make_judgment_doc()
     article_doc = _make_article_doc()
-    store = FakeStore(
+    # Provide an instrument with short_title so _load_code_aliases finds "Sr".
+    instrument_row = {
+        "short_title": "Sr",
+        "bwb_id": "BWBR0001854",
+        "celex": None,
+    }
+    store = _FakeStore(
         judgments=[judgment_doc],
         articles={article_doc["_key"]: article_doc},
+        instruments=[instrument_row],
     )
-    config = {"code_aliases": {"Sr": "BWBR0001854"}}
-    pipeline = RechtspraakArticleSemanticPipeline(
-        store=store,
-        domain_config=config,
-    )
+    pipeline = RechtspraakArticleSemanticPipeline(store=store)
 
     created_first = pipeline.run()
     assert created_first.created == 1

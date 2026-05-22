@@ -4,17 +4,31 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.settings import RELATION_REFERS_TO_ARTICLE
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.config.constants import RELATION_REFERS_TO_ARTICLE
+from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.bwb_articles import BwbArticlesSemanticPipeline
+from tests.conftest import _BaseFakeStore
 
 
-class FakeStore:
+class _FakeStore(_BaseFakeStore):
     def __init__(self, articles: dict[str, dict[str, Any]]) -> None:
+        super().__init__()
         self._articles = articles
-        self.edges: dict[str, dict[str, Any]] = {}
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
+        # Return distinct bwb_ids when asked (for _load_bwb_ids_from_graph)
+        if "RETURN DISTINCT" in aql and "bwb_id" in aql and not bind_vars:
+            seen = set()
+            result = []
+            for article in self._articles.values():
+                bwb_id = article.get("props", {}).get("bwb_id")
+                if bwb_id and bwb_id not in seen:
+                    seen.add(bwb_id)
+                    result.append(bwb_id)
+            return result
+        # Return empty list for instrument alias queries
+        if "FOR inst IN instruments" in aql:
+            return []
         desired = []
         bwb_ids = bind_vars.get("bwb_ids") if bind_vars else None
         for article in self._articles.values():
@@ -40,6 +54,17 @@ class FakeStore:
         created = key not in self.edges
         self.edges[key] = dict(doc)
         return self.edges[key], created
+
+    def bulk_insert_or_update_edges(self, docs: list[dict]) -> tuple[int, int]:
+        created, updated = 0, 0
+        for doc in docs:
+            was_new = doc["_key"] not in self.edges
+            self.edges[doc["_key"]] = dict(doc)
+            if was_new:
+                created += 1
+            else:
+                updated += 1
+        return created, updated
 
     def insert_or_update(self, node: Node) -> Node:
         if node.key is None:
@@ -67,14 +92,8 @@ def _make_article(
 def _create_pipeline(
     store: FakeStore, store_citations: bool = False
 ) -> BwbArticlesSemanticPipeline:
-    config = {
-        "bwb": {
-            "ids": ["BWBR0001854"],
-        }
-    }
     return BwbArticlesSemanticPipeline(
         store=store,
-        domain_config=config,
         store_citations=store_citations,
     )
 
@@ -82,7 +101,7 @@ def _create_pipeline(
 def test_pipeline_creates_refers_to_edges() -> None:
     source_key = make_node_key("BWBR0001854", "1")
     target_key = make_node_key("BWBR0001854", "24c")
-    store = FakeStore(
+    store = _FakeStore(
         articles={
             source_key: _make_article(
                 source_key,
@@ -113,7 +132,7 @@ def test_pipeline_creates_refers_to_edges() -> None:
 def test_pipeline_is_idempotent() -> None:
     source_key = make_node_key("BWBR0001854", "1")
     target_key = make_node_key("BWBR0001854", "24c")
-    store = FakeStore(
+    store = _FakeStore(
         articles={
             source_key: _make_article(
                 source_key,
@@ -142,7 +161,7 @@ def test_pipeline_is_idempotent() -> None:
 def test_pipeline_stores_citations_when_requested() -> None:
     source_key = make_node_key("BWBR0001854", "10")
     target_key = make_node_key("BWBR0001854", "15")
-    store = FakeStore(
+    store = _FakeStore(
         articles={
             source_key: _make_article(
                 source_key,

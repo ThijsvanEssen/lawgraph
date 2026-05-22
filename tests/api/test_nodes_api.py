@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.queries import NeighborEntry, NodeGraphData
+from lawgraph.api.queries.nodes import NodeNotFoundError
 
 client = TestClient(app)
 
@@ -22,30 +23,42 @@ _NEIGHBOR_DOC = {
 }
 
 
-def _build_payload() -> NodeGraphData:
-    strict = NeighborEntry(
-        doc=_NEIGHBOR_DOC,
-        relation="PART_OF_INSTRUMENT",
-        direction="outbound",
-        confidence=0.75,
+_PAYLOAD = NodeGraphData(
+    node=_NODE_DOC,
+    neighbors=[
+        NeighborEntry(
+            doc=_NEIGHBOR_DOC,
+            relation="PART_OF_INSTRUMENT",
+            direction="outbound",
+            confidence=0.75,
+        ),
+        NeighborEntry(
+            doc=_NEIGHBOR_DOC,
+            relation="MENTIONS_ARTICLE",
+            direction="inbound",
+            confidence=0.92,
+        ),
+    ],
+)
+
+
+def test_get_node_neighbors_returns_404_for_unknown_collection(monkeypatch):
+    """GET /api/nodes/{collection}/{key} returns 404 when the node is not found."""
+    monkeypatch.setattr(
+        "lawgraph.api.routes.nodes.get_node_with_neighbors",
+        lambda store, collection, key, **kwargs: (_ for _ in ()).throw(
+            NodeNotFoundError("node not found")
+        ),
     )
-    semantic = NeighborEntry(
-        doc=_NEIGHBOR_DOC,
-        relation="MENTIONS_ARTICLE",
-        direction="inbound",
-        confidence=0.92,
-    )
-    return NodeGraphData(
-        node=_NODE_DOC,
-        neighbors=[strict, semantic],
-    )
+    response = client.get("/api/nodes/instruments/nonexistent-key-xyz")
+    assert response.status_code == 404
 
 
 def test_get_node_graph_returns_neighbors(monkeypatch):
     """Verifieer het node explorer endpoint via een gesimuleerde graph."""
     monkeypatch.setattr(
         "lawgraph.api.routes.nodes.get_node_with_neighbors",
-        lambda store, collection, key, **kwargs: _build_payload(),
+        lambda store, collection, key, **kwargs: _PAYLOAD,
     )
 
     response = client.get("/api/nodes/instruments/BWBR0000123")
@@ -58,6 +71,7 @@ def test_get_node_graph_returns_neighbors(monkeypatch):
     assert node["display_name"] == "Instrument A"
 
     neighbors = payload["neighbors"]
+    assert isinstance(neighbors["all"], list)
     assert isinstance(neighbors["strict"], list)
     assert isinstance(neighbors["semantic"], list)
 

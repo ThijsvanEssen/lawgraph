@@ -17,42 +17,12 @@ from lawgraph.config.constants import (
     RELATION_EXPLAINS_ARTICLE,
     RELATION_MENTIONS_ARTICLE,
 )
-from lawgraph.config.settings import TK_DOCUMENT_RESOURCE_URL
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import strip_time_component
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
 logger = get_logger(__name__)
-
-
-def _normalise_datum(props: dict) -> str | None:
-    datum: str | None = props.get("datum")
-    if datum is None:
-        raw = props.get("raw") or {}
-        datum = raw.get("Datum")
-    return strip_time_component(datum)
-
-
-def _build_publication_text_response(doc: dict) -> PublicationTextResponse:
-    """Build a PublicationTextResponse from a raw ArangoDB publication document."""
-    props: dict = doc.get("props") or {}
-    external_id: str | None = props.get("external_id")
-    tk_url = (
-        TK_DOCUMENT_RESOURCE_URL.format(external_id=external_id)
-        if external_id and props.get("source") == "tk"
-        else None
-    )
-    return PublicationTextResponse(
-        key=doc["_key"],
-        publication_id=doc["_id"],
-        title=props.get("title"),
-        soort=props.get("soort"),
-        datum=_normalise_datum(props),
-        external_id=external_id,
-        tk_url=tk_url,
-        text=props.get("text"),
-    )
 
 
 @router.get("", response_model=PublicationListResponse)
@@ -69,6 +39,12 @@ def list_publications(
     source: str | None = Query(
         None,
         description="Filter op bron (props.source), e.g. 'eerstekamer', 'staatscourant'.",
+    ),
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=1000,
+        description="Maximum number of publications to return.",
     ),
 ) -> PublicationListResponse:
     """Return a paginated list of publications across all sources.
@@ -102,12 +78,14 @@ def list_publications(
     bind_vars["r_mentions"] = RELATION_MENTIONS_ARTICLE
     bind_vars["r_explains"] = RELATION_EXPLAINS_ARTICLE
     bind_vars["r_cites"] = RELATION_CITES_ARTICLE
+    bind_vars["limit"] = limit
 
     filters_str = "\n    ".join(aql_filters)
     aql = f"""
 FOR doc IN publications
     {filters_str}
     SORT doc.props.datum DESC, doc.props.title ASC
+    LIMIT @limit
     LET linked = LENGTH(
         FOR e IN edges
             FILTER e._from == doc._id
@@ -166,4 +144,4 @@ def get_publication_text(
         raise HTTPException(status_code=404, detail=f"Publication '{key}' not found.")
 
     doc = cast(dict, raw_doc)
-    return _build_publication_text_response(doc)
+    return PublicationTextResponse.from_document(doc)

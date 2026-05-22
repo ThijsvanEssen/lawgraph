@@ -11,6 +11,7 @@ does for TK documents — just cross-chamber.
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -21,6 +22,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase
 
@@ -32,11 +34,13 @@ SEMANTIC_SOURCE = "ek-dossier-linker"
 class EerstekamerDossierLinkPipeline(SemanticPipelineBase):
     """Links EK publications to TK kamerstukdossiers via DossierNummer."""
 
-    def run(self, *, since: Any = None) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
         # EK stukken that have a dossier_nummer
-        since_filter = "FILTER pub.props.fetched_at >= @since" if since else ""
+        since_filter = (
+            "FILTER pub.props.fetched_at >= @since" if since is not None else ""
+        )
         aql = f"""
 FOR pub IN publications
   FILTER pub.props.source == @source
@@ -58,10 +62,8 @@ FOR pub IN publications
   }}
 """
         bind_vars: dict[str, Any] = {"source": SOURCE_EERSTEKAMER}
-        if since:
-            bind_vars["since"] = (
-                since.isoformat() if hasattr(since, "isoformat") else str(since)
-            )
+        if since is not None:
+            bind_vars["since"] = iso_timestamp(since)
         try:
             rows = list(self.store.query(aql, bind_vars))
         except Exception as exc:

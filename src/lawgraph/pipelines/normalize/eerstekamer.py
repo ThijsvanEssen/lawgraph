@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
+from lawgraph.db.store import ArangoStore
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
@@ -23,7 +24,7 @@ logger = get_logger(__name__)
 class EerstekamerNormalizePipeline(NormalizePipeline):
     """Normalize EK Kamerstukken into Publication nodes and stemmingen into Stemming nodes."""
 
-    def __init__(self, *, store: Any) -> None:
+    def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:
@@ -47,13 +48,16 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
                 result.skipped += 1
                 continue
 
-            # Detect record type from meta field or payload structure
+            # Detect record type: authoritative discriminator is meta.record_type;
+            # fall back to payload-field heuristic for older records.
             meta = self._meta(record)
-            record_type = meta.get("record_type") or (
-                "stemming"
-                if "KamerstukId" in payload and "Aangenomen" in payload
-                else "kamerstuk"
-            )
+            record_type = meta.get("record_type")
+            if not record_type:
+                record_type = (
+                    "stemming"
+                    if "KamerstukId" in payload and "Aangenomen" in payload
+                    else "kamerstuk"
+                )
 
             if record_type == "stemming":
                 node = self._normalize_stemming(record, payload, result)
@@ -99,7 +103,6 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
             "soort": soort,
             "nummer": nummer,
             "titel": titel,
-            "title": titel,
             "datum": datum,
             "vergaderjaar": vergaderjaar,
             "display_name": display_name,
@@ -175,10 +178,10 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
         self, raw: list[dict[str, Any]], normalized: dict[str, Node]
     ) -> int:
         edges = 0
-        for key, node in normalized.items():
-            if not key.startswith("stemming:"):
+        for _key, node in normalized.items():
+            if node.collection != COLLECTION_STEMMINGEN:
                 continue
-            if node.id is None:
+            if node.arango_id is None:
                 continue
             kamerstuk_id = str(node.props.get("kamerstuk_id") or "")
             if not kamerstuk_id:
@@ -187,7 +190,7 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
             kamerstuk_arangoid = f"{COLLECTION_PUBLICATIONS}/{kamerstuk_key}"
             try:
                 self.store.create_edge(
-                    from_id=node.id,
+                    from_id=node.arango_id,
                     to_id=kamerstuk_arangoid,
                     relation=RELATION_BESLUIT,
                     source=SOURCE_EERSTEKAMER,
@@ -196,7 +199,7 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
             except Exception as exc:
                 logger.error(
                     "EK edge creation failed %s → %s: %s",
-                    node.id,
+                    node.arango_id,
                     kamerstuk_arangoid,
                     exc,
                 )

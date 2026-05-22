@@ -5,13 +5,13 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     RAW_KIND_TK_DOCUMENTVERSIE,
     RAW_KIND_TK_ZAAK,
     SOURCE_TK,
 )
+from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -25,9 +25,9 @@ class TKRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.tk = tk_client or TKClient()
 
-    def fetch(
+    def fetch(  # type: ignore[override]
         self,
-        *args: object,
+        *,
         since: dt.datetime,
         limit: int = 0,
         zaak_filter: Callable[[dict[str, Any]], bool] | None = None,

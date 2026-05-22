@@ -91,23 +91,22 @@ class VerdragenbankClient(BaseClient):
             if not bindings:
                 break
 
+            def _val(binding: dict, key: str) -> str | None:
+                entry = binding.get(key)
+                return entry["value"] if entry else None
+
             for binding in bindings:
-
-                def _val(key: str, _b: dict = binding) -> str | None:
-                    entry = _b.get(key)
-                    return entry["value"] if entry else None
-
                 results.append(
                     {
-                        "uri": _val("treaty"),
-                        "title": _val("title") or _val("titleEn"),
-                        "title_nl": _val("title"),
-                        "title_en": _val("titleEn"),
-                        "date_signed": _val("dateSigned"),
-                        "date_in_force": _val("dateInForce"),
-                        "treaty_type": _val("type"),
-                        "status": _val("status"),
-                        "verdragsnummer": _val("verdragsnummer"),
+                        "uri": _val(binding, "treaty"),
+                        "title": _val(binding, "title") or _val(binding, "titleEn"),
+                        "title_nl": _val(binding, "title"),
+                        "title_en": _val(binding, "titleEn"),
+                        "date_signed": _val(binding, "dateSigned"),
+                        "date_in_force": _val(binding, "dateInForce"),
+                        "treaty_type": _val(binding, "type"),
+                        "status": _val(binding, "status"),
+                        "verdragsnummer": _val(binding, "verdragsnummer"),
                     }
                 )
 

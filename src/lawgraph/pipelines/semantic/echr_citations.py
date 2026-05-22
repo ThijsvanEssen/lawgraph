@@ -13,12 +13,14 @@ We also link judgments to any NL/EU instruments mentioned in the judgment
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
     RELATION_CITES_ARTICLE,
     RELATION_MENTIONS_INSTRUMENT,
     SOURCE_ECHR,
@@ -34,12 +36,14 @@ SEMANTIC_SOURCE = "echr-citation-linker"
 
 _ECHR_CONVENTION_BWB_STUB = "ECHR-CONVENTION"
 _BWBR_PATTERN = re.compile(r"\b(BWBR0\d{6})\b", re.IGNORECASE)
-_CELEX_PATTERN = re.compile(r"\b(\d[A-Z]{1,2}\d{4}[A-Z]?\d{4,6}(?:[A-Z]\d*)?)\b")
 
 
 def _ensure_echr_convention_instrument(store: Any) -> Node:
     """Get or create a stub instrument node for the ECHR Convention."""
     key = make_node_key(_ECHR_CONVENTION_BWB_STUB)
+    existing = store.get_node(COLLECTION_INSTRUMENTS, key)
+    if existing is not None:
+        return existing
     node = Node(
         collection=COLLECTION_INSTRUMENTS,
         type=NodeType.INSTRUMENT,
@@ -75,7 +79,7 @@ def _ensure_echr_article(
             "article_number": article_label,
             "title": f"Artikel {article_label} EVRM",
             "display_name": f"Artikel {article_label} EVRM",
-            "instrument_id": convention.id,
+            "instrument_id": convention.arango_id,
         },
     )
     return store.insert_or_update(node)
@@ -88,7 +92,6 @@ class EchrCitationsPipeline(SemanticPipelineBase):
         self,
         result: PipelineResult,
         judgments: list[dict],
-        bwb_instruments: dict[str, Node],
         convention: Node,
         article_cache: dict[str, Node | None],
         edge_batch: list[dict],
@@ -105,7 +108,7 @@ class EchrCitationsPipeline(SemanticPipelineBase):
                 continue
 
             judgment_node = Node(
-                collection="judgments",
+                collection=COLLECTION_JUDGMENTS,
                 type=NodeType.JUDGMENT,
                 key=j_key,
                 props={},
@@ -175,7 +178,7 @@ class EchrCitationsPipeline(SemanticPipelineBase):
                 continue
 
             judgment_node = Node(
-                collection="judgments",
+                collection=COLLECTION_JUDGMENTS,
                 type=NodeType.JUDGMENT,
                 key=j_key,
                 props={},
@@ -204,20 +207,20 @@ class EchrCitationsPipeline(SemanticPipelineBase):
 
         return edge_batch
 
-    def run(self, *, since: Any = None) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
         # Fetch all ECHR judgment nodes
-        aql = """
-FOR j IN judgments
+        aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
   FILTER j.props.source == @source
   FILTER j.props.articles != null OR j.props.conclusion != null
-  RETURN {
+  RETURN {{
     j_id: j._id,
     j_key: j._key,
     articles: j.props.articles,
     conclusion: j.props.conclusion
-  }
+  }}
 """
         try:
             rows = list(self.store.query(aql, {"source": SOURCE_ECHR}))
@@ -275,7 +278,7 @@ FOR inst IN instruments
         edge_batch: list[dict] = []
 
         edge_batch = self._link_convention_articles(
-            result, rows, bwb_id_to_node, convention, article_cache, edge_batch
+            result, rows, convention, article_cache, edge_batch
         )
         edge_batch = self._link_bwb_mentions(result, rows, bwb_id_to_node, edge_batch)
 

@@ -17,7 +17,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
 from .base import SemanticPipelineBase
-from .citation_detect import CitationHit, DutchCitationExtractor, _hit_reason, strip_xml
+from .citation_detect import CitationHit, DutchCitationExtractor, hit_reason, strip_xml
 
 logger = get_logger(__name__)
 
@@ -79,6 +79,8 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
             describe_since(since),
         )
 
+        edge_batch: list[dict[str, Any]] = []
+
         for doc in judgments:
             judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
             raw_text = self._extract_judgment_text(judgment)
@@ -95,7 +97,7 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
                 if article is None:
                     continue
 
-                created = self._create_semantic_edge(
+                edge_doc = self._make_edge_doc(
                     from_node=judgment,
                     to_node=article,
                     relation=RELATION_CITES_ARTICLE,
@@ -106,17 +108,24 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
                         for k, v in {
                             "raw_match": hit.raw_match,
                             "snippet": hit.snippet,
-                            "reason": _hit_reason(hit),
+                            "reason": hit_reason(hit),
                             "qualifier": hit.qualifier,
                         }.items()
                         if v
                     },
-                    result=result,
                 )
-                if created:
-                    result.created += 1
-                else:
-                    result.updated += 1
+                if edge_doc:
+                    edge_batch.append(edge_doc)
+                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                        created, updated = self._flush_edge_batch(edge_batch, result)
+                        result.created += created
+                        result.updated += updated
+                        edge_batch = []
+
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
 
         logger.info("Rechtspraak article linker: %s.", result.summary())
         return result
@@ -180,10 +189,9 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
         RETURN raw.meta.ecli
         """
         eclis: set[str] = set()
-        for raw in self.store.query(aql, bind_vars=bind_vars):
-            ecli_value = raw.get("meta", {}).get("ecli")
-            if isinstance(ecli_value, str):
-                eclis.add(ecli_value)
+        for row in self.store.query(aql, bind_vars=bind_vars):
+            if row:
+                eclis.add(row)
         return eclis
 
     def _load_judgments(self, eclis: Iterable[str]) -> Iterable[dict[str, Any]]:
@@ -192,8 +200,7 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
             bind_vars = {"eclis": list(eclis)}
             aql = f"""
             FOR doc IN {collection}
-                FILTER doc.props.meta != null
-                FILTER doc.props.meta.ecli IN @eclis
+                FILTER doc.props.ecli IN @eclis
             RETURN doc
             """
         else:

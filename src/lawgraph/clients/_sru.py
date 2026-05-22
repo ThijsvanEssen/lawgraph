@@ -9,13 +9,13 @@ from typing import Any
 _NS_STRIP = re.compile(r"\{[^}]+\}")
 
 
-def _strip_ns(tag: str) -> str:
+def _local_name(tag: str) -> str:
     return _NS_STRIP.sub("", tag)
 
 
 def _find_text(elem: ET.Element, local_name: str) -> str | None:
     for child in elem.iter():
-        if _strip_ns(child.tag) == local_name:
+        if _local_name(child.tag) == local_name:
             return (child.text or "").strip() or None
     return None
 
@@ -36,7 +36,7 @@ def parse_sru_records(
     records: list[dict[str, Any]] = []
 
     for record_elem in root.iter():
-        if _strip_ns(record_elem.tag) != "record":
+        if _local_name(record_elem.tag) != "record":
             continue
 
         identifier = _find_text(record_elem, "identifier") or _find_text(

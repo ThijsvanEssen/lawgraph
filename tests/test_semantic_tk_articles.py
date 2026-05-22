@@ -4,30 +4,44 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.tk_articles import (
     TKArticleSemanticPipeline,
     detect_tk_citations,
 )
+from tests.conftest import _BaseFakeStore
 
 
-class FakeStore:
+class _FakeStore(_BaseFakeStore):
     def __init__(
         self,
         documents: list[dict[str, Any]],
         instruments: dict[str, dict[str, Any]],
         articles: dict[str, dict[str, Any]],
     ) -> None:
+        super().__init__()
         self._documents = documents
         self._instruments = instruments
         self._articles = articles
-        self.edges: dict[str, dict[str, Any]] = {}
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
         if "FOR doc IN publications" in aql:
             return list(self._documents)
         if "FOR doc IN procedures" in aql:
             return []
+        if "FOR inst IN instruments" in aql:
+            # Return alias data so _load_code_aliases / _load_instrument_aliases work.
+            rows = []
+            for doc in self._instruments.values():
+                props = doc.get("props", {})
+                rows.append({
+                    "bwb_id": props.get("bwb_id"),
+                    "celex": props.get("celex"),
+                    "title": props.get("title"),
+                    "citation_title": props.get("citation_title"),
+                    "short_title": props.get("short_title"),
+                })
+            return rows
         return []
 
     def get_node(self, collection: str, key: str) -> Node | None:
@@ -45,6 +59,21 @@ class FakeStore:
         created = key not in self.edges
         self.edges[key] = dict(doc)
         return self.edges[key], created
+
+    def bulk_insert_or_update_edges(
+        self, docs: list[dict[str, Any]]
+    ) -> tuple[int, int]:
+        created = 0
+        updated = 0
+        for doc in docs:
+            key = doc["_key"]
+            was_created = key not in self.edges
+            self.edges[key] = dict(doc)
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+        return created, updated
 
 
 def _make_tk_document(key: str, text: str) -> dict[str, Any]:
@@ -102,19 +131,17 @@ def test_tk_pipeline_links_to_article_node() -> None:
     article = _make_article(
         article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
     )
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
-                make_node_key("BWBR0001854"), {"bwb_id": "BWBR0001854"}
+                make_node_key("BWBR0001854"),
+                {"bwb_id": "BWBR0001854", "short_title": "Sr", "title": "Wetboek van Strafrecht"},
             )
         },
         articles={article_key: article},
     )
-    pipeline = TKArticleSemanticPipeline(
-        store=store,
-        domain_config=_load_config(),
-    )
+    pipeline = TKArticleSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -130,15 +157,12 @@ def test_tk_pipeline_links_to_celex_instrument() -> None:
     doc = _make_tk_document("tk-2", text)
     celex_key = make_node_key("32019L1158")
     instrument = _make_instrument(celex_key, {"celex": "32019L1158"})
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={celex_key: instrument},
         articles={},
     )
-    pipeline = TKArticleSemanticPipeline(
-        store=store,
-        domain_config=_load_config(),
-    )
+    pipeline = TKArticleSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -151,16 +175,15 @@ def test_tk_pipeline_links_named_act_to_instrument() -> None:
     text = "Deze wijziging betreft het Wetboek van Strafrecht."
     doc = _make_tk_document("tk-3", text)
     instr_key = make_node_key("BWBR0001854")
-    instrument = _make_instrument(instr_key, {"bwb_id": "BWBR0001854"})
-    store = FakeStore(
+    instrument = _make_instrument(
+        instr_key, {"bwb_id": "BWBR0001854", "title": "Wetboek van Strafrecht"}
+    )
+    store = _FakeStore(
         documents=[doc],
         instruments={instr_key: instrument},
         articles={},
     )
-    pipeline = TKArticleSemanticPipeline(
-        store=store,
-        domain_config=_load_config(),
-    )
+    pipeline = TKArticleSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -173,19 +196,17 @@ def test_tk_pipeline_idempotent_edges() -> None:
     article = _make_article(
         article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
     )
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
-                make_node_key("BWBR0001854"), {"bwb_id": "BWBR0001854"}
+                make_node_key("BWBR0001854"),
+                {"bwb_id": "BWBR0001854", "short_title": "Sr", "title": "Wetboek van Strafrecht"},
             )
         },
         articles={article_key: article},
     )
-    pipeline = TKArticleSemanticPipeline(
-        store=store,
-        domain_config=_load_config(),
-    )
+    pipeline = TKArticleSemanticPipeline(store=store)
 
     first = pipeline.run()
     second = pipeline.run()

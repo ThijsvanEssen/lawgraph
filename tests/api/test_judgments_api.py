@@ -33,20 +33,28 @@ _INSTRUMENT_DOC = {
 }
 
 
-def _build_payload() -> JudgmentDetailData:
-    relation = JudgmentArticleRelation(article=_ARTICLE_DOC, instrument=_INSTRUMENT_DOC)
-    return JudgmentDetailData(
-        judgment=_JUDGMENT_DOC,
-        articles=[relation],
-        metadata={"article_count": 1},
+_PAYLOAD = JudgmentDetailData(
+    judgment=_JUDGMENT_DOC,
+    articles=[JudgmentArticleRelation(article=_ARTICLE_DOC, instrument=_INSTRUMENT_DOC)],
+    metadata={"article_count": 1},
+)
+
+
+def test_get_judgment_detail_returns_404_for_unknown_ecli(monkeypatch):
+    """GET /api/judgments/{ecli} returns 404 when the judgment is not found."""
+    monkeypatch.setattr(
+        "lawgraph.api.routes.judgments.get_judgment_with_relations",
+        lambda store, ecli: (_ for _ in ()).throw(ValueError("judgment not found")),
     )
+    response = client.get("/api/judgments/ECLI:NL:XX:9999:NONEXISTENT")
+    assert response.status_code == 404
 
 
 def test_get_judgment_detail_returns_linked_articles(monkeypatch):
     """Verifiëren dat het judgment endpoint metadata en artikelrelaties levert."""
     monkeypatch.setattr(
         "lawgraph.api.routes.judgments.get_judgment_with_relations",
-        lambda store, ecli: _build_payload(),
+        lambda store, ecli: _PAYLOAD,
     )
 
     response = client.get("/api/judgments/ECLI:NL:HR:2020:123")

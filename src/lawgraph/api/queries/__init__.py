@@ -7,6 +7,9 @@ imports require no modification.
 
 from __future__ import annotations
 
+# ── helpers ───────────────────────────────────────────────────────────────────
+from lawgraph.api.queries._helpers import props as props
+
 # ── articles ──────────────────────────────────────────────────────────────────
 from lawgraph.api.queries.articles import ArticleCitationEntry as ArticleCitationEntry
 from lawgraph.api.queries.articles import ArticleDetailData as ArticleDetailData
@@ -30,9 +33,6 @@ from lawgraph.api.queries.commissies import (
 from lawgraph.api.queries.commissies import get_all_fracties as get_all_fracties
 from lawgraph.api.queries.commissies import get_all_leden as get_all_leden
 from lawgraph.api.queries.commissies import get_commissie_detail as get_commissie_detail
-from lawgraph.api.queries.commissies import (
-    get_lid_touched_instruments as get_lid_touched_instruments,
-)
 from lawgraph.api.queries.commissies import get_lid_votes as get_lid_votes
 
 # ── dossiers ──────────────────────────────────────────────────────────────────
@@ -51,6 +51,9 @@ from lawgraph.api.queries.dossiers import get_dossier_by_nummer as get_dossier_b
 from lawgraph.api.queries.dossiers import get_dossier_documents as get_dossier_documents
 from lawgraph.api.queries.dossiers import get_dossier_mutations as get_dossier_mutations
 from lawgraph.api.queries.dossiers import get_dossier_timeline as get_dossier_timeline
+from lawgraph.api.queries.dossiers import (
+    get_kamerstuknummer_to_id_map as get_kamerstuknummer_to_id_map,
+)
 from lawgraph.api.queries.dossiers import get_open_dossiers as get_open_dossiers
 from lawgraph.api.queries.dossiers import get_recent_dossiers as get_recent_dossiers
 
@@ -102,7 +105,6 @@ from lawgraph.api.queries.judgments import (
     JudgmentArticleRelation as JudgmentArticleRelation,
 )
 from lawgraph.api.queries.judgments import JudgmentDetailData as JudgmentDetailData
-from lawgraph.api.queries.judgments import derive_judgment_tier as derive_judgment_tier
 from lawgraph.api.queries.judgments import (
     get_judgment_with_relations as get_judgment_with_relations,
 )

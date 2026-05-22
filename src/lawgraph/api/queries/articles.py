@@ -17,13 +17,19 @@ from lawgraph.api.queries._helpers import (
     _load_document_by_ref,
     _resolve_target_from_entry,
 )
-from lawgraph.config.settings import (
-    COLLECTION_EDGES,
+from lawgraph.config.constants import (
+    COLLECTION_INSTRUMENT_ARTICLES,
     EDGE_STATUS_VOORGESTELD,
+    RELATION_INTRODUCEERT,
+    RELATION_LICHT_TOE,
+    RELATION_MENTIONS_ARTICLE,
     RELATION_REFERS_TO_ARTICLE,
+    RELATION_TREKT_IN,
+    RELATION_WIJZIGT,
 )
+from lawgraph.config.settings import COLLECTION_EDGES
+from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.models import make_node_key
 
 
 @dataclass
@@ -147,24 +153,26 @@ def get_article_legislative_history(
     store: ArangoStore,
     bwb_id: str,
     article_number: str,
+    article_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return dossiers/documents that introduced, amended, or propose to amend an article.
 
     Each entry: {dossier_id, dossier_titel, datum, soort, status, samenvatting}.
     """
-    from lawgraph.config.settings import RELATION_DEEL_VAN_DOSSIER
+    from lawgraph.config.constants import RELATION_DEEL_VAN_DOSSIER
 
-    article_key = make_node_key(bwb_id, article_number)
-    article_id = f"instrument_articles/{article_key}"
+    if article_id is None:
+        article_key = make_node_key(bwb_id, article_number)
+        article_id = f"{COLLECTION_INSTRUMENT_ARTICLES}/{article_key}"
 
     # Edges pointing TO this article from publications (wijzigt/introduceert/trekt_in)
     # plus edges from the unified collection
     mutation_relations = [
-        "WIJZIGT",
-        "INTRODUCEERT",
-        "TREKT_IN",
-        "LICHT_TOE",
-        "MENTIONS_ARTICLE",
+        RELATION_WIJZIGT,
+        RELATION_INTRODUCEERT,
+        RELATION_TREKT_IN,
+        RELATION_LICHT_TOE,
+        RELATION_MENTIONS_ARTICLE,
     ]
     aql = f"""
     FOR edge IN {COLLECTION_EDGES}
@@ -204,11 +212,12 @@ def get_article_legislative_history(
 
 
 def get_article_in_flux(
-    store: ArangoStore, bwb_id: str, article_number: str
+    store: ArangoStore, bwb_id: str, article_number: str, article_id: str | None = None
 ) -> dict[str, Any]:
     """Return in-flux status for an article: boolean + count of open dossiers targeting it."""
-    article_key = make_node_key(bwb_id, article_number)
-    article_id = f"instrument_articles/{article_key}"
+    if article_id is None:
+        article_key = make_node_key(bwb_id, article_number)
+        article_id = f"{COLLECTION_INSTRUMENT_ARTICLES}/{article_key}"
 
     aql = f"""
     LET voorgesteld_count = LENGTH(

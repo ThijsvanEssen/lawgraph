@@ -7,13 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import search_all
 from lawgraph.api.schemas import SEARCH_TYPES, SearchResponse, SearchResultItem
+from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
 
-_DEFAULT_TYPES = ",".join(sorted(SEARCH_TYPES))
+_DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
 
 
 @router.get(
@@ -27,21 +27,20 @@ _DEFAULT_TYPES = ",".join(sorted(SEARCH_TYPES))
     ),
     tags=["search"],
 )
-async def search(
+def search(
     q: Annotated[str, Query(min_length=1, description="Zoekterm")],
     store: Annotated[ArangoStore, Depends(get_store)],
     types: Annotated[
-        str,
-        Query(description=f"Kommagescheiden typen: {_DEFAULT_TYPES}"),
-    ] = _DEFAULT_TYPES,
+        list[str],
+        Query(description="Typen om te zoeken"),
+    ] = _DEFAULT_SEARCH_TYPES,
     soort: Annotated[
         str | None,
         Query(description="Kommagescheiden soort-filter (op publicaties en dossiers)"),
     ] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> SearchResponse:
-    raw_types = [t.strip() for t in types.split(",") if t.strip()]
-    unknown = [t for t in raw_types if t not in SEARCH_TYPES]
+    unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
         raise HTTPException(
             status_code=400,
@@ -50,7 +49,7 @@ async def search(
                 f"Allowed: {', '.join(sorted(SEARCH_TYPES))}."
             ),
         )
-    requested_types = raw_types or list(SEARCH_TYPES)
+    requested_types = types or list(SEARCH_TYPES)
 
     soort_list = [s.strip() for s in soort.split(",")] if soort else None
 

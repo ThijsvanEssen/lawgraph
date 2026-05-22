@@ -5,27 +5,15 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from lawgraph.config.settings import (
-    COLLECTION_EDGES,
+from lawgraph.config.constants import (
     RELATION_DEEL_VAN_DOSSIER,
     RELATION_INTRODUCEERT,
     RELATION_PART_OF_INSTRUMENT,
     RELATION_TREKT_IN,
     RELATION_WIJZIGT,
 )
+from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
-
-
-def get_commissie_by_slug(store: ArangoStore, slug: str) -> dict[str, Any] | None:
-    aql = """
-    FOR doc IN commissies
-        FILTER LOWER(doc.props.slug) == @slug
-        LIMIT 1
-        RETURN doc
-    """
-    for doc in store.query(aql, {"slug": slug.lower()}):
-        return doc
-    return None
 
 
 def get_all_commissies_with_leden(store: ArangoStore) -> list[dict[str, Any]]:
@@ -92,7 +80,11 @@ def get_all_commissies_with_leden(store: ArangoStore) -> list[dict[str, Any]]:
 
 
 def get_commissie_detail(
-    store: ArangoStore, slug: str, *, current_only: bool = True
+    store: ArangoStore,
+    slug: str,
+    *,
+    current_only: bool = True,
+    dossier_limit: int = 100,
 ) -> dict[str, Any] | None:
     """Return commissie with leden (via LID_VAN edges) and recent dossiers (via BEHANDELD_DOOR).
 
@@ -112,7 +104,7 @@ def get_commissie_detail(
     )
     aql = f"""
     FOR commissie IN commissies
-        FILTER LOWER(commissie.props.slug) == @slug
+        FILTER commissie.props.slug == @slug
             OR LOWER(commissie._key) == @slug
         LIMIT 1
 
@@ -134,14 +126,16 @@ def get_commissie_detail(
                 FILTER e._to == commissie._id AND e.relation == 'BEHANDELD_DOOR'
                 FOR e2 IN {COLLECTION_EDGES}
                     FILTER e2._from == e._from AND e2.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+                    FILTER STARTS_WITH(e2._to, "kamerstukdossiers/")
                     LET dossier = DOCUMENT(e2._to)
-                    FILTER dossier != null AND SPLIT(dossier._id, "/")[0] == "kamerstukdossiers"
+                    FILTER dossier != null
                     RETURN DISTINCT dossier
+            LIMIT @dossier_limit
         )
 
         RETURN MERGE(commissie, {{ leden: leden, dossiers: dossiers }})
     """
-    bind: dict[str, Any] = {"slug": slug.lower()}
+    bind: dict[str, Any] = {"slug": slug.lower(), "dossier_limit": dossier_limit}
     if current_only:
         bind["today"] = dt.date.today().isoformat()
     for doc in store.query(aql, bind):
@@ -172,13 +166,10 @@ def get_all_leden(
       * ``q``     — case-insensitive substring on naam.
     """
     filters: list[str] = []
-    bind: dict[str, Any] = {"limit": limit, "offset": offset}
+    bind: dict[str, Any] = {"limit": limit, "offset": offset, "actief": actief}
 
     if not include_all:
         filters.append("LENGTH(doc.props.fractielidmaatschappen) > 0")
-    if actief is not None:
-        filters.append("doc.props.actief == @actief")
-        bind["actief"] = actief
     if partij:
         filters.append(
             "(LOWER(doc.props.partij) == @partij_lc"
@@ -194,9 +185,17 @@ def get_all_leden(
         bind["q"] = q.strip().lower()
 
     where = ("FILTER " + " AND ".join(filters)) if filters else ""
+    # actief is derived from fractielidmaatschappen (open tot_en_met) rather
+    # than the stored props.actief which is always true in practice.
     aql = f"""
     FOR doc IN leden
         {where}
+        LET _actief = LENGTH(
+            FOR m IN (doc.props.fractielidmaatschappen OR [])
+                FILTER m.tot_en_met == null
+                LIMIT 1 RETURN 1
+        ) > 0
+        FILTER @actief == null OR _actief == @actief
         SORT doc.props.naam ASC
         LIMIT @offset, @limit
         RETURN doc
@@ -217,8 +216,8 @@ def get_all_commissies(store: ArangoStore) -> list[dict[str, Any]]:
     than the per-commissie shape.
     """
     # Fast path: every commissie carries props.active_dossier_count after
-    # backfill. If the prop is missing on any row we compute it once for
-    # the whole collection in a single AQL block.
+    # backfill. If the prop is missing on some rows we compute counts only for
+    # the affected ids (not a full second scan).
     fast_rows = list(
         store.query(
             """
@@ -243,7 +242,12 @@ def get_all_commissies(store: ArangoStore) -> list[dict[str, Any]]:
     if all(r.get("active_dossier_count") is not None for r in fast_rows):
         return fast_rows
 
-    # Legacy fallback: derive counts in one pass.
+    # Legacy fallback: derive counts in one pass only for commissies that are
+    # missing the precomputed value — avoids discarding all fast-path results.
+    missing_ids = [r["_id"] for r in fast_rows if r.get("active_dossier_count") is None]
+    if not missing_ids:
+        return fast_rows
+
     aql = f"""
     LET open_dossier_map = MERGE(
         FOR d IN kamerstukdossiers
@@ -259,27 +263,22 @@ def get_all_commissies(store: ArangoStore) -> list[dict[str, Any]]:
     LET counts = (
         FOR e IN {COLLECTION_EDGES}
             FILTER e.relation == 'BEHANDELD_DOOR'
+            FILTER e._to IN @missing_ids
             FILTER open_activity_map[e._from] == true
             COLLECT commissie = e._to WITH COUNT INTO cnt
             RETURN {{ id: commissie, count: cnt }}
     )
-    LET count_map = MERGE(FOR x IN counts RETURN {{ [x.id]: x.count }})
-    FOR doc IN commissies
-        LET naam = doc.props.naam
-        FILTER naam != null AND naam != ""
-        FILTER NOT REGEX_TEST(
-            naam,
-            "^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$",
-            true
-        )
-        SORT doc.props.naam ASC
-        RETURN MERGE(doc, {{
-            active_dossier_count: (
-                count_map[doc._id] != null ? count_map[doc._id] : 0
-            )
-        }})
+    RETURN MERGE(FOR x IN counts RETURN {{ [x.id]: x.count }})
     """
-    return list(store.query(aql))
+    count_map: dict[str, Any] = {}
+    for row in store.query(aql, {"missing_ids": missing_ids}):
+        if isinstance(row, dict):
+            count_map.update(row)
+
+    for r in fast_rows:
+        if r.get("active_dossier_count") is None:
+            r["active_dossier_count"] = count_map.get(r["_id"], 0)
+    return fast_rows
 
 
 def get_all_fracties(
@@ -301,16 +300,20 @@ def get_all_fracties(
         )
         bind_vars["q"] = q.strip().lower()
     filter_clause = "\n        ".join(f"FILTER {f}" for f in filters)
+    # Pre-aggregate member counts in one pass instead of one sub-query per fractie.
     aql = f"""
+    LET count_map = MERGE(
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e.relation == 'LID_VAN_FRACTIE'
+            COLLECT frac = e._to WITH COUNT INTO cnt
+            RETURN {{ [frac]: cnt }}
+    )
     FOR doc IN fracties
         {filter_clause}
-        LET member_count = LENGTH(
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == doc._id AND e.relation == 'LID_VAN_FRACTIE'
-                RETURN 1
-        )
         SORT doc.props.actief DESC, doc.props.afkorting ASC, doc.props.naam ASC
-        RETURN MERGE(doc, {{ member_count: member_count }})
+        RETURN MERGE(doc, {{
+            member_count: count_map[doc._id] != null ? count_map[doc._id] : 0
+        }})
     """
     return list(store.query(aql, bind_vars))
 
@@ -425,6 +428,9 @@ def get_actor_touched_instruments(
     instrument_article -PART_OF_INSTRUMENT-> instrument, groups by instrument,
     counts the distinct publications behind each entry.
     """
+    # Collect by instr_id (string) rather than the full instrument document to
+    # avoid materialising the complete doc in every group entry. DOCUMENT() is
+    # called only on the post-LIMIT result set.
     aql = f"""
     LET actor = DOCUMENT(@actor_id)
     FILTER actor != null
@@ -441,29 +447,22 @@ def get_actor_touched_instruments(
             FOR e3 IN {COLLECTION_EDGES}
                 FILTER e3._from == article_id
                     AND e3.relation == '{RELATION_PART_OF_INSTRUMENT}'
-                LET instrument = DOCUMENT(e3._to)
-                FILTER instrument != null
-                COLLECT instr = instrument INTO group
-                LET pub_count = LENGTH(UNIQUE(group[*].pub_id))
+                COLLECT instr_id = e3._to INTO pubs = pub_id
+                LET pub_count = LENGTH(UNIQUE(pubs))
                 SORT pub_count DESC
                 LIMIT @limit
+                LET instrument = DOCUMENT(instr_id)
+                FILTER instrument != null
                 RETURN {{
-                    instrument_id: instr._id,
-                    instrument_key: instr._key,
-                    display_name: instr.props.display_name,
-                    title: instr.props.title,
-                    short_title: instr.props.short_title,
-                    citation_title: instr.props.citation_title,
-                    bwb_id: instr.props.bwb_id,
-                    celex: instr.props.celex,
+                    instrument_id: instr_id,
+                    instrument_key: instrument._key,
+                    display_name: instrument.props.display_name,
+                    title: instrument.props.title,
+                    short_title: instrument.props.short_title,
+                    citation_title: instrument.props.citation_title,
+                    bwb_id: instrument.props.bwb_id,
+                    celex: instrument.props.celex,
                     count: pub_count
                 }}
     """
     return list(store.query(aql, {"actor_id": actor_id, "limit": limit}))
-
-
-def get_lid_touched_instruments(
-    store: ArangoStore, lid_id: str, *, limit: int = 10
-) -> list[dict[str, Any]]:
-    """Backwards-compat wrapper around get_actor_touched_instruments."""
-    return get_actor_touched_instruments(store, lid_id, limit=limit)

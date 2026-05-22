@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.models import make_node_key
+from lawgraph.core.models import make_node_key
 from lawgraph.pipelines.semantic.bwb_grondslagen import (
     BWBGrondslagenSemanticPipeline,
     _extract_grondslagen,
@@ -94,6 +94,20 @@ class _FakeStore:
         self.edges[k] = dict(doc)
         return self.edges[k], created
 
+    def bulk_insert_or_update_edges(
+        self, docs: list[dict[str, Any]]
+    ) -> tuple[int, int]:
+        created_count = 0
+        updated_count = 0
+        for doc in docs:
+            k = doc["_key"]
+            if k not in self.edges:
+                created_count += 1
+            else:
+                updated_count += 1
+            self.edges[k] = dict(doc)
+        return created_count, updated_count
+
 
 def test_pipeline_creates_delegated_by_edge() -> None:
     amvb_bwb_id = "BWBR0011823"
@@ -115,7 +129,7 @@ def test_pipeline_creates_delegated_by_edge() -> None:
             }
         ],
     )
-    pipeline = BWBGrondslagenSemanticPipeline(store=store, domain_config={})
+    pipeline = BWBGrondslagenSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -127,7 +141,7 @@ def test_pipeline_creates_delegated_by_edge() -> None:
 
 def test_pipeline_returns_empty_when_no_raw_rows() -> None:
     store = _FakeStore(raw_rows=[])
-    pipeline = BWBGrondslagenSemanticPipeline(store=store, domain_config={})
+    pipeline = BWBGrondslagenSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
     assert len(store.edges) == 0

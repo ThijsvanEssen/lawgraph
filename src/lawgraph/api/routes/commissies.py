@@ -12,7 +12,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from lawgraph.api.cache import TTLCache
+from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
     get_actor_touched_instruments,
@@ -82,8 +82,8 @@ def list_commissies_with_leden(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> list[CommissieWithLedenDTO]:
     cached = _bulk_cache.get("with_leden")
-    if cached is not None:
-        return cached
+    if cached is not _MISSING:
+        return cached  # type: ignore[return-value]
     docs = get_all_commissies_with_leden(store)
     response = [CommissieWithLedenDTO.from_document(d) for d in docs]
     _bulk_cache.set("with_leden", response)
@@ -198,11 +198,11 @@ def get_lid_voting_record(
     node = store.get_node("leden", key)
     if node is None:
         raise HTTPException(status_code=404, detail=f"Lid '{key}' not found.")
-    lid_id = node.id
-    votes = get_lid_votes(store, lid_id or "", limit=limit)
+    lid_id = node.id or ""
+    votes = get_lid_votes(store, lid_id, limit=limit)
     return LidVotesResponse(
         lid_id=lid_id,
-        total=len(votes),
+        count=len(votes),
         votes=[LidVoteEntryDTO(**v) for v in votes],
     )
 
@@ -214,8 +214,8 @@ def _touched_instrument_row_to_dto(row: dict) -> TouchedInstrumentDTO:
     the canonical ``id``/``key`` everywhere — same fix as cited_articles.
     """
     return TouchedInstrumentDTO(
-        id=row.get("instrument_id") or row.get("id"),
-        key=row.get("instrument_key") or row.get("key"),
+        id=row.get("instrument_id") or row.get("id") or "",
+        key=row.get("instrument_key") or row.get("key") or "",
         display_name=row.get("display_name"),
         title=row.get("title"),
         short_title=row.get("short_title"),
@@ -250,7 +250,7 @@ def get_lid_touched_instruments_route(
     items = get_actor_touched_instruments(store, lid_id, limit=limit)
     return TouchedInstrumentsResponse(
         actor_id=lid_id,
-        total=len(items),
+        count=len(items),
         items=[_touched_instrument_row_to_dto(r) for r in items],
     )
 
@@ -334,6 +334,6 @@ def get_fractie_touched_instruments_route(
     items = get_actor_touched_instruments(store, fractie_id, limit=limit)
     return TouchedInstrumentsResponse(
         actor_id=fractie_id,
-        total=len(items),
+        count=len(items),
         items=[_touched_instrument_row_to_dto(r) for r in items],
     )

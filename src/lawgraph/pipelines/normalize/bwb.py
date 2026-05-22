@@ -14,7 +14,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.db import _edge_key as _sha1_edge_key
+from lawgraph.db import edge_key as _sha1_edge_key
+from lawgraph.pipelines.normalize._xml import local_name as _local_name
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
@@ -175,19 +176,19 @@ class BWBNormalizePipeline(NormalizePipeline):
         edge_docs: list[dict[str, Any]] = []
 
         for bwb_id, instrument in instruments.items():
-            if not instrument.id:
+            if not instrument.arango_id:
                 continue
             for article in articles.get(bwb_id, []):
-                if not article.id:
+                if not article.arango_id:
                     continue
                 edge_key = _sha1_edge_key(
-                    instrument.id, RELATION_PART_OF_INSTRUMENT, article.id
+                    instrument.arango_id, RELATION_PART_OF_INSTRUMENT, article.arango_id
                 )
                 edge_docs.append(
                     {
                         "_key": edge_key,
-                        "_from": instrument.id,
-                        "_to": article.id,
+                        "_from": instrument.arango_id,
+                        "_to": article.arango_id,
                         "relation": RELATION_PART_OF_INSTRUMENT,
                         "source": "bwb-normalize",
                         "status": "canoniek",
@@ -195,16 +196,7 @@ class BWBNormalizePipeline(NormalizePipeline):
                     }
                 )
 
-        total_created = 0
-        for batch_start in range(0, len(edge_docs), self._EDGE_BATCH_SIZE):
-            batch = edge_docs[batch_start : batch_start + self._EDGE_BATCH_SIZE]
-            try:
-                created, _ = self.store.bulk_insert_or_update_edges(batch)
-                total_created += created
-            except Exception as exc:
-                logger.error("BWB edge batch upsert failed: %s", exc)
-                raise
-
+        total_created = self._batch_upsert_edges(edge_docs)
         logger.info("BWB normalization created/updated %d edges.", total_created)
         return total_created
 
@@ -223,7 +215,7 @@ class BWBNormalizePipeline(NormalizePipeline):
         }
         best: tuple[int, str] | None = None
         for el in root.iter():
-            local = cls._local_name(el.tag).lower()
+            local = _local_name(el.tag).lower()
             priority = _TITLE_PRIORITY.get(local)
             if priority is None:
                 continue
@@ -238,7 +230,7 @@ class BWBNormalizePipeline(NormalizePipeline):
     def _extract_citation_title_from_root(cls, root: ET.Element) -> str | None:
         """Extract <citeertitel> from a pre-parsed XML root."""
         for el in root.iter():
-            if cls._local_name(el.tag).lower() == "citeertitel":
+            if _local_name(el.tag).lower() == "citeertitel":
                 text = " ".join((el.text or "").split()).strip()
                 if text:
                     return text
@@ -275,7 +267,7 @@ class BWBNormalizePipeline(NormalizePipeline):
     def _find_article_elements(root: ET.Element) -> list[ET.Element]:
         articles: list[ET.Element] = []
         for element in root.iter():
-            local = BWBNormalizePipeline._local_name(element.tag)
+            local = _local_name(element.tag)
             if local == "artikel":
                 articles.append(element)
                 continue
@@ -317,12 +309,12 @@ class BWBNormalizePipeline(NormalizePipeline):
     def _collect_lid_texts(cls, article: ET.Element) -> list[str]:
         lid_texts: list[str] = []
         for element in article.iter():
-            if cls._local_name(element.tag) != "lid":
+            if _local_name(element.tag) != "lid":
                 continue
             parts = [
                 cls._text_from_element(child)
                 for child in element
-                if cls._local_name(child.tag) == "al" and cls._text_from_element(child)
+                if _local_name(child.tag) == "al" and cls._text_from_element(child)
             ]
             if not parts:
                 continue
@@ -336,17 +328,11 @@ class BWBNormalizePipeline(NormalizePipeline):
     def _collect_fallback_texts(cls, article: ET.Element) -> str:
         parts: list[str] = []
         for element in article.iter():
-            if cls._local_name(element.tag) == "al":
+            if _local_name(element.tag) == "al":
                 text = cls._text_from_element(element)
                 if text:
                     parts.append(text)
         return "\n".join(parts).strip()
-
-    @staticmethod
-    def _local_name(tag: str) -> str:
-        if "}" in tag:
-            return tag.split("}", 1)[1]
-        return tag
 
     @staticmethod
     def _text_from_element(element: ET.Element | None) -> str:
@@ -361,6 +347,6 @@ class BWBNormalizePipeline(NormalizePipeline):
         for node in element.iter():
             if node is element:
                 continue
-            if cls._local_name(node.tag) == local_name:
+            if _local_name(node.tag) == local_name:
                 return node
         return None

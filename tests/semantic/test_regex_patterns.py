@@ -60,9 +60,8 @@ class TestVervalt:
         assert _VERVALT.search(text) is not None
 
     def test_vervalt_komt_te_vervallen(self) -> None:
-        # The pattern uses "vervalt?" which matches "vervalt" with optional trailing 't'.
-        # "Artikel 3 komt te vervalt" is the matched form (not "vervallen").
-        text = "Artikel 3 komt te vervalt"
+        # The correct statutory Dutch phrase is "komt te vervallen".
+        text = "Artikel 3 komt te vervallen"
         assert _VERVALT.search(text) is not None
 
     def test_vervalt_captures_article_number(self) -> None:
@@ -153,21 +152,21 @@ class TestDetectAmendmentCitations:
 
     def test_detects_wijzigt_relation(self) -> None:
         text = "Artikel 5 wordt als volgt gewijzigd: ..."
-        from lawgraph.config.settings import RELATION_WIJZIGT
+        from lawgraph.config.constants import RELATION_WIJZIGT
 
         results = detect_amendment_citations(text, "BWBR0001840")
         assert any(relation == RELATION_WIJZIGT for _, relation in results)
 
     def test_detects_trekt_in_relation(self) -> None:
         text = "Artikel 7 vervalt."
-        from lawgraph.config.settings import RELATION_TREKT_IN
+        from lawgraph.config.constants import RELATION_TREKT_IN
 
         results = detect_amendment_citations(text, "BWBR0001840")
         assert any(relation == RELATION_TREKT_IN for _, relation in results)
 
     def test_detects_introduceert_relation(self) -> None:
         text = "Na artikel 5 wordt een nieuw artikel 5a ingevoegd."
-        from lawgraph.config.settings import RELATION_INTRODUCEERT
+        from lawgraph.config.constants import RELATION_INTRODUCEERT
 
         results = detect_amendment_citations(text, "BWBR0001840")
         assert any(relation == RELATION_INTRODUCEERT for _, relation in results)

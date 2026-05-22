@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.base import _sha1_edge_key
 from lawgraph.pipelines.semantic.eu_articles import (
     EUArticleSemanticPipeline,
     detect_eu_citations,
 )
+from tests.conftest import _BaseFakeStore
 
 
 def _make_instrument(
@@ -37,19 +38,32 @@ def _make_bwb_article(key: str, article_props: dict[str, Any]) -> dict[str, Any]
     }
 
 
-class FakeStore:
+class _FakeStore(_BaseFakeStore):
     def __init__(
         self,
         documents: list[dict[str, Any]],
         instruments: dict[str, dict[str, Any]],
         articles: dict[str, dict[str, Any]],
     ) -> None:
+        super().__init__()
         self._documents = documents
         self._instruments = instruments
         self._articles = articles
-        self.edges: dict[str, dict[str, Any]] = {}
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
+        if "FOR inst IN instruments" in aql:
+            # Return alias rows for _load_code_aliases / _load_instrument_aliases.
+            rows = []
+            for doc in self._instruments.values():
+                props = doc.get("props", {})
+                rows.append({
+                    "bwb_id": props.get("bwb_id"),
+                    "celex": props.get("celex"),
+                    "title": props.get("title"),
+                    "citation_title": props.get("citation_title"),
+                    "short_title": props.get("short_title"),
+                })
+            return rows
         return list(self._documents)
 
     def get_node(self, collection: str, key: str) -> Node | None:
@@ -93,15 +107,12 @@ def test_eu_pipeline_links_celex_target() -> None:
         source_key, html="<p>Implementing act under CELEX:32019L1158</p>"
     )
     target_doc = _make_instrument(target_key, celex="32019L1158")
-    store = FakeStore(
+    store = _FakeStore(
         documents=[source_doc],
         instruments={target_key: target_doc},
         articles={},
     )
-    pipeline = EUArticleSemanticPipeline(
-        store=store,
-        domain_config={"code_aliases": {"Sr": "BWBR0001854"}},
-    )
+    pipeline = EUArticleSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -119,15 +130,17 @@ def test_eu_pipeline_links_bwb_article() -> None:
     article_doc = _make_bwb_article(
         article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
     )
-    store = FakeStore(
+    # Add an instrument with short_title "Sr" so _load_code_aliases finds it.
+    sr_key = make_node_key("BWBR0001854")
+    sr_doc = _make_instrument(sr_key, celex=None)
+    sr_doc["props"]["bwb_id"] = "BWBR0001854"
+    sr_doc["props"]["short_title"] = "Sr"
+    store = _FakeStore(
         documents=[doc],
-        instruments={},
+        instruments={sr_key: sr_doc},
         articles={article_key: article_doc},
     )
-    pipeline = EUArticleSemanticPipeline(
-        store=store,
-        domain_config={"code_aliases": {"Sr": "BWBR0001854"}},
-    )
+    pipeline = EUArticleSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -142,15 +155,12 @@ def test_eu_pipeline_idempotent_edges() -> None:
     )
     target_key = make_node_key("32019L1158")
     target_doc = _make_instrument(target_key, celex="32019L1158")
-    store = FakeStore(
+    store = _FakeStore(
         documents=[doc],
         instruments={target_key: target_doc},
         articles={},
     )
-    pipeline = EUArticleSemanticPipeline(
-        store=store,
-        domain_config={"code_aliases": {}},
-    )
+    pipeline = EUArticleSemanticPipeline(store=store)
 
     first = pipeline.run()
     second = pipeline.run()

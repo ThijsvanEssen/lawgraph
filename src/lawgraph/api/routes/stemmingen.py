@@ -12,9 +12,7 @@ from lawgraph.api.queries import (
     get_stemming_publication,
     get_stemmingen,
 )
-from lawgraph.api.routes.publications import _build_publication_text_response
 from lawgraph.api.schemas import (
-    PartijStemDTO,
     PublicationTextResponse,
     StemmingDTO,
     StemmingListResponse,
@@ -39,7 +37,7 @@ logger = get_logger(__name__)
     ),
     tags=["stemmingen"],
 )
-async def list_stemmingen(
+def list_stemmingen(
     store: Annotated[ArangoStore, Depends(get_store)],
     aangenomen: bool | None = Query(
         default=None, description="Filter op aangenomen (true/false)"
@@ -77,36 +75,14 @@ async def list_stemmingen(
     ),
     tags=["stemmingen"],
 )
-async def get_stemming(
+def get_stemming(
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> StemmingDTO:
     doc = get_stemming_detail(store, key)
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Stemming '{key}' not found.")
-    # get_stemming_detail returns a flat AQL row (already projected), not
-    # a raw Arango doc with nested props — build the DTO from the row
-    # directly instead of going through StemmingDTO.from_document.
-    return StemmingDTO(
-        id=doc["id"],
-        key=doc["key"],
-        datum=doc.get("datum"),
-        onderwerp=doc.get("onderwerp"),
-        besluit_id=doc.get("besluit_id"),
-        aangenomen=bool(doc.get("aangenomen")),
-        chamber=doc.get("chamber"),
-        voor=[
-            PartijStemDTO(**v) for v in (doc.get("voor") or []) if isinstance(v, dict)
-        ],
-        tegen=[
-            PartijStemDTO(**v) for v in (doc.get("tegen") or []) if isinstance(v, dict)
-        ],
-        onthouding=[
-            PartijStemDTO(**v)
-            for v in (doc.get("onthouding") or [])
-            if isinstance(v, dict)
-        ],
-    )
+    return StemmingDTO.from_document(doc)
 
 
 @router.get(
@@ -119,7 +95,7 @@ async def get_stemming(
     ),
     tags=["stemmingen"],
 )
-async def get_stemming_publication_route(
+def get_stemming_publication_route(
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> PublicationTextResponse:
@@ -132,4 +108,4 @@ async def get_stemming_publication_route(
             status_code=404,
             detail=f"No publication resolvable for stemming '{key}'.",
         )
-    return _build_publication_text_response(pub)
+    return PublicationTextResponse.from_document(pub)

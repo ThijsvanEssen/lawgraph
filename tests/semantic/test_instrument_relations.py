@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.instrument_relations import (
     InstrumentRelationsPipeline,
     detect_amends_instrument,
@@ -72,9 +72,20 @@ class _FakeStore:
         self._call = 0
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
-        # Instrument index query — return empty so profile aliases win.
-        if "inst.props.bwb_id" in aql or "inst.props.celex" in aql:
-            return []
+        # Instrument index query — return instrument nodes so alias detection works.
+        if "FOR inst IN instruments" in aql:
+            rows = []
+            for (coll, _key), node in self._nodes.items():
+                if coll != "instruments":
+                    continue
+                rows.append({
+                    "bwb_id": node.props.get("bwb_id"),
+                    "celex": node.props.get("celex"),
+                    "title": node.props.get("title"),
+                    "citation_title": node.props.get("citation_title"),
+                    "short_title": node.props.get("short_title"),
+                })
+            return rows
         # BWB raw-text query.
         if "raw_sources" in aql:
             return []
@@ -95,6 +106,17 @@ class _FakeStore:
         self.edges[k] = dict(doc)
         return self.edges[k], created
 
+    def bulk_insert_or_update_edges(self, docs: list[dict]) -> tuple[int, int]:
+        created, updated = 0, 0
+        for doc in docs:
+            was_new = doc["_key"] not in self.edges
+            self.edges[doc["_key"]] = dict(doc)
+            if was_new:
+                created += 1
+            else:
+                updated += 1
+        return created, updated
+
 
 def _make_pub(key: str, title: str, labels: list[str] | None = None) -> dict[str, Any]:
     return {
@@ -106,13 +128,16 @@ def _make_pub(key: str, title: str, labels: list[str] | None = None) -> dict[str
     }
 
 
-def _make_instrument_node(bwb_id: str) -> Node:
+def _make_instrument_node(bwb_id: str, title: str | None = None) -> Node:
     key = make_node_key(bwb_id)
+    props: dict[str, Any] = {"bwb_id": bwb_id}
+    if title:
+        props["title"] = title
     return Node(
         collection="instruments",
         type=NodeType.INSTRUMENT,
         key=key,
-        props={"bwb_id": bwb_id},
+        props=props,
         _skip_validation=True,
     )
 
@@ -122,15 +147,13 @@ def test_pipeline_creates_amends_instrument_edge() -> None:
     pub_doc = _make_pub("pub1", "Wijziging van het Wetboek van Strafrecht")
     store = _FakeStore(
         pub_docs=[pub_doc],
-        nodes={("instruments", inst_key): _make_instrument_node("BWBR0001854")},
-    )
-    pipeline = InstrumentRelationsPipeline(
-        store=store,
-        domain_config={
-            "instrument_aliases": {"Wetboek van Strafrecht": "BWBR0001854"},
-            "implements": [],
+        nodes={
+            ("instruments", inst_key): _make_instrument_node(
+                "BWBR0001854", title="Wetboek van Strafrecht"
+            ),
         },
     )
+    pipeline = InstrumentRelationsPipeline(store=store)
     result = pipeline.run()
 
     assert result.created >= 1
@@ -149,15 +172,13 @@ def test_pipeline_creates_discusses_edge_for_procedure() -> None:
     }
     store = _FakeStore(
         proc_docs=[proc_doc],
-        nodes={("instruments", inst_key): _make_instrument_node("BWBR0001854")},
-    )
-    pipeline = InstrumentRelationsPipeline(
-        store=store,
-        domain_config={
-            "instrument_aliases": {"Wetboek van Strafrecht": "BWBR0001854"},
-            "implements": [],
+        nodes={
+            ("instruments", inst_key): _make_instrument_node(
+                "BWBR0001854", title="Wetboek van Strafrecht"
+            ),
         },
     )
+    pipeline = InstrumentRelationsPipeline(store=store)
     result = pipeline.run()
 
     assert result.created >= 1

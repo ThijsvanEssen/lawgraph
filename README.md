@@ -87,7 +87,7 @@ graph LR
   LAWGRAPH_RELATION_MENTIONS_ARTICLE=MENTIONS_ARTICLE
   ```
 
-- Document- en edgecollecties zijn configureerbaar via `LAWGRAPH_DOCUMENT_COLLECTIONS` en `LAWGRAPH_EDGE_COLLECTIONS`, zodat extra collecties gecreëerd kunnen worden zonder codewijziging.
+- Document- en edgecollecties zijn configureerbaar via `LAWGRAPH_DOCUMENT_COLLECTIONS` en `LAWGRAPH_EDGE_COLLECTION`, zodat extra collecties gecreëerd kunnen worden zonder codewijziging.
 - Profielen leven in `src/config/*.yml`. Het `strafrecht`-profiel bevat topicdefinities, `nl_instruments` met BWB-IDs, EU-instrumenten, filters (`rechtspraak`, `tk`, `eurlex`) en seed-ECLI/CELEX-lijsten. CLI’s accepteren `--profile` of lezen `LAWGRAPH_PROFILE`; `lawgraph.config.settings` en `src/config/config.py` regelen het inladen.
 
 ## Gebruik (CLI)

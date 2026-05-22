@@ -6,6 +6,8 @@ Runtime configuration (database URL, credentials, external endpoints) lives in s
 
 from __future__ import annotations
 
+from types import MappingProxyType
+
 # ── BWB identifier prefix ─────────────────────────────────────────────────────
 
 BWB_ID_PREFIX = "BWBR"
@@ -27,6 +29,9 @@ COLLECTION_COMMISSIES = "commissies"
 COLLECTION_LEDEN = "leden"
 COLLECTION_FRACTIES = "fracties"
 COLLECTION_EDGE_STATUS_LOG = "edge_status_log"
+COLLECTION_TOPICS = "topics"
+COLLECTION_RAW_SOURCES = "raw_sources"
+COLLECTION_WATCHES = "watches"
 
 # ── Edge status values ────────────────────────────────────────────────────────
 
@@ -145,7 +150,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
 # GL-PvdA, GroenLinks, and GroenLinks-PvdA are all intentional duplicates:
 # different API versions use different abbreviations for the same merged party.
 
-PARTY_COLORS: dict[str, str] = {
+PARTY_COLORS: MappingProxyType[str, str] = MappingProxyType({
     "VVD": "#003082",
     "D66": "#1DB954",
     "PVV": "#002868",
@@ -170,4 +175,4 @@ PARTY_COLORS: dict[str, str] = {
     "Groep Van Haga": "#002868",
     "Groep Markuszower": "#1F2A44",
     "Lid Keijzer": "#999999",
-}
+})

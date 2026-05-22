@@ -10,7 +10,7 @@ GET /api/partijen/kleuren                     — party color map for the fronte
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
@@ -23,6 +23,7 @@ from lawgraph.api.queries import (
     get_dossier_documents,
     get_dossier_mutations,
     get_dossier_timeline,
+    get_kamerstuknummer_to_id_map,
     get_open_dossiers,
     get_recent_dossiers,
 )
@@ -51,7 +52,7 @@ _DOSSIER_NUMMER_PATTERN = r"^\d+(-[A-Za-z]+)?$"
 # ── Helper ─────────────────────────────────────────────────────────────────────
 
 
-def _dossier_or_404(store: ArangoStore, kamerstuknummer: str) -> dict:
+def _dossier_or_404(store: ArangoStore, kamerstuknummer: str) -> dict[str, Any]:
     dossier = get_dossier_by_nummer(store, kamerstuknummer)
     if dossier is None:
         raise HTTPException(
@@ -263,14 +264,7 @@ def get_documents_for_dossiers_route(
     nummer_list = [n.strip() for n in nummers.split(",") if n.strip()]
     if not nummer_list:
         return DossierDocumentsBulkResponse(items={})
-    aql = """
-    FOR d IN kamerstukdossiers
-        FILTER d.props.kamerstuknummer IN @nummers
-        RETURN { nummer: d.props.kamerstuknummer, id: d._id }
-    """
-    nummer_to_id: dict[str, str] = {}
-    for row in store.query(aql, {"nummers": nummer_list}):
-        nummer_to_id[row["nummer"]] = row["id"]
+    nummer_to_id = get_kamerstuknummer_to_id_map(store, nummer_list)
     if not nummer_to_id:
         return DossierDocumentsBulkResponse(items={})
     by_id = get_documents_for_dossiers(

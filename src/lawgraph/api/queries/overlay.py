@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from lawgraph.config.settings import (
-    COLLECTION_EDGES,
+from lawgraph.config.constants import (
     EDGE_STATUS_VOORGESTELD,
     RELATION_CITES_ARTICLE,
     RELATION_INTRODUCEERT,
@@ -13,6 +12,7 @@ from lawgraph.config.settings import (
     RELATION_TREKT_IN,
     RELATION_WIJZIGT,
 )
+from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 

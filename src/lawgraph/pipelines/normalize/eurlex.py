@@ -81,7 +81,13 @@ class _TextExtractor(HTMLParser):
 
 
 # Read at module import time; changing the env var requires a process restart.
-_EU_MAX_ARTICLE_NUMBER: int = int(os.getenv("EURLEX_MAX_ARTICLE_NUMBER", "200"))
+try:
+    _EU_MAX_ARTICLE_NUMBER: int = int(os.getenv("EURLEX_MAX_ARTICLE_NUMBER", "200"))
+except ValueError as _exc:
+    raise ValueError(
+        f"EURLEX_MAX_ARTICLE_NUMBER must be an integer, got: "
+        f"{os.getenv('EURLEX_MAX_ARTICLE_NUMBER')!r}"
+    ) from _exc
 
 
 def _html_to_text(html: str) -> str:
@@ -179,7 +185,7 @@ class EUNormalizePipeline(NormalizePipeline):
         self,
         *,
         since: dt.datetime | None = None,
-    ) -> dict[str, list[dict[str, Any]]]:
+    ) -> list[dict[str, Any]]:
         """Load EUR-Lex CELEX html dumps from raw_sources."""
         kinds = list(RAW_SOURCE_KINDS[SOURCE_EURLEX])
         records = self._query_raw_sources(
@@ -193,17 +199,17 @@ class EUNormalizePipeline(NormalizePipeline):
             len(records),
         )
 
-        return {"celex_html": records}
+        return records
 
     def normalize_nodes(
         self,
-        raw: dict[str, list[dict[str, Any]]],
+        raw: list[dict[str, Any]],
         result: PipelineResult,
     ) -> dict[str, Any]:
         """Normalize EUR-Lex raw HTML into instrument and article nodes."""
         instruments_by_celex: dict[str, Node] = {}
         articles_by_celex: dict[str, list[Node]] = {}
-        celex_records = raw.get("celex_html", [])
+        celex_records = raw
 
         for raw_entry in celex_records:
             payload_text = self._payload_text(raw_entry)
@@ -267,7 +273,7 @@ class EUNormalizePipeline(NormalizePipeline):
             # Citation title for articles: prefer the stored instrument value so a
             # previously-seeded title (e.g. "EVRM") is not overwritten by the CELEX
             # pattern derivation.
-            inst_props = inserted_instrument.props if inserted_instrument else {}
+            inst_props = inserted_instrument.props
             eu_ct = inst_props.get("citation_title") or inst_props.get("title")
 
             article_nodes: list[Node] = []
@@ -324,7 +330,7 @@ class EUNormalizePipeline(NormalizePipeline):
 
     def build_edges(
         self,
-        raw: dict[str, list[dict[str, Any]]],
+        raw: list[dict[str, Any]],
         normalized: dict[str, Any],
     ) -> int:
         """Create PART_OF_INSTRUMENT edges for articles."""
@@ -336,14 +342,14 @@ class EUNormalizePipeline(NormalizePipeline):
         )
         for celex, article_nodes in normalized.get("articles_by_celex", {}).items():
             instrument = instruments_by_celex.get(celex)
-            if not instrument or not instrument.id:
+            if not instrument or not instrument.arango_id:
                 continue
             for article in article_nodes:
-                if not article.id:
+                if not article.arango_id:
                     continue
                 self.store.create_edge(
-                    from_id=article.id,
-                    to_id=instrument.id,
+                    from_id=article.arango_id,
+                    to_id=instrument.arango_id,
                     relation=RELATION_PART_OF_INSTRUMENT,
                     source="eu-normalize",
                 )

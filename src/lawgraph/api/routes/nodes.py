@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
-from lawgraph.api.cache import TTLCache
+from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
     get_heat_counts,
@@ -15,7 +15,7 @@ from lawgraph.api.queries import (
 )
 from lawgraph.api.queries.nodes import NodeNotFoundError, UnsupportedCollectionError
 from lawgraph.api.schemas import (
-    _DROP_PROPS_KEYS_GRAPH,
+    DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
     NeighborDTO,
     NodeGraphResponse,
@@ -48,12 +48,12 @@ _overlay_cache: TTLCache[str, Any] = TTLCache(maxsize=128)
     tags=["nodes"],
     response_class=JSONResponse,
 )
-async def bulk_in_flux(
+def bulk_in_flux(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> JSONResponse:
     """Return all nodes that have at least one VOORGESTELD edge, with counts."""
     cached = _overlay_cache.get("in_flux")
-    if cached is None:
+    if cached is _MISSING:
         cached = get_in_flux_counts(store)
         _overlay_cache.set("in_flux", cached)
     return JSONResponse(cached)
@@ -72,7 +72,7 @@ async def bulk_in_flux(
     # ~200 ms per request for zero correctness benefit. Return raw JSON.
     response_class=JSONResponse,
 )
-async def bulk_heat(
+def bulk_heat(
     store: Annotated[ArangoStore, Depends(get_store)],
     months: int = Query(
         default=6, ge=1, le=24, description="Terugkijkvenster in maanden"
@@ -91,7 +91,7 @@ async def bulk_heat(
     """Return activity counts per node for the heat-layer overlay."""
     cache_key = f"heat:m={months}:mc={min_count}"
     cached = _overlay_cache.get(cache_key)
-    if cached is None:
+    if cached is _MISSING:
         cached = get_heat_counts(store, months=months, min_count=min_count)
         _overlay_cache.set(cache_key, cached)
     return JSONResponse(cached)
@@ -107,7 +107,7 @@ async def bulk_heat(
     ),
     tags=["nodes"],
 )
-async def get_node_graph(
+def get_node_graph(
     collection: str,
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -153,7 +153,7 @@ async def get_node_graph(
     )
     return NodeGraphResponse(
         node=BaseNodeDTO.from_document(
-            data.node, drop_props_keys=_DROP_PROPS_KEYS_GRAPH
+            data.node, drop_props_keys=DROP_PROPS_KEYS_GRAPH
         ),
         neighbors=neighbors,
     )
@@ -170,7 +170,7 @@ async def get_node_graph(
     ),
     tags=["nodes"],
 )
-async def get_node_neighborhood_route(
+def get_node_neighborhood_route(
     collection: str,
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -186,12 +186,12 @@ async def get_node_neighborhood_route(
 
     focal = data["focal"]
     nodes = [
-        BaseNodeDTO.from_document(n, drop_props_keys=_DROP_PROPS_KEYS_GRAPH)
+        BaseNodeDTO.from_document(n, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
         for n in data["nodes"]
     ]
     # Focal first so the client can pin layout to it without searching.
     nodes.insert(
-        0, BaseNodeDTO.from_document(focal, drop_props_keys=_DROP_PROPS_KEYS_GRAPH)
+        0, BaseNodeDTO.from_document(focal, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
     )
     edges = [
         NodeNeighborhoodEdge(

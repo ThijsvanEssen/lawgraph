@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from lawgraph.clients.staatsblad import StaatsbladClient
-from lawgraph.config.settings import RAW_KIND_STB_AMVB, SOURCE_STAATSBLAD
+from lawgraph.config.constants import RAW_KIND_STB_AMVB, SOURCE_BWB, SOURCE_STAATSBLAD
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -79,81 +79,133 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         """
         result = PipelineResult()
 
-        # Get all BWB IDs from instruments
-        aql_instruments = """
-        FOR inst IN instruments
-          FILTER inst.props.bwb_id != null
-          RETURN { bwb_id: inst.props.bwb_id, key: inst._key }
-        """
-        try:
-            instrument_rows = list(store.query(aql_instruments))
-        except Exception as exc:
-            msg = f"Could not query instruments for Staatsblad retrieval: {exc}"
-            logger.error(msg)
-            result.add_error(msg)
+        instrument_rows, error = self._get_bwb_instrument_rows(store)
+        if error:
+            result.add_error(error)
             return result
 
         logger.info(
-            "Staatsblad from-graph: examining %d instruments for Staatsblad refs.",
+            "Staatsblad from-graph: examining %d BWB raw_sources for Staatsblad refs.",
             len(instrument_rows),
         )
 
+        bwb_xml_by_id = self._fetch_bwb_xml_batch(store, instrument_rows)
+        candidate_refs = self._extract_stb_candidates(instrument_rows, bwb_xml_by_id, result)
+        existing_identifiers = self._find_existing_identifiers(store, candidate_refs)
+        self._fetch_and_store(result, candidate_refs, existing_identifiers)
+
+        logger.info("Staatsblad from-graph: %s.", result.summary())
+        return result
+
+    def _get_bwb_instrument_rows(
+        self, store: ArangoStore
+    ) -> tuple[list[dict], str | None]:
+        """Query raw_sources for all BWB instrument IDs. Returns (rows, error_msg)."""
+        aql = """
+        FOR r IN raw_sources
+          FILTER r.source == @source AND r.external_id != null
+          RETURN { bwb_id: r.external_id }
+        """
+        try:
+            rows = list(store.query(aql, bind_vars={"source": SOURCE_BWB}))
+            return rows, None
+        except Exception as exc:
+            msg = f"Could not query BWB raw_sources for Staatsblad retrieval: {exc}"
+            logger.error(msg)
+            return [], msg
+
+    def _fetch_bwb_xml_batch(
+        self, store: ArangoStore, instrument_rows: list[dict]
+    ) -> dict[str, str]:
+        """Bulk-fetch BWB raw XML for all instrument rows. Returns bwb_id → xml map."""
+        bwb_ids = [row["bwb_id"] for row in instrument_rows if row.get("bwb_id")]
+        bwb_xml_by_id: dict[str, str] = {}
+        if not bwb_ids:
+            return bwb_xml_by_id
+
+        aql = """
+        FOR r IN raw_sources
+          FILTER r.source == 'bwb' AND r.external_id IN @bwb_ids
+          RETURN { bwb_id: r.external_id, payload_text: r.payload_text }
+        """
+        try:
+            for raw_row in store.query(aql, bind_vars={"bwb_ids": bwb_ids}):
+                bid = raw_row.get("bwb_id")
+                txt = raw_row.get("payload_text")
+                if bid and isinstance(txt, str):
+                    bwb_xml_by_id[bid] = txt
+        except Exception as exc:
+            logger.debug("Could not bulk-fetch BWB raw_sources: %s", exc)
+
+        return bwb_xml_by_id
+
+    def _extract_stb_candidates(
+        self,
+        instrument_rows: list[dict],
+        bwb_xml_by_id: dict[str, str],
+        result: PipelineResult,
+    ) -> list[tuple[str, str, str]]:
+        """Resolve Staatsblad identifiers from BWB XML.
+
+        Returns (bwb_id, identifier, xml) triples.
+        """
+        candidate_refs: list[tuple[str, str, str]] = []
         for row in instrument_rows:
             bwb_id = row.get("bwb_id")
             if not bwb_id:
                 continue
-
-            # Look up the BWB raw_source XML
-            aql_raw = """
-            FOR r IN raw_sources
-              FILTER r.source == 'bwb' AND r.external_id == @bwb_id
-              LIMIT 1
-              RETURN r.payload_text
-            """
-            try:
-                raw_rows = list(store.query(aql_raw, bind_vars={"bwb_id": bwb_id}))
-            except Exception as exc:
-                logger.debug("Could not look up BWB raw_source for %s: %s", bwb_id, exc)
-                continue
-
-            if not raw_rows:
+            bwb_xml = bwb_xml_by_id.get(bwb_id)
+            if not bwb_xml:
                 result.skipped += 1
                 continue
-
-            bwb_xml = raw_rows[0]
-            if not isinstance(bwb_xml, str):
-                result.skipped += 1
-                continue
-
             ref = StaatsbladClient.extract_staatsblad_ref_from_bwb_xml(bwb_xml)
             if not ref:
                 result.skipped += 1
                 continue
-
             year, number = ref
             identifier = f"stb-{year}-{number}"
+            candidate_refs.append((bwb_id, identifier, bwb_xml))
+        return candidate_refs
 
-            # Check if already in raw_sources
-            aql_exists = """
-            FOR r IN raw_sources
-              FILTER r.source == @source AND r.external_id == @ext_id
-              LIMIT 1
-              RETURN 1
-            """
-            try:
-                exists = list(
-                    store.query(
-                        aql_exists,
-                        bind_vars={"source": SOURCE_STAATSBLAD, "ext_id": identifier},
-                    )
-                )
-                if exists:
-                    result.skipped += 1
-                    continue
-            except Exception as exc:
-                logger.debug(
-                    "Staatsblad existence check failed for %s: %s", identifier, exc
-                )
+    def _find_existing_identifiers(
+        self,
+        store: ArangoStore,
+        candidate_refs: list[tuple[str, str, str]],
+    ) -> set[str]:
+        """Bulk-check which candidate Staatsblad identifiers are already in raw_sources."""
+        existing: set[str] = set()
+        if not candidate_refs:
+            return existing
+
+        candidate_ids = list({identifier for _, identifier, _ in candidate_refs})
+        aql = """
+        FOR r IN raw_sources
+          FILTER r.source == @source AND r.external_id IN @ext_ids
+          RETURN r.external_id
+        """
+        try:
+            for ext_id in store.query(
+                aql,
+                bind_vars={"source": SOURCE_STAATSBLAD, "ext_ids": candidate_ids},
+            ):
+                if isinstance(ext_id, str):
+                    existing.add(ext_id)
+        except Exception as exc:
+            logger.debug("Staatsblad bulk existence check failed: %s", exc)
+
+        return existing
+
+    def _fetch_and_store(
+        self,
+        result: PipelineResult,
+        candidate_refs: list[tuple[str, str, str]],
+        existing_identifiers: set[str],
+    ) -> None:
+        """Fetch XML and store records for candidates not already present in raw_sources."""
+        for bwb_id, identifier, _bwb_xml in candidate_refs:
+            if identifier in existing_identifiers:
+                result.skipped += 1
+                continue
 
             xml = self.client.fetch_publication_xml(identifier)
             if xml is None:
@@ -178,9 +230,6 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
                 logger.error(msg)
                 result.add_error(msg)
                 result.skipped += 1
-
-        logger.info("Staatsblad from-graph: %s.", result.summary())
-        return result
 
     def run_full(self) -> PipelineResult:
         """Full-load mode: enumerate all AMvBs via SRU and fetch each."""

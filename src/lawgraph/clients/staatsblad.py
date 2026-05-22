@@ -6,7 +6,7 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from lawgraph.clients._sru import parse_sru_records
+from lawgraph.clients._sru import _local_name, parse_sru_records
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import STAATSBLAD_REPO_BASE, STAATSBLAD_SRU_ENDPOINT
 from lawgraph.core.logging import get_logger
@@ -52,10 +52,9 @@ class StaatsbladClient(BaseClient):
                 "recordSchema": "gzd",
             }
             try:
-                resp = self.session.get(
+                resp = self._get_raw_absolute_with_retry(
                     STAATSBLAD_SRU_ENDPOINT, params=params, timeout=60
                 )
-                resp.raise_for_status()
                 xml_text = resp.text
             except Exception as exc:
                 logger.warning(
@@ -103,11 +102,13 @@ class StaatsbladClient(BaseClient):
 
         year = m.group(1)
         num = m.group(2).zfill(4)
-        clean_id = f"stb-{year}-{m.group(2)}"
+        clean_id = f"stb-{year}-{num}"
 
         # Direct URL pattern
         path = f"/frbr/officielepublicaties/stb/{year}/{num}/{clean_id}/xml"
         try:
+            # Cannot use _get_raw_absolute_with_retry here: needs allow_redirects=True
+            # and manual status-code inspection (200/404 handled separately).
             resp = self.session.get(
                 self.base_url.rstrip("/") + path, timeout=60, allow_redirects=True
             )
@@ -126,6 +127,7 @@ class StaatsbladClient(BaseClient):
         path2 = f"/frbr/officielepublicaties/stb/{year}/{m.group(2)}/{clean_id}/xml"
         if path2 != path:
             try:
+                # Cannot use _get_raw_absolute_with_retry here: needs allow_redirects=True.
                 resp2 = self.session.get(
                     self.base_url.rstrip("/") + path2, timeout=60, allow_redirects=True
                 )
@@ -143,11 +145,6 @@ class StaatsbladClient(BaseClient):
         Returns (year, number) tuple or None if not found.
         Robust to namespace variations.
         """
-        ns_strip = re.compile(r"\{[^}]+\}")
-
-        def strip_ns(tag: str) -> str:
-            return ns_strip.sub("", tag)
-
         try:
             root = ET.fromstring(bwb_xml)
         except ET.ParseError as exc:
@@ -158,7 +155,7 @@ class StaatsbladClient(BaseClient):
         found_jaar: str | None = None
         found_nummer: str | None = None
         for elem in root.iter():
-            local = strip_ns(elem.tag)
+            local = _local_name(elem.tag)
             if local == "publicatiejaar":
                 val = (elem.text or "").strip()
                 if val.isdigit():

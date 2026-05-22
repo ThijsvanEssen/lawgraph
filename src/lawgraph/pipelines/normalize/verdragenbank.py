@@ -13,29 +13,24 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     RAW_KIND_VERDRAG,
     SOURCE_VERDRAGENBANK,
 )
-from lawgraph.logging import get_logger
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import iso_date as _iso_date
+from lawgraph.db.store import ArangoStore
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
 
 
-def _iso_date(val: Any) -> str | None:
-    if not val:
-        return None
-    s = str(val)
-    return s[:10] if len(s) >= 10 else s
-
-
 class VerdragenbankNormalizePipeline(NormalizePipeline):
     """Normalize Verdragenbank treaty records into Instrument nodes."""
 
-    def __init__(self, *, store: Any) -> None:
+    def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:
@@ -47,13 +42,13 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
         logger.info("Loaded %d Verdragenbank raw_sources.", len(rows))
         return rows
 
-    def normalize_nodes(self, raw: list[dict[str, Any]]) -> dict[str, Node]:
+    def normalize_nodes(self, raw: list[dict[str, Any]], result: PipelineResult) -> dict[str, Node]:
         nodes: dict[str, Node] = {}
 
         for record in raw:
             payload = self._payload_json(record)
             if not payload or not isinstance(payload, dict):
-                self._result.skipped += 1
+                result.skipped += 1
                 continue
 
             uri = payload.get("uri") or ""
@@ -61,7 +56,7 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
                 record.get("external_id") or uri.rstrip("/").rsplit("/", 1)[-1]
             )
             if not external_id:
-                self._result.skipped += 1
+                result.skipped += 1
                 continue
 
             title_nl = payload.get("title_nl") or ""
@@ -118,7 +113,7 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
             )
             node = self.store.insert_or_update(node)
             nodes[external_id] = node
-            self._result.created += 1
+            result.created += 1
 
         logger.info("Verdragenbank normalize: %d treaties processed.", len(nodes))
         return nodes

@@ -27,8 +27,8 @@ from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.db import _edge_key as _sha1_edge_key
-from lawgraph.pipelines.base import PipelineBase
+from lawgraph.db import edge_key as _sha1_edge_key
+from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -36,7 +36,7 @@ _AMENDMENT_RELATIONS = [RELATION_WIJZIGT, RELATION_INTRODUCEERT, RELATION_TREKT_
 _DEFAULT_WINDOW_DAYS = 365
 
 
-class VersionCausesSemanticPipeline(PipelineBase):
+class VersionCausesSemanticPipeline(SemanticPipelineBase):
     """Create CAUSED_VERSION edges from publications to instrument_article_versions.
 
     For each (bwb_id, article_number, valid_from) version node, this pipeline
@@ -44,6 +44,8 @@ class VersionCausesSemanticPipeline(PipelineBase):
     all publications that have a WIJZIGT/INTRODUCEERT/TREKT_IN edge to the
     current article with the same bwb_id/article_number.
     """
+
+    _EDGE_BATCH_SIZE: int = 500
 
     def __init__(
         self, *, store: ArangoStore, window_days: int = _DEFAULT_WINDOW_DAYS
@@ -53,15 +55,16 @@ class VersionCausesSemanticPipeline(PipelineBase):
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        linked = self._link_versions(since=since)
-        result.created = linked
+        created, updated = self._link_versions(since=since)
+        result.created = created
+        result.updated = updated
         logger.info(
             "VersionCausesSemanticPipeline: %d CAUSED_VERSION edges created/updated.",
-            linked,
+            created + updated,
         )
         return result
 
-    def _link_versions(self, *, since: dt.datetime | None) -> int:
+    def _link_versions(self, *, since: dt.datetime | None) -> tuple[int, int]:
         """Create CAUSED_VERSION edges by starting from amendment edges (not article versions).
 
         Inverted approach: iterate the small set of WIJZIGT/INTRODUCEERT/TREKT_IN edges
@@ -130,17 +133,18 @@ class VersionCausesSemanticPipeline(PipelineBase):
             )
 
         if not edge_docs:
-            return 0
+            return 0, 0
 
-        _BATCH_SIZE = 500
+        dummy_result = PipelineResult()
         created_total = 0
-        for start in range(0, len(edge_docs), _BATCH_SIZE):
-            batch = edge_docs[start : start + _BATCH_SIZE]
-            try:
-                created, _ = self.store.bulk_insert_or_update_edges(batch)
-                created_total += created
-            except Exception as exc:
-                logger.error("CAUSED_VERSION edge batch failed: %s", exc)
-                raise
+        updated_total = 0
+        for start in range(0, len(edge_docs), self._EDGE_BATCH_SIZE):
+            batch = edge_docs[start : start + self._EDGE_BATCH_SIZE]
+            created, updated = self._flush_edge_batch(batch, dummy_result)
+            created_total += created
+            updated_total += updated
+        if dummy_result.errors:
+            for msg in dummy_result.errors:
+                logger.error("CAUSED_VERSION edge batch failed: %s", msg)
 
-        return created_total
+        return created_total, updated_total

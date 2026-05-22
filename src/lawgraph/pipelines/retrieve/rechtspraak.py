@@ -6,14 +6,14 @@ from collections.abc import Sequence
 from typing import Any
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
-from lawgraph.config.settings import (
+from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     RAW_KIND_RS_INDEX,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -47,7 +47,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         records: list[RetrieveRecord] = []
 
         if fetch_index:
-            xml_index = self.rs.search_ecli_index(
+            xml_index = self.rs.fetch_ecli_index_xml(
                 modified_since=since,
                 extra_params=extra_params,
             )
@@ -116,7 +116,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             params["from"] = str(start)
 
             try:
-                xml_text = self.rs.search_ecli_index(
+                xml_text = self.rs.fetch_ecli_index_xml(
                     modified_since=None, extra_params=params
                 )
             except Exception as exc:

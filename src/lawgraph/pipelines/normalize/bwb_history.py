@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.db import _edge_key as _sha1_edge_key
+from lawgraph.db import edge_key as _sha1_edge_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 
 logger = get_logger(__name__)
@@ -192,8 +192,6 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
             "article_versions_by_key": article_versions_by_key,
         }
 
-    _EDGE_BATCH_SIZE = 500
-
     def build_edges(
         self,
         raw: Any,
@@ -209,22 +207,22 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
 
         # VERSION_OF: instrument_version → instrument
         for version_node in versions.values():
-            if not version_node.id:
+            if not version_node.arango_id:
                 continue
             bwb_id = version_node.props.get("bwb_id")
             if not bwb_id:
                 continue
             instrument = instruments.get(bwb_id)
-            if not instrument or not instrument.id:
+            if not instrument or not instrument.arango_id:
                 continue
             edge_key = _sha1_edge_key(
-                version_node.id, RELATION_VERSION_OF, instrument.id
+                version_node.arango_id, RELATION_VERSION_OF, instrument.arango_id
             )
             edge_docs.append(
                 {
                     "_key": edge_key,
-                    "_from": version_node.id,
-                    "_to": instrument.id,
+                    "_from": version_node.arango_id,
+                    "_to": instrument.arango_id,
                     "relation": RELATION_VERSION_OF,
                     "source": "bwb-history-normalize",
                     "status": "canoniek",
@@ -235,7 +233,7 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
         # PART_OF_VERSION: article_version → instrument_version
         # Match article versions to their version node via bwb_id + valid_from.
         for article_version_node in article_versions.values():
-            if not article_version_node.id:
+            if not article_version_node.arango_id:
                 continue
             bwb_id = article_version_node.props.get("bwb_id")
             start_date = article_version_node.props.get("valid_from") or "unknown"
@@ -243,16 +241,18 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
                 continue
             version_key = make_node_key(bwb_id, start_date)
             linked_version = versions.get(version_key)
-            if not linked_version or not linked_version.id:
+            if not linked_version or not linked_version.arango_id:
                 continue
             edge_key = _sha1_edge_key(
-                article_version_node.id, RELATION_PART_OF_VERSION, linked_version.id
+                article_version_node.arango_id,
+                RELATION_PART_OF_VERSION,
+                linked_version.arango_id,
             )
             edge_docs.append(
                 {
                     "_key": edge_key,
-                    "_from": article_version_node.id,
-                    "_to": linked_version.id,
+                    "_from": article_version_node.arango_id,
+                    "_to": linked_version.arango_id,
                     "relation": RELATION_PART_OF_VERSION,
                     "source": "bwb-history-normalize",
                     "status": "canoniek",
@@ -287,16 +287,7 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
                         }
                     )
 
-        total_created = 0
-        for batch_start in range(0, len(edge_docs), self._EDGE_BATCH_SIZE):
-            batch = edge_docs[batch_start : batch_start + self._EDGE_BATCH_SIZE]
-            try:
-                created, _ = self.store.bulk_insert_or_update_edges(batch)
-                total_created += created
-            except Exception as exc:
-                logger.error("BWB history edge batch upsert failed: %s", exc)
-                raise
-
+        total_created = self._batch_upsert_edges(edge_docs)
         logger.info(
             "BWB history normalization created/updated %d edges.", total_created
         )
@@ -306,7 +297,7 @@ class BWBHistoryNormalizePipeline(BWBNormalizePipeline):
         """Return all instrument_versions for bwb_id from the DB, sorted newest first."""
         aql = """
         FOR doc IN instrument_versions
-            FILTER LOWER(doc.props.bwb_id) == @bwb_id
+            FILTER doc.props.bwb_id == @bwb_id
             SORT doc.props.valid_from DESC
             RETURN {_id: doc._id, valid_from: doc.props.valid_from}
         """

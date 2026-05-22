@@ -15,6 +15,7 @@ from typing import Callable
 from dotenv import load_dotenv
 
 from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.pipelines.list_stats import main as list_stats_main
 from lawgraph.sources.registry import SOURCES, RetrieveCtx
 
 logger = get_logger(__name__)
@@ -152,8 +153,6 @@ def run_retrieve_all(argv: list[str] | None = None) -> None:
 
 
 def run_semantic_all(argv: list[str] | None = None) -> None:
-    from lawgraph.pipelines.list_stats import main as list_stats_main
-
     load_dotenv()
     setup_logging()
 

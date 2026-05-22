@@ -34,6 +34,7 @@ from lawgraph.config.constants import (
     COLLECTION_FRACTIES,
     COLLECTION_KAMERSTUKDOSSIERS,
     COLLECTION_LEDEN,
+    COLLECTION_PROCEDURES,
     COLLECTION_PUBLICATIONS,
     COLLECTION_STEMMINGEN,
     COLLECTION_TOEZEGGINGEN,
@@ -108,6 +109,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
+        self._fractie_by_label: dict[str, Any] = {}
 
     def fetch_raw(
         self, *, since: dt.datetime | None = None
@@ -150,11 +152,9 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         # Fractie raws are loaded yet (older snapshots), so backwards-compat
         # is preserved during the migration.
         fractie_raws = raw.get(RAW_KIND_TK_FRACTIE, [])
-        # Stash stemmingen raws so _normalize_fracties can derive aliases from
-        # ActorFractie strings (TK abbrev. inconsistency: e.g. NSC).
-        self._raw_stemmingen_cache = raw.get(RAW_KIND_TK_STEMMING, [])
+        stemmingen_raws = raw.get(RAW_KIND_TK_STEMMING, [])
         if fractie_raws:
-            fractie_nodes = self._normalize_fracties(fractie_raws)
+            fractie_nodes = self._normalize_fracties(fractie_raws, stemmingen_raws)
         else:
             fractie_nodes = self._normalize_fracties_from_stemmingen(
                 raw.get(RAW_KIND_TK_STEMMING, [])
@@ -405,7 +405,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             dict_key = f"{nummer_str}-{toevoeging}" if toevoeging else nummer_str
             nodes[dict_key] = inserted
 
-        logger.info("Normalized %d kamerstukdossiers.", len(nodes) // 2 or len(nodes))
+        logger.info("Normalized %d kamerstukdossiers.", len(nodes) // 2)
         return nodes
 
     # ── Dossier fase enrichment ────────────────────────────────────────────────
@@ -598,7 +598,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             LET direct = (
                 FOR e IN {COLLECTION_EDGES}
                     FILTER e._to == dossier_id AND e.relation == '{RELATION_DEEL_VAN_DOSSIER}'
-                    FILTER SPLIT(e._from, '/')[0] == 'publications'
+                    FILTER STARTS_WITH(e._from, '{COLLECTION_PUBLICATIONS}/')
                     LET pub = DOCUMENT(e._from)
                     FILTER pub != null
                     RETURN pub
@@ -606,10 +606,10 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             LET via_procedure = (
                 FOR e1 IN {COLLECTION_EDGES}
                     FILTER e1._to == dossier_id AND e1.relation == '{RELATION_DEEL_VAN_DOSSIER}'
-                    FILTER SPLIT(e1._from, '/')[0] == 'procedures'
+                    FILTER STARTS_WITH(e1._from, '{COLLECTION_PROCEDURES}/')
                     FOR e2 IN {COLLECTION_EDGES}
                         FILTER e2._to == e1._from AND e2.relation == 'PART_OF_PROCEDURE'
-                        FILTER SPLIT(e2._from, '/')[0] == 'publications'
+                        FILTER STARTS_WITH(e2._from, '{COLLECTION_PUBLICATIONS}/')
                         LET pub = DOCUMENT(e2._from)
                         FILTER pub != null
                         RETURN pub
@@ -618,7 +618,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             LET activiteiten = (
                 FOR e IN {COLLECTION_EDGES}
                     FILTER e._to == dossier_id AND e.relation == '{RELATION_DEEL_VAN_DOSSIER}'
-                    FILTER SPLIT(e._from, '/')[0] == 'activiteiten'
+                    FILTER STARTS_WITH(e._from, '{COLLECTION_ACTIVITEITEN}/')
                     LET a = DOCUMENT(e._from)
                     FILTER a != null
                     RETURN {{soort: a.props.soort, datum: a.props.datum}}
@@ -626,7 +626,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             LET stemmingen = (
                 FOR e IN {COLLECTION_EDGES}
                     FILTER e._to == dossier_id AND e.relation == '{RELATION_DEEL_VAN_DOSSIER}'
-                    FILTER SPLIT(e._from, '/')[0] == 'stemmingen'
+                    FILTER STARTS_WITH(e._from, '{COLLECTION_STEMMINGEN}/')
                     LET s = DOCUMENT(e._from)
                     FILTER s != null
                     RETURN {{datum: s.props.datum, aangenomen: s.props.aangenomen}}
@@ -1061,7 +1061,9 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         return aliases
 
     def _normalize_fracties(
-        self, fractie_raws: list[dict[str, Any]]
+        self,
+        fractie_raws: list[dict[str, Any]],
+        stemmingen_raws: list[dict[str, Any]] | None = None,
     ) -> dict[str, Node]:
         """Build canonical Fractie nodes from the TK Fractie endpoint.
 
@@ -1074,7 +1076,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         # Collect ActorFractie strings from stemmingen so we can map them to
         # canonical fracties as aliases.
         stemming_labels: set[str] = set()
-        for raw in getattr(self, "_raw_stemmingen_cache", []) or []:
+        for raw in stemmingen_raws or []:
             payload = self._payload_json(raw)
             label = (payload.get("ActorFractie") or "").strip()
             if label:
@@ -1255,7 +1257,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
     def _normalize_documents(
         self, raw_records: list[dict[str, Any]]
-    ) -> dict[str, "Node"]:
+    ) -> dict[str, Node]:
         """Normalize TK Document records into publications nodes.
 
         The TK Document entity does NOT carry a direct dossier number; it links
@@ -1275,7 +1277,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         Nodes land in the ``publications`` collection so they are automatically
         picked up by dossier-detail count and timeline queries.
         """
-        nodes: dict[str, "Node"] = {}
+        nodes: dict[str, Node] = {}
         skipped = 0
         for raw in raw_records:
             payload = self._payload_json(raw)
@@ -1384,7 +1386,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
     # ── Edge builders ──────────────────────────────────────────────────────────
 
-    def _link_documents_to_dossiers(self, document_nodes: dict[str, "Node"]) -> int:
+    def _link_documents_to_dossiers(self, document_nodes: dict[str, Node]) -> int:
         """Create DEEL_VAN_DOSSIER edges from TK Document nodes to Kamerstukdossier nodes.
 
         Each document may link to multiple dossiers (stored in ``dossier_nummers``).
@@ -1392,7 +1394,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         """
         edges = 0
         for _ext_id, doc_node in document_nodes.items():
-            if not doc_node.id:
+            if not doc_node.arango_id:
                 continue
             # Use dossier_nummers (list); fall back to singular dossier_nummer
             nummers: list[str] = doc_node.props.get("dossier_nummers") or []
@@ -1405,12 +1407,12 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                 dossier_node = self.store.get_node(
                     COLLECTION_KAMERSTUKDOSSIERS, dossier_key
                 )
-                if not dossier_node or not dossier_node.id:
+                if not dossier_node or not dossier_node.arango_id:
                     continue
                 try:
                     self.store.create_edge(
-                        from_id=doc_node.id,
-                        to_id=dossier_node.id,
+                        from_id=doc_node.arango_id,
+                        to_id=dossier_node.arango_id,
                         relation=RELATION_DEEL_VAN_DOSSIER,
                         source="tk-dossiers",
                         status=EDGE_STATUS_CANONIEK,
@@ -1424,8 +1426,8 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
     def _link_documents_to_indieners(
         self,
-        document_nodes: dict[str, "Node"],
-        fractie_nodes: dict[str, "Node"],
+        document_nodes: dict[str, Node],
+        fractie_nodes: dict[str, Node],
     ) -> int:
         """Create AUTEUR_VAN edges from each indiener → publication.
 
@@ -1441,7 +1443,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         """
         edges = 0
         for _ext_id, doc_node in document_nodes.items():
-            if not doc_node.id:
+            if not doc_node.arango_id:
                 continue
             seen_fracties: set[str] = set()
             for actor in doc_node.props.get("actors") or []:
@@ -1453,7 +1455,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                         try:
                             self.store.create_edge(
                                 from_id=f"{COLLECTION_LEDEN}/{lid_key}",
-                                to_id=doc_node.id,
+                                to_id=doc_node.arango_id,
                                 relation=RELATION_AUTEUR_VAN,
                                 source="tk-dossiers",
                                 status=EDGE_STATUS_CANONIEK,
@@ -1471,7 +1473,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                 fractie_node = getattr(self, "_fractie_by_label", {}).get(
                     fractie_naam
                 ) or fractie_nodes.get(fractie_naam)
-                if fractie_node is None or not fractie_node.id:
+                if fractie_node is None or not fractie_node.arango_id:
                     # Fall back to a key lookup — covers fracties that only
                     # appear on documents but not in stemmingen of this batch.
                     fractie_key = make_node_key(fractie_naam)
@@ -1479,12 +1481,12 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                         continue
                     fractie_id = f"{COLLECTION_FRACTIES}/{fractie_key}"
                 else:
-                    fractie_id = fractie_node.id
+                    fractie_id = fractie_node.arango_id
                 seen_fracties.add(fractie_naam)
                 try:
                     self.store.create_edge(
                         from_id=fractie_id,
-                        to_id=doc_node.id,
+                        to_id=doc_node.arango_id,
                         relation=RELATION_AUTEUR_VAN,
                         source="tk-dossiers",
                         status=EDGE_STATUS_CANONIEK,
@@ -1499,8 +1501,8 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
     def _link_fracties_to_stemmingen(
         self,
-        stemming_nodes: dict[str, "Node"],
-        fractie_nodes: dict[str, "Node"],
+        stemming_nodes: dict[str, Node],
+        fractie_nodes: dict[str, Node],
     ) -> int:
         """Create STEMT edges from each fractie → stemming with meta.stem.
 
@@ -1511,7 +1513,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         """
         edges = 0
         for _besluit_id, stemming_node in stemming_nodes.items():
-            if not stemming_node.id:
+            if not stemming_node.arango_id:
                 continue
             buckets = (
                 ("Voor", stemming_node.props.get("voor") or []),
@@ -1526,8 +1528,8 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                     fractie_node = getattr(self, "_fractie_by_label", {}).get(
                         partij
                     ) or fractie_nodes.get(partij)
-                    if fractie_node is not None and fractie_node.id:
-                        fractie_id = fractie_node.id
+                    if fractie_node is not None and fractie_node.arango_id:
+                        fractie_id = fractie_node.arango_id
                     else:
                         fractie_key = make_node_key(partij)
                         if (
@@ -1539,7 +1541,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                     try:
                         self.store.create_edge(
                             from_id=fractie_id,
-                            to_id=stemming_node.id,
+                            to_id=stemming_node.arango_id,
                             relation=RELATION_STEMT,
                             source="tk-dossiers",
                             status=EDGE_STATUS_CANONIEK,
@@ -1577,10 +1579,10 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             dossier_lookup[nummer_str] = f"{COLLECTION_KAMERSTUKDOSSIERS}/{dossier_key}"
 
         # Query all procedures that have a kamerstuknummer
-        aql = """
-        FOR doc IN procedures
+        aql = f"""
+        FOR doc IN {COLLECTION_PROCEDURES}
             FILTER doc.props.kamerstuknummer != null
-            RETURN { _id: doc._id, kamerstuknummer: doc.props.kamerstuknummer }
+            RETURN {{ _id: doc._id, kamerstuknummer: doc.props.kamerstuknummer }}
         """
         edges = 0
         for row in self.store.query(aql):
@@ -1610,11 +1612,11 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
 
     def _link_publications_to_dossiers(self) -> int:
         """Create DEEL_VAN_DOSSIER edges from existing publications that have dossier_nummer."""
-        aql = """
-        FOR doc IN publications
+        aql = f"""
+        FOR doc IN {COLLECTION_PUBLICATIONS}
             FILTER doc.props.dossier_nummer != null
             LIMIT 50000
-            RETURN { _id: doc._id, dossier_nummer: doc.props.dossier_nummer }
+            RETURN {{ _id: doc._id, dossier_nummer: doc.props.dossier_nummer }}
         """
         edges = 0
         for row in self.store.query(aql):
@@ -1659,7 +1661,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
             payload = self._payload_json(raw)
             external_id = str(payload.get("Id") or "")
             activiteit_node = activiteit_nodes.get(external_id)
-            if not activiteit_node or not activiteit_node.id:
+            if not activiteit_node or not activiteit_node.arango_id:
                 continue
 
             # → Kamerstukdossier(s)
@@ -1668,11 +1670,11 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                 dossier_node = self.store.get_node(
                     COLLECTION_KAMERSTUKDOSSIERS, dossier_key
                 )
-                if dossier_node and dossier_node.id:
+                if dossier_node and dossier_node.arango_id:
                     try:
                         self.store.create_edge(
-                            from_id=activiteit_node.id,
-                            to_id=dossier_node.id,
+                            from_id=activiteit_node.arango_id,
+                            to_id=dossier_node.arango_id,
                             relation=RELATION_DEEL_VAN_DOSSIER,
                             source="tk-dossiers",
                             status=EDGE_STATUS_CANONIEK,
@@ -1688,11 +1690,11 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                 commissie_node = self.store.get_node(
                     COLLECTION_COMMISSIES, commissie_key
                 )
-                if commissie_node and commissie_node.id:
+                if commissie_node and commissie_node.arango_id:
                     try:
                         self.store.create_edge(
-                            from_id=activiteit_node.id,
-                            to_id=commissie_node.id,
+                            from_id=activiteit_node.arango_id,
+                            to_id=commissie_node.arango_id,
                             relation=RELATION_BEHANDELD_DOOR,
                             source="tk-dossiers",
                             status=EDGE_STATUS_CANONIEK,
@@ -1712,7 +1714,7 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
         """Create DEEL_VAN_DOSSIER edges from Stemming nodes to Kamerstukdossier nodes."""
         edges = 0
         for _besluit_id, stemming_node in stemming_nodes.items():
-            if not stemming_node.id:
+            if not stemming_node.arango_id:
                 continue
 
             for nummer in stemming_node.props.get("dossier_nummers") or []:
@@ -1720,11 +1722,11 @@ class TkDossiersNormalizePipeline(NormalizePipeline):
                 dossier_node = self.store.get_node(
                     COLLECTION_KAMERSTUKDOSSIERS, dossier_key
                 )
-                if dossier_node and dossier_node.id:
+                if dossier_node and dossier_node.arango_id:
                     try:
                         self.store.create_edge(
-                            from_id=stemming_node.id,
-                            to_id=dossier_node.id,
+                            from_id=stemming_node.arango_id,
+                            to_id=dossier_node.arango_id,
                             relation=RELATION_DEEL_VAN_DOSSIER,
                             source="tk-dossiers",
                             status=EDGE_STATUS_CANONIEK,
@@ -1761,7 +1763,7 @@ FOR act IN activiteiten
                 activiteit_id_by_nummer[row["nummer"]] = row["id"]
 
         for _external_id, toezegging_node in toezegging_nodes.items():
-            if not toezegging_node.id:
+            if not toezegging_node.arango_id:
                 continue
 
             activiteit_nummer = toezegging_node.props.get("activiteit_nummer") or ""
@@ -1770,7 +1772,7 @@ FOR act IN activiteiten
                 if act_id:
                     try:
                         self.store.create_edge(
-                            from_id=toezegging_node.id,
+                            from_id=toezegging_node.arango_id,
                             to_id=act_id,
                             relation=RELATION_GEDAAN_IN,
                             source="tk-dossiers",
@@ -1784,11 +1786,11 @@ FOR act IN activiteiten
             dossier_ext_id = toezegging_node.props.get("dossier_id")
             if dossier_ext_id:
                 dossier_node = self._find_dossier_by_external_id(dossier_ext_id)
-                if dossier_node and dossier_node.id:
+                if dossier_node and dossier_node.arango_id:
                     try:
                         self.store.create_edge(
-                            from_id=toezegging_node.id,
-                            to_id=dossier_node.id,
+                            from_id=toezegging_node.arango_id,
+                            to_id=dossier_node.arango_id,
                             relation=RELATION_DEEL_VAN_DOSSIER,
                             source="tk-dossiers",
                             status=EDGE_STATUS_CANONIEK,
@@ -1811,7 +1813,7 @@ FOR act IN activiteiten
             commissie_id = str(payload.get("Id") or "")
             commissie_key = make_node_key(commissie_id)
             commissie_node = self.store.get_node(COLLECTION_COMMISSIES, commissie_key)
-            if not commissie_node or not commissie_node.id:
+            if not commissie_node or not commissie_node.arango_id:
                 continue
 
             # Collect all membership periods per persoon before writing edges.
@@ -1835,7 +1837,7 @@ FOR act IN activiteiten
             for persoon_id, periods in periods_by_persoon.items():
                 lid_key = make_node_key(persoon_id)
                 lid_node = self.store.get_node(COLLECTION_LEDEN, lid_key)
-                if not lid_node or not lid_node.id:
+                if not lid_node or not lid_node.arango_id:
                     continue
                 open_periods = [(van, tot) for van, tot in periods if tot is None]
                 if open_periods:
@@ -1852,8 +1854,8 @@ FOR act IN activiteiten
                     zetel_meta["geldig_tot"] = best_tot
                 try:
                     self.store.create_edge(
-                        from_id=lid_node.id,
-                        to_id=commissie_node.id,
+                        from_id=lid_node.arango_id,
+                        to_id=commissie_node.arango_id,
                         relation=RELATION_LID_VAN,
                         source="tk-dossiers",
                         status=EDGE_STATUS_CANONIEK,
@@ -1878,18 +1880,18 @@ FOR act IN activiteiten
         """
         edges = 0
         for _external_id, lid_node in lid_nodes.items():
-            if not lid_node.id:
+            if not lid_node.arango_id:
                 continue
             partij = str(lid_node.props.get("partij") or "").strip()
             if not partij or partij == "onafhankelijk":
                 continue
             fractie_node = fractie_nodes.get(partij)
-            if not fractie_node or not fractie_node.id:
+            if not fractie_node or not fractie_node.arango_id:
                 continue
             try:
                 self.store.create_edge(
-                    from_id=lid_node.id,
-                    to_id=fractie_node.id,
+                    from_id=lid_node.arango_id,
+                    to_id=fractie_node.arango_id,
                     relation=RELATION_LID_VAN_FRACTIE,
                     source="tk-dossiers",
                     status=EDGE_STATUS_CANONIEK,
@@ -1937,9 +1939,9 @@ FOR act IN activiteiten
             fractie_node = fractie_nodes.get(fractie_id_ext)
             if (
                 lid_node is None
-                or not lid_node.id
+                or not lid_node.arango_id
                 or fractie_node is None
-                or not fractie_node.id
+                or not fractie_node.arango_id
             ):
                 continue
 
@@ -1949,8 +1951,8 @@ FOR act IN activiteiten
 
             try:
                 self.store.create_edge(
-                    from_id=lid_node.id,
-                    to_id=fractie_node.id,
+                    from_id=lid_node.arango_id,
+                    to_id=fractie_node.arango_id,
                     relation=RELATION_LID_VAN_FRACTIE,
                     source="tk-dossiers",
                     status=EDGE_STATUS_CANONIEK,
@@ -1962,7 +1964,7 @@ FOR act IN activiteiten
 
             by_lid.setdefault(persoon_id, []).append(
                 {
-                    "fractie_id": fractie_node.id,
+                    "fractie_id": fractie_node.arango_id,
                     "fractie_key": fractie_node.key,
                     "naam": fractie_node.props.get("naam"),
                     "afkorting": fractie_node.props.get("afkorting"),

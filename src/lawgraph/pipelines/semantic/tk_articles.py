@@ -11,21 +11,24 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_PROCEDURES,
     COLLECTION_PUBLICATIONS,
+    RAW_KIND_TK_DOCUMENTVERSIE,
+    RAW_KIND_TK_ZAAK,
     RELATION_EXPLAINS_ARTICLE,
     RELATION_MENTIONS_ARTICLE,
     RELATION_MENTIONS_INSTRUMENT,
+    SOURCE_TK,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.core.time import describe_since
+from lawgraph.core.time import describe_since, iso_timestamp
 
 from .base import InstrumentAliasMap, SemanticPipelineBase
 from .citation_detect import (
     CitationHit,
     DutchCitationExtractor,
-    _hit_reason,
     coerce_text,
     format_celex,
+    hit_reason,
     make_snippet,
 )
 
@@ -75,14 +78,6 @@ _EU_ARTICLE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (_ARTICLE_BESLUIT_PATTERN, "decision"),
     (_ARTICLE_KADERBESLUIT_PATTERN, "framework_decision"),
 )
-
-_KIND_TO_LETTER = {
-    "directive": "L",
-    "regulation": "R",
-    "decision": "C",
-    "framework_decision": "D",
-}
-
 
 # ---------------------------------------------------------------------------
 # Relation selector
@@ -199,12 +194,7 @@ def _collect_eu_article_hits(
             article_number = match.group(1)
             year = match.group(2)
             number_value = match.group(3)
-            letter = _KIND_TO_LETTER.get(kind, "L")
-            try:
-                padded = int(number_value)
-            except ValueError:
-                padded = 0
-            celex = f"3{year}{letter}{padded:04d}"
+            celex = format_celex(kind, year, number_value)  # type: ignore[arg-type]
             record(
                 CitationHit(
                     kind="article",
@@ -283,8 +273,6 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        from lawgraph.core.time import iso_timestamp
-
         since_iso = iso_timestamp(since)
 
         code_aliases = self._load_code_aliases()
@@ -293,7 +281,6 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
             logger.warning(
                 "No instrument or code aliases configured for TK semantic linking."
             )
-            return result
 
         # Build name_aliases for DutchCitationExtractor (article-level "van de" form)
         name_aliases: dict[str, str] = {}
@@ -337,7 +324,7 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
                     for k, v in {
                         "raw_match": hit.raw_match,
                         "snippet": hit.snippet,
-                        "reason": _hit_reason(hit),
+                        "reason": hit_reason(hit),
                         "qualifier": hit.qualifier,
                     }.items()
                     if v
@@ -399,12 +386,6 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
 
     def _load_tk_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
         if since_iso is not None:
-            from lawgraph.config.constants import (
-                RAW_KIND_TK_DOCUMENTVERSIE,
-                RAW_KIND_TK_ZAAK,
-                SOURCE_TK,
-            )
-
             recent_ids: set[str] = set()
             for kind in (RAW_KIND_TK_DOCUMENTVERSIE, RAW_KIND_TK_ZAAK):
                 aql = """
@@ -532,9 +513,9 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
         text = "\n".join(fragments)
         if len(text) >= _MAX_TEXT_LENGTH:
             logger.debug(
-                "TK semantic: document text truncated at %d chars (node %s).",
+                "TK semantic: document text reached collection limit of %d chars (node %s).",
                 _MAX_TEXT_LENGTH,
-                document.key if hasattr(document, "key") else "unknown",
+                document.key,
             )
         return text
 

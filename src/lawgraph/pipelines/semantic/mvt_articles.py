@@ -7,18 +7,23 @@ nodes in the related instruments.
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_ARTICLES,
     COLLECTION_PUBLICATIONS,
+    RELATION_INTRODUCEERT,
     RELATION_LICHT_TOE,
     RELATION_RAAKT,
     RELATION_RESULTED_IN,
+    RELATION_TREKT_IN,
+    RELATION_WIJZIGT,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
+from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase
 
@@ -31,74 +36,77 @@ _ARTICLE_PATTERN = re.compile(r"\bArtikel(?:en)?\s+(\d+[a-z]*)\b", re.IGNORECASE
 
 _MAX_HITS_PER_PUB = 200
 
+# AQL template for fetching MvT publications.
+# {since_filter} is injected at runtime; relation names are baked in at module load.
+_AQL_MVT_PUBLICATIONS = (
+    "FOR pub IN publications\n"
+    "  FILTER CONTAINS(LOWER(pub.props.soort ?? ''), 'toelichting')\n"
+    "  FILTER pub.props.text != null AND LENGTH(pub.props.text) > 200\n"
+    "  {since_filter}\n"
+    "  LET dossier_ids = (\n"
+    "    FOR e IN edges\n"
+    "      FILTER e._from == pub._id AND e.relation == 'DEEL_VAN_DOSSIER'\n"
+    "      RETURN e._to\n"
+    "  )\n"
+    "  // Strategy 1: RESULTED_IN/RAAKT from dossier -> instrument (enacted or linked laws)\n"
+    "  LET s1 = (\n"
+    "    FOR did IN dossier_ids\n"
+    "      FOR e2 IN edges\n"
+    "        FILTER e2._from == did AND e2.relation IN @s1_rels\n"
+    "        LET inst = DOCUMENT(e2._to)\n"
+    "        FILTER inst != null AND (inst.props.bwb_id != null OR inst.props.celex != null)\n"
+    "        RETURN DISTINCT {{id: inst._id, bwb_id: inst.props.bwb_id, celex: inst.props.celex}}\n"
+    "  )\n"
+    "  LET s2 = (\n"
+    "    FOR did IN dossier_ids\n"
+    "      FOR e2 IN edges\n"
+    "        FILTER e2._to == did AND e2.relation == 'DEEL_VAN_DOSSIER'\n"
+    "        FOR e3 IN edges\n"
+    "          FILTER e3._from == e2._from\n"
+    f"              AND e3.relation IN ['{RELATION_WIJZIGT}',"
+    f" '{RELATION_INTRODUCEERT}', '{RELATION_TREKT_IN}']\n"
+    "          LET art = DOCUMENT(e3._to)\n"
+    "          FILTER art != null AND art.props.bwb_id != null\n"
+    "          FOR inst IN instruments\n"
+    "            FILTER inst.props.bwb_id == art.props.bwb_id\n"
+    "            RETURN DISTINCT {{id: inst._id,"
+    " bwb_id: inst.props.bwb_id, celex: inst.props.celex}}\n"
+    "  )\n"
+    "  LET found_instruments = LENGTH(s1) > 0 ? s1 : s2\n"
+    "  FILTER LENGTH(found_instruments) > 0\n"
+    "  RETURN {{\n"
+    "    pub_id: pub._id,\n"
+    "    pub_key: pub._key,\n"
+    "    text: pub.props.text,\n"
+    "    instruments: found_instruments\n"
+    "  }}\n"
+)
+
 
 class MvtArticleSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking MvT publications to instrument articles via LICHT_TOE edges."""
 
-    def run(self, *, since: Any = None) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
         # Build optional since filter for the publications query
         since_filter = ""
         bind_vars: dict[str, Any] = {"s1_rels": [RELATION_RESULTED_IN, RELATION_RAAKT]}
         if since is not None:
-            from lawgraph.core.time import iso_timestamp
-
             since_iso = iso_timestamp(since)
             if since_iso:
-                since_filter = """
-  LET recent_ids = (
-    FOR r IN raw_sources
-      FILTER r.source == 'tk' AND r.fetched_at >= @since
-      FILTER r.external_id != null
-      RETURN r.external_id
-  )
-  FILTER pub.props.external_id IN recent_ids"""
+                since_filter = (
+                    "LET recent_ids = (\n"
+                    "    FOR r IN raw_sources\n"
+                    "      FILTER r.source == 'tk' AND r.fetched_at >= @since\n"
+                    "      FILTER r.external_id != null\n"
+                    "      RETURN r.external_id\n"
+                    "  )\n"
+                    "  FILTER pub.props.external_id IN recent_ids"
+                )
                 bind_vars["since"] = since_iso
 
-        aql = f"""
-FOR pub IN publications
-  FILTER CONTAINS(LOWER(pub.props.soort ?? ''), 'toelichting')
-  FILTER pub.props.text != null AND LENGTH(pub.props.text) > 200
-  {since_filter}
-  LET dossier_ids = (
-    FOR e IN edges
-      FILTER e._from == pub._id AND e.relation == 'DEEL_VAN_DOSSIER'
-      RETURN e._to
-  )
-  // Strategy 1: RESULTED_IN/RAAKT from dossier → instrument (enacted or linked laws)
-  LET s1 = (
-    FOR did IN dossier_ids
-      FOR e2 IN edges
-        FILTER e2._from == did AND e2.relation IN @s1_rels
-        LET inst = DOCUMENT(e2._to)
-        FILTER inst != null AND (inst.props.bwb_id != null OR inst.props.celex != null)
-        RETURN DISTINCT {{id: inst._id, bwb_id: inst.props.bwb_id, celex: inst.props.celex}}
-  )
-  // Strategy 2: follow WIJZIGT/INTRODUCEERT/TREKT_IN edges from sibling publications
-  //             to find which instruments the dossier targets
-  LET s2 = (
-    FOR did IN dossier_ids
-      FOR e2 IN edges
-        FILTER e2._to == did AND e2.relation == 'DEEL_VAN_DOSSIER'
-        FOR e3 IN edges
-          FILTER e3._from == e2._from
-              AND e3.relation IN ['WIJZIGT', 'INTRODUCEERT', 'TREKT_IN']
-          LET art = DOCUMENT(e3._to)
-          FILTER art != null AND art.props.bwb_id != null
-          FOR inst IN instruments
-            FILTER inst.props.bwb_id == art.props.bwb_id
-            RETURN DISTINCT {{id: inst._id, bwb_id: inst.props.bwb_id, celex: inst.props.celex}}
-  )
-  LET found_instruments = LENGTH(s1) > 0 ? s1 : s2
-  FILTER LENGTH(found_instruments) > 0
-  RETURN {{
-    pub_id: pub._id,
-    pub_key: pub._key,
-    text: pub.props.text,
-    instruments: found_instruments
-  }}
-"""
+        aql = _AQL_MVT_PUBLICATIONS.format(since_filter=since_filter)
 
         rows = list(self.store.query(aql, bind_vars=bind_vars if bind_vars else None))
         if not rows:
@@ -118,6 +126,8 @@ FOR pub IN publications
             pair: self._load_article_map(bwb_id=pair[0], celex=pair[1])
             for pair in distinct_pairs
         }
+
+        edge_batch: list[dict[str, Any]] = []
 
         for row in rows:
             pub_id = row.get("pub_id")
@@ -145,18 +155,27 @@ FOR pub IN publications
 
                 hits = self._extract_licht_toe_hits(text, article_map)
                 for article_node, confidence in hits:
-                    created = self._create_semantic_edge(
+                    edge_doc = self._make_edge_doc(
                         from_node=pub_node,
                         to_node=article_node,
                         relation=RELATION_LICHT_TOE,
                         source=SEMANTIC_SOURCE,
                         confidence=confidence,
-                        result=result,
                     )
-                    if created:
-                        result.created += 1
-                    else:
-                        result.updated += 1
+                    if edge_doc:
+                        edge_batch.append(edge_doc)
+                        if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                            created, updated = self._flush_edge_batch(
+                                edge_batch, result
+                            )
+                            result.created += created
+                            result.updated += updated
+                            edge_batch = []
+
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
 
         logger.info("MvT article semantic linker: %s.", result.summary())
         return result

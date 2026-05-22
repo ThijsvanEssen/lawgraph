@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from lawgraph.clients.staatscourant import StaatscourantClient
-from lawgraph.config.settings import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
+from lawgraph.config.constants import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.logging import get_logger
-from lawgraph.models import PipelineResult
 
 from .base import RetrievePipelineBase, RetrieveRecord
 

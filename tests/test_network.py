@@ -45,7 +45,7 @@ def test_rechtspraak_search_endpoint_reachable_and_returns_xml() -> None:
     """
     client = RechtspraakClient()
 
-    xml_index = client.search_ecli_index(modified_since=None, extra_params=None)
+    xml_index = client.fetch_ecli_index_xml(modified_since=None, extra_params=None)
 
     assert isinstance(xml_index, str)
     # minimale sanity check: XML-achtig

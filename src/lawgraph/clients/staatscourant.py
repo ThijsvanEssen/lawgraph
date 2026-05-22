@@ -15,7 +15,7 @@ from typing import Any
 
 from lawgraph.clients._sru import parse_sru_records
 from lawgraph.clients.base import BaseClient
-from lawgraph.config.settings import STAATSBLAD_REPO_BASE, STAATSCOURANT_SRU_ENDPOINT
+from lawgraph.config.settings import STAATSCOURANT_REPO_BASE, STAATSCOURANT_SRU_ENDPOINT
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -28,8 +28,8 @@ class StaatscourantClient(BaseClient):
 
     def __init__(self, session=None) -> None:
         super().__init__(
-            env_var="STAATSBLAD_REPO_BASE",
-            default_base_url=STAATSBLAD_REPO_BASE,
+            env_var="STAATSCOURANT_REPO_BASE",
+            default_base_url=STAATSCOURANT_REPO_BASE,
             session=session,
         )
 
@@ -56,10 +56,9 @@ class StaatscourantClient(BaseClient):
                 "recordSchema": "gzd",
             }
             try:
-                resp = self.session.get(
+                resp = self._get_raw_absolute_with_retry(
                     STAATSCOURANT_SRU_ENDPOINT, params=params, timeout=60
                 )
-                resp.raise_for_status()
                 xml_text = resp.text
             except Exception as exc:
                 logger.warning(
@@ -105,10 +104,12 @@ class StaatscourantClient(BaseClient):
 
         year = m.group(1)
         num = m.group(2).zfill(4)
-        clean_id = f"stcrt-{year}-{m.group(2)}"
+        clean_id = f"stcrt-{year}-{num}"
 
         path = f"/frbr/officielepublicaties/stcrt/{year}/{num}/{clean_id}/xml"
         try:
+            # Cannot use _get_raw_absolute_with_retry here: needs allow_redirects=True
+            # and manual status-code inspection (200/404 handled separately).
             resp = self.session.get(
                 self.base_url.rstrip("/") + path, timeout=60, allow_redirects=True
             )
@@ -131,6 +132,7 @@ class StaatscourantClient(BaseClient):
         path2 = f"/frbr/officielepublicaties/stcrt/{year}/{m.group(2)}/{clean_id}/xml"
         if path2 != path:
             try:
+                # Cannot use _get_raw_absolute_with_retry here: needs allow_redirects=True.
                 resp2 = self.session.get(
                     self.base_url.rstrip("/") + path2, timeout=60, allow_redirects=True
                 )

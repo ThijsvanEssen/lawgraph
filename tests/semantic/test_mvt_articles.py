@@ -5,29 +5,24 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.pipelines.semantic.mvt_articles import MvtArticleSemanticPipeline
+from tests.conftest import _BaseFakeStore
 
 
-class _FakeStore:
+class _FakeStore(_BaseFakeStore):
     def __init__(
         self,
         *,
         pub_rows: list[dict[str, Any]],
         article_rows: list[dict[str, Any]] | None = None,
     ) -> None:
+        super().__init__()
         self._pub_rows = pub_rows
         self._article_rows = article_rows or []
-        self.edges: dict[str, dict[str, Any]] = {}
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
         if "instrument_articles" in aql:
             return list(self._article_rows)
         return list(self._pub_rows)
-
-    def insert_or_update_edge(self, doc: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-        k = doc["_key"]
-        created = k not in self.edges
-        self.edges[k] = dict(doc)
-        return self.edges[k], created
 
 
 def _make_article_row(key: str, bwb_id: str, number: str) -> dict[str, Any]:
@@ -58,7 +53,7 @@ def test_pipeline_creates_licht_toe_edge() -> None:
     article_rows = [_make_article_row(article_key, bwb_id, "91")]
 
     store = _FakeStore(pub_rows=pub_rows, article_rows=article_rows)
-    pipeline = MvtArticleSemanticPipeline(store=store, domain_config={})
+    pipeline = MvtArticleSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -70,7 +65,7 @@ def test_pipeline_creates_licht_toe_edge() -> None:
 
 def test_pipeline_returns_empty_when_no_publications() -> None:
     store = _FakeStore(pub_rows=[])
-    pipeline = MvtArticleSemanticPipeline(store=store, domain_config={})
+    pipeline = MvtArticleSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
     assert len(store.edges) == 0

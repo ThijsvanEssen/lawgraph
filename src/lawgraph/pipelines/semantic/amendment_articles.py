@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 from lawgraph.pipelines.semantic.citation_detect import (
     CitationHit,
@@ -62,9 +63,11 @@ _WORDT_INGEVOEGD = re.compile(
     re.IGNORECASE,
 )
 
-# "Artikel 5 vervalt" / "Artikel 5, eerste lid, onder d, vervalt"
+# "Artikel 5 vervalt" / "Artikel 5, eerste lid, onder d, vervalt" / "komt te vervallen"
 _VERVALT = re.compile(
-    r"\bArtikel\s+(\d+[a-z]*)" + _LID_ONDERDEEL + r"\s+(?:komt\s+te\s+)?vervalt?\b",
+    r"\bArtikel\s+(\d+[a-z]*)"
+    + _LID_ONDERDEEL
+    + r"\s+(?:komt\s+te\s+)?verval(?:t|len)\b",
     re.IGNORECASE,
 )
 
@@ -175,7 +178,7 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
 
             edge_status = (
                 EDGE_STATUS_VOORGESTELD
-                if document.id in open_pub_ids
+                if document.arango_id in open_pub_ids
                 else EDGE_STATUS_CANONIEK
             )
 
@@ -232,8 +235,6 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
     ) -> Iterable[Node]:
         since_iso: str | None = None
         if since is not None:
-            from lawgraph.core.time import iso_timestamp
-
             since_iso = iso_timestamp(since)
 
         if since_iso is not None:
@@ -330,8 +331,8 @@ class AmendmentArticlePipeline(SemanticPipelineBase):
                         bwb_ids.append(stripped)
 
         # Edge-based fallback — the common path for hydrated TK publications.
-        for bwb_id in amends_index.get(document.id or "", []):
-            if bwb_id not in bwb_ids:
-                bwb_ids.append(bwb_id)
+        for edge_bwb_id in amends_index.get(document.arango_id or "", []):
+            if edge_bwb_id not in bwb_ids:
+                bwb_ids.append(edge_bwb_id)
 
         return bwb_ids

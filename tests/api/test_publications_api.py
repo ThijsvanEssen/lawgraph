@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-
-client = TestClient(app)
+from lawgraph.api.dependencies import get_store
 
 _PUB_ROW = {
     "key": "abc123",
@@ -34,61 +34,86 @@ _PUB_DOC = {
 }
 
 
-def test_list_publications_returns_200() -> None:
-    from lawgraph.api.dependencies import get_store
-
-    class _MockStore:
-        def query(self, aql, bind_vars=None):
-            return [_PUB_ROW]
-
-    app.dependency_overrides[get_store] = lambda: _MockStore()
-    try:
-        response = client.get("/api/publications")
-        assert response.status_code == 200
-        body = response.json()
-        assert "items" in body
-        assert "total" in body
-        assert body["total"] >= 0
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+class _MockStoreList:
+    def query(self, aql, bind_vars=None):
+        return [_PUB_ROW]
 
 
-def test_get_publication_text_returns_404_for_unknown() -> None:
-    from lawgraph.api.dependencies import get_store
+class _MockStoreNotFound:
+    class _publications:
+        @staticmethod
+        def get(key):
+            return None
 
-    class _MockStore:
-        class _publications:
-            @staticmethod
-            def get(key):
-                return None
-
-        publications = _publications()
-
-    app.dependency_overrides[get_store] = lambda: _MockStore()
-    try:
-        response = client.get("/api/publications/nonexistent-key")
-        assert response.status_code == 404
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+    publications = _publications()
 
 
-def test_get_publication_text_returns_200_for_known(monkeypatch) -> None:
-    from lawgraph.api.dependencies import get_store
+class _MockStoreFound:
+    class _publications:
+        @staticmethod
+        def get(key):
+            return _PUB_DOC
 
-    class _MockStore:
-        class _publications:
-            @staticmethod
-            def get(key):
-                return _PUB_DOC
+    publications = _publications()
 
-        publications = _publications()
 
-    app.dependency_overrides[get_store] = lambda: _MockStore()
-    try:
-        response = client.get("/api/publications/abc123")
-        assert response.status_code == 200
-        body = response.json()
-        assert body["key"] == "abc123"
-        assert body["title"] == "Memorie van Toelichting"
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+@pytest.fixture
+def client_with_store(fake_store):
+    app.dependency_overrides[get_store] = lambda: fake_store
+    yield TestClient(app)
+    app.dependency_overrides.pop(get_store, None)
+
+
+@pytest.fixture
+def fake_store():
+    return _MockStoreList()
+
+
+@pytest.fixture
+def fake_store_not_found():
+    return _MockStoreNotFound()
+
+
+@pytest.fixture
+def fake_store_found():
+    return _MockStoreFound()
+
+
+@pytest.fixture
+def client_with_store_not_found(fake_store_not_found):
+    app.dependency_overrides[get_store] = lambda: fake_store_not_found
+    yield TestClient(app)
+    app.dependency_overrides.pop(get_store, None)
+
+
+@pytest.fixture
+def client_with_store_found(fake_store_found):
+    app.dependency_overrides[get_store] = lambda: fake_store_found
+    yield TestClient(app)
+    app.dependency_overrides.pop(get_store, None)
+
+
+def test_list_publications_returns_200(client_with_store) -> None:
+    response = client_with_store.get("/api/publications")
+    assert response.status_code == 200
+    body = response.json()
+    assert "items" in body
+    assert "total" in body
+    assert body["total"] >= 0
+
+
+def test_get_publication_text_returns_404_for_unknown(
+    client_with_store_not_found,
+) -> None:
+    response = client_with_store_not_found.get("/api/publications/nonexistent-key")
+    assert response.status_code == 404
+
+
+def test_get_publication_text_returns_200_for_known(
+    client_with_store_found,
+) -> None:
+    response = client_with_store_found.get("/api/publications/abc123")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["key"] == "abc123"
+    assert body["title"] == "Memorie van Toelichting"

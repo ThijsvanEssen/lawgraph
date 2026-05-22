@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from typing import Any
 
@@ -13,20 +14,23 @@ from lawgraph.pipelines.base import PipelineBase
 logger = get_logger(__name__)
 
 
-class NormalizePipeline(PipelineBase):
+class NormalizePipeline(PipelineBase, ABC):
     """Base class for pipelines that normalize raw_sources records."""
 
     def __init__(self, store: ArangoStore) -> None:
         super().__init__(store)
 
+    @abstractmethod
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
         """Fetch raw_sources records relevant for this pipeline."""
         raise NotImplementedError
 
+    @abstractmethod
     def normalize_nodes(self, raw: Any, result: PipelineResult) -> Any:
         """Turn raw data into Node objects and insert them into domain collections."""
         raise NotImplementedError
 
+    @abstractmethod
     def build_edges(self, raw: Any, normalized: Any) -> int:
         """Create edges between normalized nodes; returns number of edges created."""
         raise NotImplementedError

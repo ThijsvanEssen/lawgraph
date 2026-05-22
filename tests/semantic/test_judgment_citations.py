@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.judgment_citations import (
     JudgmentCitationsSemanticPipeline,
     detect_ecli_references,
@@ -68,6 +68,21 @@ class _FakeStore:
         self.edges[k] = dict(doc)
         return self.edges[k], created
 
+    def bulk_insert_or_update_edges(
+        self, docs: list[dict[str, Any]]
+    ) -> tuple[int, int]:
+        created = 0
+        updated = 0
+        for doc in docs:
+            k = doc["_key"]
+            was_created = k not in self.edges
+            self.edges[k] = dict(doc)
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+        return created, updated
+
     def ensure_stub_node(
         self,
         collection: str,
@@ -116,7 +131,7 @@ def test_pipeline_creates_cites_judgment_edge() -> None:
         judgment_docs=[source_doc],
         nodes={("judgments", target_key): target_node},
     )
-    pipeline = JudgmentCitationsSemanticPipeline(store=store, domain_config={})
+    pipeline = JudgmentCitationsSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -133,6 +148,6 @@ def test_pipeline_skips_self_reference() -> None:
         make_node_key(ecli), ecli, f"Dit arrest ({ecli}) overweegt dat..."
     )
     store = _FakeStore(judgment_docs=[doc])
-    pipeline = JudgmentCitationsSemanticPipeline(store=store, domain_config={})
+    pipeline = JudgmentCitationsSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0

@@ -442,6 +442,13 @@ def get_dossier_by_nummer(
 
 _DICTUM_EXCERPT_CHARS = 280
 
+_ROL_MAP = {
+    "eerste ondertekenaar": "indiener",
+    "mede ondertekenaar": "mede-indiener",
+    "medeondertekenaar": "mede-indiener",
+    "indiener": "indiener",
+}
+
 
 def _enrich_stemming_entry(
     entry: dict[str, Any],
@@ -471,12 +478,6 @@ def _enrich_stemming_entry(
     # TK's DocumentActor.Relatie uses 'Eerste ondertekenaar' / 'Mede
     # ondertekenaar' / 'Medeondertekenaar'. Normalise to a tighter
     # 'indiener' / 'mede-indiener' for the FE while keeping the raw rol.
-    _ROL_MAP = {
-        "eerste ondertekenaar": "indiener",
-        "mede ondertekenaar": "mede-indiener",
-        "medeondertekenaar": "mede-indiener",
-        "indiener": "indiener",
-    }
     indieners = []
     for a in actors:
         raw_rol = (a.get("rol") or "").strip().lower()
@@ -1042,6 +1043,23 @@ def get_recent_dossiers(
         RETURN d
     """
     return list(store.query(aql, {"cutoff": cutoff, "limit": limit}))
+
+
+def get_kamerstuknummer_to_id_map(
+    store: ArangoStore, nummer_list: list[str]
+) -> dict[str, str]:
+    """Return a kamerstuknummer → dossier _id map for the given list of numbers."""
+    if not nummer_list:
+        return {}
+    aql = """
+    FOR d IN kamerstukdossiers
+        FILTER d.props.kamerstuknummer IN @nummers
+        RETURN { nummer: d.props.kamerstuknummer, id: d._id }
+    """
+    result: dict[str, str] = {}
+    for row in store.query(aql, {"nummers": nummer_list}):
+        result[row["nummer"]] = row["id"]
+    return result
 
 
 def count_dossier_members(store: ArangoStore, dossier_id: str) -> dict[str, int]:
