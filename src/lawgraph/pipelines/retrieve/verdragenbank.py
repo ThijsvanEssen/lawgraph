@@ -5,7 +5,6 @@ from __future__ import annotations
 from lawgraph.clients.verdragenbank import VerdragenbankClient
 from lawgraph.config.constants import RAW_KIND_VERDRAG, SOURCE_VERDRAGENBANK
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -22,7 +21,9 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or VerdragenbankClient()
 
-    def fetch(self, *, max_records: int = 10000, **kwargs: object) -> list[RetrieveRecord]:
+    def fetch(
+        self, *, max_records: int = 10000, **kwargs: object
+    ) -> list[RetrieveRecord]:
         treaties = self.client.enumerate_treaties(max_records=max_records)
         records: list[RetrieveRecord] = []
 
@@ -48,17 +49,3 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
 
         logger.info("Verdragenbank retrieve: prepared %d treaty records.", len(records))
         return records
-
-    def run(self, *, max_records: int = 10000, **kwargs) -> PipelineResult:
-        result = PipelineResult()
-        records = self.fetch(max_records=max_records)
-        for record in records:
-            try:
-                self._insert(record)
-                result.created += 1
-            except Exception as exc:
-                msg = f"Failed to store treaty {record.external_id}: {exc}"
-                logger.error(msg)
-                result.add_error(msg)
-                result.skipped += 1
-        return result

@@ -47,7 +47,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         records: list[RetrieveRecord] = []
 
         if fetch_index:
-            xml_index = self.rs.search_ecli_index(
+            xml_index = self.rs.fetch_ecli_index_xml(
                 modified_since=since,
                 extra_params=extra_params,
             )
@@ -116,7 +116,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             params["from"] = str(start)
 
             try:
-                xml_text = self.rs.search_ecli_index(
+                xml_text = self.rs.fetch_ecli_index_xml(
                     modified_since=None, extra_params=params
                 )
             except Exception as exc:

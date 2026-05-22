@@ -60,9 +60,8 @@ class TestVervalt:
         assert _VERVALT.search(text) is not None
 
     def test_vervalt_komt_te_vervallen(self) -> None:
-        # The pattern uses "vervalt?" which matches "vervalt" with optional trailing 't'.
-        # "Artikel 3 komt te vervalt" is the matched form (not "vervallen").
-        text = "Artikel 3 komt te vervalt"
+        # The correct statutory Dutch phrase is "komt te vervallen".
+        text = "Artikel 3 komt te vervallen"
         assert _VERVALT.search(text) is not None
 
     def test_vervalt_captures_article_number(self) -> None:

@@ -5,7 +5,7 @@ from typing import Any
 from lawgraph.config.constants import BWB_ID_PREFIX, EDGE_STATUS_CANONIEK
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
-from lawgraph.db import _edge_key as _sha1_edge_key
+from lawgraph.db import edge_key as _sha1_edge_key
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
@@ -128,14 +128,14 @@ class SemanticPipelineBase(PipelineBase):
         For high-throughput pipelines prefer ``_flush_edge_batch()`` which
         amortises N individual round-trips into one AQL batch call.
         """
-        if not from_node.id or not to_node.id:
+        if not from_node.arango_id or not to_node.arango_id:
             return False
 
-        edge_key = _sha1_edge_key(from_node.id, relation, to_node.id)
+        edge_key = _sha1_edge_key(from_node.arango_id, relation, to_node.arango_id)
         edge_doc: dict[str, Any] = {
             "_key": edge_key,
-            "_from": from_node.id,
-            "_to": to_node.id,
+            "_from": from_node.arango_id,
+            "_to": to_node.arango_id,
             "relation": relation,
             "confidence": confidence,
             "source": source,
@@ -148,7 +148,7 @@ class SemanticPipelineBase(PipelineBase):
             return created
         except Exception as exc:
             msg = (
-                f"Failed to create edge {from_node.id} → {to_node.id}"
+                f"Failed to create edge {from_node.arango_id} → {to_node.arango_id}"
                 f" ({relation}): {exc}"
             )
             logger.error(msg)
@@ -196,13 +196,13 @@ class SemanticPipelineBase(PipelineBase):
 
         Returns None when from_node or to_node have no id (skip silently).
         """
-        if not from_node.id or not to_node.id:
+        if not from_node.arango_id or not to_node.arango_id:
             return None
-        edge_key = _sha1_edge_key(from_node.id, relation, to_node.id)
+        edge_key = _sha1_edge_key(from_node.arango_id, relation, to_node.arango_id)
         return {
             "_key": edge_key,
-            "_from": from_node.id,
-            "_to": to_node.id,
+            "_from": from_node.arango_id,
+            "_to": to_node.arango_id,
             "relation": relation,
             "confidence": confidence,
             "source": source,

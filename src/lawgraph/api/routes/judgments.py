@@ -21,7 +21,6 @@ from lawgraph.config.constants import COLLECTION_INSTRUMENT_ARTICLES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.semantic.rechtspraak_articles import detect_article_references
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -148,6 +147,12 @@ def _enrich_paragraphs(
     All article lookups are batched into a single AQL query so we pay one
     round-trip for the whole judgment instead of one per citation hit.
     """
+    # TODO: detect_article_references belongs in core, not pipelines. Move it
+    # before removing this lazy import (layering workaround).
+    from lawgraph.pipelines.semantic.rechtspraak_articles import (  # noqa: PLC0415
+        detect_article_references,
+    )
+
     # First pass: collect all hits across all paragraphs.
     para_hits: list[tuple[JudgmentParagraph, list]] = []
     all_keys: list[str] = []

@@ -14,7 +14,6 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
-from lawgraph.db import _edge_key as _sha1_edge_key
 
 from .base import SemanticPipelineBase
 
@@ -46,32 +45,9 @@ def detect_ecli_references(text: str | None) -> list[str]:
 class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create CITES_JUDGMENT edges."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:  # noqa: C901
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-
-        # Phase 1: stream judgments, collect (judgment_id, cited_ecli) pairs.
-        # Avoids materialising the full corpus into Python heap.
-        pending: list[tuple[str, str]] = []
-        all_cited_eclis: set[str] = set()
-        doc_count = 0
-
-        for doc in self._load_judgments(since=since):
-            judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
-            text = self._extract_text(judgment)
-            eclis = detect_ecli_references(text)
-            if not eclis:
-                continue
-
-            source_ecli = (judgment.props.get("ecli") or "").upper()
-            doc_count += 1
-            if not judgment.id:
-                continue
-            for ecli in eclis:
-                if ecli == source_ecli:
-                    continue
-                pending.append((judgment.id, ecli))
-                all_cited_eclis.add(ecli)
-
+        pending, all_cited_eclis, doc_count = self._collect_references(since)
         if not pending:
             logger.debug(
                 "No ECLI cross-references found (since=%s).", describe_since(since)
@@ -85,7 +61,35 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
             describe_since(since),
         )
 
-        # Phase 2: batch-resolve all cited ECLIs to node IDs in one query.
+        ecli_to_id = self._resolve_eclis(all_cited_eclis)
+        self._emit_edges(pending, ecli_to_id, result)
+        logger.info("Judgment citation linker: %s.", result.summary())
+        return result
+
+    def _collect_references(
+        self, since: dt.datetime | None
+    ) -> tuple[list[tuple[str, str]], set[str], int]:
+        pending: list[tuple[str, str]] = []
+        all_cited_eclis: set[str] = set()
+        doc_count = 0
+        for doc in self._load_judgments(since=since):
+            judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
+            text = self._extract_text(judgment)
+            eclis = detect_ecli_references(text)
+            if not eclis:
+                continue
+            source_ecli = (judgment.props.get("ecli") or "").upper()
+            doc_count += 1
+            if not judgment.arango_id:
+                continue
+            for ecli in eclis:
+                if ecli == source_ecli:
+                    continue
+                pending.append((judgment.arango_id, ecli))
+                all_cited_eclis.add(ecli)
+        return pending, all_cited_eclis, doc_count
+
+    def _resolve_eclis(self, all_cited_eclis: set[str]) -> dict[str, str]:
         ecli_to_id: dict[str, str] = {}
         aql = f"""
         FOR doc IN {COLLECTION_JUDGMENTS}
@@ -97,8 +101,6 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
             node_id = row.get("id") or ""
             if ecli_val and node_id:
                 ecli_to_id[ecli_val] = node_id
-
-        # Create stubs for ECLIs not yet in the corpus.
         for ecli in all_cited_eclis:
             if ecli in ecli_to_id:
                 continue
@@ -109,40 +111,49 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
                 NodeType.JUDGMENT,
                 props={"ecli": ecli},
             )
-            if node and node.id:
-                ecli_to_id[ecli] = node.id
+            if node and node.arango_id:
+                ecli_to_id[ecli] = node.arango_id
+        return ecli_to_id
 
-        # Phase 3: build and flush edge docs in one batch AQL call.
+    def _emit_edges(
+        self,
+        pending: list[tuple[str, str]],
+        ecli_to_id: dict[str, str],
+        result: PipelineResult,
+    ) -> None:
         edge_batch: list[dict[str, Any]] = []
-
         for from_id, cited_ecli in pending:
             to_id = ecli_to_id.get(cited_ecli)
             if not to_id:
                 continue
-            edge_doc: dict[str, Any] = {
-                "_key": _sha1_edge_key(from_id, RELATION_CITES_JUDGMENT, to_id),
-                "_from": from_id,
-                "_to": to_id,
-                "relation": RELATION_CITES_JUDGMENT,
-                "confidence": 0.95,
-                "source": SEMANTIC_SOURCE,
-                "status": EDGE_STATUS_CANONIEK,
-                "meta": {"cited_ecli": cited_ecli},
-            }
-            edge_batch.append(edge_doc)
-            if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                created, updated = self._flush_edge_batch(edge_batch, result)
-                result.created += created
-                result.updated += updated
-                edge_batch = []
-
+            from_coll, from_key = from_id.split("/", 1)
+            to_coll, to_key = to_id.split("/", 1)
+            from_node = Node(
+                collection=from_coll, type=NodeType.JUDGMENT, key=from_key, props={}
+            )
+            to_node = Node(
+                collection=to_coll, type=NodeType.JUDGMENT, key=to_key, props={}
+            )
+            edge_doc = self._make_edge_doc(
+                from_node=from_node,
+                to_node=to_node,
+                relation=RELATION_CITES_JUDGMENT,
+                source=SEMANTIC_SOURCE,
+                confidence=0.95,
+                meta={"cited_ecli": cited_ecli},
+                status=EDGE_STATUS_CANONIEK,
+            )
+            if edge_doc:
+                edge_batch.append(edge_doc)
+                if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                    created, updated = self._flush_edge_batch(edge_batch, result)
+                    result.created += created
+                    result.updated += updated
+                    edge_batch = []
         if edge_batch:
             created, updated = self._flush_edge_batch(edge_batch, result)
             result.created += created
             result.updated += updated
-
-        logger.info("Judgment citation linker: %s.", result.summary())
-        return result
 
     def _load_judgments(
         self, since: dt.datetime | None = None

@@ -5,7 +5,6 @@ from __future__ import annotations
 from lawgraph.clients.eerstekamer import EerstekamerClient
 from lawgraph.config.constants import RAW_KIND_EK_STUK, SOURCE_EERSTEKAMER
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -86,26 +85,3 @@ class EerstekamerRetrievePipeline(RetrievePipelineBase):
             logger.info("EK retrieve: prepared %d stemming records.", len(stemmingen))
 
         return records
-
-    def run(
-        self,
-        *,
-        since: str | None = None,
-        max_records: int = 50000,
-        skip_stemmingen: bool = False,
-        **kwargs,
-    ) -> PipelineResult:
-        result = PipelineResult()
-        records = self.fetch(
-            since=since, max_records=max_records, skip_stemmingen=skip_stemmingen
-        )
-        for record in records:
-            try:
-                self._insert(record)
-                result.created += 1
-            except Exception as exc:
-                msg = f"Failed to store EK record {record.external_id}: {exc}"
-                logger.error(msg)
-                result.add_error(msg)
-                result.skipped += 1
-        return result

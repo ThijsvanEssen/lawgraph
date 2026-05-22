@@ -69,7 +69,7 @@ class FakeTKClient:
 
 
 class FakeRechtspraakClient:
-    def search_ecli_index(
+    def fetch_ecli_index_xml(
         self,
         modified_since: dt.datetime | None = None,
         extra_params: dict | None = None,

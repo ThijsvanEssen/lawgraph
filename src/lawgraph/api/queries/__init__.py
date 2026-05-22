@@ -7,6 +7,9 @@ imports require no modification.
 
 from __future__ import annotations
 
+# ── helpers ───────────────────────────────────────────────────────────────────
+from lawgraph.api.queries._helpers import props as props
+
 # ── articles ──────────────────────────────────────────────────────────────────
 from lawgraph.api.queries.articles import ArticleCitationEntry as ArticleCitationEntry
 from lawgraph.api.queries.articles import ArticleDetailData as ArticleDetailData
@@ -31,7 +34,6 @@ from lawgraph.api.queries.commissies import get_all_fracties as get_all_fracties
 from lawgraph.api.queries.commissies import get_all_leden as get_all_leden
 from lawgraph.api.queries.commissies import get_commissie_detail as get_commissie_detail
 from lawgraph.api.queries.commissies import get_lid_votes as get_lid_votes
-
 
 # ── dossiers ──────────────────────────────────────────────────────────────────
 from lawgraph.api.queries.dossiers import DOSSIER_STAGES as DOSSIER_STAGES
@@ -103,7 +105,6 @@ from lawgraph.api.queries.judgments import (
     JudgmentArticleRelation as JudgmentArticleRelation,
 )
 from lawgraph.api.queries.judgments import JudgmentDetailData as JudgmentDetailData
-from lawgraph.api.queries.judgments import derive_judgment_tier as derive_judgment_tier
 from lawgraph.api.queries.judgments import (
     get_judgment_with_relations as get_judgment_with_relations,
 )

@@ -61,7 +61,7 @@ class _MockStoreFound:
 def client_with_store(fake_store):
     app.dependency_overrides[get_store] = lambda: fake_store
     yield TestClient(app)
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(get_store, None)
 
 
 @pytest.fixture
@@ -83,14 +83,14 @@ def fake_store_found():
 def client_with_store_not_found(fake_store_not_found):
     app.dependency_overrides[get_store] = lambda: fake_store_not_found
     yield TestClient(app)
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(get_store, None)
 
 
 @pytest.fixture
 def client_with_store_found(fake_store_found):
     app.dependency_overrides[get_store] = lambda: fake_store_found
     yield TestClient(app)
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(get_store, None)
 
 
 def test_list_publications_returns_200(client_with_store) -> None:

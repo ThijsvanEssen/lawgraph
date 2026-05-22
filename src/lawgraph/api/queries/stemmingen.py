@@ -100,19 +100,7 @@ def get_stemming_detail(store: ArangoStore, key: str) -> dict[str, Any] | None:
     aql = """
     LET doc = DOCUMENT(CONCAT('stemmingen/', @key))
     FILTER doc != null
-    RETURN {
-        id: doc._id,
-        key: doc._key,
-        datum: doc.props.datum,
-        onderwerp: doc.props.onderwerp,
-        dossier_nummers: doc.props.dossier_nummers,
-        aangenomen: doc.props.aangenomen,
-        chamber: doc.props.chamber,
-        besluit_id: doc.props.besluit_id,
-        voor: doc.props.voor,
-        tegen: doc.props.tegen,
-        onthouding: doc.props.onthouding
-    }
+    RETURN doc
     """
     for row in store.query(aql, {"key": key}):
         return row

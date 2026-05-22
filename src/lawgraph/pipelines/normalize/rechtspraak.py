@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.normalize._xml import local_name as _xml_local
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
@@ -22,30 +23,13 @@ logger = get_logger(__name__)
 # ── XML section-extraction helpers (module-level so their complexity is isolated) ──
 
 
-def _xml_local(tag: str) -> str:
-    return tag.split("}", 1)[-1] if "}" in tag else tag
-
-
 def _xml_clean(el: ET.Element) -> str:
     return " ".join(el.itertext()).strip()
 
 
-def _emit_body(child: ET.Element, paragraphs: list[dict[str, Any]]) -> None:
-    text = _xml_clean(child)
+def _emit(paragraphs: list[dict[str, Any]], kind: str, text: str) -> None:
     if text:
-        paragraphs.append({"number": None, "kind": "body", "text": text})
-
-
-def _emit_subheading(child: ET.Element, paragraphs: list[dict[str, Any]]) -> None:
-    text = _xml_clean(child)
-    if text:
-        paragraphs.append({"number": None, "kind": "subheading", "text": text})
-
-
-def _emit_generic(child: ET.Element, paragraphs: list[dict[str, Any]]) -> None:
-    text = _xml_clean(child)
-    if text and _xml_local(child.tag) not in ("nr",):
-        paragraphs.append({"number": None, "kind": "body", "text": text})
+        paragraphs.append({"number": None, "kind": kind, "text": text})
 
 
 def _process_section(
@@ -69,11 +53,12 @@ def _process_section(
         elif local == "section":
             _process_section(child, paragraphs, depth=depth + 1)
         elif local in ("para", "al"):
-            _emit_body(child, paragraphs)
+            _emit(paragraphs, "body", _xml_clean(child))
         elif local == "uitspraak.info":
-            _emit_subheading(child, paragraphs)
+            _emit(paragraphs, "subheading", _xml_clean(child))
         else:
-            _emit_generic(child, paragraphs)
+            if _xml_local(child.tag) not in ("nr",):
+                _emit(paragraphs, "body", _xml_clean(child))
 
 
 def _process_uitspraak(el: ET.Element, paragraphs: list[dict[str, Any]]) -> None:
@@ -82,9 +67,9 @@ def _process_uitspraak(el: ET.Element, paragraphs: list[dict[str, Any]]) -> None
         if local == "section":
             _process_section(child, paragraphs, depth=0)
         elif local == "uitspraak.info":
-            _emit_subheading(child, paragraphs)
+            _emit(paragraphs, "subheading", _xml_clean(child))
         elif local in ("para", "al"):
-            _emit_body(child, paragraphs)
+            _emit(paragraphs, "body", _xml_clean(child))
 
 
 def _extract_relation_ecli(el: ET.Element) -> str | None:
@@ -286,7 +271,7 @@ FOR doc IN {COLLECTION_JUDGMENTS}
             created, updated = self.store.bulk_insert_or_update_nodes(
                 COLLECTION_JUDGMENTS, batch
             )
-            stubs_created += created + updated
+            stubs_created += created
 
         logger.info(
             "Created/updated %d Rechtspraak ECLI stub nodes from index records.",

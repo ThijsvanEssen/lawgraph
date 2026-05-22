@@ -274,10 +274,9 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         ("kamerstukdossiers", ["props.kamerstuknummer"], False),
         ("kamerstukdossiers", ["props.afgedaan"], False),
         ("kamerstukdossiers", ["props.gesloten_op"], False),
-        ("activiteiten", ["props.dossier_id"], False),
         ("activiteiten", ["props.datum"], False),
-        ("stemmingen", ["props.dossier_id"], False),
         ("stemmingen", ["props.aangenomen"], False),
+        ("stemmingen", ["props.datum"], False),
         ("toezeggingen", ["props.dossier_id"], False),
         ("toezeggingen", ["props.status"], False),
         ("watches", ["node_id"], False),
@@ -321,7 +320,10 @@ def _ensure_indexes(db: StandardDatabase) -> None:
                 continue
             try:
                 coll.delete_index(existing_idx["id"])
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "Failed to drop outdated index on %s %s: %s", coll_name, fields, exc
+                )
                 continue
         try:
             coll.add_persistent_index(fields=fields, unique=unique, sparse=sparse)
@@ -333,4 +335,6 @@ def _ensure_indexes(db: StandardDatabase) -> None:
                 sparse,
             )
         except Exception as exc:
-            logger.warning("Could not create index on %s %s: %s", coll_name, fields, exc)
+            logger.warning(
+                "Could not create index on %s %s: %s", coll_name, fields, exc
+            )

@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
+import requests
+
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import EERSTEKAMER_BASE_URL
 from lawgraph.core.logging import get_logger
@@ -48,10 +50,9 @@ class EerstekamerClient(BaseClient):
         total = 0
         while url and total < max_records:
             try:
-                resp = self.session.get(url, params=extra, timeout=60)
-                resp.raise_for_status()
+                resp = self._get_raw_absolute_with_retry(url, params=extra, timeout=60)
                 data = resp.json()
-            except Exception as exc:
+            except (requests.RequestException, ValueError) as exc:
                 logger.warning("EK API error fetching %s: %s", entity, exc)
                 break
 
@@ -141,11 +142,13 @@ class EerstekamerClient(BaseClient):
         url = self.base_url + f"Kamerstuk(guid'{item_id}')"
         params = {"$expand": "Inhoud"}
         try:
-            resp = self.session.get(url, params=params, timeout=60)
-            if resp.status_code == 404:
-                return None
-            resp.raise_for_status()
+            resp = self._get_raw_absolute_with_retry(url, params=params, timeout=60)
             return resp.json()
-        except Exception as exc:
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                return None
+            logger.warning("EK: failed to fetch kamerstuk %s: %s", item_id, exc)
+            return None
+        except (requests.RequestException, ValueError) as exc:
             logger.warning("EK: failed to fetch kamerstuk %s: %s", item_id, exc)
             return None

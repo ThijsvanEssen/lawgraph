@@ -13,6 +13,8 @@ from lawgraph.db import ArangoStore
 router = APIRouter()
 logger = get_logger(__name__)
 
+_DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
+
 
 @router.get(
     "",
@@ -31,7 +33,7 @@ def search(
     types: Annotated[
         list[str],
         Query(description="Typen om te zoeken"),
-    ] = Query(default=list(SEARCH_TYPES)),
+    ] = _DEFAULT_SEARCH_TYPES,
     soort: Annotated[
         str | None,
         Query(description="Kommagescheiden soort-filter (op publicaties en dossiers)"),

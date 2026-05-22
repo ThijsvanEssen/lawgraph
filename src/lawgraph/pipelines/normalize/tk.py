@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.db import _edge_key as _sha1_edge_key
+from lawgraph.db import edge_key as _sha1_edge_key
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
@@ -89,7 +89,11 @@ class TkNormalizePipeline(NormalizePipeline):
                 continue
 
             procedure_node = procedures_by_external_id.get(procedure_external_id)
-            if not procedure_node or not procedure_node.id or not publication.id:
+            if (
+                not procedure_node
+                or not procedure_node.arango_id
+                or not publication.arango_id
+            ):
                 logger.warning(
                     "Cannot link publication %s to procedure %s (missing node).",
                     publication.props.get("external_id"),
@@ -98,13 +102,15 @@ class TkNormalizePipeline(NormalizePipeline):
                 continue
 
             edge_key = _sha1_edge_key(
-                publication.id, RELATION_PART_OF_PROCEDURE, procedure_node.id
+                publication.arango_id,
+                RELATION_PART_OF_PROCEDURE,
+                procedure_node.arango_id,
             )
             edge_docs.append(
                 {
                     "_key": edge_key,
-                    "_from": publication.id,
-                    "_to": procedure_node.id,
+                    "_from": publication.arango_id,
+                    "_to": procedure_node.arango_id,
                     "relation": RELATION_PART_OF_PROCEDURE,
                     "source": "tk-documentversie",
                     "status": "canoniek",
@@ -203,8 +209,7 @@ class TkNormalizePipeline(NormalizePipeline):
             )
 
         for node in pending_nodes:
-            if node.props.get("external_id"):
-                procedures_by_external_id[node.props["external_id"]] = node
+            procedures_by_external_id[node.props["external_id"]] = node
 
         logger.info(
             "Normalized %d TK procedures into nodes.",

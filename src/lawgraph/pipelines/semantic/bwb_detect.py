@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.core.logging import get_logger
+from lawgraph.pipelines.semantic.base import InstrumentAliasMap
 
 logger = get_logger(__name__)
 
@@ -89,7 +90,7 @@ def detect_bwb_article_citations(
         _RANGE_CONFIDENCE,
     )
     code_aliases: dict[str, str] = conf_map.get("code_aliases") or {}
-    instrument_aliases: dict[str, str] = conf_map.get("instrument_aliases") or {}
+    instrument_aliases: InstrumentAliasMap = conf_map.get("instrument_aliases") or {}
 
     hits: list[ArticleCitationHit] = []
     seen: set[tuple[int, int, str]] = set()
@@ -209,13 +210,13 @@ def _process_enumeration_block(
 
 
 def _resolve_law_name_by_prefix(
-    name: str, instrument_aliases: dict[str, str]
+    name: str, instrument_aliases: InstrumentAliasMap
 ) -> str | None:
     """Match a law name string against instrument_aliases, longest match first."""
     name_lower = name.lower().strip()
     best: str | None = None
     best_len = 0
-    for alias, bwb_id in instrument_aliases.items():
+    for alias, (bwb_id, _celex) in instrument_aliases.items():
         alias_lower = alias.lower()
         if name_lower.startswith(alias_lower) and len(alias_lower) > best_len:
             best = bwb_id
@@ -254,13 +255,12 @@ def _collect_range_hits(
         if upper > _MAX_ARTICLE_NUMBER or upper - lower > _MAX_RANGE_SPAN:
             continue
 
-        span_text = full_text[block_start:block_end].strip()
         for intermediate in range(lower + 1, upper):
             hits.append(
                 ArticleCitationHit(
                     start=block_start,
                     end=block_end,
-                    text=span_text,
+                    text=block_text.strip(),
                     bwb_id=bwb_id,
                     article_number=str(intermediate),
                     confidence=confidence,

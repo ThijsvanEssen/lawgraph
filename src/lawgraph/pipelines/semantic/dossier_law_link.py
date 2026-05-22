@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase
 
@@ -39,17 +40,18 @@ _AQL_CITE = """
 FOR dos IN kamerstukdossiers
   FILTER dos.props.afgedaan == true OR dos.props.outcome == 'aangenomen'
   FILTER dos.props.titel != null AND LENGTH(dos.props.titel) > 5
+  {since_filter}
   FOR inst IN instruments
     FILTER inst.props.citation_title != null
     FILTER LOWER(TRIM(dos.props.titel)) == LOWER(TRIM(inst.props.citation_title))
     LIMIT 1000
-    RETURN {
+    RETURN {{
       dos_id: dos._id,
       dos_key: dos._key,
       inst_id: inst._id,
       inst_key: inst._key,
       match_type: 'citation_title'
-    }
+    }}
 """
 
 # Strategy 2: RAAKT edges from dossier to instrument + title similarity
@@ -57,6 +59,7 @@ _AQL_RAAKT = """
 FOR dos IN kamerstukdossiers
   FILTER dos.props.afgedaan == true OR dos.props.outcome == 'aangenomen'
   FILTER dos.props.titel != null AND LENGTH(dos.props.titel) > 5
+  {since_filter}
   FOR e IN edges
     FILTER e._from == dos._id AND e.relation == @raakt
     FOR inst IN instruments
@@ -67,13 +70,13 @@ FOR dos IN kamerstukdossiers
                   LOWER(dos.props.titel), LOWER(SPLIT(inst.props.title, '(')[0])
               ))
       LIMIT 1000
-      RETURN {
+      RETURN {{
         dos_id: dos._id,
         dos_key: dos._key,
         inst_id: inst._id,
         inst_key: inst._key,
         match_type: 'raakt_title'
-      }
+      }}
 """
 
 
@@ -83,9 +86,23 @@ class DossierLawLinkPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
-        rows: list[dict[str, Any]] = []
+        since_filter = (
+            "FILTER dos.props.geopend_op >= @since_iso OR dos.props.gesloten_op >= @since_iso"
+            if since
+            else ""
+        )
+        aql_cite = _AQL_CITE.format(since_filter=since_filter)
+        aql_raakt = _AQL_RAAKT.format(since_filter=since_filter)
+
+        cite_vars: dict[str, Any] = {}
         raakt_vars: dict[str, Any] = {"raakt": RELATION_RAAKT}
-        for aql, bvars in ((_AQL_CITE, None), (_AQL_RAAKT, raakt_vars)):
+        if since:
+            since_iso = iso_timestamp(since)
+            cite_vars["since_iso"] = since_iso
+            raakt_vars["since_iso"] = since_iso
+
+        rows: list[dict[str, Any]] = []
+        for aql, bvars in ((aql_cite, cite_vars or None), (aql_raakt, raakt_vars)):
             try:
                 rows.extend(self.store.query(aql, bvars))
             except Exception as exc:
@@ -120,7 +137,10 @@ class DossierLawLinkPipeline(SemanticPipelineBase):
             seen.add(pair)
 
             if match_type not in _CONFIDENCE_BY_MATCH_TYPE:
-                raise ValueError(f"Unknown match_type: {match_type!r}")
+                logger.warning(
+                    "DossierLawLink: unknown match_type %r — skipping.", match_type
+                )
+                continue
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
             dos_node = Node(

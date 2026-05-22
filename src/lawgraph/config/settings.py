@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import os
 
-from lawgraph.core.logging import get_logger
-
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITEITEN,
     COLLECTION_COMMISSIES,
@@ -29,6 +27,7 @@ from lawgraph.config.constants import (
     COLLECTION_TOPICS,
     COLLECTION_WATCHES,
 )
+from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -76,7 +75,9 @@ ARANGO_URL = os.getenv("ARANGO_URL", "http://localhost:8529")
 ARANGO_DB_NAME = os.getenv("ARANGO_DB_NAME", "lawgraph")
 ARANGO_USER = os.getenv("ARANGO_USER", "root")
 ARANGO_PASSWORD = os.getenv("ARANGO_PASSWORD", "")
-ARANGO_REQUEST_TIMEOUT = 620
+ARANGO_REQUEST_TIMEOUT = (
+    620  # seconds; slightly above 10 minutes to cover long-running AQL queries
+)
 
 # ── External API base URLs ────────────────────────────────────────────────────
 
@@ -86,7 +87,9 @@ RECHTSPRAAK_BASE_URL = os.getenv("RECHTSPRAAK_BASE", "https://data.rechtspraak.n
 TK_BASE_URL = os.getenv(
     "TK_API_BASE", "https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/"
 )
-TK_DOCUMENT_RESOURCE_URL = TK_BASE_URL.rstrip("/") + "/Document({external_id})/resource"
+TK_DOCUMENT_RESOURCE_URL_TEMPLATE = (
+    TK_BASE_URL.rstrip("/") + "/Document({external_id})/resource"
+)
 
 BWB_SRU_ENDPOINT = os.getenv(
     "BWB_SRU_ENDPOINT", "https://zoekservice.overheid.nl/sru/Search"
@@ -96,11 +99,17 @@ EURLEX_SPARQL_ENDPOINT = os.getenv(
     "EURLEX_SPARQL_ENDPOINT", "https://publications.europa.eu/webapi/rdf/sparql"
 )
 
+# STAATSBLAD_SRU_ENDPOINT and STAATSCOURANT_SRU_ENDPOINT share the same server
+# (sru.officielebekendmakingen.nl); they are distinguished by the query parameters
+# passed at request time (e.g. x-connection=Staatsblad vs. x-connection=Staatscourant).
 STAATSBLAD_SRU_ENDPOINT = os.getenv(
     "STAATSBLAD_SRU_ENDPOINT", "https://sru.officielebekendmakingen.nl/sru/Search"
 )
 STAATSBLAD_REPO_BASE = os.getenv(
     "STAATSBLAD_REPO_BASE", "https://repository.overheid.nl"
+)
+STAATSCOURANT_REPO_BASE = os.getenv(
+    "STAATSCOURANT_REPO_BASE", "https://repository.overheid.nl"
 )
 
 STAATSCOURANT_SRU_ENDPOINT = os.getenv(

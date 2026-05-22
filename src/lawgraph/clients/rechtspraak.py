@@ -25,18 +25,17 @@ class RechtspraakClient(BaseClient):
             session=session,
         )
 
-    def search_ecli_index(
+    def fetch_ecli_index_xml(
         self,
         modified_since: dt.datetime | None = None,
         extra_params: dict | None = None,
     ) -> str:
         """
-        Retrieve the Rechtspraak index document URL (optionally filtering by modification date).
+        Retrieve the raw Rechtspraak index XML (optionally filtering by modification date).
         """
         params: dict = extra_params.copy() if extra_params else {}
 
         if modified_since is not None:
-            # exacte param-naam even afstemmen met de officiële doc
             params["modifiedsince"] = modified_since.replace(microsecond=0).isoformat()
 
         logger.info("Rechtspraak search index with params=%r", params)

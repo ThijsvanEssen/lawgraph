@@ -8,10 +8,7 @@ from requests import Session
 
 from lawgraph.clients._sru import _local_name
 from lawgraph.clients.base import BaseClient
-from lawgraph.config.settings import (
-    BWB_BASE_URL,
-    BWB_SRU_ENDPOINT,
-)
+from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
 from lawgraph.core.logging import get_logger
 
 # Structural changes:
@@ -43,21 +40,6 @@ class BWBClient(BaseClient):
             default_base_url=BWB_BASE_URL,
             session=session,
         )
-
-    # def fetch_regeling_xml(
-    #     self,
-    #     *,
-    #     bwb_id: str,
-    #     date: str,
-    #     timeout: float | None = None,
-    # ) -> str:
-    #     """
-    #     Vraag een specifieke regeling op (legacy helper).
-    #     """
-    #     path = f"{bwb_id}/{date}/0/informatie/xml"
-    #     actual_timeout = timeout if timeout is not None else 30
-    #     logger.info("Ophalen BWB-regeling %s voor %s", bwb_id, date)
-    #     return self._get_text(path, timeout=actual_timeout)
 
     def enumerate_all_ids(
         self,
@@ -91,8 +73,9 @@ class BWBClient(BaseClient):
                     "recordSchema": "http://standaarden.overheid.nl/sru",
                 }
                 try:
-                    resp = self.session.get(BWB_SRU_ENDPOINT, params=params, timeout=60)
-                    resp.raise_for_status()
+                    resp = self._get_raw_absolute_with_retry(
+                        BWB_SRU_ENDPOINT, params=params, timeout=60
+                    )
                     root = ET.fromstring(resp.text)
                 except Exception as exc:
                     logger.warning(
@@ -103,17 +86,18 @@ class BWBClient(BaseClient):
                     )
                     break
 
-                found_in_page = 0
+                records_on_page: list[str] = []
                 for element in root.iter():
                     if _local_name(element.tag) != "record":
                         continue
                     meta = self._parse_record(element)
-                    if meta and meta["bwb_id"] and meta["bwb_id"] not in seen:
-                        seen.add(meta["bwb_id"])
-                        all_ids.append(meta["bwb_id"])
-                    found_in_page += 1
+                    if meta and meta["bwb_id"]:
+                        records_on_page.append(meta["bwb_id"])
+                        if meta["bwb_id"] not in seen:
+                            seen.add(meta["bwb_id"])
+                            all_ids.append(meta["bwb_id"])
 
-                if found_in_page < page_size:
+                if len(records_on_page) < page_size:
                     break
                 start += page_size
 
@@ -136,8 +120,9 @@ class BWBClient(BaseClient):
             "maximumRecords": "500",
         }
         logger.debug("SRU Search voor %s (%s)", bwb_id, params)
-        resp = self.session.get(BWB_SRU_ENDPOINT, params=params, timeout=30)
-        resp.raise_for_status()
+        resp = self._get_raw_absolute_with_retry(
+            BWB_SRU_ENDPOINT, params=params, timeout=30
+        )
 
         try:
             root = ET.fromstring(resp.text)
@@ -196,8 +181,7 @@ class BWBClient(BaseClient):
             meta["bwb_id"],
             url,
         )
-        resp = self.session.get(url, timeout=actual_timeout)
-        resp.raise_for_status()
+        resp = self._get_raw_absolute_with_retry(url, timeout=actual_timeout)
         return resp.text
 
     def _parse_record(self, record: ET.Element) -> ToestandMeta | None:

@@ -10,8 +10,9 @@ Usage::
 
     _cache: TTLCache[str, SomeType] = TTLCache(maxsize=256, ttl=60.0)
 
+    from lawgraph.api.cache import _MISSING
     value = _cache.get("key")
-    if value is None:
+    if value is _MISSING:
         value = compute()
         _cache.set("key", value)
 """
@@ -25,6 +26,8 @@ from typing import Generic, TypeVar
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
+
+_MISSING = object()
 
 _DEFAULT_TTL = float(os.getenv("LAWGRAPH_CACHE_TTL", "60"))
 _DEFAULT_MAXSIZE = int(os.getenv("LAWGRAPH_CACHE_MAXSIZE", "512"))
@@ -51,14 +54,14 @@ class TTLCache(Generic[_K, _V]):
         self._ttl = ttl
         self._store: OrderedDict[_K, tuple[float, _V]] = OrderedDict()
 
-    def get(self, key: _K) -> _V | None:
+    def get(self, key: _K) -> _V | object:
         entry = self._store.get(key)
         if entry is None:
-            return None
+            return _MISSING
         expires_at, value = entry
         if time.monotonic() > expires_at:
             self._store.pop(key, None)
-            return None
+            return _MISSING
         # Move to end (most-recently used).
         self._store.move_to_end(key)
         return value

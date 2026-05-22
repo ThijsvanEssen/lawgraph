@@ -16,8 +16,6 @@ from .base import RetrievePipelineBase, RetrieveRecord
 
 logger = get_logger(__name__)
 
-NormalizedBWBID = str
-
 
 class BWBRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline that fetches BWB toestanden for configured IDs."""
@@ -32,8 +30,8 @@ class BWBRetrievePipeline(RetrievePipelineBase):
 
     def run(
         self,
-        *args: object,
-        bwb_ids: Sequence[NormalizedBWBID] | None = None,
+        *,
+        bwb_ids: Sequence[str] | None = None,
         **kwargs: object,
     ) -> PipelineResult:
         """Fetch and store BWB toestanden with per-ID error handling."""
@@ -102,8 +100,8 @@ class BWBRetrievePipeline(RetrievePipelineBase):
 
     def run_history(
         self,
-        *args: object,
-        bwb_ids: Sequence[NormalizedBWBID] | None = None,
+        *,
+        bwb_ids: Sequence[str] | None = None,
         **kwargs: object,
     ) -> PipelineResult:
         """Fetch and store ALL historical BWB toestanden for given IDs.
@@ -226,7 +224,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         return self.run(bwb_ids=all_ids)
 
     @staticmethod
-    def _normalize_ids(ids: Sequence[str] | None) -> Sequence[NormalizedBWBID]:
+    def _normalize_ids(ids: Sequence[str] | None) -> Sequence[str]:
         """Clean incoming BWBR IDs, preserving order while removing duplicates."""
         if not ids:
             return []

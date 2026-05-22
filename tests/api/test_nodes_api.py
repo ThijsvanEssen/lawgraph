@@ -71,6 +71,7 @@ def test_get_node_graph_returns_neighbors(monkeypatch):
     assert node["display_name"] == "Instrument A"
 
     neighbors = payload["neighbors"]
+    assert isinstance(neighbors["all"], list)
     assert isinstance(neighbors["strict"], list)
     assert isinstance(neighbors["semantic"], list)
 

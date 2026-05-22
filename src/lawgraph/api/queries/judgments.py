@@ -30,15 +30,6 @@ class JudgmentDetailData:
 
 JUDGMENT_SORTS = ("date_desc", "date_asc", "citation_count")
 
-_TIER_BY_PREFIX = (
-    ("HR", "hoge_raad"),
-    ("GH", "gerechtshof"),
-    ("RB", "rechtbank"),
-    ("CRVB", "bijzonder"),
-    ("CBB", "bijzonder"),
-    ("RVS", "bijzonder"),
-)
-
 
 def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetailData:
     """Fetch a judgment and its referenced articles in a single AQL pass.
@@ -273,14 +264,3 @@ def get_judgments_list(
 
     rows = list(store.query(aql, bind_vars))
     return rows[0] if rows else {"total": 0, "items": []}
-
-
-def derive_judgment_tier(court_code: str | None) -> str | None:
-    """Map an ECLI court code (e.g. 'HR', 'RBAMS') to a coarse tier label."""
-    if not court_code:
-        return None
-    code = court_code.upper()
-    for prefix, tier in _TIER_BY_PREFIX:
-        if code.startswith(prefix):
-            return tier
-    return "bijzonder"

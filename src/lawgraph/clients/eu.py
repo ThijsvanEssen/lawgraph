@@ -40,7 +40,7 @@ class EUClient(BaseClient):
         ctx = f" ({log_context})" if log_context else ""
         while offset < max_records:
             try:
-                resp = self.session.get(
+                resp = self._get_raw_absolute_with_retry(
                     EURLEX_SPARQL_ENDPOINT,
                     params={
                         "query": sparql_factory(offset),
@@ -48,10 +48,11 @@ class EUClient(BaseClient):
                     },
                     timeout=120,
                 )
-                resp.raise_for_status()
                 data = resp.json()
             except Exception as exc:
-                logger.warning("SPARQL pagination error%s offset=%d: %s", ctx, offset, exc)
+                logger.warning(
+                    "SPARQL pagination error%s offset=%d: %s", ctx, offset, exc
+                )
                 break
 
             bindings = data.get("results", {}).get("bindings", [])
@@ -278,6 +279,9 @@ class EUClient(BaseClient):
             "Accept-Language": f"{lang_lower}, {lang_lower}-{lang.upper()};q=0.9",
         }
         logger.info("Fetching CELEX %s (%s) via CELLAR", celex, lang)
+        # Cannot use _get_raw_absolute_with_retry here: it does not support custom
+        # headers or allow_redirects, both of which are required for CELLAR content
+        # negotiation and redirect following.
         resp = self.session.get(url, headers=headers, timeout=60, allow_redirects=True)
         resp.raise_for_status()
         return resp.text

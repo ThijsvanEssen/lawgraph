@@ -101,7 +101,9 @@ def get_legislative_history(
 ) -> ArticleLegislativeHistoryResponse:
     article_key = make_node_key(bwb_id, article_number)
     article_id = f"{COLLECTION_INSTRUMENT_ARTICLES}/{article_key}"
-    raw_entries = get_article_legislative_history(store, bwb_id, article_number)
+    raw_entries = get_article_legislative_history(
+        store, bwb_id, article_number, article_id=article_id
+    )
     entries = [LegislativeHistoryEntry(**e) for e in raw_entries]
     return ArticleLegislativeHistoryResponse(
         article_id=article_id,
@@ -128,7 +130,7 @@ def get_in_flux(
 ) -> ArticleInFluxResponse:
     article_key = make_node_key(bwb_id, article_number)
     article_id = f"{COLLECTION_INSTRUMENT_ARTICLES}/{article_key}"
-    result = get_article_in_flux(store, bwb_id, article_number)
+    result = get_article_in_flux(store, bwb_id, article_number, article_id=article_id)
     return ArticleInFluxResponse(
         article_id=article_id,
         in_flux=result.get("in_flux", False),

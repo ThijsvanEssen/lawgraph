@@ -194,8 +194,11 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
             f"    {since_filter}\n"
             "    RETURN doc"
         )
+        # Pre-build a lowercase lookup dict for O(1) alias resolution.
+        lower_aliases = {k.lower(): v for k, v in instrument_aliases.items()}
+
         edge_batch: list[dict] = []
-        for doc in self.store.query(aql, bind_vars or None):
+        for doc in self.store.query(aql, bind_vars):
             proc_node = Node.from_document(COLLECTION_PROCEDURES, doc)
             title = (
                 proc_node.props.get("title")
@@ -211,14 +214,7 @@ class InstrumentRelationsPipeline(SemanticPipelineBase):
 
             for label in matched_labels:
                 # Resolve the canonical label (case-insensitive match).
-                pair = next(
-                    (
-                        v
-                        for k, v in instrument_aliases.items()
-                        if k.lower() == label.lower()
-                    ),
-                    None,
-                )
+                pair = lower_aliases.get(label.lower())
                 if pair is None:
                     continue
                 bwb_id, celex = pair

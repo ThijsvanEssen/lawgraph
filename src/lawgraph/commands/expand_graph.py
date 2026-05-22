@@ -12,7 +12,7 @@ from lawgraph.db import ArangoStore
 logger = get_logger(__name__)
 
 
-def _count_stubs(store: ArangoStore) -> int:
+def _count_stubs(store: ArangoStore) -> int | None:
     aql = """
     RETURN {
         stub_articles: LENGTH(FOR d IN instrument_articles FILTER d.props.stub == true RETURN 1),
@@ -22,8 +22,8 @@ def _count_stubs(store: ArangoStore) -> int:
     try:
         row = next(iter(store.query(aql)), {})
     except Exception as exc:
-        logger.debug("Could not count stubs: %s", exc)
-        return 0
+        logger.error("Could not count stubs (DB unreachable?): %s", exc)
+        return None
     return (row.get("stub_articles") or 0) + (row.get("stub_judgments") or 0)
 
 
@@ -57,6 +57,12 @@ def main(argv: list[str] | None = None) -> None:
         logger.info("expand_graph: iteration %d/%d", iteration, args.max_iterations)
 
         before = _count_stubs(store)
+        if before is None:
+            logger.error(
+                "expand_graph: could not query stub count before iteration %d — halting.",
+                iteration,
+            )
+            break
 
         fill_argv = ["--apply"] if not args.dry_run else []
 
@@ -81,6 +87,12 @@ def main(argv: list[str] | None = None) -> None:
             break
 
         after = _count_stubs(store)
+        if after is None:
+            logger.error(
+                "expand_graph: could not query stub count after iteration %d — halting.",
+                iteration,
+            )
+            break
         resolved = before - after
 
         if resolved <= 0:

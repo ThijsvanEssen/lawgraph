@@ -281,7 +281,6 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
             logger.warning(
                 "No instrument or code aliases configured for TK semantic linking."
             )
-            return result
 
         # Build name_aliases for DutchCitationExtractor (article-level "van de" form)
         name_aliases: dict[str, str] = {}
@@ -514,9 +513,9 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
         text = "\n".join(fragments)
         if len(text) >= _MAX_TEXT_LENGTH:
             logger.debug(
-                "TK semantic: document text truncated at %d chars (node %s).",
+                "TK semantic: document text reached collection limit of %d chars (node %s).",
                 _MAX_TEXT_LENGTH,
-                document.key if hasattr(document, "key") else "unknown",
+                document.key,
             )
         return text
 

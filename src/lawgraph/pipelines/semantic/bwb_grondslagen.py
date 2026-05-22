@@ -30,6 +30,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.pipelines.normalize._xml import local_name as _local
 
 from .base import SemanticPipelineBase
 
@@ -52,10 +53,6 @@ class GrondslagenNeeds:
 _ARTIKEL_PATTERN = re.compile(r"\bartikel(?:en)?\s+(\d+[a-zA-Z]*)", re.IGNORECASE)
 # Matches BWB-IDs in extref attributes or text: BWBR0012345
 _BWBR_PATTERN = re.compile(r"BWBR\d{7}", re.IGNORECASE)
-
-
-def _local(tag: str) -> str:
-    return tag.split("}", 1)[-1] if "}" in tag else tag
 
 
 def _extract_grondslagen(xml_text: str) -> list[dict[str, Any]]:
@@ -122,18 +119,16 @@ def _extract_grondslagen(xml_text: str) -> list[dict[str, Any]]:
 class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
     """Creates DELEGATED_BY edges from AMvB instruments to their grondslag articles."""
 
-    def _collect_grondslagen_needs(
-        self, result: PipelineResult
-    ) -> GrondslagenNeeds:
+    def _collect_grondslagen_needs(self, result: PipelineResult) -> GrondslagenNeeds:
         """Fetch toestand XML records, parse grondslagen, and collect lookup needs."""
         aql = """
 FOR rs IN raw_sources
   FILTER rs.source == @source
   FILTER rs.kind == 'bwb-toestand-xml'
-  FILTER rs.payload != null
+  FILTER rs.payload_text != null
   RETURN {
     bwb_id: rs.identifier,
-    xml: rs.payload
+    xml: rs.payload_text
   }
 """
         try:

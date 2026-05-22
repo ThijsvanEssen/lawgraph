@@ -51,10 +51,13 @@ def _get_level_from_env() -> int:
     return getattr(logging, level_str, logging.INFO)
 
 
+_LAWGRAPH_HANDLER_ATTR = "_lawgraph_handler_installed"
+
+
 def setup_logging(level: int | None = None) -> None:
-    """Configure the root logger once. No-ops when handlers are already attached."""
+    """Configure the root logger once. No-ops when a LawGraph handler is already attached."""
     root = logging.getLogger()
-    if root.handlers:
+    if getattr(root, _LAWGRAPH_HANDLER_ATTR, False):
         return
 
     if level is None:
@@ -73,6 +76,7 @@ def setup_logging(level: int | None = None) -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
     root.addHandler(handler)
+    setattr(root, _LAWGRAPH_HANDLER_ATTR, True)
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)

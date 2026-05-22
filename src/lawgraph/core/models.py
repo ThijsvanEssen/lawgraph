@@ -8,6 +8,10 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from lawgraph.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class PipelineResult:
@@ -103,7 +107,7 @@ class Node:
             ) from exc
 
     @property
-    def id(self) -> str | None:
+    def arango_id(self) -> str | None:
         if self.key is None:
             return None
         return f"{self.collection}/{self.key}"
@@ -122,10 +126,21 @@ class Node:
     def from_document(cls, collection: str, doc: dict[str, Any]) -> Node:
         """Deserialise a raw ArangoDB document — bypasses props validation."""
         key = doc.get("_key")
+        if "type" not in doc:
+            logger.warning(
+                "Document %r in collection %r has no 'type' field; defaulting to TOPIC",
+                key,
+                collection,
+            )
         type_str = doc.get("type", NodeType.TOPIC.value)
         try:
             node_type = NodeType(type_str)
         except ValueError:
+            logger.warning(
+                "Unknown node type %r in collection %r; treating as TOPIC",
+                type_str,
+                collection,
+            )
             node_type = NodeType.TOPIC
         labels = list(doc.get("labels", []))
 
@@ -190,7 +205,7 @@ def parse_arango_id(arango_id: str) -> tuple[str, str]:
     return collection, key
 
 
-def make_node_key(*parts: str, fallback: str = "node") -> str:
+def make_node_key(*parts: str | None, fallback: str = "node") -> str:
     joined = "_".join(part for part in parts if part is not None and part.strip())
     if not joined:
         joined = fallback

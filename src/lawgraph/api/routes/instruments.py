@@ -20,6 +20,7 @@ from lawgraph.api.queries import (
     get_instrument_versions,
     get_instruments_list,
 )
+from lawgraph.api.queries import props as _props
 from lawgraph.api.schemas import (
     CitedArticleRef,
     InstrumentArticleNodeDTO,
@@ -40,7 +41,6 @@ from lawgraph.api.schemas import (
     InstrumentVersionDTO,
     InstrumentVersionsResponse,
 )
-from lawgraph.api.queries._helpers import _props
 from lawgraph.db import ArangoStore
 
 
@@ -271,9 +271,7 @@ def list_instruments(
     jurisdiction: Annotated[Literal["nl", "eu"] | None, Query()] = None,
     kind: Annotated[str | None, Query()] = None,
     article_count_min: Annotated[int | None, Query(ge=0)] = None,
-    sort: Annotated[
-        Literal["title", "article_count"], Query()
-    ] = "title",
+    sort: Annotated[Literal["title", "article_count"], Query()] = "title",
 ) -> InstrumentListResponse:
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
         sort = "title"

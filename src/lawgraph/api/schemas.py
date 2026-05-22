@@ -132,8 +132,12 @@ class InstrumentSummaryDTO(BaseModel):
             display_name=props.get("display_name"),
             article_count=int(getattr(stats, "article_count", 0) or 0),
             judgment_count=int(getattr(stats, "judgment_count", 0) or 0),
-            inbound_citation_count=int(getattr(stats, "inbound_citation_count", 0) or 0),
-            outbound_citation_count=int(getattr(stats, "outbound_citation_count", 0) or 0),
+            inbound_citation_count=int(
+                getattr(stats, "inbound_citation_count", 0) or 0
+            ),
+            outbound_citation_count=int(
+                getattr(stats, "outbound_citation_count", 0) or 0
+            ),
         )
 
 
@@ -586,8 +590,6 @@ class InstrumentListItemDTO(BaseModel):
     jurisdiction: str | None
     kind: str | None
     article_count: int
-    judgment_citation_count: int | None = None
-    last_article_mutation: str | None = None
 
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
@@ -1049,12 +1051,9 @@ class LidVotesResponse(BaseModel):
     lid_id: str | None = Field(
         None, description="Arango _id of the lid; null when the lid is unknown."
     )
-    total: int = Field(
+    count: int = Field(
         ...,
-        description=(
-            "Number of votes returned. The underlying query is capped by "
-            "``limit``; this matches that count, not the absolute history."
-        ),
+        description="Number of votes returned (may be less than the total).",
     )
     votes: list[LidVoteEntryDTO]
 
@@ -1096,9 +1095,9 @@ class TouchedInstrumentsResponse(BaseModel):
             "endpoints."
         ),
     )
-    total: int = Field(
+    count: int = Field(
         ...,
-        description=("Number of instruments returned (capped by ``limit``)."),
+        description="Number of instruments returned (may be less than the total).",
     )
     items: list[TouchedInstrumentDTO]
 
@@ -1609,7 +1608,11 @@ class CommissieWithLedenDTO(CommissieDTO):
             afkorting=props.get("afkorting"),
             slug=props.get("slug"),
             type=props.get("type"),
-            active_dossier_count=props.get("active_dossier_count") if props.get("active_dossier_count") is not None else active_dossier_count,
+            active_dossier_count=(
+                props.get("active_dossier_count")
+                if props.get("active_dossier_count") is not None
+                else active_dossier_count
+            ),
             leden=leden,
         )
 
@@ -1916,13 +1919,13 @@ class PublicationTextResponse(BaseModel):
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> PublicationTextResponse:
         """Build from a raw ArangoDB publication document."""
-        from lawgraph.config.settings import TK_DOCUMENT_RESOURCE_URL
+        from lawgraph.config.settings import TK_DOCUMENT_RESOURCE_URL_TEMPLATE
         from lawgraph.core.time import strip_time_component
 
         props: dict[str, Any] = doc.get("props") or {}
         external_id: str | None = props.get("external_id")
         tk_url = (
-            TK_DOCUMENT_RESOURCE_URL.format(external_id=external_id)
+            TK_DOCUMENT_RESOURCE_URL_TEMPLATE.format(external_id=external_id)
             if external_id and props.get("source") == "tk"
             else None
         )

@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
-from lawgraph.api.cache import TTLCache
+from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
     get_heat_counts,
@@ -53,7 +53,7 @@ def bulk_in_flux(
 ) -> JSONResponse:
     """Return all nodes that have at least one VOORGESTELD edge, with counts."""
     cached = _overlay_cache.get("in_flux")
-    if cached is None:
+    if cached is _MISSING:
         cached = get_in_flux_counts(store)
         _overlay_cache.set("in_flux", cached)
     return JSONResponse(cached)
@@ -91,7 +91,7 @@ def bulk_heat(
     """Return activity counts per node for the heat-layer overlay."""
     cache_key = f"heat:m={months}:mc={min_count}"
     cached = _overlay_cache.get(cache_key)
-    if cached is None:
+    if cached is _MISSING:
         cached = get_heat_counts(store, months=months, min_count=min_count)
         _overlay_cache.set(cache_key, cached)
     return JSONResponse(cached)

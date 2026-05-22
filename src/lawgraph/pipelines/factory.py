@@ -45,8 +45,7 @@ def make_pipeline_cli(
     with_since: bool = False,
     with_since_days: bool = False,
     add_args: Callable[[argparse.ArgumentParser], None] | None = None,
-    make_extra_kwargs: Callable[[argparse.Namespace],
-                                dict[str, Any]] | None = None
+    make_extra_kwargs: Callable[[argparse.Namespace], dict[str, Any]] | None = None,
 ) -> Callable[[list[str] | None], None]:
     """Generate a ``main(argv)`` function for a pipeline CLI.
 
@@ -68,8 +67,9 @@ def make_pipeline_cli(
         if with_since:
             parser.add_argument("--since", default=None, help=_SINCE_HELP)
         if with_since_days:
-            parser.add_argument("--since-days", type=int,
-                                default=0, help=_SINCE_DAYS_HELP)
+            parser.add_argument(
+                "--since-days", type=int, default=0, help=_SINCE_DAYS_HELP
+            )
         if add_args:
             add_args(parser)
         args = parser.parse_args(argv)
@@ -87,10 +87,9 @@ def make_pipeline_cli(
                 parser.error(str(exc))
                 return
         elif with_since_days:
-            days = getattr(args, "since_days", 0)
-            if days and days > 0:
-                since = dt.datetime.now(
-                    dt.timezone.utc) - dt.timedelta(days=days)
+            days = args.since_days
+            if days > 0:
+                since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)
 
         # Build pipeline kwargs
         store = ArangoStore()

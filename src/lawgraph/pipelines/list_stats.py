@@ -28,6 +28,8 @@ from __future__ import annotations
 import argparse
 from typing import cast
 
+from dotenv import load_dotenv
+
 from lawgraph.config.constants import (
     RELATION_CITES_ARTICLE,
     RELATION_CITES_JUDGMENT,
@@ -36,7 +38,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF_INSTRUMENT,
 )
 from lawgraph.config.settings import COLLECTION_EDGES
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.db import ArangoStore
 
 logger = get_logger(__name__)
@@ -73,7 +75,7 @@ FOR inst IN instruments
 """
 
 
-_JUDGMENTS_AQL = """
+_JUDGMENTS_AQL = f"""
 FOR doc IN judgments
     LET props = doc.props
     LET ecli = props.ecli != null ? props.ecli : doc._key
@@ -92,7 +94,7 @@ FOR doc IN judgments
          (props.date != null ? props.date : null))
     )
     LET inbound_cnt = LENGTH(
-        FOR e IN edges
+        FOR e IN {COLLECTION_EDGES}
             FILTER e._to == doc._id AND e.relation IN @inbound_rels
             RETURN 1
     )
@@ -103,14 +105,14 @@ FOR doc IN judgments
         OR props.inbound_citation_count != inbound_cnt
     )
     FILTER needs_update
-    UPDATE doc WITH {
-        props: {
+    UPDATE doc WITH {{
+        props: {{
             court_code: court_code,
             tier: tier,
             date_eff: date_eff,
             inbound_citation_count: inbound_cnt
-        }
-    } IN judgments OPTIONS { mergeObjects: true }
+        }}
+    }} IN judgments OPTIONS {{ mergeObjects: true }}
     RETURN 1
 """
 
@@ -188,58 +190,58 @@ def _backfill_instruments(store: ArangoStore, *, dry_run: bool) -> int:
     return len(updated)
 
 
-_COMMISSIES_AQL = """
+_COMMISSIES_AQL = f"""
 LET open_dossier_map = MERGE(
     FOR d IN kamerstukdossiers
         FILTER d.props.afgedaan == false
-        RETURN { [d._id]: true }
+        RETURN {{ [d._id]: true }}
 )
 LET open_activity_map = MERGE(
-    FOR e IN edges
+    FOR e IN {COLLECTION_EDGES}
         FILTER e.relation == 'DEEL_VAN_DOSSIER'
         FILTER open_dossier_map[e._to] == true
-        RETURN { [e._from]: true }
+        RETURN {{ [e._from]: true }}
 )
 LET counts = (
-    FOR e IN edges
+    FOR e IN {COLLECTION_EDGES}
         FILTER e.relation == 'BEHANDELD_DOOR'
         FILTER open_activity_map[e._from] == true
         COLLECT commissie = e._to WITH COUNT INTO cnt
-        RETURN { id: commissie, count: cnt }
+        RETURN {{ id: commissie, count: cnt }}
 )
-LET count_map = MERGE(FOR x IN counts RETURN { [x.id]: x.count })
+LET count_map = MERGE(FOR x IN counts RETURN {{ [x.id]: x.count }})
 FOR doc IN commissies
     LET want = count_map[doc._id] != null ? count_map[doc._id] : 0
     FILTER doc.props.active_dossier_count != want
-    UPDATE doc WITH {
-        props: { active_dossier_count: want }
-    } IN commissies OPTIONS { mergeObjects: true }
+    UPDATE doc WITH {{
+        props: {{ active_dossier_count: want }}
+    }} IN commissies OPTIONS {{ mergeObjects: true }}
     RETURN 1
 """
 
 
 def _backfill_commissies(store: ArangoStore, *, dry_run: bool) -> int:
     if dry_run:
-        check_aql = """
+        check_aql = f"""
         LET open_dossier_map = MERGE(
             FOR d IN kamerstukdossiers
                 FILTER d.props.afgedaan == false
-                RETURN { [d._id]: true }
+                RETURN {{ [d._id]: true }}
         )
         LET open_activity_map = MERGE(
-            FOR e IN edges
+            FOR e IN {COLLECTION_EDGES}
                 FILTER e.relation == 'DEEL_VAN_DOSSIER'
                 FILTER open_dossier_map[e._to] == true
-                RETURN { [e._from]: true }
+                RETURN {{ [e._from]: true }}
         )
         LET counts = (
-            FOR e IN edges
+            FOR e IN {COLLECTION_EDGES}
                 FILTER e.relation == 'BEHANDELD_DOOR'
                 FILTER open_activity_map[e._from] == true
                 COLLECT commissie = e._to WITH COUNT INTO cnt
-                RETURN { id: commissie, count: cnt }
+                RETURN {{ id: commissie, count: cnt }}
         )
-        LET count_map = MERGE(FOR x IN counts RETURN { [x.id]: x.count })
+        LET count_map = MERGE(FOR x IN counts RETURN {{ [x.id]: x.count }})
         FOR doc IN commissies
             LET want = count_map[doc._id] != null ? count_map[doc._id] : 0
             FILTER doc.props.active_dossier_count != want
@@ -254,7 +256,7 @@ def _backfill_commissies(store: ArangoStore, *, dry_run: bool) -> int:
 def _backfill_judgments(store: ArangoStore, *, dry_run: bool) -> int:
     bind = {"inbound_rels": [RELATION_CITES_JUDGMENT]}
     if dry_run:
-        check_aql = """
+        check_aql = f"""
         FOR doc IN judgments
             LET props = doc.props
             LET ecli = props.ecli != null ? props.ecli : doc._key
@@ -273,7 +275,7 @@ def _backfill_judgments(store: ArangoStore, *, dry_run: bool) -> int:
                  (props.date != null ? props.date : null))
             )
             LET inbound_cnt = LENGTH(
-                FOR e IN edges
+                FOR e IN {COLLECTION_EDGES}
                     FILTER e._to == doc._id AND e.relation IN @inbound_rels
                     RETURN 1
             )
@@ -299,16 +301,17 @@ def main(argv: list[str] | None = None) -> None:
             "persistent indexes."
         )
     )
-    parser.add_argument(
+    only_group = parser.add_mutually_exclusive_group()
+    only_group.add_argument(
         "--instruments-only", action="store_true", help="Only update instruments."
     )
-    parser.add_argument(
+    only_group.add_argument(
         "--judgments-only", action="store_true", help="Only update judgments."
     )
-    parser.add_argument(
+    only_group.add_argument(
         "--commissies-only", action="store_true", help="Only update commissies."
     )
-    parser.add_argument(
+    only_group.add_argument(
         "--articles-only", action="store_true", help="Only update instrument_articles."
     )
     parser.add_argument(
@@ -317,6 +320,9 @@ def main(argv: list[str] | None = None) -> None:
         help="Report how many docs would change; write nothing.",
     )
     args = parser.parse_args(argv)
+
+    load_dotenv()
+    setup_logging()
 
     store = ArangoStore()
 

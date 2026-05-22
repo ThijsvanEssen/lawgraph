@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-_NS_STRIP_START = "{"
-
 
 def local_name(tag: str) -> str:
     """Return the local part of an XML tag, stripping any Clark-notation namespace."""

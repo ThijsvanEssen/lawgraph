@@ -186,9 +186,10 @@ def _collect_neighbors(
     # from each, rather than the first N edges in storage order — which would
     # otherwise drop whole collections.
     aql = f"""
+    LET _out = (FOR e IN {COLLECTION_EDGES} FILTER e._from == @node_id RETURN e)
+    LET _in  = (FOR e IN {COLLECTION_EDGES} FILTER e._to   == @node_id RETURN e)
     LET buckets = (
-        FOR edge IN {COLLECTION_EDGES}
-            FILTER edge._from == @node_id OR edge._to == @node_id
+        FOR edge IN UNION(_out, _in)
             LET neighbor_id = (edge._from == @node_id ? edge._to : edge._from)
             LET direction = (edge._from == @node_id ? 'outbound' : 'inbound')
             LET neighbor_col = SPLIT(neighbor_id, '/')[0]

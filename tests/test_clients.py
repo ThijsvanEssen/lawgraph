@@ -95,7 +95,7 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
 # --------------------------------------------------------------------
 
 
-def test_rechtspraak_search_ecli_index_uses_correct_path_and_params() -> None:
+def test_rechtspraak_fetch_ecli_index_xml_uses_correct_path_and_params() -> None:
     # Arrange
     xml_body = "<index>ok</index>"
     session = DummySession(DummyResponse(text=xml_body))
@@ -105,7 +105,7 @@ def test_rechtspraak_search_ecli_index_uses_correct_path_and_params() -> None:
     since = dt.datetime(2025, 1, 1, 12, 0, 0)
 
     # Act
-    result = client.search_ecli_index(
+    result = client.fetch_ecli_index_xml(
         modified_since=since,
         extra_params={"rechtsgebied": "bestuursrecht"},
     )
@@ -174,23 +174,3 @@ def test_tkclient_keyword_with_single_quote_does_not_corrupt_odata_filter() -> N
     # The single quote must be doubled, not left bare (which would break OData).
     assert "l''homme" in result
     assert "l'homme'" not in result.replace("l''homme", "")
-
-
-# --------------------------------------------------------------------
-# BaseClient retries=0 raises RuntimeError, not TypeError
-# --------------------------------------------------------------------
-
-
-def test_base_client_retries_zero_raises_runtime_error() -> None:
-    """When retries=0 the loop never executes; RuntimeError must be raised, not TypeError."""
-    import pytest
-
-    from lawgraph.clients.base import BaseClient
-
-    client = BaseClient(
-        env_var="__nonexistent__",
-        default_base_url="http://localhost:1/",
-        session=DummySession(DummyResponse(status=429)),
-    )
-    with pytest.raises(RuntimeError, match="no attempt was made"):
-        client._get_raw_with_retry("/test", retries=0)

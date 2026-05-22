@@ -23,7 +23,9 @@ def _find_instrument_for_article(
         LIMIT 1
         RETURN DOCUMENT(edge._to)
     """
-    for doc in store.query(aql, {"article_id": article_id, "relation": RELATION_PART_OF_INSTRUMENT}):
+    for doc in store.query(
+        aql, {"article_id": article_id, "relation": RELATION_PART_OF_INSTRUMENT}
+    ):
         return doc
     return None
 
@@ -38,7 +40,11 @@ def _find_judgments_for_article(
         FILTER j != null
         RETURN j
     """
-    return list(store.query(aql, {"article_id": article_id, "relation": RELATION_MENTIONS_ARTICLE}))
+    return list(
+        store.query(
+            aql, {"article_id": article_id, "relation": RELATION_MENTIONS_ARTICLE}
+        )
+    )
 
 
 def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
@@ -135,6 +141,9 @@ def _coerce_text(value: Any) -> str | None:
 def _props(doc: dict[str, Any]) -> dict[str, Any]:
     """Return the props sub-dict from a raw ArangoDB document, never None."""
     return doc.get("props") or {}
+
+
+props = _props
 
 
 def _ensure_doc(doc: Any) -> dict[str, Any] | None:

@@ -23,8 +23,8 @@ from lawgraph.config.settings import (
     ARANGO_URL,
     ARANGO_USER,
     COLLECTION_EDGES,
-    DOCUMENT_COLLECTIONS as _ALL_COLLECTION_NAMES,
 )
+from lawgraph.config.settings import DOCUMENT_COLLECTIONS as _ALL_COLLECTION_NAMES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node
 from lawgraph.core.time import iso_timestamp
@@ -32,7 +32,7 @@ from lawgraph.core.time import iso_timestamp
 logger = get_logger(__name__)
 
 
-def _edge_key(from_id: str, relation: str, to_id: str) -> str:
+def edge_key(from_id: str, relation: str, to_id: str) -> str:
     """Deterministic SHA-1 edge key — single scheme used everywhere."""
     return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
 
@@ -148,7 +148,9 @@ class ArangoStore:
         meta: dict | None = None,
     ) -> dict[str, Any]:
         """Upsert a raw source record keyed by (source, kind, external_id)."""
-        fetched_at = iso_timestamp(dt.datetime.now(dt.timezone.utc).replace(microsecond=0))
+        fetched_at = iso_timestamp(
+            dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+        )
 
         if external_id is not None:
             record_key = hashlib.sha1(
@@ -175,7 +177,9 @@ class ArangoStore:
     def insert_node(self, node: Node) -> Node:
         """Insert a Node and return it with its resolved key."""
         if node.key is None:
-            raise ValueError(f"insert_node requires a key; got node with type={node.type!r}")
+            raise ValueError(
+                f"insert_node requires a key; got node with type={node.type!r}"
+            )
         collection = self.db.collection(node.collection)
         doc = node.to_document()
         inserted = cast(dict[str, Any], collection.insert(doc))
@@ -241,6 +245,9 @@ class ArangoStore:
         """
         if not docs:
             return 0, 0
+
+        if collection not in _ALL_COLLECTION_NAMES and collection != COLLECTION_EDGES:
+            raise ValueError(f"Unknown collection: {collection!r}")
 
         aql = f"""
         LET results = (
@@ -358,13 +365,16 @@ class ArangoStore:
 
         The `status` parameter defaults to "canoniek" for structural/semantic edges.
         Parliamentary proposed-mutation edges should pass status="voorgesteld".
+
+        ``created_at`` is set once on insert and never overwritten on update,
+        consistent with the bulk upsert path (_EDGE_UPSERT_UPDATE).
         """
         if confidence is not None and not (0.0 <= confidence <= 1.0):
             raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
-        edge_key = _edge_key(from_id, relation, to_id)
+        e_key = edge_key(from_id, relation, to_id)
         now = dt.datetime.now(dt.timezone.utc).isoformat()
         doc: dict[str, Any] = {
-            "_key": edge_key,
+            "_key": e_key,
             "_from": from_id,
             "_to": to_id,
             "relation": relation,
@@ -375,16 +385,35 @@ class ArangoStore:
         }
         if confidence is not None:
             doc["confidence"] = confidence
-        stored, _ = self.insert_or_update_edge(doc=doc)
-        return stored
+
+        from lawgraph.config.settings import COLLECTION_EDGES
+
+        update_fields = (
+            "confidence: doc.confidence, source: doc.source, "
+            "status: doc.status, meta: MERGE(OLD.meta, doc.meta)"
+        )
+        aql = f"""
+        UPSERT {{_key: @key}}
+        INSERT @doc
+        UPDATE {{{update_fields}}}
+        IN {COLLECTION_EDGES}
+        RETURN NEW
+        """
+        rows = list(
+            cast(
+                Iterable[dict[str, Any]],
+                self.db.aql.execute(aql, bind_vars={"key": e_key, "doc": doc}),
+            )
+        )
+        return rows[0] if rows else doc
 
     def insert_or_update_edge(
         self,
         doc: dict[str, Any],
     ) -> tuple[dict[str, Any], bool]:
         """Upsert an edge in the unified edges collection. Returns (stored_doc, was_created)."""
-        edge_key = doc.get("_key")
-        if not isinstance(edge_key, str):
+        e_key = doc.get("_key")
+        if not isinstance(e_key, str):
             raise ValueError("Edge document must include a `_key` string.")
         result = cast(
             dict[str, Any],
@@ -429,9 +458,13 @@ class ArangoStore:
         if old_status == new_status:
             return existing
 
-        timestamp = iso_timestamp(dt.datetime.now(dt.timezone.utc).replace(microsecond=0))
+        timestamp = iso_timestamp(
+            dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+        )
 
-        self.edges.update({"_key": edge_key, "status": new_status, "updated_at": timestamp})
+        self.edges.update(
+            {"_key": edge_key, "status": new_status, "updated_at": timestamp}
+        )
 
         log_entry: dict[str, Any] = {
             "_key": str(uuid4()),

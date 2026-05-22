@@ -29,7 +29,7 @@ class WatchIn(BaseModel):
 class WatchOut(BaseModel):
     """A persisted watch record."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     id: str
     node_id: str

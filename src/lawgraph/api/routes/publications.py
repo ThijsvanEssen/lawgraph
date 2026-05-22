@@ -40,6 +40,12 @@ def list_publications(
         None,
         description="Filter op bron (props.source), e.g. 'eerstekamer', 'staatscourant'.",
     ),
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=1000,
+        description="Maximum number of publications to return.",
+    ),
 ) -> PublicationListResponse:
     """Return a paginated list of publications across all sources.
 
@@ -72,12 +78,14 @@ def list_publications(
     bind_vars["r_mentions"] = RELATION_MENTIONS_ARTICLE
     bind_vars["r_explains"] = RELATION_EXPLAINS_ARTICLE
     bind_vars["r_cites"] = RELATION_CITES_ARTICLE
+    bind_vars["limit"] = limit
 
     filters_str = "\n    ".join(aql_filters)
     aql = f"""
 FOR doc IN publications
     {filters_str}
     SORT doc.props.datum DESC, doc.props.title ASC
+    LIMIT @limit
     LET linked = LENGTH(
         FOR e IN edges
             FILTER e._from == doc._id

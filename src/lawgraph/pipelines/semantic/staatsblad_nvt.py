@@ -48,12 +48,16 @@ FOR pub IN publications
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
   FILTER pub.props.bwb_id == null
-  FOR inst IN instruments
-    FILTER inst.props.citation_title != null
-    FILTER CONTAINS(LOWER(pub.props.title), LOWER(inst.props.citation_title))
-    LIMIT 1
-    RETURN { pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
-             match_type: 'title' }
+  LET inst = (
+    FOR i IN instruments
+      FILTER i.props.citation_title != null
+      FILTER CONTAINS(LOWER(pub.props.title), LOWER(i.props.citation_title))
+      LIMIT 1
+      RETURN i
+  )[0]
+  FILTER inst != null
+  RETURN { pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
+           match_type: 'title' }
 """
 
 

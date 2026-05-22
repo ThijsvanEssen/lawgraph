@@ -14,12 +14,16 @@ import datetime as dt
 import re
 from typing import Any
 
-from lawgraph.config.constants import (
-    COLLECTION_JUDGMENTS,
-    RELATION_APPEAL_OF,
-)
+from lawgraph.config.constants import COLLECTION_JUDGMENTS, RELATION_APPEAL_OF
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import (
+    Node,
+    NodeType,
+    PipelineResult,
+    make_node_key,
+    parse_arango_id,
+)
+from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase
 
@@ -36,31 +40,29 @@ class JudgmentAppealPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
+        since_filter = ""
+        bind_vars: dict[str, Any] = {}
+        if since is not None:
+            since_filter = "FILTER j.props.created_at >= @since_iso"
+            bind_vars["since_iso"] = iso_timestamp(since)
+
         aql = f"""
 FOR j IN {COLLECTION_JUDGMENTS}
   FILTER j.props.related_eclis != null
   FILTER LENGTH(j.props.related_eclis) > 0
+  {since_filter}
   RETURN {{
     j_id: j._id,
     procedure_type: j.props.judgment_metadata.type,
     related_eclis: j.props.related_eclis,
   }}
 """
-        rows = list(self.store.query(aql))
+        rows = list(self.store.query(aql, bind_vars or None))
         if not rows:
             logger.debug("No judgments with related_eclis found.")
             return result
 
-        all_related: set[str] = set()
-        appeal_rows: list[dict[str, Any]] = []
-        for row in rows:
-            procedure = (row.get("procedure_type") or "").strip().lower()
-            if not _APPEAL_PATTERN.search(procedure):
-                continue
-            for ecli in row.get("related_eclis") or []:
-                all_related.add(ecli.upper())
-            appeal_rows.append(row)
-
+        appeal_rows, all_related = self._filter_appeal_rows(rows)
         if not appeal_rows:
             logger.debug("No appeal-type judgments with related_eclis found.")
             return result
@@ -69,6 +71,32 @@ FOR j IN {COLLECTION_JUDGMENTS}
             "Processing %d appeal judgments for APPEAL_OF edges.", len(appeal_rows)
         )
 
+        ecli_to_id = self._resolve_eclis(all_related)
+        edge_batch = self._build_edge_batch(appeal_rows, ecli_to_id)
+
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
+
+        logger.info("Judgment appeal linker: %s.", result.summary())
+        return result
+
+    def _filter_appeal_rows(
+        self, rows: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], set[str]]:
+        appeal_rows: list[dict[str, Any]] = []
+        all_related: set[str] = set()
+        for row in rows:
+            procedure = (row.get("procedure_type") or "").strip().lower()
+            if not _APPEAL_PATTERN.search(procedure):
+                continue
+            for ecli in row.get("related_eclis") or []:
+                all_related.add(ecli.upper())
+            appeal_rows.append(row)
+        return appeal_rows, all_related
+
+    def _resolve_eclis(self, all_related: set[str]) -> dict[str, str]:
         ecli_to_id: dict[str, str] = {}
         resolve_aql = f"""
 FOR doc IN {COLLECTION_JUDGMENTS}
@@ -93,13 +121,17 @@ FOR doc IN {COLLECTION_JUDGMENTS}
                 NodeType.JUDGMENT,
                 props={"ecli": ecli},
             )
-            if node and node.id:
-                ecli_to_id[ecli] = node.id
+            if node and node.arango_id:
+                ecli_to_id[ecli] = node.arango_id
+        return ecli_to_id
 
+    def _build_edge_batch(
+        self, appeal_rows: list[dict[str, Any]], ecli_to_id: dict[str, str]
+    ) -> list[dict[str, Any]]:
         edge_batch: list[dict[str, Any]] = []
         for row in appeal_rows:
             from_id = row["j_id"]
-            from_key = from_id.split("/", 1)[-1] if "/" in from_id else from_id
+            _, from_key = parse_arango_id(from_id)
             procedure_type = row.get("procedure_type") or ""
             from_node = Node(
                 collection=COLLECTION_JUDGMENTS,
@@ -111,7 +143,7 @@ FOR doc IN {COLLECTION_JUDGMENTS}
                 to_id = ecli_to_id.get(ecli.upper())
                 if not to_id:
                     continue
-                to_key = to_id.split("/", 1)[-1] if "/" in to_id else to_id
+                _, to_key = parse_arango_id(to_id)
                 to_node = Node(
                     collection=COLLECTION_JUDGMENTS,
                     type=NodeType.JUDGMENT,
@@ -128,11 +160,4 @@ FOR doc IN {COLLECTION_JUDGMENTS}
                 )
                 if edge_doc:
                     edge_batch.append(edge_doc)
-
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
-
-        logger.info("Judgment appeal linker: %s.", result.summary())
-        return result
+        return edge_batch

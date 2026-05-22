@@ -4,7 +4,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 
-from lawgraph.api.cache import TTLCache
+from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
     get_global_graph,
@@ -12,6 +12,7 @@ from lawgraph.api.queries import (
     get_judgment_graph,
 )
 from lawgraph.api.schemas import (
+    ArticleGraphNodeDTO,
     GlobalGraphResponse,
     GraphEdgeDTO,
     InstrumentEdgeDTO,
@@ -57,8 +58,8 @@ def get_global_graph_route(
 ) -> GlobalGraphResponse:
     cache_key = f"global:j={int(include_judgments)}:n={max_judgments}"
     cached = _layer_cache.get(cache_key)
-    if cached is not None:
-        return cached
+    if cached is not _MISSING:
+        return cached  # type: ignore[return-value]
 
     data = get_global_graph(
         store,
@@ -108,8 +109,8 @@ def get_instrument_layer_graph_route(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> InstrumentLayerGraphResponse:
     cached = _layer_cache.get("instrument_layer")
-    if cached is not None:
-        return cached
+    if cached is not _MISSING:
+        return cached  # type: ignore[return-value]
 
     data = get_instrument_layer_graph(store)
 
@@ -166,8 +167,8 @@ def get_judgment_graph_route(
 ) -> JudgmentLayerGraphResponse:
     cache_key = f"judgment_layer:n={max_judgments}:stubs={int(include_stubs)}"
     cached = _layer_cache.get(cache_key)
-    if cached is not None:
-        return cached
+    if cached is not _MISSING:
+        return cached  # type: ignore[return-value]
 
     data = get_judgment_graph(
         store,

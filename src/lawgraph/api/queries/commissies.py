@@ -80,7 +80,11 @@ def get_all_commissies_with_leden(store: ArangoStore) -> list[dict[str, Any]]:
 
 
 def get_commissie_detail(
-    store: ArangoStore, slug: str, *, current_only: bool = True
+    store: ArangoStore,
+    slug: str,
+    *,
+    current_only: bool = True,
+    dossier_limit: int = 100,
 ) -> dict[str, Any] | None:
     """Return commissie with leden (via LID_VAN edges) and recent dossiers (via BEHANDELD_DOOR).
 
@@ -126,12 +130,12 @@ def get_commissie_detail(
                     LET dossier = DOCUMENT(e2._to)
                     FILTER dossier != null
                     RETURN DISTINCT dossier
-            LIMIT 100
+            LIMIT @dossier_limit
         )
 
         RETURN MERGE(commissie, {{ leden: leden, dossiers: dossiers }})
     """
-    bind: dict[str, Any] = {"slug": slug.lower()}
+    bind: dict[str, Any] = {"slug": slug.lower(), "dossier_limit": dossier_limit}
     if current_only:
         bind["today"] = dt.date.today().isoformat()
     for doc in store.query(aql, bind):
@@ -462,5 +466,3 @@ def get_actor_touched_instruments(
                 }}
     """
     return list(store.query(aql, {"actor_id": actor_id, "limit": limit}))
-
-

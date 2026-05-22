@@ -6,7 +6,7 @@ import pytest
 
 
 @pytest.fixture()
-def stub_store(monkeypatch: pytest.MonkeyPatch) -> None:
+def patch_route_stores(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub get_store in route modules to prevent opening a real ArangoStore."""
     store_stub = object()
     for module_name in (
@@ -39,4 +39,4 @@ class _BaseFakeStore:
         return doc, is_new
 
     def get_node(self, collection: str, key: str) -> dict | None:
-        return None
+        raise NotImplementedError

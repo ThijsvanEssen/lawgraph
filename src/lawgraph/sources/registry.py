@@ -137,8 +137,17 @@ def _version_causes_extra_kwargs(args: argparse.Namespace) -> dict:
 
 # ── Shared retrieve-argv builder helpers ─────────────────────────────────
 
-_NO_ARGV: Callable[[RetrieveCtx], list[str]] = lambda ctx: []
-_MODE_ONLY_ARGV: Callable[[RetrieveCtx], list[str]] = lambda ctx: [*ctx.mode_arg]
+
+def _no_argv(ctx: RetrieveCtx) -> list[str]:
+    return []
+
+
+def _mode_only_argv(ctx: RetrieveCtx) -> list[str]:
+    return [*ctx.mode_arg]
+
+
+_NO_ARGV: Callable[[RetrieveCtx], list[str]] = _no_argv
+_MODE_ONLY_ARGV: Callable[[RetrieveCtx], list[str]] = _mode_only_argv
 
 # ── Named retrieve-argv builders for complex argv shapes ─────────────────
 

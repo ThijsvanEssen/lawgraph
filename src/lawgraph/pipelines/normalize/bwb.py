@@ -14,8 +14,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.db import _edge_key as _sha1_edge_key
-from lawgraph.pipelines.normalize._xml import _local_name
+from lawgraph.db import edge_key as _sha1_edge_key
+from lawgraph.pipelines.normalize._xml import local_name as _local_name
 from lawgraph.pipelines.normalize.base import NormalizePipeline
 
 logger = get_logger(__name__)
@@ -176,19 +176,19 @@ class BWBNormalizePipeline(NormalizePipeline):
         edge_docs: list[dict[str, Any]] = []
 
         for bwb_id, instrument in instruments.items():
-            if not instrument.id:
+            if not instrument.arango_id:
                 continue
             for article in articles.get(bwb_id, []):
-                if not article.id:
+                if not article.arango_id:
                     continue
                 edge_key = _sha1_edge_key(
-                    instrument.id, RELATION_PART_OF_INSTRUMENT, article.id
+                    instrument.arango_id, RELATION_PART_OF_INSTRUMENT, article.arango_id
                 )
                 edge_docs.append(
                     {
                         "_key": edge_key,
-                        "_from": instrument.id,
-                        "_to": article.id,
+                        "_from": instrument.arango_id,
+                        "_to": article.arango_id,
                         "relation": RELATION_PART_OF_INSTRUMENT,
                         "source": "bwb-normalize",
                         "status": "canoniek",
@@ -196,16 +196,7 @@ class BWBNormalizePipeline(NormalizePipeline):
                     }
                 )
 
-        total_created = 0
-        for batch_start in range(0, len(edge_docs), self._EDGE_BATCH_SIZE):
-            batch = edge_docs[batch_start : batch_start + self._EDGE_BATCH_SIZE]
-            try:
-                created, _ = self.store.bulk_insert_or_update_edges(batch)
-                total_created += created
-            except Exception as exc:
-                logger.error("BWB edge batch upsert failed: %s", exc)
-                raise
-
+        total_created = self._batch_upsert_edges(edge_docs)
         logger.info("BWB normalization created/updated %d edges.", total_created)
         return total_created
 

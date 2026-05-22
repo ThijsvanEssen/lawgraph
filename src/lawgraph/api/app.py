@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-# Load .env and configure logging before any settings modules are imported.
+# ruff: noqa: E402
+# load_dotenv() must run before lawgraph settings modules are imported.
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from lawgraph.core.logging import setup_logging
+
 setup_logging()
 
 import collections
@@ -260,6 +263,8 @@ async def _log_requests(request: Request, call_next):
     return response
 
 
+app.add_middleware(_RateLimitMiddleware, trusted_origins=frozenset(origins))
+app.add_middleware(_CacheControlMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # populated from LAWGRAPH_ALLOWED_ORIGINS env var
@@ -267,8 +272,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(_CacheControlMiddleware)
-app.add_middleware(_RateLimitMiddleware, trusted_origins=frozenset(origins))
 
 
 @app.get("/", tags=["root"])

@@ -47,6 +47,7 @@ from dotenv import load_dotenv
 from lawgraph.clients.bwb import BWBClient
 from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.normalize._xml import local_name as _local
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
@@ -167,7 +168,9 @@ def _run_diagnostics(store: ArangoStore, args: argparse.Namespace) -> dict[str, 
       FILTER inst.props.stub != true
       RETURN UPPER(inst.props.bwb_id)
     """
-    already_in_graph = set(store.query(aql_in_graph))
+    already_in_graph = {
+        str(r) if not isinstance(r, str) else r for r in store.query(aql_in_graph)
+    }
 
     missing: list[dict[str, Any]] = []
     known: list[dict[str, Any]] = []
@@ -337,8 +340,11 @@ def _apply_echr_gaps(
     from lawgraph.pipelines.retrieve.echr import EchrRetrievePipeline
 
     logger.info(
-        "Re-fetching %d stub ECHR judgment(s) from HUDOC…", len(stub_echr_eclis)
+        "Targeted ECHR re-fetch not yet implemented — processing %d stubs via full retrieve.",
+        len(stub_echr_eclis),
     )
+    if stub_echr_eclis:
+        logger.debug("Stub ECLIs: %s", stub_echr_eclis[:20])
     echr_retrieve_since = dt.datetime.now(dt.timezone.utc)
     echr_retrieve_result = EchrRetrievePipeline(store=store).run()
     logger.info("ECHR retrieve: %s.", echr_retrieve_result.summary())
@@ -365,9 +371,11 @@ def _apply_verdrag_gaps(
     from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
 
     logger.info(
-        "%d stub verdrag(en) found — re-running Verdragenbank retrieve…",
+        "Targeted verdrag re-fetch not yet implemented — processing %d stubs via full retrieve.",
         len(stub_verdragen),
     )
+    if stub_verdragen:
+        logger.debug("Stub verdragen: %s", stub_verdragen[:20])
     vdb_retrieve_since = dt.datetime.now(dt.timezone.utc)
     vdb_retrieve_result = VerdragenbankRetrievePipeline(store=store).run()
     logger.info("Verdragenbank retrieve: %s.", vdb_retrieve_result.summary())
@@ -487,7 +495,7 @@ def _resolve_names_from_bwb(
             xml_text = client.fetch_toestand_xml(meta)
             root = ET.fromstring(xml_text)
             for node in root.iter():
-                if node.tag.split("}")[-1] == "citeertitel" and node.text:
+                if _local(node.tag) == "citeertitel" and node.text:
                     result[bwb_id.upper()] = node.text.strip()
                     break
         except Exception as exc:

@@ -55,31 +55,31 @@ _AQL_MVT_PUBLICATIONS = (
     "        FILTER e2._from == did AND e2.relation IN @s1_rels\n"
     "        LET inst = DOCUMENT(e2._to)\n"
     "        FILTER inst != null AND (inst.props.bwb_id != null OR inst.props.celex != null)\n"
-    "        RETURN DISTINCT {id: inst._id, bwb_id: inst.props.bwb_id, celex: inst.props.celex}\n"
+    "        RETURN DISTINCT {{id: inst._id, bwb_id: inst.props.bwb_id, celex: inst.props.celex}}\n"
     "  )\n"
-    f"  // Strategy 2: follow {RELATION_WIJZIGT}/{RELATION_INTRODUCEERT}/{RELATION_TREKT_IN} edges\n"
-    "  //             from sibling publications to find which instruments the dossier targets\n"
     "  LET s2 = (\n"
     "    FOR did IN dossier_ids\n"
     "      FOR e2 IN edges\n"
     "        FILTER e2._to == did AND e2.relation == 'DEEL_VAN_DOSSIER'\n"
     "        FOR e3 IN edges\n"
     "          FILTER e3._from == e2._from\n"
-    f"              AND e3.relation IN ['{RELATION_WIJZIGT}', '{RELATION_INTRODUCEERT}', '{RELATION_TREKT_IN}']\n"
+    f"              AND e3.relation IN ['{RELATION_WIJZIGT}',"
+    f" '{RELATION_INTRODUCEERT}', '{RELATION_TREKT_IN}']\n"
     "          LET art = DOCUMENT(e3._to)\n"
     "          FILTER art != null AND art.props.bwb_id != null\n"
     "          FOR inst IN instruments\n"
     "            FILTER inst.props.bwb_id == art.props.bwb_id\n"
-    "            RETURN DISTINCT {id: inst._id, bwb_id: inst.props.bwb_id, celex: inst.props.celex}\n"
+    "            RETURN DISTINCT {{id: inst._id,"
+    " bwb_id: inst.props.bwb_id, celex: inst.props.celex}}\n"
     "  )\n"
     "  LET found_instruments = LENGTH(s1) > 0 ? s1 : s2\n"
     "  FILTER LENGTH(found_instruments) > 0\n"
-    "  RETURN {\n"
+    "  RETURN {{\n"
     "    pub_id: pub._id,\n"
     "    pub_key: pub._key,\n"
     "    text: pub.props.text,\n"
     "    instruments: found_instruments\n"
-    "  }\n"
+    "  }}\n"
 )
 
 
@@ -127,6 +127,8 @@ class MvtArticleSemanticPipeline(SemanticPipelineBase):
             for pair in distinct_pairs
         }
 
+        edge_batch: list[dict[str, Any]] = []
+
         for row in rows:
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")
@@ -153,18 +155,27 @@ class MvtArticleSemanticPipeline(SemanticPipelineBase):
 
                 hits = self._extract_licht_toe_hits(text, article_map)
                 for article_node, confidence in hits:
-                    created = self._create_semantic_edge(
+                    edge_doc = self._make_edge_doc(
                         from_node=pub_node,
                         to_node=article_node,
                         relation=RELATION_LICHT_TOE,
                         source=SEMANTIC_SOURCE,
                         confidence=confidence,
-                        result=result,
                     )
-                    if created:
-                        result.created += 1
-                    else:
-                        result.updated += 1
+                    if edge_doc:
+                        edge_batch.append(edge_doc)
+                        if len(edge_batch) >= self._EDGE_BATCH_SIZE:
+                            created, updated = self._flush_edge_batch(
+                                edge_batch, result
+                            )
+                            result.created += created
+                            result.updated += updated
+                            edge_batch = []
+
+        if edge_batch:
+            created, updated = self._flush_edge_batch(edge_batch, result)
+            result.created += created
+            result.updated += updated
 
         logger.info("MvT article semantic linker: %s.", result.summary())
         return result

@@ -138,8 +138,8 @@ class _StubStore:
         self._hits = hits
 
     def query(self, aql: str, bind_vars: dict[str, Any] | None = None):
-        # Alias-map loader: distinctive `short: i.props.short_title` projection.
-        if "short: i.props.short_title" in aql:
+        # Alias-map loader: returns bwb_id as a plain field (not as an object key).
+        if "FOR i IN instruments" in aql and "bwb_id: i.props.bwb_id" in aql:
             return list(self._alias_rows)
         # Article precise lookup: keyed on @article_number.
         if "@article_number" in aql:
@@ -162,7 +162,9 @@ def _override_store(store):
     app.dependency_overrides[get_store] = lambda: store
 
 
-def teardown_function():
+@pytest.fixture(autouse=True)
+def _cleanup_store_override():
+    yield
     app.dependency_overrides.pop(get_store, None)
 
 

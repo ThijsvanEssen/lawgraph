@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from lawgraph.api.cache import TTLCache
+from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.db import ArangoStore
 
 _alias_map_cache: TTLCache[str, dict[str, str]] = TTLCache(maxsize=4, ttl=60.0)
@@ -120,8 +120,8 @@ def load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
     the same minute share one round-trip instead of issuing one per request.
     """
     cached = _alias_map_cache.get("map")
-    if cached is not None:
-        return cached
+    if cached is not _MISSING:
+        return cached  # type: ignore[return-value]
 
     aql = """
     FOR i IN instruments
@@ -285,9 +285,6 @@ def _search_articles(
             {**tok_bind, "limit": limit},
             limit,
         )
-        # Skip full-text scan when intent already matched — precise lookup is always better.
-        if intent.get("kind") == "article":
-            return results
         return results
 
     return list(store.query(text_aql, {**tok_bind, "limit": limit}))[:limit]
@@ -297,7 +294,15 @@ def _search_instruments(
     store: ArangoStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     clause, tok_bind = build_search_clause(
-        tokens, ["title", "citation_title", "official_title", "display_name", "short_title", "bwb_id"]
+        tokens,
+        [
+            "title",
+            "citation_title",
+            "official_title",
+            "display_name",
+            "short_title",
+            "bwb_id",
+        ],
     )
     aql = f"""
     FOR doc IN search_instruments
@@ -324,7 +329,9 @@ def _search_judgments(
     intent: dict[str, Any],
     limit: int,
 ) -> list[dict[str, Any]]:
-    clause, tok_bind = build_search_clause(tokens, ["display_name", "summary", "ecli", "appno"])
+    clause, tok_bind = build_search_clause(
+        tokens, ["display_name", "summary", "ecli", "appno"]
+    )
     text_aql = f"""
     FOR doc IN search_judgments
         SEARCH {clause}
@@ -370,7 +377,9 @@ def _search_dossiers(
     soort: list[str] | None,
     limit: int,
 ) -> list[dict[str, Any]]:
-    clause, tok_bind = build_search_clause(tokens, ["titel", "display_name", "kamerstuknummer"])
+    clause, tok_bind = build_search_clause(
+        tokens, ["titel", "display_name", "kamerstuknummer"]
+    )
     bind_vars: dict[str, Any] = {**tok_bind, "limit": limit}
     soort_clause = ""
     if soort:

@@ -55,6 +55,16 @@ class BaseClient:
     ) -> requests.Response:
         """Perform an HTTP GET while logging the outgoing request and status."""
         url = self._build_url(path)
+        return self._get_raw_absolute(url, params=params, timeout=timeout)
+
+    def _get_raw_absolute(
+        self,
+        url: str,
+        *,
+        params: dict | None = None,
+        timeout: int = 30,
+    ) -> requests.Response:
+        """Perform an HTTP GET against a full URL while logging request and status."""
         logger.debug("HTTP GET url=%s params=%r", url, params)
         resp = self.session.get(url, params=params, timeout=timeout)
         logger.debug(
@@ -75,11 +85,34 @@ class BaseClient:
         backoff_factor: float = 2.0,
     ) -> requests.Response:
         """GET with exponential backoff on 429, 503, and connection errors."""
-        last_exc: Exception | None = None
+        url = (
+            path
+            if path.startswith("http://") or path.startswith("https://")
+            else self._build_url(path)
+        )
+        return self._get_raw_absolute_with_retry(
+            url,
+            params=params,
+            timeout=timeout,
+            retries=retries,
+            backoff_factor=backoff_factor,
+        )
+
+    def _get_raw_absolute_with_retry(
+        self,
+        url: str,
+        *,
+        params: dict | None = None,
+        timeout: int = 30,
+        retries: int = 3,
+        backoff_factor: float = 2.0,
+    ) -> requests.Response:
+        """GET a full URL with exponential backoff on 429, 503, and connection errors."""
+        last_exc: Exception = RuntimeError("unreachable")
         for attempt in range(retries):
             try:
-                resp = self._get_raw(path, params=params, timeout=timeout)
-                # _get_raw already calls raise_for_status, but 429/503 need retry
+                resp = self._get_raw_absolute(url, params=params, timeout=timeout)
+                # _get_raw_absolute already calls raise_for_status, but 429/503 need retry
                 return resp
             except requests.exceptions.HTTPError as exc:
                 if exc.response is not None and exc.response.status_code in (429, 503):
@@ -88,7 +121,7 @@ class BaseClient:
                     logger.warning(
                         "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
                         exc.response.status_code,
-                        path,
+                        url,
                         attempt + 1,
                         retries,
                         wait,
@@ -104,17 +137,13 @@ class BaseClient:
                 wait = backoff_factor**attempt
                 logger.warning(
                     "Connection error on %s (attempt %d/%d), retrying in %.1fs: %s",
-                    path,
+                    url,
                     attempt + 1,
                     retries,
                     wait,
                     exc,
                 )
                 time.sleep(wait)
-        if last_exc is None:
-            raise RuntimeError(
-                f"_get_raw_with_retry called with retries={retries}; no attempt was made"
-            )
         raise last_exc
 
     def _get_json(
@@ -156,53 +185,35 @@ class BaseClient:
 
         Defaults follow the Microsoft OData style exposed by the TK API.
         """
+
+        def _yield_entries(data: Any) -> Iterator[dict[str, Any]]:
+            if isinstance(data, dict):
+                entries = data.get(result_key)
+                if isinstance(entries, list):
+                    for entry in entries:
+                        if isinstance(entry, dict):
+                            yield entry
+                else:
+                    logger.warning(
+                        "Paged response missing expected key %r; keys present: %s",
+                        result_key,
+                        list(data.keys()),
+                    )
+            elif isinstance(data, list):
+                for entry in data:
+                    if isinstance(entry, dict):
+                        yield entry
+
         first_page = self._get_json(path, params=params, timeout=timeout)
-        yield from self._iter_page_entries(first_page, result_key)
+        yield from _yield_entries(first_page)
 
         next_link = self._extract_next_link(first_page, next_link_key)
         while next_link:
             logger.debug("Following pagination url=%s", next_link)
-            resp = self.session.get(next_link, timeout=timeout)
-            logger.debug(
-                "Paged HTTP response %s %s for url=%s",
-                resp.status_code,
-                resp.reason,
-                next_link,
-            )
-            resp.raise_for_status()
+            resp = self._get_raw_absolute_with_retry(next_link, timeout=timeout)
             page_data = resp.json()
-            yield from self._iter_page_entries(page_data, result_key)
+            yield from _yield_entries(page_data)
             next_link = self._extract_next_link(page_data, next_link_key)
-
-    @staticmethod
-    def _iter_page_entries(data: Any, result_key: str) -> Iterator[dict[str, Any]]:
-        """Extract entry dictionaries from paged payloads."""
-        if isinstance(data, dict):
-            yield from BaseClient._extract_entries_from_dict(data, result_key)
-        elif isinstance(data, list):
-            yield from BaseClient._extract_entries_from_list(data)
-
-    @staticmethod
-    def _extract_entries_from_dict(
-        payload: dict[str, Any], result_key: str
-    ) -> Iterator[dict[str, Any]]:
-        entries = payload.get(result_key)
-        if isinstance(entries, list):
-            yield from BaseClient._extract_entries_from_list(entries)
-            return
-        logger.warning(
-            "Paged response missing expected key %r; keys present: %s",
-            result_key,
-            list(payload.keys()),
-        )
-
-    @staticmethod
-    def _extract_entries_from_list(
-        candidate_list: list[Any],
-    ) -> Iterator[dict[str, Any]]:
-        for entry in candidate_list:
-            if isinstance(entry, dict):
-                yield entry
 
     @staticmethod
     def _extract_next_link(data: Any, key: str | None) -> str | None:

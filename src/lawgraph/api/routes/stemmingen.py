@@ -13,7 +13,6 @@ from lawgraph.api.queries import (
     get_stemmingen,
 )
 from lawgraph.api.schemas import (
-    PartijStemDTO,
     PublicationTextResponse,
     StemmingDTO,
     StemmingListResponse,
@@ -83,29 +82,7 @@ def get_stemming(
     doc = get_stemming_detail(store, key)
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Stemming '{key}' not found.")
-    # get_stemming_detail returns a flat AQL row (already projected), not
-    # a raw Arango doc with nested props — build the DTO from the row
-    # directly instead of going through StemmingDTO.from_document.
-    return StemmingDTO(
-        id=doc["id"],
-        key=doc["key"],
-        datum=doc.get("datum"),
-        onderwerp=doc.get("onderwerp"),
-        besluit_id=doc.get("besluit_id"),
-        aangenomen=bool(doc.get("aangenomen")),
-        chamber=doc.get("chamber"),
-        voor=[
-            PartijStemDTO(**v) for v in (doc.get("voor") or []) if isinstance(v, dict)
-        ],
-        tegen=[
-            PartijStemDTO(**v) for v in (doc.get("tegen") or []) if isinstance(v, dict)
-        ],
-        onthouding=[
-            PartijStemDTO(**v)
-            for v in (doc.get("onthouding") or [])
-            if isinstance(v, dict)
-        ],
-    )
+    return StemmingDTO.from_document(doc)
 
 
 @router.get(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
@@ -53,7 +54,11 @@ class _MockStore:
         return iter([])
 
 
-app.dependency_overrides[get_store] = lambda: _MockStore()
+@pytest.fixture(autouse=True)
+def _override_mock_store():
+    app.dependency_overrides[get_store] = lambda: _MockStore()
+    yield
+    app.dependency_overrides.pop(get_store, None)
 
 
 # ---------------------------------------------------------------------------
