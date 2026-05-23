@@ -61,7 +61,9 @@ def test_staatsblad_normalize_creates_publication():
 
     store = _FakeStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("stb-2015-134", payload_text=_STB_XML)], PipelineResult())
+    nodes = pipeline.normalize_nodes(
+        [_raw("stb-2015-134", payload_text=_STB_XML)], PipelineResult()
+    )
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))
@@ -76,7 +78,9 @@ def test_staatsblad_normalize_skips_empty_payload():
 
     store = _FakeStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("stb-2020-1", payload_text="")], PipelineResult())
+    nodes = pipeline.normalize_nodes(
+        [_raw("stb-2020-1", payload_text="")], PipelineResult()
+    )
     assert len(nodes) == 0
 
 
@@ -101,7 +105,9 @@ def test_staatscourant_normalize_creates_publication():
 
     store = _FakeStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("stcrt-2020-55", payload_text=_STCRT_XML)], PipelineResult())
+    nodes = pipeline.normalize_nodes(
+        [_raw("stcrt-2020-55", payload_text=_STCRT_XML)], PipelineResult()
+    )
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))
@@ -117,7 +123,9 @@ def test_staatscourant_normalize_skips_empty_payload():
 
     store = _FakeStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("stcrt-2020-55", payload_text="")], PipelineResult())
+    nodes = pipeline.normalize_nodes(
+        [_raw("stcrt-2020-55", payload_text="")], PipelineResult()
+    )
     assert len(nodes) == 0
 
 
@@ -143,7 +151,9 @@ def test_echr_normalize_creates_judgment():
 
     store = _FakeStore()
     pipeline = EchrNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("001-12345", payload_json=_ECHR_PAYLOAD)], PipelineResult())
+    nodes = pipeline.normalize_nodes(
+        [_raw("001-12345", payload_json=_ECHR_PAYLOAD)], PipelineResult()
+    )
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))
@@ -186,7 +196,9 @@ def test_verdragenbank_normalize_creates_instrument():
 
     store = _FakeStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("12345", payload_json=_VERDRAG_PAYLOAD)], PipelineResult())
+    nodes = pipeline.normalize_nodes(
+        [_raw("12345", payload_json=_VERDRAG_PAYLOAD)], PipelineResult()
+    )
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))
@@ -208,7 +220,9 @@ def test_verdragenbank_normalize_multilateral():
     }
     store = _FakeStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("99", payload_json=payload)], PipelineResult())
+    nodes = pipeline.normalize_nodes(
+        [_raw("99", payload_json=payload)], PipelineResult()
+    )
 
     node = next(iter(nodes.values()))
     assert node.props["kind"] == "multilateraalverdrag"
@@ -237,7 +251,9 @@ def test_eerstekamer_normalize_creates_publication():
 
     store = _FakeStore()
     pipeline = EerstekamerNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("ek-stuk-abc123", payload_json=_EK_PAYLOAD)], PipelineResult())
+    nodes = pipeline.normalize_nodes(
+        [_raw("ek-stuk-abc123", payload_json=_EK_PAYLOAD)], PipelineResult()
+    )
 
     assert len(nodes) == 1
     node = next(iter(nodes.values()))

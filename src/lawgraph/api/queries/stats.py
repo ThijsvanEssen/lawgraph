@@ -47,35 +47,27 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
     # Source breakdown for judgments
     judgments_by_source: dict[str, int] = {}
     if store.db.has_collection("judgments"):
-        aql_judgments_by_source = (
-            "FOR j IN judgments COLLECT src = j.props.source WITH COUNT INTO n RETURN {src, n}"
-        )
+        aql_judgments_by_source = "FOR j IN judgments COLLECT src = j.props.source WITH COUNT INTO n RETURN {src, n}"
         for row in store.query(aql_judgments_by_source):
             judgments_by_source[row.get("src") or "unknown"] = row.get("n", 0)
 
     # Kind/jurisdiction breakdown for instruments
     instruments_by_kind: dict[str, int] = {}
     if store.db.has_collection("instruments"):
-        aql_instruments_by_kind = (
-            "FOR i IN instruments COLLECT k = i.props.kind WITH COUNT INTO n RETURN {k, n}"
-        )
+        aql_instruments_by_kind = "FOR i IN instruments COLLECT k = i.props.kind WITH COUNT INTO n RETURN {k, n}"
         for row in store.query(aql_instruments_by_kind):
             instruments_by_kind[row.get("k") or "unknown"] = row.get("n", 0)
 
     instruments_by_jurisdiction: dict[str, int] = {}
     if store.db.has_collection("instruments"):
-        aql_instruments_by_jurisdiction = (
-            "FOR i IN instruments COLLECT j = i.props.jurisdiction WITH COUNT INTO n RETURN {j, n}"
-        )
+        aql_instruments_by_jurisdiction = "FOR i IN instruments COLLECT j = i.props.jurisdiction WITH COUNT INTO n RETURN {j, n}"
         for row in store.query(aql_instruments_by_jurisdiction):
             instruments_by_jurisdiction[row.get("j") or "unknown"] = row.get("n", 0)
 
     # Source breakdown for publications
     publications_by_source: dict[str, int] = {}
     if store.db.has_collection("publications"):
-        aql_publications_by_source = (
-            "FOR p IN publications COLLECT src = p.props.source WITH COUNT INTO n RETURN {src, n}"
-        )
+        aql_publications_by_source = "FOR p IN publications COLLECT src = p.props.source WITH COUNT INTO n RETURN {src, n}"
         for row in store.query(aql_publications_by_source):
             publications_by_source[row.get("src") or "unknown"] = row.get("n", 0)
 

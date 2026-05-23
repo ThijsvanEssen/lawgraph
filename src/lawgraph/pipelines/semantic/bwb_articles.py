@@ -10,9 +10,9 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO_ARTICLE,
     SOURCE_BWB,
 )
-from lawgraph.core.time import iso_timestamp
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.semantic.bwb_detect import (
     ArticleCitationHit,
     detect_bwb_article_citations,

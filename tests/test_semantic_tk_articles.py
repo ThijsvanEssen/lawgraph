@@ -34,13 +34,15 @@ class _FakeStore(_BaseFakeStore):
             rows = []
             for doc in self._instruments.values():
                 props = doc.get("props", {})
-                rows.append({
-                    "bwb_id": props.get("bwb_id"),
-                    "celex": props.get("celex"),
-                    "title": props.get("title"),
-                    "citation_title": props.get("citation_title"),
-                    "short_title": props.get("short_title"),
-                })
+                rows.append(
+                    {
+                        "bwb_id": props.get("bwb_id"),
+                        "celex": props.get("celex"),
+                        "title": props.get("title"),
+                        "citation_title": props.get("citation_title"),
+                        "short_title": props.get("short_title"),
+                    }
+                )
             return rows
         return []
 
@@ -136,7 +138,11 @@ def test_tk_pipeline_links_to_article_node() -> None:
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
                 make_node_key("BWBR0001854"),
-                {"bwb_id": "BWBR0001854", "short_title": "Sr", "title": "Wetboek van Strafrecht"},
+                {
+                    "bwb_id": "BWBR0001854",
+                    "short_title": "Sr",
+                    "title": "Wetboek van Strafrecht",
+                },
             )
         },
         articles={article_key: article},
@@ -201,7 +207,11 @@ def test_tk_pipeline_idempotent_edges() -> None:
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
                 make_node_key("BWBR0001854"),
-                {"bwb_id": "BWBR0001854", "short_title": "Sr", "title": "Wetboek van Strafrecht"},
+                {
+                    "bwb_id": "BWBR0001854",
+                    "short_title": "Sr",
+                    "title": "Wetboek van Strafrecht",
+                },
             )
         },
         articles={article_key: article},

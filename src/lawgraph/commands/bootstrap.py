@@ -34,7 +34,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--skip-retrieve", action="store_true")
     args = parser.parse_args(argv)
 
-    logger.info("bootstrap: starting (max_expand=%d, strict=%s).", args.max_expand, args.strict)
+    logger.info(
+        "bootstrap: starting (max_expand=%d, strict=%s).", args.max_expand, args.strict
+    )
 
     from lawgraph.commands.expand_graph import main as expand_main
     from lawgraph.pipelines.orchestration import run_normalize_all as normalize_main
@@ -47,7 +49,9 @@ def main(argv: list[str] | None = None) -> None:
             fn(argv=phase_argv)
         except SystemExit as exc:
             if exc.code not in (None, 0):
-                logger.error("bootstrap: phase '%s' exited with code %s.", name, exc.code)
+                logger.error(
+                    "bootstrap: phase '%s' exited with code %s.", name, exc.code
+                )
                 if args.strict:
                     sys.exit(exc.code)
                 return

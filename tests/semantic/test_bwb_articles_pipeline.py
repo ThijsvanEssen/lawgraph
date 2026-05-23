@@ -90,7 +90,7 @@ def _make_article(
 
 
 def _create_pipeline(
-    store: FakeStore, store_citations: bool = False
+    store: _FakeStore, store_citations: bool = False
 ) -> BwbArticlesSemanticPipeline:
     return BwbArticlesSemanticPipeline(
         store=store,
