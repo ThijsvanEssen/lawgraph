@@ -153,9 +153,9 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
     }
     for e in graph_edges:
         if e.to_id in stats:
-            stats[e.to_id]["citation_count"] = stats[e.to_id][
-                "citation_count"
-            ] + (int(e.weight or 1))
+            stats[e.to_id]["citation_count"] = stats[e.to_id]["citation_count"] + (
+                int(e.weight or 1)
+            )
 
     return InstrumentLayerData(instruments=instruments, edges=graph_edges, stats=stats)
 

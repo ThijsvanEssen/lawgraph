@@ -290,7 +290,11 @@ def get_instrument_dossiers(
     )
     RETURN {{ total: total, items: items }}
     """
-    rows = list(store.query(aql, {"bwb": bwb_id.upper(), "limit": limit, "raakt": RELATION_RAAKT}))
+    rows = list(
+        store.query(
+            aql, {"bwb": bwb_id.upper(), "limit": limit, "raakt": RELATION_RAAKT}
+        )
+    )
     if not rows:
         return [], 0
     row = rows[0]

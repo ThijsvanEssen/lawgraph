@@ -35,7 +35,9 @@ _INSTRUMENT_DOC = {
 
 _PAYLOAD = JudgmentDetailData(
     judgment=_JUDGMENT_DOC,
-    articles=[JudgmentArticleRelation(article=_ARTICLE_DOC, instrument=_INSTRUMENT_DOC)],
+    articles=[
+        JudgmentArticleRelation(article=_ARTICLE_DOC, instrument=_INSTRUMENT_DOC)
+    ],
     metadata={"article_count": 1},
 )
 

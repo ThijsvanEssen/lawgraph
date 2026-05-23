@@ -78,13 +78,15 @@ class _FakeStore:
             for (coll, _key), node in self._nodes.items():
                 if coll != "instruments":
                     continue
-                rows.append({
-                    "bwb_id": node.props.get("bwb_id"),
-                    "celex": node.props.get("celex"),
-                    "title": node.props.get("title"),
-                    "citation_title": node.props.get("citation_title"),
-                    "short_title": node.props.get("short_title"),
-                })
+                rows.append(
+                    {
+                        "bwb_id": node.props.get("bwb_id"),
+                        "celex": node.props.get("celex"),
+                        "title": node.props.get("title"),
+                        "citation_title": node.props.get("citation_title"),
+                        "short_title": node.props.get("short_title"),
+                    }
+                )
             return rows
         # BWB raw-text query.
         if "raw_sources" in aql:

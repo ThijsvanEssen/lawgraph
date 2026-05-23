@@ -47,7 +47,10 @@ def _build_dispatch() -> dict[str, dict[str, Callable]]:
             semantic_map[cli_key] = source.semantic_main
 
     # Retrieve-only sources not covered by retrieve_argv_builder (ad-hoc)
-    from lawgraph.pipelines.retrieve_cli import retrieve_bwb_history, retrieve_tk_content
+    from lawgraph.pipelines.retrieve_cli import (
+        retrieve_bwb_history,
+        retrieve_tk_content,
+    )
 
     retrieve_map["bwb-history"] = retrieve_bwb_history
     retrieve_map["tk-content"] = retrieve_tk_content
@@ -94,14 +97,17 @@ def main(argv: list[str] | None = None) -> None:
 
     if phase == "bootstrap":
         from lawgraph.commands.bootstrap import main as bootstrap_main
+
         bootstrap_main(argv=rest)
         return
     if phase == "expand-graph":
         from lawgraph.commands.expand_graph import main as expand_main
+
         expand_main(argv=rest)
         return
     if phase == "fill-gaps":
         from lawgraph.commands.fill_gaps import main as fill_gaps_main
+
         fill_gaps_main(argv=rest)
         return
 
@@ -123,7 +129,9 @@ def main(argv: list[str] | None = None) -> None:
     source_argv = rest[1:]
 
     if source not in phase_dispatch:
-        print(f"error: unknown source '{source}' for phase '{phase}'\n", file=sys.stderr)
+        print(
+            f"error: unknown source '{source}' for phase '{phase}'\n", file=sys.stderr
+        )
         print(f"Available: {', '.join(sorted(phase_dispatch))}", file=sys.stderr)
         sys.exit(1)
 

@@ -34,7 +34,9 @@ class EchrNormalizePipeline(NormalizePipeline):
         logger.info("Loaded %d ECHR raw_sources.", len(rows))
         return rows
 
-    def normalize_nodes(self, raw: list[dict[str, Any]], result: PipelineResult) -> dict[str, Node]:
+    def normalize_nodes(
+        self, raw: list[dict[str, Any]], result: PipelineResult
+    ) -> dict[str, Node]:
         nodes: dict[str, Node] = {}
 
         for record in raw:

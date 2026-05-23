@@ -56,13 +56,15 @@ class _FakeStore(_BaseFakeStore):
             rows = []
             for doc in self._instruments.values():
                 props = doc.get("props", {})
-                rows.append({
-                    "bwb_id": props.get("bwb_id"),
-                    "celex": props.get("celex"),
-                    "title": props.get("title"),
-                    "citation_title": props.get("citation_title"),
-                    "short_title": props.get("short_title"),
-                })
+                rows.append(
+                    {
+                        "bwb_id": props.get("bwb_id"),
+                        "celex": props.get("celex"),
+                        "title": props.get("title"),
+                        "citation_title": props.get("citation_title"),
+                        "short_title": props.get("short_title"),
+                    }
+                )
             return rows
         return list(self._documents)
 

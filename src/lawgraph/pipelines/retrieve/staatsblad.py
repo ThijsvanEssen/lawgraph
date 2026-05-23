@@ -90,7 +90,9 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         )
 
         bwb_xml_by_id = self._fetch_bwb_xml_batch(store, instrument_rows)
-        candidate_refs = self._extract_stb_candidates(instrument_rows, bwb_xml_by_id, result)
+        candidate_refs = self._extract_stb_candidates(
+            instrument_rows, bwb_xml_by_id, result
+        )
         existing_identifiers = self._find_existing_identifiers(store, candidate_refs)
         self._fetch_and_store(result, candidate_refs, existing_identifiers)
 
