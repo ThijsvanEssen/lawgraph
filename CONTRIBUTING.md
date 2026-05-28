@@ -1,20 +1,20 @@
-# Bijdragen aan Lawgraph
+# Contributing to LawGraph
 
-Lawgraph bouwt een NL/EU-wetgevings- en rechtspraakknowledgegraph in **ArangoDB** en verzamelt informatie uit Tweede Kamer, Rechtspraak.nl, EUR-Lex/CELEX en wetten.overheid.nl. De pipelines draaien deterministisch zodat meerdere runs tot dezelfde `_key`s in document- en edgecollecties leiden. Die focus op reproduceerbaarheid en configuratie via profielen vormt de scope van het project; de graph zelf is het aggregatielagenwerk, zonder UI/UX-laag.
+LawGraph builds a Dutch and EU legal knowledge graph in ArangoDB. Pipelines are deterministic: re-running any pipeline produces the same `_key` values and idempotent upserts.
 
-## Lokale setup
+## Local setup
 
-1. Clone de repository en zet een virtuele omgeving klaar:
+1. Clone and create a virtual environment:
 
    ```bash
-   git clone https://example.com/lawgraph.git
+   git clone <repo-url>
    cd lawgraph
    python -m venv .venv
    source .venv/bin/activate
    pip install -e ".[dev]"
    ```
 
-2. Maak een `.env` in de projectroot. Minimaal dienen de Arango-verbinding en credentials erin te staan:
+2. Copy `.env.example` to `.env` and fill in the ArangoDB connection:
 
    ```env
    ARANGO_URL=http://localhost:8529
@@ -23,92 +23,69 @@ Lawgraph bouwt een NL/EU-wetgevings- en rechtspraakknowledgegraph in **ArangoDB*
    ARANGO_PASSWORD=changeme
    ```
 
-   Voeg naar behoefte API-baseurls en profielkeuzes toe (bijv. `TK_API_BASE`, `RECHTSPRAAK_BASE`, `EURLEX_BASE`, `LAWGRAPH_PROFILE`).
+3. Start ArangoDB:
 
-## ArangoDB lokaal draaien
+   ```bash
+   docker-compose up -d arangodb
+   ```
 
-De repository bevat een `docker-compose.yml` met een Arango-service. Start de database met:
+## Running pipelines
 
-```bash
-docker-compose up -d arangodb
-```
-
-Controleer daarna met `docker-compose logs -f arangodb` of de database klaar is. Gebruik dezelfde credentials als in `.env`.
-
-## Profiles en LAWGRAPH_PROFILE
-
-Profielen in `src/config/*.yml` definiëren welke instrumenten, filters en topics een pipeline moet gebruiken (bijv. `strafrecht`). De CLI’s lezen standaard `LAWGRAPH_PROFILE` of accepteren `--profile`-argumenten; zo blijven filters, API-keys en metadata buiten de code en in één beheerlaag. Een profiel bevat doorgaans `nl_instruments`, `eurlex`, `rechtspraak` en topicdefinities.
-
-## Pipelines draaien
-
-Zorg dat de juiste profiellocatie actief is:
+The unified CLI is `lawgraph` (or `python -m lawgraph`):
 
 ```bash
-export LAWGRAPH_PROFILE=strafrecht
+# Retrieve raw data
+lawgraph retrieve all
+
+# Normalize into graph nodes and edges
+lawgraph normalize all
+
+# Infer semantic citation edges
+lawgraph semantic all
 ```
 
-- **Retrieve**: elke `lawgraph-retrieve-*`-command vult `raw_sources` met JSON/metadata. Run:
+Run individual sources:
 
-  ```bash
-  lawgraph-retrieve-tk
-  lawgraph-retrieve-rechtspraak
-  lawgraph-retrieve-eurlex
-  lawgraph-retrieve-bwb
-  lawgraph-retrieve-all
-  ```
+```bash
+lawgraph retrieve bwb --mode full
+lawgraph normalize bwb --since 7d
+lawgraph semantic bwb
+```
 
-- **Normalize**: de `lawgraph-normalize-*`-commands transformeren `raw_sources` naar nodes/edges met deterministische `_key`s:
-
-  ```bash
-  lawgraph-normalize-tk
-  lawgraph-normalize-rechtspraak
-  lawgraph-normalize-eurlex
-  lawgraph-normalize-bwb
-  lawgraph-normalize-all
-  ```
-
-Gebruik `LAWGRAPH_PROFILE` of `--profile <naam>` om de juiste filters en metadata te laden. Seed-CLI (`lawgraph-strafrecht-seed`) injecteert specifieke domeindata in een nieuwe database.
+Pass `--help` after a source name to see all flags.
 
 ## Coding conventions
 
-- Python 3.11 wordt gebruikt; typannotaties en moderne taalfeatures zijn standaard.
-- Schrijf deterministic keys via `lawgraph.models.make_node_key`; meerdere runs moeten identieke `_key`s produceren.
-- Plaats alle constants, API-bases en collectionnamen in `.env` of in profielconfiguraties (`src/config/*.yml`); vermijd hardcoderingen in de business logic.
-- Configuratie hoort in profielen en `LAWGRAPH_PROFILE`, zodat pipelines agnostisch blijven over specifieke domeinen.
-- Houd code leesbaar en split pipelines op in `retrieve` vs `normalize` respectievelijk `clients`, `models` en `config`. Voeg waar nodig korte commentaarregels toe die intentie verduidelijken zonder obvious statements.
+- Python 3.11+; type annotations are required throughout.
+- Use `make_node_key()` from `lawgraph.core.models` for all `_key` derivation. Multiple runs must produce identical keys.
+- Collection names and relation types are defined as constants in `src/lawgraph/config/constants.py`. Do not hardcode strings.
+- Runtime configuration (URLs, credentials, feature flags) belongs in `.env` via `src/lawgraph/config/settings.py`.
+- All pipeline classes must return a `PipelineResult` from `run()`.
+- Complexity limit: McCabe complexity C901 <= 15 (enforced by ruff).
+- Log using `get_logger(__name__)` from `lawgraph.core.logging`; do not use `print()`.
 
 ## Tests
 
-- Unit- en integratietests draaien met `pytest tests/`.
-- Netwerktests vereisen echte API-keys, dus ze zijn opt-in:
-  ```bash
-  ALLOW_NETWORK_TESTS=1 pytest tests/
-  ```
-
-  Ook hier geldt dat profielfiles en `.env`-waarden de filters en authenticatie regelen.
+```bash
+pytest tests/
+# Opt in to real network calls:
+ALLOW_NETWORK_TESTS=1 pytest tests/
+```
 
 ## Linting
-
-Gebruik `ruff` voor linting:
 
 ```bash
 ruff check src tests
 ```
 
-Voer linting uit voordat je code naar de repository pusht; corrigeer stijl-, type- en importissues die `ruff` aangeeft.
+Fix all issues before pushing.
 
-## Branches, commits en PR’s
+## Branches, commits, and pull requests
 
-- Branches leven op `develop` en feature-takken onder `feature/*`. Werk per feature/bugfix op een eigen branch.
-- Commitboodschappen zijn beschrijvend en kort: `npm`-achtige prefixen zijn niet verplicht, maar vermeld altijd de kernwijziging (bv. `fix: deterministic keys for topics` of `feat: new normalize pipeline for tk`).
-- Open PR’s tegen `develop`. Voeg in de beschrijving een korte samenvatting, welke pipelines zijn getest en welke profielinstellingen zijn gebruikt. Voeg links naar relevante issues toe waar mogelijk.
-- Vermeld in de PR welke tests en lintchecks zijn uitgevoerd en of `ALLOW_NETWORK_TESTS` nodig was.
+- Work on feature branches under `feature/<description>`.
+- Commit messages should be descriptive and reference the changed component, e.g. `fix: deterministic keys for stemmingen` or `feat: staatsblad normalize pipeline`.
+- Open pull requests against `develop`. Describe which pipelines and sources were tested.
+- PRs targeting `main` are reserved for release merges.
+- Do not force-push to `main`.
 
-## PR workflow
-
-1. Update je branch en zorg dat tests/lint succesvol zijn.
-2. Push naar `feature/<kort-beschrijvende-naam>`.
-3. Maak een PR aan tegen `main`, voeg reviewers toe, beschrijf de change en geef aan welke Pipelines/Profielen relevant zijn.
-4. Na review voer je eventuele feedback door en squash of rebase indien gewenst. Vermijd force-pushes op `main`.
-
-Dank voor je bijdrage!
+Thank you for contributing.

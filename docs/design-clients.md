@@ -1,17 +1,18 @@
-# LawGraph External API Clients — Design Document
+# External API Clients
 
-## 1. BaseClient Architecture
+## 1. BaseClient
 
 **File:** `src/lawgraph/clients/base.py`
 
 ### Responsibilities
-- Environment variable override per client (`env_var` param with `default_base_url` fallback)
-- URL normalization via `_build_url()` — enforces trailing slash, prevents double-slash
-- Shared `requests.Session` — injectable for connection pooling and testing
-- 30-second default timeout on all requests, overridable per-call
-- `load_dotenv()` called on every instantiation (minor redundancy; see bugs)
 
-### Response layers
+- Base URL configured via env var with fallback default
+- URL building via `_build_url()` — enforces trailing slash, prevents double-slash
+- Shared `requests.Session` for connection pooling (injectable for testing)
+- 30 s default timeout on all requests, overridable per call
+- Retry on HTTP 429, 503, and connection/timeout errors: 3 retries with exponential backoff (factor 2)
+
+### Response methods
 
 | Method | Returns | Use case |
 |--------|---------|----------|
@@ -23,20 +24,9 @@ All call `raise_for_status()` on non-2xx responses.
 
 ### Pagination helpers
 
-#### `_paged_get()` — nextLink-based (OData-compliant)
+`_paged_get()` — follows `@odata.nextLink` URLs until exhausted. Used for TK legacy endpoints.
 
-Follows `@odata.nextLink` URLs until exhausted. Used for TK legacy endpoints (`zaken_modified_since`, `documents_modified_since`). The nextLink URL is called directly (absolute, bypasses `_build_url`).
-
-#### `_skip_paged_get()` (in `tk.py:57-79`) — skip/top-based
-
-Used for all new TK parliamentary entity endpoints. The TK API does **not** emit `@odata.nextLink` despite the OData spec requirement.
-
-```
-$top=page_size
-$skip=0, page_size, 2*page_size, ... until len(page) < page_size
-```
-
-**Limitation:** End-of-data detection is fragile — assumes fewer records = last page. No explicit total count available.
+`_skip_paged_get()` — skip/top-based pagination for TK endpoints that do not emit `@odata.nextLink`. End-of-data detected when `len(page) < page_size`.
 
 ---
 
@@ -50,51 +40,42 @@ $skip=0, page_size, 2*page_size, ... until len(page) < page_size
 
 ### Methods
 
-| Method | Entity | Pagination | Since support | Notes |
-|--------|--------|-----------|---------------|-------|
-| `zaken_modified_since(since, top, keyword_fields, keywords)` | Zaak | nextLink | yes | Legacy; supports keyword filtering |
-| `documents_modified_since(since, top, ...)` | Document | nextLink | yes | Legacy; `$expand=Zaak` |
-| `raw_entity(entity, params)` | Any | nextLink | via params | Generic passthrough |
-| `fetch_document_bytes(document_id, timeout=60)` | Binary | N/A | N/A | PDF/document content |
-| `fetch_dossiers(since, top=250)` | Kamerstukdossier | skip-based | yes | |
-| `fetch_activiteiten(since, top=250)` | Activiteit | skip-based | yes | 3-level expand |
-| `fetch_stemmingen(since, top=250)` | Stemming | skip-based | yes | One record per fractie per Besluit |
-| `fetch_toezeggingen(since, top=250)` | Toezegging | skip-based | yes | |
-| `fetch_commissies(top=250)` | Commissie | skip-based | **no** | CommissieZetel members expanded |
-| `fetch_documents(since, top=250)` | Document | skip-based | yes | ~400K+ full; always use `since` |
-| `fetch_personen(top=250)` | Persoon | skip-based | **no** | Fractielabel included directly |
+| Method | Entity | Pagination | Incremental |
+|--------|--------|-----------|-------------|
+| `zaken_modified_since(since, ...)` | Zaak | nextLink | yes |
+| `documents_modified_since(since, ...)` | Document | nextLink | yes |
+| `raw_entity(entity, params)` | Any | nextLink | via params |
+| `fetch_document_bytes(document_id)` | Binary | — | — |
+| `fetch_dossiers(since, top=250)` | Kamerstukdossier | skip-based | yes |
+| `fetch_activiteiten(since, top=250)` | Activiteit | skip-based | yes |
+| `fetch_stemmingen(since, top=250)` | Stemming | skip-based | yes |
+| `fetch_toezeggingen(since, top=250)` | Toezegging | skip-based | yes |
+| `fetch_commissies(top=250)` | Commissie | skip-based | no (full-refresh) |
+| `fetch_documents(since, top=250)` | Document | skip-based | yes |
+| `fetch_personen(top=250)` | Persoon | skip-based | no (full-refresh) |
 
-### Datetime formatting
+### Critical quirk: OData nested expand syntax
 
-`_format_odata_datetime(value)` → `YYYY-MM-DDTHH:MM:SSZ` (UTC, no microseconds).
-
-### OData nested expand syntax — critical quirk
-
-The TK API uses **semicolons `;`** as parameter separators inside nested `$expand()` clauses — **not the standard ampersand `&`**. The API returns HTTP 400 for standard syntax.
+The TK API uses **semicolons `;`** as parameter separators inside nested `$expand()` clauses, not the standard ampersand `&`. The API returns HTTP 400 for standard OData syntax.
 
 ```
-# CORRECT (TK-specific):
-$expand=Agendapunt($expand=Zaak($select=Id,Soort,Titel,Nummer;$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)))
+# Correct (TK-specific):
+$expand=Agendapunt($expand=Zaak($select=Id,Soort;$expand=Kamerstukdossier($select=Id,Nummer)))
 
-# WRONG (standard OData — rejected by TK API):
-$expand=Agendapunt&$expand=Zaak&$select=...
+# Wrong (standard OData — rejected):
+$expand=Agendapunt&$expand=Zaak&$select=Id
 ```
 
-This affects `fetch_activiteiten()`, `fetch_stemmingen()`, `fetch_documents()`.
+### Other known quirks
 
-### Other known API quirks
-
-| Quirk | Detail |
-|-------|--------|
-| No `@odata.nextLink` | Forces skip-based pagination for all new endpoints |
-| `Nummer` often null | Dossier linking must traverse Zaak→Kamerstukdossier chain |
-| `Vergadering_Soort` missing | Field not returned by Agendapunt even if requested |
-| Document scale | ~400K+ records for a full unbounded fetch — always use date filter |
-| Stemmingen structure | One record per fractie per Besluit — must group by `Besluit_Id` to reconstruct full vote |
+- No `@odata.nextLink` on new endpoints — requires skip-based pagination
+- `Nummer` often null — dossier linking must traverse Zaak→Kamerstukdossier chain
+- Stemmingen: one raw record per fractie per Besluit — must group by `Besluit_Id`
+- Documents: ~400K+ full; always use a date filter
 
 ---
 
-## 3. BWB Client (Basis Wetten Bestand)
+## 3. BWB Client
 
 **File:** `src/lawgraph/clients/bwb.py`
 
@@ -107,27 +88,14 @@ This affects `fetch_activiteiten()`, `fetch_stemmingen()`, `fetch_documents()`.
 | Method | Description |
 |--------|-------------|
 | `search_toestanden(bwb_id)` | SRU query; returns all versions (ToestandMeta list) |
-| `latest_toestand(bwb_id)` | Filters for currently-valid version (einddatum = 9999-12-31), then most recent |
-| `fetch_toestand_xml(meta, timeout)` | Downloads actual XML law text from `locatie_toestand` URL |
+| `latest_toestand(bwb_id)` | Filters for currently-valid version, then most recent |
+| `fetch_toestand_xml(meta, timeout)` | Downloads XML law text from `locatie_toestand` URL |
 
-### ToestandMeta fields
+### Version selection
 
-```python
-{
-    "bwb_id": "BWBR0001854",
-    "locatie_toestand": "https://...",      # XML download URL
-    "locatie_wti": "...",                   # Regulatory tracing info (optional)
-    "locatie_manifest": "...",              # Manifest URL (optional)
-    "geldigheidsperiode_startdatum": "2020-01-01",
-    "geldigheidsperiode_einddatum": "9999-12-31"  # "still valid"
-}
-```
-
-### Version selection logic
-
-1. Filter for versions with `einddatum == "9999-12-31"` (currently in force)
+1. Filter for `einddatum == "9999-12-31"` (currently in force)
 2. If none found, fall back to all versions
-3. Sort by `(einddatum DESC, startdatum DESC)` → take first
+3. Sort by `(einddatum DESC, startdatum DESC)` — take first
 
 ---
 
@@ -141,12 +109,10 @@ This affects `fetch_activiteiten()`, `fetch_stemmingen()`, `fetch_documents()`.
 
 | Method | Description |
 |--------|-------------|
-| `search_ecli_index(modified_since, extra_params)` | Fetch index XML/Atom feed of available judgments |
-| `fetch_ecli_content(ecli)` | Fetch full XML for a single ECLI |
+| `search_ecli_index(modified_since, extra_params)` | Atom/XML feed of available judgments |
+| `fetch_ecli_content(ecli)` | Full XML for a single ECLI |
 
-**Important:** The query parameter is `modifiedsince` (all lowercase, no underscores).
-
-**No structured search** — relies on ECLI identifiers extracted from the index feed or provided explicitly.
+Query parameter is `modifiedsince` (all lowercase, no underscores).
 
 ---
 
@@ -162,88 +128,40 @@ This affects `fetch_activiteiten()`, `fetch_stemmingen()`, `fetch_documents()`.
 |--------|-------------|
 | `fetch_celex_html(celex, lang="NL")` | Fetch HTML for an EU legislative act |
 
-### CELLAR proxy routing
-
-The main `eur-lex.europa.eu` domain is behind AWS WAF bot-protection and returns HTTP 202 challenges for automated clients. Instead, the client uses the CELLAR publications server:
+The main `eur-lex.europa.eu` domain returns HTTP 202 challenges for automated clients. The client routes via the CELLAR publications server instead:
 
 ```
 https://publications.europa.eu/resource/celex/<CELEX>
 ```
 
-With headers:
-```
-Accept: text/html, application/xhtml+xml
-Accept-Language: nl, nl-NL;q=0.9
-```
-
-Redirects are followed (`allow_redirects=True`). Timeout: 60 seconds.
+Redirects are followed. Timeout: 60 s.
 
 ---
 
-## 6. Configuration & Authentication
+## 6. Other clients
 
-All base URLs configurable via environment variables:
+| Client file | Source | Base URL env var |
+|------------|--------|-----------------|
+| `staatsblad.py` | Staatsblad AMvBs | `STAATSBLAD_SRU_ENDPOINT` |
+| `staatscourant.py` | Staatscourant regelingen | `STAATSCOURANT_SRU_ENDPOINT` |
+| `eerstekamer.py` | Eerste Kamer OData | `EERSTEKAMER_BASE` |
+| `verdragenbank.py` | Verdragenbank SPARQL | `VERDRAGENBANK_SPARQL` |
+| `echr.py` | ECHR HUDOC | `ECHR_HUDOC_BASE` |
+
+---
+
+## 7. Configuration
+
+All base URLs are configurable via env vars. **No API keys required** — all sources are publicly accessible.
 
 | Client | Env var | Default |
 |--------|---------|---------|
 | TK | `TK_API_BASE` | `https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/` |
 | BWB | `BWB_BASE` | `https://wetten.overheid.nl/` |
+| BWB SRU | `BWB_SRU_ENDPOINT` | `https://zoekservice.overheid.nl/sru/Search` |
 | Rechtspraak | `RECHTSPRAAK_BASE` | `https://data.rechtspraak.nl/` |
 | EUR-Lex | `EURLEX_BASE` | `https://eur-lex.europa.eu/` |
-| BWB SRU | `BWB_SRU_ENDPOINT` | `https://zoekservice.overheid.nl/sru/Search` |
-
-**No API keys required.** All sources are publicly accessible without credentials.
-
-**No rate limiting implemented.** Aggressive fetches may trigger 429 responses which currently crash the pipeline.
-
----
-
-## 7. Gaps & Missing Features
-
-| Gap | Impact |
-|-----|--------|
-| No HTTP retry logic (429, 503, timeout) | Single failure crashes entire batch |
-| No rate limiting | Risk of being throttled by external APIs |
-| `fetch_commissies()` / `fetch_personen()` have no `since` parameter | Always full-refresh (~100 commissies, ~500 personen) |
-| `TKRetrievePipeline` has no pagination loop | Silently drops records beyond `limit=100` |
-| No ECLI/CELEX search endpoints | Requires pre-known identifiers |
-| All methods return `list` (materializes in memory) | Memory pressure for 400K+ document fetches |
-| No `Fractie`, `Agendapunt`, or `Besluit` dedicated fetchers | Must use `raw_entity()` workaround |
-
----
-
-## 8. Bugs & Issues
-
-| # | Severity | File | Line | Description |
-|---|----------|------|------|-------------|
-| 1 | **HIGH** | `retrieve/tk.py` | 54 | `limit` caps result set with no pagination — silently drops excess records |
-| 2 | MEDIUM | `clients/tk.py` | 57–79 | `_skip_paged_get()` end-of-data detection fragile — assumes `len(page) < page_size` = last page |
-| 3 | LOW | `clients/base.py` | 38 | `load_dotenv()` called on every `BaseClient()` instantiation — minor redundant I/O |
-| 4 | LOW | `clients/rechtspraak.py` | 45 | `modifiedsince` param name is easy to mistype — no constant defined |
-| 5 | LOW | `clients/eu.py` | 42 | Direct `self.session.get()` bypasses `_get_raw()` helper — inconsistent style |
-| 6 | LOW | `clients/base.py` | 120 | Pagination next_link calls `session.get()` directly — bypasses `_build_url()` normalization (intentional but undocumented) |
-
----
-
-## 9. Improvement Recommendations
-
-### P1 — Critical
-1. **Implement HTTP retry with exponential backoff** in `BaseClient._get_raw()`:
-   - Retry on: 429, 503, `Timeout`, `ConnectionError`
-   - Max 3 retries, backoff factor 1.0s
-2. **Paginate `TKRetrievePipeline`** — implement `$skip/$top` loop; current `limit=100` silently drops data
-
-### P2 — High
-3. **Return iterators instead of lists** from TK fetch methods — reduce memory footprint for 400K+ record fetches
-4. **Add rate-limit logging** — log HTTP 429/503 responses with structured metadata before retrying
-5. **Document TK API quirks** in `docs/external-apis.md` (semicolon syntax, no nextLink, Nummer null, Vergadering_Soort missing)
-
-### P3 — Medium
-6. **Add `since` support** to `fetch_commissies()` and `fetch_personen()` — check if TK API supports `ApiGewijzigdOp` for these entities
-7. **Move `load_dotenv()` to application startup** — remove from `BaseClient.__init__()`
-8. **Optimize connection pooling** via `HTTPAdapter(pool_connections=10, pool_maxsize=10)`
-9. **Define `MODIFIEDSINCE_PARAM` constant** in rechtspraak.py to prevent typos
-
-### P4 — Nice-to-have
-10. **Add `search_ecli()` to RechtspraakClient** — parse index feed to return matching ECLIs by keyword
-11. **Async support** via `httpx` — for I/O-bound parallel fetches
+| Staatsblad | `STAATSBLAD_SRU_ENDPOINT` | `https://sru.officielebekendmakingen.nl/sru/Search` |
+| Eerste Kamer | `EERSTEKAMER_BASE` | `https://gegevensmagazijn.eerstekamer.nl/OData/v4/2.0/` |
+| ECHR | `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
+| Verdragenbank | `VERDRAGENBANK_SPARQL` | `https://linkeddata.overheid.nl/front/portal/sparql` |
