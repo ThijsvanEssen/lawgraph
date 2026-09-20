@@ -71,6 +71,20 @@ def test_check_says_when_a_source_was_retrieved_and_never_normalized(
     assert any(p.startswith("raw staatscourant/") for p in problems)
 
 
+def test_check_says_when_normalize_is_behind(database: str, cli: Any) -> None:
+    """38,577 judgments retrieved and 7,442 normalized looked like a healthy database."""
+    store = ArangoStore()
+    seed(store, documents=20, judgments=5, regulations=2)
+    cli("normalize", "rechtspraak")
+    assert not [p for p in check(store, edges=False).problems if "is behind" in p]
+
+    seed(store, documents=20, judgments=60, regulations=2)  # 55 more arrive
+    behind = [p for p in check(store, edges=False).problems if "is behind" in p]
+    assert behind and behind[0].startswith(
+        "rechtspraak: 60 rs-content records and 5 nodes"
+    )
+
+
 def test_check_finds_an_edge_without_its_node(database: str, cli: Any) -> None:
     store = ArangoStore()
     seed(store, documents=50, judgments=5, regulations=2)

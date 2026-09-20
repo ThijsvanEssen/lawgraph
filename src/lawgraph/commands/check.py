@@ -24,7 +24,16 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
+    RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
+    RAW_KIND_ECHR_JUDGMENT,
+    RAW_KIND_EK_KAMERSTUK,
+    RAW_KIND_EU_CELEX,
+    RAW_KIND_RS_CONTENT,
+    RAW_KIND_STB_AMVB,
+    RAW_KIND_STCRT_REGELING,
+    RAW_KIND_TK_ZAAK,
+    RAW_KIND_VERDRAG,
     RAW_SOURCE_KINDS,
     SOURCE_BWB,
     SOURCE_ECHR,
@@ -54,6 +63,20 @@ NODES_OF_SOURCE = {
     SOURCE_STAATSCOURANT: COLLECTION_DOCUMENTS,
     SOURCE_EERSTEKAMER: COLLECTION_DOCUMENTS,
 }
+# The raw kind of which every record becomes one node there, and the share of them that
+# must have one (a few records have no usable payload and are skipped).
+RECORD_KIND = {
+    SOURCE_TK: RAW_KIND_TK_ZAAK,
+    SOURCE_RECHTSPRAAK: RAW_KIND_RS_CONTENT,
+    SOURCE_ECHR: RAW_KIND_ECHR_JUDGMENT,
+    SOURCE_EURLEX: RAW_KIND_EU_CELEX,
+    SOURCE_BWB: RAW_KIND_BWB_TOESTAND,
+    SOURCE_VERDRAGENBANK: RAW_KIND_VERDRAG,
+    SOURCE_STAATSBLAD: RAW_KIND_STB_AMVB,
+    SOURCE_STAATSCOURANT: RAW_KIND_STCRT_REGELING,
+    SOURCE_EERSTEKAMER: RAW_KIND_EK_KAMERSTUK,
+}
+NORMALIZED_SHARE = 0.9
 # Kinds that are only there after a manual command; their absence says nothing.
 OPTIONAL_KINDS = {RAW_KIND_BWB_TOESTAND_ALL}
 
@@ -119,13 +142,19 @@ def _check_nodes(
             RETURN n
         """
         nodes = next(iter(store.query(aql, {"source": source})), 0)
-        if nodes:
-            report.note(f"nodes of {source} in {collection}: {nodes:,}")
-        else:
+        records = raw.get((source, RECORD_KIND[source]), 0)
+        command = f"`lawgraph normalize {source.replace('_', '-')}`"
+        if not nodes:
             report.problem(
-                f"{source}: {stored:,} raw records and no node in {collection}. "
-                f"Run `lawgraph normalize {source.replace('_', '-')}`."
+                f"{source}: {stored:,} raw records and no node in {collection}. Run {command}."
             )
+        elif nodes < records * NORMALIZED_SHARE:
+            report.problem(
+                f"{source}: {records:,} {RECORD_KIND[source]} records and {nodes:,} nodes in "
+                f"{collection}: normalize is behind. Run {command}."
+            )
+        else:
+            report.note(f"nodes of {source} in {collection}: {nodes:,}")
 
 
 def _check_edges(store: ArangoStore, report: Report) -> None:
