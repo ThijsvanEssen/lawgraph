@@ -233,7 +233,8 @@ def _register_eurlex() -> list[SourceDescriptor]:
             id="eurlex",
             display_name="EUR-Lex (EU legislation)",
             retrieve_main=retrieve_eurlex,
-            retrieve_argv_builder=_mode_argv,
+            # Never lists acts: the graph (fill-gaps, expand-graph) says which are needed.
+            retrieve_argv_builder=_no_argv,
             normalize_main=normalize,
             semantic_main=semantic,
             semantic_accepts_since=True,

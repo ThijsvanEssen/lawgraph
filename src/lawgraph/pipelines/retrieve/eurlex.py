@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import requests
+
 from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
 from lawgraph.core.logging import get_logger
@@ -20,44 +22,65 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.eu = eu_client or EUClient()
 
-    def fetch(  # type: ignore[override]
+    def run(  # type: ignore[override]
         self,
         *,
         celex_ids: Sequence[str],
         lang: str = "NL",
         **kwargs: object,
-    ) -> Sequence[RetrieveRecord]:
-        """Return raw HTML payloads for the requested CELEX identifiers."""
-        logger.info("Fetching EUR-Lex CELEX ids: %s", celex_ids)
-        records: list[RetrieveRecord] = []
+    ) -> PipelineResult:
+        """Fetch the requested acts and store each one as soon as it is fetched.
+
+        An interrupted run keeps what it already has. An act CELLAR has no HTML text of
+        (many old regulations, every corrigendum) is counted as skipped, not as an error.
+        """
+        result = PipelineResult()
+        logger.info("Fetching %d EUR-Lex acts.", len(celex_ids))
         for celex in celex_ids:
             try:
                 html = self.eu.fetch_celex_html(celex, lang=lang)
+            except requests.HTTPError as exc:
+                result.skipped += 1
+                if exc.response is not None and exc.response.status_code == 404:
+                    logger.info("CELEX %s has no HTML text (404); skipped.", celex)
+                else:
+                    logger.warning("Skipping CELEX %s: %s", celex, exc)
+                continue
             except Exception as exc:
+                result.skipped += 1
                 logger.warning("Skipping CELEX %s: %s", celex, exc)
                 continue
-            records.append(
-                RetrieveRecord(
-                    source=SOURCE_EURLEX,
-                    kind=RAW_KIND_EU_CELEX,
-                    external_id=celex,
-                    payload_text=html,
-                    meta={"celex": celex, "lang": lang},
+            try:
+                self._insert(
+                    RetrieveRecord(
+                        source=SOURCE_EURLEX,
+                        kind=RAW_KIND_EU_CELEX,
+                        external_id=celex,
+                        payload_text=html,
+                        meta={"celex": celex, "lang": lang},
+                    )
                 )
-            )
-        logger.info("EUR-Lex retrieve created %d records.", len(records))
-        return records
+                result.created += 1
+            except Exception as exc:
+                msg = f"Failed to store EUR-Lex {celex}: {exc}"
+                logger.error(msg)
+                result.add_error(msg)
+        logger.info(
+            "EUR-Lex retrieve: %d stored, %d skipped.", result.created, result.skipped
+        )
+        return result
 
-    def run_full(self, *, lang: str = "NL") -> PipelineResult:
-        """Full-load mode: enumerate ALL EUR-Lex documents via CELLAR SPARQL, then fetch each.
+    def run_full(
+        self, *, lang: str = "NL", cdm_types: tuple[str, ...] = ("directive",)
+    ) -> PipelineResult:
+        """Full-load mode: list the acts of *cdm_types* via CELLAR SPARQL, then fetch each.
 
-        Uses ``EUClient.enumerate_all_ids()`` to discover every regulation, directive,
-        and decision CELEX ID, then calls ``run(celex_ids=...)`` to fetch and store each.
-        Safe to interrupt and re-run — the upsert pattern ensures idempotency.
+        Uses ``EUClient.enumerate_all_ids()`` (which leaves out corrigenda and is incomplete
+        for recent years) and then ``run(celex_ids=...)``. Safe to interrupt and re-run.
         """
-        logger.info("EUR-Lex full-load: enumerating all CELEX IDs via CELLAR SPARQL.")
+        logger.info("EUR-Lex full-load: listing %s via CELLAR SPARQL.", cdm_types)
         try:
-            all_ids = self.eu.enumerate_all_ids()
+            all_ids = self.eu.enumerate_all_ids(cdm_types=cdm_types)
         except Exception as exc:
             result = PipelineResult()
             msg = f"EUR-Lex SPARQL enumeration failed: {exc}"
@@ -89,6 +112,14 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
             msg = f"EUR-Lex NIM SPARQL enumeration failed: {exc}"
             logger.error(msg)
             result.add_error(msg)
+            return result
+
+        if not all_ids:
+            result = PipelineResult()
+            result.add_error(
+                f"EUR-Lex NIM enumeration found no acts for {country_code}: the SPARQL "
+                "endpoint holds no national implementation measures."
+            )
             return result
 
         logger.info("EUR-Lex NIM-load: %d IDs found; starting retrieval.", len(all_ids))

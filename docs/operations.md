@@ -76,12 +76,12 @@ and exits 1 when any step failed.
 
 | Command | Options |
 |---------|---------|
-| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`), `--tk-since` (full mode), `--jobs N` (default 4). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `eurlex`, `bwb`. Full passes the mode (`tk-dossiers`: nothing); with `--tk-since` the two Tweede Kamer sources instead load only records modified since then. `staatsblad` and `verdragenbank` take nothing. `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad` and `staatscourant`) run one after the other, and `--jobs 1` runs every source in turn |
+| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`), `--tk-since` (full mode), `--jobs N` (default 4). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode (`tk-dossiers`: nothing); with `--tk-since` the two Tweede Kamer sources instead load only records modified since then. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad` and `staatscourant`) run one after the other, and `--jobs 1` runs every source in turn |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` |
 | `retrieve tk-content` | `--kind` (default `toelichting`), `--dry-run` |
 | `retrieve rechtspraak` | `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
-| `retrieve eurlex` | `--mode incremental\|full\|nim\|cjeu\|com`, `--celex` (repeatable), `--lang NL`, `--country NLD` |
+| `retrieve eurlex` | `--mode incremental\|full\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
 | `retrieve bwb` | `--mode`, `--bwb-id` (repeatable; default `BWB_IDS`) |
 | `retrieve bwb-history` | optional BWB ids (all when omitted) |
 | `retrieve staatsblad` | `--mode from-graph\|full` |
@@ -154,7 +154,7 @@ lawgraph semantic all
 ```
 
 `lawgraph bootstrap` runs the first, fifth and sixth step and then `expand-graph`. In full mode
-`retrieve all` enumerates every BWB regulation and every EUR-Lex act. Without `--tk-since` the
+`retrieve all` enumerates every BWB regulation; EU acts come from `expand-graph`, which fetches the ones the loaded records refer to. Without `--tk-since` the
 Tweede Kamer sources fetch everything (over 400K documents, hours); with it they fetch only what
 was modified since then, and `expand-graph` later adds what the loaded records refer to.
 

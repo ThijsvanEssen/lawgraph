@@ -128,6 +128,14 @@ def retrieve_eurlex(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("--lang", default="NL")
     parser.add_argument("--country", default="NLD")
+    parser.add_argument(
+        "--type",
+        dest="cdm_types",
+        action="append",
+        choices=["directive", "regulation", "decision"],
+        help="Full mode: act type to list (repeatable, default: directive). "
+        "The listing is incomplete for recent years and stops at 10000 acts per type.",
+    )
     _add_mode_argument(parser, extra_modes=("nim", "cjeu", "com"))
     args = parser.parse_args(argv)
 
@@ -135,7 +143,9 @@ def retrieve_eurlex(argv: list[str] | None = None) -> None:
         store = ArangoStore()
         pipeline = EurlexRetrievePipeline(store)
         if args.mode == "full":
-            return pipeline.run_full(lang=args.lang)
+            return pipeline.run_full(
+                lang=args.lang, cdm_types=tuple(args.cdm_types or ("directive",))
+            )
         if args.mode == "nim":
             return pipeline.run_nim(country_code=args.country, lang=args.lang)
 

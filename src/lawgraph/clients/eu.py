@@ -34,7 +34,11 @@ class EUClient(BaseClient):
         seen: set[str],
         log_context: str = "",
     ) -> None:
-        """Run a SPARQL query with LIMIT/OFFSET pagination, appending results to all_ids."""
+        """Run a SPARQL query with LIMIT/OFFSET pagination, appending results to all_ids.
+
+        Raises ``RuntimeError`` when a page fails: the endpoint answers HTTP 500 from
+        offset 10000 on, and a list cut off there must not pass for the whole result.
+        """
         offset = 0
         ctx = f" ({log_context})" if log_context else ""
         while offset < max_records:
@@ -49,10 +53,9 @@ class EUClient(BaseClient):
                 )
                 data = resp.json()
             except Exception as exc:
-                logger.warning(
-                    "SPARQL pagination error%s offset=%d: %s", ctx, offset, exc
-                )
-                break
+                raise RuntimeError(
+                    f"SPARQL pagination error{ctx} offset={offset}: {exc}"
+                ) from exc
 
             bindings = data.get("results", {}).get("bindings", [])
             for binding in bindings:
@@ -68,13 +71,19 @@ class EUClient(BaseClient):
     def enumerate_all_ids(
         self,
         *,
-        cdm_types: tuple[str, ...] = ("regulation", "directive", "decision"),
+        cdm_types: tuple[str, ...] = ("directive",),
         max_records: int = 200000,
     ) -> list[str]:
         """Enumerate CELEX IDs via the CELLAR SPARQL endpoint, one query per CDM type.
 
         Paginates with LIMIT/OFFSET until the page is smaller than the page size or
         ``max_records`` is reached. Returns all unique CELEX identifiers found.
+
+        Corrigenda and republications (``31983L0091R(03)``, an id with a bracket) are left
+        out: CELLAR has no text page for them. The endpoint is incomplete for recent years
+        (about 150 directives for 2010 but 1 for 2016) and stops at offset 10000, which is
+        why only directives are listed by default; regulations and decisions are better
+        fetched by the CELEX numbers that loaded records refer to (``fill-gaps``).
         """
         all_ids: list[str] = []
         seen: set[str] = set()
@@ -87,6 +96,7 @@ class EUClient(BaseClient):
                     "SELECT DISTINCT ?celex WHERE { "
                     f"?s a cdm:{t} ; "
                     "cdm:resource_legal_id_celex ?celex . "
+                    'FILTER(!CONTAINS(?celex, "(")) '
                     "} "
                     f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
                 ),

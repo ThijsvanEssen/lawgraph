@@ -169,19 +169,25 @@ ECLI, 0.95, `meta.procedure_type`; missing judgments become stubs.
 clients with HTTP 202 bot challenges, so the client uses the Publications Office CELLAR
 server (`https://publications.europa.eu/resource/celex/<CELEX>`, content negotiation on
 language, redirects followed, 60 s timeout). CELEX numbers are enumerated by SPARQL
-(`EURLEX_SPARQL_ENDPOINT`, pages of 500).
+(`EURLEX_SPARQL_ENDPOINT`, pages of 500). That endpoint is not a complete list: it has no
+entry for many recent acts (about 150 directives for 2010, 1 for 2016; the GDPR is missing),
+it answers HTTP 500 from offset 10000 (a failing page raises), and it holds no national
+implementation measures. Acts are therefore fetched by the CELEX numbers that loaded records
+refer to (`fill-gaps`, `expand-graph`), not by listing them.
 
 **Retrieve `--mode`.**
 
 | Mode | CELEX numbers fetched |
 |------|-----------------------|
 | `incremental` (default) | those of instruments already in the graph, or `--celex` (repeatable) |
-| `full` | every regulation, directive and decision |
-| `nim` | acts with national implementation measures for `--country` (default `NLD`) |
+| `full` | the directives SPARQL lists, without corrigenda; `--type` (repeatable: `directive`, `regulation`, `decision`) chooses other types, at most 10000 per type. Not part of `retrieve all` |
+| `nim` | acts with national implementation measures for `--country` (default `NLD`); the endpoint holds none, so this is an error |
 | `cjeu` | judgments that cite acts in the graph |
 | `com` | Commission proposals for acts in the graph |
 
-`--lang` (default `NL`). Stored as `eu-celex-html`.
+`--lang` (default `NL`). Stored as `eu-celex-html`, each act as soon as it is fetched. An act
+without an HTML text (HTTP 404, in every language: old regulations and every corrigendum)
+counts as skipped, not as an error.
 
 **Normalize.** Instrument per CELEX (`jurisdiction: eu`, `title` from the `doc-ti` paragraph,
 `citation_title` derived from the number, for example `Richtlijn 2010/64/EU`). Articles are
