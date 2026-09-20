@@ -29,13 +29,13 @@ def test_tk_api_reachable_and_returns_valid_json() -> None:
     client = TKClient()
     since = dt.datetime.now() - dt.timedelta(days=7)
 
-    zaken = client.zaken_modified_since(since, top=5)
+    cases = client.zaken_modified_since(since, top=5)
 
-    assert isinstance(zaken, list)
-    if zaken:
-        assert isinstance(zaken[0], dict)
-        # typische TK-velden, maar niet te hard checken
-        assert "Id" in zaken[0] or "ZaakId" in zaken[0]
+    assert isinstance(cases, list)
+    if cases:
+        assert isinstance(cases[0], dict)
+        # A TK record always carries one of these identifiers.
+        assert "Id" in cases[0] or "ZaakId" in cases[0]
 
 
 @skip_if_no_net

@@ -1,14 +1,14 @@
-"""CLI: backfill precomputed stats on instruments and judgments.
+"""CLI: precompute list-endpoint sort and filter keys on nodes.
 
-Persists list-endpoint sort/filter keys onto each document so
-``/api/instruments`` and ``/api/judgments`` can sort and filter via
-persistent indexes instead of per-row inline derivation.
+Persists the keys onto each document so ``/api/instruments``, ``/api/judgments``
+and friends can sort and filter via persistent indexes instead of deriving the
+value per row.
 
 Fields written:
 
 instruments
     props.jurisdiction   — 'nl' (bwb_id present) | 'eu' (celex present) | null
-    props.article_count  — count of PART_OF_INSTRUMENT edges pointing at it
+    props.article_count  — count of PART_OF edges pointing at it
     props.kind           — lower-cased copy of props.kind when present
 
 judgments
@@ -16,26 +16,37 @@ judgments
     props.tier           — coarse tier label ('hoge_raad' / 'gerechtshof' /
                            'rechtbank' / 'bijzonder')
     props.date_eff       — effective judgment date
-    props.inbound_citation_count — count of inbound CITES_JUDGMENT edges
+    props.inbound_citation_count — count of inbound REFERS_TO edges
 
-Idempotent: only writes when the computed value differs from what's already
-on the document. Safe to re-run; new docs created after this runs are
-covered by the normalize pipelines (see pipelines/normalize/*).
+articles
+    props.inbound_citation_count — count of inbound REFERS_TO / EXPLAINS edges
+
+committees
+    props.active_dossier_count — committees leading an activity about an open
+                                 dossier
+
+Idempotent: only writes when the computed value differs from what is already on
+the document.
 """
 
 from __future__ import annotations
 
 import argparse
-from typing import cast
+from typing import Any, cast
 
 from dotenv import load_dotenv
 
 from lawgraph.config.constants import (
-    RELATION_CITES_ARTICLE,
-    RELATION_CITES_JUDGMENT,
-    RELATION_EXPLAINS_ARTICLE,
-    RELATION_LICHT_TOE,
-    RELATION_PART_OF_INSTRUMENT,
+    COLLECTION_ARTICLES,
+    COLLECTION_COMMITTEES,
+    COLLECTION_DOSSIERS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    RELATION_ABOUT,
+    RELATION_EXPLAINS,
+    RELATION_LED_BY,
+    RELATION_PART_OF,
+    RELATION_REFERS_TO,
 )
 from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.logging import get_logger, setup_logging
@@ -43,9 +54,21 @@ from lawgraph.db import ArangoStore
 
 logger = get_logger(__name__)
 
+# Each entry below is one query body that selects the stale documents, plus a
+# tail that either counts them (--dry-run) or writes the computed values.
+_COUNT_TAIL = "    COLLECT WITH COUNT INTO n\n    RETURN n"
 
-_INSTRUMENTS_AQL = f"""
-FOR inst IN instruments
+
+def _update_tail(collection: str, variable: str, assignments: str) -> str:
+    return (
+        f"    UPDATE {variable} WITH {{ props: {{{assignments}}} }}\n"
+        f"    IN {collection} OPTIONS {{ mergeObjects: true }}\n"
+        "    RETURN 1"
+    )
+
+
+_INSTRUMENTS_BODY = f"""
+FOR inst IN {COLLECTION_INSTRUMENTS}
     LET props = inst.props
     LET jurisdiction = LOWER(
         props.jurisdiction != null ? props.jurisdiction :
@@ -54,29 +77,17 @@ FOR inst IN instruments
     )
     LET article_count = LENGTH(
         FOR e IN {COLLECTION_EDGES}
-            FILTER e._from == inst._id AND e.relation == @part_of
+            FILTER e._to == inst._id AND e.relation == @part_of
             RETURN 1
     )
     LET kind = props.kind != null ? LOWER(props.kind) : null
-    LET needs_update = (
-        props.jurisdiction != jurisdiction
+    FILTER props.jurisdiction != jurisdiction
         OR props.article_count != article_count
         OR props.kind != kind
-    )
-    FILTER needs_update
-    UPDATE inst WITH {{
-        props: {{
-            jurisdiction: jurisdiction,
-            article_count: article_count,
-            kind: kind
-        }}
-    }} IN instruments OPTIONS {{ mergeObjects: true }}
-    RETURN 1
 """
 
-
-_JUDGMENTS_AQL = f"""
-FOR doc IN judgments
+_JUDGMENTS_BODY = f"""
+FOR doc IN {COLLECTION_JUDGMENTS}
     LET props = doc.props
     LET ecli = props.ecli != null ? props.ecli : doc._key
     LET ecli_parts = SPLIT(ecli, ':')
@@ -96,224 +107,138 @@ FOR doc IN judgments
     LET inbound_cnt = LENGTH(
         FOR e IN {COLLECTION_EDGES}
             FILTER e._to == doc._id AND e.relation IN @inbound_rels
+            FILTER STARTS_WITH(e._from, '{COLLECTION_JUDGMENTS}/')
             RETURN 1
     )
-    LET needs_update = (
-        props.court_code != court_code
+    FILTER props.court_code != court_code
         OR props.tier != tier
         OR props.date_eff != date_eff
         OR props.inbound_citation_count != inbound_cnt
-    )
-    FILTER needs_update
-    UPDATE doc WITH {{
-        props: {{
-            court_code: court_code,
-            tier: tier,
-            date_eff: date_eff,
-            inbound_citation_count: inbound_cnt
-        }}
-    }} IN judgments OPTIONS {{ mergeObjects: true }}
-    RETURN 1
 """
 
-
-_ARTICLES_AQL = f"""
-FOR art IN instrument_articles
+_ARTICLES_BODY = f"""
+FOR art IN {COLLECTION_ARTICLES}
     LET inbound_cnt = LENGTH(
         FOR e IN {COLLECTION_EDGES}
             FILTER e._to == art._id AND e.relation IN @inbound_rels
             RETURN 1
     )
-    LET needs_update = art.props.inbound_citation_count != inbound_cnt
-    FILTER needs_update
-    UPDATE art WITH {{
-        props: {{ inbound_citation_count: inbound_cnt }}
-    }} IN instrument_articles OPTIONS {{ mergeObjects: true }}
-    RETURN 1
+    FILTER art.props.inbound_citation_count != inbound_cnt
 """
 
-
-def _backfill_articles(store: ArangoStore, *, dry_run: bool) -> int:
-    bind = {
-        "inbound_rels": [
-            RELATION_CITES_ARTICLE,
-            RELATION_EXPLAINS_ARTICLE,
-            RELATION_LICHT_TOE,
-        ],
-    }
-    if dry_run:
-        check_aql = f"""
-        FOR art IN instrument_articles
-            LET inbound_cnt = LENGTH(
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._to == art._id AND e.relation IN @inbound_rels
-                    RETURN 1
-            )
-            FILTER art.props.inbound_citation_count != inbound_cnt
-            COLLECT WITH COUNT INTO n
-            RETURN n
-        """
-        rows = list(store.query(check_aql, bind))
-        return cast(int, rows[0]) if rows else 0
-    updated = list(store.query(_ARTICLES_AQL, bind))
-    return len(updated)
-
-
-def _backfill_instruments(store: ArangoStore, *, dry_run: bool) -> int:
-    if dry_run:
-        check_aql = f"""
-        FOR inst IN instruments
-            LET props = inst.props
-            LET jurisdiction = LOWER(
-                props.jurisdiction != null ? props.jurisdiction :
-                (props.celex != null ? 'eu' :
-                 (props.bwb_id != null ? 'nl' : null))
-            )
-            LET article_count = LENGTH(
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._from == inst._id AND e.relation == @part_of
-                    RETURN 1
-            )
-            LET kind = props.kind != null ? LOWER(props.kind) : null
-            FILTER props.jurisdiction != jurisdiction
-                OR props.article_count != article_count
-                OR props.kind != kind
-            COLLECT WITH COUNT INTO n
-            RETURN n
-        """
-        rows = list(store.query(check_aql, {"part_of": RELATION_PART_OF_INSTRUMENT}))
-        return cast(int, rows[0]) if rows else 0
-
-    updated = list(
-        store.query(_INSTRUMENTS_AQL, {"part_of": RELATION_PART_OF_INSTRUMENT})
-    )
-    return len(updated)
-
-
-_COMMISSIES_AQL = f"""
+_COMMITTEES_BODY = f"""
 LET open_dossier_map = MERGE(
-    FOR d IN kamerstukdossiers
-        FILTER d.props.afgedaan == false
+    FOR d IN {COLLECTION_DOSSIERS}
+        FILTER d.props.closed == false
         RETURN {{ [d._id]: true }}
 )
 LET open_activity_map = MERGE(
     FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation == 'DEEL_VAN_DOSSIER'
+        FILTER e.relation == @about
         FILTER open_dossier_map[e._to] == true
         RETURN {{ [e._from]: true }}
 )
 LET counts = (
     FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation == 'BEHANDELD_DOOR'
+        FILTER e.relation == @led_by
         FILTER open_activity_map[e._from] == true
-        COLLECT commissie = e._to WITH COUNT INTO cnt
-        RETURN {{ id: commissie, count: cnt }}
+        COLLECT committee = e._to WITH COUNT INTO cnt
+        RETURN {{ id: committee, count: cnt }}
 )
 LET count_map = MERGE(FOR x IN counts RETURN {{ [x.id]: x.count }})
-FOR doc IN commissies
-    LET want = count_map[doc._id] != null ? count_map[doc._id] : 0
-    FILTER doc.props.active_dossier_count != want
-    UPDATE doc WITH {{
-        props: {{ active_dossier_count: want }}
-    }} IN commissies OPTIONS {{ mergeObjects: true }}
-    RETURN 1
+FOR doc IN {COLLECTION_COMMITTEES}
+    LET active_dossier_count = count_map[doc._id] != null ? count_map[doc._id] : 0
+    FILTER doc.props.active_dossier_count != active_dossier_count
 """
 
 
-def _backfill_commissies(store: ArangoStore, *, dry_run: bool) -> int:
+def _run(
+    store: ArangoStore,
+    body: str,
+    tail: str,
+    bind: dict[str, Any] | None,
+    *,
+    dry_run: bool,
+) -> int:
+    """Count stale documents (dry run) or update them; returns the number."""
     if dry_run:
-        check_aql = f"""
-        LET open_dossier_map = MERGE(
-            FOR d IN kamerstukdossiers
-                FILTER d.props.afgedaan == false
-                RETURN {{ [d._id]: true }}
-        )
-        LET open_activity_map = MERGE(
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e.relation == 'DEEL_VAN_DOSSIER'
-                FILTER open_dossier_map[e._to] == true
-                RETURN {{ [e._from]: true }}
-        )
-        LET counts = (
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e.relation == 'BEHANDELD_DOOR'
-                FILTER open_activity_map[e._from] == true
-                COLLECT commissie = e._to WITH COUNT INTO cnt
-                RETURN {{ id: commissie, count: cnt }}
-        )
-        LET count_map = MERGE(FOR x IN counts RETURN {{ [x.id]: x.count }})
-        FOR doc IN commissies
-            LET want = count_map[doc._id] != null ? count_map[doc._id] : 0
-            FILTER doc.props.active_dossier_count != want
-            COLLECT WITH COUNT INTO n
-            RETURN n
-        """
-        rows = list(store.query(check_aql))
+        rows = list(store.query(body + _COUNT_TAIL, bind))
         return cast(int, rows[0]) if rows else 0
-    return len(list(store.query(_COMMISSIES_AQL)))
+    return len(list(store.query(body + tail, bind)))
 
 
-def _backfill_judgments(store: ArangoStore, *, dry_run: bool) -> int:
-    bind = {"inbound_rels": [RELATION_CITES_JUDGMENT]}
-    if dry_run:
-        check_aql = f"""
-        FOR doc IN judgments
-            LET props = doc.props
-            LET ecli = props.ecli != null ? props.ecli : doc._key
-            LET ecli_parts = SPLIT(ecli, ':')
-            LET court_code = LENGTH(ecli_parts) >= 3 ? UPPER(ecli_parts[2]) : null
-            LET tier = (
-                court_code == 'HR' ? 'hoge_raad' :
-                (court_code != null AND STARTS_WITH(court_code, 'GH') ? 'gerechtshof' :
-                 (court_code != null AND STARTS_WITH(court_code, 'RB') ? 'rechtbank' :
-                  (court_code == null ? null : 'bijzonder')))
-            )
-            LET date_eff = (
-                props.judgment_metadata != null AND props.judgment_metadata.date != null
-                    ? props.judgment_metadata.date :
-                (props.meta != null AND props.meta.date != null ? props.meta.date :
-                 (props.date != null ? props.date : null))
-            )
-            LET inbound_cnt = LENGTH(
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._to == doc._id AND e.relation IN @inbound_rels
-                    RETURN 1
-            )
-            FILTER props.court_code != court_code
-                OR props.tier != tier
-                OR props.date_eff != date_eff
-                OR props.inbound_citation_count != inbound_cnt
-            COLLECT WITH COUNT INTO n
-            RETURN n
-        """
-        rows = list(store.query(check_aql, bind))
-        return cast(int, rows[0]) if rows else 0
+def _refresh_instruments(store: ArangoStore, *, dry_run: bool) -> int:
+    return _run(
+        store,
+        _INSTRUMENTS_BODY,
+        _update_tail(
+            COLLECTION_INSTRUMENTS,
+            "inst",
+            "jurisdiction: jurisdiction, article_count: article_count, kind: kind",
+        ),
+        {"part_of": RELATION_PART_OF},
+        dry_run=dry_run,
+    )
 
-    updated = list(store.query(_JUDGMENTS_AQL, bind))
-    return len(updated)
+
+def _refresh_judgments(store: ArangoStore, *, dry_run: bool) -> int:
+    return _run(
+        store,
+        _JUDGMENTS_BODY,
+        _update_tail(
+            COLLECTION_JUDGMENTS,
+            "doc",
+            "court_code: court_code, tier: tier, date_eff: date_eff,"
+            " inbound_citation_count: inbound_cnt",
+        ),
+        {"inbound_rels": [RELATION_REFERS_TO]},
+        dry_run=dry_run,
+    )
+
+
+def _refresh_articles(store: ArangoStore, *, dry_run: bool) -> int:
+    return _run(
+        store,
+        _ARTICLES_BODY,
+        _update_tail(COLLECTION_ARTICLES, "art", "inbound_citation_count: inbound_cnt"),
+        {"inbound_rels": [RELATION_REFERS_TO, RELATION_EXPLAINS]},
+        dry_run=dry_run,
+    )
+
+
+def _refresh_committees(store: ArangoStore, *, dry_run: bool) -> int:
+    return _run(
+        store,
+        _COMMITTEES_BODY,
+        _update_tail(
+            COLLECTION_COMMITTEES, "doc", "active_dossier_count: active_dossier_count"
+        ),
+        {"about": RELATION_ABOUT, "led_by": RELATION_LED_BY},
+        dry_run=dry_run,
+    )
+
+
+_REFRESHERS = (
+    ("instruments", _refresh_instruments),
+    ("judgments", _refresh_judgments),
+    ("committees", _refresh_committees),
+    ("articles", _refresh_articles),
+)
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Backfill jurisdiction/article_count/tier/date_eff onto instruments "
-            "and judgments so the list endpoints can sort and filter via "
-            "persistent indexes."
+            "Precompute the list-endpoint sort and filter keys on instruments, "
+            "judgments, articles and committees so those endpoints can sort and "
+            "filter via persistent indexes."
         )
     )
     only_group = parser.add_mutually_exclusive_group()
-    only_group.add_argument(
-        "--instruments-only", action="store_true", help="Only update instruments."
-    )
-    only_group.add_argument(
-        "--judgments-only", action="store_true", help="Only update judgments."
-    )
-    only_group.add_argument(
-        "--commissies-only", action="store_true", help="Only update commissies."
-    )
-    only_group.add_argument(
-        "--articles-only", action="store_true", help="Only update instrument_articles."
-    )
+    for name, _ in _REFRESHERS:
+        only_group.add_argument(
+            f"--{name}-only", action="store_true", help=f"Only update {name}."
+        )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -325,30 +250,13 @@ def main(argv: list[str] | None = None) -> None:
     setup_logging()
 
     store = ArangoStore()
-
-    only_one = (
-        args.instruments_only
-        or args.judgments_only
-        or args.commissies_only
-        or args.articles_only
-    )
+    selected = [name for name, _ in _REFRESHERS if getattr(args, f"{name}_only")]
     verb = "Would update" if args.dry_run else "Updated"
 
-    if not only_one or args.instruments_only:
-        n = _backfill_instruments(store, dry_run=args.dry_run)
-        logger.info("%s %d instruments.", verb, n)
-
-    if not only_one or args.judgments_only:
-        n = _backfill_judgments(store, dry_run=args.dry_run)
-        logger.info("%s %d judgments.", verb, n)
-
-    if not only_one or args.commissies_only:
-        n = _backfill_commissies(store, dry_run=args.dry_run)
-        logger.info("%s %d commissies.", verb, n)
-
-    if not only_one or args.articles_only:
-        n = _backfill_articles(store, dry_run=args.dry_run)
-        logger.info("%s %d instrument_articles.", verb, n)
+    for name, refresh in _REFRESHERS:
+        if selected and name not in selected:
+            continue
+        logger.info("%s %d %s.", verb, refresh(store, dry_run=args.dry_run), name)
 
 
 if __name__ == "__main__":

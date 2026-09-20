@@ -8,6 +8,7 @@ from typing import Any
 import requests
 
 from lawgraph.core.logging import get_logger
+from lawgraph.core.values import next_page_link
 
 logger = get_logger(__name__)
 
@@ -207,22 +208,10 @@ class BaseClient:
         first_page = self._get_json(path, params=params, timeout=timeout)
         yield from _yield_entries(first_page)
 
-        next_link = self._extract_next_link(first_page, next_link_key)
+        next_link = next_page_link(first_page, next_link_key)
         while next_link:
             logger.debug("Following pagination url=%s", next_link)
             resp = self._get_raw_absolute_with_retry(next_link, timeout=timeout)
             page_data = resp.json()
             yield from _yield_entries(page_data)
-            next_link = self._extract_next_link(page_data, next_link_key)
-
-    @staticmethod
-    def _extract_next_link(data: Any, key: str | None) -> str | None:
-        """Read the pagination next-link key when present on the page payload."""
-        if key is None or not isinstance(data, dict):
-            return None
-        candidate = data.get(key)
-        if isinstance(candidate, str):
-            stripped = candidate.strip()
-            if stripped:
-                return stripped
-        return None
+            next_link = next_page_link(page_data, next_link_key)

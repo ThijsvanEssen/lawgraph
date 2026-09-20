@@ -6,3 +6,5 @@ __pycache__/
 .vscode/
 .pytest_cache/
 .DS_Store
+.claude/worktrees/
+.claude/settings.local.json

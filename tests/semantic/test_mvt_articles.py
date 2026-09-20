@@ -1,71 +1,89 @@
-"""Tests for the MvT/NvT artikel-toelichting semantic pipeline."""
+"""Tests for the explanatory-memorandum (MvT/NvT) semantic pipeline."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.pipelines.semantic.mvt_articles import MvtArticleSemanticPipeline
+from lawgraph.config.constants import RELATION_EXPLAINS
+from lawgraph.core.relations import BY_NAME
+from lawgraph.pipelines.semantic.mvt_articles import MvtArticlesSemanticPipeline
 from tests.conftest import _BaseFakeStore
 
 
 class _FakeStore(_BaseFakeStore):
-    def __init__(
-        self,
-        *,
-        pub_rows: list[dict[str, Any]],
-        article_rows: list[dict[str, Any]] | None = None,
-    ) -> None:
+    """Returns the rows the single targets query would produce."""
+
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
         super().__init__()
-        self._pub_rows = pub_rows
-        self._article_rows = article_rows or []
+        self._rows = rows
+        self.queries: list[str] = []
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
-        if "instrument_articles" in aql:
-            return list(self._article_rows)
-        return list(self._pub_rows)
+        self.queries.append(aql)
+        return list(self._rows)
 
 
-def _make_article_row(key: str, bwb_id: str, number: str) -> dict[str, Any]:
-    return {
-        "number": number,
-        "id": f"instrument_articles/{key}",
-        "key": key,
-    }
+def test_pipeline_explains_the_article_versions_the_instrument_changed() -> None:
+    store = _FakeStore(
+        [
+            {
+                "document": "documents/mvt-1",
+                "targets": [
+                    "article_versions/bwbr0001854_stam1_v2",
+                    "articles/bwbr0001854_91",
+                ],
+            }
+        ]
+    )
+
+    result = MvtArticlesSemanticPipeline(store=store).run()
+
+    assert result.created == 2
+    spec = BY_NAME[RELATION_EXPLAINS]
+    for edge in store.edges.values():
+        assert edge["relation"] == RELATION_EXPLAINS
+        assert edge["_from"].split("/")[0] in spec.sources
+        assert edge["_to"].split("/")[0] in spec.targets
 
 
-def test_pipeline_creates_licht_toe_edge() -> None:
-    bwb_id = "BWBR0001854"
-    article_key = "bwbr0001854_91"
+def test_pipeline_falls_back_to_the_instrument() -> None:
+    store = _FakeStore(
+        [{"document": "documents/nvt-1", "targets": ["instruments/bwbr0009999"]}]
+    )
 
-    pub_rows = [
-        {
-            "pub_id": "publications/mvt-1",
-            "pub_key": "mvt-1",
-            "text": (
-                "Artikelsgewijze toelichting\n"
-                "Artikel 91\nDit artikel regelt de algemene bepalingen."
-            ),
-            "instruments": [
-                {"id": "instruments/bwbr0001854", "bwb_id": bwb_id, "celex": None}
-            ],
-        }
-    ]
-    article_rows = [_make_article_row(article_key, bwb_id, "91")]
-
-    store = _FakeStore(pub_rows=pub_rows, article_rows=article_rows)
-    pipeline = MvtArticleSemanticPipeline(store=store)
-    result = pipeline.run()
+    result = MvtArticlesSemanticPipeline(store=store).run()
 
     assert result.created == 1
-    edge = next(iter(store.edges.values()))
-    assert edge["relation"] == "LICHT_TOE"
-    assert edge["_from"].startswith("publications/")
-    assert edge["_to"].startswith("instrument_articles/")
+    (edge,) = store.edges.values()
+    assert edge["_to"] == "instruments/bwbr0009999"
 
 
-def test_pipeline_returns_empty_when_no_publications() -> None:
-    store = _FakeStore(pub_rows=[])
-    pipeline = MvtArticleSemanticPipeline(store=store)
-    result = pipeline.run()
+def test_pipeline_reads_the_graph_in_a_single_pass() -> None:
+    store = _FakeStore(
+        [
+            {"document": f"documents/mvt-{n}", "targets": [f"articles/a{n}"]}
+            for n in range(50)
+        ]
+    )
+
+    result = MvtArticlesSemanticPipeline(store=store).run()
+
+    assert result.created == 50
+    assert len(store.queries) == 1
+
+
+def test_pipeline_returns_empty_when_no_documents() -> None:
+    store = _FakeStore([])
+
+    result = MvtArticlesSemanticPipeline(store=store).run()
+
     assert result.created == 0
-    assert len(store.edges) == 0
+    assert not store.edges
+
+
+def test_pipeline_skips_rows_without_targets() -> None:
+    store = _FakeStore([{"document": "documents/mvt-1", "targets": []}])
+
+    result = MvtArticlesSemanticPipeline(store=store).run()
+
+    assert (result.created, result.skipped) == (0, 1)

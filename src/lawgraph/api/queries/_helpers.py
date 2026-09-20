@@ -6,8 +6,8 @@ from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
-    RELATION_MENTIONS_ARTICLE,
-    RELATION_PART_OF_INSTRUMENT,
+    RELATION_PART_OF,
+    RELATION_REFERS_TO,
 )
 from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.models import make_node_key, parse_arango_id
@@ -24,7 +24,7 @@ def _find_instrument_for_article(
         RETURN DOCUMENT(edge._to)
     """
     for doc in store.query(
-        aql, {"article_id": article_id, "relation": RELATION_PART_OF_INSTRUMENT}
+        aql, {"article_id": article_id, "relation": RELATION_PART_OF}
     ):
         return doc
     return None
@@ -36,14 +36,13 @@ def _find_judgments_for_article(
     aql = f"""
     FOR edge IN {COLLECTION_EDGES}
         FILTER edge._to == @article_id AND edge.relation == @relation
+        FILTER STARTS_WITH(edge._from, '{COLLECTION_JUDGMENTS}/')
         LET j = DOCUMENT(edge._from)
         FILTER j != null
         RETURN j
     """
     return list(
-        store.query(
-            aql, {"article_id": article_id, "relation": RELATION_MENTIONS_ARTICLE}
-        )
+        store.query(aql, {"article_id": article_id, "relation": RELATION_REFERS_TO})
     )
 
 
@@ -61,7 +60,7 @@ def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
     """
     for result in store.query(aql, {"ecli": ecli.lower()}):
         return result
-    # Fallback for ECHR judgments that have no ECLI — match by appno or external_id.
+    # ECHR judgments have no ECLI — match them by appno or external_id.
     aql_alt = f"""
     FOR candidate IN {COLLECTION_JUDGMENTS}
         FILTER candidate.props.appno == @val OR candidate.props.external_id == @val
@@ -163,5 +162,5 @@ def _resolve_target_from_entry(
     if not bwb_id or not article_number:
         return None
     key = make_node_key(str(bwb_id), str(article_number))
-    doc = store.instrument_articles.get(key)
+    doc = store.articles.get(key)
     return _ensure_doc(doc)

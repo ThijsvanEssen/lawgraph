@@ -10,7 +10,7 @@ Rules for maintainers:
   2. ``extra="forbid"`` is intentional — unknown field names raise ValidationError.
      If you legitimately need a new field, add it to the schema *first*.
   3. ``from_document()`` and ``with_key()`` bypass validation (DB reads and internal
-     copies may carry legacy or partial data). Validation runs only when a fresh
+     copies may carry partial data). Validation runs only when a fresh
      ``Node()`` is constructed in pipeline code.
 """
 
@@ -55,7 +55,7 @@ class InstrumentProps(_CommonProps):
     uri: str | None = None
     title_nl: str | None = None
     title_en: str | None = None
-    verdragsnummer: str | None = None
+    treaty_number: str | None = None
     treaty_type: str | None = None
     status: str | None = None
     in_force: bool | None = None
@@ -65,10 +65,16 @@ class InstrumentProps(_CommonProps):
     article_count: int | None = None
     inbound_citation_count: int | None = None
     date_eff: str | None = None
+    # amending publications (Stb/Trb/…) modelled as instruments, and the dossiers of a statute
+    publication_kind: str | None = None
+    publication_year: int | None = None
+    publication_number: str | None = None
+    date_published: str | None = None
+    dossier_numbers: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------
-# instrument_articles
+# articles
 # ---------------------------------------------------------------------------
 
 
@@ -81,6 +87,14 @@ class ArticleProps(_CommonProps):
     text: str | None = None
     instrument_citation_title: str | None = None
     instrument_id: str | None = None
+    # BWB identity and provenance of the current version
+    stam_id: str | None = None
+    versie_id: str | None = None
+    valid_from: str | None = None
+    source_publication: str | None = None  # e.g. "Stb.2019-33"
+    repealed: bool | None = None
+    last_article_number: str | None = None  # historical identities only
+    references: list[dict[str, Any]] | None = None  # structured refs from the XML
 
 
 # ---------------------------------------------------------------------------
@@ -93,11 +107,11 @@ class InstrumentVersionProps(_CommonProps):
     valid_from: str | None = None
     valid_until: str | None = None
     current: bool | None = None
-    toestand_url: str | None = None
+    state_url: str | None = None
 
 
 # ---------------------------------------------------------------------------
-# instrument_article_versions
+# article_versions
 # ---------------------------------------------------------------------------
 
 
@@ -108,6 +122,14 @@ class ArticleVersionProps(_CommonProps):
     valid_until: str | None = None
     current: bool | None = None
     text: str | None = None
+    instrument_citation_title: str | None = None
+    stam_id: str | None = None
+    versie_id: str | None = None
+    path: str | None = None
+    effect: str | None = None  # BWB effect: nieuw / wijziging / vervallen …
+    source_publication: str | None = None  # bron, e.g. "Stb.2019-33"
+    origin_publication: dict[str, Any] | None = None  # Publication.to_dict()
+    commencement_publication: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +147,9 @@ class JudgmentProps(_CommonProps):
     judgment_metadata: dict[str, Any] | None = None
     subjects: list[str] | None = None
     paragraphs: list[dict[str, Any]] | None = None
+    court: str | None = None
+    case_number: str | None = None
+    related_eclis: list[str] | None = None
     court_code: str | None = None
     tier: str | None = None
     date_eff: str | None = None
@@ -142,168 +167,166 @@ class JudgmentProps(_CommonProps):
 
 
 # ---------------------------------------------------------------------------
-# publications  (TK, TK-dossier docs, Staatsblad, Staatscourant, EersteKamer)
+# documents  (TK, TK-dossier docs, Staatsblad, Staatscourant, EersteKamer)
 # ---------------------------------------------------------------------------
 
 
-class PublicationProps(_CommonProps):
+class DocumentProps(_CommonProps):
     external_id: str | None = None
-    # TK-style (old)
     raw: dict[str, Any] | None = None
-    procedure_external_id: str | None = None
-    onderwerp: str | None = None
-    # TK-dossier documents
-    dossier_nummer: str | None = None
-    dossier_nummers: list[str] | None = None
-    zaak_nummers: list[str] | None = None
-    volgnummer: str | None = None
-    soort: str | None = None
-    titel: str | None = None
     title: str | None = None
-    datum: str | None = None
-    vergaderjaar: str | None = None
+    subject: str | None = None
+    kind: str | None = None
+    date: str | None = None
+    # the document's own number: a Kamerstuk/EK number, or a Stcrt/Stb one
+    number: str | None = None
+    text: str | None = None
+    # TK-dossier documents
+    dossier_number: str | None = None
+    dossier_numbers: list[str] | None = None
+    case_ids: list[str] | None = None
+    sequence: int | None = None
+    session_year: str | None = None
     tk_url: str | None = None
     actors: list | None = None
     # Staatsblad / Staatscourant
     identifier: str | None = None
-    text: str | None = None
     year: str | None = None
-    number: str | None = None
     bwb_id: str | None = None
     bwb_refs: list[str] | None = None
     # EersteKamer
-    nummer: str | None = None
     chamber: str | None = None
-    kamerstuk_id: str | None = None
-    vergadering_id: str | None = None
+    parliamentary_paper_id: str | None = None
+    meeting_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
-# kamerstukdossiers
+# dossiers
 # ---------------------------------------------------------------------------
 
 
 class DossierProps(_CommonProps):
     external_id: str | None = None
-    nummer: int | None = None
-    kamerstuknummer: str | None = None
-    toevoeging: str | None = None
-    titel: str | None = None
-    titel_source: str | None = None
-    afgedaan: bool | None = None
-    geopend_op: str | None = None
-    gesloten_op: str | None = None
-    huidige_fase: str | None = None
-    zaak_soorten: list[str] | None = None
+    number: str | None = None
+    suffix: str | None = None
+    title: str | None = None
+    title_source: str | None = None
+    closed: bool | None = None
+    opened_on: str | None = None
+    closed_on: str | None = None
+    current_stage: str | None = None
+    case_kinds: list[str] | None = None
     stages_present: list[str] | None = None
-    traject_kind: str | None = None
+    track_kind: str | None = None
     outcome: str | None = None
 
 
 # ---------------------------------------------------------------------------
-# activiteiten
+# activities
 # ---------------------------------------------------------------------------
 
 
-class ActiviteitProps(_CommonProps):
+class ActivityProps(_CommonProps):
     external_id: str | None = None
-    datum: str | None = None
-    agenda_titel: str | None = None
-    soort: str | None = None
-    commissie_id: str | None = None
-    dossier_nummers: list[str] | None = None
-    zaak_soorten: list[str] | None = None
+    date: str | None = None
+    agenda_title: str | None = None
+    kind: str | None = None
+    committee_id: str | None = None
+    case_ids: list[str] | None = None
+    dossier_numbers: list[str] | None = None
+    case_kinds: list[str] | None = None
     tk_url: str | None = None
-    nummer: str | None = None
+    number: str | None = None
     video_url: str | None = None
 
 
 # ---------------------------------------------------------------------------
-# stemmingen
+# decisions
 # ---------------------------------------------------------------------------
 
 
-class StemmingProps(_CommonProps):
-    # TK stemmingen
-    besluit_id: str | None = None
-    agendapunt_id: str | None = None
-    datum: str | None = None
-    onderwerp: str | None = None
-    agendapunt_onderwerp: str | None = None
-    besluit_tekst: str | None = None
-    besluit_volgorde: int | None = None
-    vergadering_soort: str | None = None
-    dossier_nummers: list[str] | None = None
-    zaken: list | None = None
-    primary_zaak: dict[str, Any] | None = None
-    voor: int | None = None
-    tegen: int | None = None
-    onthouding: int | None = None
-    aangenomen: bool | None = None
-    # EK stemmingen
+class DecisionProps(_CommonProps):
+    # TK decisions
+    decision_id: str | None = None
+    agenda_item_id: str | None = None
+    date: str | None = None
+    subject: str | None = None
+    agenda_item_subject: str | None = None
+    decision_text: str | None = None
+    decision_order: int | None = None
+    meeting_kind: str | None = None
+    case_ids: list[str] | None = None
+    primary_case_id: str | None = None
+    dossier_numbers: list[str] | None = None
+    # "member" on a roll-call, "faction" otherwise; the tally is seats per
+    # vote choice (members per choice on a roll-call) and voters is how many
+    # cast each choice. Who voted how is on the VOTED edges.
+    vote_kind: str | None = None
+    tally: dict[str, int] | None = None
+    voters: dict[str, int] | None = None
+    passed: bool | None = None
+    # EK decisions
     external_id: str | None = None
-    soort: str | None = None
-    kamerstuk_id: str | None = None
-    vergadering_id: str | None = None
+    kind: str | None = None
+    parliamentary_paper_id: str | None = None
+    meeting_id: str | None = None
     chamber: str | None = None
 
 
 # ---------------------------------------------------------------------------
-# toezeggingen
+# commitments
 # ---------------------------------------------------------------------------
 
 
-class ToezeggingProps(_CommonProps):
+class CommitmentProps(_CommonProps):
     external_id: str | None = None
-    tekst: str | None = None
-    minister_naam: str | None = None
-    minister_functie: str | None = None
-    gedaan_op: str | None = None
-    verwachte_afhandeling: str | None = None
+    text: str | None = None
+    minister_name: str | None = None
+    minister_role: str | None = None
+    made_on: str | None = None
+    expected_resolution: str | None = None
     status: str | None = None
-    activiteit_nummer: str | None = None
-    dossier_id: str | None = None
+    activity_number: str | None = None
 
 
 # ---------------------------------------------------------------------------
-# commissies
+# committees
 # ---------------------------------------------------------------------------
 
 
-class CommissieProps(_CommonProps):
+class CommitteeProps(_CommonProps):
     external_id: str | None = None
-    naam: str | None = None
-    afkorting: str | None = None
+    name: str | None = None
+    abbreviation: str | None = None
     slug: str | None = None
 
 
 # ---------------------------------------------------------------------------
-# leden
+# members
 # ---------------------------------------------------------------------------
 
 
-class LidProps(_CommonProps):
+class MemberProps(_CommonProps):
     external_id: str | None = None
-    naam: str | None = None
-    partij: str | None = None
-    actief: bool | None = None
-    fractielidmaatschappen: list | None = None
+    name: str | None = None
+    party: str | None = None
+    faction_memberships: list | None = None
 
 
 # ---------------------------------------------------------------------------
-# fracties
+# factions
 # ---------------------------------------------------------------------------
 
 
-class FractieProps(_CommonProps):
+class FactionProps(_CommonProps):
     external_id: str | None = None
-    naam: str | None = None
-    afkorting: str | None = None
+    name: str | None = None
+    abbreviation: str | None = None
     aliases: list[str] | None = None
-    datum_actief: str | None = None
-    datum_inactief: str | None = None
-    aantal_zetels: int | None = None
-    actief: bool | None = None
+    active_from: str | None = None
+    active_until: str | None = None
+    seats: int | None = None
+    active: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -320,15 +343,37 @@ class TopicProps(_CommonProps):
 
 
 # ---------------------------------------------------------------------------
-# procedures (TK Zaken)
+# cases (TK Zaken)
 # ---------------------------------------------------------------------------
 
 
-class ProcedureProps(_CommonProps):
+class CaseProps(_CommonProps):
     external_id: str | None = None
     raw: dict[str, Any] | None = None
     title: str | None = None
-    kamerstuknummer: str | None = None
+    citation_title: str | None = None
+    number: str | None = None
+    dossier_numbers: list[str] | None = None
+
+
+# ---------------------------------------------------------------------------
+# annexes
+# ---------------------------------------------------------------------------
+
+
+class AnnexEntry(_StrictBase):
+    index: int | None = None
+    name: str | None = None
+    description: str | None = None
+
+
+class AnnexProps(_CommonProps):
+    bwb_id: str | None = None
+    label: str | None = None  # e.g. "I", "2", "A" — as cited in article text
+    title: str | None = None
+    description: str | None = None
+    entries: list[AnnexEntry] | None = None
+    instrument_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -337,18 +382,19 @@ class ProcedureProps(_CommonProps):
 
 COLLECTION_SCHEMAS: dict[str, type[_StrictBase]] = {
     "instruments": InstrumentProps,
-    "instrument_articles": ArticleProps,
+    "articles": ArticleProps,
     "instrument_versions": InstrumentVersionProps,
-    "instrument_article_versions": ArticleVersionProps,
+    "article_versions": ArticleVersionProps,
     "judgments": JudgmentProps,
-    "publications": PublicationProps,
-    "kamerstukdossiers": DossierProps,
-    "activiteiten": ActiviteitProps,
-    "stemmingen": StemmingProps,
-    "toezeggingen": ToezeggingProps,
-    "commissies": CommissieProps,
-    "leden": LidProps,
-    "fracties": FractieProps,
+    "documents": DocumentProps,
+    "dossiers": DossierProps,
+    "activities": ActivityProps,
+    "decisions": DecisionProps,
+    "commitments": CommitmentProps,
+    "committees": CommitteeProps,
+    "members": MemberProps,
+    "factions": FactionProps,
     "topics": TopicProps,
-    "procedures": ProcedureProps,
+    "cases": CaseProps,
+    "annexes": AnnexProps,
 }

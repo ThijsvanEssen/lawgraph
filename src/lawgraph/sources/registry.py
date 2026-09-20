@@ -18,17 +18,18 @@ from typing import Callable
 from lawgraph.pipelines.factory import make_pipeline_cli
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
-from lawgraph.pipelines.normalize.echr import EchrNormalizePipeline
+from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
-from lawgraph.pipelines.normalize.eurlex import EUNormalizePipeline
+from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
-from lawgraph.pipelines.normalize.tk import TkNormalizePipeline
-from lawgraph.pipelines.normalize.tk_dossiers import TkDossiersNormalizePipeline
+from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
+from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve_cli import (
     retrieve_bwb,
+    retrieve_bwb_history,
     retrieve_echr,
     retrieve_eerstekamer,
     retrieve_eurlex,
@@ -36,33 +37,41 @@ from lawgraph.pipelines.retrieve_cli import (
     retrieve_staatsblad,
     retrieve_staatscourant,
     retrieve_tk,
+    retrieve_tk_content,
     retrieve_tk_dossiers,
     retrieve_verdragenbank,
 )
-from lawgraph.pipelines.semantic.amendment_articles import AmendmentArticlePipeline
-from lawgraph.pipelines.semantic.bwb_articles import BwbArticlesSemanticPipeline
-from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
-from lawgraph.pipelines.semantic.dossier_law_link import DossierLawLinkPipeline
-from lawgraph.pipelines.semantic.echr_citations import EchrCitationsPipeline
-from lawgraph.pipelines.semantic.eerstekamer_dossier_link import (
-    EerstekamerDossierLinkPipeline,
+from lawgraph.pipelines.semantic.amendment_articles import (
+    AmendmentArticlesSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.eu_articles import EUArticleSemanticPipeline
-from lawgraph.pipelines.semantic.instrument_relations import InstrumentRelationsPipeline
-from lawgraph.pipelines.semantic.judgment_appeal import JudgmentAppealPipeline
+from lawgraph.pipelines.semantic.annex_links import AnnexLinksSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
+from lawgraph.pipelines.semantic.echr_citations import ECHRCitationsSemanticPipeline
+from lawgraph.pipelines.semantic.eerstekamer_dossier_link import (
+    EerstekamerDossierLinkSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.eu_articles import EUArticlesSemanticPipeline
+from lawgraph.pipelines.semantic.instrument_relations import (
+    InstrumentRelationsSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.judgment_appeal import JudgmentAppealSemanticPipeline
 from lawgraph.pipelines.semantic.judgment_citations import (
     JudgmentCitationsSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.mvt_articles import MvtArticleSemanticPipeline
+from lawgraph.pipelines.semantic.mvt_articles import MvtArticlesSemanticPipeline
 from lawgraph.pipelines.semantic.rechtspraak_articles import (
-    RechtspraakArticleSemanticPipeline,
+    RechtspraakArticlesSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.relation_semantics import (
+    RelationSemanticsSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.staatsblad_nvt import StaatsbladNvtSemanticPipeline
 from lawgraph.pipelines.semantic.staatscourant_regeling import (
     StaatscourantRegelingSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.tk_articles import TKArticleSemanticPipeline
-from lawgraph.pipelines.semantic.version_causes import VersionCausesSemanticPipeline
+from lawgraph.pipelines.semantic.tk_articles import TKArticlesSemanticPipeline
 
 
 @dataclass(frozen=True)
@@ -127,14 +136,6 @@ def _bwb_articles_extra_kwargs(args: argparse.Namespace) -> dict:
     return {"store_citations": args.store_citations}
 
 
-def _version_causes_add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--window-days", type=int, default=365)
-
-
-def _version_causes_extra_kwargs(args: argparse.Namespace) -> dict:
-    return {"window_days": args.window_days}
-
-
 # ── Shared retrieve-argv builder helpers ─────────────────────────────────
 
 
@@ -158,8 +159,8 @@ def _tk_dossiers_retrieve_args(ctx: RetrieveCtx) -> list[str]:
     return [
         "--since",
         f"{ctx.since_days}d",
-        "--skip-personen",
-        "--stemmingen-since",
+        "--skip-members",
+        "--decisions-since",
         f"{ctx.since_days}d",
         "--documents-since",
         f"{ctx.since_days}d",
@@ -171,24 +172,24 @@ def _tk_dossiers_retrieve_args(ctx: RetrieveCtx) -> list[str]:
 
 def _register_tk() -> list[SourceDescriptor]:
     normalize = make_pipeline_cli(
-        TkNormalizePipeline,
+        TKNormalizePipeline,
         description="Normalize raw TK records.",
         with_since=True,
     )
     normalize_dossiers = make_pipeline_cli(
-        TkDossiersNormalizePipeline,
+        TKDossiersNormalizePipeline,
         description="Normalize raw TK dossier records.",
         with_since=True,
     )
     semantic = make_pipeline_cli(
-        TKArticleSemanticPipeline,
+        TKArticlesSemanticPipeline,
         description="Detect TK references to Dutch and EU articles.",
         with_since_days=True,
     )
     return [
         SourceDescriptor(
             id="tk",
-            display_name="Tweede Kamer (zaken & documenten)",
+            display_name="Tweede Kamer (cases & documents)",
             retrieve_main=retrieve_tk,
             retrieve_argv_builder=RetrieveCtx.as_argv,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_TK",
@@ -200,13 +201,20 @@ def _register_tk() -> list[SourceDescriptor]:
         ),
         SourceDescriptor(
             id="tk_dossiers",
-            display_name="Tweede Kamer (dossiers, stemmingen, commissies)",
+            display_name="Tweede Kamer (dossiers, votes, committees)",
             retrieve_main=retrieve_tk_dossiers,
             retrieve_argv_builder=_tk_dossiers_retrieve_args,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_TK_DOSSIERS",
             normalize_main=normalize_dossiers,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS",
             supports_full_load=True,
+        ),
+        SourceDescriptor(
+            id="tk_content",
+            display_name="Tweede Kamer (document text from PDF)",
+            # No retrieve_argv_builder: slow (hours), run manually, not part of
+            # `retrieve all`.
+            retrieve_main=retrieve_tk_content,
         ),
     ]
 
@@ -218,14 +226,14 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
         with_since=True,
     )
     semantic = make_pipeline_cli(
-        RechtspraakArticleSemanticPipeline,
+        RechtspraakArticlesSemanticPipeline,
         description="Detect references to BWB articles in Rechtspraak judgments.",
         with_since_days=True,
     )
     return [
         SourceDescriptor(
             id="rechtspraak",
-            display_name="Rechtspraak (uitspraken)",
+            display_name="Rechtspraak (judgments)",
             retrieve_main=retrieve_rechtspraak,
             retrieve_argv_builder=RetrieveCtx.as_argv,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_RECHTSPRAAK",
@@ -240,19 +248,19 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
 
 def _register_eurlex() -> list[SourceDescriptor]:
     normalize = make_pipeline_cli(
-        EUNormalizePipeline,
+        EurlexNormalizePipeline,
         description="Normalize raw EUR-Lex records.",
         with_since=True,
     )
     semantic = make_pipeline_cli(
-        EUArticleSemanticPipeline,
-        description="Link EU instruments to national/EU articles.",
+        EUArticlesSemanticPipeline,
+        description="Link EU instruments to national and EU articles.",
         with_since_days=True,
     )
     return [
         SourceDescriptor(
             id="eurlex",
-            display_name="EUR-Lex (EU-wetgeving)",
+            display_name="EUR-Lex (EU legislation)",
             retrieve_main=retrieve_eurlex,
             retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_EURLEX",
@@ -277,19 +285,30 @@ def _register_bwb() -> list[SourceDescriptor]:
         with_since=True,
     )
     semantic = make_pipeline_cli(
-        BwbArticlesSemanticPipeline,
-        description="Detect BWB article references and store REFERS_TO_ARTICLE edges.",
+        BWBArticlesSemanticPipeline,
+        description="Detect BWB article references and store REFERS_TO edges.",
         add_args=_bwb_articles_add_args,
         make_extra_kwargs=_bwb_articles_extra_kwargs,
     )
     semantic_grondslagen = make_pipeline_cli(
         BWBGrondslagenSemanticPipeline,
-        description="Create DELEGATED_BY edges from BWB AMvB grondslagen.",
+        description="Create BASED_ON edges from the 'Gelet op' basis of BWB regulations.",
+    )
+    semantic_amendments = make_pipeline_cli(
+        BWBAmendmentsSemanticPipeline,
+        description=(
+            "Create AMENDS/INTRODUCES/REPEALS edges from amending publications "
+            "and LEGISLATED_IN edges from dossier references."
+        ),
+    )
+    semantic_annexes = make_pipeline_cli(
+        AnnexLinksSemanticPipeline,
+        description="Extract annex nodes from BWB XML and create SCOPED_BY edges.",
     )
     return [
         SourceDescriptor(
             id="bwb",
-            display_name="BWB (Nederlandse wetgeving)",
+            display_name="BWB (Dutch legislation)",
             retrieve_main=retrieve_bwb,
             retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_BWB",
@@ -301,15 +320,29 @@ def _register_bwb() -> list[SourceDescriptor]:
         ),
         SourceDescriptor(
             id="bwb_history",
-            display_name="BWB (historische toestanden)",
+            display_name="BWB (historical toestanden)",
+            # No retrieve_argv_builder: run manually, not part of `retrieve all`.
+            retrieve_main=retrieve_bwb_history,
             normalize_main=normalize_history,
             normalize_skip_env="LAWGRAPH_NORMALIZE_SKIP_BWB_HISTORY",
         ),
         SourceDescriptor(
             id="bwb_grondslagen",
-            display_name="BWB grondslagen (DELEGATED_BY)",
+            display_name="BWB delegation bases (BASED_ON)",
             semantic_main=semantic_grondslagen,
             semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_BWB_GRONDSLAGEN",
+        ),
+        SourceDescriptor(
+            id="bwb_amendments",
+            display_name="BWB amendments (AMENDS/INTRODUCES/REPEALS/LEGISLATED_IN)",
+            semantic_main=semantic_amendments,
+            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_BWB_AMENDMENTS",
+        ),
+        SourceDescriptor(
+            id="bwb_annexes",
+            display_name="BWB annexes (SCOPED_BY)",
+            semantic_main=semantic_annexes,
+            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_BWB_ANNEXES",
         ),
     ]
 
@@ -328,7 +361,7 @@ def _register_staatsblad() -> list[SourceDescriptor]:
     return [
         SourceDescriptor(
             id="staatsblad",
-            display_name="Staatsblad (NvT voor AMvBs)",
+            display_name="Staatsblad (NvT for AMvBs)",
             retrieve_main=retrieve_staatsblad,
             retrieve_argv_builder=_NO_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_STAATSBLAD",
@@ -348,12 +381,12 @@ def _register_staatscourant() -> list[SourceDescriptor]:
     )
     semantic = make_pipeline_cli(
         StaatscourantRegelingSemanticPipeline,
-        description="Create EXPLAINS_INSTRUMENT edges from Staatscourant regelingen.",
+        description="Create EXPLAINS edges from Staatscourant regulations.",
     )
     return [
         SourceDescriptor(
             id="staatscourant",
-            display_name="Staatscourant (ministeriele regelingen)",
+            display_name="Staatscourant (ministerial regulations)",
             retrieve_main=retrieve_staatscourant,
             retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_STAATSCOURANT",
@@ -372,13 +405,13 @@ def _register_eerstekamer() -> list[SourceDescriptor]:
         description="Normalize Eerste Kamer Kamerstukken.",
     )
     semantic = make_pipeline_cli(
-        EerstekamerDossierLinkPipeline,
-        description="Create DEEL_VAN_DOSSIER edges from EK stukken to TK kamerstukdossiers.",
+        EerstekamerDossierLinkSemanticPipeline,
+        description="Link EK documents to the TK dossier they belong to.",
     )
     return [
         SourceDescriptor(
             id="eerstekamer",
-            display_name="Eerste Kamer (kamerstukken & stemmingen)",
+            display_name="Eerste Kamer (documents & votes)",
             retrieve_main=retrieve_eerstekamer,
             retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_EERSTEKAMER",
@@ -393,17 +426,17 @@ def _register_eerstekamer() -> list[SourceDescriptor]:
 
 def _register_echr() -> list[SourceDescriptor]:
     normalize = make_pipeline_cli(
-        EchrNormalizePipeline,
+        ECHRNormalizePipeline,
         description="Normalize ECHR HUDOC judgments.",
     )
     semantic = make_pipeline_cli(
-        EchrCitationsPipeline,
-        description="Create CITES_ARTICLE and MENTIONS_INSTRUMENT edges from ECHR judgments.",
+        ECHRCitationsSemanticPipeline,
+        description="Create REFERS_TO edges from ECHR judgments to articles and instruments.",
     )
     return [
         SourceDescriptor(
             id="echr",
-            display_name="ECHR HUDOC (Europees Hof voor de Rechten van de Mens)",
+            display_name="ECHR HUDOC (European Court of Human Rights)",
             retrieve_main=retrieve_echr,
             retrieve_argv_builder=_MODE_ONLY_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_ECHR",
@@ -424,7 +457,7 @@ def _register_verdragenbank() -> list[SourceDescriptor]:
     return [
         SourceDescriptor(
             id="verdragenbank",
-            display_name="Verdragenbank (Nederlandse verdragen)",
+            display_name="Verdragenbank (Dutch treaties)",
             retrieve_main=retrieve_verdragenbank,
             retrieve_argv_builder=_NO_ARGV,
             retrieve_skip_env="LAWGRAPH_RETRIEVE_SKIP_VERDRAGENBANK",
@@ -438,79 +471,69 @@ def _register_verdragenbank() -> list[SourceDescriptor]:
 def _register_cross_source_semantic() -> list[SourceDescriptor]:
     semantic_judgment_citations = make_pipeline_cli(
         JudgmentCitationsSemanticPipeline,
-        description="Detect ECLI cross-references and create CITES_JUDGMENT edges.",
+        description="Detect ECLI cross-references and create REFERS_TO edges between judgments.",
         with_since_days=True,
     )
     semantic_judgment_appeal = make_pipeline_cli(
-        JudgmentAppealPipeline,
+        JudgmentAppealSemanticPipeline,
         description="Create APPEAL_OF edges from hoger beroep/cassatie to prior proceedings.",
     )
     semantic_instrument_relations = make_pipeline_cli(
-        InstrumentRelationsPipeline,
-        description="Detect AMENDS_INSTRUMENT and IMPLEMENTS_DIRECTIVE edges.",
+        InstrumentRelationsSemanticPipeline,
+        description="Detect AMENDS and IMPLEMENTS edges between instruments.",
     )
     semantic_amendment_articles = make_pipeline_cli(
-        AmendmentArticlePipeline,
-        description="Detect amendment language; write WIJZIGT/INTRODUCEERT/TREKT_IN edges.",
+        AmendmentArticlesSemanticPipeline,
+        description="Detect amendment language; write AMENDS/INTRODUCES/REPEALS edges.",
         with_since_days=True,
     )
     semantic_mvt_articles = make_pipeline_cli(
-        MvtArticleSemanticPipeline,
-        description="Link MvT/NvT publications to instrument articles via LICHT_TOE edges.",
+        MvtArticlesSemanticPipeline,
+        description="Link MvT/NvT documents to the article versions they explain (EXPLAINS).",
         with_since=True,
     )
-    semantic_dossier_law_link = make_pipeline_cli(
-        DossierLawLinkPipeline,
-        description="Create RESULTED_IN edges from kamerstukdossiers to BWB instruments.",
-    )
-    semantic_version_causes = make_pipeline_cli(
-        VersionCausesSemanticPipeline,
-        description="Create CAUSED_VERSION edges from publications to instrument_article_versions.",
-        add_args=_version_causes_add_args,
-        make_extra_kwargs=_version_causes_extra_kwargs,
+    semantic_relation_semantics = make_pipeline_cli(
+        RelationSemanticsSemanticPipeline,
+        description="Classify article-to-article REFERS_TO edges with semantic relationship types.",
     )
     return [
         SourceDescriptor(
             id="judgment_citations",
-            display_name="Rechtspraak citaatanalyse (CITES_JUDGMENT)",
+            display_name="Rechtspraak citation analysis (REFERS_TO)",
             semantic_main=semantic_judgment_citations,
             semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_JUDGMENT_CITATIONS",
         ),
         SourceDescriptor(
             id="judgment_appeal",
-            display_name="Rechtspraak beroepsinstanties (APPEAL_OF)",
+            display_name="Rechtspraak appeal chain (APPEAL_OF)",
             semantic_main=semantic_judgment_appeal,
             semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_JUDGMENT_APPEAL",
         ),
         SourceDescriptor(
             id="instrument_relations",
-            display_name="Instrumentrelaties (AMENDS / IMPLEMENTS)",
+            display_name="Instrument relations (AMENDS / IMPLEMENTS)",
             semantic_main=semantic_instrument_relations,
             semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_INSTRUMENT_RELATIONS",
         ),
         SourceDescriptor(
             id="amendment_articles",
-            display_name="Amendement-artikel koppeling (semantisch)",
+            display_name="Amendment to article links (AMENDS / INTRODUCES / REPEALS)",
             semantic_main=semantic_amendment_articles,
             semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_AMENDMENT_ARTICLES",
         ),
         SourceDescriptor(
             id="mvt_articles",
-            display_name="MvT-artikel koppeling (LICHT_TOE)",
+            display_name="Explanatory memorandum to article links (EXPLAINS)",
             semantic_main=semantic_mvt_articles,
             semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_MVT_ARTICLES",
         ),
+        # Runs after bwb_articles (registry order == orchestrator order) so the
+        # REFERS_TO edges it classifies already exist.
         SourceDescriptor(
-            id="dossier_law_link",
-            display_name="Dossier → wet koppeling (RESULTED_IN)",
-            semantic_main=semantic_dossier_law_link,
-            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_DOSSIER_LAW_LINK",
-        ),
-        SourceDescriptor(
-            id="version_causes",
-            display_name="Versie-oorzaken (CAUSED_VERSION)",
-            semantic_main=semantic_version_causes,
-            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_VERSION_CAUSES",
+            id="relation_semantics",
+            display_name="Semantic relationship types (article to article)",
+            semantic_main=semantic_relation_semantics,
+            semantic_skip_env="LAWGRAPH_SEMANTIC_SKIP_RELATION_SEMANTICS",
         ),
     ]
 

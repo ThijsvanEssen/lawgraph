@@ -8,7 +8,7 @@ from lawgraph.api.queries import ArticleCitationEntry, ArticleDetailData
 client = TestClient(app)
 
 _ARTICLE_DOC = {
-    "_id": "instrument_articles/BWBR0001854-287",
+    "_id": "articles/BWBR0001854-287",
     "_key": "BWBR0001854-287",
     "props": {
         "bwb_id": "BWBR0001854",
@@ -86,7 +86,7 @@ def test_get_article_detail_exposes_citations(monkeypatch):
         lambda store, bwb_id, article_number: _PAYLOAD,
     )
     citation_target = {
-        "_id": "instrument_articles/BWBR0001854-24c",
+        "_id": "articles/BWBR0001854-24c",
         "_key": "BWBR0001854-24c",
         "props": {
             "bwb_id": "BWBR0001854",

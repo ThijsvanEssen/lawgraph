@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<diagnostics>
+   <diagnostic xmlns="http://www.loc.gov/zing/srw/diagnostic/"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:schemaLocation="http://www.loc.gov/zing/srw/diagnostic/ http://www.loc.gov/standards/sru/xmlFiles/diagnostics.xsd">
+      <uri>info:srw/diagnostic/1/67</uri>
+      <message>The record schema is known, but this particular record cannot be transformed into it</message>
+   </diagnostic>
+</diagnostics>

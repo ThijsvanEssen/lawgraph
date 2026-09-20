@@ -39,14 +39,14 @@ class RetrieveSourcesPipeline:
         *,
         since: dt.datetime,
         limit: int = 100,
-        zaak_filter: Callable[[dict[str, Any]], bool] | None = None,
-        documentversie_filter: Callable[[dict[str, Any]], bool] | None = None,
+        case_filter: Callable[[dict[str, Any]], bool] | None = None,
+        document_filter: Callable[[dict[str, Any]], bool] | None = None,
     ) -> None:
         result = self.tk_pipeline.run(
             since=since,
             limit=limit,
-            zaak_filter=zaak_filter,
-            documentversie_filter=documentversie_filter,
+            case_filter=case_filter,
+            document_filter=document_filter,
         )
         logger.info("TK retrieve: %s.", result.summary())
 

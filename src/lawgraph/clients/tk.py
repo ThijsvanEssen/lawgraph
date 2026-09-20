@@ -9,6 +9,7 @@ from typing import Any
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import TK_BASE_URL
 from lawgraph.core.logging import get_logger
+from lawgraph.core.time import odata_datetime
 
 logger = get_logger(__name__)
 
@@ -36,14 +37,6 @@ class TKClient(BaseClient):
             default_base_url=TK_BASE_URL,
             session=session,
         )
-
-    @staticmethod
-    def _format_odata_datetime(value: dt.datetime) -> str:
-        """Format a datetime for TK's OData filter: YYYY-MM-DDTHH:MM:SSZ."""
-        if value.tzinfo is not None:
-            value = value.astimezone(dt.timezone.utc)
-        value = value.replace(microsecond=0, tzinfo=None)
-        return value.isoformat() + "Z"
 
     def _skip_paged_get(
         self,
@@ -79,7 +72,7 @@ class TKClient(BaseClient):
         keywords: list[str] | None = None,
     ) -> list[dict]:
         """Return TK Zaak records modified since *since*."""
-        since_string = self._format_odata_datetime(since)
+        since_string = odata_datetime(since)
         odata_filter = f"ApiGewijzigdOp ge {since_string}"
         if keywords and keyword_fields:
             odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
@@ -88,24 +81,6 @@ class TKClient(BaseClient):
             params["$top"] = top
         logger.info("Fetching Zaak modified since %s", since_string)
         return list(self._paged_get("Zaak", params=params))
-
-    def documents_modified_since(
-        self,
-        since: dt.datetime,
-        top: int | None = 100,
-        keyword_fields: list[str] | None = None,
-        keywords: list[str] | None = None,
-    ) -> list[dict]:
-        """Return TK Document records modified since *since*, with Zaak expanded."""
-        since_string = self._format_odata_datetime(since)
-        odata_filter = f"ApiGewijzigdOp ge {since_string}"
-        if keywords and keyword_fields:
-            odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
-        params: dict[str, Any] = {"$filter": odata_filter, "$expand": "Zaak"}
-        if top is not None:
-            params["$top"] = top
-        logger.info("Fetching Document modified since %s", since_string)
-        return list(self._paged_get("Document", params=params))
 
     def raw_entity(self, entity: str, params: dict | None = None) -> list[dict]:
         """Fetch an arbitrary TK entity via paged OData listing."""
@@ -129,7 +104,7 @@ class TKClient(BaseClient):
         """
         params: dict[str, Any] = {}
         if since is not None:
-            since_string = self._format_odata_datetime(since)
+            since_string = odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
             logger.info("Fetching Kamerstukdossier modified since %s", since_string)
         else:
@@ -159,7 +134,7 @@ class TKClient(BaseClient):
             ),
         }
         if since is not None:
-            since_string = self._format_odata_datetime(since)
+            since_string = odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
             logger.info("Fetching Activiteit modified since %s", since_string)
         else:
@@ -188,7 +163,7 @@ class TKClient(BaseClient):
             ),
         }
         if since is not None:
-            since_string = self._format_odata_datetime(since)
+            since_string = odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
             logger.info("Fetching Stemming modified since %s", since_string)
         else:
@@ -203,7 +178,7 @@ class TKClient(BaseClient):
         """Fetch Toezegging (ministerial commitment) records."""
         params: dict[str, Any] = {}
         if since is not None:
-            since_string = self._format_odata_datetime(since)
+            since_string = odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
             logger.info("Fetching Toezegging modified since %s", since_string)
         else:
@@ -222,7 +197,9 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
-        dossier_nummer: int | None = None,
+        dossier_number: int | None = None,
+        keyword_fields: list[str] | None = None,
+        keywords: list[str] | None = None,
     ) -> list[dict]:
         """Fetch Document (Kamerstuk) records with Zaak soort context.
 
@@ -230,10 +207,11 @@ class TKClient(BaseClient):
         and Volgnummer (document number within the dossier). Relevant fields:
         Soort (Motie/Amendement/Brief/etc.), Titel, Datum, Vergaderjaar.
 
-        Uses skip-based pagination. A full fetch yields ~400K+ records; use
-        ``since`` to limit to a recent window (e.g. 730 days), or
-        ``dossier_nummer`` to backfill the documents of a single dossier
-        regardless of last-modified date.
+        Uses skip-based pagination. A full fetch yields ~400K+ records; narrow it
+        with ``since`` (e.g. 730 days), with ``dossier_number`` to backfill the
+        documents of a single dossier regardless of last-modified date, or with
+        *keywords*, which are matched inside the OData query over
+        *keyword_fields* so the API never returns the records we would discard.
         """
         params: dict[str, Any] = {
             "$expand": (
@@ -244,18 +222,20 @@ class TKClient(BaseClient):
         }
         filters: list[str] = []
         if since is not None:
-            since_string = self._format_odata_datetime(since)
+            since_string = odata_datetime(since)
             filters.append(f"ApiGewijzigdOp ge {since_string}")
-        if dossier_nummer is not None:
+        if dossier_number is not None:
             filters.append(
-                f"Zaak/any(z:z/Kamerstukdossier/any(k:k/Nummer eq {int(dossier_nummer)}))"
+                f"Zaak/any(z:z/Kamerstukdossier/any(k:k/Nummer eq {int(dossier_number)}))"
             )
+        if keywords and keyword_fields:
+            filters.append(_build_contains_filter(keyword_fields, keywords))
         if filters:
             params["$filter"] = " and ".join(filters)
-        if dossier_nummer is not None:
+        if dossier_number is not None:
             logger.info(
-                "Fetching Document for Kamerstukdossier nummer=%d%s",
-                dossier_nummer,
+                "Fetching Document for Kamerstukdossier number=%d%s",
+                dossier_number,
                 f" (modified since {filters[0]})" if since is not None else "",
             )
         elif since is not None:

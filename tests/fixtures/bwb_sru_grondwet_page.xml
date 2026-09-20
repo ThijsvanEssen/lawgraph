@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/"
+                        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                        xsi:schemaLocation="http://www.loc.gov/zing/srw/ http://www.loc.gov/standards/sru/xmlFiles/srw-types.xsd">
+   <version>1.2</version>
+   <numberOfRecords>11</numberOfRecords>
+   <records>
+      <record>
+         <recordSchema>http://standaarden.overheid.nl/sru/</recordSchema>
+         <recordPacking>xml</recordPacking>
+         <recordData>
+            <gzd xmlns="http://standaarden.overheid.nl/sru"
+                 xmlns:dcterms="http://purl.org/dc/terms/"
+                 xmlns:overheid="http://standaarden.overheid.nl/owms/terms/"
+                 xmlns:overheidbwb="http://standaarden.overheid.nl/bwb/terms/"
+                 xsi:schemaLocation="http://standaarden.overheid.nl/sru http://standaarden.overheid.nl/sru/gzd.xsd">
+               <originalData>
+                  <overheidbwb:meta>
+                     <owmskern>
+                        <dcterms:identifier>BWBR0001840</dcterms:identifier>
+                        <dcterms:title>Grondwet</dcterms:title>
+                        <dcterms:type>wet</dcterms:type>
+                        <dcterms:language>nl</dcterms:language>
+                        <overheid:authority>Binnenlandse Zaken en Koninkrijksrelaties</overheid:authority>
+                        <dcterms:creator>Ministerie van Binnenlandse Zaken en Koninkrijksrelaties</dcterms:creator>
+                        <dcterms:modified>2016-01-12</dcterms:modified>
+                     </owmskern>
+                     <owmsmantel>
+                        <dcterms:created>2015-07-01</dcterms:created>
+                     </owmsmantel>
+                     <bwbipm>
+                        <overheidbwb:toestand>http://wetten.overheid.nl/id/BWBR0001840/2002-03-21/0</overheidbwb:toestand>
+                        <overheidbwb:rechtsgebied>Staats- en bestuursrecht</overheidbwb:rechtsgebied>
+                        <overheidbwb:rechtsgebied>Staatsrecht</overheidbwb:rechtsgebied>
+                        <overheidbwb:overheidsdomein>Overheid, bestuur en koninkrijk</overheidbwb:overheidsdomein>
+                        <overheidbwb:geldigheidsperiode_startdatum>2002-03-21</overheidbwb:geldigheidsperiode_startdatum>
+                        <overheidbwb:geldigheidsperiode_einddatum>2005-02-07</overheidbwb:geldigheidsperiode_einddatum>
+                        <overheidbwb:zichtperiode_startdatum>2002-03-21</overheidbwb:zichtperiode_startdatum>
+                        <overheidbwb:zichtperiode_einddatum>9999-12-31</overheidbwb:zichtperiode_einddatum>
+                     </bwbipm>
+                  </overheidbwb:meta>
+               </originalData>
+               <enrichedData>
+                  <overheidbwb:locatie_toestand>https://repository.officiele-overheidspublicaties.nl/bwb/BWBR0001840/2002-03-21_0/xml/BWBR0001840_2002-03-21_0.xml</overheidbwb:locatie_toestand>
+                  <overheidbwb:locatie_wti>https://repository.officiele-overheidspublicaties.nl/bwb/BWBR0001840/BWBR0001840.WTI</overheidbwb:locatie_wti>
+                  <overheidbwb:locatie_manifest>https://repository.officiele-overheidspublicaties.nl/bwb/BWBR0001840/manifest.xml</overheidbwb:locatie_manifest>
+               </enrichedData>
+            </gzd>
+         </recordData>
+         <recordPosition>1</recordPosition>
+      </record>
+      <record>
+         <recordSchema>http://standaarden.overheid.nl/sru/</recordSchema>
+         <recordPacking>xml</recordPacking>
+         <recordData>
+            <gzd xmlns="http://standaarden.overheid.nl/sru"
+                 xmlns:dcterms="http://purl.org/dc/terms/"
+                 xmlns:overheid="http://standaarden.overheid.nl/owms/terms/"
+                 xmlns:overheidbwb="http://standaarden.overheid.nl/bwb/terms/"
+                 xsi:schemaLocation="http://standaarden.overheid.nl/sru http://standaarden.overheid.nl/sru/gzd.xsd">
+               <originalData>
+                  <overheidbwb:meta>
+                     <owmskern>
+                        <dcterms:identifier>BWBR0001840</dcterms:identifier>
+                        <dcterms:title>Grondwet</dcterms:title>
+                        <dcterms:type>wet</dcterms:type>
+                        <dcterms:language>nl</dcterms:language>
+                        <overheid:authority>Binnenlandse Zaken en Koninkrijksrelaties</overheid:authority>
+                        <dcterms:creator>Ministerie van Binnenlandse Zaken en Koninkrijksrelaties</dcterms:creator>
+                        <dcterms:modified>2016-01-12</dcterms:modified>
+                     </owmskern>
+                     <owmsmantel>
+                        <dcterms:created>2015-07-01</dcterms:created>
+                     </owmsmantel>
+                     <bwbipm>
+                        <overheidbwb:toestand>http://wetten.overheid.nl/id/BWBR0001840/2005-02-08/0</overheidbwb:toestand>
+                        <overheidbwb:rechtsgebied>Staats- en bestuursrecht</overheidbwb:rechtsgebied>
+                        <overheidbwb:rechtsgebied>Staatsrecht</overheidbwb:rechtsgebied>
+                        <overheidbwb:overheidsdomein>Overheid, bestuur en koninkrijk</overheidbwb:overheidsdomein>
+                        <overheidbwb:geldigheidsperiode_startdatum>2005-02-08</overheidbwb:geldigheidsperiode_startdatum>
+                        <overheidbwb:geldigheidsperiode_einddatum>2006-04-05</overheidbwb:geldigheidsperiode_einddatum>
+                        <overheidbwb:zichtperiode_startdatum>2005-02-08</overheidbwb:zichtperiode_startdatum>
+                        <overheidbwb:zichtperiode_einddatum>9999-12-31</overheidbwb:zichtperiode_einddatum>
+                     </bwbipm>
+                  </overheidbwb:meta>
+               </originalData>
+               <enrichedData>
+                  <overheidbwb:locatie_toestand>https://repository.officiele-overheidspublicaties.nl/bwb/BWBR0001840/2005-02-08_0/xml/BWBR0001840_2005-02-08_0.xml</overheidbwb:locatie_toestand>
+                  <overheidbwb:locatie_wti>https://repository.officiele-overheidspublicaties.nl/bwb/BWBR0001840/BWBR0001840.WTI</overheidbwb:locatie_wti>
+                  <overheidbwb:locatie_manifest>https://repository.officiele-overheidspublicaties.nl/bwb/BWBR0001840/manifest.xml</overheidbwb:locatie_manifest>
+               </enrichedData>
+            </gzd>
+         </recordData>
+         <recordPosition>2</recordPosition>
+      </record>
+      <record>
+         <recordSchema>http://standaarden.overheid.nl/sru/</recordSchema>
+         <recordPacking>xml</recordPacking>
+         <recordData>
+            <gzd xmlns="http://standaarden.overheid.nl/sru"
+                 xmlns:dcterms="http://purl.org/dc/terms/"
+                 xmlns:overheid="http://standaarden.overheid.nl/owms/terms/"
+                 xmlns:overheidbwb="http://standaarden.overheid.nl/bwb/terms/"
+                 xsi:schemaLocation="http://standaarden.overheid.nl/sru http://standaarden.overheid.nl/sru/gzd.xsd">
+               <originalData>
+                  <overheidbwb:meta>
+                     <owmskern>
+                        <dcterms:identifier>BWBR0001840</dcterms:identifier>
+                        <dcterms:title>Grondwet</dcterms:title>
+                        <dcterms:type>wet</dcterms:type>
+                        <dcterms:language>nl</dcterms:language>
+                        <overheid:authority>Binnenlandse Zaken en Koninkrijksrelaties</overheid:authority>
+                        <dcterms:creator>Ministerie van Binnenlandse Zaken en Koninkrijksrelaties</dcterms:creator>
+                        <dcterms:modified>2016-01-12</dcterms:modified>
+                     </owmskern>
+                     <owmsmantel>
+                        <dcterms:created>2015-07-01</dcterms:created>
+                     </owmsmantel>
+                     <bwbipm>
+                        <overheidbwb:toestand>http://wetten.overheid.nl/id/BWBR0001840/2006-04-06/0</overheidbwb:toestand>
+                        <overheidbwb:rechtsgebied>Staats- en bestuursrecht</overheidbwb:rechtsgebied>
+                        <overheidbwb:rechtsgebied>Staatsrecht</overheidbwb:rechtsgebied>
+                        <overheidbwb:overheidsdomein>Overheid, bestuur en koninkrijk</overheidbwb:overheidsdomein>
+                        <overheidbwb:geldigheidsperiode_startdatum>2006-04-06</overheidbwb:geldigheidsperiode_startdatum>
+                        <overheidbwb:geldigheidsperiode_einddatum>2006-10-10</overheidbwb:geldigheidsperiode_einddatum>
+                        <overheidbwb:zichtperiode_startdatum>2006-04-06</overheidbwb:zichtperiode_startdatum>
+                        <overheidbwb:zichtperiode_einddatum>9999-12-31</overheidbwb:zichtperiode_einddatum>
+                     </bwbipm>
+                  </overheidbwb:meta>
+               </originalData>
+               <enrichedData>
+                  <overheidbwb:locatie_toestand>https://repository.officiele-overheidspublicaties.nl/bwb/BWBR0001840/2006-04-06_0/xml/BWBR0001840_2006-04-06_0.xml</overheidbwb:locatie_toestand>
+                  <overheidbwb:locatie_wti>https://repository.officiele-overheidspublicaties.nl/bwb/BWBR0001840/BWBR0001840.WTI</overheidbwb:locatie_wti>
+                  <overheidbwb:locatie_manifest>https://repository.officiele-overheidspublicaties.nl/bwb/BWBR0001840/manifest.xml</overheidbwb:locatie_manifest>
+               </enrichedData>
+            </gzd>
+         </recordData>
+         <recordPosition>3</recordPosition>
+      </record>
+   </records>
+   <nextRecordPosition>4</nextRecordPosition>
+</searchRetrieveResponse>

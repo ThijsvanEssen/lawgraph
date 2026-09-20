@@ -1,117 +1,105 @@
 # Architecture
 
-LawGraph transforms Dutch and EU legal sources into a queryable ArangoDB knowledge graph. It has no UI; the graph is the product.
+LawGraph is a batch system that fills an ArangoDB graph, plus a read-only HTTP API on top of
+it. There is no other user interface.
 
-## Module layout
-
-```
-src/lawgraph/
-  __main__.py                   # unified CLI entrypoint
-  api/
-    app.py                      # FastAPI app, middleware, route registration
-    routes/                     # one file per domain
-    queries/                    # AQL query functions per domain
-    schemas.py                  # Pydantic request/response models
-    dependencies.py             # get_store() dependency injection
-  clients/                      # HTTP clients per source
-    base.py                     # BaseClient (retry, session, URL building)
-    bwb.py, rechtspraak.py, tk.py, eu.py, staatsblad.py,
-    staatscourant.py, eerstekamer.py, verdragenbank.py, echr.py
-  commands/                     # high-level orchestration commands
-    bootstrap.py                # seed initial graph structure
-    expand_graph.py             # expand from stubs
-    fill_gaps.py                # fill missing nodes/edges
-  config/
-    constants.py                # collection names, relation names, source IDs
-    settings.py                 # env-var derived runtime config
-  core/
-    logging.py                  # structured logging setup
-    models.py                   # Node, NodeType, PipelineResult, make_node_key
-    props.py                    # typed Pydantic props schemas per node type
-    time.py                     # time utilities
-  db/
-    __init__.py                 # re-exports ArangoStore
-    store.py                    # ArangoStore (all DB operations)
-    schema.py                   # collection/index/view definitions
-  pipelines/
-    base.py                     # PipelineBase abstract base
-    factory.py                  # make_pipeline_cli() — generates CLI main() functions
-    list_stats.py               # stats listing pipeline
-    orchestration.py            # run_retrieve_all / run_normalize_all / run_semantic_all
-    retrieve_cli.py             # retrieve pipeline CLI dispatch functions
-    normalize/                  # normalize pipelines per source
-    retrieve/                   # retrieve pipelines per source
-    semantic/                   # semantic/inference pipelines
-  sources/
-    registry.py                 # SourceDescriptor registry; drives orchestrators and CLI
-```
-
-## Pipeline phases
-
-Every source goes through three phases in order:
+## Pipeline model
 
 ```
-External APIs → Retrieve → Normalize → Semantic
-                (raw_sources)  (nodes/edges)  (inferred edges)
+external source ──retrieve──▶ raw_sources ──normalize──▶ nodes + structural edges ──semantic──▶ inferred edges
 ```
 
-**Retrieve** — fetch raw payloads from external APIs and store them verbatim in `raw_sources`, keyed by `SHA-1(source:kind:external_id)`.
+| Phase | Input | Output | Rule |
+|-------|-------|--------|------|
+| retrieve | external API | `raw_sources` documents keyed `SHA-1(source:kind:external_id)`; re-fetching replaces the document and refreshes `fetched_at` | stores the payload verbatim, does not interpret it |
+| normalize | `raw_sources` filtered by `source`, `kind`, optional `fetched_at >= since` | nodes in domain collections, structural edges | deterministic keys, props merged on upsert |
+| semantic | nodes, raw XML | edges with `confidence`, `source`, `meta` | reads structured data where the source has it, text patterns otherwise |
 
-**Normalize** — read `raw_sources`, map records to typed `Node` objects, upsert into document collections with deterministic keys, and write structural edges.
+Contract shared by all pipelines:
 
-**Semantic** — scan normalized text for legal citations and write inferred edges with confidence scores.
+- `run(...) -> PipelineResult` with `created`, `updated`, `skipped`, `errors`.
+- Errors on one record are logged and counted; the run continues. A failure of the whole step
+  is recorded in `errors`, and the CLI exits with code 1 when `errors` is non-empty.
+- Normalize pipelines implement `fetch_raw` -> `normalize_nodes` -> `build_edges`
+  (`NormalizePipelineBase`). Retrieve pipelines extend `RetrievePipelineBase` (`fetch` returns
+  `RetrieveRecord`s that are stored) or override `run`. Semantic pipelines implement `run` on
+  `SemanticPipelineBase`.
+- Removed upstream records are not deleted from the graph.
 
-## Sources
+## Source registry and CLI dispatch
 
-| Source ID | Display name | What it fetches |
-|-----------|-------------|-----------------|
-| `tk` | Tweede Kamer (zaken & documenten) | TK Zaak + DocumentVersie |
-| `tk_dossiers` | Tweede Kamer (dossiers, stemmingen, commissies) | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Document |
-| `rechtspraak` | Rechtspraak (uitspraken) | Judgment XML from Rechtspraak.nl |
-| `eurlex` | EUR-Lex (EU-wetgeving) | EU directive/regulation HTML via CELLAR |
-| `bwb` | BWB (Nederlandse wetgeving) | Dutch statute XML from wetten.overheid.nl |
-| `bwb_history` | BWB (historische toestanden) | Historical BWB versions |
-| `staatsblad` | Staatsblad (NvT voor AMvBs) | Staatsblad AMvB XML |
-| `staatscourant` | Staatscourant (ministeriele regelingen) | Staatscourant regeling XML |
-| `eerstekamer` | Eerste Kamer (kamerstukken & stemmingen) | EK Kamerstukken |
-| `echr` | ECHR HUDOC | ECHR judgment JSON |
-| `verdragenbank` | Verdragenbank (Nederlandse verdragen) | Dutch treaty records |
+`sources/registry.py` holds one `SourceDescriptor` per source with its retrieve, normalize and
+semantic entry points and one skip variable per phase. It is the only place that defines
+CLI commands and their order:
 
-## CLI
+- `lawgraph <phase> <source>` (`__main__.py`) builds its dispatch table from the registry;
+  a source id `tk_dossiers` becomes the command `tk-dossiers`.
+- `<phase> all` (`pipelines/orchestration.py`) runs the registry in list order, prints a
+  summary and exits 1 if any step failed.
+- Normalize and semantic commands are generated by `make_pipeline_cli` in
+  `pipelines/factory.py` (argument parsing, store construction, `run`, exit code).
+- A step with no `retrieve_argv_builder` (`bwb-history`, `tk-content`) is a manual command
+  and is not part of `retrieve all`.
+- The order in the registry is the order of `semantic all`; pipelines that read edges written
+  by others are placed after them.
 
-The unified CLI entrypoint is `lawgraph` (registered in `pyproject.toml`) or `python -m lawgraph`. It dispatches to the source registry in `sources/registry.py`.
+Adding a source: write the pipelines, add a `SourceDescriptor`.
 
-```
-lawgraph <phase> <source> [options]
-lawgraph bootstrap
-lawgraph expand-graph
-lawgraph fill-gaps
-```
+## Layering
 
-The factory module (`pipelines/factory.py`) generates `main(argv)` functions for normalize and semantic pipelines, handling argument parsing, `ArangoStore` construction, `run()` invocation, and `sys.exit(1)` on errors.
+| Layer | Rule |
+|-------|------|
+| `config/` | names (`constants.py`) and environment (`settings.py`); no logic |
+| `core/` | pure logic and shared definitions, each defined exactly once: node and props models, relation catalogue, BWB XML parsing, citation extraction, dossier stage classification, identifiers, XML and time helpers, batching. Imports only `config` and other `core` modules; no I/O |
+| `db/` | `ArangoStore` (all database access), `NodeWriter`, `EdgeWriter`, schema |
+| `clients/` | HTTP only; one class per source on `BaseClient` |
+| `pipelines/` | phases; depend on `config`, `core`, `db`, `clients` |
+| `api/` | routes, AQL in `queries/`, DTOs in `schemas/`; depends on `config`, `core`, `db` |
+| `commands/` | `bootstrap`, `expand-graph`, `fill-gaps`, maintenance; call pipelines and clients |
 
-## Running the full pipeline
+`api/` and `pipelines/` never import each other. Logic both need lives in `core/`. No test
+enforces this; it holds for the current code.
 
-```bash
-lawgraph retrieve all    # fetch from all sources
-lawgraph normalize all   # build node and edge collections
-lawgraph semantic all    # infer semantic edges
-```
+Semantic pipelines separate pure detectors (text in, hits out, no store; unit-tested without
+fakes) from the pipeline that loops over nodes and writes edges (tested with a fake store).
 
-Or run each phase per-source with `--since 7d` to process only recent data:
+## Writing at scale
 
-```bash
-lawgraph normalize bwb --since 7d
-```
+The corpus is large (hundreds of thousands of judgments and parliamentary documents,
+millions of edges), so cost must not grow with the number of database round-trips. Every
+pipeline writes in bulk and looks up by set.
 
-## Design principles
+| Need | Use | Not |
+|------|-----|-----|
+| write edges | `EdgeWriter` (`db/edges.py`): `add(from, to, relation, ...)`, `flush()` or `with` | one insert per edge |
+| build an edge document | `make_edge_doc` (the one edge shape: key, `created_at`, confidence check) | hand-built dicts |
+| write nodes | `NodeWriter` (`db/nodes.py`) or `NormalizePipelineBase._upsert_nodes` | `insert_or_update` per record |
+| does this node exist | `store.existing_keys(collection, keys)`: one primary-index query per 5,000 keys | `get_node` per item |
+| resolve targets in a semantic run | `SemanticPipelineBase._prefetch_nodes` (bulk) then `_lookup_node` (cached, hits and misses) | `get_node` per citation |
+| look up ids by another property | one `FILTER x IN @values` query per batch | one query per item |
+| large raw payloads | `_iter_raw_sources` streams in batches of 20; XML pipelines work in chunks | loading all payloads |
 
-**Idempotent** — every pipeline can be re-run. Nodes and edges use deterministic `_key` values; all writes go through `insert_or_update`.
+Both writers de-duplicate by key inside the buffer (last wins), flush automatically at
+500 nodes / 1000 edges, and re-raise a failed batch. Bulk writes do not return the stored
+document; keep working from the in-memory node. Node upserts merge `props` (shallow) and
+union `labels`. Edge upserts overwrite `confidence`, `source`, `status`, merge `meta`, and
+leave `created_at` and all curated fields untouched.
 
-**Single edge collection** — all edges (structural and semantic) live in the `edges` collection. The `relation` field distinguishes structural from semantic edges; `confidence` and `status` fields qualify semantic and temporal state.
+`ArangoStore` uses a request timeout of 620 s and `max_runtime=600` on AQL queries.
+`ArangoStore()` connects to an existing database (`ARANGO_DB_NAME`) and creates missing
+collections, indexes, analyzers and search views in it on construction.
 
-**Fail gracefully** — errors on individual records are logged and counted; the pipeline continues. Fetch-level failures abort early and surface in the summary.
+## Conventions enforced by tests and lint
 
-**Uniform interface** — every pipeline exposes `run(since=None) -> PipelineResult`. `PipelineResult` carries `created`, `updated`, `skipped`, and `errors` counts. Orchestrators log a summary table and exit with code 1 if any step fails.
-
-**Configuration over code** — collection names and relation types are constants in `config/constants.py`. Runtime settings (URLs, credentials, rate limits) are env-var derived in `config/settings.py`. No profile YAMLs; no hardcoded domain strings in business logic.
+| Convention | Enforced by |
+|------------|-------------|
+| Pipeline class name = CamelCase(module) + Phase + `Pipeline` (acronyms BWB, TK, EU, ECHR in capitals); base classes `<Phase>PipelineBase`; every pipeline inherits `PipelineBase` | `tests/test_pipeline_naming.py` |
+| McCabe complexity C901 <= 15 | `ruff` (`pyproject.toml`), CI pre-commit |
+| Relation catalogue: names are English `UPPER_SNAKE` verbs, never repeat the target type, every endpoint is a known collection, only instruments and bills amend / introduce / repeal, the `RELATION_*` constants are exactly the catalogue; the generated tables in `docs/data-model.md` are current | `tests/test_relation_catalogue.py` |
+| CLI commands, order and skip-variable names come only from the registry (`LAWGRAPH_<PHASE>_SKIP_<SOURCE_ID>`); manual sources stay out of `retrieve all`; dependencies precede dependents in `semantic all` | `tests/test_source_registry.py` |
+| A relation name is spelled out only in `config/constants.py` and `core/relations.py` — everywhere else, including AQL, it comes from a `RELATION_*` constant | `tests/test_conventions.py` |
+| Identifiers, module names and stored property names are English; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's Dutch spelling | `tests/test_conventions.py` |
+| Props are validated against a strict Pydantic schema per collection (unknown fields fail) | `core/props.py`, `tests/test_props_validation.py` |
+| `PART_OF` always points child (article, annex) to instrument | `tests/test_part_of_instrument_direction.py` |
+| Bulk writers batch and de-duplicate; store lookups are bounded | `tests/test_edge_writer.py`, `tests/test_node_writer.py`, `tests/test_store_existing_keys.py`, `tests/test_batching.py` |
+| Logging via `get_logger(__name__)`, no `print()` in library code | convention (review) |

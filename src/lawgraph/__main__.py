@@ -46,15 +46,6 @@ def _build_dispatch() -> dict[str, dict[str, Callable]]:
         if source.semantic_main is not None:
             semantic_map[cli_key] = source.semantic_main
 
-    # Retrieve-only sources not covered by retrieve_argv_builder (ad-hoc)
-    from lawgraph.pipelines.retrieve_cli import (
-        retrieve_bwb_history,
-        retrieve_tk_content,
-    )
-
-    retrieve_map["bwb-history"] = retrieve_bwb_history
-    retrieve_map["tk-content"] = retrieve_tk_content
-
     return {
         "retrieve": retrieve_map,
         "normalize": normalize_map,

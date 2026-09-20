@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.queries import NeighborEntry, NodeGraphData
 from lawgraph.api.queries.nodes import NodeNotFoundError
+from lawgraph.config.constants import RELATION_PART_OF, RELATION_REFERS_TO
 
 client = TestClient(app)
 
@@ -16,7 +17,7 @@ _NODE_DOC = {
 }
 
 _NEIGHBOR_DOC = {
-    "_id": "instrument_articles/BWBR0000123-101",
+    "_id": "articles/BWBR0000123-101",
     "_key": "BWBR0000123-101",
     "props": {"display_name": "Artikel 101"},
     "labels": ["Article"],
@@ -28,13 +29,13 @@ _PAYLOAD = NodeGraphData(
     neighbors=[
         NeighborEntry(
             doc=_NEIGHBOR_DOC,
-            relation="PART_OF_INSTRUMENT",
+            relation=RELATION_PART_OF,
             direction="outbound",
             confidence=0.75,
         ),
         NeighborEntry(
             doc=_NEIGHBOR_DOC,
-            relation="MENTIONS_ARTICLE",
+            relation=RELATION_REFERS_TO,
             direction="inbound",
             confidence=0.92,
         ),
@@ -55,7 +56,7 @@ def test_get_node_neighbors_returns_404_for_unknown_collection(monkeypatch):
 
 
 def test_get_node_graph_returns_neighbors(monkeypatch):
-    """Verifieer het node explorer endpoint via een gesimuleerde graph."""
+    """The node explorer endpoint, driven by a simulated graph."""
     monkeypatch.setattr(
         "lawgraph.api.routes.nodes.get_node_with_neighbors",
         lambda store, collection, key, **kwargs: _PAYLOAD,
@@ -72,10 +73,8 @@ def test_get_node_graph_returns_neighbors(monkeypatch):
 
     neighbors = payload["neighbors"]
     assert isinstance(neighbors["all"], list)
-    assert isinstance(neighbors["strict"], list)
-    assert isinstance(neighbors["semantic"], list)
 
-    strict_neighbor = neighbors["strict"][0]
-    assert "relation" in strict_neighbor
-    assert "direction" in strict_neighbor
-    assert "confidence" in strict_neighbor
+    neighbor = neighbors["all"][0]
+    assert "relation" in neighbor
+    assert "direction" in neighbor
+    assert "confidence" in neighbor

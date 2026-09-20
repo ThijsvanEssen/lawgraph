@@ -1,115 +1,110 @@
 # LawGraph
 
-LawGraph builds a Dutch and EU legal knowledge graph in **ArangoDB**. Pipelines fetch data from Tweede Kamer, Rechtspraak.nl, EUR-Lex, wetten.overheid.nl (BWB), Staatsblad, Staatscourant, Eerste Kamer, Verdragenbank, and ECHR; normalize it into typed nodes; and link nodes with structural and semantic edges. The result is a queryable graph exposed via a FastAPI read API.
+LawGraph turns Dutch and EU legal sources into one queryable knowledge graph in ArangoDB:
+legislation and its amendment history, case law, and the parliamentary process behind
+laws. The graph is the product; a FastAPI read API exposes it.
+
+## How it works
+
+Every source passes through the same three phases, each restartable and idempotent
+(deterministic keys, upserts):
+
+| Phase | Reads | Writes |
+|-------|-------|--------|
+| `retrieve` | external APIs | `raw_sources` (payload stored verbatim) |
+| `normalize` | `raw_sources` | typed nodes and structural edges |
+| `semantic` | nodes and raw XML | edges inferred from structure or text, with `confidence` |
+
+Where a source states a relation (BWB XML: amendments, legal basis, references), it is
+read, not guessed.
 
 ## Quick start
 
-Requirements: Python 3.11+, an ArangoDB 3.x/4.x instance.
+Requires Python 3.11+ and ArangoDB 3.12 (a `docker-compose.yml` is included).
 
 ```bash
-git clone <repo-url>
-cd lawgraph
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env
-# Edit .env — at minimum set ARANGO_PASSWORD
+cp .env.example .env            # set ARANGO_PASSWORD and ARANGO_ROOT_PASSWORD
+docker-compose up -d arangodb   # then create the database named in ARANGO_DB_NAME
+
+lawgraph retrieve all --mode full
+lawgraph normalize all
+lawgraph semantic all
+lawgraph-api                    # http://localhost:8000/docs
 ```
 
-Start ArangoDB locally:
+## Repository map
 
-```bash
-docker-compose up -d arangodb
-```
-
-Run the full pipeline:
-
-```bash
-lawgraph retrieve all       # fetch raw data from all sources
-lawgraph normalize all      # build node and edge collections
-lawgraph semantic all       # infer semantic citation edges
-```
-
-Start the API:
-
-```bash
-lawgraph-api
-# or: uvicorn lawgraph.api.app:app --reload
-```
-
-## Configuration
-
-Copy `.env.example` to `.env`. Required settings:
-
-```env
-ARANGO_URL=http://localhost:8529
-ARANGO_DB_NAME=lawgraph
-ARANGO_USER=root
-ARANGO_PASSWORD=changeme
-```
-
-All other settings are optional (see `.env.example` for the full list).
-
-Key optional settings:
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `LAWGRAPH_ALLOWED_ORIGINS` | `http://localhost:5173,...` | CORS allow-list for the API |
-| `LAWGRAPH_API_PORT` | `8000` | API listen port |
-| `LAWGRAPH_LOG_FORMAT` | _(plain)_ | Set to `json` for structured log output |
-| `LAWGRAPH_RATE_LIMIT_CALLS` | `200` | API rate limit per IP per window |
-| `LAWGRAPH_RATE_LIMIT_PERIOD` | `60` | Rate limit window in seconds |
-| `LAWGRAPH_PROFILE` | _(none)_ | Domain profile name (e.g. `strafrecht`) |
-
-External API base URLs default to the official public endpoints and generally do not need to be changed.
+| Path | Contents |
+|------|----------|
+| `src/lawgraph/clients/` | one HTTP client per external source |
+| `src/lawgraph/pipelines/` | `retrieve/`, `normalize/`, `semantic/` pipelines, orchestration, CLI factory |
+| `src/lawgraph/sources/` | source registry: single definition of CLI commands, order and skip variables |
+| `src/lawgraph/core/` | pure logic and shared definitions (models, props, relation catalogue, BWB XML, citations) |
+| `src/lawgraph/db/` | `ArangoStore`, bulk `NodeWriter` / `EdgeWriter`, schema, indexes, search views |
+| `src/lawgraph/api/` | FastAPI app: `routes/`, `queries/`, `schemas/` |
+| `src/lawgraph/commands/` | `bootstrap`, `expand-graph`, `fill-gaps` and maintenance commands |
+| `src/lawgraph/config/` | `constants.py` (names), `settings.py` (environment) |
+| `tests/` | offline test suite (fake store, real XML fixtures) |
 
 ## CLI
 
-The unified CLI entrypoint is `lawgraph` (or `python -m lawgraph`):
-
 ```
-lawgraph <phase> <source> [options]
-```
-
-Phases: `retrieve`, `normalize`, `semantic`. Sources: `tk`, `tk-dossiers`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `verdragenbank`, or `all`.
-
-Special commands:
-
-```
-lawgraph bootstrap       # bootstrap database collections and indexes from scratch
-lawgraph expand-graph    # iterative expand-graph loop
-lawgraph fill-gaps       # diagnose and fill knowledge gaps
+lawgraph <retrieve|normalize|semantic> <source|all> [options]
+lawgraph bootstrap | expand-graph | fill-gaps
+lawgraph <phase> <source> --help
 ```
 
-For source-specific options:
+Sources: `tk`, `tk-dossiers`, `tk-content`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`,
+`staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `verdragenbank`. The semantic phase has
+extra commands (`bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `judgment-citations`,
+`judgment-appeal`, `instrument-relations`, `amendment-articles`, `mvt-articles`,
+`relation-semantics`). Full reference in `docs/operations.md`.
 
-```bash
-lawgraph normalize bwb --help
-lawgraph retrieve tk-dossiers --help
-```
+## Configuration
 
-The `lawgraph-api` script starts the API server.
+Environment variables, loaded from `.env`:
 
-## Development
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `ARANGO_URL` | `http://localhost:8529` | database host |
+| `ARANGO_DB_NAME` | `lawgraph` | database name |
+| `ARANGO_USER` / `ARANGO_PASSWORD` | `root` / empty | credentials |
+| `LAWGRAPH_ALLOWED_ORIGINS` | localhost:5173/5174 | CORS allow-list of the API |
 
-Run tests:
+External base URLs default to the public endpoints. All variables are listed in
+`docs/operations.md`.
 
-```bash
-pytest tests/
-# Network tests (real API calls) — opt in:
-ALLOW_NETWORK_TESTS=1 pytest tests/
-```
+## Documents
 
-Lint:
+| File | Topic |
+|------|-------|
+| `docs/architecture.md` | pipeline model, source registry, layering, writing at scale, enforced conventions |
+| `docs/data-model.md` | nodes, edges, keys, versioning, parliament model, indexes, relation catalogue |
+| `docs/pipelines.md` | per source: retrieval, normalization, semantic detection, ordering |
+| `docs/api.md` | endpoints, response conventions, middleware, auth |
+| `docs/operations.md` | environment variables, CLI, runs, observability, tests |
 
-```bash
-ruff check src tests
-```
+## Status
 
-## Architecture
+Implemented: retrieve, normalize and semantic phases for Tweede Kamer (cases, dossiers),
+Rechtspraak, EUR-Lex, BWB (current text plus full history from the XML), Staatsblad,
+Staatscourant, Eerste Kamer and ECHR; Verdragenbank (retrieve and normalize); the read API.
 
-See `docs/architecture.md` for the pipeline model. See `docs/` for detailed design documents.
+Open:
+
+- BWB WTI files (amendment log, `grondslag-voor`, official abbreviations) are not ingested;
+  law abbreviations such as `Sr` resolve only through `instruments.props.short_title`, which no
+  pipeline writes.
+- Rechtspraak structured references are not used: judgment citations are read from the text,
+  and judgment content is retrieved only for the ECLIs asked for.
+- EUR-Lex implementation data (`eur`) is not evaluated.
+- Not covered: CVDR (local regulations) and the Omgevingswet API.
+- Eerste Kamer is modelled as documents and vote outcomes only, without members or factions.
+- Scheduling of incremental runs is not wired.
+- ArangoSearch view memory at 200K judgments is an open concern.
 
 ## License
 
-MIT — see `LICENSE`.
+MIT, see `LICENSE`.

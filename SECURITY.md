@@ -1,26 +1,24 @@
-# Beveiligingsbeleid
+# Security policy
 
-## Verantwoordelijke openbaarmaking
-Wij waarderen de inzet van onderzoekers en gebruikers die beveiligingsproblemen identificeren. Meld kwetsbaarheden discreet en help ons risico's begrijpen zonder ze openbaar te maken totdat er een oplossing is.
+## Reporting a vulnerability
 
-## Hoe te rapporteren
-Stuur een e-mail naar `security@thijsvanessen.nl` met:
-- een duidelijke beschrijving van het probleem;
-- reproductiestappen en impact;
-- relevante logbestanden of bewijsstukken (zonder gevoelige gegevens te delen).
+Report vulnerabilities privately to `security@thijsvanessen.nl` with:
 
-## Wat u niet moet doen
-- Open geen openbaar issue of discussie over beveiligingskwetsbaarheden in deze repository.
-- Publiceer geen proof-of-concept exploit in openbare kanalen zonder uitdrukkelijke toestemming.
-- Voer geen (geautoriseerde) aanvallen uit die de integriteit of beschikbaarheid van systemen in gevaar brengen.
+- a description of the problem;
+- steps to reproduce and the impact;
+- relevant logs, without sensitive data.
 
-## Reactietijd
-Wij streven ernaar binnen vijf werkdagen te reageren met een ontvangstbevestiging en het traject dat wij willen volgen.
+Do not open a public issue or discussion, and do not publish a proof of concept, until a fix
+is available. You get an acknowledgement within five working days.
 
-## Ondersteunde versies
-Deze repository ondersteunt de actuele toestand van de hoofdbranch (`main`). Kwetsbaarheden in oudere forks of releases worden alleen behandeld als ze nog direct relevant zijn voor `main`.
+## Supported versions
 
-## Afhankelijkheden en scanners
-Wij maken gebruik van geautomatiseerde scanners en periodieke afhankelijkheidsupdates om potentiële kwetsbaarheden op te sporen. Als u een probleem rapporteert dat al door deze tools is gedetecteerd, verwijzen wij naar deze processen als onderdeel van onze oplossing.
+The current state of `main`. Reports about older forks or releases are handled only when they
+affect `main`.
 
-Dank u voor uw hulp bij het beschermen van het project.
+## Scope notes
+
+- The API is read-only apart from watches, relationship voting and the curation endpoint;
+  curation is protected by one shared key (`LAWGRAPH_CURATION_API_KEY`), not by user
+  accounts.
+- Credentials belong in `.env`, which is not committed.

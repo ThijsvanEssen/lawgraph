@@ -1,4 +1,4 @@
-"""Semantic pipeline: links Staatsblad NvT publications to instruments via EXPLAINS_INSTRUMENT."""
+"""Semantic pipeline: links Staatsblad NvT documents to instruments via EXPLAINS."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_PUBLICATIONS,
-    RELATION_EXPLAINS_INSTRUMENT,
+    RELATION_EXPLAINS,
     SOURCE_STAATSBLAD,
 )
 from lawgraph.core.logging import get_logger
@@ -27,7 +27,7 @@ _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
 
 # Strategy 1: publications with explicit bwb_id stored during normalization
 _AQL_BWB = """
-FOR pub IN publications
+FOR pub IN documents
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
   FILTER pub.props.bwb_id != null
@@ -44,7 +44,7 @@ FOR pub IN publications
 
 # Strategy 2: title matching for publications without bwb_id
 _AQL_TITLE = """
-FOR pub IN publications
+FOR pub IN documents
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
   FILTER pub.props.bwb_id == null
@@ -62,7 +62,7 @@ FOR pub IN publications
 
 
 class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
-    """Pipeline linking Staatsblad NvT publications to BWB instruments via EXPLAINS_INSTRUMENT."""
+    """Pipeline linking Staatsblad NvT documents to BWB instruments via EXPLAINS."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
@@ -81,9 +81,7 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
             logger.warning("Staatsblad NvT semantic (title query) failed: %s", exc)
 
         if not rows:
-            logger.debug(
-                "No Staatsblad NvT publications found for EXPLAINS_INSTRUMENT linking."
-            )
+            logger.debug("No Staatsblad NvT documents found for EXPLAINS linking.")
             return result
 
         logger.info(
@@ -93,6 +91,7 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
 
         # Deduplicate by (pub_id, inst_id)
         seen: set[tuple[str, str]] = set()
+        edge_batch: list[dict[str, Any]] = []
 
         for row in rows:
             pub_id = row.get("pub_id")
@@ -114,12 +113,12 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
                 raise ValueError(f"Unknown match_type: {match_type!r}")
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
-            pub_collection = collection_from_id(pub_id, COLLECTION_PUBLICATIONS)
+            pub_collection = collection_from_id(pub_id, COLLECTION_DOCUMENTS)
             inst_collection = collection_from_id(inst_id, COLLECTION_INSTRUMENTS)
 
             pub_node = Node(
                 collection=pub_collection,
-                type=NodeType.PUBLICATION,
+                type=NodeType.DOCUMENT,
                 key=pub_key,
                 props={},
             )
@@ -130,19 +129,19 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
                 props={},
             )
 
-            created = self._create_semantic_edge(
-                from_node=pub_node,
-                to_node=inst_node,
-                relation=RELATION_EXPLAINS_INSTRUMENT,
-                source=SEMANTIC_SOURCE,
-                confidence=confidence,
-                meta={"match_type": match_type},
-                result=result,
+            self._queue_edge(
+                edge_batch,
+                self._make_edge_doc(
+                    from_node=pub_node,
+                    to_node=inst_node,
+                    relation=RELATION_EXPLAINS,
+                    source=SEMANTIC_SOURCE,
+                    confidence=confidence,
+                    meta={"match_type": match_type},
+                ),
+                result,
             )
-            if created:
-                result.created += 1
-            else:
-                result.updated += 1
 
+        self._write_batch(edge_batch, result)
         logger.info("Staatsblad NvT semantic linker: %s.", result.summary())
         return result

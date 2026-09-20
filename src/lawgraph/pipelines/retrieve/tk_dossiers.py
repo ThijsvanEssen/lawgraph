@@ -33,27 +33,28 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
 
-class TkDossiersRetrievePipeline:
+class TKDossiersRetrievePipeline(PipelineBase):
     """Retrieve pipeline for all parliamentary dossier entity types."""
 
     def __init__(self, *, store: ArangoStore, client: TKClient | None = None) -> None:
-        self.store = store
+        super().__init__(store)
         self.client = client or TKClient()
 
     def run(
         self,
         *,
         since: dt.datetime | None = None,
-        stemmingen_since: dt.datetime | None = None,
+        decisions_since: dt.datetime | None = None,
         documents_since: dt.datetime | None = None,
-        skip_personen: bool = False,
-        skip_stemmingen: bool = False,
+        skip_members: bool = False,
+        skip_decisions: bool = False,
         skip_documents: bool = False,
-        dossier_nummer: int | None = None,
+        dossier_number: int | None = None,
     ) -> PipelineResult:
         """Fetch and store all parliamentary entity types.
 
@@ -63,34 +64,35 @@ class TkDossiersRetrievePipeline:
         Args:
             since: Only fetch records modified since this datetime.
                    Pass None for a full refresh.
-            stemmingen_since: Override ``since`` for Stemming only.
-                   Use to limit the very large stemmingen dataset to a window.
+            decisions_since: Override ``since`` for Stemming only.
+                   Use to limit the very large Stemming dataset to a window.
             documents_since: Override ``since`` for Document only.
                    Recommended: pass '730d' (2 years) as a starting window;
                    a full fetch is ~400K+ records.
-            skip_personen: Skip the Persoon fetch (slow, only needed periodically).
-            skip_stemmingen: Skip the Stemming fetch entirely.
+            skip_members: Skip the Persoon and Fractie fetches (slow, only
+                needed periodically).
+            skip_decisions: Skip the Stemming fetch entirely.
             skip_documents: Skip the Document (Kamerstuk) fetch entirely.
-            dossier_nummer: Targeted backfill — fetch only Documents that link
-                to this Kamerstukdossier nummer, ignoring date filters and
+            dossier_number: Targeted backfill — fetch only Documents that link
+                to this Kamerstukdossier number, ignoring date filters and
                 skipping all other entity types. Used to fill gaps for
                 dormant dossiers whose stukken predate the documents-since
                 window.
         """
         result = PipelineResult()
 
-        if dossier_nummer is not None:
+        if dossier_number is not None:
             self._fetch_and_store(
                 result,
                 RAW_KIND_TK_DOCUMENT,
                 "Id",
                 lambda: self.client.fetch_documents(
-                    since=None, dossier_nummer=dossier_nummer
+                    since=None, dossier_number=dossier_number
                 ),
             )
             logger.info(
-                "TkDossiersRetrievePipeline (dossier=%d): stored %d raw records, %d errors.",
-                dossier_nummer,
+                "TKDossiersRetrievePipeline (dossier=%d): stored %d raw records, %d errors.",
+                dossier_number,
                 result.created,
                 len(result.errors),
             )
@@ -108,13 +110,13 @@ class TkDossiersRetrievePipeline:
             "Id",
             lambda: self.client.fetch_activiteiten(since=since),
         )
-        if not skip_stemmingen:
-            stem_since = stemmingen_since if stemmingen_since is not None else since
+        if not skip_decisions:
+            vote_since = decisions_since if decisions_since is not None else since
             self._fetch_and_store(
                 result,
                 RAW_KIND_TK_STEMMING,
                 "Id",
-                lambda: self.client.fetch_stemmingen(since=stem_since),
+                lambda: self.client.fetch_stemmingen(since=vote_since),
             )
         self._fetch_and_store(
             result,
@@ -128,7 +130,7 @@ class TkDossiersRetrievePipeline:
             "Id",
             lambda: self.client.fetch_commissies(),
         )
-        if not skip_personen:
+        if not skip_members:
             self._fetch_and_store(
                 result,
                 RAW_KIND_TK_PERSOON,
@@ -157,7 +159,7 @@ class TkDossiersRetrievePipeline:
             )
 
         logger.info(
-            "TkDossiersRetrievePipeline: stored %d raw records, %d errors.",
+            "TKDossiersRetrievePipeline: stored %d raw records, %d errors.",
             result.created,
             len(result.errors),
         )

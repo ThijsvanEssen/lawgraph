@@ -121,7 +121,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
     """
     view_specs: dict[str, dict[str, Any]] = {
         "search_articles": {
-            "instrument_articles": {
+            "articles": {
                 "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
                 "text": ["text_en"],
                 "article_number": ["text_en", "identity", "lawgraph_norm"],
@@ -147,24 +147,23 @@ def _ensure_search_views(db: StandardDatabase) -> None:
             },
         },
         "search_dossiers": {
-            "kamerstukdossiers": {
-                "titel": ["text_en", "lawgraph_ngram_v2"],
+            "dossiers": {
+                "title": ["text_en", "lawgraph_ngram_v2"],
                 "display_name": ["text_en", "lawgraph_ngram_v2"],
-                "kamerstuknummer": ["identity", "lawgraph_norm"],
+                "number": ["identity", "lawgraph_norm"],
             },
         },
-        "search_publications": {
-            "publications": {
+        "search_documents": {
+            "documents": {
                 "title": ["text_en", "lawgraph_ngram_v2"],
-                "titel": ["text_en", "lawgraph_ngram_v2"],
                 "display_name": ["text_en", "lawgraph_ngram_v2"],
                 "external_id": ["identity", "lawgraph_norm"],
             },
         },
-        "search_commissies": {
-            "commissies": {
-                "naam": ["text_en", "lawgraph_ngram_v2"],
-                "afkorting": ["text_en", "identity", "lawgraph_norm"],
+        "search_committees": {
+            "committees": {
+                "name": ["text_en", "lawgraph_ngram_v2"],
+                "abbreviation": ["text_en", "identity", "lawgraph_norm"],
             },
         },
     }
@@ -212,49 +211,58 @@ def _ensure_indexes(db: StandardDatabase) -> None:
     """
     from lawgraph.config.settings import COLLECTION_EDGES
 
-    # 4-tuple: (collection, fields, unique, sparse). Default sparse for
-    # backwards-compat with the historical 3-tuple shape.
+    # (collection, fields, unique) or (collection, fields, unique, sparse);
+    # an omitted ``sparse`` defaults to True.
     index_specs: list[
         tuple[str, list[str], bool] | tuple[str, list[str], bool, bool]
     ] = [
         # Array indexes on labels
-        ("instrument_articles", ["labels[*]"], False),
-        ("publications", ["labels[*]"], False),
+        ("articles", ["labels[*]"], False),
+        ("documents", ["labels[*]"], False),
         ("judgments", ["labels[*]"], False),
-        ("procedures", ["labels[*]"], False),
-        ("kamerstukdossiers", ["labels[*]"], False),
+        ("cases", ["labels[*]"], False),
+        ("dossiers", ["labels[*]"], False),
         # Node field indexes
         ("instruments", ["props.bwb_id"], True),
         ("instruments", ["props.celex"], True),
-        ("instrument_articles", ["props.bwb_id", "props.article_number"], True),
-        ("instrument_articles", ["props.celex", "props.article_number"], True),
+        ("articles", ["props.bwb_id", "props.article_number"], True),
+        ("articles", ["props.celex", "props.article_number"], True),
+        # article identity across versions (BWB stam-id): the amendments pipeline
+        # resolves (bwb_id, stam_id) pairs in bulk and streams versions sorted by them
+        ("articles", ["props.bwb_id", "props.stam_id"], False, True),
+        (
+            "article_versions",
+            ["props.bwb_id", "props.stam_id"],
+            False,
+            False,
+        ),
         # Law history version indexes
         ("instrument_versions", ["props.bwb_id", "props.valid_from"], False, False),
         ("instrument_versions", ["props.bwb_id", "props.current"], False, True),
         (
-            "instrument_article_versions",
+            "article_versions",
             ["props.bwb_id", "props.article_number", "props.valid_from"],
             False,
             False,
         ),
         (
-            "instrument_article_versions",
+            "article_versions",
             ["props.bwb_id", "props.valid_from"],
             False,
             False,
         ),
         (
-            "instrument_article_versions",
+            "article_versions",
             ["props.bwb_id", "props.article_number", "props.current"],
             False,
             True,
         ),
         ("judgments", ["props.ecli"], True),
         ("judgments", ["props.source"], False, True),
-        ("publications", ["props.source"], False, True),
-        # Precomputed list-endpoint indexes — back-filled by the maintenance
-        # pipelines and maintained by the normalize pipelines. Required for
-        # index-served filters/sorts on /api/instruments and /api/judgments.
+        ("documents", ["props.source"], False, True),
+        # Precomputed list-endpoint keys, written by ``list_stats`` and the
+        # normalize pipelines. Required for index-served filters and sorts on
+        # /api/instruments and /api/judgments.
         # The sort-key indexes (article_count, date_eff) are non-sparse so the
         # optimiser uses them for ``SORT field DESC LIMIT n``; the rest stay
         # sparse since they only serve equality filters.
@@ -265,20 +273,20 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         ("judgments", ["props.court_code"], False, True),
         ("judgments", ["props.date_eff"], False, False),
         ("judgments", ["props.inbound_citation_count"], False, False),
+        ("articles", ["props.inbound_citation_count"], False, False),
         # Title-sort key for /api/instruments default list.
         ("instruments", ["props.citation_title"], False, False),
-        ("publications", ["props.soort"], False),
-        ("publications", ["props.datum"], False),
-        ("publications", ["props.dossier_nummer"], False),
-        ("kamerstukdossiers", ["props.nummer"], False),
-        ("kamerstukdossiers", ["props.kamerstuknummer"], False),
-        ("kamerstukdossiers", ["props.afgedaan"], False),
-        ("kamerstukdossiers", ["props.gesloten_op"], False),
-        ("activiteiten", ["props.datum"], False),
-        ("stemmingen", ["props.aangenomen"], False),
-        ("stemmingen", ["props.datum"], False),
-        ("toezeggingen", ["props.dossier_id"], False),
-        ("toezeggingen", ["props.status"], False),
+        ("documents", ["props.kind"], False),
+        ("documents", ["props.date"], False),
+        ("documents", ["props.dossier_number"], False),
+        ("dossiers", ["props.number"], False),
+        ("dossiers", ["props.closed"], False),
+        ("dossiers", ["props.closed_on"], False),
+        ("activities", ["props.date"], False),
+        ("decisions", ["props.passed"], False),
+        ("decisions", ["props.date"], False),
+        ("commitments", ["props.dossier_id"], False),
+        ("commitments", ["props.status"], False),
         ("watches", ["node_id"], False),
         # raw_sources — needed for normalize pipelines scanning by source+kind
         ("raw_sources", ["source", "kind"], False),
@@ -293,6 +301,13 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         ("edge_status_log", ["edge_key"], False),
         # edges confidence — for semantic filtering by confidence threshold
         (COLLECTION_EDGES, ["confidence"], False),
+        # Semantic relationship type layer — equality filters only, so sparse
+        # is fine and skips the (large) majority of unclassified edges.
+        (COLLECTION_EDGES, ["semantic_type"], False),
+        (COLLECTION_EDGES, ["_from", "semantic_type"], False),
+        (COLLECTION_EDGES, ["semantic_source"], False),
+        # annexes — lookups by parent law
+        ("annexes", ["props.bwb_id"], False),
         # NOTE: we deliberately *don't* index ``edges.created_at``. The planner
         # picks it up for the heat-window scan, but the index range covers 25%
         # of the collection so it triggers a MaterializeNode (load full doc per

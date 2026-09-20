@@ -12,8 +12,10 @@ from arango.client import ArangoClient
 from arango.exceptions import DocumentInsertError
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLE_VERSIONS,
-    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_ARTICLES,
+    COLLECTION_EDGE_STATUS_LOG,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_RAW_SOURCES,
     EDGE_STATUS_CANONIEK,
 )
 from lawgraph.config.settings import (
@@ -78,27 +80,12 @@ class ArangoStore:
         }
         self._collections[COLLECTION_EDGES] = self.db.collection(COLLECTION_EDGES)
 
-        # Typed shorthand properties for the most frequently accessed collections.
-        self.instruments = self._collections["instruments"]
-        self.instrument_articles = self._collections["instrument_articles"]
-        self.instrument_versions = self._collections[COLLECTION_INSTRUMENT_VERSIONS]
-        self.instrument_article_versions = self._collections[
-            COLLECTION_INSTRUMENT_ARTICLE_VERSIONS
-        ]
-        self.procedures = self._collections["procedures"]
-        self.publications = self._collections["publications"]
-        self.judgments = self._collections["judgments"]
-        self.topics = self._collections["topics"]
-        self.raw_sources = self._collections["raw_sources"]
-        self.kamerstukdossiers = self._collections["kamerstukdossiers"]
-        self.activiteiten = self._collections["activiteiten"]
-        self.stemmingen = self._collections["stemmingen"]
-        self.toezeggingen = self._collections["toezeggingen"]
-        self.commissies = self._collections["commissies"]
-        self.leden = self._collections["leden"]
-        self.fracties = self._collections["fracties"]
-        self.edge_status_log = self._collections["edge_status_log"]
-        self.watches = self._collections["watches"]
+        # Shorthands for the collections this class and its callers reach for
+        # by name; everything else goes through ``collection()``.
+        self.articles = self._collections[COLLECTION_ARTICLES]
+        self.judgments = self._collections[COLLECTION_JUDGMENTS]
+        self.raw_sources = self._collections[COLLECTION_RAW_SOURCES]
+        self.edge_status_log = self._collections[COLLECTION_EDGE_STATUS_LOG]
         self.edges = self._collections[COLLECTION_EDGES]
 
     def collection(self, name: str) -> Any:
@@ -173,18 +160,6 @@ class ArangoStore:
         return cast(dict[str, Any], result)
 
     # ── Nodes ──────────────────────────────────────────────────────────────────
-
-    def insert_node(self, node: Node) -> Node:
-        """Insert a Node and return it with its resolved key."""
-        if node.key is None:
-            raise ValueError(
-                f"insert_node requires a key; got node with type={node.type!r}"
-            )
-        collection = self.db.collection(node.collection)
-        doc = node.to_document()
-        inserted = cast(dict[str, Any], collection.insert(doc))
-        new_key = inserted.get("_key") or node.key
-        return node.with_key(str(new_key))
 
     def insert_or_update(self, node: Node) -> Node:
         """Upsert a Node using its deterministic key.
@@ -286,6 +261,28 @@ class ArangoStore:
         """
         return self._bulk_upsert(collection, docs, _NODE_UPSERT_UPDATE)
 
+    def existing_keys(
+        self,
+        collection: str,
+        keys: Iterable[str],
+        *,
+        chunk_size: int = 5000,
+    ) -> set[str]:
+        """Return the subset of *keys* that exist in *collection*.
+
+        One primary-index lookup per ``chunk_size`` keys — use this instead of
+        ``get_node`` in a loop when you only need to know whether nodes exist.
+        """
+        if collection not in _ALL_COLLECTION_NAMES:
+            raise ValueError(f"Unknown collection: {collection!r}")
+        wanted = list(set(keys))
+        found: set[str] = set()
+        aql = f"FOR d IN {collection} FILTER d._key IN @keys RETURN d._key"
+        for start in range(0, len(wanted), chunk_size):
+            chunk = wanted[start : start + chunk_size]
+            found.update(self.query(aql, {"keys": chunk}))
+        return found
+
     def ensure_stub_node(
         self,
         collection: str,
@@ -324,14 +321,6 @@ class ArangoStore:
             existing = self.get_node(collection, key)
             return existing
 
-    def update_node(self, node: Node) -> Node:
-        """Update an existing Node (must have key)."""
-        if node.key is None:
-            raise ValueError("Node must have a key to be updated.")
-        collection = self.db.collection(node.collection)
-        collection.update(node.to_document())
-        return node
-
     def get_node(self, collection: str, key: str) -> Node | None:
         """Fetch a Node by collection and key. Returns None if not found.
 
@@ -349,79 +338,6 @@ class ArangoStore:
         return Node.from_document(collection, raw)
 
     # ── Edges ──────────────────────────────────────────────────────────────────
-
-    def create_edge(
-        self,
-        *,
-        from_id: str,
-        to_id: str,
-        relation: str,
-        source: str = "",
-        confidence: float | None = None,
-        status: str = EDGE_STATUS_CANONIEK,
-        meta: dict | None = None,
-    ) -> dict[str, Any]:
-        """Upsert an edge using a deterministic SHA-1 key. Never creates duplicates.
-
-        The `status` parameter defaults to "canoniek" for structural/semantic edges.
-        Parliamentary proposed-mutation edges should pass status="voorgesteld".
-
-        ``created_at`` is set once on insert and never overwritten on update,
-        consistent with the bulk upsert path (_EDGE_UPSERT_UPDATE).
-        """
-        if confidence is not None and not (0.0 <= confidence <= 1.0):
-            raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
-        e_key = edge_key(from_id, relation, to_id)
-        now = dt.datetime.now(dt.timezone.utc).isoformat()
-        doc: dict[str, Any] = {
-            "_key": e_key,
-            "_from": from_id,
-            "_to": to_id,
-            "relation": relation,
-            "source": source,
-            "status": status,
-            "created_at": now,
-            "meta": dict(meta or {}),
-        }
-        if confidence is not None:
-            doc["confidence"] = confidence
-
-        from lawgraph.config.settings import COLLECTION_EDGES
-
-        update_fields = (
-            "confidence: doc.confidence, source: doc.source, "
-            "status: doc.status, meta: MERGE(OLD.meta, doc.meta)"
-        )
-        aql = f"""
-        UPSERT {{_key: @key}}
-        INSERT @doc
-        UPDATE {{{update_fields}}}
-        IN {COLLECTION_EDGES}
-        RETURN NEW
-        """
-        rows = list(
-            cast(
-                Iterable[dict[str, Any]],
-                self.db.aql.execute(aql, bind_vars={"key": e_key, "doc": doc}),
-            )
-        )
-        return rows[0] if rows else doc
-
-    def insert_or_update_edge(
-        self,
-        doc: dict[str, Any],
-    ) -> tuple[dict[str, Any], bool]:
-        """Upsert an edge in the unified edges collection. Returns (stored_doc, was_created)."""
-        e_key = doc.get("_key")
-        if not isinstance(e_key, str):
-            raise ValueError("Edge document must include a `_key` string.")
-        result = cast(
-            dict[str, Any],
-            self.edges.insert(doc, overwrite=True, return_new=True, return_old=True),
-        )
-        was_created = result.get("old") is None
-        stored = result.get("new") or result
-        return cast(dict[str, Any], stored), was_created
 
     def bulk_insert_or_update_edges(
         self,
@@ -441,8 +357,8 @@ class ArangoStore:
         *,
         edge_key: str,
         new_status: str,
-        triggering_stemming_id: str,
-        source: str = "stemming-propagation",
+        triggering_decision_id: str,
+        source: str = "decision-propagation",
     ) -> dict[str, Any] | None:
         """Flip an edge's status and write an immutable audit log entry.
 
@@ -474,17 +390,17 @@ class ArangoStore:
             "relation": existing.get("relation"),
             "old_status": old_status,
             "new_status": new_status,
-            "triggering_stemming_id": triggering_stemming_id,
+            "triggering_decision_id": triggering_decision_id,
             "source": source,
             "timestamp": timestamp,
         }
         self.edge_status_log.insert(log_entry)
         logger.info(
-            "Edge %s: %s → %s (triggered by stemming %s)",
+            "Edge %s: %s → %s (triggered by decision %s)",
             edge_key,
             old_status,
             new_status,
-            triggering_stemming_id,
+            triggering_decision_id,
         )
         updated_doc = {**existing, "status": new_status, "updated_at": timestamp}
         return updated_doc

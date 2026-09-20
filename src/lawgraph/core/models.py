@@ -49,22 +49,25 @@ class PipelineResult:
 class NodeType(str, Enum):
     """High-level domain types for nodes in the legal graph."""
 
-    INSTRUMENT = "instrument"  # EU/NL law, directive, regulation, act
-    ARTICLE = "article"  # Individual article of an instrument
-    PROCEDURE = "procedure"  # TK Zaak — one legislative track
-    PUBLICATION = "publication"  # TK document, Staatsblad, OJ publication
-    JUDGMENT = "judgment"  # Case law (Rechtspraak, Hoge Raad, CJEU)
-    TOPIC = "topic"  # Semantic topic node
-    # Parliamentary dossier entities
-    DOSSIER = "dossier"  # Kamerstukdossier — groups one or more Zaak
-    ACTIVITEIT = "activiteit"  # Debate/hearing in which documents are treated
-    STEMMING = "stemming"  # Vote on a motion or wetsvoorstel
-    TOEZEGGING = "toezegging"  # Ministerial commitment made during a debate
-    COMMISSIE = "commissie"  # Parliamentary committee
-    LID = "lid"  # Parliamentary member / minister
-    FRACTIE = "fractie"  # Parliamentary party / political group
-    INSTRUMENT_VERSION = "instrument_version"  # Historical version of an instrument
-    ARTICLE_VERSION = "article_version"  # Historical version of an article
+    INSTRUMENT = (
+        "instrument"  # law, regulation, treaty, directive; also an amending publication
+    )
+    ARTICLE = "article"  # one article (identity across versions)
+    CASE = "case"  # TK Zaak: any item the Tweede Kamer handles
+    DOCUMENT = "document"  # kamerstuk, MvT, amendment, motion, advice
+    JUDGMENT = "judgment"  # case law (Rechtspraak, Hoge Raad, CJEU, ECHR)
+    TOPIC = "topic"  # semantic topic node
+    # Parliamentary entities
+    DOSSIER = "dossier"  # kamerstukdossier: numbered file of documents around one bill
+    ACTIVITY = "activity"  # debate or hearing
+    DECISION = "decision"  # a Besluit that was voted on
+    COMMITMENT = "commitment"  # ministerial commitment (toezegging)
+    COMMITTEE = "committee"  # parliamentary committee
+    MEMBER = "member"  # member of parliament or minister
+    FACTION = "faction"  # parliamentary party / political group
+    INSTRUMENT_VERSION = "instrument_version"  # dated version of an instrument
+    ARTICLE_VERSION = "article_version"  # dated version of an article
+    ANNEX = "annex"  # annex (bijlage) of an instrument
 
 
 @dataclass
@@ -153,7 +156,7 @@ class Node:
             }
 
         # Use object.__new__ to bypass __init__ (and __post_init__ validation).
-        # DB documents may contain legacy fields not yet in the current schema.
+        # A stored document may carry fields the current schema does not name.
         instance = object.__new__(cls)
         instance.collection = collection
         instance.key = key

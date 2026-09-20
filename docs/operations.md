@@ -1,275 +1,210 @@
 # Operations
 
-## Environment variables
+## Environment
 
-All configuration is via environment variables loaded from `.env` (see `.env.example`).
+Variables are read from the process environment; `lawgraph`, `lawgraph-api` and the commands
+load `.env` first (`python-dotenv`). Copy `.env.example` to `.env`. `.env.example` also lists
+`PIPELINE_LOG_LEVEL` and `LAWGRAPH_PROFILE`; nothing reads them.
 
-### Required
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `ARANGO_URL` | `http://localhost:8529` | ArangoDB host |
-| `ARANGO_DB_NAME` | `lawgraph` | Database name |
-| `ARANGO_USER` | `root` | DB user |
-| `ARANGO_PASSWORD` | _(empty)_ | DB password |
-
-### API server
+### Database
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `LAWGRAPH_ALLOWED_ORIGINS` | `http://localhost:5173,...` | CORS allow-list (comma-separated) |
-| `LAWGRAPH_API_HOST` | `0.0.0.0` | API listen host |
-| `LAWGRAPH_API_PORT` | `8000` | API listen port |
-| `LAWGRAPH_RATE_LIMIT_CALLS` | `200` | Max requests per window per IP |
-| `LAWGRAPH_RATE_LIMIT_PERIOD` | `60` | Rate limit window in seconds |
-| `LAWGRAPH_TRUSTED_PROXIES` | _(loopback)_ | IPs allowed to set X-Forwarded-For |
+| `ARANGO_URL` | `http://localhost:8529` | server |
+| `ARANGO_DB_NAME` | `lawgraph` | database; it must exist, the application creates collections, indexes and views inside it |
+| `ARANGO_USER` | `root` | user |
+| `ARANGO_PASSWORD` | empty | password |
+| `ARANGO_ROOT_PASSWORD` | none | read by `docker-compose.yml` for the root password of the container; set it equal to `ARANGO_PASSWORD` |
+| `LAWGRAPH_EDGE_COLLECTION` | `edges` | edge collection name |
+| `LAWGRAPH_DOCUMENT_COLLECTIONS` | all collections | comma-separated override; must list every collection the code uses |
 
-### Collections (optional overrides)
+### External sources
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `LAWGRAPH_DOCUMENT_COLLECTIONS` | _(all collections)_ | Comma-separated override |
-| `LAWGRAPH_EDGE_COLLECTION` | `edges` | Edge collection name |
-
-### External API URLs (all have working defaults)
+All default to the public endpoints; no key is required.
 
 | Variable | Default |
 |----------|---------|
 | `TK_API_BASE` | `https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/` |
 | `RECHTSPRAAK_BASE` | `https://data.rechtspraak.nl/` |
 | `EURLEX_BASE` | `https://eur-lex.europa.eu/` |
+| `EURLEX_SPARQL_ENDPOINT` | `https://publications.europa.eu/webapi/rdf/sparql` |
 | `BWB_BASE` | `https://wetten.overheid.nl/` |
 | `BWB_SRU_ENDPOINT` | `https://zoekservice.overheid.nl/sru/Search` |
-| `EURLEX_SPARQL_ENDPOINT` | `https://publications.europa.eu/webapi/rdf/sparql` |
-| `STAATSBLAD_SRU_ENDPOINT` | `https://sru.officielebekendmakingen.nl/sru/Search` |
+| `STAATSBLAD_SRU_ENDPOINT`, `STAATSCOURANT_SRU_ENDPOINT` | `https://sru.officielebekendmakingen.nl/sru/Search` |
+| `STAATSBLAD_REPO_BASE`, `STAATSCOURANT_REPO_BASE` | `https://repository.overheid.nl` |
 | `EERSTEKAMER_BASE` | `https://gegevensmagazijn.eerstekamer.nl/OData/v4/2.0/` |
 | `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
 | `VERDRAGENBANK_SPARQL` | `https://linkeddata.overheid.nl/front/portal/sparql` |
 
-### Semantic confidence overrides
-
-Per-pattern confidence values are overridable via `LAWGRAPH_CONFIDENCE_<PATTERN_NAME_UPPER>`:
-
-```env
-LAWGRAPH_CONFIDENCE_BWB_EXPLICIT=0.95
-```
-
-### Logging
+### Pipelines
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PIPELINE_LOG_LEVEL` | `INFO` | Log level |
-| `LAWGRAPH_LOG_FORMAT` | _(plain)_ | Set to `json` for structured JSON output |
-| `NO_COLOR` | _(unset)_ | Set to `1` to disable ANSI colors |
+| `BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
+| `EURLEX_MAX_ARTICLE_NUMBER` | `200` | EU articles above this number are not written (read at import) |
+| `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `relation-semantics` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` |
+| `LAWGRAPH_<PHASE>_SKIP_<SOURCE>` | unset | `true` skips that step of `<phase> all` (see below) |
 
----
+### API
 
-## CLI reference
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LAWGRAPH_API_HOST` / `LAWGRAPH_API_PORT` | `0.0.0.0` / `8000` | listen address of `lawgraph-api` |
+| `LAWGRAPH_ALLOWED_ORIGINS` | `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5174`, `http://127.0.0.1:5174` | CORS allow-list; these origins also bypass the rate limit |
+| `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
+| `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured |
+| `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
+| `LAWGRAPH_CURATION_API_KEY` | unset | enables `POST /api/relationships/tag` |
 
-The unified CLI is `lawgraph` (or `python -m lawgraph`).
+### Logging and tests
 
-### Usage
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LAWGRAPH_LOG_LEVEL` | `INFO` | root log level |
+| `LAWGRAPH_LOG_FORMAT` | plain | `json` for one JSON object per line |
+| `NO_COLOR` | unset | disables ANSI colours |
+| `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs |
 
-```
-lawgraph <phase> <source> [options]
-lawgraph bootstrap
-lawgraph expand-graph
-lawgraph fill-gaps
-```
+## CLI
 
-Phases: `retrieve`, `normalize`, `semantic`.
+`lawgraph` or `python -m lawgraph`; `lawgraph <phase> <source> --help` shows the options of
+a command. Dates (`--since`) are ISO 8601 (`2024-01-01`) or relative (`7d`). Every step
+exits with code 1 when its result has errors.
 
-Sources: `tk`, `tk-dossiers`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `verdragenbank`, or `all`.
+### retrieve
 
-### Orchestrators
+| Command | Options |
+|---------|---------|
+| `retrieve all` | `--mode incremental` (default) or `full`, `--since-days N` (default 1). Passes to each source: `tk` and `rechtspraak` mode and days; `tk-dossiers` nothing in full mode, `--since Nd --skip-members --decisions-since Nd --documents-since Nd` in incremental mode; `eurlex`, `bwb`, `staatscourant`, `eerstekamer`, `echr` the mode; `staatsblad`, `verdragenbank` nothing. `bwb-history` and `tk-content` are not run |
+| `retrieve tk` | `--mode`, `--since-days`, `--limit N` |
+| `retrieve tk-dossiers` | `--since`, `--skip-members`, `--skip-decisions`, `--decisions-since`, `--skip-documents`, `--documents-since`, `--dossier-number N` |
+| `retrieve tk-content` | `--kind` (default `toelichting`), `--dry-run` |
+| `retrieve rechtspraak` | `--mode`, `--since-days`, `--ecli` (repeatable) |
+| `retrieve eurlex` | `--mode incremental\|full\|nim\|cjeu\|com`, `--celex` (repeatable), `--lang NL`, `--country NLD` |
+| `retrieve bwb` | `--mode`, `--bwb-id` (repeatable) |
+| `retrieve bwb-history` | optional BWB ids (all when omitted) |
+| `retrieve staatsblad` | `--mode from-graph\|full` |
+| `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
+| `retrieve eerstekamer` | `--mode`, `--since`, `--max-records` |
+| `retrieve echr` | `--mode`, `--respondent`, `--since`, `--max-records` |
+| `retrieve verdragenbank` | `--max-records` |
+
+### normalize
+
+`normalize all` takes no options and runs every source in registry order (`tk`, `tk-dossiers`,
+`rechtspraak`, `eurlex`, `bwb`, `bwb-history`, `staatsblad`, `staatscourant`, `eerstekamer`,
+`echr`, `verdragenbank`). `normalize <source> --since DATE` (only records fetched since) is
+accepted by `tk`, `tk-dossiers`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history` and `staatsblad`;
+the others take no options.
+
+### semantic
+
+`semantic all [--strict]` runs the pipelines below in this order, then the `list_stats`
+backfill; `--strict` aborts at the first failure.
+
+| Command | Options |
+|---------|---------|
+| `tk`, `rechtspraak`, `eurlex` | `--since-days N` (0 = everything); resolved against `raw_sources.fetched_at` |
+| `bwb` | `--store-citations`; `--since-days` is not exposed |
+| `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes` | none |
+| `staatscourant`, `eerstekamer`, `echr` | none |
+| `staatsblad` | `--since DATE`, which the pipeline ignores |
+| `judgment-citations`, `amendment-articles` | `--since-days N`, and `mvt-articles` `--since DATE`; all three filter on `props.fetched_at`, which no pipeline writes, so a value other than the default processes nothing |
+| `judgment-appeal`, `instrument-relations`, `relation-semantics` | none |
+
+The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
+`bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `judgment-citations`,
+`judgment-appeal`, `instrument-relations`, `amendment-articles`, `mvt-articles`,
+`relation-semantics`.
+
+### Other commands
+
+| Command | Behaviour |
+|---------|-----------|
+| `lawgraph bootstrap [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve]` | `retrieve all --mode full`, `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5) |
+| `lawgraph expand-graph [--max-iterations N] [--dry-run]` | repeats `fill-gaps --apply`, `normalize all`, `semantic all` while stub nodes keep disappearing (default 10 iterations) |
+| `lawgraph fill-gaps [--apply] [--min-stubs N] [--bwb-id ID ...] [--no-mvt] [--no-semantic] [--no-case-law] [--no-eurlex] [--no-echr] [--no-verdragen]` | reports stub laws (referenced by loaded instruments, ranked by reference count; laws with at least `--min-stubs`, default 3, are added), stub judgments, stub EU, ECHR and treaty records and toelichting texts without text; `--apply` retrieves and normalizes them |
+| `python -m lawgraph.pipelines.list_stats [--dry-run] [--instruments-only\|--judgments-only\|--committees-only\|--articles-only]` | backfills sort and filter fields for the list endpoints |
+| `lawgraph-api` | starts the API |
+
+### Skip variables
+
+`LAWGRAPH_<PHASE>_SKIP_<SOURCE>=true` (case-insensitive `true`; any other value does not skip)
+skips one step of `retrieve all`, `normalize all` or `semantic all`. `<SOURCE>` is the source id
+in upper case with underscores.
+
+| Phase | Sources |
+|-------|---------|
+| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK` |
+| `NORMALIZE` | the same plus `BWB_HISTORY` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `JUDGMENT_CITATIONS`, `JUDGMENT_APPEAL`, `INSTRUMENT_RELATIONS`, `AMENDMENT_ARTICLES`, `MVT_ARTICLES`, `RELATION_SEMANTICS`, `LIST_STATS` |
+
+## Runs
+
+**Full load.** Create the database first (`ARANGO_DB_NAME`, for example in the web UI at
+`http://localhost:8529`).
 
 ```bash
-lawgraph retrieve all [--mode full|incremental] [--since-days N]
-lawgraph normalize all [--since DATE]
-lawgraph semantic all
-```
-
-All orchestrators print a summary table and exit with code 1 if any step fails.
-
-Individual steps can be skipped with env vars of the form `LAWGRAPH_RETRIEVE_SKIP_<SOURCE>=1`, `LAWGRAPH_NORMALIZE_SKIP_<SOURCE>=1`, `LAWGRAPH_SEMANTIC_SKIP_<SOURCE>=1`.
-
-### Retrieve
-
-```bash
-lawgraph retrieve tk [--mode full|incremental] [--since-days N]
-lawgraph retrieve tk-dossiers [--since DATE] [--skip-personen] [--skip-documents] [--documents-since DATE]
-lawgraph retrieve rechtspraak [--mode full|incremental] [--since-days N]
-lawgraph retrieve bwb [--mode full]
-lawgraph retrieve eurlex [--mode full]
-lawgraph retrieve staatsblad
-lawgraph retrieve staatscourant [--mode full]
-lawgraph retrieve eerstekamer [--mode full]
-lawgraph retrieve echr [--mode full]
-lawgraph retrieve verdragenbank
-lawgraph retrieve bwb-history
-lawgraph retrieve tk-content [--soort TEXT] [--dry-run]
-```
-
-### Normalize
-
-```bash
-lawgraph normalize tk [--since DATE]
-lawgraph normalize tk-dossiers [--since DATE]
-lawgraph normalize rechtspraak [--since DATE]
-lawgraph normalize bwb [--since DATE]
-lawgraph normalize bwb-history [--since DATE]
-lawgraph normalize eurlex [--since DATE]
-lawgraph normalize staatsblad [--since DATE]
-lawgraph normalize staatscourant
-lawgraph normalize eerstekamer
-lawgraph normalize echr
-lawgraph normalize verdragenbank
-```
-
-### Semantic
-
-```bash
-lawgraph semantic tk [--since-days N]
-lawgraph semantic rechtspraak [--since-days N]
-lawgraph semantic eurlex [--since-days N]
-lawgraph semantic bwb [--store-citations]
-lawgraph semantic bwb-grondslagen
-lawgraph semantic judgment-citations [--since-days N]
-lawgraph semantic judgment-appeal
-lawgraph semantic instrument-relations
-lawgraph semantic amendment-articles [--since-days N]
-lawgraph semantic mvt-articles [--since DATE]
-lawgraph semantic dossier-law-link
-lawgraph semantic version-causes [--window-days N]
-lawgraph semantic staatsblad [--since DATE]
-lawgraph semantic staatscourant
-lawgraph semantic eerstekamer
-lawgraph semantic echr
-```
-
----
-
-## Full initial load
-
-```bash
-# 1. Retrieve all sources
 lawgraph retrieve all --mode full
-
-# 2. Normalize all
+lawgraph retrieve bwb-history            # optional: every BWB toestand
+lawgraph retrieve tk-content             # optional: MvT text, needed by amendment-articles
+lawgraph retrieve rechtspraak --ecli ECLI:NL:HR:2023:1234 ...   # judgment content
 lawgraph normalize all
-
-# 3. Run semantic detection
 lawgraph semantic all
 ```
 
-For TK dossiers the full document corpus is large (~400K records). On initial load, either run without `--mode full` and accept the default window, or use the `--documents-since` flag when calling `tk-dossiers` directly:
+`lawgraph bootstrap` runs the first, fifth and sixth step and then `expand-graph`. In full mode
+`retrieve all` enumerates every BWB regulation and every EUR-Lex act; `tk-dossiers` fetches
+everything unless run directly with `--documents-since 730d`.
+
+**Incremental.**
 
 ```bash
-lawgraph retrieve tk-dossiers --documents-since 730d
-```
-
-## Incremental update (daily/weekly)
-
-```bash
-# Retrieve recent changes
 lawgraph retrieve all --mode incremental --since-days 7
-
-# Normalize only recent records
-lawgraph normalize all --since 7d
-
-# Re-run semantic detection
+lawgraph normalize all                   # no --since here; use per-source --since to limit work
 lawgraph semantic all
 ```
 
-## Slow operations
+Incremental `retrieve bwb` needs `BWB_IDS` or `--bwb-id`, otherwise it fetches nothing.
+Incremental `retrieve eurlex` re-fetches the CELEX numbers of the instruments already in the
+graph. Incremental `staatscourant`, `eerstekamer`, `echr` and `verdragenbank` read all
+records up to their record caps. Scheduling is not wired: run the commands from cron or a
+scheduler of your choice.
 
-| Step | Typical duration | Notes |
-|------|-----------------|-------|
-| `retrieve tk-dossiers` (full) | ~15 min | Activiteiten: 97K records; Documents: 116K records |
-| `normalize tk-dossiers` | ~30 min | 116K documents + 350K+ edges |
-| `retrieve tk-content` | Hours | Rate-limited at 0.5 s/request; ~400K publications total |
+**Slow steps.**
 
----
+| Step | Why |
+|------|-----|
+| `retrieve tk-content` | one PDF per document, 0.5 s between requests |
+| `retrieve tk-dossiers` full | about 400K documents, fetched 250 at a time |
+| `retrieve bwb --mode full`, `retrieve bwb-history` | one SRU query and one XML download per regulation or toestand |
+| `normalize bwb-history`, `semantic bwb-grondslagen`, `bwb-annexes` | stream every stored toestand XML (large documents) in batches of 20 |
+| `normalize tk-dossiers` | the largest normalize step (documents, decisions, edges, dossier backfill) |
+| `semantic bwb` | scans every article text |
 
-## API
+Every retrieve and normalize step is idempotent and safe to interrupt and re-run.
 
-Start the server:
+## Observability
+
+- Logging: `lawgraph.core.logging`; format `time [LEVEL] logger: message`, JSON with
+  `LAWGRAPH_LOG_FORMAT=json`, level from `LAWGRAPH_LOG_LEVEL`.
+- Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors); errors are
+  listed and set exit code 1. Orchestrators print a per-step summary table at the end.
+- API: each request is logged with id, client, method, path, status, size and latency;
+  `GET /api/health` checks the database connection; `GET /api/stats` gives counts per
+  collection and relation.
+
+## Tests and CI
 
 ```bash
-lawgraph-api
-# or with hot reload for development:
-uvicorn lawgraph.api.app:app --reload
+pytest tests -q                       # several hundred tests, offline, a few seconds
+ALLOW_NETWORK_TESTS=1 pytest tests    # also calls the real APIs
+ruff check src tests
 ```
 
-### Health and root
-
-```
-GET /                  — {"name": "lawgraph-api", "version": "..."}
-GET /api/health        — {"status": "ok", "database": "connected"} or 503
-GET /docs              — OpenAPI UI
-```
-
-### Key endpoints
-
-```
-GET /api/articles/{bwb_id}/{article_number}
-GET /api/articles/{bwb_id}/{article_number}/legislative-history
-GET /api/articles/{bwb_id}/{article_number}/in-flux
-
-GET /api/judgments/{ecli}
-
-GET /api/instruments
-GET /api/instruments/{bwb_id}
-GET /api/instruments/{bwb_id}/graph
-GET /api/instruments/{bwb_id}/reader
-GET /api/instruments/{bwb_id}/procedures
-GET /api/instruments/{bwb_id}/publications
-
-GET /api/dossiers/open
-GET /api/dossiers/recent
-GET /api/dossiers/{kamerstuknummer}
-GET /api/dossiers/{kamerstuknummer}/timeline
-GET /api/dossiers/{kamerstuknummer}/documents
-GET /api/dossiers/{kamerstuknummer}/mutations
-
-GET /api/stemmingen
-GET /api/stemmingen/{key}
-
-GET /api/commissies
-GET /api/commissies/{slug}
-GET /api/leden/{key}
-GET /api/leden/{key}/votes
-
-GET /api/publications?q=...&soort=...&limit=50&offset=0
-GET /api/publications/{key}
-
-GET /api/nodes/in-flux
-GET /api/nodes/heat
-GET /api/nodes/{collection}/{key}
-
-GET /api/graph/global
-GET /api/graph/instruments
-GET /api/graph/judgments
-
-GET /api/search?q=...
-
-GET /api/stats
-GET /api/partijen/kleuren
-
-GET /api/watches
-POST /api/watches
-DELETE /api/watches/{watch_id}
-
-GET /api/parlement/...
-GET /api/fracties/...
-```
-
-### Middleware
-
-- **Rate limiting**: sliding window per IP; 200 requests/60 s by default. Returns 429 + `Retry-After` when exceeded. First-party CORS origins bypass the limit.
-- **Cache-Control**: articles 30 min, judgments 1 h, stats 5 min, all other GET responses 60 s private.
-- **Request logging**: every request logs method, path, status, response size, and latency.
-
-### Authentication
-
-There is currently no API authentication. All endpoints are publicly accessible.
+The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no test
+executes AQL against a database. Layout: `tests/api/` (routes), `tests/normalize/` and
+`tests/semantic/` (one file per source or detector), `tests/test_*.py` (clients, core helpers,
+bulk writers, registry, naming, conventions, relation catalogue, props). CI (`.github/workflows`) runs
+`pytest` on Python 3.11 and the pre-commit hooks: black, ruff `--fix`, isort, end-of-file,
+trailing whitespace, private-key detection, YAML and merge-conflict checks.

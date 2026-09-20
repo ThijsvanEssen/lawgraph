@@ -10,9 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import (
     INSTRUMENT_SORTS,
+    get_articles,
+    get_articles_at,
     get_instrument_article_history,
-    get_instrument_articles,
-    get_instrument_articles_at,
     get_instrument_dossiers,
     get_instrument_edges_bundle,
     get_instrument_judgments,
@@ -21,8 +21,17 @@ from lawgraph.api.queries import (
     get_instruments_list,
 )
 from lawgraph.api.queries import props as _props
-from lawgraph.api.schemas import (
+from lawgraph.api.queries.annexes import get_shared_annexes_for_law
+from lawgraph.api.queries.instruments import get_instrument_amended_by, get_short_titles
+from lawgraph.api.queries.relationships import get_cross_law_dependencies
+from lawgraph.api.schemas.annexes import AnnexDTO, AnnexListItem
+from lawgraph.api.schemas.common import ArticleRelationDTO
+from lawgraph.api.schemas.instruments import (
+    AmendedByResponse,
+    AmendingInstrumentDTO,
     CitedArticleRef,
+    CrossLawDependenciesResponse,
+    CrossLawDependencyItem,
     InstrumentArticleNodeDTO,
     InstrumentArticlesAtResponse,
     InstrumentArticlesResponse,
@@ -40,7 +49,9 @@ from lawgraph.api.schemas import (
     InstrumentRelatedResponse,
     InstrumentVersionDTO,
     InstrumentVersionsResponse,
+    SharedAnnexesResponse,
 )
+from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.db import ArangoStore
 
 
@@ -61,7 +72,7 @@ def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
 # Field whitelists for the side-payload nodes on /citations. Kept lean so the
 # graph-loader payload doesn't carry full article text or judgment paragraphs.
 _NODE_FIELD_WHITELIST: dict[str, tuple[str, ...]] = {
-    "instrument_articles": (
+    "articles": (
         "bwb_id",
         "celex",
         "article_number",
@@ -73,21 +84,20 @@ _NODE_FIELD_WHITELIST: dict[str, tuple[str, ...]] = {
         "stub",
     ),
     "judgments": ("ecli", "display_name"),
-    "publications": (
-        "soort",
-        "titel",
+    "documents": (
+        "kind",
         "title",
-        "datum",
-        "volgnummer",
-        "dossier_nummer",
+        "date",
+        "sequence",
+        "dossier_number",
         "tk_url",
         "display_name",
     ),
-    "kamerstukdossiers": (
-        "kamerstuknummer",
-        "titel",
+    "dossiers": (
+        "number",
+        "title",
         "display_name",
-        "huidige_fase",
+        "current_stage",
     ),
     "instruments": (
         "bwb_id",
@@ -98,11 +108,10 @@ _NODE_FIELD_WHITELIST: dict[str, tuple[str, ...]] = {
 }
 
 
-# Articles loaded via stub fall back to a verbose display_name that bakes the
-# full instrument title plus a trailing " (niet geladen)" marker. The FE
-# label pipeline assembles its own "short_title + article_number" label, so
-# we strip both the suffix and the long title here, leaving a clean
-# "Artikel <num>" that callers can decorate.
+# A stub article carries a verbose display_name that bakes in the full
+# instrument title plus a trailing " (niet geladen)" marker. The frontend
+# assembles its own "short_title + article_number" label, so both the suffix
+# and the long title are stripped here, leaving a clean "Artikel <num>".
 _STUB_SUFFIX = " (niet geladen)"
 
 
@@ -114,9 +123,9 @@ def _clean_article_display_name(
     name = display_name
     if name.endswith(_STUB_SUFFIX):
         name = name[: -len(_STUB_SUFFIX)].rstrip()
-    # A typical stub label is "Artikel 5 <full instrument title>". Trim back
-    # to the canonical "Artikel <num>" shape — the FE rebuilds the wet part
-    # itself from short_title.
+    # A typical stub label is "Artikel 5 <full instrument title>". Trim back to
+    # the canonical "Artikel <num>" shape — the frontend rebuilds the
+    # instrument part itself from short_title.
     if article_number:
         prefix = f"Artikel {article_number}"
         if name.lower().startswith(prefix.lower()):
@@ -139,12 +148,12 @@ def _minimise_node(doc: dict, collection: str) -> dict:
 def _minimise_articles_with_short_title(
     store: ArangoStore, docs: list[dict]
 ) -> list[dict]:
-    """Project foreign articles, joining short_title from their parent wet.
+    """Project foreign articles, joining short_title from their parent instrument.
 
-    The graph-loader displays article labels as ``<short_title> <article_number>``
-    (e.g. "Sr 287"). For articles outside the focal instrument we don't ship
-    full text — but we *do* need the parent wet's short_title so the FE's
-    label pipeline can render the friendly form without a second round-trip.
+    The graph loader displays article labels as ``<short_title> <article_number>``
+    (e.g. "Sr 287"). Articles outside the focal instrument ship without their
+    full text, but they do need the parent instrument's short_title so the
+    frontend can render the friendly label without a second round-trip.
     """
     if not docs:
         return []
@@ -161,32 +170,7 @@ def _minimise_articles_with_short_title(
         if isinstance(celex, str) and celex:
             celexes.add(celex)
 
-    # One AQL pass — uses the (props.bwb_id) and (props.celex) indexes.
-    short_by_bwb: dict[str, str] = {}
-    short_by_celex: dict[str, str] = {}
-    if bwb_ids or celexes:
-        for inst in store.query(
-            """
-            FOR i IN instruments
-                FILTER i.props.bwb_id IN @bwbs OR i.props.celex IN @celexes
-                RETURN {
-                    bwb_id: i.props.bwb_id,
-                    celex: i.props.celex,
-                    short_title: i.props.short_title,
-                    citation_title: i.props.citation_title
-                }
-            """,
-            {"bwbs": list(bwb_ids), "celexes": list(celexes)},
-        ):
-            # Prefer short_title; fall back to citation_title when the wet
-            # doesn't carry an abbreviated form.
-            short = inst.get("short_title") or inst.get("citation_title")
-            if not short:
-                continue
-            if inst.get("bwb_id"):
-                short_by_bwb[inst["bwb_id"]] = short
-            if inst.get("celex"):
-                short_by_celex[inst["celex"]] = short
+    short_by_bwb, short_by_celex = get_short_titles(store, bwb_ids, celexes)
 
     enriched: list[dict] = []
     for doc in docs:
@@ -204,7 +188,7 @@ def _minimise_articles_with_short_title(
             {
                 "id": doc.get("_id"),
                 "key": doc.get("_key"),
-                "collection": "instrument_articles",
+                "collection": COLLECTION_ARTICLES,
                 "props": {
                     "bwb_id": bwb,
                     "celex": celex,
@@ -255,11 +239,11 @@ router = APIRouter()
 @router.get(
     "",
     response_model=InstrumentListResponse,
-    summary="Gepagineerde lijst van instrumenten",
+    summary="Paginated list of instruments",
     description=(
-        "Geeft een gepagineerde lijst van wetten, regelingen en EU-instrumenten. "
-        "Ondersteunt vrije-tekstzoek (`q`), jurisdictie-filter (`nl`/`eu`), "
-        "kind-filter en een minimum-artikelcount filter."
+        "A paginated list of statutes, regulations and EU instruments. Supports "
+        "free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind "
+        "filter and a minimum article count."
     ),
     tags=["instruments"],
 )
@@ -292,16 +276,16 @@ def list_instruments(
 @router.get(
     "/{bwb_id}/articles",
     response_model=InstrumentArticlesResponse,
-    summary="Alle artikelen van een instrument",
+    summary="All articles of an instrument",
     description=(
-        "Lijst van artikelen die bij dit BWB-instrument horen, gesorteerd op "
-        "natuurlijke artikelnummering (Artikel 9 vóór Artikel 10, '24c' tussen "
-        "'24' en '25'). Bedoeld voor graph-loaders; tekst is een korte preview, "
-        "gebruik /api/articles/{bwb_id}/{article_number} voor de volledige inhoud."
+        "The articles belonging to this BWB instrument, in natural article "
+        "order (9 before 10, '24c' between '24' and '25'). Meant for graph "
+        "loaders: the text is a short preview, use "
+        "/api/articles/{bwb_id}/{article_number} for the full content."
     ),
     tags=["instruments"],
 )
-def list_instrument_articles(
+def list_articles(
     bwb_id: str,
     store: Annotated[ArangoStore, Depends(get_store)],
     include_stubs: Annotated[
@@ -314,7 +298,7 @@ def list_instrument_articles(
     limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> InstrumentArticlesResponse:
-    docs, total = get_instrument_articles(
+    docs, total = get_articles(
         store,
         bwb_id,
         include_stubs=include_stubs,
@@ -339,15 +323,14 @@ def list_instrument_articles(
 @router.get(
     "/{bwb_id}/citations",
     response_model=InstrumentCitationsResponse,
-    summary="Alle edges incident op dit instrument (bulk)",
+    summary="Every edge incident to this instrument (bulk)",
     description=(
-        "Eén round-trip met alle edges die raken aan een artikel van deze wet: "
-        "REFERS_TO_ARTICLE (intra + cross-wet), CITES_ARTICLE (jurisprudentie), "
-        "WIJZIGT/INTRODUCEERT/TREKT_IN/LICHT_TOE (wetshistorie), enz. "
-        "PART_OF_INSTRUMENT is standaard uitgesloten — dat is de structurele "
-        "backbone, geen citatie. Naast `edges` levert dit endpoint ook een "
-        "`nodes` side-payload met de buitenliggende eindpunten, gegroepeerd "
-        "per collection."
+        "One round-trip with every edge touching an article of this law: "
+        "REFERS_TO (within and across laws), AMENDS / INTRODUCES / REPEALS and "
+        "EXPLAINS (legislative history), and so on. PART_OF is excluded by "
+        "default — it is the structural backbone, not a reference. Beside "
+        "`edges` the endpoint returns a `nodes` side-payload with the outside "
+        "endpoints, grouped per collection."
     ),
     tags=["instruments"],
 )
@@ -358,14 +341,14 @@ def get_instrument_citations(
         str | None,
         Query(
             description=(
-                "Comma-separated whitelist van relaties. Default = alle, "
-                "behalve PART_OF_INSTRUMENT."
+                "Comma-separated whitelist of relations. Default: every "
+                "relation except PART_OF."
             )
         ),
     ] = None,
-    include_part_of_instrument: Annotated[
+    include_part_of: Annotated[
         bool,
-        Query(description="Voeg de structurele article→instrument edges toe."),
+        Query(description="Include the structural article-to-instrument edges."),
     ] = False,
     max_edges: Annotated[int, Query(ge=1, le=100000)] = 20000,
 ) -> InstrumentCitationsResponse:
@@ -376,13 +359,13 @@ def get_instrument_citations(
         store,
         bwb_id,
         relations=relation_list,
-        include_part_of_instrument=include_part_of_instrument,
+        include_part_of=include_part_of,
         max_edges=max_edges,
     )
     raw_nodes = bundle.get("nodes") or {}
     minimised_nodes: dict[str, list[dict]] = {}
     for coll, docs in raw_nodes.items():
-        if coll == "instrument_articles":
+        if coll == COLLECTION_ARTICLES:
             # Special-case: lift parent-wet short_title onto each article
             # and strip the stub-suffix from display_name so the FE label
             # path renders "Sr 287" without extra adapter code.
@@ -413,11 +396,11 @@ def get_instrument_citations(
 @router.get(
     "/{bwb_id}/judgments",
     response_model=InstrumentJudgmentsResponse,
-    summary="Alle uitspraken die dit instrument citeren",
+    summary="Every judgment citing this instrument",
     description=(
-        "Per uitspraak: light metadata + de specifieke artikelen waarnaar "
-        "verwezen wordt. Bedoeld voor de jurisprudentie-laag in de graph. "
-        "``total`` is het absolute aantal (onafhankelijk van ``limit``)."
+        "Per judgment: light metadata plus the specific articles it refers to. "
+        "Meant for the case-law layer of the graph. ``total`` is the absolute "
+        "count, independent of ``limit``."
     ),
     tags=["instruments"],
 )
@@ -434,11 +417,14 @@ def get_instrument_judgments_route(
 @router.get(
     "/{bwb_id}/dossiers",
     response_model=InstrumentDossiersResponse,
-    summary="Kamerstukdossiers die deze wet raken",
+    summary="Parliamentary dossiers touching this law",
     description=(
-        "Combineert direct (dossier -RAAKT-> instrument) en afgeleid "
-        "(kamerstuk wijzigt/introduceert/etc. een artikel). ``total`` is "
-        "het absolute aantal (onafhankelijk van ``limit``)."
+        "Dossiers reached through LEGISLATED_IN from (a) the regulation itself "
+        "and (b) the amending publications (Stb/Trb) that change, introduce or "
+        "repeal one of its articles. ``via`` says how the dossier is linked "
+        "(``instrument`` or ``amending_publication``; in the latter case "
+        "``publication`` names the newest publication). ``total`` is the "
+        "absolute count, independent of ``limit``."
     ),
     tags=["instruments"],
 )
@@ -448,32 +434,61 @@ def get_instrument_dossiers_route(
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentDossiersResponse:
     rows, total = get_instrument_dossiers(store, bwb_id, limit=limit)
-    items = [
-        InstrumentDossierItem(
-            id=d.get("_id") or "",
-            key=d.get("_key") or "",
-            kamerstuknummer=_props(d).get("kamerstuknummer"),
-            titel=_props(d).get("titel"),
-            display_name=_props(d).get("display_name"),
-            huidige_fase=_props(d).get("huidige_fase"),
-            geopend_op=_props(d).get("geopend_op"),
-            afgedaan=_props(d).get("afgedaan"),
+    items = []
+    for row in rows:
+        d = row["dossier"]
+        items.append(
+            InstrumentDossierItem(
+                id=d.get("_id") or "",
+                key=d.get("_key") or "",
+                dossier_number=_props(d).get("number"),
+                title=_props(d).get("title"),
+                display_name=_props(d).get("display_name"),
+                stage=_props(d).get("current_stage"),
+                opened_on=_props(d).get("opened_on"),
+                closed=_props(d).get("closed"),
+                via=row["via"],
+                publication=row.get("publication"),
+            )
         )
-        for d in rows
-    ]
     return InstrumentDossiersResponse(bwb_id=bwb_id, total=total, items=items)
+
+
+@router.get(
+    "/{bwb_id}/amended-by",
+    response_model=AmendedByResponse,
+    summary="Amending publications of a regulation",
+    description=(
+        "The amending instruments (Staatsblad, Tractatenblad, ...) that change, "
+        "introduce or repeal articles of this regulation (AMENDS / INTRODUCES / "
+        "REPEALS), newest first. Per publication: the edge count per kind, the "
+        "number of articles affected, the first effective date and the "
+        "dossiers. ``total`` is the absolute count, independent of ``limit`` "
+        "and ``offset``."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_amended_by_route(
+    bwb_id: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> AmendedByResponse:
+    data = get_instrument_amended_by(store, bwb_id, limit=limit, offset=offset)
+    items = [AmendingInstrumentDTO.from_row(r, data.dossier_titles) for r in data.items]
+    return AmendedByResponse(bwb_id=bwb_id, total=data.total, items=items)
 
 
 @router.get(
     "/{bwb_id}/related-instruments",
     response_model=InstrumentRelatedResponse,
-    summary="Andere instrumenten die hieraan refereren (of waarvan dit refereert)",
+    summary="Instruments referring to this one, or referred to by it",
     description=(
-        "Aggregatie van REFERS_TO_ARTICLE edges tussen artikelen van deze wet "
-        "en artikelen van andere wetten. Per gerelateerd instrument staat "
-        "`outbound_count` (refs vanuit deze wet naar de andere) en "
-        "`inbound_count` (refs vanuit de andere wet naar deze). ``total`` is "
-        "het absolute aantal (onafhankelijk van ``limit``)."
+        "An aggregation of the REFERS_TO edges between articles of this law and "
+        "articles of other laws. Each related instrument carries "
+        "`outbound_count` (references from this law to the other) and "
+        "`inbound_count` (references from the other law to this one). "
+        "``total`` is the absolute count, independent of ``limit``."
     ),
     tags=["instruments"],
 )
@@ -505,11 +520,11 @@ def get_instrument_related_route(
 @router.get(
     "/{bwb_id}/versions",
     response_model=InstrumentVersionsResponse,
-    summary="Historische versies van een instrument",
+    summary="Historical versions of an instrument",
     description=(
-        "Alle historische toestanden (versies) van een BWB-wet, gesorteerd van "
-        "nieuwste naar oudste. Elke versie heeft een geldigheidsperiode "
-        "(valid_from, valid_until). De huidige versie heeft ``current=true``."
+        "Every historical toestand (version) of a BWB law, newest first. Each "
+        "version carries a validity period (valid_from, valid_until); the "
+        "current one has ``current=true``."
     ),
     tags=["instruments"],
 )
@@ -525,15 +540,15 @@ def list_instrument_versions(
 @router.get(
     "/{bwb_id}/articles/at/{at_date}",
     response_model=InstrumentArticlesAtResponse,
-    summary="Artikelen op een specifieke datum",
+    summary="Articles as they stood on a given date",
     description=(
-        "Geeft alle artikelen van een BWB-instrument zoals ze golden op ``at_date`` "
-        "(formaat YYYY-MM-DD). Gebruikt de historische versie-tabel; valt terug op "
-        "lege lijst als er geen historische data beschikbaar is."
+        "The articles of a BWB instrument as they applied on ``at_date`` "
+        "(YYYY-MM-DD), read from the article versions. Empty when no version "
+        "covers that date."
     ),
     tags=["instruments"],
 )
-def list_instrument_articles_at(
+def list_articles_at(
     bwb_id: str,
     at_date: str,
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -544,7 +559,7 @@ def list_instrument_articles_at(
         raise HTTPException(
             status_code=422, detail="at_date must be YYYY-MM-DD"
         ) from None
-    docs = get_instrument_articles_at(store, bwb_id, at_date)
+    docs = get_articles_at(store, bwb_id, at_date)
     items = [
         InstrumentArticleVersionDTO(
             key=d["_key"],
@@ -568,11 +583,11 @@ def list_instrument_articles_at(
 @router.get(
     "/{bwb_id}/articles/{article_number}/history",
     response_model=InstrumentArticleVersionsResponse,
-    summary="Historische versies van één artikel",
+    summary="Historical versions of one article",
     description=(
-        "Volledige versiegeschiedenis van één artikel, nieuwste versie eerst. "
-        "Elk item bevat de artikeltekst en een ``diff`` ten opzichte van de "
-        "vorige versie (unified diff formaat)."
+        "The full version history of one article, newest first. Each item "
+        "carries the article text and a ``diff`` against the previous version "
+        "(unified diff format)."
     ),
     tags=["instruments"],
 )
@@ -601,3 +616,60 @@ def get_article_version_history(
         article_number=article_number,
         items=items,
     )
+
+
+@router.get(
+    "/{bwb_id}/cross-law-dependencies",
+    response_model=CrossLawDependenciesResponse,
+    summary="References to articles of other laws",
+    description=(
+        "Article references from this law into articles of other laws, with "
+        "the semantic type where one has been classified."
+    ),
+    tags=["instruments"],
+)
+def get_cross_law_dependencies_route(
+    bwb_id: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=1000)] = 200,
+) -> CrossLawDependenciesResponse:
+    rows = get_cross_law_dependencies(store, bwb_id, limit=limit)
+    dependencies = [
+        CrossLawDependencyItem(
+            source_article=ArticleRelationDTO.from_documents(
+                row["source_article"], None
+            ),
+            target_article=ArticleRelationDTO.from_documents(row["target"], None),
+            semantic_type=(row.get("edge") or {}).get("semantic_type"),
+            explanation=(row.get("edge") or {}).get("explanation"),
+            confidence=(row.get("edge") or {}).get("confidence"),
+        )
+        for row in rows
+    ]
+    return CrossLawDependenciesResponse(bwb_id=bwb_id, dependencies=dependencies)
+
+
+@router.get(
+    "/{bwb_id}/shared-annexes",
+    response_model=SharedAnnexesResponse,
+    summary="Annexes shared with other laws",
+    description=(
+        "The annexes connecting this law to others: its own annexes that other "
+        "laws refer to, and annexes of other laws that articles of this law "
+        "refer to."
+    ),
+    tags=["instruments"],
+)
+def get_shared_annexes_route(
+    bwb_id: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+) -> SharedAnnexesResponse:
+    rows = get_shared_annexes_for_law(store, bwb_id)
+    items = [
+        AnnexListItem(
+            annex=AnnexDTO.from_document(row["annex"]),
+            referencing_laws=list(row.get("referencing_laws") or []),
+        )
+        for row in rows
+    ]
+    return SharedAnnexesResponse(bwb_id=bwb_id, annexes=items)

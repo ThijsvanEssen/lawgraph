@@ -11,7 +11,7 @@ Three gap types are addressed:
    ECLI was cited but the full document was never fetched.  With ``--apply`` the
    missing ECLIs are retrieved from the Rechtspraak API and normalized.
 
-3. **MvT text** — publications whose ``props.soort`` contains "toelichting" but
+3. **MvT text** — documents whose ``props.kind`` contains "toelichting" but
    whose ``props.text`` is still empty.  With ``--apply`` the text is fetched from
    the TK API (PDF → plain text).
 
@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import re
 import textwrap
 import time
 from typing import Any, cast
@@ -45,20 +44,21 @@ from typing import Any, cast
 from dotenv import load_dotenv
 
 from lawgraph.clients.bwb import BWBClient
+from lawgraph.core.bwb_xml import parse_toestand
+from lawgraph.core.identifiers import find_celex_ids
 from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.normalize._xml import local_name as _local
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
-from lawgraph.pipelines.retrieve.tk_content import TKTextHydratePipeline
-from lawgraph.pipelines.semantic.bwb_articles import BwbArticlesSemanticPipeline
+from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
 from lawgraph.pipelines.semantic.judgment_citations import (
     JudgmentCitationsSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.rechtspraak_articles import (
-    RechtspraakArticleSemanticPipeline,
+    RechtspraakArticlesSemanticPipeline,
 )
 
 logger = get_logger(__name__)
@@ -266,7 +266,7 @@ def _apply_bwb_gaps(
 
     if not args.no_semantic:
         logger.info("Running BWB semantic pipeline for new laws…")
-        sem_result = BwbArticlesSemanticPipeline(store=store).run()
+        sem_result = BWBArticlesSemanticPipeline(store=store).run()
         logger.info("BWB semantic: %s.", sem_result.summary())
 
 
@@ -297,7 +297,7 @@ def _apply_case_law_gaps(
         logger.info("Judgment citations: %s.", jc_result.summary())
 
         logger.info("Running rechtspraak article semantic pipeline…")
-        ra_result = RechtspraakArticleSemanticPipeline(store=store).run()
+        ra_result = RechtspraakArticlesSemanticPipeline(store=store).run()
         logger.info("Rechtspraak article links: %s.", ra_result.summary())
 
 
@@ -310,7 +310,7 @@ def _apply_eu_gaps(
     if args.no_eurlex or not stub_celex_ids:
         return
 
-    from lawgraph.pipelines.normalize.eurlex import EUNormalizePipeline
+    from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
     from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 
     logger.info("Fetching %d stub EU instruments from EUR-Lex…", len(stub_celex_ids))
@@ -319,7 +319,7 @@ def _apply_eu_gaps(
         celex_ids=stub_celex_ids
     )
     logger.info("EUR-Lex retrieve: %s.", eu_retrieve_result.summary())
-    eu_norm_result = EUNormalizePipeline(store=store).run(since=eu_retrieve_since)
+    eu_norm_result = EurlexNormalizePipeline(store=store).run(since=eu_retrieve_since)
     logger.info("EUR-Lex normalize: %s.", eu_norm_result.summary())
 
 
@@ -336,8 +336,8 @@ def _apply_echr_gaps(
         logger.info("No stub ECHR judgments found.")
         return
 
-    from lawgraph.pipelines.normalize.echr import EchrNormalizePipeline
-    from lawgraph.pipelines.retrieve.echr import EchrRetrievePipeline
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+    from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 
     logger.info(
         "Targeted ECHR re-fetch not yet implemented — processing %d stubs via full retrieve.",
@@ -346,9 +346,9 @@ def _apply_echr_gaps(
     if stub_echr_eclis:
         logger.debug("Stub ECLIs: %s", stub_echr_eclis[:20])
     echr_retrieve_since = dt.datetime.now(dt.timezone.utc)
-    echr_retrieve_result = EchrRetrievePipeline(store=store).run()
+    echr_retrieve_result = ECHRRetrievePipeline(store=store).run()
     logger.info("ECHR retrieve: %s.", echr_retrieve_result.summary())
-    echr_norm_result = EchrNormalizePipeline(store=store).run(since=echr_retrieve_since)
+    echr_norm_result = ECHRNormalizePipeline(store=store).run(since=echr_retrieve_since)
     logger.info("ECHR normalize: %s.", echr_norm_result.summary())
 
 
@@ -390,7 +390,7 @@ def _apply_mvt_gaps(
     args: argparse.Namespace,
     mvt_gap: list[dict[str, Any]],
 ) -> None:
-    """Hydrate MvT text for publications whose text is still empty."""
+    """Hydrate MvT text for documents whose text is still empty."""
     if args.no_mvt:
         logger.info("Skipping MvT hydration (--no-mvt).")
         return
@@ -399,7 +399,7 @@ def _apply_mvt_gaps(
         return
 
     logger.info("Fetching %d missing MvT text(s)…", len(mvt_gap))
-    mvt_result = TKTextHydratePipeline(store=store).run(soort_filter="toelichting")
+    mvt_result = TKContentRetrievePipeline(store=store).run(kind_filter="toelichting")
     logger.info("MvT hydration: %s.", mvt_result.summary())
 
 
@@ -409,7 +409,7 @@ def _apply_mvt_gaps(
 def _query_stub_articles(store: ArangoStore) -> list[dict[str, Any]]:
     """Return stub article groups sorted by reference count descending."""
     aql = """
-    FOR doc IN instrument_articles
+    FOR doc IN articles
       FILTER doc.props.stub == true AND doc.props.bwb_id != null
       COLLECT bwb_id = doc.props.bwb_id WITH COUNT INTO cnt
       SORT cnt DESC
@@ -431,17 +431,17 @@ def _query_stub_judgments(store: ArangoStore) -> list[str]:
 
 
 def _query_mvt_gap(store: ArangoStore) -> list[dict[str, Any]]:
-    """Return publications with soort ∋ 'toelichting' and no stored text."""
+    """Return documents with kind ∋ 'toelichting' and no stored text."""
     aql = """
-    FOR pub IN publications
-      FILTER CONTAINS(LOWER(pub.props.soort), 'toelichting')
+    FOR pub IN documents
+      FILTER CONTAINS(LOWER(pub.props.kind), 'toelichting')
         AND (pub.props.text == null OR pub.props.text == '')
         AND pub.props.external_id != null
       LIMIT 50000
       RETURN {
         key: pub._key,
         title: pub.props.title,
-        soort: pub.props.soort,
+        kind: pub.props.kind,
         external_id: pub.props.external_id
       }
     """
@@ -477,8 +477,6 @@ def _resolve_names_from_bwb(
     Caps at *max_lookups* HTTP calls so the diagnostic stays fast.  Only fetches
     the XML toestand (small — header only is enough for the <citeertitel> tag).
     """
-    import xml.etree.ElementTree as ET
-
     from lawgraph.clients.bwb import BWBClient
 
     result = dict(known)
@@ -493,11 +491,9 @@ def _resolve_names_from_bwb(
             if not meta:
                 continue
             xml_text = client.fetch_toestand_xml(meta)
-            root = ET.fromstring(xml_text)
-            for node in root.iter():
-                if _local(node.tag) == "citeertitel" and node.text:
-                    result[bwb_id.upper()] = node.text.strip()
-                    break
+            citation_title = parse_toestand(xml_text).citation_title
+            if citation_title:
+                result[bwb_id.upper()] = citation_title
         except Exception as exc:
             logger.debug("Could not resolve title for %s: %s", bwb_id, exc)
         time.sleep(0.1)  # gentle rate limit
@@ -559,9 +555,6 @@ def _print_verdrag_stub_report(ids: list[str]) -> None:
         print(f"    … and {len(ids) - 20} more")
 
 
-_CELEX_PATTERN = re.compile(r"\b3\d{4}[CLRDF]\d{4}\b", re.IGNORECASE)
-
-
 def _query_stub_celex_ids(store: ArangoStore) -> list[str]:
     """Find CELEX IDs referenced in BWB article text but not yet loaded from EUR-Lex."""
     # CELEX IDs already in instruments collection
@@ -583,15 +576,14 @@ def _query_stub_celex_ids(store: ArangoStore) -> list[str]:
 
     # Scan BWB article text for CELEX references
     aql_texts = """
-    FOR art IN instrument_articles
+    FOR art IN articles
       FILTER art.props.bwb_id != null
       FILTER art.props.text != null
       RETURN art.props.text
     """
     found: set[str] = set()
     for text in store.query(aql_texts):
-        for m in _CELEX_PATTERN.finditer(str(text)):
-            celex = m.group(0).upper()
+        for celex in find_celex_ids(str(text)):
             if celex not in known:
                 found.add(celex)
 
@@ -704,7 +696,7 @@ def _print_mvt_report(gap: list[dict[str, Any]]) -> None:
     )
     for pub in gap:
         title = (pub.get("title") or pub.get("key") or "")[:70]
-        soort = pub.get("soort") or ""
-        print(f"    [{soort}] {title}")
+        kind = pub.get("kind") or ""
+        print(f"    [{kind}] {title}")
     print()
     print("  Note: scanned PDFs may fail text extraction; check logs after --apply.")

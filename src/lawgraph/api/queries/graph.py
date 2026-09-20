@@ -5,7 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_JUDGMENTS
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    RELATION_AMENDS,
+    RELATION_EXPLAINS,
+    RELATION_IMPLEMENTS,
+    RELATION_PART_OF,
+    RELATION_REFERS_TO,
+)
 from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
@@ -48,16 +57,12 @@ class GlobalGraphData:
 
 
 def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
-    """Return all non-stub instruments and aggregated inter-instrument citation edges.
+    """Return all non-stub instruments and aggregated inter-instrument reference edges.
 
-    Performance: the previous shape used ``DOCUMENT(e._from)`` and
-    ``DOCUMENT(e._to)`` for every REFERS_TO_ARTICLE edge (~60K × 2 random
-    key lookups, ~1.3 s wall on this corpus). We now scan
-    ``instrument_articles`` once into an in-memory ``id → bwb_id`` map and
-    look up each edge endpoint against it. Same result, ~7× faster.
-
-    Instruments are projected to the props the DTO reads — full docs (with
-    long ``raw_xml`` / ``text``) are never materialised on this path.
+    ``articles`` is scanned once into an ``id → bwb_id`` map and every edge
+    endpoint is resolved against it, so no per-edge ``DOCUMENT()`` lookup is
+    needed. Instruments are projected to the props the DTO reads — full docs
+    (with long ``raw_xml`` / ``text``) never materialise on this path.
     """
     instruments: list[dict[str, Any]] = list(
         store.query(
@@ -96,12 +101,12 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
         store.query(
             f"""
         LET id_to_bwb = MERGE(
-            FOR a IN instrument_articles
+            FOR a IN articles
                 FILTER a.props.bwb_id != null
                 RETURN {{ [a._id]: a.props.bwb_id }}
         )
         FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == "REFERS_TO_ARTICLE"
+            FILTER e.relation == "{RELATION_REFERS_TO}"
             LET fbwb = id_to_bwb[e._from]
             LET tbwb = id_to_bwb[e._to]
             FILTER fbwb != null AND tbwb != null AND fbwb != tbwb
@@ -121,7 +126,7 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
                 GraphEdge(
                     from_id=fid,
                     to_id=tid,
-                    relation_type="verwijst_naar",
+                    relation_type=RELATION_REFERS_TO,
                     weight=float(row["weight"]),
                 )
             )
@@ -131,9 +136,9 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
         store.query(
             f"""
         FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation IN ["IMPLEMENTS_DIRECTIVE", "AMENDS_INSTRUMENT", "MENTIONS_INSTRUMENT"]
-            FILTER SPLIT(e._from, "/")[0] IN ["instruments", "instrument_articles"]
-            FILTER SPLIT(e._to, "/")[0] == "instruments"
+            FILTER e.relation IN ["{RELATION_IMPLEMENTS}", "{RELATION_AMENDS}", "{RELATION_REFERS_TO}"]
+            FILTER SPLIT(e._from, "/")[0] IN ["{COLLECTION_INSTRUMENTS}", "{COLLECTION_ARTICLES}"]
+            FILTER SPLIT(e._to, "/")[0] == "{COLLECTION_INSTRUMENTS}"
             RETURN {{from_id: e._from, to_id: e._to, relation_type: e.relation}}
     """
         )
@@ -201,20 +206,19 @@ def get_judgment_graph(
 
     judgment_ids = {j["_id"] for j in judgments}
 
-    # Article-id → bwb_id map (one scan), then aggregate CITES_ARTICLE edges
-    # by dict lookup. Replaces the per-edge DOCUMENT() lookup that was the
-    # bottleneck (~60K key fetches just to read a single prop each).
+    # Article-id → bwb_id map (one scan), then aggregate the judgment → article
+    # references by dict lookup instead of a DOCUMENT() call per edge.
     rows = list(
         store.query(
             f"""
         LET id_to_bwb = MERGE(
-            FOR a IN instrument_articles
+            FOR a IN articles
                 FILTER a.props.bwb_id != null
                 RETURN {{ [a._id]: a.props.bwb_id }}
         )
         FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == "CITES_ARTICLE"
-            FILTER STARTS_WITH(e._from, "judgments/")
+            FILTER e.relation == "{RELATION_REFERS_TO}"
+            FILTER STARTS_WITH(e._from, "{COLLECTION_JUDGMENTS}/")
             LET bwb = id_to_bwb[e._to]
             FILTER bwb != null
             RETURN {{ judgment_id: e._from, bwb_id: bwb }}
@@ -258,7 +262,7 @@ def get_judgment_graph(
                 GraphEdge(
                     from_id=jid,
                     to_id=iid,
-                    relation_type="citeert_wet",
+                    relation_type=RELATION_REFERS_TO,
                     weight=float(weight),
                 )
             )
@@ -287,7 +291,7 @@ def get_global_graph(
     articles: list[dict[str, Any]] = list(
         store.query(
             """
-        FOR art IN instrument_articles
+        FOR art IN articles
             LIMIT 5000
             RETURN art
     """
@@ -320,8 +324,8 @@ def get_global_graph(
             f"""
         FOR e IN {COLLECTION_EDGES}
             FILTER e.relation IN [
-                "CITES_ARTICLE", "MENTIONS_ARTICLE", "EXPLAINS_ARTICLE",
-                "PART_OF_INSTRUMENT", "IMPLEMENTS_DIRECTIVE", "AMENDS_INSTRUMENT"
+                "{RELATION_REFERS_TO}", "{RELATION_EXPLAINS}",
+                "{RELATION_PART_OF}", "{RELATION_IMPLEMENTS}", "{RELATION_AMENDS}"
             ]
             FILTER e._from IN @ids AND e._to IN @ids
             LIMIT 10000

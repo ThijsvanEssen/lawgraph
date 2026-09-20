@@ -1,4 +1,4 @@
-"""Semantic pipeline: Staatscourant ministeriele regelingen → EXPLAINS_INSTRUMENT.
+"""Semantic pipeline: Staatscourant ministerial regulations → EXPLAINS.
 
 Ministeriele regelingen almost always ground themselves explicitly in a parent
 law (the grondslag). We link via three strategies, in descending confidence:
@@ -11,14 +11,14 @@ law (the grondslag). We link via three strategies, in descending confidence:
 from __future__ import annotations
 
 import datetime as dt
-import re
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
-    RELATION_EXPLAINS_INSTRUMENT,
+    RELATION_EXPLAINS,
     SOURCE_STAATSCOURANT,
 )
+from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
 from lawgraph.core.time import iso_timestamp
@@ -28,7 +28,6 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "staatscourant-regeling-linker"
-_BWBR_PATTERN = re.compile(r"\b(BWBR0\d{6})\b", re.IGNORECASE)
 
 _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
     "bwb_id": 0.92,
@@ -38,16 +37,16 @@ _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
 
 
 class StaatscourantRegelingSemanticPipeline(SemanticPipelineBase):
-    """Links Staatscourant ministeriele regelingen to BWB instruments via EXPLAINS_INSTRUMENT."""
+    """Links Staatscourant ministerial regulations to BWB instruments via EXPLAINS."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
-        since_filter = "FILTER pub.props.datum >= @since_iso" if since else ""
+        since_filter = "FILTER pub.props.date >= @since_iso" if since else ""
 
         # Strategy 1: explicit bwb_id stored during normalization
         aql_bwb = f"""
-FOR pub IN publications
+FOR pub IN documents
   FILTER pub.props.source == @source
   FILTER pub.props.bwb_id != null
   {since_filter}
@@ -67,7 +66,7 @@ FOR pub IN publications
 
         # Strategy 2: title match against citation_title
         aql_title = f"""
-FOR pub IN publications
+FOR pub IN documents
   FILTER pub.props.source == @source
   FILTER pub.props.bwb_id == null
   FILTER pub.props.title != null AND LENGTH(pub.props.title) > 5
@@ -109,6 +108,7 @@ FOR pub IN publications
         )
 
         seen: set[tuple[str, str]] = set()
+        edge_batch: list[dict[str, Any]] = []
         for row in rows:
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")
@@ -130,8 +130,8 @@ FOR pub IN publications
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
             pub_node = Node(
-                collection=collection_from_id(pub_id, "publications"),
-                type=NodeType.PUBLICATION,
+                collection=collection_from_id(pub_id, "documents"),
+                type=NodeType.DOCUMENT,
                 key=pub_key,
                 props={},
             )
@@ -142,20 +142,20 @@ FOR pub IN publications
                 props={},
             )
 
-            created = self._create_semantic_edge(
-                from_node=pub_node,
-                to_node=inst_node,
-                relation=RELATION_EXPLAINS_INSTRUMENT,
-                source=SEMANTIC_SOURCE,
-                confidence=confidence,
-                meta={"match_type": match_type},
-                result=result,
+            self._queue_edge(
+                edge_batch,
+                self._make_edge_doc(
+                    from_node=pub_node,
+                    to_node=inst_node,
+                    relation=RELATION_EXPLAINS,
+                    source=SEMANTIC_SOURCE,
+                    confidence=confidence,
+                    meta={"match_type": match_type},
+                ),
+                result,
             )
-            if created:
-                result.created += 1
-            else:
-                result.updated += 1
 
+        self._write_batch(edge_batch, result)
         logger.info("Staatscourant regeling semantic: %s.", result.summary())
         return result
 
@@ -163,9 +163,9 @@ FOR pub IN publications
         self, already_matched: set[str], *, since: dt.datetime | None = None
     ) -> list[dict[str, Any]]:
         """Find BWBR IDs in regeling text and match to instruments."""
-        since_filter = "FILTER pub.props.datum >= @since_iso" if since else ""
+        since_filter = "FILTER pub.props.date >= @since_iso" if since else ""
         aql = f"""
-FOR pub IN publications
+FOR pub IN documents
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 100
   {since_filter}
@@ -190,7 +190,7 @@ FOR pub IN publications
             if pub_id in already_matched:
                 continue
             text = pub.get("text") or ""
-            bwb_ids = {m.group(1).upper() for m in _BWBR_PATTERN.finditer(text)}
+            bwb_ids = {m.group(1).upper() for m in BWB_ID_PATTERN.finditer(text)}
             for bwb_id in bwb_ids:
                 pub_bwb_pairs.append((pub_id, pub.get("pub_key") or "", bwb_id))
                 all_bwb_ids.add(bwb_id)

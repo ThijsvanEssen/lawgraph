@@ -6,6 +6,23 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from lawgraph.api.queries._helpers import _ensure_doc, _extract_confidence
+from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
+    COLLECTION_ARTICLES,
+    COLLECTION_CASES,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
+    COLLECTION_TOPICS,
+    RELATION_MEMBER_OF,
+    RELATION_VOTED,
+)
 from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
@@ -19,19 +36,19 @@ class UnsupportedCollectionError(ValueError):
 
 
 _ALLOWED_NODE_COLLECTIONS = {
-    "instruments",
-    "instrument_articles",
-    "judgments",
-    "procedures",
-    "publications",
-    "topics",
-    "kamerstukdossiers",
-    "activiteiten",
-    "stemmingen",
-    "toezeggingen",
-    "commissies",
-    "leden",
-    "fracties",
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_ARTICLES,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_CASES,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_TOPICS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_ACTIVITIES,
+    COLLECTION_DECISIONS,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_MEMBERS,
+    COLLECTION_FACTIONS,
 }
 
 _DEFAULT_NEIGHBOR_LIMIT = 100
@@ -39,11 +56,11 @@ _DEFAULT_PER_RELATION_CAP = 30
 
 # Per-collection per-relation caps for edge sets that grow without bound on a
 # single node. Frontends that need more should call collection-specific
-# endpoints (e.g. /api/leden/{key}/votes) rather than the generic node graph.
+# endpoints rather than the generic node graph.
 _PER_RELATION_CAPS_BY_COLLECTION: dict[str, dict[str, int]] = {
-    "fracties": {"STEMT": 20, "LID_VAN_FRACTIE": 50},
-    "leden": {"STEMT": 20, "LID_VAN_FRACTIE": 5},
-    "stemmingen": {"STEMT": 50},
+    COLLECTION_FACTIONS: {RELATION_VOTED: 20, RELATION_MEMBER_OF: 50},
+    COLLECTION_MEMBERS: {RELATION_VOTED: 20, RELATION_MEMBER_OF: 5},
+    COLLECTION_DECISIONS: {RELATION_VOTED: 50},
 }
 
 
@@ -103,16 +120,13 @@ def get_node_neighborhood(
 ) -> dict[str, Any]:
     """Server-side BFS — returns all nodes + edges within ``depth`` hops.
 
-    Replaces N sequential ``/api/nodes/{coll}/{key}`` round trips. ArangoDB's
-    native ANY traversal walks the unified-edge collection in one query;
-    ``uniqueVertices: 'global'`` keeps the result deduplicated across
-    branches. ``cap`` bounds the discovered vertex count so a hub node
-    can't flood the response.
+    ArangoDB's native ANY traversal walks the unified-edge collection in one
+    query; ``uniqueVertices: 'global'`` keeps the result deduplicated across
+    branches, and ``cap`` bounds the discovered vertex count so a hub node
+    cannot flood the response.
 
-    Edges are taken straight from the traversal — they're already the
-    edges that form the BFS spanning tree, but we also surface any other
-    edges that connect two vertices in the kept set (filled in by a
-    second pass) so the frontend can render the full subgraph.
+    The result also carries every other edge that connects two vertices in the
+    kept set, so the frontend can render the full subgraph.
     """
     if collection not in _ALLOWED_NODE_COLLECTIONS:
         raise UnsupportedCollectionError("unsupported collection")
@@ -176,15 +190,14 @@ def _collect_neighbors(
 
     Per-relation caps are picked from a collection-specific table; relations
     without an explicit entry use ``per_relation_default``. Both caps run
-    inside ArangoDB so unbounded edge sets (e.g. fracties→stemmingen) never
-    materialise on the application side.
+    inside ArangoDB so unbounded edge sets (e.g. faction → decision votes)
+    never materialise on the application side.
     """
     caps = _per_relation_caps(node_id)
     # Bucket by (relation, neighbor_collection) so a single high-fanout
-    # relation that fans out to multiple collections (e.g. DEEL_VAN_DOSSIER on
-    # a dossier → activiteiten + publications + stemmingen) returns a sample
-    # from each, rather than the first N edges in storage order — which would
-    # otherwise drop whole collections.
+    # relation that reaches several collections (e.g. PART_OF on a dossier →
+    # cases + documents) returns a sample from each, rather than the first N
+    # edges in storage order — which would otherwise drop whole collections.
     aql = f"""
     LET _out = (FOR e IN {COLLECTION_EDGES} FILTER e._from == @node_id RETURN e)
     LET _in  = (FOR e IN {COLLECTION_EDGES} FILTER e._to   == @node_id RETURN e)

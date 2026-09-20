@@ -6,10 +6,12 @@ from typing import Callable, TypedDict
 
 from requests import Session
 
-from lawgraph.clients._sru import _local_name
 from lawgraph.clients.base import BaseClient
+from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
 from lawgraph.core.logging import get_logger
+from lawgraph.core.time import sortable_date
+from lawgraph.core.xml import local_name
 
 # Structural changes:
 # - SRU endpoint and base URL now live in lawgraph.config.settings.
@@ -17,6 +19,26 @@ from lawgraph.core.logging import get_logger
 
 
 logger = get_logger(__name__)
+
+
+# The SRU service returns at most 5000 records per page and silently caps larger
+# requests, so stay well below it.
+SRU_PAGE_SIZE = 1000
+
+
+def _raise_on_diagnostic(root: ET.Element, *, context: str) -> None:
+    """Raise when an SRU response is a ``<diagnostic>`` error, not a result page."""
+    for element in root.iter():
+        if local_name(element.tag) == "diagnostic":
+            message = next(
+                (
+                    (child.text or "").strip()
+                    for child in element.iter()
+                    if local_name(child.tag) == "message"
+                ),
+                "unknown SRU error",
+            )
+            raise RuntimeError(f"BWB SRU error ({context}): {message}")
 
 
 class ToestandMeta(TypedDict):
@@ -44,20 +66,22 @@ class BWBClient(BaseClient):
     def enumerate_all_ids(
         self,
         *,
-        types: tuple[str, ...] = ("wet", "amvb", "ministerieelebesluit", "regeling"),
-        max_records: int = 50000,
+        types: tuple[str, ...] = BWB_INSTRUMENT_TYPES,
+        max_records: int = 150_000,
     ) -> list[str]:
-        """Enumerate all BWBR IDs via SRU wildcard queries, one query per document type.
+        """Enumerate all BWBR IDs via SRU, one query per ``dcterms.type``.
 
-        The SRU service at zoekservice.overheid.nl supports CQL queries with
-        ``dcterms.type=<type>`` and paginates via ``startRecord``. We collect
-        all distinct BWBR IDs across the requested document types.
+        The SRU service at zoekservice.overheid.nl returns one record per
+        *toestand* (version), so many pages repeat the same BWBR id; the result
+        is de-duplicated. Type values are case-sensitive (``AMvB``,
+        ``ministeriele-regeling``). A service error (``<diagnostic>``) raises
+        instead of silently yielding an empty list.
 
-        ``max_records`` is a safety cap per type to avoid runaway fetches.
+        ``max_records`` is a safety cap per type on *records* (not ids).
         """
         all_ids: list[str] = []
         seen: set[str] = set()
-        page_size = 100
+        page_size = SRU_PAGE_SIZE
 
         for doc_type in types:
             logger.info("Enumerating BWB IDs for type=%s", doc_type)
@@ -67,39 +91,35 @@ class BWBClient(BaseClient):
                     "operation": "searchRetrieve",
                     "version": "1.2",
                     "x-connection": "BWB",
-                    "query": f"dcterms.type={doc_type}",
+                    "query": f'dcterms.type=="{doc_type}"',
                     "maximumRecords": str(page_size),
                     "startRecord": str(start),
-                    "recordSchema": "http://standaarden.overheid.nl/sru",
                 }
-                try:
-                    resp = self._get_raw_absolute_with_retry(
-                        BWB_SRU_ENDPOINT, params=params, timeout=60
-                    )
-                    root = ET.fromstring(resp.text)
-                except Exception as exc:
-                    logger.warning(
-                        "SRU enumeration error (type=%s, start=%d): %s",
-                        doc_type,
-                        start,
-                        exc,
-                    )
-                    break
+                resp = self._get_raw_absolute_with_retry(
+                    BWB_SRU_ENDPOINT, params=params, timeout=60
+                )
+                root = ET.fromstring(resp.text)
+                _raise_on_diagnostic(root, context=f"type={doc_type} start={start}")
 
-                records_on_page: list[str] = []
+                records_on_page = 0
                 for element in root.iter():
-                    if _local_name(element.tag) != "record":
+                    if local_name(element.tag) != "record":
                         continue
+                    records_on_page += 1
                     meta = self._parse_record(element)
-                    if meta and meta["bwb_id"]:
-                        records_on_page.append(meta["bwb_id"])
-                        if meta["bwb_id"] not in seen:
-                            seen.add(meta["bwb_id"])
-                            all_ids.append(meta["bwb_id"])
+                    if meta and meta["bwb_id"] and meta["bwb_id"] not in seen:
+                        seen.add(meta["bwb_id"])
+                        all_ids.append(meta["bwb_id"])
 
-                if len(records_on_page) < page_size:
+                if records_on_page < page_size:
                     break
                 start += page_size
+            else:
+                logger.warning(
+                    "BWB enumeration hit max_records=%d for type=%s; ids may be missing.",
+                    max_records,
+                    doc_type,
+                )
 
             logger.info(
                 "Enumerated %d unique BWB IDs so far (type=%s done).",
@@ -132,7 +152,7 @@ class BWBClient(BaseClient):
 
         toestanden: list[ToestandMeta] = []
         for element in root.iter():
-            if _local_name(element.tag) != "record":
+            if local_name(element.tag) != "record":
                 continue
             meta = self._parse_record(element)
             if meta:
@@ -148,8 +168,8 @@ class BWBClient(BaseClient):
 
         def sort_key(meta: ToestandMeta) -> tuple[dt.date, dt.date]:
             return (
-                self._date_for_sort(meta.get("geldigheidsperiode_einddatum")),
-                self._date_for_sort(meta.get("geldigheidsperiode_startdatum")),
+                sortable_date(meta.get("geldigheidsperiode_einddatum")),
+                sortable_date(meta.get("geldigheidsperiode_startdatum")),
             )
 
         still_valid = [
@@ -221,7 +241,7 @@ class BWBClient(BaseClient):
             text = (element.text or "").strip()
             if not text:
                 continue
-            handler = handlers.get(_local_name(element.tag))
+            handler = handlers.get(local_name(element.tag))
             if handler:
                 handler(text)
 
@@ -240,13 +260,3 @@ class BWBClient(BaseClient):
                 "geldigheidsperiode_einddatum"
             ],
         }
-
-    @staticmethod
-    def _date_for_sort(value: str | None) -> dt.date:
-        """Coerce possibly missing dates into sortable dt.date values."""
-        if not value:
-            return dt.date.min
-        try:
-            return dt.date.fromisoformat(value)
-        except ValueError:
-            return dt.date.min

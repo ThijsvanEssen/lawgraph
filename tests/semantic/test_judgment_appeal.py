@@ -6,7 +6,7 @@ from lawgraph.pipelines.semantic.judgment_appeal import _APPEAL_PATTERN
 
 
 def _is_appeal(procedure: str) -> bool:
-    """Replicate the word-boundary check used in JudgmentAppealPipeline."""
+    """Replicate the word-boundary check used in JudgmentAppealSemanticPipeline."""
     return bool(_APPEAL_PATTERN.search(procedure.strip()))
 
 

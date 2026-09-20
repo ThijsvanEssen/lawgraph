@@ -1,8 +1,7 @@
-"""lawgraph.api.queries — public re-exports from the queries sub-package.
+"""lawgraph.api.queries — the public names of the queries sub-package.
 
-All names that were previously importable from ``lawgraph.api.queries``
-remain importable from here unchanged, so existing route and pipeline
-imports require no modification.
+Routes import query helpers from here rather than from the individual
+modules, so a helper can move between modules without touching its callers.
 """
 
 from __future__ import annotations
@@ -10,10 +9,21 @@ from __future__ import annotations
 # ── helpers ───────────────────────────────────────────────────────────────────
 from lawgraph.api.queries._helpers import props as props
 
+# ── annexes ───────────────────────────────────────────────────────────────────
+from lawgraph.api.queries.annexes import get_annex as get_annex
+from lawgraph.api.queries.annexes import (
+    get_annex_referenced_by as get_annex_referenced_by,
+)
+from lawgraph.api.queries.annexes import (
+    get_shared_annexes_for_law as get_shared_annexes_for_law,
+)
+from lawgraph.api.queries.annexes import list_annexes as list_annexes
+
 # ── articles ──────────────────────────────────────────────────────────────────
 from lawgraph.api.queries.articles import ArticleCitationEntry as ArticleCitationEntry
 from lawgraph.api.queries.articles import ArticleDetailData as ArticleDetailData
 from lawgraph.api.queries.articles import get_article_citations as get_article_citations
+from lawgraph.api.queries.articles import get_article_history as get_article_history
 from lawgraph.api.queries.articles import get_article_in_flux as get_article_in_flux
 from lawgraph.api.queries.articles import (
     get_article_legislative_history as get_article_legislative_history,
@@ -22,38 +32,40 @@ from lawgraph.api.queries.articles import (
     get_article_with_relations as get_article_with_relations,
 )
 
-# ── commissies ────────────────────────────────────────────────────────────────
-from lawgraph.api.queries.commissies import (
+# ── committees, members, factions ─────────────────────────────────────────────
+from lawgraph.api.queries.committees import (
     get_actor_touched_instruments as get_actor_touched_instruments,
 )
-from lawgraph.api.queries.commissies import get_all_commissies as get_all_commissies
-from lawgraph.api.queries.commissies import (
-    get_all_commissies_with_leden as get_all_commissies_with_leden,
+from lawgraph.api.queries.committees import get_committee_detail as get_committee_detail
+from lawgraph.api.queries.committees import get_committees as get_committees
+from lawgraph.api.queries.committees import (
+    get_committees_with_members as get_committees_with_members,
 )
-from lawgraph.api.queries.commissies import get_all_fracties as get_all_fracties
-from lawgraph.api.queries.commissies import get_all_leden as get_all_leden
-from lawgraph.api.queries.commissies import get_commissie_detail as get_commissie_detail
-from lawgraph.api.queries.commissies import get_lid_votes as get_lid_votes
+from lawgraph.api.queries.committees import get_factions as get_factions
+from lawgraph.api.queries.committees import get_member_votes as get_member_votes
+from lawgraph.api.queries.committees import get_members as get_members
+
+# ── decisions ─────────────────────────────────────────────────────────────────
+from lawgraph.api.queries.decisions import get_decision_detail as get_decision_detail
+from lawgraph.api.queries.decisions import (
+    get_decision_document as get_decision_document,
+)
+from lawgraph.api.queries.decisions import get_decisions as get_decisions
 
 # ── dossiers ──────────────────────────────────────────────────────────────────
-from lawgraph.api.queries.dossiers import DOSSIER_STAGES as DOSSIER_STAGES
-from lawgraph.api.queries.dossiers import DOSSIER_TRAJECT_KINDS as DOSSIER_TRAJECT_KINDS
 from lawgraph.api.queries.dossiers import DossierEnrichment as DossierEnrichment
-from lawgraph.api.queries.dossiers import classify_doc_soort as classify_doc_soort
-from lawgraph.api.queries.dossiers import classify_traject_kind as classify_traject_kind
-from lawgraph.api.queries.dossiers import classify_zaak_soort as classify_zaak_soort
 from lawgraph.api.queries.dossiers import count_dossier_members as count_dossier_members
 from lawgraph.api.queries.dossiers import enrich_dossier_docs as enrich_dossier_docs
 from lawgraph.api.queries.dossiers import (
     get_documents_for_dossiers as get_documents_for_dossiers,
 )
-from lawgraph.api.queries.dossiers import get_dossier_by_nummer as get_dossier_by_nummer
+from lawgraph.api.queries.dossiers import get_dossier_by_number as get_dossier_by_number
 from lawgraph.api.queries.dossiers import get_dossier_documents as get_dossier_documents
 from lawgraph.api.queries.dossiers import get_dossier_mutations as get_dossier_mutations
-from lawgraph.api.queries.dossiers import get_dossier_timeline as get_dossier_timeline
 from lawgraph.api.queries.dossiers import (
-    get_kamerstuknummer_to_id_map as get_kamerstuknummer_to_id_map,
+    get_dossier_number_to_id_map as get_dossier_number_to_id_map,
 )
+from lawgraph.api.queries.dossiers import get_dossier_timeline as get_dossier_timeline
 from lawgraph.api.queries.dossiers import get_open_dossiers as get_open_dossiers
 from lawgraph.api.queries.dossiers import get_recent_dossiers as get_recent_dossiers
 
@@ -71,14 +83,13 @@ from lawgraph.api.queries.graph import get_judgment_graph as get_judgment_graph
 # ── instruments ───────────────────────────────────────────────────────────────
 from lawgraph.api.queries.instruments import INSTRUMENT_SORTS as INSTRUMENT_SORTS
 from lawgraph.api.queries.instruments import InstrumentStats as InstrumentStats
+from lawgraph.api.queries.instruments import get_articles as get_articles
+from lawgraph.api.queries.instruments import get_articles_at as get_articles_at
+from lawgraph.api.queries.instruments import (
+    get_instrument_amended_by as get_instrument_amended_by,
+)
 from lawgraph.api.queries.instruments import (
     get_instrument_article_history as get_instrument_article_history,
-)
-from lawgraph.api.queries.instruments import (
-    get_instrument_articles as get_instrument_articles,
-)
-from lawgraph.api.queries.instruments import (
-    get_instrument_articles_at as get_instrument_articles_at,
 )
 from lawgraph.api.queries.instruments import (
     get_instrument_dossiers as get_instrument_dossiers,
@@ -122,6 +133,20 @@ from lawgraph.api.queries.nodes import (
 from lawgraph.api.queries.overlay import get_heat_counts as get_heat_counts
 from lawgraph.api.queries.overlay import get_in_flux_counts as get_in_flux_counts
 
+# ── relationships ─────────────────────────────────────────────────────────────
+from lawgraph.api.queries.relationships import (
+    get_article_relationship_data as get_article_relationship_data,
+)
+from lawgraph.api.queries.relationships import (
+    get_cross_law_dependencies as get_cross_law_dependencies,
+)
+from lawgraph.api.queries.relationships import resolve_article_id as resolve_article_id
+from lawgraph.api.queries.relationships import (
+    search_relationships as search_relationships,
+)
+from lawgraph.api.queries.relationships import tag_relationship as tag_relationship
+from lawgraph.api.queries.relationships import vote_relationship as vote_relationship
+
 # ── search ────────────────────────────────────────────────────────────────────
 from lawgraph.api.queries.search import build_search_clause as build_search_clause
 from lawgraph.api.queries.search import (
@@ -134,13 +159,6 @@ from lawgraph.api.queries.search import tokenize_search_query as tokenize_search
 # ── stats ─────────────────────────────────────────────────────────────────────
 from lawgraph.api.queries.stats import get_db_stats as get_db_stats
 from lawgraph.api.queries.stats import get_edge_status_log as get_edge_status_log
-
-# ── stemmingen ────────────────────────────────────────────────────────────────
-from lawgraph.api.queries.stemmingen import get_stemming_detail as get_stemming_detail
-from lawgraph.api.queries.stemmingen import (
-    get_stemming_publication as get_stemming_publication,
-)
-from lawgraph.api.queries.stemmingen import get_stemmingen as get_stemmingen
 
 # ── watches ───────────────────────────────────────────────────────────────────
 from lawgraph.api.queries.watches import create_watch as create_watch
