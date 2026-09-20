@@ -16,12 +16,9 @@ from __future__ import annotations
 import logging
 import time
 from collections import Counter
-from collections.abc import Callable, Iterable, Iterator
-from typing import TypeVar
+from collections.abc import Callable
 
 from lawgraph.core.time import format_duration
-
-T = TypeVar("T")
 
 PROGRESS_INTERVAL_SECONDS = 60.0
 
@@ -117,12 +114,6 @@ class Progress:
     def note(self, reason: str, example: object = None) -> None:
         """Count something worth knowing about a record that is fine (a text that was cut)."""
         self._count(self.notes, reason, example, 1, logging.WARNING, "Note")
-
-    def track(self, items: Iterable[T]) -> Iterator[T]:
-        """Pass *items* on, counting each as done once the consumer asks for the next."""
-        for item in items:
-            yield item
-            self.ok()
 
     def _count(
         self,
