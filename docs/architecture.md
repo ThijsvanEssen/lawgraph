@@ -99,7 +99,10 @@ document; keep working from the in-memory node. Node upserts merge `props` (shal
 union `labels`. Edge upserts overwrite `confidence`, `source`, `status`, merge `meta`, and
 leave `created_at` and all curated fields untouched.
 
-`ArangoStore` uses a request timeout of 620 s and `max_runtime=600` on AQL queries.
+`ArangoStore.query` streams every query that reads (the server would otherwise build the
+whole result in its memory first: 44,000 toestanden are 3.5 GB) and closes its cursor when
+the reader stops; a query that writes is not streamed and gets `max_runtime=600`. Bulk writes
+are sent again (after 2, 10 and 30 s) while the database is unreachable.
 `ArangoStore()` creates the database `ARANGO_DB_NAME` when it is missing (and the user may
 administer the server), then the missing collections, indexes, analyzers and search views.
 

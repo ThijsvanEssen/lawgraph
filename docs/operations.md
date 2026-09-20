@@ -131,6 +131,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph bootstrap [--window DATE] [--jobs N] [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve]` | `retrieve all --mode full --window DATE --jobs N` (default `730d` and one job per server; `all` loads the whole history of the producing sources), `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5) |
 | `lawgraph expand-graph [--max-iterations N] [--dry-run]` | repeats `fill-gaps --apply`, `normalize all`, `semantic all` while stub nodes keep disappearing (default 10 iterations); `--dry-run` only prints the `fill-gaps` report |
 | `lawgraph fill-gaps [--apply] [--min-stubs N] [--bwb-id ID ...] [--no-mvt] [--no-semantic] [--no-case-law] [--no-eurlex] [--no-echr] [--no-verdragen]` | reports stub laws (referenced by loaded instruments, ranked by reference count; laws with at least `--min-stubs`, default 3, are added), stub judgments, stub EU, ECHR and treaty records and toelichting texts without text; `--apply` retrieves and normalizes them |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
@@ -266,8 +267,27 @@ ruff check src tests
 ruff format --check src tests
 ```
 
-The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no test
-executes AQL, but `ALLOW_DB_TESTS=1` has the server validate every static query. Layout: `tests/api/` (routes), `tests/normalize/` and
+The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no unit
+test executes AQL, but `ALLOW_DB_TESTS=1` has the server validate every static query.
+
+What only a server shows is in `tests/integration`: the real code and the real CLI against a
+second, deliberately small ArangoDB (`arangodb-test` in `docker-compose.yml`: port 8530, 1 GB
+of memory, 256 MiB per query, a throw-away volume; never the database of `.env`).
+
+```bash
+docker compose --profile test up -d arangodb-test
+ALLOW_DB_TESTS=1 pytest tests/integration     # two minutes
+docker compose --profile test down -v
+```
+
+It seeds raw records in the shapes of the sources at any scale (`seed.py`) and checks: a
+result larger than the server may hold in memory streams; `normalize all` and `semantic all`
+produce every part of the model and a second run changes nothing; `lawgraph check` finds a
+source that was never normalized and an edge without its node; a database that restarts in
+the middle of a run, and a run that is killed, cost a re-run at most; a stub that is loaded
+stops being a stub; an incremental run links to what was loaded earlier. A problem found in
+a real run gets a test here first: small data on a small server fails the way the corpus
+does on the real one. Layout: `tests/api/` (routes), `tests/normalize/` and
 `tests/semantic/` (one file per source or detector), `tests/test_*.py` (clients, core helpers,
 bulk writers, registry, naming, conventions, relation catalogue, props). CI (`.github/workflows`) runs
 `pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format, end-of-file,
