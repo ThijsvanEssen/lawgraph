@@ -135,8 +135,12 @@ the XML of one judgment (`uitspraken/content?id=<ECLI>`).
 
 | Mode | Behaviour |
 |------|-----------|
-| `incremental` (default) | one index snapshot of judgments modified since `--since` (default `1d`); content only for ECLIs given with `--ecli` (repeatable) |
-| `full` | index pages of 1,000 from offset 0, stored as `full_page_<offset>` |
+| `incremental` (default) | the index pages of judgments modified since `--since` (default `1d`), 1,000 per page, stored as `index_<date>_<offset>` |
+| `full` | the index pages from offset 0 without a date filter, stored as `index_all_<offset>` (about 400 KB per page, over 4,000 pages: hundreds of MB) |
+
+Both modes store each page as it is fetched. `--ecli` (repeatable) also fetches the content of
+those judgments. Rechtspraak is not part of `retrieve all`: nothing reads the index, so
+loading it stores data no pipeline uses.
 
 Judgment content (`rs-content`) is stored only for ECLIs passed explicitly or fetched by
 `fill-gaps --apply` for stub judgments. No pipeline reads ECLIs out of the stored index pages,

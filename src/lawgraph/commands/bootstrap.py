@@ -1,10 +1,10 @@
 """``lawgraph bootstrap``: fill an empty database.
 
 Runs ``retrieve all --mode full``, ``normalize all``, ``semantic all`` and ``expand-graph``.
-The sources that keep producing (Tweede Kamer, Rechtspraak, Staatscourant, Eerste Kamer,
-ECHR) load a window (``--window``, default 730d; ``all`` loads their whole history), the
-reference sources (BWB, Verdragenbank) load in full, and the retrieve step runs its sources
-in parallel (``--jobs``). A failing phase does not stop the next one unless ``--strict`` is
+The sources that keep producing (Tweede Kamer, Staatscourant, Eerste Kamer, ECHR) load a
+window (``--window``, default 730d; ``all`` loads their whole history), the reference
+sources (BWB, Verdragenbank) load in full, and the retrieve step runs its sources in
+parallel (``--jobs``). A failing phase does not stop the next one unless ``--strict`` is
 given; the exit code is 1 when any phase failed.
 """
 

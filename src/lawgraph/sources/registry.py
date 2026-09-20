@@ -212,7 +212,8 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
             id="rechtspraak",
             display_name="Rechtspraak (judgments)",
             retrieve_main=retrieve_rechtspraak,
-            retrieve_argv_builder=_windowed_argv,
+            # Not in `retrieve all`: nothing reads the index (judgments come from `fill-gaps`
+            # and `--ecli`), so loading it only stores hundreds of MB.
             normalize_main=normalize,
             semantic_main=semantic,
             semantic_accepts_since=True,

@@ -117,7 +117,7 @@ def run_retrieve_all(argv: list[str] | None = None) -> None:
         type=_window,
         default=_window(DEFAULT_WINDOW),
         metavar="DATE",
-        help="Full mode: the sources that keep producing (Tweede Kamer, Rechtspraak, "
+        help="Full mode: the sources that keep producing (Tweede Kamer, "
         "Staatscourant, Eerste Kamer, ECHR) read only what changed since then. "
         "ISO date, relative (730d) or 'all' for the whole history. Default: "
         f"{DEFAULT_WINDOW}. Reference sources (BWB, Verdragenbank) are always read in full.",

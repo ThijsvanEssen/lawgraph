@@ -176,11 +176,14 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> None:
 
     def run() -> PipelineResult:
         pipeline = RechtspraakRetrievePipeline(ArangoStore())
-        if args.mode == "full":
-            return pipeline.run_full()
-        return pipeline.run(
-            fetch_index=True, since=args.since, extra_params=None, eclis=args.ecli or []
+        result = (
+            pipeline.run_full()
+            if args.mode == "full"
+            else pipeline.run_index(since=args.since)
         )
+        if args.ecli:
+            result = result.merge(pipeline.run(eclis=args.ecli))
+        return result
 
     run_step("Rechtspraak retrieve", run)
 

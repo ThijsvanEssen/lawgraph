@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from typing import Any
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
@@ -29,67 +29,33 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.rs = rs_client or RechtspraakClient()
 
-    def fetch(
+    def fetch(  # type: ignore[override]
         self,
-        *args: object,
-        fetch_index: bool = False,
-        since: dt.datetime | None = None,
-        extra_params: dict[str, Any] | None = None,
+        *,
         eclis: Sequence[str] | None = None,
         **kwargs: object,
-    ) -> Sequence[RetrieveRecord]:
-        """Return raw_records for Rechtspraak index snapshots and specific ECLI content."""
-        logger.info(
-            "Fetching Rechtspraak data (index=%s, eclis=%d).",
-            fetch_index,
-            len(eclis) if eclis else 0,
-        )
-        records: list[RetrieveRecord] = []
+    ) -> Iterator[RetrieveRecord]:
+        """Yield the content of each ECLI as it is downloaded.
 
-        if fetch_index:
-            xml_index = self.rs.fetch_ecli_index_xml(
-                modified_since=since,
-                extra_params=extra_params,
+        An ECLI stored in the last 24 hours is skipped (an interrupted run did it). The index
+        is a separate call: ``run_index``.
+        """
+        done = self._recently_stored(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT)
+        todo = [ecli for ecli in eclis or [] if ecli not in done]
+        logger.info("Fetching Rechtspraak content of %d ECLIs.", len(todo))
+        for ecli in todo:
+            try:
+                xml = self.rs.fetch_ecli_content(ecli)
+            except Exception as exc:
+                logger.warning("Skipping ECLI %s: %s", ecli, exc)
+                continue
+            yield RetrieveRecord(
+                source=SOURCE_RECHTSPRAAK,
+                kind=RAW_KIND_RS_CONTENT,
+                external_id=ecli,
+                payload_text=xml,
+                meta={"ecli": ecli},
             )
-            records.append(
-                RetrieveRecord(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_INDEX,
-                    external_id=None,
-                    payload_text=xml_index,
-                    meta={
-                        "modified_since": since.isoformat() if since else None,
-                        "extra_params": extra_params,
-                    },
-                )
-            )
-
-        if eclis:
-            for ecli in eclis:
-                try:
-                    xml = self.rs.fetch_ecli_content(ecli)
-                except Exception as exc:
-                    logger.warning("Skipping ECLI %s: %s", ecli, exc)
-                    continue
-                records.append(
-                    RetrieveRecord(
-                        source=SOURCE_RECHTSPRAAK,
-                        kind=RAW_KIND_RS_CONTENT,
-                        external_id=ecli,
-                        payload_text=xml,
-                        meta={"ecli": ecli},
-                    )
-                )
-
-        index_count = sum(1 for rec in records if rec.kind == RAW_KIND_RS_INDEX)
-        content_count = sum(1 for rec in records if rec.kind == RAW_KIND_RS_CONTENT)
-        logger.info(
-            "Rechtspraak retrieve created %d records (%d index, %d content).",
-            len(records),
-            index_count,
-            content_count,
-        )
-        return records
 
     def run_full(
         self,
@@ -97,18 +63,31 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         extra_params: dict[str, Any] | None = None,
         max_records: int = 5_000_000,
     ) -> PipelineResult:
-        """Full-load mode: paginate the entire Rechtspraak index without a date filter.
+        """Paginate the entire Rechtspraak index without a date filter."""
+        return self.run_index(
+            since=None, extra_params=extra_params, max_records=max_records
+        )
+
+    def run_index(
+        self,
+        *,
+        since: dt.datetime | None,
+        extra_params: dict[str, Any] | None = None,
+        max_records: int = 5_000_000,
+    ) -> PipelineResult:
+        """Paginate the Rechtspraak index, only what was modified since *since* if given.
 
         Fetches index pages with ``max=1000`` and ``from=N`` until a page smaller than
-        the page size is returned or ``max_records`` is reached.  Each page is stored as
-        a separate ``RAW_KIND_RS_INDEX`` raw record keyed by its offset so re-runs are
-        idempotent.
+        the page size is returned or ``max_records`` is reached. Each page is stored as
+        soon as it is fetched, as a separate ``RAW_KIND_RS_INDEX`` raw record keyed by its
+        window and offset, so a re-run is idempotent and an interrupted run keeps its pages.
         """
         result = PipelineResult()
         page_size = 1000
         start = 0
+        window = since.date().isoformat() if since else "all"
 
-        logger.info("Rechtspraak full-load: starting paginated index retrieval.")
+        logger.info("Rechtspraak index (modified since: %s): starting.", window)
 
         while start < max_records:
             params: dict[str, Any] = dict(extra_params or {})
@@ -117,7 +96,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
 
             try:
                 xml_text = self.rs.fetch_ecli_index_xml(
-                    modified_since=None, extra_params=params
+                    modified_since=since, extra_params=params
                 )
             except Exception as exc:
                 msg = f"Rechtspraak index fetch failed (from={start}): {exc}"
@@ -129,20 +108,19 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             record = RetrieveRecord(
                 source=SOURCE_RECHTSPRAAK,
                 kind=RAW_KIND_RS_INDEX,
-                external_id=f"full_page_{start}",
+                external_id=f"index_{window}_{start}",
                 payload_text=xml_text,
-                meta={"from": start, "max": page_size, "full_load": True},
+                meta={
+                    "from": start,
+                    "max": page_size,
+                    "full_load": since is None,
+                    "modified_since": since.isoformat() if since else None,
+                },
             )
-            try:
-                self._insert(record)
-                result.created += 1
-            except Exception as exc:
-                msg = f"Could not store Rechtspraak index page (from={start}): {exc}"
-                logger.error(msg)
-                result.add_error(msg)
-
+            self._store(record, result)
             logger.info(
-                "Rechtspraak full-load: stored index page from=%d (%d entries).",
+                "Rechtspraak index (%s): stored page from=%d (%d entries).",
+                window,
                 start,
                 entry_count,
             )
@@ -152,7 +130,8 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             start += page_size
 
         logger.info(
-            "Rechtspraak full-load completed: %d pages stored, %d errors.",
+            "Rechtspraak index (%s) completed: %d pages stored, %d errors.",
+            window,
             result.created,
             len(result.errors),
         )
