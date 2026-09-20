@@ -13,6 +13,20 @@ if TYPE_CHECKING:
 os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
 
 
+@pytest.fixture(autouse=True)
+def _own_pacer_locks(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> None:
+    """The host locks of the pacer in a directory of the test run, not the machine's.
+
+    A ``lawgraph retrieve`` running next to the suite holds the real locks, and the tests
+    would find every host "taken" and paced at half speed.
+    """
+    from lawgraph.clients import pacing
+
+    lock_dir = tmp_path_factory.getbasetemp() / "pacer-locks"
+    lock_dir.mkdir(exist_ok=True)
+    monkeypatch.setattr(pacing, "_lock_dir", lambda: lock_dir)
+
+
 @pytest.fixture()
 def patch_route_stores(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub get_store in route modules to prevent opening a real ArangoStore."""

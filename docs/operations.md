@@ -196,13 +196,15 @@ Every retrieve and normalize step is idempotent and safe to interrupt and re-run
 **Pacing.** Every client waits between requests to one host (`HOST_MIN_INTERVAL` in
 `config/constants.py`, 0.1 to 0.5 s, 0.2 s for an unlisted host). A host that answers HTTP
 429 or 503 makes the interval double, up to 10 s, or follow its `Retry-After`; it shrinks
-back while requests succeed. HTTP 429, 502, 503, 504 and connection errors are retried five
+back while requests succeed (halved after 35 of them). HTTP 429, 502, 503, 504 and connection errors are retried five
 times with a growing pause. `repository.overheid.nl` was measured to throttle from about five
 requests per second sustained, so the base interval there is 0.5 s. A `throttling` warning in
 the log means the pacer is slowing down; it is not an error. It appears at most once a minute
 per host, with the number of HTTP 429/503 answers since the last one; the retries themselves
-are logged at `DEBUG`. The pacer is shared inside one process only: two `lawgraph retrieve`
-commands started side by side on the same host add up and do get throttled.
+are logged at `DEBUG`. The pacer is shared inside one process. The first process that reaches a
+host holds a lock file for it (in the temporary directory); a second `lawgraph` process finds
+it taken, says so once and paces that host at half speed, so two commands started side by
+side stay under the limit together.
 
 **Interruptions.** A retrieve stores its records while it fetches, a buffer at a time
 (`RawSourceWriter`: 500 records, 8 MB of text or 5 seconds, whichever comes first). An

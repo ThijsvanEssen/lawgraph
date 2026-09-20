@@ -83,6 +83,11 @@ def test_the_interval_shrinks_back_to_the_base_while_requests_succeed(clock) -> 
     pacer.throttled()
     pacer.throttled()
     assert pacer.interval == 2.0
+    for _ in range(
+        35
+    ):  # halved after 35 successes: a throttling host is not probed at once
+        pacer.succeeded()
+    assert pacer.interval == pytest.approx(1.0, abs=0.02)
     for _ in range(60):
         pacer.succeeded()
     assert pacer.interval == pytest.approx(0.5)
@@ -234,3 +239,47 @@ def test_a_404_is_not_retried(slept) -> None:
     with pytest.raises(requests.HTTPError):
         _client(session)._get_raw_absolute_with_retry("https://retry.test/x")
     assert session.calls == 1 and slept == []
+
+
+# ── two processes on one host ────────────────────────────────────────────────
+
+
+@pytest.fixture
+def lock_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(pacing, "_lock_dir", lambda: tmp_path)
+    monkeypatch.setattr(pacing, "_pacers", {})
+    monkeypatch.setattr(pacing, "_host_locks", [])
+    return tmp_path
+
+
+def test_the_first_process_on_a_host_paces_it_at_the_base_interval(lock_dir) -> None:
+    pacer = pacing.pacer_for("https://repository.overheid.nl/sru")
+    assert pacer.base_interval == 0.5
+    assert pacing.pacer_for("https://repository.overheid.nl/frbr/x") is pacer
+
+
+def test_a_second_process_on_the_same_host_runs_at_half_speed(lock_dir, caplog) -> None:
+    import fcntl
+
+    # Another process holds the lock of the host (another open file is another holder).
+    other = (lock_dir / "lawgraph-pacer-repository.overheid.nl.lock").open("w")
+    fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    try:
+        with caplog.at_level("WARNING"):
+            pacer = pacing.pacer_for("https://repository.overheid.nl/sru")
+            free = pacing.pacer_for("https://data.rechtspraak.nl/uitspraken")
+    finally:
+        other.close()
+
+    assert pacer.base_interval == 1.0 and free.base_interval == 0.2
+    assert [m for m in caplog.messages if "Another lawgraph process" in m] == [
+        "Another lawgraph process is already talking to repository.overheid.nl; pacing it "
+        "at 1.0s here (half speed) so the two stay under its limit."
+    ]
+
+
+def test_without_a_lock_directory_the_host_is_paced_as_usual(
+    lock_dir, monkeypatch
+) -> None:
+    monkeypatch.setattr(pacing, "_lock_dir", lambda: lock_dir / "missing")
+    assert pacing.pacer_for("https://repository.overheid.nl/sru").base_interval == 0.5
