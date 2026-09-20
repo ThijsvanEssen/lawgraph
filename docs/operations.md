@@ -29,7 +29,7 @@ All default to the public endpoints; no key is required.
 | `EURLEX_SPARQL_ENDPOINT` | `https://publications.europa.eu/webapi/rdf/sparql` |
 | `BWB_BASE` | `https://wetten.overheid.nl/` |
 | `BWB_SRU_ENDPOINT` | `https://zoekservice.overheid.nl/sru/Search` |
-| `STAATSBLAD_SRU_ENDPOINT`, `STAATSCOURANT_SRU_ENDPOINT` | `https://sru.officielebekendmakingen.nl/sru/Search` |
+| `STAATSBLAD_SRU_ENDPOINT`, `STAATSCOURANT_SRU_ENDPOINT` | `https://repository.overheid.nl/sru` |
 | `STAATSBLAD_REPO_BASE`, `STAATSCOURANT_REPO_BASE` | `https://repository.overheid.nl` |
 | `EERSTEKAMER_BASE` | `https://gegevensmagazijn.eerstekamer.nl/OData/v4/2.0/` |
 | `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |

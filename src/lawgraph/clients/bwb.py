@@ -6,6 +6,7 @@ from typing import Callable, TypedDict
 
 from requests import Session
 
+from lawgraph.clients._sru import raise_on_diagnostic
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
@@ -30,21 +31,6 @@ SRU_PAGE_SIZE = 1000
 # KB; the limit only stops a file without it from being downloaded whole.
 WTI_CHUNK_SIZE = 8192
 WTI_HEAD_LIMIT = 1_000_000
-
-
-def _raise_on_diagnostic(root: ET.Element, *, context: str) -> None:
-    """Raise when an SRU response is a ``<diagnostic>`` error, not a result page."""
-    for element in root.iter():
-        if local_name(element.tag) == "diagnostic":
-            message = next(
-                (
-                    (child.text or "").strip()
-                    for child in element.iter()
-                    if local_name(child.tag) == "message"
-                ),
-                "unknown SRU error",
-            )
-            raise RuntimeError(f"BWB SRU error ({context}): {message}")
 
 
 class ToestandMeta(TypedDict):
@@ -104,7 +90,7 @@ class BWBClient(BaseClient):
                     BWB_SRU_ENDPOINT, params=params, timeout=60
                 )
                 root = ET.fromstring(resp.text)
-                _raise_on_diagnostic(root, context=f"type={doc_type} start={start}")
+                raise_on_diagnostic(root, context=f"BWB type={doc_type} start={start}")
 
                 records_on_page = 0
                 for element in root.iter():

@@ -1,7 +1,7 @@
 """Client for the Dutch Staatscourant via KOOP SRU.
 
 Fetches ministeriele regelingen from the official publication platform.
-SRU endpoint: https://sru.officielebekendmakingen.nl/sru/Search
+SRU endpoint: https://repository.overheid.nl/sru
 Repository: https://repository.overheid.nl
 
 query: dt.type=Ministeriele-regeling
@@ -12,7 +12,11 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from lawgraph.clients._sru import parse_sru_records
+from lawgraph.clients._sru import (
+    fetch_publication_xml,
+    parse_sru_records,
+    raise_on_diagnostic,
+)
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import STAATSCOURANT_REPO_BASE, STAATSCOURANT_SRU_ENDPOINT
 from lawgraph.core.identifiers import STCRT_ID_PATTERN
@@ -36,7 +40,7 @@ class StaatscourantClient(BaseClient):
         """Search for ministeriele regelingen via the KOOP SRU endpoint."""
         query = "dt.type=Ministeriele-regeling"
         if since:
-            query = f"dt.type=Ministeriele-regeling AND dcterms.modified>={since}"
+            query = f"dt.type=Ministeriele-regeling AND dt.modified>={since}"
 
         results: list[dict[str, Any]] = []
         page_size = 100
@@ -52,24 +56,13 @@ class StaatscourantClient(BaseClient):
                 "startRecord": str(start_record),
                 "recordSchema": "gzd",
             }
-            try:
-                resp = self._get_raw_absolute_with_retry(
-                    STAATSCOURANT_SRU_ENDPOINT, params=params, timeout=60
-                )
-                xml_text = resp.text
-            except Exception as exc:
-                logger.warning(
-                    "Staatscourant SRU search failed (startRecord=%d): %s",
-                    start_record,
-                    exc,
-                )
-                break
-
-            try:
-                root = ET.fromstring(xml_text)
-            except ET.ParseError as exc:
-                logger.warning("Failed to parse SRU response XML: %s", exc)
-                break
+            resp = self._get_raw_absolute_with_retry(
+                STAATSCOURANT_SRU_ENDPOINT, params=params, timeout=60
+            )
+            root = ET.fromstring(resp.text)
+            raise_on_diagnostic(
+                root, context=f"Staatscourant startRecord={start_record}"
+            )
 
             records_found = self._parse_sru_records(root)
             results.extend(records_found)
@@ -93,49 +86,5 @@ class StaatscourantClient(BaseClient):
         )
 
     def fetch_publication_xml(self, identifier: str) -> str | None:
-        """Fetch the XML for a Staatscourant publication by identifier."""
-        m = STCRT_ID_PATTERN.search(identifier)
-        if not m:
-            logger.warning("Cannot parse Staatscourant identifier: %s", identifier)
-            return None
-
-        year = m.group(1)
-        num = m.group(2).zfill(4)
-        clean_id = f"stcrt-{year}-{num}"
-
-        path = f"/frbr/officielepublicaties/stcrt/{year}/{num}/{clean_id}/xml"
-        try:
-            # Cannot use _get_raw_absolute_with_retry here: needs allow_redirects=True
-            # and manual status-code inspection (200/404 handled separately).
-            resp = self.session.get(
-                self.base_url.rstrip("/") + path, timeout=60, allow_redirects=True
-            )
-            if resp.status_code == 200:
-                return resp.text
-            if resp.status_code == 404:
-                logger.debug("Staatscourant XML not found at %s (404)", path)
-            else:
-                logger.warning(
-                    "Unexpected HTTP %d for Staatscourant %s",
-                    resp.status_code,
-                    identifier,
-                )
-        except Exception as exc:
-            logger.warning(
-                "Error fetching Staatscourant XML for %s: %s", identifier, exc
-            )
-
-        # Fallback: no zero-padding
-        path2 = f"/frbr/officielepublicaties/stcrt/{year}/{m.group(2)}/{clean_id}/xml"
-        if path2 != path:
-            try:
-                # Cannot use _get_raw_absolute_with_retry here: needs allow_redirects=True.
-                resp2 = self.session.get(
-                    self.base_url.rstrip("/") + path2, timeout=60, allow_redirects=True
-                )
-                if resp2.status_code == 200:
-                    return resp2.text
-            except Exception as exc:
-                logger.debug("Fallback fetch failed for %s: %s", identifier, exc)
-
-        return None
+        """The XML of a Staatscourant publication, or ``None`` when the repository has none."""
+        return fetch_publication_xml(self, "stcrt", STCRT_ID_PATTERN, identifier)

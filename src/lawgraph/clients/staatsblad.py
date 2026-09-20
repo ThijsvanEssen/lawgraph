@@ -5,7 +5,11 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from lawgraph.clients._sru import parse_sru_records
+from lawgraph.clients._sru import (
+    fetch_publication_xml,
+    parse_sru_records,
+    raise_on_diagnostic,
+)
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import STAATSBLAD_REPO_BASE, STAATSBLAD_SRU_ENDPOINT
 from lawgraph.core.identifiers import STB_ID_PATTERN
@@ -32,7 +36,7 @@ class StaatsbladClient(BaseClient):
         """
         query = "dt.type=AMvB"
         if since:
-            query = f"dt.type=AMvB AND dcterms.modified>={since}"
+            query = f"dt.type=AMvB AND dt.modified>={since}"
 
         results: list[dict[str, Any]] = []
         page_size = 100
@@ -48,26 +52,12 @@ class StaatsbladClient(BaseClient):
                 "startRecord": str(start_record),
                 "recordSchema": "gzd",
             }
-            try:
-                resp = self._get_raw_absolute_with_retry(
-                    STAATSBLAD_SRU_ENDPOINT, params=params, timeout=60
-                )
-                xml_text = resp.text
-            except Exception as exc:
-                logger.warning(
-                    "Staatsblad SRU search failed (startRecord=%d): %s",
-                    start_record,
-                    exc,
-                )
-                break
+            resp = self._get_raw_absolute_with_retry(
+                STAATSBLAD_SRU_ENDPOINT, params=params, timeout=60
+            )
+            root = ET.fromstring(resp.text)
+            raise_on_diagnostic(root, context=f"Staatsblad startRecord={start_record}")
 
-            try:
-                root = ET.fromstring(xml_text)
-            except ET.ParseError as exc:
-                logger.warning("Failed to parse SRU response XML: %s", exc)
-                break
-
-            # Strip namespaces for simpler traversal
             records_found = self._parse_sru_records(root)
             results.extend(records_found)
 
@@ -87,50 +77,5 @@ class StaatsbladClient(BaseClient):
         )
 
     def fetch_publication_xml(self, identifier: str) -> str | None:
-        """Fetch the XML for a Staatsblad publication by identifier.
-
-        Tries the direct repository URL first; falls back to SRU lookup on 404.
-        Returns the XML text or None if not found.
-        """
-        m = STB_ID_PATTERN.search(identifier)
-        if not m:
-            logger.warning("Cannot parse Staatsblad identifier: %s", identifier)
-            return None
-
-        year = m.group(1)
-        num = m.group(2).zfill(4)
-        clean_id = f"stb-{year}-{num}"
-
-        # Direct URL pattern
-        path = f"/frbr/officielepublicaties/stb/{year}/{num}/{clean_id}/xml"
-        try:
-            # Cannot use _get_raw_absolute_with_retry here: needs allow_redirects=True
-            # and manual status-code inspection (200/404 handled separately).
-            resp = self.session.get(
-                self.base_url.rstrip("/") + path, timeout=60, allow_redirects=True
-            )
-            if resp.status_code == 200:
-                return resp.text
-            if resp.status_code == 404:
-                logger.debug("Staatsblad XML not found at %s (404)", path)
-            else:
-                logger.warning(
-                    "Unexpected HTTP %d for Staatsblad %s", resp.status_code, identifier
-                )
-        except Exception as exc:
-            logger.warning("Error fetching Staatsblad XML for %s: %s", identifier, exc)
-
-        # Fallback: try alternate URL without zero-padding
-        path2 = f"/frbr/officielepublicaties/stb/{year}/{m.group(2)}/{clean_id}/xml"
-        if path2 != path:
-            try:
-                # Cannot use _get_raw_absolute_with_retry here: needs allow_redirects=True.
-                resp2 = self.session.get(
-                    self.base_url.rstrip("/") + path2, timeout=60, allow_redirects=True
-                )
-                if resp2.status_code == 200:
-                    return resp2.text
-            except Exception as exc:
-                logger.debug("Fallback fetch failed for %s: %s", identifier, exc)
-
-        return None
+        """The XML of a Staatsblad publication, or ``None`` when the repository has none."""
+        return fetch_publication_xml(self, "stb", STB_ID_PATTERN, identifier)

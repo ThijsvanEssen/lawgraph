@@ -525,7 +525,7 @@ def test_first_text_prop() -> None:
 def test_parse_sru_records() -> None:
     xml = f"""<searchRetrieveResponse xmlns="{NS}"><records>
       <record><recordData><identifier>stb-2015-134</identifier>
-        <title> Titel </title><contentURL>http://u</contentURL><date>2015-01-01</date>
+        <title> Titel </title><url>http://u</url><date>2015-01-01</date>
       </recordData></record>
       <record><recordData><recordIdentifier>stb-2016-9</recordIdentifier></recordData></record>
       <record><recordData><identifier>other</identifier></recordData></record>

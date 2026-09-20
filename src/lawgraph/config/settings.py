@@ -58,13 +58,13 @@ TK_DOCUMENT_RESOURCE_URL_TEMPLATE = (
 # Staatsblad and Staatscourant share one SRU server and one repository; the collection is
 # chosen by a query parameter (x-connection) at request time.
 STAATSBLAD_SRU_ENDPOINT = os.getenv(
-    "STAATSBLAD_SRU_ENDPOINT", "https://sru.officielebekendmakingen.nl/sru/Search"
+    "STAATSBLAD_SRU_ENDPOINT", "https://repository.overheid.nl/sru"
 )
 STAATSBLAD_REPO_BASE = os.getenv(
     "STAATSBLAD_REPO_BASE", "https://repository.overheid.nl"
 )
 STAATSCOURANT_SRU_ENDPOINT = os.getenv(
-    "STAATSCOURANT_SRU_ENDPOINT", "https://sru.officielebekendmakingen.nl/sru/Search"
+    "STAATSCOURANT_SRU_ENDPOINT", "https://repository.overheid.nl/sru"
 )
 STAATSCOURANT_REPO_BASE = os.getenv(
     "STAATSCOURANT_REPO_BASE", "https://repository.overheid.nl"
