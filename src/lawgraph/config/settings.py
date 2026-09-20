@@ -28,6 +28,9 @@ def _env_list(name: str, default: str = "") -> list[str]:
 LOG_LEVEL = os.getenv("LAWGRAPH_LOG_LEVEL", "INFO").upper()
 LOG_JSON = os.getenv("LAWGRAPH_LOG_FORMAT", "").lower() == "json"
 LOG_NO_COLOR = os.getenv("NO_COLOR") is not None
+# Every log line also goes to this file, as plain lines. It is what makes a log file and the
+# live progress of a terminal go together: piped into `tee`, stderr is no terminal any more.
+LOG_FILE = os.getenv("LAWGRAPH_LOG_FILE")
 
 # ── ArangoDB connection ───────────────────────────────────────────────────────
 

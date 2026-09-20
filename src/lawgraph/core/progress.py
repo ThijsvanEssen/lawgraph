@@ -15,12 +15,20 @@ from __future__ import annotations
 
 import logging
 import time
-from collections import Counter
-from collections.abc import Callable
+from collections import Counter, deque
+from collections.abc import Callable, Iterable, Iterator
+from typing import TypeVar
 
+from lawgraph.core.logging import current_step, live_status
 from lawgraph.core.time import format_duration
 
+T = TypeVar("T")
+
 PROGRESS_INTERVAL_SECONDS = 60.0
+# In a terminal the line of a step is rewritten in place this often (core/logging.py).
+LIVE_INTERVAL_SECONDS = 1.0
+# The speed is that of the last minute: what was fetched an hour ago says little about now.
+RATE_WINDOW_SECONDS = 60.0
 
 _logger = logging.getLogger(__name__)
 
@@ -74,8 +82,9 @@ class Progress:
         self._clock = clock
         self._started = clock()
         self._periodic = PeriodicLog(interval, clock=clock)
-        self._mark = (self._started, 0)
-        self._rate = 0.0
+        self._live = PeriodicLog(LIVE_INTERVAL_SECONDS, immediate=True, clock=clock)
+        self._step = current_step()
+        self._marks: deque[tuple[float, int]] = deque([(self._started, 0)])
 
     # ------------------------------------------------------------------ counting
 
@@ -137,27 +146,41 @@ class Progress:
 
     # ------------------------------------------------------------------- logging
 
+    def track(self, items: Iterable[T]) -> Iterator[T]:
+        """Pass *items* on, counting each as done when the loop asks for the next one."""
+        try:
+            for item in items:
+                yield item
+                self.ok()
+        finally:
+            self.finish()
+
     def _tick(self) -> None:
         if self._periodic.due():
-            self._log.info("%s", self.line())
+            # ``status``: a terminal with a live block leaves this line out (it shows a
+            # fresher one); a pipe and a log file get it, once a minute.
+            self._log.info("%s", self.line(), extra={"status": True})
+        if self._live.due():
+            live_status(self._step, self.line())
 
     def line(self) -> str:
         """``12,400 / 34,593 (36%) · 4.9/s · ~1h12m left · 3 skipped · 0 errors``."""
         now, handled = self._clock(), self.handled
-        marked_at, marked = self._mark
-        if now > marked_at:
-            recent = (handled - marked) / (now - marked_at)
-            self._rate = recent if not self._rate else (self._rate + recent) / 2
-        self._mark = (now, handled)
+        marks = self._marks
+        marks.append((now, handled))
+        while len(marks) > 2 and now - marks[1][0] >= RATE_WINDOW_SECONDS:
+            marks.popleft()
+        since, counted = marks[0]
+        rate = (handled - counted) / (now - since) if now > since else 0.0
 
         parts = [f"{handled:,}"]
         if self.total:
             share = min(100, round(100 * handled / self.total))
             parts[0] += f" / {self.total:,} ({share}%)"
         parts[0] += f" {self.what}"
-        parts.append(f"{self._rate:.1f}/s")
-        if self.total and self._rate > 0 and handled < self.total:
-            left = (self.total - handled) / self._rate
+        parts.append(f"{rate:.1f}/s")
+        if self.total and rate > 0 and handled < self.total:
+            left = (self.total - handled) / rate
             parts.append(f"~{format_duration(left)} left")
         parts.append(f"{self.skipped:,} skipped")
         parts.append(f"{self.failed:,} errors")
@@ -190,4 +213,5 @@ class Progress:
         return lines
 
     def finish(self) -> None:
+        live_status(self._step, None)
         self._log.info("%s.", self.summary())

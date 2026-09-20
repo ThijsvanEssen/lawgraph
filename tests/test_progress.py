@@ -26,9 +26,10 @@ class _Clock:
 def test_the_line_has_position_total_rate_eta_and_counters() -> None:
     clock = _Clock()
     progress = Progress("judgments", total=34_593, clock=clock)
-    progress.ok(12_397)
     progress.skip("no content (HTTP 404)", count=3)
-    clock.now += 2530  # 12,400 handled in 2,530 s = 4.9/s
+    for _ in range(253):  # 49 judgments every 10 seconds: 4.9/s
+        clock.now += 10
+        progress.ok(49)
 
     assert progress.line() == (
         "12,400 / 34,593 (36%) judgments · 4.9/s · ~1h15m left · 3 skipped · 0 errors"
@@ -38,8 +39,8 @@ def test_the_line_has_position_total_rate_eta_and_counters() -> None:
 def test_without_a_total_there_is_no_share_and_no_eta() -> None:
     clock = _Clock()
     progress = Progress(clock=clock)
-    progress.ok(50)
     clock.now += 10
+    progress.ok(50)
     assert progress.line() == "50 records · 5.0/s · 0 skipped · 0 errors"
 
 
@@ -153,3 +154,46 @@ def test_the_status_line_carries_the_step_in_plain_and_json_mode() -> None:
     assert "[retrieve rechtspraak] core.progress: 40 / 100 (40%) judgments" in plain
     assert entry["step"] == "retrieve rechtspraak"
     assert entry["message"].startswith("40 / 100 (40%) judgments · 4.0/s")
+
+
+def test_the_speed_is_that_of_the_last_minute() -> None:
+    """A source that slows down shows it, and the ETA follows: not the average of the run."""
+    clock = _Clock()
+    progress = Progress(total=100_000, clock=clock)
+    for _ in range(60):  # ten minutes at 50/s
+        clock.now += 10
+        progress.ok(500)
+    for _ in range(12):  # then two minutes at 5/s (the source is throttling)
+        clock.now += 10
+        progress.ok(50)
+    assert " · 5.0/s · " in progress.line()
+
+
+def test_the_periodic_line_is_marked_so_a_live_terminal_can_leave_it_out(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    clock = _Clock()
+    progress = Progress(clock=clock)
+    with caplog.at_level(logging.INFO):
+        clock.now += 61
+        progress.ok()
+        progress.skip("no content (HTTP 404)", "doc-1")
+        progress.finish()
+    marked = [getattr(r, "status", False) for r in caplog.records]
+    assert marked == [
+        True,
+        False,
+        False,
+    ]  # the status line; the first skip; the summary
+
+
+def test_track_counts_what_a_loop_took_and_finishes_when_the_loop_stops(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    progress = Progress("articles", total=5)
+    with caplog.at_level(logging.INFO):
+        for number in progress.track(range(5)):
+            if number == 2:
+                break
+    assert progress.done == 2  # the one the loop was busy with is not done
+    assert "2 articles done" in caplog.messages[-1]
