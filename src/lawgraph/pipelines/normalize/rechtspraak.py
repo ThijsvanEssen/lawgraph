@@ -200,6 +200,5 @@ FOR doc IN {COLLECTION_JUDGMENTS}
         self,
         raw: dict[str, list[dict[str, Any]]],
         normalized: dict[str, Any],
-    ) -> int:
+    ) -> None:
         """No structural edges to build for Rechtspraak judgments."""
-        return 0

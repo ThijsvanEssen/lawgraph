@@ -23,9 +23,9 @@ class _FakeStore:
     def query(self, aql: str, bind_vars: dict | None = None) -> list[Any]:
         return []
 
-    def insert_or_update(self, node: Node) -> Node:
+    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
         self.upserted.append(node)
-        return node
+        return node, True
 
     def bulk_insert_or_update_nodes(
         self, collection: str, docs: list[dict[str, Any]]

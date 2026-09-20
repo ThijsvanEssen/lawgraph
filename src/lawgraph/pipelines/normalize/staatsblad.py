@@ -62,7 +62,6 @@ class StaatsbladNormalizePipeline(NormalizePipelineBase):
 
             writer.add(node)
             nodes[identifier] = node
-            result.created += 1
 
         writer.flush()
 
@@ -125,6 +124,5 @@ class StaatsbladNormalizePipeline(NormalizePipelineBase):
 
     def build_edges(
         self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> int:
+    ) -> None:
         """No structural edges here — the semantic pipeline writes EXPLAINS."""
-        return 0

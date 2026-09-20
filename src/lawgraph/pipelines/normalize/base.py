@@ -10,17 +10,25 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.raw_records import group_by_kind, meta, payload_json, payload_text
 from lawgraph.core.time import describe_since, iso_timestamp
-from lawgraph.db import ArangoStore, NodeWriter
+from lawgraph.db import ArangoStore, CountingStore, NodeWriter
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
 
 class NormalizePipelineBase(PipelineBase, ABC):
-    """Base class for pipelines that normalize raw_sources records."""
+    """Base class for pipelines that normalize raw_sources records.
+
+    ``self.store`` is a ``CountingStore``: every node and edge a subclass or its
+    helpers upsert through it is counted, and ``run`` reports those counts as
+    ``created``/``updated`` on the result. Subclasses only record what the store
+    cannot see: ``result.skipped`` and ``result.add_error``.
+    """
+
+    store: CountingStore
 
     def __init__(self, store: ArangoStore) -> None:
-        super().__init__(store)
+        super().__init__(CountingStore(store))
 
     @abstractmethod
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
@@ -29,12 +37,12 @@ class NormalizePipelineBase(PipelineBase, ABC):
 
     @abstractmethod
     def normalize_nodes(self, raw: Any, result: PipelineResult) -> Any:
-        """Turn raw data into Node objects and insert them into domain collections."""
+        """Turn raw data into Node objects and upsert them into domain collections."""
         raise NotImplementedError
 
     @abstractmethod
-    def build_edges(self, raw: Any, normalized: Any) -> int:
-        """Create edges between normalized nodes; returns number of edges created."""
+    def build_edges(self, raw: Any, normalized: Any) -> None:
+        """Upsert the edges between the normalized nodes."""
         raise NotImplementedError
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
@@ -46,21 +54,25 @@ class NormalizePipelineBase(PipelineBase, ABC):
             self.__class__.__name__,
             since_desc,
         )
+        self.store.reset_counts()
 
         try:
             raw = self.fetch_raw(since=since)
             normalized = self.normalize_nodes(raw, result)
-            edge_count = self.build_edges(raw, normalized)
+            self.build_edges(raw, normalized)
         except Exception as exc:
             msg = f"{self.__class__.__name__} pipeline failed: {exc}"
             logger.error(msg)
             result.add_error(msg)
-            return result
 
+        # Also after a failure: what was written before it is in the database.
+        writes = self.store.writes
+        result.created += writes.created
+        result.updated += writes.updated
         logger.info(
-            "%s normalization pipeline created %d edges.",
+            "%s normalization pipeline wrote: %s.",
             self.__class__.__name__,
-            edge_count,
+            writes.describe(),
         )
         return result
 

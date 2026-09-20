@@ -95,7 +95,6 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
             )
             writer.add(node)
             nodes[item_id] = node
-            result.created += 1
 
         writer.flush()
 
@@ -104,5 +103,5 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
 
     def build_edges(
         self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> int:
-        return 0
+    ) -> None:
+        """No structural edges: citations are linked by the semantic pipelines."""

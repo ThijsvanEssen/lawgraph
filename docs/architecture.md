@@ -21,7 +21,14 @@ Contract shared by all pipelines:
 - Errors on one record are logged and counted; the run continues. A failure of the whole step
   is recorded in `errors`, and the CLI exits with code 1 when `errors` is non-empty.
 - Normalize pipelines implement `fetch_raw` -> `normalize_nodes` -> `build_edges`
-  (`NormalizePipelineBase`). Retrieve pipelines extend `RetrievePipelineBase` (`fetch` returns
+  (`NormalizePipelineBase`). They do not count their writes: the base class hands them a
+  `CountingStore` (`db/counting.py`) as `self.store`, which tallies the created/updated
+  counts the store returns from `bulk_insert_or_update_nodes`, `bulk_insert_or_update_edges`
+  and `insert_or_update`. That covers `NodeWriter`, `EdgeWriter`, direct store calls and
+  helpers that only receive `store`. `run` adds the tally (nodes plus edges) to `created`
+  and `updated`, also when the step failed halfway, and logs the node/edge breakdown. A
+  pipeline only records what the store cannot see: `result.skipped` and `result.add_error`.
+  Retrieve pipelines extend `RetrievePipelineBase` (`fetch` returns
   `RetrieveRecord`s that are stored) or override `run`. Semantic pipelines implement `run` on
   `SemanticPipelineBase`.
 - Removed upstream records are not deleted from the graph.
@@ -57,7 +64,7 @@ Adding a source: write the pipelines, add a `SourceDescriptor`.
 |-------|------|
 | `config/` | `constants.py`: every name (collections, relations, source ids, raw kinds). `settings.py`: every value from the environment; importing it loads `.env`, and no other module reads the environment |
 | `core/` | pure logic and shared definitions, each defined exactly once: node and props models, relation catalogue, BWB XML parsing, citation extraction, dossier stage classification, identifiers, XML and time helpers, batching. Imports only `config` and other `core` modules; no I/O |
-| `db/` | `ArangoStore` (all database access), `NodeWriter`, `EdgeWriter`, schema |
+| `db/` | `ArangoStore` (all database access), `NodeWriter`, `EdgeWriter`, `CountingStore`, schema |
 | `clients/` | HTTP only; one class per source on `BaseClient` |
 | `pipelines/` | phases; depend on `config`, `core`, `db`, `clients` |
 | `api/` | routes, AQL in `queries/`, DTOs in `schemas/`; depends on `config`, `core`, `db` |

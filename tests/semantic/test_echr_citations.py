@@ -31,10 +31,12 @@ class _FakeStore:
     def get_node(self, collection: str, key: str) -> Node | None:
         return self._nodes.get(f"{collection}/{key}")
 
-    def insert_or_update(self, node: Node) -> Node:
+    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
         assert node.key is not None
-        self._nodes[f"{node.collection}/{node.key}"] = node
-        return node
+        node_id = f"{node.collection}/{node.key}"
+        created = node_id not in self._nodes
+        self._nodes[node_id] = node
+        return node, created
 
     def insert_or_update_edge(self, doc: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         k = doc["_key"]

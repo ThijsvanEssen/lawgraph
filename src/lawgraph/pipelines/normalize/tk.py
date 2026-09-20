@@ -51,9 +51,8 @@ class TKNormalizePipeline(NormalizePipelineBase):
         self,
         raw: dict[str, list[dict[str, Any]]],
         normalized: dict[str, Any],
-    ) -> int:
+    ) -> None:
         """None: a case is linked to its dossiers once the dossiers exist."""
-        return 0
 
     def _normalize_cases(self, raw_records: list[dict[str, Any]]) -> dict[str, Node]:
         """Case nodes, keyed by the Zaak identifier documents refer to."""

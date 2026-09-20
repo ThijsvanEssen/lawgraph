@@ -116,14 +116,13 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
                 labels=["Verdrag", "NL"],
                 props=props,
             )
-            node = self.store.insert_or_update(node)
+            node, _ = self.store.insert_or_update(node)
             nodes[external_id] = node
-            result.created += 1
 
         logger.info("Verdragenbank normalize: %d treaties processed.", len(nodes))
         return nodes
 
     def build_edges(
         self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> int:
-        return 0
+    ) -> None:
+        """No structural edges for treaties."""

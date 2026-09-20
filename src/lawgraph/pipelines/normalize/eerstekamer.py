@@ -63,7 +63,6 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
                 node = self._normalize_decision(record, payload, result)
                 if node:
                     decisions += 1
-                    result.created += 1
                     item_id = str(payload.get("Id") or "")
                     nodes[f"stemming:{item_id}"] = node
             else:
@@ -71,7 +70,6 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
                 if node:
                     item_id = str(payload.get("Id") or "")
                     nodes[item_id] = node
-                    result.created += 1
 
         logger.info(
             "EK normalize: %d publications, %d decisions processed.",
@@ -118,7 +116,8 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             labels=["EersteKamer", "EK"],
             props=props,
         )
-        return self.store.insert_or_update(node)
+        stored, _ = self.store.insert_or_update(node)
+        return stored
 
     def _normalize_decision(
         self, record: dict[str, Any], payload: dict[str, Any], result: PipelineResult
@@ -172,14 +171,14 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             labels=["EersteKamer", "EK"],
             props=props,
         )
-        return self.store.insert_or_update(node)
+        stored, _ = self.store.insert_or_update(node)
+        return stored
 
     def build_edges(
         self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> int:
+    ) -> None:
         """None. EK stukken reach the graph through their TK dossier.
 
         The link is made by ``EerstekamerDossierLinkSemanticPipeline``, which
         matches ``DossierNummer`` against the TK kamerstukdossiers.
         """
-        return 0

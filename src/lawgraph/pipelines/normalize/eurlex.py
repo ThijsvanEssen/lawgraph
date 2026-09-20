@@ -251,7 +251,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
                 labels=labels,
                 props=props,
             )
-            inserted_instrument = self.store.insert_or_update(instrument_node)
+            inserted_instrument, _ = self.store.insert_or_update(instrument_node)
             instruments_by_celex[celex] = inserted_instrument
 
             # --- article nodes ---
@@ -323,7 +323,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
         self,
         raw: list[dict[str, Any]],
         normalized: dict[str, Any],
-    ) -> int:
+    ) -> None:
         """Create PART_OF edges from articles to their instrument."""
         writer = EdgeWriter(self.store)
 
@@ -343,10 +343,3 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
                     source=EDGE_SOURCE,
                 )
         writer.flush()
-        edge_count = writer.created
-
-        logger.info(
-            "EurlexNormalizePipeline created %d edges.",
-            edge_count,
-        )
-        return edge_count

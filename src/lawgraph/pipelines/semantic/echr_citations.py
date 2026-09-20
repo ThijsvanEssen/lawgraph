@@ -55,7 +55,8 @@ def _ensure_echr_convention_instrument(store: Any) -> Node:
             "stub": False,
         },
     )
-    return store.insert_or_update(node)
+    stored, _ = store.insert_or_update(node)
+    return stored
 
 
 def _ensure_echr_article(
@@ -79,7 +80,8 @@ def _ensure_echr_article(
             "instrument_id": convention.arango_id,
         },
     )
-    return store.insert_or_update(node)
+    stored, _ = store.insert_or_update(node)
+    return stored
 
 
 class ECHRCitationsSemanticPipeline(SemanticPipelineBase):

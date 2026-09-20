@@ -83,7 +83,7 @@ def link_subjects(
     relation: str,
     *,
     source: str,
-) -> int:
+) -> None:
     """*relation* edges from each node to the cases and dossiers it names.
 
     Both endpoints are resolved with one existence lookup per collection, so
@@ -104,10 +104,9 @@ def link_subjects(
     _queue_existing(store, pairs, relation, writer, source=source)
     writer.flush()
     logger.info("Wrote %d %s edges to cases and dossiers.", writer.added, relation)
-    return writer.added
 
 
-def link_cases_to_dossiers(store: ArangoStore, *, source: str) -> int:
+def link_cases_to_dossiers(store: ArangoStore, *, source: str) -> None:
     """PART_OF edges from every stored case to the dossiers it belongs to.
 
     Cases are normalized by the TK pipeline before any dossier node exists,
@@ -127,12 +126,11 @@ def link_cases_to_dossiers(store: ArangoStore, *, source: str) -> int:
     _queue_existing(store, pairs, RELATION_PART_OF, writer, source=source)
     writer.flush()
     logger.info("Linked %d cases to dossiers.", writer.added)
-    return writer.added
 
 
 def link_activities_to_committees(
     store: ArangoStore, activity_nodes: dict[str, Node], *, source: str
-) -> int:
+) -> None:
     """LED_BY edges from an activity to its voortouwcommissie (absent: plenary)."""
     pairs = [
         (node.arango_id, COLLECTION_COMMITTEES, make_node_key(committee_id))
@@ -143,7 +141,6 @@ def link_activities_to_committees(
     _queue_existing(store, pairs, RELATION_LED_BY, writer, source=source)
     writer.flush()
     logger.info("Linked %d activities to their lead committee.", writer.added)
-    return writer.added
 
 
 def link_commitments(
@@ -152,7 +149,7 @@ def link_commitments(
     activity_nodes: dict[str, Node],
     *,
     source: str,
-) -> int:
+) -> None:
     """MADE_IN edges to the activity, and ABOUT edges to that activity's dossiers.
 
     A Toezegging names no dossier of its own; the activity it was made in does.
@@ -177,12 +174,11 @@ def link_commitments(
     _queue_existing(store, dossier_pairs, RELATION_ABOUT, writer, source=source)
     writer.flush()
     logger.info("Wrote %d commitment edges.", writer.added)
-    return writer.added
 
 
 def link_authors(
     store: ArangoStore, document_nodes: dict[str, Node], *, source: str
-) -> int:
+) -> None:
     """AUTHORED edges from every signatory to the document they signed.
 
     Only people are stored: which faction signed follows from the signatory's
@@ -217,7 +213,6 @@ def link_authors(
             )
     writer.flush()
     logger.info("Wrote %d AUTHORED edges.", writer.added)
-    return writer.added
 
 
 def _nodes(

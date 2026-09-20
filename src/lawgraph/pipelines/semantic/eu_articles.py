@@ -238,7 +238,7 @@ class EUArticlesSemanticPipeline(SemanticPipelineBase):
                     "display_name": f"Artikel {hit.article_number} ({identifier})",
                 },
             )
-            node = self.store.insert_or_update(stub)
+            node, _ = self.store.insert_or_update(stub)
             self._remember_node(node)
         if node is None:
             logger.debug(

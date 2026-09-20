@@ -117,7 +117,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         self,
         raw: Any,
         normalized: dict[str, Any],
-    ) -> int:
+    ) -> None:
         """Link BWB articles to their instruments with PART_OF edges."""
         instruments: dict[str, Node] = normalized.get("instruments_by_bwb", {})
         articles: dict[str, list[Node]] = normalized.get("articles_by_bwb", {})
@@ -131,9 +131,6 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     source=EDGE_SOURCE,
                 )
         writer.flush()
-        total_created = writer.created
-        logger.info("BWB normalization created/updated %d edges.", total_created)
-        return total_created
 
     def _upsert_instrument(self, bwb_id: str, props: dict[str, Any]) -> Node:
         node = Node(
@@ -143,4 +140,5 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             labels=["BWB"],
             props=props,
         )
-        return self.store.insert_or_update(node)
+        instrument, _ = self.store.insert_or_update(node)
+        return instrument

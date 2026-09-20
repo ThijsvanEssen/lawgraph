@@ -246,7 +246,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
     # ── phase 2: finalise, link ──────────────────────────────────────────────
 
-    def build_edges(self, raw: Any, normalized: dict[str, Any]) -> int:
+    def build_edges(self, raw: Any, normalized: dict[str, Any]) -> None:
         """Finalise ``valid_until``, ensure instruments/articles and write VERSION_OF."""
         seed: dict[str, dict[str, Any]] = normalized["instrument_seed"]
         written: WrittenVersions = normalized["written"]
@@ -268,7 +268,6 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         logger.info(
             "BWB history: %d VERSION_OF edges.", writer.created + writer.updated
         )
-        return writer.created
 
     def _ensure_instruments(
         self, bwb_ids: list[str], seed: dict[str, dict[str, Any]]

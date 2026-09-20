@@ -173,8 +173,8 @@ class ArangoStore:
 
     # ── Nodes ──────────────────────────────────────────────────────────────────
 
-    def insert_or_update(self, node: Node) -> Node:
-        """Upsert a Node using its deterministic key.
+    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
+        """Upsert a Node using its deterministic key; returns (stored node, created).
 
         On INSERT: stores the full document as-is.
         On UPDATE: merges props so neither pipeline overwrites the other's fields,
@@ -200,7 +200,7 @@ class ArangoStore:
             props: MERGE(OLD.props, @props)
         }}
         IN {node.collection}
-        RETURN NEW
+        RETURN {{doc: NEW, was_new: OLD == null}}
         """
         bind_vars: dict[str, Any] = {
             "key": node.key,
@@ -215,8 +215,9 @@ class ArangoStore:
             )
         )
         if rows:
-            return Node.from_document(node.collection, rows[0])
-        return node
+            row = rows[0]
+            return Node.from_document(node.collection, row["doc"]), bool(row["was_new"])
+        return node, False
 
     def _bulk_upsert(
         self,

@@ -123,7 +123,7 @@ def link_members_to_committees(
     committee_raws: list[dict[str, Any]],
     *,
     source: str,
-) -> int:
+) -> None:
     """MEMBER_OF edges from Persoon to Commissie, with the seat's period."""
     seats = [
         (
@@ -157,7 +157,6 @@ def link_members_to_committees(
             )
     writer.flush()
     logger.info("Linked %d members to committees.", writer.added)
-    return writer.added
 
 
 def link_members_to_factions(
@@ -167,7 +166,7 @@ def link_members_to_factions(
     faction_nodes: dict[str, Node],
     *,
     source: str,
-) -> int:
+) -> None:
     """MEMBER_OF edges from Persoon to Fractie, plus the member's timeline.
 
     The edge key is deterministic per (member, faction), so someone who left
@@ -213,7 +212,6 @@ def link_members_to_factions(
         writer.added,
         len(timeline),
     )
-    return writer.added
 
 
 def _write_timelines(

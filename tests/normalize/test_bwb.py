@@ -28,30 +28,34 @@ class _Store:
         self.queries: list[str] = []
         self.existence_calls = 0
 
-    def _put(self, collection: str, doc: dict) -> None:
+    def _put(self, collection: str, doc: dict) -> bool:
+        """Merge *doc* into the collection; True when the key was new."""
         bucket = self.nodes.setdefault(collection, {})
+        created = doc["_key"] not in bucket
         old = bucket.get(doc["_key"], {"props": {}})
         bucket[doc["_key"]] = {"props": {**old["props"], **doc.get("props", {})}}
+        return created
 
     def bulk_insert_or_update_nodes(self, collection: str, docs: list[dict]):
-        for doc in docs:
-            self._put(collection, doc)
-        return len(docs), 0
+        created = sum(self._put(collection, doc) for doc in docs)
+        return created, len(docs) - created
 
-    def insert_or_update(self, node: Node) -> Node:
-        self._put(node.collection, node.to_document())
-        return Node(
+    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
+        created = self._put(node.collection, node.to_document())
+        stored = Node(
             collection=node.collection,
             type=node.type,
             key=node.key,
             props=dict(self.nodes[node.collection][node.key]["props"]),
             _skip_validation=True,
         )
+        return stored, created
 
     def bulk_insert_or_update_edges(self, docs: list[dict]):
+        created = sum(doc["_key"] not in self.edges for doc in docs)
         for doc in docs:
             self.edges[doc["_key"]] = doc
-        return len(docs), 0
+        return created, len(docs) - created
 
     def existing_keys(self, collection: str, keys) -> set[str]:
         self.existence_calls += 1

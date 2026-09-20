@@ -121,44 +121,42 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         self,
         raw: dict[str, list[dict[str, Any]]],
         normalized: dict[str, Any],
-    ) -> int:
+    ) -> None:
         store = self.store
-        edges = tk_cases.link_cases_to_dossiers(store, source=EDGE_SOURCE)
-        edges += tk_cases.link_subjects(
+        tk_cases.link_cases_to_dossiers(store, source=EDGE_SOURCE)
+        tk_cases.link_subjects(
             store,
             normalized["documents"].values(),
             RELATION_PART_OF,
             source=EDGE_SOURCE,
         )
-        edges += tk_cases.link_subjects(
+        tk_cases.link_subjects(
             store, normalized["activities"].values(), RELATION_ABOUT, source=EDGE_SOURCE
         )
-        edges += tk_cases.link_subjects(
+        tk_cases.link_subjects(
             store, normalized["decisions"].values(), RELATION_ABOUT, source=EDGE_SOURCE
         )
-        edges += tk_cases.link_activities_to_committees(
+        tk_cases.link_activities_to_committees(
             store, normalized["activities"], source=EDGE_SOURCE
         )
-        edges += tk_cases.link_commitments(
+        tk_cases.link_commitments(
             store,
             normalized["commitments"],
             normalized["activities"],
             source=EDGE_SOURCE,
         )
-        edges += tk_cases.link_authors(
-            store, normalized["documents"], source=EDGE_SOURCE
-        )
-        edges += tk_members.link_members_to_committees(
+        tk_cases.link_authors(store, normalized["documents"], source=EDGE_SOURCE)
+        tk_members.link_members_to_committees(
             store, raw[RAW_KIND_TK_COMMISSIE], source=EDGE_SOURCE
         )
-        edges += tk_members.link_members_to_factions(
+        tk_members.link_members_to_factions(
             store,
             raw[RAW_KIND_TK_FRACTIEZETELPERSOON],
             normalized["members"],
             normalized["factions"],
             source=EDGE_SOURCE,
         )
-        edges += tk_votes.link_votes(
+        tk_votes.link_votes(
             store,
             normalized["votes"],
             normalized["decisions"],
@@ -166,12 +164,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             source=EDGE_SOURCE,
         )
 
-        logger.info("TK parliament normalization wrote %d edges.", edges)
-
         # Once the edges exist, each dossier's documents can be walked to
         # derive its title and stage, so reads stay O(1).
         self._backfill_titles_and_stages(normalized["dossiers"])
-        return edges
 
     # ── Dossiers ──────────────────────────────────────────────────────────────
 

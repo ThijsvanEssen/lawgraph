@@ -80,7 +80,7 @@ def link_votes(
     faction_nodes: dict[str, Node],
     *,
     source: str,
-) -> int:
+) -> None:
     """VOTED edges into each decision, carrying the choice and its weight.
 
     A roll-call names every member, so its edges start at members and the
@@ -114,7 +114,6 @@ def link_votes(
             )
     writer.flush()
     logger.info("Wrote %d VOTED edges.", writer.added)
-    return writer.added
 
 
 def _voter_id(
