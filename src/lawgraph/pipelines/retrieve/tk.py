@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
-from lawgraph.config.constants import RAW_KIND_TK_DOCUMENT, RAW_KIND_TK_ZAAK, SOURCE_TK
+from lawgraph.config.constants import RAW_KIND_TK_ZAAK, SOURCE_TK
 from lawgraph.core.logging import get_logger
 from lawgraph.core.values import first_str
 from lawgraph.db import ArangoStore
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 
 class TKRetrievePipeline(RetrievePipelineBase):
-    """Retrieve pipeline for TK Zaak and Document raw sources."""
+    """Retrieve pipeline for TK Zaak raw sources (``tk-dossiers`` retrieves the documents)."""
 
     def __init__(self, store: ArangoStore, tk_client: TKClient | None = None) -> None:
         super().__init__(store)
@@ -28,11 +28,10 @@ class TKRetrievePipeline(RetrievePipelineBase):
         since: dt.datetime,
         limit: int = 0,
         case_filter: Callable[[dict[str, Any]], bool] | None = None,
-        document_filter: Callable[[dict[str, Any]], bool] | None = None,
         keywords: list[str] | None = None,
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
-        """Yield records for TK Zaak and Document that match the filters.
+        """Yield the TK Zaak records that match the filters.
 
         If *keywords* is provided, keyword matching is pushed into the OData
         query so the API only returns relevant records (avoids fetching 30k+
@@ -43,16 +42,15 @@ class TKRetrievePipeline(RetrievePipelineBase):
         which would silently drop records beyond the cap.
         """
         logger.info(
-            "Fetching TK Zaak and Document since %s%s",
+            "Fetching TK Zaak since %s%s",
             since.isoformat(),
             f" (dev cap: {limit})" if limit else "",
         )
 
-        # Always pass top=0 (no $top) so _paged_get follows @odata.nextLink
-        # across all pages.
+        # No $top: the API then pages with @odata.nextLink ($top=0 answers no records).
         cases = self.tk.zaken_modified_since(
             since,
-            top=0,
+            top=None,
             keyword_fields=["Onderwerp", "Titel"] if keywords else None,
             keywords=keywords,
         )
@@ -83,36 +81,4 @@ class TKRetrievePipeline(RetrievePipelineBase):
                 )
                 break
 
-        documents = self.tk.fetch_documents(
-            since=since,
-            keyword_fields=["Titel", "Onderwerp"] if keywords else None,
-            keywords=keywords,
-        )
-        document_count = 0
-        for document in documents:
-            if document_filter and not document_filter(document):
-                continue
-            external_id = first_str([document.get("Id")])
-            yield RetrieveRecord(
-                source=SOURCE_TK,
-                kind=RAW_KIND_TK_DOCUMENT,
-                external_id=external_id,
-                payload_json=document,
-                meta={
-                    "endpoint": "Document",
-                    "since": since.isoformat(),
-                },
-            )
-            document_count += 1
-            if limit and document_count >= limit:
-                logger.warning(
-                    "Dev cap of %d records reached for Document — stopping.",
-                    limit,
-                )
-                break
-
-        logger.info(
-            "TK retrieve complete: %d cases, %d documents.",
-            case_count,
-            document_count,
-        )
+        logger.info("TK retrieve complete: %d cases.", case_count)

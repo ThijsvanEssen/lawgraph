@@ -238,9 +238,7 @@ def retrieve_staatscourant(argv: list[str] | None = None) -> None:
 
 
 def retrieve_tk(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(
-        description="Retrieve Tweede Kamer cases and documents."
-    )
+    parser = argparse.ArgumentParser(description="Retrieve Tweede Kamer cases.")
     parser.add_argument("--limit", type=int, default=0)
     add_since_argument(parser, default="1d")
     _add_mode_argument(parser)

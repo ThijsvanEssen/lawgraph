@@ -177,10 +177,8 @@ def _register_tk() -> list[SourceDescriptor]:
             id="tk",
             display_name="Tweede Kamer (cases & documents)",
             descriptions={
-                "retrieve": (
-                    "Tweede Kamer cases (Zaak) and documents (Document) from the OData API."
-                ),
-                "normalize": "Cases and documents as nodes.",
+                "retrieve": ("Tweede Kamer cases (Zaak) from the OData API."),
+                "normalize": "Cases as nodes.",
                 "semantic": (
                     "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles."
                 ),

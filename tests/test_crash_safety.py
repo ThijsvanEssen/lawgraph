@@ -265,28 +265,40 @@ def test_eerste_kamer_papers_are_stored_page_by_page() -> None:
 
 
 class _TkClient:
-    def __init__(self, documents: list[dict], fail_after: int | None = None) -> None:
-        self.documents = documents
+    def __init__(self, cases: list[dict], fail_after: int | None = None) -> None:
+        self.cases = cases
         self.fail_after = fail_after
+        self.top: object = "not called"
 
-    def zaken_modified_since(self, since, **kw):
-        return iter([{"Id": "zaak-1"}])
-
-    def fetch_documents(self, **kw):
-        for number, document in enumerate(self.documents):
+    def zaken_modified_since(self, since, *, top=100, **kw):
+        self.top = top
+        for number, case in enumerate(self.cases):
             if self.fail_after is not None and number >= self.fail_after:
                 raise requests.ConnectionError("dropped")
-            yield document
+            yield case
+
+    def fetch_documents(self, **kw):
+        raise AssertionError("tk-dossiers retrieves the documents, not tk")
 
 
-def test_tk_documents_are_stored_while_the_pages_come_in() -> None:
-    documents = [{"Id": f"doc-{n}"} for n in range(5)]
-    client = _TkClient(documents, fail_after=3)
+def test_tk_cases_are_stored_while_the_pages_come_in() -> None:
+    cases = [{"Id": f"zaak-{n}"} for n in range(5)]
+    client = _TkClient(cases, fail_after=3)
     store = _Store()
     result = TKRetrievePipeline(store, client).run(since=dt.datetime(2024, 1, 1))
 
-    assert store.stored == ["zaak-1", "doc-0", "doc-1", "doc-2"]
-    assert result.created == 4 and "after 4 records" in result.errors[0]
+    assert store.stored == ["zaak-0", "zaak-1", "zaak-2"]
+    assert result.created == 3 and "after 3 records" in result.errors[0]
+
+
+def test_tk_asks_for_every_case_and_for_no_documents() -> None:
+    """``$top=0`` answers no records at all; the documents belong to tk-dossiers."""
+    client = _TkClient([{"Id": "zaak-1"}])
+    store = _Store()
+    TKRetrievePipeline(store, client).run(since=dt.datetime(2024, 1, 1))
+
+    assert client.top is None
+    assert store.stored == ["zaak-1"]
 
 
 class _DossierClient:

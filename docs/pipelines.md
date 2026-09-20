@@ -38,7 +38,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 
 | Command | Fetches | Stored kinds |
 |---------|---------|--------------|
-| `retrieve tk` | Zaak and Document modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak`, `tk-document` |
+| `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
 | `retrieve tk-content` | XML text of documents whose `kind` contains `--kind` (default `toelichting`) and that have no `props.text`; `--dry-run` | writes `documents.props.text` |
 
@@ -54,7 +54,8 @@ Client quirks:
   `$expand=Agendapunt($expand=Zaak($select=Id,Soort;$expand=Kamerstukdossier($select=Id,Nummer)))`.
   Standard OData syntax returns HTTP 400.
 - The dossier endpoints emit no `@odata.nextLink`; the client pages with `$top=250` and
-  `$skip` until a page is short. Zaak and Document follow `@odata.nextLink`.
+  `$skip` until a page is short. Zaak follows `@odata.nextLink` when no `$top` is sent
+  (`$top=0` answers no records at all).
 - Votes arrive as one row per faction per `Besluit`.
 - A full Document fetch is about 400K records; use a date window (`retrieve all --window 730d`, or `--documents-since 730d`).
 - `tk-content` does not use the PDF the API serves: the same paper is published as structured
