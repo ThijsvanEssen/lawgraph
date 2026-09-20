@@ -10,8 +10,8 @@ import pytest
 import requests
 
 from lawgraph.clients.eerstekamer import EerstekamerClient
-from lawgraph.config.constants import RELATION_PART_OF
-from lawgraph.core.models import NodeType, PipelineResult
+from lawgraph.config.constants import COLLECTION_DOCUMENTS, RELATION_PART_OF
+from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.pipelines.normalize.eerstekamer import (
     EerstekamerNormalizePipeline,
     split_dossier_number,
@@ -145,7 +145,12 @@ def _normalize(papers: list[dict[str, Any]]):
     pipeline = EerstekamerNormalizePipeline(store=store)
     raw = [{"external_id": p.get("identifier"), "payload_json": p} for p in papers]
     result = PipelineResult()
-    return pipeline.normalize_nodes(raw, result), result
+    pipeline.normalize_nodes(raw, result)
+    nodes = {
+        doc["_key"]: Node.from_document(COLLECTION_DOCUMENTS, doc)
+        for doc in store.upserted
+    }
+    return nodes, result
 
 
 def test_a_paper_becomes_a_document_with_its_dossier_number() -> None:
@@ -206,7 +211,7 @@ def test_a_record_without_an_identifier_is_skipped() -> None:
     nodes = EerstekamerNormalizePipeline(store=store).normalize_nodes(
         [{"payload_json": {"title": "x"}}, {"external_id": "kst-1"}], result
     )
-    assert nodes == {} and result.skipped == 2
+    assert nodes == 0 and store.upserted == [] and result.skipped == 2
 
 
 # ── the link to the Tweede Kamer dossier ─────────────────────────────────────

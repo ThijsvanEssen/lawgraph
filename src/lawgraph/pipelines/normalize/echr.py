@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -27,19 +28,20 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:
-        rows = self._query_raw_sources(
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
+        return self._iter_raw_sources(
             source=SOURCE_ECHR,
             kinds=[RAW_KIND_ECHR_JUDGMENT],
             since=since,
+            batch_size=1000,
         )
-        logger.info("Loaded %d ECHR raw_sources.", len(rows))
-        return rows
 
     def normalize_nodes(
-        self, raw: list[dict[str, Any]], result: PipelineResult
-    ) -> dict[str, Node]:
-        nodes: dict[str, Node] = {}
+        self, raw: Iterable[dict[str, Any]], result: PipelineResult
+    ) -> int:
+        count = 0
         writer = NodeWriter(self.store)
 
         for record in raw:
@@ -94,14 +96,12 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
                 props=props,
             )
             writer.add(node)
-            nodes[item_id] = node
+            count += 1
 
         writer.flush()
 
-        logger.info("ECHR normalize: %d judgments processed.", len(nodes))
-        return nodes
+        logger.info("ECHR normalize: %d judgments processed.", count)
+        return count
 
-    def build_edges(
-        self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> None:
+    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
         """No structural edges: citations are linked by the semantic pipelines."""

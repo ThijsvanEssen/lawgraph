@@ -11,6 +11,7 @@ Treaties are stored as Instrument nodes with:
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -22,6 +23,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
+from lawgraph.db import NodeWriter
 from lawgraph.db.store import ArangoStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -34,19 +36,21 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:
-        rows = self._query_raw_sources(
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
+        return self._iter_raw_sources(
             source=SOURCE_VERDRAGENBANK,
             kinds=[RAW_KIND_VERDRAG],
             since=since,
+            batch_size=1000,
         )
-        logger.info("Loaded %d Verdragenbank raw_sources.", len(rows))
-        return rows
 
     def normalize_nodes(
-        self, raw: list[dict[str, Any]], result: PipelineResult
-    ) -> dict[str, Node]:
-        nodes: dict[str, Node] = {}
+        self, raw: Iterable[dict[str, Any]], result: PipelineResult
+    ) -> int:
+        count = 0
+        writer = NodeWriter(self.store)
 
         for record in raw:
             payload = self._payload_json(record)
@@ -116,13 +120,13 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
                 labels=["Verdrag", "NL"],
                 props=props,
             )
-            node, _ = self.store.insert_or_update(node)
-            nodes[external_id] = node
+            writer.add(node)
+            count += 1
 
-        logger.info("Verdragenbank normalize: %d treaties processed.", len(nodes))
-        return nodes
+        writer.flush()
 
-    def build_edges(
-        self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> None:
+        logger.info("Verdragenbank normalize: %d treaties processed.", count)
+        return count
+
+    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
         """No structural edges for treaties."""

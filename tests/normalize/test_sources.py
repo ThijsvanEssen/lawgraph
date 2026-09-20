@@ -72,8 +72,8 @@ def test_staatsblad_normalize_creates_publication():
         [_raw("stb-2015-134", payload_text=_STB_XML)], PipelineResult()
     )
 
-    assert len(nodes) == 1
-    node = next(iter(nodes.values()))
+    assert nodes == 1
+    node = store.upserted[-1]
     assert node.type == NodeType.DOCUMENT
     assert node.props["year"] == "2015"
     assert node.props["number"] == "134"
@@ -88,7 +88,7 @@ def test_staatsblad_normalize_skips_empty_payload():
     nodes = pipeline.normalize_nodes(
         [_raw("stb-2020-1", payload_text="")], PipelineResult()
     )
-    assert len(nodes) == 0
+    assert nodes == 0
 
 
 # ---------------------------------------------------------------------------
@@ -116,8 +116,8 @@ def test_staatscourant_normalize_creates_publication():
         [_raw("stcrt-2020-55", payload_text=_STCRT_XML)], PipelineResult()
     )
 
-    assert len(nodes) == 1
-    node = next(iter(nodes.values()))
+    assert nodes == 1
+    node = store.upserted[-1]
     assert node.type == NodeType.DOCUMENT
     assert node.props["year"] == "2020"
     assert node.props["bwb_id"] == "BWBR0005821"
@@ -133,7 +133,7 @@ def test_staatscourant_normalize_skips_empty_payload():
     nodes = pipeline.normalize_nodes(
         [_raw("stcrt-2020-55", payload_text="")], PipelineResult()
     )
-    assert len(nodes) == 0
+    assert nodes == 0
 
 
 # ---------------------------------------------------------------------------
@@ -162,8 +162,8 @@ def test_echr_normalize_creates_judgment():
         [_raw("001-12345", payload_json=_ECHR_PAYLOAD)], PipelineResult()
     )
 
-    assert len(nodes) == 1
-    node = next(iter(nodes.values()))
+    assert nodes == 1
+    node = store.upserted[-1]
     assert node.type == NodeType.JUDGMENT
     assert node.props["appno"] == "12345/67"
     assert node.props["respondent"] == "Netherlands"
@@ -176,7 +176,7 @@ def test_echr_normalize_skips_empty_payload():
     store = _FakeStore()
     pipeline = ECHRNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("x", payload_json=None)], PipelineResult())
-    assert len(nodes) == 0
+    assert nodes == 0
 
 
 # ---------------------------------------------------------------------------
@@ -207,8 +207,8 @@ def test_verdragenbank_normalize_creates_instrument():
         [_raw("12345", payload_json=_VERDRAG_PAYLOAD)], PipelineResult()
     )
 
-    assert len(nodes) == 1
-    node = next(iter(nodes.values()))
+    assert nodes == 1
+    node = store.upserted[-1]
     assert node.type == NodeType.INSTRUMENT
     assert node.props["kind"] == "bilateraalverdrag"
     assert node.props["status"] == "Inwerkinggetreden"
@@ -228,11 +228,9 @@ def test_verdragenbank_normalize_multilateral():
     }
     store = _FakeStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes(
-        [_raw("99", payload_json=payload)], PipelineResult()
-    )
+    pipeline.normalize_nodes([_raw("99", payload_json=payload)], PipelineResult())
 
-    node = next(iter(nodes.values()))
+    node = store.upserted[-1]
     assert node.props["kind"] == "multilateraalverdrag"
 
 
@@ -243,11 +241,57 @@ def test_verdragenbank_only_a_treaty_in_force_is_in_force():
 
     def in_force(status: str) -> bool:
         payload = {**_VERDRAG_PAYLOAD, "status": status}
-        nodes = VerdragenbankNormalizePipeline(store=_FakeStore()).normalize_nodes(
+        store = _FakeStore()
+        VerdragenbankNormalizePipeline(store=store).normalize_nodes(
             [_raw("12345", payload_json=payload)], PipelineResult()
         )
-        return next(iter(nodes.values())).props["in_force"]
+        return store.upserted[-1].props["in_force"]
 
     assert in_force("Inwerkinggetreden") is True
     for status in ("Buitenwerkinggetreden", "Totstandgekomen", "Geratificeerd"):
         assert in_force(status) is False
+
+
+# ---------------------------------------------------------------------------
+# Memory: raw records are streamed and no node is kept after it is written
+# ---------------------------------------------------------------------------
+
+
+def test_one_node_per_record_pipelines_stream_and_keep_nothing():
+    import pytest
+
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+    from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
+    from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
+    from lawgraph.pipelines.normalize.staatscourant import (
+        StaatscourantNormalizePipeline,
+    )
+    from lawgraph.pipelines.normalize.verdragenbank import (
+        VerdragenbankNormalizePipeline,
+    )
+
+    class Streaming(_FakeStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.batch_sizes: list[int | None] = []
+
+        def query(self, aql, bind_vars=None, *, batch_size=None):  # type: ignore[override]
+            self.batch_sizes.append(batch_size)
+            return iter([])
+
+    for cls, large_payloads in (
+        (StaatsbladNormalizePipeline, True),
+        (StaatscourantNormalizePipeline, True),
+        (ECHRNormalizePipeline, False),
+        (EerstekamerNormalizePipeline, False),
+        (VerdragenbankNormalizePipeline, False),
+    ):
+        store = Streaming()
+        pipeline = cls(store=store)
+        raw = pipeline.fetch_raw()
+        assert not isinstance(raw, list), cls.__name__
+        with pytest.raises(StopIteration):
+            next(iter(raw))
+        # XML of up to 20 MB comes 20 at a time, small JSON records 1000 at a time.
+        assert store.batch_sizes == [20 if large_payloads else 1000], cls.__name__
+        assert pipeline.normalize_nodes(iter([]), PipelineResult()) == 0

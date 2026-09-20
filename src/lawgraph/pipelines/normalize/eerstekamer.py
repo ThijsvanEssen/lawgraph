@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -41,19 +42,20 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:
-        rows = self._query_raw_sources(
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
+        return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EK_KAMERSTUK],
             since=since,
+            batch_size=1000,
         )
-        logger.info("Loaded %d Eerste Kamer raw_sources.", len(rows))
-        return rows
 
     def normalize_nodes(
-        self, raw: list[dict[str, Any]], result: PipelineResult
-    ) -> dict[str, Node]:
-        nodes: dict[str, Node] = {}
+        self, raw: Iterable[dict[str, Any]], result: PipelineResult
+    ) -> int:
+        count = 0
         writer = NodeWriter(self.store)
 
         for record in raw:
@@ -67,11 +69,11 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
                 continue
             node = self._paper(str(identifier), payload)
             writer.add(node)
-            nodes[node.key] = node
+            count += 1
 
         writer.flush()
-        logger.info("Eerste Kamer normalize: %d Kamerstukken.", len(nodes))
-        return nodes
+        logger.info("Eerste Kamer normalize: %d Kamerstukken.", count)
+        return count
 
     def _paper(self, identifier: str, payload: dict[str, Any]) -> Node:
         kind = payload.get("kind") or ""
@@ -110,9 +112,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             props=props,
         )
 
-    def build_edges(
-        self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> None:
+    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
         """None. A paper reaches the graph through its Tweede Kamer dossier.
 
         ``EerstekamerDossierLinkSemanticPipeline`` matches the dossier number.

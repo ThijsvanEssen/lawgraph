@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lawgraph.core.identifiers import STB_ID_PATTERN, find_bwb_id
+from lawgraph.core.identifiers import STB_ID_PATTERN
 from lawgraph.core.xml import find_text, local_name
 
 # Both spellings occur in the published XML for the official title.
@@ -19,11 +19,6 @@ def publication_title(root: ET.Element, fallback: str) -> str:
         or find_text(root, "titel")
         or fallback
     )
-
-
-def bwb_id_in_xml(root: ET.Element) -> str | None:
-    """First BWB id anywhere in the serialized element (tags, attributes, text)."""
-    return find_bwb_id(ET.tostring(root, encoding="unicode"))
 
 
 def staatsblad_ref_from_bwb_xml(bwb_xml: str) -> tuple[str, str] | None:
