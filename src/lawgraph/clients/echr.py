@@ -48,7 +48,8 @@ class EchrClient(BaseClient):
             max_records: Maximum number of records to fetch.
 
         Returns:
-            List of result metadata dicts.
+            List of result metadata dicts (the ``columns`` of each HUDOC result). A failing
+            request raises.
         """
         query_parts = [f"respondent:{respondent}", f"documentcollectionid2:{doc_type}"]
         if since_date:
@@ -71,23 +72,17 @@ class EchrClient(BaseClient):
                 "rankingModelId": "11111111-0000-0000-0000-000000000000",
             }
 
-            try:
-                resp = self._get_raw_with_retry(
-                    "/app/query/results",
-                    params=params,
-                    timeout=60,
-                )
-                data = resp.json()
-            except Exception as exc:
-                logger.warning("ECHR HUDOC search failed (start=%d): %s", start, exc)
-                break
-
-            # HUDOC returns {"query": {...}, "results": [...]}
-            items = data.get("results", [])
+            resp = self._get_raw_with_retry(
+                "/app/query/results",
+                params=params,
+                timeout=60,
+            )
+            # HUDOC returns {"results": [{"columns": {"itemid": ..., ...}}, ...]}
+            items = resp.json().get("results", [])
             if not items:
                 break
 
-            results.extend(items)
+            results.extend(item["columns"] for item in items)
             logger.debug(
                 "ECHR: fetched %d records (total so far: %d).", len(items), len(results)
             )
