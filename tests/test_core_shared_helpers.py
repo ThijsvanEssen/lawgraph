@@ -265,20 +265,6 @@ def test_relation_ecli_extraction() -> None:
     assert fn(_el('<r resource="http://h/no-id"/>')) is None
 
 
-# ── retrieve/rechtspraak _count_index_entries ────────────────────────────────
-
-
-def test_count_index_entries() -> None:
-    count = judgments.count_index_entries
-    feed = f'<feed xmlns="{NS}"><entry/><entry/><title/><x><entry/></x></feed>'
-    assert count(feed) == 2  # direct children only
-    assert count("<feed><entry/></feed>") == 1
-    assert count("<feed/>") == 0
-    # unparseable -> naive substring count
-    assert count("<entry><entry>") == 2
-    assert count("") == 0
-
-
 # ── bijlage extraction ───────────────────────────────────────────────────────
 
 

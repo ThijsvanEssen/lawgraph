@@ -171,7 +171,6 @@ RAW_KIND_TK_PERSOON = "tk-persoon"
 RAW_KIND_TK_DOCUMENT = "tk-document"
 RAW_KIND_TK_FRACTIE = "tk-fractie"
 RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
-RAW_KIND_RS_INDEX = "rs-index"
 RAW_KIND_RS_CONTENT = "rs-content"
 RAW_KIND_EU_CELEX = "eu-celex-html"
 RAW_KIND_BWB_REGELING = "bwb-regeling-xml"
@@ -198,7 +197,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_FRACTIE,
         RAW_KIND_TK_FRACTIEZETELPERSOON,
     ),
-    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_INDEX, RAW_KIND_RS_CONTENT),
+    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT,),
     SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),
     SOURCE_BWB: (
         RAW_KIND_BWB_REGELING,
@@ -272,3 +271,35 @@ HOST_MIN_INTERVAL: dict[str, float] = {
     "zoekservice.overheid.nl": 0.1,
     "repository.officiele-overheidspublicaties.nl": 0.1,
 }
+
+# ── Rechtspraak courts ────────────────────────────────────────────────────────
+# Short name -> the OWMS term of the court in the Rechtspraak API (``creator``).
+RECHTSPRAAK_COURTS: dict[str, str] = {
+    "hr": "Hoge_Raad_der_Nederlanden",
+    "rvs": "Raad_van_State",
+    "crvb": "Centrale_Raad_van_Beroep",
+    "cbb": "College_van_Beroep_voor_het_bedrijfsleven",
+    "gh-amsterdam": "Gerechtshof_Amsterdam",
+    "gh-arnhem-leeuwarden": "Gerechtshof_Arnhem-Leeuwarden",
+    "gh-den-haag": "Gerechtshof_Den_Haag",
+    "gh-s-hertogenbosch": "Gerechtshof_'s-Hertogenbosch",
+    # courts of appeal before the 2013 reorganisation, for research into older years
+    "gh-arnhem": "Gerechtshof_Arnhem",
+    "gh-leeuwarden": "Gerechtshof_Leeuwarden",
+    "gh-s-gravenhage": "Gerechtshof_'s-Gravenhage",
+}
+RECHTSPRAAK_COURT_GROUPS: dict[str, tuple[str, ...]] = {
+    "hoven": (
+        "gh-amsterdam",
+        "gh-arnhem-leeuwarden",
+        "gh-den-haag",
+        "gh-s-hertogenbosch",
+        "gh-arnhem",
+        "gh-leeuwarden",
+        "gh-s-gravenhage",
+    ),
+}
+RECHTSPRAAK_DEFAULT_COURTS = ("hr", "rvs", "hoven")
+# Judgments are published up to weeks after the decision date; an incremental run looks this
+# far before its ``--since``.
+RECHTSPRAAK_PUBLICATION_LAG_DAYS = 30

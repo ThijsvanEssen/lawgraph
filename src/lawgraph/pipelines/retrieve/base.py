@@ -102,6 +102,29 @@ class RetrievePipelineBase(PipelineBase):
             )
         return done
 
+    def _stored_at(self, source: str, kind: str) -> dict[str, dt.datetime]:
+        """``{external_id: fetched_at}`` of every stored record of *kind*.
+
+        For sources that say when a record last changed: what is stored and newer than that
+        does not have to be fetched again.
+        """
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind
+            RETURN {{id: r.external_id, at: r.fetched_at}}
+        """
+        stored: dict[str, dt.datetime] = {}
+        for row in self.store.query(aql, {"source": source, "kind": kind}):
+            try:
+                at = dt.datetime.fromisoformat(str(row["at"]).replace("Z", "+00:00"))
+            except (KeyError, ValueError):
+                continue
+            if row.get("id"):
+                stored[str(row["id"])] = (
+                    at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)
+                )
+        return stored
+
     def _insert(self, record: RetrieveRecord) -> None:
         self.store.insert_raw_source(
             source=record.source,

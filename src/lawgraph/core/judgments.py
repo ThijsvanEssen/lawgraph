@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import re
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.xml import first_named, iter_named, local_name, text_of
@@ -188,10 +191,47 @@ def extract_sections(payload_text: str | None) -> list[dict[str, Any]]:
 # ── Atom index pages ─────────────────────────────────────────────────────────
 
 
-def count_index_entries(xml_text: str) -> int:
-    """Count the Atom ``<entry>`` children of an index page (substring count if malformed)."""
+@dataclass(frozen=True)
+class IndexEntry:
+    """One judgment of a Rechtspraak index page."""
+
+    ecli: str
+    updated: dt.datetime | None  # when the judgment was published or last changed
+    title: str
+
+
+def parse_index(xml_text: str) -> tuple[int | None, list[IndexEntry]]:
+    """``(total, entries)`` of an Atom index page; the total is what the search matched.
+
+    Raises ``ET.ParseError`` on a page that is not XML: an index that cannot be read must
+    not look like an empty one.
+    """
+    root = ET.fromstring(xml_text)
+    total: int | None = None
+    entries: list[IndexEntry] = []
+    for child in root:
+        name = local_name(child.tag)
+        if name == "subtitle":
+            match = re.search(r"(\d+)", child.text or "")
+            total = int(match.group(1)) if match else None
+        elif name == "entry":
+            fields = {local_name(e.tag): (e.text or "").strip() for e in child}
+            if fields.get("id"):
+                entries.append(
+                    IndexEntry(
+                        ecli=fields["id"],
+                        updated=_parse_timestamp(fields.get("updated")),
+                        title=fields.get("title", ""),
+                    )
+                )
+    return total, entries
+
+
+def _parse_timestamp(value: str | None) -> dt.datetime | None:
+    if not value:
+        return None
     try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError:
-        return xml_text.count("<entry>")
-    return sum(1 for child in root if local_name(child.tag) == "entry")
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)

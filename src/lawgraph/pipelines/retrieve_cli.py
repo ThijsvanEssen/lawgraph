@@ -5,7 +5,13 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 
-from lawgraph.config.constants import COLLECTION_INSTRUMENTS
+from lawgraph.config.constants import (
+    COLLECTION_INSTRUMENTS,
+    RECHTSPRAAK_COURT_GROUPS,
+    RECHTSPRAAK_COURTS,
+    RECHTSPRAAK_DEFAULT_COURTS,
+    RECHTSPRAAK_PUBLICATION_LAG_DAYS,
+)
 from lawgraph.config.settings import BWB_IDS
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
@@ -165,25 +171,31 @@ def retrieve_eerstekamer(argv: list[str] | None = None) -> None:
 
 def retrieve_rechtspraak(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Retrieve the Rechtspraak index and judgment contents."
+        description="Retrieve Rechtspraak judgments of chosen courts, by decision date."
     )
     parser.add_argument(
-        "--ecli", action="append", help="Judgment whose content to fetch (repeatable)."
+        "--court",
+        action="append",
+        metavar="NAME",
+        help="Court or group to read (repeatable): "
+        f"{', '.join(sorted({*RECHTSPRAAK_COURTS, *RECHTSPRAAK_COURT_GROUPS}))}. "
+        f"Default: {', '.join(RECHTSPRAAK_DEFAULT_COURTS)}; none when only --ecli is given.",
+    )
+    parser.add_argument(
+        "--ecli", action="append", help="Judgment to fetch as it is (repeatable)."
     )
     add_since_argument(parser, default="1d")
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
     def run() -> PipelineResult:
+        courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
+        date_from = None
+        if args.mode == "incremental":
+            lag = dt.timedelta(days=RECHTSPRAAK_PUBLICATION_LAG_DAYS)
+            date_from = (args.since - lag).date()
         pipeline = RechtspraakRetrievePipeline(ArangoStore())
-        result = (
-            pipeline.run_full()
-            if args.mode == "full"
-            else pipeline.run_index(since=args.since)
-        )
-        if args.ecli:
-            result = result.merge(pipeline.run(eclis=args.ecli))
-        return result
+        return pipeline.run(courts=courts, date_from=date_from, eclis=args.ecli or [])
 
     run_step("Rechtspraak retrieve", run)
 

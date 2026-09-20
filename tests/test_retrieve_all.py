@@ -166,7 +166,7 @@ def recorded(monkeypatch) -> dict[str, list[str]]:
     return argvs
 
 
-PRODUCING = ("tk", "staatscourant", "eerstekamer", "echr")
+PRODUCING = ("tk", "rechtspraak", "staatscourant", "eerstekamer", "echr")
 
 
 def test_the_window_reaches_the_sources_that_keep_producing(
@@ -178,13 +178,6 @@ def test_the_window_reaches_the_sources_that_keep_producing(
         assert recorded[source] == ["--mode", "incremental", "--since", WINDOW], source
     assert recorded["tk_dossiers"] == ["--since", WINDOW]
     assert "tk_content" not in recorded
-
-
-def test_rechtspraak_is_not_part_of_retrieve_all(monkeypatch, recorded) -> None:
-    """Nothing reads the Rechtspraak index, so `retrieve all` does not load it."""
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
-    run_retrieve_all(["--mode", "full"])
-    assert "rechtspraak" not in recorded
 
 
 def test_reference_sources_are_read_in_full_whatever_the_window(

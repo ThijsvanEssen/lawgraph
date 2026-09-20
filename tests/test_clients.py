@@ -96,31 +96,6 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
 # --------------------------------------------------------------------
 
 
-def test_rechtspraak_fetch_ecli_index_xml_uses_correct_path_and_params() -> None:
-    # Arrange
-    xml_body = "<index>ok</index>"
-    session = DummySession(DummyResponse(text=xml_body))
-    client = RechtspraakClient(session=session)
-    client.base_url = "https://data.example.org/"
-
-    since = dt.datetime(2025, 1, 1, 12, 0, 0)
-
-    # Act
-    result = client.fetch_ecli_index_xml(
-        modified_since=since,
-        extra_params={"rechtsgebied": "bestuursrecht"},
-    )
-
-    # Assert
-    assert session.calls == 1
-    assert session.last_url == "https://data.example.org/uitspraken/zoeken"
-    assert session.last_params is not None
-    assert session.last_params["rechtsgebied"] == "bestuursrecht"
-    assert "modifiedsince" in session.last_params
-    assert "2025-01-01T12:00:00" in session.last_params["modifiedsince"]
-    assert result == xml_body
-
-
 def test_rechtspraak_fetch_ecli_content_uses_correct_path_and_param() -> None:
     # Arrange
     xml_body = "<uitspraak>ECLI content</uitspraak>"

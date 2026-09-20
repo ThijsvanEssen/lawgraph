@@ -243,8 +243,8 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
             display_name="Rechtspraak (judgments)",
             descriptions={
                 "retrieve": (
-                    "Rechtspraak index pages, and the content of the judgments given "
-                    "with --ecli. Nothing reads the index."
+                    "Judgments of the Hoge Raad, Raad van State and gerechtshoven "
+                    "(--court), by decision date, and those given with --ecli."
                 ),
                 "normalize": (
                     "Judgment nodes from the stored judgment XML (court, date, summary, text, "
@@ -253,8 +253,7 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
                 "semantic": "Article citations in judgments: REFERS_TO to BWB articles.",
             },
             retrieve_main=retrieve_rechtspraak,
-            # Not in `retrieve all`: nothing reads the index (judgments come from `fill-gaps`
-            # and `--ecli`), so loading it only stores hundreds of MB.
+            retrieve_argv_builder=_windowed_argv,
             normalize_main=normalize,
             semantic_main=semantic,
             semantic_accepts_since=True,

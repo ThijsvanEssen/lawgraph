@@ -128,31 +128,34 @@ articles at all.
 
 ## Rechtspraak
 
-**Provides.** Judgments from data.rechtspraak.nl: an Atom index (`uitspraken/zoeken`) and
-the XML of one judgment (`uitspraken/content?id=<ECLI>`).
+**Provides.** Judgments from data.rechtspraak.nl: an Atom index (`uitspraken/zoeken`) and the
+XML of one judgment (`uitspraken/content?id=<ECLI>`).
 
-**Retrieve.** The index filter parameter is `modifiedsince` (lower case, no underscore).
+**Retrieve.** The index is filtered by court (`creator`, an OWMS term; several are OR) and by
+decision date (`date`, twice for a range) and read in pages of 1,000. `modifiedsince` is not
+used as a window: the Rechtspraak republished nearly its whole corpus, so it matches almost
+everything. For each judgment of the index one `rs-content` record is stored, as soon as it is
+downloaded. A judgment that is stored and was fetched after its last change (`updated` in the
+index) is skipped, so a re-run or a resumed run only downloads the rest.
 
-| Mode | Behaviour |
-|------|-----------|
-| `incremental` (default) | the index pages of judgments modified since `--since` (default `1d`), 1,000 per page, stored as `index_<date>_<offset>` |
-| `full` | the index pages from offset 0 without a date filter, stored as `index_all_<offset>` (about 400 KB per page, over 4,000 pages: hundreds of MB) |
+| Option | Meaning |
+|--------|---------|
+| `--court NAME` (repeatable) | `hr`, `rvs`, `crvb`, `cbb`, `gh-amsterdam`, `gh-arnhem-leeuwarden`, `gh-den-haag`, `gh-s-hertogenbosch` (the older `gh-arnhem`, `gh-leeuwarden`, `gh-s-gravenhage`), or the group `hoven` (all courts of appeal). Default: `hr`, `rvs`, `hoven`; none when only `--ecli` is given |
+| `--mode incremental` (default) | judgments decided from `--since` (default `1d`) minus 30 days, because judgments are published up to weeks after the decision |
+| `--mode full` | no date filter: every judgment of the courts (the Raad van State alone is far over 100,000) |
+| `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`fill-gaps` uses this for stubs); skipped when stored in the last 24 hours |
 
-Both modes store each page as it is fetched. `--ecli` (repeatable) also fetches the content of
-those judgments. Rechtspraak is not part of `retrieve all`: nothing reads the index, so
-loading it stores data no pipeline uses.
-
-Judgment content (`rs-content`) is stored only for ECLIs passed explicitly or fetched by
-`fill-gaps --apply` for stub judgments. No pipeline reads ECLIs out of the stored index pages,
-so an index run creates no judgment nodes.
+Over the last two years the default courts hold about 33,000 judgments (Hoge Raad 4,100, Raad van
+State 11,000, the four courts of appeal about 18,000), a few hours at the paced rate.
+`retrieve all` reads the `--window` (a judgment is in it by decision date). Other courts, such as
+the rechtbanken (over 100,000 in two years), are chosen with `--court`.
 
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
 `case_number`, `procedure` as `judgment_metadata.type`, `subject`s, `relation` ECLIs as
 `related_eclis`), `inhoudsindicatie` as `summary`, `uitspraak` as `text` and as `paragraphs`
 (heading, subheading, body), the XML itself as `raw_xml`. `court_code` is the ECLI court
 segment; `tier` is `hoge_raad` (`HR`), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or
-`bijzonder`; `date_eff` is the judgment date. Index records with an ECLI in their metadata
-would become stub nodes; retrieve does not set that metadata.
+`bijzonder`; `date_eff` is the judgment date.
 
 **Semantic `rechtspraak`.** Strips tags from `raw_xml`, `text`, `summary` and extracts coded
 citations (`artikel 36e Sr`, `artikel 3 van het Wetboek van Strafvordering`) with confidence

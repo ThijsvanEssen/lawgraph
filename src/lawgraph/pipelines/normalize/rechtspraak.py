@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, cast
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     RAW_KIND_RS_CONTENT,
-    RAW_KIND_RS_INDEX,
     RAW_SOURCE_KINDS,
     SOURCE_RECHTSPRAAK,
 )
@@ -36,23 +35,19 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         *,
         since: dt.datetime | None = None,
     ) -> dict[str, list[dict[str, Any]]]:
-        """Read Rechtspraak index and content raw_sources records."""
+        """Read the Rechtspraak content raw_sources records."""
         kinds = list(RAW_SOURCE_KINDS[SOURCE_RECHTSPRAAK])
         rows = self._query_raw_sources(
             source=SOURCE_RECHTSPRAAK, kinds=kinds, since=since
         )
-        grouped = self._group_by_kind(rows, kinds=kinds)
-
-        index_records = grouped.get(RAW_KIND_RS_INDEX, [])
-        content_records = grouped.get(RAW_KIND_RS_CONTENT, [])
-
+        content_records = self._group_by_kind(rows, kinds=kinds).get(
+            RAW_KIND_RS_CONTENT, []
+        )
         logger.info(
-            "Loaded %d Rechtspraak index records and %d content records from raw_sources.",
-            len(index_records),
+            "Loaded %d Rechtspraak content records from raw_sources.",
             len(content_records),
         )
-
-        return {"index": index_records, "content": content_records}
+        return {"content": content_records}
 
     def _build_content_node(
         self, raw_entry: dict[str, Any]
@@ -131,66 +126,6 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                     judgments_by_ecli[ecli] = node
 
         logger.info("Created %d Rechtspraak judgment nodes.", len(judgments_by_ecli))
-
-        # Create lightweight ECLI stub nodes from index records.
-        index_records = raw.get("index", [])
-
-        # Collect candidate (ecli, key) pairs, skipping ECLIs already written as
-        # full content nodes in this same run (those are definitely not stubs).
-        stub_candidates: list[tuple[str, str]] = []
-        for raw_entry in index_records:
-            meta = self._meta(raw_entry)
-            ecli = meta.get("ecli")
-            if not ecli:
-                continue
-            if ecli in judgments_by_ecli:
-                continue
-            stub_candidates.append((ecli, make_node_key(ecli)))
-
-        # Bulk-fetch keys of existing non-stub nodes so we don't overwrite them.
-        non_stub_keys: set[str] = set()
-        if stub_candidates:
-            candidate_keys = [key for _ecli, key in stub_candidates]
-            aql = f"""
-FOR doc IN {COLLECTION_JUDGMENTS}
-  FILTER doc._key IN @keys AND (doc.props.stub == null OR doc.props.stub == false)
-  RETURN doc._key
-"""
-            non_stub_keys = cast(
-                set[str], set(self.store.query(aql, {"keys": candidate_keys}))
-            )
-
-        # Build and batch-upsert stub documents.
-        stub_docs: list[dict] = []
-        for ecli, key in stub_candidates:
-            if key in non_stub_keys:
-                continue
-            stub_node = Node(
-                collection=COLLECTION_JUDGMENTS,
-                type=NodeType.JUDGMENT,
-                key=key,
-                labels=["Rechtspraak", "Stub"],
-                props={
-                    "source": SOURCE_RECHTSPRAAK,
-                    "ecli": ecli,
-                    "stub": True,
-                    "display_name": ecli,
-                },
-            )
-            stub_docs.append(stub_node.to_document())
-
-        stubs_created = 0
-        for batch_start in range(0, len(stub_docs), 200):
-            batch = stub_docs[batch_start : batch_start + 200]
-            created, updated = self.store.bulk_insert_or_update_nodes(
-                COLLECTION_JUDGMENTS, batch
-            )
-            stubs_created += created
-
-        logger.info(
-            "Created/updated %d Rechtspraak ECLI stub nodes from index records.",
-            stubs_created,
-        )
 
         return {
             "judgments_by_ecli": judgments_by_ecli,

@@ -34,11 +34,10 @@ def test_tk_api_reachable_and_returns_valid_json() -> None:
 def test_rechtspraak_search_endpoint_reachable_and_returns_xml() -> None:
     client = RechtspraakClient()
 
-    xml_index = client.fetch_ecli_index_xml(modified_since=None, extra_params=None)
+    entries = client.iter_index(courts=["Hoge_Raad_der_Nederlanden"])
 
-    assert isinstance(xml_index, str)
-    # minimal sanity check: looks like XML
-    assert "<" in xml_index or xml_index.strip() == ""
+    first = next(entries)
+    assert first.ecli.startswith("ECLI:")
 
 
 @skip_if_no_net
