@@ -5,7 +5,7 @@ Treaties are stored as Instrument nodes with:
   - jurisdiction: 'nl' (NL is party) or 'int' for purely international
   - props.treaty_number: the official NL treaty number
   - props.date_signed / props.date_in_force
-  - props.status: 'in force' / 'not in force' / etc.
+  - props.status: the Verdragenbank status (Inwerkinggetreden, Buitenwerkinggetreden, ...)
 """
 
 from __future__ import annotations
@@ -80,7 +80,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
             elif "bilateral" in type_lower or "bilateraal" in type_lower:
                 kind = "bilateraalverdrag"
 
-            is_in_force = "force" in status.lower() and "not" not in status.lower()
+            is_in_force = status.lower() == "inwerkinggetreden"
 
             display_name = (
                 title[:MAX_TITLE_CHARS]

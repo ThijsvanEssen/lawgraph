@@ -322,8 +322,11 @@ example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` (patterns: the type names abo
 ## Staatsblad
 
 **Provides.** Staatsblad publications as XML from repository.overheid.nl
-(`/frbr/officielepublicaties/stb/<year>/<nnnn>/stb-<year>-<nnnn>/xml`, retried without
-zero padding), enumerated through the KOOP SRU (`dt.type=AMvB`, 100 per page, at most 20,000).
+(`/frbr/officielepublicaties/stb/<year>/<id>/1/xml/<id>.xml`, a 404 is "not found"),
+enumerated through the KOOP SRU (`dt.type=AMvB`, about 19,900 records). Every KOOP SRU
+search (`clients/_sru.py`) is paged by key, `dt.identifier>"<last>" sortBy dt.identifier`,
+100 per page, because the service answers HTTP 504 for any record from position 10000 on;
+the pages must add up to the reported total, and an SRU diagnostic or a failed request raises.
 
 **Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, extracts the
 publication year and number of each regulation and fetches those not yet stored (run
@@ -340,7 +343,8 @@ that node comes from `bwb-amendments`.
 ## Staatscourant
 
 **Provides.** Ministeriële regelingen as XML, enumerated through the KOOP SRU
-(`dt.type=Ministeriele-regeling`, optional `dcterms.modified>=since`).
+(`dt.type=Ministeriele-regeling`, optional `dt.modified>=since`; the query also returns some
+Staatsblad records, which are dropped: about 13,800 regulations).
 
 **Retrieve.** `incremental` (default) searches the SRU (`--since`), `full` fetches all,
 `--identifiers` fetches given `stcrt-YYYY-N` identifiers.
@@ -371,14 +375,20 @@ the `conclusion` at 0.80.
 
 ## Verdragenbank
 
-**Provides.** Treaties the Netherlands is party to, by SPARQL POST
-(`VERDRAGENBANK_SPARQL`, 200 per page, 0.3 s between pages): titles (nl, en), signing and
-in-force dates, type, status, treaty number.
+**Provides.** Treaties the Netherlands is party to, from the KOOP SRU
+(`VERDRAGENBANK_SRU`, `c.product-area==vd AND w.documenttype==verdrag`, 250 per page):
+titles (nl and en are separate records with the same id and are joined), signing and
+in-force dates, type (`Bilateraal`, `Multilateraal`, `Plurilateraal`), status
+(`Inwerkinggetreden`, `Buitenwerkinggetreden`, `Totstandgekomen`, ...) and the six-digit
+Verdragenbank id (`verdragsnummer`), about 8,800 treaties. The former SPARQL endpoint
+(`linkeddata.overheid.nl`) holds no treaty data. Records of amendments (`wijziging`) are
+not read. An empty result raises: the endpoint or its data model has changed.
 
-**Retrieve.** `--max-records` (default 10,000). **Normalize.** Instrument `verdrag_<id>`
+**Retrieve.** `--max-records` stops early. **Normalize.** Instrument `verdrag_<id>`
 (`kind` `verdrag`, `multilateraalverdrag` or `bilateraalverdrag`, `jurisdiction: int`,
-`in_force`). No edges and no semantic pipeline. These instruments are not linked to the BWB
-treaties (`BWBV...`).
+`in_force` only for `Inwerkinggetreden`). No edges and no semantic pipeline. These
+instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Trb references
+(`dcterms:isPartOf`), the parties and the place of signing.
 
 ## Ordering
 

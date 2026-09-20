@@ -20,6 +20,19 @@ AMVB_PAGE = (FIXTURES / "sru_staatsblad_amvb_page.xml").read_text()  # 1 real re
 UNKNOWN_INDEX = (FIXTURES / "sru_unknown_index_diagnostic.xml").read_text()
 
 
+def _page(identifiers: list[str], total: int | None = None) -> str:
+    """A result page of real-format records, one per identifier."""
+    head, rest = AMVB_PAGE.split("<sru:records>")
+    record, tail = rest.split("</sru:records>")
+    records = "".join(record.replace("stb-2009-601-b1", i) for i in identifiers)
+    text = f"{head}<sru:records>{records}</sru:records>{tail}"
+    count = len(identifiers) if total is None else total
+    return text.replace(
+        "<sru:numberOfRecords>19858</sru:numberOfRecords>",
+        f"<sru:numberOfRecords>{count}</sru:numberOfRecords>",
+    )
+
+
 def _http_error(status: int) -> requests.HTTPError:
     return requests.HTTPError(str(status), response=SimpleNamespace(status_code=status))
 
@@ -43,7 +56,7 @@ def _client(cls, responses: list, calls: list[dict]):
 
 
 def test_a_real_record_is_parsed_with_its_xml_url() -> None:
-    records = _client(StaatsbladClient, [AMVB_PAGE], []).search_amvbs()
+    records = _client(StaatsbladClient, [_page(["stb-2009-601-b1"])], []).search_amvbs()
     assert records == [
         {
             "identifier": "stb-2009-601-b1",
@@ -60,12 +73,16 @@ def test_a_real_record_is_parsed_with_its_xml_url() -> None:
 
 def test_the_since_filter_uses_an_index_the_repository_knows() -> None:
     calls: list[dict] = []
-    _client(StaatsbladClient, [AMVB_PAGE], calls).search_amvbs(since="2026-01-01")
-    assert calls[0]["params"]["query"] == "dt.type=AMvB AND dt.modified>=2026-01-01"
-    calls.clear()
-    _client(StaatscourantClient, [AMVB_PAGE], calls).search_ministeriele_regelingen(
-        since="2026-06-01"
+    _client(StaatsbladClient, [_page(["stb-2009-601"])], calls).search_amvbs(
+        since="2026-01-01"
     )
+    assert calls[0]["params"]["query"].startswith(
+        "dt.type=AMvB AND dt.modified>=2026-01-01 sortBy"
+    )
+    calls.clear()
+    _client(
+        StaatscourantClient, [_page(["stcrt-2026-1"])], calls
+    ).search_ministeriele_regelingen(since="2026-06-01")
     assert "dt.modified>=2026-06-01" in calls[0]["params"]["query"]
     assert "dcterms." not in calls[0]["params"]["query"]
 
@@ -156,14 +173,6 @@ def test_a_malformed_identifier_is_not_requested() -> None:
 # ── paging ───────────────────────────────────────────────────────────────────
 
 
-def _page(identifiers: list[str]) -> str:
-    """A result page of real-format records, one per identifier."""
-    head, rest = AMVB_PAGE.split("<sru:records>")
-    record, tail = rest.split("</sru:records>")
-    records = "".join(record.replace("stb-2009-601-b1", i) for i in identifiers)
-    return f"{head}<sru:records>{records}</sru:records>{tail}"
-
-
 def test_a_page_with_foreign_records_is_not_the_last_page() -> None:
     """The ministeriele-regeling query also returns Staatsblad records; they are dropped
     from the result, but the page was full, so the next one must be requested."""
@@ -172,12 +181,36 @@ def test_a_page_with_foreign_records_is_not_the_last_page() -> None:
     ]
     second = [f"stcrt-2021-{n}" for n in range(1, 6)]
     calls: list[dict] = []
-    client = _client(StaatscourantClient, [_page(first), _page(second)], calls)
+    client = _client(
+        StaatscourantClient, [_page(first, total=105), _page(second, total=5)], calls
+    )
 
     records = client.search_ministeriele_regelingen()
 
     assert len(records) == 95
-    assert [c["params"]["startRecord"] for c in calls] == ["1", "101"]
+    assert len(calls) == 2
+
+
+def test_the_next_page_asks_for_the_identifiers_after_the_last_one() -> None:
+    """Paging is by key: the service answers 504 for any record from position 10000 on."""
+    first = [f"stb-2020-{n:03d}" for n in range(100)]
+    calls: list[dict] = []
+    client = _client(
+        StaatsbladClient,
+        [_page(first, total=101), _page(["stb-2021-1"], total=1)],
+        calls,
+    )
+
+    client.search_amvbs()
+
+    assert all(c["params"]["startRecord"] == "1" for c in calls)
+    assert (
+        calls[0]["params"]["query"]
+        == "dt.type=AMvB sortBy dt.identifier/sort.ascending"
+    )
+    assert calls[1]["params"]["query"] == (
+        'dt.type=AMvB AND dt.identifier>"stb-2020-099" sortBy dt.identifier/sort.ascending'
+    )
 
 
 def test_a_short_page_ends_the_search() -> None:
@@ -185,3 +218,9 @@ def test_a_short_page_ends_the_search() -> None:
     client = _client(StaatsbladClient, [_page(["stb-2020-1", "stb-2020-2"])], calls)
     assert len(client.search_amvbs()) == 2
     assert len(calls) == 1
+
+
+def test_pages_that_do_not_add_up_to_the_total_raise() -> None:
+    client = _client(StaatsbladClient, [_page(["stb-2020-1"], total=250)], [])
+    with pytest.raises(RuntimeError, match="hold 1 records, the service reports 250"):
+        client.search_amvbs()

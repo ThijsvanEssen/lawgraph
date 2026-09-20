@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from typing import Any
 
 import requests
@@ -15,6 +16,8 @@ from lawgraph.core.xml import find_own_text, local_name
 logger = get_logger(__name__)
 
 _IDENTIFIER_RE = re.compile(r"[\w.-]+")
+
+SRU_PAGE_SIZE = 100
 
 
 def raise_on_diagnostic(root: ET.Element, *, context: str) -> None:
@@ -45,6 +48,90 @@ def count_records(root: ET.Element) -> int:
     return sum(1 for element in root.iter() if local_name(element.tag) == "record")
 
 
+def number_of_records(root: ET.Element) -> int:
+    """The total the service reports for the query (``numberOfRecords``)."""
+    for element in root.iter():
+        if local_name(element.tag) == "numberOfRecords":
+            return int((element.text or "0").strip())
+    return 0
+
+
+def record_identifier(record: ET.Element) -> str | None:
+    """The ``dcterms:identifier`` of one ``<record>``."""
+    return find_own_text(record, "identifier") or find_own_text(
+        record, "recordIdentifier"
+    )
+
+
+def parse_record_fields(
+    record: ET.Element, fields: dict[str, str]
+) -> dict[str, str | None]:
+    """``{name: text}`` of the single-valued elements of one record, by local element name."""
+    return {name: find_own_text(record, element) for name, element in fields.items()}
+
+
+def search_publications(
+    client: BaseClient,
+    endpoint: str,
+    *,
+    query: str,
+    parse: Callable[[ET.Element], list[dict[str, Any]]],
+    context: str,
+    page_size: int = SRU_PAGE_SIZE,
+    connection: str | None = "ob",
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Every record of *query*, each page turned into dicts by *parse*.
+
+    The service answers HTTP 504 for every record from position 10000 on, so a result is
+    not paged by ``startRecord`` but by key: each page asks for the identifiers after the
+    last one of the previous page, sorted by identifier. The pages must add up to the total
+    the service reports; otherwise this raises. *limit* stops early (and skips that check).
+    A failing request or an SRU diagnostic raises.
+    """
+    records: list[dict[str, Any]] = []
+    fetched = 0
+    total: int | None = None
+    last: str | None = None
+    while True:
+        after = "" if last is None else f' AND dt.identifier>"{last}"'
+        params = {
+            "operation": "searchRetrieve",
+            "version": "1.2",
+            "query": f"{query}{after} sortBy dt.identifier/sort.ascending",
+            "maximumRecords": str(page_size),
+            "startRecord": "1",
+            "recordSchema": "gzd",
+        }
+        if connection:
+            params["x-connection"] = connection
+        resp = client._get_raw_absolute_with_retry(endpoint, params=params, timeout=60)
+        root = ET.fromstring(resp.text)
+        raise_on_diagnostic(root, context=f"{context} after {last}")
+
+        if total is None:
+            total = number_of_records(root)
+        page = [e for e in root.iter() if local_name(e.tag) == "record"]
+        identifiers = [i for i in map(record_identifier, page) if i]
+        if len(identifiers) != len(page):
+            raise RuntimeError(f"SRU error ({context}): a record has no identifier")
+        records.extend(parse(root))
+        fetched += len(page)
+
+        if len(page) < page_size or (limit is not None and len(records) >= limit):
+            break
+        last = identifiers[-1]
+
+    if limit is not None:
+        return records[:limit]
+    if fetched != total:
+        raise RuntimeError(
+            f"SRU error ({context}): the pages hold {fetched} records, the service "
+            f"reports {total}"
+        )
+    return records
+
+
 def parse_sru_records(
     root: ET.Element,
     *,
@@ -65,9 +152,7 @@ def parse_sru_records(
         if local_name(record_elem.tag) != "record":
             continue
 
-        identifier = find_own_text(record_elem, "identifier") or find_own_text(
-            record_elem, "recordIdentifier"
-        )
+        identifier = record_identifier(record_elem)
         if not identifier:
             continue
 

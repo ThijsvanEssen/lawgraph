@@ -32,7 +32,7 @@ All default to the public endpoints; no key is required.
 | `STAATSBLAD_SRU_ENDPOINT`, `STAATSCOURANT_SRU_ENDPOINT` | `https://repository.overheid.nl/sru` |
 | `STAATSBLAD_REPO_BASE`, `STAATSCOURANT_REPO_BASE` | `https://repository.overheid.nl` |
 | `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
-| `VERDRAGENBANK_SPARQL` | `https://linkeddata.overheid.nl/front/portal/sparql` |
+| `VERDRAGENBANK_SRU` | `https://repository.overheid.nl/sru` |
 
 ### Pipelines
 

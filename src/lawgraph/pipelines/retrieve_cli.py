@@ -272,7 +272,7 @@ def retrieve_verdragenbank(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Retrieve treaties from the Verdragenbank."
     )
-    parser.add_argument("--max-records", type=int, default=10000)
+    parser.add_argument("--max-records", type=int, default=None)
     args = parser.parse_args(argv)
 
     def run() -> PipelineResult:

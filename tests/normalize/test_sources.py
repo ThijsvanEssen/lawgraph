@@ -188,8 +188,8 @@ _VERDRAG_PAYLOAD = {
     "verdragsnummer": "12345",
     "title_nl": "Verdrag inzake testonderwerp",
     "title_en": "Treaty on test subject",
-    "treaty_type": "bilateral",
-    "status": "in force",
+    "treaty_type": "Bilateraal",
+    "status": "Inwerkinggetreden",
     "date_signed": "1990-06-01",
     "date_in_force": "1991-01-01",
     "parties": ["Netherlands", "Germany"],
@@ -211,7 +211,8 @@ def test_verdragenbank_normalize_creates_instrument():
     node = next(iter(nodes.values()))
     assert node.type == NodeType.INSTRUMENT
     assert node.props["kind"] == "bilateraalverdrag"
-    assert node.props["status"] == "in force"
+    assert node.props["status"] == "Inwerkinggetreden"
+    assert node.props["in_force"] is True
     assert node.props["date_signed"] == "1990-06-01"
 
 
@@ -222,7 +223,7 @@ def test_verdragenbank_normalize_multilateral():
 
     payload = {
         **_VERDRAG_PAYLOAD,
-        "treaty_type": "multilateral",
+        "treaty_type": "Multilateraal",
         "uri": "https://vb/99",
     }
     store = _FakeStore()
@@ -233,3 +234,20 @@ def test_verdragenbank_normalize_multilateral():
 
     node = next(iter(nodes.values()))
     assert node.props["kind"] == "multilateraalverdrag"
+
+
+def test_verdragenbank_only_a_treaty_in_force_is_in_force():
+    from lawgraph.pipelines.normalize.verdragenbank import (
+        VerdragenbankNormalizePipeline,
+    )
+
+    def in_force(status: str) -> bool:
+        payload = {**_VERDRAG_PAYLOAD, "status": status}
+        nodes = VerdragenbankNormalizePipeline(store=_FakeStore()).normalize_nodes(
+            [_raw("12345", payload_json=payload)], PipelineResult()
+        )
+        return next(iter(nodes.values())).props["in_force"]
+
+    assert in_force("Inwerkinggetreden") is True
+    for status in ("Buitenwerkinggetreden", "Totstandgekomen", "Geratificeerd"):
+        assert in_force(status) is False

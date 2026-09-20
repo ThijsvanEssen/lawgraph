@@ -1,117 +1,111 @@
-"""Client for the Dutch Verdragenbank (treaty register).
+"""Client for the Dutch Verdragenbank (treaty register), via the KOOP SRU.
 
-Uses the SPARQL endpoint at linkeddata.overheid.nl to enumerate treaties
-that the Netherlands is party to.
+The treaties are the records with ``c.product-area==vd`` of the SRU at
+https://repository.overheid.nl/sru (the source behind https://verdragenbank.overheid.nl/).
+A treaty is a record of ``w.documenttype==verdrag``; the Dutch and the English title are
+separate records with the same identifier, so both languages are read and joined.
 
-SPARQL endpoint: https://linkeddata.overheid.nl/front/portal/sparql
-Verdragenbank: https://verdragenbank.overheid.nl/
-
-Each treaty record provides:
-  - title (Dutch and/or English)
-  - date of signature / entry into force
-  - parties
-  - type (bilateral/multilateral)
-  - status (in force / not in force)
-  - treaty number (verdragsnummer)
+Each treaty provides:
+  - title (Dutch and English)
+  - date of signature (``datumTotstandkoming``) and of entry into force
+  - type (Bilateraal, Multilateraal, Plurilateraal)
+  - status (Inwerkinggetreden, Buitenwerkinggetreden, Totstandgekomen, ...)
+  - the Verdragenbank id (six digits), which is the treaty number of these records
 """
 
 from __future__ import annotations
 
-import time
+import xml.etree.ElementTree as ET
 from typing import Any
 
+from lawgraph.clients._sru import (
+    parse_record_fields,
+    record_identifier,
+    search_publications,
+)
 from lawgraph.clients.base import BaseClient
-from lawgraph.config.settings import VERDRAGENBANK_SPARQL_ENDPOINT
+from lawgraph.config.settings import VERDRAGENBANK_SRU_ENDPOINT
 from lawgraph.core.logging import get_logger
+from lawgraph.core.xml import local_name
 
 logger = get_logger(__name__)
 
-_PAGE_SIZE = 200
-
-
-_SPARQL_QUERY = """\
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX dcterms: <http://purl.org/dc/terms/>
-PREFIX owl: <http://www.w3.org/2002/07/owl#>
-PREFIX vb: <https://linkeddata.overheid.nl/terms/verdragenbank/>
-
-SELECT ?treaty ?title ?titleEn ?dateSigned ?dateInForce ?type ?status ?verdragsnummer
-WHERE {{
-  ?treaty a vb:Verdrag .
-  OPTIONAL {{ ?treaty dcterms:title ?title . FILTER(LANG(?title) = 'nl') }}
-  OPTIONAL {{ ?treaty dcterms:title ?titleEn . FILTER(LANG(?titleEn) = 'en') }}
-  OPTIONAL {{ ?treaty vb:datumOndertekening ?dateSigned }}
-  OPTIONAL {{ ?treaty vb:datumInwerkingtreding ?dateInForce }}
-  OPTIONAL {{ ?treaty vb:soort ?type }}
-  OPTIONAL {{ ?treaty vb:status ?status }}
-  OPTIONAL {{ ?treaty vb:verdragsnummer ?verdragsnummer }}
-}}
-ORDER BY ?treaty
-LIMIT {limit}
-OFFSET {offset}
-"""
+_PAGE_SIZE = 250  # records are large: about 7 MB per 1000
+_PAGE_URL = "https://verdragenbank.overheid.nl/nl/Verdrag/Details/{identifier}"
+_QUERY = "c.product-area==vd AND w.documenttype==verdrag AND dt.language=={language}"
+_FIELDS = {
+    "title": "title",
+    "date_signed": "datumTotstandkoming",
+    "date_in_force": "inwerkingtredingsdatum",
+    "treaty_type": "typeVerdrag",
+    "status": "statusVerdrag",
+    "url": "preferredUrl",
+}
 
 
 class VerdragenbankClient(BaseClient):
-    """Client for fetching treaties from the Dutch Verdragenbank via SPARQL."""
+    """Client for fetching treaties from the Dutch Verdragenbank via SRU."""
 
     def __init__(self, session=None) -> None:
-        super().__init__(
-            base_url=VERDRAGENBANK_SPARQL_ENDPOINT,
-            session=session,
-        )
-        self.session.headers.update({"Accept": "application/sparql-results+json"})
+        super().__init__(base_url=VERDRAGENBANK_SRU_ENDPOINT, session=session)
 
-    def enumerate_treaties(self, max_records: int = 10000) -> list[dict[str, Any]]:
-        """Enumerate all treaties from the Verdragenbank.
+    def enumerate_treaties(
+        self, max_records: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Every treaty, with normalized field names; *max_records* stops early.
 
-        Returns a list of treaty dicts with normalized field names.
+        Raises when a request fails, and when there are no treaties at all: the endpoint or
+        its data model has then changed.
         """
-        results: list[dict[str, Any]] = []
-        offset = 0
-
-        while offset < max_records:
-            query = _SPARQL_QUERY.format(limit=_PAGE_SIZE, offset=offset)
-            resp = self.session.post(
-                self.base_url,
-                data={"query": query},
-                timeout=60,
+        dutch = self._search("nl", max_records)
+        english = {t["identifier"]: t for t in self._search("en", max_records)}
+        if not dutch:
+            raise RuntimeError(
+                f"Verdragenbank SRU returned no treaties at all: the endpoint "
+                f"{self.base_url} or its data model has changed."
             )
-            resp.raise_for_status()
 
-            bindings = resp.json().get("results", {}).get("bindings", [])
-            if not bindings:
-                if offset == 0:
-                    raise RuntimeError(
-                        "Verdragenbank SPARQL query returned no treaties at all: "
-                        f"the endpoint {self.base_url} or its data model has changed."
-                    )
-                break
+        treaties: list[dict[str, Any]] = []
+        for nl in dutch:
+            identifier = nl["identifier"]
+            en = english.get(identifier, {})
+            treaties.append(
+                {
+                    "uri": nl["url"] or _PAGE_URL.format(identifier=identifier),
+                    "title": nl["title"] or en.get("title"),
+                    "title_nl": nl["title"],
+                    "title_en": en.get("title"),
+                    "date_signed": nl["date_signed"],
+                    "date_in_force": nl["date_in_force"],
+                    "treaty_type": nl["treaty_type"],
+                    "status": nl["status"],
+                    "verdragsnummer": identifier,
+                }
+            )
+        logger.info("Verdragenbank: %d treaties.", len(treaties))
+        return treaties
 
-            def _val(binding: dict, key: str) -> str | None:
-                entry = binding.get(key)
-                return entry["value"] if entry else None
+    def _search(self, language: str, limit: int | None) -> list[dict[str, Any]]:
+        return search_publications(
+            self,
+            self.base_url,
+            query=_QUERY.format(language=language),
+            parse=_parse_treaties,
+            context=f"Verdragenbank {language}",
+            page_size=_PAGE_SIZE,
+            connection=None,
+            limit=limit,
+        )
 
-            for binding in bindings:
-                results.append(
-                    {
-                        "uri": _val(binding, "treaty"),
-                        "title": _val(binding, "title") or _val(binding, "titleEn"),
-                        "title_nl": _val(binding, "title"),
-                        "title_en": _val(binding, "titleEn"),
-                        "date_signed": _val(binding, "dateSigned"),
-                        "date_in_force": _val(binding, "dateInForce"),
-                        "treaty_type": _val(binding, "type"),
-                        "status": _val(binding, "status"),
-                        "verdragsnummer": _val(binding, "verdragsnummer"),
-                    }
-                )
 
-            if len(bindings) < _PAGE_SIZE:
-                break
-
-            offset += _PAGE_SIZE
-            time.sleep(0.3)
-
-        logger.info("Verdragenbank: enumerated %d treaties.", len(results))
-        return results
+def _parse_treaties(root: ET.Element) -> list[dict[str, Any]]:
+    treaties = []
+    for record in root.iter():
+        if local_name(record.tag) != "record":
+            continue
+        identifier = record_identifier(record)
+        if identifier:
+            treaties.append(
+                {"identifier": identifier, **parse_record_fields(record, _FIELDS)}
+            )
+    return treaties

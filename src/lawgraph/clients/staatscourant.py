@@ -13,10 +13,9 @@ import xml.etree.ElementTree as ET
 from typing import Any
 
 from lawgraph.clients._sru import (
-    count_records,
     fetch_publication_xml,
     parse_sru_records,
-    raise_on_diagnostic,
+    search_publications,
 )
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import STAATSCOURANT_REPO_BASE, STAATSCOURANT_SRU_ENDPOINT
@@ -36,46 +35,24 @@ class StaatscourantClient(BaseClient):
         )
 
     def search_ministeriele_regelingen(
-        self, *, since: str | None = None, max_records: int = 20000
+        self, *, since: str | None = None
     ) -> list[dict[str, Any]]:
-        """Search for ministeriele regelingen via the KOOP SRU endpoint."""
+        """Search the KOOP SRU for Ministeriele-regeling publications, ``since`` on ``dt.modified``.
+
+        Returns dicts with keys: identifier, year, number, title, content_url.
+        """
         query = "dt.type=Ministeriele-regeling"
         if since:
-            query = f"dt.type=Ministeriele-regeling AND dt.modified>={since}"
-
-        results: list[dict[str, Any]] = []
-        page_size = 100
-        start_record = 1
-
-        while start_record <= max_records:
-            params = {
-                "operation": "searchRetrieve",
-                "version": "1.2",
-                "x-connection": "ob",
-                "query": query,
-                "maximumRecords": str(page_size),
-                "startRecord": str(start_record),
-                "recordSchema": "gzd",
-            }
-            resp = self._get_raw_absolute_with_retry(
-                STAATSCOURANT_SRU_ENDPOINT, params=params, timeout=60
-            )
-            root = ET.fromstring(resp.text)
-            raise_on_diagnostic(
-                root, context=f"Staatscourant startRecord={start_record}"
-            )
-
-            records_found = self._parse_sru_records(root)
-            results.extend(records_found)
-
-            if count_records(root) < page_size:
-                break
-            start_record += page_size
-
-        logger.info(
-            "Staatscourant SRU search returned %d regeling records.", len(results)
+            query += f" AND dt.modified>={since}"
+        records = search_publications(
+            self,
+            STAATSCOURANT_SRU_ENDPOINT,
+            query=query,
+            parse=self._parse_sru_records,
+            context="Staatscourant",
         )
-        return results
+        logger.info("Staatscourant SRU search returned %d records.", len(records))
+        return records
 
     def _parse_sru_records(self, root: ET.Element) -> list[dict[str, Any]]:
         """Parse SRU response XML into record dicts."""
