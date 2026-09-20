@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import datetime as dt
+import time
 import xml.etree.ElementTree as ET
 from typing import Callable, TypedDict
 
 from requests import Session
 
-from lawgraph.clients._sru import raise_on_diagnostic
+from lawgraph.clients._sru import number_of_records, raise_on_diagnostic
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
@@ -31,6 +32,7 @@ SRU_PAGE_SIZE = 1000
 # KB; the limit only stops a file without it from being downloaded whole.
 WTI_CHUNK_SIZE = 8192
 WTI_HEAD_LIMIT = 1_000_000
+EMPTY_PAGE_RETRIES = 3
 
 
 class ToestandMeta(TypedDict):
@@ -54,6 +56,43 @@ class BWBClient(BaseClient):
             session=session,
         )
 
+    def _sru_page(self, doc_type: str, start: int) -> ET.Element:
+        """One result page of a type. The service sometimes answers a page that is valid but
+        empty although records remain (it reports ``numberOfRecords`` and a next position);
+        that is retried, and raised when it persists: taking it for the end of the list left
+        out most of the large laws.
+        """
+        params = {
+            "operation": "searchRetrieve",
+            "version": "1.2",
+            "x-connection": "BWB",
+            "query": f'dcterms.type=="{doc_type}"',
+            "maximumRecords": str(SRU_PAGE_SIZE),
+            "startRecord": str(start),
+        }
+        for attempt in range(EMPTY_PAGE_RETRIES + 1):
+            resp = self._get_raw_absolute_with_retry(
+                BWB_SRU_ENDPOINT, params=params, timeout=120
+            )
+            root = ET.fromstring(resp.text)
+            raise_on_diagnostic(root, context=f"BWB type={doc_type} start={start}")
+            if start > number_of_records(root) or any(
+                local_name(e.tag) == "record" for e in root.iter()
+            ):
+                return root
+            logger.warning(
+                "BWB SRU returned an empty page at startRecord=%d of type=%s "
+                "(attempt %d); trying again.",
+                start,
+                doc_type,
+                attempt + 1,
+            )
+            time.sleep(2**attempt)
+        raise RuntimeError(
+            f"BWB SRU error (type={doc_type}): an empty page at startRecord={start} "
+            "although records remain"
+        )
+
     def enumerate_all_ids(
         self,
         *,
@@ -72,50 +111,42 @@ class BWBClient(BaseClient):
         """
         all_ids: list[str] = []
         seen: set[str] = set()
-        page_size = SRU_PAGE_SIZE
 
         for doc_type in types:
             logger.info("Enumerating BWB IDs for type=%s", doc_type)
+            fetched = 0
+            total = 0
             start = 1
             while start <= max_records:
-                params = {
-                    "operation": "searchRetrieve",
-                    "version": "1.2",
-                    "x-connection": "BWB",
-                    "query": f'dcterms.type=="{doc_type}"',
-                    "maximumRecords": str(page_size),
-                    "startRecord": str(start),
-                }
-                resp = self._get_raw_absolute_with_retry(
-                    BWB_SRU_ENDPOINT, params=params, timeout=60
-                )
-                root = ET.fromstring(resp.text)
-                raise_on_diagnostic(root, context=f"BWB type={doc_type} start={start}")
-
-                records_on_page = 0
-                for element in root.iter():
-                    if local_name(element.tag) != "record":
-                        continue
-                    records_on_page += 1
+                root = self._sru_page(doc_type, start)
+                total = number_of_records(root)
+                records = [e for e in root.iter() if local_name(e.tag) == "record"]
+                for element in records:
                     meta = self._parse_record(element)
                     if meta and meta["bwb_id"] and meta["bwb_id"] not in seen:
                         seen.add(meta["bwb_id"])
                         all_ids.append(meta["bwb_id"])
-
-                if records_on_page < page_size:
+                fetched += len(records)
+                start += len(records)
+                if start > total:
                     break
-                start += page_size
             else:
                 logger.warning(
                     "BWB enumeration hit max_records=%d for type=%s; ids may be missing.",
                     max_records,
                     doc_type,
                 )
+            if start <= max_records and fetched != total:
+                raise RuntimeError(
+                    f"BWB SRU error (type={doc_type}): {fetched} records read, the "
+                    f"service reports {total}"
+                )
 
             logger.info(
-                "Enumerated %d unique BWB IDs so far (type=%s done).",
+                "Enumerated %d unique BWB IDs so far (type=%s done, %d toestanden).",
                 len(all_ids),
                 doc_type,
+                fetched,
             )
 
         logger.info("BWB enumeration complete: %d unique IDs total.", len(all_ids))
