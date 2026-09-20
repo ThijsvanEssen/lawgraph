@@ -5,14 +5,18 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.db import ArangoStore
 from lawgraph.pipelines.factory import add_since_argument, run_command
 from lawgraph.sources.registry import SOURCES, RetrieveCtx
 
 logger = get_logger(__name__)
+
+DEFAULT_RETRIEVE_JOBS = 4
 
 
 @dataclass(frozen=True)
@@ -21,24 +25,58 @@ class _Step:
     name: str
     main: Callable[..., None]
     argv: list[str]
+    lane: str = ""
+
+    @property
+    def lane_id(self) -> str:
+        return self.lane or self.source_id
 
 
-def _run_phase(phase: str, steps: list[_Step], *, strict: bool = False) -> None:
-    """Run *steps*, log a summary table and exit 1 when any step failed."""
+def _run_step(phase: str, step: _Step) -> str:
+    """Run one step; ``ok``, ``failed`` or ``skipped``."""
+    if skip_step(phase, step.source_id):
+        logger.info("%s skipped (%s).", step.name, skip_variable(phase, step.source_id))
+        return "skipped"
+    return "ok" if run_command(step.name, step.main, step.argv) else "failed"
+
+
+def _run_lane(phase: str, steps: list[_Step]) -> list[tuple[str, str]]:
+    return [(step.name, _run_step(phase, step)) for step in steps]
+
+
+def _run_in_lanes(phase: str, steps: list[_Step], jobs: int) -> list[tuple[str, str]]:
+    """Run the lanes on *jobs* threads; the steps of one lane run one after the other.
+
+    Returns the results in the order of *steps*.
+    """
+    lanes: dict[str, list[_Step]] = {}
+    for step in steps:
+        lanes.setdefault(step.lane_id, []).append(step)
+    with ThreadPoolExecutor(max_workers=jobs, thread_name_prefix=phase) as pool:
+        futures = [pool.submit(_run_lane, phase, lane) for lane in lanes.values()]
+        status = {name: state for f in futures for name, state in f.result()}
+    return [(step.name, status[step.name]) for step in steps]
+
+
+def _run_phase(
+    phase: str, steps: list[_Step], *, strict: bool = False, jobs: int = 1
+) -> None:
+    """Run *steps*, log a summary table and exit 1 when any step failed.
+
+    With ``jobs > 1`` the steps run in lanes (see ``run_retrieve_all``); ``strict`` only
+    applies to a sequential run.
+    """
     label = f"{phase} all"
     results: list[tuple[str, str]] = []
-    for step in steps:
-        if skip_step(phase, step.source_id):
-            logger.info(
-                "%s skipped (%s).", step.name, skip_variable(phase, step.source_id)
-            )
-            results.append((step.name, "skipped"))
-            continue
-        succeeded = run_command(step.name, step.main, step.argv)
-        results.append((step.name, "ok" if succeeded else "failed"))
-        if strict and not succeeded:
-            logger.error("%s: aborting after '%s' (--strict).", label, step.name)
-            break
+    if jobs > 1:
+        results = _run_in_lanes(phase, steps, jobs)
+    else:
+        for step in steps:
+            state = _run_step(phase, step)
+            results.append((step.name, state))
+            if strict and state == "failed":
+                logger.error("%s: aborting after '%s' (--strict).", label, step.name)
+                break
 
     logger.info("%s summary:", label)
     for name, status in results:
@@ -61,15 +99,44 @@ def run_retrieve_all(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--mode", choices=["incremental", "full"], default="incremental"
     )
+    add_since_argument(
+        parser,
+        "--tk-since",
+        help="Full mode: load only the Tweede Kamer records modified since then "
+        "(default: all of them, over 400K documents).",
+    )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=DEFAULT_RETRIEVE_JOBS,
+        metavar="N",
+        help="Sources to retrieve at the same time; sources on one server always run "
+        "one after the other. 1 runs them all in turn. Default: %(default)s.",
+    )
     args = parser.parse_args(argv)
+    if args.jobs < 1:
+        parser.error("--jobs must be at least 1")
 
-    ctx = RetrieveCtx(since=args.since.isoformat(), mode=args.mode)
+    ctx = RetrieveCtx(
+        since=args.since.isoformat(),
+        mode=args.mode,
+        tk_since=args.tk_since.isoformat() if args.tk_since else None,
+    )
     steps = [
-        _Step(s.id, s.display_name, s.retrieve_main, s.retrieve_argv_builder(ctx))
+        _Step(
+            s.id,
+            s.display_name,
+            s.retrieve_main,
+            s.retrieve_argv_builder(ctx),
+            s.retrieve_lane or "",
+        )
         for s in SOURCES
         if s.retrieve_main is not None and s.retrieve_argv_builder is not None
     ]
-    _run_phase("retrieve", steps)
+    if args.jobs > 1:
+        # Create the database and schema once; threads that all find it missing would race.
+        ArangoStore()
+    _run_phase("retrieve", steps, jobs=args.jobs)
 
 
 def run_normalize_all(argv: list[str] | None = None) -> None:

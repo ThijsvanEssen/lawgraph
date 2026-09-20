@@ -28,7 +28,7 @@ pip install -e ".[dev]"
 cp .env.example .env            # set ARANGO_PASSWORD and ARANGO_ROOT_PASSWORD
 docker compose up -d arangodb
 
-lawgraph bootstrap              # retrieve, normalize, semantic, expand-graph; creates the database
+lawgraph bootstrap              # retrieve (Tweede Kamer: last 2 years), normalize, semantic, expand-graph; creates the database
 lawgraph-api                    # http://localhost:8000/docs
 ```
 

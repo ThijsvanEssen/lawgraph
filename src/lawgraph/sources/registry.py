@@ -70,6 +70,10 @@ from lawgraph.pipelines.semantic.staatscourant_regeling import (
 )
 from lawgraph.pipelines.semantic.tk_articles import TKArticlesSemanticPipeline
 
+# Retrieve steps that share a server.
+LANE_TWEEDE_KAMER = "tweede_kamer"
+LANE_OFFICIELE_BEKENDMAKINGEN = "officiele_bekendmakingen"
+
 
 @dataclass(frozen=True)
 class RetrieveCtx:
@@ -77,6 +81,7 @@ class RetrieveCtx:
 
     since: str
     mode: str  # "incremental" | "full"
+    tk_since: str | None = None  # full mode: window of the Tweede Kamer sources
 
 
 @dataclass(frozen=True)
@@ -85,6 +90,9 @@ class SourceDescriptor:
 
     ``retrieve_argv_builder`` turns the ``retrieve all`` options into the argv of
     ``retrieve_main``. A source without it is a manual command, left out of ``retrieve all``.
+    ``retrieve_lane`` names the server a retrieve step talks to (default: the source id):
+    ``retrieve all --jobs N`` runs lanes side by side and the steps of one lane one after
+    the other, so no server gets two request streams from us.
     Every normalize command accepts ``--since``; a semantic command only when
     ``semantic_accepts_since`` is set.
     """
@@ -93,6 +101,7 @@ class SourceDescriptor:
     display_name: str
     retrieve_main: Callable[..., None] | None = None
     retrieve_argv_builder: Callable[[RetrieveCtx], list[str]] | None = None
+    retrieve_lane: str | None = None
     normalize_main: Callable[..., None] | None = None
     semantic_main: Callable[..., None] | None = None
     semantic_accepts_since: bool = False
@@ -124,9 +133,15 @@ def _mode_and_since_argv(ctx: RetrieveCtx) -> list[str]:
     return ["--mode", ctx.mode, "--since", ctx.since]
 
 
+def _tk_argv(ctx: RetrieveCtx) -> list[str]:
+    if ctx.mode == "full" and ctx.tk_since:
+        return ["--mode", "incremental", "--since", ctx.tk_since]
+    return _mode_and_since_argv(ctx)
+
+
 def _tk_dossiers_argv(ctx: RetrieveCtx) -> list[str]:
     if ctx.mode == "full":
-        return []
+        return ["--since", ctx.tk_since] if ctx.tk_since else []
     return ["--since", ctx.since, "--skip-members"]
 
 
@@ -154,7 +169,8 @@ def _register_tk() -> list[SourceDescriptor]:
             id="tk",
             display_name="Tweede Kamer (cases & documents)",
             retrieve_main=retrieve_tk,
-            retrieve_argv_builder=_mode_and_since_argv,
+            retrieve_argv_builder=_tk_argv,
+            retrieve_lane=LANE_TWEEDE_KAMER,
             normalize_main=normalize,
             semantic_main=semantic,
             semantic_accepts_since=True,
@@ -164,6 +180,7 @@ def _register_tk() -> list[SourceDescriptor]:
             display_name="Tweede Kamer (dossiers, votes, committees)",
             retrieve_main=retrieve_tk_dossiers,
             retrieve_argv_builder=_tk_dossiers_argv,
+            retrieve_lane=LANE_TWEEDE_KAMER,
             normalize_main=normalize_dossiers,
         ),
         SourceDescriptor(
@@ -308,6 +325,7 @@ def _register_staatsblad() -> list[SourceDescriptor]:
             display_name="Staatsblad (NvT for AMvBs)",
             retrieve_main=retrieve_staatsblad,
             retrieve_argv_builder=_no_argv,
+            retrieve_lane=LANE_OFFICIELE_BEKENDMAKINGEN,
             normalize_main=normalize,
             semantic_main=semantic,
         ),
@@ -331,6 +349,7 @@ def _register_staatscourant() -> list[SourceDescriptor]:
             display_name="Staatscourant (ministerial regulations)",
             retrieve_main=retrieve_staatscourant,
             retrieve_argv_builder=_mode_argv,
+            retrieve_lane=LANE_OFFICIELE_BEKENDMAKINGEN,
             normalize_main=normalize,
             semantic_main=semantic,
             semantic_accepts_since=True,

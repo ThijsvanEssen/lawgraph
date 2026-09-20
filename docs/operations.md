@@ -76,7 +76,7 @@ and exits 1 when any step failed.
 
 | Command | Options |
 |---------|---------|
-| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `eurlex`, `bwb`. Full passes the mode (`tk-dossiers`: nothing). `staatsblad` and `verdragenbank` take nothing. `bwb-history` and `tk-content` are not run |
+| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`), `--tk-since` (full mode), `--jobs N` (default 4). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `eurlex`, `bwb`. Full passes the mode (`tk-dossiers`: nothing); with `--tk-since` the two Tweede Kamer sources instead load only records modified since then. `staatsblad` and `verdragenbank` take nothing. `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad` and `staatscourant`) run one after the other, and `--jobs 1` runs every source in turn |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` |
 | `retrieve tk-content` | `--kind` (default `toelichting`), `--dry-run` |
@@ -123,7 +123,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 
 | Command | Behaviour |
 |---------|-----------|
-| `lawgraph bootstrap [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve]` | `retrieve all --mode full`, `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5) |
+| `lawgraph bootstrap [--tk-since DATE] [--jobs N] [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve]` | `retrieve all --mode full --tk-since DATE --jobs N` (default `730d` and 4; `1995-01-01` loads all Tweede Kamer records), `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5) |
 | `lawgraph expand-graph [--max-iterations N] [--dry-run]` | repeats `fill-gaps --apply`, `normalize all`, `semantic all` while stub nodes keep disappearing (default 10 iterations); `--dry-run` only prints the `fill-gaps` report |
 | `lawgraph fill-gaps [--apply] [--min-stubs N] [--bwb-id ID ...] [--no-mvt] [--no-semantic] [--no-case-law] [--no-eurlex] [--no-echr] [--no-verdragen]` | reports stub laws (referenced by loaded instruments, ranked by reference count; laws with at least `--min-stubs`, default 3, are added), stub judgments, stub EU, ECHR and treaty records and toelichting texts without text; `--apply` retrieves and normalizes them |
 | `lawgraph-api` | starts the API |
@@ -145,7 +145,7 @@ in upper case with underscores.
 **Full load.**
 
 ```bash
-lawgraph retrieve all --mode full
+lawgraph retrieve all --mode full --tk-since 730d
 lawgraph retrieve bwb-history            # optional: every BWB toestand
 lawgraph retrieve tk-content             # optional: MvT text, needed by amendment-articles
 lawgraph retrieve rechtspraak --ecli ECLI:NL:HR:2023:1234 ...   # judgment content
@@ -154,8 +154,9 @@ lawgraph semantic all
 ```
 
 `lawgraph bootstrap` runs the first, fifth and sixth step and then `expand-graph`. In full mode
-`retrieve all` enumerates every BWB regulation and every EUR-Lex act; `tk-dossiers` fetches
-everything unless run directly with `--documents-since 730d`.
+`retrieve all` enumerates every BWB regulation and every EUR-Lex act. Without `--tk-since` the
+Tweede Kamer sources fetch everything (over 400K documents, hours); with it they fetch only what
+was modified since then, and `expand-graph` later adds what the loaded records refer to.
 
 **Incremental.**
 
