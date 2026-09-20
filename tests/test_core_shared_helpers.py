@@ -21,7 +21,7 @@ from lawgraph.core import annex_xml, judgments
 from lawgraph.core import xml as core_xml
 from lawgraph.core.identifiers import STB_ID_PATTERN, STCRT_ID_PATTERN, clean_ids
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
-from lawgraph.core.raw_records import group_by_kind, meta, payload_json, payload_text
+from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import odata_datetime, sortable_date
 from lawgraph.core.values import first_str, first_text_prop, next_page_link
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -307,19 +307,12 @@ def test_raw_record_accessors() -> None:
     assert payload_json({"payload_json": []}) == {}
     assert meta({"meta": {"a": 1}}) == {"a": 1}
     assert meta({"meta": None}) == {}
-    rows = [{"kind": "a"}, {"kind": "b"}, {"kind": "z"}, {}]
-    assert group_by_kind(rows, kinds=["a", "b", "c"]) == {
-        "a": [{"kind": "a"}],
-        "b": [{"kind": "b"}],
-        "c": [],
-    }
 
 
 def test_normalize_base_delegates_to_raw_records() -> None:
     assert NormalizePipelineBase._payload_text is payload_text
     assert NormalizePipelineBase._payload_json is payload_json
     assert NormalizePipelineBase._meta is meta
-    assert NormalizePipelineBase._group_by_kind is group_by_kind
 
 
 # ── ID patterns ──────────────────────────────────────────────────────────────

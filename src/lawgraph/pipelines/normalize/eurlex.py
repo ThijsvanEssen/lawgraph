@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+from collections.abc import Iterable, Iterator
 from html.parser import HTMLParser
 from typing import Any
 
@@ -17,7 +18,7 @@ from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.xml import XML_TAG_RE
-from lawgraph.db import ArangoStore, EdgeWriter
+from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -178,33 +179,29 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
         self,
         *,
         since: dt.datetime | None = None,
-    ) -> list[dict[str, Any]]:
-        """Load EUR-Lex CELEX html dumps from raw_sources."""
-        kinds = list(RAW_SOURCE_KINDS[SOURCE_EURLEX])
-        records = self._query_raw_sources(
+    ) -> Iterator[dict[str, Any]]:
+        """Stream the EUR-Lex CELEX html dumps from raw_sources (whole acts: 20 at a time)."""
+        return self._iter_raw_sources(
             source=SOURCE_EURLEX,
-            kinds=kinds,
+            kinds=list(RAW_SOURCE_KINDS[SOURCE_EURLEX]),
             since=since,
         )
 
-        logger.info(
-            "Loaded %d EUR-Lex html records from raw_sources.",
-            len(records),
-        )
-
-        return records
-
     def normalize_nodes(
         self,
-        raw: list[dict[str, Any]],
+        raw: Iterable[dict[str, Any]],
         result: PipelineResult,
     ) -> dict[str, Any]:
-        """Normalize EUR-Lex raw HTML into instrument and article nodes."""
+        """Normalize EUR-Lex raw HTML into instrument and article nodes.
+
+        The articles are written as they are parsed; what is kept for the PART_OF edges is
+        a node without props per article, not its text.
+        """
         instruments_by_celex: dict[str, Node] = {}
         articles_by_celex: dict[str, list[Node]] = {}
-        celex_records = raw
+        writer = NodeWriter(self.store, batch_size=_NODE_BATCH_SIZE)
 
-        for raw_entry in celex_records:
+        for raw_entry in raw:
             payload_text = self._payload_text(raw_entry)
             meta = self._meta(raw_entry)
             celex = meta.get("celex")
@@ -270,7 +267,6 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
             eu_ct = inst_props.get("citation_title") or inst_props.get("title")
 
             article_nodes: list[Node] = []
-            article_docs: list[dict[str, Any]] = []
             for art in raw_articles:
                 article_number = art["article_number"]
                 article_props: dict[str, Any] = {
@@ -293,20 +289,21 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
                     labels=["EU", "Article"],
                     props=article_props,
                 )
-                article_docs.append(article_node.to_document())
-                article_nodes.append(article_node)
+                writer.add(article_node)
+                article_nodes.append(
+                    Node(
+                        collection=COLLECTION_ARTICLES,
+                        type=NodeType.ARTICLE,
+                        key=article_key,
+                        props={},
+                        _skip_validation=True,
+                    )
+                )
 
-            # Batch-upsert all article nodes for this CELEX record.
-            if article_docs:
-                for batch_start in range(0, len(article_docs), _NODE_BATCH_SIZE):
-                    batch = article_docs[batch_start : batch_start + _NODE_BATCH_SIZE]
-                    self.store.bulk_insert_or_update_nodes(COLLECTION_ARTICLES, batch)
-
-            articles_by_celex[celex] = [
-                node.with_key(node.key or "") for node in article_nodes
-            ]
+            articles_by_celex[celex] = article_nodes
             logger.debug("CELEX %s: %d articles extracted.", celex, len(article_nodes))
 
+        writer.flush()
         total_articles = sum(len(v) for v in articles_by_celex.values())
         logger.info(
             "Created %d EUR-Lex instrument nodes and %d article nodes.",
@@ -321,7 +318,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
 
     def build_edges(
         self,
-        raw: list[dict[str, Any]],
+        raw: Iterable[dict[str, Any]],
         normalized: dict[str, Any],
     ) -> None:
         """Create PART_OF edges from articles to their instrument."""

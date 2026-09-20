@@ -2,20 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from typing import Any
-
-
-def group_by_kind(
-    rows: list[dict[str, Any]], *, kinds: Iterable[str]
-) -> dict[str, list[dict[str, Any]]]:
-    """Group raw records by their kind, keeping an entry for each requested kind."""
-    grouped: dict[str, list[dict[str, Any]]] = {kind: [] for kind in kinds}
-    for row in rows:
-        kind = row.get("kind")
-        if kind in grouped:
-            grouped[kind].append(row)
-    return grouped
 
 
 def payload_json(raw: dict[str, Any]) -> dict[str, Any]:

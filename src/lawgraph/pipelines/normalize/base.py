@@ -8,7 +8,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_RAW_SOURCES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
-from lawgraph.core.raw_records import group_by_kind, meta, payload_json, payload_text
+from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import ArangoStore, CountingStore, NodeWriter
 from lawgraph.pipelines.base import PipelineBase
@@ -127,36 +127,6 @@ class NormalizePipelineBase(PipelineBase, ABC):
             bind_vars["since"] = since_iso
         yield from self.store.query(aql, bind_vars, batch_size=batch_size)
 
-    def _query_raw_sources(
-        self,
-        *,
-        source: str,
-        kinds: list[str],
-        since: dt.datetime | None = None,
-    ) -> list[dict[str, Any]]:
-        """Return raw_sources rows for the given source/kinds (optionally filtered by since)."""
-        since_iso = iso_timestamp(since)
-        bind_vars = {"source": source, "kinds": kinds}
-
-        if since_iso is None:
-            aql = f"""
-            FOR r IN {COLLECTION_RAW_SOURCES}
-                FILTER r.source == @source
-                FILTER r.kind IN @kinds
-            RETURN r
-            """
-        else:
-            aql = f"""
-            FOR r IN {COLLECTION_RAW_SOURCES}
-                FILTER r.source == @source
-                FILTER r.kind IN @kinds
-                FILTER r.fetched_at >= @since
-            RETURN r
-            """
-            bind_vars["since"] = since_iso
-
-        return list(self.store.query(aql, bind_vars=bind_vars))
-
     def _upsert_nodes(self, nodes: Iterable[Node], *, batch_size: int = 500) -> int:
         """Bulk-upsert *nodes* (see ``NodeWriter``); returns how many were written."""
         with NodeWriter(self.store, batch_size=batch_size) as writer:
@@ -165,7 +135,6 @@ class NormalizePipelineBase(PipelineBase, ABC):
 
     # Thin delegates kept for the many subclasses calling ``self._payload_text(...)``
     # etc.; the logic lives in ``lawgraph.core.raw_records``.
-    _group_by_kind = staticmethod(group_by_kind)
     _payload_json = staticmethod(payload_json)
     _payload_text = staticmethod(payload_text)
     _meta = staticmethod(meta)
