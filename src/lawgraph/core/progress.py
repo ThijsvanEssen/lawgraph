@@ -214,4 +214,9 @@ class Progress:
 
     def finish(self) -> None:
         live_status(self._step, None)
-        self._log.info("%s.", self.summary())
+        # A loop that took no time and met nothing worth telling needs no line of its own
+        # (normalize tk-dossiers walks nine kinds, some of them three times).
+        quiet = self._clock() - self._started < 1.0 and not (
+            self.skips or self.failures or self.problems or self.notes
+        )
+        self._log.log(logging.DEBUG if quiet else logging.INFO, "%s.", self.summary())

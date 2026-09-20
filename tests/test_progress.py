@@ -190,10 +190,26 @@ def test_the_periodic_line_is_marked_so_a_live_terminal_can_leave_it_out(
 def test_track_counts_what_a_loop_took_and_finishes_when_the_loop_stops(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    progress = Progress("articles", total=5)
+    clock = _Clock()
+    progress = Progress("articles", total=5, clock=clock)
     with caplog.at_level(logging.INFO):
         for number in progress.track(range(5)):
+            clock.now += 1
             if number == 2:
                 break
     assert progress.done == 2  # the one the loop was busy with is not done
     assert "2 articles done" in caplog.messages[-1]
+
+
+def test_an_instant_loop_that_met_nothing_gets_no_summary_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """normalize tk-dossiers walks nine kinds, some three times: a screen full of "0s"."""
+    with caplog.at_level(logging.INFO):
+        list(Progress("tk-commissie records").track(range(5)))
+        met = Progress("tk-document records")
+        met.skip("no payload", "doc-1")
+        met.finish()
+    assert [m for m in caplog.messages if "done" in m] == [
+        "0 tk-document records done; 1 skipped (no payload: 1) in 0s."
+    ]
