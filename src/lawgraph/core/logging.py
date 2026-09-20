@@ -105,7 +105,9 @@ def setup_logging(level: int | None = None) -> None:
     root.addHandler(handler)
     setattr(root, _LAWGRAPH_HANDLER_ATTR, True)
 
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    # urllib3 warns three times per attempt to reach a database that is down; the store
+    # says it once per retry (db/store.py) and the step ends with the error.
+    logging.getLogger("urllib3").setLevel(logging.ERROR)
     logging.getLogger("requests").setLevel(logging.WARNING)
 
 

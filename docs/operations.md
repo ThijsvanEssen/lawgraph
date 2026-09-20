@@ -206,6 +206,16 @@ host holds a lock file for it (in the temporary directory); a second `lawgraph` 
 it taken, says so once and paces that host at half speed, so two commands started side by
 side stay under the limit together.
 
+**Database memory.** ArangoDB sizes its caches from the memory it sees and has no limit of
+its own. In Docker that is the whole VM: on an 8 GB VM it grew until the kernel killed it (exit
+137, `OOMKilled`) in the middle of a load, which also left a search view out of sync.
+`docker-compose.yml` bounds the block cache, the write buffers, the edge cache and the query
+memory, sets `mem_limit: 5g` and restarts the server when it stops. A bulk write is sent again
+(after 2, 10 and 30 seconds) while the database is unreachable, so a restart costs a run
+nothing; when it stays away the step ends there instead of fetching on. A view the server
+log reports as `out of sync` is rebuilt by dropping it and starting any command
+(`ArangoStore()` creates what is missing).
+
 **Interruptions.** A retrieve stores its records while it fetches, a buffer at a time
 (`RawSourceWriter`: 500 records, 8 MB of text or 5 seconds, whichever comes first). An
 interrupt and a failing source write the buffer before the step ends, so they keep everything

@@ -163,3 +163,85 @@ def test_ten_thousand_records_are_twenty_requests_not_ten_thousand() -> None:
     store = _Store()
     result = _Pipeline(store, _records(10_000)).run()
     assert result.created == 10_000 and len(store.requests) == 20
+
+
+# ── a database that is away ──────────────────────────────────────────────────
+
+
+def test_a_write_is_sent_again_while_the_database_restarts(monkeypatch) -> None:
+    from lawgraph.db import store as store_module
+
+    waits: list[float] = []
+    monkeypatch.setattr(store_module, "_sleep", waits.append)
+    answers: list[Any] = [
+        ConnectionAbortedError("Can't connect"),
+        ConnectionAbortedError("still"),
+        "ok",
+    ]
+
+    def write() -> str:
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    assert store_module._retry_write("500 raw records", write) == "ok"
+    assert waits == [2.0, 10.0]
+
+
+def test_a_write_the_database_refuses_is_not_sent_again(monkeypatch) -> None:
+    from lawgraph.db import store as store_module
+
+    monkeypatch.setattr(
+        store_module, "_sleep", lambda _s: pytest.fail("no retry expected")
+    )
+
+    def write() -> None:
+        raise ValueError("document too large")
+
+    with pytest.raises(ValueError):
+        store_module._retry_write("1 raw record", write)
+
+
+def test_a_database_that_stays_away_is_an_error_after_the_waits(monkeypatch) -> None:
+    from lawgraph.db import store as store_module
+
+    waits: list[float] = []
+    monkeypatch.setattr(store_module, "_sleep", waits.append)
+
+    def write() -> None:
+        raise ConnectionAbortedError("Can't connect")
+
+    with pytest.raises(ConnectionAbortedError):
+        store_module._retry_write("500 raw records", write)
+    assert waits == list(store_module.WRITE_RETRY_WAITS)
+
+
+def test_tk_dossiers_stops_fetching_when_the_database_takes_no_writes() -> None:
+    """It went on to download the next six entity types it could not store either."""
+    from lawgraph.db.raw import StoreUnavailable
+    from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
+
+    class Gone(_Store):
+        def insert_raw_sources(
+            self, docs: list[dict[str, Any]]
+        ) -> list[tuple[dict, str]]:
+            raise ConnectionAbortedError("Can't connect")
+
+    asked: list[str] = []
+
+    class Client:
+        def fetch_dossiers(self, since=None):
+            asked.append("dossiers")
+            return iter([{"Id": "d1"}])
+
+        def __getattr__(self, name: str):
+            def fetch(**_kw: Any):
+                asked.append(name)
+                return iter([])
+
+            return fetch
+
+    with pytest.raises(StoreUnavailable):
+        TKDossiersRetrievePipeline(store=Gone(), client=Client()).run()  # type: ignore[arg-type]
+    assert asked == ["dossiers"]

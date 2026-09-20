@@ -11,7 +11,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
-from lawgraph.db.raw import Failure
+from lawgraph.db.raw import Failure, StoreUnavailable
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
@@ -163,6 +163,11 @@ class RetrievePipelineBase(PipelineBase):
                     if not record.counts:
                         by_products.add(doc["_key"])
                     writer.add(doc)
+        except StoreUnavailable:
+            # Not this source but the database: a pipeline with more to fetch (the next
+            # entity type of tk-dossiers) must not go on downloading what it cannot store.
+            logger.error("Stopping after %d records were stored.", result.created)
+            raise
         except Exception as exc:
             msg = f"fetch() failed after {result.created} records were stored: {exc}"
             logger.error(msg)

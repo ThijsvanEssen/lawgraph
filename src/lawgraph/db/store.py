@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
-from collections.abc import Iterable
-from typing import Any, cast
+import time
+from collections.abc import Callable, Iterable
+from typing import Any, TypeVar, cast
 from uuid import uuid4
 
+import requests
 from arango.client import ArangoClient
 from arango.exceptions import ArangoServerError, DocumentInsertError
 
@@ -33,6 +35,8 @@ from lawgraph.core.time import iso_timestamp
 from lawgraph.db.schema import ensure_schema
 
 logger = get_logger(__name__)
+
+T = TypeVar("T")
 
 
 def edge_key(from_id: str, relation: str, to_id: str) -> str:
@@ -97,6 +101,42 @@ def raw_source_doc(
         "payload_text": payload_text,
         "meta": dict(meta or {}),
     }
+
+
+# A bulk write is an upsert, so it can be sent again: a database that restarts (a second or
+# two) or is still starting up must not cost a run of hours its buffer. After these waits the
+# failure is real and is raised.
+WRITE_RETRY_WAITS = (2.0, 10.0, 30.0)
+
+
+def _is_unreachable(exc: Exception) -> bool:
+    """The server cannot be reached or is starting up; not: it refused what we sent."""
+    if isinstance(exc, ArangoServerError):
+        return exc.http_code == 503
+    return isinstance(
+        exc, (ConnectionError, requests.ConnectionError, requests.Timeout)
+    )
+
+
+def _retry_write(what: str, write: Callable[[], T]) -> T:
+    for wait in WRITE_RETRY_WAITS:
+        try:
+            return write()
+        except Exception as exc:
+            if not _is_unreachable(exc):
+                raise
+            logger.warning(
+                "The database is unreachable (%s); writing %s again in %.0fs.",
+                type(exc).__name__,
+                what,
+                wait,
+            )
+            _sleep(wait)
+    return write()
+
+
+def _sleep(seconds: float) -> None:
+    time.sleep(seconds)
 
 
 # How long the server keeps an AQL cursor that is not read (its default is 30 seconds).
@@ -188,12 +228,15 @@ class ArangoStore:
         """
         if not docs:
             return []
-        outcome = self.raw_sources.insert_many(
-            docs,
-            overwrite=True,
-            overwrite_mode="replace",
-            return_new=False,
-            raise_on_document_error=False,
+        outcome = _retry_write(
+            f"{len(docs)} raw records",
+            lambda: self.raw_sources.insert_many(
+                docs,
+                overwrite=True,
+                overwrite_mode="replace",
+                return_new=False,
+                raise_on_document_error=False,
+            ),
         )
         return [
             (doc, str(answer))
@@ -281,11 +324,14 @@ class ArangoStore:
             updated: LENGTH(FOR r IN results FILTER NOT r.was_new RETURN 1)
         }}
         """
-        rows = list(
-            cast(
-                Iterable[dict[str, Any]],
-                self.db.aql.execute(aql, bind_vars={"docs": docs}),
-            )
+        rows = _retry_write(
+            f"{len(docs)} documents of {collection}",
+            lambda: list(
+                cast(
+                    Iterable[dict[str, Any]],
+                    self.db.aql.execute(aql, bind_vars={"docs": docs}),
+                )
+            ),
         )
         if rows:
             row = rows[0]

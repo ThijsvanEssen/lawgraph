@@ -22,6 +22,13 @@ MAX_SECONDS = 5.0
 Failure = tuple[dict[str, Any], str]
 
 
+class StoreUnavailable(RuntimeError):
+    """The database did not take a write (after the retries of the store).
+
+    Not a failure of one source: fetching on is of no use, so it ends the whole step.
+    """
+
+
 class RawSourceWriter:
     """Collect raw source documents and write them in bulk.
 
@@ -77,7 +84,12 @@ class RawSourceWriter:
         if not self._pending:
             return
         docs = list(self._pending.values())
-        failures = self._store.insert_raw_sources(docs)
+        try:
+            failures = self._store.insert_raw_sources(docs)
+        except Exception as exc:
+            raise StoreUnavailable(
+                f"{len(docs)} raw records could not be written: {exc}"
+            ) from exc
         self._pending = {}
         self._bytes = 0
         failed_keys = {doc["_key"] for doc, _ in failures}
