@@ -92,7 +92,8 @@ class MvtArticlesSemanticPipeline(SemanticPipelineBase):
 
         edges = EdgeWriter(self.store)
         documents = 0
-        for row in self.store.query(_TARGETS_AQL, bind_vars):
+        targets = self.store.query(_TARGETS_AQL, bind_vars)
+        for row in self._track(targets, "explanatory memoranda"):
             document = row.get("document")
             targets = row.get("targets") or []
             if not document or not targets:

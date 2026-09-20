@@ -62,9 +62,10 @@ class BWBArticlesSemanticPipeline(SemanticPipelineBase):
         edge_batch: list[dict] = []
         # Stream articles (they carry full text) and process them in chunks so
         # that all reference targets of a chunk are resolved with ONE lookup.
-        for chunk in chunked(
-            self._load_articles(bwb_ids, since_iso=since_iso), self._ARTICLE_CHUNK
-        ):
+        articles = self._track(
+            self._load_articles(bwb_ids, since_iso=since_iso), "articles"
+        )
+        for chunk in chunked(articles, self._ARTICLE_CHUNK):
             scanned: list[tuple[Node, list[ArticleReferenceHit]]] = []
             for doc in chunk:
                 articles_seen += 1

@@ -112,7 +112,8 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
             return result
 
         edge_batch: list[dict] = []
-        for doc_node in self._load_tk_documents(since=since):
+        documents = self._load_tk_documents(since=since)
+        for doc_node in self._track(documents, "TK documents"):
             title = doc_node.props.get("title") or doc_node.props.get("display_name")
             hits = detect_amends_instrument(
                 str(title) if title else None, instrument_aliases
@@ -173,7 +174,8 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
         edge_batch: list[dict] = []
 
         # First pass: auto-detect CELEX references inside BWB raw texts.
-        for bwb_id, raw_text in self._load_bwb_raw_texts(since=since):
+        toestanden = self._load_bwb_raw_texts(since=since)
+        for bwb_id, raw_text in self._track(toestanden, "BWB toestanden"):
             instrument_node = self._resolve_instrument(bwb_id=bwb_id)
             if not instrument_node:
                 continue

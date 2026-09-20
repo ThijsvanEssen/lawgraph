@@ -557,4 +557,5 @@ def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists() -> None:
     assert asked == []  # nothing is read before it is walked
     assert set(raw) == set(RAW_KINDS) and not isinstance(raw[RAW_KINDS[0]], list)
     assert list(raw[RAW_KINDS[0]]) == [] and list(raw[RAW_KINDS[0]]) == []
-    assert asked == [([RAW_KINDS[0]], 1000)] * 2  # every walk streams again
+    reads = [call for call in asked if call[1] is not None]  # without the counts
+    assert reads == [([RAW_KINDS[0]], 1000)] * 2  # every walk streams again

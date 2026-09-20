@@ -40,7 +40,8 @@ class RelationSemanticsSemanticPipeline(SemanticPipelineBase):
         batch: list[dict[str, Any]] = []
         classified = 0
 
-        for row in self._load_articles_with_edges():
+        articles = self._load_articles_with_edges()
+        for row in self._track(articles, "articles"):
             text = row.get("text") or ""
             for edge in row.get("edges") or []:
                 classification = classify_citation_context(

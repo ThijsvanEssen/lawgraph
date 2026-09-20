@@ -51,7 +51,8 @@ FOR document IN {COLLECTION_DOCUMENTS}
     dossier_suffix: document.props.dossier_suffix
   }}
 """
-        rows = list(self.store.query(aql, {"source": SOURCE_EERSTEKAMER}))
+        papers = self.store.query(aql, {"source": SOURCE_EERSTEKAMER})
+        rows = list(self._track(papers, "Eerste Kamer papers"))
         if not rows:
             logger.info("EK dossier link: no EK stuk matches a TK dossier.")
             return result

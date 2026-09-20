@@ -42,7 +42,7 @@ FOR j IN {COLLECTION_JUDGMENTS}
     related_eclis: j.props.related_eclis,
   }}
 """
-        rows = list(self.store.query(aql))
+        rows = list(self._track(self.store.query(aql), "judgments"))
         if not rows:
             logger.debug("No judgments with related_eclis found.")
             return result

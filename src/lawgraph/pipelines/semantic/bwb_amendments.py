@@ -155,7 +155,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store)
         self._known_dossiers = {}
 
-        rows = self.store.query(_VERSIONS_AQL)
+        rows = self._track(self.store.query(_VERSIONS_AQL), "article versions")
         for rows_chunk in chunked_aligned(rows, self._CHUNK, _article_identity):
             self._process_versions(rows_chunk, nodes, edges, result)
         self._link_regulation_dossiers(edges)

@@ -121,16 +121,14 @@ class EUArticlesSemanticPipeline(SemanticPipelineBase):
         """Inspect EU instruments for referenced articles and persist semantic edges."""
         result = PipelineResult()
         since_iso = iso_timestamp(since)
-        documents = list(self._load_eu_documents(since_iso=since_iso))
-        if not documents:
-            logger.debug("No EU instrument nodes found for semantic linking.")
-            return result
-
         code_aliases = self._load_code_aliases()
         logger.info(
-            "Processing %d EU instruments for semantic article linking (since=%s).",
-            len(documents),
+            "Processing EU articles for semantic article linking (since=%s).",
             describe_since(since),
+        )
+        # Streamed, not a list of every EU article with its text.
+        documents = self._track(
+            self._load_eu_documents(since_iso=since_iso), "EU articles"
         )
 
         edge_batch: list[dict[str, Any]] = []

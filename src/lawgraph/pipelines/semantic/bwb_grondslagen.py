@@ -67,7 +67,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
             {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
             batch_size=20,  # payloads are full XML documents
         )
-        for chunk in chunked(rows, _XML_CHUNK):
+        for chunk in chunked(self._track(rows, "BWB toestanden"), _XML_CHUNK):
             self._link_chunk(chunk, edges, result)
         edges.flush()
         result.created += edges.created

@@ -120,7 +120,8 @@ class TKArticlesSemanticPipeline(SemanticPipelineBase):
         edge_batch: list[dict[str, Any]] = []
         doc_count = 0
 
-        for document in self._load_tk_documents(since_iso=since_iso):
+        documents = self._load_tk_documents(since_iso=since_iso)
+        for document in self._track(documents, "TK documents"):
             doc_count += 1
             text = self._extract_document_text(document)
             if not text:

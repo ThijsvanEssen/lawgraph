@@ -148,7 +148,8 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         edge_batch: list[dict[str, Any]] = []
         doc_count = 0
 
-        for document in self._load_tk_documents(amends_index):
+        documents = self._load_tk_documents(amends_index)
+        for document in self._track(documents, "TK documents"):
             doc_count += 1
             bwb_ids = self._resolve_bwb_ids(document, amends_index)
             if not bwb_ids:

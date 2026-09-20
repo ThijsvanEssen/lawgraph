@@ -56,7 +56,7 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
         node_docs: list[dict[str, Any]] = []
         edge_docs: list[dict[str, Any]] = []
 
-        for record in self._load_raw_bwb_records():
+        for record in self._track(self._load_raw_bwb_records(), "BWB toestanden"):
             bwb_id = self._record_bwb_id(record)
             payload = record.get("payload_text")
             if not bwb_id or not payload:
@@ -154,7 +154,8 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
 
     def _link_articles(self, result: PipelineResult, known_keys: set[str]) -> None:
         edge_batch: list[dict[str, Any]] = []
-        for doc in self._load_articles_mentioning_annex():
+        articles = self._load_articles_mentioning_annex()
+        for doc in self._track(articles, "articles"):
             article = Node.from_document(COLLECTION_ARTICLES, doc)
             text = article.props.get("text") or ""
             bwb_id = str(article.props.get("bwb_id") or "")

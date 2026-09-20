@@ -49,6 +49,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.progress import Progress
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.factory import run_step
 
@@ -250,9 +251,10 @@ def main(argv: list[str] | None = None) -> None:
         store = ArangoStore()
         selected = [name for name, _ in _REFRESHERS if getattr(args, f"{name}_only")]
         result = PipelineResult()
-        for name, refresh in _REFRESHERS:
-            if selected and name not in selected:
-                continue
+        todo = [(n, r) for n, r in _REFRESHERS if not selected or n in selected]
+        # One update query per collection: the progress is in collections.
+        progress = Progress("collections", total=len(todo))
+        for name, refresh in progress.track(todo):
             count = refresh(store, dry_run=args.dry_run)
             if args.dry_run:
                 logger.info("Would update %d %s.", count, name)

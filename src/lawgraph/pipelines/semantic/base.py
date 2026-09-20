@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from typing import Any
+from typing import Any, TypeVar
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -15,10 +15,13 @@ from lawgraph.config.constants import (
 from lawgraph.core.aliases import InstrumentAliasMap, normalize_instrument_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.progress import Progress
 from lawgraph.db import make_edge_doc
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
+
+T = TypeVar("T")
 
 CodeMapping = dict[str, str]
 
@@ -72,6 +75,19 @@ class SemanticPipelineBase(PipelineBase):
         # (collection, key) -> lightweight Node, or None when known to be absent.
         self._node_cache: dict[tuple[str, str], Node | None] = {}
 
+    # ---------------------------------------------------------------- progress
+
+    def _track(
+        self, items: Iterable[T], what: str, *, total: int | None = None
+    ) -> Iterator[T]:
+        """Pass *items* on and report the progress of the loop that takes them.
+
+        Every semantic pipeline runs its main loop through this (or through
+        ``_judgment_texts``): a status line in the terminal, one a minute in a log file, and
+        a summary with the duration at the end.
+        """
+        return Progress(what, total=total).track(items)
+
     # --------------------------------------------------------------- judgments
 
     def _judgment_texts(
@@ -97,7 +113,20 @@ class SemanticPipelineBase(PipelineBase):
         }
         if since_iso:
             bind["since"] = since_iso
-        for row in self.store.query(aql, bind, batch_size=JUDGMENT_BATCH_SIZE):
+        total = None
+        if (
+            not since_iso
+        ):  # from the index; with a date every record would have to be read
+            count_aql = f"""
+            FOR r IN {COLLECTION_RAW_SOURCES}
+                FILTER r.source == @source AND r.kind == @kind
+                COLLECT WITH COUNT INTO n
+                RETURN n
+            """
+            count = next(iter(self.store.query(count_aql, bind)), None)
+            total = count if isinstance(count, int) else None
+        rows = self.store.query(aql, bind, batch_size=JUDGMENT_BATCH_SIZE)
+        for row in self._track(rows, "judgments", total=total):
             ecli = str(row.get("ecli") or "").strip()
             if not ecli:
                 continue

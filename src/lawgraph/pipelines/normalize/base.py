@@ -8,6 +8,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_RAW_SOURCES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.progress import Progress
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import ArangoStore, CountingStore, NodeWriter
@@ -125,7 +126,25 @@ class NormalizePipelineBase(PipelineBase, ABC):
         bind_vars: dict[str, Any] = {"source": source, "kinds": kinds}
         if since_iso:
             bind_vars["since"] = since_iso
-        yield from self.store.query(aql, bind_vars, batch_size=batch_size)
+        # The total of a full run comes from the index; with a date every record would
+        # have to be read to count it, so an incremental run shows no total and no ETA.
+        total = None if since_iso else self._count_raw_sources(source, kinds)
+        progress = Progress(f"{'/'.join(kinds)} records", total=total)
+        yield from progress.track(
+            self.store.query(aql, bind_vars, batch_size=batch_size)
+        )
+
+    def _count_raw_sources(self, source: str, kinds: list[str]) -> int | None:
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind IN @kinds
+            COLLECT WITH COUNT INTO n
+            RETURN n
+        """
+        count = next(
+            iter(self.store.query(aql, {"source": source, "kinds": kinds})), None
+        )
+        return count if isinstance(count, int) else None
 
     def _upsert_nodes(self, nodes: Iterable[Node], *, batch_size: int = 500) -> int:
         """Bulk-upsert *nodes* (see ``NodeWriter``); returns how many were written."""

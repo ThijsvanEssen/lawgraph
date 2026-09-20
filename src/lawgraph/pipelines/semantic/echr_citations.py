@@ -222,7 +222,8 @@ FOR j IN {COLLECTION_JUDGMENTS}
   }}
 """
         try:
-            rows = list(self.store.query(aql, {"source": SOURCE_ECHR}))
+            judgments = self.store.query(aql, {"source": SOURCE_ECHR})
+            rows = list(self._track(judgments, "ECHR judgments"))
         except Exception as exc:
             result.add_error(f"ECHR citations: query failed: {exc}")
             return result

@@ -165,7 +165,8 @@ def test_the_rechtspraak_normalizer_streams_its_raw_records() -> None:
     assert not isinstance(raw["content"], list)  # a generator: nothing is read yet
     assert calls == []
     list(raw["content"])
-    assert calls[0]["batch_size"] <= 200  # small batches: a judgment is tens of KB
+    # calls[0] counts them for the progress line; small batches: a judgment is tens of KB
+    assert calls[-1]["batch_size"] <= 200
 
 
 def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
@@ -201,6 +202,8 @@ class _JudgmentStore:
 
     def query(self, aql, bind_vars=None, **kw):
         assert "raw_sources" in aql and "judgments" not in aql.split("RETURN")[0]
+        if "COLLECT WITH COUNT" in aql:  # the total for the progress line
+            return iter([3])
         self.binds.append(dict(bind_vars or {}))
 
         def cursor():

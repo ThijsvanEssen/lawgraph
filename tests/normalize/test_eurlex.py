@@ -36,7 +36,10 @@ def test_the_acts_are_streamed_twenty_at_a_time() -> None:
     store = _Store()
     raw = EurlexNormalizePipeline(store=store).fetch_raw()
     assert not isinstance(raw, list) and list(raw) == []
-    assert store.batch_sizes == [20]
+    assert store.batch_sizes == [
+        None,
+        20,
+    ]  # the count for the progress line, then the acts
 
 
 def test_the_article_text_is_written_and_not_kept() -> None:

@@ -62,6 +62,7 @@ All default to the public endpoints; no key is required.
 |----------|---------|---------|
 | `LAWGRAPH_LOG_LEVEL` | `INFO` | root log level |
 | `LAWGRAPH_LOG_FORMAT` | plain | `json` for one JSON object per line |
+| `LAWGRAPH_LOG_FILE` | unset | every log line is also written to this file (plain lines; the terminal keeps its live progress) |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
 | `ALLOW_DB_TESTS` | unset | `1` runs `tests/test_aql_validity.py`: every static AQL query is explained by the real ArangoDB in a scratch database (a query the server rejects, such as one with `??`, fails only there); shell only |
@@ -253,13 +254,18 @@ re-run (upserts, so only time is repeated).
 - Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors) and its
   duration; errors are listed and set exit code 1. Orchestrators print a per-step summary table
   at the end.
-- Progress (`core/progress.py`, used by every retrieve): no line per record. Once a minute a
-  status line `12,400 / 34,593 (36%) judgments · 4.9/s · ~1h12m left · 3 skipped · 0 errors`
-  (the total when the source gives one: an index, a list of ids, the OData `$count`), and at
-  the end one summary with the duration and the count per outcome and per reason. A reason to
-  skip or fail is logged once, with the first record it happened to; the following ones are
-  counted and logged at `DEBUG`. A cause of failure is one error of the result
+- Progress (`core/progress.py`, used by every pipeline of every phase; a test enforces it): no
+  line per record. In a terminal every running step has one line at the bottom,
+  `[retrieve rechtspraak] 12,400 / 34,593 (36%) judgments · 4.9/s · ~1h12m left · 3 skipped ·
+  0 errors`, rewritten in place once a second while the other log lines scroll above it. A
+  pipe, a file and the JSON mode get that line once a minute instead. The total is there when
+  it is cheap to know (an index, a list of ids, the OData `$count`, a count from a database
+  index); the speed is that of the last minute. At the end of a step one summary gives the
+  duration and the count per outcome and per reason. A reason to skip or fail is logged once,
+  with the first record it happened to; a cause of failure is one error of the result
   (`25 x download failed (HTTP 500) (first: ...)`).
+- A log file next to the live terminal: `LAWGRAPH_LOG_FILE=run.log lawgraph bootstrap`. Piped
+  into `tee`, stderr is no terminal and the live block is off.
 - `is throttling` warnings come from the request pacer (see Pacing), not from an error.
 - API: each request is logged with id, client, method, path, status, size and latency;
   `GET /api/health` checks the database connection; `GET /api/stats` gives counts per

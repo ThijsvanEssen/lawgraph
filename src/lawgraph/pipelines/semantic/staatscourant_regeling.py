@@ -188,7 +188,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
         # stream from the cursor; only the ids are kept.
         pub_bwb_pairs: list[tuple[str, str, str]] = []  # (pub_id, pub_key, bwb_id)
         all_bwb_ids: set[str] = set()
-        for pub in self.store.query(aql, bind):
+        for pub in self._track(self.store.query(aql, bind), "publications"):
             pub_id = pub.get("pub_id")
             if pub_id in already_matched:
                 continue

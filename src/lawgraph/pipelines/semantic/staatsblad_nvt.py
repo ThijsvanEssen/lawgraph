@@ -93,7 +93,7 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
         seen: set[tuple[str, str]] = set()
         edge_batch: list[dict[str, Any]] = []
 
-        for row in rows:
+        for row in self._track(rows, "publications", total=len(rows)):
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")
             inst_id = row.get("inst_id")

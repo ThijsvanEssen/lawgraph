@@ -293,5 +293,6 @@ def test_one_node_per_record_pipelines_stream_and_keep_nothing():
         with pytest.raises(StopIteration):
             next(iter(raw))
         # XML of up to 20 MB comes 20 at a time, small JSON records 1000 at a time.
-        assert store.batch_sizes == [20 if large_payloads else 1000], cls.__name__
+        # first the count for the progress line, then the records
+        assert store.batch_sizes == [None, 20 if large_payloads else 1000], cls.__name__
         assert pipeline.normalize_nodes(iter([]), PipelineResult()) == 0
