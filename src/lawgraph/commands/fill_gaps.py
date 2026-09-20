@@ -341,12 +341,13 @@ def _apply_eu_gaps(
 def _apply_echr_gaps(
     store: ArangoStore, args: argparse.Namespace, stub_echr_eclis: list[str]
 ) -> PipelineResult:
-    """Re-run the ECHR retrieval (HUDOC has no fetch per ECLI) and normalize the result."""
+    """Retrieve the cited ECHR judgments by ECLI (against any state) and normalize them."""
     if args.no_echr or not stub_echr_eclis:
         return PipelineResult()
 
     started = dt.datetime.now(dt.timezone.utc)
-    return _logged("ECHR retrieve", ECHRRetrievePipeline(store=store).run()).merge(
+    retrieve = ECHRRetrievePipeline(store=store).run(eclis=stub_echr_eclis)
+    return _logged("ECHR retrieve", retrieve).merge(
         _logged("ECHR normalize", ECHRNormalizePipeline(store=store).run(since=started))
     )
 
@@ -515,7 +516,7 @@ def _query_stub_echr_judgments(store: ArangoStore) -> list[str]:
     """Return ECLIs (or HUDOC app numbers) of stub ECHR judgment nodes."""
     aql = f"""
     FOR j IN {COLLECTION_JUDGMENTS}
-      FILTER j.props.stub == true AND j.props.source == "echr"
+      FILTER j.props.stub == true AND STARTS_WITH(j.props.ecli, "ECLI:CE:ECHR:")
       SORT j.props.ecli
       RETURN j.props.ecli
     """

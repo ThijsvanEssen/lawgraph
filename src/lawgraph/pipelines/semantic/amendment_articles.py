@@ -148,7 +148,7 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         edge_batch: list[dict[str, Any]] = []
         doc_count = 0
 
-        for document in self._load_tk_documents():
+        for document in self._load_tk_documents(amends_index):
             doc_count += 1
             bwb_ids = self._resolve_bwb_ids(document, amends_index)
             if not bwb_ids:
@@ -215,12 +215,18 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         )
         return result
 
-    def _load_tk_documents(self) -> Iterable[Node]:
-        aql = (
-            f'FOR doc IN {COLLECTION_DOCUMENTS} FILTER "TK" IN doc.labels '
-            f"RETURN {slim('doc', 'bwb_id', 'text')}"
-        )
-        for doc in self.store.query(aql):
+    def _load_tk_documents(self, amends_index: dict[str, list[str]]) -> Iterable[Node]:
+        """The TK documents that can hold an amendment: those with a text, and with a law to
+        amend (their own ``bwb_id`` or an AMENDS edge). Every other document was read to be
+        skipped: 10,085 of 10,085 in a three-week Tweede Kamer."""
+        aql = f"""
+        FOR doc IN {COLLECTION_DOCUMENTS}
+            FILTER "TK" IN doc.labels
+            FILTER doc.props.text != null AND doc.props.text != ""
+            FILTER doc.props.bwb_id != null OR doc._id IN @amending
+            RETURN {slim("doc", "bwb_id", "text")}
+        """
+        for doc in self.store.query(aql, {"amending": sorted(amends_index)}):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)
 
     def _load_amends_instrument_index(self) -> dict[str, list[str]]:

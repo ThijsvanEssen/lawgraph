@@ -42,6 +42,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
         self, raw: Iterable[dict[str, Any]], result: PipelineResult
     ) -> int:
         count = 0
+        english: dict[str, bool] = {}
         writer = NodeWriter(self.store)
 
         for record in raw:
@@ -87,7 +88,17 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
                 except (TypeError, ValueError):
                     props["importance"] = importance
 
-            key = make_node_key("echr", item_id)
+            # By its ECLI when it has one: that is what a Dutch judgment cites, so the stub
+            # of a cited judgment and the judgment itself are the same node. HUDOC holds a
+            # judgment once per language; the English record is the one that stays.
+            ecli = str(payload.get("ecli") or "").strip().upper()
+            if ecli:
+                props["ecli"] = ecli
+                if english.get(ecli) and payload.get("languageisocode") != "ENG":
+                    result.skipped += 1
+                    continue
+                english[ecli] = payload.get("languageisocode") == "ENG"
+            key = make_node_key(ecli) if ecli else make_node_key("echr", item_id)
             node = Node(
                 collection=COLLECTION_JUDGMENTS,
                 type=NodeType.JUDGMENT,

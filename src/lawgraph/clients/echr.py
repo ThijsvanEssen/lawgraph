@@ -19,6 +19,14 @@ logger = get_logger(__name__)
 _PAGE_SIZE = 100
 
 
+# The ECLI is what a Dutch judgment cites and what a stub is keyed on.
+_SELECT = (
+    "appno,docname,doctype,itemid,ecli,languageisocode,"
+    "originatingbody,kpdate,respondent,importance,applicability,article,conclusion"
+)
+_ECLIS_PER_QUERY = 20
+
+
 class EchrClient(BaseClient):
     """Client for HUDOC ECHR case law database."""
 
@@ -62,11 +70,7 @@ class EchrClient(BaseClient):
         for start in range(0, max_records, _PAGE_SIZE):
             params = {
                 "query": query,
-                "select": (
-                    "appno,docname,doctype,itemid,languageisocode,"
-                    "originatingbody,kpdate,respondent,importance,"
-                    "applicability,article,conclusion"
-                ),
+                "select": _SELECT,
                 "sort": "kpdate Descending",
                 "start": str(start),
                 "length": str(_PAGE_SIZE),
@@ -105,3 +109,32 @@ class EchrClient(BaseClient):
             respondent,
         )
         return results
+
+    def fetch_by_ecli(self, eclis: list[str]) -> list[dict[str, Any]]:
+        """The judgments with these ECLIs, against any state, one record per ECLI.
+
+        HUDOC holds a judgment once per language and translation (26 for Salduz v. Turkey);
+        the English text is taken, else the French one.
+        """
+        found: dict[str, dict[str, Any]] = {}
+        for start in range(0, len(eclis), _ECLIS_PER_QUERY):
+            chunk = eclis[start : start + _ECLIS_PER_QUERY]
+            wanted = " OR ".join(f'ecli:"{ecli}"' for ecli in chunk)
+            query = f'({wanted}) AND (languageisocode:"ENG" OR languageisocode:"FRE")'
+            params = {
+                "query": query,
+                "select": _SELECT,
+                "sort": "",
+                "start": "0",
+                "length": str(_PAGE_SIZE * 5),
+            }
+            resp = self._get_raw_with_retry(
+                "/app/query/results", params=params, timeout=60
+            )
+            for item in resp.json().get("results", []):
+                judgment = item["columns"]
+                ecli = str(judgment.get("ecli") or "").upper()
+                english = judgment.get("languageisocode") == "ENG"
+                if ecli and (ecli not in found or english):
+                    found[ecli] = judgment
+        return list(found.values())

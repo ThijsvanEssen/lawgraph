@@ -89,3 +89,78 @@ def test_fewer_judgments_than_the_service_counts_is_an_error() -> None:
     short = {**PAGE, "resultcount": 827}
     with pytest.raises(RuntimeError, match="2 judgments read, the service counts 827"):
         _client([short], []).search_judgments(respondent="NLD")
+
+
+# ── cited judgments, by ECLI ─────────────────────────────────────────────────
+
+SALDUZ = "ECLI:CE:ECHR:2008:1127JUD003639102"
+
+
+def _versions(*languages: str) -> dict[str, Any]:
+    return {
+        "resultcount": len(languages),
+        "results": [
+            {
+                "columns": {
+                    "itemid": f"001-{n}",
+                    "ecli": SALDUZ,
+                    "languageisocode": language,
+                    "docname": f"SALDUZ v. TURKEY ({language})",
+                    "respondent": "TUR",
+                }
+            }
+            for n, language in enumerate(languages)
+        ],
+    }
+
+
+def test_a_cited_judgment_is_asked_for_by_ecli_and_the_english_text_is_kept() -> None:
+    calls: list[dict] = []
+    judgments = _client([_versions("FRE", "ENG", "FRE")], calls).fetch_by_ecli([SALDUZ])
+    assert [j["docname"] for j in judgments] == ["SALDUZ v. TURKEY (ENG)"]
+    assert (
+        f'ecli:"{SALDUZ}"' in calls[0]["query"]
+        and "respondent" not in calls[0]["query"]
+    )
+
+
+def test_a_cited_judgment_hudoc_does_not_have_is_remembered_as_missing() -> None:
+    class Store(_Store):
+        def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list:
+            return []
+
+    store = Store()
+    unknown = "ECLI:CE:ECHR:1999:0101JUD000000199"
+    pipeline = ECHRRetrievePipeline(store=store, client=_client([_versions("ENG")], []))
+    result = pipeline.run(eclis=[SALDUZ, unknown])
+
+    assert result.created == 1 and result.errors == []
+    kinds = {(r["kind"], r["external_id"]) for r in store.stored}
+    assert ("echr-judgment-json-missing", unknown) in kinds
+
+
+def test_an_echr_judgment_is_the_node_its_ecli_names() -> None:
+    """A Dutch judgment cites the ECLI; the stub it leaves and the judgment are one node."""
+    from lawgraph.core.models import PipelineResult, make_node_key
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+
+    class Nodes:
+        def __init__(self) -> None:
+            self.docs: dict[str, dict] = {}
+
+        def bulk_insert_or_update_nodes(self, collection: str, docs: list[dict]):
+            self.docs.update({d["_key"]: d for d in docs})
+            return len(docs), 0
+
+    store = Nodes()
+    raw = [
+        {"external_id": j["columns"]["itemid"], "payload_json": j["columns"]}
+        for j in _versions("ENG", "FRE")["results"]
+    ]
+    result = PipelineResult()
+    ECHRNormalizePipeline(store=store).normalize_nodes(raw, result)  # type: ignore[arg-type]
+
+    assert list(store.docs) == [make_node_key(SALDUZ)]
+    node = store.docs[make_node_key(SALDUZ)]
+    assert node["props"]["ecli"] == SALDUZ and "(ENG)" in node["props"]["title"]
+    assert node["props"]["stub"] is False and result.skipped == 1
