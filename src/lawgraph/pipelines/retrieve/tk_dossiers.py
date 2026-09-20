@@ -15,7 +15,7 @@ All records are stored idempotently in `raw_sources` keyed by
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterator
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
@@ -34,12 +34,12 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.base import PipelineBase
+from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
 
 logger = get_logger(__name__)
 
 
-class TKDossiersRetrievePipeline(PipelineBase):
+class TKDossiersRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for all parliamentary dossier entity types."""
 
     def __init__(self, *, store: ArangoStore, client: TKClient | None = None) -> None:
@@ -168,54 +168,36 @@ class TKDossiersRetrievePipeline(PipelineBase):
 
     def _fetch_and_store(
         self,
-        result: Any,
+        result: PipelineResult,
         kind: str,
         id_field: str,
-        fetch_fn: Any,
+        fetch_fn: Callable[[], Iterable[dict[str, Any]]],
     ) -> None:
-        """Store the records of *fetch_fn* one by one, as they arrive, and update *result*.
+        """Store the records of *fetch_fn* as they arrive and add the outcome to *result*.
 
         A failure halfway keeps what was stored: the count is that of the run so far.
         """
-        counter = {"seen": 0}
-        try:
-            for record in self._counted(fetch_fn(), kind, counter):
-                if self._store_record(kind, id_field, record, result):
-                    result.created += 1
-            logger.info("Retrieved %d %s records", counter["seen"], kind)
-        except Exception as exc:
-            result.add_error(
-                f"fetch {kind} failed after {counter['seen']} records: {exc}"
-            )
-            logger.error("fetch %s failed after %d: %s", kind, counter["seen"], exc)
+        outcome = self._store_all(self._records(kind, id_field, fetch_fn), what=kind)
+        result.created += outcome.created
+        result.skipped += outcome.skipped
+        result.errors.extend(f"{kind}: {error}" for error in outcome.errors)
 
-    @staticmethod
-    def _counted(records: Any, kind: str, counter: dict[str, int]) -> Iterator[Any]:
-        """Pass *records* on, counting them and logging progress every 5000."""
-        for record in records:
-            counter["seen"] += 1
-            if counter["seen"] % 5000 == 0:
-                logger.info("%s: %d records so far", kind, counter["seen"])
-            yield record
-
-    def _store_record(
-        self, kind: str, id_field: str, record: dict[str, Any], result: Any
-    ) -> bool:
-        """Store one record; ``False`` when it has no id or the store failed (an error)."""
-        external_id = str(record.get(id_field) or "")
-        if not external_id:
-            logger.warning("Skipping %s record without %s", kind, id_field)
-            return False
-        try:
-            self.store.insert_raw_source(
+    def _records(
+        self,
+        kind: str,
+        id_field: str,
+        fetch_fn: Callable[[], Iterable[dict[str, Any]]],
+    ) -> Iterator[RetrieveRecord]:
+        # The first page says how many records the query matches.
+        self.client.on_total = self.progress.expect
+        for record in fetch_fn():
+            external_id = str(record.get(id_field) or "")
+            if not external_id:
+                self.progress.fail(f"record without {id_field}")
+                continue
+            yield RetrieveRecord(
                 source=SOURCE_TK,
                 kind=kind,
                 external_id=external_id,
                 payload_json=record,
             )
-        except Exception as exc:
-            msg = f"Failed to store {kind} {external_id}: {exc}"
-            logger.error(msg)
-            result.add_error(msg)
-            return False
-        return True

@@ -5,8 +5,6 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import Iterator, Sequence
 
-import requests
-
 from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
@@ -22,6 +20,8 @@ from .base import (
     FailureStreak,
     RetrievePipelineBase,
     RetrieveRecord,
+    failure_reason,
+    is_not_found,
 )
 
 logger = get_logger(__name__)
@@ -94,21 +94,18 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             if not (stored.get(ecli) and stored[ecli] >= recent):
                 todo.setdefault(ecli, None)
 
+        self.progress.expect(len(todo))
         streak = FailureStreak("Rechtspraak")
         for ecli, updated in todo.items():
             try:
                 xml = self.rs.fetch_ecli_content(ecli)
-            except requests.HTTPError as exc:
-                if exc.response is not None and exc.response.status_code == 404:
-                    logger.info("ECLI %s has no content (404); skipped.", ecli)
+            except Exception as exc:
+                if is_not_found(exc):
+                    self.progress.skip("no content (HTTP 404)", ecli)
                     streak.ok()
                 else:
-                    logger.warning("Skipping ECLI %s: %s", ecli, exc)
+                    self.progress.skip(f"download failed ({failure_reason(exc)})", ecli)
                     streak.failed(ecli, exc)
-                continue
-            except Exception as exc:
-                logger.warning("Skipping ECLI %s: %s", ecli, exc)
-                streak.failed(ecli, exc)
                 continue
             streak.ok()
             yield RetrieveRecord(

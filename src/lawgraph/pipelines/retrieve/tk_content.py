@@ -29,10 +29,16 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import kamerstuk_identifier
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.progress import Progress
 from lawgraph.core.xml import text_of
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.base import PipelineBase
-from lawgraph.pipelines.retrieve.base import FailureStreak, SourceDown
+from lawgraph.pipelines.retrieve.base import (
+    FailureStreak,
+    SourceDown,
+    add_outcome,
+    failure_reason,
+)
 
 logger = get_logger(__name__)
 
@@ -98,6 +104,7 @@ class TKContentRetrievePipeline(PipelineBase):
             " — DRY RUN" if dry_run else "",
         )
 
+        progress = self.progress = Progress("papers", total=len(papers))
         streak = FailureStreak("Kamerstuk XML")
         try:
             for paper in papers:
@@ -105,17 +112,20 @@ class TKContentRetrievePipeline(PipelineBase):
                     paper["number"], paper.get("suffix"), paper["sequence"]
                 )
                 if dry_run:
-                    logger.info(
-                        "DRY RUN: would fetch %s (%s)", identifier, paper["title"]
-                    )
-                    result.skipped += 1
+                    progress.skip("dry run", identifier)
                     continue
-                self._hydrate_one(paper, identifier, result, streak)
+                self._hydrate_one(paper, identifier, streak)
         except SourceDown as exc:
             logger.error(str(exc))
-            result.add_error(str(exc))
+            down = [str(exc)]
+        else:
+            down = []
+        finally:
+            progress.finish()
 
-        logger.info("TK content hydration: %s.", result.summary())
+        result.created = progress.done
+        add_outcome(result, progress)
+        result.errors.extend(down)
         return result
 
     # ── private ───────────────────────────────────────────────────────────────
@@ -149,47 +159,37 @@ class TKContentRetrievePipeline(PipelineBase):
         return list(self.store.query(aql, bind))
 
     def _hydrate_one(
-        self,
-        paper: dict[str, Any],
-        identifier: str,
-        result: PipelineResult,
-        streak: FailureStreak,
+        self, paper: dict[str, Any], identifier: str, streak: FailureStreak
     ) -> None:
+        progress = self.progress
         try:
-            logger.info("Fetching %s — %s", identifier, str(paper["title"])[:80])
             xml = self.client.fetch_kamerstuk_xml(identifier)
         except Exception as exc:
-            logger.warning("Failed to fetch %s: %s", identifier, exc)
-            result.errors.append(f"{identifier}: fetch failed — {exc}")
+            progress.fail(f"download failed ({failure_reason(exc)})", identifier)
             streak.failed(identifier, exc)
             return
         streak.ok()
 
         if xml is None:
-            logger.info("%s has no XML in the repository; skipped.", identifier)
-            result.skipped += 1
+            progress.skip("no XML in the repository (HTTP 404)", identifier)
             return
         try:
             text = xml_text(xml)
-        except ET.ParseError as exc:
-            result.errors.append(f"{identifier}: the XML cannot be read — {exc}")
+        except ET.ParseError:
+            progress.fail("the XML cannot be read", identifier)
             return
         if not text:
-            logger.warning("No text in the XML of %s.", identifier)
-            result.skipped += 1
+            progress.skip("no text in the XML", identifier)
             return
 
         if len(text) > _STORE_TEXT_LIMIT:
-            logger.warning(
-                "%s has %d chars of text; storing the first %d.",
+            progress.note(
+                f"text longer than {_STORE_TEXT_LIMIT:,} chars; storing the first part",
                 identifier,
-                len(text),
-                _STORE_TEXT_LIMIT,
             )
             text = text[:_STORE_TEXT_LIMIT]
         self._store_text(paper["key"], text)
-        logger.info("Stored %d chars for %s.", len(text), identifier)
-        result.created += 1
+        progress.ok()
 
     def _store_text(self, key: str, text: str) -> None:
         """Merge props.text into the paper without touching other props."""

@@ -220,7 +220,9 @@ def test_a_very_long_text_is_cut_and_says_so(monkeypatch, caplog) -> None:
     with caplog.at_level("WARNING"):
         _, store, _ = _run([_paper("36867", 3)])
     assert len(store.updates[0]["text"]) == 100
-    assert any("storing the first 100" in m for m in caplog.messages)
+    assert any(
+        "longer than 100 chars; storing the first part" in m for m in caplog.messages
+    )
 
 
 def test_a_dry_run_fetches_and_stores_nothing() -> None:

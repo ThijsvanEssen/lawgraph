@@ -49,10 +49,11 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
             len(identifiers),
             len(todo),
         )
+        self.progress.expect(len(todo))
         for identifier in todo:
             xml = self.client.fetch_publication_xml(identifier)
             if xml is None:
-                logger.info("Staatscourant %s has no XML (404); skipped.", identifier)
+                self.progress.skip("no XML (HTTP 404)", identifier)
                 continue
             yield RetrieveRecord(
                 source=SOURCE_STAATSCOURANT,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from lawgraph.clients.staatsblad import StaatsbladClient
 from lawgraph.config.constants import (
     COLLECTION_RAW_SOURCES,
@@ -29,54 +31,11 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or StaatsbladClient()
 
-    def fetch(
-        self, *, identifiers: list[str] | None = None, **kwargs
-    ) -> list[RetrieveRecord]:
-        """Fetch Staatsblad XML for the given identifiers."""
-        records: list[RetrieveRecord] = []
-        if not identifiers:
-            return records
-
-        for identifier in identifiers:
-            xml = self.client.fetch_publication_xml(identifier)
-            if xml is None:
-                logger.warning("Skipping Staatsblad %s: XML not found.", identifier)
-                continue
-            records.append(
-                RetrieveRecord(
-                    source=SOURCE_STAATSBLAD,
-                    kind=RAW_KIND_STB_AMVB,
-                    external_id=identifier,
-                    payload_text=xml,
-                    meta={"identifier": identifier},
-                )
-            )
-
-        logger.info(
-            "Staatsblad retrieve: fetched %d/%d records.",
-            len(records),
-            len(identifiers) if identifiers else 0,
-        )
-        return records
-
-    def run(self, *, identifiers: list[str] | None = None, **kwargs) -> PipelineResult:
-        """Fetch records for the given identifiers and store them."""
-        result = PipelineResult()
-        if not identifiers:
-            return result
-
-        records = self.fetch(identifiers=identifiers)
-        for record in records:
-            try:
-                self._insert(record)
-                result.created += 1
-            except Exception as exc:
-                msg = f"Failed to store Staatsblad {record.external_id}: {exc}"
-                logger.error(msg)
-                result.add_error(msg)
-                result.skipped += 1
-
-        return result
+    def fetch(  # type: ignore[override]
+        self, *, identifiers: list[str] | None = None, **kwargs: object
+    ) -> Iterator[RetrieveRecord]:
+        """Yield the XML of each publication as it is downloaded."""
+        yield from self._fetch_publications([(None, i) for i in identifiers or []])
 
     def run_from_bwb_graph(self, store: ArangoStore) -> PipelineResult:
         """Retrieve the Staatsblad publications the stored BWB toestand XML refers to.
@@ -84,23 +43,45 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         Each toestand XML names the Staatsblad publication (year and number) it comes
         from; those not yet in raw_sources are fetched and stored one by one.
         """
-        result = PipelineResult()
-        candidates = self._candidates_from_bwb(store, result)
-        logger.info(
-            "Staatsblad from-graph: %d publications referred to by BWB toestanden "
-            "(%d toestanden refer to none).",
-            len(candidates),
-            result.skipped,
-        )
+        candidates, without = self._candidates_from_bwb(store)
         existing = self._find_existing_identifiers(store, candidates)
-        self._fetch_and_store(result, candidates, existing)
-        logger.info("Staatsblad from-graph: %s.", result.summary())
+        todo = [c for c in candidates if c[1] not in existing]
+        logger.info(
+            "Staatsblad from-graph: %d publications referred to by BWB toestanden, %d "
+            "already stored (%d toestanden refer to none).",
+            len(candidates),
+            len(candidates) - len(todo),
+            without,
+        )
+        result = self._store_all(self._fetch_publications(todo), what="publications")
+        result.skipped += without + len(candidates) - len(todo)
         return result
 
+    def _fetch_publications(
+        self, todo: list[tuple[str | None, str]]
+    ) -> Iterator[RetrieveRecord]:
+        """The XML of each ``(bwb_id, identifier)``; a publication without XML is skipped."""
+        self.progress.expect(len(todo))
+        for bwb_id, identifier in todo:
+            xml = self.client.fetch_publication_xml(identifier)
+            if xml is None:
+                self.progress.skip("no XML (HTTP 404)", identifier)
+                continue
+            meta = {"identifier": identifier}
+            if bwb_id:
+                meta["bwb_id"] = bwb_id
+            yield RetrieveRecord(
+                source=SOURCE_STAATSBLAD,
+                kind=RAW_KIND_STB_AMVB,
+                external_id=identifier,
+                payload_text=xml,
+                meta=meta,
+            )
+
     def _candidates_from_bwb(
-        self, store: ArangoStore, result: PipelineResult
-    ) -> list[tuple[str, str]]:
-        """``(bwb_id, identifier)`` per referred publication, from the stored toestand XML.
+        self, store: ArangoStore
+    ) -> tuple[list[tuple[str | None, str]], int]:
+        """``(bwb_id, identifier)`` per referred publication, and how many toestanden name none.
 
         The toestand XML is streamed and only the identifiers are kept: a toestand is
         tens of KB and there are over ten thousand. The WTI records of the same regulation
@@ -113,6 +94,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
           RETURN {{ bwb_id: r.external_id, xml: r.payload_text }}
         """
         candidates: dict[str, str] = {}
+        without = 0
         rows = store.query(
             aql,
             bind_vars={"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
@@ -121,13 +103,15 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         for row in rows:
             ref = staatsblad_ref_from_bwb_xml(row["xml"]) if row.get("xml") else None
             if ref is None:
-                result.skipped += 1
+                without += 1
                 continue
             candidates.setdefault(f"stb-{ref[0]}-{ref[1]}", row["bwb_id"])
-        return [(bwb_id, identifier) for identifier, bwb_id in candidates.items()]
+        return [
+            (bwb_id, identifier) for identifier, bwb_id in candidates.items()
+        ], without
 
     def _find_existing_identifiers(
-        self, store: ArangoStore, candidates: list[tuple[str, str]]
+        self, store: ArangoStore, candidates: list[tuple[str | None, str]]
     ) -> set[str]:
         """Which candidate Staatsblad identifiers are already in raw_sources."""
         if not candidates:
@@ -146,42 +130,6 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             },
         )
         return {row for row in rows if isinstance(row, str)}
-
-    def _fetch_and_store(
-        self,
-        result: PipelineResult,
-        candidates: list[tuple[str, str]],
-        existing_identifiers: set[str],
-    ) -> None:
-        """Fetch XML and store records for candidates not already present in raw_sources."""
-        for bwb_id, identifier in candidates:
-            if identifier in existing_identifiers:
-                result.skipped += 1
-                continue
-
-            xml = self.client.fetch_publication_xml(identifier)
-            if xml is None:
-                logger.debug(
-                    "Staatsblad XML not found for %s (bwb_id=%s)", identifier, bwb_id
-                )
-                result.skipped += 1
-                continue
-
-            record = RetrieveRecord(
-                source=SOURCE_STAATSBLAD,
-                kind=RAW_KIND_STB_AMVB,
-                external_id=identifier,
-                payload_text=xml,
-                meta={"identifier": identifier, "bwb_id": bwb_id},
-            )
-            try:
-                self._insert(record)
-                result.created += 1
-            except Exception as exc:
-                msg = f"Failed to store Staatsblad {identifier}: {exc}"
-                logger.error(msg)
-                result.add_error(msg)
-                result.skipped += 1
 
     def run_full(self) -> PipelineResult:
         """Full-load mode: enumerate all AMvBs via SRU and fetch each."""

@@ -193,7 +193,7 @@ class BWBClient(BaseClient):
         """Return the most recent valid toestand metadata for a BWB ID."""
         toestanden = self.search_toestanden(bwb_id)
         if not toestanden:
-            logger.warning("No BWB toestand found for %s", bwb_id)
+            logger.debug("No BWB toestand found for %s", bwb_id)
             return None
 
         def sort_key(meta: ToestandMeta) -> tuple[dt.date, dt.date]:

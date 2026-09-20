@@ -81,5 +81,5 @@ class RechtspraakClient(BaseClient):
 
     def fetch_ecli_content(self, ecli: str) -> str:
         """Retrieve the XML content for a single Rechtspraak ECLI."""
-        logger.info("Fetching Rechtspraak content for %s", ecli)
+        logger.debug("Fetching Rechtspraak content for %s", ecli)
         return self._get_text("uitspraken/content", params={"id": ecli})

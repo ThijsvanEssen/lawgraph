@@ -126,7 +126,9 @@ class BaseClient:
                         backoff_factor**attempt,
                         retry_after_seconds(exc.response) or 0.0,
                     )
-                    logger.warning(
+                    # Not a warning per request: the pacer reports a throttling host once
+                    # a minute, and the last failure is raised to the caller.
+                    logger.debug(
                         "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
                         exc.response.status_code,
                         url,
@@ -143,7 +145,7 @@ class BaseClient:
             ) as exc:
                 last_exc = exc
                 wait = backoff_factor**attempt
-                logger.warning(
+                logger.debug(
                     "Connection error on %s (attempt %d/%d), retrying in %.1fs: %s",
                     url,
                     attempt + 1,

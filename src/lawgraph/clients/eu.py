@@ -287,7 +287,7 @@ class EUClient(BaseClient):
             "Accept": "text/html, application/xhtml+xml",
             "Accept-Language": f"{lang_lower}, {lang_lower}-{lang.upper()};q=0.9",
         }
-        logger.info("Fetching CELEX %s (%s) via CELLAR", celex, lang)
+        logger.debug("Fetching CELEX %s (%s) via CELLAR", celex, lang)
         # Cannot use _get_raw_absolute_with_retry here: it does not support custom
         # headers or allow_redirects, both of which are required for CELLAR content
         # negotiation and redirect following.

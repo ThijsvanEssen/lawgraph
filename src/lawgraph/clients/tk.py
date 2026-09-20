@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from lawgraph.clients.base import BaseClient
@@ -36,6 +36,8 @@ class TKClient(BaseClient):
             base_url=TK_BASE_URL,
             session=session,
         )
+        # Called with the ``@odata.count`` of a paged query when its first page arrives.
+        self.on_total: Callable[[int | None], None] | None = None
 
     def _skip_paged_get(
         self,
@@ -54,8 +56,12 @@ class TKClient(BaseClient):
         while True:
             page_params = dict(base_params)
             page_params["$skip"] = skip
+            if skip == 0:
+                page_params["$count"] = "true"
             page = self._get_json(path, params=page_params)
             entries = page.get("value", []) if isinstance(page, dict) else []
+            if skip == 0 and self.on_total and isinstance(page, dict):
+                self.on_total(int(page.get("@odata.count") or 0) or None)
             yield from entries
             if len(entries) < page_size:
                 break

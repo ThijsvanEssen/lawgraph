@@ -20,6 +20,7 @@ import requests
 
 from lawgraph.config.constants import DEFAULT_MIN_INTERVAL, HOST_MIN_INTERVAL
 from lawgraph.core.logging import get_logger
+from lawgraph.core.progress import PeriodicLog
 
 logger = get_logger(__name__)
 
@@ -37,6 +38,8 @@ class HostPacer:
         self.interval = base_interval
         self._next_slot = 0.0
         self._lock = threading.Lock()
+        self._throttled = 0
+        self._report = PeriodicLog(immediate=True)
 
     def wait(self) -> None:
         """Block until this request's slot."""
@@ -55,9 +58,17 @@ class HostPacer:
             )
             quiet_until = _now() + (retry_after or 0.0)
             self._next_slot = max(self._next_slot, quiet_until)
+            self._throttled += 1
+            if not self._report.due():
+                return
+            count, self._throttled = self._throttled, 0
             interval = self.interval
         logger.warning(
-            "%s is throttling: pacing requests at %.1fs from now.", self.host, interval
+            "%s is throttling (%d HTTP 429/503 since the last report): pacing requests "
+            "at %.1fs.",
+            self.host,
+            count,
+            interval,
         )
 
     def succeeded(self) -> None:

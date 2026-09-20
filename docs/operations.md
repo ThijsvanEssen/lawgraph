@@ -199,7 +199,10 @@ Every retrieve and normalize step is idempotent and safe to interrupt and re-run
 back while requests succeed. HTTP 429, 502, 503, 504 and connection errors are retried five
 times with a growing pause. `repository.overheid.nl` was measured to throttle from about five
 requests per second sustained, so the base interval there is 0.5 s. A `throttling` warning in
-the log means the pacer is slowing down; it is not an error.
+the log means the pacer is slowing down; it is not an error. It appears at most once a minute
+per host, with the number of HTTP 429/503 answers since the last one; the retries themselves
+are logged at `DEBUG`. The pacer is shared inside one process only: two `lawgraph retrieve`
+commands started side by side on the same host add up and do get throttled.
 
 **Interruptions.** A retrieve stores each record as soon as it is fetched (Tweede Kamer pages,
 each publication, each act, each regulation), so a crash, an interrupt or a failing source
@@ -207,8 +210,7 @@ keeps everything stored so far, and a failure in the middle is an error of the s
 silent stop. A step that downloads one document per record (`staatscourant`, `bwb`, `eurlex`)
 skips the records stored in the last 24 hours, so a re-run only does the rest; a refresh the
 next day fetches everything again. The Tweede Kamer pages are read again from the start on a
-re-run (upserts, so only time is repeated). The log shows `N records stored so far` every
-1000 records.
+re-run (upserts, so only time is repeated).
 
 ## Observability
 
@@ -223,7 +225,14 @@ re-run (upserts, so only time is repeated). The log shows `N records stored so f
   of `retrieve all` are marked.
 - Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors) and its
   duration; errors are listed and set exit code 1. Orchestrators print a per-step summary table
-  at the end. A long retrieve logs `N records stored so far` every 1000 records.
+  at the end.
+- Progress (`core/progress.py`, used by every retrieve): no line per record. Once a minute a
+  status line `12,400 / 34,593 (36%) judgments · 4.9/s · ~1h12m left · 3 skipped · 0 errors`
+  (the total when the source gives one: an index, a list of ids, the OData `$count`), and at
+  the end one summary with the duration and the count per outcome and per reason. A reason to
+  skip or fail is logged once, with the first record it happened to; the following ones are
+  counted and logged at `DEBUG`. A cause of failure is one error of the result
+  (`25 x download failed (HTTP 500) (first: ...)`).
 - `is throttling` warnings come from the request pacer (see Pacing), not from an error.
 - API: each request is logged with id, client, method, path, status, size and latency;
   `GET /api/health` checks the database connection; `GET /api/stats` gives counts per

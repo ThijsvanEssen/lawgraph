@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_RAW_SOURCES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
-PROGRESS_EVERY = 1000
 MAX_FAILURES_IN_A_ROW = 25
 RESUME_WITHIN_HOURS = 24
 
@@ -27,6 +27,8 @@ class RetrieveRecord:
     payload_json: dict | list | None = None
     payload_text: str | None = None
     meta: dict | None = None
+    # False for a by-product of another record: stored, but not a step of the progress.
+    counts: bool = True
 
 
 class SourceDown(RuntimeError):
@@ -58,48 +60,88 @@ class FailureStreak:
             ) from exc
 
 
+def failure_reason(exc: Exception) -> str:
+    """The cause of a failed request without the record it was for: ``HTTP 503``, ``Timeout``."""
+    response = getattr(exc, "response", None)
+    if response is not None and getattr(response, "status_code", None):
+        return f"HTTP {response.status_code}"
+    return type(exc).__name__
+
+
+def add_outcome(result: PipelineResult, progress: Progress) -> None:
+    """What *progress* counted next to the stored records: skips, and one error per cause."""
+    result.skipped += progress.skipped + progress.failed
+    result.errors.extend(progress.errors())
+
+
+def is_not_found(exc: Exception) -> bool:
+    """HTTP 404: the source does not have the document, which is not a failure."""
+    response = getattr(exc, "response", None)
+    return response is not None and getattr(response, "status_code", None) == 404
+
+
 class RetrievePipelineBase(PipelineBase):
+    """Stores what a source yields. Every retrieve pipeline runs through ``_store_all``.
+
+    A pipeline yields ``RetrieveRecord``s from ``fetch`` (or from a generator of its own that
+    it hands to ``_store_all``) and tells ``self.progress`` what it left out: ``expect`` the
+    number of records once known, ``skip`` a record on purpose, ``fail`` one that went wrong.
+    """
+
+    progress: Progress
+
     def __init__(self, store: ArangoStore) -> None:
         super().__init__(store)
+        self.progress = Progress()
 
     def run(self, **kwargs: Any) -> PipelineResult:
-        """Store the records of ``fetch`` one by one, as they arrive.
+        def records() -> Iterator[RetrieveRecord]:
+            # Inside the loop, so a ``fetch`` that raises before its first record is an
+            # error of the result like any other failure of the source.
+            yield from self.fetch(**kwargs)
+
+        return self._store_all(records())
+
+    def _store_all(
+        self, records: Iterable[RetrieveRecord], *, what: str = "records"
+    ) -> PipelineResult:
+        """Store *records* one by one, as they arrive, and report the progress.
 
         Nothing is held back until the end: a crash, an interrupt or a failing source in
         the middle keeps every record stored so far, and re-running only repeats the rest
-        (stores are upserts). A failure of ``fetch`` itself is an error of the result.
+        (stores are upserts). A failure of the source itself is an error of the result, and
+        so is every reason a record failed for (once, with its count).
         """
         result = PipelineResult()
-        name = self.__class__.__name__
+        progress = self.progress = Progress(what)
         try:
-            for record in self.fetch(**kwargs):
-                self._store(record, result)
-                stored = result.created + result.skipped
-                if stored % PROGRESS_EVERY == 0:
-                    logger.info("%s: %d records stored so far.", name, result.created)
+            for record in records:
+                result.created += self._store(record, progress)
         except Exception as exc:
             msg = f"fetch() failed after {result.created} records were stored: {exc}"
             logger.error(msg)
             result.add_error(msg)
+        finally:
+            progress.finish()
+        add_outcome(result, progress)
         return result
 
-    def _store(self, record: RetrieveRecord, result: PipelineResult) -> None:
+    def _store(self, record: RetrieveRecord, progress: Progress) -> int:
+        """Store one record; the number stored (a failing store is counted, not raised)."""
         try:
             self._insert(record)
-            result.created += 1
         except Exception as exc:
-            msg = f"Failed to store {record.source}/{record.kind}/{record.external_id}: {exc}"
-            logger.error(msg)
-            result.add_error(msg)
-            result.skipped += 1
+            where = f"{record.source}/{record.kind}/{record.external_id}: {exc}"
+            progress.fail(f"could not be stored ({failure_reason(exc)})", where)
+            return 0
+        if record.counts:
+            progress.ok()
+        return 1
 
     def fetch(self, **kwargs: Any) -> Iterable[RetrieveRecord]:
         """Return (or yield) the raw source records that should be stored.
 
         Yield them where fetching is slow, so each is stored as soon as it is there.
-        Pipelines that implement complex multi-mode retrieval (BWB, Staatsblad)
-        override run() directly instead of implementing fetch(), in which case
-        fetch() is never called by the base and should not be overridden.
         """
         return []
 

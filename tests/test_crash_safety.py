@@ -12,11 +12,7 @@ import requests
 
 from lawgraph.clients import _sru
 from lawgraph.clients.eerstekamer import EerstekamerClient
-from lawgraph.pipelines.retrieve.base import (
-    PROGRESS_EVERY,
-    RetrievePipelineBase,
-    RetrieveRecord,
-)
+from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
@@ -107,15 +103,6 @@ def test_a_failing_store_of_one_record_does_not_stop_the_rest() -> None:
     result = _Pipeline(store, iter([_record("a"), _record("b"), _record("c")])).run()
     assert store.stored == ["a", "c"]
     assert (result.created, result.skipped, len(result.errors)) == (2, 1, 1)
-
-
-def test_progress_is_logged_while_a_long_run_goes_on(caplog) -> None:
-    records = (_record(str(n)) for n in range(PROGRESS_EVERY * 2 + 5))
-    with caplog.at_level("INFO"):
-        _Pipeline(_Store(), records).run()
-    progress = [m for m in caplog.messages if "records stored so far" in m]
-    assert len(progress) == 2
-    assert f"{PROGRESS_EVERY} records stored so far" in progress[0]
 
 
 def test_a_list_from_fetch_still_works() -> None:

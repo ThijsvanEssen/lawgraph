@@ -135,11 +135,12 @@ def _retrieve(general_info: str | None | Exception) -> tuple[_RawStore, Pipeline
 def test_retrieve_stores_the_general_information_next_to_the_toestand() -> None:
     store, result = _retrieve(SR_GENERAL)
 
+    # The toestand last: it is what a re-run takes for "this regulation is done".
     assert [r["kind"] for r in store.records] == [
-        RAW_KIND_BWB_TOESTAND,
         RAW_KIND_BWB_WTI_GENERAL,
+        RAW_KIND_BWB_TOESTAND,
     ]
-    wti = store.records[1]
+    wti = store.records[0]
     assert (wti["source"], wti["external_id"]) == (SOURCE_BWB, SR)
     assert wti["payload_text"] == SR_GENERAL
     assert wti["meta"] == {"bwb_id": SR, "wti_url": WTI_URL}
