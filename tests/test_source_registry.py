@@ -62,3 +62,23 @@ def test_semantic_order_puts_dependencies_first() -> None:
     # amendment edges need the articles from bwb and the grondslagen run before them
     assert order.index("bwb") < order.index("bwb_amendments")
     assert order.index("bwb_grondslagen") < order.index("bwb_amendments")
+
+
+def test_normalize_order_puts_what_is_looked_up_first() -> None:
+    """An edge to a node that does not exist yet is left out, and an incremental run does not
+    come back for it."""
+    order = [s.id for s in SOURCES if s.normalize_main is not None]
+
+    # documents, activities and decisions are linked to the cases that exist
+    assert order.index("tk") < order.index("tk_dossiers")
+    # the history only adds seed instruments for the regulations bwb did not load
+    assert order.index("bwb") < order.index("bwb_history")
+
+
+def test_semantic_order_of_the_steps_that_read_other_steps() -> None:
+    order = [s.id for s in SOURCES if s.semantic_main is not None]
+
+    # amendment-articles starts from the AMENDS edges of instrument-relations
+    assert order.index("instrument_relations") < order.index("amendment_articles")
+    # the counts of list-stats are those of every edge written before it
+    assert order[-1] == "list_stats"
