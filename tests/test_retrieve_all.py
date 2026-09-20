@@ -372,3 +372,35 @@ def test_by_default_every_server_has_its_own_job() -> None:
         if s.retrieve_main is not None and s.retrieve_argv_builder is not None
     }
     assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 6
+
+
+def test_an_interrupt_stops_the_other_lanes_too() -> None:
+    """Ctrl-C reaches the main thread only; the lanes fetched on for hours."""
+    import time
+
+    import pytest
+
+    from lawgraph.pipelines.base import STOP
+
+    looped: list[int] = []
+
+    def interrupted(argv: list[str]) -> None:
+        time.sleep(0.2)
+        raise KeyboardInterrupt
+
+    def long_running(argv: list[str]) -> None:
+        # What RetrievePipelineBase._store_all does between two records.
+        for number in range(10_000):
+            if STOP.is_set():
+                return
+            looped.append(number)
+            time.sleep(0.01)
+
+    steps = [_step("a", "lane-a", interrupted), _step("b", "lane-b", long_running)]
+    started = time.monotonic()
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            _run_in_lanes("retrieve", steps, jobs=2)
+    finally:
+        STOP.clear()
+    assert time.monotonic() - started < 5 and len(looped) < 1_000

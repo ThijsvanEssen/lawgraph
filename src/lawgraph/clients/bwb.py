@@ -205,6 +205,12 @@ class BWBClient(BaseClient):
 
         root = ET.fromstring(resp.text)
         raise_on_diagnostic(root, context=f"BWB toestanden of {bwb_id}")
+        total = number_of_records(root)
+        if total > 500:
+            # One page of 500 is asked for; more toestanden than that would be cut silently.
+            raise RuntimeError(
+                f"BWB {bwb_id} has {total} toestanden, more than one page"
+            )
 
         toestanden: list[ToestandMeta] = []
         for element in root.iter():

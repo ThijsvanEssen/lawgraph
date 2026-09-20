@@ -53,6 +53,7 @@ class TKClient(BaseClient):
         base_params = dict(params or {})
         base_params["$top"] = page_size
         skip = 0
+        expected: int | None = None
         while True:
             page_params = dict(base_params)
             page_params["$skip"] = skip
@@ -60,10 +61,19 @@ class TKClient(BaseClient):
                 page_params["$count"] = "true"
             page = self._get_json(path, params=page_params)
             entries = page.get("value", []) if isinstance(page, dict) else []
-            if skip == 0 and self.on_total and isinstance(page, dict):
-                self.on_total(int(page.get("@odata.count") or 0) or None)
+            if skip == 0 and isinstance(page, dict):
+                expected = int(page.get("@odata.count") or 0) or None
+                if self.on_total:
+                    self.on_total(expected)
             yield from entries
             if len(entries) < page_size:
+                # A short page ends the paging. When the server ever lowers its page size
+                # that is the first page, and the rest would be left out without a word.
+                fetched = skip + len(entries)
+                if expected is not None and fetched < expected:
+                    raise RuntimeError(
+                        f"TK {path}: {fetched} records read, the API counts {expected}"
+                    )
                 break
             skip += page_size
 

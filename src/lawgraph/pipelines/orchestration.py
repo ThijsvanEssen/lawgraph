@@ -14,6 +14,7 @@ from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.core.time import parse_since
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.factory import add_since_argument, run_command
 from lawgraph.sources.registry import SOURCES, RetrieveCtx, describe
 
@@ -76,9 +77,10 @@ def _run_in_lanes(phase: str, steps: list[_Step], jobs: int) -> list[tuple[str, 
 
     def run_lane(lane: list[_Step]) -> list[tuple[str, str]]:
         results = []
-        for step in sorted(
-            lane, key=lambda s: bool(s.after)
-        ):  # stable: waiting ones last
+        waiting_last = sorted(lane, key=lambda s: bool(s.after))  # a stable sort
+        for step in waiting_last:
+            if STOP.is_set():
+                break
             for source_id in step.after:
                 if source_id in ended:
                     ended[source_id].wait()
@@ -91,7 +93,17 @@ def _run_in_lanes(phase: str, steps: list[_Step], jobs: int) -> list[tuple[str, 
 
     with ThreadPoolExecutor(max_workers=len(lanes), thread_name_prefix=phase) as pool:
         futures = [pool.submit(run_lane, lane) for lane in lanes.values()]
-        status = {name: state for f in futures for name, state in f.result()}
+        try:
+            status = {name: state for f in futures for name, state in f.result()}
+        except KeyboardInterrupt:
+            # Ctrl-C reaches this thread only, and leaving the pool waits for the lanes.
+            logger.warning(
+                "Interrupted: the running steps store what they have and stop."
+            )
+            STOP.set()
+            for event in ended.values():
+                event.set()
+            raise
     return [(step.name, status[step.name]) for step in steps]
 
 

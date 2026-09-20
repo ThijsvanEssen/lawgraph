@@ -12,7 +12,7 @@ from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.raw import Failure, StoreUnavailable
-from lawgraph.pipelines.base import PipelineBase
+from lawgraph.pipelines.base import STOP, PipelineBase
 
 logger = get_logger(__name__)
 
@@ -169,6 +169,8 @@ class RetrievePipelineBase(PipelineBase):
         try:
             with RawSourceWriter(self.store, on_flush=written) as writer:
                 for record in records:
+                    if STOP.is_set():
+                        raise KeyboardInterrupt  # leaves the writer, which stores its buffer
                     doc = raw_source_doc(
                         source=record.source,
                         kind=record.kind,

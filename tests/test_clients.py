@@ -221,3 +221,20 @@ def test_an_answer_that_is_not_200_is_not_the_document() -> None:
     client = BaseClient(base_url="https://example.test", session=Session())  # type: ignore[arg-type]
     with pytest.raises(requests.HTTPError, match="202 is not the document"):
         client._get_text("uitspraken/content")
+
+
+def test_a_tk_listing_that_ends_before_its_count_is_an_error() -> None:
+    """A short page ends the paging; a server that lowers its page size would cut the rest."""
+    import pytest
+
+    from lawgraph.clients.tk import TKClient
+
+    client = TKClient(session=object())  # type: ignore[arg-type]
+    pages = [{"@odata.count": 600, "value": [{"Id": str(n)} for n in range(100)]}]
+    client._get_json = lambda path, params=None, **kw: pages.pop(0)  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="100 records read, the API counts 600"):
+        list(client._skip_paged_get("Stemming"))
+
+    complete = [{"@odata.count": 3, "value": [{"Id": "1"}, {"Id": "2"}, {"Id": "3"}]}]
+    client._get_json = lambda path, params=None, **kw: complete.pop(0)  # type: ignore[method-assign]
+    assert len(list(client._skip_paged_get("Stemming"))) == 3

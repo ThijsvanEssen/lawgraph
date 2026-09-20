@@ -245,3 +245,22 @@ def test_tk_dossiers_stops_fetching_when_the_database_takes_no_writes() -> None:
     with pytest.raises(StoreUnavailable):
         TKDossiersRetrievePipeline(store=Gone(), client=Client()).run()  # type: ignore[arg-type]
     assert asked == ["dossiers"]
+
+
+def test_a_stop_request_ends_the_step_after_storing_what_it_has() -> None:
+    from lawgraph.pipelines.base import STOP
+
+    store = _Store()
+
+    def records() -> Iterator[RetrieveRecord]:
+        for number in range(100):
+            if number == 7:
+                STOP.set()  # the main thread was interrupted
+            yield RetrieveRecord("test", "kind", str(number), payload_json={})
+
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            _Pipeline(store, records()).run()
+    finally:
+        STOP.clear()
+    assert store.stored == [str(n) for n in range(7)]

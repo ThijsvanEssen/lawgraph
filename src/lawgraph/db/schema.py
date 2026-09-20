@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from arango.exceptions import CollectionCreateError
+
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
     COLLECTION_ANNEXES,
@@ -31,6 +33,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_DUPLICATE_NAME = 1207  # ArangoDB: a collection of that name exists
+
 
 def ensure_schema(db: StandardDatabase) -> None:
     """Ensure all collections, indexes, analyzers, and search views exist."""
@@ -42,14 +46,18 @@ def ensure_schema(db: StandardDatabase) -> None:
 
 def ensure_collections(db: StandardDatabase) -> None:
     """Create missing document and edge collections."""
-    for name in DOCUMENT_COLLECTIONS:
-        if not db.has_collection(name):
-            db.create_collection(name)
-            logger.info("Created document collection %s", name)
-
-    if not db.has_collection(COLLECTION_EDGES):
-        db.create_collection(COLLECTION_EDGES, edge=True)
-        logger.info("Created edge collection %s", COLLECTION_EDGES)
+    for name in (*DOCUMENT_COLLECTIONS, COLLECTION_EDGES):
+        if db.has_collection(name):
+            continue
+        try:
+            db.create_collection(name, edge=name == COLLECTION_EDGES)
+        except CollectionCreateError as exc:
+            # Two processes that start on an empty database both find it missing; the one
+            # that comes second must not die of "duplicate name".
+            if exc.error_code != _DUPLICATE_NAME:
+                raise
+            continue
+        logger.info("Created collection %s", name)
 
 
 def _ensure_analyzers(db: StandardDatabase) -> None:
@@ -385,7 +393,12 @@ def _ensure_indexes(db: StandardDatabase) -> None:
                 )
                 continue
         try:
-            coll.add_persistent_index(fields=fields, unique=unique, sparse=sparse)
+            # In the background: a foreground build locks the collection for as long as it
+            # takes to read it (minutes for raw_sources), and a load running in another
+            # process would time out on its writes.
+            coll.add_persistent_index(
+                fields=fields, unique=unique, sparse=sparse, in_background=True
+            )
             logger.info(
                 "Created index on %s %s (unique=%s, sparse=%s)",
                 coll_name,
