@@ -56,7 +56,7 @@ Client quirks:
 - The dossier endpoints emit no `@odata.nextLink`; the client pages with `$top=250` and
   `$skip` until a page is short. Zaak and Document follow `@odata.nextLink`.
 - Votes arrive as one row per faction per `Besluit`.
-- A full Document fetch is about 400K records; use a date window (`--documents-since 730d`).
+- A full Document fetch is about 400K records; use a date window (`retrieve all --window 730d`, or `--documents-since 730d`).
 - `tk-content` sleeps 0.5 s between requests, keeps at most 500,000 characters, and imports
   `pdfminer.six`, which `pyproject.toml` does not declare.
 

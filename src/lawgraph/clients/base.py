@@ -6,10 +6,13 @@ from typing import Any
 
 import requests
 
+from lawgraph.clients.pacing import PacedSession, retry_after_seconds
 from lawgraph.core.logging import get_logger
 from lawgraph.core.values import next_page_link
 
 logger = get_logger(__name__)
+
+RETRY_STATUSES = (429, 502, 503, 504)
 
 
 class BaseClient:
@@ -22,7 +25,7 @@ class BaseClient:
         session: requests.Session | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/") + "/"
-        self.session: requests.Session = session or requests.Session()
+        self.session: requests.Session = session or PacedSession()
 
         logger.debug(
             "Initialized %s with base_url=%s",
@@ -74,10 +77,10 @@ class BaseClient:
         *,
         params: dict | None = None,
         timeout: int = 30,
-        retries: int = 3,
+        retries: int = 5,
         backoff_factor: float = 2.0,
     ) -> requests.Response:
-        """GET with exponential backoff on 429, 503, and connection errors."""
+        """GET with exponential backoff on 429, 502, 503, 504 and connection errors."""
         url = (
             path
             if path.startswith("http://") or path.startswith("https://")
@@ -97,11 +100,14 @@ class BaseClient:
         *,
         params: dict | None = None,
         timeout: int = 30,
-        retries: int = 3,
+        retries: int = 5,
         backoff_factor: float = 2.0,
         stream: bool = False,
     ) -> requests.Response:
-        """GET a full URL with exponential backoff on 429, 503, and connection errors."""
+        """GET a full URL with exponential backoff on 429, 502, 503, 504 and connection errors.
+
+        A ``Retry-After`` of the server is followed when it is longer than the backoff.
+        """
         last_exc: Exception = RuntimeError("unreachable")
         for attempt in range(retries):
             try:
@@ -111,9 +117,15 @@ class BaseClient:
                 # _get_raw_absolute already calls raise_for_status, but 429/503 need retry
                 return resp
             except requests.exceptions.HTTPError as exc:
-                if exc.response is not None and exc.response.status_code in (429, 503):
+                if (
+                    exc.response is not None
+                    and exc.response.status_code in RETRY_STATUSES
+                ):
                     last_exc = exc
-                    wait = backoff_factor**attempt
+                    wait = max(
+                        backoff_factor**attempt,
+                        retry_after_seconds(exc.response) or 0.0,
+                    )
                     logger.warning(
                         "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
                         exc.response.status_code,

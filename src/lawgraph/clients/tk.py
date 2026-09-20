@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.clients.base import BaseClient
@@ -69,7 +69,7 @@ class TKClient(BaseClient):
         top: int | None = 100,
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
-    ) -> list[dict]:
+    ) -> Iterator[dict]:
         """Return TK Zaak records modified since *since*."""
         since_string = odata_datetime(since)
         odata_filter = f"ApiGewijzigdOp ge {since_string}"
@@ -79,7 +79,7 @@ class TKClient(BaseClient):
         if top is not None:
             params["$top"] = top
         logger.info("Fetching Zaak modified since %s", since_string)
-        return list(self._paged_get("Zaak", params=params))
+        return self._paged_get("Zaak", params=params)
 
     def fetch_document_bytes(self, document_id: str, *, timeout: int = 60) -> bytes:
         """Fetch the raw binary content of a TK document by its UUID."""
@@ -92,7 +92,7 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
-    ) -> list[dict]:
+    ) -> Iterator[dict]:
         """Fetch Kamerstukdossier records, optionally filtered by modification date.
 
         Uses skip-based pagination because the TK API does not emit nextLink.
@@ -104,15 +104,13 @@ class TKClient(BaseClient):
             logger.info("Fetching Kamerstukdossier modified since %s", since_string)
         else:
             logger.info("Fetching all Kamerstukdossier records")
-        return list(
-            self._skip_paged_get("Kamerstukdossier", params=params, page_size=top)
-        )
+        return self._skip_paged_get("Kamerstukdossier", params=params, page_size=top)
 
     def fetch_activiteiten(
         self,
         since: dt.datetime | None = None,
         top: int = 250,
-    ) -> list[dict]:
+    ) -> Iterator[dict]:
         """Fetch Activiteit (debate/hearing) records.
 
         Uses a 3-level nested expand to resolve dossier links via the chain
@@ -134,13 +132,13 @@ class TKClient(BaseClient):
             logger.info("Fetching Activiteit modified since %s", since_string)
         else:
             logger.info("Fetching all Activiteit records")
-        return list(self._skip_paged_get("Activiteit", params=params, page_size=top))
+        return self._skip_paged_get("Activiteit", params=params, page_size=top)
 
     def fetch_stemmingen(
         self,
         since: dt.datetime | None = None,
         top: int = 250,
-    ) -> list[dict]:
+    ) -> Iterator[dict]:
         """Fetch Stemming (vote) records with the parent Besluit expanded.
 
         Each Stemming record is one fractie's vote on one Besluit. Caller must
@@ -163,13 +161,13 @@ class TKClient(BaseClient):
             logger.info("Fetching Stemming modified since %s", since_string)
         else:
             logger.info("Fetching all Stemming records")
-        return list(self._skip_paged_get("Stemming", params=params, page_size=top))
+        return self._skip_paged_get("Stemming", params=params, page_size=top)
 
     def fetch_toezeggingen(
         self,
         since: dt.datetime | None = None,
         top: int = 250,
-    ) -> list[dict]:
+    ) -> Iterator[dict]:
         """Fetch Toezegging (ministerial commitment) records."""
         params: dict[str, Any] = {}
         if since is not None:
@@ -178,15 +176,15 @@ class TKClient(BaseClient):
             logger.info("Fetching Toezegging modified since %s", since_string)
         else:
             logger.info("Fetching all Toezegging records")
-        return list(self._skip_paged_get("Toezegging", params=params, page_size=top))
+        return self._skip_paged_get("Toezegging", params=params, page_size=top)
 
-    def fetch_commissies(self, top: int = 250) -> list[dict]:
+    def fetch_commissies(self, top: int = 250) -> Iterator[dict]:
         """Fetch Commissie (committee) records with CommissieZetel members expanded."""
         params: dict[str, Any] = {
             "$expand": "CommissieZetel($expand=CommissieZetelVastPersoon)",
         }
         logger.info("Fetching Commissie records")
-        return list(self._skip_paged_get("Commissie", params=params, page_size=top))
+        return self._skip_paged_get("Commissie", params=params, page_size=top)
 
     def fetch_documents(
         self,
@@ -195,7 +193,7 @@ class TKClient(BaseClient):
         dossier_number: int | None = None,
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
-    ) -> list[dict]:
+    ) -> Iterator[dict]:
         """Fetch Document (Kamerstuk) records with Zaak soort context.
 
         Each Document corresponds to one Kamerstuk with a Nummer (dossier number)
@@ -237,9 +235,9 @@ class TKClient(BaseClient):
             logger.info("Fetching Document modified since %s", filters[0])
         else:
             logger.info("Fetching all Document records")
-        return list(self._skip_paged_get("Document", params=params, page_size=top))
+        return self._skip_paged_get("Document", params=params, page_size=top)
 
-    def fetch_personen(self, top: int = 250) -> list[dict]:
+    def fetch_personen(self, top: int = 250) -> Iterator[dict]:
         """Fetch Persoon (parliamentary member) records.
 
         Fractielabel is a *current-snapshot* field, only populated for
@@ -248,14 +246,14 @@ class TKClient(BaseClient):
         """
         params: dict[str, Any] = {}
         logger.info("Fetching Persoon records")
-        return list(self._skip_paged_get("Persoon", params=params, page_size=top))
+        return self._skip_paged_get("Persoon", params=params, page_size=top)
 
-    def fetch_fracties(self, top: int = 250) -> list[dict]:
+    def fetch_fracties(self, top: int = 250) -> Iterator[dict]:
         """Fetch all Fractie records (canonical party list, current + historic)."""
         logger.info("Fetching Fractie records")
-        return list(self._skip_paged_get("Fractie", params={}, page_size=top))
+        return self._skip_paged_get("Fractie", params={}, page_size=top)
 
-    def fetch_fractie_zetel_personen(self, top: int = 250) -> list[dict]:
+    def fetch_fractie_zetel_personen(self, top: int = 250) -> Iterator[dict]:
         """Fetch FractieZetelPersoon (date-bounded seat holdings).
 
         Each row is one Persoon's membership of one Fractie over a
@@ -267,6 +265,4 @@ class TKClient(BaseClient):
             "$expand": "FractieZetel($select=Id,Fractie_Id)",
         }
         logger.info("Fetching FractieZetelPersoon records")
-        return list(
-            self._skip_paged_get("FractieZetelPersoon", params=params, page_size=top)
-        )
+        return self._skip_paged_get("FractieZetelPersoon", params=params, page_size=top)

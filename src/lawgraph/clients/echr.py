@@ -8,7 +8,6 @@ Paginates via start/length parameters. Filters by respondent country (NLD).
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from lawgraph.clients.base import BaseClient
@@ -18,7 +17,6 @@ from lawgraph.core.logging import get_logger
 logger = get_logger(__name__)
 
 _PAGE_SIZE = 100
-_REQUEST_DELAY = 0.5  # seconds between requests to be polite
 
 
 class EchrClient(BaseClient):
@@ -89,8 +87,6 @@ class EchrClient(BaseClient):
 
             if len(items) < _PAGE_SIZE:
                 break
-
-            time.sleep(_REQUEST_DELAY)
 
         logger.info(
             "ECHR HUDOC: fetched %d %s judgments for respondent=%s.",

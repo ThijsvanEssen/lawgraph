@@ -15,6 +15,7 @@ All records are stored idempotently in `raw_sources` keyed by
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
@@ -172,37 +173,45 @@ class TKDossiersRetrievePipeline(PipelineBase):
         id_field: str,
         fetch_fn: Any,
     ) -> None:
-        """Fetch records with *fetch_fn*, store immediately, update *result*."""
-        try:
-            records = fetch_fn()
-            logger.info("Retrieved %d %s records", len(records), kind)
-        except Exception as exc:
-            result.add_error(f"fetch {kind} failed: {exc}")
-            logger.error("fetch %s failed: %s", kind, exc)
-            return
-        stored = self._store_records(kind, id_field, records)
-        result.created += stored
+        """Store the records of *fetch_fn* one by one, as they arrive, and update *result*.
 
-    def _store_records(
-        self,
-        kind: str,
-        id_field: str,
-        records: list[dict[str, Any]],
-    ) -> int:
-        count = 0
+        A failure halfway keeps what was stored: the count is that of the run so far.
+        """
+        counter = {"seen": 0}
+        try:
+            for record in self._counted(fetch_fn(), kind, counter):
+                if self._store_record(kind, id_field, record):
+                    result.created += 1
+            logger.info("Retrieved %d %s records", counter["seen"], kind)
+        except Exception as exc:
+            result.add_error(
+                f"fetch {kind} failed after {counter['seen']} records: {exc}"
+            )
+            logger.error("fetch %s failed after %d: %s", kind, counter["seen"], exc)
+
+    @staticmethod
+    def _counted(records: Any, kind: str, counter: dict[str, int]) -> Iterator[Any]:
+        """Pass *records* on, counting them and logging progress every 5000."""
         for record in records:
-            external_id = str(record.get(id_field) or "")
-            if not external_id:
-                logger.warning("Skipping %s record without %s", kind, id_field)
-                continue
-            try:
-                self.store.insert_raw_source(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=external_id,
-                    payload_json=record,
-                )
-                count += 1
-            except Exception as exc:
-                logger.error("Failed to store %s %s: %s", kind, external_id, exc)
-        return count
+            counter["seen"] += 1
+            if counter["seen"] % 5000 == 0:
+                logger.info("%s: %d records so far", kind, counter["seen"])
+            yield record
+
+    def _store_record(self, kind: str, id_field: str, record: dict[str, Any]) -> bool:
+        """Store one record; ``False`` when it has no id or the store failed."""
+        external_id = str(record.get(id_field) or "")
+        if not external_id:
+            logger.warning("Skipping %s record without %s", kind, id_field)
+            return False
+        try:
+            self.store.insert_raw_source(
+                source=SOURCE_TK,
+                kind=kind,
+                external_id=external_id,
+                payload_json=record,
+            )
+        except Exception as exc:
+            logger.error("Failed to store %s %s: %s", kind, external_id, exc)
+            return False
+        return True

@@ -74,7 +74,8 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
     since = dt.datetime(2025, 1, 1, 12, 0, 0)
 
     # Act
-    result = client.zaken_modified_since(since, top=10)
+    # The fetchers are lazy: a page is requested when the records are read.
+    result = list(client.zaken_modified_since(since, top=10))
 
     # Assert
     assert session.calls == 1

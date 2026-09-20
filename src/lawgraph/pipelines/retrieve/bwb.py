@@ -44,9 +44,16 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             logger.warning("BWB retrieve: no IDs to process.")
             return result
 
-        logger.info("Starting BWB retrieve for %d IDs.", len(normalized))
+        done = self._recently_stored(SOURCE_BWB, RAW_KIND_BWB_TOESTAND)
+        logger.info(
+            "Starting BWB retrieve for %d IDs (%d already stored in the last 24 hours).",
+            len(normalized),
+            len(done),
+        )
 
         for bwb_id in normalized:
+            if bwb_id in done:
+                continue
             try:
                 meta = self.client.latest_toestand(bwb_id)
             except Exception as exc:

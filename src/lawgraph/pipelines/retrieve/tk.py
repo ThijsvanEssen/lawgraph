@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
@@ -31,8 +31,8 @@ class TKRetrievePipeline(RetrievePipelineBase):
         document_filter: Callable[[dict[str, Any]], bool] | None = None,
         keywords: list[str] | None = None,
         **kwargs: object,
-    ) -> Sequence[RetrieveRecord]:
-        """Return records for TK Zaak and Document that match the filters.
+    ) -> Iterator[RetrieveRecord]:
+        """Yield records for TK Zaak and Document that match the filters.
 
         If *keywords* is provided, keyword matching is pushed into the OData
         query so the API only returns relevant records (avoids fetching 30k+
@@ -48,8 +48,6 @@ class TKRetrievePipeline(RetrievePipelineBase):
             f" (dev cap: {limit})" if limit else "",
         )
 
-        records: list[RetrieveRecord] = []
-
         # Always pass top=0 (no $top) so _paged_get follows @odata.nextLink
         # across all pages.
         cases = self.tk.zaken_modified_since(
@@ -58,6 +56,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
             keyword_fields=["Onderwerp", "Titel"] if keywords else None,
             keywords=keywords,
         )
+        case_count = 0
         for case in cases:
             if case_filter and not case_filter(case):
                 continue
@@ -67,19 +66,18 @@ class TKRetrievePipeline(RetrievePipelineBase):
                 case.get("ZaakNummer"),
             ]
             external_id = first_str(candidates)
-            records.append(
-                RetrieveRecord(
-                    source=SOURCE_TK,
-                    kind=RAW_KIND_TK_ZAAK,
-                    external_id=external_id,
-                    payload_json=case,
-                    meta={
-                        "endpoint": "Zaak",
-                        "since": since.isoformat(),
-                    },
-                )
+            yield RetrieveRecord(
+                source=SOURCE_TK,
+                kind=RAW_KIND_TK_ZAAK,
+                external_id=external_id,
+                payload_json=case,
+                meta={
+                    "endpoint": "Zaak",
+                    "since": since.isoformat(),
+                },
             )
-            if limit and len(records) >= limit:
+            case_count += 1
+            if limit and case_count >= limit:
                 logger.warning(
                     "Dev cap of %d records reached for Zaak — stopping.", limit
                 )
@@ -95,17 +93,15 @@ class TKRetrievePipeline(RetrievePipelineBase):
             if document_filter and not document_filter(document):
                 continue
             external_id = first_str([document.get("Id")])
-            records.append(
-                RetrieveRecord(
-                    source=SOURCE_TK,
-                    kind=RAW_KIND_TK_DOCUMENT,
-                    external_id=external_id,
-                    payload_json=document,
-                    meta={
-                        "endpoint": "Document",
-                        "since": since.isoformat(),
-                    },
-                )
+            yield RetrieveRecord(
+                source=SOURCE_TK,
+                kind=RAW_KIND_TK_DOCUMENT,
+                external_id=external_id,
+                payload_json=document,
+                meta={
+                    "endpoint": "Document",
+                    "since": since.isoformat(),
+                },
             )
             document_count += 1
             if limit and document_count >= limit:
@@ -115,11 +111,8 @@ class TKRetrievePipeline(RetrievePipelineBase):
                 )
                 break
 
-        case_count = sum(1 for rec in records if rec.kind == RAW_KIND_TK_ZAAK)
         logger.info(
-            "TK retrieve complete: %d records total (%d cases, %d documents).",
-            len(records),
+            "TK retrieve complete: %d cases, %d documents.",
             case_count,
             document_count,
         )
-        return records

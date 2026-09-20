@@ -82,9 +82,17 @@ def test_an_empty_nim_listing_is_an_error_not_a_silent_success() -> None:
 
 
 class _Store:
-    def __init__(self, events: list[str] | None = None) -> None:
+    def __init__(
+        self, events: list[str] | None = None, recent: list[str] | None = None
+    ) -> None:
         self.stored: list[str] = []
         self.events = events if events is not None else []
+        self.recent = (
+            recent or []
+        )  # what an interrupted run stored in the last 24 hours
+
+    def query(self, aql: str, bind_vars: dict | None = None) -> list[str]:
+        return list(self.recent)
 
     def insert_raw_source(self, *, external_id: str, **_kw: Any) -> None:
         self.stored.append(external_id)
@@ -182,3 +190,15 @@ def test_retrieve_all_never_lists_eu_acts() -> None:
     eurlex = next(s for s in SOURCES if s.id == "eurlex")
     assert eurlex.retrieve_argv_builder is not None
     assert eurlex.retrieve_argv_builder(RetrieveCtx(since="1d", mode="full")) == []
+
+
+def test_a_rerun_skips_the_acts_an_interrupted_run_stored() -> None:
+    events: list[str] = []
+    store = _Store(events, recent=["32010L0064"])
+    eu = _Eu({"32010L0064": "<html/>", "32010L0065": "<html/>"}, events)
+    result = EurlexRetrievePipeline(store=store, eu_client=eu).run(
+        celex_ids=["32010L0064", "32010L0065"]
+    )
+    assert store.stored == ["32010L0065"]
+    assert events == ["fetch 32010L0065", "store 32010L0065"]
+    assert result.created == 1

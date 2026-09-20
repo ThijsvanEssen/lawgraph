@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from lawgraph.clients.eerstekamer import EerstekamerClient
 from lawgraph.config.constants import RAW_KIND_EK_KAMERSTUK, SOURCE_EERSTEKAMER
 from lawgraph.core.logging import get_logger
@@ -27,10 +29,9 @@ class EerstekamerRetrievePipeline(RetrievePipelineBase):
         since: str | None = None,
         limit: int | None = None,
         **kwargs: object,
-    ) -> list[RetrieveRecord]:
-        papers = self.client.search_kamerstukken(since=since, limit=limit)
-        records = [
-            RetrieveRecord(
+    ) -> Iterator[RetrieveRecord]:
+        for paper in self.client.iter_kamerstukken(since=since, limit=limit):
+            yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
                 kind=RAW_KIND_EK_KAMERSTUK,
                 external_id=paper["identifier"],
@@ -40,7 +41,3 @@ class EerstekamerRetrievePipeline(RetrievePipelineBase):
                     "modified": paper.get("modified"),
                 },
             )
-            for paper in papers
-        ]
-        logger.info("Eerste Kamer retrieve: prepared %d Kamerstukken.", len(records))
-        return records

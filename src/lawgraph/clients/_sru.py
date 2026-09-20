@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import requests
@@ -70,7 +70,7 @@ def parse_record_fields(
     return {name: find_own_text(record, element) for name, element in fields.items()}
 
 
-def search_publications(
+def iter_publications(
     client: BaseClient,
     endpoint: str,
     *,
@@ -80,16 +80,17 @@ def search_publications(
     page_size: int = SRU_PAGE_SIZE,
     connection: str | None = "ob",
     limit: int | None = None,
-) -> list[dict[str, Any]]:
-    """Every record of *query*, each page turned into dicts by *parse*.
+) -> Iterator[dict[str, Any]]:
+    """Yield every record of *query*, page by page, each page turned into dicts by *parse*.
 
     The service answers HTTP 504 for every record from position 10000 on, so a result is
     not paged by ``startRecord`` but by key: each page asks for the identifiers after the
-    last one of the previous page, sorted by identifier. The pages must add up to the total
-    the service reports; otherwise this raises. *limit* stops early (and skips that check).
-    A failing request or an SRU diagnostic raises.
+    last one of the previous page, sorted by identifier. When the records are used up the
+    pages must add up to the total the service reports; otherwise this raises. *limit* stops
+    early (and skips that check). A failing request or an SRU diagnostic raises, after the
+    records of the earlier pages were yielded.
     """
-    records: list[dict[str, Any]] = []
+    yielded = 0
     fetched = 0
     total: int | None = None
     last: str | None = None
@@ -115,21 +116,27 @@ def search_publications(
         identifiers = [i for i in map(record_identifier, page) if i]
         if len(identifiers) != len(page):
             raise RuntimeError(f"SRU error ({context}): a record has no identifier")
-        records.extend(parse(root))
         fetched += len(page)
+        for record in parse(root):
+            if limit is not None and yielded >= limit:
+                return
+            yield record
+            yielded += 1
 
-        if len(page) < page_size or (limit is not None and len(records) >= limit):
+        if len(page) < page_size or (limit is not None and yielded >= limit):
             break
         last = identifiers[-1]
 
-    if limit is not None:
-        return records[:limit]
-    if fetched != total:
+    if limit is None and fetched != total:
         raise RuntimeError(
             f"SRU error ({context}): the pages hold {fetched} records, the service "
             f"reports {total}"
         )
-    return records
+
+
+def search_publications(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+    """Every record of a query as a list; see ``iter_publications``."""
+    return list(iter_publications(*args, **kwargs))
 
 
 def parse_sru_records(

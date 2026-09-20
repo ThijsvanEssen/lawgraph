@@ -255,3 +255,20 @@ PARTY_COLORS: MappingProxyType[str, str] = MappingProxyType(
 
 # Longest title / display name stored on a node (longer source titles are truncated).
 MAX_TITLE_CHARS = 200
+
+# ── Request pacing ────────────────────────────────────────────────────────────
+# Minimum seconds between two requests to one host, in every client (clients/pacing.py).
+# A host that answers HTTP 429 or 503 makes the interval grow, and it shrinks back to this
+# value while requests succeed. repository.overheid.nl was measured on 2026-09-20: it
+# throttles from about 5 requests per second sustained (a bucket of about 20).
+DEFAULT_MIN_INTERVAL = 0.2
+HOST_MIN_INTERVAL: dict[str, float] = {
+    "repository.overheid.nl": 0.5,
+    "zoek.officielebekendmakingen.nl": 0.5,
+    "hudoc.echr.coe.int": 0.5,
+    "publications.europa.eu": 0.3,
+    "data.rechtspraak.nl": 0.2,
+    "gegevensmagazijn.tweedekamer.nl": 0.1,
+    "zoekservice.overheid.nl": 0.1,
+    "repository.officiele-overheidspublicaties.nl": 0.1,
+}

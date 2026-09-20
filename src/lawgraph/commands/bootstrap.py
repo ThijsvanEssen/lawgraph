@@ -1,10 +1,11 @@
 """``lawgraph bootstrap``: fill an empty database.
 
 Runs ``retrieve all --mode full``, ``normalize all``, ``semantic all`` and ``expand-graph``.
-The Tweede Kamer sources load a window (``--tk-since``, default 730d), the other sources
-in full, and the retrieve step runs its sources in parallel (``--jobs``). A failing phase
-does not stop the next one unless ``--strict`` is given; the exit code is 1 when any phase
-failed.
+The sources that keep producing (Tweede Kamer, Rechtspraak, Staatscourant, Eerste Kamer,
+ECHR) load a window (``--window``, default 730d; ``all`` loads their whole history), the
+reference sources (BWB, Verdragenbank) load in full, and the retrieve step runs its sources
+in parallel (``--jobs``). A failing phase does not stop the next one unless ``--strict`` is
+given; the exit code is 1 when any phase failed.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.pipelines.factory import run_command
 from lawgraph.pipelines.orchestration import (
     DEFAULT_RETRIEVE_JOBS,
+    DEFAULT_WINDOW,
     run_normalize_all,
     run_retrieve_all,
     run_semantic_all,
@@ -32,11 +34,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--skip-expand", action="store_true")
     parser.add_argument("--skip-retrieve", action="store_true")
     parser.add_argument(
-        "--tk-since",
-        default="730d",
+        "--window",
+        default=DEFAULT_WINDOW,
         metavar="DATE",
-        help="Load the Tweede Kamer records modified since then (default: %(default)s); "
-        "use 1995-01-01 for all of them.",
+        help="Load what the producing sources changed since then (default: %(default)s); "
+        "'all' loads their whole history.",
     )
     parser.add_argument("--jobs", type=int, default=DEFAULT_RETRIEVE_JOBS, metavar="N")
     parser.add_argument(
@@ -51,8 +53,8 @@ def main(argv: list[str] | None = None) -> None:
             [
                 "--mode",
                 "full",
-                "--tk-since",
-                args.tk_since,
+                "--window",
+                args.window,
                 "--jobs",
                 str(args.jobs),
             ],

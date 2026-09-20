@@ -98,8 +98,12 @@ def test_client_returns_nothing_without_a_wti_location_or_element() -> None:
 
 
 class _RawStore:
-    def __init__(self) -> None:
+    def __init__(self, recent: list[str] | None = None) -> None:
         self.records: list[dict[str, Any]] = []
+        self.recent = recent or []  # stored by an interrupted run in the last 24 hours
+
+    def query(self, aql: str, bind_vars: dict | None = None) -> list[str]:
+        return list(self.recent)
 
     def insert_raw_source(self, **record: Any) -> dict[str, Any]:
         self.records.append(record)

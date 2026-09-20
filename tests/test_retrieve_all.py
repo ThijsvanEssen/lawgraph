@@ -27,20 +27,20 @@ WINDOW = "2024-09-20T00:00:00+00:00"
 
 def test_full_mode_without_a_window_loads_everything() -> None:
     ctx = RetrieveCtx(since="1d", mode="full")
-    assert registry._tk_argv(ctx) == ["--mode", "full", "--since", "1d"]
+    assert registry._windowed_argv(ctx) == ["--mode", "full", "--since", "1d"]
     assert registry._tk_dossiers_argv(ctx) == []
 
 
 def test_full_mode_with_a_window_limits_only_the_tweede_kamer() -> None:
-    ctx = RetrieveCtx(since="1d", mode="full", tk_since=WINDOW)
-    assert registry._tk_argv(ctx) == ["--mode", "incremental", "--since", WINDOW]
+    ctx = RetrieveCtx(since="1d", mode="full", window=WINDOW)
+    assert registry._windowed_argv(ctx) == ["--mode", "incremental", "--since", WINDOW]
     assert registry._tk_dossiers_argv(ctx) == ["--since", WINDOW]
     assert registry._mode_argv(ctx) == ["--mode", "full"]
 
 
 def test_incremental_mode_ignores_the_window() -> None:
-    ctx = RetrieveCtx(since="7d", mode="incremental", tk_since=WINDOW)
-    assert registry._tk_argv(ctx) == ["--mode", "incremental", "--since", "7d"]
+    ctx = RetrieveCtx(since="7d", mode="incremental", window=WINDOW)
+    assert registry._windowed_argv(ctx) == ["--mode", "incremental", "--since", "7d"]
     assert registry._tk_dossiers_argv(ctx) == ["--since", "7d", "--skip-members"]
 
 
@@ -166,15 +166,59 @@ def recorded(monkeypatch) -> dict[str, list[str]]:
     return argvs
 
 
-def test_the_command_passes_the_window_to_the_tweede_kamer_only(
+PRODUCING = ("tk", "rechtspraak", "staatscourant", "eerstekamer", "echr")
+
+
+def test_the_window_reaches_the_sources_that_keep_producing(
     monkeypatch, recorded
 ) -> None:
     monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
-    run_retrieve_all(["--mode", "full", "--tk-since", "2024-09-20"])
-    assert recorded["tk"] == ["--mode", "incremental", "--since", WINDOW]
+    run_retrieve_all(["--mode", "full", "--window", "2024-09-20"])
+    for source in PRODUCING:
+        assert recorded[source] == ["--mode", "incremental", "--since", WINDOW], source
     assert recorded["tk_dossiers"] == ["--since", WINDOW]
-    assert recorded["bwb"] == ["--mode", "full"]
     assert "tk_content" not in recorded
+
+
+def test_reference_sources_are_read_in_full_whatever_the_window(
+    monkeypatch, recorded
+) -> None:
+    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
+    run_retrieve_all(["--mode", "full", "--window", "2024-09-20"])
+    assert recorded["bwb"] == ["--mode", "full"]
+    assert WINDOW not in recorded["verdragenbank"]
+    assert WINDOW not in recorded["eurlex"]
+
+
+def test_window_all_loads_the_whole_history(monkeypatch, recorded) -> None:
+    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
+    run_retrieve_all(["--mode", "full", "--window", "all"])
+    for source in PRODUCING:
+        assert recorded[source][:2] == ["--mode", "full"], source
+    assert recorded["tk_dossiers"] == []
+
+
+def test_without_a_window_a_full_load_reads_two_years(monkeypatch, recorded) -> None:
+    import datetime as dt
+
+    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
+    run_retrieve_all(["--mode", "full"])
+    since = dt.datetime.fromisoformat(recorded["tk"][3])
+    age = dt.datetime.now(dt.timezone.utc) - since
+    assert dt.timedelta(days=729) < age < dt.timedelta(days=731)
+
+
+def test_an_incremental_run_ignores_the_window(monkeypatch, recorded) -> None:
+    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
+    run_retrieve_all(["--since", "7d", "--window", "2024-09-20"])
+    assert recorded["staatscourant"][:3] == ["--mode", "incremental", "--since"]
+    assert WINDOW not in recorded["staatscourant"]
+
+
+def test_a_bad_window_is_rejected() -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        run_retrieve_all(["--window", "sometime"])
+    assert exit_info.value.code == 2
 
 
 def test_the_schema_is_created_once_before_the_threads_start(monkeypatch) -> None:
@@ -218,3 +262,37 @@ def test_sources_on_one_server_share_a_lane() -> None:
     koop = {"staatsblad", "staatscourant", "eerstekamer", "verdragenbank"}
     assert {lanes[source] for source in koop} == {registry.LANE_KOOP_REPOSITORY}
     assert len(set(lanes.values())) == len(lanes) - 1 - (len(koop) - 1)
+
+
+# ── bootstrap ────────────────────────────────────────────────────────────────
+
+
+def _bootstrap_retrieve_argv(monkeypatch, argv: list[str]) -> list[str]:
+    from lawgraph.commands import bootstrap
+
+    seen: dict[str, list[str]] = {}
+
+    def record(name: str, main: Callable[..., None], phase_argv: list[str]) -> bool:
+        seen[name] = phase_argv
+        return True
+
+    monkeypatch.setattr(bootstrap, "run_command", record)
+    bootstrap.main(argv)
+    return seen["retrieve all"]
+
+
+def test_bootstrap_loads_a_two_year_window(monkeypatch) -> None:
+    assert _bootstrap_retrieve_argv(monkeypatch, []) == [
+        "--mode",
+        "full",
+        "--window",
+        "730d",
+        "--jobs",
+        "4",
+    ]
+
+
+def test_bootstrap_passes_the_window_and_jobs_on(monkeypatch) -> None:
+    argv = _bootstrap_retrieve_argv(monkeypatch, ["--window", "all", "--jobs", "2"])
+    assert argv[argv.index("--window") + 1] == "all"
+    assert argv[argv.index("--jobs") + 1] == "2"

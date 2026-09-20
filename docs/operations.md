@@ -76,7 +76,7 @@ and exits 1 when any step failed.
 
 | Command | Options |
 |---------|---------|
-| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`), `--tk-since` (full mode), `--jobs N` (default 4). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode (`tk-dossiers`: nothing); with `--tk-since` the two Tweede Kamer sources instead load only records modified since then. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn |
+| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default 4). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode to `bwb` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`) are always read in full. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` |
 | `retrieve tk-content` | `--kind` (default `toelichting`), `--dry-run` |
@@ -123,7 +123,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 
 | Command | Behaviour |
 |---------|-----------|
-| `lawgraph bootstrap [--tk-since DATE] [--jobs N] [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve]` | `retrieve all --mode full --tk-since DATE --jobs N` (default `730d` and 4; `1995-01-01` loads all Tweede Kamer records), `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5) |
+| `lawgraph bootstrap [--window DATE] [--jobs N] [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve]` | `retrieve all --mode full --window DATE --jobs N` (default `730d` and 4; `all` loads the whole history of the producing sources), `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5) |
 | `lawgraph expand-graph [--max-iterations N] [--dry-run]` | repeats `fill-gaps --apply`, `normalize all`, `semantic all` while stub nodes keep disappearing (default 10 iterations); `--dry-run` only prints the `fill-gaps` report |
 | `lawgraph fill-gaps [--apply] [--min-stubs N] [--bwb-id ID ...] [--no-mvt] [--no-semantic] [--no-case-law] [--no-eurlex] [--no-echr] [--no-verdragen]` | reports stub laws (referenced by loaded instruments, ranked by reference count; laws with at least `--min-stubs`, default 3, are added), stub judgments, stub EU, ECHR and treaty records and toelichting texts without text; `--apply` retrieves and normalizes them |
 | `lawgraph-api` | starts the API |
@@ -145,7 +145,7 @@ in upper case with underscores.
 **Full load.**
 
 ```bash
-lawgraph retrieve all --mode full --tk-since 730d
+lawgraph retrieve all --mode full --window 730d
 lawgraph retrieve bwb-history            # optional: every BWB toestand
 lawgraph retrieve tk-content             # optional: MvT text, needed by amendment-articles
 lawgraph retrieve rechtspraak --ecli ECLI:NL:HR:2023:1234 ...   # judgment content
@@ -154,9 +154,12 @@ lawgraph semantic all
 ```
 
 `lawgraph bootstrap` runs the first, fifth and sixth step and then `expand-graph`. In full mode
-`retrieve all` enumerates every BWB regulation; EU acts come from `expand-graph`, which fetches the ones the loaded records refer to. Without `--tk-since` the
-Tweede Kamer sources fetch everything (over 400K documents, hours); with it they fetch only what
-was modified since then, and `expand-graph` later adds what the loaded records refer to.
+`retrieve all` enumerates every BWB regulation; EU acts come from `expand-graph`, which fetches
+the ones the loaded records refer to. The sources that keep producing (Tweede Kamer,
+Rechtspraak, Staatscourant, Eerste Kamer, ECHR) load only the last two years, and
+`expand-graph` later adds what the loaded records refer to. The whole history for research is
+one option away: `--window all` (the Tweede Kamer alone is over 400K documents and hours), or
+a date such as `--window 2015-01-01`.
 
 **Incremental.**
 
@@ -187,6 +190,23 @@ scheduler of your choice.
 | `semantic bwb` | scans every article text |
 
 Every retrieve and normalize step is idempotent and safe to interrupt and re-run.
+
+**Pacing.** Every client waits between requests to one host (`HOST_MIN_INTERVAL` in
+`config/constants.py`, 0.1 to 0.5 s, 0.2 s for an unlisted host). A host that answers HTTP
+429 or 503 makes the interval double, up to 10 s, or follow its `Retry-After`; it shrinks
+back while requests succeed. HTTP 429, 502, 503, 504 and connection errors are retried five
+times with a growing pause. `repository.overheid.nl` was measured to throttle from about five
+requests per second sustained, so the base interval there is 0.5 s. A `throttling` warning in
+the log means the pacer is slowing down; it is not an error.
+
+**Interruptions.** A retrieve stores each record as soon as it is fetched (Tweede Kamer pages,
+each publication, each act, each regulation), so a crash, an interrupt or a failing source
+keeps everything stored so far, and a failure in the middle is an error of the step, not a
+silent stop. A step that downloads one document per record (`staatscourant`, `bwb`, `eurlex`)
+skips the records stored in the last 24 hours, so a re-run only does the rest; a refresh the
+next day fetches everything again. The Tweede Kamer pages are read again from the start on a
+re-run (upserts, so only time is repeated). The log shows `N records stored so far` every
+1000 records.
 
 ## Observability
 

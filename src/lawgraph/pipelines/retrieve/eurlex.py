@@ -31,10 +31,13 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
     ) -> PipelineResult:
         """Fetch the requested acts and store each one as soon as it is fetched.
 
-        An interrupted run keeps what it already has. An act CELLAR has no HTML text of
+        An interrupted run keeps what it already has, and a re-run skips the acts stored in
+        the last 24 hours. An act CELLAR has no HTML text of
         (many old regulations, every corrigendum) is counted as skipped, not as an error.
         """
         result = PipelineResult()
+        done = self._recently_stored(SOURCE_EURLEX, RAW_KIND_EU_CELEX)
+        celex_ids = [celex for celex in celex_ids if celex not in done]
         logger.info("Fetching %d EUR-Lex acts.", len(celex_ids))
         for celex in celex_ids:
             try:

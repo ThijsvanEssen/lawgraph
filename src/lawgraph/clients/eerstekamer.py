@@ -16,12 +16,13 @@ Each paper provides:
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.clients._sru import (
+    iter_publications,
     parse_record_fields,
     record_identifier,
-    search_publications,
 )
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import EERSTEKAMER_SRU_ENDPOINT
@@ -54,15 +55,16 @@ class EerstekamerClient(BaseClient):
     def __init__(self, session=None) -> None:
         super().__init__(base_url=EERSTEKAMER_SRU_ENDPOINT, session=session)
 
-    def search_kamerstukken(
+    def iter_kamerstukken(
         self, *, since: str | None = None, limit: int | None = None
-    ) -> list[dict[str, Any]]:
-        """The Kamerstukken, ``since`` on ``dt.modified``; *limit* stops early.
+    ) -> Iterator[dict[str, Any]]:
+        """Yield the Kamerstukken page by page, ``since`` on ``dt.modified``.
 
-        A failing request or an SRU error raises.
+        *limit* stops early. A failing request or an SRU error raises, after the papers of
+        the earlier pages were yielded.
         """
         query = _QUERY if not since else f"{_QUERY} AND dt.modified>={since}"
-        papers = search_publications(
+        return iter_publications(
             self,
             self.base_url,
             query=query,
@@ -71,6 +73,12 @@ class EerstekamerClient(BaseClient):
             connection=None,
             limit=limit,
         )
+
+    def search_kamerstukken(
+        self, *, since: str | None = None, limit: int | None = None
+    ) -> list[dict[str, Any]]:
+        """The Kamerstukken as a list; see ``iter_kamerstukken``."""
+        papers = list(self.iter_kamerstukken(since=since, limit=limit))
         logger.info("Eerste Kamer SRU search returned %d Kamerstukken.", len(papers))
         return papers
 

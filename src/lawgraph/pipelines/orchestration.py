@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import sys
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -10,6 +11,7 @@ from dataclasses import dataclass
 
 from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.core.time import parse_since
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.factory import add_since_argument, run_command
 from lawgraph.sources.registry import SOURCES, RetrieveCtx
@@ -17,6 +19,7 @@ from lawgraph.sources.registry import SOURCES, RetrieveCtx
 logger = get_logger(__name__)
 
 DEFAULT_RETRIEVE_JOBS = 4
+DEFAULT_WINDOW = "730d"
 
 
 @dataclass(frozen=True)
@@ -88,6 +91,16 @@ def _run_phase(
     logger.info("%s completed successfully.", label)
 
 
+def _window(value: str) -> dt.datetime | None:
+    """A ``--window``: a date like ``--since``, or ``all`` for no window at all."""
+    if value.strip().lower() == "all":
+        return None
+    try:
+        return parse_since(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
 def _since_argv(args: argparse.Namespace) -> list[str]:
     return ["--since", args.since.isoformat()] if args.since else []
 
@@ -99,11 +112,15 @@ def run_retrieve_all(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--mode", choices=["incremental", "full"], default="incremental"
     )
-    add_since_argument(
-        parser,
-        "--tk-since",
-        help="Full mode: load only the Tweede Kamer records modified since then "
-        "(default: all of them, over 400K documents).",
+    parser.add_argument(
+        "--window",
+        type=_window,
+        default=_window(DEFAULT_WINDOW),
+        metavar="DATE",
+        help="Full mode: the sources that keep producing (Tweede Kamer, Rechtspraak, "
+        "Staatscourant, Eerste Kamer, ECHR) read only what changed since then. "
+        "ISO date, relative (730d) or 'all' for the whole history. Default: "
+        f"{DEFAULT_WINDOW}. Reference sources (BWB, Verdragenbank) are always read in full.",
     )
     parser.add_argument(
         "--jobs",
@@ -120,7 +137,7 @@ def run_retrieve_all(argv: list[str] | None = None) -> None:
     ctx = RetrieveCtx(
         since=args.since.isoformat(),
         mode=args.mode,
-        tk_since=args.tk_since.isoformat() if args.tk_since else None,
+        window=args.window.isoformat() if args.window else None,
     )
     steps = [
         _Step(

@@ -81,7 +81,9 @@ class RetrieveCtx:
 
     since: str
     mode: str  # "incremental" | "full"
-    tk_since: str | None = None  # full mode: window of the Tweede Kamer sources
+    window: str | None = (
+        None  # full mode: only what changed since then; None: everything
+    )
 
 
 @dataclass(frozen=True)
@@ -133,15 +135,16 @@ def _mode_and_since_argv(ctx: RetrieveCtx) -> list[str]:
     return ["--mode", ctx.mode, "--since", ctx.since]
 
 
-def _tk_argv(ctx: RetrieveCtx) -> list[str]:
-    if ctx.mode == "full" and ctx.tk_since:
-        return ["--mode", "incremental", "--since", ctx.tk_since]
+def _windowed_argv(ctx: RetrieveCtx) -> list[str]:
+    """Sources that keep producing: a full load only reads what changed inside the window."""
+    if ctx.mode == "full" and ctx.window:
+        return ["--mode", "incremental", "--since", ctx.window]
     return _mode_and_since_argv(ctx)
 
 
 def _tk_dossiers_argv(ctx: RetrieveCtx) -> list[str]:
     if ctx.mode == "full":
-        return ["--since", ctx.tk_since] if ctx.tk_since else []
+        return ["--since", ctx.window] if ctx.window else []
     return ["--since", ctx.since, "--skip-members"]
 
 
@@ -169,7 +172,7 @@ def _register_tk() -> list[SourceDescriptor]:
             id="tk",
             display_name="Tweede Kamer (cases & documents)",
             retrieve_main=retrieve_tk,
-            retrieve_argv_builder=_tk_argv,
+            retrieve_argv_builder=_windowed_argv,
             retrieve_lane=LANE_TWEEDE_KAMER,
             normalize_main=normalize,
             semantic_main=semantic,
@@ -209,7 +212,7 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
             id="rechtspraak",
             display_name="Rechtspraak (judgments)",
             retrieve_main=retrieve_rechtspraak,
-            retrieve_argv_builder=_mode_and_since_argv,
+            retrieve_argv_builder=_windowed_argv,
             normalize_main=normalize,
             semantic_main=semantic,
             semantic_accepts_since=True,
@@ -349,7 +352,7 @@ def _register_staatscourant() -> list[SourceDescriptor]:
             id="staatscourant",
             display_name="Staatscourant (ministerial regulations)",
             retrieve_main=retrieve_staatscourant,
-            retrieve_argv_builder=_mode_argv,
+            retrieve_argv_builder=_windowed_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
             normalize_main=normalize,
             semantic_main=semantic,
@@ -373,7 +376,7 @@ def _register_eerstekamer() -> list[SourceDescriptor]:
             id="eerstekamer",
             display_name="Eerste Kamer (Kamerstukken)",
             retrieve_main=retrieve_eerstekamer,
-            retrieve_argv_builder=_mode_and_since_argv,
+            retrieve_argv_builder=_windowed_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
             normalize_main=normalize,
             semantic_main=semantic,
@@ -396,7 +399,7 @@ def _register_echr() -> list[SourceDescriptor]:
             id="echr",
             display_name="ECHR HUDOC (European Court of Human Rights)",
             retrieve_main=retrieve_echr,
-            retrieve_argv_builder=_mode_argv,
+            retrieve_argv_builder=_windowed_argv,
             normalize_main=normalize,
             semantic_main=semantic,
         ),
