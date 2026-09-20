@@ -7,6 +7,7 @@ and writes are bulk: one existence lookup per collection, one edge flush.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -25,7 +26,7 @@ logger = get_logger(__name__)
 
 
 def normalize_committees(
-    store: ArangoStore, raw_records: list[dict[str, Any]]
+    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Commissie nodes, keyed by TK ``Id``."""
     nodes: dict[str, Node] = {}
@@ -47,7 +48,7 @@ def normalize_committees(
 
 
 def normalize_members(
-    store: ArangoStore, raw_records: list[dict[str, Any]]
+    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Persoon nodes, keyed by TK ``Id``."""
     nodes: dict[str, Node] = {}
@@ -71,7 +72,7 @@ def normalize_members(
 def normalize_factions(
     store: ArangoStore,
     faction_raws: list[dict[str, Any]],
-    vote_raws: list[dict[str, Any]],
+    vote_raws: Iterable[dict[str, Any]],
 ) -> dict[str, Node]:
     """Fractie nodes, keyed by TK ``Id``.
 

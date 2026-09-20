@@ -363,7 +363,6 @@ class TopicProps(_CommonProps):
 
 class CaseProps(_CommonProps):
     external_id: str | None = None
-    raw: dict[str, Any] | None = None
     title: str | None = None
     citation_title: str | None = None
     number: str | None = None

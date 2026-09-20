@@ -9,6 +9,7 @@ cases and dossiers they name.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_CASES, RAW_KIND_TK_ZAAK, SOURCE_TK
@@ -29,34 +30,30 @@ class TKNormalizePipeline(NormalizePipelineBase):
         self,
         *,
         since: dt.datetime | None = None,
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Fetch the TK Zaak raw records to normalize."""
-        kinds = [RAW_KIND_TK_ZAAK]
-        rows = self._query_raw_sources(source=SOURCE_TK, kinds=kinds, since=since)
-        grouped = self._group_by_kind(rows, kinds=kinds)
-
-        cases = grouped[RAW_KIND_TK_ZAAK]
-        logger.info("Loaded %d TK Zaak raw records.", len(cases))
-        return {"cases": cases}
+    ) -> Iterator[dict[str, Any]]:
+        """Stream the TK Zaak raw records to normalize."""
+        return self._iter_raw_sources(
+            source=SOURCE_TK, kinds=[RAW_KIND_TK_ZAAK], since=since, batch_size=1000
+        )
 
     def normalize_nodes(
         self,
-        raw: dict[str, list[dict[str, Any]]],
+        raw: Iterable[dict[str, Any]],
         result: PipelineResult,
-    ) -> dict[str, Any]:
-        """Translate the raw TK payloads into case nodes."""
-        return {"cases": self._normalize_cases(raw["cases"])}
+    ) -> int:
+        """Write the case node of each raw record as it is read; none is kept."""
+        return self._normalize_cases(raw)
 
     def build_edges(
         self,
-        raw: dict[str, list[dict[str, Any]]],
-        normalized: dict[str, Any],
+        raw: Iterable[dict[str, Any]],
+        normalized: int,
     ) -> None:
         """None: a case is linked to its dossiers once the dossiers exist."""
 
-    def _normalize_cases(self, raw_records: list[dict[str, Any]]) -> dict[str, Node]:
+    def _normalize_cases(self, raw_records: Iterable[dict[str, Any]]) -> int:
         """Case nodes, keyed by the Zaak identifier documents refer to."""
-        nodes: dict[str, Node] = {}
+        writer = NodeWriter(self.store)
         for raw in raw_records:
             payload = self._payload_json(raw)
             external_id = first_str(
@@ -78,7 +75,6 @@ class TKNormalizePipeline(NormalizePipelineBase):
             props: dict[str, Any] = {
                 "source": SOURCE_TK,
                 "external_id": external_id,
-                "raw": payload,
                 "number": str(payload.get("Nummer") or payload.get("ZaakNummer") or ""),
                 # The dossiers this case belongs to; the dossier pipeline turns
                 # them into PART_OF edges once the dossier nodes exist.
@@ -90,15 +86,16 @@ class TKNormalizePipeline(NormalizePipelineBase):
                 props["citation_title"] = payload["Citeertitel"]
             props["display_name"] = props.get("title") or f"Zaak {external_id}"
 
-            nodes[external_id] = Node(
-                collection=COLLECTION_CASES,
-                type=NodeType.CASE,
-                key=make_node_key(external_id),
-                labels=["TK"],
-                props=props,
+            writer.add(
+                Node(
+                    collection=COLLECTION_CASES,
+                    type=NodeType.CASE,
+                    key=make_node_key(external_id),
+                    labels=["TK"],
+                    props=props,
+                )
             )
 
-        with NodeWriter(self.store) as writer:
-            writer.add_all(nodes.values())
-        logger.info("Normalized %d TK cases.", len(nodes))
-        return nodes
+        writer.flush()
+        logger.info("Normalized %d TK cases.", writer.written)
+        return writer.written

@@ -91,7 +91,7 @@ pipeline writes in bulk and looks up by set.
 | does this node exist | `store.existing_keys(collection, keys)`: one primary-index query per 5,000 keys | `get_node` per item |
 | resolve targets in a semantic run | `SemanticPipelineBase._prefetch_nodes` (bulk) then `_lookup_node` (cached, hits and misses) | `get_node` per citation |
 | look up ids by another property | one `FILTER x IN @values` query per batch | one query per item |
-| large raw payloads | `_iter_raw_sources` streams in batches of 20; XML pipelines work in chunks | loading all payloads |
+| read raw records | `_iter_raw_sources` streams them (20 at a time for XML, 1000 for small JSON); `RawRecords` for a kind that is walked more than once; write each node as it is read and keep at most the props the edges need (`tk_cases.link_node`) | a list of all records, a dict of all nodes |
 
 Both writers de-duplicate by key inside the buffer (last wins), flush automatically at
 500 nodes / 1000 edges, and re-raise a failed batch. Bulk writes do not return the stored

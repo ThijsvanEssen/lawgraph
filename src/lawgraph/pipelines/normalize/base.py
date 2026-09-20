@@ -16,6 +16,34 @@ from lawgraph.pipelines.base import PipelineBase
 logger = get_logger(__name__)
 
 
+class RawRecords:
+    """The raw records of some kinds, streamed from the database by every ``for`` loop.
+
+    Nothing is kept: a second loop reads them again. For pipelines that walk a large kind
+    more than once, where a list would hold every payload for the whole run.
+    """
+
+    def __init__(
+        self,
+        pipeline: NormalizePipelineBase,
+        *,
+        source: str,
+        kinds: list[str],
+        since: dt.datetime | None,
+        batch_size: int,
+    ) -> None:
+        self._pipeline = pipeline
+        self._options: dict[str, Any] = {
+            "source": source,
+            "kinds": kinds,
+            "since": since,
+            "batch_size": batch_size,
+        }
+
+    def __iter__(self) -> Iterator[dict[str, Any]]:
+        return self._pipeline._iter_raw_sources(**self._options)
+
+
 class NormalizePipelineBase(PipelineBase, ABC):
     """Base class for pipelines that normalize raw_sources records.
 

@@ -7,6 +7,7 @@ member on a roll-call (``Hoofdelijk``), from the faction otherwise.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -19,11 +20,14 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.pipelines.normalize.tk_cases import link_node
 
 logger = get_logger(__name__)
 
 
-def read_votes(raw_records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def read_votes(
+    raw_records: Iterable[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
     """Group the Stemming rows by ``Besluit_Id``."""
     by_decision: dict[str, list[dict[str, Any]]] = {}
     for raw in raw_records:
@@ -35,7 +39,7 @@ def read_votes(raw_records: list[dict[str, Any]]) -> dict[str, list[dict[str, An
 
 def normalize_decisions(
     store: ArangoStore,
-    raw_records: list[dict[str, Any]],
+    raw_records: Iterable[dict[str, Any]],
     votes_by_decision: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Node]:
     """Decision nodes, keyed by TK ``Besluit_Id``.
@@ -44,7 +48,9 @@ def normalize_decisions(
     the first one that carries it describes the whole group.
     """
     decisions: dict[str, dict[str, Any]] = {}
+    rows = 0
     for raw in raw_records:
+        rows += 1
         payload = payload_json(raw)
         decision_id = str(payload.get("Besluit_Id") or "")
         decision = payload.get("Besluit")
@@ -67,10 +73,8 @@ def normalize_decisions(
     with NodeWriter(store) as writer:
         writer.add_all(nodes.values())
 
-    logger.info(
-        "Normalized %d decisions from %d vote rows.", len(nodes), len(raw_records)
-    )
-    return nodes
+    logger.info("Normalized %d decisions from %d vote rows.", len(nodes), rows)
+    return {decision_id: link_node(node) for decision_id, node in nodes.items()}
 
 
 def link_votes(

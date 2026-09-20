@@ -35,19 +35,22 @@ logger = get_logger(__name__)
 
 
 def normalize_activities(
-    store: ArangoStore, raw_records: list[dict[str, Any]]
+    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Activiteit nodes, keyed by TK ``Id``."""
-    nodes = _nodes(
-        raw_records, tk_records.activity, COLLECTION_ACTIVITIES, NodeType.ACTIVITY
+    nodes = _write_nodes(
+        store,
+        raw_records,
+        tk_records.activity,
+        COLLECTION_ACTIVITIES,
+        NodeType.ACTIVITY,
     )
-    _write(store, nodes)
     logger.info("Normalized %d activities.", len(nodes))
     return nodes
 
 
 def normalize_commitments(
-    store: ArangoStore, raw_records: list[dict[str, Any]]
+    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Toezegging nodes, keyed by TK ``Id``."""
     unknown = tk_records.unknown_commitment_statuses(
@@ -55,24 +58,29 @@ def normalize_commitments(
     )
     if unknown:
         logger.warning("Toezegging statuses not in the status map: %s", sorted(unknown))
-    nodes = _nodes(
-        raw_records, tk_records.commitment, COLLECTION_COMMITMENTS, NodeType.COMMITMENT
+    nodes = _write_nodes(
+        store,
+        raw_records,
+        tk_records.commitment,
+        COLLECTION_COMMITMENTS,
+        NodeType.COMMITMENT,
     )
-    _write(store, nodes)
     logger.info("Normalized %d commitments.", len(nodes))
     return nodes
 
 
 def normalize_documents(
-    store: ArangoStore, raw_records: list[dict[str, Any]]
+    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Document (Kamerstuk) nodes, keyed by TK ``Id``."""
-    nodes = _nodes(
-        raw_records, tk_records.document, COLLECTION_DOCUMENTS, NodeType.DOCUMENT
+    nodes = _write_nodes(
+        store,
+        raw_records,
+        tk_records.document,
+        COLLECTION_DOCUMENTS,
+        NodeType.DOCUMENT,
+        labels=["TK", "Kamerstuk"],
     )
-    for node in nodes.values():
-        node.labels = ["TK", "Kamerstuk"]
-    _write(store, nodes)
     logger.info("Normalized %d documents.", len(nodes))
     return nodes
 
@@ -215,25 +223,60 @@ def link_authors(
     logger.info("Wrote %d AUTHORED edges.", writer.added)
 
 
-def _nodes(
-    raw_records: list[dict[str, Any]],
+# What the edge builders read from a node; the rest of its props (the whole API payload
+# among them) is only needed for the write.
+LINK_PROPS = (
+    "case_ids",
+    "dossier_numbers",
+    "committee_id",
+    "number",
+    "activity_number",
+    "actors",
+    "case_kinds",
+    "vote_kind",
+)
+
+
+def link_node(node: Node) -> Node:
+    """*node* with only the props the edge builders read: what is kept after the write."""
+    return Node(
+        collection=node.collection,
+        type=node.type,
+        key=node.key,
+        props={name: node.props[name] for name in LINK_PROPS if name in node.props},
+        _skip_validation=True,
+    )
+
+
+def _write_nodes(
+    store: ArangoStore,
+    raw_records: Iterable[dict[str, Any]],
     read: Any,
     collection: str,
     node_type: NodeType,
+    *,
+    labels: list[str] | None = None,
 ) -> dict[str, Node]:
+    """Write the node of every raw record as it is read; keep a ``link_node`` per TK ``Id``.
+
+    With 130K documents the full nodes are over a gigabyte; the edges need a few props.
+    """
     nodes: dict[str, Node] = {}
-    for raw in raw_records:
-        parsed = read(payload_json(raw))
-        if parsed is None:
-            continue
-        key, props = parsed
-        nodes[props["external_id"]] = Node(
-            collection=collection,
-            type=node_type,
-            key=key,
-            labels=["TK"],
-            props=props,
-        )
+    with NodeWriter(store) as writer:
+        for raw in raw_records:
+            parsed = read(payload_json(raw))
+            if parsed is None:
+                continue
+            key, props = parsed
+            node = Node(
+                collection=collection,
+                type=node_type,
+                key=key,
+                labels=labels or ["TK"],
+                props=props,
+            )
+            writer.add(node)
+            nodes[props["external_id"]] = link_node(node)
     return nodes
 
 
@@ -252,8 +295,3 @@ def _queue_existing(
         for from_id, coll, key in pairs:
             if coll == collection and key in existing:
                 writer.add(from_id, f"{collection}/{key}", relation, source=source)
-
-
-def _write(store: ArangoStore, nodes: dict[str, Node]) -> None:
-    with NodeWriter(store) as writer:
-        writer.add_all(nodes.values())

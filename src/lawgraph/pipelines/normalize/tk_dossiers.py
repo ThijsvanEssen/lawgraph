@@ -16,6 +16,7 @@ is what this module keeps.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -50,7 +51,7 @@ from lawgraph.core.dossier_stages import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.pipelines.normalize import tk_cases, tk_members, tk_votes
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
 logger = get_logger(__name__)
 
@@ -79,16 +80,18 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
 
     def fetch_raw(
         self, *, since: dt.datetime | None = None
-    ) -> dict[str, list[dict[str, Any]]]:
-        rows = self._query_raw_sources(source=SOURCE_TK, kinds=RAW_KINDS, since=since)
-        grouped = self._group_by_kind(rows, kinds=RAW_KINDS)
-        for kind in RAW_KINDS:
-            logger.info("Loaded %d raw records of kind %s.", len(grouped[kind]), kind)
-        return grouped
+    ) -> dict[str, Iterable[dict[str, Any]]]:
+        """The records per kind, streamed when they are walked: 360K payloads are not kept."""
+        return {
+            kind: RawRecords(
+                self, source=SOURCE_TK, kinds=[kind], since=since, batch_size=1000
+            )
+            for kind in RAW_KINDS
+        }
 
     def normalize_nodes(
         self,
-        raw: dict[str, list[dict[str, Any]]],
+        raw: dict[str, Iterable[dict[str, Any]]],
         result: PipelineResult,
     ) -> dict[str, Any]:
         store = self.store
@@ -119,7 +122,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
 
     def build_edges(
         self,
-        raw: dict[str, list[dict[str, Any]]],
+        raw: dict[str, Iterable[dict[str, Any]]],
         normalized: dict[str, Any],
     ) -> None:
         store = self.store
@@ -170,7 +173,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
 
     # ── Dossiers ──────────────────────────────────────────────────────────────
 
-    def _normalize_dossiers(self, raw_records: list[dict[str, Any]]) -> dict[str, Node]:
+    def _normalize_dossiers(
+        self, raw_records: Iterable[dict[str, Any]]
+    ) -> dict[str, Node]:
         """Kamerstukdossier nodes, keyed by TK ``Id`` *and* by dossier number."""
         nodes: dict[str, Node] = {}
         for raw in raw_records:
