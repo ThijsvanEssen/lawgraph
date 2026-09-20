@@ -235,13 +235,20 @@ def get_instrument_judgments(
     LET total = LENGTH(grouped)
     LET items = (
         FOR row IN grouped
-            LET judgment = DOCUMENT(row.judgment_id)
-            FILTER judgment != null
+            // Only the date is read before the LIMIT: whole judgments in the sort are
+            // every citing judgment of the law in memory at once.
+            LET found = DOCUMENT(row.judgment_id)
+            FILTER found != null
+            LET date_eff = found.props.date_eff
             LET cited_count = LENGTH(UNIQUE(row.arts))
-            SORT cited_count DESC, judgment.props.date_eff DESC
+            SORT cited_count DESC, date_eff DESC
             LIMIT @limit
             RETURN {{
-                judgment: judgment,
+                judgment: {{
+                    _id: found._id,
+                    _key: found._key,
+                    props: {{ecli: found.props.ecli, display_name: found.props.display_name}}
+                }},
                 cited_articles: (
                     FOR aid IN UNIQUE(row.arts)
                         LET a = DOCUMENT(aid)

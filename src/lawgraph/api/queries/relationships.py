@@ -241,21 +241,25 @@ def search_relationships(
         # Drive from the article index, not a full edge scan.
         bind["bwb_id"] = bwb_id
         aql = f"""
+        // The matches are kept as ids: every classified edge of a law with its article
+        // (text included) is hundreds of MB to count them and show fifty.
         LET matches = (
             FOR art IN {COLLECTION_ARTICLES}
                 FILTER art.props.bwb_id == @bwb_id
                 FOR edge IN {COLLECTION_EDGES}
                     FILTER edge._from == art._id
                     FILTER {" AND ".join(filters)}
-                    RETURN {{ edge: edge, source_article: art }}
+                    RETURN edge._id
         )
         LET total = LENGTH(matches)
         LET page = (
-            FOR m IN matches
+            FOR edge_id IN matches
                 LIMIT @offset, @limit
-                LET target = DOCUMENT(m.edge._to)
-                FILTER target != null
-                RETURN {{ edge: m.edge, source_article: m.source_article, target: target }}
+                LET edge = DOCUMENT(edge_id)
+                LET source_article = DOCUMENT(edge._from)
+                LET target = DOCUMENT(edge._to)
+                FILTER source_article != null AND target != null
+                RETURN {{ edge: edge, source_article: source_article, target: target }}
         )
         RETURN {{ rows: page, total: total }}
         """
@@ -264,12 +268,13 @@ def search_relationships(
         LET matches = (
             FOR edge IN {COLLECTION_EDGES}
                 FILTER {" AND ".join(filters)}
-                RETURN edge
+                RETURN edge._id
         )
         LET total = LENGTH(matches)
         LET page = (
-            FOR edge IN matches
+            FOR edge_id IN matches
                 LIMIT @offset, @limit
+                LET edge = DOCUMENT(edge_id)
                 LET source_article = DOCUMENT(edge._from)
                 LET target = DOCUMENT(edge._to)
                 FILTER source_article != null AND target != null

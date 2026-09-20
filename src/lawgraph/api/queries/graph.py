@@ -206,34 +206,25 @@ def get_judgment_graph(
 
     judgment_ids = {j["_id"] for j in judgments}
 
-    # Article-id → bwb_id map (one scan), then aggregate the judgment → article
-    # references by dict lookup instead of a DOCUMENT() call per edge.
-    rows = list(
-        store.query(
-            f"""
-        LET id_to_bwb = MERGE(
-            FOR a IN {COLLECTION_ARTICLES}
-                FILTER a.props.bwb_id != null
-                RETURN {{ [a._id]: a.props.bwb_id }}
-        )
+    # The references of the loaded judgments only, counted per law in the query. It used to
+    # build a map of every article in the query and send every judgment -> article edge of
+    # the graph (millions) to be filtered here.
+    rows = store.query(
+        f"""
         FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == "{RELATION_REFERS_TO}"
-            FILTER STARTS_WITH(e._from, "{COLLECTION_JUDGMENTS}/")
-            LET bwb = id_to_bwb[e._to]
+            FILTER e._from IN @judgment_ids AND e.relation == "{RELATION_REFERS_TO}"
+            LET bwb = DOCUMENT(e._to).props.bwb_id
             FILTER bwb != null
-            RETURN {{ judgment_id: e._from, bwb_id: bwb }}
-    """
-        )
+            COLLECT judgment_id = e._from, bwb_id = bwb WITH COUNT INTO weight
+            RETURN {{ judgment_id, bwb_id, weight }}
+    """,
+        {"judgment_ids": sorted(judgment_ids)},
     )
 
-    # Aggregate: (judgment_id, bwb_id) → count
     edge_weights: dict[tuple[str, str], int] = {}
     cited_bwb: set[str] = set()
     for row in rows:
-        if row["judgment_id"] not in judgment_ids:
-            continue
-        key = (row["judgment_id"], row["bwb_id"])
-        edge_weights[key] = edge_weights.get(key, 0) + 1
+        edge_weights[(row["judgment_id"], row["bwb_id"])] = row["weight"]
         cited_bwb.add(row["bwb_id"])
 
     instruments: list[dict[str, Any]] = []
@@ -293,7 +284,7 @@ def get_global_graph(
             f"""
         FOR art IN {COLLECTION_ARTICLES}
             LIMIT 5000
-            RETURN art
+            RETURN MERGE(art, {{props: UNSET(art.props, "text")}})
     """
         )
     )
@@ -305,7 +296,7 @@ def get_global_graph(
             FOR j IN {COLLECTION_JUDGMENTS}
                 FILTER j.props.stub != true OR j.props.stub == null
                 LIMIT @limit
-                RETURN j
+                RETURN MERGE(j, {{props: UNSET(j.props, "text", "paragraphs", "summary")}})
         """,
                 {"limit": max_judgments},
             )

@@ -39,7 +39,13 @@ def _find_judgments_for_article(
         FILTER STARTS_WITH(edge._from, '{COLLECTION_JUDGMENTS}/')
         LET j = DOCUMENT(edge._from)
         FILTER j != null
-        RETURN j
+        // What the response shows of a judgment. A much cited article has thousands of
+        // them, and whole judgments (text, paragraphs) pass the memory a query may use.
+        RETURN {{
+            _id: j._id,
+            _key: j._key,
+            props: {{ecli: j.props.ecli, display_name: j.props.display_name}}
+        }}
     """
     return list(
         store.query(aql, {"article_id": article_id, "relation": RELATION_REFERS_TO})
