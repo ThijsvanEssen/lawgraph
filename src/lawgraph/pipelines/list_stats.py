@@ -69,27 +69,27 @@ def _update_tail(collection: str, variable: str, assignments: str) -> str:
 
 _INSTRUMENTS_BODY = f"""
 FOR inst IN {COLLECTION_INSTRUMENTS}
-    LET props = inst.props
     LET jurisdiction = LOWER(
-        props.jurisdiction != null ? props.jurisdiction :
-        (props.celex != null ? 'eu' :
-         (props.bwb_id != null ? 'nl' : null))
+        inst.props.jurisdiction != null ? inst.props.jurisdiction :
+        (inst.props.celex != null ? 'eu' :
+         (inst.props.bwb_id != null ? 'nl' : null))
     )
     LET article_count = LENGTH(
         FOR e IN {COLLECTION_EDGES}
             FILTER e._to == inst._id AND e.relation == @part_of
             RETURN 1
     )
-    LET kind = props.kind != null ? LOWER(props.kind) : null
-    FILTER props.jurisdiction != jurisdiction
-        OR props.article_count != article_count
-        OR props.kind != kind
+    LET kind = inst.props.kind != null ? LOWER(inst.props.kind) : null
+    FILTER inst.props.jurisdiction != jurisdiction
+        OR inst.props.article_count != article_count
+        OR inst.props.kind != kind
 """
 
+# Attributes are read one by one (``doc.props.ecli``), never ``LET props = doc.props``: that
+# copies the whole props of every judgment, text and paragraphs included, into the query.
 _JUDGMENTS_BODY = f"""
 FOR doc IN {COLLECTION_JUDGMENTS}
-    LET props = doc.props
-    LET ecli = props.ecli != null ? props.ecli : doc._key
+    LET ecli = doc.props.ecli != null ? doc.props.ecli : doc._key
     LET ecli_parts = SPLIT(ecli, ':')
     LET court_code = LENGTH(ecli_parts) >= 3 ? UPPER(ecli_parts[2]) : null
     LET tier = (
@@ -99,10 +99,10 @@ FOR doc IN {COLLECTION_JUDGMENTS}
           (court_code == null ? null : 'bijzonder')))
     )
     LET date_eff = (
-        props.judgment_metadata != null AND props.judgment_metadata.date != null
-            ? props.judgment_metadata.date :
-        (props.meta != null AND props.meta.date != null ? props.meta.date :
-         (props.date != null ? props.date : null))
+        doc.props.judgment_metadata != null AND doc.props.judgment_metadata.date != null
+            ? doc.props.judgment_metadata.date :
+        (doc.props.meta != null AND doc.props.meta.date != null ? doc.props.meta.date :
+         (doc.props.date != null ? doc.props.date : null))
     )
     LET inbound_cnt = LENGTH(
         FOR e IN {COLLECTION_EDGES}
@@ -110,10 +110,10 @@ FOR doc IN {COLLECTION_JUDGMENTS}
             FILTER STARTS_WITH(e._from, '{COLLECTION_JUDGMENTS}/')
             RETURN 1
     )
-    FILTER props.court_code != court_code
-        OR props.tier != tier
-        OR props.date_eff != date_eff
-        OR props.inbound_citation_count != inbound_cnt
+    FILTER doc.props.court_code != court_code
+        OR doc.props.tier != tier
+        OR doc.props.date_eff != date_eff
+        OR doc.props.inbound_citation_count != inbound_cnt
 """
 
 _ARTICLES_BODY = f"""

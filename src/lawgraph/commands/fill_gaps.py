@@ -49,11 +49,15 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
     RAW_KIND_EU_CELEX,
+    RAW_KIND_MISSING_SUFFIX,
+    RAW_KIND_RS_CONTENT,
+    SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.bwb_xml import parse_toestand
 from lawgraph.core.identifiers import CELEX_AQL_REGEX, find_celex_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import iso_timestamp
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.factory import run_step
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
@@ -416,7 +420,26 @@ def _query_stub_judgments(store: ArangoStore) -> list[str]:
       SORT j.props.ecli
       RETURN j.props.ecli
     """
-    return _capped(cast(list[str], list(store.query(aql))), "stub judgments")
+    # Those Rechtspraak answered 404 for come out before the cap, not after it: they sort
+    # where they sort, and a first 50,000 full of judgments that are not published would
+    # keep every later one from ever being asked for.
+    missing_aql = f"""
+    FOR r IN {COLLECTION_RAW_SOURCES}
+      FILTER r.source == @source AND r.kind == @kind AND r.meta.retry_after > @now
+      RETURN r.external_id
+    """
+    missing = set(
+        store.query(
+            missing_aql,
+            {
+                "source": SOURCE_RECHTSPRAAK,
+                "kind": RAW_KIND_RS_CONTENT + RAW_KIND_MISSING_SUFFIX,
+                "now": iso_timestamp(dt.datetime.now(dt.timezone.utc)),
+            },
+        )
+    )
+    eclis = [ecli for ecli in store.query(aql) if ecli not in missing]
+    return _capped(cast(list[str], eclis), "stub judgments")
 
 
 def _query_mvt_gap(store: ArangoStore) -> list[dict[str, Any]]:

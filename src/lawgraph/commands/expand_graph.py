@@ -10,7 +10,7 @@ import argparse
 import sys
 
 from lawgraph.commands.fill_gaps import main as fill_gaps
-from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_JUDGMENTS
+from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.factory import run_command
@@ -18,36 +18,47 @@ from lawgraph.pipelines.orchestration import run_normalize_all, run_semantic_all
 
 logger = get_logger(__name__)
 
-_STUB_COUNT_AQL = f"""
-RETURN LENGTH(FOR a IN {COLLECTION_ARTICLES} FILTER a.props.stub == true RETURN 1)
-     + LENGTH(FOR j IN {COLLECTION_JUDGMENTS} FILTER j.props.stub == true RETURN 1)
+_RECORDS_AQL = f"""
+FOR r IN {COLLECTION_RAW_SOURCES}
+    COLLECT kind = r.kind WITH COUNT INTO n
+    FILTER NOT LIKE(kind, @missing)
+    RETURN n
 """
 
 
-def _count_stubs(store: ArangoStore) -> int:
-    return next(iter(store.query(_STUB_COUNT_AQL)))
+def _count_records(store: ArangoStore) -> int:
+    """The raw records that hold a document (not those that remember a 404)."""
+    return sum(store.query(_RECORDS_AQL, {"missing": f"%{RAW_KIND_MISSING_SUFFIX}"}))
 
 
 def _expand(max_iterations: int) -> bool:
-    """Run the loop; return True when every step succeeded."""
+    """Run the loop; return True when every step succeeded.
+
+    An iteration is worth repeating when fill-gaps retrieved something. The number of stubs
+    does not tell: loading a judgment closes one stub and opens one for every judgment it
+    cites that is not loaded either, so the count can stand still or grow while the graph
+    fills.
+    """
     store = ArangoStore()
     succeeded = True
-    total_resolved = 0
+    total = 0
     for iteration in range(1, max_iterations + 1):
         logger.info("expand-graph: iteration %d/%d", iteration, max_iterations)
-        before = _count_stubs(store)
+        before = _count_records(store)
         succeeded &= run_command("fill-gaps", fill_gaps, ["--apply"])
-        resolved = before - _count_stubs(store)
-        if resolved <= 0:
-            logger.info("expand-graph: no stubs resolved; the graph is stable.")
+        retrieved = _count_records(store) - before
+        if retrieved <= 0:
+            logger.info(
+                "expand-graph: fill-gaps retrieved nothing new; the graph is stable."
+            )
             break
 
-        total_resolved += resolved
-        logger.info("expand-graph: %d stub(s) resolved.", resolved)
+        total += retrieved
+        logger.info("expand-graph: %d new record(s) retrieved.", retrieved)
         succeeded &= run_command("normalize all", run_normalize_all, [])
         succeeded &= run_command("semantic all", run_semantic_all, [])
 
-    logger.info("expand-graph: %d stub(s) resolved in total.", total_resolved)
+    logger.info("expand-graph: %d record(s) retrieved in total.", total)
     return succeeded
 
 
@@ -55,8 +66,8 @@ def main(argv: list[str] | None = None) -> None:
     setup_logging()
     parser = argparse.ArgumentParser(
         description=(
-            "Repeat fill-gaps, normalize all and semantic all while stub nodes "
-            "keep disappearing."
+            "Repeat fill-gaps, normalize all and semantic all while fill-gaps keeps "
+            "retrieving records."
         ),
     )
     parser.add_argument("--max-iterations", type=int, default=10)
