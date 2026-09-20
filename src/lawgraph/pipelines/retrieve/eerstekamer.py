@@ -11,13 +11,12 @@ from .base import RetrievePipelineBase, RetrieveRecord
 
 logger = get_logger(__name__)
 
-# EK stemmingen are stored under the same kind; the soort='stemming' meta
-# field distinguishes them from Kamerstukken during normalization.
-RAW_KIND_EK_STEMMING = "ek-stuk-json"
+# EK Stemmingen are stored under the same raw kind; the meta field
+# ``record_type`` distinguishes them from Kamerstukken during normalization.
 
 
 class EerstekamerRetrievePipeline(RetrievePipelineBase):
-    """Retrieve Eerste Kamer Kamerstukken and stemmingen."""
+    """Retrieve Eerste Kamer Kamerstukken and Stemmingen."""
 
     def __init__(
         self, store: ArangoStore, client: EerstekamerClient | None = None
@@ -30,7 +29,7 @@ class EerstekamerRetrievePipeline(RetrievePipelineBase):
         *,
         since: str | None = None,
         max_records: int = 50000,
-        skip_stemmingen: bool = False,
+        skip_decisions: bool = False,
         **kwargs,
     ) -> list[RetrieveRecord]:
         records: list[RetrieveRecord] = []
@@ -50,20 +49,20 @@ class EerstekamerRetrievePipeline(RetrievePipelineBase):
                     payload_json=stuk,
                     meta={
                         "record_type": "kamerstuk",
-                        "soort": stuk.get("Soort"),
-                        "datum": stuk.get("Datum"),
-                        "dossier_nummer": stuk.get("DossierNummer"),
+                        "kind": stuk.get("Soort"),
+                        "date": stuk.get("Datum"),
+                        "dossier_number": stuk.get("DossierNummer"),
                     },
                 )
             )
 
         logger.info("EK retrieve: prepared %d kamerstuk records.", len(records))
 
-        if not skip_stemmingen:
-            stemmingen = self.client.list_stemmingen(
+        if not skip_decisions:
+            decisions = self.client.list_stemmingen(
                 since=since, max_records=max_records
             )
-            for stemming in stemmingen:
+            for stemming in decisions:
                 item_id = str(stemming.get("Id") or "")
                 if not item_id:
                     continue
@@ -71,17 +70,17 @@ class EerstekamerRetrievePipeline(RetrievePipelineBase):
                 records.append(
                     RetrieveRecord(
                         source=SOURCE_EERSTEKAMER,
-                        kind=RAW_KIND_EK_STEMMING,
+                        kind=RAW_KIND_EK_STUK,
                         external_id=f"stemming-{item_id}",
                         payload_json=stemming,
                         meta={
                             "record_type": "stemming",
-                            "kamerstuk_id": stemming.get("KamerstukId"),
-                            "vergadering_id": stemming.get("VergaderingId"),
-                            "aangenomen": stemming.get("Aangenomen"),
+                            "parliamentary_paper_id": stemming.get("KamerstukId"),
+                            "meeting_id": stemming.get("VergaderingId"),
+                            "passed": stemming.get("Aangenomen"),
                         },
                     )
                 )
-            logger.info("EK retrieve: prepared %d stemming records.", len(stemmingen))
+            logger.info("EK retrieve: prepared %d vote records.", len(decisions))
 
         return records

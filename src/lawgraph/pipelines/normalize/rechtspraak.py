@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import xml.etree.ElementTree as ET
 from typing import Any, cast
 
 from lawgraph.config.constants import (
@@ -11,79 +10,22 @@ from lawgraph.config.constants import (
     RAW_SOURCE_KINDS,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.judgments import (
+    compose_display_name,
+    derive_court_tier,
+    extract_judgment_text,
+    extract_rdf_metadata,
+    extract_sections,
+)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import ArangoStore
-from lawgraph.pipelines.normalize._xml import local_name as _xml_local
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.db import ArangoStore, NodeWriter
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
 
-# ── XML section-extraction helpers (module-level so their complexity is isolated) ──
-
-
-def _xml_clean(el: ET.Element) -> str:
-    return " ".join(el.itertext()).strip()
-
-
-def _emit(paragraphs: list[dict[str, Any]], kind: str, text: str) -> None:
-    if text:
-        paragraphs.append({"number": None, "kind": kind, "text": text})
-
-
-def _process_section(
-    section: ET.Element, paragraphs: list[dict[str, Any]], depth: int = 0
-) -> None:
-    nr = section.attrib.get("nr", "").strip() or None
-    kind = "heading" if depth == 0 else "subheading"
-    title_text: str | None = None
-    for child in section:
-        if _xml_local(child.tag) == "title":
-            title_text = _xml_clean(child)
-            break
-    if not title_text:
-        title_text = (section.text or "").strip() or None
-    if title_text or nr:
-        paragraphs.append({"number": nr, "kind": kind, "text": title_text or ""})
-    for child in section:
-        local = _xml_local(child.tag)
-        if local == "title" or local == "footnote":
-            pass
-        elif local == "section":
-            _process_section(child, paragraphs, depth=depth + 1)
-        elif local in ("para", "al"):
-            _emit(paragraphs, "body", _xml_clean(child))
-        elif local == "uitspraak.info":
-            _emit(paragraphs, "subheading", _xml_clean(child))
-        else:
-            if _xml_local(child.tag) not in ("nr",):
-                _emit(paragraphs, "body", _xml_clean(child))
-
-
-def _process_uitspraak(el: ET.Element, paragraphs: list[dict[str, Any]]) -> None:
-    for child in el:
-        local = _xml_local(child.tag)
-        if local == "section":
-            _process_section(child, paragraphs, depth=0)
-        elif local == "uitspraak.info":
-            _emit(paragraphs, "subheading", _xml_clean(child))
-        elif local in ("para", "al"):
-            _emit(paragraphs, "body", _xml_clean(child))
-
-
-def _extract_relation_ecli(el: ET.Element) -> str | None:
-    """Return the ECLI from a dc:relation element, or None if not found."""
-    ecli = (el.text or "").strip()
-    if not ecli:
-        for attr_name, attr_val in el.attrib.items():
-            if _xml_local(attr_name) == "resource" and "id=" in attr_val:
-                ecli = attr_val.split("id=")[-1].strip()
-                break
-    return ecli.upper() if ecli and ecli.upper().startswith("ECLI:") else None
-
-
-class RechtspraakNormalizePipeline(NormalizePipeline):
+class RechtspraakNormalizePipeline(NormalizePipelineBase):
     """Normalization pipeline that turns Rechtspraak raw dumps into judgment nodes."""
 
     def __init__(self, *, store: ArangoStore) -> None:
@@ -112,36 +54,6 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
 
         return {"index": index_records, "content": content_records}
 
-    @staticmethod
-    def _derive_court_tier(ecli: str | None) -> tuple[str | None, str | None]:
-        """Return (court_code, tier) derived from the ECLI identifier."""
-        if not ecli:
-            return None, None
-        parts = ecli.split(":")
-        court_code = parts[2].upper() if len(parts) >= 3 else None
-        if court_code == "HR":
-            tier: str | None = "hoge_raad"
-        elif court_code and court_code.startswith("GH"):
-            tier = "gerechtshof"
-        elif court_code and court_code.startswith("RB"):
-            tier = "rechtbank"
-        else:
-            tier = "bijzonder" if court_code else None
-        return court_code, tier
-
-    @staticmethod
-    def _compose_display_name(props: dict[str, Any]) -> str | None:
-        """Return a human-readable display name built from court, date and ECLI."""
-        court = props.get("court")
-        date_eff = props.get("date_eff")
-        case_number = props.get("case_number")
-        ecli = props.get("ecli")
-        if court and date_eff and case_number:
-            return f"{court} {date_eff} / {case_number}"
-        if court and date_eff:
-            return f"{court} {date_eff}"
-        return ecli or None
-
     def _build_content_node(
         self, raw_entry: dict[str, Any]
     ) -> tuple[str | None, Node | None]:
@@ -166,13 +78,13 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
         if meta:
             props["meta"] = meta
 
-        summary, text = self._extract_judgment_text(payload_text)
+        summary, text = extract_judgment_text(payload_text)
         if summary:
             props["summary"] = summary
         if text:
             props["text"] = text
 
-        judgment_meta, subjects = self._extract_rdf_metadata(payload_text)
+        judgment_meta, subjects = extract_rdf_metadata(payload_text)
         if judgment_meta:
             props["judgment_metadata"] = judgment_meta
             for field in ("court", "date", "case_number"):
@@ -183,18 +95,18 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
         if subjects:
             props["subjects"] = subjects
 
-        sections = self._extract_sections(payload_text)
+        sections = extract_sections(payload_text)
         if sections:
             props["paragraphs"] = sections
 
-        court_code, tier = self._derive_court_tier(ecli)
+        court_code, tier = derive_court_tier(ecli)
         props["court_code"] = court_code
         props["tier"] = tier
         jm_date = judgment_meta.get("date") if isinstance(judgment_meta, dict) else None
         props["date_eff"] = (
             jm_date or (meta.get("date") if meta else None) or props.get("date")
         )
-        props["display_name"] = self._compose_display_name(props)
+        props["display_name"] = compose_display_name(props)
         node = Node(
             collection=COLLECTION_JUDGMENTS,
             type=NodeType.JUDGMENT,
@@ -211,10 +123,12 @@ class RechtspraakNormalizePipeline(NormalizePipeline):
     ) -> dict[str, Any]:
         """Convert Rechtspraak content payloads into judgment nodes."""
         judgments_by_ecli: dict[str, Node] = {}
-        for raw_entry in raw.get("content", []):
-            ecli, node = self._build_content_node(raw_entry)
-            if ecli and node:
-                judgments_by_ecli[ecli] = self.store.insert_or_update(node)
+        with NodeWriter(self.store) as writer:
+            for raw_entry in raw.get("content", []):
+                ecli, node = self._build_content_node(raw_entry)
+                if ecli and node:
+                    writer.add(node)
+                    judgments_by_ecli[ecli] = node
 
         logger.info("Created %d Rechtspraak judgment nodes.", len(judgments_by_ecli))
 
@@ -289,103 +203,3 @@ FOR doc IN {COLLECTION_JUDGMENTS}
     ) -> int:
         """No structural edges to build for Rechtspraak judgments."""
         return 0
-
-    @staticmethod
-    def _extract_judgment_text(
-        payload_text: str | None,
-    ) -> tuple[str | None, str | None]:
-        """Return (summary, full_text) extracted from Rechtspraak XML."""
-        if not payload_text:
-            return None, None
-        try:
-            root = ET.fromstring(payload_text)
-        except ET.ParseError:
-            return None, None
-
-        def _itertext(el: ET.Element) -> str:
-            return " ".join(el.itertext()).strip()
-
-        summary: str | None = None
-        for el in root.iter():
-            if _xml_local(el.tag) == "inhoudsindicatie":
-                text = _itertext(el)
-                if text:
-                    summary = text
-                break
-
-        full_text: str | None = None
-        parts: list[str] = []
-        for el in root.iter():
-            if _xml_local(el.tag) == "uitspraak":
-                parts.append(_itertext(el))
-        if parts:
-            full_text = "\n\n".join(p for p in parts if p) or None
-
-        return summary, full_text
-
-    @staticmethod
-    def _extract_rdf_metadata(
-        payload_text: str | None,
-    ) -> tuple[dict[str, Any], list[str]]:
-        """Return (judgment_metadata, subjects) from <rdf:Description>."""
-        if not payload_text:
-            return {}, []
-        try:
-            root = ET.fromstring(payload_text)
-        except ET.ParseError:
-            return {}, []
-
-        meta: dict[str, Any] = {}
-        subjects: list[str] = []
-        related_eclis: list[str] = []
-
-        for el in root.iter():
-            tag = _xml_local(el.tag)
-            text = (el.text or "").strip()
-
-            if tag == "relation":
-                ecli = _extract_relation_ecli(el)
-                if ecli:
-                    related_eclis.append(ecli)
-                continue
-
-            if not text:
-                continue
-            if tag == "creator" and "court" not in meta:
-                meta["court"] = text
-            elif tag == "date" and "date" not in meta:
-                meta["date"] = text
-            elif tag == "zaaknummer" and "case_number" not in meta:
-                meta["case_number"] = text
-            elif tag == "procedure" and "type" not in meta:
-                meta["type"] = text
-            elif tag == "subject":
-                subjects.append(text)
-
-        if related_eclis:
-            meta["related_eclis"] = related_eclis
-
-        return meta, subjects
-
-    @staticmethod
-    def _extract_sections(
-        payload_text: str | None,
-    ) -> list[dict[str, Any]]:
-        """Return one entry per semantic unit (heading / subheading / body) in <uitspraak>.
-
-        Each section becomes a heading entry, each <title>/<uitspraak.info> becomes a
-        subheading, and each <para>/<al> becomes a body entry.
-        """
-        if not payload_text:
-            return []
-        try:
-            root = ET.fromstring(payload_text)
-        except ET.ParseError:
-            return []
-
-        paragraphs: list[dict[str, Any]] = []
-        for el in root.iter():
-            if _xml_local(el.tag) == "uitspraak":
-                _process_uitspraak(el, paragraphs)
-                break
-        return paragraphs

@@ -6,7 +6,7 @@ from typing import Sequence
 from lawgraph.config.constants import (
     RAW_KIND_EU_CELEX,
     RAW_KIND_RS_INDEX,
-    RAW_KIND_TK_DOCUMENTVERSIE,
+    RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_ZAAK,
     SOURCE_EURLEX,
     SOURCE_RECHTSPRAAK,
@@ -58,10 +58,11 @@ class FakeTKClient:
             {"Id": "Z2", "Titel": "Zaak 2"},
         ]
 
-    def documents_modified_since(
+    def fetch_documents(
         self,
-        since: dt.datetime,
-        top: int = 100,
+        since: dt.datetime | None = None,
+        top: int = 250,
+        dossier_number: int | None = None,
         keyword_fields: list | None = None,
         keywords: list | None = None,
     ) -> list[dict]:
@@ -102,7 +103,7 @@ def test_dump_tk_writes_expected_raw_documents() -> None:
         assert doc["source"] == SOURCE_TK
         assert doc["payload_json"] is not None
         assert doc["payload_text"] is None
-        assert doc["kind"] in {RAW_KIND_TK_ZAAK, RAW_KIND_TK_DOCUMENTVERSIE}
+        assert doc["kind"] in {RAW_KIND_TK_ZAAK, RAW_KIND_TK_DOCUMENT}
 
 
 def test_dump_rechtspraak_index_writes_single_raw_document() -> None:

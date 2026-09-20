@@ -8,6 +8,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
+from lawgraph.core.identifiers import clean_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
@@ -35,7 +36,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         **kwargs: object,
     ) -> PipelineResult:
         """Fetch and store BWB toestanden with per-ID error handling."""
-        normalized = self._normalize_ids(bwb_ids)
+        normalized = clean_ids(bwb_ids)
         result = PipelineResult()
 
         if not normalized:
@@ -75,7 +76,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                 payload_text=xml_text,
                 meta={
                     "bwb_id": bwb_id,
-                    "toestand_url": meta["locatie_toestand"],
+                    "state_url": meta["locatie_toestand"],
                     "start_date": meta.get("geldigheidsperiode_startdatum"),
                     "end_date": meta.get("geldigheidsperiode_einddatum"),
                 },
@@ -110,7 +111,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         by ``{bwb_id}@{start_date}``.  Safe to re-run — ``_insert`` is
         upsert-based.
         """
-        normalized = self._normalize_ids(bwb_ids)
+        normalized = clean_ids(bwb_ids)
         result = PipelineResult()
 
         if not normalized:
@@ -157,7 +158,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                     payload_text=xml_text,
                     meta={
                         "bwb_id": bwb_id,
-                        "toestand_url": meta["locatie_toestand"],
+                        "state_url": meta["locatie_toestand"],
                         "start_date": start_date,
                         "end_date": end_date,
                     },
@@ -222,17 +223,3 @@ class BWBRetrievePipeline(RetrievePipelineBase):
 
         logger.info("BWB full-load: %d IDs found; starting retrieval.", len(all_ids))
         return self.run(bwb_ids=all_ids)
-
-    @staticmethod
-    def _normalize_ids(ids: Sequence[str] | None) -> Sequence[str]:
-        """Clean incoming BWBR IDs, preserving order while removing duplicates."""
-        if not ids:
-            return []
-        cleaned: list[str] = []
-        for value in ids:
-            if not value:
-                continue
-            candidate = value.strip()
-            if candidate:
-                cleaned.append(candidate)
-        return list(dict.fromkeys(cleaned))

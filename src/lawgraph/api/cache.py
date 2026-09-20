@@ -2,7 +2,7 @@
 
 Drop-in replacement for the bare-dict caches in individual route modules.
 A single import replaces the 20-line boilerplate that was copy-pasted into
-nodes.py and commissies.py.
+nodes.py and committees.py.
 
 Usage::
 

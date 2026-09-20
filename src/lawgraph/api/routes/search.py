@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import search_all
-from lawgraph.api.schemas import SEARCH_TYPES, SearchResponse, SearchResultItem
+from lawgraph.api.schemas.search import SEARCH_TYPES, SearchResponse, SearchResultItem
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
 
@@ -19,24 +19,24 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
 @router.get(
     "",
     response_model=SearchResponse,
-    summary="Zoek over meerdere entiteiten",
+    summary="Search across several entity types",
     description=(
-        "Zoekt over artikelen, uitspraken, kamerstukdossiers en publicaties. "
-        "Gebruik `types` om te beperken tot specifieke verzamelingen. "
-        "Gebruik `soort` om te facetten op publicatie- of dossiertypes."
+        "Searches articles, judgments, dossiers and documents. Use `types` to "
+        "restrict the search to specific collections and `kind` to facet on "
+        "document or dossier kinds."
     ),
     tags=["search"],
 )
 def search(
-    q: Annotated[str, Query(min_length=1, description="Zoekterm")],
+    q: Annotated[str, Query(min_length=1, description="Search term")],
     store: Annotated[ArangoStore, Depends(get_store)],
     types: Annotated[
         list[str],
-        Query(description="Typen om te zoeken"),
+        Query(description="Entity types to search"),
     ] = _DEFAULT_SEARCH_TYPES,
-    soort: Annotated[
+    kind: Annotated[
         str | None,
-        Query(description="Kommagescheiden soort-filter (op publicaties en dossiers)"),
+        Query(description="Comma-separated kind filter (documents and dossiers)"),
     ] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> SearchResponse:
@@ -51,13 +51,13 @@ def search(
         )
     requested_types = types or list(SEARCH_TYPES)
 
-    soort_list = [s.strip() for s in soort.split(",")] if soort else None
+    kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
     raw = search_all(
         store,
         q=q,
         types=requested_types,
-        soort=soort_list,
+        kinds=kind_list,
         limit=limit,
     )
 

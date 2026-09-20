@@ -7,19 +7,21 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
+    MAX_TITLE_CHARS,
     RAW_KIND_ECHR_JUDGMENT,
     SOURCE_ECHR,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
+from lawgraph.db import NodeWriter
 from lawgraph.db.store import ArangoStore
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
 
-class EchrNormalizePipeline(NormalizePipeline):
+class ECHRNormalizePipeline(NormalizePipelineBase):
     """Normalize ECHR HUDOC judgment JSON into Judgment nodes."""
 
     def __init__(self, *, store: ArangoStore) -> None:
@@ -38,6 +40,7 @@ class EchrNormalizePipeline(NormalizePipeline):
         self, raw: list[dict[str, Any]], result: PipelineResult
     ) -> dict[str, Node]:
         nodes: dict[str, Node] = {}
+        writer = NodeWriter(self.store)
 
         for record in raw:
             payload = self._payload_json(record)
@@ -60,7 +63,9 @@ class EchrNormalizePipeline(NormalizePipeline):
             originating_body = payload.get("originatingbody") or ""
 
             # Construct a human-readable display name
-            display_name = docname[:200] if docname else f"ECHR {appno or item_id}"
+            display_name = (
+                docname[:MAX_TITLE_CHARS] if docname else f"ECHR {appno or item_id}"
+            )
 
             props: dict[str, Any] = {
                 "source": SOURCE_ECHR,
@@ -88,9 +93,11 @@ class EchrNormalizePipeline(NormalizePipeline):
                 labels=["ECHR"],
                 props=props,
             )
-            node = self.store.insert_or_update(node)
+            writer.add(node)
             nodes[item_id] = node
             result.created += 1
+
+        writer.flush()
 
         logger.info("ECHR normalize: %d judgments processed.", len(nodes))
         return nodes

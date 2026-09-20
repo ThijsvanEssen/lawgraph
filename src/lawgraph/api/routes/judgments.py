@@ -6,18 +6,22 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import get_judgment_with_relations, get_judgments_list
-from lawgraph.api.schemas import (
+from lawgraph.api.queries.articles import get_articles_by_keys
+from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
     ArticleRelationDTO,
+    JudgmentSummaryDTO,
+)
+from lawgraph.api.schemas.judgments import (
     JudgmentDetailResponse,
     JudgmentDTO,
     JudgmentListItemDTO,
     JudgmentListResponse,
     JudgmentParagraph,
-    JudgmentSummaryDTO,
 )
-from lawgraph.config.constants import COLLECTION_INSTRUMENT_ARTICLES
+from lawgraph.config.constants import COLLECTION_ARTICLES, DEFAULT_CODE_ALIASES
+from lawgraph.core.citations import detect_article_references
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
@@ -25,23 +29,15 @@ from lawgraph.db import ArangoStore
 router = APIRouter()
 logger = get_logger(__name__)
 
-# Citation alias → BWB identifier map for inline article detection in judgment text.
-# Sr = Wetboek van Strafrecht, Sv = Wetboek van Strafvordering, WVW = Wegenverkeerswet.
-# Update this dict when new shorthand aliases need to be recognised.
-_ARTICLE_CODE_MAPPING: dict[str, str] = {
-    "Sr": "BWBR0001854",
-    "Sv": "BWBR0001903",
-    "WVW": "BWBR0006622",
-}
-
 
 @router.get(
     "",
     response_model=JudgmentListResponse,
-    summary="Gepagineerde lijst van uitspraken",
+    summary="Paginated list of judgments",
     description=(
-        "Gepagineerde lijst van uitspraken (arresten) met filters op court (ECLI-code), "
-        "tier (hoge_raad/gerechtshof/rechtbank/bijzonder), datumbereik en citatiedrempel."
+        "A paginated list of judgments with filters on court (the ECLI court "
+        "code), tier (hoge_raad / gerechtshof / rechtbank / bijzonder), date "
+        "range and a minimum citation count."
     ),
     tags=["judgments"],
 )
@@ -97,10 +93,10 @@ def list_judgments(
 @router.get(
     "/{ecli}",
     response_model=JudgmentDetailResponse,
-    summary="Haal een uitspraak met gelinkte artikelen",
+    summary="One judgment with the articles it cites",
     description=(
-        "Zoekt een uitspraak op via ECLI, leest de semantische `MENTIONS_ARTICLE`-edges "
-        "en voegt elke gevonden artikel-/instrumentcombinatie toe."
+        "Looks a judgment up by ECLI, follows its REFERS_TO edges to articles "
+        "and adds each article with its parent instrument."
     ),
     tags=["judgments"],
 )
@@ -147,17 +143,11 @@ def _enrich_paragraphs(
     All article lookups are batched into a single AQL query so we pay one
     round-trip for the whole judgment instead of one per citation hit.
     """
-    # TODO: detect_article_references belongs in core, not pipelines. Move it
-    # before removing this lazy import (layering workaround).
-    from lawgraph.pipelines.semantic.rechtspraak_articles import (  # noqa: PLC0415
-        detect_article_references,
-    )
-
     # First pass: collect all hits across all paragraphs.
     para_hits: list[tuple[JudgmentParagraph, list]] = []
     all_keys: list[str] = []
     for para in paragraphs:
-        hits = detect_article_references(para.text, _ARTICLE_CODE_MAPPING)
+        hits = detect_article_references(para.text, DEFAULT_CODE_ALIASES)
         valid = [h for h in hits if h.bwb_id]
         para_hits.append((para, valid))
         for h in valid:
@@ -167,14 +157,7 @@ def _enrich_paragraphs(
         return list(paragraphs)
 
     # Single bulk fetch for all referenced article keys.
-    aql = f"""
-    FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
-        FILTER doc._key IN @keys
-        RETURN doc
-    """
-    article_by_key = {
-        doc["_key"]: doc for doc in store.query(aql, {"keys": list(set(all_keys))})
-    }
+    article_by_key = get_articles_by_keys(store, set(all_keys))
 
     # Second pass: build enriched paragraphs.
     result: list[JudgmentParagraph] = []
@@ -201,7 +184,7 @@ def _enrich_paragraphs(
                     target=ArticleCitationTarget(
                         id=doc["_id"],
                         key=doc["_key"],
-                        collection=COLLECTION_INSTRUMENT_ARTICLES,
+                        collection=COLLECTION_ARTICLES,
                         bwb_id=props.get("bwb_id"),
                         article_number=props.get("article_number"),
                         display_name=props.get("display_name"),

@@ -1,29 +1,40 @@
-"""Semantic pipeline: links MvT/NvT publications to instrument articles via LICHT_TOE edges.
+"""Semantic pipeline: explanatory memoranda (MvT/NvT) → EXPLAINS → what they explain.
 
-Scans publications with soort containing 'toelichting' for the structured
-'Artikelsgewijze toelichting' section, then matches article numbers to article
-nodes in the related instruments.
+An explanatory memorandum belongs to a dossier, and the instrument that was
+legislated in that dossier says which articles it introduced or changed. That
+chain is recorded in the graph, so the link is read rather than guessed::
+
+    Document --PART_OF--> Dossier <--LEGISLATED_IN-- Instrument
+    Instrument --AMENDS/INTRODUCES/REPEALS--> Article
+
+The edge targets the ArticleVersion the amendment created when the amendment
+names one, the Article itself otherwise, and the Instrument when it changed no
+articles at all.
 """
 
 from __future__ import annotations
 
 import datetime as dt
-import re
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
-    COLLECTION_PUBLICATIONS,
-    RELATION_INTRODUCEERT,
-    RELATION_LICHT_TOE,
-    RELATION_RAAKT,
-    RELATION_RESULTED_IN,
-    RELATION_TREKT_IN,
-    RELATION_WIJZIGT,
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_INSTRUMENTS,
+    RELATION_AMENDS,
+    RELATION_EXPLAINS,
+    RELATION_INTRODUCES,
+    RELATION_LEGISLATED_IN,
+    RELATION_PART_OF,
+    RELATION_REPEALS,
 )
+from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
+from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -31,227 +42,90 @@ logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "mvt-article-linker"
 
-_HEADING_PATTERN = re.compile(r"artikelsgewijze\s+toelichting", re.IGNORECASE)
-_ARTICLE_PATTERN = re.compile(r"\bArtikel(?:en)?\s+(\d+[a-z]*)\b", re.IGNORECASE)
+_CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 
-_MAX_HITS_PER_PUB = 200
-
-# AQL template for fetching MvT publications.
-# {since_filter} is injected at runtime; relation names are baked in at module load.
-_AQL_MVT_PUBLICATIONS = (
-    "FOR pub IN publications\n"
-    "  FILTER CONTAINS(LOWER(pub.props.soort ?? ''), 'toelichting')\n"
-    "  FILTER pub.props.text != null AND LENGTH(pub.props.text) > 200\n"
-    "  {since_filter}\n"
-    "  LET dossier_ids = (\n"
-    "    FOR e IN edges\n"
-    "      FILTER e._from == pub._id AND e.relation == 'DEEL_VAN_DOSSIER'\n"
-    "      RETURN e._to\n"
-    "  )\n"
-    "  // Strategy 1: RESULTED_IN/RAAKT from dossier -> instrument (enacted or linked laws)\n"
-    "  LET s1 = (\n"
-    "    FOR did IN dossier_ids\n"
-    "      FOR e2 IN edges\n"
-    "        FILTER e2._from == did AND e2.relation IN @s1_rels\n"
-    "        LET inst = DOCUMENT(e2._to)\n"
-    "        FILTER inst != null AND (inst.props.bwb_id != null OR inst.props.celex != null)\n"
-    "        RETURN DISTINCT {{id: inst._id, bwb_id: inst.props.bwb_id, celex: inst.props.celex}}\n"
-    "  )\n"
-    "  LET s2 = (\n"
-    "    FOR did IN dossier_ids\n"
-    "      FOR e2 IN edges\n"
-    "        FILTER e2._to == did AND e2.relation == 'DEEL_VAN_DOSSIER'\n"
-    "        FOR e3 IN edges\n"
-    "          FILTER e3._from == e2._from\n"
-    f"              AND e3.relation IN ['{RELATION_WIJZIGT}',"
-    f" '{RELATION_INTRODUCEERT}', '{RELATION_TREKT_IN}']\n"
-    "          LET art = DOCUMENT(e3._to)\n"
-    "          FILTER art != null AND art.props.bwb_id != null\n"
-    "          FOR inst IN instruments\n"
-    "            FILTER inst.props.bwb_id == art.props.bwb_id\n"
-    "            RETURN DISTINCT {{id: inst._id,"
-    " bwb_id: inst.props.bwb_id, celex: inst.props.celex}}\n"
-    "  )\n"
-    "  LET found_instruments = LENGTH(s1) > 0 ? s1 : s2\n"
-    "  FILTER LENGTH(found_instruments) > 0\n"
-    "  RETURN {{\n"
-    "    pub_id: pub._id,\n"
-    "    pub_key: pub._key,\n"
-    "    text: pub.props.text,\n"
-    "    instruments: found_instruments\n"
-    "  }}\n"
-)
+_SINCE_FILTER = "FILTER doc.props.fetched_at >= @since"
 
 
-class MvtArticleSemanticPipeline(SemanticPipelineBase):
-    """Pipeline linking MvT publications to instrument articles via LICHT_TOE edges."""
+def _targets_aql(since_filter: str) -> str:
+    """One pass: per explanatory document, the nodes it explains.
+
+    Those are the article versions (or articles, or the instrument itself) that
+    the instrument legislated in the document's dossier introduced or changed.
+    """
+    return f"""
+FOR doc IN {COLLECTION_DOCUMENTS}
+  FILTER CONTAINS(LOWER(doc.props.kind ?? ''), 'toelichting')
+  {since_filter}
+  LET dossiers = (
+    FOR e IN {COLLECTION_EDGES}
+      FILTER e._from == doc._id AND e.relation == @part_of
+      FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+      RETURN e._to
+  )
+  LET instruments = (
+    FOR dossier IN dossiers
+      FOR e IN {COLLECTION_EDGES}
+        FILTER e._to == dossier AND e.relation == @legislated_in
+        FILTER STARTS_WITH(e._from, '{COLLECTION_INSTRUMENTS}/')
+        RETURN DISTINCT e._from
+  )
+  FILTER LENGTH(instruments) > 0
+  LET changed = (
+    FOR instrument IN instruments
+      FOR e IN {COLLECTION_EDGES}
+        FILTER e._from == instrument AND e.relation IN @change_relations
+        FILTER STARTS_WITH(e._to, '{COLLECTION_ARTICLES}/')
+        RETURN DISTINCT e.meta.article_version == null
+          ? e._to
+          : CONCAT('{COLLECTION_ARTICLE_VERSIONS}/', e.meta.article_version)
+  )
+  RETURN {{
+    document: doc._id,
+    targets: LENGTH(changed) > 0 ? changed : instruments
+  }}
+"""
+
+
+class MvtArticlesSemanticPipeline(SemanticPipelineBase):
+    """Link explanatory memoranda to the article versions they explain."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-
-        # Build optional since filter for the publications query
-        since_filter = ""
-        bind_vars: dict[str, Any] = {"s1_rels": [RELATION_RESULTED_IN, RELATION_RAAKT]}
-        if since is not None:
-            since_iso = iso_timestamp(since)
-            if since_iso:
-                since_filter = (
-                    "LET recent_ids = (\n"
-                    "    FOR r IN raw_sources\n"
-                    "      FILTER r.source == 'tk' AND r.fetched_at >= @since\n"
-                    "      FILTER r.external_id != null\n"
-                    "      RETURN r.external_id\n"
-                    "  )\n"
-                    "  FILTER pub.props.external_id IN recent_ids"
-                )
-                bind_vars["since"] = since_iso
-
-        aql = _AQL_MVT_PUBLICATIONS.format(since_filter=since_filter)
-
-        rows = list(self.store.query(aql, bind_vars=bind_vars if bind_vars else None))
-        if not rows:
-            logger.debug("No MvT publications found for LICHT_TOE linking.")
-            return result
-
-        logger.info("MvT article linker: processing %d publications.", len(rows))
-
-        # Collect all distinct (bwb_id, celex) pairs so we can load article
-        # maps once per instrument rather than once per (publication × instrument).
-        distinct_pairs: set[tuple[str | None, str | None]] = set()
-        for row in rows:
-            for inst in row.get("instruments") or []:
-                distinct_pairs.add((inst.get("bwb_id"), inst.get("celex")))
-
-        article_map_cache: dict[tuple[str | None, str | None], dict[str, Node]] = {
-            pair: self._load_article_map(bwb_id=pair[0], celex=pair[1])
-            for pair in distinct_pairs
+        bind_vars: dict[str, Any] = {
+            "part_of": RELATION_PART_OF,
+            "legislated_in": RELATION_LEGISLATED_IN,
+            "change_relations": list(_CHANGE_RELATIONS),
         }
+        since_filter = ""
+        if since is not None:
+            since_filter = _SINCE_FILTER
+            bind_vars["since"] = iso_timestamp(since)
 
-        edge_batch: list[dict[str, Any]] = []
-
-        for row in rows:
-            pub_id = row.get("pub_id")
-            pub_key = row.get("pub_key")
-            text = row.get("text") or ""
-            instruments = row.get("instruments") or []
-
-            if not pub_id or not text:
+        edges = EdgeWriter(self.store)
+        documents = 0
+        for row in self.store.query(_targets_aql(since_filter), bind_vars):
+            document = row.get("document")
+            targets = row.get("targets") or []
+            if not document or not targets:
                 result.skipped += 1
                 continue
+            documents += 1
+            for target in targets:
+                edges.add(
+                    document,
+                    target,
+                    RELATION_EXPLAINS,
+                    source=SEMANTIC_SOURCE,
+                    confidence=1.0,
+                )
+        edges.flush()
 
-            pub_node = Node(
-                collection=COLLECTION_PUBLICATIONS,
-                type=NodeType.PUBLICATION,
-                key=pub_key,
-                props={},
-            )
-
-            for inst in instruments:
-                bwb_id = inst.get("bwb_id")
-                celex = inst.get("celex")
-                article_map = article_map_cache.get((bwb_id, celex))
-                if not article_map:
-                    continue
-
-                hits = self._extract_licht_toe_hits(text, article_map)
-                for article_node, confidence in hits:
-                    edge_doc = self._make_edge_doc(
-                        from_node=pub_node,
-                        to_node=article_node,
-                        relation=RELATION_LICHT_TOE,
-                        source=SEMANTIC_SOURCE,
-                        confidence=confidence,
-                    )
-                    if edge_doc:
-                        edge_batch.append(edge_doc)
-                        if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                            created, updated = self._flush_edge_batch(
-                                edge_batch, result
-                            )
-                            result.created += created
-                            result.updated += updated
-                            edge_batch = []
-
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
-
-        logger.info("MvT article semantic linker: %s.", result.summary())
+        result.created += edges.created
+        result.updated += edges.updated
+        logger.info(
+            "Explanatory memorandum linker: %d documents, %s.",
+            documents,
+            result.summary(),
+        )
         return result
-
-    def _load_article_map(
-        self, *, bwb_id: str | None, celex: str | None
-    ) -> dict[str, Node]:
-        """Return a mapping of article number → Node for the given instrument."""
-        if not bwb_id and not celex:
-            return {}
-
-        bind_vars: dict[str, Any] = {"bwb_id": bwb_id, "celex": celex}
-        aql = """
-FOR art IN instrument_articles
-  FILTER (art.props.bwb_id == @bwb_id) OR (art.props.celex == @celex)
-  RETURN { number: art.props.article_number, id: art._id, key: art._key }
-"""
-        article_map: dict[str, Node] = {}
-        try:
-            rows = list(self.store.query(aql, bind_vars=bind_vars))
-        except Exception as exc:
-            logger.debug("Could not load article map for %s/%s: %s", bwb_id, celex, exc)
-            return {}
-
-        for row in rows:
-            number = row.get("number")
-            art_id: str = row.get("id") or ""
-            art_key: str = row.get("key") or ""
-            if not number or not art_id:
-                continue
-            num_str = str(number).strip().lower()
-            collection = collection_from_id(art_id, COLLECTION_INSTRUMENT_ARTICLES)
-            node = Node(
-                collection=collection,
-                type=NodeType.ARTICLE,
-                key=art_key,
-                props={"article_number": number, "bwb_id": bwb_id, "celex": celex},
-            )
-            if num_str not in article_map:
-                article_map[num_str] = node
-
-        return article_map
-
-    def _extract_licht_toe_hits(
-        self, text: str, article_map: dict[str, Node]
-    ) -> list[tuple[Node, float]]:
-        """Extract LICHT_TOE hits from the text.
-
-        Returns a list of (Node, confidence) pairs, deduplicated by article node.
-        """
-        # Find the 'Artikelsgewijze toelichting' heading, if present.
-        heading_match = _HEADING_PATTERN.search(text)
-        heading_pos = heading_match.start() if heading_match else len(text)
-
-        seen_keys: set[str] = set()
-        hits: list[tuple[Node, float]] = []
-
-        for m in _ARTICLE_PATTERN.finditer(text):
-            if len(hits) >= _MAX_HITS_PER_PUB:
-                break
-
-            art_num = m.group(1).strip().lower()
-            confidence = 0.90 if m.start() >= heading_pos else 0.55
-
-            node = article_map.get(art_num)
-            if node is None:
-                # Try stripping leading zeros
-                node = article_map.get(art_num.lstrip("0"))
-
-            if node is None:
-                continue
-
-            node_key = node.key or art_num
-            if node_key in seen_keys:
-                continue
-            seen_keys.add(node_key)
-            hits.append((node, confidence))
-
-        return hits

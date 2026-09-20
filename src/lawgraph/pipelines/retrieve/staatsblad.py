@@ -6,6 +6,7 @@ from lawgraph.clients.staatsblad import StaatsbladClient
 from lawgraph.config.constants import RAW_KIND_STB_AMVB, SOURCE_BWB, SOURCE_STAATSBLAD
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.db import ArangoStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -160,7 +161,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             if not bwb_xml:
                 result.skipped += 1
                 continue
-            ref = StaatsbladClient.extract_staatsblad_ref_from_bwb_xml(bwb_xml)
+            ref = staatsblad_ref_from_bwb_xml(bwb_xml)
             if not ref:
                 result.skipped += 1
                 continue

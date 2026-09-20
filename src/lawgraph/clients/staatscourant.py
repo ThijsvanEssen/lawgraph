@@ -9,18 +9,16 @@ query: dt.type=Ministeriele-regeling
 
 from __future__ import annotations
 
-import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
 from lawgraph.clients._sru import parse_sru_records
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import STAATSCOURANT_REPO_BASE, STAATSCOURANT_SRU_ENDPOINT
+from lawgraph.core.identifiers import STCRT_ID_PATTERN
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
-
-_STCRT_ID_PATTERN = re.compile(r"stcrt-(\d{4})-(\d+)", re.IGNORECASE)
 
 
 class StaatscourantClient(BaseClient):
@@ -90,14 +88,14 @@ class StaatscourantClient(BaseClient):
         """Parse SRU response XML into record dicts."""
         return parse_sru_records(
             root,
-            id_pattern=_STCRT_ID_PATTERN,
+            id_pattern=STCRT_ID_PATTERN,
             extra_fields=("date",),
             default_title_prefix="Staatscourant",
         )
 
     def fetch_publication_xml(self, identifier: str) -> str | None:
         """Fetch the XML for a Staatscourant publication by identifier."""
-        m = _STCRT_ID_PATTERN.search(identifier)
+        m = STCRT_ID_PATTERN.search(identifier)
         if not m:
             logger.warning("Cannot parse Staatscourant identifier: %s", identifier)
             return None

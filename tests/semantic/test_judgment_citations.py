@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from lawgraph.config.constants import RELATION_REFERS_TO
+from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.judgment_citations import (
     JudgmentCitationsSemanticPipeline,
-    detect_ecli_references,
 )
 
 # ---------------------------------------------------------------------------
@@ -16,25 +17,25 @@ from lawgraph.pipelines.semantic.judgment_citations import (
 
 
 def test_detect_ecli_references_finds_single() -> None:
-    hits = detect_ecli_references("Zie ECLI:NL:HR:2020:1234 voor context.")
+    hits = find_eclis("Zie ECLI:NL:HR:2020:1234 voor context.")
     assert hits == ["ECLI:NL:HR:2020:1234"]
 
 
 def test_detect_ecli_references_deduplicates() -> None:
     text = "ECLI:NL:HR:2020:1234 en nogmaals ECLI:NL:HR:2020:1234"
-    hits = detect_ecli_references(text)
+    hits = find_eclis(text)
     assert hits == ["ECLI:NL:HR:2020:1234"]
 
 
 def test_detect_ecli_references_multiple() -> None:
     text = "ECLI:NL:HR:2020:1234 en ECLI:NL:RBAMS:2021:5678"
-    hits = detect_ecli_references(text)
+    hits = find_eclis(text)
     assert len(hits) == 2
 
 
 def test_detect_ecli_references_empty() -> None:
-    assert detect_ecli_references("") == []
-    assert detect_ecli_references(None) == []
+    assert find_eclis("") == []
+    assert find_eclis(None) == []
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +138,7 @@ def test_pipeline_creates_cites_judgment_edge() -> None:
     assert result.created == 1
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
-    assert edge["relation"] == "CITES_JUDGMENT"
+    assert edge["relation"] == RELATION_REFERS_TO
     assert edge["_from"].startswith("judgments/")
     assert edge["_to"].startswith("judgments/")
 

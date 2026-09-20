@@ -10,7 +10,7 @@ client = TestClient(app)
 
 _STATS_DATA = {
     "nodes": {"instruments": 100, "judgments": 50},
-    "edges": {"total": 200, "by_relation": {"AMENDS_INSTRUMENT": 10}},
+    "edges": {"total": 200, "by_relation": {"AMENDS": 10}},
     "by_source": {"tk": {"publications": 30}},
     "instruments": {"by_kind": {}, "by_jurisdiction": {}},
 }

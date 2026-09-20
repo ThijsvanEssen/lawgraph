@@ -3,28 +3,28 @@
 from __future__ import annotations
 
 import datetime as dt
-import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_PUBLICATIONS,
+    COLLECTION_DOCUMENTS,
     RAW_KIND_STCRT_REGELING,
     SOURCE_STAATSCOURANT,
 )
+from lawgraph.core.identifiers import STCRT_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.publication_xml import bwb_id_in_xml, publication_title
+from lawgraph.core.time import iso_date
+from lawgraph.core.xml import find_text, text_of
+from lawgraph.db import NodeWriter
 from lawgraph.db.store import ArangoStore
-from lawgraph.pipelines.normalize._xml import find_text
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
-_STCRT_ID_PATTERN = re.compile(r"stcrt-(\d{4})-(\d+)", re.IGNORECASE)
-_BWBR_PATTERN = re.compile(r"\b(BWBR0\d{6})\b", re.IGNORECASE)
 
-
-class StaatscourantNormalizePipeline(NormalizePipeline):
+class StaatscourantNormalizePipeline(NormalizePipelineBase):
     """Normalize Staatscourant ministeriele regelingen XML into Publication nodes."""
 
     def __init__(self, *, store: ArangoStore) -> None:
@@ -43,6 +43,7 @@ class StaatscourantNormalizePipeline(NormalizePipeline):
         self, raw: list[dict[str, Any]], result: PipelineResult
     ) -> dict[str, Node]:
         nodes: dict[str, Node] = {}
+        writer = NodeWriter(self.store)
 
         for record in raw:
             identifier = record.get("external_id") or record.get("identifier") or ""
@@ -59,9 +60,11 @@ class StaatscourantNormalizePipeline(NormalizePipeline):
                 result.skipped += 1
                 continue
 
-            node = self.store.insert_or_update(node)
+            writer.add(node)
             nodes[identifier] = node
             result.created += 1
+
+        writer.flush()
 
         logger.info("Staatscourant normalize: %d publications processed.", len(nodes))
         return nodes
@@ -75,35 +78,26 @@ class StaatscourantNormalizePipeline(NormalizePipeline):
             )
             return None
 
-        m = _STCRT_ID_PATTERN.search(identifier)
+        m = STCRT_ID_PATTERN.search(identifier)
         year = m.group(1) if m else ""
         number = m.group(2) if m else ""
 
-        title = (
-            find_text(root, "citeertitel")
-            or find_text(root, "officiele-titel", "officieletitel")
-            or find_text(root, "titel")
-            or f"Staatscourant {year}/{number}"
-        )
+        title = publication_title(root, f"Staatscourant {year}/{number}")
 
         # Extract the full text of the regulation
-        tekst = find_text(root, "tekst", "body", "inhoud")
-        if not tekst:
-            tekst = " ".join(root.itertext()).strip()[:100000]
+        text = find_text(root, "tekst", "body", "inhoud")
+        if not text:
+            text = text_of(root, " ")[:100000]
 
-        bwb_id: str | None = None
-        bwb_m = _BWBR_PATTERN.search(ET.tostring(root, encoding="unicode"))
-        if bwb_m:
-            bwb_id = bwb_m.group(1).upper()
-
-        date_text = find_text(root, "publicatiedatum", "datum")
+        bwb_id = bwb_id_in_xml(root)
+        date = iso_date(find_text(root, "publicatiedatum", "datum"))
 
         props: dict[str, Any] = {
             "source": SOURCE_STAATSCOURANT,
             "identifier": identifier,
-            "soort": "Ministeriële regeling",
+            "kind": "Ministeriële regeling",
             "title": title,
-            "text": tekst or "",
+            "text": text or "",
             "year": year,
             "number": number,
             "display_name": (
@@ -112,13 +106,13 @@ class StaatscourantNormalizePipeline(NormalizePipeline):
         }
         if bwb_id:
             props["bwb_id"] = bwb_id
-        if date_text:
-            props["datum"] = date_text[:10]
+        if date:
+            props["date"] = date
 
         key = make_node_key("stcrt", identifier)
         return Node(
-            collection=COLLECTION_PUBLICATIONS,
-            type=NodeType.PUBLICATION,
+            collection=COLLECTION_DOCUMENTS,
+            type=NodeType.DOCUMENT,
             key=key,
             labels=["Staatscourant", "Regeling"],
             props=props,

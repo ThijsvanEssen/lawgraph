@@ -1,11 +1,11 @@
 """Pipeline that fetches full-text content for TK publications and stores it in props.text.
 
-Only targets publication types whose soort contains a configured substring
+Only targets publication types whose kind contains a configured substring
 (default: "toelichting"), so we only download the documents that actually feed
 the MvT-context endpoint — not the full ~400-document corpus.
 
 Flow:
-    1. Query publications WHERE soort CONTAINS filter AND props.text IS NULL
+    1. Query publications WHERE kind CONTAINS filter AND props.text IS NULL
     2. For each: fetch binary from TK API (Document({id})/resource)
     3. Extract text from PDF (pdfminer.six)
     4. Store text via AQL MERGE so other props are untouched
@@ -22,11 +22,12 @@ from lawgraph.clients.tk import TKClient
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
-# soort substrings that qualify a publication for text hydration
-_DEFAULT_SOORT_FILTER = "toelichting"
+# kind substrings that qualify a publication for text hydration
+_DEFAULT_KIND_FILTER = "toelichting"
 
 # Hard cap on stored text (chars).  The semantic pipeline has its own read cap
 # (_MAX_TEXT_LENGTH = 40 000), but storing more lets us raise that cap later
@@ -49,10 +50,10 @@ def _extract_pdf_text(content: bytes) -> str | None:
         return None
 
 
-class TKTextHydratePipeline:
+class TKContentRetrievePipeline(PipelineBase):
     """Fetch and store full-text content for TK publications.
 
-    Only publications whose ``props.soort`` contains *soort_filter* (case-
+    Only publications whose ``props.kind`` contains *kind_filter* (case-
     insensitive) and that do not yet have ``props.text`` are processed.
     """
 
@@ -62,7 +63,7 @@ class TKTextHydratePipeline:
         store: ArangoStore,
         tk_client: TKClient | None = None,
     ) -> None:
-        self.store = store
+        super().__init__(store)
         self.tk = tk_client or TKClient()
 
     # ── public ────────────────────────────────────────────────────────────────
@@ -70,29 +71,29 @@ class TKTextHydratePipeline:
     def run(
         self,
         *,
-        soort_filter: str = _DEFAULT_SOORT_FILTER,
+        kind_filter: str = _DEFAULT_KIND_FILTER,
         dry_run: bool = False,
     ) -> PipelineResult:
         """Hydrate text for all qualifying publications.
 
         Args:
-            soort_filter: Case-insensitive substring matched against
-                ``props.soort``.  Defaults to ``"toelichting"``.
+            kind_filter: Case-insensitive substring matched against
+                ``props.kind``.  Defaults to ``"toelichting"``.
             dry_run: When True, log what would happen but make no changes.
         """
         result = PipelineResult()
-        publications = self._query_unhydrated(soort_filter)
+        publications = self._query_unhydrated(kind_filter)
 
         if not publications:
             logger.info(
-                "No unhydrated publications found for soort filter '%s'.", soort_filter
+                "No unhydrated publications found for kind filter '%s'.", kind_filter
             )
             return result
 
         logger.info(
-            "Hydrating text for %d publications (soort contains '%s')%s.",
+            "Hydrating text for %d publications (kind contains '%s')%s.",
             len(publications),
-            soort_filter,
+            kind_filter,
             " — DRY RUN" if dry_run else "",
         )
 
@@ -120,15 +121,15 @@ class TKTextHydratePipeline:
 
     # ── private ───────────────────────────────────────────────────────────────
 
-    def _query_unhydrated(self, soort_filter: str) -> list[dict[str, Any]]:
+    def _query_unhydrated(self, kind_filter: str) -> list[dict[str, Any]]:
         aql = """
-            FOR pub IN publications
-                FILTER CONTAINS(LOWER(pub.props.soort), @soort)
+            FOR pub IN documents
+                FILTER CONTAINS(LOWER(pub.props.kind), @kind)
                     AND (pub.props.text == null OR pub.props.text == "")
                     AND pub.props.external_id != null
                 RETURN pub
         """
-        return list(self.store.query(aql, {"soort": soort_filter.lower()}))
+        return list(self.store.query(aql, {"kind": kind_filter.lower()}))
 
     def _hydrate_one(
         self,
@@ -168,9 +169,9 @@ class TKTextHydratePipeline:
     def _store_text(self, key: str, text: str) -> None:
         """Merge props.text into the publication without touching other props."""
         aql = """
-            FOR pub IN publications
+            FOR pub IN documents
                 FILTER pub._key == @key
-                UPDATE pub WITH {props: MERGE(pub.props, {text: @text})} IN publications
+                UPDATE pub WITH {props: MERGE(pub.props, {text: @text})} IN documents
         """
         # Consume the cursor (even though it returns nothing useful).
         list(self.store.query(aql, {"key": key, "text": text}))

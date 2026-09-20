@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from lawgraph.clients._sru import _local_name, parse_sru_records
+from lawgraph.clients._sru import parse_sru_records
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.settings import STAATSBLAD_REPO_BASE, STAATSBLAD_SRU_ENDPOINT
+from lawgraph.core.identifiers import STB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
-
-_STB_ID_PATTERN = re.compile(r"stb-(\d{4})-(\d+)", re.IGNORECASE)
 
 
 class StaatsbladClient(BaseClient):
@@ -85,7 +83,7 @@ class StaatsbladClient(BaseClient):
         """Parse SRU response XML into a list of record dicts."""
         return parse_sru_records(
             root,
-            id_pattern=_STB_ID_PATTERN,
+            id_pattern=STB_ID_PATTERN,
             default_title_prefix="Staatsblad",
         )
 
@@ -95,7 +93,7 @@ class StaatsbladClient(BaseClient):
         Tries the direct repository URL first; falls back to SRU lookup on 404.
         Returns the XML text or None if not found.
         """
-        m = _STB_ID_PATTERN.search(identifier)
+        m = STB_ID_PATTERN.search(identifier)
         if not m:
             logger.warning("Cannot parse Staatsblad identifier: %s", identifier)
             return None
@@ -135,52 +133,5 @@ class StaatsbladClient(BaseClient):
                     return resp2.text
             except Exception as exc:
                 logger.debug("Fallback fetch failed for %s: %s", identifier, exc)
-
-        return None
-
-    @staticmethod
-    def extract_staatsblad_ref_from_bwb_xml(bwb_xml: str) -> tuple[str, str] | None:
-        """Parse BWB toestand XML to find the Staatsblad year and number.
-
-        Returns (year, number) tuple or None if not found.
-        Robust to namespace variations.
-        """
-        try:
-            root = ET.fromstring(bwb_xml)
-        except ET.ParseError as exc:
-            logger.debug("Could not parse BWB XML for Staatsblad ref: %s", exc)
-            return None
-
-        # Walk the tree looking for publicatieblad-like structures
-        found_jaar: str | None = None
-        found_nummer: str | None = None
-        for elem in root.iter():
-            local = _local_name(elem.tag)
-            if local == "publicatiejaar":
-                val = (elem.text or "").strip()
-                if val.isdigit():
-                    found_jaar = val
-
-            if local == "publicatienummer":
-                val = (elem.text or "").strip()
-                if val:
-                    found_nummer = val
-
-        # Also check for stb references in attributes
-        if not (found_jaar and found_nummer):
-            for elem in root.iter():
-                for attr_val in elem.attrib.values():
-                    m = _STB_ID_PATTERN.search(attr_val)
-                    if m:
-                        return m.group(1), m.group(2)
-
-        if found_jaar and found_nummer:
-            return found_jaar, found_nummer
-
-        # Try searching text content for stb references
-        xml_text = bwb_xml
-        m = _STB_ID_PATTERN.search(xml_text)
-        if m:
-            return m.group(1), m.group(2)
 
         return None

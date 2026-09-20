@@ -1,0 +1,129 @@
+<?xml version='1.0' encoding='utf-8'?>
+<toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0001997/2020-07-17/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBR0001997" inwerkingtreding="2020-07-17">
+  <wetgeving dtdversie="2.0" soort="wet" xml:lang="nl" stam-id="1272563" versie-id="11333112" id="C15269751" label-id="1232424" inwerkingtredingsdatum="2004-12-02">
+    <intitule bwb-ng-variabel-deel="/Intitule" stam-id="1272593" versie-id="1889092" id="C1889091" label-id="1232074" inwerking="1939-06-30" bron="Stb.1939-633" effect="nieuwe-regeling" ondertekening_bron="1939-06-24" status="goed">Wet van 24 juni 1939, houdende regelen teneinde in geval van oorlog, oorlogsgevaar of andere buitengewone omstandigheden een doelmatige distributie van goederen in het belang van volkshuishouding, landsverdediging en veiligheid van niet-militaire personen of lichamen mogelijk te maken <meta-data>
+        <brondata>
+          <oorspronkelijk>
+            <publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="">
+              <publicatiejaar>1939</publicatiejaar>
+              <publicatienr>633</publicatienr>
+              <ondertekeningsdatum isodatum="1939-06-24">24-06-1939</ondertekeningsdatum>
+              <dossierref dossier="270">270</dossierref>
+            </publicatie>
+          </oorspronkelijk>
+          <inwerkingtreding>
+            <publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="">
+              <publicatiejaar>1939</publicatiejaar>
+              <publicatienr>633</publicatienr>
+              <ondertekeningsdatum isodatum="1939-06-24">24-06-1939</ondertekeningsdatum>
+              <dossierref dossier="270">270</dossierref>
+            </publicatie>
+            <inwerkingtreding.datum isodatum="1939-06-30">30-06-1939</inwerkingtreding.datum>
+          </inwerkingtreding>
+        </brondata>
+      </meta-data>
+    </intitule>
+    <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="1272603" versie-id="11333142" id="C15798661" label-id="1232084" inwerking="2005-03-16" bron="Stb.2004-686" effect="wijziging" ondertekening_bron="2004-12-02" publicatie_bron="2004-12-28" publicatie_iwt="2005-03-15">Distributiewet <meta-data>
+        <brondata>
+          <oorspronkelijk>
+            <publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2004-686">
+              <publicatiejaar>2004</publicatiejaar>
+              <publicatienr>686</publicatienr>
+              <uitgiftedatum isodatum="2004-12-28">28-12-2004</uitgiftedatum>
+              <ondertekeningsdatum isodatum="2004-12-02">02-12-2004</ondertekeningsdatum>
+              <dossierref dossier="29514">29514</dossierref>
+            </publicatie>
+          </oorspronkelijk>
+          <inwerkingtreding>
+            <publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2005-118">
+              <publicatiejaar>2005</publicatiejaar>
+              <publicatienr>118</publicatienr>
+              <uitgiftedatum isodatum="2005-03-15">15-03-2005</uitgiftedatum>
+              <ondertekeningsdatum isodatum="2005-02-23">23-02-2005</ondertekeningsdatum>
+            </publicatie>
+            <inwerkingtreding.datum isodatum="2005-03-16">16-03-2005</inwerkingtreding.datum>
+          </inwerkingtreding>
+        </brondata>
+      </meta-data>
+    </citeertitel>
+    <wet-besluit>
+      <wettekst>
+        <artikel bwb-ng-variabel-deel="/Paragraaf1/Artikel5" stam-id="1272663" versie-id="1889162" id="C34307431" label-id="1232144" status="goed">
+          <kop>
+            <label>Artikel</label>
+            <nr status="officieel">5</nr>
+          </kop>
+          <al>
+            <redactie type="noodwetgeving">Dit artikel is nog niet in werking getreden; ingeval buitengewone omstandigheden dit noodzakelijk maken kan bij koninklijk besluit, op voordracht van Onze Minister-President, dit artikel in werking treden.</redactie>
+          </al>
+          <lid bwb-ng-variabel-deel="/Paragraaf1/Artikel5/Lid1" label-id="1232144L1">
+            <lidnr status="officieel">1</lidnr>
+            <al>Onze Minister kan bepalen, dat distributiegoederen niet mogen worden gekocht, verkocht, te koop aangeboden, afgeleverd, of voorhanden of in voorraad gehouden dan met inachtneming van de door hem vastgestelde distributieregeling. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001997&amp;paragraaf=1&amp;artikel=5&amp;lid=1&amp;z=2020-07-17&amp;g=2020-07-17" onderdeel="lid=1" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <lid bwb-ng-variabel-deel="/Paragraaf1/Artikel5/Lid2" label-id="1232144L2">
+            <lidnr status="officieel">2</lidnr>
+            <al> Hij kan daarbij bepalen, dat de in lid 1 genoemde handelingen niet zullen mogen geschieden zonder schriftelijke vergunning, door of namens hem verleend; aan deze vergunning kunnen voorwaarden worden verbonden. In spoedeischende gevallen kan zij ook anders dan schriftelijk worden verleend. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001997&amp;paragraaf=1&amp;artikel=5&amp;lid=2&amp;z=2020-07-17&amp;g=2020-07-17" onderdeel="lid=2" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <meta-data>
+            <jcis>
+              <jci versie="1.0" verwijzing="1.0:c:BWBR0001997&amp;artikel=5&amp;g=2020-07-17" onderdeel="artikel=5" korte-verwijzing="1.0:c:BWBR0001997&amp;artikel=5" />
+              <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001997&amp;paragraaf=1&amp;artikel=5&amp;z=2020-07-17&amp;g=2020-07-17" onderdeel="artikel=5" korte-verwijzing="jci1.3:c:BWBR0001997&amp;artikel=5" />
+            </jcis>
+          </meta-data>
+        </artikel>
+        <artikel bwb-ng-variabel-deel="/Paragraaf1/Artikel8" stam-id="1272693" versie-id="1889192" id="C34307461" label-id="1232174" status="goed">
+          <kop>
+            <label>Artikel</label>
+            <nr status="officieel">8</nr>
+          </kop>
+          <al>
+            <redactie type="noodwetgeving">Dit artikel is nog niet in werking getreden; ingeval buitengewone omstandigheden dit noodzakelijk maken kan bij koninklijk besluit, op voordracht van Onze Minister-President, dit artikel in werking treden.</redactie>
+          </al>
+          <lid bwb-ng-variabel-deel="/Paragraaf1/Artikel8/Lid1" label-id="1232174L1">
+            <lidnr status="officieel">1</lidnr>
+            <al>Onze Minister kan, hetzij voor het Rijk in Europa, hetzij voor door hem aan te wijzen gedeelten daarvan, bepalen, dat ieder, die distributiegoederen voorhanden of in voorraad heeft, verplicht is, van aard, hoeveelheid en plaats dier goederen opgave te doen, hetzij aan den Minister, hetzij aan de door dezen aangewezen instanties of personen. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001997&amp;paragraaf=1&amp;artikel=8&amp;lid=1&amp;z=2020-07-17&amp;g=2020-07-17" onderdeel="lid=1" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <lid bwb-ng-variabel-deel="/Paragraaf1/Artikel8/Lid2" label-id="1232174L2">
+            <lidnr status="officieel">2</lidnr>
+            <al> De opgave geschiedt op tijdstippen, te bepalen door Onzen Minister en overeenkomstig regelen door hem te stellen. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001997&amp;paragraaf=1&amp;artikel=8&amp;lid=2&amp;z=2020-07-17&amp;g=2020-07-17" onderdeel="lid=2" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <lid bwb-ng-variabel-deel="/Paragraaf1/Artikel8/Lid3" label-id="1232174L3">
+            <lidnr status="officieel">3</lidnr>
+            <al> De in lid 1 bedoelde verplichting kan door of namens den Minister ook aan bepaalde personen of lichamen worden opgelegd. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001997&amp;paragraaf=1&amp;artikel=8&amp;lid=3&amp;z=2020-07-17&amp;g=2020-07-17" onderdeel="lid=3" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <meta-data>
+            <jcis>
+              <jci versie="1.0" verwijzing="1.0:c:BWBR0001997&amp;artikel=8&amp;g=2020-07-17" onderdeel="artikel=8" korte-verwijzing="1.0:c:BWBR0001997&amp;artikel=8" />
+              <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001997&amp;paragraaf=1&amp;artikel=8&amp;z=2020-07-17&amp;g=2020-07-17" onderdeel="artikel=8" korte-verwijzing="jci1.3:c:BWBR0001997&amp;artikel=8" />
+            </jcis>
+          </meta-data>
+        </artikel>
+      </wettekst>
+    </wet-besluit>
+  </wetgeving>
+</toestand>

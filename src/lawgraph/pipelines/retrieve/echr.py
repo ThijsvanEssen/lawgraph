@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 _FULL_RUN_MAX_RECORDS = 50000
 
 
-class EchrRetrievePipeline(RetrievePipelineBase):
+class ECHRRetrievePipeline(RetrievePipelineBase):
     """Retrieve ECHR HUDOC judgments for a given respondent country."""
 
     def __init__(self, store: ArangoStore, client: EchrClient | None = None) -> None:

@@ -24,16 +24,18 @@ from starlette.responses import Response as StarletteResponse
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import articles, instruments, judgments, nodes
-from lawgraph.api.routes.commissies import fracties_router, leden_router
-from lawgraph.api.routes.commissies import router as commissies_router
+from lawgraph.api.routes.annexes import router as annexes_router
+from lawgraph.api.routes.committees import factions_router, members_router
+from lawgraph.api.routes.committees import router as committees_router
+from lawgraph.api.routes.decisions import router as decisions_router
+from lawgraph.api.routes.documents import router as documents_router
 from lawgraph.api.routes.dossiers import party_router
 from lawgraph.api.routes.dossiers import router as dossiers_router
 from lawgraph.api.routes.graph import router as graph_router
-from lawgraph.api.routes.parlement import router as parlement_router
-from lawgraph.api.routes.publications import router as publications_router
+from lawgraph.api.routes.parliament import router as parliament_router
+from lawgraph.api.routes.relationships import router as relationships_router
 from lawgraph.api.routes.search import router as search_router
 from lawgraph.api.routes.stats import router as stats_router
-from lawgraph.api.routes.stemmingen import router as stemmingen_router
 from lawgraph.api.routes.watches import router as watches_router
 from lawgraph.db import ArangoStore
 
@@ -204,9 +206,9 @@ app = FastAPI(
     title="Lawgraph API",
     version="0.4.0",
     description=(
-        "Lawgraph biedt een FastAPI-laag boven de ArangoDB knowledge graph. "
-        "De service exposeert endpoints voor wetsartikelen, uitspraken, "
-        "parlementaire dossiers en wetgevingsgeschiedenis."
+        "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
+        "exposes endpoints for articles of law, judgments, parliamentary "
+        "dossiers and legislative history."
     ),
     lifespan=_lifespan,
 )
@@ -216,19 +218,21 @@ app.include_router(judgments.router, prefix="/api/judgments", tags=["judgments"]
 app.include_router(instruments.router, prefix="/api/instruments", tags=["instruments"])
 app.include_router(nodes.router, prefix="/api/nodes", tags=["nodes"])
 app.include_router(dossiers_router, prefix="/api/dossiers", tags=["dossiers"])
-app.include_router(commissies_router, prefix="/api/commissies", tags=["commissies"])
-app.include_router(leden_router, prefix="/api/leden", tags=["leden"])
-app.include_router(fracties_router, prefix="/api/fracties", tags=["fracties"])
-app.include_router(party_router, prefix="/api/partijen", tags=["partijen"])
+app.include_router(committees_router, prefix="/api/committees", tags=["committees"])
+app.include_router(members_router, prefix="/api/members", tags=["members"])
+app.include_router(factions_router, prefix="/api/factions", tags=["factions"])
+app.include_router(party_router, prefix="/api/parties", tags=["parties"])
 app.include_router(graph_router, prefix="/api/graph", tags=["graph"])
 app.include_router(
-    publications_router, prefix="/api/publications", tags=["publications"]
+    relationships_router, prefix="/api/relationships", tags=["relationships"]
 )
+app.include_router(annexes_router, prefix="/api/annexes", tags=["annexes"])
+app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
 app.include_router(search_router, prefix="/api/search", tags=["search"])
 app.include_router(stats_router, prefix="/api/stats", tags=["stats"])
 app.include_router(watches_router, prefix="/api/watches", tags=["watches"])
-app.include_router(stemmingen_router, prefix="/api/stemmingen", tags=["stemmingen"])
-app.include_router(parlement_router, prefix="/api/parlement", tags=["parlement"])
+app.include_router(decisions_router, prefix="/api/decisions", tags=["decisions"])
+app.include_router(parliament_router, prefix="/api/parliament", tags=["parliament"])
 
 _allowed_origins_env = os.getenv(
     "LAWGRAPH_ALLOWED_ORIGINS",

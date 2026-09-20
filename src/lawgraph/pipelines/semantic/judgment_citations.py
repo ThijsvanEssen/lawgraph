@@ -1,19 +1,20 @@
-"""Semantic pipeline that detects ECLI references between judgments (CITES_JUDGMENT)."""
+"""Semantic pipeline that detects ECLI references between judgments (REFERS_TO)."""
 
 from __future__ import annotations
 
 import datetime as dt
-import re
 from typing import Any, Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_CANONIEK,
-    RELATION_CITES_JUDGMENT,
+    RELATION_REFERS_TO,
 )
+from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
+from lawgraph.core.values import first_text_prop
 
 from .base import SemanticPipelineBase
 
@@ -21,29 +22,9 @@ logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "judgment-citation-linker"
 
-# Matches ECLI:NL:HR:2020:1234 and international variants.
-_ECLI_PATTERN = re.compile(
-    r"\bECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:\d+\b",
-    re.IGNORECASE,
-)
-
-
-def detect_ecli_references(text: str | None) -> list[str]:
-    """Return unique ECLI identifiers found in text, normalised to upper-case."""
-    if not text:
-        return []
-    seen: set[str] = set()
-    result: list[str] = []
-    for match in _ECLI_PATTERN.finditer(text):
-        ecli = match.group(0).upper()
-        if ecli not in seen:
-            seen.add(ecli)
-            result.append(ecli)
-    return result
-
 
 class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
-    """Detect ECLI cross-references in judgment texts and create CITES_JUDGMENT edges."""
+    """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
@@ -75,7 +56,7 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
         for doc in self._load_judgments(since=since):
             judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
             text = self._extract_text(judgment)
-            eclis = detect_ecli_references(text)
+            eclis = find_eclis(text)
             if not eclis:
                 continue
             source_ecli = (judgment.props.get("ecli") or "").upper()
@@ -88,32 +69,6 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
                 pending.append((judgment.arango_id, ecli))
                 all_cited_eclis.add(ecli)
         return pending, all_cited_eclis, doc_count
-
-    def _resolve_eclis(self, all_cited_eclis: set[str]) -> dict[str, str]:
-        ecli_to_id: dict[str, str] = {}
-        aql = f"""
-        FOR doc IN {COLLECTION_JUDGMENTS}
-            FILTER doc.props.ecli IN @eclis
-            RETURN {{ ecli: doc.props.ecli, id: doc._id }}
-        """
-        for row in self.store.query(aql, bind_vars={"eclis": list(all_cited_eclis)}):
-            ecli_val = (row.get("ecli") or "").upper()
-            node_id = row.get("id") or ""
-            if ecli_val and node_id:
-                ecli_to_id[ecli_val] = node_id
-        for ecli in all_cited_eclis:
-            if ecli in ecli_to_id:
-                continue
-            key = make_node_key(ecli)
-            node = self.store.ensure_stub_node(
-                COLLECTION_JUDGMENTS,
-                key,
-                NodeType.JUDGMENT,
-                props={"ecli": ecli},
-            )
-            if node and node.arango_id:
-                ecli_to_id[ecli] = node.arango_id
-        return ecli_to_id
 
     def _emit_edges(
         self,
@@ -137,7 +92,7 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
             edge_doc = self._make_edge_doc(
                 from_node=from_node,
                 to_node=to_node,
-                relation=RELATION_CITES_JUDGMENT,
+                relation=RELATION_REFERS_TO,
                 source=SEMANTIC_SOURCE,
                 confidence=0.95,
                 meta={"cited_ecli": cited_ecli},
@@ -169,4 +124,4 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
         return self.store.query(f"FOR doc IN {COLLECTION_JUDGMENTS} RETURN doc")
 
     def _extract_text(self, judgment: Node) -> str | None:
-        return self._extract_props_text(judgment.props, "raw_xml", "text", "body")
+        return first_text_prop(judgment.props, "raw_xml", "text", "body")

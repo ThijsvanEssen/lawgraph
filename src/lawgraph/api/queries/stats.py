@@ -13,17 +13,17 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
     """Return document counts per collection and edge counts per relation type."""
     node_collections = [
         "instruments",
-        "instrument_articles",
+        "articles",
         "judgments",
-        "publications",
-        "procedures",
+        "documents",
+        "cases",
         "topics",
-        "kamerstukdossiers",
-        "activiteiten",
-        "stemmingen",
-        "toezeggingen",
-        "commissies",
-        "leden",
+        "dossiers",
+        "activities",
+        "decisions",
+        "commitments",
+        "committees",
+        "members",
     ]
     nodes: dict[str, int] = {}
     for name in node_collections:
@@ -64,19 +64,19 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
         for row in store.query(aql_instruments_by_jurisdiction):
             instruments_by_jurisdiction[row.get("j") or "unknown"] = row.get("n", 0)
 
-    # Source breakdown for publications
-    publications_by_source: dict[str, int] = {}
-    if store.db.has_collection("publications"):
-        aql_publications_by_source = "FOR p IN publications COLLECT src = p.props.source WITH COUNT INTO n RETURN {src, n}"
-        for row in store.query(aql_publications_by_source):
-            publications_by_source[row.get("src") or "unknown"] = row.get("n", 0)
+    # Source breakdown for documents
+    documents_by_source: dict[str, int] = {}
+    if store.db.has_collection("documents"):
+        aql_documents_by_source = "FOR p IN documents COLLECT src = p.props.source WITH COUNT INTO n RETURN {src, n}"
+        for row in store.query(aql_documents_by_source):
+            documents_by_source[row.get("src") or "unknown"] = row.get("n", 0)
 
     return {
         "nodes": nodes,
         "edges": {"total": edges_total, "by_relation": by_relation},
         "by_source": {
             "judgments": judgments_by_source,
-            "publications": publications_by_source,
+            "documents": documents_by_source,
         },
         "instruments": {
             "by_kind": instruments_by_kind,

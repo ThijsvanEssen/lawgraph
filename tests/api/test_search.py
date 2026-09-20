@@ -98,7 +98,7 @@ _SR_INSTRUMENT = {
 }
 
 _GRONDWET_ART_1 = {
-    "id": "instrument_articles/bwbr0001840_1",
+    "id": "articles/bwbr0001840_1",
     "key": "bwbr0001840_1",
     "collection": "instrument_articles",
     "type": "article",
@@ -113,7 +113,7 @@ _GRONDWET_ART_1 = {
 }
 
 _SR_ART_287 = {
-    "id": "instrument_articles/bwbr0001854_287",
+    "id": "articles/bwbr0001854_287",
     "key": "bwbr0001854_287",
     "collection": "instrument_articles",
     "type": "article",
@@ -151,7 +151,7 @@ class _StubStore:
                 if row["extra"]["article_number"] == article_number
                 and (bwb_id is None or row["extra"]["bwb_id"] == bwb_id)
             ]
-        if "search_articles" in aql or "FOR doc IN instrument_articles" in aql:
+        if "search_articles" in aql or "FOR doc IN articles" in aql:
             return list(self._hits.get("articles_text", []))
         if "search_judgments" in aql or "FOR doc IN judgments" in aql:
             return list(self._hits.get("judgments", []))
@@ -196,7 +196,7 @@ def test_search_article_intent_returns_grondwet_art_1_first():
     data = response.json()
     articles = data["results"]["articles"]
     assert articles, "expected at least one article hit"
-    assert articles[0]["id"] == "instrument_articles/bwbr0001840_1"
+    assert articles[0]["id"] == "articles/bwbr0001840_1"
     assert articles[0]["extra"]["bwb_id"] == "BWBR0001840"
     assert articles[0]["extra"]["citation_title"] == "Grondwet"
 
@@ -221,7 +221,7 @@ def test_search_sr_287_returns_strafrecht_article_in_top_3():
     )
     assert response.status_code == 200
     articles = response.json()["results"]["articles"]
-    assert articles[0]["id"] == "instrument_articles/bwbr0001854_287"
+    assert articles[0]["id"] == "articles/bwbr0001854_287"
     assert articles[0]["extra"]["short_title"] == "Sr"
     assert articles[0]["extra"]["citation_title"] == "Wetboek van Strafrecht"
 
@@ -269,4 +269,4 @@ def test_search_falls_back_to_text_for_free_form_queries():
     )
     articles = response.json()["results"]["articles"]
     assert len(articles) == 1
-    assert articles[0]["id"] == "instrument_articles/bwbr0001854_287"
+    assert articles[0]["id"] == "articles/bwbr0001854_287"

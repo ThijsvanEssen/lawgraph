@@ -6,50 +6,28 @@ import datetime as dt
 from typing import Any, Iterable
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_ARTICLES,
     COLLECTION_JUDGMENTS,
     RAW_KIND_RS_CONTENT,
-    RELATION_CITES_ARTICLE,
+    RELATION_REFERS_TO,
     SOURCE_RECHTSPRAAK,
+)
+from lawgraph.core.citations import (
+    CitationHit,
+    DutchCitationExtractor,
+    hit_reason,
+    strip_xml,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
 from .base import SemanticPipelineBase
-from .citation_detect import CitationHit, DutchCitationExtractor, hit_reason, strip_xml
 
 logger = get_logger(__name__)
 
-# Exported for backward compatibility with existing tests and callers.
-CodeMapping = dict[str, str]
 
 SEMANTIC_SOURCE = "rechtspraak-article-linker"
-
-
-# ---------------------------------------------------------------------------
-# Backward-compat public function
-# ---------------------------------------------------------------------------
-
-
-def detect_article_references(
-    text: str | None,
-    mapping: dict[str, str],
-) -> list[CitationHit]:
-    """Return article citations detected in *text*.
-
-    Thin wrapper around ``DutchCitationExtractor`` kept for backward compat.
-    Also appends bare ``artikel X`` hits (no law code, confidence 0.35) so
-    that callers which depend on low-confidence bare detection still work.
-    """
-    if not text:
-        return []
-    extractor = DutchCitationExtractor(code_aliases=mapping)
-    hits = extractor.extract(text)
-    coded_nums = {h.article_number for h in hits if h.article_number}
-    bare = extractor.extract_bare(text, confidence=0.35)
-    hits.extend(b for b in bare if b.article_number not in coded_nums)
-    return hits
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +35,7 @@ def detect_article_references(
 # ---------------------------------------------------------------------------
 
 
-class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
+class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
     """Link Rechtspraak judgments to BWB articles via semantic edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
@@ -100,7 +78,7 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
                 edge_doc = self._make_edge_doc(
                     from_node=judgment,
                     to_node=article,
-                    relation=RELATION_CITES_ARTICLE,
+                    relation=RELATION_REFERS_TO,
                     source=SEMANTIC_SOURCE,
                     confidence=hit.confidence,
                     meta={
@@ -133,14 +111,15 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
     def _resolve_article(self, hit: CitationHit) -> Node | None:
         if hit.bwb_id and hit.article_number:
             article_key = make_node_key(hit.bwb_id, hit.article_number)
-            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
+            node = self._lookup_node(COLLECTION_ARTICLES, article_key)
             if node is None and hit.confidence >= 0.9:
                 node = self.store.ensure_stub_node(
-                    COLLECTION_INSTRUMENT_ARTICLES,
+                    COLLECTION_ARTICLES,
                     article_key,
                     NodeType.ARTICLE,
                     props={"bwb_id": hit.bwb_id, "article_number": hit.article_number},
                 )
+                self._remember_node(node)
             if node is None:
                 logger.debug(
                     "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",
@@ -152,14 +131,15 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
 
         if hit.celex and hit.article_number:
             article_key = make_node_key(hit.celex, hit.article_number)
-            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
+            node = self._lookup_node(COLLECTION_ARTICLES, article_key)
             if node is None and hit.confidence >= 0.9:
                 node = self.store.ensure_stub_node(
-                    COLLECTION_INSTRUMENT_ARTICLES,
+                    COLLECTION_ARTICLES,
                     article_key,
                     NodeType.ARTICLE,
                     props={"celex": hit.celex, "article_number": hit.article_number},
                 )
+                self._remember_node(node)
             if node is None:
                 logger.debug(
                     "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",

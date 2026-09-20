@@ -3,7 +3,7 @@
 Treaties are stored as Instrument nodes with:
   - kind: 'verdrag' (bilateral) or 'multilateraalverdrag'
   - jurisdiction: 'nl' (NL is party) or 'int' for purely international
-  - props.verdragsnummer: the official NL treaty number
+  - props.treaty_number: the official NL treaty number
   - props.date_signed / props.date_in_force
   - props.status: 'in force' / 'not in force' / etc.
 """
@@ -15,6 +15,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
+    MAX_TITLE_CHARS,
     RAW_KIND_VERDRAG,
     SOURCE_VERDRAGENBANK,
 )
@@ -22,12 +23,12 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.db.store import ArangoStore
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
 
-class VerdragenbankNormalizePipeline(NormalizePipeline):
+class VerdragenbankNormalizePipeline(NormalizePipelineBase):
     """Normalize Verdragenbank treaty records into Instrument nodes."""
 
     def __init__(self, *, store: ArangoStore) -> None:
@@ -65,7 +66,7 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
             title_en = payload.get("title_en") or ""
             title = title_nl or title_en or f"Verdrag {external_id}"
 
-            verdragsnummer = payload.get("verdragsnummer") or ""
+            treaty_number = payload.get("verdragsnummer") or ""
             treaty_type = payload.get("treaty_type") or ""
             status = payload.get("status") or ""
             date_signed = _iso_date(payload.get("date_signed"))
@@ -82,7 +83,9 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
             is_in_force = "force" in status.lower() and "not" not in status.lower()
 
             display_name = (
-                title[:200] if title else f"Verdrag {verdragsnummer or external_id}"
+                title[:MAX_TITLE_CHARS]
+                if title
+                else f"Verdrag {treaty_number or external_id}"
             )
 
             props: dict[str, Any] = {
@@ -95,7 +98,7 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
                 "display_name": display_name,
                 "kind": kind,
                 "jurisdiction": "int",
-                "verdragsnummer": verdragsnummer,
+                "treaty_number": treaty_number,
                 "treaty_type": treaty_type,
                 "status": status,
                 "in_force": is_in_force,

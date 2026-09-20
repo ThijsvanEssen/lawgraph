@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 def _count_stubs(store: ArangoStore) -> int | None:
     aql = """
     RETURN {
-        stub_articles: LENGTH(FOR d IN instrument_articles FILTER d.props.stub == true RETURN 1),
+        stub_articles: LENGTH(FOR d IN articles FILTER d.props.stub == true RETURN 1),
         stub_judgments: LENGTH(FOR j IN judgments FILTER j.props.stub == true RETURN 1)
     }
     """

@@ -1,8 +1,7 @@
 """Orchestration helpers and run_*_all() entry points.
 
-Combines the step-runner utilities (formerly cli/_orchestration.py) and the
-three phase orchestrators (formerly cli/normalize_all.py, retrieve_all.py,
-semantic_all.py).
+The step-runner utilities and the three phase orchestrators
+(``run_retrieve_all``, ``run_normalize_all``, ``run_semantic_all``).
 """
 
 from __future__ import annotations

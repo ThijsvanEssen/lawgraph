@@ -5,12 +5,9 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
-from lawgraph.config.constants import (
-    RAW_KIND_TK_DOCUMENTVERSIE,
-    RAW_KIND_TK_ZAAK,
-    SOURCE_TK,
-)
+from lawgraph.config.constants import RAW_KIND_TK_DOCUMENT, RAW_KIND_TK_ZAAK, SOURCE_TK
 from lawgraph.core.logging import get_logger
+from lawgraph.core.values import first_str
 from lawgraph.db import ArangoStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -19,7 +16,7 @@ logger = get_logger(__name__)
 
 
 class TKRetrievePipeline(RetrievePipelineBase):
-    """Retrieve pipeline for TK Zaak and DocumentVersie raw sources."""
+    """Retrieve pipeline for TK Zaak and Document raw sources."""
 
     def __init__(self, store: ArangoStore, tk_client: TKClient | None = None) -> None:
         super().__init__(store)
@@ -30,25 +27,23 @@ class TKRetrievePipeline(RetrievePipelineBase):
         *,
         since: dt.datetime,
         limit: int = 0,
-        zaak_filter: Callable[[dict[str, Any]], bool] | None = None,
-        documentversie_filter: Callable[[dict[str, Any]], bool] | None = None,
+        case_filter: Callable[[dict[str, Any]], bool] | None = None,
+        document_filter: Callable[[dict[str, Any]], bool] | None = None,
         keywords: list[str] | None = None,
         **kwargs: object,
     ) -> Sequence[RetrieveRecord]:
-        """Return records for TK Zaak and DocumentVersie that match the filters.
+        """Return records for TK Zaak and Document that match the filters.
 
         If *keywords* is provided, keyword matching is pushed into the OData
         query so the API only returns relevant records (avoids fetching 30k+
         records and discarding most of them client-side).
 
-        ``limit`` is kept for backwards compatibility but is no longer used as
-        an OData ``$top`` cap — doing so silently dropped records beyond the
-        limit. All pages are now fetched via nextLink pagination. Pass
-        ``limit > 0`` only to hard-cap the in-memory result list after fetching
-        (useful for smoke-test / development runs).
+        ``limit`` caps the in-memory result list per entity after fetching
+        (useful for smoke-test / development runs); it is not an OData ``$top``,
+        which would silently drop records beyond the cap.
         """
         logger.info(
-            "Fetching TK Zaak and DocumentVersie since %s%s",
+            "Fetching TK Zaak and Document since %s%s",
             since.isoformat(),
             f" (dev cap: {limit})" if limit else "",
         )
@@ -56,29 +51,28 @@ class TKRetrievePipeline(RetrievePipelineBase):
         records: list[RetrieveRecord] = []
 
         # Always pass top=0 (no $top) so _paged_get follows @odata.nextLink
-        # across all pages. Previously passing top=limit capped the OData
-        # result set at `limit` records total, silently dropping the rest.
-        zaken = self.tk.zaken_modified_since(
+        # across all pages.
+        cases = self.tk.zaken_modified_since(
             since,
             top=0,
             keyword_fields=["Onderwerp", "Titel"] if keywords else None,
             keywords=keywords,
         )
-        for zaak in zaken:
-            if zaak_filter and not zaak_filter(zaak):
+        for case in cases:
+            if case_filter and not case_filter(case):
                 continue
             candidates = [
-                zaak.get("Id"),
-                zaak.get("ZaakId"),
-                zaak.get("ZaakNummer"),
+                case.get("Id"),
+                case.get("ZaakId"),
+                case.get("ZaakNummer"),
             ]
-            external_id = self._first_non_none_str(candidates)
+            external_id = first_str(candidates)
             records.append(
                 RetrieveRecord(
                     source=SOURCE_TK,
                     kind=RAW_KIND_TK_ZAAK,
                     external_id=external_id,
-                    payload_json=zaak,
+                    payload_json=case,
                     meta={
                         "endpoint": "Zaak",
                         "since": since.isoformat(),
@@ -91,59 +85,41 @@ class TKRetrievePipeline(RetrievePipelineBase):
                 )
                 break
 
-        # Fetch Document (not DocumentVersie) because Document carries Titel,
-        # Onderwerp, and Soort which are needed for content filtering. Each
-        # Document record is expanded with its parent Zaak for procedure linking.
-        documentversies = self.tk.documents_modified_since(
-            since,
-            top=0,
+        documents = self.tk.fetch_documents(
+            since=since,
             keyword_fields=["Titel", "Onderwerp"] if keywords else None,
             keywords=keywords,
         )
-        doc_count = 0
-        for documentversie in documentversies:
-            if documentversie_filter and not documentversie_filter(documentversie):
+        document_count = 0
+        for document in documents:
+            if document_filter and not document_filter(document):
                 continue
-            candidates = [
-                documentversie.get("Id"),
-                documentversie.get("DocumentVersieId"),
-            ]
-            external_id = self._first_non_none_str(candidates)
+            external_id = first_str([document.get("Id")])
             records.append(
                 RetrieveRecord(
                     source=SOURCE_TK,
-                    kind=RAW_KIND_TK_DOCUMENTVERSIE,
+                    kind=RAW_KIND_TK_DOCUMENT,
                     external_id=external_id,
-                    payload_json=documentversie,
+                    payload_json=document,
                     meta={
-                        "endpoint": "DocumentVersie",
+                        "endpoint": "Document",
                         "since": since.isoformat(),
                     },
                 )
             )
-            doc_count += 1
-            if limit and doc_count >= limit:
+            document_count += 1
+            if limit and document_count >= limit:
                 logger.warning(
-                    "Dev cap of %d records reached for DocumentVersie — stopping.",
+                    "Dev cap of %d records reached for Document — stopping.",
                     limit,
                 )
                 break
 
-        zaak_count = sum(1 for rec in records if rec.kind == RAW_KIND_TK_ZAAK)
-        documentversie_count = sum(
-            1 for rec in records if rec.kind == RAW_KIND_TK_DOCUMENTVERSIE
-        )
+        case_count = sum(1 for rec in records if rec.kind == RAW_KIND_TK_ZAAK)
         logger.info(
-            "TK retrieve complete: %d records total (%d zaken, %d documentversies).",
+            "TK retrieve complete: %d records total (%d cases, %d documents).",
             len(records),
-            zaak_count,
-            documentversie_count,
+            case_count,
+            document_count,
         )
         return records
-
-    @staticmethod
-    def _first_non_none_str(values: Sequence[str | None]) -> str | None:
-        for value in values:
-            if value is not None:
-                return str(value)
-        return None

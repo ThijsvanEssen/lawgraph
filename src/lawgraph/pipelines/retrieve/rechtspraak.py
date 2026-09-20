@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import xml.etree.ElementTree as ET
 from collections.abc import Sequence
 from typing import Any
 
@@ -11,6 +10,7 @@ from lawgraph.config.constants import (
     RAW_KIND_RS_INDEX,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.judgments import count_index_entries
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
@@ -125,7 +125,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
                 result.add_error(msg)
                 break
 
-            entry_count = self._count_index_entries(xml_text)
+            entry_count = count_index_entries(xml_text)
             record = RetrieveRecord(
                 source=SOURCE_RECHTSPRAAK,
                 kind=RAW_KIND_RS_INDEX,
@@ -157,16 +157,3 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             len(result.errors),
         )
         return result
-
-    @staticmethod
-    def _count_index_entries(xml_text: str) -> int:
-        """Count Atom <entry> elements in an index page XML string."""
-        try:
-            root = ET.fromstring(xml_text)
-            return sum(
-                1
-                for el in root
-                if (el.tag.split("}", 1)[-1] if "}" in el.tag else el.tag) == "entry"
-            )
-        except ET.ParseError:
-            return xml_text.count("<entry>")

@@ -1,7 +1,6 @@
 """Per-source retrieve entry points.
 
-Each function has the same interface as the old cli/retrieve_xxx.py main()
-functions: it accepts an optional argv list and handles its own argument
+Each function accepts an optional argv list and handles its own argument
 parsing, store setup, and pipeline invocation.
 """
 
@@ -14,6 +13,7 @@ from typing import cast
 
 from dotenv import load_dotenv
 
+from lawgraph.core.identifiers import clean_ids
 from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.db import ArangoStore
 
@@ -35,21 +35,13 @@ def retrieve_bwb(argv: list[str] | None = None) -> None:
     from lawgraph.clients.bwb import BWBClient
     from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 
-    def _clean_ids(values: list[str]) -> list[str]:
-        seen: dict[str, None] = {}
-        for v in values:
-            s = v.strip()
-            if s:
-                seen[s] = None
-        return list(seen)
-
     def _ids_from_env() -> list[str]:
         raw = os.getenv("BWB_IDS", "")
-        return _clean_ids(raw.split(",")) if raw else []
+        return clean_ids(raw.split(",")) if raw else []
 
     def _resolve_ids(*, cli_ids: list[str] | None) -> list[str]:
         if cli_ids:
-            return _clean_ids(cli_ids)
+            return clean_ids(cli_ids)
         return _ids_from_env()
 
     logger = get_logger(__name__)
@@ -118,7 +110,7 @@ def retrieve_bwb_history(argv: list[str] | None = None) -> None:
 
 
 def retrieve_echr(argv: list[str] | None = None) -> None:
-    from lawgraph.pipelines.retrieve.echr import EchrRetrievePipeline
+    from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 
     logger = get_logger(__name__)
     parser = argparse.ArgumentParser(description="Retrieve ECHR HUDOC judgments.")
@@ -134,7 +126,7 @@ def retrieve_echr(argv: list[str] | None = None) -> None:
 
     _setup()
     store = ArangoStore()
-    pipeline = EchrRetrievePipeline(store)
+    pipeline = ECHRRetrievePipeline(store)
 
     if mode == "full":
         result = pipeline.run_full(respondent=args.respondent)
@@ -355,9 +347,7 @@ def retrieve_tk(argv: list[str] | None = None) -> None:
     from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 
     logger = get_logger(__name__)
-    parser = argparse.ArgumentParser(
-        description="Retrieve TK zaak and documentversie data."
-    )
+    parser = argparse.ArgumentParser(description="Retrieve TK Zaak and Document data.")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--since-days", type=int, default=1)
     parser.add_argument(
@@ -395,20 +385,20 @@ def retrieve_tk(argv: list[str] | None = None) -> None:
 
 
 def retrieve_tk_content(argv: list[str] | None = None) -> None:
-    from lawgraph.pipelines.retrieve.tk_content import TKTextHydratePipeline
+    from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 
     logger = get_logger(__name__)
     parser = argparse.ArgumentParser(
         description="Fetch full-text PDF content for TK publications."
     )
-    parser.add_argument("--soort", default="toelichting")
+    parser.add_argument("--kind", default="toelichting")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
     _setup()
     store = ArangoStore()
-    pipeline = TKTextHydratePipeline(store=store)
-    result = pipeline.run(soort_filter=args.soort, dry_run=args.dry_run)
+    pipeline = TKContentRetrievePipeline(store=store)
+    result = pipeline.run(kind_filter=args.kind, dry_run=args.dry_run)
     logger.info("Done: %s.", result.summary())
 
     if result.errors:
@@ -422,24 +412,24 @@ def retrieve_tk_content(argv: list[str] | None = None) -> None:
 
 def retrieve_tk_dossiers(argv: list[str] | None = None) -> None:
     from lawgraph.core.time import parse_since as _parse_since
-    from lawgraph.pipelines.retrieve.tk_dossiers import TkDossiersRetrievePipeline
+    from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 
     logger = get_logger(__name__)
     parser = argparse.ArgumentParser(
         description="Retrieve parliamentary dossier entities from the TK OData API.",
     )
     parser.add_argument("--since", default=None)
-    parser.add_argument("--skip-personen", action="store_true")
-    parser.add_argument("--skip-stemmingen", action="store_true")
-    parser.add_argument("--stemmingen-since", default=None, metavar="DATE")
+    parser.add_argument("--skip-members", action="store_true")
+    parser.add_argument("--skip-decisions", action="store_true")
+    parser.add_argument("--decisions-since", default=None, metavar="DATE")
     parser.add_argument("--skip-documents", action="store_true")
     parser.add_argument("--documents-since", default=None, metavar="DATE")
-    parser.add_argument("--dossier-nummer", type=int, default=None, metavar="N")
+    parser.add_argument("--dossier-number", type=int, default=None, metavar="N")
     args = parser.parse_args(argv)
 
     try:
         since = _parse_since(args.since)
-        stemmingen_since = _parse_since(args.stemmingen_since)
+        decisions_since = _parse_since(args.decisions_since)
         documents_since = _parse_since(args.documents_since)
     except ValueError as exc:
         parser.error(str(exc))
@@ -447,15 +437,15 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> None:
 
     _setup()
     store = ArangoStore()
-    pipeline = TkDossiersRetrievePipeline(store=store)
+    pipeline = TKDossiersRetrievePipeline(store=store)
     result = pipeline.run(
         since=since,
-        stemmingen_since=stemmingen_since,
+        decisions_since=decisions_since,
         documents_since=documents_since,
-        skip_personen=args.skip_personen,
-        skip_stemmingen=args.skip_stemmingen,
+        skip_members=args.skip_members,
+        skip_decisions=args.skip_decisions,
         skip_documents=args.skip_documents,
-        dossier_nummer=args.dossier_nummer,
+        dossier_number=args.dossier_number,
     )
     logger.info("%s", result.summary())
     if result.errors:

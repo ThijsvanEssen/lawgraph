@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from lawgraph.config.constants import EDGE_STATUS_VOORGESTELD, RELATION_AMENDS
 from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.relations import BY_NAME
 from lawgraph.pipelines.semantic.instrument_relations import (
-    InstrumentRelationsPipeline,
+    InstrumentRelationsSemanticPipeline,
     detect_amends_instrument,
     detect_celex_references,
 )
@@ -62,11 +64,9 @@ class _FakeStore:
         self,
         *,
         pub_docs: list[dict[str, Any]] | None = None,
-        proc_docs: list[dict[str, Any]] | None = None,
         nodes: dict[tuple[str, str], Node] | None = None,
     ) -> None:
         self._pub_docs = pub_docs or []
-        self._proc_docs = proc_docs or []
         self._nodes = nodes or {}
         self.edges: dict[str, dict[str, Any]] = {}
         self._call = 0
@@ -91,12 +91,9 @@ class _FakeStore:
         # BWB raw-text query.
         if "raw_sources" in aql:
             return []
-        # TK publications collection query.
-        if "publications" in aql:
+        # TK documents collection query.
+        if "documents" in aql:
             return list(self._pub_docs)
-        # TK procedures collection query.
-        if "procedures" in aql:
-            return list(self._proc_docs)
         return []
 
     def get_node(self, collection: str, key: str) -> Node | None:
@@ -123,8 +120,8 @@ class _FakeStore:
 def _make_pub(key: str, title: str, labels: list[str] | None = None) -> dict[str, Any]:
     return {
         "_key": key,
-        "_id": f"publications/{key}",
-        "type": NodeType.PUBLICATION.value,
+        "_id": f"documents/{key}",
+        "type": NodeType.DOCUMENT.value,
         "labels": labels or ["TK"],
         "props": {"title": title, "source": "tk"},
     }
@@ -144,45 +141,44 @@ def _make_instrument_node(bwb_id: str, title: str | None = None) -> Node:
     )
 
 
-def test_pipeline_creates_amends_instrument_edge() -> None:
+def _amends_store() -> _FakeStore:
     inst_key = make_node_key("BWBR0001854")
-    pub_doc = _make_pub("pub1", "Wijziging van het Wetboek van Strafrecht")
-    store = _FakeStore(
-        pub_docs=[pub_doc],
+    return _FakeStore(
+        pub_docs=[_make_pub("pub1", "Wijziging van het Wetboek van Strafrecht")],
         nodes={
             ("instruments", inst_key): _make_instrument_node(
                 "BWBR0001854", title="Wetboek van Strafrecht"
             ),
         },
     )
-    pipeline = InstrumentRelationsPipeline(store=store)
-    result = pipeline.run()
-
-    assert result.created >= 1
-    relations = {e["relation"] for e in store.edges.values()}
-    assert "AMENDS_INSTRUMENT" in relations
 
 
-def test_pipeline_creates_discusses_edge_for_procedure() -> None:
-    inst_key = make_node_key("BWBR0001854")
-    proc_doc = {
-        "_key": "proc1",
-        "_id": "procedures/proc1",
-        "type": NodeType.PROCEDURE.value,
-        "labels": ["TK"],
-        "props": {"title": "Debat Wetboek van Strafrecht aanpassingen"},
-    }
-    store = _FakeStore(
-        proc_docs=[proc_doc],
-        nodes={
-            ("instruments", inst_key): _make_instrument_node(
-                "BWBR0001854", title="Wetboek van Strafrecht"
-            ),
-        },
-    )
-    pipeline = InstrumentRelationsPipeline(store=store)
-    result = pipeline.run()
+def test_pipeline_creates_a_proposed_amends_edge() -> None:
+    store = _amends_store()
 
-    assert result.created >= 1
-    relations = {e["relation"] for e in store.edges.values()}
-    assert "DISCUSSES" in relations
+    result = InstrumentRelationsSemanticPipeline(store=store).run()
+
+    assert result.created == 1
+    (edge,) = store.edges.values()
+    assert edge["relation"] == RELATION_AMENDS
+    assert edge["status"] == EDGE_STATUS_VOORGESTELD
+
+
+def test_amends_endpoints_match_the_catalogue() -> None:
+    store = _amends_store()
+
+    InstrumentRelationsSemanticPipeline(store=store).run()
+
+    spec = BY_NAME[RELATION_AMENDS]
+    for edge in store.edges.values():
+        assert edge["_from"].split("/")[0] in spec.sources
+        assert edge["_to"].split("/")[0] in spec.targets
+
+
+def test_a_case_never_produces_an_edge() -> None:
+    """Only a bill (Document) may propose a change; a Case is not an endpoint."""
+    store = _amends_store()
+
+    InstrumentRelationsSemanticPipeline(store=store).run()
+
+    assert not any(e["_from"].startswith("cases/") for e in store.edges.values())

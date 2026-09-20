@@ -8,30 +8,27 @@ from __future__ import annotations
 
 from types import MappingProxyType
 
-# ── BWB identifier prefix ─────────────────────────────────────────────────────
-
-BWB_ID_PREFIX = "BWBR"
-
 # ── Collection name constants ─────────────────────────────────────────────────
 
 COLLECTION_INSTRUMENTS = "instruments"
-COLLECTION_INSTRUMENT_ARTICLES = "instrument_articles"
+COLLECTION_ARTICLES = "articles"
 COLLECTION_INSTRUMENT_VERSIONS = "instrument_versions"
-COLLECTION_INSTRUMENT_ARTICLE_VERSIONS = "instrument_article_versions"
-COLLECTION_PROCEDURES = "procedures"
-COLLECTION_PUBLICATIONS = "publications"
+COLLECTION_ARTICLE_VERSIONS = "article_versions"
+COLLECTION_CASES = "cases"
+COLLECTION_DOCUMENTS = "documents"
 COLLECTION_JUDGMENTS = "judgments"
-COLLECTION_KAMERSTUKDOSSIERS = "kamerstukdossiers"
-COLLECTION_ACTIVITEITEN = "activiteiten"
-COLLECTION_STEMMINGEN = "stemmingen"
-COLLECTION_TOEZEGGINGEN = "toezeggingen"
-COLLECTION_COMMISSIES = "commissies"
-COLLECTION_LEDEN = "leden"
-COLLECTION_FRACTIES = "fracties"
+COLLECTION_DOSSIERS = "dossiers"
+COLLECTION_ACTIVITIES = "activities"
+COLLECTION_DECISIONS = "decisions"
+COLLECTION_COMMITMENTS = "commitments"
+COLLECTION_COMMITTEES = "committees"
+COLLECTION_MEMBERS = "members"
+COLLECTION_FACTIONS = "factions"
 COLLECTION_EDGE_STATUS_LOG = "edge_status_log"
 COLLECTION_TOPICS = "topics"
 COLLECTION_RAW_SOURCES = "raw_sources"
 COLLECTION_WATCHES = "watches"
+COLLECTION_ANNEXES = "annexes"
 
 # ── Edge status values ────────────────────────────────────────────────────────
 
@@ -39,45 +36,73 @@ EDGE_STATUS_CANONIEK = "canoniek"  # current law
 EDGE_STATUS_VOORGESTELD = "voorgesteld"  # pending mutation from an open dossier
 
 # ── Relation type constants ───────────────────────────────────────────────────
-# Single source of truth for relation strings. Do NOT define these anywhere else.
+# One constant per relation in ``core.relations.RELATIONS``; the names and their
+# meaning live in that catalogue. Relation strings are written nowhere else.
 
-# Structural — written by normalize pipelines, fully deterministic.
-RELATION_PART_OF_INSTRUMENT = "PART_OF_INSTRUMENT"  # article → instrument
-RELATION_PART_OF_PROCEDURE = "PART_OF_PROCEDURE"  # publication → procedure (zaak)
-RELATION_DEEL_VAN_DOSSIER = "DEEL_VAN_DOSSIER"  # zaak/pub/activiteit → kamerstukdossier
-RELATION_DISCUSSES = "DISCUSSES"  # procedure → instrument
+RELATION_PART_OF = "PART_OF"
+RELATION_VERSION_OF = "VERSION_OF"
+RELATION_AMENDS = "AMENDS"
+RELATION_INTRODUCES = "INTRODUCES"
+RELATION_REPEALS = "REPEALS"
+RELATION_BASED_ON = "BASED_ON"
+RELATION_IMPLEMENTS = "IMPLEMENTS"
+RELATION_LEGISLATED_IN = "LEGISLATED_IN"
+RELATION_REFERS_TO = "REFERS_TO"
+RELATION_EXPLAINS = "EXPLAINS"
+RELATION_APPEAL_OF = "APPEAL_OF"
+RELATION_SCOPED_BY = "SCOPED_BY"
+RELATION_ABOUT = "ABOUT"
+RELATION_LED_BY = "LED_BY"
+RELATION_MADE_IN = "MADE_IN"
+RELATION_MEMBER_OF = "MEMBER_OF"
+RELATION_AUTHORED = "AUTHORED"
+RELATION_VOTED = "VOTED"
 
-# Parliamentary structural — written by dossier normalize pipeline.
-RELATION_RAAKT = "RAAKT"  # kamerstukdossier → instrument
-RELATION_WIJZIGT = "WIJZIGT"  # document → article (proposes change); status=voorgesteld
-RELATION_INTRODUCEERT = "INTRODUCEERT"  # document → article (introduces new article)
-RELATION_TREKT_IN = "TREKT_IN"  # document → article (proposes repeal)
-RELATION_LICHT_TOE = "LICHT_TOE"  # mvt → article (explains legislative intent)
-RELATION_BESLUIT = "BESLUIT"  # stemming → document (finalizes or rejects)
-RELATION_BEHANDELD_DOOR = "BEHANDELD_DOOR"  # activiteit → commissie
-RELATION_LID_VAN = "LID_VAN"  # lid → commissie
-RELATION_GEDAAN_IN = "GEDAAN_IN"  # toezegging → activiteit
-RELATION_AUTEUR_VAN = "AUTEUR_VAN"  # lid → document
-RELATION_LID_VAN_FRACTIE = "LID_VAN_FRACTIE"  # lid → fractie (party membership)
-RELATION_STEMT = "STEMT"  # fractie → stemming (group vote, with meta.stem)
+# ── Semantic relationship types ───────────────────────────────────────────────
+# Curated semantic layer stored on edges as `semantic_type`. Orthogonal to
+# `relation` (which says *that* two nodes are linked); semantic_type says
+# *what the link legally means*. Nullable — most edges remain unclassified.
 
-# Semantic — written by semantic pipelines, confidence-weighted.
-RELATION_REFERS_TO_ARTICLE = "REFERS_TO_ARTICLE"
-RELATION_EXPLAINS_ARTICLE = "EXPLAINS_ARTICLE"
-RELATION_CITES_ARTICLE = "CITES_ARTICLE"
-RELATION_MENTIONS_ARTICLE = "MENTIONS_ARTICLE"
-RELATION_CITES_JUDGMENT = "CITES_JUDGMENT"
-RELATION_MENTIONS_INSTRUMENT = "MENTIONS_INSTRUMENT"
-RELATION_AMENDS_INSTRUMENT = "AMENDS_INSTRUMENT"
-RELATION_IMPLEMENTS_DIRECTIVE = "IMPLEMENTS_DIRECTIVE"
-RELATION_EXPLAINS_INSTRUMENT = "EXPLAINS_INSTRUMENT"  # publication → instrument (NvT)
-RELATION_DELEGATED_BY = "DELEGATED_BY"  # instrument (AMvB) → article (delegation basis)
-RELATION_RESULTED_IN = "RESULTED_IN"  # kamerstukdossier → instrument (enacted law)
-RELATION_SUPERSEDES = "SUPERSEDES"  # newer version → older version
-RELATION_VERSION_OF = "VERSION_OF"  # instrument_version → instrument
-RELATION_PART_OF_VERSION = "PART_OF_VERSION"  # article_version → instrument_version
-RELATION_CAUSED_VERSION = "CAUSED_VERSION"  # publication → instrument_article_version
-RELATION_APPEAL_OF = "APPEAL_OF"  # hoger beroep/cassatie → prior judgment
+SEMANTIC_TYPE_CONDITIONAL_REQUIREMENT = "conditional_requirement"
+SEMANTIC_TYPE_SCOPE_LIMITATION = "scope_limitation"
+SEMANTIC_TYPE_PREREQUISITE_PROCEDURE = "prerequisite_procedure"
+SEMANTIC_TYPE_DEFINITIONAL_REFERENCE = "definitional_reference"
+SEMANTIC_TYPE_LIMITING_EXCEPTION = "limiting_exception"
+SEMANTIC_TYPE_CROSS_REFERENCE = "cross_reference"
+SEMANTIC_TYPE_DELEGATED_DISCRETION = "delegated_discretion"
+
+SEMANTIC_RELATIONSHIP_TYPES: frozenset[str] = frozenset(
+    {
+        SEMANTIC_TYPE_CONDITIONAL_REQUIREMENT,
+        SEMANTIC_TYPE_SCOPE_LIMITATION,
+        SEMANTIC_TYPE_PREREQUISITE_PROCEDURE,
+        SEMANTIC_TYPE_DEFINITIONAL_REFERENCE,
+        SEMANTIC_TYPE_LIMITING_EXCEPTION,
+        SEMANTIC_TYPE_CROSS_REFERENCE,
+        SEMANTIC_TYPE_DELEGATED_DISCRETION,
+    }
+)
+
+# Provenance of a semantic_type assignment, stored on edges as `semantic_source`.
+# (Distinct from the edge-level `source` field, which names the pipeline that
+# created the edge itself.)
+SEMANTIC_SOURCE_STRUCTURED = "structured"  # deterministic text-pattern extraction
+SEMANTIC_SOURCE_EXPERT = "expert"  # validated by a legal expert
+SEMANTIC_SOURCE_COMMUNITY = "community"  # community-proposed tag
+SEMANTIC_SOURCE_LLM = "llm"  # future: LLM-assisted classification
+
+SEMANTIC_SOURCES: frozenset[str] = frozenset(
+    {
+        SEMANTIC_SOURCE_STRUCTURED,
+        SEMANTIC_SOURCE_EXPERT,
+        SEMANTIC_SOURCE_COMMUNITY,
+        SEMANTIC_SOURCE_LLM,
+    }
+)
+
+# Scope of a SCOPED_BY link: fixed list vs. ministerially expandable.
+SCOPE_TYPE_FIXED = "fixed"
+SCOPE_TYPE_DISCRETIONARY = "discretionary"
 
 # ── Source identifier constants ───────────────────────────────────────────────
 
@@ -85,6 +110,38 @@ SOURCE_TK = "tk"
 SOURCE_RECHTSPRAAK = "rechtspraak"
 SOURCE_EURLEX = "eurlex"
 SOURCE_BWB = "bwb"
+
+# Short citation codes recognised in judgment text when no alias table is loaded from the
+# database: Sr = Wetboek van Strafrecht, Sv = Wetboek van Strafvordering, WVW = Wegenverkeerswet.
+DEFAULT_CODE_ALIASES: dict[str, str] = {
+    "Sr": "BWBR0001854",
+    "Sv": "BWBR0001903",
+    "WVW": "BWBR0006622",
+}
+
+# BWB ``dcterms.type`` values that count as instruments: rules with a basis in a
+# power laid down in law (statutes, AMvBs, KBs, ministerial regulations, ZBO/PBO
+# regulations, policy rules, regulations, treaties, and the BES variants).
+# Not included: "circulaire" — internal instructions without a legislative basis.
+BWB_INSTRUMENT_TYPES: tuple[str, ...] = (
+    "wet",
+    "rijkswet",
+    "AMvB",
+    "rijksAMvB",
+    "KB",
+    "rijksKB",
+    "ministeriele-regeling",
+    "ministeriele-regeling-archiefselectielijst",
+    "zbo",
+    "pbo",
+    "reglement",
+    "beleidsregel",
+    "verdrag",
+    "wet-BES",
+    "AMvB-BES",
+    "ministeriele-regeling-BES",
+    "beleidsregel-BES",
+)
 SOURCE_STAATSBLAD = "staatsblad"
 SOURCE_STAATSCOURANT = "staatscourant"
 SOURCE_EERSTEKAMER = "eerstekamer"
@@ -94,7 +151,6 @@ SOURCE_VERDRAGENBANK = "verdragenbank"
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 
 RAW_KIND_TK_ZAAK = "tk-zaak"
-RAW_KIND_TK_DOCUMENTVERSIE = "tk-documentversie"
 RAW_KIND_TK_DOSSIER = "tk-dossier"
 RAW_KIND_TK_ACTIVITEIT = "tk-activiteit"
 RAW_KIND_TK_STEMMING = "tk-stemming"
@@ -119,7 +175,6 @@ RAW_KIND_VERDRAG = "verdrag-json"
 RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_TK: (
         RAW_KIND_TK_ZAAK,
-        RAW_KIND_TK_DOCUMENTVERSIE,
         RAW_KIND_TK_DOSSIER,
         RAW_KIND_TK_ACTIVITEIT,
         RAW_KIND_TK_STEMMING,
@@ -144,9 +199,14 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
 }
 
+# ── Semantic pipeline limits ──────────────────────────────────────────────────
+
+# Maximum characters of a document's text scanned for citations (200 KB).
+MAX_SEMANTIC_TEXT_LENGTH = 200_000
+
 # ── Party colors ──────────────────────────────────────────────────────────────
 # Canonical brand colors for Dutch parliamentary parties.
-# Keyed by the party abbreviation as it appears in fractie.afkorting.
+# Keyed by the party abbreviation as it appears in fractie.abbreviation.
 # GL-PvdA, GroenLinks, and GroenLinks-PvdA are all intentional duplicates:
 # different API versions use different abbreviations for the same merged party.
 
@@ -178,3 +238,6 @@ PARTY_COLORS: MappingProxyType[str, str] = MappingProxyType(
         "Lid Keijzer": "#999999",
     }
 )
+
+# Longest title / display name stored on a node (longer source titles are truncated).
+MAX_TITLE_CHARS = 200

@@ -39,6 +39,23 @@ def iso_date(val: Any) -> str | None:
     return s if _DATE_RE.match(s) else None
 
 
+def odata_datetime(value: dt.datetime) -> str:
+    """Format a datetime for an OData filter: ``YYYY-MM-DDTHH:MM:SSZ`` (UTC, no fraction)."""
+    if value.tzinfo is not None:
+        value = value.astimezone(dt.timezone.utc)
+    return value.replace(microsecond=0, tzinfo=None).isoformat() + "Z"
+
+
+def sortable_date(value: str | None) -> dt.date:
+    """Parse an ISO date for sorting; missing or malformed values sort first."""
+    if not value:
+        return dt.date.min
+    try:
+        return dt.date.fromisoformat(value)
+    except ValueError:
+        return dt.date.min
+
+
 def strip_time_component(value: str | None) -> str | None:
     """Return only the date portion of an ISO 8601 string (drops time and timezone)."""
     if not value:

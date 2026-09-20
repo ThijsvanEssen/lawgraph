@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries import create_watch, delete_watch, list_watches
+from lawgraph.api.schemas.watches import WatchIn, WatchOut
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
 
@@ -16,42 +16,10 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-class WatchIn(BaseModel):
-    """Body for POST /api/watches."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    node_id: str
-    label: str | None = None
-    collection: str | None = None
-
-
-class WatchOut(BaseModel):
-    """A persisted watch record."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    node_id: str
-    label: str | None
-    collection: str | None
-    created_at: str
-
-    @classmethod
-    def from_document(cls, doc: dict) -> WatchOut:
-        return cls(
-            id=doc["_key"],
-            node_id=doc["node_id"],
-            label=doc.get("label"),
-            collection=doc.get("collection"),
-            created_at=doc["created_at"],
-        )
-
-
 @router.get(
     "",
     response_model=list[WatchOut],
-    summary="Alle watches ophalen",
+    summary="List all watches",
     tags=["watches"],
 )
 def get_watches(
@@ -65,7 +33,7 @@ def get_watches(
     "",
     response_model=WatchOut,
     status_code=201,
-    summary="Node toevoegen aan watchlist",
+    summary="Add a node to the watchlist",
     tags=["watches"],
 )
 def add_watch(
@@ -100,10 +68,10 @@ def add_watch(
 @router.delete(
     "/{watch_id}",
     status_code=204,
-    summary="Watch verwijderen",
+    summary="Remove a watch",
     description=(
-        "Verwijdert een watch op zijn ``_key``. Returns HTTP 204 zonder "
-        "body bij succes, 404 als de watch niet bestaat."
+        "Removes a watch by its ``_key``. Returns HTTP 204 with no body on "
+        "success, 404 when the watch does not exist."
     ),
     tags=["watches"],
 )

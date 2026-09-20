@@ -1,4 +1,4 @@
-"""Normalize pipeline for Eerste Kamer Kamerstukken and stemmingen."""
+"""Normalize pipeline for Eerste Kamer Kamerstukken and Stemmingen."""
 
 from __future__ import annotations
 
@@ -6,23 +6,23 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_PUBLICATIONS,
-    COLLECTION_STEMMINGEN,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    MAX_TITLE_CHARS,
     RAW_KIND_EK_STUK,
-    RELATION_BESLUIT,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.db.store import ArangoStore
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
 
-class EerstekamerNormalizePipeline(NormalizePipeline):
-    """Normalize EK Kamerstukken into Publication nodes and stemmingen into Stemming nodes."""
+class EerstekamerNormalizePipeline(NormalizePipelineBase):
+    """Normalize EK Kamerstukken into documents and EK Stemmingen into decisions."""
 
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
@@ -40,7 +40,7 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
         self, raw: list[dict[str, Any]], result: PipelineResult
     ) -> dict[str, Node]:
         nodes: dict[str, Node] = {}
-        stemmingen = 0
+        decisions = 0
 
         for record in raw:
             payload = self._payload_json(record)
@@ -60,27 +60,27 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
                 )
 
             if record_type == "stemming":
-                node = self._normalize_stemming(record, payload, result)
+                node = self._normalize_decision(record, payload, result)
                 if node:
-                    stemmingen += 1
+                    decisions += 1
                     result.created += 1
                     item_id = str(payload.get("Id") or "")
                     nodes[f"stemming:{item_id}"] = node
             else:
-                node = self._normalize_kamerstuk(record, payload, result)
+                node = self._normalize_paper(record, payload, result)
                 if node:
                     item_id = str(payload.get("Id") or "")
                     nodes[item_id] = node
                     result.created += 1
 
         logger.info(
-            "EK normalize: %d publications, %d stemmingen processed.",
+            "EK normalize: %d publications, %d decisions processed.",
             len(nodes),
-            stemmingen,
+            decisions,
         )
         return nodes
 
-    def _normalize_kamerstuk(
+    def _normalize_paper(
         self, record: dict[str, Any], payload: dict[str, Any], result: PipelineResult
     ) -> Node | None:
         item_id = str(payload.get("Id") or "")
@@ -88,39 +88,39 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
             result.skipped += 1
             return None
 
-        nummer = payload.get("Nummer") or ""
-        soort = payload.get("Soort") or ""
-        titel = payload.get("Titel") or f"EK {soort} {nummer}"
-        datum = _iso_date(payload.get("Datum"))
-        vergaderjaar = payload.get("Vergaderjaar") or ""
-        dossier_nummer = payload.get("DossierNummer")
+        number = payload.get("Nummer") or ""
+        kind = payload.get("Soort") or ""
+        title = payload.get("Titel") or f"EK {kind} {number}"
+        date = _iso_date(payload.get("Datum"))
+        session_year = payload.get("Vergaderjaar") or ""
+        dossier_number = payload.get("DossierNummer")
 
-        display_name = titel[:200] if titel else f"EK-stuk {nummer}"
+        display_name = title[:MAX_TITLE_CHARS] if title else f"EK-stuk {number}"
 
         props: dict[str, Any] = {
             "source": SOURCE_EERSTEKAMER,
             "external_id": item_id,
-            "soort": soort,
-            "nummer": nummer,
-            "titel": titel,
-            "datum": datum,
-            "vergaderjaar": vergaderjaar,
+            "kind": kind,
+            "number": number,
+            "title": title,
+            "date": date,
+            "session_year": session_year,
             "display_name": display_name,
         }
-        if dossier_nummer:
-            props["dossier_nummer"] = str(dossier_nummer)
+        if dossier_number:
+            props["dossier_number"] = str(dossier_number)
 
         key = make_node_key("ek", item_id)
         node = Node(
-            collection=COLLECTION_PUBLICATIONS,
-            type=NodeType.PUBLICATION,
+            collection=COLLECTION_DOCUMENTS,
+            type=NodeType.DOCUMENT,
             key=key,
             labels=["EersteKamer", "EK"],
             props=props,
         )
         return self.store.insert_or_update(node)
 
-    def _normalize_stemming(
+    def _normalize_decision(
         self, record: dict[str, Any], payload: dict[str, Any], result: PipelineResult
     ) -> Node | None:
         item_id = str(payload.get("Id") or "")
@@ -128,46 +128,46 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
             result.skipped += 1
             return None
 
-        kamerstuk_id = str(payload.get("KamerstukId") or "")
-        vergadering_id = str(payload.get("VergaderingId") or "")
-        soort = payload.get("Soort") or ""
-        aangenomen_raw = payload.get("Aangenomen")
+        parliamentary_paper_id = str(payload.get("KamerstukId") or "")
+        meeting_id = str(payload.get("VergaderingId") or "")
+        kind = payload.get("Soort") or ""
+        passed_raw = payload.get("Aangenomen")
 
         # OData: true/false, int 0/1, or "Aangenomen"/"Verworpen" string
-        if isinstance(aangenomen_raw, bool):
-            aangenomen = aangenomen_raw
-        elif isinstance(aangenomen_raw, int):
-            aangenomen = bool(aangenomen_raw)
-        elif isinstance(aangenomen_raw, str):
-            aangenomen = aangenomen_raw.lower() in ("true", "aangenomen", "ja")
+        if isinstance(passed_raw, bool):
+            passed = passed_raw
+        elif isinstance(passed_raw, int):
+            passed = bool(passed_raw)
+        elif isinstance(passed_raw, str):
+            passed = passed_raw.lower() in ("true", "aangenomen", "ja")
         else:
-            aangenomen = None
+            passed = None
 
         meta = self._meta(record)
-        datum = _iso_date(meta.get("datum") or payload.get("Datum"))
+        date = _iso_date(meta.get("date") or payload.get("Datum"))
 
-        display_name = f"EK stemming {soort}" if soort else f"EK stemming {item_id}"
-        if aangenomen is True:
+        display_name = f"EK stemming {kind}" if kind else f"EK stemming {item_id}"
+        if passed is True:
             display_name += " (aangenomen)"
-        elif aangenomen is False:
+        elif passed is False:
             display_name += " (verworpen)"
 
         props: dict[str, Any] = {
             "source": SOURCE_EERSTEKAMER,
             "external_id": item_id,
-            "soort": soort,
-            "kamerstuk_id": kamerstuk_id,
-            "vergadering_id": vergadering_id,
-            "aangenomen": aangenomen,
-            "datum": datum,
+            "kind": kind,
+            "parliamentary_paper_id": parliamentary_paper_id,
+            "meeting_id": meeting_id,
+            "passed": passed,
+            "date": date,
             "display_name": display_name,
             "chamber": "EK",
         }
 
         key = make_node_key("ek", "stemming", item_id)
         node = Node(
-            collection=COLLECTION_STEMMINGEN,
-            type=NodeType.STEMMING,
+            collection=COLLECTION_DECISIONS,
+            type=NodeType.DECISION,
             key=key,
             labels=["EersteKamer", "EK"],
             props=props,
@@ -177,30 +177,9 @@ class EerstekamerNormalizePipeline(NormalizePipeline):
     def build_edges(
         self, raw: list[dict[str, Any]], normalized: dict[str, Node]
     ) -> int:
-        edges = 0
-        for _key, node in normalized.items():
-            if node.collection != COLLECTION_STEMMINGEN:
-                continue
-            if node.arango_id is None:
-                continue
-            kamerstuk_id = str(node.props.get("kamerstuk_id") or "")
-            if not kamerstuk_id:
-                continue
-            kamerstuk_key = make_node_key("ek", kamerstuk_id)
-            kamerstuk_arangoid = f"{COLLECTION_PUBLICATIONS}/{kamerstuk_key}"
-            try:
-                self.store.create_edge(
-                    from_id=node.arango_id,
-                    to_id=kamerstuk_arangoid,
-                    relation=RELATION_BESLUIT,
-                    source=SOURCE_EERSTEKAMER,
-                )
-                edges += 1
-            except Exception as exc:
-                logger.error(
-                    "EK edge creation failed %s → %s: %s",
-                    node.arango_id,
-                    kamerstuk_arangoid,
-                    exc,
-                )
-        return edges
+        """None. EK stukken reach the graph through their TK dossier.
+
+        The link is made by ``EerstekamerDossierLinkSemanticPipeline``, which
+        matches ``DossierNummer`` against the TK kamerstukdossiers.
+        """
+        return 0

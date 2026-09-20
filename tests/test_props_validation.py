@@ -37,14 +37,28 @@ def test_judgment_valid_props():
     assert node.props["ecli"] == "ECLI:NL:HR:2020:1234"
 
 
+def test_judgment_accepts_the_rechtspraak_rdf_fields():
+    node = Node(
+        collection="judgments",
+        type=NodeType.JUDGMENT,
+        props={
+            "ecli": "ECLI:NL:HR:2020:1234",
+            "court": "Hoge Raad",
+            "case_number": "19/01234",
+            "related_eclis": ["ECLI:NL:GHAMS:2019:1"],
+        },
+    )
+    assert node.props["court"] == "Hoge Raad"
+
+
 def test_publication_valid_props():
     node = Node(
-        collection="publications",
-        type=NodeType.PUBLICATION,
+        collection="documents",
+        type=NodeType.DOCUMENT,
         props={
             "source": "tk",
             "display_name": "Kamerstuk 36000 nr. 3",
-            "soort": "Wetsvoorstel",
+            "kind": "Wetsvoorstel",
         },
     )
     assert node.props["source"] == "tk"
@@ -52,22 +66,21 @@ def test_publication_valid_props():
 
 def test_dossier_valid_props():
     node = Node(
-        collection="kamerstukdossiers",
+        collection="dossiers",
         type=NodeType.DOSSIER,
         props={
             "external_id": "ext-1",
-            "nummer": 36000,
-            "kamerstuknummer": "36000",
-            "afgedaan": False,
+            "number": "36000",
+            "closed": False,
             "display_name": "Kamerstukdossier 36000",
         },
     )
-    assert node.props["nummer"] == 36000
+    assert node.props["number"] == "36000"
 
 
 def test_article_valid_props():
     node = Node(
-        collection="instrument_articles",
+        collection="articles",
         type=NodeType.ARTICLE,
         props={
             "bwb_id": "BWBR0001854",
@@ -105,8 +118,8 @@ def test_judgment_unknown_field_raises():
 def test_publication_unknown_field_raises():
     with pytest.raises(ValueError, match="dossier_nr"):
         Node(
-            collection="publications",
-            type=NodeType.PUBLICATION,
+            collection="documents",
+            type=NodeType.DOCUMENT,
             props={"source": "tk", "display_name": "test", "dossier_nr": "36000"},
         )
 
@@ -114,7 +127,7 @@ def test_publication_unknown_field_raises():
 def test_article_typo_raises():
     with pytest.raises(ValueError, match="artikel_number"):
         Node(
-            collection="instrument_articles",
+            collection="articles",
             type=NodeType.ARTICLE,
             props={"bwb_id": "BWBR0001854", "artikel_number": "1"},
         )
@@ -136,7 +149,7 @@ def test_skip_validation_allows_arbitrary_props():
 
 
 # ---------------------------------------------------------------------------
-# from_document bypasses validation (DB reads with legacy fields must work)
+# from_document bypasses validation (a stored doc may carry unnamed fields)
 # ---------------------------------------------------------------------------
 
 
@@ -145,10 +158,10 @@ def test_from_document_bypasses_validation():
         "_key": "test",
         "type": "instrument",
         "labels": [],
-        "props": {"legacy_field": "value", "bwb_id": "BWBR0001854"},
+        "props": {"unnamed_field": "value", "bwb_id": "BWBR0001854"},
     }
     node = Node.from_document("instruments", doc)
-    assert node.props["legacy_field"] == "value"
+    assert node.props["unnamed_field"] == "value"
 
 
 # ---------------------------------------------------------------------------
