@@ -265,7 +265,6 @@ MAX_TITLE_CHARS = 200
 DEFAULT_MIN_INTERVAL = 0.2
 HOST_MIN_INTERVAL: dict[str, float] = {
     "repository.overheid.nl": 0.5,
-    "zoek.officielebekendmakingen.nl": 0.5,
     "hudoc.echr.coe.int": 0.5,
     "publications.europa.eu": 0.3,
     "data.rechtspraak.nl": 0.2,

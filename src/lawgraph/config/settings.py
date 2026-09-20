@@ -35,7 +35,8 @@ ARANGO_URL = os.getenv("ARANGO_URL", "http://localhost:8529")
 ARANGO_DB_NAME = os.getenv("ARANGO_DB_NAME", "lawgraph")
 ARANGO_USER = os.getenv("ARANGO_USER", "root")
 ARANGO_PASSWORD = os.getenv("ARANGO_PASSWORD", "")
-# Slightly above the 600 s AQL max_runtime, so the server times out before the client.
+# Slightly above the 600 s a writing query may take (db/store.py), so the server times out
+# before the client.
 ARANGO_REQUEST_TIMEOUT = 620
 
 # ── External sources ──────────────────────────────────────────────────────────
