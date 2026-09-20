@@ -67,6 +67,38 @@ def _create_database_if_missing(client: ArangoClient) -> None:
         logger.info("Created database %s.", ARANGO_DB_NAME)
 
 
+def raw_source_doc(
+    *,
+    source: str,
+    kind: str,
+    external_id: str | None,
+    payload_json: dict | list | None = None,
+    payload_text: str | None = None,
+    meta: dict | None = None,
+) -> dict[str, Any]:
+    """The raw_sources document of one record, keyed by (source, kind, external_id).
+
+    ``fetched_at`` is the moment of this call: when the record was fetched, not when a
+    buffered write stores it.
+    """
+    if external_id is not None:
+        key = hashlib.sha1(f"{source}:{kind}:{external_id}".encode()).hexdigest()
+    else:
+        key = str(uuid4())
+    return {
+        "_key": key,
+        "source": source,
+        "kind": kind,
+        "external_id": external_id,
+        "fetched_at": iso_timestamp(
+            dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+        ),
+        "payload_json": payload_json,
+        "payload_text": payload_text,
+        "meta": dict(meta or {}),
+    }
+
+
 # How long the server keeps an AQL cursor that is not read (its default is 30 seconds).
 CURSOR_TTL_SECONDS = 3600.0
 
@@ -146,40 +178,28 @@ class ArangoStore:
 
     # ── Raw sources ────────────────────────────────────────────────────────────
 
-    def insert_raw_source(
-        self,
-        *,
-        source: str,
-        kind: str,
-        external_id: str | None,
-        payload_json: dict | list | None = None,
-        payload_text: str | None = None,
-        meta: dict | None = None,
-    ) -> dict[str, Any]:
-        """Upsert a raw source record keyed by (source, kind, external_id)."""
-        fetched_at = iso_timestamp(
-            dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    def insert_raw_sources(
+        self, docs: list[dict[str, Any]]
+    ) -> list[tuple[dict[str, Any], str]]:
+        """Upsert raw source documents (see ``raw_source_doc``) in one request.
+
+        A stored document with the same key is replaced. Returns the documents the server
+        refused, each with the reason; a failure of the request itself raises.
+        """
+        if not docs:
+            return []
+        outcome = self.raw_sources.insert_many(
+            docs,
+            overwrite=True,
+            overwrite_mode="replace",
+            return_new=False,
+            raise_on_document_error=False,
         )
-
-        if external_id is not None:
-            record_key = hashlib.sha1(
-                f"{source}:{kind}:{external_id}".encode()
-            ).hexdigest()
-        else:
-            record_key = str(uuid4())
-
-        doc: dict[str, Any] = {
-            "_key": record_key,
-            "source": source,
-            "kind": kind,
-            "external_id": external_id,
-            "fetched_at": fetched_at,
-            "payload_json": payload_json,
-            "payload_text": payload_text,
-            "meta": dict(meta or {}),
-        }
-        result = self.raw_sources.insert(doc, overwrite=True, overwrite_mode="replace")
-        return cast(dict[str, Any], result)
+        return [
+            (doc, str(answer))
+            for doc, answer in zip(docs, cast(list[Any], outcome), strict=True)
+            if isinstance(answer, Exception)
+        ]
 
     # ── Nodes ──────────────────────────────────────────────────────────────────
 

@@ -12,6 +12,7 @@ import requests
 
 from lawgraph.clients.echr import EchrClient
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
+from tests.fakes import RawSourcesFake
 
 PAGE = json.loads(
     (pathlib.Path(__file__).parent / "fixtures" / "hudoc_results_page.json").read_text()
@@ -32,7 +33,7 @@ def _client(responses: list[Any], calls: list[dict]) -> EchrClient:
     return client
 
 
-class _Store:
+class _Store(RawSourcesFake):
     def __init__(self) -> None:
         self.stored: list[dict[str, Any]] = []
 

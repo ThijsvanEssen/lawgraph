@@ -7,6 +7,7 @@ from typing import Any
 import requests
 
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
+from tests.fakes import RawSourcesFake
 
 
 def _toestand(year: str | None, number: str | None) -> str:
@@ -18,7 +19,7 @@ def _toestand(year: str | None, number: str | None) -> str:
     return f"<toestand><wetgeving>{refs}</wetgeving></toestand>"
 
 
-class _Store:
+class _Store(RawSourcesFake):
     def __init__(self, rows: list[dict], existing: list[str] | None = None) -> None:
         self.rows = rows
         self.existing = existing or []

@@ -15,6 +15,7 @@ from lawgraph.core.bwb_wti import extract_general_info
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
+from tests.fakes import RawSourcesFake
 from tests.normalize.test_bwb import _Store
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
@@ -97,7 +98,7 @@ def test_client_returns_nothing_without_a_wti_location_or_element() -> None:
 # ── retrieve ─────────────────────────────────────────────────────────────────
 
 
-class _RawStore:
+class _RawStore(RawSourcesFake):
     def __init__(self, recent: list[str] | None = None) -> None:
         self.records: list[dict[str, Any]] = []
         self.recent = recent or []  # stored by an interrupted run in the last 24 hours

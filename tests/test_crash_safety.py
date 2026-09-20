@@ -17,9 +17,10 @@ from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
+from tests.fakes import RawSourcesFake
 
 
-class _Store:
+class _Store(RawSourcesFake):
     """Records what is stored; ``recent`` is what the last 24 hours already hold."""
 
     def __init__(self, recent: list[str] | None = None) -> None:
@@ -49,20 +50,6 @@ class _Pipeline(RetrievePipelineBase):
 
 
 # ── the base class ───────────────────────────────────────────────────────────
-
-
-def test_every_record_is_stored_before_the_next_is_fetched() -> None:
-    order: list[str] = []
-    store = _Store()
-    store.insert_raw_source = lambda **kw: order.append(f"store {kw['external_id']}")  # type: ignore[method-assign]
-
-    def source() -> Iterator[RetrieveRecord]:
-        for name in ("a", "b"):
-            order.append(f"fetch {name}")
-            yield _record(name)
-
-    _Pipeline(store, source()).run()
-    assert order == ["fetch a", "store a", "fetch b", "store b"]
 
 
 def test_a_failure_halfway_keeps_what_was_stored_and_is_an_error() -> None:

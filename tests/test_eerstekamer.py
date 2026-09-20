@@ -21,6 +21,7 @@ from lawgraph.pipelines.semantic.eerstekamer_dossier_link import (
     EerstekamerDossierLinkSemanticPipeline,
 )
 from tests.conftest import _BaseFakeStore
+from tests.fakes import RawSourcesFake
 
 PAGE = (
     pathlib.Path(__file__).parent / "fixtures" / "sru_eerstekamer_kamerstukken_page.xml"
@@ -93,7 +94,7 @@ def test_limit_stops_early() -> None:
 # ── retrieve ─────────────────────────────────────────────────────────────────
 
 
-class _RawStore:
+class _RawStore(RawSourcesFake):
     def __init__(self) -> None:
         self.stored: list[dict[str, Any]] = []
 

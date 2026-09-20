@@ -12,6 +12,7 @@ import pytest
 from lawgraph.core import logging as lg
 from lawgraph.core.progress import PeriodicLog, Progress
 from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
+from tests.fakes import RawSourcesFake
 
 
 class _Clock:
@@ -82,7 +83,7 @@ def test_periodic_log_is_due_once_per_interval() -> None:
 # ── through a retrieve pipeline ──────────────────────────────────────────────
 
 
-class _Store:
+class _Store(RawSourcesFake):
     def insert_raw_source(self, **_kw: Any) -> None:
         pass
 
@@ -123,7 +124,7 @@ def test_a_cause_of_failure_is_one_error_of_the_result() -> None:
     result = P(Failing()).run()  # type: ignore[arg-type]
     assert result.created == 0 and result.skipped == 30
     assert result.errors == [
-        "30 x could not be stored (RuntimeError) (first: test/kind/0: write failed)"
+        "30 x could not be stored (first: test/kind/0: write failed)"
     ]
 
 

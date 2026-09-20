@@ -21,6 +21,7 @@ from lawgraph.pipelines.semantic.rechtspraak_articles import (
 from lawgraph.pipelines.semantic.staatscourant_regeling import (
     StaatscourantRegelingSemanticPipeline,
 )
+from tests.fakes import RawSourcesFake
 
 # ── a source that is down fails the step ─────────────────────────────────────
 
@@ -43,7 +44,7 @@ def test_a_success_ends_the_streak() -> None:
         streak.ok()  # never three in a row
 
 
-class _Store:
+class _Store(RawSourcesFake):
     def query(self, aql, bind_vars=None):
         return []
 
@@ -301,7 +302,7 @@ def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph() -> None:
 def test_tk_dossiers_a_failing_write_is_an_error_not_only_a_log_line() -> None:
     from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 
-    class Store:
+    class Store(RawSourcesFake):
         def insert_raw_source(self, *, external_id, **kw):
             if external_id == "d2":
                 raise RuntimeError("write failed")

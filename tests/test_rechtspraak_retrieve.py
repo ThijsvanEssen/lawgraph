@@ -17,6 +17,7 @@ from lawgraph.pipelines.retrieve.rechtspraak import (
     RechtspraakRetrievePipeline,
     resolve_courts,
 )
+from tests.fakes import RawSourcesFake
 
 INDEX_PAGE = (
     pathlib.Path(__file__).parent / "fixtures" / "rechtspraak_index_page.xml"
@@ -181,7 +182,7 @@ class _Rs:
         return outcome
 
 
-class _Store:
+class _Store(RawSourcesFake):
     def __init__(self, stored: dict[str, str] | None = None) -> None:
         self.records: list[dict[str, Any]] = []
         self.stored = stored or {}  # ecli -> fetched_at

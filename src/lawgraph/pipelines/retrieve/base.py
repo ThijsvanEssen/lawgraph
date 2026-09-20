@@ -10,7 +10,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
-from lawgraph.db import ArangoStore
+from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db.raw import Failure
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
@@ -105,18 +106,40 @@ class RetrievePipelineBase(PipelineBase):
     def _store_all(
         self, records: Iterable[RetrieveRecord], *, what: str = "records"
     ) -> PipelineResult:
-        """Store *records* one by one, as they arrive, and report the progress.
+        """Store *records* as they arrive, a buffer at a time, and report the progress.
 
-        Nothing is held back until the end: a crash, an interrupt or a failing source in
-        the middle keeps every record stored so far, and re-running only repeats the rest
-        (stores are upserts). A failure of the source itself is an error of the result, and
-        so is every reason a record failed for (once, with its count).
+        Nothing is held back until the end. A failing source and an interrupt write the
+        buffer before the run ends, so they keep every record fetched; a crash of the process
+        loses at most the last buffer (``RawSourceWriter``: 500 records, 8 MB or 5 seconds),
+        and re-running only repeats the rest (stores are upserts). A failure of the source
+        itself is an error of the result, and so is every reason a record failed for (once,
+        with its count).
         """
         result = PipelineResult()
         progress = self.progress = Progress(what)
+        by_products: set[str] = set()
+
+        def written(stored: list[dict[str, Any]], failures: list[Failure]) -> None:
+            result.created += len(stored)
+            progress.ok(sum(1 for doc in stored if doc["_key"] not in by_products))
+            for doc, reason in failures:
+                where = f"{doc['source']}/{doc['kind']}/{doc['external_id']}: {reason}"
+                progress.fail("could not be stored", where)
+
         try:
-            for record in records:
-                result.created += self._store(record, progress)
+            with RawSourceWriter(self.store, on_flush=written) as writer:
+                for record in records:
+                    doc = raw_source_doc(
+                        source=record.source,
+                        kind=record.kind,
+                        external_id=record.external_id,
+                        payload_json=record.payload_json,
+                        payload_text=record.payload_text,
+                        meta=record.meta,
+                    )
+                    if not record.counts:
+                        by_products.add(doc["_key"])
+                    writer.add(doc)
         except Exception as exc:
             msg = f"fetch() failed after {result.created} records were stored: {exc}"
             logger.error(msg)
@@ -125,18 +148,6 @@ class RetrievePipelineBase(PipelineBase):
             progress.finish()
         add_outcome(result, progress)
         return result
-
-    def _store(self, record: RetrieveRecord, progress: Progress) -> int:
-        """Store one record; the number stored (a failing store is counted, not raised)."""
-        try:
-            self._insert(record)
-        except Exception as exc:
-            where = f"{record.source}/{record.kind}/{record.external_id}: {exc}"
-            progress.fail(f"could not be stored ({failure_reason(exc)})", where)
-            return 0
-        if record.counts:
-            progress.ok()
-        return 1
 
     def fetch(self, **kwargs: Any) -> Iterable[RetrieveRecord]:
         """Return (or yield) the raw source records that should be stored.
@@ -196,13 +207,3 @@ class RetrievePipelineBase(PipelineBase):
                     at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)
                 )
         return stored
-
-    def _insert(self, record: RetrieveRecord) -> None:
-        self.store.insert_raw_source(
-            source=record.source,
-            kind=record.kind,
-            external_id=record.external_id,
-            payload_json=record.payload_json,
-            payload_text=record.payload_text,
-            meta=record.meta,
-        )

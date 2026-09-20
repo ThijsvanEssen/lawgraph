@@ -86,6 +86,7 @@ pipeline writes in bulk and looks up by set.
 |------|-----|-----|
 | write edges | `EdgeWriter` (`db/edges.py`): `add(from, to, relation, ...)`, `flush()` or `with` | one insert per edge |
 | build an edge document | `make_edge_doc` (the one edge shape: key, `created_at`, confidence check) | hand-built dicts |
+| write raw records | `RawSourceWriter` (`db/raw.py`) through `RetrievePipelineBase._store_all`: one request per 500 records, 8 MB or 5 seconds, written on every exit | one insert per record |
 | write nodes | `NodeWriter` (`db/nodes.py`) or `NormalizePipelineBase._upsert_nodes` | `insert_or_update` per record |
 | does this node exist | `store.existing_keys(collection, keys)`: one primary-index query per 5,000 keys | `get_node` per item |
 | resolve targets in a semantic run | `SemanticPipelineBase._prefetch_nodes` (bulk) then `_lookup_node` (cached, hits and misses) | `get_node` per citation |
@@ -116,5 +117,5 @@ administer the server), then the missing collections, indexes, analyzers and sea
 | Identifiers, module names and stored property names are English; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's Dutch spelling | `tests/test_conventions.py` |
 | Props are validated against a strict Pydantic schema per collection (unknown fields fail) | `core/props.py`, `tests/test_props_validation.py` |
 | `PART_OF` always points child (article, annex) to instrument | `tests/test_part_of_instrument_direction.py` |
-| Bulk writers batch and de-duplicate; store lookups are bounded | `tests/test_edge_writer.py`, `tests/test_node_writer.py`, `tests/test_store_existing_keys.py`, `tests/test_batching.py` |
+| Bulk writers batch and de-duplicate; store lookups are bounded | `tests/test_edge_writer.py`, `tests/test_node_writer.py`, `tests/test_raw_source_writer.py`, `tests/test_store_existing_keys.py`, `tests/test_batching.py` |
 | Logging via `get_logger(__name__)`, no `print()` in library code | convention (review) |

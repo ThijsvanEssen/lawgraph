@@ -204,10 +204,11 @@ per host, with the number of HTTP 429/503 answers since the last one; the retrie
 are logged at `DEBUG`. The pacer is shared inside one process only: two `lawgraph retrieve`
 commands started side by side on the same host add up and do get throttled.
 
-**Interruptions.** A retrieve stores each record as soon as it is fetched (Tweede Kamer pages,
-each publication, each act, each regulation), so a crash, an interrupt or a failing source
-keeps everything stored so far, and a failure in the middle is an error of the step, not a
-silent stop. A step that downloads one document per record (`staatscourant`, `bwb`, `eurlex`)
+**Interruptions.** A retrieve stores its records while it fetches, a buffer at a time
+(`RawSourceWriter`: 500 records, 8 MB of text or 5 seconds, whichever comes first). An
+interrupt and a failing source write the buffer before the step ends, so they keep everything
+fetched, and a failure in the middle is an error of the step, not a silent stop. A crash of
+the process or the machine loses at most that last buffer. A step that downloads one document per record (`staatscourant`, `bwb`, `eurlex`)
 skips the records stored in the last 24 hours, so a re-run only does the rest; a refresh the
 next day fetches everything again. The Tweede Kamer pages are read again from the start on a
 re-run (upserts, so only time is repeated).

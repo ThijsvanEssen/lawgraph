@@ -11,6 +11,7 @@ import requests
 from lawgraph.clients.eu import EUClient
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.sources.registry import SOURCES
+from tests.fakes import RawSourcesFake
 
 
 def _http_error(status: int) -> requests.HTTPError:
@@ -81,7 +82,7 @@ def test_an_empty_nim_listing_is_an_error_not_a_silent_success() -> None:
 # ── retrieving ───────────────────────────────────────────────────────────────
 
 
-class _Store:
+class _Store(RawSourcesFake):
     def __init__(
         self, events: list[str] | None = None, recent: list[str] | None = None
     ) -> None:
@@ -137,16 +138,6 @@ def test_other_failures_are_skipped_too_and_the_run_continues() -> None:
     )
     assert (result.created, result.skipped) == (1, 2)
     assert store.stored == ["31990L0003"]
-
-
-def test_every_act_is_stored_before_the_next_is_fetched() -> None:
-    _, _, events = _run({"32010L0064": "<html/>", "32010L0065": "<html/>"})
-    assert events == [
-        "fetch 32010L0064",
-        "store 32010L0064",
-        "fetch 32010L0065",
-        "store 32010L0065",
-    ]
 
 
 def test_an_interrupted_run_keeps_what_it_stored() -> None:
