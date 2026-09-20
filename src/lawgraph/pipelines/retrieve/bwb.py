@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 
 from lawgraph.clients.bwb import BWBClient, ToestandMeta
 from lawgraph.config.constants import (
+    COLLECTION_RAW_SOURCES,
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_BWB_WTI_GENERAL,
@@ -17,6 +18,9 @@ from lawgraph.db import ArangoStore
 from .base import RetrievePipelineBase, RetrieveRecord, failure_reason
 
 logger = get_logger(__name__)
+
+# The WTI file of an unchanged toestand is read again after this many days.
+WTI_REFRESH_DAYS = 30
 
 
 class BWBRetrievePipeline(RetrievePipelineBase):
@@ -34,9 +38,16 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         self,
         *,
         bwb_ids: Sequence[str] | None = None,
+        current: Mapping[str, ToestandMeta] | None = None,
         **kwargs: object,
     ) -> PipelineResult:
-        """Fetch and store the current toestand and the WTI general information per ID."""
+        """Fetch and store the current toestand and the WTI general information per ID.
+
+        *current* is the toestand of each regulation when the caller already knows it (the
+        full load, from its listing). Such a regulation is not asked for again, and it is
+        left alone when the stored toestand is the same one; an id given without it is
+        always looked up and downloaded.
+        """
         normalized = clean_ids(bwb_ids)
         result = PipelineResult()
 
@@ -51,19 +62,40 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             len(normalized),
             len(normalized) - len(todo),
         )
-        return self._store_all(self._fetch_current(todo), what="regulations")
+        return self._store_all(
+            self._fetch_current(todo, current or {}), what="regulations"
+        )
 
-    def _fetch_current(self, bwb_ids: Sequence[str]) -> Iterator[RetrieveRecord]:
-        """The current toestand of each regulation, followed by its WTI general information."""
+    def _fetch_current(
+        self, bwb_ids: Sequence[str], current: Mapping[str, ToestandMeta]
+    ) -> Iterator[RetrieveRecord]:
+        """The WTI general information of each regulation, followed by its current toestand."""
+        stored = self._stored_state_urls() if current else {}
+        wti_fresh = (
+            self._stored_since(
+                SOURCE_BWB, RAW_KIND_BWB_WTI_GENERAL, hours=WTI_REFRESH_DAYS * 24
+            )
+            if current
+            else set()
+        )
         self.progress.expect(len(bwb_ids))
         for bwb_id in bwb_ids:
-            try:
-                meta = self.client.latest_toestand(bwb_id)
-            except Exception as exc:
-                self.progress.fail(
-                    f"toestand metadata not fetched ({failure_reason(exc)})", bwb_id
-                )
+            meta = current.get(bwb_id)
+            if meta is not None and stored.get(bwb_id) == meta["locatie_toestand"]:
+                # The same toestand as the stored one. Its WTI file can change on its own
+                # (a new abbreviation), so that is read again once a month.
+                if bwb_id not in wti_fresh:
+                    yield from self._wti_general_info(meta)
+                self.progress.skip("toestand unchanged since it was stored", bwb_id)
                 continue
+            if meta is None:
+                try:
+                    meta = self.client.latest_toestand(bwb_id)
+                except Exception as exc:
+                    self.progress.fail(
+                        f"toestand metadata not fetched ({failure_reason(exc)})", bwb_id
+                    )
+                    continue
             if meta is None:
                 self.progress.skip("no toestand in the SRU", bwb_id)
                 continue
@@ -86,6 +118,18 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                     "end_date": meta.get("geldigheidsperiode_einddatum"),
                 },
             )
+
+    def _stored_state_urls(self) -> dict[str, str]:
+        """``{bwb_id: state_url}`` of the stored current toestanden."""
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind
+            RETURN {{id: r.external_id, url: r.meta.state_url}}
+        """
+        rows = self.store.query(
+            aql, {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND}
+        )
+        return {str(row["id"]): str(row["url"]) for row in rows if row.get("url")}
 
     def _wti_general_info(self, meta: ToestandMeta) -> Iterator[RetrieveRecord]:
         """The WTI general information (official abbreviations) of one regulation.
@@ -197,14 +241,12 @@ class BWBRetrievePipeline(RetrievePipelineBase):
     def run_full(self) -> PipelineResult:
         """Full-load mode: enumerate ALL BWB laws via SRU wildcard, then fetch each.
 
-        Uses ``BWBClient.enumerate_all_ids()`` to discover every BWBR ID
-        registered in the SRU catalogue, then calls ``run(bwb_ids=...)`` to
-        fetch and store each toestand. Safe to interrupt and re-run — the
-        upsert pattern ensures idempotency.
+        ``BWBClient.enumerate_latest()`` lists every regulation with its current toestand;
+        ``run`` downloads those that are new or changed. Safe to interrupt and re-run.
         """
         logger.info("BWB full-load: enumerating all BWBR IDs via SRU wildcard.")
         try:
-            all_ids = self.client.enumerate_all_ids()
+            current = self.client.enumerate_latest()
         except Exception as exc:
             result = PipelineResult()
             msg = f"BWB SRU enumeration failed: {exc}"
@@ -212,5 +254,5 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             result.add_error(msg)
             return result
 
-        logger.info("BWB full-load: %d IDs found; starting retrieval.", len(all_ids))
-        return self.run(bwb_ids=all_ids)
+        logger.info("BWB full-load: %d IDs found; starting retrieval.", len(current))
+        return self.run(bwb_ids=list(current), current=current)

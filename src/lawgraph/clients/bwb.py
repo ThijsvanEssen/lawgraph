@@ -46,6 +46,19 @@ class ToestandMeta(TypedDict):
     geldigheidsperiode_einddatum: str | None
 
 
+def _currency(meta: ToestandMeta) -> tuple[bool, dt.date, dt.date]:
+    """Sorts the toestand that counts as current last: still valid, then latest end and start."""
+    return (
+        meta.get("geldigheidsperiode_einddatum") == "9999-12-31",
+        sortable_date(meta.get("geldigheidsperiode_einddatum")),
+        sortable_date(meta.get("geldigheidsperiode_startdatum")),
+    )
+
+
+def _newer(meta: ToestandMeta, than: ToestandMeta) -> bool:
+    return _currency(meta) > _currency(than)
+
+
 class BWBClient(BaseClient):
     """
     Client voor wetten.overheid.nl zodat we BWB-toestanden via SRU en XML kan ophalen.
@@ -102,7 +115,20 @@ class BWBClient(BaseClient):
         types: tuple[str, ...] = BWB_INSTRUMENT_TYPES,
         max_records: int = 150_000,
     ) -> list[str]:
-        """Enumerate all BWBR IDs via SRU, one query per ``dcterms.type``.
+        """Every BWBR id of the SRU catalogue, in the order of ``enumerate_latest``."""
+        return list(self.enumerate_latest(types=types, max_records=max_records))
+
+    def enumerate_latest(
+        self,
+        *,
+        types: tuple[str, ...] = BWB_INSTRUMENT_TYPES,
+        max_records: int = 150_000,
+    ) -> dict[str, ToestandMeta]:
+        """The current toestand of every regulation, one SRU query per ``dcterms.type``.
+
+        The listing already holds every toestand of every regulation, so the current one
+        (``_newer``) is picked while it is read: asking the SRU for it again per regulation
+        (``latest_toestand``) is one request per regulation that tells nothing new.
 
         The SRU service at zoekservice.overheid.nl returns one record per
         *toestand* (version), so many pages repeat the same BWBR id; the result
@@ -112,8 +138,7 @@ class BWBClient(BaseClient):
 
         ``max_records`` is a safety cap per type on *records* (not ids).
         """
-        all_ids: list[str] = []
-        seen: set[str] = set()
+        latest: dict[str, ToestandMeta] = {}
 
         for doc_type in types:
             logger.info("Enumerating BWB IDs for type=%s", doc_type)
@@ -126,9 +151,10 @@ class BWBClient(BaseClient):
                 records = [e for e in root.iter() if local_name(e.tag) == "record"]
                 for element in records:
                     meta = self._parse_record(element)
-                    if meta and meta["bwb_id"] and meta["bwb_id"] not in seen:
-                        seen.add(meta["bwb_id"])
-                        all_ids.append(meta["bwb_id"])
+                    if meta and meta["bwb_id"]:
+                        known = latest.get(meta["bwb_id"])
+                        if known is None or _newer(meta, known):
+                            latest[meta["bwb_id"]] = meta
                 fetched += len(records)
                 start += len(records)
                 if start > total:
@@ -155,13 +181,13 @@ class BWBClient(BaseClient):
 
             logger.info(
                 "Enumerated %d unique BWB IDs so far (type=%s done, %d toestanden).",
-                len(all_ids),
+                len(latest),
                 doc_type,
                 fetched,
             )
 
-        logger.info("BWB enumeration complete: %d unique IDs total.", len(all_ids))
-        return all_ids
+        logger.info("BWB enumeration complete: %d unique IDs total.", len(latest))
+        return latest
 
     def search_toestanden(self, bwb_id: str) -> list[ToestandMeta]:
         """Search the BWB SRU endpoint for all available toestanden for a BWBR ID."""
@@ -196,19 +222,10 @@ class BWBClient(BaseClient):
             logger.debug("No BWB toestand found for %s", bwb_id)
             return None
 
-        def sort_key(meta: ToestandMeta) -> tuple[dt.date, dt.date]:
-            return (
-                sortable_date(meta.get("geldigheidsperiode_einddatum")),
-                sortable_date(meta.get("geldigheidsperiode_startdatum")),
-            )
-
-        still_valid = [
-            meta
-            for meta in toestanden
-            if meta.get("geldigheidsperiode_einddatum") == "9999-12-31"
-        ]
-        candidates = still_valid if still_valid else toestanden
-        selected = sorted(candidates, key=sort_key, reverse=True)[0]
+        selected = toestanden[0]
+        for meta in toestanden[1:]:
+            if _newer(meta, selected):
+                selected = meta
 
         logger.debug(
             "Gekozen toestand voor %s -> %s / %s",

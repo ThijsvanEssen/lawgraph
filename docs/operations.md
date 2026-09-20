@@ -186,7 +186,7 @@ scheduler of your choice.
 |------|-----|
 | `retrieve tk-content` | one XML per paper (up to several MB), paced at 0.5 s |
 | `retrieve tk-dossiers` full | about 400K documents, fetched 250 at a time |
-| `retrieve bwb --mode full`, `retrieve bwb-history` | one SRU query and one XML download per regulation or toestand; `retrieve bwb` adds one short WTI request (about 1 KB read) per regulation |
+| `retrieve bwb --mode full`, `retrieve bwb-history` | `bwb`: the SRU listing, then one XML download and one short WTI request (about 1 KB read) per regulation whose current toestand is not the stored one (an unchanged regulation costs nothing; its WTI file is read again after 30 days). `bwb-history`: one SRU query per regulation and one download per toestand |
 | `normalize bwb-history`, `semantic bwb-grondslagen`, `bwb-annexes` | stream every stored toestand XML (large documents) in batches of 20 |
 | `normalize tk-dossiers` | the largest normalize step (documents, decisions, edges, dossier backfill) |
 | `semantic bwb` | scans every article text |
