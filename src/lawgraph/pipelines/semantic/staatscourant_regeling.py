@@ -53,7 +53,8 @@ FOR pub IN {COLLECTION_DOCUMENTS}
   {since_filter}
   LET inst = FIRST(
     FOR i IN {COLLECTION_INSTRUMENTS}
-      FILTER UPPER(i.props.bwb_id) == UPPER(pub.props.bwb_id)
+      // != null lets the sparse index on props.bwb_id serve the join (else: a full scan)
+      FILTER i.props.bwb_id != null AND i.props.bwb_id == pub.props.bwb_id
       LIMIT 1
       RETURN i
   )
@@ -72,15 +73,19 @@ FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.bwb_id == null
   FILTER pub.props.title != null AND LENGTH(pub.props.title) > 5
   {since_filter}
-  FOR inst IN {COLLECTION_INSTRUMENTS}
-    FILTER inst.props.citation_title != null AND LENGTH(inst.props.citation_title) > 5
-    FILTER CONTAINS(LOWER(pub.props.title), LOWER(inst.props.citation_title))
-    LIMIT 1
-    RETURN {{
-      pub_id: pub._id, pub_key: pub._key,
-      inst_id: inst._id, inst_key: inst._key,
-      match_type: 'title'
-    }}
+  LET inst = FIRST(
+    FOR i IN {COLLECTION_INSTRUMENTS}
+      FILTER i.props.citation_title != null AND LENGTH(i.props.citation_title) > 5
+      FILTER CONTAINS(LOWER(pub.props.title), LOWER(i.props.citation_title))
+      LIMIT 1
+      RETURN i
+  )
+  FILTER inst != null
+  RETURN {{
+    pub_id: pub._id, pub_key: pub._key,
+    inst_id: inst._id, inst_key: inst._key,
+    match_type: 'title'
+  }}
 """
 
         bind: dict[str, Any] = {"source": SOURCE_STAATSCOURANT}
@@ -197,8 +202,8 @@ FOR pub IN {COLLECTION_DOCUMENTS}
         # Single batch query to resolve all bwb_ids to instruments.
         inst_aql = f"""
 FOR inst IN {COLLECTION_INSTRUMENTS}
-  FILTER UPPER(inst.props.bwb_id) IN @bwb_ids
-  RETURN {{ bwb_id: UPPER(inst.props.bwb_id), inst_id: inst._id, inst_key: inst._key }}
+  FILTER inst.props.bwb_id IN @bwb_ids
+  RETURN {{ bwb_id: inst.props.bwb_id, inst_id: inst._id, inst_key: inst._key }}
 """
         bwb_to_inst: dict[str, dict[str, str]] = {}
         for inst_row in self.store.query(inst_aql, {"bwb_ids": list(all_bwb_ids)}):

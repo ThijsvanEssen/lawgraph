@@ -492,7 +492,7 @@ def get_instrument_related_instruments(
             LET in_n  = in_map[b]  != null ? in_map[b]  : 0
             LET inst = FIRST(
                 FOR i IN {COLLECTION_INSTRUMENTS}
-                    FILTER i.props.bwb_id == b
+                    FILTER i.props.bwb_id != null AND i.props.bwb_id == b
                     LIMIT 1 RETURN i
             )
             FILTER inst != null

@@ -32,7 +32,8 @@ FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.bwb_id != null
   LET inst = (
     FOR i IN {COLLECTION_INSTRUMENTS}
-      FILTER i.props.bwb_id == pub.props.bwb_id
+      // != null lets the sparse index on props.bwb_id serve the join (else: a full scan)
+      FILTER i.props.bwb_id != null AND i.props.bwb_id == pub.props.bwb_id
       LIMIT 1
       RETURN i
   )[0]
