@@ -125,9 +125,23 @@ def test_an_empty_page_is_asked_again_with_a_smaller_page() -> None:
     ]
 
 
-def test_records_that_do_not_add_up_to_the_reported_total_raise() -> None:
-    with pytest.raises(RuntimeError, match="5 records read, the service reports 3"):
-        _client([_page(5, 3)], []).enumerate_all_ids(types=("wet",))
+def test_fewer_records_than_the_service_reports_raises() -> None:
+    """The list stopped before the total: something was lost."""
+    total = SRU_PAGE_SIZE + 3
+
+    responses = [_page(SRU_PAGE_SIZE, total), _page(1, total)]
+    # after 1001 records the next page (start 1002) is empty for good
+    responses += [_empty_page(total)] * len(EMPTY_PAGE_SIZES)
+    with pytest.raises(RuntimeError, match="empty page at startRecord=1002"):
+        _client(responses, []).enumerate_all_ids(types=("wet",))
+
+
+def test_more_records_than_the_reported_total_is_only_a_warning(caplog) -> None:
+    """The toestanden change while they are listed, and a page can overlap."""
+    with caplog.at_level("WARNING"):
+        ids = _client([_page(5, 3)], []).enumerate_all_ids(types=("wet",))
+    assert ids == ["BWBR0001840"]
+    assert any("5 records read for a reported total of 3" in m for m in caplog.messages)
 
 
 def test_a_type_without_records_is_fine() -> None:

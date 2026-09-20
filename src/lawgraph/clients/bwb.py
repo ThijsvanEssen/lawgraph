@@ -139,10 +139,18 @@ class BWBClient(BaseClient):
                     max_records,
                     doc_type,
                 )
-            if start <= max_records and fetched != total:
+            if start <= max_records and fetched < total:
                 raise RuntimeError(
                     f"BWB SRU error (type={doc_type}): {fetched} records read, the "
                     f"service reports {total}"
+                )
+            if fetched > total:
+                # the toestanden change while they are listed, and a page can overlap
+                logger.warning(
+                    "BWB SRU (type=%s): %d records read for a reported total of %d.",
+                    doc_type,
+                    fetched,
+                    total,
                 )
 
             logger.info(
