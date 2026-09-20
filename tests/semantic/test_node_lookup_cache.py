@@ -46,7 +46,9 @@ def test_repeated_lookups_hit_the_database_once_including_misses() -> None:
         assert pipeline._lookup_node(ARTICLES, "a") is not None
         assert pipeline._lookup_node(ARTICLES, "missing") is None
 
-    assert store.get_calls == ["a", "missing"]
+    # One existence check per distinct key, hits and misses, and never the whole document.
+    assert store.bulk_calls == [{"a"}, {"missing"}]
+    assert store.get_calls == []
 
 
 def test_cached_node_is_a_skeleton_without_props() -> None:

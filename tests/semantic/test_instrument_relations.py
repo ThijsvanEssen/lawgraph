@@ -12,6 +12,7 @@ from lawgraph.pipelines.semantic.instrument_relations import (
     detect_amends_instrument,
     detect_celex_references,
 )
+from tests.fakes import ExistingKeysFake
 
 # ---------------------------------------------------------------------------
 # Pure detection helpers
@@ -57,7 +58,7 @@ def test_detect_celex_references_returns_empty_for_blank() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeStore:
+class _FakeStore(ExistingKeysFake):
     """Minimal store stub for instrument-relations pipeline tests."""
 
     def __init__(

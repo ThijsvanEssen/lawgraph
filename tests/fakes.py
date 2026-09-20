@@ -23,3 +23,14 @@ class RawSourcesFake:
             except Exception as exc:
                 failures.append((doc, str(exc)))
         return failures
+
+
+class ExistingKeysFake:
+    """``existing_keys`` of the store, on top of the ``get_node`` of a fake."""
+
+    def existing_keys(self, collection: str, keys: Any) -> set[str]:
+        return {
+            key
+            for key in set(keys)
+            if self.get_node(collection, key) is not None  # type: ignore[attr-defined]
+        }

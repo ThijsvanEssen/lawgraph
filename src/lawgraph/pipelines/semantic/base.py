@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_CANONIEK,
@@ -27,6 +28,14 @@ def _skeleton(node: Node) -> Node:
         props={},
         _skip_validation=True,
     )
+
+
+# The collections a citation points into, and the type of their nodes.
+_TARGET_TYPES = {
+    COLLECTION_ARTICLES: NodeType.ARTICLE,
+    COLLECTION_INSTRUMENTS: NodeType.INSTRUMENT,
+    COLLECTION_JUDGMENTS: NodeType.JUDGMENT,
+}
 
 
 def slim(var: str, *fields: str) -> str:
@@ -78,11 +87,11 @@ class SemanticPipelineBase(PipelineBase):
         not to read data. Call ``_remember_node`` after creating a stub, and
         ``_prefetch_nodes`` to fill the cache for a whole batch in one query.
         """
-        cache_key = (collection, key)
-        if cache_key not in self._node_cache:
-            node = self.store.get_node(collection, key)
-            self._node_cache[cache_key] = None if node is None else _skeleton(node)
-        return self._node_cache[cache_key]
+        if (collection, key) not in self._node_cache:
+            # Does it exist: a lookup in the primary index. ``get_node`` would have the whole
+            # document sent over, an article with its text, to throw it away.
+            self._prefetch_nodes(collection, [key], _TARGET_TYPES[collection])
+        return self._node_cache[(collection, key)]
 
     def _remember_node(self, node: Node | None) -> None:
         """Record a node created during the run (e.g. a stub) in the lookup cache."""

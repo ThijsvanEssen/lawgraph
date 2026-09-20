@@ -68,3 +68,7 @@ class _BaseFakeStore:
 
     def get_node(self, collection: str, key: str) -> dict | None:
         raise NotImplementedError
+
+    def existing_keys(self, collection: str, keys) -> set[str]:
+        """On top of the ``get_node`` of the subclass."""
+        return {k for k in set(keys) if self.get_node(collection, k) is not None}
