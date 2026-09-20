@@ -151,3 +151,37 @@ def test_a_malformed_identifier_is_not_requested() -> None:
     )
     assert fetch_publication_xml(client, "stb", STB_ID_PATTERN, "not-an-id") is None
     assert calls == []
+
+
+# ── paging ───────────────────────────────────────────────────────────────────
+
+
+def _page(identifiers: list[str]) -> str:
+    """A result page of real-format records, one per identifier."""
+    head, rest = AMVB_PAGE.split("<sru:records>")
+    record, tail = rest.split("</sru:records>")
+    records = "".join(record.replace("stb-2009-601-b1", i) for i in identifiers)
+    return f"{head}<sru:records>{records}</sru:records>{tail}"
+
+
+def test_a_page_with_foreign_records_is_not_the_last_page() -> None:
+    """The ministeriele-regeling query also returns Staatsblad records; they are dropped
+    from the result, but the page was full, so the next one must be requested."""
+    first = [f"stcrt-2020-{n}" for n in range(1, 91)] + [
+        f"stb-1994-{n}" for n in range(1, 11)
+    ]
+    second = [f"stcrt-2021-{n}" for n in range(1, 6)]
+    calls: list[dict] = []
+    client = _client(StaatscourantClient, [_page(first), _page(second)], calls)
+
+    records = client.search_ministeriele_regelingen()
+
+    assert len(records) == 95
+    assert [c["params"]["startRecord"] for c in calls] == ["1", "101"]
+
+
+def test_a_short_page_ends_the_search() -> None:
+    calls: list[dict] = []
+    client = _client(StaatsbladClient, [_page(["stb-2020-1", "stb-2020-2"])], calls)
+    assert len(client.search_amvbs()) == 2
+    assert len(calls) == 1

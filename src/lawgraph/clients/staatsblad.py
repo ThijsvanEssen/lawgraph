@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from typing import Any
 
 from lawgraph.clients._sru import (
+    count_records,
     fetch_publication_xml,
     parse_sru_records,
     raise_on_diagnostic,
@@ -61,7 +62,7 @@ class StaatsbladClient(BaseClient):
             records_found = self._parse_sru_records(root)
             results.extend(records_found)
 
-            if len(records_found) < page_size:
+            if count_records(root) < page_size:
                 break
             start_record += page_size
 
