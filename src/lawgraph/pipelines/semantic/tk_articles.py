@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import re
 from typing import Any, Callable, Iterable
 
 from lawgraph.config.constants import (
@@ -16,7 +15,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     SOURCE_TK,
 )
-from lawgraph.core.aliases import InstrumentAliasMap
+from lawgraph.core.aliases import AliasMatcher, InstrumentAliasMap
 from lawgraph.core.citations import (
     CitationHit,
     DutchCitationExtractor,
@@ -40,34 +39,28 @@ SEMANTIC_SOURCE = "tk-article-linker"
 # ---------------------------------------------------------------------------
 
 
-def _build_named_act_patterns(
-    aliases: InstrumentAliasMap,
-) -> list[tuple[str, re.Pattern[str], str | None, str | None]]:
-    patterns: list[tuple[str, re.Pattern[str], str | None, str | None]] = []
-    for label, (bwb_id, celex) in aliases.items():
-        if not (bwb_id or celex):
-            continue
-        escaped = re.escape(label)
-        pattern = re.compile(rf"(?<!\w){escaped}(?!\w)", re.IGNORECASE)
-        patterns.append((label, pattern, bwb_id, celex))
-    return patterns
+class NamedActs:
+    """The law names of the graph, matched against a text in one pass (``AliasMatcher``)."""
 
+    def __init__(self, aliases: InstrumentAliasMap) -> None:
+        self._targets = [
+            (bwb_id, celex) for bwb_id, celex in aliases.values() if bwb_id or celex
+        ]
+        self._matcher = AliasMatcher(
+            label for label, (bwb_id, celex) in aliases.items() if bwb_id or celex
+        )
 
-def _collect_named_act_hits(
-    text: str,
-    patterns: list[tuple[str, re.Pattern[str], str | None, str | None]],
-    record: Callable[[CitationHit], None],
-) -> None:
-    for _, pattern, bwb_id, celex in patterns:
-        for match in pattern.finditer(text):
+    def collect_hits(self, text: str, record: Callable[[CitationHit], None]) -> None:
+        for order, start, end in self._matcher.first_matches(text):
+            bwb_id, celex = self._targets[order]
             record(
                 CitationHit(
                     kind="instrument",
                     bwb_id=bwb_id,
                     celex=celex,
                     confidence=0.6,
-                    raw_match=match.group(0),
-                    snippet=make_snippet(text, match.span()),
+                    raw_match=text[start:end],
+                    snippet=make_snippet(text, (start, end)),
                 )
             )
 
@@ -84,21 +77,17 @@ def detect_tk_citations(
     return _collect_tk_hits(
         text,
         build_extractor(code_aliases, instrument_aliases),
-        _build_named_act_patterns(instrument_aliases),
+        NamedActs(instrument_aliases),
     )
 
 
 def _collect_tk_hits(
     text: str,
     extractor: DutchCitationExtractor,
-    named_act_patterns: list[tuple[str, re.Pattern[str], str | None, str | None]],
+    named_acts: NamedActs,
 ) -> list[CitationHit]:
     """Registry-driven article hits plus every instrument-level TK pattern."""
-    return detect_in_text(
-        text,
-        extractor,
-        extra=lambda t, record: _collect_named_act_hits(t, named_act_patterns, record),
-    )
+    return detect_in_text(text, extractor, extra=named_acts.collect_hits)
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +110,7 @@ class TKArticlesSemanticPipeline(SemanticPipelineBase):
             )
 
         extractor = build_extractor(code_aliases, instrument_aliases)
-        named_act_patterns = _build_named_act_patterns(instrument_aliases)
+        named_acts = NamedActs(instrument_aliases)
 
         logger.info(
             "Processing TK documents for semantic linking (since=%s).",
@@ -138,7 +127,7 @@ class TKArticlesSemanticPipeline(SemanticPipelineBase):
                 result.skipped += 1
                 continue
 
-            hits = _collect_tk_hits(text, extractor, named_act_patterns)
+            hits = _collect_tk_hits(text, extractor, named_acts)
             if not hits:
                 continue
 
