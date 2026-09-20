@@ -152,8 +152,13 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             result.add_error(msg)
             return result
 
-        identifiers = [r["identifier"] for r in amvbs]
+        identifiers = self._changed(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, amvbs)
         logger.info(
-            "Staatsblad full-load: %d AMvB identifiers found.", len(identifiers)
+            "Staatsblad full-load: %d AMvBs listed, %d new or modified since they were "
+            "stored.",
+            len(amvbs),
+            len(identifiers),
         )
+        if not identifiers:
+            return PipelineResult()
         return self.run(identifiers=identifiers)

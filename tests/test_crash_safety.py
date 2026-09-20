@@ -26,8 +26,11 @@ class _Store(RawSourcesFake):
     def __init__(self, recent: list[str] | None = None) -> None:
         self.stored: list[str] = []
         self.recent = recent or []
+        self.stored_at: dict[str, str] = {}
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[str]:
+    def query(self, aql: str, bind_vars: dict | None = None) -> list[Any]:
+        if "at: r.fetched_at" in aql:  # _stored_at: {id, at} of every stored record
+            return [{"id": i, "at": at} for i, at in self.stored_at.items()]
         return list(self.recent)
 
     def insert_raw_source(self, *, external_id: str | None = None, **_kw: Any) -> None:
@@ -122,9 +125,13 @@ class _Staatscourant:
         self.identifiers = identifiers
         self.failing = failing
         self.fetched: list[str] = []
+        self.modified: dict[str, str] = {}
 
     def search_ministeriele_regelingen(self, *, since=None):
-        return [{"identifier": i} for i in self.identifiers]
+        return [
+            {"identifier": i, "modified": self.modified.get(i)}
+            for i in self.identifiers
+        ]
 
     def fetch_publication_xml(self, identifier: str) -> str | None:
         self.fetched.append(identifier)
@@ -151,6 +158,26 @@ def test_staatscourant_rerun_downloads_only_the_rest() -> None:
 
     assert client.fetched == ["stcrt-2020-3"]
     assert store.stored == ["stcrt-2020-3"] and result.created == 1
+
+
+def test_staatscourant_leaves_alone_what_was_stored_after_it_last_changed() -> None:
+    """A run over a window of two years downloads what is new or changed, not the window."""
+    client = _Staatscourant(
+        ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3", "stcrt-2020-4"]
+    )
+    client.modified = {
+        "stcrt-2020-1": "2020-03-01",  # stored later: unchanged
+        "stcrt-2020-2": "2026-05-01",  # modified after it was stored
+        "stcrt-2020-3": "2025-01-10",  # modified on the day it was stored: once more
+    }  # and stcrt-2020-4 is not stored at all
+    store = _Store()
+    store.stored_at = {
+        "stcrt-2020-1": "2025-01-10T08:00:00Z",
+        "stcrt-2020-2": "2025-01-10T08:00:00Z",
+        "stcrt-2020-3": "2025-01-10T08:00:00Z",
+    }
+    StaatscourantRetrievePipeline(store, client).run()
+    assert client.fetched == ["stcrt-2020-2", "stcrt-2020-3", "stcrt-2020-4"]
 
 
 def test_staatscourant_publication_without_xml_is_skipped() -> None:

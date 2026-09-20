@@ -67,6 +67,7 @@ def test_a_real_record_is_parsed_with_its_xml_url() -> None:
                 "https://repository.overheid.nl/frbr/officielepublicaties/stb/2009/"
                 "stb-2009-601-b1/1/xml/stb-2009-601-b1.xml"
             ),
+            "modified": "2014-07-03",
         }
     ]
 

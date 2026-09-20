@@ -523,6 +523,7 @@ def test_parse_sru_records() -> None:
             "number": "134",
             "title": "Titel",
             "content_url": "http://u",
+            "modified": None,
             "date": "2015-01-01",
         },
         {
@@ -531,6 +532,7 @@ def test_parse_sru_records() -> None:
             "number": "9",
             "title": "Staatsblad 2016/9",
             "content_url": None,
+            "modified": None,
             "date": None,
         },
     ]

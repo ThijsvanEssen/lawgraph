@@ -209,8 +209,11 @@ commands started side by side on the same host add up and do get throttled.
 interrupt and a failing source write the buffer before the step ends, so they keep everything
 fetched, and a failure in the middle is an error of the step, not a silent stop. A crash of
 the process or the machine loses at most that last buffer. A step that downloads one document per record (`staatscourant`, `bwb`, `eurlex`)
-skips the records stored in the last 24 hours, so a re-run only does the rest; a refresh the
-next day fetches everything again. The Tweede Kamer pages are read again from the start on a
+skips the records stored in the last 24 hours, so a re-run only does the rest. A refresh
+later downloads what the source lists as new or changed: a Staatscourant or Staatsblad
+publication stored after its `modified` date, a BWB toestand that is still the stored one and
+a judgment not updated since are left alone; a document that answered HTTP 404 is asked for
+again after 30 days. The Tweede Kamer pages are read again from the start on a
 re-run (upserts, so only time is repeated).
 
 ## Observability

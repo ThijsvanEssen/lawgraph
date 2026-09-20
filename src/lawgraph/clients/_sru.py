@@ -172,6 +172,7 @@ def parse_sru_records(
             "title": title,
             "content_url": content_url,
         }
+        record["modified"] = find_own_text(record_elem, "modified")
         for field_name in extra_fields:
             record[field_name] = find_own_text(record_elem, field_name)
 

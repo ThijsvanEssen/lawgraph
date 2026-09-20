@@ -33,15 +33,21 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
     ) -> Iterator[RetrieveRecord]:
         """Yield the XML of each publication as it is downloaded.
 
-        Without *identifiers* the SRU lists them (``since`` on ``dt.modified``). Those stored
-        in the last 24 hours are skipped: they were done by an interrupted run.
+        Without *identifiers* the SRU lists them (``since`` on ``dt.modified``), and what is
+        stored and not modified since is left alone. Those stored in the last 24 hours are
+        skipped: they were done by an interrupted run.
         """
         if not identifiers:
-            identifiers = [
-                r["identifier"]
-                for r in self.client.search_ministeriele_regelingen(since=since)
-                if r.get("identifier")
-            ]
+            listed = self.client.search_ministeriele_regelingen(since=since)
+            identifiers = self._changed(
+                SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, listed
+            )
+            logger.info(
+                "Staatscourant: %d publications listed, %d new or modified since they "
+                "were stored.",
+                len(listed),
+                len(identifiers),
+            )
         done = self._recently_stored(SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING)
         todo = self._without_missing(
             SOURCE_STAATSCOURANT,

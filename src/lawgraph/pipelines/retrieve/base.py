@@ -202,6 +202,27 @@ class RetrievePipelineBase(PipelineBase):
             )
         return todo
 
+    def _changed(
+        self, source: str, kind: str, listed: Iterable[dict[str, Any]]
+    ) -> list[str]:
+        """The identifiers of *listed* SRU records that are not stored or changed since.
+
+        A record says when it was last ``modified`` (a date). One that was stored on a later
+        day is left alone, so a run over a window of two years downloads what is new or
+        changed and not every publication of the window again.
+        """
+        stored = self._stored_at(source, kind)
+        changed: list[str] = []
+        for record in listed:
+            identifier = record.get("identifier")
+            if not identifier:
+                continue
+            have, modified = stored.get(identifier), record.get("modified")
+            if have and modified and have.date().isoformat() > str(modified)[:10]:
+                continue
+            changed.append(identifier)
+        return changed
+
     def _recently_stored(
         self, source: str, kind: str, hours: int = RESUME_WITHIN_HOURS
     ) -> set[str]:
