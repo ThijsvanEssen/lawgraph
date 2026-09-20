@@ -169,10 +169,16 @@ class _Rs:
         self.contents = contents or {}
         self.index_calls: list[dict] = []
         self.fetched: list[str] = []
+        self.late: list[IndexEntry] = []  # what only the modified listing names
 
-    def iter_index(self, *, courts, date_from=None, date_to=None):
-        self.index_calls.append({"courts": courts, "from": date_from, "to": date_to})
-        yield from self.entries
+    def iter_index(self, *, courts, date_from=None, date_to=None, modified_from=None):
+        call = {"courts": courts, "from": date_from, "to": date_to}
+        if modified_from is not None:
+            call["modified_from"] = modified_from
+            yield from self.late
+        else:
+            yield from self.entries
+        self.index_calls.append(call)
 
     def fetch_ecli_content(self, ecli: str) -> str:
         self.fetched.append(ecli)
@@ -346,3 +352,43 @@ def test_an_incremental_run_looks_back_over_the_publication_lag(cli) -> None:
 
 def test_a_full_run_has_no_date_filter(cli) -> None:
     assert cli(["--mode", "full"])["date_from"] is None
+
+
+def test_a_judgment_published_long_after_its_decision_is_found_by_its_modified_date() -> (
+    None
+):
+    """Decided in June, published in September: it is in no decision window of a daily run."""
+    decided_recently = IndexEntry(ecli="ECLI:NL:HR:2026:900", updated=None, title="")
+    published_late = IndexEntry(ecli="ECLI:NL:GHARL:2026:100", updated=None, title="")
+    rs = _Rs([decided_recently])
+    rs.late = [published_late, decided_recently]  # the listings overlap
+    pipeline, store = _pipeline(rs)
+    since = dt.datetime(2026, 9, 19, tzinfo=dt.timezone.utc)
+    result = pipeline.run(
+        courts=["hr"], date_from=dt.date(2026, 8, 20), modified_from=since
+    )
+
+    assert rs.fetched == ["ECLI:NL:HR:2026:900", "ECLI:NL:GHARL:2026:100"]  # each once
+    assert result.created == 2
+    assert [c.get("modified_from") for c in rs.index_calls] == [None, since]
+
+
+def test_the_modified_window_is_sent_as_a_range_up_to_now() -> None:
+    calls: list[dict] = []
+    client = RechtspraakClient.__new__(RechtspraakClient)
+
+    def fake_get_text(path, *, params=None, timeout=30):
+        calls.append(dict(params or {}))
+        return (
+            "<feed xmlns='http://www.w3.org/2005/Atom'>"
+            "<subtitle>Aantal gevonden ECLI's: 0</subtitle></feed>"
+        )
+
+    client._get_text = fake_get_text  # type: ignore[method-assign]
+    list(
+        client.iter_index(
+            courts=["Hoge_Raad_der_Nederlanden"],
+            modified_from=dt.datetime(2026, 9, 19, 6, 30, tzinfo=dt.timezone.utc),
+        )
+    )
+    assert calls[0]["modified"][0] == "2026-09-19T06:30:00" and "date" not in calls[0]

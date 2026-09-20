@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 from collections.abc import Iterator, Sequence
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
@@ -56,6 +57,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         courts: Sequence[str] | None = None,
         date_from: dt.date | None = None,
         date_to: dt.date | None = None,
+        modified_from: dt.datetime | None = None,
         eclis: Sequence[str] | None = None,
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
@@ -70,9 +72,17 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
 
         if courts:
             skipped = 0
-            for entry in self.rs.iter_index(
-                courts=resolve_courts(courts), date_from=date_from, date_to=date_to
-            ):
+            terms = resolve_courts(courts)
+            listings = [
+                self.rs.iter_index(courts=terms, date_from=date_from, date_to=date_to)
+            ]
+            if modified_from is not None:
+                # Also what was published or corrected since, whenever it was decided: a
+                # judgment published months after its decision is in no decision window.
+                listings.append(
+                    self.rs.iter_index(courts=terms, modified_from=modified_from)
+                )
+            for entry in itertools.chain(*listings):
                 have = stored.get(entry.ecli)
                 if have and entry.updated and have >= entry.updated:
                     skipped += 1

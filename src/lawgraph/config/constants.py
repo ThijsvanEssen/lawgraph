@@ -304,3 +304,8 @@ RECHTSPRAAK_DEFAULT_COURTS = ("hr", "rvs", "hoven")
 # Judgments are published up to weeks after the decision date; an incremental run looks this
 # far before its ``--since``.
 RECHTSPRAAK_PUBLICATION_LAG_DAYS = 30
+# A judgment published later than that lag, and one that is corrected, is only found by
+# when it was modified. Up to this many days back that listing is selective (Hoge Raad, a
+# week: 44 decided, 107 modified); further back it matches the mass republication of the
+# corpus (a year: 2,128 decided, 5,830 modified), so long windows list by decision date only.
+RECHTSPRAAK_MODIFIED_WINDOW_DAYS = 60

@@ -10,6 +10,7 @@ from lawgraph.config.constants import (
     RECHTSPRAAK_COURT_GROUPS,
     RECHTSPRAAK_COURTS,
     RECHTSPRAAK_DEFAULT_COURTS,
+    RECHTSPRAAK_MODIFIED_WINDOW_DAYS,
     RECHTSPRAAK_PUBLICATION_LAG_DAYS,
 )
 from lawgraph.config.settings import BWB_IDS
@@ -190,12 +191,20 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> None:
 
     def run() -> PipelineResult:
         courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
-        date_from = None
+        date_from = modified_from = None
         if args.mode == "incremental":
             lag = dt.timedelta(days=RECHTSPRAAK_PUBLICATION_LAG_DAYS)
             date_from = (args.since - lag).date()
+            window = dt.datetime.now(dt.timezone.utc) - args.since
+            if window <= dt.timedelta(days=RECHTSPRAAK_MODIFIED_WINDOW_DAYS):
+                modified_from = args.since
         pipeline = RechtspraakRetrievePipeline(ArangoStore())
-        return pipeline.run(courts=courts, date_from=date_from, eclis=args.ecli or [])
+        return pipeline.run(
+            courts=courts,
+            date_from=date_from,
+            modified_from=modified_from,
+            eclis=args.ecli or [],
+        )
 
     run_step("Rechtspraak retrieve", run)
 
