@@ -322,3 +322,12 @@ def test_siblings_on_one_agenda_item_fall_back_to_its_subject() -> None:
 
 def test_a_vote_without_a_decision_is_skipped() -> None:
     assert tk_records.vote({"Soort": "Voor"}) is None
+
+
+def test_a_vote_cast_is_a_slotted_object_with_shared_strings() -> None:
+    """190K casts are kept until the VOTED edges are written: no dict per cast."""
+    first = tk_records.vote(_vote(Soort="Voor", Fractie_Id="f-" + "vvd"))
+    second = tk_records.vote(_vote(Soort="Vo" + "or", Fractie_Id="f-vvd"))
+    assert first is not None and second is not None
+    assert not hasattr(first, "__dict__")
+    assert first.choice is second.choice and first.faction_id is second.faction_id

@@ -19,6 +19,7 @@ from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
+from lawgraph.core.tk_records import VoteCast
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.tk_cases import link_node
 
@@ -27,20 +28,20 @@ logger = get_logger(__name__)
 
 def read_votes(
     raw_records: Iterable[dict[str, Any]],
-) -> dict[str, list[dict[str, Any]]]:
+) -> dict[str, list[VoteCast]]:
     """Group the Stemming rows by ``Besluit_Id``."""
-    by_decision: dict[str, list[dict[str, Any]]] = {}
+    by_decision: dict[str, list[VoteCast]] = {}
     for raw in raw_records:
         cast = tk_records.vote(payload_json(raw))
         if cast is not None:
-            by_decision.setdefault(cast["decision_id"], []).append(cast)
+            by_decision.setdefault(cast.decision_id, []).append(cast)
     return by_decision
 
 
 def normalize_decisions(
     store: ArangoStore,
     raw_records: Iterable[dict[str, Any]],
-    votes_by_decision: dict[str, list[dict[str, Any]]],
+    votes_by_decision: dict[str, list[VoteCast]],
 ) -> dict[str, Node]:
     """Decision nodes, keyed by TK ``Besluit_Id``.
 
@@ -79,7 +80,7 @@ def normalize_decisions(
 
 def link_votes(
     store: ArangoStore,
-    votes_by_decision: dict[str, list[dict[str, Any]]],
+    votes_by_decision: dict[str, list[VoteCast]],
     decision_nodes: dict[str, Node],
     faction_nodes: dict[str, Node],
     *,
@@ -94,10 +95,10 @@ def link_votes(
     known_members = store.existing_keys(
         COLLECTION_MEMBERS,
         {
-            make_node_key(cast["person_id"])
+            make_node_key(cast.person_id)
             for votes in votes_by_decision.values()
             for cast in votes
-            if cast["person_id"]
+            if cast.person_id
         },
     )
 
@@ -114,23 +115,23 @@ def link_votes(
                 decision_node.arango_id,
                 RELATION_VOTED,
                 source=source,
-                meta={"choice": cast["choice"], "seats": cast["seats"]},
+                meta={"choice": cast.choice, "seats": cast.seats},
             )
     writer.flush()
     logger.info("Wrote %d VOTED edges.", writer.added)
 
 
 def _voter_id(
-    cast: dict[str, Any],
+    cast: VoteCast,
     faction_nodes: dict[str, Node],
     known_members: set[str],
     *,
     roll_call: bool,
 ) -> str | None:
     if roll_call:
-        if not cast["person_id"]:
+        if not cast.person_id:
             return None
-        key = make_node_key(cast["person_id"])
+        key = make_node_key(cast.person_id)
         return f"{COLLECTION_MEMBERS}/{key}" if key in known_members else None
-    faction = faction_nodes.get(cast["faction_id"] or "")
+    faction = faction_nodes.get(cast.faction_id or "")
     return faction.arango_id if faction else None

@@ -10,7 +10,9 @@ against a single recorded payload.
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.dossier_stages import dossier_display_name
@@ -461,29 +463,44 @@ def document_display_name(
 # ── Stemming / Besluit (Decision and its votes) ──────────────────────────────
 
 
-def vote(payload: Payload) -> dict[str, Any] | None:
+@dataclass(frozen=True, slots=True)
+class VoteCast:
     """One Stemming row: who voted on which Besluit, how, and with what weight.
 
     ``person_id`` is set on a roll-call vote and absent otherwise, which is
     what decides whether the VOTED edge starts at a member or at a faction.
+
+    Every cast of a run is kept until the VOTED edges are written (190K for two years), so
+    this is a slotted object with its repeating strings interned, not a dict: about a
+    fifth of the memory.
     """
+
+    decision_id: str
+    choice: str
+    seats: int
+    person_id: str | None
+    faction_id: str | None
+    faction_label: str
+    changed_at: str | None
+
+
+def vote(payload: Payload) -> VoteCast | None:
     decision_id = str(payload.get("Besluit_Id") or "")
     if not decision_id:
         return None
-    return {
-        "decision_id": decision_id,
-        "choice": payload.get("Soort") or "",
-        "seats": payload.get("FractieGrootte") or 0,
-        "person_id": str(payload.get("Persoon_Id") or "") or None,
-        "faction_id": str(payload.get("Fractie_Id") or "") or None,
-        "faction_label": (payload.get("ActorFractie") or "").strip(),
-        "changed_at": payload.get("GewijzigdOp"),
-    }
+    faction_id = str(payload.get("Fractie_Id") or "")
+    return VoteCast(
+        decision_id=sys.intern(decision_id),
+        choice=sys.intern(str(payload.get("Soort") or "")),
+        seats=payload.get("FractieGrootte") or 0,
+        person_id=str(payload.get("Persoon_Id") or "") or None,
+        faction_id=sys.intern(faction_id) if faction_id else None,
+        faction_label=sys.intern((payload.get("ActorFractie") or "").strip()),
+        changed_at=payload.get("GewijzigdOp"),
+    )
 
 
-def decision(
-    decision_id: str, decision: Payload, votes: list[dict[str, Any]]
-) -> Record:
+def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Record:
     """Node key and props for one Besluit and the votes cast on it.
 
     The tally is stored so a list row costs no edge traversal; who voted how
@@ -512,11 +529,11 @@ def decision(
     tally: dict[str, int] = {}
     voters: dict[str, int] = {}
     for cast in votes:
-        choice = cast["choice"]
-        tally[choice] = tally.get(choice, 0) + int(cast["seats"] or 0)
+        choice = cast.choice
+        tally[choice] = tally.get(choice, 0) + int(cast.seats or 0)
         voters[choice] = voters.get(choice, 0) + 1
 
-    roll_call = any(cast["person_id"] for cast in votes)
+    roll_call = any(cast.person_id for cast in votes)
     if roll_call:
         # In a roll-call each row is one member, so FractieGrootte would count
         # the whole faction for every one of them.
@@ -525,7 +542,7 @@ def decision(
     return make_node_key("decision", decision_id), {
         "decision_id": decision_id,
         "agenda_item_id": str(decision.get("Agendapunt_Id") or ""),
-        "date": iso_date(votes[0]["changed_at"]) if votes else None,
+        "date": iso_date(votes[0].changed_at) if votes else None,
         "subject": subject,
         "agenda_item_subject": agenda_item.get("Onderwerp") or "",
         "decision_text": decision_text,
