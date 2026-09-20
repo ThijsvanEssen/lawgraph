@@ -6,7 +6,7 @@ import datetime as dt
 import hashlib
 import re
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any, TypeVar, cast
 from uuid import uuid4
 
@@ -136,6 +136,21 @@ def _retry_write(what: str, write: Callable[[], T]) -> T:
     return write()
 
 
+def _closing(cursor: Any) -> Iterator[dict[str, Any]]:
+    """The rows of *cursor*; the cursor is closed when the reader stops, however it stops.
+
+    A reader that raises halfway would leave its query (and the snapshot it holds) open on
+    the server until the ttl of an hour has passed.
+    """
+    try:
+        yield from cursor
+    finally:
+        try:
+            cursor.close(ignore_missing=True)
+        except Exception as exc:  # the server is gone, or the cursor already is
+            logger.debug("Closing a cursor failed: %s", exc)
+
+
 def _sleep(seconds: float) -> None:
     time.sleep(seconds)
 
@@ -220,7 +235,7 @@ class ArangoStore:
             batch_size=batch_size,
             ttl=ttl,  # type: ignore[arg-type]
         )
-        return cast(Iterable[dict[str, Any]], cursor)
+        return _closing(cast(Any, cursor))
 
     # ── Raw sources ────────────────────────────────────────────────────────────
 

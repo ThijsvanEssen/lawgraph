@@ -11,6 +11,9 @@ from lawgraph.db.store import ArangoStore
 logger = get_logger(__name__)
 
 DEFAULT_BATCH_SIZE = 500
+# A batch is also written when its text passes this size: 500 judgments with their XML, text
+# and paragraphs are hundreds of MB in one query, several times that in the server.
+MAX_BATCH_BYTES = 16_000_000
 
 
 class NodeWriter:
@@ -33,6 +36,7 @@ class NodeWriter:
         self._batch_size = batch_size
         self._pending: dict[str, dict[str, dict[str, Any]]] = {}
         self._queued = 0
+        self._bytes = 0
         self.written = 0
 
     def add(self, node: Node) -> None:
@@ -42,7 +46,8 @@ class NodeWriter:
         if node.key not in bucket:
             self._queued += 1
         bucket[node.key] = node.to_document()
-        if self._queued >= self._batch_size:
+        self._bytes += sum(len(v) for v in node.props.values() if isinstance(v, str))
+        if self._queued >= self._batch_size or self._bytes >= MAX_BATCH_BYTES:
             self.flush()
 
     def add_all(self, nodes: Any) -> None:
@@ -69,6 +74,7 @@ class NodeWriter:
             written += len(docs)
         self._pending.clear()
         self._queued = 0
+        self._bytes = 0
         self.written += written
         return written
 

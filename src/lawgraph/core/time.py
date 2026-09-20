@@ -64,6 +64,9 @@ def strip_time_component(value: str | None) -> str | None:
     return s.split("T")[0] if "T" in s else s
 
 
+RELATIVE_SINCE_OVERLAP = dt.timedelta(hours=6)
+
+
 def parse_since(value: str | None) -> dt.datetime | None:
     """Parse a --since CLI argument into a UTC datetime.
 
@@ -74,7 +77,11 @@ def parse_since(value: str | None) -> dt.datetime | None:
         return None
     value = value.strip()
     if value.endswith("d") and value[:-1].isdigit():
-        return dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=int(value[:-1]))
+        # A run every N days with `--since Nd` has no slack at all: a run that starts a
+        # minute late, or a source that indexes a change an hour after it was made, leaves
+        # a hole that no later run looks into. Everything is an upsert, so overlap is free.
+        window = dt.timedelta(days=int(value[:-1])) + RELATIVE_SINCE_OVERLAP
+        return dt.datetime.now(dt.timezone.utc) - window
     try:
         parsed = dt.datetime.fromisoformat(value)
         if parsed.tzinfo is None:

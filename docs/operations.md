@@ -69,7 +69,10 @@ All default to the public endpoints; no key is required.
 ## CLI
 
 `lawgraph` or `python -m lawgraph`; `lawgraph <phase> <source> --help` shows the options of
-a command. `--since` is the only date option: ISO 8601 (`2024-01-01`) or relative (`7d`).
+a command. `--since` is the only date option: ISO 8601 (`2024-01-01`) or relative (`7d`). A relative value
+reaches six hours further back than it says, so that runs that follow each other overlap: a
+run that starts late or a source that indexes a change late leaves no hole, and everything
+is an upsert.
 Every command exits with code 1 when it raised or its result has errors; a composite command
 (`<phase> all`, `bootstrap`, `expand-graph`) continues after a failing step unless `--strict`
 and exits 1 when any step failed.
@@ -202,7 +205,7 @@ requests per second sustained, so the base interval there is 0.5 s. A `throttlin
 the log means the pacer is slowing down; it is not an error. It appears at most once a minute
 per host, with the number of HTTP 429/503 answers since the last one; the retries themselves
 are logged at `DEBUG`. The pacer is shared inside one process. The first process that reaches a
-host holds a lock file for it (in the temporary directory); a second `lawgraph` process finds
+host holds a lock file for it (in `~/.cache/lawgraph`); a second `lawgraph` process finds
 it taken, says so once and paces that host at half speed, so two commands started side by
 side stay under the limit together.
 

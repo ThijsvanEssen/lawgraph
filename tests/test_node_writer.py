@@ -77,3 +77,24 @@ def test_context_manager_flushes_only_on_success() -> None:
             writer.add(_node("a"))
             raise RuntimeError
     assert failed.calls == []
+
+
+def test_a_batch_of_large_nodes_is_written_by_size() -> None:
+    """500 judgments with their XML and text are hundreds of MB in one query."""
+    from lawgraph.db import nodes as nodes_module
+
+    store = _Store()
+    writer = NodeWriter(store)
+    big = "x" * (nodes_module.MAX_BATCH_BYTES // 4)
+    for number in range(9):
+        writer.add(
+            Node(
+                collection="judgments",
+                type=NodeType.JUDGMENT,
+                key=f"j{number}",
+                props={"text": big},
+                _skip_validation=True,
+            )
+        )
+    writer.flush()
+    assert [len(docs) for _, docs in store.calls] == [4, 4, 1]

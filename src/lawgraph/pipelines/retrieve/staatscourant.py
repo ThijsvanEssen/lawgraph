@@ -46,6 +46,10 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
         listed = not identifiers
         if listed:
             listing = self.client.search_ministeriele_regelingen(since=since)
+            if not listing and since is None:
+                raise RuntimeError(
+                    "The Staatscourant listing is empty; nothing was retrieved."
+                )
             # What is stored and not modified since is left alone; that is also what an
             # interrupted run did, so no 24-hour rule here: it would hide a publication that
             # is modified on the day it was stored until it has left the window.

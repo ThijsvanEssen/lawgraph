@@ -15,7 +15,6 @@ the speed, so together they stay under what one process alone may do.
 from __future__ import annotations
 
 import fcntl
-import tempfile
 import threading
 import time
 from pathlib import Path
@@ -151,7 +150,11 @@ def _first_process_on(host: str) -> bool:
 
 
 def _lock_dir() -> Path:
-    return Path(tempfile.gettempdir())
+    """One place for every process of this user: a shell and a cron job have different
+    temporary directories (``$TMPDIR``), and would not see each other's locks there."""
+    path = Path.home() / ".cache" / "lawgraph"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 # The clock and the sleep are module functions so tests can replace them.

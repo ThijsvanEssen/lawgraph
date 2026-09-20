@@ -536,3 +536,18 @@ def test_parse_sru_records() -> None:
             "date": None,
         },
     ]
+
+
+def test_a_relative_since_overlaps_with_the_run_before_it() -> None:
+    """`--since 1d` every day has no slack: a late start or a late index leaves a hole."""
+    import datetime as dt
+
+    from lawgraph.core.time import RELATIVE_SINCE_OVERLAP, parse_since
+
+    now = dt.datetime.now(dt.timezone.utc)
+    since = parse_since("1d")
+    assert since is not None
+    assert abs(
+        (now - since) - (dt.timedelta(days=1) + RELATIVE_SINCE_OVERLAP)
+    ) < dt.timedelta(seconds=5)
+    assert parse_since("2024-01-01") == dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc)

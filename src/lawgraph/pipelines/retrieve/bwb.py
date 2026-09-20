@@ -254,5 +254,11 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             result.add_error(msg)
             return result
 
+        if not current:
+            # Thousands of regulations exist: an empty listing is a broken question or a
+            # broken source, not "nothing to do".
+            result = PipelineResult()
+            result.add_error("The BWB listing is empty; nothing was retrieved.")
+            return result
         logger.info("BWB full-load: %d IDs found; starting retrieval.", len(current))
         return self.run(bwb_ids=list(current), current=current)

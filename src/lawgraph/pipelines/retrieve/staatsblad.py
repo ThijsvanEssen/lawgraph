@@ -167,6 +167,10 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             result.add_error(msg)
             return result
 
+        if not amvbs:
+            result = PipelineResult()
+            result.add_error("The Staatsblad listing is empty; nothing was retrieved.")
+            return result
         identifiers = self._changed(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, amvbs)
         logger.info(
             "Staatsblad full-load: %d AMvBs listed, %d new or modified since they were "

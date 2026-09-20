@@ -34,3 +34,23 @@ def test_every_large_payload_can_be_read_through_store_query(database: str) -> N
         read += 1
         total += len(row["payload_text"])
     assert read == DOCUMENTS and total > DOCUMENTS * SIZE
+
+
+def test_a_reader_that_stops_halfway_leaves_no_query_behind(database: str) -> None:
+    """A pipeline that raises in its loop left its query, and the snapshot it holds, open for
+    the hour of its ttl."""
+    store = ArangoStore()
+    with RawSourceWriter(store) as writer:
+        for number in range(3_000):
+            writer.add(
+                raw_source_doc(source="tk", kind="tk-zaak", external_id=str(number))
+            )
+
+    def running() -> int:
+        return len([q for q in store.db.aql.queries() if "raw_sources" in q["query"]])
+
+    rows = store.query("FOR r IN raw_sources RETURN r._key", batch_size=100)
+    next(iter(rows))
+    assert running() == 1
+    rows.close()  # type: ignore[attr-defined]  # what a `for` loop that raises does
+    assert running() == 0
