@@ -288,9 +288,6 @@ class EUClient(BaseClient):
             "Accept-Language": f"{lang_lower}, {lang_lower}-{lang.upper()};q=0.9",
         }
         logger.debug("Fetching CELEX %s (%s) via CELLAR", celex, lang)
-        # Cannot use _get_raw_absolute_with_retry here: it does not support custom
-        # headers or allow_redirects, both of which are required for CELLAR content
-        # negotiation and redirect following.
-        resp = self.session.get(url, headers=headers, timeout=60, allow_redirects=True)
-        resp.raise_for_status()
+        # CELLAR negotiates the content on these headers and redirects to the document.
+        resp = self._get_raw_absolute_with_retry(url, headers=headers, timeout=60)
         return resp.text

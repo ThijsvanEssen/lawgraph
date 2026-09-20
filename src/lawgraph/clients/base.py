@@ -37,17 +37,6 @@ class BaseClient:
         """Join base_url (which has a trailing slash) with path (leading slash stripped)."""
         return self.base_url + path.lstrip("/")
 
-    def _get_raw(
-        self,
-        path: str,
-        *,
-        params: dict | None = None,
-        timeout: int = 30,
-    ) -> requests.Response:
-        """Perform an HTTP GET while logging the outgoing request and status."""
-        url = self._build_url(path)
-        return self._get_raw_absolute(url, params=params, timeout=timeout)
-
     def _get_raw_absolute(
         self,
         url: str,
@@ -55,14 +44,18 @@ class BaseClient:
         params: dict | None = None,
         timeout: int = 30,
         stream: bool = False,
+        headers: dict[str, str] | None = None,
     ) -> requests.Response:
-        """Perform an HTTP GET against a full URL while logging request and status.
+        """One HTTP GET against a full URL; ``_get_raw_absolute_with_retry`` is what clients call.
 
         With ``stream`` the body is not downloaded; the caller reads it in chunks and
         closes the response.
         """
         logger.debug("HTTP GET url=%s params=%r", url, params)
-        resp = self.session.get(url, params=params, timeout=timeout, stream=stream)
+        extra = {"headers": headers} if headers else {}
+        resp = self.session.get(
+            url, params=params, timeout=timeout, stream=stream, **extra
+        )
         logger.debug(
             "HTTP response status=%s reason=%s",
             resp.status_code,
@@ -103,6 +96,7 @@ class BaseClient:
         retries: int = 5,
         backoff_factor: float = 2.0,
         stream: bool = False,
+        headers: dict[str, str] | None = None,
     ) -> requests.Response:
         """GET a full URL with exponential backoff on 429, 502, 503, 504 and connection errors.
 
@@ -112,7 +106,11 @@ class BaseClient:
         for attempt in range(retries):
             try:
                 resp = self._get_raw_absolute(
-                    url, params=params, timeout=timeout, stream=stream
+                    url,
+                    params=params,
+                    timeout=timeout,
+                    stream=stream,
+                    headers=headers,
                 )
                 # _get_raw_absolute already calls raise_for_status, but 429/503 need retry
                 return resp
@@ -163,8 +161,8 @@ class BaseClient:
         params: dict | None = None,
         timeout: int = 30,
     ) -> dict[str, Any] | list[Any]:
-        """Get JSON from the endpoint and log item counts when present."""
-        resp = self._get_raw(path, params=params, timeout=timeout)
+        """Get JSON from the endpoint (with retry) and log item counts when present."""
+        resp = self._get_raw_with_retry(path, params=params, timeout=timeout)
         data = resp.json()
         if isinstance(data, dict) and "value" in data:
             logger.debug("JSON payload: %d items in 'value'", len(data["value"]))
@@ -177,8 +175,8 @@ class BaseClient:
         params: dict | None = None,
         timeout: int = 30,
     ) -> str:
-        """Retrieve raw text payload for the requested resource."""
-        resp = self._get_raw(path, params=params, timeout=timeout)
+        """Retrieve the text of the requested resource (with retry)."""
+        resp = self._get_raw_with_retry(path, params=params, timeout=timeout)
         return resp.text
 
     def _paged_get(

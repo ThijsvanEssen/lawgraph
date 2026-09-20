@@ -150,3 +150,47 @@ def test_tkclient_keyword_with_single_quote_does_not_corrupt_odata_filter() -> N
     # The single quote must be doubled, not left bare (which would break OData).
     assert "l''homme" in result
     assert "l'homme'" not in result.replace("l''homme", "")
+
+
+def test_every_get_is_retried_also_the_first_page_of_a_paged_fetch(monkeypatch) -> None:
+    """One 503 on page one must not abort a fetch of a thousand pages."""
+    import requests
+
+    from lawgraph.clients import base as base_module
+    from lawgraph.clients.base import BaseClient
+
+    monkeypatch.setattr(base_module.time, "sleep", lambda _s: None)
+
+    class Response:
+        def __init__(self, status: int, body: dict) -> None:
+            self.status_code, self.reason, self.headers, self._body = (
+                status,
+                "",
+                {},
+                body,
+            )
+            self.text = "text"
+
+        def json(self) -> dict:
+            return self._body
+
+        def raise_for_status(self) -> None:
+            if self.status_code >= 400:
+                raise requests.HTTPError(response=self)  # type: ignore[arg-type]
+
+    class Session:
+        def __init__(self) -> None:
+            self.answers = [Response(503, {}), Response(200, {"value": [{"Id": "1"}]})]
+            self.headers_seen: list[dict | None] = []
+
+        def get(self, url, *, params=None, timeout=30, stream=False, headers=None):
+            self.headers_seen.append(headers)
+            return self.answers.pop(0)
+
+    session = Session()
+    client = BaseClient(base_url="https://example.test", session=session)  # type: ignore[arg-type]
+    assert list(client._paged_get("Zaak")) == [{"Id": "1"}]
+
+    session.answers = [Response(503, {}), Response(200, {})]
+    assert client._get_text("uitspraken/content") == "text"
+    assert not hasattr(client, "_get_raw")  # no GET without retry is left
