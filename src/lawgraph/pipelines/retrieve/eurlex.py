@@ -33,7 +33,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         lang: str = "NL",
         **kwargs: object,
     ) -> PipelineResult:
-        """Fetch the requested acts and store each one as soon as it is fetched.
+        """Fetch the requested acts and store them while they are fetched.
 
         An interrupted run keeps what it already has, and a re-run skips the acts stored in
         the last 24 hours. An act CELLAR has no HTML text of

@@ -41,7 +41,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         """Retrieve the Staatsblad publications the stored BWB toestand XML refers to.
 
         Each toestand XML names the Staatsblad publication (year and number) it comes
-        from; those not yet in raw_sources are fetched and stored one by one.
+        from; those not yet in raw_sources are fetched and stored.
         """
         candidates, without = self._candidates_from_bwb(store)
         existing = self._find_existing_identifiers(store, candidates)

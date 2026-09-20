@@ -46,7 +46,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 `--skip-decisions`, `--decisions-since`, `--skip-documents`, `--documents-since`,
 `--dossier-number N` (fetches only the documents of that dossier, ignoring dates). Commissie,
 Persoon, Fractie and FractieZetelPersoon are always full refreshes. Each entity type is
-stored as soon as it is fetched, so an interrupted run keeps finished types.
+stored while it is fetched (a buffer at a time), so an interrupted run keeps what it fetched.
 
 Client quirks:
 
@@ -209,7 +209,7 @@ refer to (`fill-gaps`, `expand-graph`), not by listing them.
 | `cjeu` | judgments that cite acts in the graph |
 | `com` | Commission proposals for acts in the graph |
 
-`--lang` (default `NL`). Stored as `eu-celex-html`, each act as soon as it is fetched. An act
+`--lang` (default `NL`). Stored as `eu-celex-html` while the acts are fetched. An act
 without an HTML text (HTTP 404, in every language: old regulations and every corrigendum)
 counts as skipped, not as an error.
 
