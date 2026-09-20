@@ -181,9 +181,16 @@ def parse_sru_records(
 
 
 def fetch_publication_xml(
-    client: BaseClient, kind: str, id_pattern: re.Pattern[str], identifier: str
+    client: BaseClient,
+    kind: str,
+    id_pattern: re.Pattern[str],
+    identifier: str,
+    group: str | None = None,
 ) -> str | None:
-    """The XML of a publication (``stb``, ``stcrt``) from the repository.
+    """The XML of a publication (``stb``, ``stcrt``, ``kst``) from the repository.
+
+    The repository files a publication under a group: the year for the Staatsblad and the
+    Staatscourant (the default), the dossier for a Kamerstuk (``37020`` or ``37020-X``).
 
     ``None`` when the identifier is malformed or the repository has no XML for it (404); any
     other failure raises, after the retries of ``BaseClient``.
@@ -191,9 +198,9 @@ def fetch_publication_xml(
     if not id_pattern.search(identifier) or not _IDENTIFIER_RE.fullmatch(identifier):
         logger.warning("Cannot parse %s identifier: %s", kind, identifier)
         return None
-    year = identifier.split("-")[1]
+    group = group or identifier.split("-")[1]
     url = (
-        f"{client.base_url.rstrip('/')}/frbr/officielepublicaties/{kind}/{year}/"
+        f"{client.base_url.rstrip('/')}/frbr/officielepublicaties/{kind}/{group}/"
         f"{identifier}/1/xml/{identifier}.xml"
     )
     try:

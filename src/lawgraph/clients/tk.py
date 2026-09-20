@@ -81,11 +81,6 @@ class TKClient(BaseClient):
         logger.info("Fetching Zaak modified since %s", since_string)
         return self._paged_get("Zaak", params=params)
 
-    def fetch_document_bytes(self, document_id: str, *, timeout: int = 60) -> bytes:
-        """Fetch the raw binary content of a TK document by its UUID."""
-        path = f"Document({document_id})/resource"
-        return self._get_raw(path, timeout=timeout).content
-
     # ── New parliamentary entity fetchers ─────────────────────────────────────
 
     def fetch_dossiers(

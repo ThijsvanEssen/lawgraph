@@ -212,11 +212,11 @@ def _register_tk() -> list[SourceDescriptor]:
         ),
         SourceDescriptor(
             id="tk_content",
-            display_name="Tweede Kamer (document text from PDF)",
+            display_name="Tweede Kamer (paper text from XML)",
             descriptions={
                 "retrieve": (
-                    "PDF text of Tweede Kamer documents (explanatory memoranda); "
-                    "slow, one PDF per document."
+                    "Text of Tweede Kamer papers (explanatory memoranda) from their "
+                    "XML in the KOOP repository; slow, one XML per paper."
                 ),
             },
             # No retrieve_argv_builder: slow (hours), run manually, not part of

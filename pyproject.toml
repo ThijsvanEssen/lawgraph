@@ -21,7 +21,6 @@ dependencies = [
   "pydantic>=2.0,<3",
   "fastapi>=0.110.0,<1",
   "uvicorn[standard]>=0.32,<0.33",
-  "pdfminer.six>=20231228",
 ]
 
 [project.optional-dependencies]

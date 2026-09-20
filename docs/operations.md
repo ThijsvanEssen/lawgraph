@@ -31,6 +31,7 @@ All default to the public endpoints; no key is required.
 | `BWB_SRU_ENDPOINT` | `https://zoekservice.overheid.nl/sru/Search` |
 | `STAATSBLAD_SRU_ENDPOINT`, `STAATSCOURANT_SRU_ENDPOINT` | `https://repository.overheid.nl/sru` |
 | `STAATSBLAD_REPO_BASE`, `STAATSCOURANT_REPO_BASE` | `https://repository.overheid.nl` |
+| `KAMERSTUK_REPO_BASE` | `https://repository.overheid.nl` |
 | `EERSTEKAMER_SRU` | `https://repository.overheid.nl/sru` |
 | `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
 | `VERDRAGENBANK_SRU` | `https://repository.overheid.nl/sru` |
@@ -183,7 +184,7 @@ scheduler of your choice.
 
 | Step | Why |
 |------|-----|
-| `retrieve tk-content` | one PDF per document, 0.5 s between requests |
+| `retrieve tk-content` | one XML per paper (up to several MB), paced at 0.5 s |
 | `retrieve tk-dossiers` full | about 400K documents, fetched 250 at a time |
 | `retrieve bwb --mode full`, `retrieve bwb-history` | one SRU query and one XML download per regulation or toestand; `retrieve bwb` adds one short WTI request (about 1 KB read) per regulation |
 | `normalize bwb-history`, `semantic bwb-grondslagen`, `bwb-annexes` | stream every stored toestand XML (large documents) in batches of 20 |

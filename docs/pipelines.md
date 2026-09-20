@@ -40,7 +40,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 |---------|---------|--------------|
 | `retrieve tk` | Zaak and Document modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak`, `tk-document` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
-| `retrieve tk-content` | PDF text of documents whose `kind` contains `--kind` (default `toelichting`) and that have no `props.text`; `--dry-run` | writes `documents.props.text` |
+| `retrieve tk-content` | XML text of documents whose `kind` contains `--kind` (default `toelichting`) and that have no `props.text`; `--dry-run` | writes `documents.props.text` |
 
 `tk-dossiers` options: `--since`, `--skip-members` (also skips Fractie and FractieZetelPersoon),
 `--skip-decisions`, `--decisions-since`, `--skip-documents`, `--documents-since`,
@@ -57,8 +57,13 @@ Client quirks:
   `$skip` until a page is short. Zaak and Document follow `@odata.nextLink`.
 - Votes arrive as one row per faction per `Besluit`.
 - A full Document fetch is about 400K records; use a date window (`retrieve all --window 730d`, or `--documents-since 730d`).
-- `tk-content` sleeps 0.5 s between requests, keeps at most 500,000 characters, and imports
-  `pdfminer.six`, which `pyproject.toml` does not declare.
+- `tk-content` does not use the PDF the API serves: the same paper is published as structured
+  XML in the KOOP repository, filed under its dossier
+  (`.../kst/<dossier>/kst-<dossier>-<number>/1/xml/kst-<dossier>-<number>.xml`, the dossier
+  being the number with its addition, `37020-X` for a budget chapter). It builds the identifier
+  from the dossier the paper is `PART_OF` and its `sequence`, takes the plain text of the XML,
+  keeps at most 500,000 characters (and logs when it cuts), and stores each paper as it comes.
+  A paper the repository does not have (404) is skipped; 25 failures in a row fail the step.
 
 **Normalize `tk`.** Zaak to Case (`cases`, key = Zaak GUID, whole payload in `props.raw`,
 `dossier_numbers` kept for the dossier pipeline). No edges: a case is linked once the dossiers

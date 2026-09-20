@@ -82,6 +82,13 @@ def find_celex_ids(text: str) -> list[str]:
 # Staatsblad / Staatscourant identifiers: ``stb-<year>-<number>``, ``stcrt-...``.
 STB_ID_PATTERN = re.compile(r"stb-(\d{4})-(\d+)", re.IGNORECASE)
 STCRT_ID_PATTERN = re.compile(r"stcrt-(\d{4})-(\d+)", re.IGNORECASE)
+KST_ID_PATTERN = re.compile(r"kst-(\d+(?:-[A-Za-z]+)?)-(\d+[A-Za-z]?)", re.IGNORECASE)
+
+
+def kamerstuk_identifier(number: str, suffix: str | None, sequence: int | str) -> str:
+    """``kst-37020-X-2``: dossier number, its addition (a budget chapter) and the paper number."""
+    dossier = f"{number}-{suffix}" if suffix else str(number)
+    return f"kst-{dossier}-{sequence}"
 
 
 def clean_ids(values: Iterable[str | None] | None) -> list[str]:
