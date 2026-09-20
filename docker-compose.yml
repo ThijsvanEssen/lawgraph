@@ -23,29 +23,13 @@ services:
       - arango_data:/var/lib/arangodb3
       - arango_apps:/var/lib/arangodb3-apps
 
-  # The database of the integration tests (tests/integration): its own container, port and
-  # throw-away volume, never the data above. It is deliberately small: a query that builds a
-  # whole result in the memory of the server, or a run whose memory grows with the number of
-  # records, fails here on a few hundred MB of test data instead of on the real corpus.
-  #   docker compose --profile test up -d arangodb-test
-  #   docker compose --profile test down -v
-  arangodb-test:
-    profiles: ["test"]
-    image: arangodb:3.12
-    container_name: arango-lawgraph-test
-    ports:
-      - "8530:8529"
-    environment:
-      - ARANGO_ROOT_PASSWORD=${ARANGO_ROOT_PASSWORD}
-    mem_limit: 1g
-    command:
-      - arangod
-      - --rocksdb.block-cache-size=134217728            # 128 MiB
-      - --rocksdb.enforce-block-cache-size-limit=true
-      - --rocksdb.total-write-buffer-size=134217728     # 128 MiB
-      - --cache.size=67108864                           # 64 MiB
-      - --query.memory-limit=268435456                  # 256 MiB per query
-      - --query.global-memory-limit=402653184           # 384 MiB for all queries together
+# The data lives in volumes that compose does not own: `docker compose down -v` removes the
+# volumes of a project, and that is how this database was lost once. Create them once:
+#   docker volume create lawgraph_arango_data && docker volume create lawgraph_arango_apps
 volumes:
   arango_data:
+    external: true
+    name: lawgraph_arango_data
   arango_apps:
+    external: true
+    name: lawgraph_arango_apps

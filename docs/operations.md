@@ -210,6 +210,13 @@ host holds a lock file for it (in `~/.cache/lawgraph`); a second `lawgraph` proc
 it taken, says so once and paces that host at half speed, so two commands started side by
 side stay under the limit together.
 
+**Database volumes.** The data is in two Docker volumes that `docker-compose.yml` declares
+`external`: compose uses them and cannot remove them. Create them once
+(`docker volume create lawgraph_arango_data && docker volume create lawgraph_arango_apps`),
+then `docker compose up -d`. `docker compose down -v` removes every volume a project owns,
+also with `--profile`, and that is how this database was lost once; the test database is a
+compose project of its own for the same reason.
+
 **Database memory.** ArangoDB sizes its caches from the memory it sees and has no limit of
 its own. In Docker that is the whole VM: on an 8 GB VM it grew until the kernel killed it (exit
 137, `OOMKilled`) in the middle of a load, which also left a search view out of sync.
@@ -271,13 +278,13 @@ The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`)
 test executes AQL, but `ALLOW_DB_TESTS=1` has the server validate every static query.
 
 What only a server shows is in `tests/integration`: the real code and the real CLI against a
-second, deliberately small ArangoDB (`arangodb-test` in `docker-compose.yml`: port 8530, 1 GB
+second, deliberately small ArangoDB (`docker-compose.test.yml`, a compose project of its own: port 8530, 1 GB
 of memory, 256 MiB per query, a throw-away volume; never the database of `.env`).
 
 ```bash
-docker compose --profile test up -d arangodb-test
+docker compose -f docker-compose.test.yml up -d
 ALLOW_DB_TESTS=1 pytest tests/integration     # two minutes
-docker compose --profile test down -v
+docker compose -f docker-compose.test.yml down
 ```
 
 It seeds raw records in the shapes of the sources at any scale (`seed.py`) and checks: a

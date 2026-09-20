@@ -2,9 +2,9 @@
 
 The unit suite runs on fake stores and never executes a query, so what only a server shows
 (a result built in its memory, a cursor that is killed, a restart in the middle of a run)
-stays invisible there. These tests need the test database of ``docker-compose.yml``::
+stays invisible there. These tests need the test database of ``docker-compose.test.yml``::
 
-    docker compose --profile test up -d arangodb-test
+    docker compose -f docker-compose.test.yml up -d
     ALLOW_DB_TESTS=1 pytest tests/integration
 
 They never touch the database of ``.env``: they talk to ``LAWGRAPH_TEST_ARANGO_URL`` (default
@@ -44,7 +44,8 @@ def pytest_collection_modifyitems(
         reason = "Integration tests disabled (set ALLOW_DB_TESTS=1 to enable)."
     elif not _reachable():
         reason = (
-            f"No test database at {TEST_URL} (docker compose --profile test up -d)."
+            f"No test database at {TEST_URL} "
+            "(docker compose -f docker-compose.test.yml up -d)."
         )
     else:
         return
