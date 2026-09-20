@@ -60,6 +60,7 @@ lawgraph semantic all --since 7d
 lawgraph <retrieve|normalize|semantic> <source|all> [options]
 lawgraph bootstrap | expand-graph | fill-gaps
 lawgraph <phase> <source> --help
+lawgraph sources                 # what every source and phase does
 ```
 
 Sources: `tk`, `tk-dossiers`, `tk-content`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`,

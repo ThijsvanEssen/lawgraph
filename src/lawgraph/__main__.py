@@ -2,6 +2,7 @@
 
     lawgraph <retrieve|normalize|semantic> <source|all> [options]
     lawgraph <bootstrap|expand-graph|fill-gaps> [options]
+    lawgraph sources
 
 Sources and their order come from ``lawgraph.sources.registry``.
 """
@@ -14,12 +15,13 @@ from collections.abc import Callable
 from lawgraph.commands.bootstrap import main as bootstrap
 from lawgraph.commands.expand_graph import main as expand_graph
 from lawgraph.commands.fill_gaps import main as fill_gaps
+from lawgraph.core.logging import get_logger, log_step, setup_logging
 from lawgraph.pipelines.orchestration import (
     run_normalize_all,
     run_retrieve_all,
     run_semantic_all,
 )
-from lawgraph.sources.registry import SOURCES
+from lawgraph.sources.registry import SOURCES, describe
 
 Main = Callable[..., None]
 
@@ -47,12 +49,30 @@ def _build_dispatch() -> dict[str, dict[str, Main]]:
     return dispatch
 
 
+def _sources_overview() -> str:
+    """Every source with what each of its phases does, in the order the phases run."""
+    lines = ["Sources, in registry order (the order of `<phase> all`):", ""]
+    for source in SOURCES:
+        lines.append(f"{source.id.replace('_', '-')}  —  {source.display_name}")
+        for phase in ("retrieve", "normalize", "semantic"):
+            if getattr(source, f"{phase}_main") is None:
+                continue
+            note = ""
+            if phase == "retrieve" and source.retrieve_argv_builder is None:
+                note = " [manual: not in retrieve all]"
+            text = source.descriptions.get(phase, "(no description)")
+            lines.append(f"    {phase:<10} {text}{note}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
 def _usage(dispatch: dict[str, dict[str, Main]]) -> str:
     lines = ["Usage: lawgraph <phase> <source> [options]", ""]
     lines += [
         f"  {phase}: {', '.join(sorted(mains))}" for phase, mains in dispatch.items()
     ]
     lines += ["", f"       lawgraph <{'|'.join(_COMMANDS)}> [options]", ""]
+    lines += ["       lawgraph sources     what every source and phase does", ""]
     lines += ["Add --help after a command for its options."]
     return "\n".join(lines)
 
@@ -66,15 +86,25 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     command, rest = argv[0], argv[1:]
+    if command == "sources":
+        print(_sources_overview())
+        return
     if command in _COMMANDS:
-        _COMMANDS[command](argv=rest)
+        setup_logging()
+        with log_step(command):
+            _COMMANDS[command](argv=rest)
         return
 
     if command not in dispatch or not rest or rest[0] not in dispatch[command]:
         print(_usage(dispatch), file=sys.stderr)
         sys.exit(2)
 
-    dispatch[command][rest[0]](argv=rest[1:])
+    setup_logging()
+    with log_step(f"{command} {rest[0]}"):
+        description = describe(command, rest[0])
+        if description:
+            get_logger(__name__).info("%s", description)
+        dispatch[command][rest[0]](argv=rest[1:])
 
 
 if __name__ == "__main__":

@@ -11,12 +11,13 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import sys
+import time
 from collections.abc import Callable
 from typing import Any
 
-from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.core.logging import get_logger, log_step, setup_logging
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.time import parse_since
+from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import ArangoStore
 
 logger = get_logger(__name__)
@@ -44,35 +45,72 @@ def _since(value: str | None) -> dt.datetime | None:
 
 
 def run_step(name: str, run: Callable[[], PipelineResult]) -> None:
-    """Run one pipeline step, log its summary, and exit 1 when it failed."""
+    """Run one pipeline step, log its summary and duration, and exit 1 when it failed."""
     setup_logging()
+    started = time.monotonic()
     try:
         result = run()
     except Exception as exc:
-        logger.error("%s failed: %s", name, exc)
+        logger.error(
+            "%s failed after %s: %s",
+            name,
+            format_duration(time.monotonic() - started),
+            exc,
+        )
         sys.exit(1)
 
-    logger.info("%s: %s.", name, result.summary())
+    logger.info(
+        "%s: %s in %s.",
+        name,
+        result.summary(),
+        format_duration(time.monotonic() - started),
+    )
     for error in result.errors:
         logger.error("%s error: %s", name, error)
     if result.errors:
         sys.exit(1)
 
 
-def run_command(name: str, main: Callable[..., None], argv: list[str]) -> bool:
-    """Run ``main(argv)``; return False when it raised or exited with a non-zero code."""
-    logger.info("%s: starting.", name)
-    try:
-        main(argv=argv)
-    except SystemExit as exc:
-        if exc.code not in (None, 0):
-            logger.error("%s: exited with code %s.", name, exc.code)
+def run_command(
+    name: str,
+    main: Callable[..., None],
+    argv: list[str],
+    *,
+    step: str | None = None,
+    description: str = "",
+) -> bool:
+    """Run ``main(argv)``; return False when it raised or exited with a non-zero code.
+
+    Every log line written inside carries *step* (default *name*), and the start line says
+    what the step does and with which options.
+    """
+    with log_step(step or name):
+        options = f" ({' '.join(argv)})" if argv else ""
+        logger.info(
+            "%s: starting%s%s",
+            name,
+            f" — {description}" if description else "",
+            options,
+        )
+        started = time.monotonic()
+        try:
+            main(argv=argv)
+        except SystemExit as exc:
+            if exc.code not in (None, 0):
+                logger.error(
+                    "%s: exited with code %s after %s.",
+                    name,
+                    exc.code,
+                    format_duration(time.monotonic() - started),
+                )
+                return False
+        except Exception as exc:
+            logger.error("%s: raised %s", name, exc)
             return False
-    except Exception as exc:
-        logger.error("%s: raised %s", name, exc)
-        return False
-    logger.info("%s: completed.", name)
-    return True
+        logger.info(
+            "%s: completed in %s.", name, format_duration(time.monotonic() - started)
+        )
+        return True
 
 
 def make_pipeline_cli(

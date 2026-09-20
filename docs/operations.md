@@ -210,10 +210,19 @@ re-run (upserts, so only time is repeated). The log shows `N records stored so f
 
 ## Observability
 
-- Logging: `lawgraph.core.logging`; format `time [LEVEL] logger: message`, JSON with
-  `LAWGRAPH_LOG_FORMAT=json`, level from `LAWGRAPH_LOG_LEVEL`.
-- Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors); errors are
-  listed and set exit code 1. Orchestrators print a per-step summary table at the end.
+- Logging: `lawgraph.core.logging`; format `time [LEVEL] [step] logger: message`, JSON (with a
+  `step` field) with `LAWGRAPH_LOG_FORMAT=json`, level from `LAWGRAPH_LOG_LEVEL`. The step is
+  the command a line belongs to (`retrieve staatscourant`, `normalize tk-dossiers`), so lines of
+  sources retrieved side by side (`--jobs`) can be told apart; the logger name is shown without
+  `lawgraph.`. Lines of the orchestrators carry `retrieve all`, `bootstrap` and so on.
+- A step opens with what it does and its options (`starting — Ministerial regulations from the
+  Staatscourant. (--mode incremental --since 2024-09-20)`) and closes with how long it took.
+  `lawgraph sources` prints what every source and phase does; retrieve commands that are not part
+  of `retrieve all` are marked.
+- Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors) and its
+  duration; errors are listed and set exit code 1. Orchestrators print a per-step summary table
+  at the end. A long retrieve logs `N records stored so far` every 1000 records.
+- `is throttling` warnings come from the request pacer (see Pacing), not from an error.
 - API: each request is logged with id, client, method, path, status, size and latency;
   `GET /api/health` checks the database connection; `GET /api/stats` gives counts per
   collection and relation.

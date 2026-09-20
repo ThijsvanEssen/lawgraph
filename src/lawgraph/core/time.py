@@ -82,3 +82,15 @@ def parse_since(value: str | None) -> dt.datetime | None:
         return parsed
     except ValueError as exc:
         raise ValueError(f"Cannot parse --since value '{value}'.") from exc
+
+
+def format_duration(seconds: float) -> str:
+    """``12s``, ``4m12s`` or ``1h02m``: how long a step took."""
+    total = int(round(seconds))
+    hours, rest = divmod(total, 3600)
+    minutes, secs = divmod(rest, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m"
+    if minutes:
+        return f"{minutes}m{secs:02d}s"
+    return f"{secs}s"

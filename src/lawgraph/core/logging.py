@@ -1,12 +1,45 @@
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from lawgraph.config.settings import LOG_JSON, LOG_LEVEL, LOG_NO_COLOR
 
-LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+# ``step`` is the command a line belongs to ("retrieve staatscourant"), so lines of steps that
+# run side by side can be told apart; ``short_name`` is the logger without ``lawgraph.``.
+LOG_FORMAT = "%(asctime)s [%(levelname)s] %(step_tag)s%(short_name)s: %(message)s"
+
+_step: contextvars.ContextVar[str] = contextvars.ContextVar("lawgraph_step", default="")
+
+
+@contextmanager
+def log_step(label: str) -> Iterator[None]:
+    """Mark every log line written inside the block (and by this thread) as part of *label*."""
+    token = _step.set(label)
+    try:
+        yield
+    finally:
+        _step.reset(token)
+
+
+def current_step() -> str:
+    return _step.get()
+
+
+class _StepFilter(logging.Filter):
+    """Adds the current step and the short logger name to every record."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        step = _step.get()
+        record.step = step
+        record.step_tag = f"[{step}] " if step else ""
+        record.short_name = record.name.removeprefix("lawgraph.")
+        return True
+
 
 COLOR_RESET = "\033[0m"
 LEVEL_COLORS = {
@@ -37,6 +70,7 @@ class _JsonFormatter(logging.Formatter):
             "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
             "level": record.levelname,
             "logger": record.name,
+            "step": getattr(record, "step", ""),
             "message": record.getMessage(),
         }
         if record.exc_info:
@@ -66,6 +100,7 @@ def setup_logging(level: int | None = None) -> None:
         formatter = logging.Formatter(LOG_FORMAT)
 
     handler = logging.StreamHandler()
+    handler.addFilter(_StepFilter())
     handler.setFormatter(formatter)
     root.addHandler(handler)
     setattr(root, _LAWGRAPH_HANDLER_ATTR, True)

@@ -14,7 +14,7 @@ from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.core.time import parse_since
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.factory import add_since_argument, run_command
-from lawgraph.sources.registry import SOURCES, RetrieveCtx
+from lawgraph.sources.registry import SOURCES, RetrieveCtx, describe
 
 logger = get_logger(__name__)
 
@@ -40,7 +40,15 @@ def _run_step(phase: str, step: _Step) -> str:
     if skip_step(phase, step.source_id):
         logger.info("%s skipped (%s).", step.name, skip_variable(phase, step.source_id))
         return "skipped"
-    return "ok" if run_command(step.name, step.main, step.argv) else "failed"
+    label = f"{phase} {step.source_id.replace('_', '-')}"
+    succeeded = run_command(
+        step.name,
+        step.main,
+        step.argv,
+        step=label,
+        description=describe(phase, step.source_id),
+    )
+    return "ok" if succeeded else "failed"
 
 
 def _run_lane(phase: str, steps: list[_Step]) -> list[tuple[str, str]]:

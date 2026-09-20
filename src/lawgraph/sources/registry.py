@@ -8,7 +8,8 @@ built from ``SOURCES``; list order is execution order.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Callable
 
 from lawgraph.pipelines.factory import make_pipeline_cli
@@ -96,11 +97,15 @@ class SourceDescriptor:
     ``retrieve all --jobs N`` runs lanes side by side and the steps of one lane one after
     the other, so no server gets two request streams from us.
     Every normalize command accepts ``--since``; a semantic command only when
-    ``semantic_accepts_since`` is set.
+    ``semantic_accepts_since`` is set. ``descriptions`` says per phase what the command does;
+    it is printed by ``lawgraph sources`` and in the first log line of the step.
     """
 
     id: str
     display_name: str
+    descriptions: Mapping[str, str] = field(
+        default_factory=dict
+    )  # phase -> what it does
     retrieve_main: Callable[..., None] | None = None
     retrieve_argv_builder: Callable[[RetrieveCtx], list[str]] | None = None
     retrieve_lane: str | None = None
@@ -171,6 +176,15 @@ def _register_tk() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="tk",
             display_name="Tweede Kamer (cases & documents)",
+            descriptions={
+                "retrieve": (
+                    "Tweede Kamer cases (Zaak) and documents (Document) from the OData API."
+                ),
+                "normalize": "Cases and documents as nodes.",
+                "semantic": (
+                    "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles."
+                ),
+            },
             retrieve_main=retrieve_tk,
             retrieve_argv_builder=_windowed_argv,
             retrieve_lane=LANE_TWEEDE_KAMER,
@@ -181,6 +195,16 @@ def _register_tk() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="tk_dossiers",
             display_name="Tweede Kamer (dossiers, votes, committees)",
+            descriptions={
+                "retrieve": (
+                    "Tweede Kamer dossiers, activities, votes, commitments, committees, members, "
+                    "factions and documents."
+                ),
+                "normalize": (
+                    "Committees, members, factions, dossiers, activities, votes, commitments and "
+                    "documents as nodes, with their edges."
+                ),
+            },
             retrieve_main=retrieve_tk_dossiers,
             retrieve_argv_builder=_tk_dossiers_argv,
             retrieve_lane=LANE_TWEEDE_KAMER,
@@ -189,6 +213,12 @@ def _register_tk() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="tk_content",
             display_name="Tweede Kamer (document text from PDF)",
+            descriptions={
+                "retrieve": (
+                    "PDF text of Tweede Kamer documents (explanatory memoranda); "
+                    "slow, one PDF per document."
+                ),
+            },
             # No retrieve_argv_builder: slow (hours), run manually, not part of
             # `retrieve all`.
             retrieve_main=retrieve_tk_content,
@@ -211,6 +241,17 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="rechtspraak",
             display_name="Rechtspraak (judgments)",
+            descriptions={
+                "retrieve": (
+                    "Rechtspraak index pages, and the content of the judgments given "
+                    "with --ecli. Nothing reads the index."
+                ),
+                "normalize": (
+                    "Judgment nodes from the stored judgment XML (court, date, summary, text, "
+                    "related ECLIs)."
+                ),
+                "semantic": "Article citations in judgments: REFERS_TO to BWB articles.",
+            },
             retrieve_main=retrieve_rechtspraak,
             # Not in `retrieve all`: nothing reads the index (judgments come from `fill-gaps`
             # and `--ecli`), so loading it only stores hundreds of MB.
@@ -236,6 +277,17 @@ def _register_eurlex() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="eurlex",
             display_name="EUR-Lex (EU legislation)",
+            descriptions={
+                "retrieve": (
+                    "EU acts as HTML by CELEX number: those already in the graph (fill-gaps adds "
+                    "the ones records refer to)."
+                ),
+                "normalize": "EU instruments and their articles.",
+                "semantic": (
+                    "Article citations in EU articles: links EU instruments to national and EU "
+                    "articles."
+                ),
+            },
             retrieve_main=retrieve_eurlex,
             # Never lists acts: the graph (fill-gaps, expand-graph) says which are needed.
             retrieve_argv_builder=_no_argv,
@@ -283,6 +335,14 @@ def _register_bwb() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="bwb",
             display_name="BWB (Dutch legislation)",
+            descriptions={
+                "retrieve": (
+                    "Dutch legislation: the current toestand XML and the WTI "
+                    "abbreviations of every regulation."
+                ),
+                "normalize": "Instruments and articles; short titles from the WTI abbreviations.",
+                "semantic": "REFERS_TO between articles, read from the XML.",
+            },
             retrieve_main=retrieve_bwb,
             retrieve_argv_builder=_mode_argv,
             normalize_main=normalize,
@@ -292,6 +352,10 @@ def _register_bwb() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="bwb_history",
             display_name="BWB (historical toestanden)",
+            descriptions={
+                "retrieve": "Every toestand of the given regulations; slow.",
+                "normalize": "Article and instrument versions from the stored toestanden.",
+            },
             # No retrieve_argv_builder: run manually, not part of `retrieve all`.
             retrieve_main=retrieve_bwb_history,
             normalize_main=normalize_history,
@@ -299,16 +363,30 @@ def _register_bwb() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="bwb_grondslagen",
             display_name="BWB delegation bases (BASED_ON)",
+            descriptions={
+                "semantic": (
+                    "BASED_ON from a regulation to the article it is issued under ('Gelet op')."
+                ),
+            },
             semantic_main=semantic_grondslagen,
         ),
         SourceDescriptor(
             id="bwb_amendments",
             display_name="BWB amendments (AMENDS/INTRODUCES/REPEALS/LEGISLATED_IN)",
+            descriptions={
+                "semantic": (
+                    "AMENDS, INTRODUCES and REPEALS from amending publications, and LEGISLATED_IN "
+                    "from dossier references."
+                ),
+            },
             semantic_main=semantic_amendments,
         ),
         SourceDescriptor(
             id="bwb_annexes",
             display_name="BWB annexes (SCOPED_BY)",
+            descriptions={
+                "semantic": "Annex nodes from the BWB XML and SCOPED_BY edges.",
+            },
             semantic_main=semantic_annexes,
         ),
     ]
@@ -328,6 +406,16 @@ def _register_staatsblad() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="staatsblad",
             display_name="Staatsblad (NvT for AMvBs)",
+            descriptions={
+                "retrieve": (
+                    "Staatsblad publications (explanatory notes of AMvBs) as XML, for the "
+                    "regulations the stored BWB XML refers to."
+                ),
+                "normalize": "Publications as documents.",
+                "semantic": (
+                    "EXPLAINS: links Staatsblad explanatory notes to the instrument they explain."
+                ),
+            },
             retrieve_main=retrieve_staatsblad,
             retrieve_argv_builder=_no_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
@@ -352,6 +440,13 @@ def _register_staatscourant() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="staatscourant",
             display_name="Staatscourant (ministerial regulations)",
+            descriptions={
+                "retrieve": (
+                    "Ministerial regulations from the Staatscourant as XML, via the KOOP SRU."
+                ),
+                "normalize": "Regulations as documents.",
+                "semantic": "EXPLAINS: links Staatscourant regulations to instruments.",
+            },
             retrieve_main=retrieve_staatscourant,
             retrieve_argv_builder=_windowed_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
@@ -376,6 +471,11 @@ def _register_eerstekamer() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="eerstekamer",
             display_name="Eerste Kamer (Kamerstukken)",
+            descriptions={
+                "retrieve": "Eerste Kamer Kamerstukken from the KOOP SRU (no votes).",
+                "normalize": "Kamerstukken as documents, with the dossier number and its addition.",
+                "semantic": "PART_OF: links each paper to its Tweede Kamer dossier.",
+            },
             retrieve_main=retrieve_eerstekamer,
             retrieve_argv_builder=_windowed_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
@@ -399,6 +499,13 @@ def _register_echr() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="echr",
             display_name="ECHR HUDOC (European Court of Human Rights)",
+            descriptions={
+                "retrieve": (
+                    "European Court of Human Rights judgments against the Netherlands (HUDOC)."
+                ),
+                "normalize": "Judgments as nodes.",
+                "semantic": "REFERS_TO: links ECHR judgments to Convention articles.",
+            },
             retrieve_main=retrieve_echr,
             retrieve_argv_builder=_windowed_argv,
             normalize_main=normalize,
@@ -417,6 +524,10 @@ def _register_verdragenbank() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="verdragenbank",
             display_name="Verdragenbank (Dutch treaties)",
+            descriptions={
+                "retrieve": "Treaties the Netherlands is party to, from the KOOP SRU.",
+                "normalize": "Treaties as instruments.",
+            },
             retrieve_main=retrieve_verdragenbank,
             retrieve_argv_builder=_no_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
@@ -455,27 +566,50 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="judgment_citations",
             display_name="Rechtspraak citation analysis (REFERS_TO)",
+            descriptions={
+                "semantic": (
+                    "ECLI references between judgments: REFERS_TO; cited judgments that are not "
+                    "loaded become stubs."
+                ),
+            },
             semantic_main=semantic_judgment_citations,
         ),
         SourceDescriptor(
             id="judgment_appeal",
             display_name="Rechtspraak appeal chain (APPEAL_OF)",
+            descriptions={
+                "semantic": (
+                    "APPEAL_OF from appeal and cassation judgments to the earlier proceedings."
+                ),
+            },
             semantic_main=semantic_judgment_appeal,
         ),
         SourceDescriptor(
             id="instrument_relations",
             display_name="Instrument relations (AMENDS / IMPLEMENTS)",
+            descriptions={
+                "semantic": "AMENDS and IMPLEMENTS between instruments.",
+            },
             semantic_main=semantic_instrument_relations,
             semantic_accepts_since=True,
         ),
         SourceDescriptor(
             id="amendment_articles",
             display_name="Amendment to article links (AMENDS / INTRODUCES / REPEALS)",
+            descriptions={
+                "semantic": (
+                    "Amendment language in Tweede Kamer documents, linked to the articles it "
+                    "changes."
+                ),
+            },
             semantic_main=semantic_amendment_articles,
         ),
         SourceDescriptor(
             id="mvt_articles",
             display_name="Explanatory memorandum to article links (EXPLAINS)",
+            descriptions={
+                "semantic": "EXPLAINS: links explanatory memoranda to what they explain.",
+            },
             semantic_main=semantic_mvt_articles,
         ),
         # Runs after bwb_articles (registry order == orchestrator order) so the
@@ -483,12 +617,18 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
         SourceDescriptor(
             id="relation_semantics",
             display_name="Semantic relationship types (article to article)",
+            descriptions={
+                "semantic": "Classifies article-to-article REFERS_TO edges by what they mean.",
+            },
             semantic_main=semantic_relation_semantics,
         ),
         # Last: counts the edges written by every step above.
         SourceDescriptor(
             id="list_stats",
             display_name="List endpoint sort and filter fields",
+            descriptions={
+                "semantic": "Precomputes the sort and filter fields of the list endpoints.",
+            },
             semantic_main=list_stats_main,
         ),
     ]
@@ -510,3 +650,11 @@ def _build_registry() -> list[SourceDescriptor]:
 
 
 SOURCES: list[SourceDescriptor] = _build_registry()
+
+
+def describe(phase: str, source_id: str) -> str:
+    """What ``<phase> <source>`` does, or an empty string."""
+    for source in SOURCES:
+        if source.id == source_id.replace("-", "_"):
+            return source.descriptions.get(phase, "")
+    return ""
