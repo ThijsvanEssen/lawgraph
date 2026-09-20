@@ -5,6 +5,7 @@ from __future__ import annotations
 from lawgraph.clients.staatsblad import StaatsbladClient
 from lawgraph.config.constants import (
     COLLECTION_RAW_SOURCES,
+    RAW_KIND_BWB_TOESTAND,
     RAW_KIND_STB_AMVB,
     SOURCE_BWB,
     SOURCE_STAATSBLAD,
@@ -78,139 +79,82 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         return result
 
     def run_from_bwb_graph(self, store: ArangoStore) -> PipelineResult:
-        """Retrieve Staatsblad publications referenced from BWB instruments in the graph.
+        """Retrieve the Staatsblad publications the stored BWB toestand XML refers to.
 
-        For each BWB instrument, looks up the raw BWB XML and extracts the Staatsblad
-        identifier from the XML. Fetches and stores any that are not yet in raw_sources.
+        Each toestand XML names the Staatsblad publication (year and number) it comes
+        from; those not yet in raw_sources are fetched and stored one by one.
         """
         result = PipelineResult()
-
-        instrument_rows, error = self._get_bwb_instrument_rows(store)
-        if error:
-            result.add_error(error)
-            return result
-
+        candidates = self._candidates_from_bwb(store, result)
         logger.info(
-            "Staatsblad from-graph: examining %d BWB raw_sources for Staatsblad refs.",
-            len(instrument_rows),
+            "Staatsblad from-graph: %d publications referred to by BWB toestanden "
+            "(%d toestanden refer to none).",
+            len(candidates),
+            result.skipped,
         )
-
-        bwb_xml_by_id = self._fetch_bwb_xml_batch(store, instrument_rows)
-        candidate_refs = self._extract_stb_candidates(
-            instrument_rows, bwb_xml_by_id, result
-        )
-        existing_identifiers = self._find_existing_identifiers(store, candidate_refs)
-        self._fetch_and_store(result, candidate_refs, existing_identifiers)
-
+        existing = self._find_existing_identifiers(store, candidates)
+        self._fetch_and_store(result, candidates, existing)
         logger.info("Staatsblad from-graph: %s.", result.summary())
         return result
 
-    def _get_bwb_instrument_rows(
-        self, store: ArangoStore
-    ) -> tuple[list[dict], str | None]:
-        """Query raw_sources for all BWB instrument IDs. Returns (rows, error_msg)."""
+    def _candidates_from_bwb(
+        self, store: ArangoStore, result: PipelineResult
+    ) -> list[tuple[str, str]]:
+        """``(bwb_id, identifier)`` per referred publication, from the stored toestand XML.
+
+        The toestand XML is streamed and only the identifiers are kept: a toestand is
+        tens of KB and there are over ten thousand. The WTI records of the same regulation
+        hold no publication and are not read. A publication several regulations refer to is
+        listed once.
+        """
         aql = f"""
         FOR r IN {COLLECTION_RAW_SOURCES}
-          FILTER r.source == @source AND r.external_id != null
-          RETURN {{ bwb_id: r.external_id }}
+          FILTER r.source == @source AND r.kind == @kind AND r.external_id != null
+          RETURN {{ bwb_id: r.external_id, xml: r.payload_text }}
         """
-        try:
-            rows = list(store.query(aql, bind_vars={"source": SOURCE_BWB}))
-            return rows, None
-        except Exception as exc:
-            msg = f"Could not query BWB raw_sources for Staatsblad retrieval: {exc}"
-            logger.error(msg)
-            return [], msg
-
-    def _fetch_bwb_xml_batch(
-        self, store: ArangoStore, instrument_rows: list[dict]
-    ) -> dict[str, str]:
-        """Bulk-fetch BWB raw XML for all instrument rows. Returns bwb_id → xml map."""
-        bwb_ids = [row["bwb_id"] for row in instrument_rows if row.get("bwb_id")]
-        bwb_xml_by_id: dict[str, str] = {}
-        if not bwb_ids:
-            return bwb_xml_by_id
-
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-          FILTER r.source == 'bwb' AND r.external_id IN @bwb_ids
-          RETURN {{ bwb_id: r.external_id, payload_text: r.payload_text }}
-        """
-        try:
-            for raw_row in store.query(aql, bind_vars={"bwb_ids": bwb_ids}):
-                bid = raw_row.get("bwb_id")
-                txt = raw_row.get("payload_text")
-                if bid and isinstance(txt, str):
-                    bwb_xml_by_id[bid] = txt
-        except Exception as exc:
-            logger.debug("Could not bulk-fetch BWB raw_sources: %s", exc)
-
-        return bwb_xml_by_id
-
-    def _extract_stb_candidates(
-        self,
-        instrument_rows: list[dict],
-        bwb_xml_by_id: dict[str, str],
-        result: PipelineResult,
-    ) -> list[tuple[str, str, str]]:
-        """Resolve Staatsblad identifiers from BWB XML.
-
-        Returns (bwb_id, identifier, xml) triples.
-        """
-        candidate_refs: list[tuple[str, str, str]] = []
-        for row in instrument_rows:
-            bwb_id = row.get("bwb_id")
-            if not bwb_id:
-                continue
-            bwb_xml = bwb_xml_by_id.get(bwb_id)
-            if not bwb_xml:
+        candidates: dict[str, str] = {}
+        rows = store.query(
+            aql,
+            bind_vars={"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
+            batch_size=50,
+        )
+        for row in rows:
+            ref = staatsblad_ref_from_bwb_xml(row["xml"]) if row.get("xml") else None
+            if ref is None:
                 result.skipped += 1
                 continue
-            ref = staatsblad_ref_from_bwb_xml(bwb_xml)
-            if not ref:
-                result.skipped += 1
-                continue
-            year, number = ref
-            identifier = f"stb-{year}-{number}"
-            candidate_refs.append((bwb_id, identifier, bwb_xml))
-        return candidate_refs
+            candidates.setdefault(f"stb-{ref[0]}-{ref[1]}", row["bwb_id"])
+        return [(bwb_id, identifier) for identifier, bwb_id in candidates.items()]
 
     def _find_existing_identifiers(
-        self,
-        store: ArangoStore,
-        candidate_refs: list[tuple[str, str, str]],
+        self, store: ArangoStore, candidates: list[tuple[str, str]]
     ) -> set[str]:
-        """Bulk-check which candidate Staatsblad identifiers are already in raw_sources."""
-        existing: set[str] = set()
-        if not candidate_refs:
-            return existing
-
-        candidate_ids = list({identifier for _, identifier, _ in candidate_refs})
+        """Which candidate Staatsblad identifiers are already in raw_sources."""
+        if not candidates:
+            return set()
         aql = f"""
         FOR r IN {COLLECTION_RAW_SOURCES}
-          FILTER r.source == @source AND r.external_id IN @ext_ids
+          FILTER r.source == @source AND r.kind == @kind AND r.external_id IN @ext_ids
           RETURN r.external_id
         """
-        try:
-            for ext_id in store.query(
-                aql,
-                bind_vars={"source": SOURCE_STAATSBLAD, "ext_ids": candidate_ids},
-            ):
-                if isinstance(ext_id, str):
-                    existing.add(ext_id)
-        except Exception as exc:
-            logger.debug("Staatsblad bulk existence check failed: %s", exc)
-
-        return existing
+        rows = store.query(
+            aql,
+            bind_vars={
+                "source": SOURCE_STAATSBLAD,
+                "kind": RAW_KIND_STB_AMVB,
+                "ext_ids": [identifier for _, identifier in candidates],
+            },
+        )
+        return {row for row in rows if isinstance(row, str)}
 
     def _fetch_and_store(
         self,
         result: PipelineResult,
-        candidate_refs: list[tuple[str, str, str]],
+        candidates: list[tuple[str, str]],
         existing_identifiers: set[str],
     ) -> None:
         """Fetch XML and store records for candidates not already present in raw_sources."""
-        for bwb_id, identifier, _bwb_xml in candidate_refs:
+        for bwb_id, identifier in candidates:
             if identifier in existing_identifiers:
                 result.skipped += 1
                 continue

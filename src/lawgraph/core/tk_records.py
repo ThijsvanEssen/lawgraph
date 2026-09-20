@@ -30,6 +30,9 @@ COMMITMENT_STATUS = {
     "Afgedaan": "done",
     "Nagekomen": "done",
     "Niet nagekomen": "unfulfilled",
+    # seen in the real data: were mapped to "open" because the map did not know them
+    "Deels Afgedaan": "partly_done",
+    "Vervallen": "lapsed",
 }
 
 # Stemming.Soort values that mean the vote was cast in favour / against; any

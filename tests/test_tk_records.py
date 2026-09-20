@@ -184,6 +184,16 @@ def test_commitment_reads_the_minister_and_maps_the_status() -> None:
     assert props["made_on"] == "2024-12-16"
 
 
+def test_statuses_seen_in_the_real_data_are_not_reported_as_open() -> None:
+    """The retrieve run warned about these two: they used to fall back to "open"."""
+    _, partly = tk_records.commitment({"Id": "t-3", "Status": "Deels Afgedaan"})
+    _, lapsed = tk_records.commitment({"Id": "t-4", "Status": "Vervallen"})
+    assert (partly["status"], lapsed["status"]) == ("partly_done", "lapsed")
+    assert not tk_records.unknown_commitment_statuses(
+        [{"Status": "Deels Afgedaan"}, {"Status": "Vervallen"}]
+    )
+
+
 def test_an_unfulfilled_commitment_keeps_that_apart_from_done() -> None:
     _, done = tk_records.commitment({"Id": "t-1", "Status": "Nagekomen"})
     _, failed = tk_records.commitment({"Id": "t-2", "Status": "Niet nagekomen"})
