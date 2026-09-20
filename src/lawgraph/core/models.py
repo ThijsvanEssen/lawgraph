@@ -8,9 +8,25 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from lawgraph.config.constants import (
+    COLLECTION_ANNEXES,
+    COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+)
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Collections in which a pipeline creates a stub for a record it has not loaded.
+STUB_COLLECTIONS = frozenset(
+    {
+        COLLECTION_ANNEXES,
+        COLLECTION_ARTICLES,
+        COLLECTION_INSTRUMENTS,
+        COLLECTION_JUDGMENTS,
+    }
+)
 
 
 @dataclass
@@ -121,6 +137,11 @@ class Node:
             "labels": list(self.labels),
             "props": dict(self.props),
         }
+        if self.collection in STUB_COLLECTIONS:
+            # An upsert merges props, so a stub that is loaded for real keeps ``stub: true``
+            # unless the node says otherwise: the API would go on hiding it and expand-graph
+            # would never see a gap close. A node is a stub only when it says so itself.
+            doc["props"].setdefault("stub", False)
         if self.key is not None:
             doc["_key"] = self.key
         return doc

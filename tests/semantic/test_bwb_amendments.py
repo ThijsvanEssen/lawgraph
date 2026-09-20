@@ -183,6 +183,7 @@ def test_documents_become_instruments_with_their_metadata() -> None:
         "date_signed": "2019-01-15",
         "date_published": "2019-01-20",
         "dossier_numbers": ["35786"],
+        "stub": False,  # a node that is written says that it is not a stub
     }
     # the commencement publication exists as an instrument, but amends nothing
     assert publication_key("stb-2020-99") in store.nodes
