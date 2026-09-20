@@ -183,6 +183,10 @@ RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_VERDRAG = "verdrag-json"
 
+# A document the source answered HTTP 404 for is remembered as a record of the kind it would
+# have had plus this suffix (no payload), so it is not asked for again on every run.
+RAW_KIND_MISSING_SUFFIX = "-missing"
+
 RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_TK: (
         RAW_KIND_TK_ZAAK,

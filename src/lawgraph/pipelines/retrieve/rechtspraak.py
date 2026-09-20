@@ -22,6 +22,7 @@ from .base import (
     RetrieveRecord,
     failure_reason,
     is_not_found,
+    missing_record,
 )
 
 logger = get_logger(__name__)
@@ -94,15 +95,18 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             if not (stored.get(ecli) and stored[ecli] >= recent):
                 todo.setdefault(ecli, None)
 
-        self.progress.expect(len(todo))
+        wanted = self._without_missing(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, todo)
+        self.progress.expect(len(wanted))
         streak = FailureStreak("Rechtspraak")
-        for ecli, updated in todo.items():
+        for ecli in wanted:
+            updated = todo[ecli]
             try:
                 xml = self.rs.fetch_ecli_content(ecli)
             except Exception as exc:
                 if is_not_found(exc):
                     self.progress.skip("no content (HTTP 404)", ecli)
                     streak.ok()
+                    yield missing_record(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, ecli)
                 else:
                     self.progress.skip(f"download failed ({failure_reason(exc)})", ecli)
                     streak.failed(ecli, exc)

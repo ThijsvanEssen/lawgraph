@@ -10,7 +10,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 
-from .base import RetrievePipelineBase, RetrieveRecord
+from .base import RetrievePipelineBase, RetrieveRecord, missing_record
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,11 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
                 if r.get("identifier")
             ]
         done = self._recently_stored(SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING)
-        todo = [i for i in identifiers if i not in done]
+        todo = self._without_missing(
+            SOURCE_STAATSCOURANT,
+            RAW_KIND_STCRT_REGELING,
+            [i for i in identifiers if i not in done],
+        )
         logger.info(
             "Staatscourant retrieve: %d publications, %d to download.",
             len(identifiers),
@@ -54,6 +58,9 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
             xml = self.client.fetch_publication_xml(identifier)
             if xml is None:
                 self.progress.skip("no XML (HTTP 404)", identifier)
+                yield missing_record(
+                    SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, identifier
+                )
                 continue
             yield RetrieveRecord(
                 source=SOURCE_STAATSCOURANT,

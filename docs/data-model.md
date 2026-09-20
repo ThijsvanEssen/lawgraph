@@ -214,6 +214,11 @@ JSON sources use `payload_json`; XML and HTML sources use `payload_text`.
 | `echr` | `echr-judgment-json` |
 | `verdragenbank` | `verdrag-json` |
 
+A document the source answered HTTP 404 for is remembered as a record without payload of
+kind `<kind>-missing` (`eu-celex-html-missing`, `rs-content-missing`, ...); the retrieve
+pipelines do not ask for it again for 30 days and no other phase reads it. A Kamerstuk without
+XML is remembered on the document itself (`props.text_missing_at`).
+
 ## Indexes and search views
 
 Defined in `db/schema.py`, created when `ArangoStore` starts.

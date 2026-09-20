@@ -16,6 +16,7 @@ Flow:
 
 from __future__ import annotations
 
+import datetime as dt
 import xml.etree.ElementTree as ET
 from typing import Any
 
@@ -30,10 +31,12 @@ from lawgraph.core.identifiers import kamerstuk_identifier
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
+from lawgraph.core.time import iso_timestamp
 from lawgraph.core.xml import text_of
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.retrieve.base import (
+    MISSING_FOR_DAYS,
     FailureStreak,
     SourceDown,
     add_outcome,
@@ -137,6 +140,8 @@ class TKContentRetrievePipeline(PipelineBase):
                 FILTER "TK" IN pub.labels
                 FILTER CONTAINS(LOWER(pub.props.kind || ""), @kind)
                 FILTER pub.props.text == null OR pub.props.text == ""
+                FILTER pub.props.text_missing_at == null
+                    OR pub.props.text_missing_at < @missing_before
                 FILTER pub.props.sequence != null
                 LET dossier = FIRST(
                     FOR e IN {COLLECTION_EDGES}
@@ -155,7 +160,12 @@ class TKContentRetrievePipeline(PipelineBase):
                     sequence: pub.props.sequence
                 }}
         """
-        bind = {"kind": kind_filter.lower(), "part_of": RELATION_PART_OF}
+        missing_before = iso_timestamp(_now() - dt.timedelta(days=MISSING_FOR_DAYS))
+        bind = {
+            "kind": kind_filter.lower(),
+            "part_of": RELATION_PART_OF,
+            "missing_before": missing_before,
+        }
         return list(self.store.query(aql, bind))
 
     def _hydrate_one(
@@ -172,6 +182,7 @@ class TKContentRetrievePipeline(PipelineBase):
 
         if xml is None:
             progress.skip("no XML in the repository (HTTP 404)", identifier)
+            self._set_prop(paper["key"], "text_missing_at", iso_timestamp(_now()))
             return
         try:
             text = xml_text(xml)
@@ -188,16 +199,19 @@ class TKContentRetrievePipeline(PipelineBase):
                 identifier,
             )
             text = text[:_STORE_TEXT_LIMIT]
-        self._store_text(paper["key"], text)
+        self._set_prop(paper["key"], "text", text)
         progress.ok()
 
-    def _store_text(self, key: str, text: str) -> None:
-        """Merge props.text into the paper without touching other props."""
+    def _set_prop(self, key: str, name: str, value: str) -> None:
+        """Set one prop of the paper without touching the others."""
         aql = f"""
             FOR pub IN {COLLECTION_DOCUMENTS}
                 FILTER pub._key == @key
-                UPDATE pub WITH {{props: MERGE(pub.props, {{text: @text}})}}
-                    IN {COLLECTION_DOCUMENTS}
+                UPDATE pub WITH {{props: {{[@name]: @value}}}} IN {COLLECTION_DOCUMENTS}
         """
         # Consume the cursor (even though it returns nothing useful).
-        list(self.store.query(aql, {"key": key, "text": text}))
+        list(self.store.query(aql, {"key": key, "name": name, "value": value}))
+
+
+def _now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)

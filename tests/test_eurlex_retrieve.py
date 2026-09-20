@@ -125,7 +125,7 @@ def test_an_act_without_html_is_skipped_not_an_error() -> None:
         {"32010L0064": "<html/>", "31983L0091R(03)": _http_error(404)}
     )
     assert (result.created, result.skipped, result.errors) == (1, 1, [])
-    assert store.stored == ["32010L0064"]
+    assert sorted(store.stored) == ["31983L0091R(03)", "32010L0064"]  # one as missing
 
 
 def test_other_failures_are_skipped_too_and_the_run_continues() -> None:

@@ -191,6 +191,9 @@ class JudgmentProps(_CommonProps):
 
 class DocumentProps(_CommonProps):
     external_id: str | None = None
+    # When the repository last had no XML for this paper (retrieve tk-content asks again
+    # after 30 days).
+    text_missing_at: str | None = None
     raw: dict[str, Any] | None = None
     title: str | None = None
     subject: str | None = None

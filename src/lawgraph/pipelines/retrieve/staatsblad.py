@@ -17,7 +17,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.db import ArangoStore
 
-from .base import RetrievePipelineBase, RetrieveRecord
+from .base import RetrievePipelineBase, RetrieveRecord, missing_record
 
 logger = get_logger(__name__)
 
@@ -61,11 +61,20 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         self, todo: list[tuple[str | None, str]]
     ) -> Iterator[RetrieveRecord]:
         """The XML of each ``(bwb_id, identifier)``; a publication without XML is skipped."""
+        wanted = set(
+            self._without_missing(
+                SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, [i for _, i in todo]
+            )
+        )
+        todo = [
+            (bwb_id, identifier) for bwb_id, identifier in todo if identifier in wanted
+        ]
         self.progress.expect(len(todo))
         for bwb_id, identifier in todo:
             xml = self.client.fetch_publication_xml(identifier)
             if xml is None:
                 self.progress.skip("no XML (HTTP 404)", identifier)
+                yield missing_record(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, identifier)
                 continue
             meta = {"identifier": identifier}
             if bwb_id:

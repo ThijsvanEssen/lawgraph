@@ -14,6 +14,7 @@ from .base import (
     RetrieveRecord,
     failure_reason,
     is_not_found,
+    missing_record,
 )
 
 logger = get_logger(__name__)
@@ -45,7 +46,11 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         self, celex_ids: Sequence[str], lang: str
     ) -> Iterator[RetrieveRecord]:
         done = self._recently_stored(SOURCE_EURLEX, RAW_KIND_EU_CELEX)
-        todo = [celex for celex in celex_ids if celex not in done]
+        todo = self._without_missing(
+            SOURCE_EURLEX,
+            RAW_KIND_EU_CELEX,
+            [celex for celex in celex_ids if celex not in done],
+        )
         self.progress.expect(len(todo))
         streak = FailureStreak("EUR-Lex")
         for celex in todo:
@@ -55,6 +60,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
                 if is_not_found(exc):
                     self.progress.skip("no HTML text (HTTP 404)", celex)
                     streak.ok()
+                    yield missing_record(SOURCE_EURLEX, RAW_KIND_EU_CELEX, celex)
                 else:
                     self.progress.skip(
                         f"download failed ({failure_reason(exc)})", celex

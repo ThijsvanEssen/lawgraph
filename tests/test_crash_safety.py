@@ -157,7 +157,9 @@ def test_staatscourant_publication_without_xml_is_skipped() -> None:
     client = _Staatscourant(["stcrt-2020-404", "stcrt-2020-5"])
     store = _Store()
     result = StaatscourantRetrievePipeline(store, client).run()
-    assert store.stored == ["stcrt-2020-5"] and result.errors == []
+    # The publication without XML is remembered as missing (tests/test_missing_documents.py).
+    assert store.stored == ["stcrt-2020-404", "stcrt-2020-5"]
+    assert (result.created, result.skipped, result.errors) == (1, 1, [])
 
 
 def test_staatscourant_a_failing_search_is_an_error_not_a_hang() -> None:

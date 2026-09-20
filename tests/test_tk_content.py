@@ -124,8 +124,11 @@ class _Store:
     def query(self, aql: str, bind_vars: dict | None = None, **kw: Any):
         self.queries.append(aql)
         if "UPDATE" in aql:
-            self.updates.append(bind_vars)
+            bind = dict(bind_vars or {})
+            # ``_set_prop`` binds a name and a value; the tests read it as {key, <name>}.
+            self.updates.append({"key": bind["key"], bind["name"]: bind["value"]})
             return iter([])
+        self.missing_before = (bind_vars or {}).get("missing_before")
         return iter(self.papers)
 
 
@@ -183,7 +186,11 @@ def test_a_paper_the_repository_does_not_have_is_skipped() -> None:
     store = _Store([_paper("36867", 3)])
     result = TKContentRetrievePipeline(store=store, client=not_found).run()
     assert (result.created, result.skipped, result.errors) == (0, 1, [])
-    assert store.updates == []
+    # No text, but the paper remembers that it was asked for: not again for 30 days.
+    (update,) = store.updates
+    assert update["key"] == "doc-36867-3" and update["text_missing_at"].endswith("Z")
+    assert store.missing_before < update["text_missing_at"]
+    assert "text_missing_at < @missing_before" in store.queries[0]
 
 
 def test_a_failing_fetch_is_an_error_and_the_rest_goes_on() -> None:

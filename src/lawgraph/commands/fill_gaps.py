@@ -48,6 +48,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
+    RAW_KIND_EU_CELEX,
 )
 from lawgraph.core.bwb_xml import parse_toestand
 from lawgraph.core.identifiers import find_celex_ids
@@ -407,10 +408,11 @@ def _capped(rows: list[Any], what: str) -> list[Any]:
 
 
 def _query_stub_judgments(store: ArangoStore) -> list[str]:
-    """Return ECLIs of stub judgment nodes, sorted for stable ordering."""
+    """ECLIs of the Dutch stub judgments, sorted; Rechtspraak has no EU or ECHR judgments."""
     aql = f"""
     FOR j IN {COLLECTION_JUDGMENTS}
       FILTER j.props.stub == true AND j.props.ecli != null
+      FILTER STARTS_WITH(j.props.ecli, "ECLI:NL:")
       SORT j.props.ecli
       RETURN j.props.ecli
     """
@@ -553,10 +555,12 @@ def _query_stub_celex_ids(store: ArangoStore) -> list[str]:
     # CELEX IDs already retrieved into raw_sources
     aql_raw = f"""
     FOR r IN {COLLECTION_RAW_SOURCES}
-      FILTER r.source == "eurlex"
+      FILTER r.source == "eurlex" AND r.kind == @kind
       RETURN UPPER(r.external_id)
     """
-    already_retrieved: set[str] = cast(set[str], set(store.query(aql_raw)))
+    already_retrieved: set[str] = cast(
+        set[str], set(store.query(aql_raw, {"kind": RAW_KIND_EU_CELEX}))
+    )
     known = loaded | already_retrieved
 
     # Scan BWB article text for CELEX references

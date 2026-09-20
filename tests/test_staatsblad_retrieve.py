@@ -131,7 +131,8 @@ def test_a_publication_without_xml_is_skipped() -> None:
         _row("BWBR0000002", _toestand("2002", "2")),
     ]
     result, store, _ = _run(rows, missing={"stb-2001-1"})
-    assert store.stored == ["stb-2002-2"] and result.errors == []
+    assert store.stored == ["stb-2001-1", "stb-2002-2"]  # the first one as missing
+    assert result.created == 1 and result.errors == []
 
 
 def test_a_failing_existence_query_is_not_swallowed() -> None:

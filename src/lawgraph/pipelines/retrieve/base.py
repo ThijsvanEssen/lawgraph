@@ -5,7 +5,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_RAW_SOURCES
+from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 
 MAX_FAILURES_IN_A_ROW = 25
 RESUME_WITHIN_HOURS = 24
+MISSING_FOR_DAYS = 30
 
 
 @dataclass(frozen=True)
@@ -53,12 +54,32 @@ class FailureStreak:
         self.count = 0
 
     def failed(self, what: str, exc: Exception) -> None:
+        """Count a failure of the source; an answer about this one document is not one.
+
+        HTTP 4xx (but 429) says something about the document that was asked for, and a
+        source that answers is not down: a run of those must not end the step.
+        """
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status is not None and 400 <= status < 500 and status != 429:
+            self.count = 0
+            return
         self.count += 1
         if self.count >= self.limit:
             raise SourceDown(
                 f"{self.source}: {self.limit} requests in a row failed (last: {what}: "
                 f"{exc}); the source seems to be down."
             ) from exc
+
+
+def missing_record(source: str, kind: str, external_id: str) -> RetrieveRecord:
+    """The record that remembers that *source* has no *kind* document for *external_id*."""
+    return RetrieveRecord(
+        source=source,
+        kind=kind + RAW_KIND_MISSING_SUFFIX,
+        external_id=external_id,
+        meta={"kind": kind, "status": 404},
+        counts=False,
+    )
 
 
 def failure_reason(exc: Exception) -> str:
@@ -120,7 +141,9 @@ class RetrievePipelineBase(PipelineBase):
         by_products: set[str] = set()
 
         def written(stored: list[dict[str, Any]], failures: list[Failure]) -> None:
-            result.created += len(stored)
+            result.created += sum(
+                1 for doc in stored if not doc["kind"].endswith(RAW_KIND_MISSING_SUFFIX)
+            )
             progress.ok(sum(1 for doc in stored if doc["_key"] not in by_products))
             for doc, reason in failures:
                 where = f"{doc['source']}/{doc['kind']}/{doc['external_id']}: {reason}"
@@ -156,6 +179,29 @@ class RetrievePipelineBase(PipelineBase):
         """
         return []
 
+    def _without_missing(self, source: str, kind: str, ids: Iterable[str]) -> list[str]:
+        """*ids* without those the source answered HTTP 404 for in the last 30 days.
+
+        A pipeline yields ``missing_record`` for such a document. Without it every run, and
+        every iteration of ``expand-graph``, asks for the same missing documents again; after
+        ``MISSING_FOR_DAYS`` they are tried once more.
+        """
+        ids = list(ids)
+        missing = self._stored_since(
+            source, kind + RAW_KIND_MISSING_SUFFIX, hours=MISSING_FOR_DAYS * 24
+        )
+        todo = [external_id for external_id in ids if external_id not in missing]
+        if len(todo) < len(ids):
+            logger.info(
+                "%d %s/%s documents were missing (HTTP 404) in the last %d days; not "
+                "asking again.",
+                len(ids) - len(todo),
+                source,
+                kind,
+                MISSING_FOR_DAYS,
+            )
+        return todo
+
     def _recently_stored(
         self, source: str, kind: str, hours: int = RESUME_WITHIN_HOURS
     ) -> set[str]:
@@ -165,16 +211,7 @@ class RetrievePipelineBase(PipelineBase):
         (or an interrupt) only does the rest, while a refresh a day later fetches everything
         again.
         """
-        cutoff = iso_timestamp(
-            dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)
-        )
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-            FILTER r.source == @source AND r.kind == @kind AND r.fetched_at >= @cutoff
-            RETURN r.external_id
-        """
-        rows = self.store.query(aql, {"source": source, "kind": kind, "cutoff": cutoff})
-        done = {str(external_id) for external_id in rows if external_id}
+        done = self._stored_since(source, kind, hours)
         if done:
             logger.info(
                 "Resuming: %d %s/%s records were stored in the last %d hours; skipping.",
@@ -184,6 +221,18 @@ class RetrievePipelineBase(PipelineBase):
                 hours,
             )
         return done
+
+    def _stored_since(self, source: str, kind: str, hours: int) -> set[str]:
+        cutoff = iso_timestamp(
+            dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)
+        )
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind AND r.fetched_at >= @cutoff
+            RETURN r.external_id
+        """
+        rows = self.store.query(aql, {"source": source, "kind": kind, "cutoff": cutoff})
+        return {str(external_id) for external_id in rows if external_id}
 
     def _stored_at(self, source: str, kind: str) -> dict[str, dt.datetime]:
         """``{external_id: fetched_at}`` of every stored record of *kind*.
