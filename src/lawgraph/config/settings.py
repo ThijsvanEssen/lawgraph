@@ -69,6 +69,9 @@ STAATSCOURANT_SRU_ENDPOINT = os.getenv(
 STAATSCOURANT_REPO_BASE = os.getenv(
     "STAATSCOURANT_REPO_BASE", "https://repository.overheid.nl"
 )
+EERSTEKAMER_SRU_ENDPOINT = os.getenv(
+    "EERSTEKAMER_SRU", "https://repository.overheid.nl/sru"
+)
 ECHR_HUDOC_BASE_URL = os.getenv("ECHR_HUDOC_BASE", "https://hudoc.echr.coe.int")
 VERDRAGENBANK_SRU_ENDPOINT = os.getenv(
     "VERDRAGENBANK_SRU", "https://repository.overheid.nl/sru"

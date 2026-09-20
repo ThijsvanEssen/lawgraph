@@ -47,9 +47,7 @@ def list_decisions(
     party: Annotated[
         str | None, Query(description="Only decisions this party voted on.")
     ] = None,
-    chamber: Annotated[
-        str | None, Query(description="'TK' (the only chamber loaded).")
-    ] = None,
+    chamber: Annotated[str | None, Query(description="'TK' or 'EK'.")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DecisionListResponse:

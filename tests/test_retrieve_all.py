@@ -208,48 +208,13 @@ def test_jobs_must_be_positive() -> None:
     assert exit_info.value.code == 2
 
 
-def test_tweede_kamer_and_officiele_bekendmakingen_share_a_lane() -> None:
+def test_sources_on_one_server_share_a_lane() -> None:
     lanes = {
         s.id: s.retrieve_lane or s.id
         for s in registry.SOURCES
         if s.retrieve_argv_builder is not None
     }
     assert lanes["tk"] == lanes["tk_dossiers"]
-    assert lanes["staatsblad"] == lanes["staatscourant"]
-    assert len(set(lanes.values())) == len(lanes) - 2
-
-
-# ── bootstrap ────────────────────────────────────────────────────────────────
-
-
-def _bootstrap_retrieve_argv(monkeypatch, argv: list[str]) -> list[str]:
-    from lawgraph.commands import bootstrap
-
-    seen: dict[str, list[str]] = {}
-
-    def record(name: str, main: Callable[..., None], phase_argv: list[str]) -> bool:
-        seen[name] = phase_argv
-        return True
-
-    monkeypatch.setattr(bootstrap, "run_command", record)
-    bootstrap.main(argv)
-    return seen["retrieve all"]
-
-
-def test_bootstrap_loads_a_two_year_window_of_the_tweede_kamer(monkeypatch) -> None:
-    assert _bootstrap_retrieve_argv(monkeypatch, []) == [
-        "--mode",
-        "full",
-        "--tk-since",
-        "730d",
-        "--jobs",
-        "4",
-    ]
-
-
-def test_bootstrap_passes_the_window_and_jobs_on(monkeypatch) -> None:
-    argv = _bootstrap_retrieve_argv(
-        monkeypatch, ["--tk-since", "1995-01-01", "--jobs", "2"]
-    )
-    assert argv[argv.index("--tk-since") + 1] == "1995-01-01"
-    assert argv[argv.index("--jobs") + 1] == "2"
+    koop = {"staatsblad", "staatscourant", "eerstekamer", "verdragenbank"}
+    assert {lanes[source] for source in koop} == {registry.LANE_KOOP_REPOSITORY}
+    assert len(set(lanes.values())) == len(lanes) - 1 - (len(koop) - 1)

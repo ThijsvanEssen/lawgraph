@@ -12,6 +12,7 @@ from lawgraph.db import ArangoStore
 from lawgraph.pipelines.factory import add_since_argument, run_step
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
+from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
@@ -143,6 +144,23 @@ def retrieve_eurlex(argv: list[str] | None = None) -> None:
         return pipeline.run(celex_ids=known_celex, lang=args.lang)
 
     run_step("EUR-Lex retrieve", run)
+
+
+def retrieve_eerstekamer(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Retrieve the Eerste Kamer Kamerstukken (KOOP SRU)."
+    )
+    parser.add_argument("--max-records", type=int, default=None)
+    add_since_argument(parser)
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+
+    def run() -> PipelineResult:
+        pipeline = EerstekamerRetrievePipeline(ArangoStore())
+        since = None if args.mode == "full" else _date(args.since)
+        return pipeline.run(since=since, limit=args.max_records)
+
+    run_step("Eerste Kamer retrieve", run)
 
 
 def retrieve_rechtspraak(argv: list[str] | None = None) -> None:

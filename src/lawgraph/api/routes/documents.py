@@ -40,11 +40,10 @@ def list_documents(
     kind: Annotated[
         str | None, Query(description="Document kind, exact match.")
     ] = None,
-    chamber: Annotated[
-        str | None, Query(description="'TK' (the only chamber loaded).")
-    ] = None,
+    chamber: Annotated[str | None, Query(description="'TK' or 'EK'.")] = None,
     source: Annotated[
-        str | None, Query(description="Source, e.g. 'tk', 'staatscourant'.")
+        str | None,
+        Query(description="Source, e.g. 'tk', 'eerstekamer', 'staatscourant'."),
     ] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
 ) -> DocumentListResponse:

@@ -14,7 +14,7 @@ A node is a document `{_key, type, labels, props}`:
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
   `annex`, `judgment`, `dossier`, `case`, `document`, `activity`, `decision`, `commitment`,
   `member`, `faction`, `committee`, `topic`).
-- `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, ...). Upserts
+- `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` are validated against a strict Pydantic schema per collection (`core/props.py`);
   unknown fields are rejected. Upserts merge props (shallow), so several pipelines can add
@@ -172,7 +172,7 @@ Dossier contains Case contains Document. TK data is the source.
 |---------|-----------|-------|
 | Dossier | `dossiers` | `number`, `suffix`, `title`, `title_source`, `closed`, `opened_on`, `closed_on`; derived: `current_stage`, `stages_present` (of `wetsvoorstel`, `mvt`, `advies_rvs`, `nota`, `verslag`, `amendementen`, `stemming`, `afgehandeld`), `case_kinds`, `track_kind` (`wetsvoorstel`, `initiatiefwetsvoorstel`, `begroting`, `motie`, `overig`), `outcome` (`aangenomen`, `verworpen`, `ingetrokken` for closed dossiers) |
 | Case | `cases` | every TK Zaak, no filter on kind; `title`, `citation_title`, `number`, `dossier_numbers`, whole payload in `raw` |
-| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `dossier_numbers`, `case_ids`, `actors`, `text`); also Staatsblad and Staatscourant documents |
+| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `dossier_numbers`, `case_ids`, `actors`, `text`); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`) |
 | Activity | `activities` | debate or hearing; `date`, `agenda_title`, `kind`, `committee_id`, `case_ids`, `dossier_numbers` |
 | Decision | `decisions` | one node per TK `Besluit` |
 | Commitment | `commitments` | `status` mapped to `open`, `gedaan`, `vervallen`, `unknown`; `activity_number` |
@@ -210,6 +210,7 @@ JSON sources use `payload_json`; XML and HTML sources use `payload_text`.
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-regeling-xml`, `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
 | `staatsblad` | `stb-amvb-xml` |
 | `staatscourant` | `stcrt-regeling-xml` |
+| `eerstekamer` | `ek-kamerstuk-json` |
 | `echr` | `echr-judgment-json` |
 | `verdragenbank` | `verdrag-json` |
 

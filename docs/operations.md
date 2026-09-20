@@ -31,6 +31,7 @@ All default to the public endpoints; no key is required.
 | `BWB_SRU_ENDPOINT` | `https://zoekservice.overheid.nl/sru/Search` |
 | `STAATSBLAD_SRU_ENDPOINT`, `STAATSCOURANT_SRU_ENDPOINT` | `https://repository.overheid.nl/sru` |
 | `STAATSBLAD_REPO_BASE`, `STAATSCOURANT_REPO_BASE` | `https://repository.overheid.nl` |
+| `EERSTEKAMER_SRU` | `https://repository.overheid.nl/sru` |
 | `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
 | `VERDRAGENBANK_SRU` | `https://repository.overheid.nl/sru` |
 
@@ -75,7 +76,7 @@ and exits 1 when any step failed.
 
 | Command | Options |
 |---------|---------|
-| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`), `--tk-since` (full mode), `--jobs N` (default 4). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode (`tk-dossiers`: nothing); with `--tk-since` the two Tweede Kamer sources instead load only records modified since then. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad` and `staatscourant`) run one after the other, and `--jobs 1` runs every source in turn |
+| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`), `--tk-since` (full mode), `--jobs N` (default 4). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode (`tk-dossiers`: nothing); with `--tk-since` the two Tweede Kamer sources instead load only records modified since then. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` |
 | `retrieve tk-content` | `--kind` (default `toelichting`), `--dry-run` |
@@ -86,13 +87,14 @@ and exits 1 when any step failed.
 | `retrieve staatsblad` | `--mode from-graph\|full` |
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--max-records` |
+| `retrieve eerstekamer` | `--mode`, `--since`, `--max-records` |
 | `retrieve verdragenbank` | `--max-records` |
 
 ### normalize
 
 `normalize all [--since DATE]` runs every source in registry order (`tk`, `tk-dossiers`,
 `rechtspraak`, `eurlex`, `bwb`, `bwb-history`, `staatsblad`, `staatscourant`,
-`echr`, `verdragenbank`). Every `normalize <source>` accepts `--since DATE`: only raw records
+`eerstekamer`, `echr`, `verdragenbank`). Every `normalize <source>` accepts `--since DATE`: only raw records
 fetched since then.
 
 ### semantic
@@ -105,7 +107,7 @@ passed to the pipelines that accept it and the others run in full.
 | `tk`, `rechtspraak`, `eurlex` | `--since`: sources whose raw record was fetched since then |
 | `bwb` | `--since` (as above), `--store-citations` |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes` | none |
-| `staatsblad`, `echr` | none |
+| `staatsblad`, `eerstekamer`, `echr` | none |
 | `staatscourant` | `--since`: publications dated since then |
 | `judgment-citations`, `judgment-appeal` | none |
 | `instrument-relations` | `--since`: documents dated, and BWB records fetched, since then |
@@ -113,7 +115,7 @@ passed to the pipelines that accept it and the others run in full.
 | `list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 
 The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
-`bwb-annexes`, `staatsblad`, `staatscourant`, `echr`, `judgment-citations`,
+`bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `judgment-citations`,
 `judgment-appeal`, `instrument-relations`, `amendment-articles`, `mvt-articles`,
 `relation-semantics`, `list-stats`.
 
@@ -134,9 +136,9 @@ in upper case with underscores.
 
 | Phase | Sources |
 |-------|---------|
-| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `STAATSBLAD`, `STAATSCOURANT`, `ECHR`, `VERDRAGENBANK` |
+| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK` |
 | `NORMALIZE` | the same plus `BWB_HISTORY` |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `ECHR`, `JUDGMENT_CITATIONS`, `JUDGMENT_APPEAL`, `INSTRUMENT_RELATIONS`, `AMENDMENT_ARTICLES`, `MVT_ARTICLES`, `RELATION_SEMANTICS`, `LIST_STATS` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `JUDGMENT_CITATIONS`, `JUDGMENT_APPEAL`, `INSTRUMENT_RELATIONS`, `AMENDMENT_ARTICLES`, `MVT_ARTICLES`, `RELATION_SEMANTICS`, `LIST_STATS` |
 
 ## Runs
 
@@ -170,7 +172,7 @@ the WTI records that `retrieve bwb` stores and are written by `normalize bwb`, s
 before `semantic`. `normalize bwb --since` still re-evaluates the short title of every
 regulation, because an abbreviation claimed by a newly loaded regulation stops being unique.
 Incremental `retrieve eurlex` re-fetches the CELEX numbers of the instruments already in the
-graph. `staatsblad` and `verdragenbank` have no date filter and read all records up to their caps. Scheduling is not wired: run the commands from cron or a
+graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML. Scheduling is not wired: run the commands from cron or a
 scheduler of your choice.
 
 **Slow steps.**

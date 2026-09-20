@@ -186,7 +186,7 @@ class JudgmentProps(_CommonProps):
 
 
 # ---------------------------------------------------------------------------
-# documents  (TK, TK-dossier docs, Staatsblad, Staatscourant)
+# documents  (TK, TK-dossier docs, Staatsblad, Staatscourant, Eerste Kamer)
 # ---------------------------------------------------------------------------
 
 
@@ -202,12 +202,16 @@ class DocumentProps(_CommonProps):
     text: str | None = None
     # TK-dossier documents
     dossier_number: str | None = None
+    # the addition to the dossier number, e.g. the chapter "VII" of "35925 VII"
+    dossier_suffix: str | None = None
     dossier_numbers: list[str] | None = None
     case_ids: list[str] | None = None
     sequence: int | None = None
     session_year: str | None = None
     tk_url: str | None = None
     actors: list | None = None
+    # Eerste Kamer: the page of the paper on zoek.officielebekendmakingen.nl
+    url: str | None = None
     # Staatsblad / Staatscourant
     identifier: str | None = None
     year: str | None = None
@@ -282,7 +286,7 @@ class DecisionProps(_CommonProps):
     passed: bool | None = None
     external_id: str | None = None
     kind: str | None = None
-    # no source sets it since the Eerste Kamer was dropped; the API still returns it
+    # no source sets it: the Eerste Kamer has no votes here; the API still returns it
     chamber: str | None = None
 
 

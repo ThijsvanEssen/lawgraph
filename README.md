@@ -63,7 +63,7 @@ lawgraph <phase> <source> --help
 ```
 
 Sources: `tk`, `tk-dossiers`, `tk-content`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`,
-`staatsblad`, `staatscourant`, `echr`, `verdragenbank`. The semantic phase has
+`staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `verdragenbank`. The semantic phase has
 extra commands (`bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `judgment-citations`,
 `judgment-appeal`, `instrument-relations`, `amendment-articles`, `mvt-articles`,
 `relation-semantics`, `list-stats`). `--since` (`2024-01-01` or `7d`) is the one date option.
@@ -97,7 +97,7 @@ External base URLs default to the public endpoints. All variables are listed in
 
 Implemented: retrieve, normalize and semantic phases for Tweede Kamer (cases, dossiers),
 Rechtspraak, EUR-Lex, BWB (current text plus full history from the XML), Staatsblad,
-Staatscourant and ECHR; Verdragenbank (retrieve and normalize); the API.
+Staatscourant, Eerste Kamer (Kamerstukken) and ECHR; Verdragenbank (retrieve and normalize); the API.
 
 Open:
 
@@ -108,7 +108,8 @@ Open:
   and judgment content is retrieved only for the ECLIs asked for.
 - EUR-Lex implementation data (`eur`) is not evaluated.
 - Not covered: CVDR (local regulations) and the Omgevingswet API.
-- The Eerste Kamer is not loaded: it publishes no open data API (only the Tweede Kamer does).
+- The Eerste Kamer is loaded as Kamerstukken only, from the KOOP SRU. Votes and their outcome are
+  not: they exist only as prose in the Handelingen and as HTML on eerstekamer.nl.
 - Scheduling of incremental runs is not wired.
 - ArangoSearch view memory at 200K judgments is an open concern.
 

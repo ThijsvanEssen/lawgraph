@@ -13,6 +13,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `relation-semantics` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant` | `staatscourant` | `staatscourant` |
+| Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
 
@@ -355,6 +356,30 @@ key `stcrt_<identifier>`.
 **Semantic `staatscourant`.** `EXPLAINS`: `bwb_id` match 0.92, title contains an instrument
 `citation_title` 0.65, a BWB id found in the text 0.75 (at most 5,000 documents).
 
+## Eerste Kamer
+
+**Provides.** The Kamerstukken of the Eerste Kamer, about 38,000 from 1994 on, from the KOOP SRU
+(`EERSTEKAMER_SRU`; creator `Eerste Kamer der Staten-Generaal`, `w.publicatienaam==Kamerstuk`,
+`dt.type==Kamerstuk`, so attachments `blg-*` are left out). The Eerste Kamer has no API of its
+own. Per paper: identifier (`kst-<dossier>-<letter>`, some `kst-<number>`), own title
+(`documenttitel`), dossier title, kind (`subrubriek`), number in the dossier (`ondernummer`),
+date, session year, dossier number and the page on zoek.officielebekendmakingen.nl. Papers
+before about 2007 have no kind and no own title in the source. Not loaded: votes and their
+outcome (aanvaard, verworpen, per fractie): they exist only as prose in the Handelingen and as
+HTML on eerstekamer.nl, and the plenary reports and PDFs are not fetched.
+
+**Retrieve `--mode`.** `incremental` (default): `--since` on `dt.modified`; `full`: everything.
+`--max-records` stops early. The SRU record is stored as `ek-kamerstuk-json`.
+
+**Normalize.** Document `ek_<identifier>`, labels `EersteKamer` and `EK` (the API `chamber`
+filter), `kind`, `number`, `title`, `subject` (dossier title), `session_year`, `date`, `url`,
+`dossier_number` and `dossier_suffix` (the Tweede Kamer stores the two parts of `35925 VII`
+separately). A Roman numeral instead of a number (the own dossiers of the Eerste Kamer, 525
+papers) sets neither. No edges here.
+
+**Semantic `eerstekamer`.** `PART_OF` from the paper to the Tweede Kamer dossier with the same
+number and addition, 0.95, `meta.chamber = EK`.
+
 ## ECHR
 
 **Provides.** HUDOC judgments (`ECHR_HUDOC_BASE`, `/app/query/results`), filtered by
@@ -402,4 +427,5 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `relation-semantics` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `relation-semantics` runs after `bwb` |
 | semantic `amendment-articles` | `instrument-relations` (the document-to-instrument `AMENDS` edges), document text from `tk-content` |
 | semantic `mvt-articles` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
+| semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`) |--judgments-only|--committees-only|--articles-only]` |

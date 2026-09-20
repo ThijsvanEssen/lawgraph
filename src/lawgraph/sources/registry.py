@@ -16,6 +16,7 @@ from lawgraph.pipelines.list_stats import main as list_stats_main
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
@@ -27,6 +28,7 @@ from lawgraph.pipelines.retrieve_cli import (
     retrieve_bwb,
     retrieve_bwb_history,
     retrieve_echr,
+    retrieve_eerstekamer,
     retrieve_eurlex,
     retrieve_rechtspraak,
     retrieve_staatsblad,
@@ -44,6 +46,9 @@ from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipe
 from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from lawgraph.pipelines.semantic.echr_citations import ECHRCitationsSemanticPipeline
+from lawgraph.pipelines.semantic.eerstekamer_dossier_link import (
+    EerstekamerDossierLinkSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.eu_articles import EUArticlesSemanticPipeline
 from lawgraph.pipelines.semantic.instrument_relations import (
     InstrumentRelationsSemanticPipeline,
@@ -67,7 +72,7 @@ from lawgraph.pipelines.semantic.tk_articles import TKArticlesSemanticPipeline
 
 # Retrieve steps that share a server.
 LANE_TWEEDE_KAMER = "tweede_kamer"
-LANE_OFFICIELE_BEKENDMAKINGEN = "officiele_bekendmakingen"
+LANE_KOOP_REPOSITORY = "koop_repository"  # repository.overheid.nl: SRU and publications
 
 
 @dataclass(frozen=True)
@@ -321,7 +326,7 @@ def _register_staatsblad() -> list[SourceDescriptor]:
             display_name="Staatsblad (NvT for AMvBs)",
             retrieve_main=retrieve_staatsblad,
             retrieve_argv_builder=_no_argv,
-            retrieve_lane=LANE_OFFICIELE_BEKENDMAKINGEN,
+            retrieve_lane=LANE_KOOP_REPOSITORY,
             normalize_main=normalize,
             semantic_main=semantic,
         ),
@@ -345,10 +350,33 @@ def _register_staatscourant() -> list[SourceDescriptor]:
             display_name="Staatscourant (ministerial regulations)",
             retrieve_main=retrieve_staatscourant,
             retrieve_argv_builder=_mode_argv,
-            retrieve_lane=LANE_OFFICIELE_BEKENDMAKINGEN,
+            retrieve_lane=LANE_KOOP_REPOSITORY,
             normalize_main=normalize,
             semantic_main=semantic,
             semantic_accepts_since=True,
+        ),
+    ]
+
+
+def _register_eerstekamer() -> list[SourceDescriptor]:
+    normalize = make_pipeline_cli(
+        EerstekamerNormalizePipeline,
+        description="Normalize Eerste Kamer Kamerstukken.",
+        with_since=True,
+    )
+    semantic = make_pipeline_cli(
+        EerstekamerDossierLinkSemanticPipeline,
+        description="Link Eerste Kamer Kamerstukken to their Tweede Kamer dossier.",
+    )
+    return [
+        SourceDescriptor(
+            id="eerstekamer",
+            display_name="Eerste Kamer (Kamerstukken)",
+            retrieve_main=retrieve_eerstekamer,
+            retrieve_argv_builder=_mode_and_since_argv,
+            retrieve_lane=LANE_KOOP_REPOSITORY,
+            normalize_main=normalize,
+            semantic_main=semantic,
         ),
     ]
 
@@ -387,6 +415,7 @@ def _register_verdragenbank() -> list[SourceDescriptor]:
             display_name="Verdragenbank (Dutch treaties)",
             retrieve_main=retrieve_verdragenbank,
             retrieve_argv_builder=_no_argv,
+            retrieve_lane=LANE_KOOP_REPOSITORY,
             normalize_main=normalize,
         ),
     ]
@@ -469,6 +498,7 @@ def _build_registry() -> list[SourceDescriptor]:
         *_register_bwb(),
         *_register_staatsblad(),
         *_register_staatscourant(),
+        *_register_eerstekamer(),
         *_register_echr(),
         *_register_verdragenbank(),
         *_register_cross_source_semantic(),
