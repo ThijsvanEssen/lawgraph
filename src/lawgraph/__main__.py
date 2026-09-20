@@ -1,7 +1,7 @@
 """The ``lawgraph`` command (also ``python -m lawgraph``).
 
     lawgraph <retrieve|normalize|semantic> <source|all> [options]
-    lawgraph <bootstrap|expand-graph|fill-gaps> [options]
+    lawgraph <bootstrap|check|expand-graph|fill-gaps> [options]
     lawgraph sources
 
 Sources and their order come from ``lawgraph.sources.registry``.
@@ -13,6 +13,7 @@ import sys
 from collections.abc import Callable
 
 from lawgraph.commands.bootstrap import main as bootstrap
+from lawgraph.commands.check import main as check
 from lawgraph.commands.expand_graph import main as expand_graph
 from lawgraph.commands.fill_gaps import main as fill_gaps
 from lawgraph.core.logging import get_logger, log_step, setup_logging
@@ -27,6 +28,7 @@ Main = Callable[..., None]
 
 _COMMANDS: dict[str, Main] = {
     "bootstrap": bootstrap,
+    "check": check,
     "expand-graph": expand_graph,
     "fill-gaps": fill_gaps,
 }

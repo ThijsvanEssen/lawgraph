@@ -134,6 +134,62 @@ def _indexed_fields(links: dict[str, Any]) -> dict[str, dict[str, frozenset[str]
     }
 
 
+# view -> {collection: {field: analyzers}}; each view indexes one collection.
+_VIEW_SPECS: dict[str, dict[str, dict[str, list[str]]]] = {
+    "search_articles": {
+        COLLECTION_ARTICLES: {
+            "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
+            "text": ["text_en"],
+            "article_number": ["text_en", "identity", "lawgraph_norm"],
+            "bwb_id": ["text_en", "identity", "lawgraph_norm"],
+        },
+    },
+    "search_instruments": {
+        COLLECTION_INSTRUMENTS: {
+            "title": ["text_en", "lawgraph_ngram_v2"],
+            "citation_title": ["text_en", "identity", "lawgraph_ngram_v2"],
+            "official_title": ["text_en", "lawgraph_ngram_v2"],
+            "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
+            "short_title": ["identity", "lawgraph_norm"],
+            "bwb_id": ["identity", "lawgraph_norm"],
+        },
+    },
+    "search_judgments": {
+        COLLECTION_JUDGMENTS: {
+            "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
+            "summary": ["text_en"],
+            "ecli": ["identity", "lawgraph_norm"],
+            "appno": ["identity", "lawgraph_norm"],
+        },
+    },
+    "search_dossiers": {
+        COLLECTION_DOSSIERS: {
+            "title": ["text_en", "lawgraph_ngram_v2"],
+            "display_name": ["text_en", "lawgraph_ngram_v2"],
+            "number": ["identity", "lawgraph_norm"],
+        },
+    },
+    "search_documents": {
+        COLLECTION_DOCUMENTS: {
+            "title": ["text_en", "lawgraph_ngram_v2"],
+            "display_name": ["text_en", "lawgraph_ngram_v2"],
+            "external_id": ["identity", "lawgraph_norm"],
+        },
+    },
+    "search_committees": {
+        COLLECTION_COMMITTEES: {
+            "name": ["text_en", "lawgraph_ngram_v2"],
+            "abbreviation": ["text_en", "identity", "lawgraph_norm"],
+        },
+    },
+}
+
+# view -> the collection it indexes (``lawgraph check`` compares their sizes).
+SEARCH_VIEWS: dict[str, str] = {
+    view: next(iter(links)) for view, links in _VIEW_SPECS.items()
+}
+
+
 def _ensure_search_views(db: StandardDatabase) -> None:
     """Ensure ArangoSearch views back the /api/search text-search path.
 
@@ -147,54 +203,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
     Indexes are populated asynchronously by the engine; the first request
     after a fresh start may briefly miss recently inserted docs.
     """
-    view_specs: dict[str, dict[str, Any]] = {
-        "search_articles": {
-            COLLECTION_ARTICLES: {
-                "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
-                "text": ["text_en"],
-                "article_number": ["text_en", "identity", "lawgraph_norm"],
-                "bwb_id": ["text_en", "identity", "lawgraph_norm"],
-            },
-        },
-        "search_instruments": {
-            COLLECTION_INSTRUMENTS: {
-                "title": ["text_en", "lawgraph_ngram_v2"],
-                "citation_title": ["text_en", "identity", "lawgraph_ngram_v2"],
-                "official_title": ["text_en", "lawgraph_ngram_v2"],
-                "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
-                "short_title": ["identity", "lawgraph_norm"],
-                "bwb_id": ["identity", "lawgraph_norm"],
-            },
-        },
-        "search_judgments": {
-            COLLECTION_JUDGMENTS: {
-                "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
-                "summary": ["text_en"],
-                "ecli": ["identity", "lawgraph_norm"],
-                "appno": ["identity", "lawgraph_norm"],
-            },
-        },
-        "search_dossiers": {
-            COLLECTION_DOSSIERS: {
-                "title": ["text_en", "lawgraph_ngram_v2"],
-                "display_name": ["text_en", "lawgraph_ngram_v2"],
-                "number": ["identity", "lawgraph_norm"],
-            },
-        },
-        "search_documents": {
-            COLLECTION_DOCUMENTS: {
-                "title": ["text_en", "lawgraph_ngram_v2"],
-                "display_name": ["text_en", "lawgraph_ngram_v2"],
-                "external_id": ["identity", "lawgraph_norm"],
-            },
-        },
-        "search_committees": {
-            COLLECTION_COMMITTEES: {
-                "name": ["text_en", "lawgraph_ngram_v2"],
-                "abbreviation": ["text_en", "identity", "lawgraph_norm"],
-            },
-        },
-    }
+    view_specs = _VIEW_SPECS
     existing_views = {v["name"] for v in db.views()}
     for view_name, links in view_specs.items():
         view_links: dict[str, Any] = {}
