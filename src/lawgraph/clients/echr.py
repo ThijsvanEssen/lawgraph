@@ -51,10 +51,13 @@ class EchrClient(BaseClient):
         """
         query_parts = [f"respondent:{respondent}", f"documentcollectionid2:{doc_type}"]
         if since_date:
-            query_parts.append(f"kpdate>={since_date}T00:00:00.000Z")
+            # The value in quotes: without them HUDOC answers no results at all, and no
+            # error (checked against the live service: 0 against 35 judgments).
+            query_parts.append(f'kpdate>="{since_date}T00:00:00.0Z"')
 
         query = " AND ".join(query_parts)
         results: list[dict[str, Any]] = []
+        expected: int | None = None
 
         for start in range(0, max_records, _PAGE_SIZE):
             params = {
@@ -76,7 +79,10 @@ class EchrClient(BaseClient):
                 timeout=60,
             )
             # HUDOC returns {"results": [{"columns": {"itemid": ..., ...}}, ...]}
-            items = resp.json().get("results", [])
+            answer = resp.json()
+            if expected is None:
+                expected = answer.get("resultcount")
+            items = answer.get("results", [])
             if not items:
                 break
 
@@ -88,6 +94,10 @@ class EchrClient(BaseClient):
             if len(items) < _PAGE_SIZE:
                 break
 
+        if expected is not None and len(results) < min(expected, max_records):
+            raise RuntimeError(
+                f"HUDOC: {len(results)} judgments read, the service counts {expected}"
+            )
         logger.info(
             "ECHR HUDOC: fetched %d %s judgments for respondent=%s.",
             len(results),

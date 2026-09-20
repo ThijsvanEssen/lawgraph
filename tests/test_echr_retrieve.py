@@ -17,6 +17,9 @@ from tests.fakes import RawSourcesFake
 PAGE = json.loads(
     (pathlib.Path(__file__).parent / "fixtures" / "hudoc_results_page.json").read_text()
 )  # 2 real judgments, each wrapped as {"columns": {...}}
+# The recorded page is cut to two judgments; the count it reports is cut with it, because the
+# client compares what it read with what the service counts.
+PAGE["resultcount"] = len(PAGE["results"])
 
 
 def _client(responses: list[Any], calls: list[dict]) -> EchrClient:
@@ -76,4 +79,13 @@ def test_a_failing_request_is_an_error_of_the_run() -> None:
 def test_the_incremental_query_filters_on_the_date() -> None:
     calls: list[dict] = []
     _client([{"results": []}], calls).search_judgments(since_date="2026-01-01")
-    assert "kpdate>=2026-01-01T00:00:00.000Z" in calls[0]["query"]
+    # In quotes: without them HUDOC answers zero results and no error.
+    assert 'kpdate>="2026-01-01T00:00:00.0Z"' in calls[0]["query"]
+
+
+def test_fewer_judgments_than_the_service_counts_is_an_error() -> None:
+    import pytest
+
+    short = {**PAGE, "resultcount": 827}
+    with pytest.raises(RuntimeError, match="2 judgments read, the service counts 827"):
+        _client([short], []).search_judgments(respondent="NLD")
