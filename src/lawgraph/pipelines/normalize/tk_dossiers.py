@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_FACTIONS,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
@@ -142,10 +143,16 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         tk_cases.link_activities_to_committees(
             store, normalized["activities"], source=EDGE_SOURCE
         )
+        # An incremental run holds the records of its window only. What a record of the
+        # window points to may have been loaded earlier (`retrieve all` skips the members
+        # and factions on incremental runs), so those come from the database.
         tk_cases.link_commitments(
             store,
             normalized["commitments"],
-            normalized["activities"],
+            {
+                **self._stored(COLLECTION_ACTIVITIES, NodeType.ACTIVITY),
+                **normalized["activities"],
+            },
             source=EDGE_SOURCE,
         )
         tk_cases.link_authors(store, normalized["documents"], source=EDGE_SOURCE)
@@ -163,13 +170,38 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             store,
             normalized["votes"],
             normalized["decisions"],
-            normalized["factions"],
+            {
+                **self._stored(COLLECTION_FACTIONS, NodeType.FACTION),
+                **normalized["factions"],
+            },
             source=EDGE_SOURCE,
         )
 
         # Once the edges exist, each dossier's documents can be walked to
         # derive its title and stage, so reads stay O(1).
         self._backfill_titles_and_stages(normalized["dossiers"])
+
+    def _stored(self, collection: str, node_type: NodeType) -> dict[str, Node]:
+        """The stored nodes of *collection* by TK ``Id``, with the props the edges read."""
+        aql = f"""
+        FOR d IN {collection}
+            FILTER d.props.external_id != null
+            RETURN {{
+                key: d._key,
+                id: d.props.external_id,
+                props: KEEP(d.props, @names)
+            }}
+        """
+        return {
+            row["id"]: Node(
+                collection=collection,
+                type=node_type,
+                key=row["key"],
+                props=row["props"],
+                _skip_validation=True,
+            )
+            for row in self.store.query(aql, {"names": list(tk_cases.LINK_PROPS)})
+        }
 
     # ── Dossiers ──────────────────────────────────────────────────────────────
 
