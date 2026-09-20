@@ -61,10 +61,13 @@ def detect_amends_instrument(
     results: list[tuple[str | None, str | None, float]] = []
     seen: set[tuple[str | None, str | None]] = set()
 
+    # A substring test, not a pattern per name: with thousands of names the patterns fall
+    # out of the cache of ``re`` and every title would compile them all again.
+    lowered_title = title.lower()
     for label, (bwb_id, celex) in instrument_aliases.items():
         if not (bwb_id or celex):
             continue
-        if re.search(re.escape(label), title, re.IGNORECASE):
+        if label.lower() in lowered_title:
             key = (bwb_id, celex)
             if key not in seen:
                 seen.add(key)

@@ -182,3 +182,17 @@ def test_a_case_never_produces_an_edge() -> None:
     InstrumentRelationsSemanticPipeline(store=store).run()
 
     assert not any(e["_from"].startswith("cases/") for e in store.edges.values())
+
+
+def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
+    """Thousands of names must not mean thousands of compiled patterns per title."""
+    import time
+
+    aliases = {f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)}
+    aliases["Wegenwet"] = ("BWBR0001948", None)
+    title = "Wijziging van de WEGENWET in verband met het beheer van wegen"
+
+    started = time.perf_counter()
+    hits = detect_amends_instrument(title, aliases)
+    assert hits == [("BWBR0001948", None, 0.85)]
+    assert time.perf_counter() - started < 0.5
