@@ -156,23 +156,20 @@ class SemanticPipelineBase(PipelineBase):
         dict key. The first non-empty value found across *value_fields* (in
         order) becomes the dict value. First-write-wins — subsequent rows that
         produce the same key are ignored. Keys and values are stripped.
-        Returns an empty dict if the store is unavailable.
+        A failing query fails the step: without the names every citation would be missed.
         """
         index: dict[str, str] = {}
-        try:
-            for row in self.store.query(aql):
-                key = str(row.get(key_field) or "").strip()
-                if not key:
-                    continue
-                if key in index:
-                    continue
-                for field in value_fields:
-                    val = row.get(field)
-                    if val:
-                        index[key] = str(val).strip()
-                        break
-        except Exception as exc:
-            logger.debug("Alias index query unavailable: %s", exc)
+        for row in self.store.query(aql):
+            key = str(row.get(key_field) or "").strip()
+            if not key:
+                continue
+            if key in index:
+                continue
+            for field in value_fields:
+                val = row.get(field)
+                if val:
+                    index[key] = str(val).strip()
+                    break
         return index
 
     def _load_code_aliases(self) -> CodeMapping:
@@ -196,7 +193,7 @@ class SemanticPipelineBase(PipelineBase):
         ``title`` and ``citation_title`` props are indexed as keys (not
         ``short_title``, which is used by ``_load_code_aliases`` instead).
         A name that two instruments share is left out: it would link to whichever came
-        first. Returns an empty dict if the store is unavailable.
+        first. A failing query fails the step.
         """
         aql = f"""
         FOR inst IN {COLLECTION_INSTRUMENTS}
@@ -210,11 +207,7 @@ class SemanticPipelineBase(PipelineBase):
         """
         index: InstrumentAliasMap = {}
         ambiguous: set[str] = set()
-        try:
-            rows = list(self.store.query(aql))
-        except Exception as exc:
-            logger.debug("Graph instrument index unavailable: %s", exc)
-            return index
+        rows = list(self.store.query(aql))
 
         for row in rows:
             bwb_id = row.get("bwb_id")

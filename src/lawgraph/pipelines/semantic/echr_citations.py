@@ -224,7 +224,7 @@ FOR j IN {COLLECTION_JUDGMENTS}
         try:
             rows = list(self.store.query(aql, {"source": SOURCE_ECHR}))
         except Exception as exc:
-            logger.warning("ECHR citations: query failed: %s", exc)
+            result.add_error(f"ECHR citations: query failed: {exc}")
             return result
 
         if not rows:
@@ -237,8 +237,8 @@ FOR j IN {COLLECTION_JUDGMENTS}
         try:
             convention = _ensure_echr_convention_instrument(self.store)
         except Exception as exc:
-            logger.warning(
-                "ECHR citations: could not ensure Convention instrument: %s", exc
+            result.add_error(
+                f"ECHR citations: could not ensure Convention instrument: {exc}"
             )
             return result
 
@@ -271,7 +271,7 @@ FOR inst IN {COLLECTION_INSTRUMENTS}
                             props={},
                         )
             except Exception as exc:
-                logger.warning("ECHR citations: batch BWB lookup failed: %s", exc)
+                result.add_error(f"ECHR citations: batch BWB lookup failed: {exc}")
 
         article_cache: dict[str, Node | None] = {}
         edge_batch: list[dict] = []

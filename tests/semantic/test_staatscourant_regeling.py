@@ -39,3 +39,37 @@ def test_limit_one_is_per_publication_not_for_the_whole_query() -> None:
 def test_a_bwb_id_is_compared_as_stored_so_its_index_is_used() -> None:
     for aql in _queries():
         assert "UPPER(" not in aql or "bwb_id" not in aql.split("UPPER(", 1)[1][:20]
+
+
+def test_since_is_compared_as_a_date_with_the_date_of_the_publication() -> None:
+    """props.date is "2026-09-19"; a timestamp of that day sorts after it and misses it."""
+    import datetime as dt
+
+    class Binds(_Store):
+        def __init__(self) -> None:
+            super().__init__()
+            self.binds: list[dict] = []
+
+        def query(
+            self, aql: str, bind_vars: dict | None = None, **_kw: Any
+        ) -> list[dict]:
+            self.binds.append(dict(bind_vars or {}))
+            return []
+
+    store = Binds()
+    since = dt.datetime(2026, 9, 19, 6, 0, tzinfo=dt.timezone.utc)
+    StaatscourantRegelingSemanticPipeline(store=store).run(since=since)
+    assert {b["since_iso"] for b in store.binds if "since_iso" in b} == {"2026-09-19"}
+
+
+def test_a_failing_query_is_an_error_of_the_step_not_a_warning() -> None:
+    class Failing(_Store):
+        def query(
+            self, aql: str, bind_vars: dict | None = None, **_kw: Any
+        ) -> list[dict]:
+            if "match_type: 'title'" in aql:
+                raise RuntimeError("memory limit exceeded")
+            return []
+
+    result = StaatscourantRegelingSemanticPipeline(store=Failing()).run()
+    assert result.errors and "memory limit exceeded" in result.errors[0]

@@ -22,7 +22,6 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
-from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase
 
@@ -90,14 +89,17 @@ FOR pub IN {COLLECTION_DOCUMENTS}
 
         bind: dict[str, Any] = {"source": SOURCE_STAATSCOURANT}
         if since:
-            bind["since_iso"] = iso_timestamp(since)
+            # props.date is a date: compared with a timestamp, "2026-09-19" sorts before
+            # "2026-09-19T06:00:00Z" and only the publications of today would match.
+            bind["since_iso"] = since.date().isoformat()
         rows: list[dict[str, Any]] = []
 
         for aql in (aql_bwb, aql_title):
             try:
                 rows.extend(self.store.query(aql, bind_vars=bind))
             except Exception as exc:
-                logger.warning("Staatscourant regeling semantic query failed: %s", exc)
+                # Not a warning: a query that failed left its edges out.
+                result.add_error(f"Staatscourant regeling semantic query failed: {exc}")
 
         # Strategy 3: BWBR pattern scan on full text (for publications not yet matched)
         already_matched_pubs = {r["pub_id"] for r in rows}
@@ -179,7 +181,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
 """
         bind: dict[str, Any] = {"source": SOURCE_STAATSCOURANT}
         if since:
-            bind["since_iso"] = iso_timestamp(since)
+            bind["since_iso"] = since.date().isoformat()
         results: list[dict[str, Any]] = []
 
         # Collect all (pub, bwb_id) pairs first, then batch-resolve instruments. The texts

@@ -26,6 +26,7 @@ from lawgraph.core.aliases import InstrumentAliasMap
 from lawgraph.core.identifiers import find_celex_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase, slim
 
@@ -151,7 +152,8 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
         bind_vars: dict[str, Any] | None = None
         if since is not None:
             since_filter = "FILTER doc.props.date >= @since"
-            bind_vars = {"since": since.isoformat()}
+            # props.date is a date; a timestamp of the same day sorts after it.
+            bind_vars = {"since": since.date().isoformat()}
 
         aql = (
             f"FOR doc IN {COLLECTION_DOCUMENTS}\n"
@@ -214,7 +216,7 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
         since_filter = ""
         if since is not None:
             since_filter = "FILTER raw.fetched_at >= @since"
-            bind_vars["since"] = since.isoformat()
+            bind_vars["since"] = iso_timestamp(since)
         aql = f"""
         FOR raw IN {COLLECTION_RAW_SOURCES}
             FILTER raw.source == @source
