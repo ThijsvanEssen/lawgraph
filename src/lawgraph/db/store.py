@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import re
 import time
 from collections.abc import Callable, Iterable
 from typing import Any, TypeVar, cast
@@ -139,6 +140,11 @@ def _sleep(seconds: float) -> None:
     time.sleep(seconds)
 
 
+# A query with one of these operations changes data (AQL keywords are written in capitals
+# throughout the code; ``updated_at`` and the like do not match).
+_WRITES = re.compile(r"\b(INSERT|UPDATE|REPLACE|REMOVE|UPSERT)\b")
+WRITE_MAX_RUNTIME = 600.0
+
 # How long the server keeps an AQL cursor that is not read (its default is 30 seconds).
 CURSOR_TTL_SECONDS = 3600.0
 
@@ -187,33 +193,33 @@ class ArangoStore:
         aql: str,
         bind_vars: dict | None = None,
         *,
-        max_runtime: float = 600.0,
         batch_size: int = 1000,
         ttl: float = CURSOR_TTL_SECONDS,
     ) -> Iterable[dict[str, Any]]:
-        """Execute an AQL query and stream results in batches.
+        """Execute an AQL query; a query that only reads streams its result.
 
-        ``ttl`` is how long the server keeps the cursor between two batches. The default of
-        30 seconds is too short for a consumer that works on every batch (a semantic
-        pipeline running regexes over 1000 documents): it answers ``cursor not found``.
+        Without a streaming cursor the server builds the whole result in its memory before
+        it sends the first batch: 41,000 BWB toestanden of 80 KB are 3 GB, and that query
+        killed the server. A streaming cursor computes the result while it is read, so
+        ``batch_size`` documents are in flight, whatever the size of the result.
 
-        ``batch_size`` controls how many documents ArangoDB sends per HTTP
-        response.  The default of 1000 keeps memory bounded for large result
-        sets while reducing round-trips compared to the driver default of 100.
-        Pipeline callers that do list() on the result see no difference;
-        streaming callers benefit automatically.
+        A streamed query lives as long as its reader takes, so it gets no ``max_runtime``
+        (the server would kill a pipeline that works on every batch); ``ttl`` is how long the
+        server keeps the cursor between two batches (its default of 30 seconds answers
+        ``cursor not found`` to such a reader).
+
+        A query that writes is not streamed: streamed, it would only write as far as its
+        cursor is read. It runs to the end at once, within ``WRITE_MAX_RUNTIME`` seconds.
         """
+        writes = _WRITES.search(aql) is not None
         cursor = self.db.aql.execute(
             aql,
             bind_vars=bind_vars or {},
-            max_runtime=max_runtime,  # type: ignore[arg-type]
+            stream=not writes,
+            max_runtime=WRITE_MAX_RUNTIME if writes else None,  # type: ignore[arg-type]
             batch_size=batch_size,
             ttl=ttl,  # type: ignore[arg-type]
         )
-        # python-arango <8.0 returns a cursor; >=8.0 returns a list directly
-        result_attr = getattr(cursor, "result", None)
-        if callable(result_attr):
-            cursor = result_attr()
         return cast(Iterable[dict[str, Any]], cursor)
 
     # ── Raw sources ────────────────────────────────────────────────────────────
