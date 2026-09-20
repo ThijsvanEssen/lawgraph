@@ -29,6 +29,31 @@ def _skeleton(node: Node) -> Node:
     )
 
 
+def slim(var: str, *fields: str) -> str:
+    """AQL for the document *var* with only *fields* of its props.
+
+    A judgment carries its XML, its text and its paragraphs, a TK document the whole API
+    payload; a pipeline that reads one of them must not have the rest sent over. The result
+    has the shape of a document, so ``Node.from_document`` reads it.
+    """
+    names = ", ".join(f'"{field}"' for field in fields)
+    return (
+        f"{{_key: {var}._key, type: {var}.type, labels: {var}.labels, "
+        f"props: KEEP({var}.props, {names})}}"
+    )
+
+
+# The text of a judgment: its XML when there is one, else its text and summary. Never both:
+# the XML holds the text, and together they are three times the judgment.
+JUDGMENT_TEXT = (
+    "{_key: doc._key, type: doc.type, labels: doc.labels, props: doc.props.raw_xml != null "
+    '? KEEP(doc.props, "ecli", "raw_xml") : KEEP(doc.props, "ecli", "text", "summary", "body")}'
+)
+
+# Judgments are tens of KB each: fewer per cursor batch than the default 1000.
+JUDGMENT_BATCH_SIZE = 100
+
+
 class SemanticPipelineBase(PipelineBase):
     """Shared base for all semantic pipelines.
 

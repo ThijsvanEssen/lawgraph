@@ -261,3 +261,26 @@ def test_a_join_on_a_sparse_index_excludes_null() -> None:
         if _SPARSE_JOIN.search(line) and "!= null" not in line
     ]
     assert not offenders, offenders
+
+
+# ── semantic pipelines read the props they use ───────────────────────────────
+
+_WHOLE_DOCUMENT = re.compile(r"RETURN (doc|art|inst|j|pub)\b(?![._\[])")
+# tk_articles scans every text prop of a paper and its API payload: it needs the document.
+_READS_WHOLE_DOCUMENTS = {"tk_articles.py"}
+
+
+def test_a_semantic_pipeline_does_not_have_whole_documents_sent_over() -> None:
+    """A judgment is its XML, its text and its paragraphs; a loader asks for what it reads.
+
+    ``slim(var, *fields)`` and ``JUDGMENT_TEXT`` in ``pipelines/semantic/base.py`` project
+    the props in the query.
+    """
+    offenders = [
+        f"{path.name}:{number}"
+        for path in sorted((SRC / "pipelines" / "semantic").glob("*.py"))
+        if path.name not in _READS_WHOLE_DOCUMENTS
+        for number, line in enumerate(path.read_text().splitlines(), 1)
+        if _WHOLE_DOCUMENT.search(line)
+    ]
+    assert not offenders, offenders

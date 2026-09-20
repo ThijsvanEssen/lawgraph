@@ -14,7 +14,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.values import first_text_prop
 
-from .base import SemanticPipelineBase
+from .base import JUDGMENT_BATCH_SIZE, JUDGMENT_TEXT, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -46,7 +46,8 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
         pending: list[tuple[str, str]] = []
         all_cited_eclis: set[str] = set()
         doc_count = 0
-        for doc in self.store.query(f"FOR doc IN {COLLECTION_JUDGMENTS} RETURN doc"):
+        aql = f"FOR doc IN {COLLECTION_JUDGMENTS} RETURN {JUDGMENT_TEXT}"
+        for doc in self.store.query(aql, batch_size=JUDGMENT_BATCH_SIZE):
             judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
             text = self._extract_text(judgment)
             eclis = find_eclis(text)

@@ -35,7 +35,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
-from .base import CodeMapping, SemanticPipelineBase
+from .base import CodeMapping, SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
 
@@ -200,7 +200,7 @@ class EUArticlesSemanticPipeline(SemanticPipelineBase):
             aql = f"""
             FOR doc IN {COLLECTION_ARTICLES}
                 FILTER doc.props.celex IN @celex_list
-                RETURN doc
+                RETURN {slim("doc", "celex", "article_number", "text", "display_name")}
             """
             for doc in self.store.query(aql, bind_vars={"celex_list": celex_list}):
                 yield Node.from_document(COLLECTION_ARTICLES, doc)
@@ -208,7 +208,7 @@ class EUArticlesSemanticPipeline(SemanticPipelineBase):
             aql = f"""
             FOR doc IN {COLLECTION_ARTICLES}
                 FILTER doc.props.celex != null
-                RETURN doc
+                RETURN {slim("doc", "celex", "article_number", "text", "display_name")}
             """
             for doc in self.store.query(aql):
                 yield Node.from_document(COLLECTION_ARTICLES, doc)

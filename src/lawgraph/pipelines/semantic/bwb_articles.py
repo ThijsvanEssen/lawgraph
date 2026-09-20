@@ -25,7 +25,7 @@ from lawgraph.pipelines.semantic.bwb_references import (
     hits_from_references,
 )
 
-from .base import SemanticPipelineBase
+from .base import SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
 SEMANTIC_SOURCE = "bwb-article-references"
@@ -166,7 +166,7 @@ class BWBArticlesSemanticPipeline(SemanticPipelineBase):
         FOR doc IN {COLLECTION_ARTICLES}
             FILTER doc.props.bwb_id IN @bwb_ids
             FILTER doc.props.references != null
-        RETURN doc
+        RETURN {slim("doc", "bwb_id", "article_number", "references")}
         """
         return self.store.query(aql, bind_vars={"bwb_ids": bwb_ids})
 

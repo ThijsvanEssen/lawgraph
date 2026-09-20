@@ -31,7 +31,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.xml import iter_named
 from lawgraph.pipelines.semantic.annex_detect import detect_annex_references
-from lawgraph.pipelines.semantic.base import SemanticPipelineBase
+from lawgraph.pipelines.semantic.base import SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
 
@@ -195,7 +195,7 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
         FOR doc IN {COLLECTION_ARTICLES}
             FILTER doc.props.text != null
             FILTER CONTAINS(LOWER(doc.props.text), 'bijlage')
-            RETURN doc
+            RETURN {slim("doc", "bwb_id", "text")}
         """
         return self.store.query(aql)
 

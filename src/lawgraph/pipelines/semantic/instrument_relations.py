@@ -27,7 +27,7 @@ from lawgraph.core.identifiers import find_celex_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 
-from .base import SemanticPipelineBase
+from .base import SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
 
@@ -157,7 +157,7 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
             f"FOR doc IN {COLLECTION_DOCUMENTS}\n"
             '    FILTER "TK" IN doc.labels\n'
             f"    {since_filter}\n"
-            "    RETURN doc"
+            f"    RETURN {slim('doc', 'title', 'display_name')}"
         )
         for doc in self.store.query(aql, bind_vars):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)

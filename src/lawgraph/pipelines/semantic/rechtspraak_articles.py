@@ -18,7 +18,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
-from .base import SemanticPipelineBase
+from .base import JUDGMENT_BATCH_SIZE, JUDGMENT_TEXT, SemanticPipelineBase
 from .detection import build_extractor, detect_in_text
 
 logger = get_logger(__name__)
@@ -191,12 +191,14 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
             aql = f"""
             FOR doc IN {collection}
                 FILTER doc.props.ecli IN @eclis
-            RETURN doc
+            RETURN {JUDGMENT_TEXT}
             """
         else:
             bind_vars = {}
-            aql = f"FOR doc IN {collection} RETURN doc"
-        return self.store.query(aql, bind_vars=bind_vars)
+            aql = f"FOR doc IN {collection} RETURN {JUDGMENT_TEXT}"
+        return self.store.query(
+            aql, bind_vars=bind_vars, batch_size=JUDGMENT_BATCH_SIZE
+        )
 
     def _extract_judgment_text(self, judgment: Node) -> str | None:
         props = judgment.props

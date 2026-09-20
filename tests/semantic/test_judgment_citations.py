@@ -54,7 +54,9 @@ class _FakeStore:
         self._nodes = nodes or {}
         self.edges: dict[str, dict[str, Any]] = {}
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
+    def query(
+        self, aql: str, bind_vars: dict | None = None, **_kw: Any
+    ) -> list[dict[str, Any]]:
         # Secondary ECLI lookup — return nothing (we populate via get_node).
         if "props.ecli" in aql:
             return []

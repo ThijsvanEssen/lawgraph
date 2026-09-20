@@ -254,8 +254,8 @@ FOR j IN {COLLECTION_JUDGMENTS}
         if all_bwb_ids:
             batch_aql = f"""
 FOR inst IN {COLLECTION_INSTRUMENTS}
-  FILTER UPPER(inst.props.bwb_id) IN @bwb_ids
-  RETURN inst
+  FILTER inst.props.bwb_id IN @bwb_ids
+  RETURN {{_key: inst._key, props: {{bwb_id: inst.props.bwb_id}}}}
 """
             try:
                 inst_rows = list(

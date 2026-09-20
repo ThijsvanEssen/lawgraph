@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
-from lawgraph.pipelines.semantic.base import SemanticPipelineBase
+from lawgraph.pipelines.semantic.base import SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
 
@@ -216,7 +216,10 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         return result
 
     def _load_tk_documents(self) -> Iterable[Node]:
-        aql = f'FOR doc IN {COLLECTION_DOCUMENTS} FILTER "TK" IN doc.labels RETURN doc'
+        aql = (
+            f'FOR doc IN {COLLECTION_DOCUMENTS} FILTER "TK" IN doc.labels '
+            f"RETURN {slim('doc', 'bwb_id', 'text', 'raw_xml')}"
+        )
         for doc in self.store.query(aql):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)
 

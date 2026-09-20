@@ -22,9 +22,11 @@ import re
 import pytest
 
 import lawgraph.config.constants as constants
+import lawgraph.pipelines.semantic.base as semantic_base
 
 SRC = pathlib.Path(__file__).resolve().parent.parent / "src" / "lawgraph"
 _NAMES = {k: v for k, v in vars(constants).items() if not k.startswith("_")}
+_NAMES["JUDGMENT_TEXT"] = semantic_base.JUDGMENT_TEXT
 _STARTS = re.compile(r"^\s*(FOR|LET|WITH)\b")
 _WRITES_OR_RETURNS = re.compile(r"\b(RETURN|REMOVE|UPDATE|INSERT|UPSERT)\b")
 # A server answer that says the query is a fragment or the bind values are dummies.
@@ -68,10 +70,25 @@ def _text(node: ast.AST) -> str | None:
                 and part.value.id in _NAMES
             ):
                 parts.append(str(_NAMES[part.value.id]))
+            elif isinstance(part, ast.FormattedValue) and _is_slim(part.value):
+                call = part.value
+                parts.append(semantic_base.slim(*(arg.value for arg in call.args)))  # type: ignore[attr-defined]
             else:
                 return None  # depends on something only known at run time
         return "".join(parts)
     return None
+
+
+def _is_slim(node: ast.AST) -> bool:
+    """``slim("doc", "title", ...)``: the props projection of the semantic pipelines."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "slim"
+        and all(
+            isinstance(a, ast.Constant) and isinstance(a.value, str) for a in node.args
+        )
+    )
 
 
 def _bind_vars(query: str) -> dict[str, object]:

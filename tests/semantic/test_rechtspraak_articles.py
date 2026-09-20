@@ -24,7 +24,9 @@ class _FakeStore(_BaseFakeStore):
         self._articles = articles
         self._instruments = instruments or []
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
+    def query(
+        self, aql: str, bind_vars: dict | None = None, **_kw: Any
+    ) -> list[dict[str, Any]]:
         if "FOR doc IN judgments" in aql:
             return list(self._judgments)
         if "FOR inst IN instruments" in aql:
