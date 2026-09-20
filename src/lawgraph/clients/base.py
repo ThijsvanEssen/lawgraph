@@ -62,6 +62,12 @@ class BaseClient:
             resp.reason,
         )
         resp.raise_for_status()
+        if resp.status_code != 200:
+            # 202 Accepted, 204, 206, 300: no error for requests, and not the document
+            # either. Stored as one it would never be fetched again.
+            raise requests.HTTPError(
+                f"{resp.status_code} is not the document: {url}", response=resp
+            )
         return resp
 
     def _get_raw_with_retry(

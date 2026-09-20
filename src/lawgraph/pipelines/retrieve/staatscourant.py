@@ -10,7 +10,13 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 
-from .base import RetrievePipelineBase, RetrieveRecord, missing_record
+from .base import (
+    FailureStreak,
+    RetrievePipelineBase,
+    RetrieveRecord,
+    failure_reason,
+    missing_record,
+)
 
 logger = get_logger(__name__)
 
@@ -37,35 +43,48 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
         stored and not modified since is left alone. Those stored in the last 24 hours are
         skipped: they were done by an interrupted run.
         """
-        if not identifiers:
-            listed = self.client.search_ministeriele_regelingen(since=since)
-            identifiers = self._changed(
-                SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, listed
+        listed = not identifiers
+        if listed:
+            listing = self.client.search_ministeriele_regelingen(since=since)
+            # What is stored and not modified since is left alone; that is also what an
+            # interrupted run did, so no 24-hour rule here: it would hide a publication that
+            # is modified on the day it was stored until it has left the window.
+            wanted = self._changed(
+                SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, listing
             )
             logger.info(
                 "Staatscourant: %d publications listed, %d new or modified since they "
                 "were stored.",
-                len(listed),
-                len(identifiers),
+                len(listing),
+                len(wanted),
             )
-        done = self._recently_stored(SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING)
+        else:
+            done = self._recently_stored(SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING)
+            wanted = [i for i in identifiers or [] if i not in done]
         todo = self._without_missing(
-            SOURCE_STAATSCOURANT,
-            RAW_KIND_STCRT_REGELING,
-            [i for i in identifiers if i not in done],
-        )
-        logger.info(
-            "Staatscourant retrieve: %d publications, %d to download.",
-            len(identifiers),
-            len(todo),
+            SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, wanted
         )
         self.progress.expect(len(todo))
+        streak = FailureStreak("Staatscourant")
         for identifier in todo:
-            xml = self.client.fetch_publication_xml(identifier)
+            try:
+                xml = self.client.fetch_publication_xml(identifier)
+            except Exception as exc:
+                # One publication that always answers 500 must not end every run at the
+                # same place: the rest is fetched, and a dead source ends the step.
+                self.progress.fail(
+                    f"download failed ({failure_reason(exc)})", identifier
+                )
+                streak.failed(identifier, exc)
+                continue
+            streak.ok()
             if xml is None:
                 self.progress.skip("no XML (HTTP 404)", identifier)
                 yield missing_record(
-                    SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, identifier
+                    SOURCE_STAATSCOURANT,
+                    RAW_KIND_STCRT_REGELING,
+                    identifier,
+                    listed=listed,
                 )
                 continue
             yield RetrieveRecord(

@@ -62,7 +62,8 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
                     streak.ok()
                     yield missing_record(SOURCE_EURLEX, RAW_KIND_EU_CELEX, celex)
                 else:
-                    self.progress.skip(
+                    # An error of the step, not a skip (see retrieve rechtspraak).
+                    self.progress.fail(
                         f"download failed ({failure_reason(exc)})", celex
                     )
                     streak.failed(celex, exc)

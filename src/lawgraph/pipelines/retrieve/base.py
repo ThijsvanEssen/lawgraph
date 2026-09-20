@@ -18,7 +18,11 @@ logger = get_logger(__name__)
 
 MAX_FAILURES_IN_A_ROW = 25
 RESUME_WITHIN_HOURS = 24
+# How long a document that answered HTTP 404 is left alone. A document the source itself
+# listed is probably on its way (listed before its file is there, or the source is in
+# maintenance); one whose id was read in a citation may never have existed.
 MISSING_FOR_DAYS = 30
+MISSING_LISTED_FOR_DAYS = 3
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,11 @@ class RetrieveRecord:
 
 class SourceDown(RuntimeError):
     """A source failed too many requests in a row."""
+
+
+# 4xx answers that are about us and not about the document: not allowed (a ban answers 403
+# to everything) or too many requests.
+_SOURCE_REFUSES = (401, 403, 429)
 
 
 class FailureStreak:
@@ -60,7 +69,7 @@ class FailureStreak:
         source that answers is not down: a run of those must not end the step.
         """
         status = getattr(getattr(exc, "response", None), "status_code", None)
-        if status is not None and 400 <= status < 500 and status != 429:
+        if status is not None and 400 <= status < 500 and status not in _SOURCE_REFUSES:
             self.count = 0
             return
         self.count += 1
@@ -71,13 +80,21 @@ class FailureStreak:
             ) from exc
 
 
-def missing_record(source: str, kind: str, external_id: str) -> RetrieveRecord:
-    """The record that remembers that *source* has no *kind* document for *external_id*."""
+def missing_record(
+    source: str, kind: str, external_id: str, *, listed: bool = False
+) -> RetrieveRecord:
+    """The record that remembers that *source* has no *kind* document for *external_id*.
+
+    *listed*: the source itself named the document (an index, an SRU listing), so it is asked
+    for again after ``MISSING_LISTED_FOR_DAYS`` instead of ``MISSING_FOR_DAYS``.
+    """
+    days = MISSING_LISTED_FOR_DAYS if listed else MISSING_FOR_DAYS
+    retry_after = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days)
     return RetrieveRecord(
         source=source,
         kind=kind + RAW_KIND_MISSING_SUFFIX,
         external_id=external_id,
-        meta={"kind": kind, "status": 404},
+        meta={"kind": kind, "status": 404, "retry_after": iso_timestamp(retry_after)},
         counts=False,
     )
 
@@ -185,25 +202,31 @@ class RetrievePipelineBase(PipelineBase):
         return []
 
     def _without_missing(self, source: str, kind: str, ids: Iterable[str]) -> list[str]:
-        """*ids* without those the source answered HTTP 404 for in the last 30 days.
+        """*ids* without those the source answered HTTP 404 for not long ago.
 
         A pipeline yields ``missing_record`` for such a document. Without it every run, and
-        every iteration of ``expand-graph``, asks for the same missing documents again; after
-        ``MISSING_FOR_DAYS`` they are tried once more.
+        every iteration of ``expand-graph``, asks for the same missing documents again; when
+        its ``retry_after`` has passed a document is tried once more.
         """
         ids = list(ids)
-        missing = self._stored_since(
-            source, kind + RAW_KIND_MISSING_SUFFIX, hours=MISSING_FOR_DAYS * 24
-        )
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind AND r.meta.retry_after > @now
+            RETURN r.external_id
+        """
+        bind = {
+            "source": source,
+            "kind": kind + RAW_KIND_MISSING_SUFFIX,
+            "now": iso_timestamp(dt.datetime.now(dt.timezone.utc)),
+        }
+        missing = {str(external_id) for external_id in self.store.query(aql, bind)}
         todo = [external_id for external_id in ids if external_id not in missing]
         if len(todo) < len(ids):
             logger.info(
-                "%d %s/%s documents were missing (HTTP 404) in the last %d days; not "
-                "asking again.",
+                "%d %s/%s documents answered HTTP 404 not long ago; not asking again yet.",
                 len(ids) - len(todo),
                 source,
                 kind,
-                MISSING_FOR_DAYS,
             )
         return todo
 

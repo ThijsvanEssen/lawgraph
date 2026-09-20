@@ -106,9 +106,17 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
                 if is_not_found(exc):
                     self.progress.skip("no content (HTTP 404)", ecli)
                     streak.ok()
-                    yield missing_record(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, ecli)
+                    yield missing_record(
+                        SOURCE_RECHTSPRAAK,
+                        RAW_KIND_RS_CONTENT,
+                        ecli,
+                        listed=updated
+                        is not None,  # named by the index, not by a citation
+                    )
                 else:
-                    self.progress.skip(f"download failed ({failure_reason(exc)})", ecli)
+                    # An error of the step (exit 1), not a skip: a source that refuses
+                    # everything must not end as "N skipped".
+                    self.progress.fail(f"download failed ({failure_reason(exc)})", ecli)
                     streak.failed(ecli, exc)
                 continue
             streak.ok()

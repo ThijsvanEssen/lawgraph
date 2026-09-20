@@ -17,7 +17,13 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.db import ArangoStore
 
-from .base import RetrievePipelineBase, RetrieveRecord, missing_record
+from .base import (
+    FailureStreak,
+    RetrievePipelineBase,
+    RetrieveRecord,
+    failure_reason,
+    missing_record,
+)
 
 logger = get_logger(__name__)
 
@@ -70,8 +76,17 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             (bwb_id, identifier) for bwb_id, identifier in todo if identifier in wanted
         ]
         self.progress.expect(len(todo))
+        streak = FailureStreak("Staatsblad")
         for bwb_id, identifier in todo:
-            xml = self.client.fetch_publication_xml(identifier)
+            try:
+                xml = self.client.fetch_publication_xml(identifier)
+            except Exception as exc:
+                self.progress.fail(
+                    f"download failed ({failure_reason(exc)})", identifier
+                )
+                streak.failed(identifier, exc)
+                continue
+            streak.ok()
             if xml is None:
                 self.progress.skip("no XML (HTTP 404)", identifier)
                 yield missing_record(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, identifier)

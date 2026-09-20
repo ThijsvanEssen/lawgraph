@@ -31,6 +31,8 @@ class _Store(RawSourcesFake):
     def query(self, aql: str, bind_vars: dict | None = None) -> list[Any]:
         if "at: r.fetched_at" in aql:  # _stored_at: {id, at} of every stored record
             return [{"id": i, "at": at} for i, at in self.stored_at.items()]
+        if "retry_after" in aql:  # _without_missing: nothing is known to be missing
+            return []
         return list(self.recent)
 
     def insert_raw_source(self, *, external_id: str | None = None, **_kw: Any) -> None:
@@ -146,15 +148,21 @@ def test_staatscourant_stores_each_publication_as_it_is_downloaded() -> None:
     store = _Store()
     result = StaatscourantRetrievePipeline(store, client).run()
 
-    assert store.stored == ["stcrt-2020-1", "stcrt-2020-2"]  # kept, though #3 crashed
-    assert result.created == 2 and "after 2 records" in result.errors[0]
+    # One publication that cannot be downloaded is an error, and the rest is fetched: before,
+    # every run ended at the same publication.
+    assert store.stored == ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-4"]
+    assert result.created == 3
+    assert result.errors == [
+        "1 x download failed (ConnectionError) (first: stcrt-2020-3)"
+    ]
 
 
 def test_staatscourant_rerun_downloads_only_the_rest() -> None:
+    """Asked for by name (fill-gaps): what an interrupted run stored today is not repeated."""
     ids = ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3"]
     client = _Staatscourant(ids)
     store = _Store(recent=["stcrt-2020-1", "stcrt-2020-2"])
-    result = StaatscourantRetrievePipeline(store, client).run()
+    result = StaatscourantRetrievePipeline(store, client).run(identifiers=ids)
 
     assert client.fetched == ["stcrt-2020-3"]
     assert store.stored == ["stcrt-2020-3"] and result.created == 1

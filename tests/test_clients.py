@@ -194,3 +194,30 @@ def test_every_get_is_retried_also_the_first_page_of_a_paged_fetch(monkeypatch) 
     session.answers = [Response(503, {}), Response(200, {})]
     assert client._get_text("uitspraken/content") == "text"
     assert not hasattr(client, "_get_raw")  # no GET without retry is left
+
+
+def test_an_answer_that_is_not_200_is_not_the_document() -> None:
+    """202 Accepted passes raise_for_status; its body stored as a judgment is never refetched."""
+    import pytest
+    import requests
+
+    from lawgraph.clients.base import BaseClient
+
+    class Response:
+        status_code, reason, headers, text = (
+            202,
+            "Accepted",
+            {},
+            "<html>being prepared</html>",
+        )
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class Session:
+        def get(self, url, **_kw):
+            return Response()
+
+    client = BaseClient(base_url="https://example.test", session=Session())  # type: ignore[arg-type]
+    with pytest.raises(requests.HTTPError, match="202 is not the document"):
+        client._get_text("uitspraken/content")
