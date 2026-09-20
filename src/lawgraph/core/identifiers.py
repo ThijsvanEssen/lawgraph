@@ -42,6 +42,11 @@ _CELEX_MATCH_LETTERS = "CLRDF"
 CELEX_PATTERN = re.compile(
     rf"\b3\d{{4}}[{_CELEX_MATCH_LETTERS}]\d{{4}}\b", re.IGNORECASE
 )
+# The same id for a query: AQL's REGEX_TEST knows no ``\b``, so this finds a superset and
+# ``find_celex_ids`` decides. It keeps a scan from sending every text to Python.
+CELEX_AQL_REGEX = (
+    f"3[0-9]{{4}}[{_CELEX_MATCH_LETTERS}{_CELEX_MATCH_LETTERS.lower()}][0-9]{{4}}"
+)
 _CELEX_FULL = re.compile(rf"^3(\d{{4}})([{_CELEX_MATCH_LETTERS}])(\d+)$", re.ASCII)
 
 

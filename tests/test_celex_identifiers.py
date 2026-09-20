@@ -105,3 +105,41 @@ def test_parse_celex_accepts_any_number_length() -> None:
 )
 def test_derive_eu_citation_title(celex: str, title: str | None) -> None:
     assert _derive_eu_citation_title(celex) == title
+
+
+def test_the_query_regex_finds_every_text_the_pattern_finds() -> None:
+    """The server-side prefilter of fill-gaps may send too much, never too little."""
+    import re
+
+    from lawgraph.core.identifiers import CELEX_AQL_REGEX, find_celex_ids
+
+    prefilter = re.compile(
+        CELEX_AQL_REGEX
+    )  # the syntax AQL's REGEX_TEST shares with re
+    texts = [
+        "zie richtlijn 32016L0680 en verordening 32016r0679.",
+        "geen verwijzing, wel een getal 320160680 en een jaar 2016",
+        "x32016L0680x",  # no word boundary: the prefilter sends it, the pattern refuses it
+        "",
+    ]
+    for text in texts:
+        assert bool(prefilter.search(text)) >= bool(find_celex_ids(text)), text
+    assert [bool(prefilter.search(t)) for t in texts] == [True, False, True, False]
+
+
+def test_fill_gaps_lets_the_server_leave_out_the_texts_without_a_celex_id() -> None:
+    from lawgraph.commands import fill_gaps
+    from lawgraph.core.identifiers import CELEX_AQL_REGEX
+
+    asked: list[tuple[str, dict]] = []
+
+    class Store:
+        def query(self, aql, bind_vars=None, **_kw):
+            asked.append((aql, dict(bind_vars or {})))
+            if "REGEX_TEST" in aql:
+                return iter(["krachtens richtlijn 32010L0064 en 32016L0680"])
+            return iter(["32016L0680"] if "instruments" in aql else [])
+
+    assert fill_gaps._query_stub_celex_ids(Store()) == ["32010L0064"]  # type: ignore[arg-type]
+    scan = [bind for aql, bind in asked if "REGEX_TEST(art.props.text, @celex)" in aql]
+    assert scan == [{"celex": CELEX_AQL_REGEX}]

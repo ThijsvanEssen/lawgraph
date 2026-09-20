@@ -51,7 +51,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EU_CELEX,
 )
 from lawgraph.core.bwb_xml import parse_toestand
-from lawgraph.core.identifiers import find_celex_ids
+from lawgraph.core.identifiers import CELEX_AQL_REGEX, find_celex_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
@@ -563,15 +563,16 @@ def _query_stub_celex_ids(store: ArangoStore) -> list[str]:
     )
     known = loaded | already_retrieved
 
-    # Scan BWB article text for CELEX references
+    # Scan BWB article text for CELEX references; only the texts that can hold one are sent.
     aql_texts = f"""
     FOR art IN {COLLECTION_ARTICLES}
       FILTER art.props.bwb_id != null
       FILTER art.props.text != null
+      FILTER REGEX_TEST(art.props.text, @celex)
       RETURN art.props.text
     """
     found: set[str] = set()
-    for text in store.query(aql_texts):
+    for text in store.query(aql_texts, {"celex": CELEX_AQL_REGEX}):
         for celex in find_celex_ids(str(text)):
             if celex not in known:
                 found.add(celex)
