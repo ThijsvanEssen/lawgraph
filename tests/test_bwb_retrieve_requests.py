@@ -60,14 +60,24 @@ class _Store(RawSourcesFake):
         ]
 
 
-def test_the_current_toestand_is_the_valid_one_with_the_latest_dates() -> None:
+def test_the_current_toestand_is_the_one_in_force_today() -> None:
+    import datetime as dt
+
+    today = dt.date(2026, 9, 20)
     old = _meta("BWBR1", "2020-01-01", "2023-12-31")
-    valid = _meta("BWBR1", "2024-01-01")
-    future_end = _meta("BWBR1", "2019-01-01", "2030-01-01")
-    assert _newer(valid, old) and _newer(valid, future_end) and not _newer(old, valid)
-    assert not _newer(
-        valid, valid
-    )  # of two equals the first one stays, as sorted() did
+    in_force = _meta("BWBR1", "2024-01-01", "2026-12-31")
+    next_year = _meta(
+        "BWBR1", "2027-01-01"
+    )  # runs to 9999-12-31, and is not the law yet
+
+    assert _newer(in_force, old, today) and _newer(in_force, next_year, today)
+    assert not _newer(next_year, in_force, today)
+    assert not _newer(in_force, in_force, today)  # of two equals the first one stays
+    # A repealed regulation: the last toestand that was in force, not one still to come.
+    ended = _meta("BWBR1", "2024-01-01", "2025-12-31")
+    assert _newer(ended, old, today) and _newer(ended, next_year, today)
+    # The usual case: one toestand, in force with an open end.
+    assert _newer(_meta("BWBR1", "2024-01-01"), old, today)
 
 
 def test_latest_toestand_picks_the_same_one_as_the_listing() -> None:

@@ -46,17 +46,26 @@ class ToestandMeta(TypedDict):
     geldigheidsperiode_einddatum: str | None
 
 
-def _currency(meta: ToestandMeta) -> tuple[bool, dt.date, dt.date]:
-    """Sorts the toestand that counts as current last: still valid, then latest end and start."""
-    return (
-        meta.get("geldigheidsperiode_einddatum") == "9999-12-31",
-        sortable_date(meta.get("geldigheidsperiode_einddatum")),
-        sortable_date(meta.get("geldigheidsperiode_startdatum")),
-    )
+def _currency(
+    meta: ToestandMeta, today: dt.date
+) -> tuple[bool, bool, dt.date, dt.date]:
+    """Sorts the toestand that counts as current last.
+
+    The one in force today; without one (a repealed regulation) the last that was, before
+    any that is still to come. The SRU also lists the toestanden of the future, and one of
+    those runs to 9999-12-31 just like the current one used to: "still valid, latest start"
+    picked the text of next year for a regulation that is about to change.
+    """
+    start = sortable_date(meta.get("geldigheidsperiode_startdatum"))
+    end = sortable_date(meta.get("geldigheidsperiode_einddatum"))
+    return (start <= today <= end, start <= today, end, start)
 
 
-def _newer(meta: ToestandMeta, than: ToestandMeta) -> bool:
-    return _currency(meta) > _currency(than)
+def _newer(
+    meta: ToestandMeta, than: ToestandMeta, today: dt.date | None = None
+) -> bool:
+    today = today or dt.date.today()
+    return _currency(meta, today) > _currency(than, today)
 
 
 class BWBClient(BaseClient):
