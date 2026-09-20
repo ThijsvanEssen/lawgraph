@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from lawgraph.clients.base import BaseClient
+from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.settings import EURLEX_BASE_URL, EURLEX_SPARQL_ENDPOINT
 from lawgraph.core.logging import get_logger
 
@@ -290,4 +290,4 @@ class EUClient(BaseClient):
         logger.debug("Fetching CELEX %s (%s) via CELLAR", celex, lang)
         # CELLAR negotiates the content on these headers and redirects to the document.
         resp = self._get_raw_absolute_with_retry(url, headers=headers, timeout=60)
-        return resp.text
+        return response_text(resp)

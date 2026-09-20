@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import pathlib
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 import requests
 
 from lawgraph.clients.verdragenbank import VerdragenbankClient
+from tests.fakes import FakeResponse
 
 PAGE = (
     pathlib.Path(__file__).parent / "fixtures" / "sru_verdragenbank_nl_page.xml"
@@ -42,7 +42,7 @@ def _client(responses: list[Any], calls: list[dict]) -> VerdragenbankClient:
         response = responses.pop(0)
         if isinstance(response, Exception):
             raise response
-        return SimpleNamespace(text=response)
+        return FakeResponse(response)
 
     client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
     return client

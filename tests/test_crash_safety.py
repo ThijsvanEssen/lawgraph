@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterator
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -17,7 +16,7 @@ from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
-from tests.fakes import RawSourcesFake
+from tests.fakes import FakeResponse, RawSourcesFake
 
 
 class _Store(RawSourcesFake):
@@ -216,7 +215,7 @@ def _sru_client(pages: list[Any]) -> _sru.BaseClient:
         page = pages.pop(0)
         if isinstance(page, Exception):
             raise page
-        return SimpleNamespace(text=page)
+        return FakeResponse(page)
 
     client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
     return client

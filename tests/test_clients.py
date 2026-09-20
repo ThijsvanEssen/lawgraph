@@ -23,6 +23,7 @@ class DummyResponse(requests.Response):
         super().__init__()
         self._json_data = json_data
         self._text_override = text
+        self._content = text.encode("utf-8")
         self.status_code = status
         self.reason = "OK" if status < 400 else "Error"
 
@@ -169,7 +170,7 @@ def test_every_get_is_retried_also_the_first_page_of_a_paged_fetch(monkeypatch) 
                 {},
                 body,
             )
-            self.text = "text"
+            self.text, self.content = "text", b"text"
 
         def json(self) -> dict:
             return self._body
@@ -238,3 +239,28 @@ def test_a_tk_listing_that_ends_before_its_count_is_an_error() -> None:
     complete = [{"@odata.count": 3, "value": [{"Id": "1"}, {"Id": "2"}, {"Id": "3"}]}]
     client._get_json = lambda path, params=None, **kw: complete.pop(0)  # type: ignore[method-assign]
     assert len(list(client._skip_paged_get("Stemming"))) == 3
+
+
+def test_a_body_is_decoded_by_its_own_declaration_not_by_the_fallback_of_requests() -> (
+    None
+):
+    """requests reads text/xml without a charset as ISO-8859-1: "é" would become "Ã©"."""
+    from lawgraph.clients.base import response_text
+
+    def response(body: bytes, content_type: str) -> requests.Response:
+        resp = requests.Response()
+        resp._content, resp.status_code = body, 200
+        resp.headers["Content-Type"] = content_type
+        return resp
+
+    utf8 = "<?xml version='1.0' encoding='UTF-8'?><a>Coördinatie één</a>".encode()
+    assert "Coördinatie één" in response_text(response(utf8, "text/xml"))
+    assert "Coördinatie één" in response_text(
+        response(b"\xef\xbb\xbf" + utf8, "text/xml")
+    )
+    latin = "<?xml version='1.0' encoding='ISO-8859-1'?><a>één</a>".encode("latin-1")
+    assert "één" in response_text(response(latin, "application/xml"))
+    assert "één" in response_text(
+        response("<a>één</a>".encode(), "text/html")
+    )  # no declaration
+    assert "één" in response_text(response(latin, "text/xml; charset=ISO-8859-1"))

@@ -8,7 +8,7 @@ from typing import Callable, TypedDict
 from requests import Session
 
 from lawgraph.clients._sru import number_of_records, raise_on_diagnostic
-from lawgraph.clients.base import BaseClient
+from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
 from lawgraph.core.bwb_wti import GENERAL_INFO_END, extract_general_info
@@ -90,7 +90,7 @@ class BWBClient(BaseClient):
             resp = self._get_raw_absolute_with_retry(
                 BWB_SRU_ENDPOINT, params=params, timeout=120
             )
-            root = ET.fromstring(resp.text)
+            root = ET.fromstring(resp.content)
             raise_on_diagnostic(root, context=f"BWB type={doc_type} start={start}")
             if start > number_of_records(root) or any(
                 local_name(e.tag) == "record" for e in root.iter()
@@ -203,7 +203,7 @@ class BWBClient(BaseClient):
             BWB_SRU_ENDPOINT, params=params, timeout=30
         )
 
-        root = ET.fromstring(resp.text)
+        root = ET.fromstring(resp.content)
         raise_on_diagnostic(root, context=f"BWB toestanden of {bwb_id}")
         total = number_of_records(root)
         if total > 500:
@@ -255,7 +255,7 @@ class BWBClient(BaseClient):
             url,
         )
         resp = self._get_raw_absolute_with_retry(url, timeout=actual_timeout)
-        return resp.text
+        return response_text(resp)
 
     def fetch_wti_general_info(
         self,

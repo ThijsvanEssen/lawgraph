@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Iterator
 from typing import Any
@@ -13,6 +14,27 @@ from lawgraph.core.values import next_page_link
 logger = get_logger(__name__)
 
 RETRY_STATUSES = (429, 502, 503, 504)
+
+
+_XML_ENCODING = re.compile(rb"""<\?xml[^>]*encoding=["']([A-Za-z0-9._-]+)""")
+
+
+def response_text(resp: requests.Response) -> str:
+    """The body as text, decoded the way the document says and not the way requests guesses.
+
+    For ``text/xml`` and ``text/html`` without a charset in the header, requests falls back
+    to ISO-8859-1: a server that stops sending the charset would silently turn every stored
+    text into mojibake. The header wins when it names a charset; else the XML declaration;
+    else UTF-8, which is what XML without a declaration is.
+    """
+    if "charset" in resp.headers.get("Content-Type", "").lower():
+        return resp.text
+    declared = _XML_ENCODING.match(resp.content[:200].lstrip(b"\xef\xbb\xbf"))
+    encoding = declared.group(1).decode("ascii") if declared else "utf-8"
+    try:
+        return resp.content.decode(encoding, errors="replace")
+    except LookupError:
+        return resp.content.decode("utf-8", errors="replace")
 
 
 class BaseClient:
@@ -183,7 +205,7 @@ class BaseClient:
     ) -> str:
         """Retrieve the text of the requested resource (with retry)."""
         resp = self._get_raw_with_retry(path, params=params, timeout=timeout)
-        return resp.text
+        return response_text(resp)
 
     def _paged_get(
         self,

@@ -14,6 +14,7 @@ from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 from lawgraph.pipelines.retrieve import tk_content
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline, xml_text
+from tests.fakes import FakeResponse
 
 FIXTURE = (
     pathlib.Path(__file__).parent / "fixtures" / "kst_37020_x_1.xml"
@@ -77,7 +78,7 @@ def _client(responses: list[Any], calls: list[str]) -> KamerstukClient:
         response = responses.pop(0)
         if isinstance(response, Exception):
             raise response
-        return SimpleNamespace(text=response)
+        return FakeResponse(response)
 
     client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
     return client

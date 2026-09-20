@@ -34,3 +34,13 @@ class ExistingKeysFake:
             for key in set(keys)
             if self.get_node(collection, key) is not None  # type: ignore[attr-defined]
         }
+
+
+class FakeResponse:
+    """What a client reads of a ``requests.Response``: the body as text and as bytes."""
+
+    def __init__(self, text: str, content_type: str = "text/xml") -> None:
+        self.text = text
+        self.content = text.encode("utf-8")
+        self.headers = {"Content-Type": content_type}
+        self.status_code = 200

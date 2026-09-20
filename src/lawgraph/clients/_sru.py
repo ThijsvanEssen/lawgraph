@@ -9,7 +9,7 @@ from typing import Any
 
 import requests
 
-from lawgraph.clients.base import BaseClient
+from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.core.logging import get_logger
 from lawgraph.core.xml import find_own_text, local_name
 
@@ -97,7 +97,9 @@ def iter_publications(
         if connection:
             params["x-connection"] = connection
         resp = client._get_raw_absolute_with_retry(endpoint, params=params, timeout=60)
-        root = ET.fromstring(resp.text)
+        root = ET.fromstring(
+            resp.content
+        )  # bytes: the parser reads the declared encoding
         raise_on_diagnostic(root, context=f"{context} after {last}")
 
         if total is None:
@@ -205,7 +207,7 @@ def fetch_publication_xml(
         f"{identifier}/1/xml/{identifier}.xml"
     )
     try:
-        return client._get_raw_absolute_with_retry(url, timeout=60).text
+        return response_text(client._get_raw_absolute_with_retry(url, timeout=60))
     except requests.HTTPError as exc:
         if exc.response is not None and exc.response.status_code == 404:
             logger.debug("%s XML not found at %s (404)", kind, url)

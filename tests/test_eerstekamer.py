@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pathlib
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -21,7 +20,7 @@ from lawgraph.pipelines.semantic.eerstekamer_dossier_link import (
     EerstekamerDossierLinkSemanticPipeline,
 )
 from tests.conftest import _BaseFakeStore
-from tests.fakes import RawSourcesFake
+from tests.fakes import FakeResponse, RawSourcesFake
 
 PAGE = (
     pathlib.Path(__file__).parent / "fixtures" / "sru_eerstekamer_kamerstukken_page.xml"
@@ -37,7 +36,7 @@ def _client(responses: list[Any], calls: list[dict]) -> EerstekamerClient:
         response = responses.pop(0)
         if isinstance(response, Exception):
             raise response
-        return SimpleNamespace(text=response)
+        return FakeResponse(response)
 
     client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
     return client

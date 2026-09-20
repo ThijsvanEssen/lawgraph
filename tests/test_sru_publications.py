@@ -14,6 +14,7 @@ from lawgraph.clients._sru import fetch_publication_xml
 from lawgraph.clients.staatsblad import StaatsbladClient
 from lawgraph.clients.staatscourant import StaatscourantClient
 from lawgraph.core.identifiers import STB_ID_PATTERN
+from tests.fakes import FakeResponse
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 AMVB_PAGE = (FIXTURES / "sru_staatsblad_amvb_page.xml").read_text()  # 1 real record
@@ -46,7 +47,7 @@ def _client(cls, responses: list, calls: list[dict]):
         response = responses.pop(0)
         if isinstance(response, Exception):
             raise response
-        return SimpleNamespace(text=response)
+        return FakeResponse(response)
 
     client._get_raw_absolute_with_retry = fake_get
     return client
