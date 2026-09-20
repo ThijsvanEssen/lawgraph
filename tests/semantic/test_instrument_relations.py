@@ -71,7 +71,9 @@ class _FakeStore:
         self.edges: dict[str, dict[str, Any]] = {}
         self._call = 0
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
+    def query(
+        self, aql: str, bind_vars: dict | None = None, **_kw: Any
+    ) -> list[dict[str, Any]]:
         # Instrument index query — return instrument nodes so alias detection works.
         if "FOR inst IN instruments" in aql:
             rows = []

@@ -21,7 +21,6 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_RAW_SOURCES,
-    RAW_KIND_BWB_REGELING,
     RAW_KIND_BWB_TOESTAND,
     RELATION_PART_OF,
     RELATION_SCOPED_BY,
@@ -102,7 +101,7 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
             aql,
             {
                 "source": SOURCE_BWB,
-                "kinds": [RAW_KIND_BWB_REGELING, RAW_KIND_BWB_TOESTAND],
+                "kinds": [RAW_KIND_BWB_TOESTAND],
             },
             batch_size=20,  # payloads are full XML documents — keep batches small
         )

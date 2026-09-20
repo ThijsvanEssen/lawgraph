@@ -173,7 +173,6 @@ RAW_KIND_TK_FRACTIE = "tk-fractie"
 RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
 RAW_KIND_RS_CONTENT = "rs-content"
 RAW_KIND_EU_CELEX = "eu-celex-html"
-RAW_KIND_BWB_REGELING = "bwb-regeling-xml"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
 RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
 # The ``<algemene-informatie>`` element of a WTI file (official abbreviations), not the file.
@@ -200,7 +199,6 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT,),
     SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),
     SOURCE_BWB: (
-        RAW_KIND_BWB_REGELING,
         RAW_KIND_BWB_TOESTAND,
         RAW_KIND_BWB_TOESTAND_ALL,
         RAW_KIND_BWB_WTI_GENERAL,

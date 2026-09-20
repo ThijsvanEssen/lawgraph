@@ -303,3 +303,22 @@ def test_valid_until_chain_handles_open_ends_and_missing_stam_ids() -> None:
         "b1": None,
         "c1": None,
     }
+
+
+def test_only_the_current_toestand_is_normalized_not_the_history() -> None:
+    """A historical toestand has the bwb_id of the regulation too: it must not be read."""
+    from lawgraph.config.constants import (
+        RAW_KIND_BWB_TOESTAND,
+        RAW_KIND_BWB_TOESTAND_ALL,
+    )
+
+    asked: list[dict] = []
+
+    class Store(_Store):
+        def query(self, aql, bind_vars=None, **kw):  # type: ignore[override]
+            asked.append(dict(bind_vars or {}))
+            return iter([])
+
+    list(BWBNormalizePipeline(store=Store()).fetch_raw())
+    assert asked[0]["kinds"] == [RAW_KIND_BWB_TOESTAND]
+    assert RAW_KIND_BWB_TOESTAND_ALL not in asked[0]["kinds"]

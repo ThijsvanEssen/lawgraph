@@ -8,9 +8,7 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    RAW_KIND_BWB_REGELING,
     RAW_KIND_BWB_TOESTAND,
-    RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_BWB_WTI_GENERAL,
     RELATION_PART_OF,
     SOURCE_BWB,
@@ -26,11 +24,9 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "bwb-normalize"
-TOESTAND_KINDS = [
-    RAW_KIND_BWB_REGELING,
-    RAW_KIND_BWB_TOESTAND,
-    RAW_KIND_BWB_TOESTAND_ALL,
-]
+# Only the current toestand: the historical ones (``bwb-toestand-xml-all``) carry the same
+# bwb_id and would overwrite the articles of today with those of whichever came last.
+TOESTAND_KINDS = [RAW_KIND_BWB_TOESTAND]
 SHORT_TITLE_BATCH_SIZE = 1000
 
 

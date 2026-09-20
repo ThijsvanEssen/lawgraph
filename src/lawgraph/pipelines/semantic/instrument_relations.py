@@ -17,7 +17,6 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_RAW_SOURCES,
     EDGE_STATUS_VOORGESTELD,
-    RAW_KIND_BWB_REGELING,
     RAW_KIND_BWB_TOESTAND,
     RELATION_AMENDS,
     RELATION_IMPLEMENTS,
@@ -210,7 +209,7 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
         self, since: dt.datetime | None = None
     ) -> Iterable[tuple[str, str]]:
         """Yield (bwb_id, raw_text) for each BWB raw_source record."""
-        kinds = [RAW_KIND_BWB_REGELING, RAW_KIND_BWB_TOESTAND]
+        kinds = [RAW_KIND_BWB_TOESTAND]
         bind_vars: dict[str, Any] = {"source": SOURCE_BWB, "kinds": kinds}
         since_filter = ""
         if since is not None:
@@ -224,7 +223,8 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
             {since_filter}
             RETURN {{ bwb_id: raw.meta.bwb_id, text: raw.payload_text }}
         """
-        for row in self.store.query(aql, bind_vars=bind_vars):
+        # Full XML documents (80 KB on average, up to several MB): small batches.
+        for row in self.store.query(aql, bind_vars=bind_vars, batch_size=20):
             bwb_id = row.get("bwb_id")
             text = row.get("text")
             if bwb_id and text:

@@ -207,7 +207,7 @@ JSON sources use `payload_json`; XML and HTML sources use `payload_text`.
 | `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon` |
 | `rechtspraak` | `rs-content` |
 | `eurlex` | `eu-celex-html` |
-| `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-regeling-xml`, `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
+| `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
 | `staatsblad` | `stb-amvb-xml` |
 | `staatscourant` | `stcrt-regeling-xml` |
 | `eerstekamer` | `ek-kamerstuk-json` |
