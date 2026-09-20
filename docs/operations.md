@@ -63,6 +63,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_LOG_FORMAT` | plain | `json` for one JSON object per line |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
+| `ALLOW_DB_TESTS` | unset | `1` runs `tests/test_aql_validity.py`: every static AQL query is explained by the real ArangoDB in a scratch database (a query the server rejects, such as one with `??`, fails only there); shell only |
 
 ## CLI
 
@@ -237,7 +238,7 @@ ruff format --check src tests
 ```
 
 The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no test
-executes AQL against a database. Layout: `tests/api/` (routes), `tests/normalize/` and
+executes AQL, but `ALLOW_DB_TESTS=1` has the server validate every static query. Layout: `tests/api/` (routes), `tests/normalize/` and
 `tests/semantic/` (one file per source or detector), `tests/test_*.py` (clients, core helpers,
 bulk writers, registry, naming, conventions, relation catalogue, props). CI (`.github/workflows`) runs
 `pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format, end-of-file,

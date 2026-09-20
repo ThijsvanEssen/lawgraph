@@ -48,7 +48,7 @@ _CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 # the instrument legislated in the document's dossier introduced or changed.
 _TARGETS_AQL = f"""
 FOR doc IN {COLLECTION_DOCUMENTS}
-  FILTER CONTAINS(LOWER(doc.props.kind ?? ''), 'toelichting')
+  FILTER CONTAINS(LOWER(doc.props.kind || ''), 'toelichting')
   LET dossiers = (
     FOR e IN {COLLECTION_EDGES}
       FILTER e._from == doc._id AND e.relation == @part_of
