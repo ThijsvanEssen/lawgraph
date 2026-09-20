@@ -170,23 +170,18 @@ FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 100
   {since_filter}
-  LIMIT 5000
   RETURN {{ pub_id: pub._id, pub_key: pub._key, text: pub.props.text }}
 """
         bind: dict[str, Any] = {"source": SOURCE_STAATSCOURANT}
         if since:
             bind["since_iso"] = iso_timestamp(since)
         results: list[dict[str, Any]] = []
-        try:
-            pubs = list(self.store.query(aql, bind))
-        except Exception as exc:
-            logger.debug("Staatscourant text scan query failed: %s", exc)
-            return results
 
-        # Collect all (pub, bwb_id) pairs first, then batch-resolve instruments.
+        # Collect all (pub, bwb_id) pairs first, then batch-resolve instruments. The texts
+        # stream from the cursor; only the ids are kept.
         pub_bwb_pairs: list[tuple[str, str, str]] = []  # (pub_id, pub_key, bwb_id)
         all_bwb_ids: set[str] = set()
-        for pub in pubs:
+        for pub in self.store.query(aql, bind):
             pub_id = pub.get("pub_id")
             if pub_id in already_matched:
                 continue
@@ -206,16 +201,10 @@ FOR inst IN {COLLECTION_INSTRUMENTS}
   RETURN {{ bwb_id: UPPER(inst.props.bwb_id), inst_id: inst._id, inst_key: inst._key }}
 """
         bwb_to_inst: dict[str, dict[str, str]] = {}
-        try:
-            for inst_row in self.store.query(inst_aql, {"bwb_ids": list(all_bwb_ids)}):
-                bwb_key = inst_row.get("bwb_id") or ""
-                if bwb_key and bwb_key not in bwb_to_inst:
-                    bwb_to_inst[bwb_key] = inst_row
-        except Exception as exc:
-            logger.debug(
-                "Staatscourant text scan instrument batch query failed: %s", exc
-            )
-            return results
+        for inst_row in self.store.query(inst_aql, {"bwb_ids": list(all_bwb_ids)}):
+            bwb_key = inst_row.get("bwb_id") or ""
+            if bwb_key and bwb_key not in bwb_to_inst:
+                bwb_to_inst[bwb_key] = inst_row
 
         for pub_id, pub_key, bwb_id in pub_bwb_pairs:
             inst_row = bwb_to_inst.get(bwb_id)

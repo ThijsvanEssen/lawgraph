@@ -1,0 +1,319 @@
+"""Fixes from the review of legacy code: dead sources, silent caps and memory."""
+
+from __future__ import annotations
+
+import datetime as dt
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+import requests
+
+from lawgraph.commands import fill_gaps
+from lawgraph.core.models import PipelineResult
+from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
+from lawgraph.pipelines.retrieve.base import FailureStreak, SourceDown
+from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
+from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
+from lawgraph.pipelines.semantic.rechtspraak_articles import (
+    RechtspraakArticlesSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.staatscourant_regeling import (
+    StaatscourantRegelingSemanticPipeline,
+)
+
+# ── a source that is down fails the step ─────────────────────────────────────
+
+
+def test_a_streak_of_failures_means_the_source_is_down() -> None:
+    streak = FailureStreak("Source", limit=3)
+    streak.failed("a", RuntimeError("x"))
+    streak.failed("b", RuntimeError("x"))
+    with pytest.raises(
+        SourceDown, match="3 requests in a row failed.*seems to be down"
+    ):
+        streak.failed("c", RuntimeError("boom"))
+
+
+def test_a_success_ends_the_streak() -> None:
+    streak = FailureStreak("Source", limit=3)
+    for _ in range(10):
+        streak.failed("a", RuntimeError("x"))
+        streak.failed("b", RuntimeError("x"))
+        streak.ok()  # never three in a row
+
+
+class _Store:
+    def query(self, aql, bind_vars=None):
+        return []
+
+    def insert_raw_source(self, **kw: Any) -> None:
+        self.stored = getattr(self, "stored", []) + [kw["external_id"]]
+
+
+class _DeadRs:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+        self.calls = 0
+
+    def fetch_ecli_content(self, ecli: str) -> str:
+        self.calls += 1
+        raise self.error
+
+
+def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing() -> None:
+    rs = _DeadRs(requests.ConnectionError("no route"))
+    pipeline = RechtspraakRetrievePipeline(store=_Store(), rs_client=rs)
+    result = pipeline.run(eclis=[f"ECLI:{n}" for n in range(200)])
+
+    assert result.created == 0
+    assert "seems to be down" in result.errors[0]
+    assert rs.calls == 25  # it stopped at the 25th failure, it did not try all 200
+
+
+def test_rechtspraak_missing_judgments_are_not_a_dead_source() -> None:
+    not_found = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
+    rs = _DeadRs(not_found)
+    pipeline = RechtspraakRetrievePipeline(store=_Store(), rs_client=rs)
+    result = pipeline.run(eclis=[f"ECLI:{n}" for n in range(60)])
+    assert result.errors == [] and rs.calls == 60
+
+
+class _DeadEu:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
+        raise self.error
+
+
+def test_eurlex_that_is_down_fails_the_step() -> None:
+    pipeline = EurlexRetrievePipeline(
+        store=_Store(), eu_client=_DeadEu(requests.ConnectionError("no route"))
+    )
+    result = pipeline.run(celex_ids=[f"3201{n:04d}L0001" for n in range(200)])
+    assert "seems to be down" in result.errors[0]
+    assert result.skipped == 25
+
+
+def test_eurlex_acts_without_html_are_not_a_dead_source() -> None:
+    error = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
+    pipeline = EurlexRetrievePipeline(store=_Store(), eu_client=_DeadEu(error))
+    result = pipeline.run(celex_ids=[f"3201{n:04d}L0001" for n in range(60)])
+    assert result.errors == [] and result.skipped == 60
+
+
+# ── no silent caps ───────────────────────────────────────────────────────────
+
+
+def test_the_staatscourant_text_scan_has_no_row_cap_and_lets_errors_out() -> None:
+    queries: list[str] = []
+
+    class Store:
+        def query(self, aql, bind_vars=None):
+            queries.append(aql)
+            raise RuntimeError("query failed")
+
+    pipeline = StaatscourantRegelingSemanticPipeline(store=Store())
+    with pytest.raises(RuntimeError, match="query failed"):
+        pipeline._text_scan_match(set())
+    assert "LIMIT" not in queries[0]
+
+
+def test_fill_gaps_says_when_it_takes_only_the_first_stubs(caplog) -> None:
+    rows = [f"ECLI:{n}" for n in range(fill_gaps.MAX_GAPS_PER_RUN + 5)]
+    with caplog.at_level("WARNING"):
+        taken = fill_gaps._capped(rows, "stub judgments")
+    assert len(taken) == fill_gaps.MAX_GAPS_PER_RUN
+    assert any(
+        "takes the first" in m and "stub judgments" in m for m in caplog.messages
+    )
+
+
+def test_fill_gaps_below_the_cap_says_nothing(caplog) -> None:
+    with caplog.at_level("WARNING"):
+        assert fill_gaps._capped(["a", "b"], "x") == ["a", "b"]
+    assert not caplog.messages
+
+
+def test_fill_gaps_queries_are_not_capped_in_aql() -> None:
+    seen: list[str] = []
+
+    class Store:
+        def query(self, aql, bind_vars=None):
+            seen.append(aql)
+            return iter([])
+
+    fill_gaps._query_stub_judgments(Store())
+    fill_gaps._query_mvt_gap(Store())
+    assert not any("LIMIT" in aql for aql in seen)
+
+
+# ── memory: judgments are streamed, not loaded ───────────────────────────────
+
+
+def test_the_rechtspraak_normalizer_streams_its_raw_records() -> None:
+    calls: list[dict] = []
+
+    class Store:
+        def query(self, aql, bind_vars=None, *, batch_size=1000, **kw):
+            calls.append({"batch_size": batch_size})
+            return iter([])
+
+    raw = RechtspraakNormalizePipeline(store=Store()).fetch_raw()
+    assert not isinstance(raw["content"], list)  # a generator: nothing is read yet
+    assert calls == []
+    list(raw["content"])
+    assert calls[0]["batch_size"] <= 200  # small batches: a judgment is tens of KB
+
+
+def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
+    class Store:
+        def bulk_insert_or_update_nodes(self, collection, docs):
+            return len(docs), 0
+
+    xml = "<open-rechtspraak><uitspraak><para>Tekst.</para></uitspraak></open-rechtspraak>"
+    rows = iter(
+        [
+            {
+                "external_id": f"ECLI:NL:HR:2025:{n}",
+                "kind": "rs-content",
+                "payload_text": xml,
+                "meta": {"ecli": f"ECLI:NL:HR:2025:{n}"},
+            }
+            for n in range(3)
+        ]
+    )
+    result = PipelineResult()
+    out = RechtspraakNormalizePipeline(store=Store()).normalize_nodes(
+        {"content": rows}, result
+    )
+    assert out == {"judgments": 3}
+
+
+def test_the_article_linker_reads_the_xml_once() -> None:
+    from lawgraph.core.models import Node
+
+    node = Node.from_document(
+        "judgments",
+        {
+            "_key": "k",
+            "props": {
+                "raw_xml": "<x>volledig</x>",
+                "text": "tekst",
+                "summary": "samenvatting",
+            },
+        },
+    )
+    pipeline = RechtspraakArticlesSemanticPipeline.__new__(
+        RechtspraakArticlesSemanticPipeline
+    )
+    assert pipeline._extract_judgment_text(node) == "<x>volledig</x>"
+
+    plain = Node.from_document(
+        "judgments",
+        {"_key": "k", "props": {"text": "tekst", "summary": "samenvatting"}},
+    )
+    assert pipeline._extract_judgment_text(plain) == "tekst\n\nsamenvatting"
+
+
+class _JudgmentStore:
+    """``recent`` are the ECLIs fetched since the date; the judgments stream from a cursor."""
+
+    def __init__(self, recent: list[str]) -> None:
+        self.recent = recent
+        self.pulled = 0
+
+    def query(self, aql, bind_vars=None, **kw):
+        if "raw_sources" in aql:
+            return iter(self.recent)
+
+        def cursor():
+            for n in range(3):
+                self.pulled += 1
+                yield {
+                    "_key": f"k{n}",
+                    "props": {"ecli": f"E{n}", "text": "geen artikel"},
+                }
+
+        return cursor()
+
+
+def _linker(store):
+    pipeline = RechtspraakArticlesSemanticPipeline(store=store)
+    pipeline._load_code_aliases = lambda: {"Sr": "BWBR0001854"}  # type: ignore[method-assign]
+    return pipeline
+
+
+def test_an_incremental_run_without_new_judgments_reads_none() -> None:
+    """An empty set of recent ECLIs meant "no filter": every judgment was read again."""
+    store = _JudgmentStore(recent=[])
+    result = _linker(store).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    assert result.errors == [] and store.pulled == 0
+
+
+def test_an_incremental_run_reads_only_the_recent_judgments() -> None:
+    store = _JudgmentStore(recent=["E1"])
+    _linker(store).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    assert store.pulled == 3  # the fake cursor ignores the filter; the query carries it
+
+
+def test_a_run_without_a_date_reads_all_judgments() -> None:
+    store = _JudgmentStore(recent=[])
+    _linker(store).run()
+    assert store.pulled == 3
+
+
+# ── the BWB article linker ───────────────────────────────────────────────────
+
+
+def test_recent_bwb_ids_are_asked_for_once_not_once_per_regulation() -> None:
+    from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
+
+    queries: list[str] = []
+
+    class Store:
+        def query(self, aql, bind_vars=None, **kw):
+            queries.append(aql)
+            return iter(["BWBR0000002"] if "raw_sources" in aql else [])
+
+    pipeline = BWBArticlesSemanticPipeline(store=Store())
+    ids = [f"BWBR{n:07d}" for n in range(1, 500)]
+    list(pipeline._load_articles(ids, since_iso="2025-01-01T00:00:00Z"))
+    assert sum("raw_sources" in q for q in queries) == 1
+
+
+def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph() -> None:
+    from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
+
+    class Store:
+        def query(self, aql, bind_vars=None, **kw):
+            raise RuntimeError("database gone")
+
+    with pytest.raises(RuntimeError, match="database gone"):
+        BWBArticlesSemanticPipeline(store=Store())._load_bwb_ids_from_graph()
+
+
+# ── a failing write is an error of the step ──────────────────────────────────
+
+
+def test_tk_dossiers_a_failing_write_is_an_error_not_only_a_log_line() -> None:
+    from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
+
+    class Store:
+        def insert_raw_source(self, *, external_id, **kw):
+            if external_id == "d2":
+                raise RuntimeError("write failed")
+
+    class Client:
+        def fetch_dossiers(self, since=None):
+            return iter([{"Id": "d1"}, {"Id": "d2"}, {"Id": "d3"}])
+
+        def __getattr__(self, name):
+            return lambda *a, **k: iter([])
+
+    result = TKDossiersRetrievePipeline(store=Store(), client=Client()).run(
+        since=dt.datetime(2024, 1, 1), skip_members=True
+    )
+    assert result.created == 2  # d1 and d3
+    assert any("d2" in e and "write failed" in e for e in result.errors)

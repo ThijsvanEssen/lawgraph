@@ -68,7 +68,6 @@ class InstrumentProps(_CommonProps):
     kind: str | None = None
     lang: str | None = None
     meta: dict[str, Any] | None = None
-    config_id: str | None = None
     topics: list[str] | None = None
     external_id: str | None = None
     uri: str | None = None
@@ -216,7 +215,6 @@ class DocumentProps(_CommonProps):
     identifier: str | None = None
     year: str | None = None
     bwb_id: str | None = None
-    bwb_refs: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +254,6 @@ class ActivityProps(_CommonProps):
     case_kinds: list[str] | None = None
     tk_url: str | None = None
     number: str | None = None
-    video_url: str | None = None
 
 
 # ---------------------------------------------------------------------------

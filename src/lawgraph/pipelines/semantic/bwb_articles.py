@@ -146,11 +146,7 @@ class BWBArticlesSemanticPipeline(SemanticPipelineBase):
             FILTER doc.props.bwb_id != null
             RETURN DISTINCT doc.props.bwb_id
         """
-        try:
-            return [str(row) for row in self.store.query(aql) if row]
-        except Exception as exc:
-            logger.debug("Could not load BWB IDs from graph: %s", exc)
-            return []
+        return [str(row) for row in self.store.query(aql) if row]
 
     def _load_articles(
         self,
@@ -160,7 +156,10 @@ class BWBArticlesSemanticPipeline(SemanticPipelineBase):
     ) -> Iterable[dict[str, Any]]:
         """Articles carrying structured references, optionally only recent ones."""
         if since_iso is not None:
-            bwb_ids = [bid for bid in bwb_ids if bid in self._recent_bwb_ids(since_iso)]
+            recent = self._recent_bwb_ids(
+                since_iso
+            )  # one query, not one per regulation
+            bwb_ids = [bid for bid in bwb_ids if bid in recent]
         if not bwb_ids:
             return []
         aql = f"""

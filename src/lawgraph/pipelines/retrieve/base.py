@@ -15,6 +15,7 @@ from lawgraph.pipelines.base import PipelineBase
 logger = get_logger(__name__)
 
 PROGRESS_EVERY = 1000
+MAX_FAILURES_IN_A_ROW = 25
 RESUME_WITHIN_HOURS = 24
 
 
@@ -26,6 +27,35 @@ class RetrieveRecord:
     payload_json: dict | list | None = None
     payload_text: str | None = None
     meta: dict | None = None
+
+
+class SourceDown(RuntimeError):
+    """A source failed too many requests in a row."""
+
+
+class FailureStreak:
+    """Tells one missing document from a source that is down.
+
+    A loop that skips a document it cannot fetch reports every failure with ``failed``
+    and every success with ``ok``; the ``MAX_FAILURES_IN_A_ROW``-th failure in a row raises,
+    so a dead source fails the step instead of ending as "nothing to do".
+    """
+
+    def __init__(self, source: str, limit: int = MAX_FAILURES_IN_A_ROW) -> None:
+        self.source = source
+        self.limit = limit
+        self.count = 0
+
+    def ok(self) -> None:
+        self.count = 0
+
+    def failed(self, what: str, exc: Exception) -> None:
+        self.count += 1
+        if self.count >= self.limit:
+            raise SourceDown(
+                f"{self.source}: {self.limit} requests in a row failed (last: {what}: "
+                f"{exc}); the source seems to be down."
+            ) from exc
 
 
 class RetrievePipelineBase(PipelineBase):

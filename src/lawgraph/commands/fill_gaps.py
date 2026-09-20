@@ -76,6 +76,9 @@ from lawgraph.pipelines.semantic.rechtspraak_articles import (
 
 logger = get_logger(__name__)
 
+# The most stub judgments and explanatory memoranda one run fetches; the rest is reported.
+MAX_GAPS_PER_RUN = 50_000
+
 # Minimum number of stub references before a law is shown/added automatically.
 DEFAULT_MIN_STUBS = 3
 
@@ -389,16 +392,29 @@ def _query_stub_articles(store: ArangoStore) -> list[dict[str, Any]]:
     return list(store.query(aql))
 
 
+def _capped(rows: list[Any], what: str) -> list[Any]:
+    """The first ``MAX_GAPS_PER_RUN`` of *rows*; a longer list is said out loud."""
+    if len(rows) > MAX_GAPS_PER_RUN:
+        logger.warning(
+            "%d %s found; this run takes the first %d (fill-gaps or expand-graph again "
+            "for the rest).",
+            len(rows),
+            what,
+            MAX_GAPS_PER_RUN,
+        )
+        return rows[:MAX_GAPS_PER_RUN]
+    return rows
+
+
 def _query_stub_judgments(store: ArangoStore) -> list[str]:
     """Return ECLIs of stub judgment nodes, sorted for stable ordering."""
     aql = f"""
     FOR j IN {COLLECTION_JUDGMENTS}
       FILTER j.props.stub == true AND j.props.ecli != null
       SORT j.props.ecli
-      LIMIT 50000
       RETURN j.props.ecli
     """
-    return cast(list[str], list(store.query(aql)))
+    return _capped(cast(list[str], list(store.query(aql))), "stub judgments")
 
 
 def _query_mvt_gap(store: ArangoStore) -> list[dict[str, Any]]:
@@ -408,7 +424,6 @@ def _query_mvt_gap(store: ArangoStore) -> list[dict[str, Any]]:
       FILTER CONTAINS(LOWER(pub.props.kind), 'toelichting')
         AND (pub.props.text == null OR pub.props.text == '')
         AND pub.props.external_id != null
-      LIMIT 50000
       RETURN {{
         key: pub._key,
         title: pub.props.title,
@@ -416,7 +431,7 @@ def _query_mvt_gap(store: ArangoStore) -> list[dict[str, Any]]:
         external_id: pub.props.external_id
       }}
     """
-    return list(store.query(aql))
+    return _capped(list(store.query(aql)), "explanatory memoranda without text")
 
 
 def _build_name_cache(store: ArangoStore) -> dict[str, str]:

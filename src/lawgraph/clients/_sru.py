@@ -38,16 +38,6 @@ def raise_on_diagnostic(root: ET.Element, *, context: str) -> None:
             raise RuntimeError(f"SRU error ({context}): {message}")
 
 
-def count_records(root: ET.Element) -> int:
-    """How many ``<record>`` elements a result page holds, whether or not they parse.
-
-    A page is the last one when it holds fewer records than asked for; counting only the
-    parsed records ends a search early, because a query also returns records of other
-    publications (``dt.type=Ministeriele-regeling`` includes Staatsblad ones).
-    """
-    return sum(1 for element in root.iter() if local_name(element.tag) == "record")
-
-
 def number_of_records(root: ET.Element) -> int:
     """The total the service reports for the query (``numberOfRecords``)."""
     for element in root.iter():

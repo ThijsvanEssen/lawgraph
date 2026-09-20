@@ -5,6 +5,8 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import Iterator, Sequence
 
+import requests
+
 from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
@@ -15,7 +17,12 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
 
-from .base import RESUME_WITHIN_HOURS, RetrievePipelineBase, RetrieveRecord
+from .base import (
+    RESUME_WITHIN_HOURS,
+    FailureStreak,
+    RetrievePipelineBase,
+    RetrieveRecord,
+)
 
 logger = get_logger(__name__)
 
@@ -87,12 +94,23 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             if not (stored.get(ecli) and stored[ecli] >= recent):
                 todo.setdefault(ecli, None)
 
+        streak = FailureStreak("Rechtspraak")
         for ecli, updated in todo.items():
             try:
                 xml = self.rs.fetch_ecli_content(ecli)
+            except requests.HTTPError as exc:
+                if exc.response is not None and exc.response.status_code == 404:
+                    logger.info("ECLI %s has no content (404); skipped.", ecli)
+                    streak.ok()
+                else:
+                    logger.warning("Skipping ECLI %s: %s", ecli, exc)
+                    streak.failed(ecli, exc)
+                continue
             except Exception as exc:
                 logger.warning("Skipping ECLI %s: %s", ecli, exc)
+                streak.failed(ecli, exc)
                 continue
+            streak.ok()
             yield RetrieveRecord(
                 source=SOURCE_RECHTSPRAAK,
                 kind=RAW_KIND_RS_CONTENT,

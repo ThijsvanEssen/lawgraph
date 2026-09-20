@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     RAW_KIND_RS_CONTENT,
-    RAW_SOURCE_KINDS,
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.judgments import (
@@ -23,6 +23,8 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
+RAW_BATCH_SIZE = 200
+
 
 class RechtspraakNormalizePipeline(NormalizePipelineBase):
     """Normalization pipeline that turns Rechtspraak raw dumps into judgment nodes."""
@@ -34,20 +36,20 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         self,
         *,
         since: dt.datetime | None = None,
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Read the Rechtspraak content raw_sources records."""
-        kinds = list(RAW_SOURCE_KINDS[SOURCE_RECHTSPRAAK])
-        rows = self._query_raw_sources(
-            source=SOURCE_RECHTSPRAAK, kinds=kinds, since=since
-        )
-        content_records = self._group_by_kind(rows, kinds=kinds).get(
-            RAW_KIND_RS_CONTENT, []
-        )
-        logger.info(
-            "Loaded %d Rechtspraak content records from raw_sources.",
-            len(content_records),
-        )
-        return {"content": content_records}
+    ) -> dict[str, Iterator[dict[str, Any]]]:
+        """The Rechtspraak content raw_sources records, streamed in small batches.
+
+        A judgment is tens of KB of XML and a run holds tens of thousands: the records are
+        read as they are normalized, not loaded first.
+        """
+        return {
+            "content": self._iter_raw_sources(
+                source=SOURCE_RECHTSPRAAK,
+                kinds=[RAW_KIND_RS_CONTENT],
+                since=since,
+                batch_size=RAW_BATCH_SIZE,
+            )
+        }
 
     def _build_content_node(
         self, raw_entry: dict[str, Any]
@@ -113,27 +115,26 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
 
     def normalize_nodes(
         self,
-        raw: dict[str, list[dict[str, Any]]],
+        raw: dict[str, Iterator[dict[str, Any]]],
         result: PipelineResult,
     ) -> dict[str, Any]:
-        """Convert Rechtspraak content payloads into judgment nodes."""
-        judgments_by_ecli: dict[str, Node] = {}
+        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time."""
+        count = 0
         with NodeWriter(self.store) as writer:
             for raw_entry in raw.get("content", []):
                 ecli, node = self._build_content_node(raw_entry)
                 if ecli and node:
                     writer.add(node)
-                    judgments_by_ecli[ecli] = node
+                    count += 1
+                else:
+                    result.skipped += 1
 
-        logger.info("Created %d Rechtspraak judgment nodes.", len(judgments_by_ecli))
-
-        return {
-            "judgments_by_ecli": judgments_by_ecli,
-        }
+        logger.info("Created %d Rechtspraak judgment nodes.", count)
+        return {"judgments": count}
 
     def build_edges(
         self,
-        raw: dict[str, list[dict[str, Any]]],
+        raw: dict[str, Iterator[dict[str, Any]]],
         normalized: dict[str, Any],
     ) -> None:
         """No structural edges to build for Rechtspraak judgments."""

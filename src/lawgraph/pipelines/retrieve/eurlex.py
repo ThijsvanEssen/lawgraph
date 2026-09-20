@@ -10,7 +10,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 
-from .base import RetrievePipelineBase, RetrieveRecord
+from .base import FailureStreak, RetrievePipelineBase, RetrieveRecord, SourceDown
 
 logger = get_logger(__name__)
 
@@ -39,35 +39,44 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         done = self._recently_stored(SOURCE_EURLEX, RAW_KIND_EU_CELEX)
         celex_ids = [celex for celex in celex_ids if celex not in done]
         logger.info("Fetching %d EUR-Lex acts.", len(celex_ids))
-        for celex in celex_ids:
-            try:
-                html = self.eu.fetch_celex_html(celex, lang=lang)
-            except requests.HTTPError as exc:
-                result.skipped += 1
-                if exc.response is not None and exc.response.status_code == 404:
-                    logger.info("CELEX %s has no HTML text (404); skipped.", celex)
-                else:
+        try:
+            streak = FailureStreak("EUR-Lex")
+            for celex in celex_ids:
+                try:
+                    html = self.eu.fetch_celex_html(celex, lang=lang)
+                except requests.HTTPError as exc:
+                    result.skipped += 1
+                    if exc.response is not None and exc.response.status_code == 404:
+                        logger.info("CELEX %s has no HTML text (404); skipped.", celex)
+                        streak.ok()
+                    else:
+                        logger.warning("Skipping CELEX %s: %s", celex, exc)
+                        streak.failed(celex, exc)
+                    continue
+                except Exception as exc:
+                    result.skipped += 1
                     logger.warning("Skipping CELEX %s: %s", celex, exc)
-                continue
-            except Exception as exc:
-                result.skipped += 1
-                logger.warning("Skipping CELEX %s: %s", celex, exc)
-                continue
-            try:
-                self._insert(
-                    RetrieveRecord(
-                        source=SOURCE_EURLEX,
-                        kind=RAW_KIND_EU_CELEX,
-                        external_id=celex,
-                        payload_text=html,
-                        meta={"celex": celex, "lang": lang},
+                    streak.failed(celex, exc)
+                    continue
+                streak.ok()
+                try:
+                    self._insert(
+                        RetrieveRecord(
+                            source=SOURCE_EURLEX,
+                            kind=RAW_KIND_EU_CELEX,
+                            external_id=celex,
+                            payload_text=html,
+                            meta={"celex": celex, "lang": lang},
+                        )
                     )
-                )
-                result.created += 1
-            except Exception as exc:
-                msg = f"Failed to store EUR-Lex {celex}: {exc}"
-                logger.error(msg)
-                result.add_error(msg)
+                    result.created += 1
+                except Exception as exc:
+                    msg = f"Failed to store EUR-Lex {celex}: {exc}"
+                    logger.error(msg)
+                    result.add_error(msg)
+        except SourceDown as exc:
+            logger.error(str(exc))
+            result.add_error(str(exc))
         logger.info(
             "EUR-Lex retrieve: %d stored, %d skipped.", result.created, result.skipped
         )

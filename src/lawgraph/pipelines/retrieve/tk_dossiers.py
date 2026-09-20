@@ -180,7 +180,7 @@ class TKDossiersRetrievePipeline(PipelineBase):
         counter = {"seen": 0}
         try:
             for record in self._counted(fetch_fn(), kind, counter):
-                if self._store_record(kind, id_field, record):
+                if self._store_record(kind, id_field, record, result):
                     result.created += 1
             logger.info("Retrieved %d %s records", counter["seen"], kind)
         except Exception as exc:
@@ -198,8 +198,10 @@ class TKDossiersRetrievePipeline(PipelineBase):
                 logger.info("%s: %d records so far", kind, counter["seen"])
             yield record
 
-    def _store_record(self, kind: str, id_field: str, record: dict[str, Any]) -> bool:
-        """Store one record; ``False`` when it has no id or the store failed."""
+    def _store_record(
+        self, kind: str, id_field: str, record: dict[str, Any], result: Any
+    ) -> bool:
+        """Store one record; ``False`` when it has no id or the store failed (an error)."""
         external_id = str(record.get(id_field) or "")
         if not external_id:
             logger.warning("Skipping %s record without %s", kind, id_field)
@@ -212,6 +214,8 @@ class TKDossiersRetrievePipeline(PipelineBase):
                 payload_json=record,
             )
         except Exception as exc:
-            logger.error("Failed to store %s %s: %s", kind, external_id, exc)
+            msg = f"Failed to store {kind} {external_id}: {exc}"
+            logger.error(msg)
+            result.add_error(msg)
             return False
         return True

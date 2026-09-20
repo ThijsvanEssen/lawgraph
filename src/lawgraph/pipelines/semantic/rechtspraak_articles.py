@@ -43,7 +43,12 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
         since_iso = iso_timestamp(since)
         eclis = self._recent_rechtspraak_eclis(since_iso)
-        judgments = list(self._load_judgments(eclis))
+        if eclis is not None and not eclis:
+            logger.info(
+                "No Rechtspraak judgments were fetched since %s; nothing to link.",
+                describe_since(since),
+            )
+            return result
 
         mapping = self._load_code_aliases()
         if not mapping:
@@ -53,14 +58,16 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
         extractor = DutchCitationExtractor(code_aliases=mapping)
 
         logger.info(
-            "Processing %d Rechtspraak judgments for article references (since=%s).",
-            len(judgments),
+            "Processing Rechtspraak judgments for article references (since=%s).",
             describe_since(since),
         )
 
         edge_batch: list[dict[str, Any]] = []
+        judgment_count = 0
 
-        for doc in judgments:
+        # The judgments stream from the cursor: each carries its whole XML.
+        for doc in self._load_judgments(eclis):
+            judgment_count += 1
             judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
             raw_text = self._extract_judgment_text(judgment)
             text = strip_xml(raw_text) if raw_text else None
@@ -106,7 +113,11 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
             result.created += created
             result.updated += updated
 
-        logger.info("Rechtspraak article linker: %s.", result.summary())
+        logger.info(
+            "Rechtspraak article linker: %d judgments, %s.",
+            judgment_count,
+            result.summary(),
+        )
         return result
 
     def _resolve_article(self, hit: CitationHit) -> Node | None:
@@ -152,9 +163,10 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
 
         return None
 
-    def _recent_rechtspraak_eclis(self, since_iso: str | None) -> set[str]:
+    def _recent_rechtspraak_eclis(self, since_iso: str | None) -> set[str] | None:
+        """ECLIs fetched since *since_iso*; ``None`` without a date means: all judgments."""
         if since_iso is None:
-            return set()
+            return None
 
         bind_vars = {
             "source": SOURCE_RECHTSPRAAK,
@@ -175,9 +187,9 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
                 eclis.add(row)
         return eclis
 
-    def _load_judgments(self, eclis: Iterable[str]) -> Iterable[dict[str, Any]]:
+    def _load_judgments(self, eclis: Iterable[str] | None) -> Iterable[dict[str, Any]]:
         collection = COLLECTION_JUDGMENTS
-        if eclis:
+        if eclis is not None:
             bind_vars = {"eclis": list(eclis)}
             aql = f"""
             FOR doc IN {collection}
@@ -191,9 +203,14 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
 
     def _extract_judgment_text(self, judgment: Node) -> str | None:
         props = judgment.props
-        fragments: list[str] = []
-        for key in ("raw_xml", "text", "summary"):
-            value = props.get(key)
-            if isinstance(value, str) and value.strip():
-                fragments.append(value.strip())
+        # ``raw_xml`` holds the summary and the body: reading all three would find every
+        # citation three times. The plain fields are the fallback for a node without it.
+        raw = props.get("raw_xml")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        fragments = [
+            value.strip()
+            for value in (props.get("text"), props.get("summary"))
+            if isinstance(value, str) and value.strip()
+        ]
         return "\n\n".join(fragments) if fragments else None
