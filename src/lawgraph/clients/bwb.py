@@ -135,11 +135,8 @@ class BWBClient(BaseClient):
             BWB_SRU_ENDPOINT, params=params, timeout=30
         )
 
-        try:
-            root = ET.fromstring(resp.text)
-        except ET.ParseError as exc:
-            logger.error("Could not parse the SRU response for %s: %s", bwb_id, exc)
-            return []
+        root = ET.fromstring(resp.text)
+        raise_on_diagnostic(root, context=f"BWB toestanden of {bwb_id}")
 
         toestanden: list[ToestandMeta] = []
         for element in root.iter():

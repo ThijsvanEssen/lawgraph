@@ -72,22 +72,20 @@ class VerdragenbankClient(BaseClient):
 
         while offset < max_records:
             query = _SPARQL_QUERY.format(limit=_PAGE_SIZE, offset=offset)
-            try:
-                resp = self.session.post(
-                    self.base_url,
-                    data={"query": query},
-                    timeout=60,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-            except Exception as exc:
-                logger.warning(
-                    "Verdragenbank SPARQL query failed (offset=%d): %s", offset, exc
-                )
-                break
+            resp = self.session.post(
+                self.base_url,
+                data={"query": query},
+                timeout=60,
+            )
+            resp.raise_for_status()
 
-            bindings = data.get("results", {}).get("bindings", [])
+            bindings = resp.json().get("results", {}).get("bindings", [])
             if not bindings:
+                if offset == 0:
+                    raise RuntimeError(
+                        "Verdragenbank SPARQL query returned no treaties at all: "
+                        f"the endpoint {self.base_url} or its data model has changed."
+                    )
                 break
 
             def _val(binding: dict, key: str) -> str | None:
