@@ -103,8 +103,6 @@ Open:
 
 - Of the BWB WTI files only the official abbreviations are ingested (as
   `instruments.props.short_title`); the amendment log and `grondslag-voor` are not.
-- `BW` is shared by every book of the Burgerlijk Wetboek and is nobody's `short_title`
-  (the books get `BW1`, `BW2`, ...), so `artikel 6:162 BW` does not resolve to Boek 6.
 - Watches and relationship votes can be written without a credential; only curation has a key.
 - Rechtspraak structured references are not used: judgment citations are read from the text,
   and judgment content is retrieved only for the ECLIs asked for.

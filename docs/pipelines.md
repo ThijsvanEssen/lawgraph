@@ -24,7 +24,10 @@ slash enforced), one `requests.Session`, 30 s timeout, and retry with exponentia
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
 `instruments.props.short_title` and law names through instrument titles; the API judgment
 view uses the same lookup. `normalize bwb` writes `short_title` from the official
-abbreviations in the BWB WTI files (see BWB below).
+abbreviations in the BWB WTI files (see BWB below). A code split over books resolves through
+the book in the article number: `artikel 6:162 BW` cites article `162` of the regulation whose
+short title is `BW6` (`DutchCitationExtractor`); without a book (`artikel 162 BW`) or with an
+unknown one there is no hit.
 
 ## Tweede Kamer
 
@@ -249,9 +252,9 @@ alphabetically by the source, so their order means nothing. The rule:
 4. A regulation left with nothing has no `short_title`; one it had is removed.
 
 Rule 2 depends on the other regulations, so every WTI record is read on every run, whatever
-`--since` is, and a short title can change when more regulations are loaded (`BW` becomes
-`BW1` once a second book arrives). A citation `artikel 6:162 BW` therefore does not resolve
-through `short_title`.
+`--since` is, and a short title can change when more regulations are loaded. `BW` itself is
+nobody's short title; the books are `BW1`, `BW2`, ... and a book is only citable once its WTI
+record is loaded.
 
 **Normalize `bwb-history`.** Reads every stored toestand once and writes:
 

@@ -155,8 +155,13 @@ def strip_xml(text: str) -> str:
 # DutchCitationExtractor — registry-driven article citation detection
 # ---------------------------------------------------------------------------
 
-# Article number: plain (140), with letter suffix (36e, 189a), with colon-parts (6:162)
-_ART_NUM_PAT = r"\d+(?::\d+)*[a-z]*"
+# Article number: plain (140), with letter suffix (36e, 189a), with colon-parts (6:162,
+# 7a:1576h)
+_ART_NUM_PAT = r"\d+[a-z]?(?::\d+)*[a-z]*"
+
+# A code made of a family and a book, like ``BW6`` or ``BW7A``: the family (``BW``) is what
+# a citation names, the book comes from the article number (``artikel 6:162 BW``).
+_BOOK_CODE_RE = re.compile(r"^(?P<family>[A-Z]{2,})(?P<book>\d{1,2}[A-Z]?)$")
 
 # Ordinal words used in "lid" qualifiers
 _ORDINALS_PAT = (
@@ -233,6 +238,12 @@ class DutchCitationExtractor:
     - ``artikelen 2 tot en met 5 Sv``                   — range
     - ``artikel 3 van de Wwft``                         — "van de" + code
     - ``artikel 3 van het Wetboek van Strafvordering``  — "van het" + full name
+    - ``artikel 6:162 BW``                              — family code, book in the number
+
+    A family code is not registered itself: ``BW`` is claimed by every book of the
+    Burgerlijk Wetboek, so only ``BW1``, ``BW2``, ... are. A citation of the family
+    resolves through the book in front of the colon (``6`` → ``BW6``) and cites the
+    article number after it (``162``).
 
     The law registry is injected at construction time.  Adding a code alias
     to the domain config automatically makes it detectable without touching
@@ -253,9 +264,24 @@ class DutchCitationExtractor:
             for k, v in (name_aliases or {}).items()
             if k and v
         }
+        self._books: dict[str, dict[str, str]] = self._group_books()
         self._pattern: re.Pattern[str] | None = (
-            self._build_pattern() if (self._code_map or self._name_map) else None
+            self._build_pattern()
+            if (self._code_map or self._name_map or self._books)
+            else None
         )
+
+    def _group_books(self) -> dict[str, dict[str, str]]:
+        """``{"BW": {"6": <BW6 id>, ...}}`` for the codes that split into family and book.
+
+        A family that is a registered code itself is left alone: the code wins.
+        """
+        books: dict[str, dict[str, str]] = {}
+        for code, law_id in self._code_map.items():
+            match = _BOOK_CODE_RE.match(code)
+            if match and match["family"] not in self._code_map:
+                books.setdefault(match["family"], {})[match["book"]] = law_id
+        return books
 
     def _build_pattern(self) -> re.Pattern[str]:
         law_alts: list[str] = []
@@ -278,6 +304,14 @@ class DutchCitationExtractor:
             law_alts.append(rf"van\s+(?:de\s+|het\s+)?(?P<van_code>{code_alt})\b")
             # Direct code — the most common form
             law_alts.append(rf"(?P<law_code>{code_alt})\b")
+
+        if self._books:
+            family_alt = "|".join(
+                re.escape(f) for f in sorted(self._books, key=len, reverse=True)
+            )
+            law_alts.append(
+                rf"(?:van\s+(?:de\s+|het\s+)?)?(?P<law_family>{family_alt})\b"
+            )
 
         law_part = "|".join(law_alts)
 
@@ -308,6 +342,25 @@ class DutchCitationExtractor:
                     return law_id, raw
         return None, None
 
+    def _resolve_article(
+        self, match: re.Match[str], article_number: str
+    ) -> tuple[str | None, str]:
+        """``(law_id, article_number)`` for one article of a match; ``(None, ...)`` if unknown.
+
+        A family citation resolves through the book in front of the colon and drops it from
+        the article number, because the book's own articles are stored without it.
+        """
+        law_id, _raw_code = self._resolve_law(match)
+        if law_id:
+            return law_id, article_number
+        family = match.groupdict().get("law_family")
+        if not family:
+            return None, article_number
+        book, colon, number = article_number.partition(":")
+        if not colon:
+            return None, article_number
+        return self._books[family.upper()].get(book.upper()), number
+
     def extract(self, text: str) -> list[CitationHit]:
         """Return all detected Dutch article citations in *text*."""
         if not text or self._pattern is None:
@@ -317,19 +370,18 @@ class DutchCitationExtractor:
         seen: set[tuple[str | None, str | None, str]] = set()
 
         for match in self._pattern.finditer(text):
-            law_id, _raw_code = self._resolve_law(match)
-            if not law_id:
-                continue
-
             nums_raw = (match.group("nums") or "").strip()
             article_numbers = _parse_article_nums(nums_raw)
             if not article_numbers:
                 continue
 
             qual = (match.group("qual") or "").strip(", ") or None
-            is_bwb = is_bwb_id(law_id)
 
-            for art_num in article_numbers:
+            for raw_num in article_numbers:
+                law_id, art_num = self._resolve_article(match, raw_num)
+                if not law_id:
+                    continue
+                is_bwb = is_bwb_id(law_id)
                 dedup_key = (
                     law_id if is_bwb else None,
                     None if is_bwb else law_id,
