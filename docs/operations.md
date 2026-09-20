@@ -166,6 +166,10 @@ lawgraph semantic all --since 7d
 ```
 
 Incremental `retrieve bwb` needs `BWB_IDS` or `--bwb-id`, otherwise it fetches nothing.
+Law abbreviations (`instruments.props.short_title`, used by the citation detectors) come from
+the WTI records that `retrieve bwb` stores and are written by `normalize bwb`, so run both
+before `semantic`. `normalize bwb --since` still re-evaluates the short title of every
+regulation, because an abbreviation claimed by a newly loaded regulation stops being unique.
 Incremental `retrieve eurlex` re-fetches the CELEX numbers of the instruments already in the
 graph. `staatsblad` and `verdragenbank` have no date filter and read all records up to their caps. Scheduling is not wired: run the commands from cron or a
 scheduler of your choice.
@@ -176,7 +180,7 @@ scheduler of your choice.
 |------|-----|
 | `retrieve tk-content` | one PDF per document, 0.5 s between requests |
 | `retrieve tk-dossiers` full | about 400K documents, fetched 250 at a time |
-| `retrieve bwb --mode full`, `retrieve bwb-history` | one SRU query and one XML download per regulation or toestand |
+| `retrieve bwb --mode full`, `retrieve bwb-history` | one SRU query and one XML download per regulation or toestand; `retrieve bwb` adds one short WTI request (about 1 KB read) per regulation |
 | `normalize bwb-history`, `semantic bwb-grondslagen`, `bwb-annexes` | stream every stored toestand XML (large documents) in batches of 20 |
 | `normalize tk-dossiers` | the largest normalize step (documents, decisions, edges, dossier backfill) |
 | `semantic bwb` | scans every article text |

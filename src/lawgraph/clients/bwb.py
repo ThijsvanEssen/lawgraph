@@ -9,6 +9,7 @@ from requests import Session
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
+from lawgraph.core.bwb_wti import GENERAL_INFO_END, extract_general_info
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import sortable_date
 from lawgraph.core.xml import local_name
@@ -24,6 +25,11 @@ logger = get_logger(__name__)
 # The SRU service returns at most 5000 records per page and silently caps larger
 # requests, so stay well below it.
 SRU_PAGE_SIZE = 1000
+
+# A WTI file is read in chunks until its first element is complete. That element is a few
+# KB; the limit only stops a file without it from being downloaded whole.
+WTI_CHUNK_SIZE = 8192
+WTI_HEAD_LIMIT = 1_000_000
 
 
 def _raise_on_diagnostic(root: ET.Element, *, context: str) -> None:
@@ -202,6 +208,34 @@ class BWBClient(BaseClient):
         )
         resp = self._get_raw_absolute_with_retry(url, timeout=actual_timeout)
         return resp.text
+
+    def fetch_wti_general_info(
+        self,
+        meta: ToestandMeta,
+        timeout: int = 30,
+    ) -> str | None:
+        """The ``<algemene-informatie>`` element of the regulation's WTI file, verbatim.
+
+        It holds the official abbreviations and is the first element of the file. The
+        rest (amendment log, related regulations) runs to tens of MB, so the download
+        stops as soon as the element is complete. ``None`` when the SRU record names no
+        WTI file or the file has no such element.
+        """
+        url = meta.get("locatie_wti")
+        if not url:
+            return None
+        logger.debug("Downloading WTI head for %s from %s", meta["bwb_id"], url)
+        resp = self._get_raw_absolute_with_retry(url, timeout=timeout, stream=True)
+        end_tag = GENERAL_INFO_END.encode()
+        head = b""
+        try:
+            for chunk in resp.iter_content(chunk_size=WTI_CHUNK_SIZE):
+                head += chunk
+                if end_tag in head or len(head) >= WTI_HEAD_LIMIT:
+                    break
+        finally:
+            resp.close()
+        return extract_general_info(head.decode("utf-8", errors="replace"))
 
     def _parse_record(self, record: ET.Element) -> ToestandMeta | None:
         """Extract identifiers and URIs from a single SRU record element."""

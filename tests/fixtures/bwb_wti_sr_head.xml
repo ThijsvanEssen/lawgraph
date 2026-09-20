@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wetstechnische-informatie xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:overheid="http://standaarden.overheid.nl/owms/terms/" xmlns:owms="http://standaarden.overheid.nl/bwb/owms/" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-WTI/2016-1/xsd/wti_2016-1.xsd" bwb-id="BWBR0001854">
+  <algemene-informatie gegenereerd="2026-09-18T05:12:23">
+    <eerstverantwoordelijke>Veiligheid en Justitie</eerstverantwoordelijke>
+    <afkortingen>
+      <afkorting>Sr</afkorting>
+      <afkorting>WvS</afkorting>
+      <afkorting>WvSr</afkorting>
+    </afkortingen>
+    <citeertitel status="officieel">Wetboek van Strafrecht</citeertitel>
+    <citeertitels>
+      <citeertitel status="officieel" geldig-tot="9999-12-31" geldig-van="1886-09-01" zichtbaar-tot="9999-12-31" zichtbaar-van="1886-09-01">Wetboek van Strafrecht</citeertitel>
+    </citeertitels>
+    <soort-regeling>wet</soort-regeling>
+    <identificatienummer>BWBR0001854</identificatienummer>
+    <rechtsgebieden>
+      <rechtsgebied>
+        <hoofdgebied>Strafrecht</hoofdgebied>
+        <specifiekgebied>Strafrecht (algemeen)</specifiekgebied>
+      </rechtsgebied>
+    </rechtsgebieden>
+    <overheidsdomeinen>
+      <overheidsdomein>Rechtspraak</overheidsdomein>
+    </overheidsdomeinen>
+  </algemene-informatie>
+  <gerelateerde-regelgeving gegenereerd="2026-09-18T05:12:50">
+    <regeling>
+      <wetsfamilie>
+        <gerelateerde

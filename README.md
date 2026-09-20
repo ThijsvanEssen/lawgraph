@@ -101,9 +101,10 @@ Staatscourant, Eerste Kamer and ECHR; Verdragenbank (retrieve and normalize); th
 
 Open:
 
-- BWB WTI files (amendment log, `grondslag-voor`, official abbreviations) are not ingested.
-  Until they are, no pipeline writes `instruments.props.short_title`, so law abbreviations
-  such as `Sr` do not resolve.
+- Of the BWB WTI files only the official abbreviations are ingested (as
+  `instruments.props.short_title`); the amendment log and `grondslag-voor` are not.
+- `BW` is shared by every book of the Burgerlijk Wetboek and is nobody's `short_title`
+  (the books get `BW1`, `BW2`, ...), so `artikel 6:162 BW` does not resolve to Boek 6.
 - Watches and relationship votes can be written without a credential; only curation has a key.
 - Rechtspraak structured references are not used: judgment citations are read from the text,
   and judgment content is retrieved only for the ECLIs asked for.

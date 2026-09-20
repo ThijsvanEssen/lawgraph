@@ -177,6 +177,8 @@ RAW_KIND_EU_CELEX = "eu-celex-html"
 RAW_KIND_BWB_REGELING = "bwb-regeling-xml"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
 RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
+# The ``<algemene-informatie>`` element of a WTI file (official abbreviations), not the file.
+RAW_KIND_BWB_WTI_GENERAL = "bwb-wti-algemene-informatie-xml"
 RAW_KIND_STB_AMVB = "stb-amvb-xml"
 RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
 RAW_KIND_EK_STUK = "ek-stuk-json"
@@ -202,6 +204,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_BWB_REGELING,
         RAW_KIND_BWB_TOESTAND,
         RAW_KIND_BWB_TOESTAND_ALL,
+        RAW_KIND_BWB_WTI_GENERAL,
     ),
     SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
     SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING,),

@@ -8,10 +8,15 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    RAW_SOURCE_KINDS,
+    RAW_KIND_BWB_REGELING,
+    RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_BWB_TOESTAND_ALL,
+    RAW_KIND_BWB_WTI_GENERAL,
     RELATION_PART_OF,
     SOURCE_BWB,
 )
+from lawgraph.core.batching import chunked
+from lawgraph.core.bwb_wti import choose_short_titles, parse_abbreviations
 from lawgraph.core.bwb_xml import article_props, instrument_props, parse_toestand
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -21,10 +26,16 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "bwb-normalize"
+TOESTAND_KINDS = [
+    RAW_KIND_BWB_REGELING,
+    RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_BWB_TOESTAND_ALL,
+]
+SHORT_TITLE_BATCH_SIZE = 1000
 
 
 class BWBNormalizePipeline(NormalizePipelineBase):
-    """Normalize BWB XML into Instrument and Article nodes."""
+    """Normalize BWB XML into Instrument and Article nodes, with their short titles."""
 
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
@@ -36,7 +47,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
     ) -> Iterator[dict[str, Any]]:
         """Stream the BWB raw_sources records relevant to instrument/article parsing."""
         return self._iter_raw_sources(
-            source=SOURCE_BWB, kinds=list(RAW_SOURCE_KINDS[SOURCE_BWB]), since=since
+            source=SOURCE_BWB, kinds=TOESTAND_KINDS, since=since
         )
 
     def normalize_nodes(
@@ -108,6 +119,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             article_count,
             len(instruments_by_bwb),
         )
+        self._write_short_titles(result)
         return {
             "instruments_by_bwb": instruments_by_bwb,
             "articles_by_bwb": articles_by_bwb,
@@ -131,6 +143,54 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     source=EDGE_SOURCE,
                 )
         writer.flush()
+
+    def _write_short_titles(self, result: PipelineResult) -> None:
+        """Set ``short_title`` on the instruments from the official WTI abbreviations.
+
+        Which abbreviation wins depends on what the other regulations claim
+        (``choose_short_titles``), so every stored WTI record is read on every run,
+        whatever ``since`` is; the records are about 1 KB each. A regulation without a
+        winning abbreviation loses a short title it had. Instruments that do not exist
+        are not created.
+        """
+        abbreviations_by_bwb: dict[str, list[str]] = {}
+        for record in self._iter_raw_sources(
+            source=SOURCE_BWB, kinds=[RAW_KIND_BWB_WTI_GENERAL], batch_size=1000
+        ):
+            bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
+            payload_text = self._payload_text(record)
+            if not bwb_id or not payload_text:
+                continue
+            try:
+                abbreviations_by_bwb[bwb_id] = parse_abbreviations(payload_text)
+            except ET.ParseError as exc:
+                logger.warning("XML parsing failed for BWB WTI %s: %s", bwb_id, exc)
+
+        rows = [
+            {"key": make_node_key(bwb_id), "short_title": short_title}
+            for bwb_id, short_title in choose_short_titles(abbreviations_by_bwb).items()
+        ]
+        aql = f"""
+        FOR row IN @rows
+            FOR inst IN {COLLECTION_INSTRUMENTS}
+                FILTER inst._key == row.key
+                FILTER inst.props.short_title != row.short_title
+                UPDATE inst WITH {{ props: {{ short_title: row.short_title }} }}
+                    IN {COLLECTION_INSTRUMENTS} OPTIONS {{ keepNull: false }}
+                RETURN 1
+        """
+        changed = 0
+        for batch in chunked(rows, SHORT_TITLE_BATCH_SIZE):
+            changed += len(list(self.store.query(aql, {"rows": batch})))
+        # The AQL update bypasses the counting store's upsert methods, so add it here.
+        result.updated += changed
+        logger.info(
+            "BWB short titles: %d regulations with WTI, %d with an abbreviation, "
+            "%d instruments changed.",
+            len(rows),
+            sum(1 for row in rows if row["short_title"]),
+            changed,
+        )
 
     def _upsert_instrument(self, bwb_id: str, props: dict[str, Any]) -> Node:
         node = Node(

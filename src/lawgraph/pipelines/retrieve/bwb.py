@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from lawgraph.clients.bwb import BWBClient
+from lawgraph.clients.bwb import BWBClient, ToestandMeta
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
+    RAW_KIND_BWB_WTI_GENERAL,
     SOURCE_BWB,
 )
 from lawgraph.core.identifiers import clean_ids
@@ -19,7 +20,7 @@ logger = get_logger(__name__)
 
 
 class BWBRetrievePipeline(RetrievePipelineBase):
-    """Retrieve pipeline that fetches BWB toestanden for configured IDs."""
+    """Retrieve pipeline that fetches BWB toestanden and WTI general information."""
 
     def __init__(
         self,
@@ -35,7 +36,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         bwb_ids: Sequence[str] | None = None,
         **kwargs: object,
     ) -> PipelineResult:
-        """Fetch and store BWB toestanden with per-ID error handling."""
+        """Fetch and store the current toestand and the WTI general information per ID."""
         normalized = clean_ids(bwb_ids)
         result = PipelineResult()
 
@@ -91,6 +92,8 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                 result.add_error(msg)
                 result.skipped += 1
 
+            self._store_wti_general_info(meta, result)
+
         logger.info(
             "BWB retrieve completed: %d stored, %d skipped, %d errors.",
             result.created,
@@ -98,6 +101,36 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             len(result.errors),
         )
         return result
+
+    def _store_wti_general_info(
+        self, meta: ToestandMeta, result: PipelineResult
+    ) -> None:
+        """Store the WTI general information (official abbreviations) of one regulation.
+
+        A failure is reported but leaves the stored toestand alone.
+        """
+        bwb_id = meta["bwb_id"]
+        try:
+            general_info = self.client.fetch_wti_general_info(meta)
+            if general_info is None:
+                logger.debug("No WTI general information for %s.", bwb_id)
+                return
+            self._insert(
+                RetrieveRecord(
+                    source=SOURCE_BWB,
+                    kind=RAW_KIND_BWB_WTI_GENERAL,
+                    external_id=bwb_id,
+                    payload_text=general_info,
+                    meta={"bwb_id": bwb_id, "wti_url": meta.get("locatie_wti")},
+                )
+            )
+            result.created += 1
+        except Exception as exc:
+            msg = (
+                f"Could not fetch or store WTI general information for {bwb_id}: {exc}"
+            )
+            logger.error(msg)
+            result.add_error(msg)
 
     def run_history(
         self,

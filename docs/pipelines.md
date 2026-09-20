@@ -23,8 +23,8 @@ slash enforced), one `requests.Session`, 30 s timeout, and retry with exponentia
 
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
 `instruments.props.short_title` and law names through instrument titles; the API judgment
-view uses the same lookup. No pipeline writes `short_title` yet (the official abbreviations
-are in the BWB WTI files, which are not ingested), so abbreviation hits do not resolve.
+view uses the same lookup. `normalize bwb` writes `short_title` from the official
+abbreviations in the BWB WTI files (see BWB below).
 
 ## Tweede Kamer
 
@@ -205,13 +205,15 @@ and the toestand XML: one dated version of a regulation, with every article carr
 `stam-id`, `versie-id`, `inwerking` (in force from), `bron` (originating publication) and
 `effect`; `<meta-data><brondata>` naming the originating and commencement publication and
 their `<dossierref>`; `<extref>`/`<intref>` references with a `jci` address; the preamble
-paragraph `Gelet op ...` with `<extref>` to the legal basis; `<bijlage>` annexes.
+paragraph `Gelet op ...` with `<extref>` to the legal basis; `<bijlage>` annexes. Each SRU
+record also names the regulation's WTI file (`locatie_wti`, `.../bwb/<id>/<id>.WTI`), whose
+first element `<algemene-informatie>` lists the official abbreviations (`<afkortingen>`).
 
 **Retrieve.**
 
 | Command | Behaviour |
 |---------|-----------|
-| `retrieve bwb` | `--bwb-id` (repeatable) or `BWB_IDS` (comma-separated): the current toestand of each id (in force means end date `9999-12-31`, else the newest). Without ids in incremental mode nothing is fetched. `--mode full` enumerates every id first |
+| `retrieve bwb` | `--bwb-id` (repeatable) or `BWB_IDS` (comma-separated): the current toestand of each id (in force means end date `9999-12-31`, else the newest), plus the `<algemene-informatie>` element of its WTI file (kind `bwb-wti-algemene-informatie-xml`). Without ids in incremental mode nothing is fetched. `--mode full` enumerates every id first |
 | `retrieve bwb-history [ids...]` | every toestand of each id, or of all ids when none are given; stored `<bwb_id>@<start_date>` |
 
 Enumeration queries `dcterms.type=="<type>"` for each type in `BWB_INSTRUMENT_TYPES`
@@ -219,6 +221,12 @@ Enumeration queries `dcterms.type=="<type>"` for each type in `BWB_INSTRUMENT_TY
 caps larger requests), at most 150,000 records per type. The service returns one record per
 toestand, so ids repeat and are de-duplicated. A `<diagnostic>` response raises an error
 instead of yielding an empty list. A toestand XML document is large; history runs are slow.
+
+A WTI file is large too (27 MB for the Wetboek van Strafrecht: amendment log and related
+regulations), but `<algemene-informatie>` comes first. The client streams the file and closes
+the connection once that element is complete, so about 1 KB is downloaded and stored. A
+failed WTI download is reported as an error; the toestand is stored regardless. A regulation
+without a WTI location or element gets no WTI record.
 
 **Normalize `bwb`.** `core/bwb_xml.parse_toestand` is the single parser. Instrument props: title
 (citeertitel, else intitule), `kind` (`wetgeving@soort`), `date_signed`, `date_published`,
@@ -228,6 +236,22 @@ own lines, a paragraph next to the leden is included), the structured `reference
 offsets, and `stam_id`, `versie_id`, `valid_from`, `source_publication`, `repealed`. Two
 articles of one regulation with the same number share a key. `PART_OF` (article to
 instrument).
+
+After the nodes, `normalize bwb` sets `short_title` on existing instruments from the stored
+WTI records (`core/bwb_wti.py`). A regulation can have several abbreviations, listed
+alphabetically by the source, so their order means nothing. The rule:
+
+1. Case is ignored (`GW` and `Gw` are one abbreviation; the first spelling is kept).
+2. An abbreviation that several loaded regulations claim never wins: every book of the
+   Burgerlijk Wetboek lists `BW`, and a short title must lead to one regulation.
+3. Of the rest the shortest wins (`Sr` over `WvS` and `WvSr`, `WVW` over `WVW 1994`, `BW1`
+   over `BW Boek 1`); equal lengths keep the source order.
+4. A regulation left with nothing has no `short_title`; one it had is removed.
+
+Rule 2 depends on the other regulations, so every WTI record is read on every run, whatever
+`--since` is, and a short title can change when more regulations are loaded (`BW` becomes
+`BW1` once a second book arrives). A citation `artikel 6:162 BW` therefore does not resolve
+through `short_title`.
 
 **Normalize `bwb-history`.** Reads every stored toestand once and writes:
 

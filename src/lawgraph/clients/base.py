@@ -51,10 +51,15 @@ class BaseClient:
         *,
         params: dict | None = None,
         timeout: int = 30,
+        stream: bool = False,
     ) -> requests.Response:
-        """Perform an HTTP GET against a full URL while logging request and status."""
+        """Perform an HTTP GET against a full URL while logging request and status.
+
+        With ``stream`` the body is not downloaded; the caller reads it in chunks and
+        closes the response.
+        """
         logger.debug("HTTP GET url=%s params=%r", url, params)
-        resp = self.session.get(url, params=params, timeout=timeout)
+        resp = self.session.get(url, params=params, timeout=timeout, stream=stream)
         logger.debug(
             "HTTP response status=%s reason=%s",
             resp.status_code,
@@ -94,12 +99,15 @@ class BaseClient:
         timeout: int = 30,
         retries: int = 3,
         backoff_factor: float = 2.0,
+        stream: bool = False,
     ) -> requests.Response:
         """GET a full URL with exponential backoff on 429, 503, and connection errors."""
         last_exc: Exception = RuntimeError("unreachable")
         for attempt in range(retries):
             try:
-                resp = self._get_raw_absolute(url, params=params, timeout=timeout)
+                resp = self._get_raw_absolute(
+                    url, params=params, timeout=timeout, stream=stream
+                )
                 # _get_raw_absolute already calls raise_for_status, but 429/503 need retry
                 return resp
             except requests.exceptions.HTTPError as exc:
