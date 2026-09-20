@@ -48,6 +48,15 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
     assert first["judgments"] >= 100 and first["instruments"] >= 20
     assert all(first[name] > 0 for name in COLLECTIONS), first
 
+    # The judgment linkers read the XML from raw_sources (it is not kept on the node): every
+    # judgment cites the next one and two articles.
+    linked = "FOR e IN edges FILTER STARTS_WITH(e._from, 'judgments/') RETURN e._to"
+    targets = list(store.query(linked))
+    assert sum(t.startswith("judgments/") for t in targets) >= 100
+    assert any(t.startswith("articles/") for t in targets)
+    sample = store.db.collection("judgments").random()
+    assert "raw_xml" not in sample["props"]
+
     # Idempotent: the same input again is the same graph, not a second copy of it.
     cli("normalize", "all")
     cli("semantic", "all")

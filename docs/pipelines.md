@@ -160,11 +160,11 @@ the rechtbanken (over 100,000 in two years), are chosen with `--court`.
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
 `case_number`, `procedure` as `judgment_metadata.type`, `subject`s, `relation` ECLIs as
 `related_eclis`), `inhoudsindicatie` as `summary`, `uitspraak` as `text` and as `paragraphs`
-(heading, subheading, body), the XML itself as `raw_xml`. `court_code` is the ECLI court
+(heading, subheading, body). The XML itself stays in `raw_sources`. `court_code` is the ECLI court
 segment; `tier` is `hoge_raad` (`HR`), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or
 `bijzonder`; `date_eff` is the judgment date.
 
-**Semantic `rechtspraak`.** Reads `raw_xml` (else `text` and `summary`), strips the tags and
+**Semantic `rechtspraak`.** Reads the XML of each judgment from `raw_sources`, strips the tags and
 extracts article citations with the detector of `tk`, without its instrument-level title
 patterns: the EU forms and `CELEX`/`BWBR` literals are kept. The detector reads the article
 first and resolves the law after it:
@@ -180,7 +180,7 @@ Codes come from `instruments.props.short_title`, names from instrument titles; a
 instruments share is not a name. A missing target article is created as a stub from 0.9; an
 article cited only as `artikel N` with no law is not written.
 
-**Semantic `judgment-citations`.** `ECLI:<country>:<court>:<year>:<number>` in `raw_xml`, `text` or `body`:
+**Semantic `judgment-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the XML of each judgment (from `raw_sources`):
 `REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations, missing judgments become stubs.
 
 **Semantic `judgment-appeal`.** Judgments with `related_eclis` whose `judgment_metadata.type`

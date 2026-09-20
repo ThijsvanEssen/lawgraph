@@ -26,7 +26,6 @@ import lawgraph.pipelines.semantic.base as semantic_base
 
 SRC = pathlib.Path(__file__).resolve().parent.parent / "src" / "lawgraph"
 _NAMES = {k: v for k, v in vars(constants).items() if not k.startswith("_")}
-_NAMES["JUDGMENT_TEXT"] = semantic_base.JUDGMENT_TEXT
 _STARTS = re.compile(r"^\s*(FOR|LET|WITH)\b")
 _WRITES_OR_RETURNS = re.compile(r"\b(RETURN|REMOVE|UPDATE|INSERT|UPSERT)\b")
 # A server answer that says the query is a fragment or the bind values are dummies.

@@ -5,16 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_JUDGMENTS,
     EDGE_STATUS_CANONIEK,
     RELATION_REFERS_TO,
 )
 from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
-from lawgraph.core.values import first_text_prop
 
-from .base import JUDGMENT_BATCH_SIZE, JUDGMENT_TEXT, SemanticPipelineBase
+from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -46,14 +44,11 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
         pending: list[tuple[str, str]] = []
         all_cited_eclis: set[str] = set()
         doc_count = 0
-        aql = f"FOR doc IN {COLLECTION_JUDGMENTS} RETURN {JUDGMENT_TEXT}"
-        for doc in self.store.query(aql, batch_size=JUDGMENT_BATCH_SIZE):
-            judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
-            text = self._extract_text(judgment)
-            eclis = find_eclis(text)
+        for judgment, xml in self._judgment_texts():
+            eclis = find_eclis(xml)
             if not eclis:
                 continue
-            source_ecli = (judgment.props.get("ecli") or "").upper()
+            source_ecli = str(judgment.props["ecli"]).upper()
             doc_count += 1
             if not judgment.arango_id:
                 continue
@@ -103,6 +98,3 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
             created, updated = self._flush_edge_batch(edge_batch, result)
             result.created += created
             result.updated += updated
-
-    def _extract_text(self, judgment: Node) -> str | None:
-        return first_text_prop(judgment.props, "raw_xml", "text", "body")

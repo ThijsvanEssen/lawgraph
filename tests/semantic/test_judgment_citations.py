@@ -60,7 +60,10 @@ class _FakeStore:
         # Secondary ECLI lookup — return nothing (we populate via get_node).
         if "props.ecli" in aql:
             return []
-        return list(self._judgment_docs)
+        return [
+            {"ecli": d["props"]["ecli"], "xml": d["props"]["raw_xml"]}
+            for d in self._judgment_docs
+        ]
 
     def get_node(self, collection: str, key: str) -> Node | None:
         return self._nodes.get((collection, key))

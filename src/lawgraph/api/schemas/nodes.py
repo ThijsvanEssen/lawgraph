@@ -6,7 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-_DROP_PROPS_KEYS = ("raw_xml",)
+# Props a node response leaves out by default: none (the graph views drop the large ones).
+_DROP_PROPS_KEYS: tuple[str, ...] = ()
 
 
 # Props that bloat the wire size of graph-view payloads without serving any
@@ -15,7 +16,6 @@ _DROP_PROPS_KEYS = ("raw_xml",)
 # (/api/judgments/{ecli}, /api/articles/...) still return them when the
 # reader actually needs the body.
 DROP_PROPS_KEYS_GRAPH = (
-    "raw_xml",
     "text",
     "paragraphs",
     "subjects",

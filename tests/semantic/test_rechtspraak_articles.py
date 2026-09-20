@@ -27,8 +27,11 @@ class _FakeStore(_BaseFakeStore):
     def query(
         self, aql: str, bind_vars: dict | None = None, **_kw: Any
     ) -> list[dict[str, Any]]:
-        if "FOR doc IN judgments" in aql:
-            return list(self._judgments)
+        if "raw_sources" in aql:  # the XML of the judgments, where retrieve stored it
+            return [
+                {"ecli": d["props"]["meta"]["ecli"], "xml": d["props"]["raw_xml"]}
+                for d in self._judgments
+            ]
         if "FOR inst IN instruments" in aql:
             return list(self._instruments)
         return []

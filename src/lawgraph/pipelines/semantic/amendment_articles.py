@@ -159,7 +159,7 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                 result.skipped += 1
                 continue
 
-            raw_text = document.props.get("text") or document.props.get("raw_xml") or ""
+            raw_text = document.props.get("text") or ""
             if not raw_text:
                 result.skipped += 1
                 continue
@@ -218,7 +218,7 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
     def _load_tk_documents(self) -> Iterable[Node]:
         aql = (
             f'FOR doc IN {COLLECTION_DOCUMENTS} FILTER "TK" IN doc.labels '
-            f"RETURN {slim('doc', 'bwb_id', 'text', 'raw_xml')}"
+            f"RETURN {slim('doc', 'bwb_id', 'text')}"
         )
         for doc in self.store.query(aql):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)

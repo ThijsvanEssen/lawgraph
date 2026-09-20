@@ -68,7 +68,6 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         props: dict[str, Any] = {
             "source": SOURCE_RECHTSPRAAK,
             "ecli": ecli,
-            "raw_xml": payload_text,
         }
         if raw_entry.get("kind"):
             props["source_kind"] = raw_entry["kind"]

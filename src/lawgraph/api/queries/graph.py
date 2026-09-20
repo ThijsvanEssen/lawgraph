@@ -62,7 +62,7 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
     ``articles`` is scanned once into an ``id → bwb_id`` map and every edge
     endpoint is resolved against it, so no per-edge ``DOCUMENT()`` lookup is
     needed. Instruments are projected to the props the DTO reads — full docs
-    (with long ``raw_xml`` / ``text``) never materialise on this path.
+    (with long ``text`` / ``paragraphs``) never materialise on this path.
     """
     instruments: list[dict[str, Any]] = list(
         store.query(
@@ -176,7 +176,7 @@ def get_judgment_graph(
         "" if include_stubs else "FILTER j.props.stub != true OR j.props.stub == null"
     )
     # Lean judgment projection — DTO reads only id/key/ecli/display_name +
-    # the heat/in-flux overlay fields. No raw_xml / text / paragraphs.
+    # the heat/in-flux overlay fields. No text / paragraphs.
     judgments: list[dict[str, Any]] = list(
         store.query(
             f"""

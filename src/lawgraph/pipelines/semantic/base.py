@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_RAW_SOURCES,
     EDGE_STATUS_CANONIEK,
+    RAW_KIND_RS_CONTENT,
+    SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.aliases import InstrumentAliasMap, normalize_instrument_id
 from lawgraph.core.logging import get_logger
@@ -52,13 +55,6 @@ def slim(var: str, *fields: str) -> str:
     )
 
 
-# The text of a judgment: its XML when there is one, else its text and summary. Never both:
-# the XML holds the text, and together they are three times the judgment.
-JUDGMENT_TEXT = (
-    "{_key: doc._key, type: doc.type, labels: doc.labels, props: doc.props.raw_xml != null "
-    '? KEEP(doc.props, "ecli", "raw_xml") : KEEP(doc.props, "ecli", "text", "summary", "body")}'
-)
-
 # Judgments are tens of KB each: fewer per cursor batch than the default 1000.
 JUDGMENT_BATCH_SIZE = 100
 
@@ -75,6 +71,44 @@ class SemanticPipelineBase(PipelineBase):
         super().__init__(store=store)
         # (collection, key) -> lightweight Node, or None when known to be absent.
         self._node_cache: dict[tuple[str, str], Node | None] = {}
+
+    # --------------------------------------------------------------- judgments
+
+    def _judgment_texts(
+        self, since_iso: str | None = None
+    ) -> Iterator[tuple[Node, str]]:
+        """``(judgment node, XML)`` of every stored Rechtspraak judgment, from raw_sources.
+
+        The XML is not kept on the judgment node (it holds the summary, the text and the
+        paragraphs already, and the XML is a third of the collection again): it is read where
+        retrieve stored it. The node is the one normalize makes of the same ECLI.
+        """
+        since_filter = "FILTER r.fetched_at >= @since" if since_iso else ""
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind
+            {since_filter}
+            FILTER r.payload_text != null
+            RETURN {{ecli: r.meta.ecli || r.external_id, xml: r.payload_text}}
+        """
+        bind: dict[str, Any] = {
+            "source": SOURCE_RECHTSPRAAK,
+            "kind": RAW_KIND_RS_CONTENT,
+        }
+        if since_iso:
+            bind["since"] = since_iso
+        for row in self.store.query(aql, bind, batch_size=JUDGMENT_BATCH_SIZE):
+            ecli = str(row.get("ecli") or "").strip()
+            if not ecli:
+                continue
+            node = Node(
+                collection=COLLECTION_JUDGMENTS,
+                type=NodeType.JUDGMENT,
+                key=make_node_key(ecli),
+                props={"ecli": ecli},
+                _skip_validation=True,
+            )
+            yield node, str(row["xml"])
 
     # ------------------------------------------------------------ node lookup
 

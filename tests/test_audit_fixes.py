@@ -192,49 +192,23 @@ def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
     assert out == {"judgments": 3}
 
 
-def test_the_article_linker_reads_the_xml_once() -> None:
-    from lawgraph.core.models import Node
-
-    node = Node.from_document(
-        "judgments",
-        {
-            "_key": "k",
-            "props": {
-                "raw_xml": "<x>volledig</x>",
-                "text": "tekst",
-                "summary": "samenvatting",
-            },
-        },
-    )
-    pipeline = RechtspraakArticlesSemanticPipeline.__new__(
-        RechtspraakArticlesSemanticPipeline
-    )
-    assert pipeline._extract_judgment_text(node) == "<x>volledig</x>"
-
-    plain = Node.from_document(
-        "judgments",
-        {"_key": "k", "props": {"text": "tekst", "summary": "samenvatting"}},
-    )
-    assert pipeline._extract_judgment_text(plain) == "tekst\n\nsamenvatting"
-
-
 class _JudgmentStore:
-    """``recent`` are the ECLIs fetched since the date; the judgments stream from a cursor."""
+    """raw_sources holds the XML of three judgments; the query carries the date filter."""
 
-    def __init__(self, recent: list[str]) -> None:
-        self.recent = recent
+    def __init__(self) -> None:
+        self.binds: list[dict] = []
         self.pulled = 0
 
     def query(self, aql, bind_vars=None, **kw):
-        if "raw_sources" in aql:
-            return iter(self.recent)
+        assert "raw_sources" in aql and "judgments" not in aql.split("RETURN")[0]
+        self.binds.append(dict(bind_vars or {}))
 
         def cursor():
             for n in range(3):
                 self.pulled += 1
                 yield {
-                    "_key": f"k{n}",
-                    "props": {"ecli": f"E{n}", "text": "geen artikel"},
+                    "ecli": f"ECLI:NL:HR:2020:{n}",
+                    "xml": "<open>geen artikel</open>",
                 }
 
         return cursor()
@@ -247,23 +221,18 @@ def _linker(store):
     return pipeline
 
 
-def test_an_incremental_run_without_new_judgments_reads_none() -> None:
-    """An empty set of recent ECLIs meant "no filter": every judgment was read again."""
-    store = _JudgmentStore(recent=[])
-    result = _linker(store).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
-    assert result.errors == [] and store.pulled == 0
+def test_the_article_linker_reads_the_xml_where_retrieve_stored_it() -> None:
+    """Not from the judgment node: the XML is not kept there (a third of the collection)."""
+    store = _JudgmentStore()
+    result = _linker(store).run()
+    assert result.errors == [] and store.pulled == 3
+    assert store.binds == [{"source": "rechtspraak", "kind": "rs-content"}]
 
 
-def test_an_incremental_run_reads_only_the_recent_judgments() -> None:
-    store = _JudgmentStore(recent=["E1"])
+def test_an_incremental_run_asks_for_the_judgments_fetched_since() -> None:
+    store = _JudgmentStore()
     _linker(store).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
-    assert store.pulled == 3  # the fake cursor ignores the filter; the query carries it
-
-
-def test_a_run_without_a_date_reads_all_judgments() -> None:
-    store = _JudgmentStore(recent=[])
-    _linker(store).run()
-    assert store.pulled == 3
+    assert store.binds[0]["since"] == "2025-01-01T00:00:00Z"
 
 
 # ── the BWB article linker ───────────────────────────────────────────────────

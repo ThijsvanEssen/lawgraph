@@ -157,7 +157,6 @@ class ArticleVersionProps(_CommonProps):
 
 class JudgmentProps(_CommonProps):
     ecli: str | None = None
-    raw_xml: str | None = None
     source_kind: str | None = None
     meta: dict[str, Any] | None = None
     summary: str | None = None

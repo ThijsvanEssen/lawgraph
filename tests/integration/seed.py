@@ -8,6 +8,7 @@ same ``RawSourceWriter`` the retrieve pipelines use.
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
@@ -170,6 +171,15 @@ def judgment_xml(number: int, paragraphs: int = 40) -> str:
     )
 
 
+def _own_title(toestand_xml: str, copy: int) -> str:
+    """The fixture under another id is another law: a name two laws share links to neither."""
+    if copy < 2:  # the first use of each fixture keeps its name ("Grondwet")
+        return toestand_xml
+    return re.sub(
+        r"(<citeertitel\b[^>]*>)([^<]+)", rf"\g<1>\g<2> ({copy})", toestand_xml, count=1
+    )
+
+
 def seed(
     store: ArangoStore,
     *,
@@ -199,7 +209,9 @@ def seed(
                     source=SOURCE_BWB,
                     kind=RAW_KIND_BWB_TOESTAND,
                     external_id=bwb_id,
-                    payload_text=toestanden[number % len(toestanden)],
+                    payload_text=_own_title(
+                        toestanden[number % len(toestanden)], number
+                    ),
                     meta={
                         "bwb_id": bwb_id,
                         "state_url": f"https://repo/{bwb_id}/x.xml",
