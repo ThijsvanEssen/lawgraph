@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import sys
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -18,7 +19,14 @@ from lawgraph.sources.registry import SOURCES, RetrieveCtx, describe
 
 logger = get_logger(__name__)
 
-DEFAULT_RETRIEVE_JOBS = 4
+# One per server (lane): each server is paced on its own, so there is nothing to wait for.
+DEFAULT_RETRIEVE_JOBS = len(
+    {
+        s.retrieve_lane or s.id
+        for s in SOURCES
+        if s.retrieve_main is not None and s.retrieve_argv_builder is not None
+    }
+)
 DEFAULT_WINDOW = "730d"
 
 
@@ -29,6 +37,7 @@ class _Step:
     main: Callable[..., None]
     argv: list[str]
     lane: str = ""
+    after: tuple[str, ...] = ()  # source ids whose step must have ended first
 
     @property
     def lane_id(self) -> str:
@@ -51,20 +60,37 @@ def _run_step(phase: str, step: _Step) -> str:
     return "ok" if succeeded else "failed"
 
 
-def _run_lane(phase: str, steps: list[_Step]) -> list[tuple[str, str]]:
-    return [(step.name, _run_step(phase, step)) for step in steps]
-
-
 def _run_in_lanes(phase: str, steps: list[_Step], jobs: int) -> list[tuple[str, str]]:
-    """Run the lanes on *jobs* threads; the steps of one lane run one after the other.
+    """Run the lanes side by side, at most *jobs* steps at a time.
 
-    Returns the results in the order of *steps*.
+    The steps of one lane run one after the other. A step with ``after`` waits until those
+    steps (of other lanes) have ended; it comes last in its own lane so the lane does not
+    stand still, and while it waits it does not take one of the *jobs* places. Returns the
+    results in the order of *steps*.
     """
     lanes: dict[str, list[_Step]] = {}
     for step in steps:
         lanes.setdefault(step.lane_id, []).append(step)
-    with ThreadPoolExecutor(max_workers=jobs, thread_name_prefix=phase) as pool:
-        futures = [pool.submit(_run_lane, phase, lane) for lane in lanes.values()]
+    ended = {step.source_id: threading.Event() for step in steps}
+    places = threading.Semaphore(jobs)
+
+    def run_lane(lane: list[_Step]) -> list[tuple[str, str]]:
+        results = []
+        for step in sorted(
+            lane, key=lambda s: bool(s.after)
+        ):  # stable: waiting ones last
+            for source_id in step.after:
+                if source_id in ended:
+                    ended[source_id].wait()
+            try:
+                with places:
+                    results.append((step.name, _run_step(phase, step)))
+            finally:
+                ended[step.source_id].set()
+        return results
+
+    with ThreadPoolExecutor(max_workers=len(lanes), thread_name_prefix=phase) as pool:
+        futures = [pool.submit(run_lane, lane) for lane in lanes.values()]
         status = {name: state for f in futures for name, state in f.result()}
     return [(step.name, status[step.name]) for step in steps]
 
@@ -154,6 +180,7 @@ def run_retrieve_all(argv: list[str] | None = None) -> None:
             s.retrieve_main,
             s.retrieve_argv_builder(ctx),
             s.retrieve_lane or "",
+            s.retrieve_after,
         )
         for s in SOURCES
         if s.retrieve_main is not None and s.retrieve_argv_builder is not None

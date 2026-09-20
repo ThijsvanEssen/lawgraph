@@ -288,7 +288,7 @@ def test_bootstrap_loads_a_two_year_window(monkeypatch) -> None:
         "--window",
         "730d",
         "--jobs",
-        "4",
+        "6",  # one job per server
     ]
 
 
@@ -296,3 +296,79 @@ def test_bootstrap_passes_the_window_and_jobs_on(monkeypatch) -> None:
     argv = _bootstrap_retrieve_argv(monkeypatch, ["--window", "all", "--jobs", "2"])
     assert argv[argv.index("--window") + 1] == "all"
     assert argv[argv.index("--jobs") + 1] == "2"
+
+
+# ── a step that reads what another source stored ─────────────────────────────
+
+
+def test_a_step_waits_for_the_source_it_reads_and_goes_last_in_its_lane() -> None:
+    import threading
+    import time
+
+    order: list[str] = []
+    lock = threading.Lock()
+
+    def main(name: str, seconds: float = 0.0) -> Callable[..., None]:
+        def run(argv: list[str]) -> None:
+            time.sleep(seconds)
+            with lock:
+                order.append(name)
+
+        return run
+
+    steps = [
+        _Step("bwb", "bwb", main("bwb", 0.2), [], "bwb"),
+        _Step(
+            "staatsblad", "staatsblad", main("staatsblad"), [], "koop", after=("bwb",)
+        ),
+        _Step("staatscourant", "staatscourant", main("staatscourant"), [], "koop"),
+    ]
+    # Two places and a waiting step: the wait must not take one of them.
+    results = _run_in_lanes("retrieve", steps, jobs=2)
+
+    assert [state for _, state in results] == ["ok", "ok", "ok"]
+    assert order == ["staatscourant", "bwb", "staatsblad"]
+
+
+def test_a_failing_source_does_not_leave_its_reader_waiting() -> None:
+    def fails(argv: list[str]) -> None:
+        raise RuntimeError("SRU down")
+
+    ran: list[str] = []
+    steps = [
+        _Step("bwb", "bwb", fails, [], "bwb"),
+        _Step(
+            "staatsblad",
+            "staatsblad",
+            lambda argv: ran.append("stb"),
+            [],
+            "koop",
+            after=("bwb",),
+        ),
+    ]
+    assert _run_in_lanes("retrieve", steps, jobs=2) == [
+        ("bwb", "failed"),
+        ("staatsblad", "ok"),
+    ]
+    assert ran == ["stb"]
+
+
+def test_a_source_is_retrieved_after_the_ones_it_reads_and_they_come_first() -> None:
+    """``retrieve_after`` names real sources that precede it, so ``--jobs 1`` is right too."""
+    ids = [s.id for s in registry.SOURCES]
+    staatsblad = next(s for s in registry.SOURCES if s.id == "staatsblad")
+    assert staatsblad.retrieve_after == ("bwb",)
+    for source in registry.SOURCES:
+        for earlier in source.retrieve_after:
+            assert ids.index(earlier) < ids.index(source.id)
+
+
+def test_by_default_every_server_has_its_own_job() -> None:
+    from lawgraph.pipelines.orchestration import DEFAULT_RETRIEVE_JOBS
+
+    lanes = {
+        s.retrieve_lane or s.id
+        for s in registry.SOURCES
+        if s.retrieve_main is not None and s.retrieve_argv_builder is not None
+    }
+    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 6

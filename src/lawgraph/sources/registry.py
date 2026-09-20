@@ -95,7 +95,8 @@ class SourceDescriptor:
     ``retrieve_main``. A source without it is a manual command, left out of ``retrieve all``.
     ``retrieve_lane`` names the server a retrieve step talks to (default: the source id):
     ``retrieve all --jobs N`` runs lanes side by side and the steps of one lane one after
-    the other, so no server gets two request streams from us.
+    the other, so no server gets two request streams from us. ``retrieve_after`` names the
+    sources whose retrieve must have ended first, because this one reads what they stored.
     Every normalize command accepts ``--since``; a semantic command only when
     ``semantic_accepts_since`` is set. ``descriptions`` says per phase what the command does;
     it is printed by ``lawgraph sources`` and in the first log line of the step.
@@ -109,6 +110,7 @@ class SourceDescriptor:
     retrieve_main: Callable[..., None] | None = None
     retrieve_argv_builder: Callable[[RetrieveCtx], list[str]] | None = None
     retrieve_lane: str | None = None
+    retrieve_after: tuple[str, ...] = ()
     normalize_main: Callable[..., None] | None = None
     semantic_main: Callable[..., None] | None = None
     semantic_accepts_since: bool = False
@@ -416,6 +418,8 @@ def _register_staatsblad() -> list[SourceDescriptor]:
             retrieve_main=retrieve_staatsblad,
             retrieve_argv_builder=_no_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
+            # from-graph: the publications the stored BWB toestanden refer to
+            retrieve_after=("bwb",),
             normalize_main=normalize,
             semantic_main=semantic,
         ),
