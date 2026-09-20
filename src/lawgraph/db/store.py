@@ -67,6 +67,10 @@ def _create_database_if_missing(client: ArangoClient) -> None:
         logger.info("Created database %s.", ARANGO_DB_NAME)
 
 
+# How long the server keeps an AQL cursor that is not read (its default is 30 seconds).
+CURSOR_TTL_SECONDS = 3600.0
+
+
 class ArangoStore:
     """Encapsulation of the ArangoDB client, collections, and CRUD helpers."""
 
@@ -113,8 +117,13 @@ class ArangoStore:
         *,
         max_runtime: float = 600.0,
         batch_size: int = 1000,
+        ttl: float = CURSOR_TTL_SECONDS,
     ) -> Iterable[dict[str, Any]]:
         """Execute an AQL query and stream results in batches.
+
+        ``ttl`` is how long the server keeps the cursor between two batches. The default of
+        30 seconds is too short for a consumer that works on every batch (a semantic
+        pipeline running regexes over 1000 documents): it answers ``cursor not found``.
 
         ``batch_size`` controls how many documents ArangoDB sends per HTTP
         response.  The default of 1000 keeps memory bounded for large result
@@ -127,6 +136,7 @@ class ArangoStore:
             bind_vars=bind_vars or {},
             max_runtime=max_runtime,  # type: ignore[arg-type]
             batch_size=batch_size,
+            ttl=ttl,  # type: ignore[arg-type]
         )
         # python-arango <8.0 returns a cursor; >=8.0 returns a list directly
         result_attr = getattr(cursor, "result", None)
