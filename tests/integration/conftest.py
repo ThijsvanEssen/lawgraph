@@ -84,6 +84,8 @@ def cli(database: str) -> Callable[..., subprocess.CompletedProcess[str]]:
             "ARANGO_URL": TEST_URL,
             "ARANGO_DB_NAME": database,
             "LAWGRAPH_LOG_LEVEL": "INFO",
+            # The code of this checkout, also when the installed package is another one.
+            "PYTHONPATH": str(ROOT / "src"),
             "NO_COLOR": "1",
         }
         done = subprocess.run(
