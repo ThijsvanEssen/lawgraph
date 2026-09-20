@@ -16,7 +16,6 @@ from lawgraph.pipelines.list_stats import main as list_stats_main
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
-from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
@@ -28,7 +27,6 @@ from lawgraph.pipelines.retrieve_cli import (
     retrieve_bwb,
     retrieve_bwb_history,
     retrieve_echr,
-    retrieve_eerstekamer,
     retrieve_eurlex,
     retrieve_rechtspraak,
     retrieve_staatsblad,
@@ -46,9 +44,6 @@ from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipe
 from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from lawgraph.pipelines.semantic.echr_citations import ECHRCitationsSemanticPipeline
-from lawgraph.pipelines.semantic.eerstekamer_dossier_link import (
-    EerstekamerDossierLinkSemanticPipeline,
-)
 from lawgraph.pipelines.semantic.eu_articles import EUArticlesSemanticPipeline
 from lawgraph.pipelines.semantic.instrument_relations import (
     InstrumentRelationsSemanticPipeline,
@@ -358,28 +353,6 @@ def _register_staatscourant() -> list[SourceDescriptor]:
     ]
 
 
-def _register_eerstekamer() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
-        EerstekamerNormalizePipeline,
-        description="Normalize Eerste Kamer Kamerstukken.",
-        with_since=True,
-    )
-    semantic = make_pipeline_cli(
-        EerstekamerDossierLinkSemanticPipeline,
-        description="Link EK documents to the TK dossier they belong to.",
-    )
-    return [
-        SourceDescriptor(
-            id="eerstekamer",
-            display_name="Eerste Kamer (documents & votes)",
-            retrieve_main=retrieve_eerstekamer,
-            retrieve_argv_builder=_mode_argv,
-            normalize_main=normalize,
-            semantic_main=semantic,
-        ),
-    ]
-
-
 def _register_echr() -> list[SourceDescriptor]:
     normalize = make_pipeline_cli(
         ECHRNormalizePipeline,
@@ -496,7 +469,6 @@ def _build_registry() -> list[SourceDescriptor]:
         *_register_bwb(),
         *_register_staatsblad(),
         *_register_staatscourant(),
-        *_register_eerstekamer(),
         *_register_echr(),
         *_register_verdragenbank(),
         *_register_cross_source_semantic(),

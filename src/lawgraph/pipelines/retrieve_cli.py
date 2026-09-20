@@ -12,7 +12,6 @@ from lawgraph.db import ArangoStore
 from lawgraph.pipelines.factory import add_since_argument, run_step
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
-from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
@@ -23,7 +22,6 @@ from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
 
 _TK_EPOCH = dt.datetime(1995, 1, 1, tzinfo=dt.timezone.utc)
-_EERSTEKAMER_FULL_MAX_RECORDS = 200_000
 _KNOWN_CELEX_AQL = (
     f"FOR inst IN {COLLECTION_INSTRUMENTS} "
     "FILTER inst.props.celex != null RETURN inst.props.celex"
@@ -99,22 +97,6 @@ def retrieve_echr(argv: list[str] | None = None) -> None:
         )
 
     run_step("ECHR retrieve", run)
-
-
-def retrieve_eerstekamer(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Retrieve Eerste Kamer documents.")
-    parser.add_argument("--max-records", type=int, default=50000)
-    add_since_argument(parser)
-    _add_mode_argument(parser)
-    args = parser.parse_args(argv)
-
-    def run() -> PipelineResult:
-        pipeline = EerstekamerRetrievePipeline(ArangoStore())
-        if args.mode == "full":
-            return pipeline.run(since=None, max_records=_EERSTEKAMER_FULL_MAX_RECORDS)
-        return pipeline.run(since=_date(args.since), max_records=args.max_records)
-
-    run_step("Eerste Kamer retrieve", run)
 
 
 def retrieve_eurlex(argv: list[str] | None = None) -> None:

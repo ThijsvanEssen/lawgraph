@@ -155,7 +155,6 @@ BWB_INSTRUMENT_TYPES: tuple[str, ...] = (
 )
 SOURCE_STAATSBLAD = "staatsblad"
 SOURCE_STAATSCOURANT = "staatscourant"
-SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_ECHR = "echr"
 SOURCE_VERDRAGENBANK = "verdragenbank"
 
@@ -181,7 +180,6 @@ RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
 RAW_KIND_BWB_WTI_GENERAL = "bwb-wti-algemene-informatie-xml"
 RAW_KIND_STB_AMVB = "stb-amvb-xml"
 RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
-RAW_KIND_EK_STUK = "ek-stuk-json"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 RAW_KIND_VERDRAG = "verdrag-json"
 
@@ -208,7 +206,6 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     ),
     SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
     SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING,),
-    SOURCE_EERSTEKAMER: (RAW_KIND_EK_STUK,),
     SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
 }

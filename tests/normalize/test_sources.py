@@ -1,6 +1,6 @@
 """Normalize pipelines of the smaller sources.
 
-Staatsblad, Staatscourant, ECHR, Verdragenbank and Eerste Kamer. Each test
+Staatsblad, Staatscourant, ECHR and Verdragenbank. Each test
 drives the parse/normalize logic directly without a real database by supplying
 a minimal FakeStore and representative raw_sources records.
 """
@@ -233,46 +233,3 @@ def test_verdragenbank_normalize_multilateral():
 
     node = next(iter(nodes.values()))
     assert node.props["kind"] == "multilateraalverdrag"
-
-
-# ---------------------------------------------------------------------------
-# Eerste Kamer
-# ---------------------------------------------------------------------------
-
-_EK_PAYLOAD = {
-    "Id": "ek-stuk-abc123",
-    "Nummer": "36000",
-    "DossierNummer": "36000",
-    "Ondernummer": "A",
-    "Soort": "Eindverslag",
-    "Datum": "2023-05-10",
-    "Titel": "Eindverslag commissie Justitie",
-    "Onderwerp": "Wetsvoorstel testonderwerp",
-    "Vergaderjaar": "2022-2023",
-    "Bijgewerkt": "2023-05-11T00:00:00",
-}
-
-
-def test_eerstekamer_normalize_creates_publication():
-    from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
-
-    store = _FakeStore()
-    pipeline = EerstekamerNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes(
-        [_raw("ek-stuk-abc123", payload_json=_EK_PAYLOAD)], PipelineResult()
-    )
-
-    assert len(nodes) == 1
-    node = next(iter(nodes.values()))
-    assert node.type == NodeType.DOCUMENT
-    assert node.props["kind"] == "Eindverslag"
-    assert node.props["dossier_number"] == "36000"
-
-
-def test_eerstekamer_normalize_skips_missing_id():
-    from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
-
-    store = _FakeStore()
-    pipeline = EerstekamerNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("", payload_json={})], PipelineResult())
-    assert len(nodes) == 0

@@ -67,7 +67,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `.../documents` | documents linked directly or through a case, newest first, with `total` |
 | `.../mutations` | the subgraph of `voorgesteld` edges, in graph shape |
 | `/api/dossiers/documents/bulk?numbers=a,b` | top `per_dossier_limit` (default 8) documents per dossier |
-| `GET /api/decisions`, `/{key}`, `/{key}/document` | decisions (`passed`, `party`, `chamber` `TK`/`EK`) with every vote cast — per member on a roll-call, per faction otherwise; the decided motion, amendment or bill with text |
+| `GET /api/decisions`, `/{key}`, `/{key}/document` | decisions (`passed`, `party`, `chamber`, only `TK` is loaded) with every vote cast — per member on a roll-call, per faction otherwise; the decided motion, amendment or bill with text |
 | `GET /api/committees`, `/with-members`, `/{slug}` | committees; detail lists current members (`current_only=true`, the default) and the dossiers it leads |
 | `GET /api/members`, `/{key}`, `/{key}/votes`, `/{key}/touched-instruments` | members (filter `party`, `active`, `q`; ministers only with `include_all`); a member's votes, a faction vote counted only for the period they belonged to it; laws the member proposed changes to |
 | `GET /api/factions`, `/{key}`, `/{key}/touched-instruments` | factions with member counts; the same aggregate per faction |

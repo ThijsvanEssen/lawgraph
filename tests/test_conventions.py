@@ -28,7 +28,7 @@ RELATION_NAME_HOMES = {
 }
 
 # Modules that mirror a source's own vocabulary: the Dutch field names of the
-# Tweede Kamer / Eerste Kamer APIs and of the BWB and KOOP XML. Their
+# Tweede Kamer API and of the BWB and KOOP XML. Their
 # identifiers may carry the source's spelling.
 SOURCE_FACING = (
     SRC / "clients",

@@ -69,9 +69,6 @@ STAATSCOURANT_SRU_ENDPOINT = os.getenv(
 STAATSCOURANT_REPO_BASE = os.getenv(
     "STAATSCOURANT_REPO_BASE", "https://repository.overheid.nl"
 )
-EERSTEKAMER_BASE_URL = os.getenv(
-    "EERSTEKAMER_BASE", "https://gegevensmagazijn.eerstekamer.nl/OData/v4/2.0/"
-)
 ECHR_HUDOC_BASE_URL = os.getenv("ECHR_HUDOC_BASE", "https://hudoc.echr.coe.int")
 VERDRAGENBANK_SPARQL_ENDPOINT = os.getenv(
     "VERDRAGENBANK_SPARQL", "https://linkeddata.overheid.nl/front/portal/sparql"

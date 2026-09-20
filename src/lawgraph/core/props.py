@@ -186,7 +186,7 @@ class JudgmentProps(_CommonProps):
 
 
 # ---------------------------------------------------------------------------
-# documents  (TK, TK-dossier docs, Staatsblad, Staatscourant, EersteKamer)
+# documents  (TK, TK-dossier docs, Staatsblad, Staatscourant)
 # ---------------------------------------------------------------------------
 
 
@@ -197,7 +197,7 @@ class DocumentProps(_CommonProps):
     subject: str | None = None
     kind: str | None = None
     date: str | None = None
-    # the document's own number: a Kamerstuk/EK number, or a Stcrt/Stb one
+    # the document's own number: a Kamerstuk number, or a Stcrt/Stb one
     number: str | None = None
     text: str | None = None
     # TK-dossier documents
@@ -213,10 +213,6 @@ class DocumentProps(_CommonProps):
     year: str | None = None
     bwb_id: str | None = None
     bwb_refs: list[str] | None = None
-    # EersteKamer
-    chamber: str | None = None
-    parliamentary_paper_id: str | None = None
-    meeting_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -284,11 +280,9 @@ class DecisionProps(_CommonProps):
     tally: dict[str, int] | None = None
     voters: dict[str, int] | None = None
     passed: bool | None = None
-    # EK decisions
     external_id: str | None = None
     kind: str | None = None
-    parliamentary_paper_id: str | None = None
-    meeting_id: str | None = None
+    # no source sets it since the Eerste Kamer was dropped; the API still returns it
     chamber: str | None = None
 
 

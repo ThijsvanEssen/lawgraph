@@ -1,15 +1,12 @@
 """Tests for dossier-related semantic pipelines:
-EerstekamerDossierLink, StaatsbladNvt, StaatscourantRegeling.
+StaatsbladNvt, StaatscourantRegeling.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import RELATION_EXPLAINS, RELATION_PART_OF
-from lawgraph.pipelines.semantic.eerstekamer_dossier_link import (
-    EerstekamerDossierLinkSemanticPipeline,
-)
+from lawgraph.config.constants import RELATION_EXPLAINS
 from lawgraph.pipelines.semantic.staatsblad_nvt import StaatsbladNvtSemanticPipeline
 from lawgraph.pipelines.semantic.staatscourant_regeling import (
     StaatscourantRegelingSemanticPipeline,
@@ -29,35 +26,6 @@ class _FakeStore(_BaseFakeStore):
 
 
 # ---------------------------------------------------------------------------
-# EerstekamerDossierLinkSemanticPipeline
-# ---------------------------------------------------------------------------
-
-
-def test_ek_dossier_link_makes_the_stuk_part_of_the_tk_dossier() -> None:
-    rows = [
-        {
-            "document_key": "ek-stuk-1",
-            "dossier_key": "36000",
-            "dossier_number": "36000",
-        }
-    ]
-    store = _FakeStore(rows=rows)
-    pipeline = EerstekamerDossierLinkSemanticPipeline(store=store)
-    result = pipeline.run()
-
-    assert result.created == 1
-    edge = next(iter(store.edges.values()))
-    assert edge["relation"] == RELATION_PART_OF
-    assert edge["_from"] == "documents/ek-stuk-1"
-    assert edge["_to"] == "dossiers/36000"
-    assert edge["confidence"] == 0.95
-
-
-def test_ek_dossier_link_returns_empty_when_no_rows() -> None:
-    store = _FakeStore(rows=[])
-    pipeline = EerstekamerDossierLinkSemanticPipeline(store=store)
-    result = pipeline.run()
-    assert result.created == 0
 
 
 # ---------------------------------------------------------------------------
