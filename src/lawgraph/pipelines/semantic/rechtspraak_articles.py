@@ -13,17 +13,13 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.core.citations import (
-    CitationHit,
-    DutchCitationExtractor,
-    hit_reason,
-    strip_xml,
-)
+from lawgraph.core.citations import CitationHit, hit_reason, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
 from .base import SemanticPipelineBase
+from .detection import build_extractor, detect_in_text
 
 logger = get_logger(__name__)
 
@@ -51,11 +47,12 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
             return result
 
         mapping = self._load_code_aliases()
-        if not mapping:
-            logger.warning("No code_aliases configured; skipping semantic linkage.")
+        instrument_aliases = self._load_instrument_aliases()
+        if not mapping and not instrument_aliases:
+            logger.warning("No code or name aliases configured; skipping linkage.")
             return result
 
-        extractor = DutchCitationExtractor(code_aliases=mapping)
+        extractor = build_extractor(mapping, instrument_aliases)
 
         logger.info(
             "Processing Rechtspraak judgments for article references (since=%s).",
@@ -71,12 +68,12 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
             judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
             raw_text = self._extract_judgment_text(judgment)
             text = strip_xml(raw_text) if raw_text else None
-            hits = extractor.extract(text or "")
+            hits = detect_in_text(text or "", extractor)
             if not hits:
                 continue
 
             for hit in hits:
-                if not hit.bwb_id and not hit.celex:
+                if hit.kind != "article":
                     continue
 
                 article = self._resolve_article(hit)

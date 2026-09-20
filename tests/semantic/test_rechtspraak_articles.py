@@ -126,3 +126,59 @@ def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
     created_second = pipeline.run()
     assert created_second.created == 0
     assert len(store.edges) == 1
+
+
+def _judgment(text: str) -> dict[str, Any]:
+    doc = _make_judgment_doc()
+    doc["props"]["raw_xml"] = text
+    return doc
+
+
+def _edges(text: str, instruments: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    articles = {
+        make_node_key("BWBR0005537", "8:29"): {
+            "_key": make_node_key("BWBR0005537", "8:29"),
+            "type": NodeType.ARTICLE.value,
+            "props": {"bwb_id": "BWBR0005537", "article_number": "8:29"},
+        }
+    }
+    store = _FakeStore(
+        judgments=[_judgment(text)], articles=articles, instruments=instruments
+    )
+    RechtspraakArticlesSemanticPipeline(store=store).run()
+    return store.edges
+
+
+def test_a_judgment_citing_an_article_of_a_law_by_its_name_is_linked() -> None:
+    instruments = [
+        {
+            "bwb_id": "BWBR0005537",
+            "celex": None,
+            "title": "Algemene wet bestuursrecht",
+            "citation_title": None,
+        }
+    ]
+    edges = _edges(
+        "Volgens artikel 8:29, eerste lid, van de Algemene wet bestuursrecht moet",
+        instruments,
+    )
+    assert len(edges) == 1
+    assert next(iter(edges.values()))["meta"]["qualifier"] == "eerste lid"
+
+
+def test_a_title_two_laws_share_is_no_alias() -> None:
+    instruments = [
+        {
+            "bwb_id": "BWBR0005537",
+            "celex": None,
+            "title": "Wet gelijk",
+            "citation_title": None,
+        },
+        {
+            "bwb_id": "BWBR0001854",
+            "celex": None,
+            "title": "Wet gelijk",
+            "citation_title": None,
+        },
+    ]
+    assert _edges("artikel 8:29 van de Wet gelijk", instruments) == {}

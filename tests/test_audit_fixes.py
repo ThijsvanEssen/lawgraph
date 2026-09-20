@@ -242,6 +242,7 @@ class _JudgmentStore:
 def _linker(store):
     pipeline = RechtspraakArticlesSemanticPipeline(store=store)
     pipeline._load_code_aliases = lambda: {"Sr": "BWBR0001854"}  # type: ignore[method-assign]
+    pipeline._load_instrument_aliases = dict  # type: ignore[method-assign,assignment]
     return pipeline
 
 

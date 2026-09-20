@@ -88,7 +88,8 @@ Committee from `Voortouwcommissie_Id`), `MADE_IN` (Commitment to Activity), `MEM
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text and
 every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
-`instruments.props.short_title` (codes such as `Sr`) and instrument titles.
+`instruments.props.short_title` (codes such as `Sr`) and instrument titles (see `semantic
+rechtspraak` for the article forms).
 
 | Pattern | Kind | Confidence |
 |---------|------|-----------|
@@ -162,11 +163,21 @@ the rechtbanken (over 100,000 in two years), are chosen with `--court`.
 segment; `tier` is `hoge_raad` (`HR`), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or
 `bijzonder`; `date_eff` is the judgment date.
 
-**Semantic `rechtspraak`.** Strips tags from `raw_xml`, `text`, `summary` and extracts coded
-citations (`artikel 36e Sr`, `artikel 3 van het Wetboek van Strafvordering`) with confidence
-0.95 as `REFERS_TO`. Codes come from `instruments.props.short_title`; with none the run does
-nothing. A missing target article is created as a stub (all hits are 0.95). Bare `artikel N`
-without a law is not written.
+**Semantic `rechtspraak`.** Reads `raw_xml` (else `text` and `summary`), strips the tags and
+extracts article citations with the detector of `tk`, without its instrument-level title
+patterns: the EU forms and `CELEX`/`BWBR` literals are kept. The detector reads the article
+first and resolves the law after it:
+
+| Form | Confidence |
+|------|-----------|
+| `artikel 3.26, eerste lid, van de Wet ruimtelijke ordening` (code or full name; dotted, colon and lettered numbers; `lid`, `onder`, `sub`, `aanhef`, `volzin`) | 0.95 |
+| `artikelen 338 (lid 2) en 339 Fw`, `artikelen 2 tot en met 5 Sv` | 0.95 each |
+| `artikel 2.8 van de Wnb` after `... (hierna: de Wnb)` in the same text | 0.90 |
+| `artikel 3a van die wet` (also `deze`, `genoemde`, `voornoemde`), the law named last within 3,000 characters | 0.70 |
+
+Codes come from `instruments.props.short_title`, names from instrument titles; a title two
+instruments share is not a name. A missing target article is created as a stub from 0.9; an
+article cited only as `artikel N` with no law is not written.
 
 **Semantic `judgment-citations`.** `ECLI:<country>:<court>:<year>:<number>` in `raw_xml`, `text` or `body`:
 `REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations, missing judgments become stubs.

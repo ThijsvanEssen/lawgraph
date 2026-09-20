@@ -24,43 +24,16 @@ from lawgraph.core.citations import (
     hit_reason,
     make_snippet,
 )
-from lawgraph.core.eu_citations import (
-    ARTICLE_NUMBER_ANY_LETTERS,
-    EUCitationConfidence,
-    build_article_patterns,
-    collect_article_hits,
-    collect_bwb_id_hits,
-    collect_celex_literal_hits,
-    collect_year_number_hits,
-)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
 from .base import SemanticPipelineBase
+from .detection import build_extractor, detect_in_text
 
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "tk-article-linker"
-
-# ---------------------------------------------------------------------------
-# Instrument-level patterns (not driven by registry — EU/BWBR literal forms)
-# ---------------------------------------------------------------------------
-
-_CONFIDENCE = EUCitationConfidence(
-    article_with_instrument=0.88,  # "artikel X van Richtlijn/Besluit/... YYYY/N"
-    celex_literal=0.90,  # CELEX ID literal in text
-    instrument_year_number=0.65,  # directive/regulation via year + number only
-    bwb_id=0.75,  # bare BWB id in text
-)
-
-# TK text: any letters on the article number, "de"/"het" allowed before the
-# instrument name, and decisions and framework decisions as well.
-_EU_ARTICLE_PATTERNS = build_article_patterns(
-    ARTICLE_NUMBER_ANY_LETTERS,
-    kinds=("directive", "regulation", "decision", "framework_decision"),
-    allow_determiner=True,
-)
 
 # ---------------------------------------------------------------------------
 # Instrument-level hit collectors
@@ -110,21 +83,9 @@ def detect_tk_citations(
 
     return _collect_tk_hits(
         text,
-        _extractor(code_aliases, instrument_aliases),
+        build_extractor(code_aliases, instrument_aliases),
         _build_named_act_patterns(instrument_aliases),
     )
-
-
-def _extractor(
-    code_aliases: dict[str, str], instrument_aliases: InstrumentAliasMap
-) -> DutchCitationExtractor:
-    """Extractor that resolves law codes and full law names ("artikel 5 van de Wegenwet")."""
-    name_aliases = {
-        name: bwb_id or celex
-        for name, (bwb_id, celex) in instrument_aliases.items()
-        if bwb_id or celex
-    }
-    return DutchCitationExtractor(code_aliases=code_aliases, name_aliases=name_aliases)
 
 
 def _collect_tk_hits(
@@ -133,28 +94,11 @@ def _collect_tk_hits(
     named_act_patterns: list[tuple[str, re.Pattern[str], str | None, str | None]],
 ) -> list[CitationHit]:
     """Registry-driven article hits plus every instrument-level TK pattern."""
-    hits = extractor.extract(text)
-
-    def _identity(hit: CitationHit) -> tuple[str, str | None, str | None, str | None]:
-        return (hit.kind, hit.bwb_id, hit.celex, hit.article_number)
-
-    seen = {_identity(h) for h in hits}
-
-    def _record(hit: CitationHit) -> None:
-        if _identity(hit) in seen:
-            return
-        seen.add(_identity(hit))
-        hits.append(hit)
-
-    _collect_named_act_hits(text, named_act_patterns, _record)
-    collect_bwb_id_hits(text, _CONFIDENCE.bwb_id, _record)
-    collect_celex_literal_hits(text, _CONFIDENCE.celex_literal, _record)
-    collect_year_number_hits(text, _CONFIDENCE.instrument_year_number, _record)
-    collect_article_hits(
-        text, _EU_ARTICLE_PATTERNS, _CONFIDENCE.article_with_instrument, _record
+    return detect_in_text(
+        text,
+        extractor,
+        extra=lambda t, record: _collect_named_act_hits(t, named_act_patterns, record),
     )
-
-    return hits
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +120,7 @@ class TKArticlesSemanticPipeline(SemanticPipelineBase):
                 "No instrument or code aliases configured for TK semantic linking."
             )
 
-        extractor = _extractor(code_aliases, instrument_aliases)
+        extractor = build_extractor(code_aliases, instrument_aliases)
         named_act_patterns = _build_named_act_patterns(instrument_aliases)
 
         logger.info(

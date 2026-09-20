@@ -161,8 +161,8 @@ class SemanticPipelineBase(PipelineBase):
         Only includes instruments that have a bwb_id or celex prop. The
         ``title`` and ``citation_title`` props are indexed as keys (not
         ``short_title``, which is used by ``_load_code_aliases`` instead).
-        First-write wins — if two instruments share a name, the first one
-        encountered wins. Returns an empty dict if the store is unavailable.
+        A name that two instruments share is left out: it would link to whichever came
+        first. Returns an empty dict if the store is unavailable.
         """
         aql = f"""
         FOR inst IN {COLLECTION_INSTRUMENTS}
@@ -175,6 +175,7 @@ class SemanticPipelineBase(PipelineBase):
             }}
         """
         index: InstrumentAliasMap = {}
+        ambiguous: set[str] = set()
         try:
             rows = list(self.store.query(aql))
         except Exception as exc:
@@ -193,8 +194,11 @@ class SemanticPipelineBase(PipelineBase):
                 if not name:
                     continue
                 label = str(name).strip()
-                if label and label not in index:
-                    index[label] = pair
+                if not label or label in ambiguous:
+                    continue
+                if index.setdefault(label, pair) != pair:
+                    del index[label]
+                    ambiguous.add(label)
 
         return index
 
