@@ -32,7 +32,9 @@ SRU_PAGE_SIZE = 1000
 # KB; the limit only stops a file without it from being downloaded whole.
 WTI_CHUNK_SIZE = 8192
 WTI_HEAD_LIMIT = 1_000_000
-EMPTY_PAGE_RETRIES = 3
+# The page sizes tried for a page the service answers empty: the big pages (3 MB) are the ones
+# it fails on.
+EMPTY_PAGE_SIZES = (SRU_PAGE_SIZE, SRU_PAGE_SIZE, 500, 250, 100, 50)
 
 
 class ToestandMeta(TypedDict):
@@ -59,8 +61,8 @@ class BWBClient(BaseClient):
     def _sru_page(self, doc_type: str, start: int) -> ET.Element:
         """One result page of a type. The service sometimes answers a page that is valid but
         empty although records remain (it reports ``numberOfRecords`` and a next position);
-        that is retried, and raised when it persists: taking it for the end of the list left
-        out most of the large laws.
+        that is retried with smaller pages, and raised when it persists: taking it for the end
+        of the list left out most of the large laws.
         """
         params = {
             "operation": "searchRetrieve",
@@ -70,7 +72,8 @@ class BWBClient(BaseClient):
             "maximumRecords": str(SRU_PAGE_SIZE),
             "startRecord": str(start),
         }
-        for attempt in range(EMPTY_PAGE_RETRIES + 1):
+        for attempt, size in enumerate(EMPTY_PAGE_SIZES):
+            params["maximumRecords"] = str(size)
             resp = self._get_raw_absolute_with_retry(
                 BWB_SRU_ENDPOINT, params=params, timeout=120
             )
@@ -82,12 +85,12 @@ class BWBClient(BaseClient):
                 return root
             logger.warning(
                 "BWB SRU returned an empty page at startRecord=%d of type=%s "
-                "(attempt %d); trying again.",
+                "(%d records asked); trying again with a smaller page.",
                 start,
                 doc_type,
-                attempt + 1,
+                size,
             )
-            time.sleep(2**attempt)
+            time.sleep(min(2**attempt, 8))
         raise RuntimeError(
             f"BWB SRU error (type={doc_type}): an empty page at startRecord={start} "
             "although records remain"

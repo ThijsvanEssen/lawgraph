@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from lawgraph.clients.bwb import SRU_PAGE_SIZE, BWBClient
+from lawgraph.clients.bwb import EMPTY_PAGE_SIZES, SRU_PAGE_SIZE, BWBClient
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
@@ -19,7 +19,7 @@ def _client(responses: list[str], calls: list[dict]) -> BWBClient:
     client = BWBClient.__new__(BWBClient)  # no HTTP session needed
 
     def fake_get(url, *, params=None, timeout=30, **_kw):
-        calls.append(params)
+        calls.append(dict(params))
         return SimpleNamespace(text=responses.pop(0))
 
     client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
@@ -98,9 +98,31 @@ def test_an_empty_page_in_the_middle_is_not_the_end_of_the_list() -> None:
 
 def test_an_empty_page_that_stays_empty_raises() -> None:
     total = SRU_PAGE_SIZE + 3
-    responses = [_page(SRU_PAGE_SIZE, total)] + [_empty_page(total)] * 4
+    responses = [_page(SRU_PAGE_SIZE, total)] + [_empty_page(total)] * len(
+        EMPTY_PAGE_SIZES
+    )
     with pytest.raises(RuntimeError, match="empty page at startRecord=1001"):
         _client(responses, []).enumerate_all_ids(types=("wet",))
+
+
+def test_an_empty_page_is_asked_again_with_a_smaller_page() -> None:
+    calls: list[dict] = []
+    total = SRU_PAGE_SIZE + 3
+    responses = [
+        _page(SRU_PAGE_SIZE, total),
+        _empty_page(total),
+        _empty_page(total),
+        _empty_page(total),  # 500 records asked: empty too
+        _page(3, total),  # 250 records asked: the service answers
+    ]
+    _client(responses, calls).enumerate_all_ids(types=("wet",))
+    assert [c["maximumRecords"] for c in calls] == [
+        str(SRU_PAGE_SIZE),
+        str(SRU_PAGE_SIZE),
+        str(SRU_PAGE_SIZE),
+        "500",
+        "250",
+    ]
 
 
 def test_records_that_do_not_add_up_to_the_reported_total_raise() -> None:
