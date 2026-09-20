@@ -1,8 +1,4 @@
-"""Domain constants for LawGraph — collection names, relation types, source IDs, raw kinds.
-
-These are compile-time string constants (never env-var derived).
-Runtime configuration (database URL, credentials, external endpoints) lives in settings.py.
-"""
+"""Names used across LawGraph: collections, relation types, source ids, raw kinds."""
 
 from __future__ import annotations
 
@@ -29,6 +25,29 @@ COLLECTION_TOPICS = "topics"
 COLLECTION_RAW_SOURCES = "raw_sources"
 COLLECTION_WATCHES = "watches"
 COLLECTION_ANNEXES = "annexes"
+COLLECTION_EDGES = "edges"
+
+DOCUMENT_COLLECTIONS: tuple[str, ...] = (
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_CASES,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_TOPICS,
+    COLLECTION_RAW_SOURCES,
+    COLLECTION_DOSSIERS,
+    COLLECTION_ACTIVITIES,
+    COLLECTION_DECISIONS,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_MEMBERS,
+    COLLECTION_FACTIONS,
+    COLLECTION_EDGE_STATUS_LOG,
+    COLLECTION_WATCHES,
+    COLLECTION_ANNEXES,
+)
 
 # ── Edge status values ────────────────────────────────────────────────────────
 
@@ -110,14 +129,6 @@ SOURCE_TK = "tk"
 SOURCE_RECHTSPRAAK = "rechtspraak"
 SOURCE_EURLEX = "eurlex"
 SOURCE_BWB = "bwb"
-
-# Short citation codes recognised in judgment text when no alias table is loaded from the
-# database: Sr = Wetboek van Strafrecht, Sv = Wetboek van Strafvordering, WVW = Wegenverkeerswet.
-DEFAULT_CODE_ALIASES: dict[str, str] = {
-    "Sr": "BWBR0001854",
-    "Sv": "BWBR0001903",
-    "WVW": "BWBR0006622",
-}
 
 # BWB ``dcterms.type`` values that count as instruments: rules with a basis in a
 # power laid down in law (statutes, AMvBs, KBs, ministerial regulations, ZBO/PBO

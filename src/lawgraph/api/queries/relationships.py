@@ -14,6 +14,7 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
+    COLLECTION_EDGES,
     EDGE_STATUS_CANONIEK,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
@@ -21,7 +22,6 @@ from lawgraph.config.constants import (
     SEMANTIC_RELATIONSHIP_TYPES,
     SEMANTIC_SOURCES,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import ArangoStore

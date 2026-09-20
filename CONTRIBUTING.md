@@ -6,7 +6,7 @@
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env                 # set ARANGO_PASSWORD and ARANGO_ROOT_PASSWORD
-docker-compose up -d arangodb        # then create the database named in ARANGO_DB_NAME
+docker compose up -d arangodb        # the database itself is created on first use
 ```
 
 The test suite needs no database.
@@ -16,7 +16,8 @@ The test suite needs no database.
 ```bash
 pytest tests -q
 ruff check src tests
-pre-commit run --all-files           # black, ruff --fix, isort, whitespace and YAML checks
+ruff format --check src tests
+pre-commit run --all-files           # ruff --fix, ruff format, whitespace and YAML checks
 ```
 
 Pull requests run the same checks in CI. Fix all findings before pushing.
@@ -27,8 +28,11 @@ Pull requests run the same checks in CI. Fix all findings before pushing.
 - Keys come from `make_node_key()` (`lawgraph.core.models`); re-running a pipeline must
   produce the same keys and upsert, never duplicate.
 - Collection names, relation names and source ids are constants in
-  `src/lawgraph/config/constants.py`; runtime configuration is read in
-  `src/lawgraph/config/settings.py`. No hardcoded strings.
+  `src/lawgraph/config/constants.py`, also inside AQL. Only
+  `src/lawgraph/config/settings.py` reads the environment; a new variable also goes into
+  `.env.example` and `docs/operations.md`.
+- A command ends through `run_step` (`pipelines/factory.py`) so that exit codes stay uniform;
+  the one date option is `--since`, offered only where the pipeline filters on it.
 - New relation names go into `src/lawgraph/core/relations.py`; regenerate the tables in
   `docs/data-model.md` with `python -m lawgraph.core.relations`.
 - Pipelines follow the naming rule, return a `PipelineResult` from `run()`, write in bulk

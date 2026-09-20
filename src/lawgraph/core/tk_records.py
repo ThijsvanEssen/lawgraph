@@ -37,8 +37,6 @@ COMMITMENT_STATUS = {
 VOTE_FOR = "Voor"
 VOTE_AGAINST = "Tegen"
 
-# Besluit.StemmingsSoort for a roll-call: every member votes individually.
-ROLL_CALL = "Hoofdelijk"
 VOTE_KIND_MEMBER = "member"
 VOTE_KIND_FACTION = "faction"
 

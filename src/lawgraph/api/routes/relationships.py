@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import secrets
 from typing import Annotated
 
@@ -24,24 +23,19 @@ from lawgraph.api.schemas.relationships import (
     RelationshipVoteResponse,
 )
 from lawgraph.config.constants import SEMANTIC_RELATIONSHIP_TYPES, SEMANTIC_SOURCES
+from lawgraph.config.settings import curation_api_key
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
 logger = get_logger(__name__)
 
-_CURATION_KEY_ENV = "LAWGRAPH_CURATION_API_KEY"
-
 
 def _require_curation_key(
     x_curation_key: Annotated[str | None, Header()] = None,
 ) -> None:
-    """Gate curation writes behind a shared API key.
-
-    Shared-key gate (role-based auth is not built): the key is set via
-    LAWGRAPH_CURATION_API_KEY; when unset, curation endpoints are disabled.
-    """
-    expected = os.getenv(_CURATION_KEY_ENV)
+    """Require the shared curation key; curation is disabled while no key is configured."""
+    expected = curation_api_key()
     if not expected:
         raise HTTPException(
             status_code=503,

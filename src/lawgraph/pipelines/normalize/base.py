@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from typing import Any
 
+from lawgraph.config.constants import COLLECTION_RAW_SOURCES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.raw_records import group_by_kind, meta, payload_json, payload_text
@@ -75,7 +76,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
         since_iso = iso_timestamp(since)
         since_filter = "FILTER r.fetched_at >= @since" if since_iso else ""
         aql = f"""
-        FOR r IN raw_sources
+        FOR r IN {COLLECTION_RAW_SOURCES}
             FILTER r.source == @source
             FILTER r.kind IN @kinds
             {since_filter}
@@ -98,15 +99,15 @@ class NormalizePipelineBase(PipelineBase, ABC):
         bind_vars = {"source": source, "kinds": kinds}
 
         if since_iso is None:
-            aql = """
-            FOR r IN raw_sources
+            aql = f"""
+            FOR r IN {COLLECTION_RAW_SOURCES}
                 FILTER r.source == @source
                 FILTER r.kind IN @kinds
             RETURN r
             """
         else:
-            aql = """
-            FOR r IN raw_sources
+            aql = f"""
+            FOR r IN {COLLECTION_RAW_SOURCES}
                 FILTER r.source == @source
                 FILTER r.kind IN @kinds
                 FILTER r.fetched_at >= @since

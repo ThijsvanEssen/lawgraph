@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
@@ -23,7 +24,6 @@ from lawgraph.config.constants import (
     RELATION_MEMBER_OF,
     RELATION_VOTED,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 
@@ -83,7 +83,7 @@ def get_node_with_neighbors(
     collection: str,
     key: str,
     *,
-    neighbor_limit: int = 100,
+    neighbor_limit: int = _DEFAULT_NEIGHBOR_LIMIT,
 ) -> NodeGraphData:
     """Retrieve a node together with its unified-edge neighbors."""
     if collection not in _ALLOWED_NODE_COLLECTIONS:
@@ -183,8 +183,8 @@ def _collect_neighbors(
     store: ArangoStore,
     node_id: str,
     *,
-    neighbor_limit: int = 100,
-    per_relation_default: int = 30,
+    neighbor_limit: int = _DEFAULT_NEIGHBOR_LIMIT,
+    per_relation_default: int = _DEFAULT_PER_RELATION_CAP,
 ) -> list[NeighborEntry]:
     """Return neighbors with per-relation and overall caps applied in AQL.
 

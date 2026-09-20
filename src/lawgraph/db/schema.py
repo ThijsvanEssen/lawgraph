@@ -1,14 +1,30 @@
-"""ArangoDB schema management — collections, indexes, analyzers, search views.
-
-Extracted from ArangoStore so the store class focuses on data operations.
-Called once from ArangoStore.__init__; also callable standalone (e.g. in tests
-or tooling that needs a schema without a full store instance).
-"""
+"""ArangoDB schema: collections, indexes, analyzers and search views."""
 
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
+
+from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
+    COLLECTION_ANNEXES,
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_ARTICLES,
+    COLLECTION_CASES,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_EDGE_STATUS_LOG,
+    COLLECTION_EDGES,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_RAW_SOURCES,
+    COLLECTION_WATCHES,
+    DOCUMENT_COLLECTIONS,
+)
 
 if TYPE_CHECKING:
     from arango.database import StandardDatabase
@@ -26,8 +42,6 @@ def ensure_schema(db: StandardDatabase) -> None:
 
 def ensure_collections(db: StandardDatabase) -> None:
     """Create missing document and edge collections."""
-    from lawgraph.config.settings import COLLECTION_EDGES, DOCUMENT_COLLECTIONS
-
     for name in DOCUMENT_COLLECTIONS:
         if not db.has_collection(name):
             db.create_collection(name)
@@ -106,6 +120,20 @@ def _ensure_analyzers(db: StandardDatabase) -> None:
             logger.warning("Failed to create analyzer %s: %s", spec["name"], exc)
 
 
+def _indexed_fields(links: dict[str, Any]) -> dict[str, dict[str, frozenset[str]]]:
+    """collection -> field -> analyzers: the part of a view definition that we specify.
+
+    The server returns links with its own defaults added and analyzers in its own order.
+    """
+    return {
+        collection: {
+            field: frozenset(spec.get("analyzers", ()))
+            for field, spec in link["fields"]["props"]["fields"].items()
+        }
+        for collection, link in links.items()
+    }
+
+
 def _ensure_search_views(db: StandardDatabase) -> None:
     """Ensure ArangoSearch views back the /api/search text-search path.
 
@@ -121,7 +149,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
     """
     view_specs: dict[str, dict[str, Any]] = {
         "search_articles": {
-            "articles": {
+            COLLECTION_ARTICLES: {
                 "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
                 "text": ["text_en"],
                 "article_number": ["text_en", "identity", "lawgraph_norm"],
@@ -129,7 +157,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
             },
         },
         "search_instruments": {
-            "instruments": {
+            COLLECTION_INSTRUMENTS: {
                 "title": ["text_en", "lawgraph_ngram_v2"],
                 "citation_title": ["text_en", "identity", "lawgraph_ngram_v2"],
                 "official_title": ["text_en", "lawgraph_ngram_v2"],
@@ -139,7 +167,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
             },
         },
         "search_judgments": {
-            "judgments": {
+            COLLECTION_JUDGMENTS: {
                 "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
                 "summary": ["text_en"],
                 "ecli": ["identity", "lawgraph_norm"],
@@ -147,21 +175,21 @@ def _ensure_search_views(db: StandardDatabase) -> None:
             },
         },
         "search_dossiers": {
-            "dossiers": {
+            COLLECTION_DOSSIERS: {
                 "title": ["text_en", "lawgraph_ngram_v2"],
                 "display_name": ["text_en", "lawgraph_ngram_v2"],
                 "number": ["identity", "lawgraph_norm"],
             },
         },
         "search_documents": {
-            "documents": {
+            COLLECTION_DOCUMENTS: {
                 "title": ["text_en", "lawgraph_ngram_v2"],
                 "display_name": ["text_en", "lawgraph_ngram_v2"],
                 "external_id": ["identity", "lawgraph_norm"],
             },
         },
         "search_committees": {
-            "committees": {
+            COLLECTION_COMMITTEES: {
                 "name": ["text_en", "lawgraph_ngram_v2"],
                 "abbreviation": ["text_en", "identity", "lawgraph_norm"],
             },
@@ -190,9 +218,8 @@ def _ensure_search_views(db: StandardDatabase) -> None:
                 db.create_arangosearch_view(view_name, properties=properties)
                 logger.info("Created ArangoSearch view %s", view_name)
             else:
-                current = db.view(view_name)
-                current_links = current.get("links", {})
-                if current_links != view_links:
+                current_links = db.view(view_name).get("links", {})
+                if _indexed_fields(current_links) != _indexed_fields(view_links):
                     db.update_arangosearch_view(view_name, properties=properties)
                     logger.info("Updated ArangoSearch view %s", view_name)
         except Exception as exc:
@@ -209,87 +236,95 @@ def _ensure_indexes(db: StandardDatabase) -> None:
     because the result must include nulls. Equality filters are fine
     with sparse indexes (the filter inherently excludes nulls).
     """
-    from lawgraph.config.settings import COLLECTION_EDGES
-
     # (collection, fields, unique) or (collection, fields, unique, sparse);
     # an omitted ``sparse`` defaults to True.
     index_specs: list[
         tuple[str, list[str], bool] | tuple[str, list[str], bool, bool]
     ] = [
         # Array indexes on labels
-        ("articles", ["labels[*]"], False),
-        ("documents", ["labels[*]"], False),
-        ("judgments", ["labels[*]"], False),
-        ("cases", ["labels[*]"], False),
-        ("dossiers", ["labels[*]"], False),
+        (COLLECTION_ARTICLES, ["labels[*]"], False),
+        (COLLECTION_DOCUMENTS, ["labels[*]"], False),
+        (COLLECTION_JUDGMENTS, ["labels[*]"], False),
+        (COLLECTION_CASES, ["labels[*]"], False),
+        (COLLECTION_DOSSIERS, ["labels[*]"], False),
         # Node field indexes
-        ("instruments", ["props.bwb_id"], True),
-        ("instruments", ["props.celex"], True),
-        ("articles", ["props.bwb_id", "props.article_number"], True),
-        ("articles", ["props.celex", "props.article_number"], True),
+        (COLLECTION_INSTRUMENTS, ["props.bwb_id"], True),
+        (COLLECTION_INSTRUMENTS, ["props.celex"], True),
+        (COLLECTION_ARTICLES, ["props.bwb_id", "props.article_number"], True),
+        (COLLECTION_ARTICLES, ["props.celex", "props.article_number"], True),
         # article identity across versions (BWB stam-id): the amendments pipeline
         # resolves (bwb_id, stam_id) pairs in bulk and streams versions sorted by them
-        ("articles", ["props.bwb_id", "props.stam_id"], False, True),
+        (COLLECTION_ARTICLES, ["props.bwb_id", "props.stam_id"], False, True),
         (
-            "article_versions",
+            COLLECTION_ARTICLE_VERSIONS,
             ["props.bwb_id", "props.stam_id"],
             False,
             False,
         ),
         # Law history version indexes
-        ("instrument_versions", ["props.bwb_id", "props.valid_from"], False, False),
-        ("instrument_versions", ["props.bwb_id", "props.current"], False, True),
         (
-            "article_versions",
-            ["props.bwb_id", "props.article_number", "props.valid_from"],
-            False,
-            False,
-        ),
-        (
-            "article_versions",
+            COLLECTION_INSTRUMENT_VERSIONS,
             ["props.bwb_id", "props.valid_from"],
             False,
             False,
         ),
         (
-            "article_versions",
+            COLLECTION_INSTRUMENT_VERSIONS,
+            ["props.bwb_id", "props.current"],
+            False,
+            True,
+        ),
+        (
+            COLLECTION_ARTICLE_VERSIONS,
+            ["props.bwb_id", "props.article_number", "props.valid_from"],
+            False,
+            False,
+        ),
+        (
+            COLLECTION_ARTICLE_VERSIONS,
+            ["props.bwb_id", "props.valid_from"],
+            False,
+            False,
+        ),
+        (
+            COLLECTION_ARTICLE_VERSIONS,
             ["props.bwb_id", "props.article_number", "props.current"],
             False,
             True,
         ),
-        ("judgments", ["props.ecli"], True),
-        ("judgments", ["props.source"], False, True),
-        ("documents", ["props.source"], False, True),
+        (COLLECTION_JUDGMENTS, ["props.ecli"], True),
+        (COLLECTION_JUDGMENTS, ["props.source"], False, True),
+        (COLLECTION_DOCUMENTS, ["props.source"], False, True),
         # Precomputed list-endpoint keys, written by ``list_stats`` and the
         # normalize pipelines. Required for index-served filters and sorts on
         # /api/instruments and /api/judgments.
         # The sort-key indexes (article_count, date_eff) are non-sparse so the
         # optimiser uses them for ``SORT field DESC LIMIT n``; the rest stay
         # sparse since they only serve equality filters.
-        ("instruments", ["props.jurisdiction"], False, True),
-        ("instruments", ["props.kind"], False, True),
-        ("instruments", ["props.article_count"], False, False),
-        ("judgments", ["props.tier"], False, True),
-        ("judgments", ["props.court_code"], False, True),
-        ("judgments", ["props.date_eff"], False, False),
-        ("judgments", ["props.inbound_citation_count"], False, False),
-        ("articles", ["props.inbound_citation_count"], False, False),
+        (COLLECTION_INSTRUMENTS, ["props.jurisdiction"], False, True),
+        (COLLECTION_INSTRUMENTS, ["props.kind"], False, True),
+        (COLLECTION_INSTRUMENTS, ["props.article_count"], False, False),
+        (COLLECTION_JUDGMENTS, ["props.tier"], False, True),
+        (COLLECTION_JUDGMENTS, ["props.court_code"], False, True),
+        (COLLECTION_JUDGMENTS, ["props.date_eff"], False, False),
+        (COLLECTION_JUDGMENTS, ["props.inbound_citation_count"], False, False),
+        (COLLECTION_ARTICLES, ["props.inbound_citation_count"], False, False),
         # Title-sort key for /api/instruments default list.
-        ("instruments", ["props.citation_title"], False, False),
-        ("documents", ["props.kind"], False),
-        ("documents", ["props.date"], False),
-        ("documents", ["props.dossier_number"], False),
-        ("dossiers", ["props.number"], False),
-        ("dossiers", ["props.closed"], False),
-        ("dossiers", ["props.closed_on"], False),
-        ("activities", ["props.date"], False),
-        ("decisions", ["props.passed"], False),
-        ("decisions", ["props.date"], False),
-        ("commitments", ["props.dossier_id"], False),
-        ("commitments", ["props.status"], False),
-        ("watches", ["node_id"], False),
+        (COLLECTION_INSTRUMENTS, ["props.citation_title"], False, False),
+        (COLLECTION_DOCUMENTS, ["props.kind"], False),
+        (COLLECTION_DOCUMENTS, ["props.date"], False),
+        (COLLECTION_DOCUMENTS, ["props.dossier_number"], False),
+        (COLLECTION_DOSSIERS, ["props.number"], False),
+        (COLLECTION_DOSSIERS, ["props.closed"], False),
+        (COLLECTION_DOSSIERS, ["props.closed_on"], False),
+        (COLLECTION_ACTIVITIES, ["props.date"], False),
+        (COLLECTION_DECISIONS, ["props.passed"], False),
+        (COLLECTION_DECISIONS, ["props.date"], False),
+        (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
+        (COLLECTION_COMMITMENTS, ["props.status"], False),
+        (COLLECTION_WATCHES, ["node_id"], False),
         # raw_sources — needed for normalize pipelines scanning by source+kind
-        ("raw_sources", ["source", "kind"], False),
+        (COLLECTION_RAW_SOURCES, ["source", "kind"], False),
         # Edge indexes — critical for all traversal queries
         (COLLECTION_EDGES, ["relation"], False),
         (COLLECTION_EDGES, ["_from", "relation"], False),
@@ -297,8 +332,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_EDGES, ["status"], False),
         (COLLECTION_EDGES, ["status", "relation"], False),
         # edge_status_log indexes — for audit log time-range and key lookups
-        ("edge_status_log", ["timestamp"], False),
-        ("edge_status_log", ["edge_key"], False),
+        (COLLECTION_EDGE_STATUS_LOG, ["timestamp"], False),
+        (COLLECTION_EDGE_STATUS_LOG, ["edge_key"], False),
         # edges confidence — for semantic filtering by confidence threshold
         (COLLECTION_EDGES, ["confidence"], False),
         # Semantic relationship type layer — equality filters only, so sparse
@@ -307,7 +342,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_EDGES, ["_from", "semantic_type"], False),
         (COLLECTION_EDGES, ["semantic_source"], False),
         # annexes — lookups by parent law
-        ("annexes", ["props.bwb_id"], False),
+        (COLLECTION_ANNEXES, ["props.bwb_id"], False),
         # NOTE: we deliberately *don't* index ``edges.created_at``. The planner
         # picks it up for the heat-window scan, but the index range covers 25%
         # of the collection so it triggers a MaterializeNode (load full doc per

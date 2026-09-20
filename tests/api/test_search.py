@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import parse_search_query, tokenize_search_query
+from lawgraph.api.queries.search import parse_search_query, tokenize_search_query
 
 # ── Pure-function tests for the parser ────────────────────────────────────────
 

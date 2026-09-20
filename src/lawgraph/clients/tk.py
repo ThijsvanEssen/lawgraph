@@ -1,4 +1,4 @@
-"""Client voor de OData API van het Gegevensmagazijn van de Tweede Kamer."""
+"""Client for the OData API of the Tweede Kamer Gegevensmagazijn."""
 
 from __future__ import annotations
 
@@ -33,8 +33,7 @@ class TKClient(BaseClient):
 
     def __init__(self, session=None) -> None:
         super().__init__(
-            env_var="TK_API_BASE",
-            default_base_url=TK_BASE_URL,
+            base_url=TK_BASE_URL,
             session=session,
         )
 
@@ -81,10 +80,6 @@ class TKClient(BaseClient):
             params["$top"] = top
         logger.info("Fetching Zaak modified since %s", since_string)
         return list(self._paged_get("Zaak", params=params))
-
-    def raw_entity(self, entity: str, params: dict | None = None) -> list[dict]:
-        """Fetch an arbitrary TK entity via paged OData listing."""
-        return list(self._paged_get(entity, params=params))
 
     def fetch_document_bytes(self, document_id: str, *, timeout: int = 60) -> bytes:
         """Fetch the raw binary content of a TK document by its UUID."""

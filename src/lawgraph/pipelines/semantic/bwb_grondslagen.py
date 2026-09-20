@@ -16,13 +16,13 @@ one existence check for the regulations and one for the target articles.
 
 from __future__ import annotations
 
-import datetime as dt
 import xml.etree.ElementTree as ET
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_RAW_SOURCES,
     RAW_KIND_BWB_TOESTAND,
     RELATION_BASED_ON,
     SOURCE_BWB,
@@ -41,15 +41,15 @@ SEMANTIC_SOURCE = "bwb-grondslagen-linker"
 
 _XML_CHUNK = 50  # toestand XML documents are large; keep few in memory at once
 
-_TOESTAND_AQL = """
-FOR rs IN raw_sources
+_TOESTAND_AQL = f"""
+FOR rs IN {COLLECTION_RAW_SOURCES}
   FILTER rs.source == @source
   FILTER rs.kind == @kind
   FILTER rs.payload_text != null
-  RETURN {
+  RETURN {{
     bwb_id: rs.meta.bwb_id || rs.external_id || rs.identifier,
     xml: rs.payload_text
-  }
+  }}
 """
 
 # (regulation key, target article key, the "Gelet op" reference)
@@ -59,8 +59,7 @@ _Link = tuple[str, str, BasisRef]
 class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
     """Create BASED_ON edges from BWB regulations to their legal-basis articles."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        """Idempotent; ``since`` is ignored (the basis is read from all current XML)."""
+    def run(self) -> PipelineResult:
         result = PipelineResult()
         edges = EdgeWriter(self.store)
         rows = self.store.query(

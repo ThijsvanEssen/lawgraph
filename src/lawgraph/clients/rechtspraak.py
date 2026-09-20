@@ -20,8 +20,7 @@ class RechtspraakClient(BaseClient):
     def __init__(self, session=None) -> None:
         """Set up the Rechtspraak API client with optional session injection."""
         super().__init__(
-            env_var="RECHTSPRAAK_BASE",
-            default_base_url=RECHTSPRAAK_BASE_URL,
+            base_url=RECHTSPRAAK_BASE_URL,
             session=session,
         )
 

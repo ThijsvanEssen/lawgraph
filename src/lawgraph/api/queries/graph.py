@@ -7,6 +7,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_AMENDS,
@@ -15,7 +16,6 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 
@@ -66,13 +66,13 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
     """
     instruments: list[dict[str, Any]] = list(
         store.query(
-            """
-        FOR inst IN instruments
+            f"""
+        FOR inst IN {COLLECTION_INSTRUMENTS}
             FILTER inst.props.stub != true OR inst.props.stub == null
-            RETURN {
+            RETURN {{
                 _id: inst._id,
                 _key: inst._key,
-                props: {
+                props: {{
                     bwb_id: inst.props.bwb_id,
                     celex: inst.props.celex,
                     display_name: inst.props.display_name,
@@ -82,8 +82,8 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
                     shorthand: inst.props.shorthand,
                     jurisdiction: inst.props.jurisdiction,
                     stub: inst.props.stub
-                }
-            }
+                }}
+            }}
     """
         )
     )
@@ -101,7 +101,7 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
         store.query(
             f"""
         LET id_to_bwb = MERGE(
-            FOR a IN articles
+            FOR a IN {COLLECTION_ARTICLES}
                 FILTER a.props.bwb_id != null
                 RETURN {{ [a._id]: a.props.bwb_id }}
         )
@@ -212,7 +212,7 @@ def get_judgment_graph(
         store.query(
             f"""
         LET id_to_bwb = MERGE(
-            FOR a IN articles
+            FOR a IN {COLLECTION_ARTICLES}
                 FILTER a.props.bwb_id != null
                 RETURN {{ [a._id]: a.props.bwb_id }}
         )
@@ -241,8 +241,8 @@ def get_judgment_graph(
     if cited_bwb:
         instruments = list(
             store.query(
-                """
-            FOR i IN instruments
+                f"""
+            FOR i IN {COLLECTION_INSTRUMENTS}
                 FILTER i.props.bwb_id IN @bwb_ids
                 RETURN i
         """,
@@ -281,8 +281,8 @@ def get_global_graph(
     """Return a sample global graph: all instruments, stub articles, and optional judgments."""
     instruments: list[dict[str, Any]] = list(
         store.query(
-            """
-        FOR inst IN instruments
+            f"""
+        FOR inst IN {COLLECTION_INSTRUMENTS}
             FILTER inst.props.stub != true OR inst.props.stub == null
             RETURN inst
     """
@@ -290,8 +290,8 @@ def get_global_graph(
     )
     articles: list[dict[str, Any]] = list(
         store.query(
-            """
-        FOR art IN articles
+            f"""
+        FOR art IN {COLLECTION_ARTICLES}
             LIMIT 5000
             RETURN art
     """

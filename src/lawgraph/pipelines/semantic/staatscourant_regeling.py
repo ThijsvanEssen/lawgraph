@@ -14,6 +14,7 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
     RELATION_EXPLAINS,
     SOURCE_STAATSCOURANT,
@@ -46,12 +47,12 @@ class StaatscourantRegelingSemanticPipeline(SemanticPipelineBase):
 
         # Strategy 1: explicit bwb_id stored during normalization
         aql_bwb = f"""
-FOR pub IN documents
+FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.source == @source
   FILTER pub.props.bwb_id != null
   {since_filter}
   LET inst = FIRST(
-    FOR i IN instruments
+    FOR i IN {COLLECTION_INSTRUMENTS}
       FILTER UPPER(i.props.bwb_id) == UPPER(pub.props.bwb_id)
       LIMIT 1
       RETURN i
@@ -66,12 +67,12 @@ FOR pub IN documents
 
         # Strategy 2: title match against citation_title
         aql_title = f"""
-FOR pub IN documents
+FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.source == @source
   FILTER pub.props.bwb_id == null
   FILTER pub.props.title != null AND LENGTH(pub.props.title) > 5
   {since_filter}
-  FOR inst IN instruments
+  FOR inst IN {COLLECTION_INSTRUMENTS}
     FILTER inst.props.citation_title != null AND LENGTH(inst.props.citation_title) > 5
     FILTER CONTAINS(LOWER(pub.props.title), LOWER(inst.props.citation_title))
     LIMIT 1
@@ -165,7 +166,7 @@ FOR pub IN documents
         """Find BWBR IDs in regeling text and match to instruments."""
         since_filter = "FILTER pub.props.date >= @since_iso" if since else ""
         aql = f"""
-FOR pub IN documents
+FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 100
   {since_filter}
@@ -199,10 +200,10 @@ FOR pub IN documents
             return results
 
         # Single batch query to resolve all bwb_ids to instruments.
-        inst_aql = """
-FOR inst IN instruments
+        inst_aql = f"""
+FOR inst IN {COLLECTION_INSTRUMENTS}
   FILTER UPPER(inst.props.bwb_id) IN @bwb_ids
-  RETURN { bwb_id: UPPER(inst.props.bwb_id), inst_id: inst._id, inst_key: inst._key }
+  RETURN {{ bwb_id: UPPER(inst.props.bwb_id), inst_id: inst._id, inst_key: inst._key }}
 """
         bwb_to_inst: dict[str, dict[str, str]] = {}
         try:

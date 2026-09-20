@@ -20,8 +20,7 @@ class EUClient(BaseClient):
 
     def __init__(self, session=None) -> None:
         super().__init__(
-            env_var="EURLEX_BASE",
-            default_base_url=EURLEX_BASE_URL,
+            base_url=EURLEX_BASE_URL,
             session=session,
         )
 

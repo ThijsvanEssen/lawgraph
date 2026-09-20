@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from lawgraph.clients.staatsblad import StaatsbladClient
-from lawgraph.config.constants import RAW_KIND_STB_AMVB, SOURCE_BWB, SOURCE_STAATSBLAD
+from lawgraph.config.constants import (
+    COLLECTION_RAW_SOURCES,
+    RAW_KIND_STB_AMVB,
+    SOURCE_BWB,
+    SOURCE_STAATSBLAD,
+)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
@@ -104,10 +109,10 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         self, store: ArangoStore
     ) -> tuple[list[dict], str | None]:
         """Query raw_sources for all BWB instrument IDs. Returns (rows, error_msg)."""
-        aql = """
-        FOR r IN raw_sources
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
           FILTER r.source == @source AND r.external_id != null
-          RETURN { bwb_id: r.external_id }
+          RETURN {{ bwb_id: r.external_id }}
         """
         try:
             rows = list(store.query(aql, bind_vars={"source": SOURCE_BWB}))
@@ -126,10 +131,10 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         if not bwb_ids:
             return bwb_xml_by_id
 
-        aql = """
-        FOR r IN raw_sources
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
           FILTER r.source == 'bwb' AND r.external_id IN @bwb_ids
-          RETURN { bwb_id: r.external_id, payload_text: r.payload_text }
+          RETURN {{ bwb_id: r.external_id, payload_text: r.payload_text }}
         """
         try:
             for raw_row in store.query(aql, bind_vars={"bwb_ids": bwb_ids}):
@@ -181,8 +186,8 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             return existing
 
         candidate_ids = list({identifier for _, identifier, _ in candidate_refs})
-        aql = """
-        FOR r IN raw_sources
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
           FILTER r.source == @source AND r.external_id IN @ext_ids
           RETURN r.external_id
         """

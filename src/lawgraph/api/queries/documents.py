@@ -6,10 +6,10 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
+    COLLECTION_EDGES,
     RELATION_EXPLAINS,
     RELATION_REFERS_TO,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 

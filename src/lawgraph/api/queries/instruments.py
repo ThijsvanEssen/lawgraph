@@ -8,7 +8,10 @@ from typing import Any
 from lawgraph.api.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.api.queries.search import build_search_clause, tokenize_search_query
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_EDGES,
+    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_AMENDS,
@@ -18,7 +21,6 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.models import make_node_key, parse_arango_id
 from lawgraph.db import ArangoStore
 
@@ -66,7 +68,7 @@ def get_articles(
     stub_filter = "" if include_stubs else "FILTER doc.props.stub != true"
     aql = f"""
     LET filtered = (
-        FOR doc IN articles
+        FOR doc IN {COLLECTION_ARTICLES}
             FILTER doc.props.bwb_id == @bwb_id
             {stub_filter}
             RETURN doc
@@ -130,7 +132,7 @@ def get_instrument_edges_bundle(
     # in_edges excludes them via FILTER e._from NOT IN focal_ids.
     aql = f"""
     LET focal_ids = (
-        FOR a IN articles
+        FOR a IN {COLLECTION_ARTICLES}
             FILTER a.props.bwb_id == @bwb
             RETURN a._id
     )
@@ -161,7 +163,7 @@ def get_instrument_edges_bundle(
     )
     LET edges = SLICE(APPEND(out_edges, in_edges), 0, @max_edges)
     LET foreign_ids = UNIQUE(
-        FOR e IN edges
+        FOR e IN {COLLECTION_EDGES}
             FOR id IN [e.from, e.to]
                 FILTER id NOT IN focal_ids
                 RETURN id
@@ -219,7 +221,7 @@ def get_instrument_judgments(
     """
     aql = f"""
     LET focal_ids = (
-        FOR a IN articles
+        FOR a IN {COLLECTION_ARTICLES}
             FILTER a.props.bwb_id == @bwb
             RETURN a._id
     )
@@ -457,7 +459,7 @@ def get_instrument_related_instruments(
     # the props.bwb_id B-tree index with a direct equality filter.
     aql = f"""
     LET focal_article_ids = (
-        FOR a IN articles
+        FOR a IN {COLLECTION_ARTICLES}
             FILTER a.props.bwb_id == @bwb
             RETURN a._id
     )
@@ -489,7 +491,7 @@ def get_instrument_related_instruments(
             LET out_n = out_map[b] != null ? out_map[b] : 0
             LET in_n  = in_map[b]  != null ? in_map[b]  : 0
             LET inst = FIRST(
-                FOR i IN instruments
+                FOR i IN {COLLECTION_INSTRUMENTS}
                     FILTER i.props.bwb_id == b
                     LIMIT 1 RETURN i
             )
@@ -585,7 +587,7 @@ def get_instruments_list(
     source = (
         f'FOR doc IN search_instruments SEARCH ANALYZER({search_clause}, "text_en")'
         if use_search
-        else "FOR doc IN instruments"
+        else f"FOR doc IN {COLLECTION_INSTRUMENTS}"
     )
 
     # Single FOR with SORT + LIMIT against indexed props — planner picks
@@ -625,7 +627,7 @@ def get_instruments_list(
         count_source = (
             f'FOR doc IN search_instruments SEARCH ANALYZER({search_clause}, "text_en")'
             if use_search
-            else "FOR doc IN instruments"
+            else f"FOR doc IN {COLLECTION_INSTRUMENTS}"
         )
         aql += f"""
     LET total = LENGTH(
@@ -652,8 +654,8 @@ def get_instrument_versions(
     bwb_id: str,
 ) -> list[dict[str, Any]]:
     """Return all historical versions for an instrument, newest first."""
-    aql = """
-    FOR doc IN instrument_versions
+    aql = f"""
+    FOR doc IN {COLLECTION_INSTRUMENT_VERSIONS}
         FILTER doc.props.bwb_id == @bwb_id
         SORT doc.props.valid_from DESC
         RETURN doc
@@ -667,9 +669,9 @@ def get_articles_at(
     at_date: str,
 ) -> list[dict[str, Any]]:
     """Return all article versions valid at the given date (YYYY-MM-DD), sorted naturally."""
-    aql = """
+    aql = f"""
     LET filtered = (
-        FOR doc IN article_versions
+        FOR doc IN {COLLECTION_ARTICLE_VERSIONS}
             FILTER doc.props.bwb_id == @bwb_id
             FILTER doc.props.valid_from <= @at_date
             FILTER doc.props.valid_until > @at_date OR doc.props.valid_until == null
@@ -684,24 +686,6 @@ def get_articles_at(
         RETURN doc
     """
     return list(store.query(aql, {"bwb_id": bwb_id.upper(), "at_date": at_date}))
-
-
-def get_instrument_article_history(
-    store: ArangoStore,
-    bwb_id: str,
-    article_number: str,
-) -> list[dict[str, Any]]:
-    """Return all versions of one article, newest first."""
-    aql = """
-    FOR doc IN article_versions
-        FILTER doc.props.bwb_id == @bwb_id
-        FILTER doc.props.article_number == @article_number
-        SORT doc.props.valid_from DESC
-        RETURN doc
-    """
-    return list(
-        store.query(aql, {"bwb_id": bwb_id.upper(), "article_number": article_number})
-    )
 
 
 def get_short_titles(

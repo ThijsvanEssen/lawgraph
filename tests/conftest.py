@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import importlib
+import os
 
 import pytest
+
+# The suite is offline unless asked otherwise; a developer's .env must not switch that on.
+os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
 
 
 @pytest.fixture()

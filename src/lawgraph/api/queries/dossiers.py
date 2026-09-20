@@ -16,6 +16,8 @@ from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
+    COLLECTION_MEMBERS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_ABOUT,
     RELATION_AMENDS,
@@ -26,7 +28,6 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.dossier_stages import (
     accumulate_stage_signals,
     classify_track_kind,
@@ -263,7 +264,7 @@ def get_dossier_timeline(
             FILTER node != null
             RETURN node
     )
-    FOR node IN members
+    FOR node IN {COLLECTION_MEMBERS}
         LET entry = {{
             date: (node.props.date != null ? node.props.date
                    : node.props.made_on),

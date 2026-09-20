@@ -58,8 +58,7 @@ class BWBClient(BaseClient):
     def __init__(self, session: Session | None = None) -> None:
         """Configure the BWB client with optional shared requests Session."""
         super().__init__(
-            env_var="BWB_BASE",
-            default_base_url=BWB_BASE_URL,
+            base_url=BWB_BASE_URL,
             session=session,
         )
 
@@ -139,7 +138,7 @@ class BWBClient(BaseClient):
             "query": f"dcterms.identifier=={bwb_id}",
             "maximumRecords": "500",
         }
-        logger.debug("SRU Search voor %s (%s)", bwb_id, params)
+        logger.debug("SRU search for %s (%s)", bwb_id, params)
         resp = self._get_raw_absolute_with_retry(
             BWB_SRU_ENDPOINT, params=params, timeout=30
         )
@@ -147,7 +146,7 @@ class BWBClient(BaseClient):
         try:
             root = ET.fromstring(resp.text)
         except ET.ParseError as exc:
-            logger.error("Kon SRU-antwoord voor %s niet parsen: %s", bwb_id, exc)
+            logger.error("Could not parse the SRU response for %s: %s", bwb_id, exc)
             return []
 
         toestanden: list[ToestandMeta] = []
@@ -163,7 +162,7 @@ class BWBClient(BaseClient):
         """Return the most recent valid toestand metadata for a BWB ID."""
         toestanden = self.search_toestanden(bwb_id)
         if not toestanden:
-            logger.warning("Geen BWB-toestand gevonden voor %s", bwb_id)
+            logger.warning("No BWB toestand found for %s", bwb_id)
             return None
 
         def sort_key(meta: ToestandMeta) -> tuple[dt.date, dt.date]:

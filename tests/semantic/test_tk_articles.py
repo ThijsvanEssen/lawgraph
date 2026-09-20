@@ -112,7 +112,7 @@ def _make_article(key: str, props: dict[str, Any]) -> dict[str, Any]:
 def _load_config() -> dict[str, Any]:
     return {
         "code_aliases": {"Sr": "BWBR0001854"},
-        "instrument_aliases": {"Wetboek van Strafrecht": "BWBR0001854"},
+        "instrument_aliases": {"Wetboek van Strafrecht": ("BWBR0001854", None)},
     }
 
 

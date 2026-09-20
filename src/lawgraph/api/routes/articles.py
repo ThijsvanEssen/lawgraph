@@ -5,13 +5,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
+from lawgraph.api.queries.articles import (
     get_article_citations,
+    get_article_history,
     get_article_in_flux,
     get_article_legislative_history,
     get_article_with_relations,
 )
-from lawgraph.api.queries.articles import get_article_history
 from lawgraph.api.queries.relationships import get_article_relationship_data
 from lawgraph.api.schemas.articles import (
     ArticleDetailResponse,

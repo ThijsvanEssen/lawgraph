@@ -28,3 +28,11 @@ class ParliamentSeatsResponse(BaseModel):
     assigned_seats: int
     as_of: str
     factions: list[FactionSeatsDTO]
+
+
+class PartyColorsResponse(BaseModel):
+    """Party abbreviation to hex colour."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    colors: dict[str, str]

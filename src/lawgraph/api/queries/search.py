@@ -6,6 +6,13 @@ import re
 from typing import Any
 
 from lawgraph.api.cache import _MISSING, TTLCache
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
+)
 from lawgraph.core.identifiers import is_ecli
 from lawgraph.db import ArangoStore
 
@@ -13,17 +20,17 @@ _alias_map_cache: TTLCache[str, dict[str, str]] = TTLCache(maxsize=4, ttl=60.0)
 
 # Shared LET block that pre-loads bwb→instrument metadata once per query.
 # Used by article search branches to annotate hits with parent law info.
-_INSTRUMENT_ENRICH_AQL = """
+_INSTRUMENT_ENRICH_AQL = f"""
 LET bwb_to_inst = MERGE(
-    FOR i IN instruments
+    FOR i IN {COLLECTION_INSTRUMENTS}
         FILTER i.props.bwb_id != null
-        RETURN {
-            [i.props.bwb_id]: {
+        RETURN {{
+            [i.props.bwb_id]: {{
                 citation_title: i.props.citation_title,
                 short_title: i.props.short_title,
                 title: i.props.title
-            }
-        }
+            }}
+        }}
 )
 """
 
@@ -123,15 +130,15 @@ def load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
     if cached is not _MISSING:
         return cached  # type: ignore[return-value]
 
-    aql = """
-    FOR i IN instruments
+    aql = f"""
+    FOR i IN {COLLECTION_INSTRUMENTS}
         FILTER i.props.bwb_id != null
-        RETURN {
+        RETURN {{
             bwb_id: i.props.bwb_id,
             short: i.props.short_title,
             citation: i.props.citation_title,
             title: i.props.title
-        }
+        }}
     """
     alias_map: dict[str, str] = {}
     for row in store.query(aql):
@@ -144,6 +151,22 @@ def load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
                 alias_map[value.strip().lower()] = bwb
     _alias_map_cache.set("map", alias_map)
     return alias_map
+
+
+def load_code_aliases(store: ArangoStore) -> dict[str, str]:
+    """Law abbreviation (``short_title``, e.g. ``Sr``) → bwb_id, cached for 60 s."""
+    cached = _alias_map_cache.get("codes")
+    if cached is not _MISSING:
+        return cached  # type: ignore[return-value]
+
+    aql = f"""
+    FOR i IN {COLLECTION_INSTRUMENTS}
+        FILTER i.props.bwb_id != null AND i.props.short_title != null
+        RETURN [i.props.short_title, i.props.bwb_id]
+    """
+    codes = dict(store.query(aql))
+    _alias_map_cache.set("codes", codes)
+    return codes
 
 
 def parse_search_query(q: str, alias_map: dict[str, str]) -> dict[str, Any]:
@@ -259,7 +282,7 @@ def _search_articles(
     if intent.get("kind") == "article" and intent.get("article_number"):
         precise_aql = f"""
         {_INSTRUMENT_ENRICH_AQL}
-        FOR doc IN articles
+        FOR doc IN {COLLECTION_ARTICLES}
             FILTER doc.props.article_number == @article_number
             FILTER @bwb_id == null OR doc.props.bwb_id == @bwb_id
             SORT doc.props.bwb_id ASC
@@ -347,17 +370,17 @@ def _search_judgments(
     """
 
     if intent.get("kind") == "ecli" and intent.get("ecli"):
-        ecli_aql = """
-        FOR doc IN judgments
+        ecli_aql = f"""
+        FOR doc IN {COLLECTION_JUDGMENTS}
             FILTER doc.props.ecli == @ecli
             LIMIT @limit
-            RETURN {
+            RETURN {{
                 id: doc._id, key: doc._key,
                 collection: 'judgments', type: doc.type,
                 display_name: doc.props.display_name,
                 snippet: LEFT(doc.props.summary, 200),
-                extra: { ecli: doc.props.ecli }
-            }
+                extra: {{ ecli: doc.props.ecli }}
+            }}
         """
         return _two_phase_search(
             store,
@@ -427,8 +450,8 @@ def _search_committees(
 def _search_members(
     store: ArangoStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
-    aql = """
-    FOR doc IN members
+    aql = f"""
+    FOR doc IN {COLLECTION_MEMBERS}
         LET membership_labels = (
             FOR m IN (doc.props.faction_memberships OR [])
                 RETURN CONCAT_SEPARATOR(" ",
@@ -445,13 +468,13 @@ def _search_members(
         FILTER LENGTH(FOR t IN @tokens FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0
         SORT doc.props.active DESC, doc.props.name ASC
         LIMIT @limit
-        RETURN {
+        RETURN {{
             id: doc._id, key: doc._key,
             collection: 'members', type: doc.type,
             display_name: doc.props.name,
             snippet: doc.props.party,
-            extra: { party: doc.props.party, active: doc.props.active }
-        }
+            extra: {{ party: doc.props.party, active: doc.props.active }}
+        }}
     """
     return list(store.query(aql, {"tokens": tokens, "limit": limit}))
 
@@ -459,8 +482,8 @@ def _search_members(
 def _search_factions(
     store: ArangoStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
-    aql = """
-    FOR doc IN factions
+    aql = f"""
+    FOR doc IN {COLLECTION_FACTIONS}
         LET haystack = LOWER(CONCAT_SEPARATOR(" ",
             doc.props.name OR "",
             doc.props.abbreviation OR "",
@@ -471,17 +494,17 @@ def _search_factions(
              (doc.props.seats != null ? doc.props.seats : 0) DESC,
              doc.props.name ASC
         LIMIT @limit
-        RETURN {
+        RETURN {{
             id: doc._id, key: doc._key,
             collection: 'factions', type: doc.type,
             display_name: doc.props.name,
             snippet: doc.props.abbreviation,
-            extra: {
+            extra: {{
                 abbreviation: doc.props.abbreviation,
                 seats: doc.props.seats,
                 active: doc.props.active
-            }
-        }
+            }}
+        }}
     """
     return list(store.query(aql, {"tokens": tokens, "limit": limit}))
 

@@ -44,7 +44,6 @@ def test_normalize_instrument_id() -> None:
 
 
 def test_fill_gaps_resolves_citation_title_via_toestand_parser(monkeypatch) -> None:
-    from lawgraph.clients import bwb as bwb_client
     from lawgraph.commands import fill_gaps
 
     xml = {
@@ -60,10 +59,9 @@ def test_fill_gaps_resolves_citation_title_via_toestand_parser(monkeypatch) -> N
         def fetch_toestand_xml(self, meta: dict) -> str:
             return xml[meta["bwb_id"]]
 
-    monkeypatch.setattr(bwb_client, "BWBClient", _FakeClient)
+    monkeypatch.setattr(fill_gaps, "BWBClient", _FakeClient)
     monkeypatch.setattr(fill_gaps.time, "sleep", lambda _s: None)
     result = fill_gaps._resolve_names_from_bwb(
         ["BWBR1", "BWBR2", "BWBR3"], {"BWBR9": "Bekend"}
     )
-    # inner whitespace of the title is now collapsed (was: only the outer strip)
     assert result == {"BWBR9": "Bekend", "BWBR1": "Wet op X"}

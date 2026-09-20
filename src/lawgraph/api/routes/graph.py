@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
+from lawgraph.api.queries.graph import (
     get_global_graph,
     get_instrument_layer_graph,
     get_judgment_graph,

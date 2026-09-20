@@ -68,7 +68,7 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
     session = DummySession(DummyResponse(json_data=dummy_json))
     client = TKClient(session=session)
 
-    # Forceer base_url zodat test niet afhankelijk is van .env
+    # Fixed base URL: the assertion must not depend on TK_API_BASE.
     client.base_url = "https://example.org/OData/v4/2.0/"
 
     since = dt.datetime(2025, 1, 1, 12, 0, 0)
@@ -84,7 +84,7 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
 
     flt = session.last_params.get("$filter", "")
     assert "ApiGewijzigdOp ge " in flt
-    assert "2025-01-01T12:00:00" in flt  # tijdstip moet erin zitten
+    assert "2025-01-01T12:00:00" in flt
 
     assert isinstance(result, list)
     assert result[0]["Id"] == 1

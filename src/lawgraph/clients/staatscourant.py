@@ -26,8 +26,7 @@ class StaatscourantClient(BaseClient):
 
     def __init__(self, session=None) -> None:
         super().__init__(
-            env_var="STAATSCOURANT_REPO_BASE",
-            default_base_url=STAATSCOURANT_REPO_BASE,
+            base_url=STAATSCOURANT_REPO_BASE,
             session=session,
         )
 

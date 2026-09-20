@@ -9,13 +9,15 @@ from typing import Any, cast
 from uuid import uuid4
 
 from arango.client import ArangoClient
-from arango.exceptions import DocumentInsertError
+from arango.exceptions import ArangoServerError, DocumentInsertError
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_EDGE_STATUS_LOG,
+    COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
+    DOCUMENT_COLLECTIONS,
     EDGE_STATUS_CANONIEK,
 )
 from lawgraph.config.settings import (
@@ -24,12 +26,11 @@ from lawgraph.config.settings import (
     ARANGO_REQUEST_TIMEOUT,
     ARANGO_URL,
     ARANGO_USER,
-    COLLECTION_EDGES,
 )
-from lawgraph.config.settings import DOCUMENT_COLLECTIONS as _ALL_COLLECTION_NAMES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db.schema import ensure_schema
 
 logger = get_logger(__name__)
 
@@ -54,12 +55,25 @@ _EDGE_UPSERT_UPDATE = """
 """
 
 
+def _create_database_if_missing(client: ArangoClient) -> None:
+    """Create ``ARANGO_DB_NAME`` when the user may administer the server and it is absent."""
+    system = client.db("_system", username=ARANGO_USER, password=ARANGO_PASSWORD)
+    try:
+        exists = system.has_database(ARANGO_DB_NAME)
+    except ArangoServerError:
+        return  # no access to _system: the database must already exist
+    if not exists:
+        system.create_database(ARANGO_DB_NAME)
+        logger.info("Created database %s.", ARANGO_DB_NAME)
+
+
 class ArangoStore:
     """Encapsulation of the ArangoDB client, collections, and CRUD helpers."""
 
     def __init__(self) -> None:
         client = ArangoClient(hosts=ARANGO_URL, request_timeout=ARANGO_REQUEST_TIMEOUT)
         try:
+            _create_database_if_missing(client)
             self.db = client.db(
                 ARANGO_DB_NAME, username=ARANGO_USER, password=ARANGO_PASSWORD
             )
@@ -71,12 +85,10 @@ class ArangoStore:
                 f"Original error: {exc}"
             ) from exc
 
-        from lawgraph.db.schema import ensure_schema
-
         ensure_schema(self.db)
 
         self._collections = {
-            name: self.db.collection(name) for name in _ALL_COLLECTION_NAMES
+            name: self.db.collection(name) for name in DOCUMENT_COLLECTIONS
         }
         self._collections[COLLECTION_EDGES] = self.db.collection(COLLECTION_EDGES)
 
@@ -171,7 +183,7 @@ class ArangoStore:
         if node.key is None:
             raise ValueError("Node must have a deterministic key.")
 
-        if node.collection not in _ALL_COLLECTION_NAMES:
+        if node.collection not in DOCUMENT_COLLECTIONS:
             raise ValueError(f"Unknown collection: {node.collection!r}")
 
         doc = node.to_document()
@@ -221,7 +233,7 @@ class ArangoStore:
         if not docs:
             return 0, 0
 
-        if collection not in _ALL_COLLECTION_NAMES and collection != COLLECTION_EDGES:
+        if collection not in DOCUMENT_COLLECTIONS and collection != COLLECTION_EDGES:
             raise ValueError(f"Unknown collection: {collection!r}")
 
         aql = f"""
@@ -273,7 +285,7 @@ class ArangoStore:
         One primary-index lookup per ``chunk_size`` keys — use this instead of
         ``get_node`` in a loop when you only need to know whether nodes exist.
         """
-        if collection not in _ALL_COLLECTION_NAMES:
+        if collection not in DOCUMENT_COLLECTIONS:
             raise ValueError(f"Unknown collection: {collection!r}")
         wanted = list(set(keys))
         found: set[str] = set()

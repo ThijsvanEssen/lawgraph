@@ -2,7 +2,7 @@
 
 LawGraph turns Dutch and EU legal sources into one queryable knowledge graph in ArangoDB:
 legislation and its amendment history, case law, and the parliamentary process behind
-laws. The graph is the product; a FastAPI read API exposes it.
+laws. The graph is the product; a FastAPI service exposes it.
 
 ## How it works
 
@@ -26,12 +26,18 @@ Requires Python 3.11+ and ArangoDB 3.12 (a `docker-compose.yml` is included).
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env            # set ARANGO_PASSWORD and ARANGO_ROOT_PASSWORD
-docker-compose up -d arangodb   # then create the database named in ARANGO_DB_NAME
+docker compose up -d arangodb
 
-lawgraph retrieve all --mode full
-lawgraph normalize all
-lawgraph semantic all
+lawgraph bootstrap              # retrieve, normalize, semantic, expand-graph; creates the database
 lawgraph-api                    # http://localhost:8000/docs
+```
+
+Keeping it current afterwards:
+
+```bash
+lawgraph retrieve all --since 7d
+lawgraph normalize all --since 7d
+lawgraph semantic all --since 7d
 ```
 
 ## Repository map
@@ -40,12 +46,12 @@ lawgraph-api                    # http://localhost:8000/docs
 |------|----------|
 | `src/lawgraph/clients/` | one HTTP client per external source |
 | `src/lawgraph/pipelines/` | `retrieve/`, `normalize/`, `semantic/` pipelines, orchestration, CLI factory |
-| `src/lawgraph/sources/` | source registry: single definition of CLI commands, order and skip variables |
+| `src/lawgraph/sources/` | source registry: single definition of CLI commands and their order |
 | `src/lawgraph/core/` | pure logic and shared definitions (models, props, relation catalogue, BWB XML, citations) |
 | `src/lawgraph/db/` | `ArangoStore`, bulk `NodeWriter` / `EdgeWriter`, schema, indexes, search views |
 | `src/lawgraph/api/` | FastAPI app: `routes/`, `queries/`, `schemas/` |
 | `src/lawgraph/commands/` | `bootstrap`, `expand-graph`, `fill-gaps` and maintenance commands |
-| `src/lawgraph/config/` | `constants.py` (names), `settings.py` (environment) |
+| `src/lawgraph/config/` | `constants.py` (every name), `settings.py` (every environment value; loads `.env`) |
 | `tests/` | offline test suite (fake store, real XML fixtures) |
 
 ## CLI
@@ -60,16 +66,17 @@ Sources: `tk`, `tk-dossiers`, `tk-content`, `rechtspraak`, `eurlex`, `bwb`, `bwb
 `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `verdragenbank`. The semantic phase has
 extra commands (`bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `judgment-citations`,
 `judgment-appeal`, `instrument-relations`, `amendment-articles`, `mvt-articles`,
-`relation-semantics`). Full reference in `docs/operations.md`.
+`relation-semantics`, `list-stats`). `--since` (`2024-01-01` or `7d`) is the one date option.
+Every command exits 1 on failure. Full reference in `docs/operations.md`.
 
 ## Configuration
 
-Environment variables, loaded from `.env`:
+Environment variables, loaded from `.env` by `config/settings.py`:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `ARANGO_URL` | `http://localhost:8529` | database host |
-| `ARANGO_DB_NAME` | `lawgraph` | database name |
+| `ARANGO_DB_NAME` | `lawgraph` | database name; created when missing |
 | `ARANGO_USER` / `ARANGO_PASSWORD` | `root` / empty | credentials |
 | `LAWGRAPH_ALLOWED_ORIGINS` | localhost:5173/5174 | CORS allow-list of the API |
 
@@ -90,13 +97,14 @@ External base URLs default to the public endpoints. All variables are listed in
 
 Implemented: retrieve, normalize and semantic phases for Tweede Kamer (cases, dossiers),
 Rechtspraak, EUR-Lex, BWB (current text plus full history from the XML), Staatsblad,
-Staatscourant, Eerste Kamer and ECHR; Verdragenbank (retrieve and normalize); the read API.
+Staatscourant, Eerste Kamer and ECHR; Verdragenbank (retrieve and normalize); the API.
 
 Open:
 
-- BWB WTI files (amendment log, `grondslag-voor`, official abbreviations) are not ingested;
-  law abbreviations such as `Sr` resolve only through `instruments.props.short_title`, which no
-  pipeline writes.
+- BWB WTI files (amendment log, `grondslag-voor`, official abbreviations) are not ingested.
+  Until they are, no pipeline writes `instruments.props.short_title`, so law abbreviations
+  such as `Sr` do not resolve.
+- Watches and relationship votes can be written without a credential; only curation has a key.
 - Rechtspraak structured references are not used: judgment citations are read from the text,
   and judgment content is retrieved only for the ECLIs asked for.
 - EUR-Lex implementation data (`eur`) is not evaluated.

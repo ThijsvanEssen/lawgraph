@@ -8,24 +8,22 @@ written by ``bwb_amendments`` from the BWB metadata.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from typing import Any, Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
     RELATION_INTRODUCES,
     RELATION_REPEALS,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
-from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
 logger = get_logger(__name__)
@@ -134,7 +132,7 @@ def detect_amendment_citations(
 class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
     """Detect amendment language and create AMENDS/INTRODUCES/REPEALS edges."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         """Scan TK documents for amendment language and create semantic edges."""
         result = PipelineResult()
 
@@ -143,15 +141,14 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
 
         logger.info(
             "Scanning TK documents for amendment language "
-            "(%d with an amended-instrument context, since=%s).",
+            "(%d with an amended-instrument context).",
             len(amends_index),
-            since,
         )
 
         edge_batch: list[dict[str, Any]] = []
         doc_count = 0
 
-        for document in self._load_tk_documents(since=since):
+        for document in self._load_tk_documents():
             doc_count += 1
             bwb_ids = self._resolve_bwb_ids(document, amends_index)
             if not bwb_ids:
@@ -218,28 +215,10 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         )
         return result
 
-    def _load_tk_documents(self, *, since: dt.datetime | None = None) -> Iterable[Node]:
-        since_iso: str | None = None
-        if since is not None:
-            since_iso = iso_timestamp(since)
-
-        if since_iso is not None:
-            aql = (
-                f"FOR doc IN {COLLECTION_DOCUMENTS}\n"
-                '    FILTER "TK" IN doc.labels\n'
-                "    FILTER doc.props.fetched_at >= @since\n"
-                "    RETURN doc"
-            )
-            for doc in self.store.query(aql, bind_vars={"since": since_iso}):
-                yield Node.from_document(COLLECTION_DOCUMENTS, doc)
-        else:
-            aql = (
-                f"FOR doc IN {COLLECTION_DOCUMENTS}\n"
-                '    FILTER "TK" IN doc.labels\n'
-                "    RETURN doc"
-            )
-            for doc in self.store.query(aql):
-                yield Node.from_document(COLLECTION_DOCUMENTS, doc)
+    def _load_tk_documents(self) -> Iterable[Node]:
+        aql = f'FOR doc IN {COLLECTION_DOCUMENTS} FILTER "TK" IN doc.labels RETURN doc'
+        for doc in self.store.query(aql):
+            yield Node.from_document(COLLECTION_DOCUMENTS, doc)
 
     def _load_amends_instrument_index(self) -> dict[str, list[str]]:
         """Build a document-id → [bwb_id, ...] map from document → instrument edges.

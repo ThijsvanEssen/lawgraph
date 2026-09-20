@@ -17,7 +17,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
+from lawgraph.api.queries.dossiers import (
     count_dossier_members,
     enrich_dossier_docs,
     get_documents_for_dossiers,
@@ -40,10 +40,8 @@ from lawgraph.api.schemas.dossiers import (
     DossierMutationsResponse,
     DossierSummaryDTO,
     DossierTimelineResponse,
-    PartyColorsResponse,
     TimelineEntryDTO,
 )
-from lawgraph.config.constants import PARTY_COLORS
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
@@ -300,20 +298,3 @@ def get_mutations(
             for e in raw.get("edges", [])
         ],
     )
-
-
-party_router = APIRouter()
-
-
-@party_router.get(
-    "/colors",
-    response_model=PartyColorsResponse,
-    summary="Party colours",
-    description=(
-        "Party abbreviation to hex colour, from the parties' own house "
-        "styles, for rendering vote chips."
-    ),
-    tags=["parties"],
-)
-def get_party_colors() -> PartyColorsResponse:
-    return PartyColorsResponse(colors=PARTY_COLORS)

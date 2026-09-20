@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.queries import ArticleCitationEntry, ArticleDetailData
+from lawgraph.api.queries.articles import ArticleCitationEntry, ArticleDetailData
 
 client = TestClient(app)
 
@@ -80,7 +80,6 @@ def test_get_article_detail_returns_404_for_unknown_key(monkeypatch):
 
 
 def test_get_article_detail_exposes_citations(monkeypatch):
-    """Controleren dat gevonden referenties via REFERS_TO_ARTICLE terugkomen."""
     monkeypatch.setattr(
         "lawgraph.api.routes.articles.get_article_with_relations",
         lambda store, bwb_id, article_number: _PAYLOAD,

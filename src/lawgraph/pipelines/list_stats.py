@@ -1,4 +1,4 @@
-"""CLI: precompute list-endpoint sort and filter keys on nodes.
+"""``lawgraph semantic list-stats``: precompute list-endpoint sort and filter keys on nodes.
 
 Persists the keys onto each document so ``/api/instruments``, ``/api/judgments``
 and friends can sort and filter via persistent indexes instead of deriving the
@@ -34,12 +34,11 @@ from __future__ import annotations
 import argparse
 from typing import Any, cast
 
-from dotenv import load_dotenv
-
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_COMMITTEES,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_ABOUT,
@@ -48,9 +47,10 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
-from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.factory import run_step
 
 logger = get_logger(__name__)
 
@@ -246,18 +246,19 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    load_dotenv()
-    setup_logging()
+    def run() -> PipelineResult:
+        store = ArangoStore()
+        selected = [name for name, _ in _REFRESHERS if getattr(args, f"{name}_only")]
+        result = PipelineResult()
+        for name, refresh in _REFRESHERS:
+            if selected and name not in selected:
+                continue
+            count = refresh(store, dry_run=args.dry_run)
+            if args.dry_run:
+                logger.info("Would update %d %s.", count, name)
+                result.skipped += count
+            else:
+                result.updated += count
+        return result
 
-    store = ArangoStore()
-    selected = [name for name, _ in _REFRESHERS if getattr(args, f"{name}_only")]
-    verb = "Would update" if args.dry_run else "Updated"
-
-    for name, refresh in _REFRESHERS:
-        if selected and name not in selected:
-            continue
-        logger.info("%s %d %s.", verb, refresh(store, dry_run=args.dry_run), name)
-
-
-if __name__ == "__main__":
-    main()
+    run_step("List stats", run)

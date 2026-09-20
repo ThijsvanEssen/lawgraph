@@ -3,8 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.queries import NeighborEntry, NodeGraphData
-from lawgraph.api.queries.nodes import NodeNotFoundError
+from lawgraph.api.queries.nodes import NeighborEntry, NodeGraphData, NodeNotFoundError
 from lawgraph.config.constants import RELATION_PART_OF, RELATION_REFERS_TO
 
 client = TestClient(app)

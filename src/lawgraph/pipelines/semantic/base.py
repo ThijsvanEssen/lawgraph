@@ -3,7 +3,11 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_JUDGMENTS, EDGE_STATUS_CANONIEK
+from lawgraph.config.constants import (
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    EDGE_STATUS_CANONIEK,
+)
 from lawgraph.core.aliases import InstrumentAliasMap, normalize_instrument_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -139,15 +143,15 @@ class SemanticPipelineBase(PipelineBase):
 
     def _load_code_aliases(self) -> CodeMapping:
         """Build short_title → bwb_id/celex map from instruments in the graph."""
-        aql = """
-        FOR inst IN instruments
+        aql = f"""
+        FOR inst IN {COLLECTION_INSTRUMENTS}
             FILTER inst.props.short_title != null
             FILTER inst.props.bwb_id != null OR inst.props.celex != null
-            RETURN {
+            RETURN {{
                 short_title: inst.props.short_title,
                 bwb_id: inst.props.bwb_id,
                 celex: inst.props.celex
-            }
+            }}
         """
         return self._load_alias_index(aql, "short_title", ("bwb_id", "celex"))
 
@@ -160,15 +164,15 @@ class SemanticPipelineBase(PipelineBase):
         First-write wins — if two instruments share a name, the first one
         encountered wins. Returns an empty dict if the store is unavailable.
         """
-        aql = """
-        FOR inst IN instruments
+        aql = f"""
+        FOR inst IN {COLLECTION_INSTRUMENTS}
             FILTER inst.props.bwb_id != null OR inst.props.celex != null
-            RETURN {
+            RETURN {{
                 bwb_id: inst.props.bwb_id,
                 celex: inst.props.celex,
                 title: inst.props.title,
                 citation_title: inst.props.citation_title
-            }
+            }}
         """
         index: InstrumentAliasMap = {}
         try:

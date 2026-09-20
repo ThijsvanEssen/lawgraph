@@ -348,7 +348,7 @@ class InstrumentRelatedResponse(BaseModel):
     total: int = Field(
         ...,
         description=(
-            "Absolute number of related instruments " "(independent of ``limit``)."
+            "Absolute number of related instruments (independent of ``limit``)."
         ),
     )
     items: list[InstrumentRelatedItem]
@@ -445,17 +445,6 @@ class InstrumentArticleVersionDTO(BaseModel):
     valid_until: str | None = None
     current: bool = False
     text: str | None = None
-    diff: str | None = None  # unified diff vs previous version (computed on-the-fly)
-
-
-class InstrumentArticleVersionsResponse(BaseModel):
-    """All historical versions of one article, newest first."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    bwb_id: str
-    article_number: str
-    items: list[InstrumentArticleVersionDTO]
 
 
 class InstrumentArticlesAtResponse(BaseModel):

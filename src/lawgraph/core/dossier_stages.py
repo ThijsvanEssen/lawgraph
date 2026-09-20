@@ -75,15 +75,6 @@ def classify_case_kind(kind: str | None) -> str | None:
     return None
 
 
-DOSSIER_TRACK_KINDS: tuple[str, ...] = (
-    "wetsvoorstel",
-    "initiatiefwetsvoorstel",
-    "begroting",
-    "motie",
-    "overig",
-)
-
-
 def classify_track_kind(
     case_kinds: list[str] | None,
     *,

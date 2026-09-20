@@ -12,7 +12,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
+from lawgraph.api.queries.decisions import (
     get_decision_detail,
     get_decision_document,
     get_decisions,
@@ -90,7 +90,7 @@ def get_decision(
     response_model=DocumentTextResponse,
     summary="The document behind a decision",
     description=(
-        "The motion, amendment or bill this decision was about, with its full " "text."
+        "The motion, amendment or bill this decision was about, with its full text."
     ),
     tags=["decisions"],
 )

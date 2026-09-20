@@ -19,6 +19,7 @@ from io import BytesIO
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
+from lawgraph.config.constants import COLLECTION_DOCUMENTS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
@@ -122,8 +123,8 @@ class TKContentRetrievePipeline(PipelineBase):
     # ── private ───────────────────────────────────────────────────────────────
 
     def _query_unhydrated(self, kind_filter: str) -> list[dict[str, Any]]:
-        aql = """
-            FOR pub IN documents
+        aql = f"""
+            FOR pub IN {COLLECTION_DOCUMENTS}
                 FILTER CONTAINS(LOWER(pub.props.kind), @kind)
                     AND (pub.props.text == null OR pub.props.text == "")
                     AND pub.props.external_id != null
@@ -168,10 +169,11 @@ class TKContentRetrievePipeline(PipelineBase):
 
     def _store_text(self, key: str, text: str) -> None:
         """Merge props.text into the publication without touching other props."""
-        aql = """
-            FOR pub IN documents
+        aql = f"""
+            FOR pub IN {COLLECTION_DOCUMENTS}
                 FILTER pub._key == @key
-                UPDATE pub WITH {props: MERGE(pub.props, {text: @text})} IN documents
+                UPDATE pub WITH {{props: MERGE(pub.props, {{text: @text}})}}
+                    IN {COLLECTION_DOCUMENTS}
         """
         # Consume the cursor (even though it returns nothing useful).
         list(self.store.query(aql, {"key": key, "text": text}))

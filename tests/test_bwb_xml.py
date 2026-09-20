@@ -197,9 +197,9 @@ def test_no_paragraph_text_is_lost(fixture: str) -> None:
         for al in _paragraphs(element):
             paragraph = _collapse("".join(al.itertext()))
             if paragraph:
-                assert (
-                    paragraph in flat
-                ), f"{element.get('bwb-ng-variabel-deel')}: lost {paragraph[:60]!r}"
+                assert paragraph in flat, (
+                    f"{element.get('bwb-ng-variabel-deel')}: lost {paragraph[:60]!r}"
+                )
                 checked += 1
     assert checked > 0
 

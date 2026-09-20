@@ -57,8 +57,7 @@ class VerdragenbankClient(BaseClient):
 
     def __init__(self, session=None) -> None:
         super().__init__(
-            env_var="VERDRAGENBANK_SPARQL",
-            default_base_url=VERDRAGENBANK_SPARQL_ENDPOINT,
+            base_url=VERDRAGENBANK_SPARQL_ENDPOINT,
             session=session,
         )
         self.session.headers.update({"Accept": "application/sparql-results+json"})

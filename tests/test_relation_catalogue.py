@@ -73,9 +73,9 @@ def test_only_instruments_and_bills_change_law() -> None:
 
 def test_generated_docs_are_in_sync() -> None:
     document = DOCS.read_text()
-    assert (
-        block_of(document) == render_tables()
-    ), "docs/data-model.md is out of date: python -m lawgraph.core.relations"
+    assert block_of(document) == render_tables(), (
+        "docs/data-model.md is out of date: python -m lawgraph.core.relations"
+    )
 
 
 @pytest.mark.parametrize(

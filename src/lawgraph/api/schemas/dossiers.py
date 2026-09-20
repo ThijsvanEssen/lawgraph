@@ -241,11 +241,3 @@ class DossierMutationsResponse(BaseModel):
     number: str
     nodes: list[DossierMutationNode]
     edges: list[DossierMutationEdge]
-
-
-class PartyColorsResponse(BaseModel):
-    """Party abbreviation to hex colour."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    colors: dict[str, str]

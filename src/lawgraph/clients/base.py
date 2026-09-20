@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import time
 from collections.abc import Iterator
 from typing import Any
@@ -14,33 +13,21 @@ logger = get_logger(__name__)
 
 
 class BaseClient:
-    """
-    Basisclient voor HTTP-API's.
-
-    - Leest base_url uit env (met fallback)
-    - Normaliseert trailing slash
-    - Biedt get_json / get_text / get_raw helpers met logging
-    - Ondersteunt een generieke `_paged_get` voor op OData gebaseerde paginering
-    """
+    """HTTP client base: URL joining, logged GET helpers with retry, OData paging."""
 
     def __init__(
         self,
         *,
-        env_var: str,
-        default_base_url: str,
+        base_url: str,
         session: requests.Session | None = None,
     ) -> None:
-        """Load env vars and configure the HTTP session with a normalized base URL."""
-        base = os.getenv(env_var, default_base_url)
-        # force trailing slash
-        self.base_url = base.rstrip("/") + "/"
+        self.base_url = base_url.rstrip("/") + "/"
         self.session: requests.Session = session or requests.Session()
 
         logger.debug(
-            "Initialized %s with base_url=%s (env_var=%s)",
+            "Initialized %s with base_url=%s",
             self.__class__.__name__,
             self.base_url,
-            env_var,
         )
 
     def _build_url(self, path: str) -> str:

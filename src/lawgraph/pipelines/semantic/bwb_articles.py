@@ -12,6 +12,7 @@ from typing import Any, Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_RAW_SOURCES,
     RELATION_REFERS_TO,
     SOURCE_BWB,
 )
@@ -172,8 +173,8 @@ class BWBArticlesSemanticPipeline(SemanticPipelineBase):
 
     def _recent_bwb_ids(self, since_iso: str) -> set[str]:
         """BWB IDs whose raw record was fetched at or after *since_iso*."""
-        aql = """
-        FOR raw IN raw_sources
+        aql = f"""
+        FOR raw IN {COLLECTION_RAW_SOURCES}
             FILTER raw.source == @source
             FILTER raw.fetched_at >= @since
             FILTER raw.meta.bwb_id != null

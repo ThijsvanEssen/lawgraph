@@ -7,9 +7,9 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
+    COLLECTION_EDGES,
     RELATION_SCOPED_BY,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 

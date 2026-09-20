@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import search_all
+from lawgraph.api.queries.search import search_all
 from lawgraph.api.schemas.search import SEARCH_TYPES, SearchResponse, SearchResultItem
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore

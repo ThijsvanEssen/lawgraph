@@ -28,8 +28,7 @@ class EerstekamerClient(BaseClient):
 
     def __init__(self, session=None) -> None:
         super().__init__(
-            env_var="EERSTEKAMER_BASE",
-            default_base_url=EERSTEKAMER_BASE_URL,
+            base_url=EERSTEKAMER_BASE_URL,
             session=session,
         )
         self.session.headers.update({"Accept": "application/json"})
@@ -97,26 +96,6 @@ class EerstekamerClient(BaseClient):
         logger.info("EK: fetched %d kamerstukken.", len(records))
         return records
 
-    def list_vergaderingen(
-        self,
-        *,
-        since: str | None = None,
-        max_records: int = 10000,
-    ) -> list[dict[str, Any]]:
-        """List EK vergaderingen (plenary sessions)."""
-        params: dict[str, Any] = {
-            "$select": "Id,Titel,Datum,Soort,Modified",
-            "$orderby": "Modified desc",
-        }
-        if since:
-            params["$filter"] = f"Modified ge {since}T00:00:00Z"
-
-        records = list(
-            self._get_paged("Vergadering", params=params, max_records=max_records)
-        )
-        logger.info("EK: fetched %d vergaderingen.", len(records))
-        return records
-
     def list_stemmingen(
         self,
         *,
@@ -136,19 +115,3 @@ class EerstekamerClient(BaseClient):
         )
         logger.info("EK: fetched %d stemmingen.", len(records))
         return records
-
-    def fetch_kamerstuk_content(self, item_id: str) -> dict[str, Any] | None:
-        """Fetch the full record including text content for a single kamerstuk."""
-        url = self.base_url + f"Kamerstuk(guid'{item_id}')"
-        params = {"$expand": "Inhoud"}
-        try:
-            resp = self._get_raw_absolute_with_retry(url, params=params, timeout=60)
-            return resp.json()
-        except requests.exceptions.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == 404:
-                return None
-            logger.warning("EK: failed to fetch kamerstuk %s: %s", item_id, exc)
-            return None
-        except (requests.RequestException, ValueError) as exc:
-            logger.warning("EK: failed to fetch kamerstuk %s: %s", item_id, exc)
-            return None

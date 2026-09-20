@@ -10,12 +10,13 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_RAW_SOURCES,
     MAX_SEMANTIC_TEXT_LENGTH,
     RAW_KIND_TK_DOCUMENT,
     RELATION_REFERS_TO,
     SOURCE_TK,
 )
-from lawgraph.core.aliases import InstrumentAliasMap, parse_instrument_aliases
+from lawgraph.core.aliases import InstrumentAliasMap
 from lawgraph.core.citations import (
     CitationHit,
     DutchCitationExtractor,
@@ -98,34 +99,32 @@ def _collect_named_act_hits(
             )
 
 
-# ---------------------------------------------------------------------------
-# Public detection entry point
-# ---------------------------------------------------------------------------
-
-
 def detect_tk_citations(
     text: str,
     code_aliases: dict[str, str],
-    instrument_aliases: InstrumentAliasMap | dict[str, Any],
+    instrument_aliases: InstrumentAliasMap,
 ) -> list[CitationHit]:
     """Detect article and instrument citations in the text of a TK document."""
     if not text:
         return []
 
-    parsed_aliases: InstrumentAliasMap = parse_instrument_aliases(instrument_aliases)
-
-    # Build name_aliases: {full name → first non-None id (bwb or celex)}
-    name_aliases: dict[str, str] = {}
-    for name, (bwb_id, celex) in parsed_aliases.items():
-        law_id = bwb_id or celex
-        if law_id:
-            name_aliases[name] = law_id
-
-    extractor = DutchCitationExtractor(
-        code_aliases=code_aliases,
-        name_aliases=name_aliases,
+    return _collect_tk_hits(
+        text,
+        _extractor(code_aliases, instrument_aliases),
+        _build_named_act_patterns(instrument_aliases),
     )
-    return _collect_tk_hits(text, extractor, _build_named_act_patterns(parsed_aliases))
+
+
+def _extractor(
+    code_aliases: dict[str, str], instrument_aliases: InstrumentAliasMap
+) -> DutchCitationExtractor:
+    """Extractor that resolves law codes and full law names ("artikel 5 van de Wegenwet")."""
+    name_aliases = {
+        name: bwb_id or celex
+        for name, (bwb_id, celex) in instrument_aliases.items()
+        if bwb_id or celex
+    }
+    return DutchCitationExtractor(code_aliases=code_aliases, name_aliases=name_aliases)
 
 
 def _collect_tk_hits(
@@ -177,17 +176,7 @@ class TKArticlesSemanticPipeline(SemanticPipelineBase):
                 "No instrument or code aliases configured for TK semantic linking."
             )
 
-        # Build name_aliases for DutchCitationExtractor (article-level "van de" form)
-        name_aliases: dict[str, str] = {}
-        for name, (bwb_id, celex) in instrument_aliases.items():
-            law_id = bwb_id or celex
-            if law_id:
-                name_aliases[name] = law_id
-
-        extractor = DutchCitationExtractor(
-            code_aliases=code_aliases,
-            name_aliases=name_aliases,
-        )
+        extractor = _extractor(code_aliases, instrument_aliases)
         named_act_patterns = _build_named_act_patterns(instrument_aliases)
 
         logger.info(
@@ -273,8 +262,8 @@ class TKArticlesSemanticPipeline(SemanticPipelineBase):
 
     def _recent_external_ids(self, since_iso: str) -> set[str]:
         """External ids of TK documents fetched at or after *since_iso*."""
-        aql = """
-        FOR raw IN raw_sources
+        aql = f"""
+        FOR raw IN {COLLECTION_RAW_SOURCES}
             FILTER raw.source == @source AND raw.kind == @kind
             FILTER raw.fetched_at >= @since
             FILTER raw.external_id != null

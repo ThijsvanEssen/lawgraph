@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
+from lawgraph.api.queries.committees import (
     get_actor_touched_instruments,
     get_committee_detail,
     get_committees,

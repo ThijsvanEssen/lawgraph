@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import os
 import re
 from html.parser import HTMLParser
 from typing import Any
@@ -13,6 +12,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     SOURCE_EURLEX,
 )
+from lawgraph.config.settings import EURLEX_MAX_ARTICLE_NUMBER
 from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -84,16 +84,6 @@ class _TextExtractor(HTMLParser):
         return "".join(self._parts)
 
 
-# Read at module import time; changing the env var requires a process restart.
-try:
-    _EU_MAX_ARTICLE_NUMBER: int = int(os.getenv("EURLEX_MAX_ARTICLE_NUMBER", "200"))
-except ValueError as _exc:
-    raise ValueError(
-        f"EURLEX_MAX_ARTICLE_NUMBER must be an integer, got: "
-        f"{os.getenv('EURLEX_MAX_ARTICLE_NUMBER')!r}"
-    ) from _exc
-
-
 def _html_to_text(html: str) -> str:
     parser = _TextExtractor()
     parser.feed(html)
@@ -157,7 +147,7 @@ def _extract_eu_articles(html: str, celex: str) -> list[dict[str, str]]:
         # Skip unreasonably large article numbers (treaty cross-references in preamble)
         try:
             int_val = int(re.sub(r"[a-z]+$", "", article_number))
-            if int_val > _EU_MAX_ARTICLE_NUMBER:
+            if int_val > EURLEX_MAX_ARTICLE_NUMBER:
                 continue
         except ValueError:
             pass

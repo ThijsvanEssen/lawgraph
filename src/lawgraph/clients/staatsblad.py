@@ -19,8 +19,7 @@ class StaatsbladClient(BaseClient):
 
     def __init__(self, session=None) -> None:
         super().__init__(
-            env_var="STAATSBLAD_REPO_BASE",
-            default_base_url=STAATSBLAD_REPO_BASE,
+            base_url=STAATSBLAD_REPO_BASE,
             session=session,
         )
 

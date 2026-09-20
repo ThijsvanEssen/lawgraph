@@ -2,7 +2,7 @@
 
 A FastAPI service over the graph (`lawgraph.api.app:app`), read-only except for watches and
 semantic-relationship curation. Start it with
-`lawgraph-api` (uvicorn, `LAWGRAPH_API_HOST`:`LAWGRAPH_API_PORT`, default `0.0.0.0:8000`) or
+`lawgraph-api` (uvicorn, `LAWGRAPH_API_HOST`:`LAWGRAPH_API_PORT`, default `127.0.0.1:8000`; set the host to `0.0.0.0` to serve other machines) or
 `uvicorn lawgraph.api.app:app --reload`. The interactive schema is at `/docs`, the machine
 schema at `/openapi.json`. The write endpoints are `POST` and `DELETE` on `/api/watches` and
 the two `POST` endpoints under `/api/relationships`.
@@ -38,7 +38,6 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `GET /api/instruments` | paged list; `q`, `jurisdiction` (`nl`, `eu`), `kind`, `article_count_min`, `sort` (default `title`) |
 | `/api/instruments/{bwb_id}/articles` | articles in natural order (`24` before `24c` before `25`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
 | `.../articles/at/{at_date}` | article versions valid on `YYYY-MM-DD` (`valid_from <= date < valid_until`) |
-| `.../articles/{article_number}/history` | versions newest first, each with a unified diff to the previous one |
 | `.../versions` | every toestand, newest first, `current` flagged |
 | `.../amended-by` | amending publications (Staatsblad, Tractatenblad, ...) with edge counts per kind, articles affected, first effective date and dossiers; `limit`, `offset` |
 | `.../dossiers` | dossiers through `LEGISLATED_IN` from the regulation itself (`via: instrument`) and from its amending publications (`via: amending_publication`, `publication` = newest) |
@@ -128,9 +127,6 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | Rate limit | sliding window per client IP: `LAWGRAPH_RATE_LIMIT_CALLS` (200) per `LAWGRAPH_RATE_LIMIT_PERIOD` seconds (60); 429 with `Retry-After`. Requests whose `Origin` is in the CORS allow-list are exempt. `X-Forwarded-For` is honoured only from loopback or `LAWGRAPH_TRUSTED_PROXIES`. State is per process, so N workers allow N times the limit |
 | Cache-Control | on 2xx GET: `/api/articles/` 30 min public, `/api/judgments/` 1 h public, `/api/stats` 5 min public, everything else `private, max-age=60` |
 | Request log | `[id] client METHOD path -> status size latency`; sets `X-Request-ID` |
-
-Startup logs a warning for each of `ARANGO_URL`, `ARANGO_PASSWORD`,
-`LAWGRAPH_ALLOWED_ORIGINS` that is not set.
 
 ## Authentication
 

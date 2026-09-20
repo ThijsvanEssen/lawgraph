@@ -8,11 +8,11 @@ from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
+    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     RELATION_PART_OF,
     RELATION_VOTED,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 

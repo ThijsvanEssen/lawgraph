@@ -26,7 +26,7 @@ from lawgraph.config.constants import (
     SEMANTIC_TYPE_PREREQUISITE_PROCEDURE,
     SEMANTIC_TYPE_SCOPE_LIMITATION,
 )
-from lawgraph.config.settings import get_confidence_override
+from lawgraph.config.settings import confidence_override
 
 # How far around the citation we look for trigger phrases.
 _ADJACENT_CHARS = 40
@@ -133,10 +133,6 @@ def _match_in(
     return None
 
 
-def _confidence(pattern: str, default: float) -> float:
-    return get_confidence_override(pattern, default)
-
-
 def classify_citation_context(
     text: str,
     start: int | None,
@@ -161,7 +157,7 @@ def classify_citation_context(
         return SemanticClassification(
             semantic_type=semantic_type,
             pattern=name,
-            confidence=_confidence(name, CONFIDENCE_ADJACENT),
+            confidence=confidence_override(name, CONFIDENCE_ADJACENT),
             explanation=f"Patroon '{match.group(0)}' direct vóór de verwijzing",
         )
 
@@ -173,7 +169,7 @@ def classify_citation_context(
         return SemanticClassification(
             semantic_type=semantic_type,
             pattern=name,
-            confidence=_confidence(name, CONFIDENCE_WINDOW),
+            confidence=confidence_override(name, CONFIDENCE_WINDOW),
             explanation=f"Patroon '{match.group(0)}' nabij de verwijzing",
         )
 
@@ -181,6 +177,6 @@ def classify_citation_context(
     return SemanticClassification(
         semantic_type=SEMANTIC_TYPE_CROSS_REFERENCE,
         pattern="cross_reference_fallback",
-        confidence=_confidence("cross_reference_fallback", CONFIDENCE_FALLBACK),
+        confidence=confidence_override("cross_reference_fallback", CONFIDENCE_FALLBACK),
         explanation="Verwijzing zonder herkend juridisch beperkend patroon",
     )

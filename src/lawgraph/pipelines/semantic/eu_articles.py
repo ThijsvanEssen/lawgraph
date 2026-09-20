@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterable
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_RAW_SOURCES,
     MAX_SEMANTIC_TEXT_LENGTH,
     RELATION_REFERS_TO,
     SOURCE_EURLEX,
@@ -177,8 +178,8 @@ class EUArticlesSemanticPipeline(SemanticPipelineBase):
         # directive body, which is where cross-references to other articles live.
         if since_iso is not None:
             recent_celex: set[str] = set()
-            aql = """
-            FOR raw IN raw_sources
+            aql = f"""
+            FOR raw IN {COLLECTION_RAW_SOURCES}
                 FILTER raw.source == @source
                 FILTER raw.fetched_at >= @since
                 FILTER raw.meta.celex != null

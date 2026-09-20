@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import create_watch, delete_watch, list_watches
+from lawgraph.api.queries.watches import create_watch, delete_watch, list_watches
 from lawgraph.api.schemas.watches import WatchIn, WatchOut
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore

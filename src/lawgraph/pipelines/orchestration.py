@@ -1,196 +1,111 @@
-"""Orchestration helpers and run_*_all() entry points.
-
-The step-runner utilities and the three phase orchestrators
-(``run_retrieve_all``, ``run_normalize_all``, ``run_semantic_all``).
-"""
+"""The ``<phase> all`` commands: run every registered step of a phase in registry order."""
 
 from __future__ import annotations
 
 import argparse
-import os
 import sys
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass
 
-from dotenv import load_dotenv
-
+from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.logging import get_logger, setup_logging
-from lawgraph.pipelines.list_stats import main as list_stats_main
+from lawgraph.pipelines.factory import add_since_argument, run_command
 from lawgraph.sources.registry import SOURCES, RetrieveCtx
 
 logger = get_logger(__name__)
 
-# ── Step runner helpers ───────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class _Step:
+    source_id: str
+    name: str
+    main: Callable[..., None]
+    argv: list[str]
 
 
-def _run_step(*, name: str, runner: Callable[[], None]) -> str:
-    logger.info("Starting %s...", name)
-    try:
-        runner()
-        logger.info("%s completed.", name)
-        return "ok"
-    except SystemExit as exc:
-        if exc.code not in (None, 0):
-            logger.error("%s failed with exit code %s.", name, exc.code)
-            return f"exit({exc.code})"
-        logger.info("%s completed.", name)
-        return "ok"
-    except Exception as exc:
-        logger.error("%s raised an exception: %s", name, exc)
-        return f"error: {exc}"
+def _run_phase(phase: str, steps: list[_Step], *, strict: bool = False) -> None:
+    """Run *steps*, log a summary table and exit 1 when any step failed."""
+    label = f"{phase} all"
+    results: list[tuple[str, str]] = []
+    for step in steps:
+        if skip_step(phase, step.source_id):
+            logger.info(
+                "%s skipped (%s).", step.name, skip_variable(phase, step.source_id)
+            )
+            results.append((step.name, "skipped"))
+            continue
+        succeeded = run_command(step.name, step.main, step.argv)
+        results.append((step.name, "ok" if succeeded else "failed"))
+        if strict and not succeeded:
+            logger.error("%s: aborting after '%s' (--strict).", label, step.name)
+            break
 
-
-def _log_summary(label: str, results: list[tuple[str, str]]) -> None:
     logger.info("%s summary:", label)
     for name, status in results:
         logger.info("  %-40s %s", name, status)
-    failures = [name for name, status in results if status not in ("ok", "skipped")]
+    failures = [name for name, status in results if status == "failed"]
     if failures:
         logger.error("%s finished with %d failure(s).", label, len(failures))
         sys.exit(1)
     logger.info("%s completed successfully.", label)
 
 
-def _should_skip(env_var: str) -> bool:
-    return os.getenv(env_var, "").strip().lower() == "true"
-
-
-def _make_step_runner(fn: Callable[..., None], argv: list[str]) -> Callable[[], None]:
-    """Wrap a pipeline main function with a fixed argv into a zero-arg callable."""
-    return lambda: fn(argv=argv)
-
-
-# ── normalize-all ─────────────────────────────────────────────────────────────
-
-
-def run_normalize_all(argv: list[str] | None = None) -> None:
-    load_dotenv()
-    setup_logging()
-
-    parser = argparse.ArgumentParser(
-        description="Run all normalization pipelines in sequence."
-    )
-    parser.parse_args(argv)
-
-    logger.info("normalize-all starting.")
-
-    steps: list[tuple[str, str, Callable[[], None]]] = []
-
-    for source in SOURCES:
-        if source.normalize_main is None:
-            continue
-        steps.append(
-            (
-                source.display_name,
-                source.normalize_skip_env or "",
-                _make_step_runner(source.normalize_main, []),
-            )
-        )
-
-    results: list[tuple[str, str]] = []
-    for name, env_var, runner in steps:
-        if env_var and _should_skip(env_var):
-            logger.info("%s skipped (%s set).", name, env_var)
-            results.append((name, "skipped"))
-            continue
-        status = _run_step(name=name, runner=runner)
-        results.append((name, status))
-
-    _log_summary("normalize-all", results)
-
-
-# ── retrieve-all ──────────────────────────────────────────────────────────────
+def _since_argv(args: argparse.Namespace) -> list[str]:
+    return ["--since", args.since.isoformat()] if args.since else []
 
 
 def run_retrieve_all(argv: list[str] | None = None) -> None:
-    load_dotenv()
     setup_logging()
-
-    parser = argparse.ArgumentParser(
-        description="Run all retrieve pipelines in sequence."
-    )
-    parser.add_argument("--since-days", type=int, default=1)
+    parser = argparse.ArgumentParser(description="Run all retrieve pipelines.")
+    add_since_argument(parser, default="1d")
     parser.add_argument(
         "--mode", choices=["incremental", "full"], default="incremental"
     )
     args = parser.parse_args(argv)
 
-    ctx = RetrieveCtx(since_days=args.since_days, mode=args.mode)
-
-    logger.info(
-        "retrieve-all starting (mode=%s, since-days=%d).",
-        ctx.mode,
-        ctx.since_days,
-    )
-
-    steps: list[tuple[str, str, Callable[[], None]]] = []
-    for source in SOURCES:
-        if source.retrieve_main is None or source.retrieve_argv_builder is None:
-            continue
-        steps.append(
-            (
-                source.display_name,
-                source.retrieve_skip_env or "",
-                _make_step_runner(
-                    source.retrieve_main, source.retrieve_argv_builder(ctx)
-                ),
-            )
-        )
-
-    results: list[tuple[str, str]] = []
-    for name, env_var, runner in steps:
-        if env_var and _should_skip(env_var):
-            logger.info("%s skipped (%s set).", name, env_var)
-            results.append((name, "skipped"))
-            continue
-        status = _run_step(name=name, runner=runner)
-        results.append((name, status))
-
-    _log_summary("retrieve-all", results)
+    ctx = RetrieveCtx(since=args.since.isoformat(), mode=args.mode)
+    steps = [
+        _Step(s.id, s.display_name, s.retrieve_main, s.retrieve_argv_builder(ctx))
+        for s in SOURCES
+        if s.retrieve_main is not None and s.retrieve_argv_builder is not None
+    ]
+    _run_phase("retrieve", steps)
 
 
-# ── semantic-all ──────────────────────────────────────────────────────────────
+def run_normalize_all(argv: list[str] | None = None) -> None:
+    setup_logging()
+    parser = argparse.ArgumentParser(description="Run all normalize pipelines.")
+    add_since_argument(parser)
+    args = parser.parse_args(argv)
+
+    steps = [
+        _Step(s.id, s.display_name, s.normalize_main, _since_argv(args))
+        for s in SOURCES
+        if s.normalize_main is not None
+    ]
+    _run_phase("normalize", steps)
 
 
 def run_semantic_all(argv: list[str] | None = None) -> None:
-    load_dotenv()
     setup_logging()
-
-    parser = argparse.ArgumentParser(
-        description="Run all semantic pipelines in sequence."
+    parser = argparse.ArgumentParser(description="Run all semantic pipelines.")
+    add_since_argument(
+        parser,
+        help="Passed to the pipelines that accept --since; the others run in full.",
     )
-    parser.add_argument("--strict", action="store_true")
+    parser.add_argument(
+        "--strict", action="store_true", help="Stop at the first failing step."
+    )
     args = parser.parse_args(argv)
 
-    logger.info("semantic-all starting.")
-
-    steps: list[tuple[str, str, Callable[[], None]]] = []
-    for source in SOURCES:
-        if source.semantic_main is None:
-            continue
-        steps.append(
-            (
-                source.display_name,
-                source.semantic_skip_env or "",
-                _make_step_runner(source.semantic_main, []),
-            )
+    steps = [
+        _Step(
+            s.id,
+            s.display_name,
+            s.semantic_main,
+            _since_argv(args) if s.semantic_accepts_since else [],
         )
-
-    steps.append(
-        ("List-endpoint stats", "LAWGRAPH_SEMANTIC_SKIP_LIST_STATS", list_stats_main)
-    )
-
-    results: list[tuple[str, str]] = []
-    for name, env_var, runner in steps:
-        if env_var and _should_skip(env_var):
-            logger.info("%s skipped (%s set).", name, env_var)
-            results.append((name, "skipped"))
-            continue
-        status = _run_step(name=name, runner=runner)
-        results.append((name, status))
-        if args.strict and status not in ("ok", "skipped"):
-            logger.error(
-                "semantic-all: aborting after failure in '%s' (--strict).", name
-            )
-            sys.exit(1)
-
-    _log_summary("semantic-all", results)
+        for s in SOURCES
+        if s.semantic_main is not None
+    ]
+    _run_phase("semantic", steps, strict=args.strict)

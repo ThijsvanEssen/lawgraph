@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
+
+from lawgraph.config.settings import LOG_JSON, LOG_LEVEL, LOG_NO_COLOR
 
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
@@ -18,10 +19,7 @@ LEVEL_COLORS = {
 
 
 def _use_color() -> bool:
-    if os.getenv("NO_COLOR") is not None:
-        return False
-    is_tty = getattr(sys.stderr, "isatty", lambda: False)()
-    return is_tty
+    return not LOG_NO_COLOR and getattr(sys.stderr, "isatty", lambda: False)()
 
 
 class ColorFormatter(logging.Formatter):
@@ -46,11 +44,6 @@ class _JsonFormatter(logging.Formatter):
         return json.dumps(entry, ensure_ascii=False)
 
 
-def _get_level_from_env() -> int:
-    level_str = os.getenv("LAWGRAPH_LOG_LEVEL", "INFO").upper()
-    return getattr(logging, level_str, logging.INFO)
-
-
 _LAWGRAPH_HANDLER_ATTR = "_lawgraph_handler_installed"
 
 
@@ -61,12 +54,11 @@ def setup_logging(level: int | None = None) -> None:
         return
 
     if level is None:
-        level = _get_level_from_env()
+        level = getattr(logging, LOG_LEVEL, logging.INFO)
 
     root.setLevel(level)
 
-    use_json = os.getenv("LAWGRAPH_LOG_FORMAT", "").lower() == "json"
-    if use_json:
+    if LOG_JSON:
         formatter: logging.Formatter = _JsonFormatter()
     elif _use_color():
         formatter = ColorFormatter(LOG_FORMAT)

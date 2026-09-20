@@ -5,13 +5,13 @@ from __future__ import annotations
 import datetime as dt
 
 from lawgraph.config.constants import (
+    COLLECTION_EDGES,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
     RELATION_INTRODUCES,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 

@@ -3,26 +3,26 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
+from lawgraph.api.queries._helpers import props as _props
+from lawgraph.api.queries.annexes import get_shared_annexes_for_law
+from lawgraph.api.queries.instruments import (
     INSTRUMENT_SORTS,
     get_articles,
     get_articles_at,
-    get_instrument_article_history,
+    get_instrument_amended_by,
     get_instrument_dossiers,
     get_instrument_edges_bundle,
     get_instrument_judgments,
     get_instrument_related_instruments,
     get_instrument_versions,
     get_instruments_list,
+    get_short_titles,
 )
-from lawgraph.api.queries import props as _props
-from lawgraph.api.queries.annexes import get_shared_annexes_for_law
-from lawgraph.api.queries.instruments import get_instrument_amended_by, get_short_titles
 from lawgraph.api.queries.relationships import get_cross_law_dependencies
 from lawgraph.api.schemas.annexes import AnnexDTO, AnnexListItem
 from lawgraph.api.schemas.common import ArticleRelationDTO
@@ -36,7 +36,6 @@ from lawgraph.api.schemas.instruments import (
     InstrumentArticlesAtResponse,
     InstrumentArticlesResponse,
     InstrumentArticleVersionDTO,
-    InstrumentArticleVersionsResponse,
     InstrumentCitationEdge,
     InstrumentCitationsResponse,
     InstrumentDossierItem,
@@ -202,35 +201,6 @@ def _minimise_articles_with_short_title(
             }
         )
     return enriched
-
-
-def _compute_article_diffs(versions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Annotate each version with a unified diff vs its predecessor (older version)."""
-    import difflib
-
-    # versions are newest-first; predecessor = next item in list
-    result = []
-    for i, doc in enumerate(versions):
-        props = _props(doc)
-        current_text = props.get("text") or ""
-        if i + 1 < len(versions):
-            prev_props = _props(versions[i + 1])
-            prev_text = prev_props.get("text") or ""
-        else:
-            prev_text = ""
-        if current_text != prev_text:
-            diff_lines = list(
-                difflib.unified_diff(
-                    prev_text.splitlines(keepends=True),
-                    current_text.splitlines(keepends=True),
-                    lineterm="",
-                )
-            )
-            diff = "".join(diff_lines) if diff_lines else None
-        else:
-            diff = None
-        result.append({**doc, "_diff": diff})
-    return result
 
 
 router = APIRouter()
@@ -576,44 +546,6 @@ def list_articles_at(
         bwb_id=bwb_id,
         at_date=at_date,
         total=len(items),
-        items=items,
-    )
-
-
-@router.get(
-    "/{bwb_id}/articles/{article_number}/history",
-    response_model=InstrumentArticleVersionsResponse,
-    summary="Historical versions of one article",
-    description=(
-        "The full version history of one article, newest first. Each item "
-        "carries the article text and a ``diff`` against the previous version "
-        "(unified diff format)."
-    ),
-    tags=["instruments"],
-)
-def get_article_version_history(
-    bwb_id: str,
-    article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> InstrumentArticleVersionsResponse:
-    docs = get_instrument_article_history(store, bwb_id, article_number)
-    annotated = _compute_article_diffs(docs)
-    items = [
-        InstrumentArticleVersionDTO(
-            key=d["_key"],
-            bwb_id=_props(d).get("bwb_id", ""),
-            article_number=_props(d).get("article_number", ""),
-            valid_from=_props(d).get("valid_from"),
-            valid_until=_props(d).get("valid_until"),
-            current=bool(_props(d).get("current", False)),
-            text=_props(d).get("text"),
-            diff=d.get("_diff"),
-        )
-        for d in annotated
-    ]
-    return InstrumentArticleVersionsResponse(
-        bwb_id=bwb_id,
-        article_number=article_number,
         items=items,
     )
 

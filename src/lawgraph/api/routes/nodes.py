@@ -7,13 +7,13 @@ from fastapi.responses import JSONResponse
 
 from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
-    get_heat_counts,
-    get_in_flux_counts,
+from lawgraph.api.queries.nodes import (
+    NodeNotFoundError,
+    UnsupportedCollectionError,
     get_node_neighborhood,
     get_node_with_neighbors,
 )
-from lawgraph.api.queries.nodes import NodeNotFoundError, UnsupportedCollectionError
+from lawgraph.api.queries.overlay import get_heat_counts, get_in_flux_counts
 from lawgraph.api.schemas.nodes import (
     DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,

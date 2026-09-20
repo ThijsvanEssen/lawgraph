@@ -1,8 +1,4 @@
-"""LawGraph database package.
-
-Re-exports the public database API so that ``from lawgraph.db import ArangoStore``
-(and friends) keep working unchanged.
-"""
+"""Database access: ``ArangoStore`` and the bulk node and edge writers."""
 
 from lawgraph.db.edges import EdgeWriter, make_edge_doc
 from lawgraph.db.nodes import NodeWriter

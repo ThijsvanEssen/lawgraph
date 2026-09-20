@@ -8,8 +8,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import get_factions
-from lawgraph.api.schemas.parliament import FactionSeatsDTO, ParliamentSeatsResponse
+from lawgraph.api.queries.committees import get_factions
+from lawgraph.api.schemas.parliament import (
+    FactionSeatsDTO,
+    ParliamentSeatsResponse,
+    PartyColorsResponse,
+)
 from lawgraph.config.constants import PARTY_COLORS
 from lawgraph.db import ArangoStore
 
@@ -98,3 +102,20 @@ def get_seats(
         as_of=dt.date.today().isoformat(),
         factions=items,
     )
+
+
+party_router = APIRouter()
+
+
+@party_router.get(
+    "/colors",
+    response_model=PartyColorsResponse,
+    summary="Party colours",
+    description=(
+        "Party abbreviation to hex colour, from the parties' own house "
+        "styles, for rendering vote chips."
+    ),
+    tags=["parties"],
+)
+def get_party_colors() -> PartyColorsResponse:
+    return PartyColorsResponse(colors=PARTY_COLORS)

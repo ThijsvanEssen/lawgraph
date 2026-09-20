@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
@@ -37,7 +38,6 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     SOURCE_TK,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import (

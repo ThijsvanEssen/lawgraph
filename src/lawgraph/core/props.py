@@ -20,6 +20,25 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
+    COLLECTION_ANNEXES,
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_ARTICLES,
+    COLLECTION_CASES,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
+    COLLECTION_TOPICS,
+)
+
 
 class _StrictBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -381,20 +400,20 @@ class AnnexProps(_CommonProps):
 # ---------------------------------------------------------------------------
 
 COLLECTION_SCHEMAS: dict[str, type[_StrictBase]] = {
-    "instruments": InstrumentProps,
-    "articles": ArticleProps,
-    "instrument_versions": InstrumentVersionProps,
-    "article_versions": ArticleVersionProps,
-    "judgments": JudgmentProps,
-    "documents": DocumentProps,
-    "dossiers": DossierProps,
-    "activities": ActivityProps,
-    "decisions": DecisionProps,
-    "commitments": CommitmentProps,
-    "committees": CommitteeProps,
-    "members": MemberProps,
-    "factions": FactionProps,
-    "topics": TopicProps,
-    "cases": CaseProps,
-    "annexes": AnnexProps,
+    COLLECTION_INSTRUMENTS: InstrumentProps,
+    COLLECTION_ARTICLES: ArticleProps,
+    COLLECTION_INSTRUMENT_VERSIONS: InstrumentVersionProps,
+    COLLECTION_ARTICLE_VERSIONS: ArticleVersionProps,
+    COLLECTION_JUDGMENTS: JudgmentProps,
+    COLLECTION_DOCUMENTS: DocumentProps,
+    COLLECTION_DOSSIERS: DossierProps,
+    COLLECTION_ACTIVITIES: ActivityProps,
+    COLLECTION_DECISIONS: DecisionProps,
+    COLLECTION_COMMITMENTS: CommitmentProps,
+    COLLECTION_COMMITTEES: CommitteeProps,
+    COLLECTION_MEMBERS: MemberProps,
+    COLLECTION_FACTIONS: FactionProps,
+    COLLECTION_TOPICS: TopicProps,
+    COLLECTION_CASES: CaseProps,
+    COLLECTION_ANNEXES: AnnexProps,
 }

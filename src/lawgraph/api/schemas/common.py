@@ -11,7 +11,7 @@ from lawgraph.core.models import make_node_key
 
 
 class InstrumentSummaryDTO(BaseModel):
-    """Korte representatie van een instrument voor respondenten."""
+    """Short representation of an instrument."""
 
     model_config = ConfigDict(extra="forbid")
 

@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import Any, cast
 
 from lawgraph.config.constants import (
+    COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.models import make_node_key, parse_arango_id
 from lawgraph.db import ArangoStore
 

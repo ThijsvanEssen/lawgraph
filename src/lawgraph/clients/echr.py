@@ -26,8 +26,7 @@ class EchrClient(BaseClient):
 
     def __init__(self, session=None) -> None:
         super().__init__(
-            env_var="ECHR_HUDOC_BASE",
-            default_base_url=ECHR_HUDOC_BASE_URL,
+            base_url=ECHR_HUDOC_BASE_URL,
             session=session,
         )
         self.session.headers.update({"Accept": "application/json"})
@@ -105,21 +104,3 @@ class EchrClient(BaseClient):
             respondent,
         )
         return results
-
-    def fetch_judgment_detail(self, item_id: str) -> dict[str, Any] | None:
-        """Fetch the full judgment detail including text for a given item ID."""
-        url = self.base_url.rstrip("/") + f"/app/conversion/docx/body/{item_id}/ENG"
-        try:
-            resp = self.session.get(url, timeout=120)
-            if resp.status_code == 404:
-                return None
-            resp.raise_for_status()
-            # Try to get JSON; HUDOC may return HTML or docx
-            try:
-                return resp.json()
-            except (ValueError, UnicodeDecodeError) as exc:
-                logger.debug("ECHR: non-JSON response for %s: %s", item_id, exc)
-                return {"raw_text": resp.text[:50000]}
-        except Exception as exc:
-            logger.warning("ECHR: failed to fetch detail for %s: %s", item_id, exc)
-            return None

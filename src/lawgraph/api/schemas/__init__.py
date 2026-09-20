@@ -1,7 +1,5 @@
 """DTO definitions for the FastAPI layer, one module per API domain.
 
-DTO definitions for the FastAPI layer.
-
 Conventions across the API
 --------------------------
 * Every DTO has ``model_config = ConfigDict(extra="forbid")``. Unknown

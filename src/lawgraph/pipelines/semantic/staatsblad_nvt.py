@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -26,45 +25,45 @@ _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
 }
 
 # Strategy 1: publications with explicit bwb_id stored during normalization
-_AQL_BWB = """
-FOR pub IN documents
+_AQL_BWB = f"""
+FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
   FILTER pub.props.bwb_id != null
   LET inst = (
-    FOR i IN instruments
+    FOR i IN {COLLECTION_INSTRUMENTS}
       FILTER i.props.bwb_id == pub.props.bwb_id
       LIMIT 1
       RETURN i
   )[0]
   FILTER inst != null
-  RETURN { pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
-           match_type: 'bwb_id' }
+  RETURN {{ pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
+           match_type: 'bwb_id' }}
 """
 
 # Strategy 2: title matching for publications without bwb_id
-_AQL_TITLE = """
-FOR pub IN documents
+_AQL_TITLE = f"""
+FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
   FILTER pub.props.bwb_id == null
   LET inst = (
-    FOR i IN instruments
+    FOR i IN {COLLECTION_INSTRUMENTS}
       FILTER i.props.citation_title != null
       FILTER CONTAINS(LOWER(pub.props.title), LOWER(i.props.citation_title))
       LIMIT 1
       RETURN i
   )[0]
   FILTER inst != null
-  RETURN { pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
-           match_type: 'title' }
+  RETURN {{ pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
+           match_type: 'title' }}
 """
 
 
 class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking Staatsblad NvT documents to BWB instruments via EXPLAINS."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
 
         bind_vars = {"source": SOURCE_STAATSBLAD}

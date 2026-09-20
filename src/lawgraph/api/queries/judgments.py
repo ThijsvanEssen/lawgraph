@@ -8,11 +8,11 @@ from typing import Any
 from lawgraph.api.queries._helpers import _load_judgment
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 
@@ -28,9 +28,6 @@ class JudgmentDetailData:
     articles: list[JudgmentArticleRelation]
     cited_judgments: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-
-
-JUDGMENT_SORTS = ("date_desc", "date_asc", "citation_count")
 
 
 def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetailData:

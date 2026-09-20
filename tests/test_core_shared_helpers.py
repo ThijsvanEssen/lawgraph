@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 
 from lawgraph.clients import _sru
-from lawgraph.core import aliases, annex_xml, judgments
+from lawgraph.core import annex_xml, judgments
 from lawgraph.core import xml as core_xml
 from lawgraph.core.identifiers import STB_ID_PATTERN, STCRT_ID_PATTERN, clean_ids
 from lawgraph.core.publication_xml import bwb_id_in_xml, staatsblad_ref_from_bwb_xml
@@ -308,34 +308,6 @@ def test_annex_entry_and_description_caps() -> None:
     desc = annex_xml.extract_description(_el(xml))
     assert desc is not None
     assert len(desc) == 2000  # two paragraphs (>=2000 chars) then truncated
-
-
-# ── instrument aliases ───────────────────────────────────────────────────────
-
-
-def test_parse_instrument_aliases() -> None:
-    parse = aliases.parse_instrument_aliases
-    raw: dict[Any, Any] = {
-        "  Sr ": {"bwb_id": " bwbr0001854 ", "celex": None},
-        "AVG": {"celex": " 32016r0679 "},
-        "Wet": "bwbr0002222",
-        "Verdrag": "32010L0064",
-        "Tup": ("BWBR1", None),
-        "": "BWBR0003333",
-        None: "BWBR0003333",
-        "Leeg": "",
-        "Leeg2": None,
-        "EmptyDict": {},
-    }
-    assert parse(raw) == {
-        "Sr": ("BWBR0001854", None),
-        "AVG": (None, "32016R0679"),
-        "Wet": ("BWBR0002222", None),
-        "Verdrag": (None, "32010L0064"),
-        "Tup": ("BWBR1", None),
-        "EmptyDict": (None, None),
-    }
-    assert parse({}) == {}
 
 
 # ── raw-record accessors ─────────────────────────────────────────────────────

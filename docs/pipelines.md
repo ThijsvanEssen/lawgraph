@@ -17,15 +17,14 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
 
-Clients (`clients/`) share `BaseClient`: base URL from an environment variable (trailing
+Clients (`clients/`) share `BaseClient`: base URL from `config/settings.py` (trailing
 slash enforced), one `requests.Session`, 30 s timeout, and retry with exponential backoff
 (3 tries, factor 2) on HTTP 429, 503 and connection errors. No source needs an API key.
 
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
-`instruments.props.short_title` and law names through instrument titles. No pipeline writes
-`short_title`, so abbreviation hits resolve only for instruments that have it set. Only the
-API judgment view has a built-in table (`DEFAULT_CODE_ALIASES` in `config/constants.py`:
-`Sr`, `Sv`, `WVW`).
+`instruments.props.short_title` and law names through instrument titles; the API judgment
+view uses the same lookup. No pipeline writes `short_title` yet (the official abbreviations
+are in the BWB WTI files, which are not ingested), so abbreviation hits do not resolve.
 
 ## Tweede Kamer
 
@@ -36,7 +35,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 
 | Command | Fetches | Stored kinds |
 |---------|---------|--------------|
-| `retrieve tk` | Zaak and Document modified since `--since-days` (default 1); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak`, `tk-document` |
+| `retrieve tk` | Zaak and Document modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak`, `tk-document` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
 | `retrieve tk-content` | PDF text of documents whose `kind` contains `--kind` (default `toelichting`) and that have no `props.text`; `--dry-run` | writes `documents.props.text` |
 
@@ -133,7 +132,7 @@ the XML of one judgment (`uitspraken/content?id=<ECLI>`).
 
 | Mode | Behaviour |
 |------|-----------|
-| `incremental` (default) | one index snapshot of judgments modified in the last `--since-days` (default 1); content only for ECLIs given with `--ecli` (repeatable) |
+| `incremental` (default) | one index snapshot of judgments modified since `--since` (default `1d`); content only for ECLIs given with `--ecli` (repeatable) |
 | `full` | index pages of 1,000 from offset 0, stored as `full_page_<offset>` |
 
 Judgment content (`rs-content`) is stored only for ECLIs passed explicitly or fetched by
@@ -378,4 +377,4 @@ treaties (`BWBV...`).
 | semantic `amendment-articles` | `instrument-relations` (the document-to-instrument `AMENDS` edges), document text from `tk-content` |
 | semantic `mvt-articles` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
-| last step of `semantic all` | `list_stats` backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`); also `python -m lawgraph.pipelines.list_stats [--dry-run] [--instruments-only|--judgments-only|--committees-only|--articles-only]` |
+| semantic `list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`) |--judgments-only|--committees-only|--articles-only]` |

@@ -10,14 +10,12 @@ the prior judgment.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_JUDGMENTS, RELATION_APPEAL_OF
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, parse_arango_id
-from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase
 
@@ -31,27 +29,20 @@ _APPEAL_PATTERN = re.compile(r"\b(?:hoger beroep|cassatie)\b", re.IGNORECASE)
 class JudgmentAppealSemanticPipeline(SemanticPipelineBase):
     """Create APPEAL_OF edges from appeal judgments to their prior proceedings."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
-
-        since_filter = ""
-        bind_vars: dict[str, Any] = {}
-        if since is not None:
-            since_filter = "FILTER j.props.created_at >= @since_iso"
-            bind_vars["since_iso"] = iso_timestamp(since)
 
         aql = f"""
 FOR j IN {COLLECTION_JUDGMENTS}
   FILTER j.props.related_eclis != null
   FILTER LENGTH(j.props.related_eclis) > 0
-  {since_filter}
   RETURN {{
     j_id: j._id,
     procedure_type: j.props.judgment_metadata.type,
     related_eclis: j.props.related_eclis,
   }}
 """
-        rows = list(self.store.query(aql, bind_vars or None))
+        rows = list(self.store.query(aql))
         if not rows:
             logger.debug("No judgments with related_eclis found.")
             return result

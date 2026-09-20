@@ -21,7 +21,6 @@ however many versions the chunk holds.
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Hashable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
@@ -150,8 +149,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         # publication key -> dossier numbers already written this run
         self._known_dossiers: dict[str, set[str]] = {}
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        """Idempotent; ``since`` is ignored (article history is always read whole)."""
+    def run(self) -> PipelineResult:
         result = PipelineResult()
         nodes = NodeWriter(self.store)
         edges = EdgeWriter(self.store)

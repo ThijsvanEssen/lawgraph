@@ -5,8 +5,12 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import get_judgment_with_relations, get_judgments_list
 from lawgraph.api.queries.articles import get_articles_by_keys
+from lawgraph.api.queries.judgments import (
+    get_judgment_with_relations,
+    get_judgments_list,
+)
+from lawgraph.api.queries.search import load_code_aliases
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -20,7 +24,7 @@ from lawgraph.api.schemas.judgments import (
     JudgmentListResponse,
     JudgmentParagraph,
 )
-from lawgraph.config.constants import COLLECTION_ARTICLES, DEFAULT_CODE_ALIASES
+from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.citations import detect_article_references
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key
@@ -144,10 +148,11 @@ def _enrich_paragraphs(
     round-trip for the whole judgment instead of one per citation hit.
     """
     # First pass: collect all hits across all paragraphs.
+    code_aliases = load_code_aliases(store)
     para_hits: list[tuple[JudgmentParagraph, list]] = []
     all_keys: list[str] = []
     for para in paragraphs:
-        hits = detect_article_references(para.text, DEFAULT_CODE_ALIASES)
+        hits = detect_article_references(para.text, code_aliases)
         valid = [h for h in hits if h.bwb_id]
         para_hits.append((para, valid))
         for h in valid:

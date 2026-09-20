@@ -13,7 +13,6 @@ Two passes:
 
 from __future__ import annotations
 
-import datetime as dt
 import xml.etree.ElementTree as ET
 from typing import Any, Iterable
 
@@ -21,6 +20,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_RAW_SOURCES,
     RAW_KIND_BWB_REGELING,
     RAW_KIND_BWB_TOESTAND,
     RELATION_PART_OF,
@@ -42,7 +42,7 @@ SEMANTIC_SOURCE = "bwb-annex-links"
 class AnnexLinksSemanticPipeline(SemanticPipelineBase):
     """Extract annex nodes from BWB XML and link referencing articles."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
         known_keys = self._extract_annexes_from_xml(result)
         self._link_articles(result, known_keys)
@@ -90,13 +90,13 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
         return known_keys
 
     def _load_raw_bwb_records(self) -> Iterable[dict[str, Any]]:
-        aql = """
-        FOR raw IN raw_sources
+        aql = f"""
+        FOR raw IN {COLLECTION_RAW_SOURCES}
             FILTER raw.source == @source
             FILTER raw.kind IN @kinds
             FILTER raw.payload_text != null
-            RETURN { payload_text: raw.payload_text, meta: raw.meta,
-                     external_id: raw.external_id }
+            RETURN {{ payload_text: raw.payload_text, meta: raw.meta,
+                     external_id: raw.external_id }}
         """
         return self.store.query(
             aql,

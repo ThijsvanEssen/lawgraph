@@ -8,6 +8,7 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
@@ -21,7 +22,6 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
     RELATION_VOTED,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import ArangoStore
 

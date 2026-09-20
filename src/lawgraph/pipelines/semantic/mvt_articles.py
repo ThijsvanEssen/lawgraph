@@ -14,7 +14,6 @@ articles at all.
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -22,6 +21,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
@@ -30,10 +30,8 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REPEALS,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
@@ -44,19 +42,13 @@ SEMANTIC_SOURCE = "mvt-article-linker"
 
 _CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 
-_SINCE_FILTER = "FILTER doc.props.fetched_at >= @since"
-
-
-def _targets_aql(since_filter: str) -> str:
-    """One pass: per explanatory document, the nodes it explains.
-
-    Those are the article versions (or articles, or the instrument itself) that
-    the instrument legislated in the document's dossier introduced or changed.
-    """
-    return f"""
+# One pass: per explanatory document, the nodes it explains.
+#
+# Those are the article versions (or articles, or the instrument itself) that
+# the instrument legislated in the document's dossier introduced or changed.
+_TARGETS_AQL = f"""
 FOR doc IN {COLLECTION_DOCUMENTS}
   FILTER CONTAINS(LOWER(doc.props.kind ?? ''), 'toelichting')
-  {since_filter}
   LET dossiers = (
     FOR e IN {COLLECTION_EDGES}
       FILTER e._from == doc._id AND e.relation == @part_of
@@ -64,7 +56,7 @@ FOR doc IN {COLLECTION_DOCUMENTS}
       RETURN e._to
   )
   LET instruments = (
-    FOR dossier IN dossiers
+    FOR dossier IN {COLLECTION_DOSSIERS}
       FOR e IN {COLLECTION_EDGES}
         FILTER e._to == dossier AND e.relation == @legislated_in
         FILTER STARTS_WITH(e._from, '{COLLECTION_INSTRUMENTS}/')
@@ -72,7 +64,7 @@ FOR doc IN {COLLECTION_DOCUMENTS}
   )
   FILTER LENGTH(instruments) > 0
   LET changed = (
-    FOR instrument IN instruments
+    FOR instrument IN {COLLECTION_INSTRUMENTS}
       FOR e IN {COLLECTION_EDGES}
         FILTER e._from == instrument AND e.relation IN @change_relations
         FILTER STARTS_WITH(e._to, '{COLLECTION_ARTICLES}/')
@@ -90,21 +82,17 @@ FOR doc IN {COLLECTION_DOCUMENTS}
 class MvtArticlesSemanticPipeline(SemanticPipelineBase):
     """Link explanatory memoranda to the article versions they explain."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
         bind_vars: dict[str, Any] = {
             "part_of": RELATION_PART_OF,
             "legislated_in": RELATION_LEGISLATED_IN,
             "change_relations": list(_CHANGE_RELATIONS),
         }
-        since_filter = ""
-        if since is not None:
-            since_filter = _SINCE_FILTER
-            bind_vars["since"] = iso_timestamp(since)
 
         edges = EdgeWriter(self.store)
         documents = 0
-        for row in self.store.query(_targets_aql(since_filter), bind_vars):
+        for row in self.store.query(_TARGETS_AQL, bind_vars):
             document = row.get("document")
             targets = row.get("targets") or []
             if not document or not targets:

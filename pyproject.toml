@@ -15,13 +15,13 @@ authors = [
 ]
 
 dependencies = [
-  "pyyaml>=6.0.0",
   "requests>=2.31.0",
   "python-arango>=7.6.0",
   "python-dotenv>=1.0.0",
-  "typing-extensions>=4.12.0",
+  "pydantic>=2.0,<3",
   "fastapi>=0.110.0,<1",
   "uvicorn[standard]>=0.32,<0.33",
+  "pdfminer.six>=20231228",
 ]
 
 [project.optional-dependencies]
@@ -29,11 +29,11 @@ dev = [
   "pytest>=8.0.0",
   "ruff>=0.5.0",
   "httpx>=0.28.1",
+  "pre-commit>=3.0",
 ]
 
 [project.urls]
-Homepage = "https://example.com/lawgraph"
-Source = "https://example.com/lawgraph.git"
+Source = "https://github.com/ThijsvanEssen/lawgraph"
 
 [project.scripts]
 lawgraph     = "lawgraph.__main__:main"
@@ -46,7 +46,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.ruff]
-line-length = 100
+line-length = 88
 target-version = "py311"
 
 [tool.ruff.lint]
@@ -55,7 +55,12 @@ select = ["E", "F", "W", "B", "C", "I"]
 [tool.ruff.lint.mccabe]
 max-complexity = 15
 
+# The formatter wraps at 88; text it cannot wrap (strings, AQL) may run to 100.
+[tool.ruff.lint.pycodestyle]
+max-line-length = 100
+
 [tool.ruff.lint.per-file-ignores]
-"scripts/*" = ["E501"]
-"src/lawgraph/api/queries/__init__.py" = ["F401"]  # re-export module
 "src/lawgraph/api/queries/*.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

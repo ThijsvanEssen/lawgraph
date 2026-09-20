@@ -17,10 +17,10 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_EDGES,
     RELATION_REFERS_TO,
     SEMANTIC_SOURCE_STRUCTURED,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
@@ -35,7 +35,7 @@ class RelationSemanticsSemanticPipeline(SemanticPipelineBase):
 
     _UPDATE_BATCH_SIZE = 500
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
         batch: list[dict[str, Any]] = []
         classified = 0

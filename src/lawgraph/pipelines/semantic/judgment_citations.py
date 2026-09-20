@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import datetime as dt
-from typing import Any, Iterable
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
@@ -13,7 +12,6 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
-from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.core.values import first_text_prop
 
 from .base import SemanticPipelineBase
@@ -26,20 +24,17 @@ SEMANTIC_SOURCE = "judgment-citation-linker"
 class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
-        pending, all_cited_eclis, doc_count = self._collect_references(since)
+        pending, all_cited_eclis, doc_count = self._collect_references()
         if not pending:
-            logger.debug(
-                "No ECLI cross-references found (since=%s).", describe_since(since)
-            )
+            logger.debug("No ECLI cross-references found.")
             return result
 
         logger.info(
-            "Found %d ECLI references across %d judgments (since=%s).",
+            "Found %d ECLI references across %d judgments.",
             len(pending),
             doc_count,
-            describe_since(since),
         )
 
         ecli_to_id = self._resolve_eclis(all_cited_eclis)
@@ -47,13 +42,11 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
         logger.info("Judgment citation linker: %s.", result.summary())
         return result
 
-    def _collect_references(
-        self, since: dt.datetime | None
-    ) -> tuple[list[tuple[str, str]], set[str], int]:
+    def _collect_references(self) -> tuple[list[tuple[str, str]], set[str], int]:
         pending: list[tuple[str, str]] = []
         all_cited_eclis: set[str] = set()
         doc_count = 0
-        for doc in self._load_judgments(since=since):
+        for doc in self.store.query(f"FOR doc IN {COLLECTION_JUDGMENTS} RETURN doc"):
             judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
             text = self._extract_text(judgment)
             eclis = find_eclis(text)
@@ -109,19 +102,6 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
             created, updated = self._flush_edge_batch(edge_batch, result)
             result.created += created
             result.updated += updated
-
-    def _load_judgments(
-        self, since: dt.datetime | None = None
-    ) -> Iterable[dict[str, Any]]:
-        if since is not None:
-            since_iso = iso_timestamp(since)
-            aql = f"""
-            FOR doc IN {COLLECTION_JUDGMENTS}
-                FILTER doc.props.fetched_at >= @since
-                RETURN doc
-            """
-            return self.store.query(aql, bind_vars={"since": since_iso})
-        return self.store.query(f"FOR doc IN {COLLECTION_JUDGMENTS} RETURN doc")
 
     def _extract_text(self, judgment: Node) -> str | None:
         return first_text_prop(judgment.props, "raw_xml", "text", "body")

@@ -8,6 +8,7 @@ from typing import Any, Iterable
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_JUDGMENTS,
+    COLLECTION_RAW_SOURCES,
     RAW_KIND_RS_CONTENT,
     RELATION_REFERS_TO,
     SOURCE_RECHTSPRAAK,
@@ -160,8 +161,8 @@ class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
             "kind": RAW_KIND_RS_CONTENT,
             "since": since_iso,
         }
-        aql = """
-        FOR raw IN raw_sources
+        aql = f"""
+        FOR raw IN {COLLECTION_RAW_SOURCES}
             FILTER raw.source == @source
             FILTER raw.kind == @kind
             FILTER raw.fetched_at >= @since

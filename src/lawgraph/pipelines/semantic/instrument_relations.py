@@ -15,6 +15,7 @@ from typing import Any, Iterable
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_RAW_SOURCES,
     EDGE_STATUS_VOORGESTELD,
     RAW_KIND_BWB_REGELING,
     RAW_KIND_BWB_TOESTAND,
@@ -147,9 +148,7 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
         since_filter = ""
         bind_vars: dict[str, Any] | None = None
         if since is not None:
-            since_filter = (
-                "FILTER doc.props.date >= @since OR doc.props.fetched_at >= @since"
-            )
+            since_filter = "FILTER doc.props.date >= @since"
             bind_vars = {"since": since.isoformat()}
 
         aql = (
@@ -215,7 +214,7 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
             since_filter = "FILTER raw.fetched_at >= @since"
             bind_vars["since"] = since.isoformat()
         aql = f"""
-        FOR raw IN raw_sources
+        FOR raw IN {COLLECTION_RAW_SOURCES}
             FILTER raw.source == @source
             FILTER raw.kind IN @kinds
             FILTER raw.meta.bwb_id != null

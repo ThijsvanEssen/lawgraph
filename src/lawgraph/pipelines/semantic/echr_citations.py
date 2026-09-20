@@ -13,7 +13,6 @@ Judgments are also linked to any NL/EU instruments named in the judgment
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -205,7 +204,7 @@ class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
 
         return edge_batch
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
 
         # Fetch all ECHR judgment nodes
@@ -251,8 +250,8 @@ FOR j IN {COLLECTION_JUDGMENTS}
 
         bwb_id_to_node: dict[str, Node] = {}
         if all_bwb_ids:
-            batch_aql = """
-FOR inst IN instruments
+            batch_aql = f"""
+FOR inst IN {COLLECTION_INSTRUMENTS}
   FILTER UPPER(inst.props.bwb_id) IN @bwb_ids
   RETURN inst
 """

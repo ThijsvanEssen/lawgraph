@@ -1,36 +1,23 @@
-"""Lightweight in-process TTL cache with LRU eviction.
+"""In-process cache with a time-to-live and least-recently-used eviction.
 
-Drop-in replacement for the bare-dict caches in individual route modules.
-A single import replaces the 20-line boilerplate that was copy-pasted into
-nodes.py and committees.py.
-
-Usage::
-
-    from lawgraph.api.cache import TTLCache
-
-    _cache: TTLCache[str, SomeType] = TTLCache(maxsize=256, ttl=60.0)
-
-    from lawgraph.api.cache import _MISSING
-    value = _cache.get("key")
-    if value is _MISSING:
-        value = compute()
-        _cache.set("key", value)
+``get`` returns ``_MISSING`` for an absent or expired key, so ``None`` can be cached.
 """
 
 from __future__ import annotations
 
-import os
 import time
 from collections import OrderedDict
 from typing import Generic, TypeVar
+
+from lawgraph.config.settings import API_CACHE_MAXSIZE, API_CACHE_TTL
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
 
 _MISSING = object()
 
-_DEFAULT_TTL = float(os.getenv("LAWGRAPH_CACHE_TTL", "60"))
-_DEFAULT_MAXSIZE = int(os.getenv("LAWGRAPH_CACHE_MAXSIZE", "512"))
+_DEFAULT_TTL = API_CACHE_TTL
+_DEFAULT_MAXSIZE = API_CACHE_MAXSIZE
 
 
 class TTLCache(Generic[_K, _V]):
@@ -73,9 +60,6 @@ class TTLCache(Generic[_K, _V]):
         # Evict oldest entry when over capacity.
         while len(self._store) > self._maxsize:
             self._store.popitem(last=False)
-
-    def invalidate(self, key: _K) -> None:
-        self._store.pop(key, None)
 
     def clear(self) -> None:
         self._store.clear()

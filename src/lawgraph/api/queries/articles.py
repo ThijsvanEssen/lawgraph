@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
@@ -31,7 +32,6 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 
