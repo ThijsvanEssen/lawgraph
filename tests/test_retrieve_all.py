@@ -168,11 +168,11 @@ def recorded(monkeypatch) -> dict[str, list[str]]:
     sources = [
         dataclasses.replace(
             source,
-            retrieve_main=lambda argv, source_id=source.id: (
+            retrieve_command=lambda argv, source_id=source.id: (
                 argvs.__setitem__(source_id, argv) or PipelineResult()
             ),
         )
-        if source.retrieve_main is not None
+        if source.retrieve_command is not None
         else source
         for source in registry.SOURCES
     ]
@@ -245,9 +245,9 @@ def test_the_schema_is_created_once_before_the_threads_start(monkeypatch) -> Non
     monkeypatch.setattr(orchestration, "ArangoStore", store)
     sources = [
         dataclasses.replace(
-            s, retrieve_main=lambda argv: events.append("step") or PipelineResult()
+            s, retrieve_command=lambda argv: events.append("step") or PipelineResult()
         )
-        if s.retrieve_main is not None
+        if s.retrieve_command is not None
         else s
         for s in registry.SOURCES
     ]
@@ -372,7 +372,7 @@ def test_by_default_every_server_has_its_own_job() -> None:
     lanes = {
         s.retrieve_lane or s.id
         for s in registry.SOURCES
-        if s.retrieve_main is not None and s.retrieve_argv_builder is not None
+        if s.retrieve_command is not None and s.retrieve_argv_builder is not None
     }
     assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 6
 

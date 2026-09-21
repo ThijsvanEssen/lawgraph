@@ -319,7 +319,7 @@ def test_an_ecli_that_is_also_in_the_index_is_fetched_once() -> None:
 
 @pytest.fixture
 def cli(monkeypatch):
-    from lawgraph.pipelines import retrieve_cli
+    from lawgraph.pipelines import retrieve_commands
 
     seen: dict[str, Any] = {}
 
@@ -333,9 +333,9 @@ def cli(monkeypatch):
 
             return PipelineResult()
 
-    monkeypatch.setattr(retrieve_cli, "ArangoStore", lambda: object())
-    monkeypatch.setattr(retrieve_cli, "RechtspraakRetrievePipeline", Recorder)
-    return lambda argv: (retrieve_cli.retrieve_rechtspraak(argv), seen)[1]
+    monkeypatch.setattr(retrieve_commands, "ArangoStore", lambda: object())
+    monkeypatch.setattr(retrieve_commands, "RechtspraakRetrievePipeline", Recorder)
+    return lambda argv: (retrieve_commands.retrieve_rechtspraak(argv), seen)[1]
 
 
 def test_the_default_courts_are_the_hoge_raad_raad_van_state_and_the_hoven(cli) -> None:

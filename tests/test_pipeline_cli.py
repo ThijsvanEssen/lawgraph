@@ -147,11 +147,13 @@ def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
     commands = [
         command
         for source in SOURCES
-        for command in (source.normalize_main, source.semantic_main)
+        for command in (source.normalize_command, source.semantic_command)
         if isinstance(command, PipelineCommand)
     ]
     assert len(commands) > 25
     for command in commands:
         parameters = set(inspect.signature(command.pipeline_cls.run).parameters)
         assert parameters - {"self"} <= {"since"}, command.pipeline_cls.__name__
-    assert all(accepts_since(s.normalize_main) for s in SOURCES if s.normalize_main)
+    assert all(
+        accepts_since(s.normalize_command) for s in SOURCES if s.normalize_command
+    )

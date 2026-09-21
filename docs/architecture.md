@@ -45,7 +45,7 @@ skip variable of a step is derived from its phase and source id:
   its options, does its work and returns what it did. Normalize and semantic commands are made
   from a pipeline class by `PipelineCommand`, which reads from the `run` of the pipeline
   whether the command has `--since`; retrieve commands are written out in
-  `pipelines/retrieve_cli.py`; `<phase> all`, `bootstrap`, `expand-graph`, `fill-gaps` and
+  `pipelines/retrieve_commands.py`; `<phase> all`, `bootstrap`, `expand-graph`, `fill-gaps` and
   `check` are commands too.
 - A command is run through `execute(label, command, argv)` (`pipelines/execution.py`), by
   `__main__` for what was typed and by a composite command for its parts. `execute` is the

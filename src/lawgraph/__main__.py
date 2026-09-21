@@ -42,7 +42,7 @@ def _build_dispatch() -> dict[str, dict[str, Command]]:
     for phase, run_all in _PHASE_ALL.items():
         dispatch[phase] = {"all": run_all}
         for source in SOURCES:
-            main = getattr(source, f"{phase}_main")
+            main = getattr(source, f"{phase}_command")
             if main is not None:
                 dispatch[phase][source.id.replace("_", "-")] = main
     return dispatch
@@ -54,7 +54,7 @@ def _sources_overview() -> str:
     for source in SOURCES:
         lines.append(f"{source.id.replace('_', '-')}  —  {source.display_name}")
         for phase in ("retrieve", "normalize", "semantic"):
-            if getattr(source, f"{phase}_main") is None:
+            if getattr(source, f"{phase}_command") is None:
                 continue
             note = ""
             if phase == "retrieve" and source.retrieve_argv_builder is None:

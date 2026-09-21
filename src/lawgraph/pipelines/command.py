@@ -2,7 +2,7 @@
 
 A command is a function ``(argv) -> PipelineResult``: it parses its options, does its work
 and returns what it did. Every ``lawgraph <...>`` is one: the hand-written ones
-(``retrieve_cli``, ``commands/``), the ``<phase> all`` of ``orchestration`` and the ones
+(``retrieve_commands``, ``commands/``), the ``<phase> all`` of ``orchestration`` and the ones
 a ``PipelineCommand`` of a pipeline class. A command does not set up logging, measure
 time, catch what goes wrong or end the process: ``execution.execute`` does that for every
 command, and only ``__main__`` turns the outcome into an exit code.

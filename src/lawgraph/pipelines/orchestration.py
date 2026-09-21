@@ -33,7 +33,7 @@ DEFAULT_RETRIEVE_JOBS = len(
     {
         s.retrieve_lane or s.id
         for s in SOURCES
-        if s.retrieve_main is not None and s.retrieve_argv_builder is not None
+        if s.retrieve_command is not None and s.retrieve_argv_builder is not None
     }
 )
 DEFAULT_WINDOW = "730d"
@@ -252,13 +252,13 @@ def _retrieve_steps(args: argparse.Namespace) -> list[Step]:
         Step(
             "retrieve",
             s.id,
-            s.retrieve_main,
+            s.retrieve_command,
             s.retrieve_argv_builder(ctx),
             s.retrieve_lane or "",
             s.retrieve_after,
         )
         for s in SOURCES
-        if s.retrieve_main is not None and s.retrieve_argv_builder is not None
+        if s.retrieve_command is not None and s.retrieve_argv_builder is not None
     ]
 
 
@@ -275,9 +275,14 @@ def normalize_all(argv: list[str] | None = None) -> PipelineResult:
 
 def _normalize_steps(args: argparse.Namespace) -> list[Step]:
     return [
-        Step("normalize", s.id, s.normalize_main, _since_argv(args, s.normalize_main))
+        Step(
+            "normalize",
+            s.id,
+            s.normalize_command,
+            _since_argv(args, s.normalize_command),
+        )
         for s in SOURCES
-        if s.normalize_main is not None
+        if s.normalize_command is not None
     ]
 
 
@@ -298,7 +303,9 @@ def semantic_all(argv: list[str] | None = None) -> PipelineResult:
 
 def _semantic_steps(args: argparse.Namespace) -> list[Step]:
     return [
-        Step("semantic", s.id, s.semantic_main, _since_argv(args, s.semantic_main))
+        Step(
+            "semantic", s.id, s.semantic_command, _since_argv(args, s.semantic_command)
+        )
         for s in SOURCES
-        if s.semantic_main is not None
+        if s.semantic_command is not None
     ]

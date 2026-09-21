@@ -172,7 +172,7 @@ def test_a_step_is_called_what_one_types_everywhere(lines) -> None:
 @pytest.mark.parametrize("source", SOURCES, ids=lambda s: s.id)
 def test_every_command_of_every_source_is_described(source) -> None:
     for phase in ("retrieve", "normalize", "semantic"):
-        if getattr(source, f"{phase}_main") is not None:
+        if getattr(source, f"{phase}_command") is not None:
             assert source.descriptions.get(phase), f"{phase} {source.id}"
 
 
