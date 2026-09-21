@@ -15,7 +15,7 @@ import argparse
 
 from lawgraph.commands.expand_graph import main as expand_graph
 from lawgraph.core.models import PipelineResult
-from lawgraph.pipelines.execution import Outcome, State, combined, execute
+from lawgraph.pipelines.command import Outcome, State, combined_result, run_command
 from lawgraph.pipelines.orchestration import (
     DEFAULT_RETRIEVE_JOBS,
     DEFAULT_WINDOW,
@@ -73,7 +73,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     for label, command, command_argv in phases:
         if label in skipped:
             continue
-        outcomes.append(execute(label, command, command_argv))
+        outcomes.append(run_command(label, command, command_argv))
         if args.strict and outcomes[-1].state is State.FAILED:
             break
-    return combined(outcomes)
+    return combined_result(outcomes)

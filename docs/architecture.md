@@ -47,18 +47,21 @@ skip variable of a step is derived from its phase and source id:
   whether the command has `--since`; retrieve commands are written out in
   `pipelines/retrieve_commands.py`; `<phase> all`, `bootstrap`, `expand-graph`, `fill-gaps` and
   `check` are commands too.
-- A command is run through `execute(label, command, argv)` (`pipelines/execution.py`), by
-  `__main__` for what was typed and by a composite command for its parts. `execute` is the
+- A command is run through `run_command(label, command, argv)` (`pipelines/command.py`), by
+  `__main__` for what was typed and by a composite command for its parts. `run_command` is the
   one place that sets the log context, writes one line to start and one to end, measures the
   time and turns an exception or a result with errors into a failed `Outcome`. The label is
   what one types (`normalize bwb`) and is the name of the step everywhere.
-- A **step** is one phase of one source. `<phase> all` (`pipelines/orchestration.py`) runs
-  the steps of the registry in list order through `run_phase`, logs a table of how each
-  ended and goes on after a failure unless `--strict`. The result of a composite command is
-  the sum of its parts, with one error per failed part.
+- A **step** is one phase of one source (`pipelines/orchestration.py`). The names say what
+  they take, each built on the one before: `run_step(step)` runs one (or skips it),
+  `run_steps(steps)` a list in registry order (in lanes for retrieve) with a table of how
+  each ended, going on after a failure unless `--strict`, and `_run_phase(phase, ...)` the
+  steps of a whole phase with the mark of `--since last`; `retrieve_all`, `normalize_all` and
+  `semantic_all` are the commands on top. The result of a composite command is the sum of
+  its parts, with one error per failed part (`combined_result`).
 - A pipeline catches what it can deal with itself: one record of many that cannot be read
   or fetched is left out, counted and named once (`Progress`, `result.skipped`). A query or
-  a write that fails is not that: it raises, and `execute` ends the step as failed with the
+  a write that fails is not that: it raises, and `run_command` ends the step as failed with the
   error. No pipeline turns a failed query into a run over half the data.
 - Only `__main__` sets up logging and ends the process: exit code 0, 1 when the command
   failed, 2 for a command line that cannot be read. A test keeps `sys.exit` and

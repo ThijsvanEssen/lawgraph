@@ -84,7 +84,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
             normalized = self.normalize_nodes(raw, result)
             self.build_edges(raw, normalized)
         except Exception:
-            # The error goes to ``execute``; what was written before it is in the database.
+            # The error goes to ``run_command``; what was written before it is in the database.
             logger.warning(
                 "Written before the failure: %s.", self.store.writes.describe()
             )

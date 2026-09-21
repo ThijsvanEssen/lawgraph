@@ -18,8 +18,7 @@ from lawgraph.commands.check import main as check
 from lawgraph.commands.expand_graph import main as expand_graph
 from lawgraph.commands.fill_gaps import main as fill_gaps
 from lawgraph.core.logging import setup_logging
-from lawgraph.pipelines.command import Command
-from lawgraph.pipelines.execution import State, execute
+from lawgraph.pipelines.command import Command, State, run_command
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
 from lawgraph.sources.registry import SOURCES, describe
 
@@ -102,7 +101,7 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(2)
 
     setup_logging()
-    outcome = execute(label, chosen, options, description=description)
+    outcome = run_command(label, chosen, options, description=description)
     if outcome.state is State.FAILED:
         sys.exit(1)
 
