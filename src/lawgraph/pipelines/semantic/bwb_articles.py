@@ -20,6 +20,7 @@ from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db import EdgeWriter
 from lawgraph.pipelines.semantic.bwb_references import (
     ArticleReferenceHit,
     hits_from_references,
@@ -59,7 +60,7 @@ class BWBArticlesSemanticPipeline(SemanticPipelineBase):
 
         hits_detected = 0
         articles_seen = 0
-        edge_batch: list[dict] = []
+        edges = EdgeWriter(self.store)
         # Stream articles (they carry full text) and process them in chunks so
         # that all reference targets of a chunk are resolved with ONE lookup.
         articles = self._track(
@@ -99,8 +100,7 @@ class BWBArticlesSemanticPipeline(SemanticPipelineBase):
                             hit.article_number,
                         )
                         continue
-                    self._queue_edge(
-                        edge_batch,
+                    edges.add_doc(
                         self._make_edge_doc(
                             from_node=article,
                             to_node=target,
@@ -108,11 +108,10 @@ class BWBArticlesSemanticPipeline(SemanticPipelineBase):
                             source=SEMANTIC_SOURCE,
                             confidence=hit.confidence,
                             meta=self._edge_meta(hit),
-                        ),
-                        result,
+                        )
                     )
 
-        self._write_batch(edge_batch, result)
+        edges.flush_into(result)
         if not articles_seen:
             logger.info("No BWB articles found for semantic linking.")
 

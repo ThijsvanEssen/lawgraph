@@ -16,6 +16,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_JUDGMENTS, RELATION_APPEAL_OF
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, parse_arango_id
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -57,12 +58,9 @@ FOR j IN {COLLECTION_JUDGMENTS}
         )
 
         ecli_to_id = self._resolve_eclis(all_related)
-        edge_batch = self._build_edge_batch(appeal_rows, ecli_to_id)
-
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+        edges = EdgeWriter(self.store)
+        self._link_appeals(appeal_rows, ecli_to_id, edges)
+        edges.flush_into(result)
 
         logger.info("Judgment appeal linker: %s.", result.summary())
         return result
@@ -81,10 +79,12 @@ FOR j IN {COLLECTION_JUDGMENTS}
             appeal_rows.append(row)
         return appeal_rows, all_related
 
-    def _build_edge_batch(
-        self, appeal_rows: list[dict[str, Any]], ecli_to_id: dict[str, str]
-    ) -> list[dict[str, Any]]:
-        edge_batch: list[dict[str, Any]] = []
+    def _link_appeals(
+        self,
+        appeal_rows: list[dict[str, Any]],
+        ecli_to_id: dict[str, str],
+        edges: EdgeWriter,
+    ) -> None:
         for row in appeal_rows:
             from_id = row["j_id"]
             _, from_key = parse_arango_id(from_id)
@@ -115,5 +115,4 @@ FOR j IN {COLLECTION_JUDGMENTS}
                     meta={"procedure_type": procedure_type},
                 )
                 if edge_doc:
-                    edge_batch.append(edge_doc)
-        return edge_batch
+                    edges.add_doc(edge_doc)

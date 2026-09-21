@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -93,12 +94,9 @@ class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
         judgments: list[dict],
         convention: Node,
         article_cache: dict[str, Node | None],
-        edge_batch: list[dict],
-    ) -> list[dict]:
-        """Append REFERS_TO edges for every judgment → Convention article pair.
-
-        Returns the (possibly grown) edge_batch so the caller can flush it.
-        """
+        edges: EdgeWriter,
+    ) -> None:
+        """REFERS_TO edges for every judgment → Convention article pair."""
         for row in judgments:
             j_id = row.get("j_id")
             j_key = row.get("j_key")
@@ -146,26 +144,16 @@ class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
                     meta={"article": label, "instrument": "EVRM"},
                 )
                 if edge_doc:
-                    edge_batch.append(edge_doc)
-                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                        created, updated = self._flush_edge_batch(edge_batch, result)
-                        result.created += created
-                        result.updated += updated
-                        edge_batch = []
-
-        return edge_batch
+                    edges.add_doc(edge_doc)
 
     def _link_bwb_mentions(
         self,
         result: PipelineResult,
         judgments: list[dict],
         bwb_instruments: dict[str, Node],
-        edge_batch: list[dict],
-    ) -> list[dict]:
-        """Append REFERS_TO edges for BWB IDs found in judgment conclusions.
-
-        Returns the (possibly grown) edge_batch so the caller can flush it.
-        """
+        edges: EdgeWriter,
+    ) -> None:
+        """REFERS_TO edges for BWB IDs found in judgment conclusions."""
         for row in judgments:
             j_id = row.get("j_id")
             j_key = row.get("j_key")
@@ -197,14 +185,7 @@ class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
                     meta={"match_type": "bwb_text_scan"},
                 )
                 if edge_doc:
-                    edge_batch.append(edge_doc)
-                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                        created, updated = self._flush_edge_batch(edge_batch, result)
-                        result.created += created
-                        result.updated += updated
-                        edge_batch = []
-
-        return edge_batch
+                    edges.add_doc(edge_doc)
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
@@ -275,17 +256,11 @@ FOR inst IN {COLLECTION_INSTRUMENTS}
                 result.add_error(f"ECHR citations: batch BWB lookup failed: {exc}")
 
         article_cache: dict[str, Node | None] = {}
-        edge_batch: list[dict] = []
+        edges = EdgeWriter(self.store)
 
-        edge_batch = self._link_convention_articles(
-            result, rows, convention, article_cache, edge_batch
-        )
-        edge_batch = self._link_bwb_mentions(result, rows, bwb_id_to_node, edge_batch)
-
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+        self._link_convention_articles(result, rows, convention, article_cache, edges)
+        self._link_bwb_mentions(result, rows, bwb_id_to_node, edges)
+        edges.flush_into(result)
 
         logger.info("ECHR citations: %s.", result.summary())
         return result

@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.aliases import InstrumentAliasMap, normalize_instrument_id
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.db import make_edge_doc
 from lawgraph.pipelines.base import PipelineBase
@@ -67,8 +67,6 @@ class SemanticPipelineBase(PipelineBase):
 
     Provides alias resolution and edge helpers so subclasses only implement run().
     """
-
-    _EDGE_BATCH_SIZE: int = 500
 
     def __init__(self, store: Any) -> None:
         super().__init__(store=store)
@@ -293,51 +291,6 @@ class SemanticPipelineBase(PipelineBase):
         return index
 
     # ------------------------------------------------------------------ edges
-
-    def _flush_edge_batch(
-        self,
-        batch: list[dict[str, Any]],
-        result: PipelineResult | None = None,
-    ) -> tuple[int, int]:
-        """Batch-upsert a list of pre-built edge documents in one AQL call.
-
-        Returns (created, updated). On error, logs and appends to result.errors
-        but does not raise so the pipeline can continue with the next batch.
-
-        Build edge docs with ``_make_edge_doc()`` and add them with
-        ``_queue_edge()``, which calls this once per full batch.
-        """
-        if not batch:
-            return 0, 0
-        try:
-            created, updated = self.store.bulk_insert_or_update_edges(batch)
-            return created, updated
-        except Exception as exc:
-            msg = f"Batch edge upsert failed ({len(batch)} docs): {exc}"
-            logger.error(msg)
-            if result is not None:
-                result.add_error(msg)
-            return 0, 0
-
-    def _queue_edge(
-        self,
-        batch: list[dict[str, Any]],
-        doc: dict[str, Any] | None,
-        result: PipelineResult,
-    ) -> None:
-        """Append *doc* to *batch* (None is skipped); write the batch when full."""
-        if doc is None:
-            return
-        batch.append(doc)
-        if len(batch) >= self._EDGE_BATCH_SIZE:
-            self._write_batch(batch, result)
-
-    def _write_batch(self, batch: list[dict[str, Any]], result: PipelineResult) -> None:
-        """Bulk-write *batch*, tally created/updated on *result*, and empty it."""
-        created, updated = self._flush_edge_batch(batch, result)
-        result.created += created
-        result.updated += updated
-        batch.clear()
 
     def _make_edge_doc(
         self,

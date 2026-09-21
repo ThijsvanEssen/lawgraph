@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
 
 from lawgraph.config.constants import (
     EDGE_STATUS_CANONIEK,
@@ -13,6 +12,7 @@ from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -71,7 +71,7 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
         ecli_to_id: dict[str, str],
         result: PipelineResult,
     ) -> None:
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
         for from_id, cited_ecli in pending:
             to_id = ecli_to_id.get(cited_ecli)
             if not to_id:
@@ -94,13 +94,5 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
                 status=EDGE_STATUS_CANONIEK,
             )
             if edge_doc:
-                edge_batch.append(edge_doc)
-                if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                    created, updated = self._flush_edge_batch(edge_batch, result)
-                    result.created += created
-                    result.updated += updated
-                    edge_batch = []
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+                edges.add_doc(edge_doc)
+        edges.flush_into(result)

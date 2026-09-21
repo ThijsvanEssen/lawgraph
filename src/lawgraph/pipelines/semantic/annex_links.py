@@ -30,6 +30,7 @@ from lawgraph.core.annex_xml import extract_description, extract_entries, extrac
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.xml import iter_named
+from lawgraph.db import EdgeWriter
 from lawgraph.pipelines.semantic.annex_detect import detect_annex_references
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase, slim
 
@@ -54,7 +55,7 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
         """Parse ``<bijlage>`` elements from raw BWB XML into annex nodes."""
         known_keys: set[str] = set()
         node_docs: list[dict[str, Any]] = []
-        edge_docs: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
 
         for record in self._track(self._load_raw_bwb_records(), "BWB toestanden"):
             bwb_id = self._record_bwb_id(record)
@@ -75,7 +76,7 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
                 node_docs.append(node.to_document())
                 edge = self._instrument_edge(bwb_id, node)
                 if edge:
-                    edge_docs.append(edge)
+                    edges.add_doc(edge)
 
         if node_docs:
             created, updated = self.store.bulk_insert_or_update_nodes(
@@ -83,8 +84,7 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
             )
             result.created += created
             result.updated += updated
-        if edge_docs:
-            self._flush_edge_batch(edge_docs, result)
+        edges.flush_into(result)
         logger.info("Extracted %d annexes from BWB XML.", len(known_keys))
         return known_keys
 
@@ -153,7 +153,7 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
     # ── pass 2: article text linking ───────────────────────────────────────
 
     def _link_articles(self, result: PipelineResult, known_keys: set[str]) -> None:
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
         articles = self._load_articles_mentioning_annex()
         for doc in self._track(articles, "articles"):
             article = Node.from_document(COLLECTION_ARTICLES, doc)
@@ -180,16 +180,8 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
                     },
                 )
                 if edge:
-                    edge_batch.append(edge)
-                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                        created, updated = self._flush_edge_batch(edge_batch, result)
-                        result.created += created
-                        result.updated += updated
-                        edge_batch = []
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+                    edges.add_doc(edge)
+        edges.flush_into(result)
 
     def _load_articles_mentioning_annex(self) -> Iterable[dict[str, Any]]:
         aql = f"""

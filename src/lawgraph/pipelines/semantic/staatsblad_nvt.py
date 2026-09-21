@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -91,7 +92,7 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
 
         # Deduplicate by (pub_id, inst_id)
         seen: set[tuple[str, str]] = set()
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
 
         for row in self._track(rows, "publications", total=len(rows)):
             pub_id = row.get("pub_id")
@@ -129,8 +130,7 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
                 props={},
             )
 
-            self._queue_edge(
-                edge_batch,
+            edges.add_doc(
                 self._make_edge_doc(
                     from_node=pub_node,
                     to_node=inst_node,
@@ -138,10 +138,9 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
                     source=SEMANTIC_SOURCE,
                     confidence=confidence,
                     meta={"match_type": match_type},
-                ),
-                result,
+                )
             )
 
-        self._write_batch(edge_batch, result)
+        edges.flush_into(result)
         logger.info("Staatsblad NvT semantic linker: %s.", result.summary())
         return result

@@ -26,6 +26,7 @@ from lawgraph.core.citations import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 from .detection import build_extractor, detect_in_text
@@ -117,7 +118,7 @@ class TKArticlesSemanticPipeline(SemanticPipelineBase):
             describe_since(since),
         )
 
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
         doc_count = 0
 
         documents = self._load_tk_documents(since_iso=since_iso)
@@ -155,17 +156,9 @@ class TKArticlesSemanticPipeline(SemanticPipelineBase):
                     meta=meta,
                 )
                 if edge_doc:
-                    edge_batch.append(edge_doc)
-                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                        created, updated = self._flush_edge_batch(edge_batch, result)
-                        result.created += created
-                        result.updated += updated
-                        edge_batch = []
+                    edges.add_doc(edge_doc)
 
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+        edges.flush_into(result)
 
         logger.info(
             "TK semantic article linker: processed %d documents, %s.",

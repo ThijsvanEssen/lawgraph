@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.aliases import InstrumentAliasMap
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase, slim
 
@@ -100,7 +101,7 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
             )
             return result
 
-        edge_batch: list[dict] = []
+        edges = EdgeWriter(self.store)
         documents = self._load_tk_documents(since=since)
         for doc_node in self._track(documents, "TK documents"):
             title = doc_node.props.get("title") or doc_node.props.get("display_name")
@@ -121,17 +122,9 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
                     status=EDGE_STATUS_VOORGESTELD,
                 )
                 if edge_doc:
-                    edge_batch.append(edge_doc)
-                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                        created, updated = self._flush_edge_batch(edge_batch, result)
-                        result.created += created
-                        result.updated += updated
-                        edge_batch = []
+                    edges.add_doc(edge_doc)
 
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+        edges.flush_into(result)
 
         logger.info("AMENDS: %s.", result.summary())
         return result
@@ -158,7 +151,7 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
 
     def _run_implements_directive(self) -> PipelineResult:
         result = PipelineResult()
-        edge_batch: list[dict] = []
+        edges = EdgeWriter(self.store)
 
         # The CELEX numbers a regulation names: ``normalize bwb`` keeps them on the node.
         regulations = self._load_celex_references()
@@ -183,17 +176,9 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
                     meta={"celex": celex},
                 )
                 if edge_doc:
-                    edge_batch.append(edge_doc)
-                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                        created, updated = self._flush_edge_batch(edge_batch, result)
-                        result.created += created
-                        result.updated += updated
-                        edge_batch = []
+                    edges.add_doc(edge_doc)
 
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+        edges.flush_into(result)
 
         logger.info("IMPLEMENTS: %s.", result.summary())
         return result

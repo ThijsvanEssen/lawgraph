@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -116,7 +117,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
         )
 
         seen: set[tuple[str, str]] = set()
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
         for row in rows:
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")
@@ -150,8 +151,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
                 props={},
             )
 
-            self._queue_edge(
-                edge_batch,
+            edges.add_doc(
                 self._make_edge_doc(
                     from_node=pub_node,
                     to_node=inst_node,
@@ -159,11 +159,10 @@ FOR pub IN {COLLECTION_DOCUMENTS}
                     source=SEMANTIC_SOURCE,
                     confidence=confidence,
                     meta={"match_type": match_type},
-                ),
-                result,
+                )
             )
 
-        self._write_batch(edge_batch, result)
+        edges.flush_into(result)
         logger.info("Staatscourant regeling semantic: %s.", result.summary())
         return result
 
