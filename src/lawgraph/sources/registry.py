@@ -541,6 +541,7 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
     semantic_judgment_citations = make_pipeline_cli(
         JudgmentCitationsSemanticPipeline,
         description="Detect ECLI cross-references and create REFERS_TO edges between judgments.",
+        with_since=True,
     )
     semantic_judgment_appeal = make_pipeline_cli(
         JudgmentAppealSemanticPipeline,
@@ -574,6 +575,7 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
                 ),
             },
             semantic_main=semantic_judgment_citations,
+            semantic_accepts_since=True,
         ),
         SourceDescriptor(
             id="judgment_appeal",

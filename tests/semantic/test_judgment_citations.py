@@ -157,3 +157,19 @@ def test_pipeline_skips_self_reference() -> None:
     pipeline = JudgmentCitationsSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
+
+
+def test_an_incremental_run_reads_the_judgments_fetched_since() -> None:
+    """The judgments read before have their edges; a cited judgment has the key of its stub."""
+    import datetime as dt
+
+    binds: list[dict[str, Any]] = []
+
+    class Store(_FakeStore):
+        def query(self, aql: str, bind_vars: dict | None = None, **kw: Any):
+            binds.append(dict(bind_vars or {}))
+            return super().query(aql, bind_vars, **kw)
+
+    pipeline = JudgmentCitationsSemanticPipeline(store=Store(judgment_docs=[]))
+    pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    assert binds[0]["since"] == "2025-01-01T00:00:00Z"

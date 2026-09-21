@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -11,6 +12,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase
 
@@ -22,9 +24,11 @@ SEMANTIC_SOURCE = "judgment-citation-linker"
 class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        pending, all_cited_eclis, doc_count = self._collect_references()
+        pending, all_cited_eclis, doc_count = self._collect_references(
+            iso_timestamp(since)
+        )
         if not pending:
             logger.debug("No ECLI cross-references found.")
             return result
@@ -40,11 +44,13 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
         logger.info("Judgment citation linker: %s.", result.summary())
         return result
 
-    def _collect_references(self) -> tuple[list[tuple[str, str]], set[str], int]:
+    def _collect_references(
+        self, since_iso: str | None = None
+    ) -> tuple[list[tuple[str, str]], set[str], int]:
         pending: list[tuple[str, str]] = []
         all_cited_eclis: set[str] = set()
         doc_count = 0
-        for judgment, xml in self._judgment_texts():
+        for judgment, xml in self._judgment_texts(since_iso):
             eclis = find_eclis(xml)
             if not eclis:
                 continue

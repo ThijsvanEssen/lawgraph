@@ -110,12 +110,12 @@ passed to the pipelines that accept it and the others run in full.
 
 | Command | Options |
 |---------|---------|
-| `tk`, `rechtspraak`, `eurlex` | `--since`: sources whose raw record was fetched since then |
+| `tk`, `rechtspraak`, `eurlex`, `judgment-citations` | `--since`: sources whose raw record was fetched since then |
 | `bwb` | `--since` (as above), `--store-citations` |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes` | none |
 | `staatsblad`, `eerstekamer`, `echr` | none |
 | `staatscourant` | `--since`: publications dated since then |
-| `judgment-citations`, `judgment-appeal` | none |
+| `judgment-appeal` | none |
 | `instrument-relations` | `--since`: documents dated, and BWB records fetched, since then |
 | `amendment-articles`, `mvt-articles`, `relation-semantics` | none |
 | `list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
@@ -130,7 +130,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | Command | Behaviour |
 |---------|-----------|
 | `lawgraph bootstrap [--window DATE] [--jobs N] [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve]` | `retrieve all --mode full --window DATE --jobs N` (default `730d` and one job per server; `all` loads the whole history of the producing sources), `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5) |
-| `lawgraph expand-graph [--max-iterations N] [--dry-run]` | repeats `fill-gaps --apply`, `normalize all`, `semantic all` while stub nodes keep disappearing (default 10 iterations); `--dry-run` only prints the `fill-gaps` report |
+| `lawgraph expand-graph [--max-iterations N] [--dry-run]` | repeats `fill-gaps --apply` and, since the iteration began, `normalize all --since` and `semantic all --since`, while `fill-gaps` keeps retrieving records (default 10 iterations); then one full `semantic all`, for the texts loaded earlier that name a law loaded now; `--dry-run` only prints the `fill-gaps` report |
 | `lawgraph fill-gaps [--apply] [--min-stubs N] [--bwb-id ID ...] [--no-mvt] [--no-semantic] [--no-case-law] [--no-eurlex] [--no-echr] [--no-verdragen]` | reports stub laws (referenced by loaded instruments, ranked by reference count; laws with at least `--min-stubs`, default 3, are added), stub judgments, stub EU, ECHR and treaty records and toelichting texts without text; `--apply` retrieves and normalizes them |
 | `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |

@@ -187,3 +187,54 @@ def test_a_rerun_replaces_a_tally_it_does_not_add_to_it(
     props = store.db.collection("decisions").get(make_node_key("decision", decision))
     assert props["props"]["tally"] == {"Tegen": 10 * FACTIONS}
     assert props["props"]["voters"] == {"Tegen": FACTIONS}
+
+
+def _edges(store: ArangoStore) -> dict[str, str]:
+    return dict(store.query("FOR e IN edges RETURN [e._key, e._from]"))
+
+
+def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
+    database: str, cli: Any
+) -> None:
+    """``normalize all --since`` and ``semantic all --since`` against a full run on the same
+    database: nothing the full run adds may start at a record of the round."""
+    from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+    from tests.integration.seed import judgment_xml
+
+    store = ArangoStore()
+    seed(store, documents=40, judgments=20, regulations=3)
+    cli("normalize", "all")
+    cli("semantic", "all")
+    assert store.db.collection("judgments").get(make_node_key("ECLI:NL:HR:2020:20"))[
+        "props"
+    ]["stub"]
+
+    window = _window()
+    new = [f"ECLI:NL:HR:2020:{number}" for number in range(20, 30)]
+    with RawSourceWriter(
+        store
+    ) as writer:  # what fill-gaps fetches: the cited judgments
+        for number, ecli in enumerate(new, start=20):
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_RECHTSPRAAK,
+                    kind=RAW_KIND_RS_CONTENT,
+                    external_id=ecli,
+                    payload_text=judgment_xml(number),
+                    meta={"ecli": ecli},
+                )
+            )
+    cli("normalize", "all", "--since", window)
+    cli("semantic", "all", "--since", window)
+    incremental = _edges(store)
+    loaded = store.db.collection("judgments").get(make_node_key(new[0]))["props"]
+    assert not loaded["stub"] and loaded["text"]
+
+    cli("normalize", "all")
+    cli("semantic", "all")
+    full = _edges(store)
+    of_the_round = {f"judgments/{make_node_key(ecli)}" for ecli in new}
+    assert sum(start in of_the_round for start in incremental.values()) >= 20
+    assert set(incremental) <= set(full)
+    missed = {key for key in set(full) - set(incremental) if full[key] in of_the_round}
+    assert not missed
