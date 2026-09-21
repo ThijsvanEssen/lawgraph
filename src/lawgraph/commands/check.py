@@ -9,6 +9,7 @@ command does. Every check is one read-only query, and it exits 1 when one of the
   nodes    every source with raw records has nodes (normalize did run and wrote something)
   edges    no edge points to a node that does not exist
   views    every search view holds what its collection holds (``out of sync`` after a crash)
+  derived  what a normalize step keeps for a semantic step is there on every node it is read from
 """
 
 from __future__ import annotations
@@ -103,6 +104,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     if edges:
         _check_edges(store, report)
     _check_views(store, report)
+    _check_derived(store, report)
     return report
 
 
@@ -194,6 +196,29 @@ def _check_views(store: ArangoStore, report: Report) -> None:
                 f"{collection}: it is out of sync. Drop the view; the next command "
                 "creates and fills it again."
             )
+
+
+def _check_derived(store: ArangoStore, report: Report) -> None:
+    """``normalize bwb`` keeps the basis and the EU acts of a regulation on its node, and
+    ``semantic bwb-grondslagen`` and ``instrument-relations`` read only that: a regulation
+    normalized before it was kept would give them nothing, and nothing would say so."""
+    aql = f"""
+    FOR regulation IN {COLLECTION_INSTRUMENTS}
+        FILTER regulation.props.source == @source AND regulation.props.stub != true
+        FILTER "Publication" NOT IN regulation.labels
+        FILTER regulation.props.basis == null OR regulation.props.celex_refs == null
+        COLLECT WITH COUNT INTO n
+        RETURN n
+    """
+    behind = next(iter(store.query(aql, {"source": SOURCE_BWB})), 0)
+    if behind:
+        report.problem(
+            f"{behind:,} BWB regulations carry no `basis` / `celex_refs`: BASED_ON and "
+            "IMPLEMENTS are read from them. Run `lawgraph normalize bwb`, then "
+            "`lawgraph semantic all`."
+        )
+    else:
+        report.note("derived: every BWB regulation carries its basis and EU acts")
 
 
 def main(argv: list[str] | None = None) -> None:
