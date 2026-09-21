@@ -207,7 +207,7 @@ class TKContentRetrievePipeline(PipelineBase):
         self._set_prop(paper["key"], "text", text)
         progress.ok()
 
-    def _set_prop(self, key: str, name: str, value: str) -> None:
+    def _set_prop(self, key: str, name: str, value: str | None) -> None:
         """Set one prop of the paper without touching the others."""
         aql = f"""
             FOR pub IN {COLLECTION_DOCUMENTS}

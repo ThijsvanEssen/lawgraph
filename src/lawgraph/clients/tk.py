@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from lawgraph.clients.base import BaseClient
@@ -85,13 +85,17 @@ class TKClient(BaseClient):
         top: int | None = 100,
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
-    ) -> Iterator[dict]:
+    ) -> Iterable[dict[str, Any]]:
         """Return TK Zaak records modified since *since*."""
         since_string = odata_datetime(since)
         odata_filter = f"ApiGewijzigdOp ge {since_string}"
         if keywords and keyword_fields:
             odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
-        params: dict[str, Any] = {"$filter": odata_filter}
+        params: dict[str, Any] = {
+            "$filter": odata_filter,
+            # What `normalize tk` reads the dossier numbers of a case from.
+            "$expand": "Kamerstukdossier($select=Id,Nummer,Toevoeging)",
+        }
         if top is not None:
             params["$top"] = top
         logger.info("Fetching Zaak modified since %s", since_string)
@@ -103,7 +107,7 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
-    ) -> Iterator[dict]:
+    ) -> Iterable[dict[str, Any]]:
         """Fetch Kamerstukdossier records, optionally filtered by modification date.
 
         Uses skip-based pagination because the TK API does not emit nextLink.
@@ -121,7 +125,7 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
-    ) -> Iterator[dict]:
+    ) -> Iterable[dict[str, Any]]:
         """Fetch Activiteit (debate/hearing) records.
 
         Uses a 3-level nested expand to resolve dossier links via the chain
@@ -149,7 +153,7 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
-    ) -> Iterator[dict]:
+    ) -> Iterable[dict[str, Any]]:
         """Fetch Stemming (vote) records with the parent Besluit expanded.
 
         Each Stemming record is one fractie's vote on one Besluit. Caller must
@@ -178,7 +182,7 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
-    ) -> Iterator[dict]:
+    ) -> Iterable[dict[str, Any]]:
         """Fetch Toezegging (ministerial commitment) records."""
         params: dict[str, Any] = {}
         if since is not None:
@@ -189,7 +193,7 @@ class TKClient(BaseClient):
             logger.info("Fetching all Toezegging records")
         return self._skip_paged_get("Toezegging", params=params, page_size=top)
 
-    def fetch_commissies(self, top: int = 250) -> Iterator[dict]:
+    def fetch_commissies(self, top: int = 250) -> Iterable[dict[str, Any]]:
         """Fetch Commissie (committee) records with CommissieZetel members expanded."""
         params: dict[str, Any] = {
             "$expand": "CommissieZetel($expand=CommissieZetelVastPersoon)",
@@ -204,7 +208,7 @@ class TKClient(BaseClient):
         dossier_number: int | None = None,
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
-    ) -> Iterator[dict]:
+    ) -> Iterable[dict[str, Any]]:
         """Fetch Document (Kamerstuk) records with Zaak soort context.
 
         Each Document corresponds to one Kamerstuk with a Nummer (dossier number)
@@ -248,7 +252,7 @@ class TKClient(BaseClient):
             logger.info("Fetching all Document records")
         return self._skip_paged_get("Document", params=params, page_size=top)
 
-    def fetch_personen(self, top: int = 250) -> Iterator[dict]:
+    def fetch_personen(self, top: int = 250) -> Iterable[dict[str, Any]]:
         """Fetch Persoon (parliamentary member) records.
 
         Fractielabel is a *current-snapshot* field, only populated for
@@ -259,12 +263,12 @@ class TKClient(BaseClient):
         logger.info("Fetching Persoon records")
         return self._skip_paged_get("Persoon", params=params, page_size=top)
 
-    def fetch_fracties(self, top: int = 250) -> Iterator[dict]:
+    def fetch_fracties(self, top: int = 250) -> Iterable[dict[str, Any]]:
         """Fetch all Fractie records (canonical party list, current + historic)."""
         logger.info("Fetching Fractie records")
         return self._skip_paged_get("Fractie", params={}, page_size=top)
 
-    def fetch_fractie_zetel_personen(self, top: int = 250) -> Iterator[dict]:
+    def fetch_fractie_zetel_personen(self, top: int = 250) -> Iterable[dict[str, Any]]:
         """Fetch FractieZetelPersoon (date-bounded seat holdings).
 
         Each row is one Persoon's membership of one Fractie over a

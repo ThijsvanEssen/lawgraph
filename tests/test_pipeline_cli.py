@@ -157,3 +157,13 @@ def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
     assert all(
         accepts_since(s.normalize_command) for s in SOURCES if s.normalize_command
     )
+
+
+def test_a_result_says_what_was_left_as_it_was() -> None:
+    """A second run over the same records is mostly that; without it the line said
+    "nothing to do" for a step that looked 40,000 documents up."""
+    assert PipelineResult(unchanged=41_200, updated=3).summary() == (
+        "3 updated, 41,200 unchanged"
+    )
+    total = combined([Outcome("a", State.OK, PipelineResult(unchanged=2))] * 2)
+    assert total.unchanged == 4

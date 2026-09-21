@@ -83,12 +83,17 @@ class NormalizePipelineBase(PipelineBase, ABC):
             raw = self.fetch_raw(since=since)
             normalized = self.normalize_nodes(raw, result)
             self.build_edges(raw, normalized)
-        finally:
-            # Also when a step raised: what was written before it is in the database.
-            writes = self.store.writes
-            result.created += writes.created
-            result.updated += writes.updated
-            logger.info("Wrote: %s.", writes.describe())
+        except Exception:
+            # The error goes to ``execute``; what was written before it is in the database.
+            logger.warning(
+                "Written before the failure: %s.", self.store.writes.describe()
+            )
+            raise
+        writes = self.store.writes
+        result.created += writes.created
+        result.updated += writes.updated
+        result.unchanged += writes.unchanged
+        logger.debug("Wrote: %s.", writes.describe())  # nodes and edges apart
         return result
 
     def _iter_raw_sources(

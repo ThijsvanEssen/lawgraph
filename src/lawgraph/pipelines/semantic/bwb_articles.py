@@ -200,7 +200,7 @@ class BWBArticlesSemanticPipeline(SemanticPipelineBase):
         """
         if not self._store_citations:
             return
-        docs = [
+        docs: list[dict[str, Any]] = [
             {
                 "_key": article.key,
                 "type": article.type.value,

@@ -6,7 +6,7 @@ import logging
 import shutil
 import sys
 import threading
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, TextIO
 
@@ -20,7 +20,7 @@ _step: contextvars.ContextVar[str] = contextvars.ContextVar("lawgraph_step", def
 
 
 @contextmanager
-def log_step(label: str) -> Iterator[None]:
+def log_step(label: str) -> Generator[None, None, None]:
     """Mark every log line written inside the block (and by this thread) as part of *label*."""
     token = _step.set(label)
     try:

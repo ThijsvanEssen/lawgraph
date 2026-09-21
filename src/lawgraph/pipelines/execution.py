@@ -48,8 +48,8 @@ def execute(
 ) -> Outcome:
     """Run ``command(argv)`` as the step *label*; never raises for what the step did wrong."""
     with log_step(label):
-        said = ": ".join(filter(None, ["Starting", description]))
-        logger.info("%s%s", said, f" ({' '.join(argv)})" if argv else ".")
+        said = ": ".join(filter(None, ["Starting", description.rstrip(".")]))
+        logger.info("%s%s", said, f" ({' '.join(argv)})." if argv else ".")
         started = time.monotonic()
         try:
             result = command(argv)
@@ -87,6 +87,7 @@ def combined(outcomes: Iterable[Outcome]) -> PipelineResult:
     for outcome in outcomes:
         total.created += outcome.result.created
         total.updated += outcome.result.updated
+        total.unchanged += outcome.result.unchanged
         total.skipped += outcome.result.skipped
         if outcome.state is State.FAILED:
             total.add_error(f"{outcome.label} failed")

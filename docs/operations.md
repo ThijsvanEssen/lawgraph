@@ -287,6 +287,7 @@ pytest tests -q                       # several hundred tests, offline, a few se
 ALLOW_NETWORK_TESTS=1 pytest tests    # also calls the real APIs
 ruff check src tests
 ruff format --check src tests
+mypy                                  # src, configured in pyproject.toml
 ```
 
 The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no unit
@@ -312,5 +313,5 @@ a real run gets a test here first: small data on a small server fails the way th
 does on the real one. Layout: `tests/api/` (routes), `tests/normalize/` and
 `tests/semantic/` (one file per source or detector), `tests/test_*.py` (clients, core helpers,
 bulk writers, registry, naming, conventions, relation catalogue, props). CI (`.github/workflows`) runs
-`pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format, end-of-file,
+`mypy` and `pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format, end-of-file,
 trailing whitespace, private-key detection, YAML and merge-conflict checks.

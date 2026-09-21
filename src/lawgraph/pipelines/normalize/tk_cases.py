@@ -100,14 +100,16 @@ def link_subjects(
     Both endpoints are resolved with one existence lookup per collection, so
     the cost does not grow with the number of nodes.
     """
-    nodes = [node for node in nodes if node.arango_id]
+    nodes = list(nodes)
     pairs: list[tuple[str, str, str]] = [
-        (node.arango_id, COLLECTION_CASES, make_node_key(case_id))
+        (node_id, COLLECTION_CASES, make_node_key(case_id))
         for node in nodes
+        if (node_id := node.arango_id)
         for case_id in node.props.get("case_ids") or []
     ] + [
-        (node.arango_id, COLLECTION_DOSSIERS, make_node_key(str(number)))
+        (node_id, COLLECTION_DOSSIERS, make_node_key(str(number)))
         for node in nodes
+        if (node_id := node.arango_id)
         for number in node.props.get("dossier_numbers") or []
     ]
 
