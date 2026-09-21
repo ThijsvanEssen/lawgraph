@@ -71,15 +71,8 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
         bind_vars = {"source": SOURCE_STAATSBLAD}
 
         rows: list[dict[str, Any]] = []
-        try:
-            rows.extend(self.store.query(_AQL_BWB, bind_vars=bind_vars))
-        except Exception as exc:
-            result.add_error(f"Staatsblad NvT semantic (bwb_id query) failed: {exc}")
-
-        try:
-            rows.extend(self.store.query(_AQL_TITLE, bind_vars=bind_vars))
-        except Exception as exc:
-            result.add_error(f"Staatsblad NvT semantic (title query) failed: {exc}")
+        rows.extend(self.store.query(_AQL_BWB, bind_vars=bind_vars))
+        rows.extend(self.store.query(_AQL_TITLE, bind_vars=bind_vars))
 
         if not rows:
             logger.debug("No Staatsblad NvT documents found for EXPLAINS linking.")

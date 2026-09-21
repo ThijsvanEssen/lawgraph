@@ -10,7 +10,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.raw_records import meta, payload_json, payload_text
-from lawgraph.core.time import describe_since, iso_timestamp
+from lawgraph.core.time import iso_timestamp
 from lawgraph.db import ArangoStore, CountingStore, NodeWriter
 from lawgraph.pipelines.base import PipelineBase
 
@@ -77,32 +77,18 @@ class NormalizePipelineBase(PipelineBase, ABC):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Orchestrate the normalization pipeline steps with logging."""
         result = PipelineResult()
-        since_desc = describe_since(since)
-        logger.info(
-            "Starting %s normalization pipeline (since=%s).",
-            self.__class__.__name__,
-            since_desc,
-        )
         self.store.reset_counts()
 
         try:
             raw = self.fetch_raw(since=since)
             normalized = self.normalize_nodes(raw, result)
             self.build_edges(raw, normalized)
-        except Exception as exc:
-            msg = f"{self.__class__.__name__} pipeline failed: {exc}"
-            logger.error(msg)
-            result.add_error(msg)
-
-        # Also after a failure: what was written before it is in the database.
-        writes = self.store.writes
-        result.created += writes.created
-        result.updated += writes.updated
-        logger.info(
-            "%s normalization pipeline wrote: %s.",
-            self.__class__.__name__,
-            writes.describe(),
-        )
+        finally:
+            # Also when a step raised: what was written before it is in the database.
+            writes = self.store.writes
+            result.created += writes.created
+            result.updated += writes.updated
+            logger.info("Wrote: %s.", writes.describe())
         return result
 
     def _iter_raw_sources(

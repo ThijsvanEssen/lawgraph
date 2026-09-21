@@ -121,15 +121,9 @@ class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
                     continue
 
                 if label not in article_cache:
-                    try:
-                        article_cache[label] = _ensure_echr_article(
-                            self.store, convention, label
-                        )
-                    except Exception as exc:
-                        logger.debug(
-                            "ECHR: could not ensure article %s: %s", label, exc
-                        )
-                        article_cache[label] = None
+                    article_cache[label] = _ensure_echr_article(
+                        self.store, convention, label
+                    )
 
                 art_node = article_cache[label]
                 if art_node is None:
@@ -202,12 +196,8 @@ FOR j IN {COLLECTION_JUDGMENTS}
     conclusion: j.props.conclusion
   }}
 """
-        try:
-            judgments = self.store.query(aql, {"source": SOURCE_ECHR})
-            rows = list(self._track(judgments, "ECHR judgments"))
-        except Exception as exc:
-            result.add_error(f"ECHR citations: query failed: {exc}")
-            return result
+        judgments = self.store.query(aql, {"source": SOURCE_ECHR})
+        rows = list(self._track(judgments, "ECHR judgments"))
 
         if not rows:
             logger.debug("ECHR citations: no ECHR judgments found.")
@@ -216,13 +206,7 @@ FOR j IN {COLLECTION_JUDGMENTS}
         logger.info("ECHR citations: processing %d judgments.", len(rows))
 
         # Ensure the ECHR Convention instrument exists
-        try:
-            convention = _ensure_echr_convention_instrument(self.store)
-        except Exception as exc:
-            result.add_error(
-                f"ECHR citations: could not ensure Convention instrument: {exc}"
-            )
-            return result
+        convention = _ensure_echr_convention_instrument(self.store)
 
         # Collect all BWB IDs mentioned across all judgments so we can look
         # them up in one query instead of one per (judgment × bwb_id).
@@ -239,21 +223,16 @@ FOR inst IN {COLLECTION_INSTRUMENTS}
   FILTER inst.props.bwb_id IN @bwb_ids
   RETURN {{_key: inst._key, props: {{bwb_id: inst.props.bwb_id}}}}
 """
-            try:
-                inst_rows = list(
-                    self.store.query(batch_aql, {"bwb_ids": list(all_bwb_ids)})
-                )
-                for inst_doc in inst_rows:
-                    key = inst_doc.get("props", {}).get("bwb_id", "").upper()
-                    if key:
-                        bwb_id_to_node[key] = Node(
-                            collection=COLLECTION_INSTRUMENTS,
-                            type=NodeType.INSTRUMENT,
-                            key=inst_doc["_key"],
-                            props={},
-                        )
-            except Exception as exc:
-                result.add_error(f"ECHR citations: batch BWB lookup failed: {exc}")
+            bind = {"bwb_ids": list(all_bwb_ids)}
+            for inst_doc in self.store.query(batch_aql, bind):
+                key = inst_doc.get("props", {}).get("bwb_id", "").upper()
+                if key:
+                    bwb_id_to_node[key] = Node(
+                        collection=COLLECTION_INSTRUMENTS,
+                        type=NodeType.INSTRUMENT,
+                        key=inst_doc["_key"],
+                        props={},
+                    )
 
         article_cache: dict[str, Node | None] = {}
         edges = EdgeWriter(self.store)

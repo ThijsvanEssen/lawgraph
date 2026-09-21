@@ -96,11 +96,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
         rows: list[dict[str, Any]] = []
 
         for aql in (aql_bwb, aql_title):
-            try:
-                rows.extend(self.store.query(aql, bind_vars=bind))
-            except Exception as exc:
-                # Not a warning: a query that failed left its edges out.
-                result.add_error(f"Staatscourant regeling semantic query failed: {exc}")
+            rows.extend(self.store.query(aql, bind_vars=bind))
 
         # Strategy 3: BWBR pattern scan on full text (for publications not yet matched)
         already_matched_pubs = {r["pub_id"] for r in rows}

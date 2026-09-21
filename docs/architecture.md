@@ -56,6 +56,10 @@ skip variable of a step is derived from its phase and source id:
   the steps of the registry in list order through `run_phase`, logs a table of how each
   ended and goes on after a failure unless `--strict`. The result of a composite command is
   the sum of its parts, with one error per failed part.
+- A pipeline catches what it can deal with itself: one record of many that cannot be read
+  or fetched is left out, counted and named once (`Progress`, `result.skipped`). A query or
+  a write that fails is not that: it raises, and `execute` ends the step as failed with the
+  error. No pipeline turns a failed query into a run over half the data.
 - Only `__main__` sets up logging and ends the process: exit code 0, 1 when the command
   failed, 2 for a command line that cannot be read. A test keeps `sys.exit` and
   `setup_logging()` out of every other module, so any command can be a part of another.
