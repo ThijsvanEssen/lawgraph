@@ -136,7 +136,7 @@ def link_members_to_committees(
         {make_node_key(pid) for _, held in seats for pid in held},
     )
 
-    writer = EdgeWriter(store)
+    writer = EdgeWriter(store, what="committee seat edges")
     for committee_key, held in seats:
         if committee_key not in known_committees:
             continue
@@ -170,7 +170,7 @@ def link_members_to_factions(
     timeline is denormalised onto the member as ``faction_memberships`` so a
     profile renders without a traversal.
     """
-    writer = EdgeWriter(store)
+    writer = EdgeWriter(store, what="faction seat edges")
     timeline: dict[str, list[dict[str, Any]]] = {}
 
     for raw in seat_raws:

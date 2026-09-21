@@ -251,7 +251,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         seed: dict[str, dict[str, Any]] = normalized["instrument_seed"]
         written: WrittenVersions = normalized["written"]
 
-        writer = EdgeWriter(self.store)
+        writer = EdgeWriter(self.store, what="version edges")
         for bwb_id, version_key in normalized["instrument_versions"]:
             writer.add(
                 f"{COLLECTION_INSTRUMENT_VERSIONS}/{version_key}",

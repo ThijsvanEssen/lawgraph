@@ -14,6 +14,7 @@ from typing import Any
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.progress import Progress
 from lawgraph.db.counting import Store
 from lawgraph.db.store import edge_key
 
@@ -69,10 +70,22 @@ class EdgeWriter:
     memory stays bounded on large runs. A failing batch is logged and re-raised.
     """
 
-    def __init__(self, store: Store, *, batch_size: int = DEFAULT_BATCH_SIZE) -> None:
+    def __init__(
+        self,
+        store: Store,
+        *,
+        what: str | None = None,
+        batch_size: int = DEFAULT_BATCH_SIZE,
+    ) -> None:
+        """*what* names the edges ("VOTED edges"): the writer then reports how far it is.
+
+        For a phase that only writes edges. A loop that tracks its own records (a semantic
+        pipeline and its documents) leaves it out: one step shows one line.
+        """
         self._store = store
         self._batch_size = batch_size
         self._pending: dict[str, dict[str, Any]] = {}
+        self.progress = Progress(what) if what else None
         self.added = 0
         self.created = 0
         self.updated = 0
@@ -98,10 +111,17 @@ class EdgeWriter:
         self._pending[doc["_key"]] = doc
         self.added += 1
         if len(self._pending) >= self._batch_size:
-            self.flush()
+            self._write_pending()
 
     def flush(self) -> tuple[int, int]:
-        """Write everything queued; returns (created, updated) for this flush."""
+        """Write everything queued and end the progress line; (created, updated) of it."""
+        written = self._write_pending()
+        if self.progress:
+            self.progress.finish()
+            self.progress = None
+        return written
+
+    def _write_pending(self) -> tuple[int, int]:
         if not self._pending:
             return 0, 0
         batch = list(self._pending.values())
@@ -114,6 +134,8 @@ class EdgeWriter:
         self.created += created
         self.updated += updated
         self.unchanged += max(0, len(batch) - created - updated)
+        if self.progress:
+            self.progress.ok(len(batch))
         return created, updated
 
     def flush_into(self, result: PipelineResult) -> None:

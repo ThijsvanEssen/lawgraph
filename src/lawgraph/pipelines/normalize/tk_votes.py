@@ -105,7 +105,7 @@ def link_votes(
         },
     )
 
-    writer = EdgeWriter(store)
+    writer = EdgeWriter(store, what="VOTED edges")
     for decision_id, votes in votes_by_decision.items():
         decision_node = decision_nodes.get(decision_id)
         if decision_node is None:
