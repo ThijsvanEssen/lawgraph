@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections import deque
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import get_logger
@@ -13,6 +15,8 @@ from lawgraph.core.time import iso_timestamp
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.raw import Failure, StoreUnavailable
 from lawgraph.pipelines.base import STOP, PipelineBase
+
+T = TypeVar("T")
 
 logger = get_logger(__name__)
 
@@ -117,6 +121,51 @@ def is_not_found(exc: Exception) -> bool:
     """HTTP 404: the source does not have the document, which is not a failure."""
     response = getattr(exc, "response", None)
     return response is not None and getattr(response, "status_code", None) == 404
+
+
+# Requests of one source that are under way at the same time. The pacer of the host still
+# hands out one slot per interval; the workers only keep the time one request takes from
+# being the limit (at 0.2 s a request, 5 a second was the ceiling whatever the host allows).
+FETCH_WORKERS = 4
+
+
+def fetched_side_by_side(
+    ids: Iterable[str],
+    fetch: Callable[[str], T],
+    *,
+    workers: int = FETCH_WORKERS,
+) -> Iterator[tuple[str, T | Exception]]:
+    """``(id, what fetch returned or raised)`` in the order of *ids*.
+
+    At most ``4 x workers`` ids are taken from *ids* ahead of the reader, so a long list is
+    not downloaded ahead of the writer. Ctrl-C (``STOP``) ends it with ``KeyboardInterrupt``
+    between two ids.
+    """
+
+    def attempt(one: str) -> T | Exception:
+        try:
+            return fetch(one)
+        except Exception as exc:
+            return exc
+
+    window: deque[tuple[str, Future[T | Exception]]] = deque()
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="fetch") as pool:
+        try:
+            for one in ids:
+                if STOP.is_set():
+                    raise KeyboardInterrupt
+                window.append((one, pool.submit(attempt, one)))
+                if len(window) >= 4 * workers:
+                    done, future = window.popleft()
+                    yield done, future.result()
+            while window:
+                if STOP.is_set():
+                    raise KeyboardInterrupt
+                done, future = window.popleft()
+                yield done, future.result()
+        finally:
+            for _, future in window:
+                future.cancel()
 
 
 class RetrievePipelineBase(PipelineBase):

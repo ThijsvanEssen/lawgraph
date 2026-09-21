@@ -315,7 +315,7 @@ def test_a_second_process_on_the_same_host_runs_at_half_speed(lock_dir, caplog) 
     finally:
         other.close()
 
-    assert pacer.base_interval == 1.0 and free.base_interval == 0.2
+    assert pacer.base_interval == 1.0 and free.base_interval == 0.125
     assert [m for m in caplog.messages if "Another lawgraph process" in m] == [
         "Another lawgraph process is already talking to repository.overheid.nl; pacing it "
         "at 1.0s here (half speed) so the two stay under its limit."

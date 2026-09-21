@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
 
 from lawgraph.clients.bwb import BWBClient, ToestandMeta
 from lawgraph.config.constants import (
@@ -15,12 +16,27 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 
-from .base import RetrievePipelineBase, RetrieveRecord, failure_reason
+from .base import (
+    RetrievePipelineBase,
+    RetrieveRecord,
+    failure_reason,
+    fetched_side_by_side,
+)
 
 logger = get_logger(__name__)
 
 # The WTI file of an unchanged toestand is read again after this many days.
 WTI_REFRESH_DAYS = 30
+
+
+@dataclass
+class _Download:
+    """What the network gave for one regulation, to be reported by the loop that stores."""
+
+    records: list[RetrieveRecord] = field(default_factory=list)
+    skip: str | None = None
+    fail: str | None = None
+    problem: str | None = None
 
 
 class BWBRetrievePipeline(RetrievePipelineBase):
@@ -79,45 +95,59 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             else set()
         )
         self.progress.expect(len(bwb_ids))
-        for bwb_id in bwb_ids:
+
+        def download(bwb_id: str) -> _Download:
+            """What one regulation needs of the network; the outcome is reported below."""
             meta = current.get(bwb_id)
             if meta is not None and stored.get(bwb_id) == meta["locatie_toestand"]:
                 # The same toestand as the stored one. Its WTI file can change on its own
                 # (a new abbreviation), so that is read again once a month.
+                got = _Download(skip="toestand unchanged since it was stored")
                 if bwb_id not in wti_fresh:
-                    yield from self._wti_general_info(meta)
-                self.progress.skip("toestand unchanged since it was stored", bwb_id)
-                continue
+                    self._add_wti_general_info(meta, got)
+                return got
             if meta is None:
                 try:
                     meta = self.client.latest_toestand(bwb_id)
                 except Exception as exc:
-                    self.progress.fail(
-                        f"toestand metadata not fetched ({failure_reason(exc)})", bwb_id
-                    )
-                    continue
+                    reason = f"toestand metadata not fetched ({failure_reason(exc)})"
+                    return _Download(fail=reason)
             if meta is None:
-                self.progress.skip("no toestand in the SRU", bwb_id)
-                continue
-            try:
-                xml_text = self.client.fetch_toestand_xml(meta)
-            except Exception as exc:
-                self.progress.fail(f"download failed ({failure_reason(exc)})", bwb_id)
-                continue
+                return _Download(skip="no toestand in the SRU")
+            xml_text = self.client.fetch_toestand_xml(meta)
+            got = _Download()
             # The toestand last: it is what a re-run takes for "this regulation is done".
-            yield from self._wti_general_info(meta)
-            yield RetrieveRecord(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id=bwb_id,
-                payload_text=xml_text,
-                meta={
-                    "bwb_id": bwb_id,
-                    "state_url": meta["locatie_toestand"],
-                    "start_date": meta.get("geldigheidsperiode_startdatum"),
-                    "end_date": meta.get("geldigheidsperiode_einddatum"),
-                },
+            self._add_wti_general_info(meta, got)
+            got.records.append(
+                RetrieveRecord(
+                    source=SOURCE_BWB,
+                    kind=RAW_KIND_BWB_TOESTAND,
+                    external_id=bwb_id,
+                    payload_text=xml_text,
+                    meta={
+                        "bwb_id": bwb_id,
+                        "state_url": meta["locatie_toestand"],
+                        "start_date": meta.get("geldigheidsperiode_startdatum"),
+                        "end_date": meta.get("geldigheidsperiode_einddatum"),
+                    },
+                )
             )
+            return got
+
+        # Side by side: a regulation is up to three requests, each slower than the pace the
+        # hosts ask for (3.9 regulations a second in the rebuild, at 0.1 s a request).
+        for bwb_id, got in fetched_side_by_side(bwb_ids, download):
+            if isinstance(got, Exception):
+                self.progress.fail(f"download failed ({failure_reason(got)})", bwb_id)
+                continue
+            if got.problem:
+                self.progress.problem(got.problem, bwb_id)
+            if got.fail:
+                self.progress.fail(got.fail, bwb_id)
+                continue
+            yield from got.records
+            if got.skip:
+                self.progress.skip(got.skip, bwb_id)
 
     def _stored_state_urls(self) -> dict[str, str]:
         """``{bwb_id: state_url}`` of the stored current toestanden."""
@@ -131,30 +161,30 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         )
         return {str(row["id"]): str(row["url"]) for row in rows if row.get("url")}
 
-    def _wti_general_info(self, meta: ToestandMeta) -> Iterator[RetrieveRecord]:
+    def _add_wti_general_info(self, meta: ToestandMeta, got: _Download) -> None:
         """The WTI general information (official abbreviations) of one regulation.
 
-        It is a by-product of the regulation: a failure is reported but leaves the toestand
-        alone, and the record does not count as progress.
+        It is a by-product of the regulation: a failure is a problem of *got* and leaves the
+        toestand alone, and the record does not count as progress.
         """
         bwb_id = meta["bwb_id"]
         try:
             general_info = self.client.fetch_wti_general_info(meta)
         except Exception as exc:
-            self.progress.problem(
-                f"WTI general information not fetched ({failure_reason(exc)})", bwb_id
-            )
+            got.problem = f"WTI general information not fetched ({failure_reason(exc)})"
             return
         if general_info is None:
             logger.debug("No WTI general information for %s.", bwb_id)
             return
-        yield RetrieveRecord(
-            source=SOURCE_BWB,
-            kind=RAW_KIND_BWB_WTI_GENERAL,
-            external_id=bwb_id,
-            payload_text=general_info,
-            meta={"bwb_id": bwb_id, "wti_url": meta.get("locatie_wti")},
-            counts=False,
+        got.records.append(
+            RetrieveRecord(
+                source=SOURCE_BWB,
+                kind=RAW_KIND_BWB_WTI_GENERAL,
+                external_id=bwb_id,
+                payload_text=general_info,
+                meta={"bwb_id": bwb_id, "wti_url": meta.get("locatie_wti")},
+                counts=False,
+            )
         )
 
     def run_history(

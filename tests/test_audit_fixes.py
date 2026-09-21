@@ -12,7 +12,7 @@ import requests
 from lawgraph.commands import fill_gaps
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
-from lawgraph.pipelines.retrieve.base import FailureStreak, SourceDown
+from lawgraph.pipelines.retrieve.base import FETCH_WORKERS, FailureStreak, SourceDown
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from lawgraph.pipelines.semantic.rechtspraak import (
@@ -69,7 +69,8 @@ def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing() -> None:
 
     assert result.created == 0
     assert "seems to be down" in result.errors[0]
-    assert rs.calls == 25  # it stopped at the 25th failure, it did not try all 200
+    # it stopped at the 25th failure; a few more were under way, it did not try all 200
+    assert 25 <= rs.calls <= 25 + 4 * FETCH_WORKERS
 
 
 def test_rechtspraak_missing_judgments_are_not_a_dead_source() -> None:
