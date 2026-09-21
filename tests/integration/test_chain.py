@@ -245,3 +245,19 @@ def test_an_annex_is_a_node_of_normalize_and_a_link_of_semantic(
         ["PART_OF", annex["_id"], "instruments/bwbr9200001"],
         ["SCOPED_BY", "articles/bwbr9200001_1", annex["_id"]],
     ]
+
+
+def test_a_law_a_regulation_is_issued_under_is_a_gap_when_it_is_not_loaded(
+    database: str, cli: Any
+) -> None:
+    """`bwb-grondslagen` leaves a basis out when its law is absent, and nothing listed
+    that law as a gap: 466 laws of the rebuild, the Wft among them."""
+    from lawgraph.pipelines.retrieve import _gaps
+
+    store = ArangoStore()
+    seed(
+        store, documents=0, judgments=0, regulations=2
+    )  # the AMvB: "Gelet op" BWBR0001947
+    cli("normalize", "bwb")
+    assert "BWBR0001947" in _gaps.bwb_gaps(store)
+    assert "BWBR0001840" not in _gaps.bwb_gaps(store)  # the Grondwet is loaded
