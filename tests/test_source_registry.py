@@ -122,3 +122,29 @@ def test_semantic_order_puts_what_is_read_first() -> None:
     assert order.index("tk-amends") < order.index("tk-amendment-articles")
     # the counts of graph-list-stats are those of every edge written before it
     assert order[-1] == "graph-list-stats"
+
+
+def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs() -> (
+    None
+):
+    """docs/operations.md named seven semantic pipelines by names they no longer had."""
+    import re
+    from pathlib import Path
+
+    from lawgraph.config.settings import skip_variable
+    from lawgraph.sources.registry import PIPELINES
+
+    text = (Path(__file__).resolve().parents[1] / "docs" / "operations.md").read_text()
+    names = {p.name for p in PIPELINES["retrieve"] if p.argv_for_all is not None}
+    rows = {
+        "retrieve": names,
+        "normalize": names | {"bwb-history"},  # "the same plus"
+        "semantic": {p.name for p in PIPELINES["semantic"]},
+    }
+    for phase in ("retrieve", "semantic"):
+        row = re.search(rf"^\| `{phase.upper()}` \| (.*) \|$", text, re.MULTILINE)
+        assert row, phase
+        documented = set(re.findall(r"`([A-Z_]+)`", row.group(1)))
+        expected = {skip_variable(phase, n).split("_SKIP_")[1] for n in rows[phase]}
+        assert documented == expected, phase
+    assert {p.name for p in PIPELINES["normalize"]} == rows["normalize"]

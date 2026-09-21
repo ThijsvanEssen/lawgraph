@@ -39,7 +39,7 @@ logger = get_logger(__name__)
     description="The supported semantic relationship types and source values.",
     tags=["relationships"],
 )
-def get_relationship_types() -> dict:
+def get_relationship_types() -> dict[str, list[str]]:
     return {
         "semantic_types": sorted(SEMANTIC_RELATIONSHIP_TYPES),
         "semantic_sources": sorted(SEMANTIC_SOURCES),

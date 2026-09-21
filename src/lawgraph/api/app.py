@@ -259,7 +259,9 @@ async def root() -> dict[str, str]:
 
 
 @app.get("/api/health", tags=["root"])
-async def health(store: Annotated[ArangoStore, Depends(get_store)]) -> dict:
+async def health(
+    store: Annotated[ArangoStore, Depends(get_store)],
+) -> dict[str, str]:
     """Health check — verifies database connectivity."""
     try:
         store.db.version()

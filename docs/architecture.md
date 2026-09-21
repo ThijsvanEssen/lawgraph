@@ -175,6 +175,6 @@ administer the server), then the missing collections, indexes, analyzers and sea
 | A relation name is spelled out only in `config/constants.py` and `core/relations.py` — everywhere else, including AQL, it comes from a `RELATION_*` constant | `tests/test_conventions.py` |
 | Identifiers, module names and stored property names are English; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's Dutch spelling | `tests/test_conventions.py` |
 | Props are validated against a strict Pydantic schema per collection (unknown fields fail) | `core/props.py`, `tests/test_props_validation.py` |
-| `PART_OF` always points child (article, annex) to instrument | `tests/test_part_of_instrument_direction.py` |
+| `PART_OF` always points child (article, annex) to instrument | `tests/test_part_of_direction.py` |
 | Bulk writers batch and de-duplicate; store lookups are bounded | `tests/test_edge_writer.py`, `tests/test_node_writer.py`, `tests/test_raw_source_writer.py`, `tests/test_store_existing_keys.py`, `tests/test_batching.py` |
 | Logging via `get_logger(__name__)`, no `print()` in library code | convention (review) |

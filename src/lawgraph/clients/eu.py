@@ -84,7 +84,7 @@ class EUClient(BaseClient):
         out: CELLAR has no text page for them. The endpoint is incomplete for recent years
         (about 150 directives for 2010 but 1 for 2016) and stops at offset 10000, which is
         why only directives are listed by default; regulations and decisions are better
-        fetched by the CELEX numbers that loaded records refer to (``fill-gaps``).
+        fetched by the CELEX numbers that loaded records refer to (``--mode gaps``).
         """
         all_ids: list[str] = []
         seen: set[str] = set()

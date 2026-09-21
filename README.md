@@ -45,7 +45,7 @@ lawgraph semantic all --since 7d
 | Path | Contents |
 |------|----------|
 | `src/lawgraph/clients/` | one HTTP client per external source |
-| `src/lawgraph/pipelines/` | `retrieve/`, `normalize/`, `semantic/` pipelines, orchestration, CLI factory |
+| `src/lawgraph/pipelines/` | `retrieve/`, `normalize/`, `semantic/` pipelines, the command layer (`command.py`), orchestration |
 | `src/lawgraph/sources/` | source registry: single definition of CLI commands and their order |
 | `src/lawgraph/core/` | pure logic and shared definitions (models, props, relation catalogue, BWB XML, citations) |
 | `src/lawgraph/db/` | `ArangoStore`, bulk `NodeWriter` / `EdgeWriter`, schema, indexes, search views |

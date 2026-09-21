@@ -5,7 +5,7 @@ from the same queries (``pipelines/retrieve/_gaps.py``):
 
 - laws whose articles are referred to and that are not loaded, by number of references;
 - judgments that are cited and not loaded (Rechtspraak, ECHR);
-- EU acts that BWB articles name and that are not loaded;
+- EU acts that BWB regulations name and that are not loaded;
 - treaties that are referred to and not loaded;
 - explanatory memoranda without their text.
 
@@ -156,7 +156,7 @@ def _print_celex_stub_report(celex_ids: list[str]) -> None:
         print("\n  No EU stub instruments found.")
         return
     print(
-        f"\n  {len(celex_ids)} EU instrument(s) referenced in BWB text but not yet loaded:\n"
+        f"\n  {len(celex_ids)} EU instrument(s) named by BWB regulations but not yet loaded:\n"
     )
     for celex in celex_ids[:30]:
         print(f"    {celex}")
