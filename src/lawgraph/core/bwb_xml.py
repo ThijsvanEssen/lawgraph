@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import SOURCE_BWB
+from lawgraph.core.annex_xml import AnnexXml, parse_annexes
 from lawgraph.core.identifiers import is_bwb_id
 from lawgraph.core.models import make_node_key
 from lawgraph.core.xml import find_descendant, iter_named, local_name, text_of
@@ -150,6 +151,7 @@ class ToestandXml:
     commencement: Publication | None
     basis: tuple[BasisRef, ...] = ()
     articles: tuple[ArticleXml, ...] = field(default_factory=tuple)
+    annexes: tuple[AnnexXml, ...] = ()
 
 
 # ── keys (one definition, used by normalize, semantic and the API) ───────────
@@ -510,6 +512,7 @@ def parse_toestand(xml_text: str) -> ToestandXml:
         commencement=commencement,
         basis=_basis(root),
         articles=articles,
+        annexes=parse_annexes(root),
     )
 
 

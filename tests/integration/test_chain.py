@@ -198,3 +198,50 @@ def test_check_says_when_no_case_names_a_dossier(database: str, cli: Any) -> Non
     )
     problems = [p for p in check(store, edges=False).problems if "names a dossier" in p]
     assert problems and "retrieve tk" in problems[0]
+
+
+_LAW_WITH_AN_ANNEX = """<toestand bwb-id="BWBR9200001"><wetgeving soort="wet">
+<citeertitel>Sectorenwet</citeertitel><wet-besluit><wettekst>
+<artikel><kop><nr>1</nr></kop>
+<al>De sectoren, vermeld in bijlage I, vallen onder deze wet.</al></artikel>
+</wettekst></wet-besluit>
+<bijlage><kop><label>Bijlage</label><nr>I</nr><titel>Sectoren</titel></kop>
+<al>Energie.</al></bijlage>
+</wetgeving></toestand>"""
+
+
+def test_an_annex_is_a_node_of_normalize_and_a_link_of_semantic(
+    database: str, cli: Any
+) -> None:
+    """The annex nodes were made by a semantic step that read and parsed every toestand
+    again (1m48 of each `semantic all`); normalize parses them anyway."""
+    from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, SOURCE_BWB
+    from lawgraph.db import RawSourceWriter, raw_source_doc
+
+    store = ArangoStore()
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_BWB,
+                kind=RAW_KIND_BWB_TOESTAND,
+                external_id="BWBR9200001",
+                payload_text=_LAW_WITH_AN_ANNEX,
+                meta={"bwb_id": "BWBR9200001"},
+            )
+        )
+    cli("normalize", "bwb")
+    annex = store.db.collection("annexes").get("bwbr9200001_annex_i")
+    assert annex["props"]["title"] == "Sectoren" and not annex["props"].get("stub")
+    edges = (
+        "FOR e IN edges FILTER e._from == @a OR e._to == @a "
+        "RETURN [e.relation, e._from, e._to]"
+    )
+    assert list(store.query(edges, {"a": annex["_id"]})) == [
+        ["PART_OF", annex["_id"], "instruments/bwbr9200001"]
+    ]
+
+    cli("semantic", "bwb-annexes")
+    assert sorted(store.query(edges, {"a": annex["_id"]})) == [
+        ["PART_OF", annex["_id"], "instruments/bwbr9200001"],
+        ["SCOPED_BY", "articles/bwbr9200001_1", annex["_id"]],
+    ]

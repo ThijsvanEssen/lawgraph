@@ -327,12 +327,13 @@ which `normalize bwb` keeps when it parses the toestand; no XML is read again.
 
 Versions with an unknown effect or without a matching article count as skipped.
 
-**Semantic `bwb-annexes`.** Pass 1 parses `<bijlage>` elements from the raw toestand XML into
-Annex nodes (`label`, `title`, `description` up to 2,000 characters, `entries` from `<li>` items,
-at most 200) with `PART_OF` to the instrument. Pass 2 finds `bijlage <label>` in article texts
-and writes `SCOPED_BY` (0.9 with a label, 0.7 without) with `meta.scope_type` `discretionary`
-when ministerial-designation wording is near (`bij ministeriële regeling`, `Onze Minister
-kan ...`), else `fixed`. A reference to an annex the XML did not contain gets a stub.
+**Semantic `bwb-annexes`.** Finds `bijlage <label>` in article texts and writes `SCOPED_BY`
+(0.9 with a label, 0.7 without) with `meta.scope_type` `discretionary` when
+ministerial-designation wording is near (`bij ministeriële regeling`, `Onze Minister
+kan ...`), else `fixed`. The Annex nodes (`label`, `title`, `description` up to 2,000
+characters, `entries` from `<li>` items, at most 200) and their `PART_OF` to the instrument
+are made by `normalize bwb` from the toestand it parses; a reference to an annex that is not
+there gets a stub.
 
 **Semantic `bwb-relation-types`.** Sets `semantic_type` on article-to-article `REFERS_TO` edges
 from the text around the reference (`meta.start`/`end`): a trigger phrase in the 40 characters before

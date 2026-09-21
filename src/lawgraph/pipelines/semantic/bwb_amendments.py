@@ -161,11 +161,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         self._link_regulation_dossiers(edges)
 
         edges.flush_into(result)
-        logger.info(
-            "BWB amendments: %d publications, %s.",
-            len(self._known_dossiers),
-            result.summary(),
-        )
+        logger.info("%d publications.", len(self._known_dossiers))
         return result
 
     # ---------------------------------------------------------------- versions

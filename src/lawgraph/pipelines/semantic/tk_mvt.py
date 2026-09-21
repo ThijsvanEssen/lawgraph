@@ -91,7 +91,6 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
         }
 
         edges = EdgeWriter(self.store, what=None)
-        documents = 0
         targets = self.store.query(_TARGETS_AQL, bind_vars)
         for row in self._track(targets, "explanatory memoranda"):
             document = row.get("document")
@@ -99,7 +98,6 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
             if not document or not targets:
                 result.skipped += 1
                 continue
-            documents += 1
             for target in targets:
                 edges.add(
                     document,
@@ -109,9 +107,4 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
                     confidence=1.0,
                 )
         edges.flush_into(result)
-        logger.info(
-            "Explanatory memorandum linker: %d documents, %s.",
-            documents,
-            result.summary(),
-        )
         return result

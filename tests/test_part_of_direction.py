@@ -12,12 +12,11 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     RELATION_PART_OF,
 )
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, NodeType
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db.store import edge_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
-from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
 from lawgraph.pipelines.semantic.graph_list_stats import _INSTRUMENTS_BODY
 from tests.conftest import _BaseFakeStore
 
@@ -73,18 +72,6 @@ def test_eu_normalize_writes_article_to_instrument() -> None:
     (edge,) = store.edges.values()
     assert edge["_from"] == article.arango_id
     assert edge["_to"] == instrument.arango_id
-
-
-def test_annex_edge_points_to_instrument() -> None:
-    annex = _node("annexes", NodeType.ANNEX, "BWBR0001854_annex_I")
-
-    edge = BWBAnnexesSemanticPipeline(store=object())._instrument_edge(
-        "BWBR0001854", annex
-    )
-
-    assert edge is not None
-    assert edge["_from"] == annex.arango_id
-    assert edge["_to"] == f"{COLLECTION_INSTRUMENTS}/{make_node_key('BWBR0001854')}"
 
 
 def test_part_of_endpoints_match_the_catalogue() -> None:

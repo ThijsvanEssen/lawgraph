@@ -5,11 +5,9 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from lawgraph.config.constants import SCOPE_TYPE_DISCRETIONARY, SCOPE_TYPE_FIXED
+from lawgraph.core.annex_xml import annex_node_key, annex_props, parse_annexes
 from lawgraph.pipelines.semantic._annex_detect import detect_annex_references
-from lawgraph.pipelines.semantic.bwb_annexes import (
-    BWBAnnexesSemanticPipeline,
-    annex_node_key,
-)
+from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
 
 
 class _DummyStore:
@@ -85,24 +83,23 @@ _ANNEX_XML = """
 """
 
 
-def test_build_annex_node_from_xml():
-    root = ET.fromstring(_ANNEX_XML)
-    element = next(el for el in root.iter() if el.tag == "bijlage")
-    node = _pipeline()._build_annex_node("BWBR0099999", element)
-    assert node is not None
-    assert node.key == "bwbr0099999_annex_i"
-    assert node.props["label"] == "I"
-    assert node.props["title"] == "Vitale sectoren"
-    assert node.props["display_name"] == "Vitale sectoren"
-    entry_names = [e["name"] for e in node.props["entries"]]
-    assert entry_names == ["Telecommunicatie", "Energie", "Drinkwater"]
-    assert "vitaal" in node.props["description"]
+def test_an_annex_is_parsed_with_its_label_title_entries_and_description():
+    (annex,) = parse_annexes(ET.fromstring(_ANNEX_XML))
+    props = annex_props(annex, "BWBR0099999")
+    assert annex_node_key("BWBR0099999", annex.label) == "bwbr0099999_annex_i"
+    assert props["label"] == "I"
+    assert props["title"] == props["display_name"] == "Vitale sectoren"
+    assert [e["name"] for e in props["entries"]] == [
+        "Telecommunicatie",
+        "Energie",
+        "Drinkwater",
+    ]
+    assert "vitaal" in props["description"]
+    assert props["instrument_id"] == "instruments/bwbr0099999"
 
 
-def test_build_annex_node_without_kop():
+def test_an_annex_without_a_heading_is_the_annex_of_its_regulation():
     root = ET.fromstring("<regeling><bijlage><al>Tekst</al></bijlage></regeling>")
-    element = next(el for el in root.iter() if el.tag == "bijlage")
-    node = _pipeline()._build_annex_node("BWBR0099999", element)
-    assert node is not None
-    assert node.key == "bwbr0099999_annex"
-    assert node.props["display_name"] == "Annex"
+    (annex,) = parse_annexes(root)
+    assert annex_node_key("BWBR0099999", annex.label) == "bwbr0099999_annex"
+    assert annex_props(annex, "BWBR0099999")["display_name"] == "Annex"

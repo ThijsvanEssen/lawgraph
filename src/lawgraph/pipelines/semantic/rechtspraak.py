@@ -49,11 +49,9 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
         )
 
         edges = EdgeWriter(self.store, what=None)
-        judgment_count = 0
 
         # The XML of each judgment streams from raw_sources, where retrieve stored it.
         for judgment, xml in self._judgment_texts(since_iso):
-            judgment_count += 1
             hits = detect_in_text(strip_xml(xml), extractor)
             if not hits:
                 continue
@@ -88,11 +86,6 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
 
         edges.flush_into(result)
 
-        logger.info(
-            "Rechtspraak article linker: %d judgments, %s.",
-            judgment_count,
-            result.summary(),
-        )
         return result
 
     def _resolve_article(self, hit: CitationHit) -> Node | None:

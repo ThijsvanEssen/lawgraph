@@ -167,7 +167,6 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
                 )
 
         edges.flush_into(result)
-        logger.info("EU article linker: %s.", result.summary())
         return result
 
     def _load_eu_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:

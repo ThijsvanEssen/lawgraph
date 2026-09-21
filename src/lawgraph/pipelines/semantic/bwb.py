@@ -115,11 +115,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         if not articles_seen:
             logger.info("No BWB articles found for semantic linking.")
 
-        logger.info(
-            "BWB article linker: %d references read, %s.",
-            hits_detected,
-            result.summary(),
-        )
+        logger.info("%d references read.", hits_detected)
         return result
 
     @staticmethod
