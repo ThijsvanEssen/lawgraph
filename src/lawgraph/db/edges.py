@@ -60,7 +60,7 @@ class EdgeWriter:
 
     Usage::
 
-        writer = EdgeWriter(self.store)
+        writer = EdgeWriter(self.store, what=None)
         for ...:
             writer.add(from_id, to_id, RELATION_X, source="...")
         writer.flush()          # or use it as a context manager
@@ -74,13 +74,14 @@ class EdgeWriter:
         self,
         store: Store,
         *,
-        what: str | None = None,
+        what: str | None,
         batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> None:
         """*what* names the edges ("VOTED edges"): the writer then reports how far it is.
 
         For a phase that only writes edges. A loop that tracks its own records (a semantic
-        pipeline and its documents) leaves it out: one step shows one line.
+        pipeline and its documents) says ``what=None``: one pipeline shows one line. The
+        argument has no default, so neither is chosen by forgetting.
         """
         self._store = store
         self._batch_size = batch_size

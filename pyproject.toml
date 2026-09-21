@@ -50,7 +50,7 @@ line-length = 88
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "B", "C", "I"]
+select = ["E", "F", "W", "B", "C", "I", "TID251"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15
@@ -59,8 +59,17 @@ max-complexity = 15
 [tool.ruff.lint.pycodestyle]
 max-line-length = 100
 
+# A command returns its result and `run_command` decides how it ended: only the entry points
+# end the process or set up logging, so any command can be a part of another.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"sys.exit".msg = "Return a PipelineResult; only __main__ turns an outcome into an exit code."
+"lawgraph.core.logging.setup_logging".msg = "Only an entry point (__main__, api/app.py) sets up logging."
+
 [tool.ruff.lint.per-file-ignores]
 "src/lawgraph/api/queries/*.py" = ["E501"]
+"src/lawgraph/__main__.py" = ["TID251"]
+"src/lawgraph/api/app.py" = ["TID251"]
+"tests/*" = ["TID251"]
 
 [tool.mypy]
 python_version = "3.11"

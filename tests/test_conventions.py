@@ -322,16 +322,3 @@ def test_semantic_pipelines_end_their_edges_through_the_edge_writer() -> None:
         if needle in path.read_text()
     ]
     assert not offenders
-
-
-def test_every_edge_phase_of_normalize_names_the_edges_it_writes() -> None:
-    """A writer with a name reports how far it is; without one the edge phase of a
-    normalize step (hundreds of thousands of edges) is minutes of silence."""
-    normalize = SRC / "pipelines" / "normalize"
-    unnamed = [
-        f"{path.name}:{number}"
-        for path in sorted(normalize.glob("*.py"))
-        for number, line in enumerate(path.read_text().splitlines(), start=1)
-        if "EdgeWriter(" in line and "what=" not in line
-    ]
-    assert not unnamed
