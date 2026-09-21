@@ -85,12 +85,18 @@ class FailureStreak:
 
 
 def missing_record(
-    source: str, kind: str, external_id: str, *, listed: bool = False
+    source: str,
+    kind: str,
+    external_id: str,
+    *,
+    listed: bool = False,
+    status: int = 404,
 ) -> RetrieveRecord:
     """The record that remembers that *source* has no *kind* document for *external_id*.
 
     *listed*: the source itself named the document (an index, an SRU listing), so it is asked
-    for again after ``MISSING_LISTED_FOR_DAYS`` instead of ``MISSING_FOR_DAYS``.
+    for again after ``MISSING_LISTED_FOR_DAYS`` instead of ``MISSING_FOR_DAYS``. *status* is
+    what the source answered (``status_of``).
     """
     days = MISSING_LISTED_FOR_DAYS if listed else MISSING_FOR_DAYS
     retry_after = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days)
@@ -98,9 +104,19 @@ def missing_record(
         source=source,
         kind=kind + RAW_KIND_MISSING_SUFFIX,
         external_id=external_id,
-        meta={"kind": kind, "status": 404, "retry_after": iso_timestamp(retry_after)},
+        meta={
+            "kind": kind,
+            "status": status,
+            "retry_after": iso_timestamp(retry_after),
+        },
         counts=False,
     )
+
+
+def status_of(exc: Exception) -> int | None:
+    """The HTTP status a failed request ended with, when it got an answer at all."""
+    response = getattr(exc, "response", None)
+    return getattr(response, "status_code", None) if response is not None else None
 
 
 def failure_reason(exc: Exception) -> str:
@@ -118,9 +134,13 @@ def add_outcome(result: PipelineResult, progress: Progress) -> None:
 
 
 def is_not_found(exc: Exception) -> bool:
-    """HTTP 404: the source does not have the document, which is not a failure."""
-    response = getattr(exc, "response", None)
-    return response is not None and getattr(response, "status_code", None) == 404
+    """The source does not have the document, which is not a failure.
+
+    HTTP 404, or a redirect as the last answer: redirects are followed, so that is one that
+    leads nowhere (the BWB repository redirects the file of a withdrawn toestand to itself).
+    """
+    status = status_of(exc)
+    return status is not None and (status == 404 or 300 <= status < 400)
 
 
 # Requests of one source that are under way at the same time. The pacer of the host still
