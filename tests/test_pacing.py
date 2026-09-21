@@ -95,6 +95,50 @@ def test_the_interval_shrinks_back_to_the_base_while_requests_succeed(clock) -> 
     assert pacer.interval >= 0.5  # never below the base
 
 
+def _steady(pacer: HostPacer, requests: int) -> None:
+    for _ in range(requests):
+        pacer.succeeded()
+
+
+def test_the_pace_a_host_pushed_back_at_is_not_tried_again_at_once(clock) -> None:
+    """The rebuild of 2026-09-20: back to 0.6 s every 30 s, and an HTTP 429 every time."""
+    pacer = HostPacer("example.test", 0.5)
+    _steady(pacer, 10)
+    pacer.throttled()  # at 0.5 s, after requests that went well: that pace is too fast
+    assert pacer.interval == 1.0
+    _steady(pacer, 100)
+    assert pacer.interval == pytest.approx(0.5 * pacing._FLOOR_MARGIN, rel=0.06)
+    assert pacer.interval > 0.5
+
+
+def test_the_learned_pace_is_forgotten_slowly(clock) -> None:
+    pacer = HostPacer("example.test", 0.5)
+    _steady(pacer, 10)
+    pacer.throttled()
+    _steady(pacer, 5000)  # a limit of this morning is not one of tonight
+    assert pacer.interval == pytest.approx(0.5)
+
+
+def test_a_burst_of_pushbacks_teaches_one_pace_not_the_doubled_ones(clock) -> None:
+    """Requests already under way when the first 429 came: they say nothing new."""
+    pacer = HostPacer("example.test", 0.5)
+    _steady(pacer, 10)
+    for _ in range(3):
+        pacer.throttled()
+    assert pacer.interval == 4.0
+    _steady(pacer, 200)
+    assert pacer.interval < 0.6
+
+
+def test_the_learned_pace_has_a_ceiling(clock) -> None:
+    pacer = HostPacer("example.test", 0.5)
+    for _ in range(20):  # a host that pushes back whatever the pace
+        _steady(pacer, 10)
+        pacer.throttled()
+    _steady(pacer, 300)
+    assert pacer.interval <= 0.5 * pacing._FLOOR_CEILING
+
+
 # ── per host ─────────────────────────────────────────────────────────────────
 
 

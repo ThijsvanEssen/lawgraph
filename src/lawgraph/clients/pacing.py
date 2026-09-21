@@ -2,8 +2,9 @@
 
 Every ``BaseClient`` uses a ``PacedSession``. Before a request the session waits until the
 host's interval has passed since the previous one; a host that answers HTTP 429 or 503 makes
-the interval double (or follow ``Retry-After``), and it shrinks back to the base interval
-while requests succeed. The base intervals are ``HOST_MIN_INTERVAL`` in the constants.
+the interval double (or follow ``Retry-After``), and it shrinks back while requests succeed:
+to the base interval (``HOST_MIN_INTERVAL`` in the constants), or to just above the pace
+the host last pushed back at, which is forgotten slowly.
 
 The pacer is shared by the whole process and thread safe: ``retrieve all --jobs`` runs the
 sources of one host one after the other, but a host reached through two clients is still
@@ -37,6 +38,16 @@ MAX_INTERVAL = 10.0
 # documents, against 149 and 45 minutes at 0.98; with one or two clients there is no
 # difference (no 429 at all).
 _SHRINK = 0.98
+# The pace a host pushed back at, after requests that went well, is a limit of that host: the
+# interval shrinks back to this much above it, not to the base. Without it one client on
+# repository.overheid.nl came back to 0.6 s every 30 s and met an HTTP 429 every time (88
+# warnings in a rebuild). Simulated for 5,000 documents against a minimum gap of 0.62 s:
+# 146 HTTP 429 and 68 minutes without, 20 and 58 minutes with; against a bucket of 1/s: 145
+# and 21, the same 83 minutes. A fixed higher base is slower or still throttled, by model.
+_FLOOR_MARGIN = 1.15
+_FLOOR_CEILING = 4.0  # times the base interval
+_FLOOR_DECAY = 0.9995  # per successful request: halved after 1,400 of them
+_LEARN_AFTER = 5  # successes since the last pushback; a burst of 429s teaches one pace
 
 
 class HostPacer:
@@ -46,6 +57,8 @@ class HostPacer:
         self.host = host
         self.base_interval = base_interval
         self.interval = base_interval
+        self._floor = 0.0
+        self._successes = 0
         self._next_slot = 0.0
         self._lock = threading.Lock()
         self._throttled = 0
@@ -63,6 +76,10 @@ class HostPacer:
     def throttled(self, retry_after: float | None = None) -> None:
         """The host pushed back: slow down, and stay quiet for ``retry_after`` if it said."""
         with self._lock:
+            if self._successes >= _LEARN_AFTER:
+                learned = max(self._floor, self.interval * _FLOOR_MARGIN)
+                self._floor = min(learned, self.base_interval * _FLOOR_CEILING)
+            self._successes = 0
             self.interval = min(
                 MAX_INTERVAL, max(self.interval * 2, self.base_interval)
             )
@@ -83,7 +100,11 @@ class HostPacer:
 
     def succeeded(self) -> None:
         with self._lock:
-            self.interval = max(self.base_interval, self.interval * _SHRINK)
+            self._successes += 1
+            self._floor *= _FLOOR_DECAY
+            self.interval = max(
+                self.base_interval, self._floor, self.interval * _SHRINK
+            )
 
 
 class PacedSession(requests.Session):
