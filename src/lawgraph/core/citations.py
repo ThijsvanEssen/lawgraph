@@ -159,7 +159,7 @@ def strip_xml(text: str) -> str:
 
 # Article number: plain (140), with letters (36e, 189a, 126aa, 420bis), with colon or dot parts
 # (6:162, 7a:1576h, 3.26, 6.2.8, 1.1a)
-_ART_NUM_PAT = r"\d+[a-z]?(?:[.:]\d+)*[a-z]{0,3}"
+ARTICLE_NUMBER_PATTERN = r"\d+[a-z]?(?:[.:]\d+)*[a-z]{0,3}"
 
 # A code made of a family and a book, like ``BW6`` or ``BW7A``: the family (``BW``) is what
 # a citation names, the book comes from the article number (``artikel 6:162 BW``).
@@ -191,11 +191,13 @@ _QUALIFIER_PAT = (
 )
 
 # One article number, optionally with a parenthesis: "338 (lid 2)", "218 (of 218a)"
-_NUM_PAREN_PAT = rf"{_ART_NUM_PAT}(?:\s*\((?:lid|leden|of|en)[^)]{{1,25}}\))?"
+_NUM_PAREN_PAT = rf"{ARTICLE_NUMBER_PATTERN}(?:\s*\((?:lid|leden|of|en)[^)]{{1,25}}\))?"
 
 # Article number groups
 # Range: "2 tot en met 5"
-_ART_RANGE_PAT = rf"{_ART_NUM_PAT}\s+tot\s+en\s+met\s+{_ART_NUM_PAT}"
+_ART_RANGE_PAT = (
+    rf"{ARTICLE_NUMBER_PATTERN}\s+tot\s+en\s+met\s+{ARTICLE_NUMBER_PATTERN}"
+)
 # Enumeration: "36e", "36e en 36f", "282a, 282b en 282c", "338 (lid 2) en 339"
 _ART_ENUM_PAT = (
     rf"{_NUM_PAREN_PAT}"
@@ -207,7 +209,7 @@ _ART_NUMS_PAT = rf"(?:{_ART_RANGE_PAT}|{_ART_ENUM_PAT})"
 
 # The head of a citation: the keyword, the article numbers and their qualifiers. Which law
 # is meant follows in the text after it (``DutchCitationExtractor._resolve_law``).
-_HEAD_RE = re.compile(
+ARTICLE_HEAD_RE = re.compile(
     rf"\b(?:artikel(?:en)?|art\.?)\s+(?P<nums>{_ART_NUMS_PAT})(?P<qual>{_QUALIFIER_PAT})",
     re.IGNORECASE,
 )
@@ -219,7 +221,7 @@ _BARE_ARTIKEL_PAT = re.compile(
 )
 
 # What comes between the article and the law: "van", "in", "uit", and a determiner.
-_CONNECTOR_RE = re.compile(
+LAW_CONNECTOR_RE = re.compile(
     r"\s*,?\s*(?:(?:van|in|uit|krachtens|ingevolge)\s+)?(?:(?:de|het)\s+)?",
     re.IGNORECASE,
 )
@@ -243,7 +245,7 @@ CONFIDENCE_LOCAL_ALIAS = 0.9
 CONFIDENCE_ANAPHORA = 0.7
 
 
-def _parse_article_nums(raw: str) -> list[str]:
+def parse_article_numbers(raw: str) -> list[str]:
     """Split a raw article-number string into individual article numbers.
 
     Handles ranges (``2 tot en met 5`` → ``["2", "5"]``), enumerations
@@ -252,7 +254,7 @@ def _parse_article_nums(raw: str) -> list[str]:
     """
     raw = re.sub(r"\s*\([^)]*\)", "", raw.strip())
     range_m = re.match(
-        rf"^({_ART_NUM_PAT})\s+tot\s+en\s+met\s+({_ART_NUM_PAT})$",
+        rf"^({ARTICLE_NUMBER_PATTERN})\s+tot\s+en\s+met\s+({ARTICLE_NUMBER_PATTERN})$",
         raw,
         re.IGNORECASE,
     )
@@ -262,12 +264,12 @@ def _parse_article_nums(raw: str) -> list[str]:
     result = [
         p.strip()
         for p in parts
-        if p.strip() and re.fullmatch(_ART_NUM_PAT, p.strip(), re.IGNORECASE)
+        if p.strip() and re.fullmatch(ARTICLE_NUMBER_PATTERN, p.strip(), re.IGNORECASE)
     ]
     return result or [raw]
 
 
-def _name_key(text: str) -> str:
+def name_key(text: str) -> str:
     """A law name as compared: lower case, single spaces, no quotes or trailing punctuation."""
     return re.sub(r"\s+", " ", text.lower()).strip(" .,;:\"'“”‘’()")
 
@@ -327,9 +329,9 @@ class DutchCitationExtractor:
             k.strip().upper(): v.strip() for k, v in code_aliases.items() if k and v
         }
         self._name_map: dict[str, str] = {
-            _name_key(k): v.strip()
+            name_key(k): v.strip()
             for k, v in (name_aliases or {}).items()
-            if k and v and len(_name_key(k)) >= _MIN_NAME_LENGTH
+            if k and v and len(name_key(k)) >= _MIN_NAME_LENGTH
         }
         self._books: dict[str, dict[str, str]] = self._group_books()
         self._code_re = self._alternation_re(
@@ -376,7 +378,7 @@ class DutchCitationExtractor:
             if last and start - last[0] <= _ANAPHORA_REACH:
                 return _Law(last[1], anaphora.end(), CONFIDENCE_ANAPHORA)
             return None
-        pos = _CONNECTOR_RE.match(text, start).end()  # type: ignore[union-attr]
+        pos = LAW_CONNECTOR_RE.match(text, start).end()  # type: ignore[union-attr]
         for law in (
             self._match_local(text, pos, local),
             self._match_alternation(self._code_re, self._code_map, text, pos, None),
@@ -425,7 +427,7 @@ class DutchCitationExtractor:
         )
         for count in range(len(words), 0, -1):
             end = words[count - 1].end()
-            law_id = self._name_map.get(_name_key(text[pos : pos + end]))
+            law_id = self._name_map.get(name_key(text[pos : pos + end]))
             if law_id:
                 return _Law(law_id, pos + end, CONFIDENCE_DIRECT)
         return None
@@ -455,7 +457,7 @@ class DutchCitationExtractor:
         local: dict[str, str] = {}
         last: tuple[int, str] | None = None
 
-        for match in _HEAD_RE.finditer(text):
+        for match in ARTICLE_HEAD_RE.finditer(text):
             law = self._resolve_law(text, match.end(), local, last)
             if law is None:
                 continue
@@ -485,7 +487,7 @@ class DutchCitationExtractor:
         seen: set[tuple[str | None, str | None, str]],
     ) -> Iterator[CitationHit]:
         qualifier = (match.group("qual") or "").strip(", ") or None
-        for raw_num in _parse_article_nums(match.group("nums") or ""):
+        for raw_num in parse_article_numbers(match.group("nums") or ""):
             law_id, art_num = self._apply_family(law, raw_num)
             if not law_id:
                 continue
@@ -528,7 +530,7 @@ class DutchCitationExtractor:
             if any(span[0] < e and span[1] > s for s, e in covered):
                 continue
             nums_raw = (match.group("nums") or "").strip()
-            for art_num in _parse_article_nums(nums_raw):
+            for art_num in parse_article_numbers(nums_raw):
                 if art_num in seen_nums:
                     continue
                 seen_nums.add(art_num)

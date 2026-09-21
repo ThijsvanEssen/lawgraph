@@ -87,7 +87,29 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `/api/nodes/{collection}/{key}` | a node with all neighbours, direction and confidence; `neighbor_limit` |
 | `.../neighborhood` | nodes and edges within `depth` (1-4) hops, capped by `cap` |
 | `/api/nodes/in-flux`, `/api/nodes/heat` | node id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6), `min_count`. Both answer a plain map (`{"articles/bwbr0001854_287": 3}`), not validated through a response model |
-| `GET /api/search?q=` | text search over `types` (`articles`, `committees`, `documents`, `dossiers`, `factions`, `instruments`, `judgments`, `members`; all by default), `kind`, `limit`; every hit has `score` 1.0 (no ranking) |
+| `GET /api/search?q=` | text search over `types` (`articles`, `committees`, `documents`, `dossiers`, `factions`, `instruments`, `judgments`, `members`; all by default), `kind`, `limit`. A citation in `q` (`art. 6:162 BW`, `artikel 287 Sr`, `Sr 287`, a full ECLI) puts its article or judgment first. Every hit has a `score`, its rank tier for `q`: an identifier of the hit (1), its whole name (0.75), the start of its name (0.5), every word of `q` in its name (0.25), a match on words only (0.1); a type lists its hits best first, ties in database order. `extra` of an article carries `instrument_title` (its law), of a document `dossier_number` |
+| `GET /api/resolve?q=` | the one node a citation, identifier or law name names: `kind` (`article`, `instrument`, `judgment`, `dossier`, `document`, or `none`), `match` (`id`, `key`, `collection`, `kind`, `display_name`, `confidence`), `confidence`, `alternatives` (up to five, same shape, best first) and `qualifier` (`derde lid` of `artikel 287, derde lid, Sr`). Nothing that fits is 200 with `kind` `none` and `match` null, so the caller searches the words instead; only an empty or over-long `q` is 422 |
+
+### Resolve notations
+
+`/api/resolve` reads `q` as, in this order:
+
+| Notation | Examples | Target | Confidence |
+|----------|----------|--------|------------|
+| ECLI, BWB id, CELEX id | `ECLI:NL:HR:2023:123`, `BWBR0001854`, `32016R0679` | the judgment or instrument with that key | 1 |
+| Article of a named law: keyword and number, or law and number | `art. 6:162 BW`, `artikel 287 Sr`, `artikel 3.26 van de Wet ruimtelijke ordening`, `Sr 287`, `Awb 3:4` | the article, by key; several articles (`artikelen 36e en 36f Sr`) give the first as match, the rest as alternatives | 0.95 |
+| Kamerstuk | `36327`, `Kamerstuk 36327`, `36 327`, `29684-I` | the dossier with that number and suffix; other suffixes of the number are alternatives (0.5) | 0.95 |
+| Paper of a Kamerstuk | `36327-3`, `Kamerstukken II 2020/21, 36327, nr. 3`, `kst-36327-3` | the document with that ondernummer in the dossier; the dossier (0.6) when the graph lacks the paper | 0.95 |
+| Law name or abbreviation | `Wetboek van Strafvordering`, `Grondwet`, `Sr` | the instrument | 0.9; the start of a name 0.6, part of a name 0.4 |
+| Article without a law | `artikel 6`, `art. 6:162` | the most cited article with that number; the others are alternatives | 0.5 for one law, 0.3 for several |
+
+The article number is read as the graph stores it: a law that numbers with a colon keeps it
+(`3:4` of the Awb), while every book of the Burgerlijk Wetboek is a regulation of its own and
+the book before the colon picks it (`BW6`); the article is then `162`, so `art. 6:162 BW` is
+never article `6`. A law is known by its `short_title`, its
+citation title or its title; a name two laws share names no article but lists both laws as
+alternatives, and several equally good nodes cap the confidence at 0.5. A bare number needs five
+digits (`36327`) unless it follows `Kamerstuk` or `dossier`.
 
 ### Semantic relationships and watches
 
@@ -115,7 +137,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | Path | Contents |
 |------|----------|
 | `api/app.py` | app, middleware, router registration, `lawgraph-api` entry point |
-| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `search`, `stats`, `watches`, `relationships`, `annexes`, `parliament`) |
+| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `watches`, `relationships`, `annexes`, `parliament`) |
 | `api/queries/` | AQL per domain; user input only through bind variables |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
 | `api/dependencies.py` | `get_store()`: one shared `ArangoStore`; the two keys and `refuse_open_writes` |

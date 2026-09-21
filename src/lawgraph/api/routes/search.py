@@ -23,7 +23,10 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
     description=(
         "Searches articles, judgments, dossiers and documents. Use `types` to "
         "restrict the search to specific collections and `kind` to facet on "
-        "document or dossier kinds."
+        "document or dossier kinds. Every hit has a `score` between 0 and 1, its rank "
+        "tier for the query: the query is an identifier of the hit (1), its whole "
+        "name (0.75), the start of its name (0.5), part of its name (0.25) or the hit "
+        "matched on words only (0.1). Hits of a type come best score first."
     ),
     tags=["search"],
 )
@@ -74,7 +77,7 @@ def search(
                     type=hit.get("type", ""),
                     display_name=hit.get("display_name"),
                     snippet=hit.get("snippet"),
-                    score=1.0,
+                    score=hit["score"],
                     extra=hit.get("extra") or {},
                 )
             )
