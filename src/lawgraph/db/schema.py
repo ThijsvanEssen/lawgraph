@@ -351,8 +351,9 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
         (COLLECTION_COMMITMENTS, ["props.status"], False),
         (COLLECTION_WATCHES, ["node_id"], False),
-        # raw_sources — needed for normalize pipelines scanning by source+kind
-        (COLLECTION_RAW_SOURCES, ["source", "kind"], False),
+        # raw_sources: the normalize pipelines read by source and kind. Not sparse, so a
+        # count per kind walks the index and reads no document (an EU act is up to 1 MB).
+        (COLLECTION_RAW_SOURCES, ["source", "kind"], False, False),
         # Edge indexes — critical for all traversal queries
         (COLLECTION_EDGES, ["relation"], False),
         (COLLECTION_EDGES, ["_from", "relation"], False),
