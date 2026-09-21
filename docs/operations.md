@@ -42,8 +42,8 @@ All default to the public endpoints; no key is required.
 |----------|---------|---------|
 | `BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
 | `EURLEX_MAX_ARTICLE_NUMBER` | `200` | EU articles above this number are not written |
-| `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `relation-semantics` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` |
-| `LAWGRAPH_<PHASE>_SKIP_<SOURCE>` | unset | `true` skips that step of `<phase> all` (see below) |
+| `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` |
+| `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | unset | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
 
 ### API
 
@@ -75,8 +75,8 @@ reaches six hours further back than it says, so that runs that follow each other
 run that starts late or a source that indexes a change late leaves no hole, and everything
 is an upsert.
 Every command exits with code 1 when it raised or its result has errors; a composite command
-(`<phase> all`, `bootstrap`, `expand-graph`) continues after a failing step unless `--strict`
-and exits 1 when any step failed.
+(`<phase> all`, `bootstrap`, `expand-graph`) continues after a failing pipeline unless `--strict`
+and exits 1 when any of them failed.
 
 ### retrieve
 
@@ -110,20 +110,21 @@ passed to the pipelines that accept it and the others run in full.
 
 | Command | Options |
 |---------|---------|
-| `tk`, `rechtspraak`, `eurlex`, `judgment-citations` | `--since`: sources whose raw record was fetched since then |
+| `tk`, `rechtspraak`, `eurlex`, `rechtspraak-citations` | `--since`: sources whose raw record was fetched since then |
 | `bwb` | `--since` (as above), `--store-citations` |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes` | none |
 | `staatsblad`, `eerstekamer`, `echr` | none |
 | `staatscourant` | `--since`: publications dated since then |
-| `judgment-appeal` | none |
-| `instrument-relations` | `--since`: documents dated since then (`IMPLEMENTS` always reads the regulations that name an EU act) |
-| `amendment-articles`, `mvt-articles`, `relation-semantics` | none |
-| `list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
+| `rechtspraak-appeal` | none |
+| `tk-amends` | `--since`: documents dated since then |
+| `bwb-implements` | none (reads the regulations that name an EU act) |
+| `tk-amendment-articles`, `tk-mvt`, `bwb-relation-types` | none |
+| `graph-list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 
 The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
-`bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `judgment-citations`,
-`judgment-appeal`, `instrument-relations`, `amendment-articles`, `mvt-articles`,
-`relation-semantics`, `list-stats`.
+`bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-citations`,
+`rechtspraak-appeal`, `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-mvt`,
+`bwb-relation-types`, `graph-list-stats`.
 
 ### Other commands
 
@@ -137,7 +138,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 
 ### Skip variables
 
-`LAWGRAPH_<PHASE>_SKIP_<SOURCE>=true` (case-insensitive `true`; any other value does not skip)
+`LAWGRAPH_<PHASE>_SKIP_<PIPELINE>=true` (case-insensitive `true`; any other value does not skip)
 skips one step of `retrieve all`, `normalize all` or `semantic all`. `<SOURCE>` is the source id
 in upper case with underscores.
 
@@ -154,7 +155,7 @@ in upper case with underscores.
 ```bash
 lawgraph retrieve all --mode full --window 730d
 lawgraph retrieve bwb-history            # optional: every BWB toestand
-lawgraph retrieve tk-content             # optional: MvT text, needed by amendment-articles
+lawgraph retrieve tk-content             # optional: MvT text, needed by tk-amendment-articles
 lawgraph retrieve rechtspraak --ecli ECLI:NL:HR:2023:1234 ...   # judgment content
 lawgraph normalize all
 lawgraph semantic all

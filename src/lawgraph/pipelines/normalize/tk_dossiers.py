@@ -54,7 +54,9 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
-from lawgraph.pipelines.normalize import tk_cases, tk_members, tk_votes
+from lawgraph.pipelines.normalize import _tk_cases as tk_cases
+from lawgraph.pipelines.normalize import _tk_members as tk_members
+from lawgraph.pipelines.normalize import _tk_votes as tk_votes
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
 logger = get_logger(__name__)

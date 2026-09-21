@@ -22,12 +22,12 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "judgment-appeal-linker"
+SEMANTIC_SOURCE = "rechtspraak-appeal-linker"
 
 _APPEAL_PATTERN = re.compile(r"\b(?:hoger beroep|cassatie)\b", re.IGNORECASE)
 
 
-class JudgmentAppealSemanticPipeline(SemanticPipelineBase):
+class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
     """Create APPEAL_OF edges from appeal judgments to their prior proceedings."""
 
     def run(self) -> PipelineResult:
@@ -58,7 +58,7 @@ FOR j IN {COLLECTION_JUDGMENTS}
         )
 
         ecli_to_id = self._resolve_eclis(all_related)
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         self._link_appeals(appeal_rows, ecli_to_id, edges)
         edges.flush_into(result)
 

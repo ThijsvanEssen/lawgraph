@@ -57,18 +57,19 @@ lawgraph semantic all --since 7d
 ## CLI
 
 ```
-lawgraph <retrieve|normalize|semantic> <source|all> [options]
-lawgraph bootstrap | expand-graph | fill-gaps
-lawgraph <phase> <source> --help
-lawgraph sources                 # what every source and phase does
+lawgraph <retrieve|normalize|semantic> <pipeline|all> [options]
+lawgraph bootstrap | expand-graph | fill-gaps | check
+lawgraph <phase> <pipeline> --help
+lawgraph sources                 # every pipeline under its source, and what it does
 ```
 
-Sources: `tk`, `tk-dossiers`, `tk-content`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`,
-`staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `verdragenbank`. The semantic phase has
-extra commands (`bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `judgment-citations`,
-`judgment-appeal`, `instrument-relations`, `amendment-articles`, `mvt-articles`,
-`relation-semantics`, `list-stats`). `--since` (`2024-01-01` or `7d`) is the one date option.
-Every command exits 1 on failure. Full reference in `docs/operations.md`.
+A pipeline has one address, `<phase> <source>[-<part>]`: `normalize tk-dossiers`, `semantic
+rechtspraak-citations`. It is what one types, the label of its log lines, its module and its
+class. Sources: `tk`, `rechtspraak`, `eurlex`, `bwb`, `staatsblad`, `staatscourant`,
+`eerstekamer`, `echr`, `verdragenbank`, and `graph` for what works on the whole graph.
+`--since` (`2024-01-01`, `7d`, or `last` on `<phase> all`) is the one date option. A command
+exits 1 when it failed and 2 for a command line it cannot read. Full reference in
+`docs/operations.md`.
 
 ## Configuration
 
@@ -105,14 +106,19 @@ Open:
 - Of the BWB WTI files only the official abbreviations are ingested (as
   `instruments.props.short_title`); the amendment log and `grondslag-voor` are not.
 - Watches and relationship votes can be written without a credential; only curation has a key.
-- Rechtspraak structured references are not used: judgment citations are read from the text,
-  and judgment content is retrieved only for the ECLIs asked for.
+- Rechtspraak is loaded for the chosen courts (default: Hoge Raad, Raad van State, the hoven)
+  inside the window; a judgment of another court arrives only when a loaded record cites it
+  (`expand-graph`). Citations between judgments are read from the text; of the structured
+  metadata only `dcterms:relation` is used (for `APPEAL_OF`), LiDO is not.
 - EUR-Lex implementation data (`eur`) is not evaluated.
 - Not covered: CVDR (local regulations) and the Omgevingswet API.
 - The Eerste Kamer is loaded as Kamerstukken only, from the KOOP SRU. Votes and their outcome are
   not: they exist only as prose in the Handelingen and as HTML on eerstekamer.nl.
-- Scheduling of incremental runs is not wired.
-- ArangoSearch view memory at 200K judgments is an open concern.
+- Scheduling is not wired: run `<phase> all --since last` from cron or a scheduler; it goes on
+  where the last complete run began, so a day without a run is caught up.
+- ArangoSearch view memory is not measured at full size. The server is bounded (5 GB, capped
+  caches) and judgments no longer carry their XML; `lawgraph check` reports a view that is out
+  of sync with its collection.
 
 ## License
 

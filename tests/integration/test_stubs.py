@@ -19,7 +19,7 @@ def test_a_cited_judgment_is_a_stub_until_it_is_loaded(database: str, cli: Any) 
     store = ArangoStore()
     seed(store, documents=10, judgments=5, regulations=2)  # judgment n cites n + 1
     cli("normalize", "rechtspraak")
-    cli("semantic", "judgment-citations")
+    cli("semantic", "rechtspraak-citations")
     cited = "ECLI:NL:HR:2020:5"  # cited by the last one, not loaded
     assert _stub_flag(store, cited) is True
 

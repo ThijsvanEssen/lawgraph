@@ -79,7 +79,7 @@ FOR doc IN {COLLECTION_DOCUMENTS}
 """
 
 
-class MvtArticlesSemanticPipeline(SemanticPipelineBase):
+class TKMvtSemanticPipeline(SemanticPipelineBase):
     """Link explanatory memoranda to the article versions they explain."""
 
     def run(self) -> PipelineResult:
@@ -90,7 +90,7 @@ class MvtArticlesSemanticPipeline(SemanticPipelineBase):
             "change_relations": list(_CHANGE_RELATIONS),
         }
 
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         documents = 0
         targets = self.store.query(_TARGETS_AQL, bind_vars)
         for row in self._track(targets, "explanatory memoranda"):

@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "ek-dossier-linker"
 
 
-class EerstekamerDossierLinkSemanticPipeline(SemanticPipelineBase):
+class EerstekamerSemanticPipeline(SemanticPipelineBase):
     """Links EK documents to TK kamerstukdossiers via DossierNummer."""
 
     def run(self) -> PipelineResult:
@@ -57,7 +57,7 @@ FOR document IN {COLLECTION_DOCUMENTS}
             return result
 
         seen: set[tuple[str, str]] = set()
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         for row in rows:
             pair = (row["document_key"], row["dossier_key"])
             if pair in seen:

@@ -31,7 +31,9 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.relations import BY_NAME
-from lawgraph.pipelines.normalize import tk_cases, tk_members, tk_votes
+from lawgraph.pipelines.normalize import _tk_cases as tk_cases
+from lawgraph.pipelines.normalize import _tk_members as tk_members
+from lawgraph.pipelines.normalize import _tk_votes as tk_votes
 
 SOURCE = "test"
 

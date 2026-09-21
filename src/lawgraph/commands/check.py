@@ -201,7 +201,7 @@ def _check_views(store: ArangoStore, report: Report) -> None:
 
 def _check_derived(store: ArangoStore, report: Report) -> None:
     """``normalize bwb`` keeps the basis and the EU acts of a regulation on its node, and
-    ``semantic bwb-grondslagen`` and ``instrument-relations`` read only that: a regulation
+    ``semantic bwb-grondslagen`` and ``semantic bwb-implements`` read only that: a regulation
     normalized before it was kept would give them nothing, and nothing would say so."""
     aql = f"""
     FOR regulation IN {COLLECTION_INSTRUMENTS}

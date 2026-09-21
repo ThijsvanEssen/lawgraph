@@ -88,13 +88,14 @@ BWB_IDS = _env_list("BWB_IDS")
 EURLEX_MAX_ARTICLE_NUMBER = int(os.getenv("EURLEX_MAX_ARTICLE_NUMBER", "200"))
 
 
-def skip_step(phase: str, source_id: str) -> bool:
-    """True when ``LAWGRAPH_<PHASE>_SKIP_<SOURCE_ID>=true`` excludes a step of ``<phase> all``."""
-    return os.getenv(skip_variable(phase, source_id), "").strip().lower() == "true"
+def skip_step(phase: str, pipeline_name: str) -> bool:
+    """True when ``LAWGRAPH_<PHASE>_SKIP_<NAME>=true`` leaves a pipeline out of ``<phase> all``."""
+    return os.getenv(skip_variable(phase, pipeline_name), "").strip().lower() == "true"
 
 
-def skip_variable(phase: str, source_id: str) -> str:
-    return f"LAWGRAPH_{phase.upper()}_SKIP_{source_id.upper()}"
+def skip_variable(phase: str, pipeline_name: str) -> str:
+    """``LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS`` for ``normalize tk-dossiers``."""
+    return f"LAWGRAPH_{phase.upper()}_SKIP_{pipeline_name.upper().replace('-', '_')}"
 
 
 def confidence_override(pattern_name: str, default: float) -> float:

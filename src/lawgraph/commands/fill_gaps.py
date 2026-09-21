@@ -67,12 +67,12 @@ from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
-from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
-from lawgraph.pipelines.semantic.judgment_citations import (
-    JudgmentCitationsSemanticPipeline,
+from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
+from lawgraph.pipelines.semantic.rechtspraak import (
+    RechtspraakSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.rechtspraak_articles import (
-    RechtspraakArticlesSemanticPipeline,
+from lawgraph.pipelines.semantic.rechtspraak_citations import (
+    RechtspraakCitationsSemanticPipeline,
 )
 
 logger = get_logger(__name__)
@@ -278,7 +278,7 @@ def _apply_bwb_gaps(
     )
     if not args.no_semantic:
         result = result.merge(
-            _logged("BWB semantic", BWBArticlesSemanticPipeline(store=store).run())
+            _logged("BWB semantic", BWBSemanticPipeline(store=store).run())
         )
     return result
 
@@ -302,12 +302,12 @@ def _apply_case_law_gaps(
         result = result.merge(
             _logged(
                 "Judgment citations",
-                JudgmentCitationsSemanticPipeline(store=store).run(),
+                RechtspraakCitationsSemanticPipeline(store=store).run(),
             )
         ).merge(
             _logged(
                 "Rechtspraak article links",
-                RechtspraakArticlesSemanticPipeline(store=store).run(),
+                RechtspraakSemanticPipeline(store=store).run(),
             )
         )
     return result

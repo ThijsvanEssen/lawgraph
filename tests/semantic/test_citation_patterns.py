@@ -9,8 +9,8 @@ differences stay explicit.
 from __future__ import annotations
 
 from lawgraph.core.citations import CitationHit
-from lawgraph.pipelines.semantic.eu_articles import detect_eu_citations
-from lawgraph.pipelines.semantic.tk_articles import detect_tk_citations
+from lawgraph.pipelines.semantic.eurlex import detect_eu_citations
+from lawgraph.pipelines.semantic.tk import detect_tk_citations
 
 Sig = tuple[str, str | None, str | None, str | None, float]
 

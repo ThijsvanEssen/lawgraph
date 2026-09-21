@@ -7,8 +7,8 @@ from typing import Any
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import edge_key as _sha1_edge_key
-from lawgraph.pipelines.semantic.eu_articles import (
-    EUArticlesSemanticPipeline,
+from lawgraph.pipelines.semantic.eurlex import (
+    EurlexSemanticPipeline,
     detect_eu_citations,
 )
 from tests.conftest import _BaseFakeStore
@@ -115,7 +115,7 @@ def test_eu_pipeline_links_celex_target() -> None:
         instruments={target_key: target_doc},
         articles={},
     )
-    pipeline = EUArticlesSemanticPipeline(store=store)
+    pipeline = EurlexSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -143,7 +143,7 @@ def test_eu_pipeline_links_bwb_article() -> None:
         instruments={sr_key: sr_doc},
         articles={article_key: article_doc},
     )
-    pipeline = EUArticlesSemanticPipeline(store=store)
+    pipeline = EurlexSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -163,7 +163,7 @@ def test_eu_pipeline_idempotent_edges() -> None:
         instruments={target_key: target_doc},
         articles={},
     )
-    pipeline = EUArticlesSemanticPipeline(store=store)
+    pipeline = EurlexSemanticPipeline(store=store)
 
     first = pipeline.run()
     second = pipeline.run()

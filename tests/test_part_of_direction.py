@@ -15,10 +15,10 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db.store import edge_key
-from lawgraph.pipelines.list_stats import _INSTRUMENTS_BODY
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
-from lawgraph.pipelines.semantic.annex_links import AnnexLinksSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
+from lawgraph.pipelines.semantic.graph_list_stats import _INSTRUMENTS_BODY
 from tests.conftest import _BaseFakeStore
 
 INSTRUMENT = f"{COLLECTION_INSTRUMENTS}/BWBR0001854"
@@ -78,7 +78,7 @@ def test_eu_normalize_writes_article_to_instrument() -> None:
 def test_annex_edge_points_to_instrument() -> None:
     annex = _node("annexes", NodeType.ANNEX, "BWBR0001854_annex_I")
 
-    edge = AnnexLinksSemanticPipeline(store=object())._instrument_edge(
+    edge = BWBAnnexesSemanticPipeline(store=object())._instrument_edge(
         "BWBR0001854", annex
     )
 

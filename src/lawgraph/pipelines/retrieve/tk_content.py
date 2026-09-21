@@ -1,7 +1,7 @@
 """Pipeline that fetches the text of Tweede Kamer papers as XML and stores it in props.text.
 
 Only papers whose kind contains a substring (default ``toelichting``) qualify: the ones that
-feed the memorandum context (``mvt-articles``, ``amendment-articles``), not the whole corpus.
+feed the memorandum context (``tk-mvt``, ``tk-amendment-articles``), not the whole corpus.
 The Tweede Kamer's own API serves only a PDF; the KOOP repository has the same paper as
 structured XML, filed under its dossier.
 

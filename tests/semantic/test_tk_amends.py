@@ -1,4 +1,4 @@
-"""Tests for the instrument-relations semantic pipeline."""
+"""``semantic tk-amends`` and ``semantic bwb-implements``."""
 
 from __future__ import annotations
 
@@ -7,8 +7,9 @@ from typing import Any
 from lawgraph.config.constants import EDGE_STATUS_VOORGESTELD, RELATION_AMENDS
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
-from lawgraph.pipelines.semantic.instrument_relations import (
-    InstrumentRelationsSemanticPipeline,
+from lawgraph.pipelines.semantic.bwb_implements import BWBImplementsSemanticPipeline
+from lawgraph.pipelines.semantic.tk_amends import (
+    TKAmendsSemanticPipeline,
     detect_amends_instrument,
 )
 from tests.fakes import ExistingKeysFake
@@ -47,7 +48,7 @@ def test_detect_amends_instrument_none_title_returns_empty() -> None:
 
 
 class _FakeStore(ExistingKeysFake):
-    """Minimal store stub for instrument-relations pipeline tests."""
+    """Minimal store stub for tests of both pipelines."""
 
     def __init__(
         self,
@@ -151,7 +152,7 @@ def _amends_store() -> _FakeStore:
 def test_pipeline_creates_a_proposed_amends_edge() -> None:
     store = _amends_store()
 
-    result = InstrumentRelationsSemanticPipeline(store=store).run()
+    result = TKAmendsSemanticPipeline(store=store).run()
 
     assert result.created == 1
     (edge,) = store.edges.values()
@@ -162,7 +163,7 @@ def test_pipeline_creates_a_proposed_amends_edge() -> None:
 def test_amends_endpoints_match_the_catalogue() -> None:
     store = _amends_store()
 
-    InstrumentRelationsSemanticPipeline(store=store).run()
+    TKAmendsSemanticPipeline(store=store).run()
 
     spec = BY_NAME[RELATION_AMENDS]
     for edge in store.edges.values():
@@ -174,7 +175,7 @@ def test_a_case_never_produces_an_edge() -> None:
     """Only a bill (Document) may propose a change; a Case is not an endpoint."""
     store = _amends_store()
 
-    InstrumentRelationsSemanticPipeline(store=store).run()
+    TKAmendsSemanticPipeline(store=store).run()
 
     assert not any(e["_from"].startswith("cases/") for e in store.edges.values())
 
@@ -213,9 +214,7 @@ def test_a_regulation_implements_the_eu_acts_normalize_found_in_it() -> None:
     store = _FakeStore(
         nodes={("instruments", law.key): law, ("instruments", gdpr.key): gdpr}
     )
-    result = InstrumentRelationsSemanticPipeline(
-        store=store
-    )._run_implements_directive()
+    result = BWBImplementsSemanticPipeline(store=store).run()
 
     assert result.created == 1  # the act that is not loaded gets no edge
     (edge,) = store.edges.values()

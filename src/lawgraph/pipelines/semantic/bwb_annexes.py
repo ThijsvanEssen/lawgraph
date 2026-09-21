@@ -31,7 +31,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.xml import iter_named
 from lawgraph.db import EdgeWriter
-from lawgraph.pipelines.semantic.annex_detect import detect_annex_references
+from lawgraph.pipelines.semantic._annex_detect import detect_annex_references
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
@@ -39,7 +39,7 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "bwb-annex-links"
 
 
-class AnnexLinksSemanticPipeline(SemanticPipelineBase):
+class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
     """Extract annex nodes from BWB XML and link referencing articles."""
 
     def run(self) -> PipelineResult:
@@ -55,7 +55,7 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
         """Parse ``<bijlage>`` elements from raw BWB XML into annex nodes."""
         known_keys: set[str] = set()
         node_docs: list[dict[str, Any]] = []
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
 
         for record in self._track(self._load_raw_bwb_records(), "BWB toestanden"):
             bwb_id = self._record_bwb_id(record)
@@ -153,7 +153,7 @@ class AnnexLinksSemanticPipeline(SemanticPipelineBase):
     # ── pass 2: article text linking ───────────────────────────────────────
 
     def _link_articles(self, result: PipelineResult, known_keys: set[str]) -> None:
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         articles = self._load_articles_mentioning_annex()
         for doc in self._track(articles, "articles"):
             article = Node.from_document(COLLECTION_ARTICLES, doc)

@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
     SEMANTIC_TYPE_PREREQUISITE_PROCEDURE,
     SEMANTIC_TYPE_SCOPE_LIMITATION,
 )
-from lawgraph.pipelines.semantic.semantic_classify import (
+from lawgraph.pipelines.semantic._relation_type_patterns import (
     CONFIDENCE_ADJACENT,
     CONFIDENCE_FALLBACK,
     classify_citation_context,

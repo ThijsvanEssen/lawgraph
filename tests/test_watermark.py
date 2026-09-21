@@ -54,12 +54,12 @@ def test_last_without_a_run_on_record_is_refused() -> None:
 def phase(monkeypatch) -> dict[str, Any]:
     seen: dict[str, Any] = {"store": _Store(), "outcomes": [Outcome("a", State.OK)]}
 
-    def run_steps(steps: list[Any], **kw: Any) -> list[Outcome]:
-        seen["argv"] = [step.argv for step in steps]
+    def run_pipelines(pipelines: list[Any], argv_of: Any, **kw: Any) -> list[Outcome]:
+        seen["argv"] = [argv_of(pipeline) for pipeline in pipelines]
         return seen["outcomes"]
 
     monkeypatch.setattr(orchestration, "ArangoStore", lambda: seen["store"])
-    monkeypatch.setattr(orchestration, "run_steps", run_steps)
+    monkeypatch.setattr(orchestration, "run_pipelines", run_pipelines)
     return seen
 
 

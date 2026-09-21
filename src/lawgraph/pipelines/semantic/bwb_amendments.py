@@ -152,7 +152,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         nodes = NodeWriter(self.store)
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         self._known_dossiers = {}
 
         rows = self._track(self.store.query(_VERSIONS_AQL), "article versions")

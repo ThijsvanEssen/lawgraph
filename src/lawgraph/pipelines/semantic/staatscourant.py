@@ -37,7 +37,7 @@ _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
 }
 
 
-class StaatscourantRegelingSemanticPipeline(SemanticPipelineBase):
+class StaatscourantSemanticPipeline(SemanticPipelineBase):
     """Links Staatscourant ministerial regulations to BWB instruments via EXPLAINS."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
@@ -113,7 +113,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
         )
 
         seen: set[tuple[str, str]] = set()
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         for row in rows:
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")

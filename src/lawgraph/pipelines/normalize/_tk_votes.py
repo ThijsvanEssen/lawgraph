@@ -22,7 +22,7 @@ from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records import VoteCast
 from lawgraph.db import EdgeWriter, NodeWriter, Store
-from lawgraph.pipelines.normalize.tk_cases import link_node
+from lawgraph.pipelines.normalize._tk_cases import link_node
 
 logger = get_logger(__name__)
 

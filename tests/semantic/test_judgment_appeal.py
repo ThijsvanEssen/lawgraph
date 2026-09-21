@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from lawgraph.pipelines.semantic.judgment_appeal import _APPEAL_PATTERN
+from lawgraph.pipelines.semantic.rechtspraak_appeal import _APPEAL_PATTERN
 
 
 def _is_appeal(procedure: str) -> bool:
-    """Replicate the word-boundary check used in JudgmentAppealSemanticPipeline."""
+    """Replicate the word-boundary check used in RechtspraakAppealSemanticPipeline."""
     return bool(_APPEAL_PATTERN.search(procedure.strip()))
 
 

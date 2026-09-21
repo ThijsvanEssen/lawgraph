@@ -10,7 +10,6 @@ import requests
 
 from lawgraph.clients.eu import EUClient
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
-from lawgraph.sources.registry import SOURCES
 from tests.fakes import RawSourcesFake
 
 
@@ -176,11 +175,11 @@ def test_a_store_failure_is_an_error() -> None:
 
 
 def test_retrieve_all_never_lists_eu_acts() -> None:
-    from lawgraph.sources.registry import RetrieveCtx
+    from lawgraph.sources.registry import RetrieveCtx, find
 
-    eurlex = next(s for s in SOURCES if s.id == "eurlex")
-    assert eurlex.retrieve_argv_builder is not None
-    assert eurlex.retrieve_argv_builder(RetrieveCtx(since="1d", mode="full")) == []
+    eurlex = find("retrieve", "eurlex")
+    assert eurlex is not None and eurlex.argv_for_all is not None
+    assert eurlex.argv_for_all(RetrieveCtx(since="1d", mode="full")) == []
 
 
 def test_a_rerun_skips_the_acts_an_interrupted_run_stored() -> None:

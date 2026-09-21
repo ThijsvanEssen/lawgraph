@@ -7,7 +7,7 @@ from typing import Any
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
-from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
+from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from tests.conftest import _BaseFakeStore
 
 
@@ -85,8 +85,8 @@ def _make_article(
 
 def _create_pipeline(
     store: _FakeStore, store_citations: bool = False
-) -> BWBArticlesSemanticPipeline:
-    return BWBArticlesSemanticPipeline(
+) -> BWBSemanticPipeline:
+    return BWBSemanticPipeline(
         store=store,
         store_citations=store_citations,
     )

@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "judgment-citation-linker"
 
 
-class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
+class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
@@ -71,7 +71,7 @@ class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
         ecli_to_id: dict[str, str],
         result: PipelineResult,
     ) -> None:
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         for from_id, cited_ecli in pending:
             to_id = ecli_to_id.get(cited_ecli)
             if not to_id:

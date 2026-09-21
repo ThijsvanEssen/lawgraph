@@ -6,8 +6,8 @@ from typing import Any
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
-from lawgraph.pipelines.semantic.tk_articles import (
-    TKArticlesSemanticPipeline,
+from lawgraph.pipelines.semantic.tk import (
+    TKSemanticPipeline,
     detect_tk_citations,
 )
 from tests.conftest import _BaseFakeStore
@@ -148,7 +148,7 @@ def test_tk_pipeline_links_to_article_node() -> None:
         },
         articles={article_key: article},
     )
-    pipeline = TKArticlesSemanticPipeline(store=store)
+    pipeline = TKSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -169,7 +169,7 @@ def test_tk_pipeline_links_to_celex_instrument() -> None:
         instruments={celex_key: instrument},
         articles={},
     )
-    pipeline = TKArticlesSemanticPipeline(store=store)
+    pipeline = TKSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -190,7 +190,7 @@ def test_tk_pipeline_links_named_act_to_instrument() -> None:
         instruments={instr_key: instrument},
         articles={},
     )
-    pipeline = TKArticlesSemanticPipeline(store=store)
+    pipeline = TKSemanticPipeline(store=store)
 
     created = pipeline.run()
     assert created.created == 1
@@ -217,7 +217,7 @@ def test_tk_pipeline_idempotent_edges() -> None:
         },
         articles={article_key: article},
     )
-    pipeline = TKArticlesSemanticPipeline(store=store)
+    pipeline = TKSemanticPipeline(store=store)
 
     first = pipeline.run()
     second = pipeline.run()

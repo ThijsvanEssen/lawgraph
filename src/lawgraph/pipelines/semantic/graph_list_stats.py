@@ -1,4 +1,4 @@
-"""``lawgraph semantic list-stats``: precompute list-endpoint sort and filter keys on nodes.
+"""``lawgraph semantic graph-list-stats``: precompute list-endpoint sort and filter keys on nodes.
 
 Persists the keys onto each document so ``/api/instruments``, ``/api/judgments``
 and friends can sort and filter via persistent indexes instead of deriving the

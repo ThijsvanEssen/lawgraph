@@ -115,7 +115,7 @@ def _collect_bwb_alias_hits(
         )
 
 
-class EUArticlesSemanticPipeline(SemanticPipelineBase):
+class EurlexSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking EU instruments to BWB/EU articles via semantic edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
@@ -132,7 +132,7 @@ class EUArticlesSemanticPipeline(SemanticPipelineBase):
             self._load_eu_documents(since_iso=since_iso), "EU articles"
         )
 
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         for document in documents:
             text = self._extract_document_text(document)
             if not text:

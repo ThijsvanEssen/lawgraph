@@ -1,4 +1,4 @@
-"""Tests for the judgment-citations semantic pipeline."""
+"""Tests for the rechtspraak-citations semantic pipeline."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from typing import Any
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.models import Node, NodeType, make_node_key
-from lawgraph.pipelines.semantic.judgment_citations import (
-    JudgmentCitationsSemanticPipeline,
+from lawgraph.pipelines.semantic.rechtspraak_citations import (
+    RechtspraakCitationsSemanticPipeline,
 )
 
 # ---------------------------------------------------------------------------
@@ -137,7 +137,7 @@ def test_pipeline_creates_cites_judgment_edge() -> None:
         judgment_docs=[source_doc],
         nodes={("judgments", target_key): target_node},
     )
-    pipeline = JudgmentCitationsSemanticPipeline(store=store)
+    pipeline = RechtspraakCitationsSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -154,7 +154,7 @@ def test_pipeline_skips_self_reference() -> None:
         make_node_key(ecli), ecli, f"Dit arrest ({ecli}) overweegt dat..."
     )
     store = _FakeStore(judgment_docs=[doc])
-    pipeline = JudgmentCitationsSemanticPipeline(store=store)
+    pipeline = RechtspraakCitationsSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
 
@@ -170,6 +170,6 @@ def test_an_incremental_run_reads_the_judgments_fetched_since() -> None:
             binds.append(dict(bind_vars or {}))
             return super().query(aql, bind_vars, **kw)
 
-    pipeline = JudgmentCitationsSemanticPipeline(store=Store(judgment_docs=[]))
+    pipeline = RechtspraakCitationsSemanticPipeline(store=Store(judgment_docs=[]))
     pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
     assert binds[0]["since"] == "2025-01-01T00:00:00Z"

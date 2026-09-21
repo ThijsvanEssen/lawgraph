@@ -8,7 +8,7 @@ and is not part of the stored article number.
 from __future__ import annotations
 
 from lawgraph.core.citations import DutchCitationExtractor
-from lawgraph.pipelines.semantic.tk_articles import detect_tk_citations
+from lawgraph.pipelines.semantic.tk import detect_tk_citations
 
 BW3 = "BWBR0005291"
 BW6 = "BWBR0005289"

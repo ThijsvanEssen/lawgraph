@@ -20,7 +20,7 @@ from lawgraph.commands.fill_gaps import main as fill_gaps
 from lawgraph.core.logging import setup_logging
 from lawgraph.pipelines.command import Command, State, run_command
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
-from lawgraph.sources.registry import SOURCES, describe
+from lawgraph.sources.registry import PHASES, PIPELINES, SOURCES, find
 
 _COMMANDS: dict[str, Command] = {
     "bootstrap": bootstrap,
@@ -35,73 +35,70 @@ _PHASE_ALL: dict[str, Command] = {
 }
 
 
-def _build_dispatch() -> dict[str, dict[str, Command]]:
-    """phase -> CLI source name -> ``main(argv)``; ``tk_dossiers`` becomes ``tk-dossiers``."""
-    dispatch: dict[str, dict[str, Command]] = {}
-    for phase, run_all in _PHASE_ALL.items():
-        dispatch[phase] = {"all": run_all}
-        for source in SOURCES:
-            main = getattr(source, f"{phase}_command")
-            if main is not None:
-                dispatch[phase][source.id.replace("_", "-")] = main
-    return dispatch
-
-
 def _sources_overview() -> str:
-    """Every source with what each of its phases does, in the order the phases run."""
-    lines = ["Sources, in registry order (the order of `<phase> all`):", ""]
-    for source in SOURCES:
-        lines.append(f"{source.id.replace('_', '-')}  —  {source.display_name}")
-        for phase in ("retrieve", "normalize", "semantic"):
-            if getattr(source, f"{phase}_command") is None:
-                continue
-            note = ""
-            if phase == "retrieve" and source.retrieve_argv_builder is None:
-                note = " [manual: not in retrieve all]"
-            text = source.descriptions.get(phase, "(no description)")
-            lines.append(f"    {phase:<10} {text}{note}")
+    """Every source with its pipelines, per phase in the order the phase runs them."""
+    lines = [
+        "Pipelines per source; within a phase, `<phase> all` runs registry order.",
+        "",
+    ]
+    for source, display_name in SOURCES.items():
+        lines.append(f"{source}  —  {display_name}")
+        for phase in PHASES:
+            for pipeline in PIPELINES[phase]:
+                if pipeline.source != source:
+                    continue
+                manual = phase == "retrieve" and pipeline.argv_for_all is None
+                note = " [manual: not in retrieve all]" if manual else ""
+                lines.append(f"    {pipeline.address:<34} {pipeline.description}{note}")
         lines.append("")
     return "\n".join(lines).rstrip()
 
 
-def _usage(dispatch: dict[str, dict[str, Command]]) -> str:
-    lines = ["Usage: lawgraph <phase> <source> [options]", ""]
+def _usage() -> str:
+    lines = ["Usage: lawgraph <phase> <pipeline|all> [options]", ""]
     lines += [
-        f"  {phase}: {', '.join(sorted(mains))}" for phase, mains in dispatch.items()
+        f"  {phase}: all, {', '.join(pipeline.name for pipeline in PIPELINES[phase])}"
+        for phase in PHASES
     ]
     lines += ["", f"       lawgraph <{'|'.join(_COMMANDS)}> [options]", ""]
-    lines += ["       lawgraph sources     what every source and phase does", ""]
+    lines += [
+        "       lawgraph sources     every pipeline per source, and what it does",
+        "",
+    ]
     lines += ["Add --help after a command for its options."]
     return "\n".join(lines)
 
 
+def _chosen(argv: list[str]) -> tuple[str, Command, list[str], str] | None:
+    """``(label, command, options, description)`` of what was typed, or None."""
+    command, rest = argv[0], argv[1:]
+    if command in _COMMANDS:
+        return command, _COMMANDS[command], rest, ""
+    if command in _PHASE_ALL and rest and rest[0] == "all":
+        return f"{command} all", _PHASE_ALL[command], rest[1:], ""
+    pipeline = find(command, rest[0]) if rest else None
+    if pipeline is None:
+        return None
+    return pipeline.address, pipeline.command, rest[1:], pipeline.description
+
+
 def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
-    dispatch = _build_dispatch()
-
     if not argv or argv[0] in ("-h", "--help"):
-        print(_usage(dispatch))
+        print(_usage())
         return
-
-    command, rest = argv[0], argv[1:]
-    if command == "sources":
+    if argv[0] == "sources":
         print(_sources_overview())
         return
-    if command in _COMMANDS:
-        label, chosen, options, description = command, _COMMANDS[command], rest, ""
-    elif command in dispatch and rest and rest[0] in dispatch[command]:
-        label, chosen, options = (
-            f"{command} {rest[0]}",
-            dispatch[command][rest[0]],
-            rest[1:],
-        )
-        description = describe(command, rest[0])
-    else:
-        print(_usage(dispatch), file=sys.stderr)
+
+    chosen = _chosen(argv)
+    if chosen is None:
+        print(_usage(), file=sys.stderr)
         sys.exit(2)
 
     setup_logging()
-    outcome = run_command(label, chosen, options, description=description)
+    label, command, options, description = chosen
+    outcome = run_command(label, command, options, description=description)
     if outcome.state is State.FAILED:
         sys.exit(1)
 

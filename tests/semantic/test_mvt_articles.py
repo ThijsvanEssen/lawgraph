@@ -6,7 +6,7 @@ from typing import Any
 
 from lawgraph.config.constants import RELATION_EXPLAINS
 from lawgraph.core.relations import BY_NAME
-from lawgraph.pipelines.semantic.mvt_articles import MvtArticlesSemanticPipeline
+from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from tests.conftest import _BaseFakeStore
 
 
@@ -36,7 +36,7 @@ def test_pipeline_explains_the_article_versions_the_instrument_changed() -> None
         ]
     )
 
-    result = MvtArticlesSemanticPipeline(store=store).run()
+    result = TKMvtSemanticPipeline(store=store).run()
 
     assert result.created == 2
     spec = BY_NAME[RELATION_EXPLAINS]
@@ -51,7 +51,7 @@ def test_pipeline_falls_back_to_the_instrument() -> None:
         [{"document": "documents/nvt-1", "targets": ["instruments/bwbr0009999"]}]
     )
 
-    result = MvtArticlesSemanticPipeline(store=store).run()
+    result = TKMvtSemanticPipeline(store=store).run()
 
     assert result.created == 1
     (edge,) = store.edges.values()
@@ -66,7 +66,7 @@ def test_pipeline_reads_the_graph_in_a_single_pass() -> None:
         ]
     )
 
-    result = MvtArticlesSemanticPipeline(store=store).run()
+    result = TKMvtSemanticPipeline(store=store).run()
 
     assert result.created == 50
     assert len(store.queries) == 1
@@ -75,7 +75,7 @@ def test_pipeline_reads_the_graph_in_a_single_pass() -> None:
 def test_pipeline_returns_empty_when_no_documents() -> None:
     store = _FakeStore([])
 
-    result = MvtArticlesSemanticPipeline(store=store).run()
+    result = TKMvtSemanticPipeline(store=store).run()
 
     assert result.created == 0
     assert not store.edges
@@ -84,6 +84,6 @@ def test_pipeline_returns_empty_when_no_documents() -> None:
 def test_pipeline_skips_rows_without_targets() -> None:
     store = _FakeStore([{"document": "documents/mvt-1", "targets": []}])
 
-    result = MvtArticlesSemanticPipeline(store=store).run()
+    result = TKMvtSemanticPipeline(store=store).run()
 
     assert (result.created, result.skipped) == (0, 1)

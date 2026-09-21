@@ -323,7 +323,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_JUDGMENTS, ["props.appno"], False),
         (COLLECTION_JUDGMENTS, ["props.source"], False, True),
         (COLLECTION_DOCUMENTS, ["props.source"], False, True),
-        # Precomputed list-endpoint keys, written by ``list_stats`` and the
+        # Precomputed list-endpoint keys, written by ``graph-list-stats`` and the
         # normalize pipelines. Required for index-served filters and sorts on
         # /api/instruments and /api/judgments.
         # The sort-key indexes (article_count, date_eff) are non-sparse so the
