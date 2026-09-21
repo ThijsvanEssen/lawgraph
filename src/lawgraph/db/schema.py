@@ -321,16 +321,18 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         ),
         (COLLECTION_JUDGMENTS, ["props.ecli"], True),
         (COLLECTION_JUDGMENTS, ["props.appno"], False),
-        (COLLECTION_JUDGMENTS, ["props.source"], False, True),
-        (COLLECTION_DOCUMENTS, ["props.source"], False, True),
+        # What `/api/stats` counts per value is not sparse, so the count walks the index
+        # and sees the documents without a value too; sparse, each count read every document.
+        (COLLECTION_JUDGMENTS, ["props.source"], False, False),
+        (COLLECTION_DOCUMENTS, ["props.source"], False, False),
         # Precomputed list-endpoint keys, written by ``graph-list-stats`` and the
         # normalize pipelines. Required for index-served filters and sorts on
         # /api/instruments and /api/judgments.
-        # The sort-key indexes (article_count, date_eff) are non-sparse so the
-        # optimiser uses them for ``SORT field DESC LIMIT n``; the rest stay
+        # What is sorted on (article_count, date_eff) or counted per value (jurisdiction,
+        # kind) is not sparse, so the optimiser can use the index for it; the rest stay
         # sparse since they only serve equality filters.
-        (COLLECTION_INSTRUMENTS, ["props.jurisdiction"], False, True),
-        (COLLECTION_INSTRUMENTS, ["props.kind"], False, True),
+        (COLLECTION_INSTRUMENTS, ["props.jurisdiction"], False, False),
+        (COLLECTION_INSTRUMENTS, ["props.kind"], False, False),
         (COLLECTION_INSTRUMENTS, ["props.article_count"], False, False),
         (COLLECTION_JUDGMENTS, ["props.tier"], False, True),
         (COLLECTION_JUDGMENTS, ["props.court_code"], False, True),
@@ -355,7 +357,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         # count per kind walks the index and reads no document (an EU act is up to 1 MB).
         (COLLECTION_RAW_SOURCES, ["source", "kind"], False, False),
         # Edge indexes — critical for all traversal queries
-        (COLLECTION_EDGES, ["relation"], False),
+        (COLLECTION_EDGES, ["relation"], False, False),  # counted per relation
         (COLLECTION_EDGES, ["_from", "relation"], False),
         (COLLECTION_EDGES, ["_to", "relation"], False),
         (COLLECTION_EDGES, ["status"], False),

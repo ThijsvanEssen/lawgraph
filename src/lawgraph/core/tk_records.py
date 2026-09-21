@@ -15,6 +15,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any
 
+from lawgraph.config.constants import SOURCE_TK
 from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_date
@@ -422,6 +423,7 @@ def document(payload: Payload) -> Record | None:
     sequence = payload.get("Volgnummer")  # -1 marks a non-Kamerstuk
 
     return make_node_key(external_id), {
+        "source": SOURCE_TK,
         "external_id": external_id,
         "raw": payload,
         "dossier_numbers": dossiers,
