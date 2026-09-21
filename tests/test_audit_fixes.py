@@ -9,9 +9,9 @@ from typing import Any
 import pytest
 import requests
 
-from lawgraph.commands import fill_gaps
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
+from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.base import FETCH_WORKERS, FailureStreak, SourceDown
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
@@ -122,23 +122,23 @@ def test_the_staatscourant_text_scan_has_no_row_cap_and_lets_errors_out() -> Non
     assert "LIMIT" not in queries[0]
 
 
-def test_fill_gaps_says_when_it_takes_only_the_first_stubs(caplog) -> None:
-    rows = [f"ECLI:{n}" for n in range(fill_gaps.MAX_GAPS_PER_RUN + 5)]
+def test_a_gaps_run_says_when_it_takes_only_the_first_stubs(caplog) -> None:
+    rows = [f"ECLI:{n}" for n in range(_gaps.MAX_GAPS_PER_RUN + 5)]
     with caplog.at_level("WARNING"):
-        taken = fill_gaps._capped(rows, "stub judgments")
-    assert len(taken) == fill_gaps.MAX_GAPS_PER_RUN
+        taken = _gaps._capped(rows, "stub judgments")
+    assert len(taken) == _gaps.MAX_GAPS_PER_RUN
     assert any(
         "takes the first" in m and "stub judgments" in m for m in caplog.messages
     )
 
 
-def test_fill_gaps_below_the_cap_says_nothing(caplog) -> None:
+def test_below_the_cap_nothing_is_said(caplog) -> None:
     with caplog.at_level("WARNING"):
-        assert fill_gaps._capped(["a", "b"], "x") == ["a", "b"]
+        assert _gaps._capped(["a", "b"], "x") == ["a", "b"]
     assert not caplog.messages
 
 
-def test_fill_gaps_queries_are_not_capped_in_aql() -> None:
+def test_the_gap_queries_are_not_capped_in_aql() -> None:
     seen: list[str] = []
 
     class Store:
@@ -146,7 +146,7 @@ def test_fill_gaps_queries_are_not_capped_in_aql() -> None:
             seen.append(aql)
             return iter([])
 
-    fill_gaps._query_stub_judgments(Store())
+    _gaps.rechtspraak_gaps(Store())
     assert not any("LIMIT" in aql for aql in seen)
 
 
@@ -330,35 +330,3 @@ def test_a_caller_can_ask_for_a_different_ttl() -> None:
     store.db = SimpleNamespace(aql=Aql())
     store.query("RETURN 1", ttl=60)
     assert seen["ttl"] == 60
-
-
-# ── fill-gaps reports what it will fetch ─────────────────────────────────────
-
-
-def test_fill_gaps_reports_and_fetches_the_papers_the_retriever_asks_for(
-    monkeypatch,
-) -> None:
-    """A query of its own listed papers the retriever leaves out (no dossier, a text that
-    was missing last month): reported as a gap on every run, never fetched."""
-    from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
-
-    asked: list[str] = []
-    papers = [{"key": "d1", "title": "MvT", "number": 36000, "sequence": 3}]
-    ran: dict[str, Any] = {}
-
-    monkeypatch.setattr(
-        TKContentRetrievePipeline,
-        "unhydrated",
-        lambda self, kind: asked.append(kind) or papers,
-    )
-    monkeypatch.setattr(
-        TKContentRetrievePipeline,
-        "run",
-        lambda self, **kw: ran.update(kw) or PipelineResult(),
-    )
-    store = SimpleNamespace()
-    gap = TKContentRetrievePipeline(store=store).unhydrated("toelichting")
-    fill_gaps._apply_mvt_gaps(store, SimpleNamespace(no_mvt=False), gap)
-
-    assert ran["papers"] is papers  # not asked for a second time
-    assert asked == ["toelichting"]

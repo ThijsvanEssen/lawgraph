@@ -1,9 +1,13 @@
 """``lawgraph expand-graph``: fetch what the graph refers to until nothing new turns up.
 
-Each iteration runs ``fill-gaps --apply``; when that retrieved records, ``normalize all``
-and ``semantic all`` follow for what was fetched since the iteration began, which may
-reveal new stubs. When the loop ends one full ``semantic all`` follows: a text that was
-loaded long ago can name a law that was loaded just now. Exit code 1 when any step failed.
+A round is the three phases for what the graph lacks::
+
+    retrieve all --mode gaps        every source fetches what is referred to, side by side
+    normalize all --since <round>   the records of this round become nodes
+    semantic all --since <round>    and get their edges, which may name new things
+
+It repeats while a round retrieved records. When the loop ends one full ``semantic all``
+follows: a text that was loaded long ago can name a law that was loaded just now.
 """
 
 from __future__ import annotations
@@ -11,13 +15,13 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 
-from lawgraph.commands.fill_gaps import main as fill_gaps
 from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.command import Outcome, combined_result, run_command
-from lawgraph.pipelines.orchestration import normalize_all, semantic_all
+from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
+from lawgraph.pipelines.retrieve_commands import GAPS
 
 logger = get_logger(__name__)
 
@@ -37,7 +41,7 @@ def _count_records(store: ArangoStore) -> int:
 def _expand(max_iterations: int) -> list[Outcome]:
     """Run the loop; how every step of it ended.
 
-    An iteration is worth repeating when fill-gaps retrieved something. The number of stubs
+    A round is worth repeating when it retrieved something. The number of stubs
     does not tell: loading a judgment closes one stub and opens one for every judgment it
     cites that is not loaded either, so the count can stand still or grow while the graph
     fills.
@@ -50,12 +54,10 @@ def _expand(max_iterations: int) -> list[Outcome]:
         # ``fetched_at`` has a precision of a second: the second this round began in.
         began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
         before = _count_records(store)
-        outcomes.append(run_command("fill-gaps", fill_gaps, ["--apply"]))
+        outcomes.append(run_command("retrieve all", retrieve_all, ["--mode", GAPS]))
         retrieved = _count_records(store) - before
         if retrieved <= 0:
-            logger.info(
-                "expand-graph: fill-gaps retrieved nothing new; the graph is stable."
-            )
+            logger.info("expand-graph: nothing new was retrieved; the graph is stable.")
             break
 
         total += retrieved
@@ -73,16 +75,10 @@ def _expand(max_iterations: int) -> list[Outcome]:
 def main(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description=(
-            "Repeat fill-gaps and, for what it retrieved, normalize all and semantic all, "
-            "while fill-gaps keeps retrieving records; then one full semantic all."
+            "Repeat `retrieve all --mode gaps` and, for what it retrieved, normalize all and "
+            "semantic all, while records keep coming; then one full semantic all."
         ),
     )
     parser.add_argument("--max-iterations", type=int, default=10)
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Only print the fill-gaps report."
-    )
     args = parser.parse_args(argv)
-
-    if args.dry_run:
-        return fill_gaps(argv=[])
     return combined_result(_expand(args.max_iterations))

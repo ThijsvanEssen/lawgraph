@@ -59,6 +59,20 @@ import, a class whose name does not follow. The registry lists the pipelines per
 order `<phase> all` runs them; one that reads edges written by another comes after it.
 `lawgraph sources` prints every pipeline under its source.
 
+What a retrieve pipeline fetches is chosen in one of three ways (`--mode`): what changed
+since a date (`incremental`), everything inside the window (`full`), or what loaded records
+refer to and the graph only holds a stub of (`gaps`; the queries are in
+`pipelines/retrieve/_gaps.py`). Filling gaps is therefore retrieve, not a phase of its own:
+`retrieve all --mode gaps` runs every source that can, side by side per host, each under its
+own address. The commands outside the phases are sequences of them or reports:
+
+| Command | What it is |
+|---------|------------|
+| `bootstrap` | `retrieve all --mode full`, `normalize all`, `semantic all`, `expand-graph` |
+| `expand-graph` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>`, `semantic all --since <round>`, then one full `semantic all` |
+| `check` | reads only: is the database what the pipelines should have made of the sources? |
+| `gaps` | reads only: what a gaps run would fetch |
+
 Conventions are enforced where that is possible, in this order of preference: derived (the
 address), typed (`Phase`, `Store`, a required `EdgeWriter(what=...)`; mypy is a check of CI),
 linted (`sys.exit` and `setup_logging` outside the entry points are banned in
@@ -68,7 +82,7 @@ linted (`sys.exit` and `setup_logging` outside the entry points are banned in
   its options, does its work and returns what it did. Normalize and semantic commands are made
   from a pipeline class by `PipelineCommand`, which reads from the `run` of the pipeline
   whether the command has `--since`; retrieve commands are written out in
-  `pipelines/retrieve_commands.py`; `<phase> all`, `bootstrap`, `expand-graph`, `fill-gaps` and
+  `pipelines/retrieve_commands.py`; `<phase> all`, `bootstrap`, `expand-graph`, `gaps` and
   `check` are commands too.
 - A command is run through `run_command(label, command, argv)` (`pipelines/command.py`), by
   `__main__` for what was typed and by a composite command for its parts. `run_command` is the
@@ -110,7 +124,7 @@ the list of its phase. Adding a source: add it to `SOURCES` first.
 | `clients/` | HTTP only; one class per source on `BaseClient` |
 | `pipelines/` | phases; depend on `config`, `core`, `db`, `clients` |
 | `api/` | routes, AQL in `queries/`, DTOs in `schemas/`; depends on `config`, `core`, `db` |
-| `commands/` | `bootstrap`, `expand-graph`, `fill-gaps`, maintenance; call pipelines and clients |
+| `commands/` | what is no pipeline: `bootstrap` and `expand-graph` (sequences of phases), `check` and `gaps` (reports that read only) |
 
 `api/` and `pipelines/` never import each other. Logic both need lives in `core/`. No test
 enforces this; it holds for the current code.

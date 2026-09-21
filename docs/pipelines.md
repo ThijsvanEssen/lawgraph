@@ -150,7 +150,7 @@ index) is skipped, so a re-run or a resumed run only downloads the rest.
 | `--court NAME` (repeatable) | `hr`, `rvs`, `crvb`, `cbb`, `gh-amsterdam`, `gh-arnhem-leeuwarden`, `gh-den-haag`, `gh-s-hertogenbosch` (the older `gh-arnhem`, `gh-leeuwarden`, `gh-s-gravenhage`), or the group `hoven` (all courts of appeal). Default: `hr`, `rvs`, `hoven`; none when only `--ecli` is given |
 | `--mode incremental` (default) | judgments decided from `--since` (default `1d`) minus 30 days, because judgments are published up to weeks after the decision |
 | `--mode full` | no date filter: every judgment of the courts (the Raad van State alone is far over 100,000) |
-| `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`fill-gaps` uses this for stubs); skipped when stored in the last 24 hours |
+| `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
 
 Over the last two years the default courts hold about 33,000 judgments (Hoge Raad 4,100, Raad van
 State 11,000, the four courts of appeal about 18,000), a few hours at the paced rate.
@@ -197,7 +197,7 @@ language, redirects followed, 60 s timeout). CELEX numbers are enumerated by SPA
 entry for many recent acts (about 150 directives for 2010, 1 for 2016; the GDPR is missing),
 it answers HTTP 500 from offset 10000 (a failing page raises), and it holds no national
 implementation measures. Acts are therefore fetched by the CELEX numbers that loaded records
-refer to (`fill-gaps`, `expand-graph`), not by listing them.
+refer to (`retrieve eurlex --mode gaps`, `expand-graph`), not by listing them.
 
 **Retrieve `--mode`.**
 

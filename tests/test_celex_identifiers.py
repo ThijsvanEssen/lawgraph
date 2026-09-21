@@ -100,7 +100,7 @@ def test_derive_eu_citation_title(celex: str, title: str | None) -> None:
 
 
 def test_the_query_regex_finds_every_text_the_pattern_finds() -> None:
-    """The server-side prefilter of fill-gaps may send too much, never too little."""
+    """The server-side prefilter of the EUR-Lex gaps may send too much, never too little."""
     import re
 
     from lawgraph.core.identifiers import CELEX_AQL_REGEX, find_celex_ids
@@ -119,9 +119,9 @@ def test_the_query_regex_finds_every_text_the_pattern_finds() -> None:
     assert [bool(prefilter.search(t)) for t in texts] == [True, False, True, False]
 
 
-def test_fill_gaps_lets_the_server_leave_out_the_texts_without_a_celex_id() -> None:
-    from lawgraph.commands import fill_gaps
+def test_the_gap_query_lets_the_server_leave_out_the_texts_without_a_celex_id() -> None:
     from lawgraph.core.identifiers import CELEX_AQL_REGEX
+    from lawgraph.pipelines.retrieve import _gaps
 
     asked: list[tuple[str, dict]] = []
 
@@ -132,6 +132,6 @@ def test_fill_gaps_lets_the_server_leave_out_the_texts_without_a_celex_id() -> N
                 return iter(["krachtens richtlijn 32010L0064 en 32016L0680"])
             return iter(["32016L0680"] if "instruments" in aql else [])
 
-    assert fill_gaps._query_stub_celex_ids(Store()) == ["32010L0064"]  # type: ignore[arg-type]
+    assert _gaps.eurlex_gaps(Store()) == ["32010L0064"]  # type: ignore[arg-type]
     scan = [bind for aql, bind in asked if "REGEX_TEST(art.props.text, @celex)" in aql]
     assert scan == [{"celex": CELEX_AQL_REGEX}]

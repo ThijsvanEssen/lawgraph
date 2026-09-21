@@ -23,7 +23,7 @@ def test_a_cited_judgment_is_a_stub_until_it_is_loaded(database: str, cli: Any) 
     cited = "ECLI:NL:HR:2020:5"  # cited by the last one, not loaded
     assert _stub_flag(store, cited) is True
 
-    # fill-gaps downloads it; here it arrives the same way.
+    # a gaps run downloads it; here it arrives the same way.
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(

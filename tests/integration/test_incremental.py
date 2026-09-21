@@ -213,7 +213,7 @@ def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
     new = [f"ECLI:NL:HR:2020:{number}" for number in range(20, 30)]
     with RawSourceWriter(
         store
-    ) as writer:  # what fill-gaps fetches: the cited judgments
+    ) as writer:  # what a gaps run fetches: the cited judgments
         for number, ecli in enumerate(new, start=20):
             writer.add(
                 raw_source_doc(

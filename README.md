@@ -50,7 +50,7 @@ lawgraph semantic all --since 7d
 | `src/lawgraph/core/` | pure logic and shared definitions (models, props, relation catalogue, BWB XML, citations) |
 | `src/lawgraph/db/` | `ArangoStore`, bulk `NodeWriter` / `EdgeWriter`, schema, indexes, search views |
 | `src/lawgraph/api/` | FastAPI app: `routes/`, `queries/`, `schemas/` |
-| `src/lawgraph/commands/` | `bootstrap`, `expand-graph`, `fill-gaps` and maintenance commands |
+| `src/lawgraph/commands/` | sequences of phases (`bootstrap`, `expand-graph`) and reports (`check`, `gaps`) |
 | `src/lawgraph/config/` | `constants.py` (every name), `settings.py` (every environment value; loads `.env`) |
 | `tests/` | offline test suite (fake store, real XML fixtures) |
 
@@ -58,7 +58,7 @@ lawgraph semantic all --since 7d
 
 ```
 lawgraph <retrieve|normalize|semantic> <pipeline|all> [options]
-lawgraph bootstrap | expand-graph | fill-gaps | check
+lawgraph bootstrap | expand-graph | check | gaps
 lawgraph <phase> <pipeline> --help
 lawgraph sources                 # every pipeline under its source, and what it does
 ```
