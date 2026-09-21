@@ -2,33 +2,29 @@
 
 The BWB XML states the legal basis in the preamble: the paragraph that starts with
 "Gelet op" contains ``<extref bwb-id=… doc="jci1.3:c:BWBR0001947&artikel=125">``
-elements. ``core.bwb_xml.parse_toestand`` reads them into ``ToestandXml.basis``;
-this pipeline turns each entry that names an article into
+elements. ``normalize bwb`` reads them (``core.bwb_xml.parse_toestand``) and keeps them on
+the regulation as ``props.basis``; this pipeline turns each entry that names an article into
 
     Instrument(regulation) --BASED_ON--> Article(basis regulation, article)
 
 Entries without an article number have no target and are skipped, as are
 targets that are not in the graph and references to the regulation itself.
 
-The raw toestand XML (``raw_sources``) is streamed and handled in chunks: per chunk
-one existence check for the regulations and one for the target articles.
+Only the regulations that state a basis are read, in chunks: per chunk one existence
+check for the target articles.
 """
 
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_RAW_SOURCES,
-    RAW_KIND_BWB_TOESTAND,
     RELATION_BASED_ON,
     SOURCE_BWB,
 )
 from lawgraph.core.batching import chunked
-from lawgraph.core.bwb_xml import BasisRef, parse_toestand
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
@@ -39,21 +35,21 @@ logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "bwb-grondslagen-linker"
 
-_XML_CHUNK = 50  # toestand XML documents are large; keep few in memory at once
+_CHUNK = 500
 
-_TOESTAND_AQL = f"""
-FOR rs IN {COLLECTION_RAW_SOURCES}
-  FILTER rs.source == @source
-  FILTER rs.kind == @kind
-  FILTER rs.payload_text != null
+_BASIS_AQL = f"""
+FOR regulation IN {COLLECTION_INSTRUMENTS}
+  FILTER regulation.props.source == @source
+  FILTER LENGTH(regulation.props.basis) > 0
   RETURN {{
-    bwb_id: rs.meta.bwb_id || rs.external_id || rs.identifier,
-    xml: rs.payload_text
+    key: regulation._key,
+    bwb_id: regulation.props.bwb_id,
+    basis: regulation.props.basis
   }}
 """
 
 # (regulation key, target article key, the "Gelet op" reference)
-_Link = tuple[str, str, BasisRef]
+_Link = tuple[str, str, dict[str, Any]]
 
 
 class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
@@ -62,12 +58,8 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         edges = EdgeWriter(self.store)
-        rows = self.store.query(
-            _TOESTAND_AQL,
-            {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
-            batch_size=20,  # payloads are full XML documents
-        )
-        for chunk in chunked(self._track(rows, "BWB toestanden"), _XML_CHUNK):
+        rows = self.store.query(_BASIS_AQL, {"source": SOURCE_BWB})
+        for chunk in chunked(self._track(rows, "regulations with a basis"), _CHUNK):
             self._link_chunk(chunk, edges, result)
         edges.flush()
         result.created += edges.created
@@ -87,14 +79,11 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
         if not links:
             return
 
-        sources = self.store.existing_keys(
-            COLLECTION_INSTRUMENTS, {source for source, _, _ in links}
-        )
         targets = self.store.existing_keys(
             COLLECTION_ARTICLES, {target for _, target, _ in links}
         )
         for source, target, ref in links:
-            if source not in sources or target not in targets:
+            if target not in targets:
                 result.skipped += 1
                 continue
             edges.add(
@@ -103,29 +92,17 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
                 RELATION_BASED_ON,
                 source=SEMANTIC_SOURCE,
                 confidence=1.0,
-                meta={"text": ref.text, "doc": ref.doc},
+                meta={"text": ref["text"], "doc": ref["doc"]},
             )
 
     @staticmethod
     def _basis_links(row: dict[str, Any]) -> list[_Link]:
         """Candidate edges of one regulation: basis entries that name an article."""
-        xml_text = row.get("xml") or ""
-        if not xml_text:
-            return []
-        try:
-            toestand = parse_toestand(xml_text)
-        except ET.ParseError as exc:
-            logger.warning(
-                "BWB grondslagen: unparseable XML for %s: %s", row.get("bwb_id"), exc
-            )
-            return []
-        bwb_id = str(row.get("bwb_id") or toestand.bwb_id or "").upper()
-        if not bwb_id:
-            return []
-        source = make_node_key(bwb_id)
+        bwb_id = str(row.get("bwb_id") or "").upper()
         links: list[_Link] = []
-        for ref in toestand.basis:
-            if not ref.article or ref.bwb_id.upper() == bwb_id:
+        for ref in row.get("basis") or []:
+            basis_id = str(ref.get("bwb_id") or "").upper()
+            if not ref.get("article") or not basis_id or basis_id == bwb_id:
                 continue  # no target article, or a reference to itself
-            links.append((source, make_node_key(ref.bwb_id.upper(), ref.article), ref))
+            links.append((row["key"], make_node_key(basis_id, ref["article"]), ref))
         return links

@@ -89,6 +89,9 @@ class InstrumentProps(_CommonProps):
     publication_number: str | None = None
     date_published: str | None = None
     dossier_numbers: list[str] | None = None
+    # what the toestand says the semantic steps link from (BASED_ON, IMPLEMENTS)
+    basis: list[dict[str, Any]] | None = None  # "Gelet op": bwb_id, article, doc, text
+    celex_refs: list[str] | None = None  # the EU acts the text names
 
 
 # ---------------------------------------------------------------------------

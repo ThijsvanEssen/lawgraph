@@ -6,6 +6,7 @@ import pathlib
 from typing import Any
 
 from lawgraph.config.constants import RELATION_BASED_ON
+from lawgraph.core.bwb_xml import instrument_props, parse_toestand
 from lawgraph.core.models import make_node_key
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from tests.conftest import _BaseFakeStore
@@ -34,8 +35,13 @@ class _FakeStore(_BaseFakeStore):
 
     def query(self, aql: str, bind_vars: dict | None = None, **_: Any):
         self.query_calls += 1
-        assert "raw_sources" in aql
-        return iter(self.raw_rows)
+        assert (
+            "raw_sources" not in aql
+        )  # the basis is on the regulation, not parsed again
+        known = [
+            r for r in self.raw_rows if r["key"] in self.instruments and r["basis"]
+        ]
+        return iter(known)
 
     def existing_keys(self, collection: str, keys) -> set[str]:
         self.existence_calls.append(collection)
@@ -48,7 +54,9 @@ def _run(store: _FakeStore):
 
 
 def _row(bwb_id: str = AMVB_ID, xml: str = AMVB_XML) -> dict[str, Any]:
-    return {"bwb_id": bwb_id, "xml": xml}
+    """What the query returns of the regulation ``normalize bwb`` makes of this XML."""
+    props = instrument_props(parse_toestand(xml), bwb_id)
+    return {"key": make_node_key(bwb_id), "bwb_id": bwb_id, "basis": props["basis"]}
 
 
 def test_creates_based_on_edges_for_gelet_op_articles() -> None:
@@ -128,20 +136,20 @@ def test_basis_without_article_number_makes_no_edge() -> None:
     assert store.existence_calls == []  # nothing to check
 
 
-def test_regulation_without_basis_and_broken_xml_are_skipped() -> None:
+def test_a_regulation_without_a_basis_is_not_even_read() -> None:
+    """The query asks for the regulations that state one; XML that does not parse never
+    became a regulation in ``normalize bwb``."""
+    props = instrument_props(parse_toestand("<toestand><wetgeving/></toestand>"), "X")
+    assert props["basis"] == []  # written, so a basis that was dropped does not stay
     store = _FakeStore(
-        [
-            _row("BWBR0000001", "<toestand><wetgeving/></toestand>"),
-            _row("BWBR0000002", "not xml at all"),
-            _row("BWBR0000003", ""),
-        ]
+        [{"key": "bwbr0000001", "bwb_id": "BWBR0000001", "basis": props["basis"]}],
+        instruments={"bwbr0000001"},
     )
 
     result = _run(store)
 
-    assert result.skipped == 3
-    assert result.created == 0
-    assert result.errors == []
+    assert (result.created, result.skipped, result.errors) == (0, 0, [])
+    assert store.existence_calls == []
 
 
 def test_is_idempotent() -> None:
@@ -176,4 +184,4 @@ def test_store_calls_do_not_grow_with_the_number_of_regulations() -> None:
         small.query_calls,
         len(small.existence_calls),
     )
-    assert large.existence_calls == ["instruments", "articles"]
+    assert large.existence_calls == ["articles"]

@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_wti import choose_short_titles, parse_abbreviations
 from lawgraph.core.bwb_xml import article_props, instrument_props, parse_toestand
+from lawgraph.core.identifiers import find_celex_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
@@ -74,9 +75,10 @@ class BWBNormalizePipeline(NormalizePipelineBase):
 
                 instrument = instruments_by_bwb.get(bwb_id)
                 if instrument is None:
-                    instrument = self._upsert_instrument(
-                        bwb_id, instrument_props(toestand, bwb_id)
+                    props = instrument_props(
+                        toestand, bwb_id, celex_refs=find_celex_ids(payload_text)
                     )
+                    instrument = self._upsert_instrument(bwb_id, props)
                     instruments_by_bwb[bwb_id] = instrument
 
                 for article in toestand.articles:

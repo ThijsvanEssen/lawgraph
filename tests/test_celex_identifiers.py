@@ -12,7 +12,6 @@ from lawgraph.core.identifiers import (
     parse_celex,
 )
 from lawgraph.pipelines.normalize.eurlex import _derive_eu_citation_title
-from lawgraph.pipelines.semantic.instrument_relations import detect_celex_references
 
 
 def test_sector3_letters_follow_eu_convention() -> None:
@@ -44,13 +43,6 @@ def test_celex_pattern_is_case_insensitive_and_bounded() -> None:
 
 def test_celex_pattern_requires_four_digit_number() -> None:
     assert find_celex_ids("32010L064 en 32010L00640") == []
-
-
-def test_instrument_relations_delegates_to_shared_pattern() -> None:
-    assert detect_celex_references("32019L1158 en 32009l0028") == [
-        "32019L1158",
-        "32009L0028",
-    ]
 
 
 def test_parse_celex_directive() -> None:

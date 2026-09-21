@@ -132,6 +132,9 @@ statutes made by the legislator:
   `rijksKB`, `ministeriele-regeling`, `ministeriele-regeling-archiefselectielijst`, `zbo`,
   `pbo`, `reglement`, `beleidsregel`, `verdrag`, and the `-BES` variants of `wet`, `AMvB`,
   `ministeriele-regeling` and `beleidsregel`. `circulaire` is not ingested.
+- A BWB regulation also carries what its toestand says other steps link from: `basis` (the
+  `Gelet op` references: `bwb_id`, `article`, `doc`, `text`) and `celex_refs` (the EU acts its
+  text names).
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records.
 - EU directives, regulations and decisions (`celex`).
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too

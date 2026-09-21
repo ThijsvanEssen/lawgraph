@@ -116,7 +116,7 @@ passed to the pipelines that accept it and the others run in full.
 | `staatsblad`, `eerstekamer`, `echr` | none |
 | `staatscourant` | `--since`: publications dated since then |
 | `judgment-appeal` | none |
-| `instrument-relations` | `--since`: documents dated, and BWB records fetched, since then |
+| `instrument-relations` | `--since`: documents dated since then (`IMPLEMENTS` always reads the regulations that name an EU act) |
 | `amendment-articles`, `mvt-articles`, `relation-semantics` | none |
 | `list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 

@@ -15,18 +15,14 @@ from typing import Any, Iterable
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_RAW_SOURCES,
     EDGE_STATUS_VOORGESTELD,
-    RAW_KIND_BWB_TOESTAND,
     RELATION_AMENDS,
     RELATION_IMPLEMENTS,
     SOURCE_BWB,
 )
 from lawgraph.core.aliases import InstrumentAliasMap
-from lawgraph.core.identifiers import find_celex_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
-from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase, slim
 
@@ -76,13 +72,6 @@ def detect_amends_instrument(
     return results
 
 
-def detect_celex_references(text: str | None) -> list[str]:
-    """Return CELEX IDs found in *text* (numeric CELEX format 3YYYYTNNNN)."""
-    if not text:
-        return []
-    return find_celex_ids(text)
-
-
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
@@ -94,7 +83,7 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
         result = result.merge(self._run_amends_instrument(since=since))
-        result = result.merge(self._run_implements_directive(since=since))
+        result = result.merge(self._run_implements_directive())
         logger.info("Instrument relations pipeline: %s.", result.summary())
         return result
 
@@ -167,19 +156,19 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
 
     # ------------------------------------------------------------------ implements
 
-    def _run_implements_directive(
-        self, since: dt.datetime | None = None
-    ) -> PipelineResult:
+    def _run_implements_directive(self) -> PipelineResult:
         result = PipelineResult()
         edge_batch: list[dict] = []
 
-        # First pass: auto-detect CELEX references inside BWB raw texts.
-        toestanden = self._load_bwb_raw_texts(since=since)
-        for bwb_id, raw_text in self._track(toestanden, "BWB toestanden"):
+        # The CELEX numbers a regulation names: ``normalize bwb`` keeps them on the node.
+        regulations = self._load_celex_references()
+        for bwb_id, celex_refs in self._track(
+            regulations, "regulations naming EU acts"
+        ):
             instrument_node = self._resolve_instrument(bwb_id=bwb_id)
             if not instrument_node:
                 continue
-            for celex in detect_celex_references(raw_text):
+            for celex in celex_refs:
                 eu_node = self._resolve_instrument(celex=celex)
                 if not eu_node:
                     continue
@@ -209,30 +198,17 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
         logger.info("IMPLEMENTS: %s.", result.summary())
         return result
 
-    def _load_bwb_raw_texts(
-        self, since: dt.datetime | None = None
-    ) -> Iterable[tuple[str, str]]:
-        """Yield (bwb_id, raw_text) for each BWB raw_source record."""
-        kinds = [RAW_KIND_BWB_TOESTAND]
-        bind_vars: dict[str, Any] = {"source": SOURCE_BWB, "kinds": kinds}
-        since_filter = ""
-        if since is not None:
-            since_filter = "FILTER raw.fetched_at >= @since"
-            bind_vars["since"] = iso_timestamp(since)
+    def _load_celex_references(self) -> Iterable[tuple[str, list[str]]]:
+        """``(bwb_id, CELEX numbers)`` of the regulations that name an EU act."""
         aql = f"""
-        FOR raw IN {COLLECTION_RAW_SOURCES}
-            FILTER raw.source == @source
-            FILTER raw.kind IN @kinds
-            FILTER raw.meta.bwb_id != null
-            {since_filter}
-            RETURN {{ bwb_id: raw.meta.bwb_id, text: raw.payload_text }}
+        FOR regulation IN {COLLECTION_INSTRUMENTS}
+            FILTER regulation.props.source == @source
+            FILTER LENGTH(regulation.props.celex_refs) > 0
+            RETURN [regulation.props.bwb_id, regulation.props.celex_refs]
         """
-        # Full XML documents (80 KB on average, up to several MB): small batches.
-        for row in self.store.query(aql, bind_vars=bind_vars, batch_size=20):
-            bwb_id = row.get("bwb_id")
-            text = row.get("text")
-            if bwb_id and text:
-                yield str(bwb_id), str(text)
+        for bwb_id, celex_refs in self.store.query(aql, {"source": SOURCE_BWB}):
+            if bwb_id:
+                yield str(bwb_id), list(celex_refs)
 
     # ------------------------------------------------------------------ helpers
 

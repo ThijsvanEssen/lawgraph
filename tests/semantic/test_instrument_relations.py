@@ -10,7 +10,6 @@ from lawgraph.core.relations import BY_NAME
 from lawgraph.pipelines.semantic.instrument_relations import (
     InstrumentRelationsSemanticPipeline,
     detect_amends_instrument,
-    detect_celex_references,
 )
 from tests.fakes import ExistingKeysFake
 
@@ -40,17 +39,6 @@ def test_detect_amends_instrument_requires_wijziging_keyword() -> None:
 
 def test_detect_amends_instrument_none_title_returns_empty() -> None:
     assert detect_amends_instrument(None, {"Sr": ("BWBR0001854", None)}) == []
-
-
-def test_detect_celex_references_finds_valid_celex() -> None:
-    hits = detect_celex_references("De wet implementeert 32019L1158 en 32009L0028.")
-    assert "32019L1158" in hits
-    assert "32009L0028" in hits
-
-
-def test_detect_celex_references_returns_empty_for_blank() -> None:
-    assert detect_celex_references("") == []
-    assert detect_celex_references(None) == []
 
 
 # ---------------------------------------------------------------------------
@@ -91,9 +79,13 @@ class _FakeStore(ExistingKeysFake):
                     }
                 )
             return rows
-        # BWB raw-text query.
-        if "raw_sources" in aql:
-            return []
+        assert "raw_sources" not in aql  # no toestand XML is read here
+        if "celex_refs" in aql:
+            return [
+                [node.props["bwb_id"], node.props["celex_refs"]]
+                for (coll, _key), node in self._nodes.items()
+                if coll == "instruments" and node.props.get("celex_refs")
+            ]
         # TK documents collection query.
         if "documents" in aql:
             return list(self._pub_docs)
@@ -199,3 +191,33 @@ def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
     hits = detect_amends_instrument(title, aliases)
     assert hits == [("BWBR0001948", None, 0.85)]
     assert time.perf_counter() - started < 0.5
+
+
+def test_a_regulation_implements_the_eu_acts_normalize_found_in_it() -> None:
+    """``normalize bwb`` keeps the CELEX numbers of a toestand on the regulation: the XML of
+    every toestand (3 GB, two minutes) is not read again to find them."""
+    law = Node(
+        collection="instruments",
+        type=NodeType.INSTRUMENT,
+        key=make_node_key("BWBR0040940"),
+        props={"bwb_id": "BWBR0040940", "celex_refs": ["32016R0679", "32099L9999"]},
+        _skip_validation=True,
+    )
+    gdpr = Node(
+        collection="instruments",
+        type=NodeType.INSTRUMENT,
+        key=make_node_key("32016R0679"),
+        props={"celex": "32016R0679"},
+        _skip_validation=True,
+    )
+    store = _FakeStore(
+        nodes={("instruments", law.key): law, ("instruments", gdpr.key): gdpr}
+    )
+    result = InstrumentRelationsSemanticPipeline(
+        store=store
+    )._run_implements_directive()
+
+    assert result.created == 1  # the act that is not loaded gets no edge
+    (edge,) = store.edges.values()
+    assert edge["_from"] == law.arango_id and edge["_to"] == gdpr.arango_id
+    assert edge["meta"] == {"celex": "32016R0679"}

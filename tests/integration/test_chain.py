@@ -104,3 +104,63 @@ def test_check_finds_an_edge_without_its_node(database: str, cli: Any) -> None:
     collection, key = victim.split("/")
     store.db.collection(collection).delete(key)
     assert [p for p in check(store).problems if p.startswith("edges")]
+
+
+def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
+    database: str, cli: Any
+) -> None:
+    """``normalize bwb`` keeps them on the regulation; the semantic steps read no XML."""
+    from lawgraph.config.constants import (
+        RAW_KIND_BWB_TOESTAND,
+        RAW_KIND_EU_CELEX,
+        SOURCE_BWB,
+        SOURCE_EURLEX,
+    )
+    from lawgraph.db import RawSourceWriter, raw_source_doc
+    from tests.integration.seed import FIXTURES
+
+    amvb = (FIXTURES / "bwb_amvb_toestand.xml").read_text()
+    amvb = amvb.replace("</toestand>", "<!-- Richtlijn 32016R0679 --></toestand>")
+    # the law it is issued under: the recorded extract, with the two articles it names
+    basis_law = (FIXTURES / "bwb_grondwet_toestand.xml").read_text()
+    for number, named in (("7", "125"), ("82", "133")):
+        basis_law = basis_law.replace(f">{number}</nr>", f">{named}</nr>", 1)
+    store = ArangoStore()
+    with RawSourceWriter(store) as writer:
+        for bwb_id, xml in (
+            ("BWBR0001950", amvb),  # "Gelet op artikel 125 en 133 van" BWBR0001947
+            ("BWBR0001947", basis_law),
+        ):
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_BWB,
+                    kind=RAW_KIND_BWB_TOESTAND,
+                    external_id=bwb_id,
+                    payload_text=xml,
+                    meta={"bwb_id": bwb_id},
+                )
+            )
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_EURLEX,
+                kind=RAW_KIND_EU_CELEX,
+                external_id="32016R0679",
+                payload_text="<html><body><p>Artikel 1</p><p>Tekst.</p></body></html>",
+                meta={"celex": "32016R0679"},
+            )
+        )
+    cli("normalize", "all")
+    cli("semantic", "bwb-grondslagen")
+    cli("semantic", "instrument-relations")
+
+    aql = """
+    FOR e IN edges
+        FILTER e._from == "instruments/bwbr0001950"
+        FILTER e.relation IN ["BASED_ON", "IMPLEMENTS"]
+        RETURN [e.relation, e._to]
+    """
+    assert sorted(store.query(aql)) == [
+        ["BASED_ON", "articles/bwbr0001947_125"],
+        ["BASED_ON", "articles/bwbr0001947_133"],
+        ["IMPLEMENTS", "instruments/32016r0679"],
+    ]

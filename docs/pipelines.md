@@ -111,7 +111,7 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
 | `AMENDS` (Document to Instrument, `voorgesteld`) | TK document title contains `wijziging van` and a known instrument title | 0.85 |
-| `IMPLEMENTS` (Instrument to Instrument) | CELEX `3YYYY[CLRDF]NNNN` in the raw BWB XML of an instrument; both instruments must exist | 0.75 |
+| `IMPLEMENTS` (Instrument to Instrument) | CELEX `3YYYY[CLRDF]NNNN` in the BWB XML of an instrument (`props.celex_refs`, kept by `normalize bwb`); both instruments must exist | 0.75 |
 
 **Semantic `amendment-articles`.** Scans TK documents that have `props.text` (filled by
 `tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
@@ -309,7 +309,8 @@ Articles are processed in chunks of 500 so one lookup resolves a whole chunk's t
 
 **Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article named in its
 `Gelet op` paragraph, 1.0, `meta = {text, doc}`. Entries without an article, self references
-and targets that are not in the graph are skipped.
+and targets that are not in the graph are skipped. It reads `props.basis` of the regulations,
+which `normalize bwb` keeps when it parses the toestand; no XML is read again.
 
 **Semantic `bwb-amendments`.** Reads the article versions that carry `origin_publication`:
 

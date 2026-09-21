@@ -20,7 +20,7 @@ Text offsets of references refer to ``ArticleXml.text`` (same string).
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -520,12 +520,24 @@ def _drop_none(props: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in props.items() if v is not None}
 
 
-def instrument_props(toestand: ToestandXml, bwb_id: str) -> dict[str, Any]:
-    """Props of the Instrument node for a regulation."""
+def instrument_props(
+    toestand: ToestandXml, bwb_id: str, *, celex_refs: Iterable[str] = ()
+) -> dict[str, Any]:
+    """Props of the Instrument node for a regulation.
+
+    ``basis`` and ``celex_refs`` are what the semantic steps link from (BASED_ON,
+    IMPLEMENTS): kept here, where the toestand is parsed anyway, so they do not read and
+    parse every toestand again. Both are always written: an empty list replaces a stale one.
+    """
     origin = toestand.origin
     title = toestand.title or f"BWB-regeling {bwb_id}"
     return _drop_none(
         {
+            "basis": [
+                {"bwb_id": r.bwb_id, "article": r.article, "doc": r.doc, "text": r.text}
+                for r in toestand.basis
+            ],
+            "celex_refs": sorted(set(celex_refs)),
             "source": SOURCE_BWB,
             "bwb_id": bwb_id,
             "title": title,
