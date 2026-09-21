@@ -17,8 +17,12 @@ from lawgraph.config.constants import (
 from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key, annex_props
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_wti import choose_short_titles, parse_abbreviations
-from lawgraph.core.bwb_xml import article_props, instrument_props, parse_toestand
-from lawgraph.core.identifiers import find_celex_ids
+from lawgraph.core.bwb_xml import (
+    article_props,
+    celex_refs,
+    instrument_props,
+    parse_toestand,
+)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
@@ -79,7 +83,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 instrument = instruments_by_bwb.get(bwb_id)
                 if instrument is None:
                     props = instrument_props(
-                        toestand, bwb_id, celex_refs=find_celex_ids(payload_text)
+                        toestand, bwb_id, celex_refs=celex_refs(payload_text)
                     )
                     # Through the writer, like the articles: one request per regulation
                     # was 42,000 round trips, and a write also when nothing changed.

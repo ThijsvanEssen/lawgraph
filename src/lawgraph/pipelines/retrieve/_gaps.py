@@ -20,9 +20,9 @@ from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
     RAW_KIND_RS_CONTENT,
     SOURCE_BWB,
+    SOURCE_EURLEX,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.core.identifiers import CELEX_AQL_REGEX, find_celex_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import Store
@@ -138,41 +138,27 @@ def rechtspraak_gaps(store: Store) -> list[str]:
 
 
 def eurlex_gaps(store: Store) -> list[str]:
-    """Find CELEX IDs referenced in BWB article text but not yet loaded from EUR-Lex."""
-    # CELEX IDs already in instruments collection
-    aql_loaded = f"""
-    FOR inst IN {COLLECTION_INSTRUMENTS}
-      FILTER inst.props.celex != null
-      RETURN UPPER(inst.props.celex)
-    """
-    loaded: set[str] = cast(set[str], set(store.query(aql_loaded)))
+    """The EU acts BWB regulations name (``props.celex_refs``) that were not retrieved.
 
-    # CELEX IDs already retrieved into raw_sources
-    aql_raw = f"""
-    FOR r IN {COLLECTION_RAW_SOURCES}
-      FILTER r.source == "eurlex" AND r.kind == @kind
-      RETURN UPPER(r.external_id)
+    The id is an attribute of the link in the XML, not text of an article, so it is read
+    from what ``normalize bwb`` kept on the regulation.
     """
-    already_retrieved: set[str] = cast(
-        set[str], set(store.query(aql_raw, {"kind": RAW_KIND_EU_CELEX}))
+    aql = f"""
+    LET retrieved = (
+      FOR r IN {COLLECTION_RAW_SOURCES}
+        FILTER r.source == @source AND r.kind == @kind
+        RETURN UPPER(r.external_id)
     )
-    known = loaded | already_retrieved
-
-    # Scan BWB article text for CELEX references; only the texts that can hold one are sent.
-    aql_texts = f"""
-    FOR art IN {COLLECTION_ARTICLES}
-      FILTER art.props.bwb_id != null
-      FILTER art.props.text != null
-      FILTER REGEX_TEST(art.props.text, @celex)
-      RETURN art.props.text
+    FOR inst IN {COLLECTION_INSTRUMENTS}
+      FILTER inst.props.celex_refs != null
+      FOR celex IN inst.props.celex_refs
+        FILTER celex NOT IN retrieved
+        COLLECT named = celex
+        SORT named
+        RETURN named
     """
-    found: set[str] = set()
-    for text in store.query(aql_texts, {"celex": CELEX_AQL_REGEX}):
-        for celex in find_celex_ids(str(text)):
-            if celex not in known:
-                found.add(celex)
-
-    return sorted(found)
+    bind = {"source": SOURCE_EURLEX, "kind": RAW_KIND_EU_CELEX}
+    return cast(list[str], list(store.query(aql, bind)))
 
 
 def echr_gaps(store: Store) -> list[str]:

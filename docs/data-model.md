@@ -135,7 +135,9 @@ statutes made by the legislator:
   `ministeriele-regeling` and `beleidsregel`. `circulaire` is not ingested.
 - A BWB regulation also carries what its toestand says other steps link from: `basis` (the
   `Gelet op` references: `bwb_id`, `article`, `doc`, `text`) and `celex_refs` (the EU acts its
-  text names).
+  text names, which is also what `retrieve eurlex --mode gaps` fetches). One Celex link in
+  eight has an id with an impossible year in the source; it is rebuilt from the text of the
+  link ("verordening (EU) 2021/784") or left out.
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records.
 - EU directives, regulations and decisions (`celex`).
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too
