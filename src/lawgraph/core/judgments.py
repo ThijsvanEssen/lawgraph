@@ -50,24 +50,20 @@ def compose_display_name(props: dict[str, Any]) -> str | None:
 # ── judgment XML ─────────────────────────────────────────────────────────────
 
 
-def _parse(payload_text: str | None) -> ET.Element | None:
-    """Parse *payload_text*; ``None`` for empty or malformed XML."""
-    if not payload_text:
-        return None
+def parse_judgment(payload_text: str | None) -> ET.Element:
+    """The root of a judgment XML; ``ValueError`` when *payload_text* is not XML.
+
+    Parsed once by the caller and handed to the extractors below: a judgment that cannot
+    be read must not become a judgment without court, date and text.
+    """
     try:
-        return ET.fromstring(payload_text)
-    except ET.ParseError:
-        return None
+        return ET.fromstring(payload_text or "")
+    except ET.ParseError as exc:
+        raise ValueError(f"not XML: {exc}") from exc
 
 
-def extract_judgment_text(
-    payload_text: str | None,
-) -> tuple[str | None, str | None]:
-    """Return ``(summary, full_text)`` extracted from Rechtspraak XML."""
-    root = _parse(payload_text)
-    if root is None:
-        return None, None
-
+def extract_judgment_text(root: ET.Element) -> tuple[str | None, str | None]:
+    """Return ``(summary, full_text)`` of a parsed judgment."""
     summary = text_of(first_named(root, "inhoudsindicatie"), " ") or None
     parts = [text_of(el, " ") for el in iter_named(root, "uitspraak")]
     full_text = "\n\n".join(p for p in parts if p) or None
@@ -94,14 +90,8 @@ _METADATA_FIELDS = {
 }
 
 
-def extract_rdf_metadata(
-    payload_text: str | None,
-) -> tuple[dict[str, Any], list[str]]:
+def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
     """Return ``(judgment_metadata, subjects)`` from ``<rdf:Description>``."""
-    root = _parse(payload_text)
-    if root is None:
-        return {}, []
-
     meta: dict[str, Any] = {}
     subjects: list[str] = []
     related_eclis: list[str] = []
@@ -173,16 +163,15 @@ def _process_uitspraak(element: ET.Element, paragraphs: list[dict[str, Any]]) ->
             _emit(paragraphs, "body", text_of(child, " "))
 
 
-def extract_sections(payload_text: str | None) -> list[dict[str, Any]]:
+def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     """One entry per semantic unit (heading / subheading / body) in ``<uitspraak>``.
 
     Each section becomes a heading entry, each ``<title>``/``<uitspraak.info>`` a
     subheading, and each ``<para>``/``<al>`` a body entry. Only the first
     ``<uitspraak>`` is read.
     """
-    root = _parse(payload_text)
     paragraphs: list[dict[str, Any]] = []
-    uitspraak = first_named(root, "uitspraak") if root is not None else None
+    uitspraak = first_named(root, "uitspraak")
     if uitspraak is not None:
         _process_uitspraak(uitspraak, paragraphs)
     return paragraphs
