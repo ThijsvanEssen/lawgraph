@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -95,11 +96,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
         rows: list[dict[str, Any]] = []
 
         for aql in (aql_bwb, aql_title):
-            try:
-                rows.extend(self.store.query(aql, bind_vars=bind))
-            except Exception as exc:
-                # Not a warning: a query that failed left its edges out.
-                result.add_error(f"Staatscourant regeling semantic query failed: {exc}")
+            rows.extend(self.store.query(aql, bind_vars=bind))
 
         # Strategy 3: BWBR pattern scan on full text (for publications not yet matched)
         already_matched_pubs = {r["pub_id"] for r in rows}
@@ -116,7 +113,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
         )
 
         seen: set[tuple[str, str]] = set()
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
         for row in rows:
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")
@@ -150,8 +147,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
                 props={},
             )
 
-            self._queue_edge(
-                edge_batch,
+            edges.add_doc(
                 self._make_edge_doc(
                     from_node=pub_node,
                     to_node=inst_node,
@@ -159,11 +155,10 @@ FOR pub IN {COLLECTION_DOCUMENTS}
                     source=SEMANTIC_SOURCE,
                     confidence=confidence,
                     meta={"match_type": match_type},
-                ),
-                result,
+                )
             )
 
-        self._write_batch(edge_batch, result)
+        edges.flush_into(result)
         logger.info("Staatscourant regeling semantic: %s.", result.summary())
         return result
 

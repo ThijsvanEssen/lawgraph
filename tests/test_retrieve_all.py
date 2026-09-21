@@ -6,15 +6,18 @@ import dataclasses
 import threading
 import time
 from collections.abc import Callable
+from typing import Any
 
 import pytest
 
+from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import orchestration
+from lawgraph.pipelines.execution import Outcome, State, combined
 from lawgraph.pipelines.orchestration import (
+    Step,
     _run_in_lanes,
-    _run_phase,
-    _Step,
-    run_retrieve_all,
+    retrieve_all,
+    run_phase,
 )
 from lawgraph.sources import registry
 from lawgraph.sources.registry import RetrieveCtx
@@ -48,8 +51,20 @@ def test_incremental_mode_ignores_the_window() -> None:
 # ── lanes ────────────────────────────────────────────────────────────────────
 
 
-def _step(name: str, lane: str, main: Callable[..., None]) -> _Step:
-    return _Step(name, name, main, [], lane)
+def _step(
+    name: str, lane: str, work: Callable[..., None], after: tuple[str, ...] = ()
+) -> Step:
+    """The retrieve step of source *name*: a command that does *work* and reports nothing."""
+
+    def command(argv: list[str]) -> PipelineResult:
+        work(argv)
+        return PipelineResult()
+
+    return Step("retrieve", name, command, [], lane, after)
+
+
+def _ended(outcomes: list[Outcome]) -> list[tuple[str, str]]:
+    return [(o.label.removeprefix("retrieve "), o.state.value) for o in outcomes]
 
 
 def test_lanes_run_side_by_side() -> None:
@@ -59,7 +74,7 @@ def test_lanes_run_side_by_side() -> None:
         barrier.wait()  # only passes when all three run at the same time
 
     steps = [_step(name, name, meet) for name in ("a", "b", "c")]
-    assert _run_in_lanes("retrieve", steps, jobs=3) == [
+    assert _ended(_run_in_lanes(steps, jobs=3)) == [
         ("a", "ok"),
         ("b", "ok"),
         ("c", "ok"),
@@ -86,7 +101,7 @@ def test_steps_of_one_lane_never_overlap_and_keep_their_order() -> None:
         return main
 
     steps = [_step(name, "one-server", make(name)) for name in ("first", "second")]
-    _run_in_lanes("retrieve", steps, jobs=4)
+    _run_in_lanes(steps, jobs=4)
     assert peak == 1
     assert order == ["first", "second"]
 
@@ -95,14 +110,14 @@ def test_results_keep_the_registry_order_and_a_failure_does_not_stop_the_others(
     None
 ):
     def boom(argv: list[str]) -> None:
-        raise SystemExit(1)
+        raise RuntimeError("source down")
 
     steps = [
         _step("slow", "x", lambda argv: time.sleep(0.05)),
         _step("broken", "y", boom),
         _step("late", "z", lambda argv: None),
     ]
-    assert _run_in_lanes("retrieve", steps, jobs=3) == [
+    assert _ended(_run_in_lanes(steps, jobs=3)) == [
         ("slow", "ok"),
         ("broken", "failed"),
         ("late", "ok"),
@@ -116,17 +131,16 @@ def test_skip_variable_applies_in_parallel_mode(monkeypatch) -> None:
         _step("a", "a", lambda argv: calls.append("a")),
         _step("b", "b", lambda argv: calls.append("b")),
     ]
-    assert _run_in_lanes("retrieve", steps, jobs=2) == [("a", "ok"), ("b", "skipped")]
+    assert _ended(_run_in_lanes(steps, jobs=2)) == [("a", "ok"), ("b", "skipped")]
     assert calls == ["a"]
 
 
-def test_a_failure_in_parallel_mode_exits_1() -> None:
+def test_a_failure_in_parallel_mode_fails_the_phase() -> None:
     def boom(argv: list[str]) -> None:
-        raise SystemExit(1)
+        raise RuntimeError("source down")
 
-    with pytest.raises(SystemExit) as exit_info:
-        _run_phase("retrieve", [_step("broken", "x", boom)], jobs=2)
-    assert exit_info.value.code == 1
+    outcomes = run_phase([_step("broken", "x", boom)], jobs=2)
+    assert combined(outcomes).errors == ["retrieve broken failed"]
 
 
 def test_one_job_stays_sequential_and_strict_still_stops() -> None:
@@ -134,15 +148,14 @@ def test_one_job_stays_sequential_and_strict_still_stops() -> None:
 
     def boom(argv: list[str]) -> None:
         calls.append("broken")
-        raise SystemExit(1)
+        raise RuntimeError("source down")
 
     steps = [
         _step("broken", "x", boom),
         _step("never", "y", lambda argv: calls.append("never")),
     ]
-    with pytest.raises(SystemExit):
-        _run_phase("semantic", steps, strict=True, jobs=1)
-    assert calls == ["broken"]
+    outcomes = run_phase(steps, strict=True, jobs=1)
+    assert calls == ["broken"] and [o.state for o in outcomes] == [State.FAILED]
 
 
 # ── the command ──────────────────────────────────────────────────────────────
@@ -155,11 +168,11 @@ def recorded(monkeypatch) -> dict[str, list[str]]:
     sources = [
         dataclasses.replace(
             source,
-            retrieve_main=lambda argv, source_id=source.id: argvs.__setitem__(
-                source_id, argv
+            retrieve_command=lambda argv, source_id=source.id: (
+                argvs.__setitem__(source_id, argv) or PipelineResult()
             ),
         )
-        if source.retrieve_main is not None
+        if source.retrieve_command is not None
         else source
         for source in registry.SOURCES
     ]
@@ -174,7 +187,7 @@ def test_the_window_reaches_the_sources_that_keep_producing(
     monkeypatch, recorded
 ) -> None:
     monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
-    run_retrieve_all(["--mode", "full", "--window", "2024-09-20"])
+    retrieve_all(["--mode", "full", "--window", "2024-09-20"])
     for source in PRODUCING:
         assert recorded[source] == ["--mode", "incremental", "--since", WINDOW], source
     assert recorded["tk_dossiers"] == ["--since", WINDOW]
@@ -185,7 +198,7 @@ def test_reference_sources_are_read_in_full_whatever_the_window(
     monkeypatch, recorded
 ) -> None:
     monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
-    run_retrieve_all(["--mode", "full", "--window", "2024-09-20"])
+    retrieve_all(["--mode", "full", "--window", "2024-09-20"])
     assert recorded["bwb"] == ["--mode", "full"]
     assert WINDOW not in recorded["verdragenbank"]
     assert WINDOW not in recorded["eurlex"]
@@ -193,7 +206,7 @@ def test_reference_sources_are_read_in_full_whatever_the_window(
 
 def test_window_all_loads_the_whole_history(monkeypatch, recorded) -> None:
     monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
-    run_retrieve_all(["--mode", "full", "--window", "all"])
+    retrieve_all(["--mode", "full", "--window", "all"])
     for source in PRODUCING:
         assert recorded[source][:2] == ["--mode", "full"], source
     assert recorded["tk_dossiers"] == []
@@ -203,7 +216,7 @@ def test_without_a_window_a_full_load_reads_two_years(monkeypatch, recorded) -> 
     import datetime as dt
 
     monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
-    run_retrieve_all(["--mode", "full"])
+    retrieve_all(["--mode", "full"])
     since = dt.datetime.fromisoformat(recorded["tk"][3])
     age = dt.datetime.now(dt.timezone.utc) - since
     assert dt.timedelta(days=729) < age < dt.timedelta(days=731)
@@ -211,14 +224,14 @@ def test_without_a_window_a_full_load_reads_two_years(monkeypatch, recorded) -> 
 
 def test_an_incremental_run_ignores_the_window(monkeypatch, recorded) -> None:
     monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
-    run_retrieve_all(["--since", "7d", "--window", "2024-09-20"])
+    retrieve_all(["--since", "7d", "--window", "2024-09-20"])
     assert recorded["staatscourant"][:3] == ["--mode", "incremental", "--since"]
     assert WINDOW not in recorded["staatscourant"]
 
 
 def test_a_bad_window_is_rejected() -> None:
     with pytest.raises(SystemExit) as exit_info:
-        run_retrieve_all(["--window", "sometime"])
+        retrieve_all(["--window", "sometime"])
     assert exit_info.value.code == 2
 
 
@@ -231,13 +244,15 @@ def test_the_schema_is_created_once_before_the_threads_start(monkeypatch) -> Non
 
     monkeypatch.setattr(orchestration, "ArangoStore", store)
     sources = [
-        dataclasses.replace(s, retrieve_main=lambda argv: events.append("step"))
-        if s.retrieve_main is not None
+        dataclasses.replace(
+            s, retrieve_command=lambda argv: events.append("step") or PipelineResult()
+        )
+        if s.retrieve_command is not None
         else s
         for s in registry.SOURCES
     ]
     monkeypatch.setattr(orchestration, "SOURCES", sources)
-    run_retrieve_all(["--jobs", "3"])
+    retrieve_all(["--jobs", "3"])
     assert events[0] == "store"  # the store of the watermark: before any lane starts
     assert events.count("store") == 1
     assert "step" in events
@@ -245,7 +260,7 @@ def test_the_schema_is_created_once_before_the_threads_start(monkeypatch) -> Non
 
 def test_jobs_must_be_positive() -> None:
     with pytest.raises(SystemExit) as exit_info:
-        run_retrieve_all(["--jobs", "0"])
+        retrieve_all(["--jobs", "0"])
     assert exit_info.value.code == 2
 
 
@@ -269,11 +284,11 @@ def _bootstrap_retrieve_argv(monkeypatch, argv: list[str]) -> list[str]:
 
     seen: dict[str, list[str]] = {}
 
-    def record(name: str, main: Callable[..., None], phase_argv: list[str]) -> bool:
-        seen[name] = phase_argv
-        return True
+    def record(label: str, command: Callable[..., Any], argv: list[str]) -> Outcome:
+        seen[label] = argv
+        return Outcome(label, State.OK)
 
-    monkeypatch.setattr(bootstrap, "run_command", record)
+    monkeypatch.setattr(bootstrap, "execute", record)
     bootstrap.main(argv)
     return seen["retrieve all"]
 
@@ -314,16 +329,14 @@ def test_a_step_waits_for_the_source_it_reads_and_goes_last_in_its_lane() -> Non
         return run
 
     steps = [
-        _Step("bwb", "bwb", main("bwb", 0.2), [], "bwb"),
-        _Step(
-            "staatsblad", "staatsblad", main("staatsblad"), [], "koop", after=("bwb",)
-        ),
-        _Step("staatscourant", "staatscourant", main("staatscourant"), [], "koop"),
+        _step("bwb", "bwb", main("bwb", 0.2)),
+        _step("staatsblad", "koop", main("staatsblad"), after=("bwb",)),
+        _step("staatscourant", "koop", main("staatscourant")),
     ]
     # Two places and a waiting step: the wait must not take one of them.
-    results = _run_in_lanes("retrieve", steps, jobs=2)
+    results = _run_in_lanes(steps, jobs=2)
 
-    assert [state for _, state in results] == ["ok", "ok", "ok"]
+    assert [o.state for o in results] == [State.OK] * 3
     assert order == ["staatscourant", "bwb", "staatsblad"]
 
 
@@ -333,17 +346,10 @@ def test_a_failing_source_does_not_leave_its_reader_waiting() -> None:
 
     ran: list[str] = []
     steps = [
-        _Step("bwb", "bwb", fails, [], "bwb"),
-        _Step(
-            "staatsblad",
-            "staatsblad",
-            lambda argv: ran.append("stb"),
-            [],
-            "koop",
-            after=("bwb",),
-        ),
+        _step("bwb", "bwb", fails),
+        _step("staatsblad", "koop", lambda argv: ran.append("stb"), after=("bwb",)),
     ]
-    assert _run_in_lanes("retrieve", steps, jobs=2) == [
+    assert _ended(_run_in_lanes(steps, jobs=2)) == [
         ("bwb", "failed"),
         ("staatsblad", "ok"),
     ]
@@ -366,7 +372,7 @@ def test_by_default_every_server_has_its_own_job() -> None:
     lanes = {
         s.retrieve_lane or s.id
         for s in registry.SOURCES
-        if s.retrieve_main is not None and s.retrieve_argv_builder is not None
+        if s.retrieve_command is not None and s.retrieve_argv_builder is not None
     }
     assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 6
 
@@ -397,7 +403,7 @@ def test_an_interrupt_stops_the_other_lanes_too() -> None:
     started = time.monotonic()
     try:
         with pytest.raises(KeyboardInterrupt):
-            _run_in_lanes("retrieve", steps, jobs=2)
+            _run_in_lanes(steps, jobs=2)
     finally:
         STOP.clear()
     assert time.monotonic() - started < 5 and len(looped) < 1_000

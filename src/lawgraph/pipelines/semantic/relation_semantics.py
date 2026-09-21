@@ -124,20 +124,9 @@ class RelationSemanticsSemanticPipeline(SemanticPipelineBase):
             }} IN {COLLECTION_EDGES} OPTIONS {{ mergeObjects: true }}
             RETURN 1
         """
-        try:
-            rows = list(
-                self.store.query(
-                    aql,
-                    {
-                        "updates": batch,
-                        "structured": SEMANTIC_SOURCE_STRUCTURED,
-                        "now": now,
-                    },
-                )
-            )
-            return len(rows)
-        except Exception as exc:
-            msg = f"Semantic classification batch failed ({len(batch)} edges): {exc}"
-            logger.error(msg)
-            result.add_error(msg)
-            return 0
+        bind = {
+            "updates": batch,
+            "structured": SEMANTIC_SOURCE_STRUCTURED,
+            "now": now,
+        }
+        return len(list(self.store.query(aql, bind)))

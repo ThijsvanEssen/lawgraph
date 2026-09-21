@@ -167,45 +167,41 @@ _JUDGMENT_XML = f"""<open xmlns:dc="http://purl.org/dc/elements/1.1/"
 
 def test_rechtspraak_extract_judgment_text() -> None:
     extract = judgments.extract_judgment_text
-    summary, text = extract(_JUDGMENT_XML)
+    summary, text = extract(judgments.parse_judgment(_JUDGMENT_XML))
     assert summary == "Samenvatting  tekst"
     assert text is not None and text.startswith("Info kop")
     assert "Procesverloop" in text and "Losse alinea." in text
-    assert extract(None) == (None, None)
-    assert extract("") == (None, None)
-    assert extract("<bad") == (None, None)
 
 
 def test_rechtspraak_extract_judgment_text_empty_elements() -> None:
     extract = judgments.extract_judgment_text
-    assert extract("<r><inhoudsindicatie/><uitspraak/></r>") == (None, None)
+    parse = judgments.parse_judgment
+    assert extract(parse("<r><inhoudsindicatie/><uitspraak/></r>")) == (None, None)
     # the first inhoudsindicatie decides, even when empty
     xml2 = "<r><inhoudsindicatie/><inhoudsindicatie>x</inhoudsindicatie></r>"
-    assert extract(xml2) == (None, None)
+    assert extract(parse(xml2)) == (None, None)
 
 
 def test_rechtspraak_extract_judgment_text_joins_multiple_uitspraak_blocks() -> None:
     extract = judgments.extract_judgment_text
     xml = "<r><uitspraak>a</uitspraak><uitspraak> </uitspraak><uitspraak>b</uitspraak></r>"
-    assert extract(xml) == (None, "a\n\nb")
+    assert extract(judgments.parse_judgment(xml)) == (None, "a\n\nb")
 
 
 def test_rechtspraak_extract_rdf_metadata() -> None:
     extract = judgments.extract_rdf_metadata
-    meta, subjects = extract(_JUDGMENT_XML)
+    meta, subjects = extract(judgments.parse_judgment(_JUDGMENT_XML))
     assert meta["court"] == "Hoge Raad"
     assert meta["date"] == "2020-01-05"
     assert meta["case_number"] == "19/00001"
     assert meta["type"] == "Cassatie"
     assert meta["related_eclis"] == ["ECLI:NL:HR:2019:1", "ECLI:NL:GHAMS:2019:2"]
     assert subjects == ["Strafrecht", "Civiel recht"]
-    assert extract(None) == ({}, [])
-    assert extract("<bad") == ({}, [])
 
 
 def test_rechtspraak_extract_sections() -> None:
     extract = judgments.extract_sections
-    assert extract(_JUDGMENT_XML) == [
+    assert extract(judgments.parse_judgment(_JUDGMENT_XML)) == [
         {"number": None, "kind": "subheading", "text": "Info kop"},
         {"number": "1", "kind": "heading", "text": "Procesverloop"},
         {"number": None, "kind": "body", "text": "Eerste alinea."},
@@ -217,9 +213,7 @@ def test_rechtspraak_extract_sections() -> None:
         {"number": None, "kind": "body", "text": "Zonder titel"},
         {"number": None, "kind": "body", "text": "Losse alinea."},
     ]
-    assert extract(None) == []
-    assert extract("<bad") == []
-    assert extract("<r/>") == []
+    assert extract(judgments.parse_judgment("<r/>")) == []
 
 
 def test_rechtspraak_section_title_falls_back_to_section_text() -> None:
@@ -551,3 +545,11 @@ def test_a_relative_since_overlaps_with_the_run_before_it() -> None:
         (now - since) - (dt.timedelta(days=1) + RELATIVE_SINCE_OVERLAP)
     ) < dt.timedelta(seconds=5)
     assert parse_since("2024-01-01") == dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc)
+
+
+@pytest.mark.parametrize("payload", [None, "", "<bad", "geen xml"])
+def test_a_judgment_that_is_no_xml_raises_instead_of_reading_as_empty(payload) -> None:
+    """Three extractors each swallowed the parse error: the judgment became a node with
+    no court, no date and no text, and nothing said so."""
+    with pytest.raises(ValueError, match="not XML"):
+        judgments.parse_judgment(payload)

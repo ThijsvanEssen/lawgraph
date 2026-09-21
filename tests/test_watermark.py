@@ -9,6 +9,7 @@ import pytest
 
 from lawgraph.core.time import RELATIVE_SINCE_OVERLAP
 from lawgraph.pipelines import orchestration, watermark
+from lawgraph.pipelines.execution import Outcome, State
 from tests.fakes import PipelineStateFake
 
 UTC = dt.timezone.utc
@@ -51,14 +52,14 @@ def test_last_without_a_run_on_record_is_refused() -> None:
 
 @pytest.fixture
 def phase(monkeypatch) -> dict[str, Any]:
-    seen: dict[str, Any] = {"store": _Store(), "results": [("a", "ok")]}
+    seen: dict[str, Any] = {"store": _Store(), "outcomes": [Outcome("a", State.OK)]}
 
-    def run_phase(name: str, steps: list[Any], **kw: Any) -> list[tuple[str, str]]:
+    def run_phase(steps: list[Any], **kw: Any) -> list[Outcome]:
         seen["argv"] = [step.argv for step in steps]
-        return seen["results"]
+        return seen["outcomes"]
 
     monkeypatch.setattr(orchestration, "ArangoStore", lambda: seen["store"])
-    monkeypatch.setattr(orchestration, "_run_phase", run_phase)
+    monkeypatch.setattr(orchestration, "run_phase", run_phase)
     return seen
 
 
@@ -66,7 +67,7 @@ def test_normalize_all_since_last_starts_where_the_last_complete_run_began(
     phase: dict[str, Any],
 ) -> None:
     watermark.advance(phase["store"], "normalize", began=MONDAY, since=None)
-    orchestration.run_normalize_all(["--since", "last"])
+    orchestration.normalize_all(["--since", "last"])
     expected = (MONDAY - RELATIVE_SINCE_OVERLAP).isoformat()
     assert all(argv == ["--since", expected] for argv in phase["argv"])
     assert watermark.covered_until(phase["store"], "normalize") > MONDAY
@@ -76,13 +77,13 @@ def test_a_run_with_a_skipped_step_does_not_move_the_mark(
     phase: dict[str, Any],
 ) -> None:
     watermark.advance(phase["store"], "semantic", began=MONDAY, since=None)
-    phase["results"] = [("a", "ok"), ("b", "skipped")]
-    orchestration.run_semantic_all([])
+    phase["outcomes"] = [Outcome("a", State.OK), Outcome("b", State.SKIPPED)]
+    orchestration.semantic_all([])
     assert watermark.covered_until(phase["store"], "semantic") == MONDAY
 
 
 def test_retrieve_all_in_full_mode_covers_everything(phase: dict[str, Any]) -> None:
-    orchestration.run_retrieve_all(["--mode", "full", "--jobs", "1"])
+    orchestration.retrieve_all(["--mode", "full", "--jobs", "1"])
     assert watermark.covered_until(phase["store"], "retrieve") is not None
 
 
@@ -90,7 +91,7 @@ def test_a_full_load_with_a_window_read_since_the_window(phase: dict[str, Any]) 
     """Not since ``--since`` (a day by default): a mark on record before the window stays."""
     watermark.advance(phase["store"], "retrieve", began=MONDAY, since=None)
     long_ago = MONDAY - dt.timedelta(days=30)
-    orchestration.run_retrieve_all(
+    orchestration.retrieve_all(
         ["--mode", "full", "--window", long_ago.isoformat(), "--jobs", "1"]
     )
     assert watermark.covered_until(phase["store"], "retrieve") > MONDAY

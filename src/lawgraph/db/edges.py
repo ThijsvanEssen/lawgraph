@@ -13,7 +13,9 @@ from typing import Any
 
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK
 from lawgraph.core.logging import get_logger
-from lawgraph.db.store import ArangoStore, edge_key
+from lawgraph.core.models import PipelineResult
+from lawgraph.db.counting import Store
+from lawgraph.db.store import edge_key
 
 logger = get_logger(__name__)
 
@@ -67,9 +69,7 @@ class EdgeWriter:
     memory stays bounded on large runs. A failing batch is logged and re-raised.
     """
 
-    def __init__(
-        self, store: ArangoStore, *, batch_size: int = DEFAULT_BATCH_SIZE
-    ) -> None:
+    def __init__(self, store: Store, *, batch_size: int = DEFAULT_BATCH_SIZE) -> None:
         self._store = store
         self._batch_size = batch_size
         self._pending: dict[str, dict[str, Any]] = {}
@@ -90,8 +90,10 @@ class EdgeWriter:
         self.add_doc(make_edge_doc(from_id, to_id, relation, **fields))
         return True
 
-    def add_doc(self, doc: dict[str, Any]) -> None:
-        """Queue a prepared edge document (e.g. from ``make_edge_doc``)."""
+    def add_doc(self, doc: dict[str, Any] | None) -> None:
+        """Queue a prepared edge document; ``None`` (an edge that could not be made) is not."""
+        if doc is None:
+            return
         self._pending[doc["_key"]] = doc
         self.added += 1
         if len(self._pending) >= self._batch_size:
@@ -111,6 +113,17 @@ class EdgeWriter:
         self.created += created
         self.updated += updated
         return created, updated
+
+    def flush_into(self, result: PipelineResult) -> None:
+        """Write what is queued and add what this writer created and updated to *result*.
+
+        The one way a pipeline ends its edges: nothing is counted by hand, so nothing can
+        be forgotten (the annex edges were written and never counted).
+        """
+        self.flush()
+        result.created += self.created
+        result.updated += self.updated
+        self.created = self.updated = 0
 
     def __enter__(self) -> EdgeWriter:
         return self

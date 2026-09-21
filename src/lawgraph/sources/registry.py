@@ -1,6 +1,6 @@
 """Registry of all sources: the single definition of CLI commands and their order.
 
-Adding a source: write its pipelines (and a retrieve command in ``pipelines/retrieve_cli.py``)
+Adding a source: write its pipelines (and a retrieve command in ``pipelines/retrieve_commands.py``)
 and add a ``SourceDescriptor`` here. ``lawgraph <phase> <source>`` and ``<phase> all`` are
 built from ``SOURCES``; list order is execution order.
 """
@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Callable
 
-from lawgraph.pipelines.factory import make_pipeline_cli
+from lawgraph.pipelines.command import Command, PipelineCommand
 from lawgraph.pipelines.list_stats import main as list_stats_main
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
@@ -25,7 +25,7 @@ from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePip
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
-from lawgraph.pipelines.retrieve_cli import (
+from lawgraph.pipelines.retrieve_commands import (
     retrieve_bwb,
     retrieve_bwb_history,
     retrieve_echr,
@@ -92,14 +92,14 @@ class SourceDescriptor:
     """The entry points of one source; each is a ``main(argv)`` and each phase is optional.
 
     ``retrieve_argv_builder`` turns the ``retrieve all`` options into the argv of
-    ``retrieve_main``. A source without it is a manual command, left out of ``retrieve all``.
+    ``retrieve_command``. A source without it is a manual command, left out of ``retrieve all``.
     ``retrieve_lane`` names the server a retrieve step talks to (default: the source id):
     ``retrieve all --jobs N`` runs lanes side by side and the steps of one lane one after
     the other, so no server gets two request streams from us. ``retrieve_after`` names the
     sources whose retrieve must have ended first, because this one reads what they stored.
-    Every normalize command accepts ``--since``; a semantic command only when
-    ``semantic_accepts_since`` is set. ``descriptions`` says per phase what the command does;
-    it is printed by ``lawgraph sources`` and in the first log line of the step.
+    Whether a normalize or semantic command has ``--since`` follows from the ``run`` of its
+    pipeline (``PipelineCommand.accepts_since``). ``descriptions`` says per phase what the
+    command does; it is printed by ``lawgraph sources`` and in the first log line of the step.
     """
 
     id: str
@@ -107,13 +107,12 @@ class SourceDescriptor:
     descriptions: Mapping[str, str] = field(
         default_factory=dict
     )  # phase -> what it does
-    retrieve_main: Callable[..., None] | None = None
+    retrieve_command: Command | None = None
     retrieve_argv_builder: Callable[[RetrieveCtx], list[str]] | None = None
     retrieve_lane: str | None = None
     retrieve_after: tuple[str, ...] = ()
-    normalize_main: Callable[..., None] | None = None
-    semantic_main: Callable[..., None] | None = None
-    semantic_accepts_since: bool = False
+    normalize_command: Command | None = None
+    semantic_command: Command | None = None
 
 
 # ── Extra args for semantic pipelines with non-standard constructor args ──
@@ -138,15 +137,11 @@ def _mode_argv(ctx: RetrieveCtx) -> list[str]:
     return ["--mode", ctx.mode]
 
 
-def _mode_and_since_argv(ctx: RetrieveCtx) -> list[str]:
-    return ["--mode", ctx.mode, "--since", ctx.since]
-
-
 def _windowed_argv(ctx: RetrieveCtx) -> list[str]:
     """Sources that keep producing: a full load only reads what changed inside the window."""
     if ctx.mode == "full" and ctx.window:
         return ["--mode", "incremental", "--since", ctx.window]
-    return _mode_and_since_argv(ctx)
+    return ["--mode", ctx.mode, "--since", ctx.since]
 
 
 def _tk_dossiers_argv(ctx: RetrieveCtx) -> list[str]:
@@ -159,20 +154,17 @@ def _tk_dossiers_argv(ctx: RetrieveCtx) -> list[str]:
 
 
 def _register_tk() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = PipelineCommand(
         TKNormalizePipeline,
         description="Normalize raw TK records.",
-        with_since=True,
     )
-    normalize_dossiers = make_pipeline_cli(
+    normalize_dossiers = PipelineCommand(
         TKDossiersNormalizePipeline,
         description="Normalize raw TK dossier records.",
-        with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = PipelineCommand(
         TKArticlesSemanticPipeline,
         description="Detect TK references to Dutch and EU articles.",
-        with_since=True,
     )
     return [
         SourceDescriptor(
@@ -185,12 +177,11 @@ def _register_tk() -> list[SourceDescriptor]:
                     "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles."
                 ),
             },
-            retrieve_main=retrieve_tk,
+            retrieve_command=retrieve_tk,
             retrieve_argv_builder=_windowed_argv,
             retrieve_lane=LANE_TWEEDE_KAMER,
-            normalize_main=normalize,
-            semantic_main=semantic,
-            semantic_accepts_since=True,
+            normalize_command=normalize,
+            semantic_command=semantic,
         ),
         SourceDescriptor(
             id="tk_dossiers",
@@ -205,10 +196,10 @@ def _register_tk() -> list[SourceDescriptor]:
                     "documents as nodes, with their edges."
                 ),
             },
-            retrieve_main=retrieve_tk_dossiers,
+            retrieve_command=retrieve_tk_dossiers,
             retrieve_argv_builder=_tk_dossiers_argv,
             retrieve_lane=LANE_TWEEDE_KAMER,
-            normalize_main=normalize_dossiers,
+            normalize_command=normalize_dossiers,
         ),
         SourceDescriptor(
             id="tk_content",
@@ -221,21 +212,19 @@ def _register_tk() -> list[SourceDescriptor]:
             },
             # No retrieve_argv_builder: slow (hours), run manually, not part of
             # `retrieve all`.
-            retrieve_main=retrieve_tk_content,
+            retrieve_command=retrieve_tk_content,
         ),
     ]
 
 
 def _register_rechtspraak() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = PipelineCommand(
         RechtspraakNormalizePipeline,
         description="Normalize raw Rechtspraak records.",
-        with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = PipelineCommand(
         RechtspraakArticlesSemanticPipeline,
         description="Detect references to BWB articles in Rechtspraak judgments.",
-        with_since=True,
     )
     return [
         SourceDescriptor(
@@ -252,25 +241,22 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
                 ),
                 "semantic": "Article citations in judgments: REFERS_TO to BWB articles.",
             },
-            retrieve_main=retrieve_rechtspraak,
+            retrieve_command=retrieve_rechtspraak,
             retrieve_argv_builder=_windowed_argv,
-            normalize_main=normalize,
-            semantic_main=semantic,
-            semantic_accepts_since=True,
+            normalize_command=normalize,
+            semantic_command=semantic,
         ),
     ]
 
 
 def _register_eurlex() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = PipelineCommand(
         EurlexNormalizePipeline,
         description="Normalize raw EUR-Lex records.",
-        with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = PipelineCommand(
         EUArticlesSemanticPipeline,
         description="Link EU instruments to national and EU articles.",
-        with_since=True,
     )
     return [
         SourceDescriptor(
@@ -287,46 +273,42 @@ def _register_eurlex() -> list[SourceDescriptor]:
                     "articles."
                 ),
             },
-            retrieve_main=retrieve_eurlex,
+            retrieve_command=retrieve_eurlex,
             # Never lists acts: the graph (fill-gaps, expand-graph) says which are needed.
             retrieve_argv_builder=_no_argv,
-            normalize_main=normalize,
-            semantic_main=semantic,
-            semantic_accepts_since=True,
+            normalize_command=normalize,
+            semantic_command=semantic,
         ),
     ]
 
 
 def _register_bwb() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = PipelineCommand(
         BWBNormalizePipeline,
         description="Normalize raw BWB records.",
-        with_since=True,
     )
-    normalize_history = make_pipeline_cli(
+    normalize_history = PipelineCommand(
         BWBHistoryNormalizePipeline,
         description="Normalize historical BWB toestanden.",
-        with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = PipelineCommand(
         BWBArticlesSemanticPipeline,
         description="Detect BWB article references and store REFERS_TO edges.",
-        with_since=True,
         add_args=_bwb_articles_add_args,
         make_extra_kwargs=_bwb_articles_extra_kwargs,
     )
-    semantic_grondslagen = make_pipeline_cli(
+    semantic_grondslagen = PipelineCommand(
         BWBGrondslagenSemanticPipeline,
         description="Create BASED_ON edges from the 'Gelet op' basis of BWB regulations.",
     )
-    semantic_amendments = make_pipeline_cli(
+    semantic_amendments = PipelineCommand(
         BWBAmendmentsSemanticPipeline,
         description=(
             "Create AMENDS/INTRODUCES/REPEALS edges from amending publications "
             "and LEGISLATED_IN edges from dossier references."
         ),
     )
-    semantic_annexes = make_pipeline_cli(
+    semantic_annexes = PipelineCommand(
         AnnexLinksSemanticPipeline,
         description="Extract annex nodes from BWB XML and create SCOPED_BY edges.",
     )
@@ -342,11 +324,10 @@ def _register_bwb() -> list[SourceDescriptor]:
                 "normalize": "Instruments and articles; short titles from the WTI abbreviations.",
                 "semantic": "REFERS_TO between articles, read from the XML.",
             },
-            retrieve_main=retrieve_bwb,
+            retrieve_command=retrieve_bwb,
             retrieve_argv_builder=_mode_argv,
-            normalize_main=normalize,
-            semantic_main=semantic,
-            semantic_accepts_since=True,
+            normalize_command=normalize,
+            semantic_command=semantic,
         ),
         SourceDescriptor(
             id="bwb_history",
@@ -356,8 +337,8 @@ def _register_bwb() -> list[SourceDescriptor]:
                 "normalize": "Article and instrument versions from the stored toestanden.",
             },
             # No retrieve_argv_builder: run manually, not part of `retrieve all`.
-            retrieve_main=retrieve_bwb_history,
-            normalize_main=normalize_history,
+            retrieve_command=retrieve_bwb_history,
+            normalize_command=normalize_history,
         ),
         SourceDescriptor(
             id="bwb_grondslagen",
@@ -367,7 +348,7 @@ def _register_bwb() -> list[SourceDescriptor]:
                     "BASED_ON from a regulation to the article it is issued under ('Gelet op')."
                 ),
             },
-            semantic_main=semantic_grondslagen,
+            semantic_command=semantic_grondslagen,
         ),
         SourceDescriptor(
             id="bwb_amendments",
@@ -378,7 +359,7 @@ def _register_bwb() -> list[SourceDescriptor]:
                     "from dossier references."
                 ),
             },
-            semantic_main=semantic_amendments,
+            semantic_command=semantic_amendments,
         ),
         SourceDescriptor(
             id="bwb_annexes",
@@ -386,18 +367,17 @@ def _register_bwb() -> list[SourceDescriptor]:
             descriptions={
                 "semantic": "Annex nodes from the BWB XML and SCOPED_BY edges.",
             },
-            semantic_main=semantic_annexes,
+            semantic_command=semantic_annexes,
         ),
     ]
 
 
 def _register_staatsblad() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = PipelineCommand(
         StaatsbladNormalizePipeline,
         description="Normalize raw Staatsblad AMvB records.",
-        with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = PipelineCommand(
         StaatsbladNvtSemanticPipeline,
         description="Link Staatsblad NvT publications to BWB instruments.",
     )
@@ -415,27 +395,25 @@ def _register_staatsblad() -> list[SourceDescriptor]:
                     "EXPLAINS: links Staatsblad explanatory notes to the instrument they explain."
                 ),
             },
-            retrieve_main=retrieve_staatsblad,
+            retrieve_command=retrieve_staatsblad,
             retrieve_argv_builder=_no_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
             # from-graph: the publications the stored BWB toestanden refer to
             retrieve_after=("bwb",),
-            normalize_main=normalize,
-            semantic_main=semantic,
+            normalize_command=normalize,
+            semantic_command=semantic,
         ),
     ]
 
 
 def _register_staatscourant() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = PipelineCommand(
         StaatscourantNormalizePipeline,
         description="Normalize Staatscourant ministeriele regelingen.",
-        with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = PipelineCommand(
         StaatscourantRegelingSemanticPipeline,
         description="Create EXPLAINS edges from Staatscourant regulations.",
-        with_since=True,
     )
     return [
         SourceDescriptor(
@@ -448,23 +426,21 @@ def _register_staatscourant() -> list[SourceDescriptor]:
                 "normalize": "Regulations as documents.",
                 "semantic": "EXPLAINS: links Staatscourant regulations to instruments.",
             },
-            retrieve_main=retrieve_staatscourant,
+            retrieve_command=retrieve_staatscourant,
             retrieve_argv_builder=_windowed_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
-            normalize_main=normalize,
-            semantic_main=semantic,
-            semantic_accepts_since=True,
+            normalize_command=normalize,
+            semantic_command=semantic,
         ),
     ]
 
 
 def _register_eerstekamer() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = PipelineCommand(
         EerstekamerNormalizePipeline,
         description="Normalize Eerste Kamer Kamerstukken.",
-        with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = PipelineCommand(
         EerstekamerDossierLinkSemanticPipeline,
         description="Link Eerste Kamer Kamerstukken to their Tweede Kamer dossier.",
     )
@@ -477,22 +453,21 @@ def _register_eerstekamer() -> list[SourceDescriptor]:
                 "normalize": "Kamerstukken as documents, with the dossier number and its addition.",
                 "semantic": "PART_OF: links each paper to its Tweede Kamer dossier.",
             },
-            retrieve_main=retrieve_eerstekamer,
+            retrieve_command=retrieve_eerstekamer,
             retrieve_argv_builder=_windowed_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
-            normalize_main=normalize,
-            semantic_main=semantic,
+            normalize_command=normalize,
+            semantic_command=semantic,
         ),
     ]
 
 
 def _register_echr() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = PipelineCommand(
         ECHRNormalizePipeline,
         description="Normalize ECHR HUDOC judgments.",
-        with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = PipelineCommand(
         ECHRCitationsSemanticPipeline,
         description="Create REFERS_TO edges from ECHR judgments to articles and instruments.",
     )
@@ -507,19 +482,18 @@ def _register_echr() -> list[SourceDescriptor]:
                 "normalize": "Judgments as nodes.",
                 "semantic": "REFERS_TO: links ECHR judgments to Convention articles.",
             },
-            retrieve_main=retrieve_echr,
+            retrieve_command=retrieve_echr,
             retrieve_argv_builder=_windowed_argv,
-            normalize_main=normalize,
-            semantic_main=semantic,
+            normalize_command=normalize,
+            semantic_command=semantic,
         ),
     ]
 
 
 def _register_verdragenbank() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = PipelineCommand(
         VerdragenbankNormalizePipeline,
         description="Normalize Verdragenbank treaty records.",
-        with_since=True,
     )
     return [
         SourceDescriptor(
@@ -529,38 +503,36 @@ def _register_verdragenbank() -> list[SourceDescriptor]:
                 "retrieve": "Treaties the Netherlands is party to, from the KOOP SRU.",
                 "normalize": "Treaties as instruments.",
             },
-            retrieve_main=retrieve_verdragenbank,
+            retrieve_command=retrieve_verdragenbank,
             retrieve_argv_builder=_no_argv,
             retrieve_lane=LANE_KOOP_REPOSITORY,
-            normalize_main=normalize,
+            normalize_command=normalize,
         ),
     ]
 
 
 def _register_cross_source_semantic() -> list[SourceDescriptor]:
-    semantic_judgment_citations = make_pipeline_cli(
+    semantic_judgment_citations = PipelineCommand(
         JudgmentCitationsSemanticPipeline,
         description="Detect ECLI cross-references and create REFERS_TO edges between judgments.",
-        with_since=True,
     )
-    semantic_judgment_appeal = make_pipeline_cli(
+    semantic_judgment_appeal = PipelineCommand(
         JudgmentAppealSemanticPipeline,
         description="Create APPEAL_OF edges from hoger beroep/cassatie to prior proceedings.",
     )
-    semantic_instrument_relations = make_pipeline_cli(
+    semantic_instrument_relations = PipelineCommand(
         InstrumentRelationsSemanticPipeline,
         description="Detect AMENDS and IMPLEMENTS edges between instruments.",
-        with_since=True,
     )
-    semantic_amendment_articles = make_pipeline_cli(
+    semantic_amendment_articles = PipelineCommand(
         AmendmentArticlesSemanticPipeline,
         description="Detect amendment language; write AMENDS/INTRODUCES/REPEALS edges.",
     )
-    semantic_mvt_articles = make_pipeline_cli(
+    semantic_mvt_articles = PipelineCommand(
         MvtArticlesSemanticPipeline,
         description="Link MvT/NvT documents to the article versions they explain (EXPLAINS).",
     )
-    semantic_relation_semantics = make_pipeline_cli(
+    semantic_relation_semantics = PipelineCommand(
         RelationSemanticsSemanticPipeline,
         description="Classify article-to-article REFERS_TO edges with semantic relationship types.",
     )
@@ -574,8 +546,7 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
                     "loaded become stubs."
                 ),
             },
-            semantic_main=semantic_judgment_citations,
-            semantic_accepts_since=True,
+            semantic_command=semantic_judgment_citations,
         ),
         SourceDescriptor(
             id="judgment_appeal",
@@ -585,7 +556,7 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
                     "APPEAL_OF from appeal and cassation judgments to the earlier proceedings."
                 ),
             },
-            semantic_main=semantic_judgment_appeal,
+            semantic_command=semantic_judgment_appeal,
         ),
         SourceDescriptor(
             id="instrument_relations",
@@ -593,8 +564,7 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
             descriptions={
                 "semantic": "AMENDS and IMPLEMENTS between instruments.",
             },
-            semantic_main=semantic_instrument_relations,
-            semantic_accepts_since=True,
+            semantic_command=semantic_instrument_relations,
         ),
         SourceDescriptor(
             id="amendment_articles",
@@ -605,7 +575,7 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
                     "changes."
                 ),
             },
-            semantic_main=semantic_amendment_articles,
+            semantic_command=semantic_amendment_articles,
         ),
         SourceDescriptor(
             id="mvt_articles",
@@ -613,7 +583,7 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
             descriptions={
                 "semantic": "EXPLAINS: links explanatory memoranda to what they explain.",
             },
-            semantic_main=semantic_mvt_articles,
+            semantic_command=semantic_mvt_articles,
         ),
         # Runs after bwb_articles (registry order == orchestrator order) so the
         # REFERS_TO edges it classifies already exist.
@@ -623,7 +593,7 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
             descriptions={
                 "semantic": "Classifies article-to-article REFERS_TO edges by what they mean.",
             },
-            semantic_main=semantic_relation_semantics,
+            semantic_command=semantic_relation_semantics,
         ),
         # Last: counts the edges written by every step above.
         SourceDescriptor(
@@ -632,7 +602,7 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
             descriptions={
                 "semantic": "Precomputes the sort and filter fields of the list endpoints.",
             },
-            semantic_main=list_stats_main,
+            semantic_command=list_stats_main,
         ),
     ]
 

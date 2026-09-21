@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import pytest
+
 from lawgraph.pipelines.semantic.staatscourant_regeling import (
     StaatscourantRegelingSemanticPipeline,
 )
@@ -62,7 +64,7 @@ def test_since_is_compared_as_a_date_with_the_date_of_the_publication() -> None:
     assert {b["since_iso"] for b in store.binds if "since_iso" in b} == {"2026-09-19"}
 
 
-def test_a_failing_query_is_an_error_of_the_step_not_a_warning() -> None:
+def test_a_failing_query_ends_the_step_instead_of_leaving_its_edges_out() -> None:
     class Failing(_Store):
         def query(
             self, aql: str, bind_vars: dict | None = None, **_kw: Any
@@ -71,5 +73,5 @@ def test_a_failing_query_is_an_error_of_the_step_not_a_warning() -> None:
                 raise RuntimeError("memory limit exceeded")
             return []
 
-    result = StaatscourantRegelingSemanticPipeline(store=Failing()).run()
-    assert result.errors and "memory limit exceeded" in result.errors[0]
+    with pytest.raises(RuntimeError, match="memory limit exceeded"):
+        StaatscourantRegelingSemanticPipeline(store=Failing()).run()

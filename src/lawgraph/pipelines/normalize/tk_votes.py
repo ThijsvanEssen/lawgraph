@@ -21,7 +21,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records import VoteCast
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, NodeWriter, Store
 from lawgraph.pipelines.normalize.tk_cases import link_node
 
 logger = get_logger(__name__)
@@ -59,7 +59,7 @@ def read_votes(raw_records: Iterable[dict[str, Any]]) -> Votes:
     return votes
 
 
-def normalize_decisions(store: ArangoStore, votes: Votes) -> dict[str, Node]:
+def normalize_decisions(store: Store, votes: Votes) -> dict[str, Node]:
     """Decision nodes, keyed by TK ``Besluit_Id``."""
     decisions = votes.decisions
     votes_by_decision = votes.by_decision
@@ -86,7 +86,7 @@ def normalize_decisions(store: ArangoStore, votes: Votes) -> dict[str, Node]:
 
 
 def link_votes(
-    store: ArangoStore,
+    store: Store,
     votes_by_decision: dict[str, list[VoteCast]],
     decision_nodes: dict[str, Node],
     faction_nodes: dict[str, Node],

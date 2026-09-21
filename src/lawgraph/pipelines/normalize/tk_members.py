@@ -20,13 +20,13 @@ from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, NodeWriter, Store
 
 logger = get_logger(__name__)
 
 
 def normalize_committees(
-    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
+    store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Commissie nodes, keyed by TK ``Id``."""
     nodes: dict[str, Node] = {}
@@ -48,7 +48,7 @@ def normalize_committees(
 
 
 def normalize_members(
-    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
+    store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Persoon nodes, keyed by TK ``Id``."""
     nodes: dict[str, Node] = {}
@@ -70,7 +70,7 @@ def normalize_members(
 
 
 def normalize_factions(
-    store: ArangoStore,
+    store: Store,
     faction_raws: list[dict[str, Any]],
     vote_labels: set[str],
 ) -> dict[str, Node]:
@@ -115,7 +115,7 @@ def normalize_factions(
 
 
 def link_members_to_committees(
-    store: ArangoStore,
+    store: Store,
     committee_raws: list[dict[str, Any]],
     *,
     source: str,
@@ -156,7 +156,7 @@ def link_members_to_committees(
 
 
 def link_members_to_factions(
-    store: ArangoStore,
+    store: Store,
     seat_raws: list[dict[str, Any]],
     member_nodes: dict[str, Node],
     faction_nodes: dict[str, Node],
@@ -211,7 +211,7 @@ def link_members_to_factions(
 
 
 def _write_timelines(
-    store: ArangoStore,
+    store: Store,
     member_nodes: dict[str, Node],
     timeline: dict[str, list[dict[str, Any]]],
 ) -> None:
@@ -239,6 +239,6 @@ def _write_timelines(
         store.bulk_insert_or_update_nodes(COLLECTION_MEMBERS, updated)
 
 
-def _write(store: ArangoStore, nodes: Any) -> None:
+def _write(store: Store, nodes: Any) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(nodes)

@@ -51,7 +51,6 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.factory import run_step
 
 logger = get_logger(__name__)
 
@@ -227,7 +226,7 @@ _REFRESHERS = (
 )
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description=(
             "Precompute the list-endpoint sort and filter keys on instruments, "
@@ -247,20 +246,17 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        store = ArangoStore()
-        selected = [name for name, _ in _REFRESHERS if getattr(args, f"{name}_only")]
-        result = PipelineResult()
-        todo = [(n, r) for n, r in _REFRESHERS if not selected or n in selected]
-        # One update query per collection: the progress is in collections.
-        progress = Progress("collections", total=len(todo))
-        for name, refresh in progress.track(todo):
-            count = refresh(store, dry_run=args.dry_run)
-            if args.dry_run:
-                logger.info("Would update %d %s.", count, name)
-                result.skipped += count
-            else:
-                result.updated += count
-        return result
-
-    run_step("List stats", run)
+    store = ArangoStore()
+    selected = [name for name, _ in _REFRESHERS if getattr(args, f"{name}_only")]
+    result = PipelineResult()
+    todo = [(n, r) for n, r in _REFRESHERS if not selected or n in selected]
+    # One update query per collection: the progress is in collections.
+    progress = Progress("collections", total=len(todo))
+    for name, refresh in progress.track(todo):
+        count = refresh(store, dry_run=args.dry_run)
+        if args.dry_run:
+            logger.info("Would update %d %s.", count, name)
+            result.skipped += count
+        else:
+            result.updated += count
+    return result

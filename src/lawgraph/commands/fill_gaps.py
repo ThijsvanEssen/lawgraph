@@ -56,7 +56,6 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.factory import run_step
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
@@ -88,7 +87,7 @@ DEFAULT_MIN_STUBS = 3
 # ── public entry point ────────────────────────────────────────────────────────
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description=textwrap.dedent(
             """\
@@ -154,23 +153,20 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        store = ArangoStore()
-        diag = _run_diagnostics(store, args)
-        if not args.apply:
-            print("\n[dry-run]  Run with --apply to fetch missing data.")
-            return PipelineResult()
+    store = ArangoStore()
+    diag = _run_diagnostics(store, args)
+    if not args.apply:
+        print("\n[dry-run]  Run with --apply to fetch missing data.")
+        return PipelineResult()
 
-        return (
-            _apply_bwb_gaps(store, args, diag["to_add"])
-            .merge(_apply_case_law_gaps(store, args, diag["stub_judgment_eclis"]))
-            .merge(_apply_eu_gaps(store, args, diag["stub_celex_ids"]))
-            .merge(_apply_echr_gaps(store, args, diag["stub_echr_eclis"]))
-            .merge(_apply_treaty_gaps(store, args, diag["stub_verdragen"]))
-            .merge(_apply_mvt_gaps(store, args, diag["mvt_gap"]))
-        )
-
-    run_step("fill-gaps", run)
+    return (
+        _apply_bwb_gaps(store, args, diag["to_add"])
+        .merge(_apply_case_law_gaps(store, args, diag["stub_judgment_eclis"]))
+        .merge(_apply_eu_gaps(store, args, diag["stub_celex_ids"]))
+        .merge(_apply_echr_gaps(store, args, diag["stub_echr_eclis"]))
+        .merge(_apply_treaty_gaps(store, args, diag["stub_verdragen"]))
+        .merge(_apply_mvt_gaps(store, args, diag["mvt_gap"]))
+    )
 
 
 # ── phase helpers ─────────────────────────────────────────────────────────────

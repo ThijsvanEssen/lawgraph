@@ -105,4 +105,4 @@ def test_semantic_edges_are_written_in_bulk_batches() -> None:
 
     assert result.created == 1200
     assert len(store.edges) == 1200
-    assert store.bulk_calls == 3  # 500 + 500 + 200
+    assert store.bulk_calls == 2  # 1000 + 200: the batches of `EdgeWriter`

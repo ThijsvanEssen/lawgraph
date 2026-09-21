@@ -9,7 +9,7 @@ written by ``bwb_amendments`` from the BWB metadata.
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
+from typing import Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.db import EdgeWriter
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
@@ -145,7 +146,7 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
             len(amends_index),
         )
 
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
         doc_count = 0
 
         documents = self._load_tk_documents(amends_index)
@@ -195,19 +196,9 @@ class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                         status=EDGE_STATUS_VOORGESTELD,
                     )
                     if edge_doc:
-                        edge_batch.append(edge_doc)
-                        if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                            created, updated = self._flush_edge_batch(
-                                edge_batch, result
-                            )
-                            result.created += created
-                            result.updated += updated
-                            edge_batch = []
+                        edges.add_doc(edge_doc)
 
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+        edges.flush_into(result)
 
         logger.info(
             "Amendment article linker: processed %d documents, %s.",

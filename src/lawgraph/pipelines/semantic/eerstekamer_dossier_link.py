@@ -8,8 +8,6 @@ cross-chamber.
 
 from __future__ import annotations
 
-from typing import Any
-
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
@@ -18,6 +16,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -58,14 +57,13 @@ FOR document IN {COLLECTION_DOCUMENTS}
             return result
 
         seen: set[tuple[str, str]] = set()
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
         for row in rows:
             pair = (row["document_key"], row["dossier_key"])
             if pair in seen:
                 continue
             seen.add(pair)
-            self._queue_edge(
-                edge_batch,
+            edges.add_doc(
                 self._make_edge_doc(
                     from_node=Node(
                         collection=COLLECTION_DOCUMENTS,
@@ -87,10 +85,9 @@ FOR document IN {COLLECTION_DOCUMENTS}
                         "dossier_suffix": row.get("dossier_suffix"),
                         "chamber": "EK",
                     },
-                ),
-                result,
+                )
             )
 
-        self._write_batch(edge_batch, result)
+        edges.flush_into(result)
         logger.info("EK dossier link: %s.", result.summary())
         return result

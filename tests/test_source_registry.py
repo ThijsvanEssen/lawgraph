@@ -19,21 +19,21 @@ def test_source_ids_are_unique() -> None:
 def test_cli_commands_come_only_from_the_registry() -> None:
     dispatch = _build_dispatch()
 
-    assert set(dispatch["retrieve"]) == _cli_keys("retrieve_main") | {"all"}
-    assert set(dispatch["normalize"]) == _cli_keys("normalize_main") | {"all"}
-    assert set(dispatch["semantic"]) == _cli_keys("semantic_main") | {"all"}
+    assert set(dispatch["retrieve"]) == _cli_keys("retrieve_command") | {"all"}
+    assert set(dispatch["normalize"]) == _cli_keys("normalize_command") | {"all"}
+    assert set(dispatch["semantic"]) == _cli_keys("semantic_command") | {"all"}
 
 
 def test_manual_retrieve_sources_are_not_part_of_retrieve_all() -> None:
     in_retrieve_all = {
         s.id
         for s in SOURCES
-        if s.retrieve_main is not None and s.retrieve_argv_builder is not None
+        if s.retrieve_command is not None and s.retrieve_argv_builder is not None
     }
 
     assert {"bwb_history", "tk_content"}.isdisjoint(in_retrieve_all)
     assert {"bwb_history", "tk_content"} <= {
-        s.id for s in SOURCES if s.retrieve_main is not None
+        s.id for s in SOURCES if s.retrieve_command is not None
     }
 
 
@@ -49,11 +49,11 @@ def test_skip_variables_follow_one_naming_scheme(monkeypatch) -> None:
 
 
 def test_list_stats_runs_after_every_edge_writing_step() -> None:
-    assert [s.id for s in SOURCES if s.semantic_main is not None][-1] == "list_stats"
+    assert [s.id for s in SOURCES if s.semantic_command is not None][-1] == "list_stats"
 
 
 def test_semantic_order_puts_dependencies_first() -> None:
-    order = [s.id for s in SOURCES if s.semantic_main is not None]
+    order = [s.id for s in SOURCES if s.semantic_command is not None]
 
     # relation_semantics classifies the REFERS_TO edges made by bwb
     assert order.index("bwb") < order.index("relation_semantics")
@@ -67,7 +67,7 @@ def test_semantic_order_puts_dependencies_first() -> None:
 def test_normalize_order_puts_what_is_looked_up_first() -> None:
     """An edge to a node that does not exist yet is left out, and an incremental run does not
     come back for it."""
-    order = [s.id for s in SOURCES if s.normalize_main is not None]
+    order = [s.id for s in SOURCES if s.normalize_command is not None]
 
     # documents, activities and decisions are linked to the cases that exist
     assert order.index("tk") < order.index("tk_dossiers")
@@ -76,7 +76,7 @@ def test_normalize_order_puts_what_is_looked_up_first() -> None:
 
 
 def test_semantic_order_of_the_steps_that_read_other_steps() -> None:
-    order = [s.id for s in SOURCES if s.semantic_main is not None]
+    order = [s.id for s in SOURCES if s.semantic_command is not None]
 
     # amendment-articles starts from the AMENDS edges of instrument-relations
     assert order.index("instrument_relations") < order.index("amendment_articles")

@@ -164,3 +164,21 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
         ["BASED_ON", "articles/bwbr0001947_133"],
         ["IMPLEMENTS", "instruments/32016r0679"],
     ]
+
+
+def test_check_says_when_a_regulation_lacks_what_the_semantic_steps_read(
+    database: str, cli: Any
+) -> None:
+    """The copy on the node is only as good as the run that made it."""
+    store = ArangoStore()
+    seed(store, documents=0, judgments=0, regulations=3)
+    cli("normalize", "bwb")
+    assert not [p for p in check(store, edges=False).problems if "basis" in p]
+
+    store.query(  # a regulation as a `normalize bwb` from before the props were kept left it
+        "FOR i IN instruments FILTER i.props.source == 'bwb' LIMIT 1 "
+        "UPDATE i WITH {props: {basis: null}} IN instruments OPTIONS {keepNull: false}"
+    )
+    problems = [p for p in check(store, edges=False).problems if "basis" in p]
+    assert problems and "1 BWB regulations" in problems[0]
+    assert "normalize bwb" in problems[0]

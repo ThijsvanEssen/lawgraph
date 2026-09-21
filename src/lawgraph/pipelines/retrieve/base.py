@@ -10,7 +10,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.raw import Failure, StoreUnavailable
 from lawgraph.pipelines.base import STOP, PipelineBase
 
@@ -129,9 +129,7 @@ class RetrievePipelineBase(PipelineBase):
 
     progress: Progress
 
-    def __init__(self, store: ArangoStore) -> None:
-        super().__init__(store)
-        self.progress = Progress()
+    progress: Progress  # of the records being stored; made by ``_store_all``
 
     def run(self, **kwargs: Any) -> PipelineResult:
         def records() -> Iterator[RetrieveRecord]:

@@ -11,9 +11,9 @@ import pytest
 from lawgraph.core import logging as lg
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
-from lawgraph.pipelines import factory
-from lawgraph.pipelines.factory import run_command, run_step
-from lawgraph.pipelines.orchestration import _run_phase, _Step
+from lawgraph.pipelines import execution
+from lawgraph.pipelines.execution import State, execute
+from lawgraph.pipelines.orchestration import Step, run_phase
 from lawgraph.sources.registry import SOURCES, describe
 
 
@@ -98,37 +98,43 @@ def test_json_lines_have_the_step() -> None:
 def test_a_step_says_what_it_does_with_which_options_and_how_long(
     lines, monkeypatch
 ) -> None:
-    monkeypatch.setattr(factory.time, "monotonic", iter([0.0, 252.0]).__next__)
+    monkeypatch.setattr(execution.time, "monotonic", iter([0.0, 252.0]).__next__)
     seen: list[str] = []
-    ok = run_command(
-        "Staatscourant",
-        lambda argv: seen.append(lg.current_step()),
+
+    def command(argv: list[str]) -> PipelineResult:
+        seen.append(lg.current_step())
+        return PipelineResult(created=5)
+
+    outcome = execute(
+        "retrieve staatscourant",
+        command,
         ["--mode", "incremental", "--since", "2024-09-20"],
-        step="retrieve staatscourant",
         description="Ministerial regulations from the Staatscourant.",
     )
-    assert ok and seen == ["retrieve staatscourant"]
-    start, end = lines()
+    assert outcome.state is State.OK and seen == ["retrieve staatscourant"]
+    start, end = lines()  # one line to start and one to end, whoever runs the step
     assert "[retrieve staatscourant]" in start
-    assert "starting — Ministerial regulations from the Staatscourant." in start
+    assert "Starting: Ministerial regulations from the Staatscourant." in start
     assert "(--mode incremental --since 2024-09-20)" in start
-    assert "completed in 4m12s." in end
+    assert "Done in 4m12s: 5 created." in end
 
 
-def test_a_failing_step_says_how_long_it_ran(lines, monkeypatch) -> None:
-    monkeypatch.setattr(factory.time, "monotonic", iter([0.0, 65.0]).__next__)
+def test_a_failing_step_says_how_long_it_ran_and_why(lines, monkeypatch) -> None:
+    monkeypatch.setattr(execution.time, "monotonic", iter([0.0, 65.0, 65.0]).__next__)
 
-    def fail(argv: list[str]) -> None:
-        raise SystemExit(1)
+    def fail(argv: list[str]) -> PipelineResult:
+        raise RuntimeError("no route to host")
 
-    assert run_command("X", fail, [], step="normalize x") is False
-    assert "exited with code 1 after 1m05s" in lines()[-1]
+    assert execute("normalize x", fail, []).state is State.FAILED
+    assert "Failed after 1m05s: RuntimeError: no route to host" in lines()[-1]
 
 
-def test_run_step_reports_the_summary_and_the_duration(lines, monkeypatch) -> None:
-    monkeypatch.setattr(factory.time, "monotonic", iter([0.0, 12.0]).__next__)
-    run_step("TK retrieve", lambda: PipelineResult(created=5))
-    assert "TK retrieve: " in lines()[0] and "in 12s." in lines()[0]
+def test_every_error_of_a_result_is_a_line(lines) -> None:
+    execute("normalize x", lambda argv: PipelineResult(errors=["a", "b"]), [])
+    assert [line.split("Error: ")[1] for line in lines() if "Error: " in line] == [
+        "a",
+        "b",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -139,19 +145,25 @@ def test_format_duration(seconds, text) -> None:
     assert format_duration(seconds) == text
 
 
-def test_the_orchestrator_labels_each_step_with_phase_and_source() -> None:
+def test_a_step_is_called_what_one_types_everywhere(lines) -> None:
+    """One name: in the log context, in the table of the phase, in the error of the parent."""
     labels: list[str] = []
+
+    def command(argv: list[str]) -> PipelineResult:
+        labels.append(lg.current_step())
+        return PipelineResult()
+
     steps = [
-        _Step(
-            "tk_dossiers",
-            "TK dossiers",
-            lambda argv: labels.append(lg.current_step()),
-            [],
-        ),
-        _Step("bwb", "BWB", lambda argv: labels.append(lg.current_step()), []),
+        Step("normalize", "tk_dossiers", command, []),
+        Step("normalize", "bwb", command, []),
     ]
-    _run_phase("normalize", steps)
+    outcomes = run_phase(steps)
     assert labels == ["normalize tk-dossiers", "normalize bwb"]
+    assert [o.label for o in outcomes] == labels
+    table = [line for line in lines() if line.rstrip().endswith(" ok")]
+    assert [line.split()[-4:-2] for line in table] == [
+        label.split() for label in labels
+    ]
 
 
 # ── the descriptions ─────────────────────────────────────────────────────────
@@ -160,7 +172,7 @@ def test_the_orchestrator_labels_each_step_with_phase_and_source() -> None:
 @pytest.mark.parametrize("source", SOURCES, ids=lambda s: s.id)
 def test_every_command_of_every_source_is_described(source) -> None:
     for phase in ("retrieve", "normalize", "semantic"):
-        if getattr(source, f"{phase}_main") is not None:
+        if getattr(source, f"{phase}_command") is not None:
             assert source.descriptions.get(phase), f"{phase} {source.id}"
 
 

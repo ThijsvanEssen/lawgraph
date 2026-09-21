@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -70,15 +71,8 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
         bind_vars = {"source": SOURCE_STAATSBLAD}
 
         rows: list[dict[str, Any]] = []
-        try:
-            rows.extend(self.store.query(_AQL_BWB, bind_vars=bind_vars))
-        except Exception as exc:
-            result.add_error(f"Staatsblad NvT semantic (bwb_id query) failed: {exc}")
-
-        try:
-            rows.extend(self.store.query(_AQL_TITLE, bind_vars=bind_vars))
-        except Exception as exc:
-            result.add_error(f"Staatsblad NvT semantic (title query) failed: {exc}")
+        rows.extend(self.store.query(_AQL_BWB, bind_vars=bind_vars))
+        rows.extend(self.store.query(_AQL_TITLE, bind_vars=bind_vars))
 
         if not rows:
             logger.debug("No Staatsblad NvT documents found for EXPLAINS linking.")
@@ -91,7 +85,7 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
 
         # Deduplicate by (pub_id, inst_id)
         seen: set[tuple[str, str]] = set()
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
 
         for row in self._track(rows, "publications", total=len(rows)):
             pub_id = row.get("pub_id")
@@ -129,8 +123,7 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
                 props={},
             )
 
-            self._queue_edge(
-                edge_batch,
+            edges.add_doc(
                 self._make_edge_doc(
                     from_node=pub_node,
                     to_node=inst_node,
@@ -138,10 +131,9 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
                     source=SEMANTIC_SOURCE,
                     confidence=confidence,
                     meta={"match_type": match_type},
-                ),
-                result,
+                )
             )
 
-        self._write_batch(edge_batch, result)
+        edges.flush_into(result)
         logger.info("Staatsblad NvT semantic linker: %s.", result.summary())
         return result

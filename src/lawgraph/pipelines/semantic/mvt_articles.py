@@ -108,10 +108,7 @@ class MvtArticlesSemanticPipeline(SemanticPipelineBase):
                     source=SEMANTIC_SOURCE,
                     confidence=1.0,
                 )
-        edges.flush()
-
-        result.created += edges.created
-        result.updated += edges.updated
+        edges.flush_into(result)
         logger.info(
             "Explanatory memorandum linker: %d documents, %s.",
             documents,

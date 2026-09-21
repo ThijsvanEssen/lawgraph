@@ -29,13 +29,13 @@ from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, NodeWriter, Store
 
 logger = get_logger(__name__)
 
 
 def normalize_activities(
-    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
+    store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Activiteit nodes, keyed by TK ``Id``."""
     nodes = _write_nodes(
@@ -50,7 +50,7 @@ def normalize_activities(
 
 
 def normalize_commitments(
-    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
+    store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Toezegging nodes, keyed by TK ``Id``."""
     unknown: set[str] = set()
@@ -73,7 +73,7 @@ def normalize_commitments(
 
 
 def normalize_documents(
-    store: ArangoStore, raw_records: Iterable[dict[str, Any]]
+    store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Document (Kamerstuk) nodes, keyed by TK ``Id``."""
     nodes = _write_nodes(
@@ -89,7 +89,7 @@ def normalize_documents(
 
 
 def link_subjects(
-    store: ArangoStore,
+    store: Store,
     nodes: Iterable[Node],
     relation: str,
     *,
@@ -117,7 +117,7 @@ def link_subjects(
     logger.info("Wrote %d %s edges to cases and dossiers.", writer.added, relation)
 
 
-def link_cases_to_dossiers(store: ArangoStore, *, source: str) -> None:
+def link_cases_to_dossiers(store: Store, *, source: str) -> None:
     """PART_OF edges from every stored case to the dossiers it belongs to.
 
     Cases are normalized by the TK pipeline before any dossier node exists,
@@ -140,7 +140,7 @@ def link_cases_to_dossiers(store: ArangoStore, *, source: str) -> None:
 
 
 def link_activities_to_committees(
-    store: ArangoStore, activity_nodes: dict[str, Node], *, source: str
+    store: Store, activity_nodes: dict[str, Node], *, source: str
 ) -> None:
     """LED_BY edges from an activity to its voortouwcommissie (absent: plenary)."""
     pairs = [
@@ -155,7 +155,7 @@ def link_activities_to_committees(
 
 
 def link_commitments(
-    store: ArangoStore,
+    store: Store,
     commitment_nodes: dict[str, Node],
     activity_nodes: dict[str, Node],
     *,
@@ -187,9 +187,7 @@ def link_commitments(
     logger.info("Wrote %d commitment edges.", writer.added)
 
 
-def link_authors(
-    store: ArangoStore, document_nodes: dict[str, Node], *, source: str
-) -> None:
+def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) -> None:
     """AUTHORED edges from every signatory to the document they signed.
 
     Only people are stored: which faction signed follows from the signatory's
@@ -252,7 +250,7 @@ def link_node(node: Node) -> Node:
 
 
 def _write_nodes(
-    store: ArangoStore,
+    store: Store,
     raw_records: Iterable[dict[str, Any]],
     read: Any,
     collection: str,
@@ -284,7 +282,7 @@ def _write_nodes(
 
 
 def _queue_existing(
-    store: ArangoStore,
+    store: Store,
     pairs: list[tuple[str, str, str]],
     relation: str,
     writer: EdgeWriter,

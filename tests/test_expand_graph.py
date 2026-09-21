@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from lawgraph.commands import expand_graph
+from lawgraph.pipelines.execution import Outcome, State, combined
 
 
 def _recorded(monkeypatch, counts: list[int]) -> list[tuple[str, list[str]]]:
@@ -12,8 +13,10 @@ def _recorded(monkeypatch, counts: list[int]) -> list[tuple[str, list[str]]]:
     monkeypatch.setattr(expand_graph, "_count_records", lambda store: next(records))
     monkeypatch.setattr(
         expand_graph,
-        "run_command",
-        lambda name, main, argv: ran.append((name, list(argv))) or True,
+        "execute",
+        lambda label, command, argv: (
+            ran.append((label, list(argv))) or Outcome(label, State.OK)
+        ),
     )
     return ran
 
@@ -22,7 +25,7 @@ def test_the_loop_ends_when_fill_gaps_retrieves_nothing_new(monkeypatch) -> None
     # Loading judgments opens as many stubs as it closes: the number of stubs stood still
     # and the old test ("no stub disappeared") stopped after one iteration.
     ran = _recorded(monkeypatch, [100, 160, 160, 160])
-    assert expand_graph._expand(max_iterations=10) is True
+    assert not combined(expand_graph._expand(max_iterations=10)).errors
     assert [name for name, _ in ran] == [
         "fill-gaps",
         "normalize all",
@@ -60,6 +63,14 @@ def test_a_failing_step_makes_the_command_fail_and_the_loop_goes_on(
     monkeypatch.setattr(expand_graph, "ArangoStore", lambda: object())
     monkeypatch.setattr(expand_graph, "_count_records", lambda store: next(records))
     monkeypatch.setattr(
-        expand_graph, "run_command", lambda name, main, argv: name != "semantic all"
+        expand_graph,
+        "execute",
+        lambda label, command, argv: Outcome(
+            label, State.FAILED if label == "semantic all" else State.OK
+        ),
     )
-    assert expand_graph._expand(max_iterations=3) is False
+    outcomes = expand_graph._expand(max_iterations=3)
+    assert (
+        combined(outcomes).errors == ["semantic all failed"] * 2
+    )  # the round, the end
+    assert [o.label for o in outcomes].count("fill-gaps") == 2

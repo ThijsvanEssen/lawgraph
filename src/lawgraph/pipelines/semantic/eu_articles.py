@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Any, Callable, Iterable
+from typing import Callable, Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -34,6 +34,7 @@ from lawgraph.core.eu_citations import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
+from lawgraph.db import EdgeWriter
 
 from .base import CodeMapping, SemanticPipelineBase, slim
 
@@ -131,7 +132,7 @@ class EUArticlesSemanticPipeline(SemanticPipelineBase):
             self._load_eu_documents(since_iso=since_iso), "EU articles"
         )
 
-        edge_batch: list[dict[str, Any]] = []
+        edges = EdgeWriter(self.store)
         for document in documents:
             text = self._extract_document_text(document)
             if not text:
@@ -146,8 +147,7 @@ class EUArticlesSemanticPipeline(SemanticPipelineBase):
                 target = self._resolve_target(hit)
                 if not target:
                     continue
-                self._queue_edge(
-                    edge_batch,
+                edges.add_doc(
                     self._make_edge_doc(
                         from_node=document,
                         to_node=target,
@@ -163,11 +163,10 @@ class EUArticlesSemanticPipeline(SemanticPipelineBase):
                             }.items()
                             if v
                         },
-                    ),
-                    result,
+                    )
                 )
 
-        self._write_batch(edge_batch, result)
+        edges.flush_into(result)
         logger.info("EU article linker: %s.", result.summary())
         return result
 

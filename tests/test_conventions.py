@@ -309,3 +309,16 @@ def test_every_pipeline_reports_progress() -> None:
                 silent.append(f"{phase}/{path.name}")
     assert "Progress(" in (pipelines / "list_stats.py").read_text()
     assert not silent, f"no progress reported by: {silent}"
+
+
+def test_semantic_pipelines_end_their_edges_through_the_edge_writer() -> None:
+    """A list, a size check, a flush and two `+=` per pipeline: thirteen copies, of which
+    one wrote its edges and forgot to count them. `EdgeWriter.flush_into` counts."""
+    semantic = SRC / "pipelines" / "semantic"
+    offenders = [
+        f"{path.name}: {needle}"
+        for path in sorted(semantic.glob("*.py"))
+        for needle in ("edge_batch", "bulk_insert_or_update_edges(", "edges.created")
+        if needle in path.read_text()
+    ]
+    assert not offenders

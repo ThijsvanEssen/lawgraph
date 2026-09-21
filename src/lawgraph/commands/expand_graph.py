@@ -10,14 +10,14 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import sys
 
 from lawgraph.commands.fill_gaps import main as fill_gaps
 from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_SUFFIX
-from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.factory import run_command
-from lawgraph.pipelines.orchestration import run_normalize_all, run_semantic_all
+from lawgraph.pipelines.execution import Outcome, combined, execute
+from lawgraph.pipelines.orchestration import normalize_all, semantic_all
 
 logger = get_logger(__name__)
 
@@ -34,8 +34,8 @@ def _count_records(store: ArangoStore) -> int:
     return sum(store.query(_RECORDS_AQL, {"missing": f"%{RAW_KIND_MISSING_SUFFIX}"}))
 
 
-def _expand(max_iterations: int) -> bool:
-    """Run the loop; return True when every step succeeded.
+def _expand(max_iterations: int) -> list[Outcome]:
+    """Run the loop; how every step of it ended.
 
     An iteration is worth repeating when fill-gaps retrieved something. The number of stubs
     does not tell: loading a judgment closes one stub and opens one for every judgment it
@@ -43,14 +43,14 @@ def _expand(max_iterations: int) -> bool:
     fills.
     """
     store = ArangoStore()
-    succeeded = True
+    outcomes: list[Outcome] = []
     total = 0
     for iteration in range(1, max_iterations + 1):
         logger.info("expand-graph: iteration %d/%d", iteration, max_iterations)
         # ``fetched_at`` has a precision of a second: the second this round began in.
         began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
         before = _count_records(store)
-        succeeded &= run_command("fill-gaps", fill_gaps, ["--apply"])
+        outcomes.append(execute("fill-gaps", fill_gaps, ["--apply"]))
         retrieved = _count_records(store) - before
         if retrieved <= 0:
             logger.info(
@@ -61,17 +61,16 @@ def _expand(max_iterations: int) -> bool:
         total += retrieved
         logger.info("expand-graph: %d new record(s) retrieved.", retrieved)
         since = ["--since", began]
-        succeeded &= run_command("normalize all", run_normalize_all, since)
-        succeeded &= run_command("semantic all", run_semantic_all, since)
+        outcomes.append(execute("normalize all", normalize_all, since))
+        outcomes.append(execute("semantic all", semantic_all, since))
 
     logger.info("expand-graph: %d record(s) retrieved in total.", total)
     if total:
-        succeeded &= run_command("semantic all", run_semantic_all, [])
-    return succeeded
+        outcomes.append(execute("semantic all", semantic_all, []))
+    return outcomes
 
 
-def main(argv: list[str] | None = None) -> None:
-    setup_logging()
+def main(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description=(
             "Repeat fill-gaps and, for what it retrieved, normalize all and semantic all, "
@@ -85,14 +84,5 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.dry_run:
-        fill_gaps(argv=[])
-        return
-
-    try:
-        succeeded = _expand(args.max_iterations)
-    except Exception as exc:
-        logger.error("expand-graph failed: %s", exc)
-        sys.exit(1)
-    if not succeeded:
-        logger.error("expand-graph finished with failures.")
-        sys.exit(1)
+        return fill_gaps(argv=[])
+    return combined(_expand(args.max_iterations))

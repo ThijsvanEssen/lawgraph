@@ -3,18 +3,18 @@
 A step can end "successfully" and still leave nothing behind: a source that answers no records
 for a parameter it does not understand, a normalize step that was never run, a search view
 that lost its index when the server was killed. Nothing complains about that on its own; this
-command does. Every check is one read-only query, and it exits 1 when one of them fails:
+command does. Every check is one read-only query; a problem is an error of the command:
 
   raw      every raw kind of the registry holds records
   nodes    every source with raw records has nodes (normalize did run and wrote something)
   edges    no edge points to a node that does not exist
   views    every search view holds what its collection holds (``out of sync`` after a crash)
+  derived  what a normalize step keeps for a semantic step is there on every node it is read from
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
 from dataclasses import dataclass, field
 
 from lawgraph.config.constants import (
@@ -45,7 +45,8 @@ from lawgraph.config.constants import (
     SOURCE_TK,
     SOURCE_VERDRAGENBANK,
 )
-from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 from lawgraph.db.schema import SEARCH_VIEWS
 
@@ -87,8 +88,7 @@ class Report:
     notes: list[str] = field(default_factory=list)
 
     def problem(self, message: str) -> None:
-        self.problems.append(message)
-        logger.error("%s", message)
+        self.problems.append(message)  # logged as the errors of the command
 
     def note(self, message: str) -> None:
         self.notes.append(message)
@@ -103,6 +103,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     if edges:
         _check_edges(store, report)
     _check_views(store, report)
+    _check_derived(store, report)
     return report
 
 
@@ -196,8 +197,30 @@ def _check_views(store: ArangoStore, report: Report) -> None:
             )
 
 
-def main(argv: list[str] | None = None) -> None:
-    setup_logging()
+def _check_derived(store: ArangoStore, report: Report) -> None:
+    """``normalize bwb`` keeps the basis and the EU acts of a regulation on its node, and
+    ``semantic bwb-grondslagen`` and ``instrument-relations`` read only that: a regulation
+    normalized before it was kept would give them nothing, and nothing would say so."""
+    aql = f"""
+    FOR regulation IN {COLLECTION_INSTRUMENTS}
+        FILTER regulation.props.source == @source AND regulation.props.stub != true
+        FILTER "Publication" NOT IN regulation.labels
+        FILTER regulation.props.basis == null OR regulation.props.celex_refs == null
+        COLLECT WITH COUNT INTO n
+        RETURN n
+    """
+    behind = next(iter(store.query(aql, {"source": SOURCE_BWB})), 0)
+    if behind:
+        report.problem(
+            f"{behind:,} BWB regulations carry no `basis` / `celex_refs`: BASED_ON and "
+            "IMPLEMENTS are read from them. Run `lawgraph normalize bwb`, then "
+            "`lawgraph semantic all`."
+        )
+    else:
+        report.note("derived: every BWB regulation carries its basis and EU acts")
+
+
+def main(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument(
         "--skip-edges",
@@ -206,7 +229,4 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
     report = check(ArangoStore(), edges=not args.skip_edges)
-    if report.problems:
-        logger.error("check: %d problem(s).", len(report.problems))
-        sys.exit(1)
-    logger.info("check: no problems.")
+    return PipelineResult(errors=report.problems)

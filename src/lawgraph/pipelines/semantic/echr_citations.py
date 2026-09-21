@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase
 
@@ -93,12 +94,9 @@ class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
         judgments: list[dict],
         convention: Node,
         article_cache: dict[str, Node | None],
-        edge_batch: list[dict],
-    ) -> list[dict]:
-        """Append REFERS_TO edges for every judgment → Convention article pair.
-
-        Returns the (possibly grown) edge_batch so the caller can flush it.
-        """
+        edges: EdgeWriter,
+    ) -> None:
+        """REFERS_TO edges for every judgment → Convention article pair."""
         for row in judgments:
             j_id = row.get("j_id")
             j_key = row.get("j_key")
@@ -123,15 +121,9 @@ class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
                     continue
 
                 if label not in article_cache:
-                    try:
-                        article_cache[label] = _ensure_echr_article(
-                            self.store, convention, label
-                        )
-                    except Exception as exc:
-                        logger.debug(
-                            "ECHR: could not ensure article %s: %s", label, exc
-                        )
-                        article_cache[label] = None
+                    article_cache[label] = _ensure_echr_article(
+                        self.store, convention, label
+                    )
 
                 art_node = article_cache[label]
                 if art_node is None:
@@ -146,26 +138,16 @@ class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
                     meta={"article": label, "instrument": "EVRM"},
                 )
                 if edge_doc:
-                    edge_batch.append(edge_doc)
-                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                        created, updated = self._flush_edge_batch(edge_batch, result)
-                        result.created += created
-                        result.updated += updated
-                        edge_batch = []
-
-        return edge_batch
+                    edges.add_doc(edge_doc)
 
     def _link_bwb_mentions(
         self,
         result: PipelineResult,
         judgments: list[dict],
         bwb_instruments: dict[str, Node],
-        edge_batch: list[dict],
-    ) -> list[dict]:
-        """Append REFERS_TO edges for BWB IDs found in judgment conclusions.
-
-        Returns the (possibly grown) edge_batch so the caller can flush it.
-        """
+        edges: EdgeWriter,
+    ) -> None:
+        """REFERS_TO edges for BWB IDs found in judgment conclusions."""
         for row in judgments:
             j_id = row.get("j_id")
             j_key = row.get("j_key")
@@ -197,14 +179,7 @@ class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
                     meta={"match_type": "bwb_text_scan"},
                 )
                 if edge_doc:
-                    edge_batch.append(edge_doc)
-                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                        created, updated = self._flush_edge_batch(edge_batch, result)
-                        result.created += created
-                        result.updated += updated
-                        edge_batch = []
-
-        return edge_batch
+                    edges.add_doc(edge_doc)
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
@@ -221,12 +196,8 @@ FOR j IN {COLLECTION_JUDGMENTS}
     conclusion: j.props.conclusion
   }}
 """
-        try:
-            judgments = self.store.query(aql, {"source": SOURCE_ECHR})
-            rows = list(self._track(judgments, "ECHR judgments"))
-        except Exception as exc:
-            result.add_error(f"ECHR citations: query failed: {exc}")
-            return result
+        judgments = self.store.query(aql, {"source": SOURCE_ECHR})
+        rows = list(self._track(judgments, "ECHR judgments"))
 
         if not rows:
             logger.debug("ECHR citations: no ECHR judgments found.")
@@ -235,13 +206,7 @@ FOR j IN {COLLECTION_JUDGMENTS}
         logger.info("ECHR citations: processing %d judgments.", len(rows))
 
         # Ensure the ECHR Convention instrument exists
-        try:
-            convention = _ensure_echr_convention_instrument(self.store)
-        except Exception as exc:
-            result.add_error(
-                f"ECHR citations: could not ensure Convention instrument: {exc}"
-            )
-            return result
+        convention = _ensure_echr_convention_instrument(self.store)
 
         # Collect all BWB IDs mentioned across all judgments so we can look
         # them up in one query instead of one per (judgment × bwb_id).
@@ -258,34 +223,23 @@ FOR inst IN {COLLECTION_INSTRUMENTS}
   FILTER inst.props.bwb_id IN @bwb_ids
   RETURN {{_key: inst._key, props: {{bwb_id: inst.props.bwb_id}}}}
 """
-            try:
-                inst_rows = list(
-                    self.store.query(batch_aql, {"bwb_ids": list(all_bwb_ids)})
-                )
-                for inst_doc in inst_rows:
-                    key = inst_doc.get("props", {}).get("bwb_id", "").upper()
-                    if key:
-                        bwb_id_to_node[key] = Node(
-                            collection=COLLECTION_INSTRUMENTS,
-                            type=NodeType.INSTRUMENT,
-                            key=inst_doc["_key"],
-                            props={},
-                        )
-            except Exception as exc:
-                result.add_error(f"ECHR citations: batch BWB lookup failed: {exc}")
+            bind = {"bwb_ids": list(all_bwb_ids)}
+            for inst_doc in self.store.query(batch_aql, bind):
+                key = inst_doc.get("props", {}).get("bwb_id", "").upper()
+                if key:
+                    bwb_id_to_node[key] = Node(
+                        collection=COLLECTION_INSTRUMENTS,
+                        type=NodeType.INSTRUMENT,
+                        key=inst_doc["_key"],
+                        props={},
+                    )
 
         article_cache: dict[str, Node | None] = {}
-        edge_batch: list[dict] = []
+        edges = EdgeWriter(self.store)
 
-        edge_batch = self._link_convention_articles(
-            result, rows, convention, article_cache, edge_batch
-        )
-        edge_batch = self._link_bwb_mentions(result, rows, bwb_id_to_node, edge_batch)
-
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+        self._link_convention_articles(result, rows, convention, article_cache, edges)
+        self._link_bwb_mentions(result, rows, bwb_id_to_node, edges)
+        edges.flush_into(result)
 
         logger.info("ECHR citations: %s.", result.summary())
         return result

@@ -252,7 +252,7 @@ def test_since_last_goes_on_where_the_last_complete_run_began(
     mark = store.db.collection("pipeline_state").get("normalize")["covered_until"]
     time.sleep(1.1)
     again = cli("normalize", "all", "--since", "last")
-    assert "since the last complete run" in again.stderr
+    assert "Since the last complete run" in again.stderr
     assert (
         store.db.collection("pipeline_state").get("normalize")["covered_until"] > mark
     )
