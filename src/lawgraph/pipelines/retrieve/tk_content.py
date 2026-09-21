@@ -86,15 +86,18 @@ class TKContentRetrievePipeline(PipelineBase):
         *,
         kind_filter: str = _DEFAULT_KIND_FILTER,
         dry_run: bool = False,
+        papers: list[dict[str, Any]] | None = None,
     ) -> PipelineResult:
         """Hydrate text for all qualifying papers.
 
         Args:
             kind_filter: Case-insensitive substring matched against ``props.kind``.
             dry_run: When True, log what would happen but make no changes.
+            papers: What ``unhydrated`` answered, when the caller asked already.
         """
         result = PipelineResult()
-        papers = self._query_unhydrated(kind_filter)
+        if papers is None:
+            papers = self.unhydrated(kind_filter)
 
         if not papers:
             logger.info("No unhydrated papers found for kind filter '%s'.", kind_filter)
@@ -131,10 +134,12 @@ class TKContentRetrievePipeline(PipelineBase):
         result.errors.extend(down)
         return result
 
-    # ── private ───────────────────────────────────────────────────────────────
+    def unhydrated(self, kind_filter: str) -> list[dict[str, Any]]:
+        """Papers without text, with the dossier they belong to (a paper without one is left).
 
-    def _query_unhydrated(self, kind_filter: str) -> list[dict[str, Any]]:
-        """Papers without text, with the dossier they belong to (a paper without one is left)."""
+        Also what ``fill-gaps`` reports: a report from a query of its own listed the papers
+        this one leaves out (no dossier, no sequence, a text that was missing last month).
+        """
         aql = f"""
             FOR pub IN {COLLECTION_DOCUMENTS}
                 FILTER "TK" IN pub.labels

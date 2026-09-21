@@ -43,24 +43,24 @@ def test_normalize_instrument_id() -> None:
     assert aliases.normalize_instrument_id("") is None
 
 
-def test_fill_gaps_resolves_citation_title_via_toestand_parser(monkeypatch) -> None:
+def test_fill_gaps_names_a_law_from_its_sru_record_without_downloading_it(
+    monkeypatch,
+) -> None:
+    """The report needs a name; the toestand is the whole law, fetched again by --apply."""
     from lawgraph.commands import fill_gaps
 
-    xml = {
-        "BWBR1": "<t><wetgeving><citeertitel> Wet   op X </citeertitel></wetgeving></t>",
-        "BWBR2": "<t><wetgeving><intitule>Geen citeertitel</intitule></wetgeving></t>",
-        "BWBR3": "<bad",
-    }
+    titles = {"BWBR1": "Wet op X", "BWBR2": None}
 
     class _FakeClient:
-        def latest_toestand(self, bwb_id: str) -> dict:
-            return {"bwb_id": bwb_id}
+        def latest_toestand(self, bwb_id: str) -> dict | None:
+            if bwb_id == "BWBR3":
+                raise RuntimeError("SRU error")
+            return {"bwb_id": bwb_id, "title": titles[bwb_id]}
 
         def fetch_toestand_xml(self, meta: dict) -> str:
-            return xml[meta["bwb_id"]]
+            raise AssertionError("the toestand is not needed for a name")
 
     monkeypatch.setattr(fill_gaps, "BWBClient", _FakeClient)
-    monkeypatch.setattr(fill_gaps.time, "sleep", lambda _s: None)
     result = fill_gaps._resolve_names_from_bwb(
         ["BWBR1", "BWBR2", "BWBR3"], {"BWBR9": "Bekend"}
     )

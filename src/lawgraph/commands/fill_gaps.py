@@ -38,13 +38,11 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import textwrap
-import time
 from typing import Any, cast
 
 from lawgraph.clients.bwb import BWBClient
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
-    COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
@@ -53,7 +51,6 @@ from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.core.bwb_xml import parse_toestand
 from lawgraph.core.identifiers import CELEX_AQL_REGEX, find_celex_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
@@ -218,7 +215,7 @@ def _run_diagnostics(store: ArangoStore, args: argparse.Namespace) -> dict[str, 
     _print_judgment_stub_report(stub_judgment_eclis)
 
     # ── 3. diagnose MvT ──────────────────────────────────────────────────────
-    mvt_gap = _query_mvt_gap(store)
+    mvt_gap = TKContentRetrievePipeline(store=store).unhydrated("toelichting")
     _print_mvt_report(mvt_gap)
 
     # ── 4. diagnose EU CELEX stubs ────────────────────────────────────────────
@@ -379,7 +376,9 @@ def _apply_mvt_gaps(
 
     return _logged(
         "MvT text",
-        TKContentRetrievePipeline(store=store).run(kind_filter="toelichting"),
+        TKContentRetrievePipeline(store=store).run(
+            kind_filter="toelichting", papers=mvt_gap
+        ),
     )
 
 
@@ -443,23 +442,6 @@ def _query_stub_judgments(store: ArangoStore) -> list[str]:
     return _capped(cast(list[str], eclis), "stub judgments")
 
 
-def _query_mvt_gap(store: ArangoStore) -> list[dict[str, Any]]:
-    """Return documents with kind ∋ 'toelichting' and no stored text."""
-    aql = f"""
-    FOR pub IN {COLLECTION_DOCUMENTS}
-      FILTER CONTAINS(LOWER(pub.props.kind), 'toelichting')
-        AND (pub.props.text == null OR pub.props.text == '')
-        AND pub.props.external_id != null
-      RETURN {{
-        key: pub._key,
-        title: pub.props.title,
-        kind: pub.props.kind,
-        external_id: pub.props.external_id
-      }}
-    """
-    return _capped(list(store.query(aql)), "explanatory memoranda without text")
-
-
 def _build_name_cache(store: ArangoStore) -> dict[str, str]:
     """Map bwb_id → best available title from the instruments collection."""
     aql = f"""
@@ -484,31 +466,21 @@ def _resolve_names_from_bwb(
     known: dict[str, str],
     max_lookups: int = 15,
 ) -> dict[str, str]:
-    """Fetch law titles from the BWB API for IDs not already in *known*.
+    """The titles of the laws not in *known*, from their SRU record (for the report).
 
-    Caps at *max_lookups* HTTP calls so the diagnostic stays fast.  Only fetches
-    the XML toestand (small — header only is enough for the <citeertitel> tag).
+    At most *max_lookups* searches. The title is in the record: the toestand itself (the
+    whole law, which ``--apply`` fetches a moment later) is not downloaded for its name.
     """
-
     result = dict(known)
-    to_resolve = [b for b in bwb_ids if b.upper() not in result][:max_lookups]
-    if not to_resolve:
-        return result
-
     client = BWBClient()
-    for bwb_id in to_resolve:
+    for bwb_id in [b for b in bwb_ids if b.upper() not in result][:max_lookups]:
         try:
             meta = client.latest_toestand(bwb_id)
-            if not meta:
-                continue
-            xml_text = client.fetch_toestand_xml(meta)
-            citation_title = parse_toestand(xml_text).citation_title
-            if citation_title:
-                result[bwb_id.upper()] = citation_title
         except Exception as exc:
             logger.debug("Could not resolve title for %s: %s", bwb_id, exc)
-        time.sleep(0.1)  # gentle rate limit
-
+            continue
+        if meta and meta.get("title"):
+            result[bwb_id.upper()] = str(meta["title"])
     return result
 
 
@@ -710,7 +682,6 @@ def _print_mvt_report(gap: list[dict[str, Any]]) -> None:
     )
     for pub in gap:
         title = (pub.get("title") or pub.get("key") or "")[:70]
-        kind = pub.get("kind") or ""
-        print(f"    [{kind}] {title}")
+        print(f"    [{pub['number']} nr. {pub['sequence']}] {title}")
     print()
     print("  Note: scanned PDFs may fail text extraction; check logs after --apply.")

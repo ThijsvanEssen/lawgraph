@@ -146,7 +146,6 @@ def test_fill_gaps_queries_are_not_capped_in_aql() -> None:
             return iter([])
 
     fill_gaps._query_stub_judgments(Store())
-    fill_gaps._query_mvt_gap(Store())
     assert not any("LIMIT" in aql for aql in seen)
 
 
@@ -330,3 +329,35 @@ def test_a_caller_can_ask_for_a_different_ttl() -> None:
     store.db = SimpleNamespace(aql=Aql())
     store.query("RETURN 1", ttl=60)
     assert seen["ttl"] == 60
+
+
+# ── fill-gaps reports what it will fetch ─────────────────────────────────────
+
+
+def test_fill_gaps_reports_and_fetches_the_papers_the_retriever_asks_for(
+    monkeypatch,
+) -> None:
+    """A query of its own listed papers the retriever leaves out (no dossier, a text that
+    was missing last month): reported as a gap on every run, never fetched."""
+    from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+
+    asked: list[str] = []
+    papers = [{"key": "d1", "title": "MvT", "number": 36000, "sequence": 3}]
+    ran: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        TKContentRetrievePipeline,
+        "unhydrated",
+        lambda self, kind: asked.append(kind) or papers,
+    )
+    monkeypatch.setattr(
+        TKContentRetrievePipeline,
+        "run",
+        lambda self, **kw: ran.update(kw) or PipelineResult(),
+    )
+    store = SimpleNamespace()
+    gap = TKContentRetrievePipeline(store=store).unhydrated("toelichting")
+    fill_gaps._apply_mvt_gaps(store, SimpleNamespace(no_mvt=False), gap)
+
+    assert ran["papers"] is papers  # not asked for a second time
+    assert asked == ["toelichting"]

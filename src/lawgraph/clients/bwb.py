@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import time
 import xml.etree.ElementTree as ET
-from typing import Callable, TypedDict
+from typing import TypedDict
 
 from requests import Session
 
@@ -37,8 +37,22 @@ WTI_HEAD_LIMIT = 1_000_000
 EMPTY_PAGE_SIZES = (SRU_PAGE_SIZE, SRU_PAGE_SIZE, 500, 250, 100, 50)
 
 
+# Element of an SRU record -> field of ``ToestandMeta``.
+_RECORD_FIELDS = {
+    "bwb-id": "bwb_id",
+    "identifier": "bwb_id",
+    "title": "title",
+    "locatie_toestand": "locatie_toestand",
+    "locatie_wti": "locatie_wti",
+    "locatie_manifest": "locatie_manifest",
+    "geldigheidsperiode_startdatum": "geldigheidsperiode_startdatum",
+    "geldigheidsperiode_einddatum": "geldigheidsperiode_einddatum",
+}
+
+
 class ToestandMeta(TypedDict):
     bwb_id: str
+    title: str | None
     locatie_toestand: str
     locatie_wti: str | None
     locatie_manifest: str | None
@@ -295,58 +309,23 @@ class BWBClient(BaseClient):
         return extract_general_info(head.decode("utf-8", errors="replace"))
 
     def _parse_record(self, record: ET.Element) -> ToestandMeta | None:
-        """Extract identifiers and URIs from a single SRU record element."""
-        field_values: dict[str, str | None] = {
-            "bwb_id": None,
-            "locatie_toestand": None,
-            "locatie_wti": None,
-            "locatie_manifest": None,
-            "geldigheidsperiode_startdatum": None,
-            "geldigheidsperiode_einddatum": None,
-        }
-
-        def _set_if_missing(key: str, value: str) -> None:
-            if not field_values[key]:
-                field_values[key] = value
-
-        handlers: dict[str, Callable[[str], None]] = {
-            "bwb-id": lambda value: _set_if_missing("bwb_id", value),
-            "identifier": lambda value: _set_if_missing("bwb_id", value),
-            "locatie_toestand": lambda value: _set_if_missing(
-                "locatie_toestand", value
-            ),
-            "locatie_wti": lambda value: _set_if_missing("locatie_wti", value),
-            "locatie_manifest": lambda value: _set_if_missing(
-                "locatie_manifest", value
-            ),
-            "geldigheidsperiode_startdatum": lambda value: _set_if_missing(
-                "geldigheidsperiode_startdatum", value
-            ),
-            "geldigheidsperiode_einddatum": lambda value: _set_if_missing(
-                "geldigheidsperiode_einddatum", value
-            ),
-        }
-
+        """The identifier, title, locations and validity of one SRU record."""
+        values: dict[str, str] = {}
         for element in record.iter():
+            key = _RECORD_FIELDS.get(local_name(element.tag))
             text = (element.text or "").strip()
-            if not text:
-                continue
-            handler = handlers.get(local_name(element.tag))
-            if handler:
-                handler(text)
-
-        if not field_values["bwb_id"] or not field_values["locatie_toestand"]:
+            if key and text:
+                values.setdefault(key, text)  # the first one counts
+        if "bwb_id" not in values or "locatie_toestand" not in values:
             return None
-
         return {
-            "bwb_id": field_values["bwb_id"],
-            "locatie_toestand": field_values["locatie_toestand"],
-            "locatie_wti": field_values["locatie_wti"],
-            "locatie_manifest": field_values["locatie_manifest"],
-            "geldigheidsperiode_startdatum": field_values[
+            "bwb_id": values["bwb_id"],
+            "title": values.get("title"),
+            "locatie_toestand": values["locatie_toestand"],
+            "locatie_wti": values.get("locatie_wti"),
+            "locatie_manifest": values.get("locatie_manifest"),
+            "geldigheidsperiode_startdatum": values.get(
                 "geldigheidsperiode_startdatum"
-            ],
-            "geldigheidsperiode_einddatum": field_values[
-                "geldigheidsperiode_einddatum"
-            ],
+            ),
+            "geldigheidsperiode_einddatum": values.get("geldigheidsperiode_einddatum"),
         }

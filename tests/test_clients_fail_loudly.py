@@ -30,3 +30,10 @@ def test_an_sru_error_is_not_an_empty_list_of_toestanden() -> None:
 def test_an_unreadable_sru_response_raises() -> None:
     with pytest.raises(Exception, match="syntax error|not well-formed|no element"):
         _bwb("<html>Bad gateway").search_toestanden("BWBR0001840")
+
+
+def test_a_toestand_record_carries_the_title_of_the_law() -> None:
+    page = (FIXTURES / "bwb_sru_grondwet_page.xml").read_text()
+    toestanden = _bwb(page).search_toestanden("BWBR0001840")
+    assert toestanden and {t["title"] for t in toestanden} == {"Grondwet"}
+    assert all(t["locatie_toestand"].startswith("http") for t in toestanden)
