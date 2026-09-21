@@ -114,8 +114,10 @@ def test_a_step_says_what_it_does_with_which_options_and_how_long(
     assert outcome.state is State.OK and seen == ["retrieve staatscourant"]
     start, end = lines()  # one line to start and one to end, whoever runs the step
     assert "[retrieve staatscourant]" in start
-    assert "Starting: Ministerial regulations from the Staatscourant." in start
-    assert "(--mode incremental --since 2024-09-20)" in start
+    assert start.endswith(
+        "Starting: Ministerial regulations from the Staatscourant "
+        "(--mode incremental --since 2024-09-20)."
+    )
     assert "Done in 4m12s: 5 created." in end
 
 
@@ -194,3 +196,10 @@ def test_the_sources_command_lists_every_source_and_marks_manual_ones(capsys) ->
     assert "[manual: not in retrieve all]" in tk_content
     staatscourant = next(b for b in out.split("\n\n") if b.startswith("staatscourant"))
     assert "manual" not in staatscourant
+
+
+def test_the_start_line_ends_with_one_full_stop(lines) -> None:
+    execute(
+        "normalize tk", lambda argv: PipelineResult(), [], description="Cases as nodes."
+    )
+    assert lines()[0].endswith("Starting: Cases as nodes.")
