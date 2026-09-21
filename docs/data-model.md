@@ -240,8 +240,11 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)`; `semantic_source` |
 | `edge_status_log` | `timestamp`, `edge_key` |
 
-Sort-key indexes are non-sparse so `SORT ... LIMIT` is served from the index. `created_at` on
-edges is deliberately not indexed.
+An index that is sorted on (`SORT ... LIMIT`) or counted per value (`edges.relation`,
+`props.source`, `props.kind`, `props.jurisdiction`, `raw_sources (source, kind)`) is not
+sparse: a sparse index leaves out documents without a value, so the optimiser may not use
+it for a sort or a count and reads every document instead. `created_at` on edges is
+deliberately not indexed.
 
 ArangoSearch views back `/api/search`: `search_articles`, `search_instruments`,
 `search_judgments`, `search_dossiers`, `search_documents`, `search_committees`, using the
