@@ -9,7 +9,7 @@ import pytest
 
 from lawgraph.core.time import RELATIVE_SINCE_OVERLAP
 from lawgraph.pipelines import orchestration, watermark
-from lawgraph.pipelines.execution import Outcome, State
+from lawgraph.pipelines.command import Outcome, State
 from tests.fakes import PipelineStateFake
 
 UTC = dt.timezone.utc
@@ -54,12 +54,12 @@ def test_last_without_a_run_on_record_is_refused() -> None:
 def phase(monkeypatch) -> dict[str, Any]:
     seen: dict[str, Any] = {"store": _Store(), "outcomes": [Outcome("a", State.OK)]}
 
-    def run_phase(steps: list[Any], **kw: Any) -> list[Outcome]:
+    def run_steps(steps: list[Any], **kw: Any) -> list[Outcome]:
         seen["argv"] = [step.argv for step in steps]
         return seen["outcomes"]
 
     monkeypatch.setattr(orchestration, "ArangoStore", lambda: seen["store"])
-    monkeypatch.setattr(orchestration, "run_phase", run_phase)
+    monkeypatch.setattr(orchestration, "run_steps", run_steps)
     return seen
 
 

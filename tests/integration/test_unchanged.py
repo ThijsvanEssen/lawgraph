@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from lawgraph.db import ArangoStore
@@ -26,11 +27,14 @@ def test_a_second_run_writes_nothing_and_says_so(database: str, cli: Any) -> Non
 
     second = cli("normalize", "tk-dossiers")
     cli("normalize", "rechtspraak")
-    cli("semantic", "rechtspraak")
+    linked = cli("semantic", "rechtspraak")
     for name, revisions in before.items():
         assert _revisions(store, name) == revisions, name
-    assert "nodes 0 created / 0 updated /" in second.stderr
-    assert " 0 unchanged" not in second.stderr
+    # one line to end a step, and it says so: for nodes and for the edges of a semantic step
+    for done in (second, linked):
+        assert re.search(r"Done in \S+: [\d,]+ unchanged\.", done.stderr), done.stderr[
+            -400:
+        ]
 
 
 def test_a_changed_document_is_written_and_the_rest_is_left_alone(

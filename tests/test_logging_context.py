@@ -11,9 +11,9 @@ import pytest
 from lawgraph.core import logging as lg
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
-from lawgraph.pipelines import execution
-from lawgraph.pipelines.execution import State, execute
-from lawgraph.pipelines.orchestration import Step, run_phase
+from lawgraph.pipelines import command as command_module
+from lawgraph.pipelines.command import State, run_command
+from lawgraph.pipelines.orchestration import Step, run_steps
 from lawgraph.sources.registry import SOURCES, describe
 
 
@@ -98,14 +98,14 @@ def test_json_lines_have_the_step() -> None:
 def test_a_step_says_what_it_does_with_which_options_and_how_long(
     lines, monkeypatch
 ) -> None:
-    monkeypatch.setattr(execution.time, "monotonic", iter([0.0, 252.0]).__next__)
+    monkeypatch.setattr(command_module.time, "monotonic", iter([0.0, 252.0]).__next__)
     seen: list[str] = []
 
     def command(argv: list[str]) -> PipelineResult:
         seen.append(lg.current_step())
         return PipelineResult(created=5)
 
-    outcome = execute(
+    outcome = run_command(
         "retrieve staatscourant",
         command,
         ["--mode", "incremental", "--since", "2024-09-20"],
@@ -114,23 +114,27 @@ def test_a_step_says_what_it_does_with_which_options_and_how_long(
     assert outcome.state is State.OK and seen == ["retrieve staatscourant"]
     start, end = lines()  # one line to start and one to end, whoever runs the step
     assert "[retrieve staatscourant]" in start
-    assert "Starting: Ministerial regulations from the Staatscourant." in start
-    assert "(--mode incremental --since 2024-09-20)" in start
+    assert start.endswith(
+        "Starting: Ministerial regulations from the Staatscourant "
+        "(--mode incremental --since 2024-09-20)."
+    )
     assert "Done in 4m12s: 5 created." in end
 
 
 def test_a_failing_step_says_how_long_it_ran_and_why(lines, monkeypatch) -> None:
-    monkeypatch.setattr(execution.time, "monotonic", iter([0.0, 65.0, 65.0]).__next__)
+    monkeypatch.setattr(
+        command_module.time, "monotonic", iter([0.0, 65.0, 65.0]).__next__
+    )
 
     def fail(argv: list[str]) -> PipelineResult:
         raise RuntimeError("no route to host")
 
-    assert execute("normalize x", fail, []).state is State.FAILED
+    assert run_command("normalize x", fail, []).state is State.FAILED
     assert "Failed after 1m05s: RuntimeError: no route to host" in lines()[-1]
 
 
 def test_every_error_of_a_result_is_a_line(lines) -> None:
-    execute("normalize x", lambda argv: PipelineResult(errors=["a", "b"]), [])
+    run_command("normalize x", lambda argv: PipelineResult(errors=["a", "b"]), [])
     assert [line.split("Error: ")[1] for line in lines() if "Error: " in line] == [
         "a",
         "b",
@@ -157,7 +161,7 @@ def test_a_step_is_called_what_one_types_everywhere(lines) -> None:
         Step("normalize", "tk_dossiers", command, []),
         Step("normalize", "bwb", command, []),
     ]
-    outcomes = run_phase(steps)
+    outcomes = run_steps(steps)
     assert labels == ["normalize tk-dossiers", "normalize bwb"]
     assert [o.label for o in outcomes] == labels
     table = [line for line in lines() if line.rstrip().endswith(" ok")]
@@ -194,3 +198,10 @@ def test_the_sources_command_lists_every_source_and_marks_manual_ones(capsys) ->
     assert "[manual: not in retrieve all]" in tk_content
     staatscourant = next(b for b in out.split("\n\n") if b.startswith("staatscourant"))
     assert "manual" not in staatscourant
+
+
+def test_the_start_line_ends_with_one_full_stop(lines) -> None:
+    run_command(
+        "normalize tk", lambda argv: PipelineResult(), [], description="Cases as nodes."
+    )
+    assert lines()[0].endswith("Starting: Cases as nodes.")

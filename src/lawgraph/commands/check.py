@@ -10,6 +10,7 @@ command does. Every check is one read-only query; a problem is an error of the c
   edges    no edge points to a node that does not exist
   views    every search view holds what its collection holds (``out of sync`` after a crash)
   derived  what a normalize step keeps for a semantic step is there on every node it is read from
+  cases    cases name the dossier they belong to
 """
 
 from __future__ import annotations
@@ -104,6 +105,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
         _check_edges(store, report)
     _check_views(store, report)
     _check_derived(store, report)
+    _check_cases(store, report)
     return report
 
 
@@ -218,6 +220,26 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
         )
     else:
         report.note("derived: every BWB regulation carries its basis and EU acts")
+
+
+def _check_cases(store: ArangoStore, report: Report) -> None:
+    """A case reaches its dossier through the number it carries; when none of them carries
+    one, the request for the cases did not ask for the dossier (it once did not)."""
+    aql = f"""
+    FOR case IN {COLLECTION_CASES}
+        COLLECT named = LENGTH(case.props.dossier_numbers || []) > 0 WITH COUNT INTO n
+        RETURN [named, n]
+    """
+    counts = dict(store.query(aql))
+    total = sum(counts.values())
+    if total and not counts.get(True):
+        report.problem(
+            f"none of the {total:,} cases names a dossier, so no case is part of one. "
+            "Run `lawgraph retrieve tk` again for the window, then `normalize tk` and "
+            "`normalize tk-dossiers`."
+        )
+    elif total:
+        report.note(f"cases: {counts[True]:,} of {total:,} name a dossier")
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:

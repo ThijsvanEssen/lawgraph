@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 from lawgraph.core.logging import get_logger
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.counting import Store
 
 logger = get_logger(__name__)
 
@@ -44,7 +44,7 @@ class RawSourceWriter:
 
     def __init__(
         self,
-        store: ArangoStore,
+        store: Store,
         *,
         on_flush: Callable[[list[dict[str, Any]], list[Failure]], None] | None = None,
         max_records: int = MAX_RECORDS,

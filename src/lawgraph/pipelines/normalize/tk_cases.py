@@ -100,18 +100,20 @@ def link_subjects(
     Both endpoints are resolved with one existence lookup per collection, so
     the cost does not grow with the number of nodes.
     """
-    nodes = [node for node in nodes if node.arango_id]
+    nodes = list(nodes)
     pairs: list[tuple[str, str, str]] = [
-        (node.arango_id, COLLECTION_CASES, make_node_key(case_id))
+        (node_id, COLLECTION_CASES, make_node_key(case_id))
         for node in nodes
+        if (node_id := node.arango_id)
         for case_id in node.props.get("case_ids") or []
     ] + [
-        (node.arango_id, COLLECTION_DOSSIERS, make_node_key(str(number)))
+        (node_id, COLLECTION_DOSSIERS, make_node_key(str(number)))
         for node in nodes
+        if (node_id := node.arango_id)
         for number in node.props.get("dossier_numbers") or []
     ]
 
-    writer = EdgeWriter(store)
+    writer = EdgeWriter(store, what=f"{relation} edges")
     _queue_existing(store, pairs, relation, writer, source=source)
     writer.flush()
     logger.info("Wrote %d %s edges to cases and dossiers.", writer.added, relation)
@@ -133,7 +135,7 @@ def link_cases_to_dossiers(store: Store, *, source: str) -> None:
         for row in store.query(aql)
         for number in row["dossier_numbers"] or []
     ]
-    writer = EdgeWriter(store)
+    writer = EdgeWriter(store, what="case to dossier edges")
     _queue_existing(store, pairs, RELATION_PART_OF, writer, source=source)
     writer.flush()
     logger.info("Linked %d cases to dossiers.", writer.added)
@@ -148,7 +150,7 @@ def link_activities_to_committees(
         for node in activity_nodes.values()
         if node.arango_id and (committee_id := node.props.get("committee_id"))
     ]
-    writer = EdgeWriter(store)
+    writer = EdgeWriter(store, what="committee edges")
     _queue_existing(store, pairs, RELATION_LED_BY, writer, source=source)
     writer.flush()
     logger.info("Linked %d activities to their lead committee.", writer.added)
@@ -171,7 +173,7 @@ def link_commitments(
         if (number := node.props.get("number"))
     }
 
-    writer = EdgeWriter(store)
+    writer = EdgeWriter(store, what="commitment edges")
     dossier_pairs: list[tuple[str, str, str]] = []
     for node in commitment_nodes.values():
         activity = activity_by_number.get(node.props.get("activity_number"))
@@ -204,7 +206,7 @@ def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) 
         },
     )
 
-    writer = EdgeWriter(store)
+    writer = EdgeWriter(store, what="AUTHORED edges")
     for node in documents:
         for actor in node.props.get("actors") or []:
             person_id = actor.get("person_id")

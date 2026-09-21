@@ -12,12 +12,12 @@ import pytest
 
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import orchestration
-from lawgraph.pipelines.execution import Outcome, State, combined
+from lawgraph.pipelines.command import Outcome, State, combined_result
 from lawgraph.pipelines.orchestration import (
     Step,
-    _run_in_lanes,
+    _run_steps_in_lanes,
     retrieve_all,
-    run_phase,
+    run_steps,
 )
 from lawgraph.sources import registry
 from lawgraph.sources.registry import RetrieveCtx
@@ -74,7 +74,7 @@ def test_lanes_run_side_by_side() -> None:
         barrier.wait()  # only passes when all three run at the same time
 
     steps = [_step(name, name, meet) for name in ("a", "b", "c")]
-    assert _ended(_run_in_lanes(steps, jobs=3)) == [
+    assert _ended(_run_steps_in_lanes(steps, jobs=3)) == [
         ("a", "ok"),
         ("b", "ok"),
         ("c", "ok"),
@@ -101,7 +101,7 @@ def test_steps_of_one_lane_never_overlap_and_keep_their_order() -> None:
         return main
 
     steps = [_step(name, "one-server", make(name)) for name in ("first", "second")]
-    _run_in_lanes(steps, jobs=4)
+    _run_steps_in_lanes(steps, jobs=4)
     assert peak == 1
     assert order == ["first", "second"]
 
@@ -117,7 +117,7 @@ def test_results_keep_the_registry_order_and_a_failure_does_not_stop_the_others(
         _step("broken", "y", boom),
         _step("late", "z", lambda argv: None),
     ]
-    assert _ended(_run_in_lanes(steps, jobs=3)) == [
+    assert _ended(_run_steps_in_lanes(steps, jobs=3)) == [
         ("slow", "ok"),
         ("broken", "failed"),
         ("late", "ok"),
@@ -131,7 +131,7 @@ def test_skip_variable_applies_in_parallel_mode(monkeypatch) -> None:
         _step("a", "a", lambda argv: calls.append("a")),
         _step("b", "b", lambda argv: calls.append("b")),
     ]
-    assert _ended(_run_in_lanes(steps, jobs=2)) == [("a", "ok"), ("b", "skipped")]
+    assert _ended(_run_steps_in_lanes(steps, jobs=2)) == [("a", "ok"), ("b", "skipped")]
     assert calls == ["a"]
 
 
@@ -139,8 +139,8 @@ def test_a_failure_in_parallel_mode_fails_the_phase() -> None:
     def boom(argv: list[str]) -> None:
         raise RuntimeError("source down")
 
-    outcomes = run_phase([_step("broken", "x", boom)], jobs=2)
-    assert combined(outcomes).errors == ["retrieve broken failed"]
+    outcomes = run_steps([_step("broken", "x", boom)], jobs=2)
+    assert combined_result(outcomes).errors == ["retrieve broken failed"]
 
 
 def test_one_job_stays_sequential_and_strict_still_stops() -> None:
@@ -154,7 +154,7 @@ def test_one_job_stays_sequential_and_strict_still_stops() -> None:
         _step("broken", "x", boom),
         _step("never", "y", lambda argv: calls.append("never")),
     ]
-    outcomes = run_phase(steps, strict=True, jobs=1)
+    outcomes = run_steps(steps, strict=True, jobs=1)
     assert calls == ["broken"] and [o.state for o in outcomes] == [State.FAILED]
 
 
@@ -288,7 +288,7 @@ def _bootstrap_retrieve_argv(monkeypatch, argv: list[str]) -> list[str]:
         seen[label] = argv
         return Outcome(label, State.OK)
 
-    monkeypatch.setattr(bootstrap, "execute", record)
+    monkeypatch.setattr(bootstrap, "run_command", record)
     bootstrap.main(argv)
     return seen["retrieve all"]
 
@@ -334,7 +334,7 @@ def test_a_step_waits_for_the_source_it_reads_and_goes_last_in_its_lane() -> Non
         _step("staatscourant", "koop", main("staatscourant")),
     ]
     # Two places and a waiting step: the wait must not take one of them.
-    results = _run_in_lanes(steps, jobs=2)
+    results = _run_steps_in_lanes(steps, jobs=2)
 
     assert [o.state for o in results] == [State.OK] * 3
     assert order == ["staatscourant", "bwb", "staatsblad"]
@@ -349,7 +349,7 @@ def test_a_failing_source_does_not_leave_its_reader_waiting() -> None:
         _step("bwb", "bwb", fails),
         _step("staatsblad", "koop", lambda argv: ran.append("stb"), after=("bwb",)),
     ]
-    assert _ended(_run_in_lanes(steps, jobs=2)) == [
+    assert _ended(_run_steps_in_lanes(steps, jobs=2)) == [
         ("bwb", "failed"),
         ("staatsblad", "ok"),
     ]
@@ -403,7 +403,7 @@ def test_an_interrupt_stops_the_other_lanes_too() -> None:
     started = time.monotonic()
     try:
         with pytest.raises(KeyboardInterrupt):
-            _run_in_lanes(steps, jobs=2)
+            _run_steps_in_lanes(steps, jobs=2)
     finally:
         STOP.clear()
     assert time.monotonic() - started < 5 and len(looped) < 1_000

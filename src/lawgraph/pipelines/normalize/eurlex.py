@@ -322,7 +322,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
         normalized: dict[str, Any],
     ) -> None:
         """Create PART_OF edges from articles to their instrument."""
-        writer = EdgeWriter(self.store)
+        writer = EdgeWriter(self.store, what="article edges")
 
         # Article → instrument edges
         instruments_by_celex: dict[str, Node] = normalized.get(

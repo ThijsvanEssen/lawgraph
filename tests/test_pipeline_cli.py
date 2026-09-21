@@ -1,4 +1,4 @@
-"""A command returns what it did; ``execute`` decides how it ended; ``__main__`` exits."""
+"""A command returns what it did; ``run_command`` decides how it ended; ``__main__`` exits."""
 
 from __future__ import annotations
 
@@ -11,23 +11,31 @@ import pytest
 from lawgraph import __main__ as entry
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import command as command_module
-from lawgraph.pipelines.command import PipelineCommand, accepts_since
-from lawgraph.pipelines.execution import Outcome, State, combined, execute, skipped
+from lawgraph.pipelines.command import (
+    Outcome,
+    PipelineCommand,
+    State,
+    accepts_since,
+    combined_result,
+    run_command,
+)
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "lawgraph"
 
 
-# ── execute ──────────────────────────────────────────────────────────────────
+# ── run_command ──────────────────────────────────────────────────────────────────
 
 
 def test_a_command_that_went_well_ends_ok_with_its_result() -> None:
-    outcome = execute("normalize x", lambda argv: PipelineResult(created=1), [])
+    outcome = run_command("normalize x", lambda argv: PipelineResult(created=1), [])
     assert (outcome.label, outcome.state) == ("normalize x", State.OK)
     assert outcome.result.created == 1
 
 
 def test_a_result_with_errors_ends_failed() -> None:
-    outcome = execute("normalize x", lambda argv: PipelineResult(errors=["boom"]), [])
+    outcome = run_command(
+        "normalize x", lambda argv: PipelineResult(errors=["boom"]), []
+    )
     assert outcome.state is State.FAILED and outcome.result.errors == ["boom"]
 
 
@@ -35,7 +43,7 @@ def test_a_command_that_raises_ends_failed_and_the_caller_goes_on() -> None:
     def command(argv: list[str]) -> PipelineResult:
         raise RuntimeError("database unreachable")
 
-    outcome = execute("normalize x", command, [])
+    outcome = run_command("normalize x", command, [])
     assert outcome.state is State.FAILED
     assert outcome.result.errors == ["RuntimeError: database unreachable"]
 
@@ -48,18 +56,18 @@ def test_ctrl_c_and_a_wrong_command_line_are_not_swallowed() -> None:
         raise SystemExit(2)  # argparse
 
     with pytest.raises(KeyboardInterrupt):
-        execute("x", interrupted, [])
+        run_command("x", interrupted, [])
     with pytest.raises(SystemExit):
-        execute("x", misread, [])
+        run_command("x", misread, [])
 
 
 def test_a_parent_adds_up_its_steps_and_names_the_one_that_failed() -> None:
     outcomes = [
         Outcome("normalize a", State.OK, PipelineResult(created=2, skipped=1)),
         Outcome("normalize b", State.FAILED, PipelineResult(created=1, errors=["x"])),
-        skipped("normalize c", "LAWGRAPH_NORMALIZE_SKIP_C"),
+        Outcome("normalize c", State.SKIPPED),
     ]
-    total = combined(outcomes)
+    total = combined_result(outcomes)
     assert (total.created, total.skipped) == (3, 1)
     assert total.errors == ["normalize b failed"]  # its own errors were logged under it
 
@@ -157,3 +165,13 @@ def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
     assert all(
         accepts_since(s.normalize_command) for s in SOURCES if s.normalize_command
     )
+
+
+def test_a_result_says_what_was_left_as_it_was() -> None:
+    """A second run over the same records is mostly that; without it the line said
+    "nothing to do" for a step that looked 40,000 documents up."""
+    assert PipelineResult(unchanged=41_200, updated=3).summary() == (
+        "3 updated, 41,200 unchanged"
+    )
+    total = combined_result([Outcome("a", State.OK, PipelineResult(unchanged=2))] * 2)
+    assert total.unchanged == 4

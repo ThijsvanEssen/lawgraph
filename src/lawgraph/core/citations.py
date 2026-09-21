@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import itertools
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -321,7 +321,7 @@ class DutchCitationExtractor:
     def __init__(
         self,
         code_aliases: dict[str, str],
-        name_aliases: dict[str, str] | None = None,
+        name_aliases: Mapping[str, str | None] | None = None,
     ) -> None:
         self._code_map: dict[str, str] = {
             k.strip().upper(): v.strip() for k, v in code_aliases.items() if k and v
@@ -339,7 +339,7 @@ class DutchCitationExtractor:
 
     @staticmethod
     def _alternation_re(
-        keys: dict[str, object], *, prefix: str = ""
+        keys: Mapping[str, object], *, prefix: str = ""
     ) -> re.Pattern[str] | None:
         """A pattern for one of *keys*, longest first; ``None`` without keys."""
         if not keys:

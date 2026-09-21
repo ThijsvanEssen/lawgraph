@@ -16,7 +16,7 @@ from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_S
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.execution import Outcome, combined, execute
+from lawgraph.pipelines.command import Outcome, combined_result, run_command
 from lawgraph.pipelines.orchestration import normalize_all, semantic_all
 
 logger = get_logger(__name__)
@@ -50,7 +50,7 @@ def _expand(max_iterations: int) -> list[Outcome]:
         # ``fetched_at`` has a precision of a second: the second this round began in.
         began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
         before = _count_records(store)
-        outcomes.append(execute("fill-gaps", fill_gaps, ["--apply"]))
+        outcomes.append(run_command("fill-gaps", fill_gaps, ["--apply"]))
         retrieved = _count_records(store) - before
         if retrieved <= 0:
             logger.info(
@@ -61,12 +61,12 @@ def _expand(max_iterations: int) -> list[Outcome]:
         total += retrieved
         logger.info("expand-graph: %d new record(s) retrieved.", retrieved)
         since = ["--since", began]
-        outcomes.append(execute("normalize all", normalize_all, since))
-        outcomes.append(execute("semantic all", semantic_all, since))
+        outcomes.append(run_command("normalize all", normalize_all, since))
+        outcomes.append(run_command("semantic all", semantic_all, since))
 
     logger.info("expand-graph: %d record(s) retrieved in total.", total)
     if total:
-        outcomes.append(execute("semantic all", semantic_all, []))
+        outcomes.append(run_command("semantic all", semantic_all, []))
     return outcomes
 
 
@@ -85,4 +85,4 @@ def main(argv: list[str] | None = None) -> PipelineResult:
 
     if args.dry_run:
         return fill_gaps(argv=[])
-    return combined(_expand(args.max_iterations))
+    return combined_result(_expand(args.max_iterations))

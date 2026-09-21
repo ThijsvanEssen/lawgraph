@@ -61,14 +61,10 @@ def read_votes(raw_records: Iterable[dict[str, Any]]) -> Votes:
 
 def normalize_decisions(store: Store, votes: Votes) -> dict[str, Node]:
     """Decision nodes, keyed by TK ``Besluit_Id``."""
-    decisions = votes.decisions
-    votes_by_decision = votes.by_decision
-    rows = votes.rows
-
     nodes: dict[str, Node] = {}
-    for decision_id, votes in votes_by_decision.items():
+    for decision_id, casts in votes.by_decision.items():
         key, props = tk_records.decision(
-            decision_id, decisions.get(decision_id, {}), votes
+            decision_id, votes.decisions.get(decision_id, {}), casts
         )
         nodes[decision_id] = Node(
             collection=COLLECTION_DECISIONS,
@@ -81,7 +77,7 @@ def normalize_decisions(store: Store, votes: Votes) -> dict[str, Node]:
     with NodeWriter(store) as writer:
         writer.add_all(nodes.values())
 
-    logger.info("Normalized %d decisions from %d vote rows.", len(nodes), rows)
+    logger.info("Normalized %d decisions from %d vote rows.", len(nodes), votes.rows)
     return {decision_id: link_node(node) for decision_id, node in nodes.items()}
 
 
@@ -109,7 +105,7 @@ def link_votes(
         },
     )
 
-    writer = EdgeWriter(store)
+    writer = EdgeWriter(store, what="VOTED edges")
     for decision_id, votes in votes_by_decision.items():
         decision_node = decision_nodes.get(decision_id)
         if decision_node is None:

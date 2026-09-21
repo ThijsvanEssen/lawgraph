@@ -131,7 +131,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         """Link BWB articles to their instruments with PART_OF edges."""
         instruments: dict[str, Node] = normalized.get("instruments_by_bwb", {})
         articles: dict[str, list[Node]] = normalized.get("articles_by_bwb", {})
-        writer = EdgeWriter(self.store)
+        writer = EdgeWriter(self.store, what="article edges")
         for bwb_id, instrument in instruments.items():
             for article in articles.get(bwb_id, []):
                 writer.add(

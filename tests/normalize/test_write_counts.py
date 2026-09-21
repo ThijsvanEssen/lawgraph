@@ -131,10 +131,13 @@ def test_rerunning_one_pipeline_instance_does_not_carry_counts_over() -> None:
 def test_a_run_that_raises_says_what_it_wrote_before_and_lets_the_error_out(
     caplog,
 ) -> None:
-    """``execute`` names the step and the error; the pipeline does not half-handle it."""
+    """``run_command`` names the step and the error; the pipeline does not half-handle it."""
     with caplog.at_level("INFO"), pytest.raises(RuntimeError, match="boom"):
         _Pipeline(_BaseFakeStore(), fail_in_edges=True).run()
-    assert any("Wrote: nodes 5 created" in message for message in caplog.messages)
+    assert any(
+        "Written before the failure: nodes 5 created" in message
+        for message in caplog.messages
+    )
 
 
 # ── a real pipeline, end to end ──────────────────────────────────────────────

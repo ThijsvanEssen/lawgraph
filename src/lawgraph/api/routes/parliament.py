@@ -118,4 +118,4 @@ party_router = APIRouter()
     tags=["parties"],
 )
 def get_party_colors() -> PartyColorsResponse:
-    return PartyColorsResponse(colors=PARTY_COLORS)
+    return PartyColorsResponse(colors=dict(PARTY_COLORS))

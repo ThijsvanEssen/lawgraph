@@ -232,7 +232,7 @@ class _Scripted:
         self.headers = headers or {}
         self.calls = 0
 
-    def get(self, url, params=None, timeout=None, stream=False):
+    def get(self, url, params=None, timeout=None, stream=False, headers=None):
         self.calls += 1
         status = self.statuses.pop(0) if self.statuses else 200
         response = requests.Response()

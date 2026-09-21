@@ -127,8 +127,6 @@ class RetrievePipelineBase(PipelineBase):
     number of records once known, ``skip`` a record on purpose, ``fail`` one that went wrong.
     """
 
-    progress: Progress
-
     progress: Progress  # of the records being stored; made by ``_store_all``
 
     def run(self, **kwargs: Any) -> PipelineResult:

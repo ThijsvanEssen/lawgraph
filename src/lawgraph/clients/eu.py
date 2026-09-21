@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 
 from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.settings import EURLEX_BASE_URL, EURLEX_SPARQL_ENDPOINT
@@ -91,15 +92,7 @@ class EUClient(BaseClient):
         for cdm_type in cdm_types:
             logger.info("Enumerating EUR-Lex CELEX IDs for cdm_type=%s", cdm_type)
             self._paginate_sparql(
-                lambda offset, t=cdm_type: (
-                    f"PREFIX cdm: <{_CDM}> "
-                    "SELECT DISTINCT ?celex WHERE { "
-                    f"?s a cdm:{t} ; "
-                    "cdm:resource_legal_id_celex ?celex . "
-                    'FILTER(!CONTAINS(?celex, "(")) '
-                    "} "
-                    f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
-                ),
+                partial(_acts_of_type_sparql, cdm_type),
                 result_var="celex",
                 max_records=max_records,
                 all_ids=all_ids,
@@ -182,17 +175,7 @@ class EUClient(BaseClient):
                 batch = celex_ids[batch_start : batch_start + batch_size]
                 celex_values = ", ".join(f'"{c}"' for c in batch)
                 self._paginate_sparql(
-                    lambda offset, cv=celex_values: (
-                        f"PREFIX cdm: <{_CDM}> "
-                        "SELECT DISTINCT ?judgment_celex WHERE { "
-                        "?j a cdm:judgment ; "
-                        "cdm:resource_legal_id_celex ?judgment_celex ; "
-                        "cdm:work_cites_work ?cited . "
-                        "?cited cdm:resource_legal_id_celex ?cited_celex . "
-                        f"FILTER(?cited_celex IN ({cv})) "
-                        "} "
-                        f"ORDER BY ?judgment_celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
-                    ),
+                    partial(_judgments_citing_sparql, celex_values),
                     result_var="judgment_celex",
                     max_records=max_records,
                     all_ids=all_ids,
@@ -251,16 +234,7 @@ class EUClient(BaseClient):
                 batch = celex_ids[batch_start : batch_start + batch_size]
                 celex_values = ", ".join(f'"{c}"' for c in batch)
                 self._paginate_sparql(
-                    lambda offset, cv=celex_values, pred=predicate: (
-                        f"PREFIX cdm: <{_CDM}> "
-                        "SELECT DISTINCT ?com_celex WHERE { "
-                        "?act cdm:resource_legal_id_celex ?act_celex ; "
-                        f"{pred} ?proposal . "
-                        "?proposal cdm:resource_legal_id_celex ?com_celex . "
-                        f"FILTER(?act_celex IN ({cv})) "
-                        "} "
-                        f"ORDER BY ?com_celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
-                    ),
+                    partial(_proposals_of_sparql, predicate, celex_values),
                     result_var="com_celex",
                     max_records=max_records,
                     all_ids=all_ids,
@@ -291,3 +265,45 @@ class EUClient(BaseClient):
         # CELLAR negotiates the content on these headers and redirects to the document.
         resp = self._get_raw_absolute_with_retry(url, headers=headers, timeout=60)
         return response_text(resp)
+
+
+# ── the SPARQL of one page; ``partial`` fixes all but the offset ─────────────
+
+
+def _acts_of_type_sparql(cdm_type: str, offset: int) -> str:
+    return (
+        f"PREFIX cdm: <{_CDM}> "
+        "SELECT DISTINCT ?celex WHERE { "
+        f"?s a cdm:{cdm_type} ; "
+        "cdm:resource_legal_id_celex ?celex . "
+        'FILTER(!CONTAINS(?celex, "(")) '
+        "} "
+        f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
+    )
+
+
+def _judgments_citing_sparql(celex_values: str, offset: int) -> str:
+    return (
+        f"PREFIX cdm: <{_CDM}> "
+        "SELECT DISTINCT ?judgment_celex WHERE { "
+        "?j a cdm:judgment ; "
+        "cdm:resource_legal_id_celex ?judgment_celex ; "
+        "cdm:work_cites_work ?cited . "
+        "?cited cdm:resource_legal_id_celex ?cited_celex . "
+        f"FILTER(?cited_celex IN ({celex_values})) "
+        "} "
+        f"ORDER BY ?judgment_celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
+    )
+
+
+def _proposals_of_sparql(predicate: str, celex_values: str, offset: int) -> str:
+    return (
+        f"PREFIX cdm: <{_CDM}> "
+        "SELECT DISTINCT ?com_celex WHERE { "
+        "?act cdm:resource_legal_id_celex ?act_celex ; "
+        f"{predicate} ?proposal . "
+        "?proposal cdm:resource_legal_id_celex ?com_celex . "
+        f"FILTER(?act_celex IN ({celex_values})) "
+        "} "
+        f"ORDER BY ?com_celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
+    )
