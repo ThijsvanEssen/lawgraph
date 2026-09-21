@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries.articles import (
     get_article_citations,
+    get_article_explanations,
     get_article_history,
     get_article_in_flux,
     get_article_legislative_history,
@@ -15,6 +16,8 @@ from lawgraph.api.queries.articles import (
 from lawgraph.api.queries.relationships import get_article_relationship_data
 from lawgraph.api.schemas.articles import (
     ArticleDetailResponse,
+    ArticleExplanationDTO,
+    ArticleExplanationsResponse,
     ArticleHistoryResponse,
     ArticleInFluxResponse,
     ArticleLegislativeHistoryResponse,
@@ -190,8 +193,9 @@ def get_article_version_history(
     description=(
         "Every dossier and document that introduced, changed or proposes to "
         "change this article, covering both enacted (`canoniek`) and proposed "
-        "(`voorgesteld`) changes. Returns an empty list when there is no "
-        "history — never a 404."
+        "(`voorgesteld`) changes, and what refers to it. The "
+        "explanatory documents are at `explained-by`. Returns an empty list when "
+        "there is no history — never a 404."
     ),
     tags=["articles"],
 )
@@ -210,6 +214,43 @@ def get_legislative_history(
         article_id=article_id,
         entries=entries,
         total=len(entries),
+    )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/explained-by",
+    response_model=ArticleExplanationsResponse,
+    summary="Explanatory documents of an article",
+    description=(
+        "The documents that explain this article: every EXPLAINS edge that points "
+        "at the article, at one of its versions or at its instrument. Newest "
+        "first, the article-level explanations (`target` `article` and "
+        "`article_version`) before those of the instrument. An explanation is "
+        "written per dossier: its `scope` is `dossier` when the memorandum "
+        "explains all the changes of the dossier, `article` when `section_anchor` "
+        "names the passage about this article. An `instrument` explanation exists "
+        "only for a dossier whose law changed no articles, so it is no evidence "
+        "about this article; filter on `target`. One document appears once per "
+        "level. `total` counts all explanations, independent of `limit` and "
+        "`offset`. Returns an empty list for an unknown article — never a 404."
+    ),
+    tags=["articles"],
+)
+def get_explained_by(
+    bwb_id: str,
+    article_number: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ArticleExplanationsResponse:
+    article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
+    page = get_article_explanations(
+        store, bwb_id, article_number, limit=limit, offset=offset
+    )
+    return ArticleExplanationsResponse(
+        article_id=article_id,
+        total=page["total"],
+        items=[ArticleExplanationDTO.from_row(row) for row in page["items"]],
     )
 
 

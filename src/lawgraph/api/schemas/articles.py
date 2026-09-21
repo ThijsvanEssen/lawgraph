@@ -1,9 +1,9 @@
-"""Article endpoints: detail, relationships, legislative history, version history
-and in-flux state."""
+"""Article endpoints: detail, relationships, legislative history, explanatory
+documents, version history and in-flux state."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,7 +15,24 @@ from lawgraph.api.schemas.common import (
     JudgmentSummaryDTO,
     PublicationDTO,
 )
+from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENTS,
+)
 from lawgraph.core.bwb_xml import effect_kind
+from lawgraph.core.models import parse_arango_id
+from lawgraph.core.time import strip_time_component
+
+ExplanationTarget = Literal["article", "article_version", "instrument"]
+ExplanationScope = Literal["dossier", "article"]
+
+_TARGET_OF_COLLECTION: dict[str, ExplanationTarget] = {
+    COLLECTION_ARTICLES: "article",
+    COLLECTION_ARTICLE_VERSIONS: "article_version",
+    COLLECTION_INSTRUMENTS: "instrument",
+}
 
 
 class ArticleSummaryDTO(BaseModel):
@@ -176,6 +193,94 @@ class ArticleLegislativeHistoryResponse(BaseModel):
     article_id: str
     entries: list[LegislativeHistoryEntry]
     total: int
+
+
+class ExplainingDocumentDTO(DocumentOrigin):
+    """The explanatory document of an explanation."""
+
+    id: str = Field(..., description="Arango _id of the document.")
+    key: str
+    kind: str | None = None
+    title: str | None = None
+    date: str | None = None
+    dossier_number: str | None = Field(
+        None,
+        description="The dossier the document is PART_OF (the lowest, if several).",
+    )
+
+
+class ArticleExplanationDTO(BaseModel):
+    """One document that explains an article, and the node its EXPLAINS edge points at."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    document: ExplainingDocumentDTO
+    target: ExplanationTarget = Field(
+        ...,
+        description=(
+            "What the edge points at: the 'article', one of its versions "
+            "('article_version') or its 'instrument'. An 'instrument' explanation "
+            "is written only when the dossier's law changed no articles at all, so "
+            "it says nothing about this article in particular."
+        ),
+    )
+    target_id: str = Field(
+        ..., description="Arango _id of the node the edge points at."
+    )
+    article_version_key: str | None = Field(
+        None,
+        description="Key of the article version; null unless target is 'article_version'.",
+    )
+    confidence: float | None = None
+    scope: ExplanationScope = Field(
+        ...,
+        description=(
+            "'dossier': the document explains the changes of a whole dossier, not "
+            "this article in particular (the memorandum is not tied to a passage). "
+            "'article': the edge names the passage that explains the article, "
+            "in ``section_anchor``."
+        ),
+    )
+    section_anchor: str | None = Field(
+        None,
+        description="Anchor of the passage in the document; set when scope is 'article'.",
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> ArticleExplanationDTO:
+        """Build from a row of ``get_article_explanations``."""
+        collection, key = parse_arango_id(row["target_id"])
+        target = _TARGET_OF_COLLECTION[collection]
+        section_anchor = row.get("section_anchor") or None
+        return cls(
+            document=ExplainingDocumentDTO(
+                id=row["document_id"],
+                key=row["key"],
+                kind=row.get("kind") or None,
+                title=row.get("title") or None,
+                date=strip_time_component(row.get("date")),
+                dossier_number=row.get("dossier_number"),
+                **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
+            ),
+            target=target,
+            target_id=row["target_id"],
+            article_version_key=key if target == "article_version" else None,
+            confidence=row.get("confidence"),
+            scope="article" if section_anchor else "dossier",
+            section_anchor=section_anchor,
+        )
+
+
+class ArticleExplanationsResponse(BaseModel):
+    """Response for GET /api/articles/{bwb_id}/{article_number}/explained-by."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    article_id: str
+    total: int = Field(
+        ..., description="All explanations, independent of ``limit`` and ``offset``."
+    )
+    items: list[ArticleExplanationDTO]
 
 
 class ArticleInFluxResponse(BaseModel):
