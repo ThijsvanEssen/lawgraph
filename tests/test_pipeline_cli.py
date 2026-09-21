@@ -11,7 +11,7 @@ import pytest
 from lawgraph import __main__ as entry
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import command as command_module
-from lawgraph.pipelines.command import pipeline_command
+from lawgraph.pipelines.command import PipelineCommand, accepts_since
 from lawgraph.pipelines.execution import Outcome, State, combined, execute, skipped
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "lawgraph"
@@ -103,37 +103,55 @@ def test_nothing_but_the_entry_points_ends_the_process_or_sets_up_logging() -> N
 # ── a command made from a pipeline ───────────────────────────────────────────
 
 
-class _RecordingPipeline:
+class _Dated:
     calls: list[dict] = []
 
     def __init__(self, store: object) -> None:
         pass
 
-    def run(self, **kwargs: object) -> PipelineResult:
-        self.calls.append(kwargs)
-        return PipelineResult(created=len(self.calls))
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        self.calls.append({"since": since})
+        return PipelineResult(created=1)
 
 
-def test_since_is_parsed_and_passed_only_when_the_command_accepts_it(
-    monkeypatch,
-) -> None:
+class _Undated(_Dated):
+    def run(self) -> PipelineResult:  # type: ignore[override]
+        self.calls.append({})
+        return PipelineResult()
+
+
+def test_a_command_has_since_when_the_run_of_its_pipeline_takes_it(monkeypatch) -> None:
+    """It was said three times (`with_since`, `semantic_accepts_since`, the signature) and
+    a step that missed one ran in full without a word, or died on an unknown option."""
     monkeypatch.setattr(command_module, "ArangoStore", lambda: object())
-    _RecordingPipeline.calls = []
+    _Dated.calls = []
+    dated, undated = PipelineCommand(_Dated, ""), PipelineCommand(_Undated, "")
 
-    first = pipeline_command(_RecordingPipeline, description="", with_since=True)(
-        ["--since", "2024-01-01"]
-    )
-    pipeline_command(_RecordingPipeline, description="")([])
-
-    assert first.created == 1  # the command hands back what the pipeline returned
-    assert _RecordingPipeline.calls == [
+    assert accepts_since(dated) and not accepts_since(undated)
+    assert dated(["--since", "2024-01-01"]).created == 1
+    undated([])
+    assert _Dated.calls == [
         {"since": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc)},
         {},
     ]
-
-
-def test_command_without_since_rejects_the_option(monkeypatch) -> None:
-    monkeypatch.setattr(command_module, "ArangoStore", lambda: object())
     with pytest.raises(SystemExit) as exit_info:
-        pipeline_command(_RecordingPipeline, description="")(["--since", "7d"])
+        undated(["--since", "7d"])
     assert exit_info.value.code == 2
+
+
+def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
+    import inspect
+
+    from lawgraph.sources.registry import SOURCES
+
+    commands = [
+        command
+        for source in SOURCES
+        for command in (source.normalize_main, source.semantic_main)
+        if isinstance(command, PipelineCommand)
+    ]
+    assert len(commands) > 25
+    for command in commands:
+        parameters = set(inspect.signature(command.pipeline_cls.run).parameters)
+        assert parameters - {"self"} <= {"since"}, command.pipeline_cls.__name__
+    assert all(accepts_since(s.normalize_main) for s in SOURCES if s.normalize_main)

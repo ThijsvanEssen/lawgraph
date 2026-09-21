@@ -22,7 +22,7 @@ from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines import watermark
 from lawgraph.pipelines.base import STOP
-from lawgraph.pipelines.command import Command, add_since_argument
+from lawgraph.pipelines.command import Command, accepts_since, add_since_argument
 from lawgraph.pipelines.execution import Outcome, State, combined, execute, skipped
 from lawgraph.sources.registry import SOURCES, RetrieveCtx, describe
 
@@ -155,8 +155,11 @@ def _window(value: str) -> dt.datetime | None:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
-def _since_argv(args: argparse.Namespace) -> list[str]:
-    return ["--since", args.since.isoformat()] if args.since else []
+def _since_argv(args: argparse.Namespace, command: Command) -> list[str]:
+    """``--since`` for a command that has it; a command without it runs in full."""
+    if args.since and accepts_since(command):
+        return ["--since", args.since.isoformat()]
+    return []
 
 
 _LAST_HELP = " 'last' goes on where the last complete run of this command began, however long ago."
@@ -272,7 +275,7 @@ def normalize_all(argv: list[str] | None = None) -> PipelineResult:
 
 def _normalize_steps(args: argparse.Namespace) -> list[Step]:
     return [
-        Step("normalize", s.id, s.normalize_main, _since_argv(args))
+        Step("normalize", s.id, s.normalize_main, _since_argv(args, s.normalize_main))
         for s in SOURCES
         if s.normalize_main is not None
     ]
@@ -295,12 +298,7 @@ def semantic_all(argv: list[str] | None = None) -> PipelineResult:
 
 def _semantic_steps(args: argparse.Namespace) -> list[Step]:
     return [
-        Step(
-            "semantic",
-            s.id,
-            s.semantic_main,
-            _since_argv(args) if s.semantic_accepts_since else [],
-        )
+        Step("semantic", s.id, s.semantic_main, _since_argv(args, s.semantic_main))
         for s in SOURCES
         if s.semantic_main is not None
     ]

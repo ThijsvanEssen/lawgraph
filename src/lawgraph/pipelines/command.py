@@ -3,7 +3,7 @@
 A command is a function ``(argv) -> PipelineResult``: it parses its options, does its work
 and returns what it did. Every ``lawgraph <...>`` is one: the hand-written ones
 (``retrieve_cli``, ``commands/``), the ``<phase> all`` of ``orchestration`` and the ones
-``pipeline_command`` makes from a pipeline class. A command does not set up logging, measure
+a ``PipelineCommand`` of a pipeline class. A command does not set up logging, measure
 time, catch what goes wrong or end the process: ``execution.execute`` does that for every
 command, and only ``__main__`` turns the outcome into an exit code.
 """
@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import inspect
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.models import PipelineResult
@@ -51,30 +53,38 @@ def _since(value: str | None) -> dt.datetime | None:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
-def pipeline_command(
-    pipeline_cls: type,
-    *,
-    description: str,
-    with_since: bool = False,
-    add_args: Callable[[argparse.ArgumentParser], None] | None = None,
-    make_extra_kwargs: Callable[[argparse.Namespace], dict[str, Any]] | None = None,
-) -> Command:
-    """The command of a pipeline whose ``run`` takes at most ``since``.
+@dataclass(frozen=True)
+class PipelineCommand:
+    """The command of a pipeline class whose ``run`` takes ``since`` or nothing.
 
+    Whether the command has ``--since`` is read from ``run`` itself, the one place that
+    knows: ``<phase> all`` asks ``accepts_since`` before it passes the option on.
     ``add_args`` adds options to the parser; ``make_extra_kwargs`` turns the parsed options
-    into constructor arguments of *pipeline_cls*.
+    into constructor arguments of the pipeline.
     """
 
-    def command(argv: list[str] | None = None) -> PipelineResult:
-        parser = argparse.ArgumentParser(description=description)
-        if with_since:
+    pipeline_cls: type
+    description: str
+    add_args: Callable[[argparse.ArgumentParser], None] | None = None
+    make_extra_kwargs: Callable[[argparse.Namespace], dict[str, Any]] | None = None
+
+    @property
+    def accepts_since(self) -> bool:
+        return "since" in inspect.signature(self.pipeline_cls.run).parameters
+
+    def __call__(self, argv: list[str] | None = None) -> PipelineResult:
+        parser = argparse.ArgumentParser(description=self.description)
+        if self.accepts_since:
             add_since_argument(parser)
-        if add_args:
-            add_args(parser)
+        if self.add_args:
+            self.add_args(parser)
         args = parser.parse_args(argv)
 
-        extra = make_extra_kwargs(args) if make_extra_kwargs else {}
-        pipeline = pipeline_cls(store=ArangoStore(), **extra)
-        return pipeline.run(since=args.since) if with_since else pipeline.run()
+        extra = self.make_extra_kwargs(args) if self.make_extra_kwargs else {}
+        pipeline = self.pipeline_cls(store=ArangoStore(), **extra)
+        return pipeline.run(since=args.since) if self.accepts_since else pipeline.run()
 
-    return command
+
+def accepts_since(command: Command) -> bool:
+    """Whether *command* takes ``--since``; a hand-written command says so itself."""
+    return bool(getattr(command, "accepts_since", False))
