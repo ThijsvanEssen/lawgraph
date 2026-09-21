@@ -114,11 +114,8 @@ Open:
 - Not covered: CVDR (local regulations) and the Omgevingswet API.
 - The Eerste Kamer is loaded as Kamerstukken only, from the KOOP SRU. Votes and their outcome are
   not: they exist only as prose in the Handelingen and as HTML on eerstekamer.nl.
-- Scheduling is not wired: run `<phase> all --since last` from cron or a scheduler; it goes on
-  where the last complete run began, so a day without a run is caught up.
-- ArangoSearch view memory is not measured at full size. The server is bounded (5 GB, capped
-  caches) and judgments no longer carry their XML; `lawgraph check` reports a view that is out
-  of sync with its collection.
+- Nothing installs a schedule: `scripts/daily.sh` and `scripts/weekly.sh` are there for cron
+  or launchd (`docs/operations.md`).
 
 ## License
 

@@ -191,8 +191,7 @@ the WTI records that `retrieve bwb` stores and are written by `normalize bwb`, s
 before `semantic`. `normalize bwb --since` still re-evaluates the short title of every
 regulation, because an abbreviation claimed by a newly loaded regulation stops being unique.
 Incremental `retrieve eurlex` re-fetches the CELEX numbers of the instruments already in the
-graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML. Scheduling is not wired: run the commands from cron or a
-scheduler of your choice.
+graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML.
 
 **Slow steps.**
 
@@ -237,6 +236,10 @@ memory, sets `mem_limit: 5g` and restarts the server when it stops. A bulk write
 nothing; when it stays away the step ends there instead of fetching on. A view the server
 log reports as `out of sync` is rebuilt by dropping it and starting any command
 (`ArangoStore()` creates what is missing).
+Measured on the full database of 2026-09-21 (165,000 judgments, 2.8 million edges, 937,000
+documents in the search views): ArangoSearch holds about 0.7 GB (mapped 276 MB, readers 63
+MB, writers 366 MB; 3.0 GB of index on disk), the server 2.1 GB resident, the container 2.7
+of its 5 GB.
 
 **Interruptions.** A retrieve stores its records while it fetches, a buffer at a time
 (`RawSourceWriter`: 500 records, 8 MB of text or 5 seconds, whichever comes first). An
@@ -249,6 +252,31 @@ publication stored after its `modified` date, a BWB toestand that is still the s
 a judgment not updated since are left alone; a document that answered HTTP 404 is asked for
 again after 30 days. The Tweede Kamer pages are read again from the start on a
 re-run (upserts, so only time is repeated).
+
+**Scheduled.** `scripts/daily.sh` and `scripts/weekly.sh` are what a scheduler runs; nothing
+is installed for you.
+
+| Script | Runs | Why |
+|--------|------|-----|
+| `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges` | what the sources changed; a day without a run is caught up by the next |
+| `weekly.sh` | `semantic all`, `expand-graph`, `check` | a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
+
+One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so), a
+failing command fails the run and the next command still runs, one log per run in
+`~/Library/Logs/lawgraph/` (`LAWGRAPH_LOG_DIR`) and one line per run in `runs.log` there.
+With cron:
+
+```
+30 5 * * *   /path/to/lawgraph/scripts/daily.sh
+0  7 * * 0   /path/to/lawgraph/scripts/weekly.sh
+```
+
+On macOS the scripts run under `caffeinate -i`, which keeps the machine from idle sleep. A
+closed lid on battery still sleeps: the run pauses until the next wake and its log shows
+gaps of minutes (seen in the rebuild of 2026-09-21). Keep it on power, or the lid open.
+
+Before the first scheduled run one complete run has to be on record (`bootstrap`, or each
+`<phase> all` once with a date), or `--since last` is refused.
 
 ## Observability
 
