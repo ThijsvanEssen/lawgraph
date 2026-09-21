@@ -71,6 +71,30 @@ class. Sources: `tk`, `rechtspraak`, `eurlex`, `bwb`, `staatsblad`, `staatscoura
 exits 1 when it failed and 2 for a command line it cannot read. Full reference in
 `docs/operations.md`.
 
+## Configuration
+
+Environment variables, loaded from `.env` by `config/settings.py`:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `ARANGO_URL` | `http://localhost:8529` | database host |
+| `ARANGO_DB_NAME` | `lawgraph` | database name; created when missing |
+| `ARANGO_USER` / `ARANGO_PASSWORD` | `root` / empty | credentials |
+| `LAWGRAPH_ALLOWED_ORIGINS` | localhost:5173/5174 | CORS allow-list of the API |
+
+External base URLs default to the public endpoints. All variables are listed in
+`docs/operations.md`.
+
+## Documents
+
+| File | Topic |
+|------|-------|
+| `docs/architecture.md` | pipeline model, source registry, layering, writing at scale, enforced conventions |
+| `docs/data-model.md` | nodes, edges, keys, versioning, parliament model, indexes, relation catalogue |
+| `docs/pipelines.md` | per source: retrieval, normalization, semantic detection, ordering |
+| `docs/api.md` | endpoints, response conventions, middleware, auth |
+| `docs/operations.md` | environment variables, CLI, runs, observability, tests |
+
 ## Status
 
 Implemented: retrieve, normalize and semantic phases for Tweede Kamer (cases, dossiers),
