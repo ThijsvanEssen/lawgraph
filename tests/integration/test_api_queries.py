@@ -105,3 +105,30 @@ def test_a_judgment_is_found_by_key_or_index_never_by_reading_them_all(
         plan = store.db.aql.explain(aql, bind_vars=bind_vars)
         kinds = {node["type"] for node in plan["nodes"]}
         assert "EnumerateCollectionNode" not in kinds, aql
+
+
+def test_the_counts_of_the_stats_walk_an_index(database: str) -> None:
+    """`/api/stats` counts per relation, source, kind and jurisdiction. On sparse indexes
+    each count read every document: 13.8 s on the full database, 10.8 s of it for the
+    judgments (their text is in the document)."""
+    from lawgraph.api.queries import stats
+
+    store = ArangoStore()
+    seed(store, documents=20, judgments=5, regulations=2)
+    asked: list[str] = []
+    real_query = store.query
+
+    def recording(aql: str, *args: Any, **kwargs: Any) -> Any:
+        asked.append(aql)
+        return real_query(aql, *args, **kwargs)
+
+    store.query = recording  # type: ignore[method-assign]
+    stats.get_db_stats(store)
+
+    assert len(asked) == 5
+    for aql in asked:
+        nodes = store.db.aql.explain(aql)["nodes"]
+        kinds = [node["type"] for node in nodes]
+        assert "EnumerateCollectionNode" not in kinds, (aql, kinds)
+        index = next(node for node in nodes if node["type"] == "IndexNode")
+        assert index.get("indexCoversProjections"), aql
