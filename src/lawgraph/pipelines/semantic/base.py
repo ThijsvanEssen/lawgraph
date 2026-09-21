@@ -1,17 +1,65 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Iterable, Iterator
+from typing import Any, TypeVar
 
-from lawgraph.config.constants import BWB_ID_PREFIX, EDGE_STATUS_CANONIEK
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_RAW_SOURCES,
+    EDGE_STATUS_CANONIEK,
+    RAW_KIND_RS_CONTENT,
+    SOURCE_RECHTSPRAAK,
+)
+from lawgraph.core.aliases import InstrumentAliasMap, normalize_instrument_id
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult
-from lawgraph.db import edge_key as _sha1_edge_key
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.progress import Progress
+from lawgraph.db import make_edge_doc
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
+T = TypeVar("T")
+
 CodeMapping = dict[str, str]
-InstrumentAliasMap = dict[str, tuple[str | None, str | None]]
+
+
+def _skeleton(node: Node) -> Node:
+    return Node(
+        collection=node.collection,
+        type=node.type,
+        key=node.key,
+        props={},
+        _skip_validation=True,
+    )
+
+
+# The collections a citation points into, and the type of their nodes.
+_TARGET_TYPES = {
+    COLLECTION_ARTICLES: NodeType.ARTICLE,
+    COLLECTION_INSTRUMENTS: NodeType.INSTRUMENT,
+    COLLECTION_JUDGMENTS: NodeType.JUDGMENT,
+}
+
+
+def slim(var: str, *fields: str) -> str:
+    """AQL for the document *var* with only *fields* of its props.
+
+    A judgment carries its XML, its text and its paragraphs, a TK document the whole API
+    payload; a pipeline that reads one of them must not have the rest sent over. The result
+    has the shape of a document, so ``Node.from_document`` reads it.
+    """
+    names = ", ".join(f'"{field}"' for field in fields)
+    return (
+        f"{{_key: {var}._key, type: {var}.type, labels: {var}.labels, "
+        f"props: KEEP({var}.props, {names})}}"
+    )
+
+
+# Judgments are tens of KB each: fewer per cursor batch than the default 1000.
+JUDGMENT_BATCH_SIZE = 100
 
 
 class SemanticPipelineBase(PipelineBase):
@@ -21,6 +69,144 @@ class SemanticPipelineBase(PipelineBase):
     """
 
     _EDGE_BATCH_SIZE: int = 500
+
+    def __init__(self, store: Any) -> None:
+        super().__init__(store=store)
+        # (collection, key) -> lightweight Node, or None when known to be absent.
+        self._node_cache: dict[tuple[str, str], Node | None] = {}
+
+    # ---------------------------------------------------------------- progress
+
+    def _track(
+        self, items: Iterable[T], what: str, *, total: int | None = None
+    ) -> Iterator[T]:
+        """Pass *items* on and report the progress of the loop that takes them.
+
+        Every semantic pipeline runs its main loop through this (or through
+        ``_judgment_texts``): a status line in the terminal, one a minute in a log file, and
+        a summary with the duration at the end.
+        """
+        return Progress(what, total=total).track(items)
+
+    # --------------------------------------------------------------- judgments
+
+    def _judgment_texts(
+        self, since_iso: str | None = None
+    ) -> Iterator[tuple[Node, str]]:
+        """``(judgment node, XML)`` of every stored Rechtspraak judgment, from raw_sources.
+
+        The XML is not kept on the judgment node (it holds the summary, the text and the
+        paragraphs already, and the XML is a third of the collection again): it is read where
+        retrieve stored it. The node is the one normalize makes of the same ECLI.
+        """
+        since_filter = "FILTER r.fetched_at >= @since" if since_iso else ""
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind
+            {since_filter}
+            FILTER r.payload_text != null
+            RETURN {{ecli: r.meta.ecli || r.external_id, xml: r.payload_text}}
+        """
+        bind: dict[str, Any] = {
+            "source": SOURCE_RECHTSPRAAK,
+            "kind": RAW_KIND_RS_CONTENT,
+        }
+        if since_iso:
+            bind["since"] = since_iso
+        total = None
+        if (
+            not since_iso
+        ):  # from the index; with a date every record would have to be read
+            count_aql = f"""
+            FOR r IN {COLLECTION_RAW_SOURCES}
+                FILTER r.source == @source AND r.kind == @kind
+                COLLECT WITH COUNT INTO n
+                RETURN n
+            """
+            count = next(iter(self.store.query(count_aql, bind)), None)
+            total = count if isinstance(count, int) else None
+        rows = self.store.query(aql, bind, batch_size=JUDGMENT_BATCH_SIZE)
+        for row in self._track(rows, "judgments", total=total):
+            ecli = str(row.get("ecli") or "").strip()
+            if not ecli:
+                continue
+            node = Node(
+                collection=COLLECTION_JUDGMENTS,
+                type=NodeType.JUDGMENT,
+                key=make_node_key(ecli),
+                props={"ecli": ecli},
+                _skip_validation=True,
+            )
+            yield node, str(row["xml"])
+
+    # ------------------------------------------------------------ node lookup
+
+    def _lookup_node(self, collection: str, key: str) -> Node | None:
+        """``get_node`` with a per-run cache of hits *and* misses.
+
+        Citation targets repeat a lot ("artikel 1", "art. 287 Sr"), so this turns
+        one lookup per citation into one per distinct target. The returned node
+        is a skeleton (key/collection/type, no props): use it as an edge endpoint,
+        not to read data. Call ``_remember_node`` after creating a stub, and
+        ``_prefetch_nodes`` to fill the cache for a whole batch in one query.
+        """
+        if (collection, key) not in self._node_cache:
+            # Does it exist: a lookup in the primary index. ``get_node`` would have the whole
+            # document sent over, an article with its text, to throw it away.
+            self._prefetch_nodes(collection, [key], _TARGET_TYPES[collection])
+        return self._node_cache[(collection, key)]
+
+    def _remember_node(self, node: Node | None) -> None:
+        """Record a node created during the run (e.g. a stub) in the lookup cache."""
+        if node is not None and node.key is not None:
+            self._node_cache[(node.collection, node.key)] = _skeleton(node)
+
+    def _prefetch_nodes(
+        self, collection: str, keys: Iterable[str], node_type: NodeType
+    ) -> None:
+        """Resolve many keys with one bulk lookup so ``_lookup_node`` never hits the DB."""
+        missing = {k for k in keys if (collection, k) not in self._node_cache}
+        for key in self.store.existing_keys(collection, missing):
+            self._node_cache[(collection, key)] = Node(
+                collection=collection,
+                type=node_type,
+                key=key,
+                props={},
+                _skip_validation=True,
+            )
+            missing.discard(key)
+        for key in missing:
+            self._node_cache[(collection, key)] = None
+
+    def _resolve_eclis(self, eclis: set[str]) -> dict[str, str]:
+        """Map each ECLI to a judgment node id, stubbing the ones not in the corpus.
+
+        One lookup for the whole set; a judgment cited from outside the corpus
+        gets a stub so the citation edge still has both endpoints.
+        """
+        aql = f"""
+        FOR doc IN {COLLECTION_JUDGMENTS}
+            FILTER doc.props.ecli IN @eclis
+            RETURN {{ ecli: doc.props.ecli, id: doc._id }}
+        """
+        by_ecli: dict[str, str] = {}
+        for row in self.store.query(aql, bind_vars={"eclis": sorted(eclis)}):
+            ecli, node_id = (row.get("ecli") or "").upper(), row.get("id") or ""
+            if ecli and node_id:
+                by_ecli[ecli] = node_id
+
+        for ecli in eclis:
+            if ecli in by_ecli:
+                continue
+            node = self.store.ensure_stub_node(
+                COLLECTION_JUDGMENTS,
+                make_node_key(ecli),
+                NodeType.JUDGMENT,
+                props={"ecli": ecli},
+            )
+            if node and node.arango_id:
+                by_ecli[ecli] = node.arango_id
+        return by_ecli
 
     # ------------------------------------------------------------------ config
 
@@ -33,36 +219,33 @@ class SemanticPipelineBase(PipelineBase):
         dict key. The first non-empty value found across *value_fields* (in
         order) becomes the dict value. First-write-wins — subsequent rows that
         produce the same key are ignored. Keys and values are stripped.
-        Returns an empty dict if the store is unavailable.
+        A failing query fails the step: without the names every citation would be missed.
         """
         index: dict[str, str] = {}
-        try:
-            for row in self.store.query(aql):
-                key = str(row.get(key_field) or "").strip()
-                if not key:
-                    continue
-                if key in index:
-                    continue
-                for field in value_fields:
-                    val = row.get(field)
-                    if val:
-                        index[key] = str(val).strip()
-                        break
-        except Exception as exc:
-            logger.debug("Alias index query unavailable: %s", exc)
+        for row in self.store.query(aql):
+            key = str(row.get(key_field) or "").strip()
+            if not key:
+                continue
+            if key in index:
+                continue
+            for field in value_fields:
+                val = row.get(field)
+                if val:
+                    index[key] = str(val).strip()
+                    break
         return index
 
     def _load_code_aliases(self) -> CodeMapping:
         """Build short_title → bwb_id/celex map from instruments in the graph."""
-        aql = """
-        FOR inst IN instruments
+        aql = f"""
+        FOR inst IN {COLLECTION_INSTRUMENTS}
             FILTER inst.props.short_title != null
             FILTER inst.props.bwb_id != null OR inst.props.celex != null
-            RETURN {
+            RETURN {{
                 short_title: inst.props.short_title,
                 bwb_id: inst.props.bwb_id,
                 celex: inst.props.celex
-            }
+            }}
         """
         return self._load_alias_index(aql, "short_title", ("bwb_id", "celex"))
 
@@ -72,31 +255,28 @@ class SemanticPipelineBase(PipelineBase):
         Only includes instruments that have a bwb_id or celex prop. The
         ``title`` and ``citation_title`` props are indexed as keys (not
         ``short_title``, which is used by ``_load_code_aliases`` instead).
-        First-write wins — if two instruments share a name, the first one
-        encountered wins. Returns an empty dict if the store is unavailable.
+        A name that two instruments share is left out: it would link to whichever came
+        first. A failing query fails the step.
         """
-        aql = """
-        FOR inst IN instruments
+        aql = f"""
+        FOR inst IN {COLLECTION_INSTRUMENTS}
             FILTER inst.props.bwb_id != null OR inst.props.celex != null
-            RETURN {
+            RETURN {{
                 bwb_id: inst.props.bwb_id,
                 celex: inst.props.celex,
                 title: inst.props.title,
                 citation_title: inst.props.citation_title
-            }
+            }}
         """
         index: InstrumentAliasMap = {}
-        try:
-            rows = list(self.store.query(aql))
-        except Exception as exc:
-            logger.debug("Graph instrument index unavailable: %s", exc)
-            return index
+        ambiguous: set[str] = set()
+        rows = list(self.store.query(aql))
 
         for row in rows:
             bwb_id = row.get("bwb_id")
             celex = row.get("celex")
-            bwb_norm = str(bwb_id).strip().upper() if bwb_id else None
-            celex_norm = str(celex).strip().upper() if celex else None
+            bwb_norm = normalize_instrument_id(bwb_id)
+            celex_norm = normalize_instrument_id(celex)
             pair: tuple[str | None, str | None] = (bwb_norm, celex_norm)
 
             for name_field in ("title", "citation_title"):
@@ -104,57 +284,15 @@ class SemanticPipelineBase(PipelineBase):
                 if not name:
                     continue
                 label = str(name).strip()
-                if label and label not in index:
-                    index[label] = pair
+                if not label or label in ambiguous:
+                    continue
+                if index.setdefault(label, pair) != pair:
+                    del index[label]
+                    ambiguous.add(label)
 
         return index
 
     # ------------------------------------------------------------------ edges
-
-    def _create_semantic_edge(
-        self,
-        *,
-        from_node: Node,
-        to_node: Node,
-        relation: str,
-        source: str,
-        confidence: float = 0.0,
-        meta: dict[str, Any] | None = None,
-        result: PipelineResult | None = None,
-        status: str = EDGE_STATUS_CANONIEK,
-    ) -> bool:
-        """Upsert a single semantic edge. Returns True if newly created.
-
-        For high-throughput pipelines prefer ``_flush_edge_batch()`` which
-        amortises N individual round-trips into one AQL batch call.
-        """
-        if not from_node.arango_id or not to_node.arango_id:
-            return False
-
-        edge_key = _sha1_edge_key(from_node.arango_id, relation, to_node.arango_id)
-        edge_doc: dict[str, Any] = {
-            "_key": edge_key,
-            "_from": from_node.arango_id,
-            "_to": to_node.arango_id,
-            "relation": relation,
-            "confidence": confidence,
-            "source": source,
-            "status": status,
-            "meta": dict(meta or {}),
-        }
-
-        try:
-            _, created = self.store.insert_or_update_edge(doc=edge_doc)
-            return created
-        except Exception as exc:
-            msg = (
-                f"Failed to create edge {from_node.arango_id} → {to_node.arango_id}"
-                f" ({relation}): {exc}"
-            )
-            logger.error(msg)
-            if result is not None:
-                result.add_error(msg)
-            return False
 
     def _flush_edge_batch(
         self,
@@ -166,8 +304,8 @@ class SemanticPipelineBase(PipelineBase):
         Returns (created, updated). On error, logs and appends to result.errors
         but does not raise so the pipeline can continue with the next batch.
 
-        Build edge docs with ``_make_edge_doc()`` then call this once per
-        batch rather than calling ``_create_semantic_edge()`` in a tight loop.
+        Build edge docs with ``_make_edge_doc()`` and add them with
+        ``_queue_edge()``, which calls this once per full batch.
         """
         if not batch:
             return 0, 0
@@ -180,6 +318,26 @@ class SemanticPipelineBase(PipelineBase):
             if result is not None:
                 result.add_error(msg)
             return 0, 0
+
+    def _queue_edge(
+        self,
+        batch: list[dict[str, Any]],
+        doc: dict[str, Any] | None,
+        result: PipelineResult,
+    ) -> None:
+        """Append *doc* to *batch* (None is skipped); write the batch when full."""
+        if doc is None:
+            return
+        batch.append(doc)
+        if len(batch) >= self._EDGE_BATCH_SIZE:
+            self._write_batch(batch, result)
+
+    def _write_batch(self, batch: list[dict[str, Any]], result: PipelineResult) -> None:
+        """Bulk-write *batch*, tally created/updated on *result*, and empty it."""
+        created, updated = self._flush_edge_batch(batch, result)
+        result.created += created
+        result.updated += updated
+        batch.clear()
 
     def _make_edge_doc(
         self,
@@ -198,58 +356,12 @@ class SemanticPipelineBase(PipelineBase):
         """
         if not from_node.arango_id or not to_node.arango_id:
             return None
-        edge_key = _sha1_edge_key(from_node.arango_id, relation, to_node.arango_id)
-        return {
-            "_key": edge_key,
-            "_from": from_node.arango_id,
-            "_to": to_node.arango_id,
-            "relation": relation,
-            "confidence": confidence,
-            "source": source,
-            "status": status,
-            "meta": dict(meta or {}),
-        }
-
-    @staticmethod
-    def _extract_props_text(props: dict[str, Any], *keys: str) -> str | None:
-        """Return the first non-empty string value found under the given keys."""
-        for key in keys:
-            value = props.get(key)
-            if isinstance(value, str) and value.strip():
-                return value
-        return None
-
-    @staticmethod
-    def _parse_instrument_aliases(raw: dict[str, Any]) -> InstrumentAliasMap:
-        """Parse a dict of instrument alias entries into a normalised InstrumentAliasMap.
-
-        Accepts values in several forms:
-        - a (bwb_id, celex) tuple
-        - a dict with ``bwb_id`` and/or ``celex`` keys
-        - a scalar string (BWBR… → bwb_id, anything else → celex)
-        """
-        aliases: InstrumentAliasMap = {}
-        for alias, value in raw.items():
-            label = str(alias or "").strip()
-            if not label:
-                continue
-            # Already a parsed tuple — pass through.
-            if isinstance(value, tuple) and len(value) == 2:
-                aliases[label] = value  # type: ignore[assignment]
-                continue
-            if isinstance(value, dict):
-                bwb_id = value.get("bwb_id")
-                celex = value.get("celex")
-                aliases[label] = (
-                    str(bwb_id).strip().upper() if bwb_id else None,
-                    str(celex).strip().upper() if celex else None,
-                )
-                continue
-            scalar = str(value or "").strip()
-            if not scalar:
-                continue
-            if scalar.upper().startswith(BWB_ID_PREFIX):
-                aliases[label] = (scalar.upper(), None)
-            else:
-                aliases[label] = (None, scalar.upper())
-        return aliases
+        return make_edge_doc(
+            from_node.arango_id,
+            to_node.arango_id,
+            relation,
+            source=source,
+            confidence=confidence,
+            status=status,
+            meta=meta,
+        )

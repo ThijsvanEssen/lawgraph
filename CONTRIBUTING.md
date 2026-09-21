@@ -1,91 +1,50 @@
-# Contributing to LawGraph
+# Contributing
 
-LawGraph builds a Dutch and EU legal knowledge graph in ArangoDB. Pipelines are deterministic: re-running any pipeline produces the same `_key` values and idempotent upserts.
-
-## Local setup
-
-1. Clone and create a virtual environment:
-
-   ```bash
-   git clone <repo-url>
-   cd lawgraph
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -e ".[dev]"
-   ```
-
-2. Copy `.env.example` to `.env` and fill in the ArangoDB connection:
-
-   ```env
-   ARANGO_URL=http://localhost:8529
-   ARANGO_DB_NAME=lawgraph
-   ARANGO_USER=root
-   ARANGO_PASSWORD=changeme
-   ```
-
-3. Start ArangoDB:
-
-   ```bash
-   docker-compose up -d arangodb
-   ```
-
-## Running pipelines
-
-The unified CLI is `lawgraph` (or `python -m lawgraph`):
+## Setup
 
 ```bash
-# Retrieve raw data
-lawgraph retrieve all
-
-# Normalize into graph nodes and edges
-lawgraph normalize all
-
-# Infer semantic citation edges
-lawgraph semantic all
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env                 # set ARANGO_PASSWORD and ARANGO_ROOT_PASSWORD
+docker compose up -d arangodb        # the database itself is created on first use
 ```
 
-Run individual sources:
+The test suite needs no database.
+
+## Checks
 
 ```bash
-lawgraph retrieve bwb --mode full
-lawgraph normalize bwb --since 7d
-lawgraph semantic bwb
-```
-
-Pass `--help` after a source name to see all flags.
-
-## Coding conventions
-
-- Python 3.11+; type annotations are required throughout.
-- Use `make_node_key()` from `lawgraph.core.models` for all `_key` derivation. Multiple runs must produce identical keys.
-- Collection names and relation types are defined as constants in `src/lawgraph/config/constants.py`. Do not hardcode strings.
-- Runtime configuration (URLs, credentials, feature flags) belongs in `.env` via `src/lawgraph/config/settings.py`.
-- All pipeline classes must return a `PipelineResult` from `run()`.
-- Complexity limit: McCabe complexity C901 <= 15 (enforced by ruff).
-- Log using `get_logger(__name__)` from `lawgraph.core.logging`; do not use `print()`.
-
-## Tests
-
-```bash
-pytest tests/
-# Opt in to real network calls:
-ALLOW_NETWORK_TESTS=1 pytest tests/
-```
-
-## Linting
-
-```bash
+pytest tests -q
 ruff check src tests
+ruff format --check src tests
+pre-commit run --all-files           # ruff --fix, ruff format, whitespace and YAML checks
 ```
 
-Fix all issues before pushing.
+Pull requests run the same checks in CI. Fix all findings before pushing.
 
-## Branches, commits, and pull requests
+## Conventions
 
-- Work on feature branches under `feature/<description>`.
-- Commit messages should be descriptive and reference the changed component, e.g. `fix: deterministic keys for stemmingen` or `feat: staatsblad normalize pipeline`.
-- Open pull requests against `develop`. Describe which pipelines and sources were tested.
-- PRs targeting `main` are reserved for release merges.
-- Do not force-push to `main`.
+- Python 3.11+, type annotations on all code.
+- Keys come from `make_node_key()` (`lawgraph.core.models`); re-running a pipeline must
+  produce the same keys and upsert, never duplicate.
+- Collection names, relation names and source ids are constants in
+  `src/lawgraph/config/constants.py`, also inside AQL. Only
+  `src/lawgraph/config/settings.py` reads the environment; a new variable also goes into
+  `.env.example` and `docs/operations.md`.
+- A command ends through `run_step` (`pipelines/factory.py`) so that exit codes stay uniform;
+  the one date option is `--since`, offered only where the pipeline filters on it.
+- New relation names go into `src/lawgraph/core/relations.py`; regenerate the tables in
+  `docs/data-model.md` with `python -m lawgraph.core.relations`.
+- Pipelines follow the naming rule, return a `PipelineResult` from `run()`, write in bulk
+  (`NodeWriter`, `EdgeWriter`, `existing_keys`) and are registered in
+  `src/lawgraph/sources/registry.py`. Details: `docs/architecture.md`.
+- Pure logic (text in, hits out) lives in `core/` or in a detector module without store
+  access, and is tested without fakes. `api/` and `pipelines/` never import each other.
+- McCabe complexity at most 15 (ruff C901).
+- Log with `get_logger(__name__)`; no `print()` in library code.
+- Test with small real fixtures where a source has structure (`tests/fixtures/`).
 
-Thank you for contributing.
+## Branches and pull requests
+
+Work on a feature branch and open a pull request against `develop`. Describe which
+pipelines and sources are affected. `main` receives release merges only; do not force-push it.

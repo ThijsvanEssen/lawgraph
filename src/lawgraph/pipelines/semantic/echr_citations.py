@@ -1,30 +1,28 @@
-"""Semantic pipeline: ECHR judgments → CITES_ARTICLE (ECHR Convention articles).
+"""Semantic pipeline: ECHR judgments → REFERS_TO → Convention articles.
 
 ECHR HUDOC stores the cited Convention articles in the ``articles`` field of
-each judgment record (e.g. ["6", "8", "13"]).  We map those article numbers
-to instrument_articles for an "ECHR Convention" instrument in the graph.
+each judgment record (e.g. ["6", "8", "13"]). Those article numbers are mapped
+to the articles of an "ECHR Convention" instrument in the graph.
 
 If the ECHR Convention instrument does not yet exist as a stub it is created
 automatically so subsequent pipeline runs can enrich it.
 
-We also link judgments to any NL/EU instruments mentioned in the judgment
+Judgments are also linked to any NL/EU instruments named in the judgment
 ``conclusion`` text via BWBR/CELEX pattern matching.
 """
 
 from __future__ import annotations
 
-import datetime as dt
-import re
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    RELATION_CITES_ARTICLE,
-    RELATION_MENTIONS_INSTRUMENT,
+    RELATION_REFERS_TO,
     SOURCE_ECHR,
 )
+from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 
@@ -35,7 +33,6 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "echr-citation-linker"
 
 _ECHR_CONVENTION_BWB_STUB = "ECHR-CONVENTION"
-_BWBR_PATTERN = re.compile(r"\b(BWBR0\d{6})\b", re.IGNORECASE)
 
 
 def _ensure_echr_convention_instrument(store: Any) -> Node:
@@ -58,7 +55,8 @@ def _ensure_echr_convention_instrument(store: Any) -> Node:
             "stub": False,
         },
     )
-    return store.insert_or_update(node)
+    stored, _ = store.insert_or_update(node)
+    return stored
 
 
 def _ensure_echr_article(
@@ -69,7 +67,7 @@ def _ensure_echr_article(
         return None
     key = make_node_key(_ECHR_CONVENTION_BWB_STUB, article_label)
     node = Node(
-        collection=COLLECTION_INSTRUMENT_ARTICLES,
+        collection=COLLECTION_ARTICLES,
         type=NodeType.ARTICLE,
         key=key,
         labels=["ECHR"],
@@ -82,10 +80,11 @@ def _ensure_echr_article(
             "instrument_id": convention.arango_id,
         },
     )
-    return store.insert_or_update(node)
+    stored, _ = store.insert_or_update(node)
+    return stored
 
 
-class EchrCitationsPipeline(SemanticPipelineBase):
+class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
     """Links ECHR judgments to cited Convention articles and mentioned instruments."""
 
     def _link_convention_articles(
@@ -96,7 +95,7 @@ class EchrCitationsPipeline(SemanticPipelineBase):
         article_cache: dict[str, Node | None],
         edge_batch: list[dict],
     ) -> list[dict]:
-        """Append CITES_ARTICLE edges for every judgment → Convention article pair.
+        """Append REFERS_TO edges for every judgment → Convention article pair.
 
         Returns the (possibly grown) edge_batch so the caller can flush it.
         """
@@ -141,7 +140,7 @@ class EchrCitationsPipeline(SemanticPipelineBase):
                 edge_doc = self._make_edge_doc(
                     from_node=judgment_node,
                     to_node=art_node,
-                    relation=RELATION_CITES_ARTICLE,
+                    relation=RELATION_REFERS_TO,
                     source=SEMANTIC_SOURCE,
                     confidence=0.95,
                     meta={"article": label, "instrument": "EVRM"},
@@ -163,7 +162,7 @@ class EchrCitationsPipeline(SemanticPipelineBase):
         bwb_instruments: dict[str, Node],
         edge_batch: list[dict],
     ) -> list[dict]:
-        """Append MENTIONS_INSTRUMENT edges for BWB IDs found in judgment conclusions.
+        """Append REFERS_TO edges for BWB IDs found in judgment conclusions.
 
         Returns the (possibly grown) edge_batch so the caller can flush it.
         """
@@ -184,7 +183,7 @@ class EchrCitationsPipeline(SemanticPipelineBase):
                 props={},
             )
 
-            bwb_ids = {m.group(1).upper() for m in _BWBR_PATTERN.finditer(conclusion)}
+            bwb_ids = {m.group(1).upper() for m in BWB_ID_PATTERN.finditer(conclusion)}
             for bwb_id in bwb_ids:
                 inst_node = bwb_instruments.get(bwb_id)
                 if inst_node is None:
@@ -192,7 +191,7 @@ class EchrCitationsPipeline(SemanticPipelineBase):
                 edge_doc = self._make_edge_doc(
                     from_node=judgment_node,
                     to_node=inst_node,
-                    relation=RELATION_MENTIONS_INSTRUMENT,
+                    relation=RELATION_REFERS_TO,
                     source=SEMANTIC_SOURCE,
                     confidence=0.80,
                     meta={"match_type": "bwb_text_scan"},
@@ -207,7 +206,7 @@ class EchrCitationsPipeline(SemanticPipelineBase):
 
         return edge_batch
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
 
         # Fetch all ECHR judgment nodes
@@ -223,9 +222,10 @@ FOR j IN {COLLECTION_JUDGMENTS}
   }}
 """
         try:
-            rows = list(self.store.query(aql, {"source": SOURCE_ECHR}))
+            judgments = self.store.query(aql, {"source": SOURCE_ECHR})
+            rows = list(self._track(judgments, "ECHR judgments"))
         except Exception as exc:
-            logger.warning("ECHR citations: query failed: %s", exc)
+            result.add_error(f"ECHR citations: query failed: {exc}")
             return result
 
         if not rows:
@@ -238,8 +238,8 @@ FOR j IN {COLLECTION_JUDGMENTS}
         try:
             convention = _ensure_echr_convention_instrument(self.store)
         except Exception as exc:
-            logger.warning(
-                "ECHR citations: could not ensure Convention instrument: %s", exc
+            result.add_error(
+                f"ECHR citations: could not ensure Convention instrument: {exc}"
             )
             return result
 
@@ -248,15 +248,15 @@ FOR j IN {COLLECTION_JUDGMENTS}
         all_bwb_ids: set[str] = set()
         for row in rows:
             conclusion = row.get("conclusion") or ""
-            for m in _BWBR_PATTERN.finditer(conclusion):
+            for m in BWB_ID_PATTERN.finditer(conclusion):
                 all_bwb_ids.add(m.group(1).upper())
 
         bwb_id_to_node: dict[str, Node] = {}
         if all_bwb_ids:
-            batch_aql = """
-FOR inst IN instruments
-  FILTER UPPER(inst.props.bwb_id) IN @bwb_ids
-  RETURN inst
+            batch_aql = f"""
+FOR inst IN {COLLECTION_INSTRUMENTS}
+  FILTER inst.props.bwb_id IN @bwb_ids
+  RETURN {{_key: inst._key, props: {{bwb_id: inst.props.bwb_id}}}}
 """
             try:
                 inst_rows = list(
@@ -272,7 +272,7 @@ FOR inst IN instruments
                             props={},
                         )
             except Exception as exc:
-                logger.warning("ECHR citations: batch BWB lookup failed: %s", exc)
+                result.add_error(f"ECHR citations: batch BWB lookup failed: {exc}")
 
         article_cache: dict[str, Node | None] = {}
         edge_batch: list[dict] = []

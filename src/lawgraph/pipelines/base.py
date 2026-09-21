@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -22,3 +23,9 @@ class PipelineBase(ABC):
     @abstractmethod
     def run(self, **kwargs: Any) -> PipelineResult:
         """Execute the pipeline and return a result summary."""
+
+
+# Set when the user interrupts a command that runs steps on threads (``retrieve all
+# --jobs``). Ctrl-C only reaches the main thread; the steps look here between two records,
+# store what they have and stop, instead of fetching on for hours.
+STOP = threading.Event()

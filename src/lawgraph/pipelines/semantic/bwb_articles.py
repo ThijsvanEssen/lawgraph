@@ -1,4 +1,9 @@
-"""Semantic pipeline that links BWB articles referenced inside other articles."""
+"""Semantic pipeline that links BWB articles referenced inside other articles.
+
+The BWB XML states every reference explicitly: articles normalized from it carry
+``props.references`` (from ``<extref>``/``<intref>``), and those structured
+references are the only source. An article without them produces no edges.
+"""
 
 from __future__ import annotations
 
@@ -6,26 +11,30 @@ import datetime as dt
 from typing import Any, Iterable
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
-    RELATION_REFERS_TO_ARTICLE,
+    COLLECTION_ARTICLES,
+    COLLECTION_RAW_SOURCES,
+    RELATION_REFERS_TO,
     SOURCE_BWB,
 )
+from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_timestamp
-from lawgraph.pipelines.semantic.bwb_detect import (
-    ArticleCitationHit,
-    detect_bwb_article_citations,
+from lawgraph.pipelines.semantic.bwb_references import (
+    ArticleReferenceHit,
+    hits_from_references,
 )
 
-from .base import SemanticPipelineBase
+from .base import SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
-SEMANTIC_SOURCE = "bwb-article-text"
+SEMANTIC_SOURCE = "bwb-article-references"
 
 
-class BwbArticlesSemanticPipeline(SemanticPipelineBase):
-    """Detect article-to-article references inside BWB article texts."""
+class BWBArticlesSemanticPipeline(SemanticPipelineBase):
+    """Link article-to-article references recorded in the BWB XML."""
+
+    _ARTICLE_CHUNK = 500
 
     def __init__(
         self,
@@ -39,8 +48,6 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Create semantic edges for article references detected inside BWB articles."""
         result = PipelineResult()
-        code_aliases = self._load_code_aliases()
-        instrument_aliases = self._load_instrument_aliases()
         bwb_ids = self._load_bwb_ids_from_graph()
         if not bwb_ids:
             logger.warning(
@@ -49,88 +56,98 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
             return result
 
         since_iso = iso_timestamp(since) if since is not None else None
-        articles = list(self._load_articles(bwb_ids, since_iso=since_iso))
-        if not articles:
-            logger.info("No BWB articles found for semantic linking.")
-            return result
-
-        logger.info(
-            "Scanning %d BWB articles for internal references.",
-            len(articles),
-        )
 
         hits_detected = 0
+        articles_seen = 0
         edge_batch: list[dict] = []
-        detect_config = {
-            "code_aliases": code_aliases,
-            "instrument_aliases": instrument_aliases,
-        }
-        for doc in articles:
-            article = Node.from_document(COLLECTION_INSTRUMENT_ARTICLES, doc)
-            text = self._extract_article_text(article)
-            if not text:
-                result.skipped += 1
-                continue
-
-            bwb_id = str(article.props.get("bwb_id") or "")
-            if not bwb_id:
-                result.skipped += 1
-                continue
-
-            hits = detect_bwb_article_citations(text, bwb_id, detect_config)
-            hits_detected += len(hits)
-            self._store_article_citations(article, hits)
-
-            for hit in hits:
-                target = self._resolve_article(hit)
-                if not target:
-                    logger.debug(
-                        "Unable to resolve article %s %s for citation.",
-                        hit.bwb_id,
-                        hit.article_number,
-                    )
+        # Stream articles (they carry full text) and process them in chunks so
+        # that all reference targets of a chunk are resolved with ONE lookup.
+        articles = self._track(
+            self._load_articles(bwb_ids, since_iso=since_iso), "articles"
+        )
+        for chunk in chunked(articles, self._ARTICLE_CHUNK):
+            scanned: list[tuple[Node, list[ArticleReferenceHit]]] = []
+            for doc in chunk:
+                articles_seen += 1
+                article = Node.from_document(COLLECTION_ARTICLES, doc)
+                bwb_id = str(article.props.get("bwb_id") or "")
+                if not bwb_id:
+                    result.skipped += 1
                     continue
+                hits = self._hits_for(article, bwb_id)
+                hits_detected += len(hits)
+                scanned.append((article, hits))
 
-                edge_doc = self._make_edge_doc(
-                    from_node=article,
-                    to_node=target,
-                    relation=RELATION_REFERS_TO_ARTICLE,
-                    source=SEMANTIC_SOURCE,
-                    confidence=hit.confidence,
-                    meta={"start": hit.start, "end": hit.end, "text": hit.text},
-                )
-                if edge_doc:
-                    edge_batch.append(edge_doc)
-                    if len(edge_batch) >= self._EDGE_BATCH_SIZE:
-                        created, updated = self._flush_edge_batch(edge_batch, result)
-                        result.created += created
-                        result.updated += updated
-                        edge_batch = []
+            self._store_article_citations(scanned)
+            self._prefetch_nodes(
+                COLLECTION_ARTICLES,
+                {
+                    make_node_key(hit.bwb_id, hit.article_number)
+                    for _, hits in scanned
+                    for hit in hits
+                    if hit.bwb_id and hit.article_number
+                },
+                NodeType.ARTICLE,
+            )
+            for article, hits in scanned:
+                for hit in hits:
+                    target = self._resolve_article(hit)
+                    if not target:
+                        logger.debug(
+                            "Unable to resolve referenced article %s %s.",
+                            hit.bwb_id,
+                            hit.article_number,
+                        )
+                        continue
+                    self._queue_edge(
+                        edge_batch,
+                        self._make_edge_doc(
+                            from_node=article,
+                            to_node=target,
+                            relation=RELATION_REFERS_TO,
+                            source=SEMANTIC_SOURCE,
+                            confidence=hit.confidence,
+                            meta=self._edge_meta(hit),
+                        ),
+                        result,
+                    )
 
-        if edge_batch:
-            created, updated = self._flush_edge_batch(edge_batch, result)
-            result.created += created
-            result.updated += updated
+        self._write_batch(edge_batch, result)
+        if not articles_seen:
+            logger.info("No BWB articles found for semantic linking.")
 
         logger.info(
-            "BWB article linker: %d citations detected, %s.",
+            "BWB article linker: %d references read, %s.",
             hits_detected,
             result.summary(),
         )
         return result
 
+    @staticmethod
+    def _hits_for(article: Node, bwb_id: str) -> list[ArticleReferenceHit]:
+        """The structured references the BWB XML recorded on this article."""
+        references = article.props.get("references")
+        if not isinstance(references, list):
+            return []
+        return hits_from_references(
+            references, bwb_id, article.props.get("article_number")
+        )
+
+    @staticmethod
+    def _edge_meta(hit: ArticleReferenceHit) -> dict[str, Any]:
+        meta: dict[str, Any] = {"start": hit.start, "end": hit.end, "text": hit.text}
+        if hit.reason:
+            meta["reason"] = hit.reason
+        return meta
+
     def _load_bwb_ids_from_graph(self) -> list[str]:
         """Return all distinct BWB IDs that have article nodes in the graph."""
         aql = f"""
-        FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+        FOR doc IN {COLLECTION_ARTICLES}
             FILTER doc.props.bwb_id != null
             RETURN DISTINCT doc.props.bwb_id
         """
-        try:
-            return [str(row) for row in self.store.query(aql) if row]
-        except Exception as exc:
-            logger.debug("Could not load BWB IDs from graph: %s", exc)
-            return []
+        return [str(row) for row in self.store.query(aql) if row]
 
     def _load_articles(
         self,
@@ -138,76 +155,73 @@ class BwbArticlesSemanticPipeline(SemanticPipelineBase):
         *,
         since_iso: str | None = None,
     ) -> Iterable[dict[str, Any]]:
-        if not bwb_ids:
-            return
+        """Articles carrying structured references, optionally only recent ones."""
         if since_iso is not None:
-            # Get recently fetched BWB IDs from raw_sources
-            recent_bwb_ids_aql = """
-            FOR raw IN raw_sources
-                FILTER raw.source == @source
-                FILTER raw.fetched_at >= @since
-                FILTER raw.meta.bwb_id != null
-            RETURN DISTINCT raw.meta.bwb_id
-            """
-            recent_ids: set[str] = set()
-            for row in self.store.query(
-                recent_bwb_ids_aql,
-                bind_vars={"source": SOURCE_BWB, "since": since_iso},
-            ):
-                if isinstance(row, str):
-                    recent_ids.add(row)
-            # Intersect with known bwb_ids
-            filtered_ids = [bid for bid in bwb_ids if bid in recent_ids]
-            if not filtered_ids:
-                return
-            # Load articles for those BWB IDs only
-            aql = f"""
-            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
-                FILTER doc.props.bwb_id IN @bwb_ids
-                FILTER doc.props.text != null
-            RETURN doc
-            """
-            yield from self.store.query(aql, bind_vars={"bwb_ids": filtered_ids})
-        else:
-            aql = f"""
-            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
-                FILTER doc.props.bwb_id IN @bwb_ids
-                FILTER doc.props.text != null
-            RETURN doc
-            """
-            yield from self.store.query(aql, bind_vars={"bwb_ids": bwb_ids})
+            recent = self._recent_bwb_ids(
+                since_iso
+            )  # one query, not one per regulation
+            bwb_ids = [bid for bid in bwb_ids if bid in recent]
+        if not bwb_ids:
+            return []
+        aql = f"""
+        FOR doc IN {COLLECTION_ARTICLES}
+            FILTER doc.props.bwb_id IN @bwb_ids
+            FILTER doc.props.references != null
+        RETURN {slim("doc", "bwb_id", "article_number", "references")}
+        """
+        return self.store.query(aql, bind_vars={"bwb_ids": bwb_ids})
 
-    def _resolve_article(self, hit: ArticleCitationHit) -> Node | None:
+    def _recent_bwb_ids(self, since_iso: str) -> set[str]:
+        """BWB IDs whose raw record was fetched at or after *since_iso*."""
+        aql = f"""
+        FOR raw IN {COLLECTION_RAW_SOURCES}
+            FILTER raw.source == @source
+            FILTER raw.fetched_at >= @since
+            FILTER raw.meta.bwb_id != null
+        RETURN DISTINCT raw.meta.bwb_id
+        """
+        rows = self.store.query(
+            aql, bind_vars={"source": SOURCE_BWB, "since": since_iso}
+        )
+        return {row for row in rows if isinstance(row, str)}
+
+    def _resolve_article(self, hit: ArticleReferenceHit) -> Node | None:
         if not hit.bwb_id or not hit.article_number:
             return None
         key = make_node_key(hit.bwb_id, hit.article_number)
-        return self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
-
-    def _extract_article_text(self, article: Node) -> str | None:
-        text = article.props.get("text")
-        if isinstance(text, str) and text.strip():
-            return text.strip()
-        return None
+        return self._lookup_node(COLLECTION_ARTICLES, key)
 
     def _store_article_citations(
-        self,
-        article: Node,
-        hits: list[ArticleCitationHit],
+        self, scanned: list[tuple[Node, list[ArticleReferenceHit]]]
     ) -> None:
-        if not self._store_citations or not article.key:
+        """Persist the references as ``props.citations`` (``--store-citations``).
+
+        One bulk upsert per chunk that sends only the changed prop; the upsert
+        merges props, so the rest of each article (incl. its text) is untouched.
+        """
+        if not self._store_citations:
             return
-
-        citations = [
+        docs = [
             {
-                "start": hit.start,
-                "end": hit.end,
-                "text": hit.text,
-                "target_bwb_id": hit.bwb_id,
-                "target_article_number": hit.article_number,
-                "confidence": hit.confidence,
+                "_key": article.key,
+                "type": article.type.value,
+                "labels": [],
+                "props": {
+                    "citations": [
+                        {
+                            "start": hit.start,
+                            "end": hit.end,
+                            "text": hit.text,
+                            "target_bwb_id": hit.bwb_id,
+                            "target_article_number": hit.article_number,
+                            "confidence": hit.confidence,
+                        }
+                        for hit in hits
+                    ]
+                },
             }
-            for hit in hits
+            for article, hits in scanned
+            if article.key
         ]
-
-        article.props["citations"] = citations
-        self.store.insert_or_update(article)
+        if docs:
+            self.store.bulk_insert_or_update_nodes(COLLECTION_ARTICLES, docs)

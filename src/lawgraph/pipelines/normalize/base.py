@@ -2,23 +2,62 @@ from __future__ import annotations
 
 import datetime as dt
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
+from lawgraph.config.constants import COLLECTION_RAW_SOURCES
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult
+from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.progress import Progress
+from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import describe_since, iso_timestamp
-from lawgraph.db import ArangoStore
+from lawgraph.db import ArangoStore, CountingStore, NodeWriter
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
 
-class NormalizePipeline(PipelineBase, ABC):
-    """Base class for pipelines that normalize raw_sources records."""
+class RawRecords:
+    """The raw records of some kinds, streamed from the database by every ``for`` loop.
+
+    Nothing is kept: a second loop reads them again. For pipelines that walk a large kind
+    more than once, where a list would hold every payload for the whole run.
+    """
+
+    def __init__(
+        self,
+        pipeline: NormalizePipelineBase,
+        *,
+        source: str,
+        kinds: list[str],
+        since: dt.datetime | None,
+        batch_size: int,
+    ) -> None:
+        self._pipeline = pipeline
+        self._options: dict[str, Any] = {
+            "source": source,
+            "kinds": kinds,
+            "since": since,
+            "batch_size": batch_size,
+        }
+
+    def __iter__(self) -> Iterator[dict[str, Any]]:
+        return self._pipeline._iter_raw_sources(**self._options)
+
+
+class NormalizePipelineBase(PipelineBase, ABC):
+    """Base class for pipelines that normalize raw_sources records.
+
+    ``self.store`` is a ``CountingStore``: every node and edge a subclass or its
+    helpers upsert through it is counted, and ``run`` reports those counts as
+    ``created``/``updated`` on the result. Subclasses only record what the store
+    cannot see: ``result.skipped`` and ``result.add_error``.
+    """
+
+    store: CountingStore
 
     def __init__(self, store: ArangoStore) -> None:
-        super().__init__(store)
+        super().__init__(CountingStore(store))
 
     @abstractmethod
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
@@ -27,12 +66,12 @@ class NormalizePipeline(PipelineBase, ABC):
 
     @abstractmethod
     def normalize_nodes(self, raw: Any, result: PipelineResult) -> Any:
-        """Turn raw data into Node objects and insert them into domain collections."""
+        """Turn raw data into Node objects and upsert them into domain collections."""
         raise NotImplementedError
 
     @abstractmethod
-    def build_edges(self, raw: Any, normalized: Any) -> int:
-        """Create edges between normalized nodes; returns number of edges created."""
+    def build_edges(self, raw: Any, normalized: Any) -> None:
+        """Upsert the edges between the normalized nodes."""
         raise NotImplementedError
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
@@ -44,118 +83,77 @@ class NormalizePipeline(PipelineBase, ABC):
             self.__class__.__name__,
             since_desc,
         )
+        self.store.reset_counts()
 
         try:
             raw = self.fetch_raw(since=since)
             normalized = self.normalize_nodes(raw, result)
-            edge_count = self.build_edges(raw, normalized)
+            self.build_edges(raw, normalized)
         except Exception as exc:
             msg = f"{self.__class__.__name__} pipeline failed: {exc}"
             logger.error(msg)
             result.add_error(msg)
-            return result
 
+        # Also after a failure: what was written before it is in the database.
+        writes = self.store.writes
+        result.created += writes.created
+        result.updated += writes.updated
         logger.info(
-            "%s normalization pipeline created %d edges.",
+            "%s normalization pipeline wrote: %s.",
             self.__class__.__name__,
-            edge_count,
+            writes.describe(),
         )
         return result
 
-    def _query_raw_sources(
+    def _iter_raw_sources(
         self,
         *,
         source: str,
         kinds: list[str],
         since: dt.datetime | None = None,
-    ) -> list[dict[str, Any]]:
-        """Return raw_sources rows for the given source/kinds (optionally filtered by since)."""
+        batch_size: int = 20,
+    ) -> Iterator[dict[str, Any]]:
+        """Stream raw_sources rows in small batches (for large XML payloads)."""
         since_iso = iso_timestamp(since)
-        bind_vars = {"source": source, "kinds": kinds}
-
-        if since_iso is None:
-            aql = """
-            FOR r IN raw_sources
-                FILTER r.source == @source
-                FILTER r.kind IN @kinds
+        since_filter = "FILTER r.fetched_at >= @since" if since_iso else ""
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source
+            FILTER r.kind IN @kinds
+            {since_filter}
             RETURN r
-            """
-        else:
-            aql = """
-            FOR r IN raw_sources
-                FILTER r.source == @source
-                FILTER r.kind IN @kinds
-                FILTER r.fetched_at >= @since
-            RETURN r
-            """
+        """
+        bind_vars: dict[str, Any] = {"source": source, "kinds": kinds}
+        if since_iso:
             bind_vars["since"] = since_iso
+        # The total of a full run comes from the index; with a date every record would
+        # have to be read to count it, so an incremental run shows no total and no ETA.
+        total = None if since_iso else self._count_raw_sources(source, kinds)
+        progress = Progress(f"{'/'.join(kinds)} records", total=total)
+        yield from progress.track(
+            self.store.query(aql, bind_vars, batch_size=batch_size)
+        )
 
-        return list(self.store.query(aql, bind_vars=bind_vars))
+    def _count_raw_sources(self, source: str, kinds: list[str]) -> int | None:
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind IN @kinds
+            COLLECT WITH COUNT INTO n
+            RETURN n
+        """
+        count = next(
+            iter(self.store.query(aql, {"source": source, "kinds": kinds})), None
+        )
+        return count if isinstance(count, int) else None
 
-    def _batch_upsert_edges(
-        self,
-        edge_docs: list[dict],
-        *,
-        batch_size: int = 500,
-    ) -> int:
-        """Batch-upsert edge documents; returns the number created."""
-        created_total = 0
-        for start in range(0, len(edge_docs), batch_size):
-            batch = edge_docs[start : start + batch_size]
-            try:
-                created, _ = self.store.bulk_insert_or_update_edges(batch)
-                created_total += created
-            except Exception as exc:
-                logger.error("Edge batch upsert failed (%d docs): %s", len(batch), exc)
-                raise
-        return created_total
+    def _upsert_nodes(self, nodes: Iterable[Node], *, batch_size: int = 500) -> int:
+        """Bulk-upsert *nodes* (see ``NodeWriter``); returns how many were written."""
+        with NodeWriter(self.store, batch_size=batch_size) as writer:
+            writer.add_all(nodes)
+        return writer.written
 
-    @staticmethod
-    def _group_by_kind(
-        rows: list[dict[str, Any]],
-        *,
-        kinds: Iterable[str],
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Group raw_records by their kind, keeping an entry for each requested kind."""
-        grouped: dict[str, list[dict[str, Any]]] = {kind: [] for kind in kinds}
-        for row in rows:
-            kind = row.get("kind")
-            if kind in grouped:
-                grouped[kind].append(row)
-        return grouped
-
-    @staticmethod
-    def _payload_json(raw: dict[str, Any]) -> dict[str, Any]:
-        payload = raw.get("payload_json")
-        if isinstance(payload, dict):
-            return payload
-        return {}
-
-    @staticmethod
-    def _payload_text(raw: dict[str, Any]) -> str | None:
-        payload_text = raw.get("payload_text")
-        if isinstance(payload_text, str):
-            return payload_text
-        return None
-
-    @staticmethod
-    def _meta(raw: dict[str, Any]) -> dict[str, Any]:
-        meta = raw.get("meta")
-        if isinstance(meta, dict):
-            return meta
-        return {}
-
-    @staticmethod
-    def _text_contains_keywords(
-        text: str | None,
-        keywords: Iterable[str],
-    ) -> bool:
-        if not text:
-            return False
-
-        text_lower = text.lower()
-        for keyword in keywords:
-            lowered = keyword.lower().strip()
-            if lowered and lowered in text_lower:
-                return True
-        return False
+    # Thin delegates kept for the many subclasses calling ``self._payload_text(...)``
+    # etc.; the logic lives in ``lawgraph.core.raw_records``.
+    _payload_json = staticmethod(payload_json)
+    _payload_text = staticmethod(payload_text)
+    _meta = staticmethod(meta)

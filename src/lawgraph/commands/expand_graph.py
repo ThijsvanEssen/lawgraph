@@ -1,152 +1,98 @@
-"""Iteratively expand the graph until no new documents are discovered."""
+"""``lawgraph expand-graph``: fetch what the graph refers to until nothing new turns up.
+
+Each iteration runs ``fill-gaps --apply``; when that retrieved records, ``normalize all``
+and ``semantic all`` follow for what was fetched since the iteration began, which may
+reveal new stubs. When the loop ends one full ``semantic all`` follows: a text that was
+loaded long ago can name a law that was loaded just now. Exit code 1 when any step failed.
+"""
 
 from __future__ import annotations
 
 import argparse
+import datetime as dt
+import sys
 
-from dotenv import load_dotenv
-
+from lawgraph.commands.fill_gaps import main as fill_gaps
+from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.factory import run_command
+from lawgraph.pipelines.orchestration import run_normalize_all, run_semantic_all
 
 logger = get_logger(__name__)
 
+_RECORDS_AQL = f"""
+FOR r IN {COLLECTION_RAW_SOURCES}
+    COLLECT kind = r.kind WITH COUNT INTO n
+    FILTER NOT LIKE(kind, @missing)
+    RETURN n
+"""
 
-def _count_stubs(store: ArangoStore) -> int | None:
-    aql = """
-    RETURN {
-        stub_articles: LENGTH(FOR d IN instrument_articles FILTER d.props.stub == true RETURN 1),
-        stub_judgments: LENGTH(FOR j IN judgments FILTER j.props.stub == true RETURN 1)
-    }
+
+def _count_records(store: ArangoStore) -> int:
+    """The raw records that hold a document (not those that remember a 404)."""
+    return sum(store.query(_RECORDS_AQL, {"missing": f"%{RAW_KIND_MISSING_SUFFIX}"}))
+
+
+def _expand(max_iterations: int) -> bool:
+    """Run the loop; return True when every step succeeded.
+
+    An iteration is worth repeating when fill-gaps retrieved something. The number of stubs
+    does not tell: loading a judgment closes one stub and opens one for every judgment it
+    cites that is not loaded either, so the count can stand still or grow while the graph
+    fills.
     """
-    try:
-        row = next(iter(store.query(aql)), {})
-    except Exception as exc:
-        logger.error("Could not count stubs (DB unreachable?): %s", exc)
-        return None
-    return (row.get("stub_articles") or 0) + (row.get("stub_judgments") or 0)
+    store = ArangoStore()
+    succeeded = True
+    total = 0
+    for iteration in range(1, max_iterations + 1):
+        logger.info("expand-graph: iteration %d/%d", iteration, max_iterations)
+        # ``fetched_at`` has a precision of a second: the second this round began in.
+        began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+        before = _count_records(store)
+        succeeded &= run_command("fill-gaps", fill_gaps, ["--apply"])
+        retrieved = _count_records(store) - before
+        if retrieved <= 0:
+            logger.info(
+                "expand-graph: fill-gaps retrieved nothing new; the graph is stable."
+            )
+            break
+
+        total += retrieved
+        logger.info("expand-graph: %d new record(s) retrieved.", retrieved)
+        since = ["--since", began]
+        succeeded &= run_command("normalize all", run_normalize_all, since)
+        succeeded &= run_command("semantic all", run_semantic_all, since)
+
+    logger.info("expand-graph: %d record(s) retrieved in total.", total)
+    if total:
+        succeeded &= run_command("semantic all", run_semantic_all, [])
+    return succeeded
 
 
 def main(argv: list[str] | None = None) -> None:
+    setup_logging()
     parser = argparse.ArgumentParser(
-        description="Expand the graph by iterating fill_gaps → normalize_all → semantic_all.",
+        description=(
+            "Repeat fill-gaps and, for what it retrieved, normalize all and semantic all, "
+            "while fill-gaps keeps retrieving records; then one full semantic all."
+        ),
     )
     parser.add_argument("--max-iterations", type=int, default=10)
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Only print the fill-gaps report."
+    )
     args = parser.parse_args(argv)
 
-    load_dotenv()
-    setup_logging()
+    if args.dry_run:
+        fill_gaps(argv=[])
+        return
 
-    store = ArangoStore()
-
-    from lawgraph.commands.fill_gaps import main as fill_gaps_main
-    from lawgraph.pipelines.orchestration import run_normalize_all as normalize_all_main
-    from lawgraph.pipelines.orchestration import run_semantic_all as semantic_all_main
-
-    logger.info(
-        "expand_graph: starting (max_iterations=%d, dry_run=%s).",
-        args.max_iterations,
-        args.dry_run,
-    )
-
-    iteration = 0
-    total_resolved = 0
-
-    for iteration in range(1, args.max_iterations + 1):
-        logger.info("expand_graph: iteration %d/%d", iteration, args.max_iterations)
-
-        before = _count_stubs(store)
-        if before is None:
-            logger.error(
-                "expand_graph: could not query stub count before iteration %d — halting.",
-                iteration,
-            )
-            break
-
-        fill_argv = ["--apply"] if not args.dry_run else []
-
-        try:
-            fill_gaps_main(argv=fill_argv)
-        except SystemExit as exc:
-            if exc.code not in (None, 0):
-                logger.warning(
-                    "expand_graph: fill_gaps exited with code %s (iteration %d).",
-                    exc.code,
-                    iteration,
-                )
-        except Exception as exc:
-            logger.error(
-                "expand_graph: fill_gaps raised an exception (iteration %d): %s",
-                iteration,
-                exc,
-            )
-
-        if args.dry_run:
-            logger.info("expand_graph: dry-run mode, stopping after diagnosis.")
-            break
-
-        after = _count_stubs(store)
-        if after is None:
-            logger.error(
-                "expand_graph: could not query stub count after iteration %d — halting.",
-                iteration,
-            )
-            break
-        resolved = before - after
-
-        if resolved <= 0:
-            logger.info(
-                "expand_graph: no new documents found in iteration %d, graph is stable.",
-                iteration,
-            )
-            break
-
-        total_resolved += resolved
-        logger.info(
-            "expand_graph: %d stub(s) resolved in iteration %d — running normalize + semantic.",
-            resolved,
-            iteration,
-        )
-
-        try:
-            normalize_all_main(argv=[])
-        except SystemExit as exc:
-            if exc.code not in (None, 0):
-                logger.warning(
-                    "expand_graph: normalize_all exited with code %s (iteration %d).",
-                    exc.code,
-                    iteration,
-                )
-        except Exception as exc:
-            logger.error(
-                "expand_graph: normalize_all raised an exception (iteration %d): %s",
-                iteration,
-                exc,
-            )
-
-        try:
-            semantic_all_main(argv=[])
-        except SystemExit as exc:
-            if exc.code not in (None, 0):
-                logger.warning(
-                    "expand_graph: semantic_all exited with code %s (iteration %d).",
-                    exc.code,
-                    iteration,
-                )
-        except Exception as exc:
-            logger.error(
-                "expand_graph: semantic_all raised an exception (iteration %d): %s",
-                iteration,
-                exc,
-            )
-
-    logger.info(
-        "expand_graph: completed %d iteration(s), %d total stub(s) resolved.",
-        iteration,
-        total_resolved,
-    )
-
-
-if __name__ == "__main__":
-    main()
+    try:
+        succeeded = _expand(args.max_iterations)
+    except Exception as exc:
+        logger.error("expand-graph failed: %s", exc)
+        sys.exit(1)
+    if not succeeded:
+        logger.error("expand-graph finished with failures.")
+        sys.exit(1)

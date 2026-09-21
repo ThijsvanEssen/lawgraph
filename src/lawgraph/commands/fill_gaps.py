@@ -11,7 +11,7 @@ Three gap types are addressed:
    ECLI was cited but the full document was never fetched.  With ``--apply`` the
    missing ECLIs are retrieved from the Rechtspraak API and normalized.
 
-3. **MvT text** — publications whose ``props.soort`` contains "toelichting" but
+3. **MvT text** — documents whose ``props.kind`` contains "toelichting" but
    whose ``props.text`` is still empty.  With ``--apply`` the text is fetched from
    the TK API (PDF → plain text).
 
@@ -37,31 +37,49 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import re
 import textwrap
-import time
 from typing import Any, cast
 
-from dotenv import load_dotenv
-
 from lawgraph.clients.bwb import BWBClient
-from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_RAW_SOURCES,
+    RAW_KIND_EU_CELEX,
+    RAW_KIND_MISSING_SUFFIX,
+    RAW_KIND_RS_CONTENT,
+    SOURCE_RECHTSPRAAK,
+)
+from lawgraph.core.identifiers import CELEX_AQL_REGEX, find_celex_ids
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import iso_timestamp
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.normalize._xml import local_name as _local
+from lawgraph.pipelines.factory import run_step
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
+from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
+from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
+from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
+from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
-from lawgraph.pipelines.retrieve.tk_content import TKTextHydratePipeline
-from lawgraph.pipelines.semantic.bwb_articles import BwbArticlesSemanticPipeline
+from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
+from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
 from lawgraph.pipelines.semantic.judgment_citations import (
     JudgmentCitationsSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.rechtspraak_articles import (
-    RechtspraakArticleSemanticPipeline,
+    RechtspraakArticlesSemanticPipeline,
 )
 
 logger = get_logger(__name__)
+
+# The most stub judgments and explanatory memoranda one run fetches; the rest is reported.
+MAX_GAPS_PER_RUN = 50_000
 
 # Minimum number of stub references before a law is shown/added automatically.
 DEFAULT_MIN_STUBS = 3
@@ -136,22 +154,23 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    load_dotenv()
-    setup_logging()
+    def run() -> PipelineResult:
+        store = ArangoStore()
+        diag = _run_diagnostics(store, args)
+        if not args.apply:
+            print("\n[dry-run]  Run with --apply to fetch missing data.")
+            return PipelineResult()
 
-    store = ArangoStore()
-    diag = _run_diagnostics(store, args)
+        return (
+            _apply_bwb_gaps(store, args, diag["to_add"])
+            .merge(_apply_case_law_gaps(store, args, diag["stub_judgment_eclis"]))
+            .merge(_apply_eu_gaps(store, args, diag["stub_celex_ids"]))
+            .merge(_apply_echr_gaps(store, args, diag["stub_echr_eclis"]))
+            .merge(_apply_treaty_gaps(store, args, diag["stub_verdragen"]))
+            .merge(_apply_mvt_gaps(store, args, diag["mvt_gap"]))
+        )
 
-    if not args.apply:
-        print("\n[dry-run]  Run with --apply to fetch missing data.")
-        return
-
-    _apply_bwb_gaps(store, args, diag["to_add"])
-    _apply_case_law_gaps(store, args, diag["stub_judgment_eclis"])
-    _apply_eu_gaps(store, args, diag["stub_celex_ids"])
-    _apply_echr_gaps(store, args, diag["stub_echr_eclis"])
-    _apply_verdrag_gaps(store, args, diag["stub_verdragen"])
-    _apply_mvt_gaps(store, args, diag["mvt_gap"])
+    run_step("fill-gaps", run)
 
 
 # ── phase helpers ─────────────────────────────────────────────────────────────
@@ -162,8 +181,8 @@ def _run_diagnostics(store: ArangoStore, args: argparse.Namespace) -> dict[str, 
     # ── 1. diagnose stub laws ─────────────────────────────────────────────────
     stub_rows = _query_stub_articles(store)
 
-    aql_in_graph = """
-    FOR inst IN instruments
+    aql_in_graph = f"""
+    FOR inst IN {COLLECTION_INSTRUMENTS}
       FILTER inst.props.bwb_id != null
       FILTER inst.props.stub != true
       RETURN UPPER(inst.props.bwb_id)
@@ -196,7 +215,7 @@ def _run_diagnostics(store: ArangoStore, args: argparse.Namespace) -> dict[str, 
     _print_judgment_stub_report(stub_judgment_eclis)
 
     # ── 3. diagnose MvT ──────────────────────────────────────────────────────
-    mvt_gap = _query_mvt_gap(store)
+    mvt_gap = TKContentRetrievePipeline(store=store).unhydrated("toelichting")
     _print_mvt_report(mvt_gap)
 
     # ── 4. diagnose EU CELEX stubs ────────────────────────────────────────────
@@ -242,165 +261,125 @@ def _resolve_bwb_ids_to_add(
     return [r["bwb_id"] for r in missing if r["count"] >= args.min_stubs]
 
 
+def _logged(label: str, result: PipelineResult) -> PipelineResult:
+    logger.info("%s: %s.", label, result.summary())
+    return result
+
+
 def _apply_bwb_gaps(
-    store: ArangoStore,
-    args: argparse.Namespace,
-    to_add: list[str],
-) -> None:
-    """Retrieve and normalize missing BWB laws, then run the semantic pipeline."""
+    store: ArangoStore, args: argparse.Namespace, to_add: list[str]
+) -> PipelineResult:
+    """Retrieve and normalize missing BWB laws, then detect their article references."""
     if not to_add:
-        logger.info("No new BWB IDs to add — nothing to do.")
-        return
+        logger.info("No new BWB IDs to add.")
+        return PipelineResult()
 
-    logger.info("Retrieving %d new BWB laws…", len(to_add))
-    retrieve_since = dt.datetime.now(dt.timezone.utc)
-    bwb_client = BWBClient()
-    retrieve_result = BWBRetrievePipeline(store=store, client=bwb_client).run(
-        bwb_ids=to_add
+    started = dt.datetime.now(dt.timezone.utc)
+    result = _logged(
+        "BWB retrieve", BWBRetrievePipeline(store=store).run(bwb_ids=to_add)
+    ).merge(
+        _logged("BWB normalize", BWBNormalizePipeline(store=store).run(since=started))
     )
-    logger.info("BWB retrieve: %s.", retrieve_result.summary())
-
-    logger.info("Normalizing new laws…")
-    norm_result = BWBNormalizePipeline(store=store).run(since=retrieve_since)
-    logger.info("BWB normalize: %s.", norm_result.summary())
-
     if not args.no_semantic:
-        logger.info("Running BWB semantic pipeline for new laws…")
-        sem_result = BwbArticlesSemanticPipeline(store=store).run()
-        logger.info("BWB semantic: %s.", sem_result.summary())
+        result = result.merge(
+            _logged("BWB semantic", BWBArticlesSemanticPipeline(store=store).run())
+        )
+    return result
 
 
 def _apply_case_law_gaps(
-    store: ArangoStore,
-    args: argparse.Namespace,
-    stub_eclis: list[str],
-) -> None:
-    """Fetch stub judgments from Rechtspraak and run semantic pipelines."""
-    if args.no_case_law:
-        logger.info("Skipping case law gap filling (--no-case-law).")
-        return
-    if not stub_eclis:
-        logger.info("No stub judgments found — case law is complete.")
-        return
+    store: ArangoStore, args: argparse.Namespace, stub_eclis: list[str]
+) -> PipelineResult:
+    """Fetch stub judgments from Rechtspraak, normalize them and link their citations."""
+    if args.no_case_law or not stub_eclis:
+        return PipelineResult()
 
-    logger.info("Fetching %d stub judgment(s) from Rechtspraak…", len(stub_eclis))
-    rs_retrieve_result = RechtspraakRetrievePipeline(store=store).run(eclis=stub_eclis)
-    logger.info("Rechtspraak retrieve: %s.", rs_retrieve_result.summary())
-
-    logger.info("Normalizing fetched judgments…")
-    rs_norm_result = RechtspraakNormalizePipeline(store=store).run()
-    logger.info("Rechtspraak normalize: %s.", rs_norm_result.summary())
-
+    result = _logged(
+        "Rechtspraak retrieve",
+        RechtspraakRetrievePipeline(store=store).run(eclis=stub_eclis),
+    ).merge(
+        _logged(
+            "Rechtspraak normalize", RechtspraakNormalizePipeline(store=store).run()
+        )
+    )
     if not args.no_semantic:
-        logger.info("Running judgment citation semantic pipeline…")
-        jc_result = JudgmentCitationsSemanticPipeline(store=store).run()
-        logger.info("Judgment citations: %s.", jc_result.summary())
-
-        logger.info("Running rechtspraak article semantic pipeline…")
-        ra_result = RechtspraakArticleSemanticPipeline(store=store).run()
-        logger.info("Rechtspraak article links: %s.", ra_result.summary())
+        result = result.merge(
+            _logged(
+                "Judgment citations",
+                JudgmentCitationsSemanticPipeline(store=store).run(),
+            )
+        ).merge(
+            _logged(
+                "Rechtspraak article links",
+                RechtspraakArticlesSemanticPipeline(store=store).run(),
+            )
+        )
+    return result
 
 
 def _apply_eu_gaps(
-    store: ArangoStore,
-    args: argparse.Namespace,
-    stub_celex_ids: list[str],
-) -> None:
+    store: ArangoStore, args: argparse.Namespace, stub_celex_ids: list[str]
+) -> PipelineResult:
     """Fetch stub EU instruments from EUR-Lex and normalize them."""
     if args.no_eurlex or not stub_celex_ids:
-        return
+        return PipelineResult()
 
-    from lawgraph.pipelines.normalize.eurlex import EUNormalizePipeline
-    from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
-
-    logger.info("Fetching %d stub EU instruments from EUR-Lex…", len(stub_celex_ids))
-    eu_retrieve_since = dt.datetime.now(dt.timezone.utc)
-    eu_retrieve_result = EurlexRetrievePipeline(store=store).run(
-        celex_ids=stub_celex_ids
+    started = dt.datetime.now(dt.timezone.utc)
+    return _logged(
+        "EUR-Lex retrieve",
+        EurlexRetrievePipeline(store=store).run(celex_ids=stub_celex_ids),
+    ).merge(
+        _logged(
+            "EUR-Lex normalize", EurlexNormalizePipeline(store=store).run(since=started)
+        )
     )
-    logger.info("EUR-Lex retrieve: %s.", eu_retrieve_result.summary())
-    eu_norm_result = EUNormalizePipeline(store=store).run(since=eu_retrieve_since)
-    logger.info("EUR-Lex normalize: %s.", eu_norm_result.summary())
 
 
 def _apply_echr_gaps(
-    store: ArangoStore,
-    args: argparse.Namespace,
-    stub_echr_eclis: list[str],
-) -> None:
-    """Re-fetch stub ECHR judgments from HUDOC and normalize them."""
-    if args.no_echr:
-        logger.info("Skipping ECHR gap filling (--no-echr).")
-        return
-    if not stub_echr_eclis:
-        logger.info("No stub ECHR judgments found.")
-        return
+    store: ArangoStore, args: argparse.Namespace, stub_echr_eclis: list[str]
+) -> PipelineResult:
+    """Retrieve the cited ECHR judgments by ECLI (against any state) and normalize them."""
+    if args.no_echr or not stub_echr_eclis:
+        return PipelineResult()
 
-    from lawgraph.pipelines.normalize.echr import EchrNormalizePipeline
-    from lawgraph.pipelines.retrieve.echr import EchrRetrievePipeline
-
-    logger.info(
-        "Targeted ECHR re-fetch not yet implemented — processing %d stubs via full retrieve.",
-        len(stub_echr_eclis),
+    started = dt.datetime.now(dt.timezone.utc)
+    retrieve = ECHRRetrievePipeline(store=store).run(eclis=stub_echr_eclis)
+    return _logged("ECHR retrieve", retrieve).merge(
+        _logged("ECHR normalize", ECHRNormalizePipeline(store=store).run(since=started))
     )
-    if stub_echr_eclis:
-        logger.debug("Stub ECLIs: %s", stub_echr_eclis[:20])
-    echr_retrieve_since = dt.datetime.now(dt.timezone.utc)
-    echr_retrieve_result = EchrRetrievePipeline(store=store).run()
-    logger.info("ECHR retrieve: %s.", echr_retrieve_result.summary())
-    echr_norm_result = EchrNormalizePipeline(store=store).run(since=echr_retrieve_since)
-    logger.info("ECHR normalize: %s.", echr_norm_result.summary())
 
 
-def _apply_verdrag_gaps(
-    store: ArangoStore,
-    args: argparse.Namespace,
-    stub_verdragen: list[str],
-) -> None:
-    """Re-run Verdragenbank retrieval for stub verdragen and normalize."""
-    if args.no_verdragen:
-        logger.info("Skipping Verdragenbank gap filling (--no-verdragen).")
-        return
-    if not stub_verdragen:
-        logger.info("No stub verdragen found.")
-        return
+def _apply_treaty_gaps(
+    store: ArangoStore, args: argparse.Namespace, stub_treaties: list[str]
+) -> PipelineResult:
+    """Re-run the Verdragenbank retrieval (it has no fetch per treaty) and normalize."""
+    if args.no_verdragen or not stub_treaties:
+        return PipelineResult()
 
-    from lawgraph.pipelines.normalize.verdragenbank import (
-        VerdragenbankNormalizePipeline,
+    started = dt.datetime.now(dt.timezone.utc)
+    return _logged(
+        "Verdragenbank retrieve", VerdragenbankRetrievePipeline(store=store).run()
+    ).merge(
+        _logged(
+            "Verdragenbank normalize",
+            VerdragenbankNormalizePipeline(store=store).run(since=started),
+        )
     )
-    from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
-
-    logger.info(
-        "Targeted verdrag re-fetch not yet implemented — processing %d stubs via full retrieve.",
-        len(stub_verdragen),
-    )
-    if stub_verdragen:
-        logger.debug("Stub verdragen: %s", stub_verdragen[:20])
-    vdb_retrieve_since = dt.datetime.now(dt.timezone.utc)
-    vdb_retrieve_result = VerdragenbankRetrievePipeline(store=store).run()
-    logger.info("Verdragenbank retrieve: %s.", vdb_retrieve_result.summary())
-    vdb_norm_result = VerdragenbankNormalizePipeline(store=store).run(
-        since=vdb_retrieve_since
-    )
-    logger.info("Verdragenbank normalize: %s.", vdb_norm_result.summary())
 
 
 def _apply_mvt_gaps(
-    store: ArangoStore,
-    args: argparse.Namespace,
-    mvt_gap: list[dict[str, Any]],
-) -> None:
-    """Hydrate MvT text for publications whose text is still empty."""
-    if args.no_mvt:
-        logger.info("Skipping MvT hydration (--no-mvt).")
-        return
-    if not mvt_gap:
-        logger.info("No MvT texts missing — nothing to hydrate.")
-        return
+    store: ArangoStore, args: argparse.Namespace, mvt_gap: list[dict[str, Any]]
+) -> PipelineResult:
+    """Fetch the text of explanatory memoranda that have none."""
+    if args.no_mvt or not mvt_gap:
+        return PipelineResult()
 
-    logger.info("Fetching %d missing MvT text(s)…", len(mvt_gap))
-    mvt_result = TKTextHydratePipeline(store=store).run(soort_filter="toelichting")
-    logger.info("MvT hydration: %s.", mvt_result.summary())
+    return _logged(
+        "MvT text",
+        TKContentRetrievePipeline(store=store).run(
+            kind_filter="toelichting", papers=mvt_gap
+        ),
+    )
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -408,55 +387,70 @@ def _apply_mvt_gaps(
 
 def _query_stub_articles(store: ArangoStore) -> list[dict[str, Any]]:
     """Return stub article groups sorted by reference count descending."""
-    aql = """
-    FOR doc IN instrument_articles
+    aql = f"""
+    FOR doc IN {COLLECTION_ARTICLES}
       FILTER doc.props.stub == true AND doc.props.bwb_id != null
       COLLECT bwb_id = doc.props.bwb_id WITH COUNT INTO cnt
       SORT cnt DESC
-      RETURN { bwb_id, count: cnt }
+      RETURN {{ bwb_id, count: cnt }}
     """
     return list(store.query(aql))
+
+
+def _capped(rows: list[Any], what: str) -> list[Any]:
+    """The first ``MAX_GAPS_PER_RUN`` of *rows*; a longer list is said out loud."""
+    if len(rows) > MAX_GAPS_PER_RUN:
+        logger.warning(
+            "%d %s found; this run takes the first %d (fill-gaps or expand-graph again "
+            "for the rest).",
+            len(rows),
+            what,
+            MAX_GAPS_PER_RUN,
+        )
+        return rows[:MAX_GAPS_PER_RUN]
+    return rows
 
 
 def _query_stub_judgments(store: ArangoStore) -> list[str]:
-    """Return ECLIs of stub judgment nodes, sorted for stable ordering."""
-    aql = """
-    FOR j IN judgments
+    """ECLIs of the Dutch stub judgments, sorted; Rechtspraak has no EU or ECHR judgments."""
+    aql = f"""
+    FOR j IN {COLLECTION_JUDGMENTS}
       FILTER j.props.stub == true AND j.props.ecli != null
+      FILTER STARTS_WITH(j.props.ecli, "ECLI:NL:")
       SORT j.props.ecli
-      LIMIT 50000
       RETURN j.props.ecli
     """
-    return cast(list[str], list(store.query(aql)))
-
-
-def _query_mvt_gap(store: ArangoStore) -> list[dict[str, Any]]:
-    """Return publications with soort ∋ 'toelichting' and no stored text."""
-    aql = """
-    FOR pub IN publications
-      FILTER CONTAINS(LOWER(pub.props.soort), 'toelichting')
-        AND (pub.props.text == null OR pub.props.text == '')
-        AND pub.props.external_id != null
-      LIMIT 50000
-      RETURN {
-        key: pub._key,
-        title: pub.props.title,
-        soort: pub.props.soort,
-        external_id: pub.props.external_id
-      }
+    # Those Rechtspraak answered 404 for come out before the cap, not after it: they sort
+    # where they sort, and a first 50,000 full of judgments that are not published would
+    # keep every later one from ever being asked for.
+    missing_aql = f"""
+    FOR r IN {COLLECTION_RAW_SOURCES}
+      FILTER r.source == @source AND r.kind == @kind AND r.meta.retry_after > @now
+      RETURN r.external_id
     """
-    return list(store.query(aql))
+    missing = set(
+        store.query(
+            missing_aql,
+            {
+                "source": SOURCE_RECHTSPRAAK,
+                "kind": RAW_KIND_RS_CONTENT + RAW_KIND_MISSING_SUFFIX,
+                "now": iso_timestamp(dt.datetime.now(dt.timezone.utc)),
+            },
+        )
+    )
+    eclis = [ecli for ecli in store.query(aql) if ecli not in missing]
+    return _capped(eclis, "stub judgments")
 
 
 def _build_name_cache(store: ArangoStore) -> dict[str, str]:
     """Map bwb_id → best available title from the instruments collection."""
-    aql = """
-    FOR inst IN instruments
+    aql = f"""
+    FOR inst IN {COLLECTION_INSTRUMENTS}
       FILTER inst.props.bwb_id != null
-      RETURN {
+      RETURN {{
         bwb_id: inst.props.bwb_id,
         title: inst.props.citation_title OR inst.props.title OR inst.props.display_name
-      }
+      }}
     """
     cache: dict[str, str] = {}
     for row in store.query(aql):
@@ -472,59 +466,44 @@ def _resolve_names_from_bwb(
     known: dict[str, str],
     max_lookups: int = 15,
 ) -> dict[str, str]:
-    """Fetch law titles from the BWB API for IDs not already in *known*.
+    """The titles of the laws not in *known*, from their SRU record (for the report).
 
-    Caps at *max_lookups* HTTP calls so the diagnostic stays fast.  Only fetches
-    the XML toestand (small — header only is enough for the <citeertitel> tag).
+    At most *max_lookups* searches. The title is in the record: the toestand itself (the
+    whole law, which ``--apply`` fetches a moment later) is not downloaded for its name.
     """
-    import xml.etree.ElementTree as ET
-
-    from lawgraph.clients.bwb import BWBClient
-
     result = dict(known)
-    to_resolve = [b for b in bwb_ids if b.upper() not in result][:max_lookups]
-    if not to_resolve:
-        return result
-
     client = BWBClient()
-    for bwb_id in to_resolve:
+    for bwb_id in [b for b in bwb_ids if b.upper() not in result][:max_lookups]:
         try:
             meta = client.latest_toestand(bwb_id)
-            if not meta:
-                continue
-            xml_text = client.fetch_toestand_xml(meta)
-            root = ET.fromstring(xml_text)
-            for node in root.iter():
-                if _local(node.tag) == "citeertitel" and node.text:
-                    result[bwb_id.upper()] = node.text.strip()
-                    break
         except Exception as exc:
             logger.debug("Could not resolve title for %s: %s", bwb_id, exc)
-        time.sleep(0.1)  # gentle rate limit
-
+            continue
+        if meta and meta.get("title"):
+            result[bwb_id.upper()] = str(meta["title"])
     return result
 
 
 def _query_stub_echr_judgments(store: ArangoStore) -> list[str]:
     """Return ECLIs (or HUDOC app numbers) of stub ECHR judgment nodes."""
-    aql = """
-    FOR j IN judgments
-      FILTER j.props.stub == true AND j.props.source == "echr"
+    aql = f"""
+    FOR j IN {COLLECTION_JUDGMENTS}
+      FILTER j.props.stub == true AND STARTS_WITH(j.props.ecli, "ECLI:CE:ECHR:")
       SORT j.props.ecli
       RETURN j.props.ecli
     """
-    return cast(list[str], [e for e in store.query(aql) if e])
+    return [e for e in store.query(aql) if e]
 
 
 def _query_stub_verdragen(store: ArangoStore) -> list[str]:
     """Return external IDs of stub verdrag instrument nodes."""
-    aql = """
-    FOR inst IN instruments
+    aql = f"""
+    FOR inst IN {COLLECTION_INSTRUMENTS}
       FILTER inst.props.stub == true
         AND inst.props.kind IN ["verdrag", "bilateraalverdrag", "multilateraalverdrag"]
       RETURN inst.props.external_id
     """
-    return cast(list[str], [e for e in store.query(aql) if e])
+    return [e for e in store.query(aql) if e]
 
 
 def _print_echr_stub_report(eclis: list[str]) -> None:
@@ -559,39 +538,38 @@ def _print_verdrag_stub_report(ids: list[str]) -> None:
         print(f"    … and {len(ids) - 20} more")
 
 
-_CELEX_PATTERN = re.compile(r"\b3\d{4}[CLRDF]\d{4}\b", re.IGNORECASE)
-
-
 def _query_stub_celex_ids(store: ArangoStore) -> list[str]:
     """Find CELEX IDs referenced in BWB article text but not yet loaded from EUR-Lex."""
     # CELEX IDs already in instruments collection
-    aql_loaded = """
-    FOR inst IN instruments
+    aql_loaded = f"""
+    FOR inst IN {COLLECTION_INSTRUMENTS}
       FILTER inst.props.celex != null
       RETURN UPPER(inst.props.celex)
     """
     loaded: set[str] = cast(set[str], set(store.query(aql_loaded)))
 
     # CELEX IDs already retrieved into raw_sources
-    aql_raw = """
-    FOR r IN raw_sources
-      FILTER r.source == "eurlex"
+    aql_raw = f"""
+    FOR r IN {COLLECTION_RAW_SOURCES}
+      FILTER r.source == "eurlex" AND r.kind == @kind
       RETURN UPPER(r.external_id)
     """
-    already_retrieved: set[str] = cast(set[str], set(store.query(aql_raw)))
+    already_retrieved: set[str] = cast(
+        set[str], set(store.query(aql_raw, {"kind": RAW_KIND_EU_CELEX}))
+    )
     known = loaded | already_retrieved
 
-    # Scan BWB article text for CELEX references
-    aql_texts = """
-    FOR art IN instrument_articles
+    # Scan BWB article text for CELEX references; only the texts that can hold one are sent.
+    aql_texts = f"""
+    FOR art IN {COLLECTION_ARTICLES}
       FILTER art.props.bwb_id != null
       FILTER art.props.text != null
+      FILTER REGEX_TEST(art.props.text, @celex)
       RETURN art.props.text
     """
     found: set[str] = set()
-    for text in store.query(aql_texts):
-        for m in _CELEX_PATTERN.finditer(str(text)):
-            celex = m.group(0).upper()
+    for text in store.query(aql_texts, {"celex": CELEX_AQL_REGEX}):
+        for celex in find_celex_ids(str(text)):
             if celex not in known:
                 found.add(celex)
 
@@ -704,7 +682,6 @@ def _print_mvt_report(gap: list[dict[str, Any]]) -> None:
     )
     for pub in gap:
         title = (pub.get("title") or pub.get("key") or "")[:70]
-        soort = pub.get("soort") or ""
-        print(f"    [{soort}] {title}")
+        print(f"    [{pub['number']} nr. {pub['sequence']}] {title}")
     print()
     print("  Note: scanned PDFs may fail text extraction; check logs after --apply.")

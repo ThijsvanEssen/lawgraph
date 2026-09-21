@@ -4,60 +4,59 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Callable, Iterable, Literal
+from typing import Any, Callable, Iterable
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    RELATION_MENTIONS_ARTICLE,
-    RELATION_MENTIONS_INSTRUMENT,
+    COLLECTION_RAW_SOURCES,
+    MAX_SEMANTIC_TEXT_LENGTH,
+    RELATION_REFERS_TO,
     SOURCE_EURLEX,
+)
+from lawgraph.core.citations import (
+    ArticleKind,
+    CitationHit,
+    coerce_text,
+    hit_reason,
+    make_snippet,
+    normalize_code_aliases,
+)
+from lawgraph.core.eu_citations import (
+    ARTICLE_NUMBER_ONE_LETTER,
+    EUCitationConfidence,
+    build_article_patterns,
+    collect_article_hits,
+    collect_bwb_id_hits,
+    collect_celex_literal_hits,
+    collect_year_number_hits,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
-from .base import CodeMapping, SemanticPipelineBase
-from .citation_detect import (
-    ArticleKind,
-    CitationHit,
-    coerce_text,
-    format_celex,
-    hit_reason,
-    make_snippet,
-    normalize_code_aliases,
-)
+from .base import CodeMapping, SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "eu-article-linker"
 
-_MAX_TEXT_LENGTH = 200_000
-
-_CONFIDENCE_ARTICLE_EXACT = (
-    0.85  # article match via directive/regulation + year + number
+# Confidences for the shared EU/BWB citation collectors (core.eu_citations).
+_CONFIDENCE = EUCitationConfidence(
+    article_with_instrument=0.85,  # "artikel X van Richtlijn/Verordening YYYY/N"
+    celex_literal=0.90,  # CELEX ID literal in text
+    instrument_year_number=0.70,  # directive/regulation via year + number only
+    bwb_id=0.70,  # bare BWB id in text
 )
-_CONFIDENCE_CELEX_EXACT = 0.90  # CELEX ID literal in text
-_CONFIDENCE_DIRECTIVE_YEAR = 0.70  # directive/regulation matched via year + number only
 _CONFIDENCE_BWB_ALIAS = 0.95  # "artikel X Sr/Sv/BW" via known short alias
-_CONFIDENCE_BWB_ID = 0.70  # bare BWBR number in text
 
-_CELEX_PATTERN = re.compile(r"\bCELEX:([0-9A-Z()\\/\.\-]+)\b", re.IGNORECASE)
-_RICHTLIJN_PATTERN = re.compile(
-    r"\bRichtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
+# EU text: one optional letter on the article number, no "de" before the
+# instrument name, and only directives and regulations.
+_ARTICLE_PATTERNS = build_article_patterns(
+    ARTICLE_NUMBER_ONE_LETTER,
+    kinds=("directive", "regulation"),
+    allow_determiner=False,
 )
-_VERORDENING_PATTERN = re.compile(
-    r"\bVerordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
-)
-_ARTICLE_WITH_DIRECTIVE_PATTERN = re.compile(
-    r"\bartikel\s+(\d+[a-z]?)\s+van\s+Richtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b",
-    re.IGNORECASE,
-)
-_ARTICLE_WITH_REGULATION_PATTERN = re.compile(
-    r"\bartikel\s+(\d+[a-z]?)\s+van\s+Verordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b",
-    re.IGNORECASE,
-)
-_BWB_PATTERN = re.compile(r"\bbwb[rR]0\d{6}\b", re.IGNORECASE)
 _ARTICLE_BWB_ALIAS_PATTERN = re.compile(
     r"\bartikel\s+(\d+[a-z]?)\s*(Sr|Sv|BW)\b", re.IGNORECASE
 )
@@ -79,94 +78,15 @@ def detect_eu_citations(text: str, code_aliases: CodeMapping) -> list[CitationHi
         seen.add(key)
         hits.append(hit)
 
-    _collect_article_matches(
-        text,
-        _ARTICLE_WITH_DIRECTIVE_PATTERN,
-        "directive",
-        _CONFIDENCE_ARTICLE_EXACT,
-        _record,
+    collect_article_hits(
+        text, _ARTICLE_PATTERNS, _CONFIDENCE.article_with_instrument, _record
     )
-    _collect_article_matches(
-        text,
-        _ARTICLE_WITH_REGULATION_PATTERN,
-        "regulation",
-        _CONFIDENCE_ARTICLE_EXACT,
-        _record,
-    )
-    _collect_celex_hits(
-        text, _CELEX_PATTERN, "instrument", _CONFIDENCE_CELEX_EXACT, _record
-    )
-    _collect_celex_hits(
-        text,
-        _RICHTLIJN_PATTERN,
-        "instrument",
-        _CONFIDENCE_DIRECTIVE_YEAR,
-        _record,
-        directive_kind="directive",
-    )
-    _collect_celex_hits(
-        text,
-        _VERORDENING_PATTERN,
-        "instrument",
-        _CONFIDENCE_DIRECTIVE_YEAR,
-        _record,
-        directive_kind="regulation",
-    )
+    collect_celex_literal_hits(text, _CONFIDENCE.celex_literal, _record)
+    collect_year_number_hits(text, _CONFIDENCE.instrument_year_number, _record)
     _collect_bwb_alias_hits(text, normalized_codes, _record)
-    _collect_bwb_hits(text, _record)
+    collect_bwb_id_hits(text, _CONFIDENCE.bwb_id, _record)
 
     return hits
-
-
-def _collect_article_matches(
-    text: str,
-    pattern: re.Pattern[str],
-    kind_label: Literal["directive", "regulation"],
-    confidence: float,
-    record: Callable[[CitationHit], None],
-) -> None:
-    for match in pattern.finditer(text):
-        article_number = match.group(1)
-        year = match.group(2)
-        number_value = match.group(3)
-        celex = format_celex(kind_label, year, number_value)
-        record(
-            CitationHit(
-                kind="article",
-                celex=celex,
-                article_number=article_number.strip(),
-                confidence=confidence,
-                raw_match=match.group(0),
-                snippet=make_snippet(text, match.span()),
-            )
-        )
-
-
-def _collect_celex_hits(
-    text: str,
-    pattern: re.Pattern[str],
-    kind: ArticleKind,
-    confidence: float,
-    record: Callable[[CitationHit], None],
-    *,
-    directive_kind: Literal["directive", "regulation"] | None = None,
-) -> None:
-    for match in pattern.finditer(text):
-        if directive_kind:
-            celex_value = format_celex(directive_kind, match.group(1), match.group(2))
-        else:
-            celex_value = match.group(1)
-        if not celex_value:
-            continue
-        record(
-            CitationHit(
-                kind=kind,
-                celex=celex_value.upper(),
-                confidence=confidence,
-                raw_match=match.group(0),
-                snippet=make_snippet(text, match.span()),
-            )
-        )
 
 
 def _collect_bwb_alias_hits(
@@ -194,44 +114,24 @@ def _collect_bwb_alias_hits(
         )
 
 
-def _collect_bwb_hits(
-    text: str,
-    record: Callable[[CitationHit], None],
-) -> None:
-    for match in _BWB_PATTERN.finditer(text):
-        bwb_id = match.group(0)
-        if not bwb_id:
-            continue
-        record(
-            CitationHit(
-                kind="instrument",
-                bwb_id=bwb_id.upper(),
-                confidence=_CONFIDENCE_BWB_ID,
-                raw_match=match.group(0),
-                snippet=make_snippet(text, match.span()),
-            )
-        )
-
-
-class EUArticleSemanticPipeline(SemanticPipelineBase):
+class EUArticlesSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking EU instruments to BWB/EU articles via semantic edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Inspect EU instruments for referenced articles and persist semantic edges."""
         result = PipelineResult()
         since_iso = iso_timestamp(since)
-        documents = list(self._load_eu_documents(since_iso=since_iso))
-        if not documents:
-            logger.debug("No EU instrument nodes found for semantic linking.")
-            return result
-
         code_aliases = self._load_code_aliases()
         logger.info(
-            "Processing %d EU instruments for semantic article linking (since=%s).",
-            len(documents),
+            "Processing EU articles for semantic article linking (since=%s).",
             describe_since(since),
         )
+        # Streamed, not a list of every EU article with its text.
+        documents = self._track(
+            self._load_eu_documents(since_iso=since_iso), "EU articles"
+        )
 
+        edge_batch: list[dict[str, Any]] = []
         for document in documents:
             text = self._extract_document_text(document)
             if not text:
@@ -246,33 +146,28 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
                 target = self._resolve_target(hit)
                 if not target:
                     continue
-                relation = (
-                    RELATION_MENTIONS_ARTICLE
-                    if hit.kind == "article"
-                    else RELATION_MENTIONS_INSTRUMENT
+                self._queue_edge(
+                    edge_batch,
+                    self._make_edge_doc(
+                        from_node=document,
+                        to_node=target,
+                        relation=RELATION_REFERS_TO,
+                        source=SEMANTIC_SOURCE,
+                        confidence=hit.confidence,
+                        meta={
+                            k: v
+                            for k, v in {
+                                "raw_match": hit.raw_match,
+                                "snippet": hit.snippet,
+                                "reason": hit_reason(hit),
+                            }.items()
+                            if v
+                        },
+                    ),
+                    result,
                 )
-                created = self._create_semantic_edge(
-                    from_node=document,
-                    to_node=target,
-                    relation=relation,
-                    source=SEMANTIC_SOURCE,
-                    confidence=hit.confidence,
-                    meta={
-                        k: v
-                        for k, v in {
-                            "raw_match": hit.raw_match,
-                            "snippet": hit.snippet,
-                            "reason": hit_reason(hit),
-                        }.items()
-                        if v
-                    },
-                    result=result,
-                )
-                if created:
-                    result.created += 1
-                else:
-                    result.updated += 1
 
+        self._write_batch(edge_batch, result)
         logger.info("EU article linker: %s.", result.summary())
         return result
 
@@ -281,8 +176,8 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
         # directive body, which is where cross-references to other articles live.
         if since_iso is not None:
             recent_celex: set[str] = set()
-            aql = """
-            FOR raw IN raw_sources
+            aql = f"""
+            FOR raw IN {COLLECTION_RAW_SOURCES}
                 FILTER raw.source == @source
                 FILTER raw.fetched_at >= @since
                 FILTER raw.meta.celex != null
@@ -301,26 +196,26 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
                 return
             celex_list = list(recent_celex)
             aql = f"""
-            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+            FOR doc IN {COLLECTION_ARTICLES}
                 FILTER doc.props.celex IN @celex_list
-                RETURN doc
+                RETURN {slim("doc", "celex", "article_number", "text", "display_name")}
             """
             for doc in self.store.query(aql, bind_vars={"celex_list": celex_list}):
-                yield Node.from_document(COLLECTION_INSTRUMENT_ARTICLES, doc)
+                yield Node.from_document(COLLECTION_ARTICLES, doc)
         else:
             aql = f"""
-            FOR doc IN {COLLECTION_INSTRUMENT_ARTICLES}
+            FOR doc IN {COLLECTION_ARTICLES}
                 FILTER doc.props.celex != null
-                RETURN doc
+                RETURN {slim("doc", "celex", "article_number", "text", "display_name")}
             """
             for doc in self.store.query(aql):
-                yield Node.from_document(COLLECTION_INSTRUMENT_ARTICLES, doc)
+                yield Node.from_document(COLLECTION_ARTICLES, doc)
 
     def _extract_document_text(self, document: Node) -> str | None:
         # EU instrument_articles store their text directly in props.text.
         text = coerce_text(document.props.get("text"))
         if text:
-            return text[:_MAX_TEXT_LENGTH]
+            return text[:MAX_SEMANTIC_TEXT_LENGTH]
         # Fallback: title only (gives minimal signal but avoids skipping entirely)
         return coerce_text(document.props.get("display_name"))
 
@@ -328,10 +223,10 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
         self, hit: CitationHit, identifier: str, id_prop: str
     ) -> Node | None:
         key = make_node_key(identifier, hit.article_number)
-        node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+        node = self._lookup_node(COLLECTION_ARTICLES, key)
         if node is None and hit.confidence >= 0.85:
             stub = Node(
-                collection=COLLECTION_INSTRUMENT_ARTICLES,
+                collection=COLLECTION_ARTICLES,
                 key=key,
                 type=NodeType.ARTICLE,
                 props={
@@ -341,7 +236,8 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
                     "display_name": f"Artikel {hit.article_number} ({identifier})",
                 },
             )
-            node = self.store.insert_or_update(stub)
+            node, _ = self.store.insert_or_update(stub)
+            self._remember_node(node)
         if node is None:
             logger.debug(
                 "EU semantic: no node found for %s %s (confidence=%.2f)",
@@ -361,7 +257,7 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
         # Whole-instrument reference.
         if hit.celex:
             key = make_node_key(hit.celex)
-            node = self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            node = self._lookup_node(COLLECTION_INSTRUMENTS, key)
             if node is None:
                 logger.debug(
                     "EU semantic: no node found for %s %s (confidence=%.2f)",
@@ -372,7 +268,7 @@ class EUArticleSemanticPipeline(SemanticPipelineBase):
             return node
         if hit.bwb_id:
             key = make_node_key(hit.bwb_id)
-            node = self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            node = self._lookup_node(COLLECTION_INSTRUMENTS, key)
             if node is None:
                 logger.debug(
                     "EU semantic: no node found for %s %s (confidence=%.2f)",

@@ -39,12 +39,32 @@ def iso_date(val: Any) -> str | None:
     return s if _DATE_RE.match(s) else None
 
 
+def odata_datetime(value: dt.datetime) -> str:
+    """Format a datetime for an OData filter: ``YYYY-MM-DDTHH:MM:SSZ`` (UTC, no fraction)."""
+    if value.tzinfo is not None:
+        value = value.astimezone(dt.timezone.utc)
+    return value.replace(microsecond=0, tzinfo=None).isoformat() + "Z"
+
+
+def sortable_date(value: str | None) -> dt.date:
+    """Parse an ISO date for sorting; missing or malformed values sort first."""
+    if not value:
+        return dt.date.min
+    try:
+        return dt.date.fromisoformat(value)
+    except ValueError:
+        return dt.date.min
+
+
 def strip_time_component(value: str | None) -> str | None:
     """Return only the date portion of an ISO 8601 string (drops time and timezone)."""
     if not value:
         return None
     s = str(value)
     return s.split("T")[0] if "T" in s else s
+
+
+RELATIVE_SINCE_OVERLAP = dt.timedelta(hours=6)
 
 
 def parse_since(value: str | None) -> dt.datetime | None:
@@ -57,7 +77,11 @@ def parse_since(value: str | None) -> dt.datetime | None:
         return None
     value = value.strip()
     if value.endswith("d") and value[:-1].isdigit():
-        return dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=int(value[:-1]))
+        # A run every N days with `--since Nd` has no slack at all: a run that starts a
+        # minute late, or a source that indexes a change an hour after it was made, leaves
+        # a hole that no later run looks into. Everything is an upsert, so overlap is free.
+        window = dt.timedelta(days=int(value[:-1])) + RELATIVE_SINCE_OVERLAP
+        return dt.datetime.now(dt.timezone.utc) - window
     try:
         parsed = dt.datetime.fromisoformat(value)
         if parsed.tzinfo is None:
@@ -65,3 +89,15 @@ def parse_since(value: str | None) -> dt.datetime | None:
         return parsed
     except ValueError as exc:
         raise ValueError(f"Cannot parse --since value '{value}'.") from exc
+
+
+def format_duration(seconds: float) -> str:
+    """``12s``, ``4m12s`` or ``1h02m``: how long a step took."""
+    total = int(round(seconds))
+    hours, rest = divmod(total, 3600)
+    minutes, secs = divmod(rest, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m"
+    if minutes:
+        return f"{minutes}m{secs:02d}s"
+    return f"{secs}s"

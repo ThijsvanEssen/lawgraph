@@ -3,49 +3,54 @@
 Treaties are stored as Instrument nodes with:
   - kind: 'verdrag' (bilateral) or 'multilateraalverdrag'
   - jurisdiction: 'nl' (NL is party) or 'int' for purely international
-  - props.verdragsnummer: the official NL treaty number
+  - props.treaty_number: the official NL treaty number
   - props.date_signed / props.date_in_force
-  - props.status: 'in force' / 'not in force' / etc.
+  - props.status: the Verdragenbank status (Inwerkinggetreden, Buitenwerkinggetreden, ...)
 """
 
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
+    MAX_TITLE_CHARS,
     RAW_KIND_VERDRAG,
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
+from lawgraph.db import NodeWriter
 from lawgraph.db.store import ArangoStore
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
 
-class VerdragenbankNormalizePipeline(NormalizePipeline):
+class VerdragenbankNormalizePipeline(NormalizePipelineBase):
     """Normalize Verdragenbank treaty records into Instrument nodes."""
 
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:
-        rows = self._query_raw_sources(
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
+        return self._iter_raw_sources(
             source=SOURCE_VERDRAGENBANK,
             kinds=[RAW_KIND_VERDRAG],
             since=since,
+            batch_size=1000,
         )
-        logger.info("Loaded %d Verdragenbank raw_sources.", len(rows))
-        return rows
 
     def normalize_nodes(
-        self, raw: list[dict[str, Any]], result: PipelineResult
-    ) -> dict[str, Node]:
-        nodes: dict[str, Node] = {}
+        self, raw: Iterable[dict[str, Any]], result: PipelineResult
+    ) -> int:
+        count = 0
+        writer = NodeWriter(self.store)
 
         for record in raw:
             payload = self._payload_json(record)
@@ -65,7 +70,7 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
             title_en = payload.get("title_en") or ""
             title = title_nl or title_en or f"Verdrag {external_id}"
 
-            verdragsnummer = payload.get("verdragsnummer") or ""
+            treaty_number = payload.get("verdragsnummer") or ""
             treaty_type = payload.get("treaty_type") or ""
             status = payload.get("status") or ""
             date_signed = _iso_date(payload.get("date_signed"))
@@ -79,10 +84,12 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
             elif "bilateral" in type_lower or "bilateraal" in type_lower:
                 kind = "bilateraalverdrag"
 
-            is_in_force = "force" in status.lower() and "not" not in status.lower()
+            is_in_force = status.lower() == "inwerkinggetreden"
 
             display_name = (
-                title[:200] if title else f"Verdrag {verdragsnummer or external_id}"
+                title[:MAX_TITLE_CHARS]
+                if title
+                else f"Verdrag {treaty_number or external_id}"
             )
 
             props: dict[str, Any] = {
@@ -95,7 +102,7 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
                 "display_name": display_name,
                 "kind": kind,
                 "jurisdiction": "int",
-                "verdragsnummer": verdragsnummer,
+                "treaty_number": treaty_number,
                 "treaty_type": treaty_type,
                 "status": status,
                 "in_force": is_in_force,
@@ -113,14 +120,13 @@ class VerdragenbankNormalizePipeline(NormalizePipeline):
                 labels=["Verdrag", "NL"],
                 props=props,
             )
-            node = self.store.insert_or_update(node)
-            nodes[external_id] = node
-            result.created += 1
+            writer.add(node)
+            count += 1
 
-        logger.info("Verdragenbank normalize: %d treaties processed.", len(nodes))
-        return nodes
+        writer.flush()
 
-    def build_edges(
-        self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> int:
-        return 0
+        logger.info("Verdragenbank normalize: %d treaties processed.", count)
+        return count
+
+    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
+        """No structural edges for treaties."""

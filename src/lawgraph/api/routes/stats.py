@@ -5,8 +5,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import get_db_stats
-from lawgraph.api.schemas import EdgeStatsDTO, InstrumentStatsDTO, StatsResponse
+from lawgraph.api.queries.stats import get_db_stats
+from lawgraph.api.schemas.stats import EdgeStatsDTO, InstrumentStatsDTO, StatsResponse
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
@@ -15,8 +15,8 @@ router = APIRouter()
 @router.get(
     "",
     response_model=StatsResponse,
-    summary="Database statistieken",
-    description="Geeft het aantal documenten per collectie en het aantal edges per relatietype.",
+    summary="Database statistics",
+    description="Document counts per collection and edge counts per relation type.",
     tags=["stats"],
 )
 def get_stats(store: Annotated[ArangoStore, Depends(get_store)]) -> StatsResponse:

@@ -1,0 +1,298 @@
+"""Normalize pipelines of the smaller sources.
+
+Staatsblad, Staatscourant, ECHR and Verdragenbank. Each test
+drives the parse/normalize logic directly without a real database by supplying
+a minimal FakeStore and representative raw_sources records.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from lawgraph.core.models import Node, NodeType, PipelineResult
+
+# ---------------------------------------------------------------------------
+# Shared FakeStore — just enough surface to support normalize_nodes()
+# ---------------------------------------------------------------------------
+
+
+class _FakeStore:
+    def __init__(self) -> None:
+        self.upserted: list[Node] = []
+
+    def query(self, aql: str, bind_vars: dict | None = None) -> list[Any]:
+        return []
+
+    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
+        self.upserted.append(node)
+        return node, True
+
+    def bulk_insert_or_update_nodes(
+        self, collection: str, docs: list[dict[str, Any]]
+    ) -> tuple[int, int]:
+        self.upserted.extend(Node.from_document(collection, d) for d in docs)
+        return len(docs), 0
+
+    def get_node(self, collection: str, key: str) -> Node | None:
+        return None
+
+
+def _raw(
+    external_id: str, payload_text: str | None = None, payload_json: Any = None
+) -> dict:
+    rec: dict[str, Any] = {"external_id": external_id}
+    if payload_text is not None:
+        rec["payload_text"] = payload_text
+    if payload_json is not None:
+        rec["payload_json"] = payload_json
+    return rec
+
+
+# ---------------------------------------------------------------------------
+# Staatsblad
+# ---------------------------------------------------------------------------
+
+_STB_XML = """<?xml version="1.0"?>
+<root>
+  <citeertitel>Besluit risico's zware ongevallen 2015</citeertitel>
+  <publicatiejaar>2015</publicatiejaar>
+  <publicatienummer>134</publicatienummer>
+  <nota-van-toelichting>
+    <al>Op grond van BWBR0001234 wordt het volgende besloten.</al>
+  </nota-van-toelichting>
+</root>"""
+
+
+def test_staatsblad_normalize_creates_publication():
+    from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
+
+    store = _FakeStore()
+    pipeline = StaatsbladNormalizePipeline(store=store)
+    nodes = pipeline.normalize_nodes(
+        [_raw("stb-2015-134", payload_text=_STB_XML)], PipelineResult()
+    )
+
+    assert nodes == 1
+    node = store.upserted[-1]
+    assert node.type == NodeType.DOCUMENT
+    assert node.props["year"] == "2015"
+    assert node.props["number"] == "134"
+    assert node.props["bwb_id"] == "BWBR0001234"
+
+
+def test_staatsblad_normalize_skips_empty_payload():
+    from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
+
+    store = _FakeStore()
+    pipeline = StaatsbladNormalizePipeline(store=store)
+    nodes = pipeline.normalize_nodes(
+        [_raw("stb-2020-1", payload_text="")], PipelineResult()
+    )
+    assert nodes == 0
+
+
+# ---------------------------------------------------------------------------
+# Staatscourant
+# ---------------------------------------------------------------------------
+
+_STCRT_XML = """<?xml version="1.0"?>
+<root>
+  <citeertitel>Regeling tegemoetkoming 2020</citeertitel>
+  <publicatiejaar>2020</publicatiejaar>
+  <publicatienummer>55</publicatienummer>
+  <officiele-titel>Regeling tegemoetkoming 2020</officiele-titel>
+  <tekst>Op grond van BWBR0005821 wordt vastgesteld.</tekst>
+</root>"""
+
+
+def test_staatscourant_normalize_creates_publication():
+    from lawgraph.pipelines.normalize.staatscourant import (
+        StaatscourantNormalizePipeline,
+    )
+
+    store = _FakeStore()
+    pipeline = StaatscourantNormalizePipeline(store=store)
+    nodes = pipeline.normalize_nodes(
+        [_raw("stcrt-2020-55", payload_text=_STCRT_XML)], PipelineResult()
+    )
+
+    assert nodes == 1
+    node = store.upserted[-1]
+    assert node.type == NodeType.DOCUMENT
+    assert node.props["year"] == "2020"
+    assert node.props["bwb_id"] == "BWBR0005821"
+
+
+def test_staatscourant_normalize_skips_empty_payload():
+    from lawgraph.pipelines.normalize.staatscourant import (
+        StaatscourantNormalizePipeline,
+    )
+
+    store = _FakeStore()
+    pipeline = StaatscourantNormalizePipeline(store=store)
+    nodes = pipeline.normalize_nodes(
+        [_raw("stcrt-2020-55", payload_text="")], PipelineResult()
+    )
+    assert nodes == 0
+
+
+# ---------------------------------------------------------------------------
+# ECHR
+# ---------------------------------------------------------------------------
+
+_ECHR_PAYLOAD = {
+    "itemid": "001-12345",
+    "appno": "12345/67",
+    "docname": "CASE OF TEST v. NETHERLANDS",
+    "kpdate": "2022-03-15",
+    "respondent": "Netherlands",
+    "importance": 1,
+    "article": ["6", "8"],
+    "conclusion": "Violation of Article 6",
+    "originatingbody": "Grand Chamber",
+}
+
+
+def test_echr_normalize_creates_judgment():
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+
+    store = _FakeStore()
+    pipeline = ECHRNormalizePipeline(store=store)
+    nodes = pipeline.normalize_nodes(
+        [_raw("001-12345", payload_json=_ECHR_PAYLOAD)], PipelineResult()
+    )
+
+    assert nodes == 1
+    node = store.upserted[-1]
+    assert node.type == NodeType.JUDGMENT
+    assert node.props["appno"] == "12345/67"
+    assert node.props["respondent"] == "Netherlands"
+    assert node.props["articles"] == ["6", "8"]
+
+
+def test_echr_normalize_skips_empty_payload():
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+
+    store = _FakeStore()
+    pipeline = ECHRNormalizePipeline(store=store)
+    nodes = pipeline.normalize_nodes([_raw("x", payload_json=None)], PipelineResult())
+    assert nodes == 0
+
+
+# ---------------------------------------------------------------------------
+# Verdragenbank
+# ---------------------------------------------------------------------------
+
+_VERDRAG_PAYLOAD = {
+    "uri": "https://verdragenbank.overheid.nl/nt/12345",
+    "verdragsnummer": "12345",
+    "title_nl": "Verdrag inzake testonderwerp",
+    "title_en": "Treaty on test subject",
+    "treaty_type": "Bilateraal",
+    "status": "Inwerkinggetreden",
+    "date_signed": "1990-06-01",
+    "date_in_force": "1991-01-01",
+    "parties": ["Netherlands", "Germany"],
+}
+
+
+def test_verdragenbank_normalize_creates_instrument():
+    from lawgraph.pipelines.normalize.verdragenbank import (
+        VerdragenbankNormalizePipeline,
+    )
+
+    store = _FakeStore()
+    pipeline = VerdragenbankNormalizePipeline(store=store)
+    nodes = pipeline.normalize_nodes(
+        [_raw("12345", payload_json=_VERDRAG_PAYLOAD)], PipelineResult()
+    )
+
+    assert nodes == 1
+    node = store.upserted[-1]
+    assert node.type == NodeType.INSTRUMENT
+    assert node.props["kind"] == "bilateraalverdrag"
+    assert node.props["status"] == "Inwerkinggetreden"
+    assert node.props["in_force"] is True
+    assert node.props["date_signed"] == "1990-06-01"
+
+
+def test_verdragenbank_normalize_multilateral():
+    from lawgraph.pipelines.normalize.verdragenbank import (
+        VerdragenbankNormalizePipeline,
+    )
+
+    payload = {
+        **_VERDRAG_PAYLOAD,
+        "treaty_type": "Multilateraal",
+        "uri": "https://vb/99",
+    }
+    store = _FakeStore()
+    pipeline = VerdragenbankNormalizePipeline(store=store)
+    pipeline.normalize_nodes([_raw("99", payload_json=payload)], PipelineResult())
+
+    node = store.upserted[-1]
+    assert node.props["kind"] == "multilateraalverdrag"
+
+
+def test_verdragenbank_only_a_treaty_in_force_is_in_force():
+    from lawgraph.pipelines.normalize.verdragenbank import (
+        VerdragenbankNormalizePipeline,
+    )
+
+    def in_force(status: str) -> bool:
+        payload = {**_VERDRAG_PAYLOAD, "status": status}
+        store = _FakeStore()
+        VerdragenbankNormalizePipeline(store=store).normalize_nodes(
+            [_raw("12345", payload_json=payload)], PipelineResult()
+        )
+        return store.upserted[-1].props["in_force"]
+
+    assert in_force("Inwerkinggetreden") is True
+    for status in ("Buitenwerkinggetreden", "Totstandgekomen", "Geratificeerd"):
+        assert in_force(status) is False
+
+
+# ---------------------------------------------------------------------------
+# Memory: raw records are streamed and no node is kept after it is written
+# ---------------------------------------------------------------------------
+
+
+def test_one_node_per_record_pipelines_stream_and_keep_nothing():
+    import pytest
+
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+    from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
+    from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
+    from lawgraph.pipelines.normalize.staatscourant import (
+        StaatscourantNormalizePipeline,
+    )
+    from lawgraph.pipelines.normalize.verdragenbank import (
+        VerdragenbankNormalizePipeline,
+    )
+
+    class Streaming(_FakeStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.batch_sizes: list[int | None] = []
+
+        def query(self, aql, bind_vars=None, *, batch_size=None):  # type: ignore[override]
+            self.batch_sizes.append(batch_size)
+            return iter([])
+
+    for cls, large_payloads in (
+        (StaatsbladNormalizePipeline, True),
+        (StaatscourantNormalizePipeline, True),
+        (ECHRNormalizePipeline, False),
+        (EerstekamerNormalizePipeline, False),
+        (VerdragenbankNormalizePipeline, False),
+    ):
+        store = Streaming()
+        pipeline = cls(store=store)
+        raw = pipeline.fetch_raw()
+        assert not isinstance(raw, list), cls.__name__
+        with pytest.raises(StopIteration):
+            next(iter(raw))
+        # XML of up to 20 MB comes 20 at a time, small JSON records 1000 at a time.
+        # first the count for the progress line, then the records
+        assert store.batch_sizes == [None, 20 if large_payloads else 1000], cls.__name__
+        assert pipeline.normalize_nodes(iter([]), PipelineResult()) == 0

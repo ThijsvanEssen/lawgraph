@@ -1,14 +1,13 @@
-"""Semantic pipeline: links Staatsblad NvT publications to instruments via EXPLAINS_INSTRUMENT."""
+"""Semantic pipeline: links Staatsblad NvT documents to instruments via EXPLAINS."""
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_PUBLICATIONS,
-    RELATION_EXPLAINS_INSTRUMENT,
+    RELATION_EXPLAINS,
     SOURCE_STAATSBLAD,
 )
 from lawgraph.core.logging import get_logger
@@ -26,45 +25,46 @@ _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
 }
 
 # Strategy 1: publications with explicit bwb_id stored during normalization
-_AQL_BWB = """
-FOR pub IN publications
+_AQL_BWB = f"""
+FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
   FILTER pub.props.bwb_id != null
   LET inst = (
-    FOR i IN instruments
-      FILTER i.props.bwb_id == pub.props.bwb_id
+    FOR i IN {COLLECTION_INSTRUMENTS}
+      // != null lets the sparse index on props.bwb_id serve the join (else: a full scan)
+      FILTER i.props.bwb_id != null AND i.props.bwb_id == pub.props.bwb_id
       LIMIT 1
       RETURN i
   )[0]
   FILTER inst != null
-  RETURN { pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
-           match_type: 'bwb_id' }
+  RETURN {{ pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
+           match_type: 'bwb_id' }}
 """
 
 # Strategy 2: title matching for publications without bwb_id
-_AQL_TITLE = """
-FOR pub IN publications
+_AQL_TITLE = f"""
+FOR pub IN {COLLECTION_DOCUMENTS}
   FILTER pub.props.source == @source
   FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
   FILTER pub.props.bwb_id == null
   LET inst = (
-    FOR i IN instruments
+    FOR i IN {COLLECTION_INSTRUMENTS}
       FILTER i.props.citation_title != null
       FILTER CONTAINS(LOWER(pub.props.title), LOWER(i.props.citation_title))
       LIMIT 1
       RETURN i
   )[0]
   FILTER inst != null
-  RETURN { pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
-           match_type: 'title' }
+  RETURN {{ pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
+           match_type: 'title' }}
 """
 
 
 class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
-    """Pipeline linking Staatsblad NvT publications to BWB instruments via EXPLAINS_INSTRUMENT."""
+    """Pipeline linking Staatsblad NvT documents to BWB instruments via EXPLAINS."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
 
         bind_vars = {"source": SOURCE_STAATSBLAD}
@@ -73,17 +73,15 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
         try:
             rows.extend(self.store.query(_AQL_BWB, bind_vars=bind_vars))
         except Exception as exc:
-            logger.warning("Staatsblad NvT semantic (bwb_id query) failed: %s", exc)
+            result.add_error(f"Staatsblad NvT semantic (bwb_id query) failed: {exc}")
 
         try:
             rows.extend(self.store.query(_AQL_TITLE, bind_vars=bind_vars))
         except Exception as exc:
-            logger.warning("Staatsblad NvT semantic (title query) failed: %s", exc)
+            result.add_error(f"Staatsblad NvT semantic (title query) failed: {exc}")
 
         if not rows:
-            logger.debug(
-                "No Staatsblad NvT publications found for EXPLAINS_INSTRUMENT linking."
-            )
+            logger.debug("No Staatsblad NvT documents found for EXPLAINS linking.")
             return result
 
         logger.info(
@@ -93,8 +91,9 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
 
         # Deduplicate by (pub_id, inst_id)
         seen: set[tuple[str, str]] = set()
+        edge_batch: list[dict[str, Any]] = []
 
-        for row in rows:
+        for row in self._track(rows, "publications", total=len(rows)):
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")
             inst_id = row.get("inst_id")
@@ -114,12 +113,12 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
                 raise ValueError(f"Unknown match_type: {match_type!r}")
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
-            pub_collection = collection_from_id(pub_id, COLLECTION_PUBLICATIONS)
+            pub_collection = collection_from_id(pub_id, COLLECTION_DOCUMENTS)
             inst_collection = collection_from_id(inst_id, COLLECTION_INSTRUMENTS)
 
             pub_node = Node(
                 collection=pub_collection,
-                type=NodeType.PUBLICATION,
+                type=NodeType.DOCUMENT,
                 key=pub_key,
                 props={},
             )
@@ -130,19 +129,19 @@ class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
                 props={},
             )
 
-            created = self._create_semantic_edge(
-                from_node=pub_node,
-                to_node=inst_node,
-                relation=RELATION_EXPLAINS_INSTRUMENT,
-                source=SEMANTIC_SOURCE,
-                confidence=confidence,
-                meta={"match_type": match_type},
-                result=result,
+            self._queue_edge(
+                edge_batch,
+                self._make_edge_doc(
+                    from_node=pub_node,
+                    to_node=inst_node,
+                    relation=RELATION_EXPLAINS,
+                    source=SEMANTIC_SOURCE,
+                    confidence=confidence,
+                    meta={"match_type": match_type},
+                ),
+                result,
             )
-            if created:
-                result.created += 1
-            else:
-                result.updated += 1
 
+        self._write_batch(edge_batch, result)
         logger.info("Staatsblad NvT semantic linker: %s.", result.summary())
         return result

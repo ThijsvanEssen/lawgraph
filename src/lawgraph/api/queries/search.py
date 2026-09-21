@@ -6,23 +6,31 @@ import re
 from typing import Any
 
 from lawgraph.api.cache import _MISSING, TTLCache
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
+)
+from lawgraph.core.identifiers import is_ecli
 from lawgraph.db import ArangoStore
 
 _alias_map_cache: TTLCache[str, dict[str, str]] = TTLCache(maxsize=4, ttl=60.0)
 
 # Shared LET block that pre-loads bwb→instrument metadata once per query.
 # Used by article search branches to annotate hits with parent law info.
-_INSTRUMENT_ENRICH_AQL = """
+_INSTRUMENT_ENRICH_AQL = f"""
 LET bwb_to_inst = MERGE(
-    FOR i IN instruments
+    FOR i IN {COLLECTION_INSTRUMENTS}
         FILTER i.props.bwb_id != null
-        RETURN {
-            [i.props.bwb_id]: {
+        RETURN {{
+            [i.props.bwb_id]: {{
                 citation_title: i.props.citation_title,
                 short_title: i.props.short_title,
                 title: i.props.title
-            }
-        }
+            }}
+        }}
 )
 """
 
@@ -72,7 +80,7 @@ def build_search_clause(
                 f"ANALYZER(STARTS_WITH(doc.props.{f}, @_tok_{i}), 'identity')"
             )
             # 3) Case-insensitive identifier match via lawgraph_norm —
-            #    bwb_id/ecli/kamerstuknummer typed in any case.
+            #    bwb_id/ecli/number typed in any case.
             per_field.append(f"ANALYZER(doc.props.{f} == @_tok_{i}, 'lawgraph_norm')")
             # 4) Substring match via 3..12-gram analyzer for compound words
             #    (Vordering → Strafvordering, etc.). Using `==` under the
@@ -109,7 +117,6 @@ _ARTICLE_SUFFIX_RE = re.compile(
     r"^(.+?)\s+(?:art\.?|artikel)?\s*(\d+[a-z]*)$",
     re.IGNORECASE,
 )
-_ECLI_RE = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9._-]+$", re.IGNORECASE)
 
 
 def load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
@@ -123,15 +130,15 @@ def load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
     if cached is not _MISSING:
         return cached  # type: ignore[return-value]
 
-    aql = """
-    FOR i IN instruments
+    aql = f"""
+    FOR i IN {COLLECTION_INSTRUMENTS}
         FILTER i.props.bwb_id != null
-        RETURN {
+        RETURN {{
             bwb_id: i.props.bwb_id,
             short: i.props.short_title,
             citation: i.props.citation_title,
             title: i.props.title
-        }
+        }}
     """
     alias_map: dict[str, str] = {}
     for row in store.query(aql):
@@ -144,6 +151,22 @@ def load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
                 alias_map[value.strip().lower()] = bwb
     _alias_map_cache.set("map", alias_map)
     return alias_map
+
+
+def load_code_aliases(store: ArangoStore) -> dict[str, str]:
+    """Law abbreviation (``short_title``, e.g. ``Sr``) → bwb_id, cached for 60 s."""
+    cached = _alias_map_cache.get("codes")
+    if cached is not _MISSING:
+        return cached  # type: ignore[return-value]
+
+    aql = f"""
+    FOR i IN {COLLECTION_INSTRUMENTS}
+        FILTER i.props.bwb_id != null AND i.props.short_title != null
+        RETURN [i.props.short_title, i.props.bwb_id]
+    """
+    codes = dict(store.query(aql))
+    _alias_map_cache.set("codes", codes)
+    return codes
 
 
 def parse_search_query(q: str, alias_map: dict[str, str]) -> dict[str, Any]:
@@ -160,7 +183,7 @@ def parse_search_query(q: str, alias_map: dict[str, str]) -> dict[str, Any]:
     if not stripped:
         return {"kind": "text"}
 
-    if _ECLI_RE.match(stripped):
+    if is_ecli(stripped):
         return {"kind": "ecli", "ecli": stripped.upper()}
 
     def _resolve_law(raw: str) -> str | None:
@@ -249,7 +272,7 @@ def _search_articles(
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,
-            collection: 'instrument_articles', type: doc.type,
+            collection: 'articles', type: doc.type,
             display_name: doc.props.display_name,
             snippet: LEFT(doc.props.text, 200),
             extra: {_ARTICLE_RETURN}
@@ -259,14 +282,14 @@ def _search_articles(
     if intent.get("kind") == "article" and intent.get("article_number"):
         precise_aql = f"""
         {_INSTRUMENT_ENRICH_AQL}
-        FOR doc IN instrument_articles
+        FOR doc IN {COLLECTION_ARTICLES}
             FILTER doc.props.article_number == @article_number
             FILTER @bwb_id == null OR doc.props.bwb_id == @bwb_id
             SORT doc.props.bwb_id ASC
             LIMIT @limit
             RETURN {{
                 id: doc._id, key: doc._key,
-                collection: 'instrument_articles', type: doc.type,
+                collection: 'articles', type: doc.type,
                 display_name: doc.props.display_name,
                 snippet: LEFT(doc.props.text, 200),
                 extra: {_ARTICLE_RETURN}
@@ -347,17 +370,17 @@ def _search_judgments(
     """
 
     if intent.get("kind") == "ecli" and intent.get("ecli"):
-        ecli_aql = """
-        FOR doc IN judgments
+        ecli_aql = f"""
+        FOR doc IN {COLLECTION_JUDGMENTS}
             FILTER doc.props.ecli == @ecli
             LIMIT @limit
-            RETURN {
+            RETURN {{
                 id: doc._id, key: doc._key,
                 collection: 'judgments', type: doc.type,
                 display_name: doc.props.display_name,
                 snippet: LEFT(doc.props.summary, 200),
-                extra: { ecli: doc.props.ecli }
-            }
+                extra: {{ ecli: doc.props.ecli }}
+            }}
         """
         return _two_phase_search(
             store,
@@ -374,149 +397,147 @@ def _search_judgments(
 def _search_dossiers(
     store: ArangoStore,
     tokens: list[str],
-    soort: list[str] | None,
+    kinds: list[str] | None,
     limit: int,
 ) -> list[dict[str, Any]]:
-    clause, tok_bind = build_search_clause(
-        tokens, ["titel", "display_name", "kamerstuknummer"]
-    )
+    clause, tok_bind = build_search_clause(tokens, ["title", "display_name", "number"])
     bind_vars: dict[str, Any] = {**tok_bind, "limit": limit}
-    soort_clause = ""
-    if soort:
-        soort_clause = "FILTER LOWER(doc.props.huidige_fase) IN @soort_filter"
-        bind_vars["soort_filter"] = [s.lower() for s in soort]
+    kind_clause = ""
+    if kinds:
+        kind_clause = "FILTER LOWER(doc.props.current_stage) IN @kind_filter"
+        bind_vars["kind_filter"] = [k.lower() for k in kinds]
     aql = f"""
     FOR doc IN search_dossiers
         SEARCH {clause}
-        {soort_clause}
+        {kind_clause}
         SORT BM25(doc) DESC
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,
-            collection: 'kamerstukdossiers', type: doc.type,
-            display_name: (doc.props.titel != null ? doc.props.titel : doc.props.display_name),
-            snippet: doc.props.kamerstuknummer,
+            collection: 'dossiers', type: doc.type,
+            display_name: (doc.props.title != null ? doc.props.title : doc.props.display_name),
+            snippet: doc.props.number,
             extra: {{
-                kamerstuknummer: doc.props.kamerstuknummer,
-                huidige_fase: doc.props.huidige_fase,
-                afgedaan: doc.props.afgedaan
+                number: doc.props.number,
+                current_stage: doc.props.current_stage,
+                closed: doc.props.closed
             }}
         }}
     """
     return list(store.query(aql, bind_vars))
 
 
-def _search_commissies(
+def _search_committees(
     store: ArangoStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
-    clause, tok_bind = build_search_clause(tokens, ["naam", "afkorting"])
+    clause, tok_bind = build_search_clause(tokens, ["name", "abbreviation"])
     aql = f"""
-    FOR doc IN search_commissies
+    FOR doc IN search_committees
         SEARCH {clause}
         SORT BM25(doc) DESC
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,
-            collection: 'commissies', type: doc.type,
-            display_name: doc.props.naam,
-            snippet: doc.props.afkorting,
-            extra: {{ slug: doc.props.slug, afkorting: doc.props.afkorting }}
+            collection: 'committees', type: doc.type,
+            display_name: doc.props.name,
+            snippet: doc.props.abbreviation,
+            extra: {{ slug: doc.props.slug, abbreviation: doc.props.abbreviation }}
         }}
     """
     return list(store.query(aql, {**tok_bind, "limit": limit}))
 
 
-def _search_leden(
+def _search_members(
     store: ArangoStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
-    aql = """
-    FOR doc IN leden
+    aql = f"""
+    FOR doc IN {COLLECTION_MEMBERS}
         LET membership_labels = (
-            FOR m IN (doc.props.fractielidmaatschappen OR [])
+            FOR m IN (doc.props.faction_memberships OR [])
                 RETURN CONCAT_SEPARATOR(" ",
-                    m.afkorting != null ? m.afkorting : "",
-                    m.naam != null ? m.naam : "",
+                    m.abbreviation != null ? m.abbreviation : "",
+                    m.name != null ? m.name : "",
                     CONCAT_SEPARATOR(" ", m.aliases OR [])
                 )
         )
         LET haystack = LOWER(CONCAT_SEPARATOR(" ",
-            doc.props.naam OR "",
-            doc.props.partij OR "",
+            doc.props.name OR "",
+            doc.props.party OR "",
             CONCAT_SEPARATOR(" ", membership_labels)
         ))
         FILTER LENGTH(FOR t IN @tokens FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0
-        SORT doc.props.actief DESC, doc.props.naam ASC
+        SORT doc.props.active DESC, doc.props.name ASC
         LIMIT @limit
-        RETURN {
+        RETURN {{
             id: doc._id, key: doc._key,
-            collection: 'leden', type: doc.type,
-            display_name: doc.props.naam,
-            snippet: doc.props.partij,
-            extra: { partij: doc.props.partij, actief: doc.props.actief }
-        }
+            collection: 'members', type: doc.type,
+            display_name: doc.props.name,
+            snippet: doc.props.party,
+            extra: {{ party: doc.props.party, active: doc.props.active }}
+        }}
     """
     return list(store.query(aql, {"tokens": tokens, "limit": limit}))
 
 
-def _search_fracties(
+def _search_factions(
     store: ArangoStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
-    aql = """
-    FOR doc IN fracties
+    aql = f"""
+    FOR doc IN {COLLECTION_FACTIONS}
         LET haystack = LOWER(CONCAT_SEPARATOR(" ",
-            doc.props.naam OR "",
-            doc.props.afkorting OR "",
+            doc.props.name OR "",
+            doc.props.abbreviation OR "",
             CONCAT_SEPARATOR(" ", doc.props.aliases OR [])
         ))
         FILTER LENGTH(FOR t IN @tokens FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0
-        SORT doc.props.actief DESC,
-             (doc.props.aantal_zetels != null ? doc.props.aantal_zetels : 0) DESC,
-             doc.props.naam ASC
+        SORT doc.props.active DESC,
+             (doc.props.seats != null ? doc.props.seats : 0) DESC,
+             doc.props.name ASC
         LIMIT @limit
-        RETURN {
+        RETURN {{
             id: doc._id, key: doc._key,
-            collection: 'fracties', type: doc.type,
-            display_name: doc.props.naam,
-            snippet: doc.props.afkorting,
-            extra: {
-                afkorting: doc.props.afkorting,
-                aantal_zetels: doc.props.aantal_zetels,
-                actief: doc.props.actief
-            }
-        }
+            collection: 'factions', type: doc.type,
+            display_name: doc.props.name,
+            snippet: doc.props.abbreviation,
+            extra: {{
+                abbreviation: doc.props.abbreviation,
+                seats: doc.props.seats,
+                active: doc.props.active
+            }}
+        }}
     """
     return list(store.query(aql, {"tokens": tokens, "limit": limit}))
 
 
-def _search_publications(
+def _search_documents(
     store: ArangoStore,
     tokens: list[str],
-    soort: list[str] | None,
+    kinds: list[str] | None,
     limit: int,
 ) -> list[dict[str, Any]]:
     clause, tok_bind = build_search_clause(
-        tokens, ["display_name", "title", "titel", "external_id"]
+        tokens, ["display_name", "title", "external_id"]
     )
     bind_vars: dict[str, Any] = {**tok_bind, "limit": limit}
-    soort_clause = ""
-    if soort:
-        soort_clause = "FILTER LOWER(doc.props.soort) IN @soort_filter"
-        bind_vars["soort_filter"] = [s.lower() for s in soort]
+    kind_clause = ""
+    if kinds:
+        kind_clause = "FILTER LOWER(doc.props.kind) IN @kind_filter"
+        bind_vars["kind_filter"] = [k.lower() for k in kinds]
     # Hydrated PDF text isn't indexed in the view (~500 KB rows are too
     # bulky for sub-200-ms search); identifier and title fields cover
     # the UI use cases. A dedicated full-text endpoint can opt-in.
     aql = f"""
-    FOR doc IN search_publications
+    FOR doc IN search_documents
         SEARCH {clause}
-        {soort_clause}
+        {kind_clause}
         SORT BM25(doc) DESC
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,
-            collection: 'publications', type: doc.type,
+            collection: 'documents', type: doc.type,
             display_name: (doc.props.title != null ? doc.props.title : doc.props.display_name),
-            snippet: doc.props.soort,
-            extra: {{ soort: doc.props.soort, external_id: doc.props.external_id }}
+            snippet: doc.props.kind,
+            extra: {{ kind: doc.props.kind, external_id: doc.props.external_id }}
         }}
     """
     return list(store.query(aql, bind_vars))
@@ -530,7 +551,7 @@ def search_all(
     *,
     q: str,
     types: list[str],
-    soort: list[str] | None = None,
+    kinds: list[str] | None = None,
     limit: int = 20,
 ) -> dict[str, list[dict[str, Any]]]:
     """Full-text search across requested entity types.
@@ -539,7 +560,7 @@ def search_all(
     {id, key, collection, type, display_name, snippet, extra}.
 
     Uses ArangoSearch views for indexed types and CONTAINS for small
-    collections (leden, fracties). Every token must appear — AND semantics.
+    collections (members, factions). Every token must appear — AND semantics.
     """
     tokens = tokenize_search_query(q)
     if not tokens:
@@ -557,13 +578,13 @@ def search_all(
         elif t == "judgments":
             results[t] = _search_judgments(store, tokens, intent, limit)
         elif t == "dossiers":
-            results[t] = _search_dossiers(store, tokens, soort, limit)
-        elif t == "commissies":
-            results[t] = _search_commissies(store, tokens, limit)
-        elif t == "leden":
-            results[t] = _search_leden(store, tokens, limit)
-        elif t == "fracties":
-            results[t] = _search_fracties(store, tokens, limit)
-        elif t == "publications":
-            results[t] = _search_publications(store, tokens, soort, limit)
+            results[t] = _search_dossiers(store, tokens, kinds, limit)
+        elif t == "committees":
+            results[t] = _search_committees(store, tokens, limit)
+        elif t == "members":
+            results[t] = _search_members(store, tokens, limit)
+        elif t == "factions":
+            results[t] = _search_factions(store, tokens, limit)
+        elif t == "documents":
+            results[t] = _search_documents(store, tokens, kinds, limit)
     return results

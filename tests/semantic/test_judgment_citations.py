@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from lawgraph.config.constants import RELATION_REFERS_TO
+from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.judgment_citations import (
     JudgmentCitationsSemanticPipeline,
-    detect_ecli_references,
 )
 
 # ---------------------------------------------------------------------------
@@ -16,25 +17,25 @@ from lawgraph.pipelines.semantic.judgment_citations import (
 
 
 def test_detect_ecli_references_finds_single() -> None:
-    hits = detect_ecli_references("Zie ECLI:NL:HR:2020:1234 voor context.")
+    hits = find_eclis("Zie ECLI:NL:HR:2020:1234 voor context.")
     assert hits == ["ECLI:NL:HR:2020:1234"]
 
 
 def test_detect_ecli_references_deduplicates() -> None:
     text = "ECLI:NL:HR:2020:1234 en nogmaals ECLI:NL:HR:2020:1234"
-    hits = detect_ecli_references(text)
+    hits = find_eclis(text)
     assert hits == ["ECLI:NL:HR:2020:1234"]
 
 
 def test_detect_ecli_references_multiple() -> None:
     text = "ECLI:NL:HR:2020:1234 en ECLI:NL:RBAMS:2021:5678"
-    hits = detect_ecli_references(text)
+    hits = find_eclis(text)
     assert len(hits) == 2
 
 
 def test_detect_ecli_references_empty() -> None:
-    assert detect_ecli_references("") == []
-    assert detect_ecli_references(None) == []
+    assert find_eclis("") == []
+    assert find_eclis(None) == []
 
 
 # ---------------------------------------------------------------------------
@@ -53,11 +54,16 @@ class _FakeStore:
         self._nodes = nodes or {}
         self.edges: dict[str, dict[str, Any]] = {}
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
+    def query(
+        self, aql: str, bind_vars: dict | None = None, **_kw: Any
+    ) -> list[dict[str, Any]]:
         # Secondary ECLI lookup — return nothing (we populate via get_node).
         if "props.ecli" in aql:
             return []
-        return list(self._judgment_docs)
+        return [
+            {"ecli": d["props"]["ecli"], "xml": d["props"]["raw_xml"]}
+            for d in self._judgment_docs
+        ]
 
     def get_node(self, collection: str, key: str) -> Node | None:
         return self._nodes.get((collection, key))
@@ -137,7 +143,7 @@ def test_pipeline_creates_cites_judgment_edge() -> None:
     assert result.created == 1
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
-    assert edge["relation"] == "CITES_JUDGMENT"
+    assert edge["relation"] == RELATION_REFERS_TO
     assert edge["_from"].startswith("judgments/")
     assert edge["_to"].startswith("judgments/")
 
@@ -151,3 +157,19 @@ def test_pipeline_skips_self_reference() -> None:
     pipeline = JudgmentCitationsSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
+
+
+def test_an_incremental_run_reads_the_judgments_fetched_since() -> None:
+    """The judgments read before have their edges; a cited judgment has the key of its stub."""
+    import datetime as dt
+
+    binds: list[dict[str, Any]] = []
+
+    class Store(_FakeStore):
+        def query(self, aql: str, bind_vars: dict | None = None, **kw: Any):
+            binds.append(dict(bind_vars or {}))
+            return super().query(aql, bind_vars, **kw)
+
+    pipeline = JudgmentCitationsSemanticPipeline(store=Store(judgment_docs=[]))
+    pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    assert binds[0]["since"] == "2025-01-01T00:00:00Z"

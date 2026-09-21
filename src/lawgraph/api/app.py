@@ -1,21 +1,9 @@
 from __future__ import annotations
 
-# ruff: noqa: E402
-# load_dotenv() must run before lawgraph settings modules are imported.
-from dotenv import load_dotenv
-
-load_dotenv()
-
-from lawgraph.core.logging import setup_logging
-
-setup_logging()
-
 import collections
 import logging
-import os
 import time
 import uuid
-from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -23,19 +11,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response as StarletteResponse
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.routes import articles, instruments, judgments, nodes
-from lawgraph.api.routes.commissies import fracties_router, leden_router
-from lawgraph.api.routes.commissies import router as commissies_router
-from lawgraph.api.routes.dossiers import party_router
-from lawgraph.api.routes.dossiers import router as dossiers_router
-from lawgraph.api.routes.graph import router as graph_router
-from lawgraph.api.routes.parlement import router as parlement_router
-from lawgraph.api.routes.publications import router as publications_router
-from lawgraph.api.routes.search import router as search_router
-from lawgraph.api.routes.stats import router as stats_router
-from lawgraph.api.routes.stemmingen import router as stemmingen_router
-from lawgraph.api.routes.watches import router as watches_router
+from lawgraph.api.routes import (
+    annexes,
+    articles,
+    committees,
+    decisions,
+    documents,
+    dossiers,
+    graph,
+    instruments,
+    judgments,
+    nodes,
+    parliament,
+    relationships,
+    search,
+    stats,
+    watches,
+)
+from lawgraph.config.settings import (
+    API_ALLOWED_ORIGINS,
+    API_HOST,
+    API_PORT,
+    API_RATE_LIMIT_CALLS,
+    API_RATE_LIMIT_PERIOD,
+    API_TRUSTED_PROXIES,
+)
+from lawgraph.core.logging import setup_logging
 from lawgraph.db import ArangoStore
+
+setup_logging()
 
 _logger = logging.getLogger(__name__)
 
@@ -107,19 +111,12 @@ class _RateLimitMiddleware:
 
     def __init__(self, app, *, trusted_origins: frozenset[str]) -> None:
         self._app = app
-        self._calls: int = int(os.getenv("LAWGRAPH_RATE_LIMIT_CALLS", "200"))
-        self._period: float = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
+        self._calls = API_RATE_LIMIT_CALLS
+        self._period = API_RATE_LIMIT_PERIOD
         self._trusted_origins = trusted_origins
-        # Trusted proxy hop IPs — only honour X-Forwarded-For when the
-        # connection arrives from one of these. Defaults to loopback so
-        # local dev + reverse-proxy on same host both work.
-        proxies_env = os.getenv("LAWGRAPH_TRUSTED_PROXIES", "")
-        custom = {ip.strip() for ip in proxies_env.split(",") if ip.strip()}
-        self._trusted_proxies: frozenset[str] = (
-            frozenset(custom) | self._LOOPBACK_PROXIES
-            if custom
-            else self._LOOPBACK_PROXIES
-        )
+        # X-Forwarded-For is honoured only from these hops; loopback is always trusted so
+        # a reverse proxy on the same host works.
+        self._trusted_proxies = API_TRUSTED_PROXIES | self._LOOPBACK_PROXIES
         self._history: collections.defaultdict[str, list[float]] = (
             collections.defaultdict(list)
         )
@@ -184,57 +181,37 @@ class _RateLimitMiddleware:
         await self._app(scope, receive, send)
 
 
-@asynccontextmanager
-async def _lifespan(application: FastAPI):
-    """Validate environment variables at startup."""
-    recommended = {
-        "ARANGO_URL": "ArangoDB URL",
-        "ARANGO_PASSWORD": "ArangoDB password",
-        "LAWGRAPH_ALLOWED_ORIGINS": "CORS allowed origins",
-    }
-    for var, description in recommended.items():
-        if not os.getenv(var):
-            _logger.warning(
-                "Environment variable %s not set (%s); using default.", var, description
-            )
-    yield
-
-
 app = FastAPI(
     title="Lawgraph API",
     version="0.4.0",
     description=(
-        "Lawgraph biedt een FastAPI-laag boven de ArangoDB knowledge graph. "
-        "De service exposeert endpoints voor wetsartikelen, uitspraken, "
-        "parlementaire dossiers en wetgevingsgeschiedenis."
+        "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
+        "exposes endpoints for articles of law, judgments, parliamentary "
+        "dossiers and legislative history."
     ),
-    lifespan=_lifespan,
 )
 
-app.include_router(articles.router, prefix="/api/articles", tags=["articles"])
-app.include_router(judgments.router, prefix="/api/judgments", tags=["judgments"])
-app.include_router(instruments.router, prefix="/api/instruments", tags=["instruments"])
-app.include_router(nodes.router, prefix="/api/nodes", tags=["nodes"])
-app.include_router(dossiers_router, prefix="/api/dossiers", tags=["dossiers"])
-app.include_router(commissies_router, prefix="/api/commissies", tags=["commissies"])
-app.include_router(leden_router, prefix="/api/leden", tags=["leden"])
-app.include_router(fracties_router, prefix="/api/fracties", tags=["fracties"])
-app.include_router(party_router, prefix="/api/partijen", tags=["partijen"])
-app.include_router(graph_router, prefix="/api/graph", tags=["graph"])
-app.include_router(
-    publications_router, prefix="/api/publications", tags=["publications"]
-)
-app.include_router(search_router, prefix="/api/search", tags=["search"])
-app.include_router(stats_router, prefix="/api/stats", tags=["stats"])
-app.include_router(watches_router, prefix="/api/watches", tags=["watches"])
-app.include_router(stemmingen_router, prefix="/api/stemmingen", tags=["stemmingen"])
-app.include_router(parlement_router, prefix="/api/parlement", tags=["parlement"])
-
-_allowed_origins_env = os.getenv(
-    "LAWGRAPH_ALLOWED_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
-)
-origins = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()]
+for _name, _router in (
+    ("articles", articles.router),
+    ("judgments", judgments.router),
+    ("instruments", instruments.router),
+    ("nodes", nodes.router),
+    ("dossiers", dossiers.router),
+    ("committees", committees.router),
+    ("members", committees.members_router),
+    ("factions", committees.factions_router),
+    ("parties", parliament.party_router),
+    ("graph", graph.router),
+    ("relationships", relationships.router),
+    ("annexes", annexes.router),
+    ("documents", documents.router),
+    ("search", search.router),
+    ("stats", stats.router),
+    ("watches", watches.router),
+    ("decisions", decisions.router),
+    ("parliament", parliament.router),
+):
+    app.include_router(_router, prefix=f"/api/{_name}", tags=[_name])
 
 
 @app.middleware("http")
@@ -263,11 +240,11 @@ async def _log_requests(request: Request, call_next):
     return response
 
 
-app.add_middleware(_RateLimitMiddleware, trusted_origins=frozenset(origins))
+app.add_middleware(_RateLimitMiddleware, trusted_origins=frozenset(API_ALLOWED_ORIGINS))
 app.add_middleware(_CacheControlMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # populated from LAWGRAPH_ALLOWED_ORIGINS env var
+    allow_origins=API_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -298,8 +275,8 @@ def _run_server() -> None:
 
     uvicorn.run(
         "lawgraph.api.app:app",
-        host=os.getenv("LAWGRAPH_API_HOST", "0.0.0.0"),
-        port=int(os.getenv("LAWGRAPH_API_PORT", "8000")),
+        host=API_HOST,
+        port=API_PORT,
         reload=False,
         access_log=False,
     )

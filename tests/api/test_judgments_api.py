@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.queries import JudgmentArticleRelation, JudgmentDetailData
+from lawgraph.api.queries.judgments import JudgmentArticleRelation, JudgmentDetailData
 
 client = TestClient(app)
 
@@ -15,7 +15,7 @@ _JUDGMENT_DOC = {
 }
 
 _ARTICLE_DOC = {
-    "_id": "instrument_articles/BWBR0001854-287",
+    "_id": "articles/BWBR0001854-287",
     "_key": "BWBR0001854-287",
     "props": {
         "display_name": "Artikel 287",
@@ -70,6 +70,6 @@ def test_get_judgment_detail_returns_linked_articles(monkeypatch):
     articles = payload["articles"]
     assert isinstance(articles, list) and len(articles) == 1
     article = articles[0]
-    assert article["id"].startswith("instrument_articles")
+    assert article["id"].startswith("articles")
     assert article["display_name"] == "Artikel 287"
     assert article["instrument"] is not None

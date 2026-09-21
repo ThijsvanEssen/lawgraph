@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, make_node_key
-from lawgraph.pipelines.semantic.echr_citations import EchrCitationsPipeline
+from lawgraph.pipelines.semantic.echr_citations import ECHRCitationsSemanticPipeline
 
 
 class _FakeStore:
@@ -30,10 +31,12 @@ class _FakeStore:
     def get_node(self, collection: str, key: str) -> Node | None:
         return self._nodes.get(f"{collection}/{key}")
 
-    def insert_or_update(self, node: Node) -> Node:
+    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
         assert node.key is not None
-        self._nodes[f"{node.collection}/{node.key}"] = node
-        return node
+        node_id = f"{node.collection}/{node.key}"
+        created = node_id not in self._nodes
+        self._nodes[node_id] = node
+        return node, created
 
     def insert_or_update_edge(self, doc: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         k = doc["_key"]
@@ -64,12 +67,12 @@ def test_pipeline_links_convention_articles() -> None:
             }
         ]
     )
-    pipeline = EchrCitationsPipeline(store=store)
+    pipeline = ECHRCitationsSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 2
     relations = {e["relation"] for e in store.edges.values()}
-    assert "CITES_ARTICLE" in relations
+    assert RELATION_REFERS_TO in relations
 
 
 def test_pipeline_creates_mentions_instrument_for_bwb_in_conclusion() -> None:
@@ -86,16 +89,16 @@ def test_pipeline_creates_mentions_instrument_for_bwb_in_conclusion() -> None:
         ],
         instrument_rows=[{"_key": inst_key, "props": {"bwb_id": bwb_id}}],
     )
-    pipeline = EchrCitationsPipeline(store=store)
+    pipeline = ECHRCitationsSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created >= 1
     relations = {e["relation"] for e in store.edges.values()}
-    assert "MENTIONS_INSTRUMENT" in relations
+    assert RELATION_REFERS_TO in relations
 
 
 def test_pipeline_returns_empty_when_no_judgments() -> None:
     store = _FakeStore(judgment_rows=[])
-    pipeline = EchrCitationsPipeline(store=store)
+    pipeline = ECHRCitationsSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0

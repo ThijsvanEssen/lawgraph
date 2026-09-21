@@ -5,24 +5,23 @@ from __future__ import annotations
 import datetime as dt
 
 from lawgraph.config.constants import (
+    COLLECTION_EDGES,
     EDGE_STATUS_VOORGESTELD,
-    RELATION_CITES_ARTICLE,
-    RELATION_INTRODUCEERT,
-    RELATION_REFERS_TO_ARTICLE,
-    RELATION_TREKT_IN,
-    RELATION_WIJZIGT,
+    RELATION_AMENDS,
+    RELATION_INTRODUCES,
+    RELATION_REFERS_TO,
+    RELATION_REPEALS,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 
 def get_in_flux_counts(store: ArangoStore) -> dict[str, int]:
-    """Return a map of node_id → count of VOORGESTELD edges pointing at it.
+    """Return a map of node_id → count of proposed edges pointing at it.
 
     Mirrors the definition used by ``get_article_in_flux`` exactly so the bulk
-    overlay and per-article endpoints can never disagree. Returns an empty
-    map when the graph contains no VOORGESTELD edges yet (e.g. before the
-    amendment-scanner pipeline has run) — that's the truth, not a bug.
+    overlay and per-article endpoints can never disagree. The map is empty when
+    the graph holds no proposed edges yet (e.g. before the amendment scanner has
+    run) — that is the truth, not a bug.
     """
     aql = f"""
     FOR e IN {COLLECTION_EDGES}
@@ -40,10 +39,9 @@ def get_heat_counts(
 
     Combines two signals:
     - Recent parliamentary activity: edges with created_at within the past
-      *months* months (commissies, dossiers, activiteiten).
-    - Judicial citation activity: CITES_ARTICLE edges from judgments targeting
-      instrument_articles (citation edges have no created_at timestamps so they
-      are always included as a supplemental article-layer signal).
+      *months* months (committees, dossiers, activities).
+    - Citation activity: edges pointing at an article (they carry no created_at
+      timestamp, so they always count as a supplemental article-layer signal).
 
     ``min_count`` filters the long tail server-side. The corpus has ~46K
     nodes with count ≥ 1 but only ~20K with count ≥ 5 — bumping the
@@ -64,22 +62,20 @@ def get_heat_counts(
         for row in store.query(aql_parliament, {"cutoff": cutoff})
     }
 
-    # Always supplement with all article-citation signals regardless of timestamp.
-    # Covers judicial citations (CITES_ARTICLE), TK/EU semantic links
-    # (REFERS_TO_ARTICLE), and amendment-scanner edges (WIJZIGT, INTRODUCEERT,
-    # TREKT_IN).  These edges may be old (no created_at) but are permanent
-    # signals of legislative activity on an article.
+    # Always supplement with every article-level signal regardless of timestamp:
+    # references (REFERS_TO) and amendments (AMENDS, INTRODUCES, REPEALS). Those
+    # edges may carry no created_at but are permanent signals of activity on an
+    # article.
     _ARTICLE_CITATION_RELATIONS = [
-        RELATION_CITES_ARTICLE,
-        RELATION_REFERS_TO_ARTICLE,
-        RELATION_WIJZIGT,
-        RELATION_INTRODUCEERT,
-        RELATION_TREKT_IN,
+        RELATION_REFERS_TO,
+        RELATION_AMENDS,
+        RELATION_INTRODUCES,
+        RELATION_REPEALS,
     ]
     aql_article_citations = f"""
     FOR e IN {COLLECTION_EDGES}
         FILTER e.relation IN @relations
-        FILTER STARTS_WITH(e._to, "instrument_articles/")
+        FILTER STARTS_WITH(e._to, "articles/")
         COLLECT target = e._to WITH COUNT INTO cnt
         RETURN {{ id: target, count: cnt }}
     """

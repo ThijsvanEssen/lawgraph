@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from lawgraph.core.citations import format_celex
 from lawgraph.pipelines.semantic.amendment_articles import (
     _KOMT_TE_LUIDEN,
     _VERVALT,
@@ -12,7 +13,6 @@ from lawgraph.pipelines.semantic.amendment_articles import (
     _WORDT_INGEVOEGD,
     detect_amendment_citations,
 )
-from lawgraph.pipelines.semantic.citation_detect import format_celex
 
 # ---------------------------------------------------------------------------
 # Import the amendment patterns directly from the pipeline module
@@ -152,24 +152,24 @@ class TestDetectAmendmentCitations:
 
     def test_detects_wijzigt_relation(self) -> None:
         text = "Artikel 5 wordt als volgt gewijzigd: ..."
-        from lawgraph.config.constants import RELATION_WIJZIGT
+        from lawgraph.config.constants import RELATION_AMENDS
 
         results = detect_amendment_citations(text, "BWBR0001840")
-        assert any(relation == RELATION_WIJZIGT for _, relation in results)
+        assert any(relation == RELATION_AMENDS for _, relation in results)
 
     def test_detects_trekt_in_relation(self) -> None:
         text = "Artikel 7 vervalt."
-        from lawgraph.config.constants import RELATION_TREKT_IN
+        from lawgraph.config.constants import RELATION_REPEALS
 
         results = detect_amendment_citations(text, "BWBR0001840")
-        assert any(relation == RELATION_TREKT_IN for _, relation in results)
+        assert any(relation == RELATION_REPEALS for _, relation in results)
 
     def test_detects_introduceert_relation(self) -> None:
         text = "Na artikel 5 wordt een nieuw artikel 5a ingevoegd."
-        from lawgraph.config.constants import RELATION_INTRODUCEERT
+        from lawgraph.config.constants import RELATION_INTRODUCES
 
         results = detect_amendment_citations(text, "BWBR0001840")
-        assert any(relation == RELATION_INTRODUCEERT for _, relation in results)
+        assert any(relation == RELATION_INTRODUCES for _, relation in results)
 
     def test_hit_carries_bwb_id(self) -> None:
         text = "Artikel 5 vervalt."
@@ -213,12 +213,12 @@ class TestFormatCelex:
         assert format_celex("regulation", "2016", "679") == "32016R0679"
 
     def test_format_celex_decision(self) -> None:
-        """New C-category: decision."""
-        assert format_celex("decision", "2002", "584") == "32002C0584"
+        """CELEX sector 3: D = decision (not C)."""
+        assert format_celex("decision", "2002", "584") == "32002D0584"
 
     def test_format_celex_framework_decision(self) -> None:
-        """New D-category: framework_decision."""
-        assert format_celex("framework_decision", "2002", "584") == "32002D0584"
+        """CELEX sector 3: F = framework decision (not D)."""
+        assert format_celex("framework_decision", "2002", "584") == "32002F0584"
 
     def test_format_celex_pads_number_to_four_digits(self) -> None:
         assert format_celex("directive", "2000", "1") == "32000L0001"

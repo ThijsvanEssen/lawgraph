@@ -22,7 +22,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
         self.client = client or VerdragenbankClient()
 
     def fetch(
-        self, *, max_records: int = 10000, **kwargs: object
+        self, *, max_records: int | None = None, **kwargs: object
     ) -> list[RetrieveRecord]:
         treaties = self.client.enumerate_treaties(max_records=max_records)
         records: list[RetrieveRecord] = []

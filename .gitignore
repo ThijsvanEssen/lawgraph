@@ -5,4 +5,8 @@ __pycache__/
 *.egg-info/
 .vscode/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .DS_Store
+.claude/worktrees/
+.claude/settings.local.json

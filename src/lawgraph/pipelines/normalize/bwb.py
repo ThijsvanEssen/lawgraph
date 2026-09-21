@@ -2,29 +2,37 @@ from __future__ import annotations
 
 import datetime as dt
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    RAW_SOURCE_KINDS,
-    RELATION_PART_OF_INSTRUMENT,
+    RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_BWB_WTI_GENERAL,
+    RELATION_PART_OF,
     SOURCE_BWB,
 )
+from lawgraph.core.batching import chunked
+from lawgraph.core.bwb_wti import choose_short_titles, parse_abbreviations
+from lawgraph.core.bwb_xml import article_props, instrument_props, parse_toestand
+from lawgraph.core.identifiers import find_celex_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import ArangoStore
-from lawgraph.db import edge_key as _sha1_edge_key
-from lawgraph.pipelines.normalize._xml import local_name as _local_name
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
+EDGE_SOURCE = "bwb-normalize"
+# Only the current toestand: the historical ones (``bwb-toestand-xml-all``) carry the same
+# bwb_id and would overwrite the articles of today with those of whichever came last.
+TOESTAND_KINDS = [RAW_KIND_BWB_TOESTAND]
+SHORT_TITLE_BATCH_SIZE = 1000
 
-class BWBNormalizePipeline(NormalizePipeline):
-    """
-    Normaliseer BWB-XML naar instrument- en artikel-nodes in Arango.
-    """
+
+class BWBNormalizePipeline(NormalizePipelineBase):
+    """Normalize BWB XML into Instrument and Article nodes, with their short titles."""
 
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
@@ -33,320 +41,162 @@ class BWBNormalizePipeline(NormalizePipeline):
         self,
         *,
         since: dt.datetime | None = None,
-    ) -> list[dict[str, Any]]:
-        """Return the BWB raw_sources records relevant to instrument/article parsing."""
-        kinds = list(RAW_SOURCE_KINDS[SOURCE_BWB])
-        rows = self._query_raw_sources(
-            source=SOURCE_BWB,
-            kinds=kinds,
-            since=since,
+    ) -> Iterator[dict[str, Any]]:
+        """Stream the BWB raw_sources records relevant to instrument/article parsing."""
+        return self._iter_raw_sources(
+            source=SOURCE_BWB, kinds=TOESTAND_KINDS, since=since
         )
-        logger.info("Loaded %d BWB raw_sources.", len(rows))
-        return rows
-
-    _NODE_BATCH_SIZE = 200
 
     def normalize_nodes(
         self,
-        raw: list[dict[str, Any]],
+        raw: Iterable[dict[str, Any]],
         result: PipelineResult,
     ) -> dict[str, Any]:
-        """Parse BWB XML dumps into instrument and article nodes."""
+        """Parse the current BWB toestand of each regulation into Instrument and Article nodes."""
         instruments_by_bwb: dict[str, Node] = {}
         articles_by_bwb: dict[str, list[Node]] = {}
         article_count = 0
 
-        for record in raw:
-            payload_text = self._payload_text(record)
-            if not payload_text:
-                logger.warning(
-                    "BWB record %s has no text payload; skipping.",
-                    record.get("_key"),
-                )
-                continue
-
-            meta = self._meta(record)
-            bwb_id = meta.get("bwb_id") or record.get("external_id")
-            if not bwb_id:
-                logger.warning(
-                    "BWB record %s missing bwb_id; skipping.",
-                    record.get("_key"),
-                )
-                continue
-
-            # Parse XML once and reuse the root for title extraction and article scanning.
-            try:
-                root = ET.fromstring(payload_text)
-            except ET.ParseError as exc:
-                logger.warning("XML parsing failed for BWB %s: %s", bwb_id, exc)
-                continue
-
-            instrument = instruments_by_bwb.get(bwb_id)
-            if not instrument:
-                titel = self._extract_instrument_title_from_root(root, bwb_id)
-                citation_title = self._extract_citation_title_from_root(root)
-                instrument = self._get_or_create_instrument(
-                    bwb_id, title=titel, citation_title=citation_title
-                )
-                instruments_by_bwb[bwb_id] = instrument
-            citation_title = instrument.props.get("citation_title")
-
-            article_elements = self._find_article_elements(root)
-            if not article_elements:
-                logger.debug("No articles found in BWB %s.", bwb_id)
-                continue
-
-            # Accumulate article node docs and batch-upsert per instrument.
-            article_docs: list[dict[str, Any]] = []
-            article_nodes: list[Node] = []
-
-            for article in article_elements:
-                article_number = self._extract_article_number(article)
-                if not article_number:
-                    logger.debug("Article in %s has no number; skipping.", bwb_id)
-                    continue
-
-                article_text = self._extract_article_text(article)
-                if not article_text:
-                    logger.debug(
-                        "Article %s in %s has no text; skipping.",
-                        article_number,
-                        bwb_id,
+        with NodeWriter(self.store) as writer:
+            for record in raw:
+                payload_text = self._payload_text(record)
+                bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
+                if not payload_text or not bwb_id:
+                    logger.warning(
+                        "BWB record %s has no text payload or bwb_id; skipping.",
+                        record.get("_key"),
                     )
                     continue
+                try:
+                    toestand = parse_toestand(payload_text)
+                except ET.ParseError as exc:
+                    logger.warning("XML parsing failed for BWB %s: %s", bwb_id, exc)
+                    continue
 
-                article_props: dict[str, Any] = {
-                    "bwb_id": bwb_id,
-                    "article_number": article_number,
-                    "text": article_text,
-                }
-                if citation_title:
-                    article_props["instrument_citation_title"] = citation_title
-                ct = citation_title or ""
-                article_props["display_name"] = f"Artikel {article_number} {ct}".strip()
-
-                logger.debug("Article props: %s", article_props)
-
-                article_key = make_node_key(bwb_id, article_number)
-                node = Node(
-                    collection=COLLECTION_INSTRUMENT_ARTICLES,
-                    type=NodeType.ARTICLE,
-                    key=article_key,
-                    labels=["BWB", "Article"],
-                    props=article_props,
-                )
-                article_docs.append(node.to_document())
-                article_nodes.append(node)
-
-            # Batch-upsert all article nodes for this BWB record.
-            if article_docs:
-                for batch_start in range(0, len(article_docs), self._NODE_BATCH_SIZE):
-                    batch = article_docs[
-                        batch_start : batch_start + self._NODE_BATCH_SIZE
-                    ]
-                    self.store.bulk_insert_or_update_nodes(
-                        COLLECTION_INSTRUMENT_ARTICLES, batch
+                instrument = instruments_by_bwb.get(bwb_id)
+                if instrument is None:
+                    props = instrument_props(
+                        toestand, bwb_id, celex_refs=find_celex_ids(payload_text)
                     )
-                articles_by_bwb.setdefault(bwb_id, []).extend(
-                    node.with_key(node.key or "") for node in article_nodes
-                )
-                article_count += len(article_nodes)
+                    instrument = self._upsert_instrument(bwb_id, props)
+                    instruments_by_bwb[bwb_id] = instrument
+
+                for article in toestand.articles:
+                    if not article.number or not article.text:
+                        logger.debug(
+                            "Skipping article without number or text in %s.", bwb_id
+                        )
+                        continue
+                    props = article_props(
+                        article, bwb_id, instrument.props.get("citation_title")
+                    )
+                    key = make_node_key(bwb_id, article.number)
+                    writer.add(
+                        Node(
+                            collection=COLLECTION_ARTICLES,
+                            type=NodeType.ARTICLE,
+                            key=key,
+                            labels=["BWB", "Article"],
+                            props=props,
+                        )
+                    )
+                    # build_edges only needs identity, so keep light nodes in memory
+                    articles_by_bwb.setdefault(bwb_id, []).append(
+                        Node(
+                            collection=COLLECTION_ARTICLES,
+                            type=NodeType.ARTICLE,
+                            key=key,
+                            props={},
+                            _skip_validation=True,
+                        )
+                    )
+                    article_count += 1
 
         logger.info(
             "Normalized %d BWB articles for %d instruments.",
             article_count,
             len(instruments_by_bwb),
         )
-
+        self._write_short_titles(result)
         return {
             "instruments_by_bwb": instruments_by_bwb,
             "articles_by_bwb": articles_by_bwb,
         }
 
-    _EDGE_BATCH_SIZE = 500
-
     def build_edges(
         self,
         raw: Any,
         normalized: dict[str, Any],
-    ) -> int:
-        """Link BWB articles to their instruments via strict PART_OF_INSTRUMENT edges."""
+    ) -> None:
+        """Link BWB articles to their instruments with PART_OF edges."""
         instruments: dict[str, Node] = normalized.get("instruments_by_bwb", {})
         articles: dict[str, list[Node]] = normalized.get("articles_by_bwb", {})
-        edge_docs: list[dict[str, Any]] = []
-
+        writer = EdgeWriter(self.store)
         for bwb_id, instrument in instruments.items():
-            if not instrument.arango_id:
-                continue
             for article in articles.get(bwb_id, []):
-                if not article.arango_id:
-                    continue
-                edge_key = _sha1_edge_key(
-                    instrument.arango_id, RELATION_PART_OF_INSTRUMENT, article.arango_id
+                writer.add(
+                    article.arango_id,
+                    instrument.arango_id,
+                    RELATION_PART_OF,
+                    source=EDGE_SOURCE,
                 )
-                edge_docs.append(
-                    {
-                        "_key": edge_key,
-                        "_from": instrument.arango_id,
-                        "_to": article.arango_id,
-                        "relation": RELATION_PART_OF_INSTRUMENT,
-                        "source": "bwb-normalize",
-                        "status": "canoniek",
-                        "meta": {},
-                    }
-                )
+        writer.flush()
 
-        total_created = self._batch_upsert_edges(edge_docs)
-        logger.info("BWB normalization created/updated %d edges.", total_created)
-        return total_created
+    def _write_short_titles(self, result: PipelineResult) -> None:
+        """Set ``short_title`` on the instruments from the official WTI abbreviations.
 
-    @classmethod
-    def _extract_instrument_title_from_root(
-        cls,
-        root: ET.Element,
-        bwb_id: str,
-    ) -> str:
-        """Extract instrument title from a pre-parsed XML root."""
-        _TITLE_PRIORITY: dict[str, int] = {
-            "citeertitel": 0,
-            "officiele-titel": 1,
-            "officietitel": 1,
-            "intitule": 2,
-        }
-        best: tuple[int, str] | None = None
-        for el in root.iter():
-            local = _local_name(el.tag).lower()
-            priority = _TITLE_PRIORITY.get(local)
-            if priority is None:
+        Which abbreviation wins depends on what the other regulations claim
+        (``choose_short_titles``), so every stored WTI record is read on every run,
+        whatever ``since`` is; the records are about 1 KB each. A regulation without a
+        winning abbreviation loses a short title it had. Instruments that do not exist
+        are not created.
+        """
+        abbreviations_by_bwb: dict[str, list[str]] = {}
+        for record in self._iter_raw_sources(
+            source=SOURCE_BWB, kinds=[RAW_KIND_BWB_WTI_GENERAL], batch_size=1000
+        ):
+            bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
+            payload_text = self._payload_text(record)
+            if not bwb_id or not payload_text:
                 continue
-            text = " ".join((el.text or "").split()).strip()
-            if not text:
-                continue
-            if best is None or priority < best[0]:
-                best = (priority, text)
-        return best[1] if best else f"BWB-regeling {bwb_id}"
+            try:
+                abbreviations_by_bwb[bwb_id] = parse_abbreviations(payload_text)
+            except ET.ParseError as exc:
+                logger.warning("XML parsing failed for BWB WTI %s: %s", bwb_id, exc)
 
-    @classmethod
-    def _extract_citation_title_from_root(cls, root: ET.Element) -> str | None:
-        """Extract <citeertitel> from a pre-parsed XML root."""
-        for el in root.iter():
-            if _local_name(el.tag).lower() == "citeertitel":
-                text = " ".join((el.text or "").split()).strip()
-                if text:
-                    return text
-        return None
-
-    def _get_or_create_instrument(
-        self,
-        bwb_id: str,
-        title: str | None = None,
-        citation_title: str | None = None,
-    ) -> Node:
-        instrument_key = make_node_key(bwb_id)
-        instrument_props: dict[str, Any] = {
-            "source": SOURCE_BWB,
-            "bwb_id": bwb_id,
-            "title": title if title is not None else f"BWB-regeling {bwb_id}",
-            "jurisdiction": "nl",
-        }
-        if citation_title:
-            instrument_props["citation_title"] = citation_title
-        instrument_props["display_name"] = (
-            instrument_props.get("title") or f"BWB {bwb_id}"
+        rows = [
+            {"key": make_node_key(bwb_id), "short_title": short_title}
+            for bwb_id, short_title in choose_short_titles(abbreviations_by_bwb).items()
+        ]
+        aql = f"""
+        FOR row IN @rows
+            FOR inst IN {COLLECTION_INSTRUMENTS}
+                FILTER inst._key == row.key
+                FILTER inst.props.short_title != row.short_title
+                UPDATE inst WITH {{ props: {{ short_title: row.short_title }} }}
+                    IN {COLLECTION_INSTRUMENTS} OPTIONS {{ keepNull: false }}
+                RETURN 1
+        """
+        changed = 0
+        for batch in chunked(rows, SHORT_TITLE_BATCH_SIZE):
+            changed += len(list(self.store.query(aql, {"rows": batch})))
+        # The AQL update bypasses the counting store's upsert methods, so add it here.
+        result.updated += changed
+        logger.info(
+            "BWB short titles: %d regulations with WTI, %d with an abbreviation, "
+            "%d instruments changed.",
+            len(rows),
+            sum(1 for row in rows if row["short_title"]),
+            changed,
         )
+
+    def _upsert_instrument(self, bwb_id: str, props: dict[str, Any]) -> Node:
         node = Node(
             collection=COLLECTION_INSTRUMENTS,
             type=NodeType.INSTRUMENT,
-            key=instrument_key,
+            key=make_node_key(bwb_id),
             labels=["BWB"],
-            props=instrument_props,
+            props=props,
         )
-        return self.store.insert_or_update(node)
-
-    @staticmethod
-    def _find_article_elements(root: ET.Element) -> list[ET.Element]:
-        articles: list[ET.Element] = []
-        for element in root.iter():
-            local = _local_name(element.tag)
-            if local == "artikel":
-                articles.append(element)
-                continue
-
-            label = (element.attrib.get("label") or "").strip()
-            if label and label.lower().startswith("artikel"):
-                articles.append(element)
-
-        return articles
-
-    @classmethod
-    def _extract_article_number(cls, article: ET.Element) -> str | None:
-        kop = cls._find_descendant(article, "kop")
-        if kop is not None:
-            nr = cls._find_descendant(kop, "nr")
-            if nr is not None:
-                text = cls._text_from_element(nr)
-                if text:
-                    return text
-
-        label = (article.attrib.get("label") or "").strip()
-        prefix = "artikel"
-        if label and label.lower().startswith(prefix):
-            remainder = label[len(prefix) :]
-            remainder = remainder.lstrip(":. ").strip()
-            if remainder:
-                return remainder
-
-        return None
-
-    @classmethod
-    def _extract_article_text(cls, article: ET.Element) -> str:
-        lid_texts = cls._collect_lid_texts(article)
-        if lid_texts:
-            return "\n".join(lid_texts).strip()
-        return cls._collect_fallback_texts(article)
-
-    @classmethod
-    def _collect_lid_texts(cls, article: ET.Element) -> list[str]:
-        lid_texts: list[str] = []
-        for element in article.iter():
-            if _local_name(element.tag) != "lid":
-                continue
-            parts = [
-                cls._text_from_element(child)
-                for child in element
-                if _local_name(child.tag) == "al" and cls._text_from_element(child)
-            ]
-            if not parts:
-                continue
-            lidnr_elem = cls._find_descendant(element, "lidnr")
-            lidnr = cls._text_from_element(lidnr_elem) if lidnr_elem is not None else ""
-            prefix = f"{lidnr}. " if lidnr else ""
-            lid_texts.append(f"{prefix}{' '.join(parts)}")
-        return lid_texts
-
-    @classmethod
-    def _collect_fallback_texts(cls, article: ET.Element) -> str:
-        parts: list[str] = []
-        for element in article.iter():
-            if _local_name(element.tag) == "al":
-                text = cls._text_from_element(element)
-                if text:
-                    parts.append(text)
-        return "\n".join(parts).strip()
-
-    @staticmethod
-    def _text_from_element(element: ET.Element | None) -> str:
-        if element is None:
-            return ""
-        return "".join(element.itertext()).strip()
-
-    @classmethod
-    def _find_descendant(
-        cls, element: ET.Element, local_name: str
-    ) -> ET.Element | None:
-        for node in element.iter():
-            if node is element:
-                continue
-            if _local_name(node.tag) == local_name:
-                return node
-        return None
+        instrument, _ = self.store.insert_or_update(node)
+        return instrument

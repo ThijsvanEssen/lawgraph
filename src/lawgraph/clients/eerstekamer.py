@@ -1,154 +1,96 @@
-"""Client for the Eerste Kamer OData v4 API.
+"""Client for the papers of the Eerste Kamer, via the KOOP SRU.
 
-Endpoint: https://gegevensmagazijn.eerstekamer.nl/OData/v4/2.0/
-Docs: https://www.eerstekamer.nl/begrip/open_data
+The Eerste Kamer has no API of its own. Its Kamerstukken are published in the official
+publications (https://zoek.officielebekendmakingen.nl/) and searchable through the SRU at
+https://repository.overheid.nl/sru: records with creator ``Eerste Kamer der
+Staten-Generaal`` and publication name ``Kamerstuk``. Attachments (``blg-*``) are left out.
 
-Fetches legislative documents (Kamerstukken), vergaderingen, and stemmingen
-from the Senate's data magazine.
+Each paper provides:
+  - the identifier (``kst-<dossier>-<letter>``, some ``kst-<number>``)
+  - its own title (``documenttitel``, e.g. "Verslag") and the title of the dossier
+  - the kind (``subrubriek``), the number within the dossier (``ondernummer``: A, B, C)
+  - the date, the session year and the dossier number (the same number the Tweede Kamer
+    uses, sometimes with an addition: ``35925 VII``)
 """
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
-import requests
-
+from lawgraph.clients._sru import (
+    iter_publications,
+    parse_record_fields,
+    record_identifier,
+)
 from lawgraph.clients.base import BaseClient
-from lawgraph.config.settings import EERSTEKAMER_BASE_URL
+from lawgraph.config.settings import EERSTEKAMER_SRU_ENDPOINT
 from lawgraph.core.logging import get_logger
+from lawgraph.core.xml import local_name
 
 logger = get_logger(__name__)
 
-_PAGE_SIZE = 100
+_QUERY = (
+    'dt.creator=="Eerste Kamer der Staten-Generaal" '
+    "AND w.publicatienaam==Kamerstuk AND dt.type==Kamerstuk"
+)
+_FIELDS = {
+    "title": "title",
+    "document_title": "documenttitel",
+    "dossier_title": "dossiertitel",
+    "kind": "subrubriek",
+    "number": "ondernummer",
+    "session_year": "vergaderjaar",
+    "dossier_number": "dossiernummer",
+    "date": "date",
+    "modified": "modified",
+    "url": "preferredUrl",
+}
 
 
 class EerstekamerClient(BaseClient):
-    """Client for the Eerste Kamer OData v4 data API."""
+    """Client for fetching Eerste Kamer Kamerstukken from the KOOP SRU."""
 
     def __init__(self, session=None) -> None:
-        super().__init__(
-            env_var="EERSTEKAMER_BASE",
-            default_base_url=EERSTEKAMER_BASE_URL,
-            session=session,
-        )
-        self.session.headers.update({"Accept": "application/json"})
+        super().__init__(base_url=EERSTEKAMER_SRU_ENDPOINT, session=session)
 
-    def _get_paged(
-        self,
-        entity: str,
-        *,
-        params: dict[str, Any] | None = None,
-        max_records: int = 50000,
+    def iter_kamerstukken(
+        self, *, since: str | None = None, limit: int | None = None
     ) -> Iterator[dict[str, Any]]:
-        """Yield all records from an OData entity with server-side paging."""
-        url = self.base_url + entity
-        extra = dict(params or {})
-        extra.setdefault("$top", str(_PAGE_SIZE))
-        extra.setdefault("$count", "false")
+        """Yield the Kamerstukken page by page, ``since`` on ``dt.modified``.
 
-        total = 0
-        while url and total < max_records:
-            try:
-                resp = self._get_raw_absolute_with_retry(url, params=extra, timeout=60)
-                data = resp.json()
-            except (requests.RequestException, ValueError) as exc:
-                logger.warning("EK API error fetching %s: %s", entity, exc)
-                break
-
-            items = data.get("value", [])
-            if not items:
-                break
-
-            for item in items:
-                yield item
-                total += 1
-                if total >= max_records:
-                    break
-
-            # OData nextLink for pagination
-            url = data.get("@odata.nextLink")
-            extra = {}  # nextLink already has query params
-
-    def list_kamerstukken(
-        self,
-        *,
-        since: str | None = None,
-        max_records: int = 50000,
-    ) -> list[dict[str, Any]]:
-        """List EK Kamerstukken (legislative documents).
-
-        Args:
-            since: ISO date string (YYYY-MM-DD) for incremental fetching.
+        *limit* stops early. A failing request or an SRU error raises, after the papers of
+        the earlier pages were yielded.
         """
-        params: dict[str, Any] = {
-            "$select": (
-                "Id,Nummer,Soort,Titel,Datum,Vergaderjaar,Volgnummer,"
-                "DossierNummer,Modified"
-            ),
-            "$orderby": "Modified desc",
-        }
-        if since:
-            params["$filter"] = f"Modified ge {since}T00:00:00Z"
-
-        records = list(
-            self._get_paged("Kamerstuk", params=params, max_records=max_records)
+        query = _QUERY if not since else f"{_QUERY} AND dt.modified>={since}"
+        return iter_publications(
+            self,
+            self.base_url,
+            query=query,
+            parse=_parse_papers,
+            context="Eerste Kamer",
+            connection=None,
+            limit=limit,
         )
-        logger.info("EK: fetched %d kamerstukken.", len(records))
-        return records
 
-    def list_vergaderingen(
-        self,
-        *,
-        since: str | None = None,
-        max_records: int = 10000,
+    def search_kamerstukken(
+        self, *, since: str | None = None, limit: int | None = None
     ) -> list[dict[str, Any]]:
-        """List EK vergaderingen (plenary sessions)."""
-        params: dict[str, Any] = {
-            "$select": "Id,Titel,Datum,Soort,Modified",
-            "$orderby": "Modified desc",
-        }
-        if since:
-            params["$filter"] = f"Modified ge {since}T00:00:00Z"
+        """The Kamerstukken as a list; see ``iter_kamerstukken``."""
+        papers = list(self.iter_kamerstukken(since=since, limit=limit))
+        logger.info("Eerste Kamer SRU search returned %d Kamerstukken.", len(papers))
+        return papers
 
-        records = list(
-            self._get_paged("Vergadering", params=params, max_records=max_records)
-        )
-        logger.info("EK: fetched %d vergaderingen.", len(records))
-        return records
 
-    def list_stemmingen(
-        self,
-        *,
-        since: str | None = None,
-        max_records: int = 50000,
-    ) -> list[dict[str, Any]]:
-        """List EK stemmingen (votes) with outcome."""
-        params: dict[str, Any] = {
-            "$select": "Id,KamerstukId,VergaderingId,Soort,Aangenomen,Modified",
-            "$orderby": "Modified desc",
-        }
-        if since:
-            params["$filter"] = f"Modified ge {since}T00:00:00Z"
-
-        records = list(
-            self._get_paged("Stemming", params=params, max_records=max_records)
-        )
-        logger.info("EK: fetched %d stemmingen.", len(records))
-        return records
-
-    def fetch_kamerstuk_content(self, item_id: str) -> dict[str, Any] | None:
-        """Fetch the full record including text content for a single kamerstuk."""
-        url = self.base_url + f"Kamerstuk(guid'{item_id}')"
-        params = {"$expand": "Inhoud"}
-        try:
-            resp = self._get_raw_absolute_with_retry(url, params=params, timeout=60)
-            return resp.json()
-        except requests.exceptions.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == 404:
-                return None
-            logger.warning("EK: failed to fetch kamerstuk %s: %s", item_id, exc)
-            return None
-        except (requests.RequestException, ValueError) as exc:
-            logger.warning("EK: failed to fetch kamerstuk %s: %s", item_id, exc)
-            return None
+def _parse_papers(root: ET.Element) -> list[dict[str, Any]]:
+    papers = []
+    for record in root.iter():
+        if local_name(record.tag) != "record":
+            continue
+        identifier = record_identifier(record)
+        if identifier:
+            papers.append(
+                {"identifier": identifier, **parse_record_fields(record, _FIELDS)}
+            )
+    return papers

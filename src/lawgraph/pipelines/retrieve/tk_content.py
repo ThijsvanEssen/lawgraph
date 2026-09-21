@@ -1,176 +1,222 @@
-"""Pipeline that fetches full-text content for TK publications and stores it in props.text.
+"""Pipeline that fetches the text of Tweede Kamer papers as XML and stores it in props.text.
 
-Only targets publication types whose soort contains a configured substring
-(default: "toelichting"), so we only download the documents that actually feed
-the MvT-context endpoint — not the full ~400-document corpus.
+Only papers whose kind contains a substring (default ``toelichting``) qualify: the ones that
+feed the memorandum context (``mvt-articles``, ``amendment-articles``), not the whole corpus.
+The Tweede Kamer's own API serves only a PDF; the KOOP repository has the same paper as
+structured XML, filed under its dossier.
 
 Flow:
-    1. Query publications WHERE soort CONTAINS filter AND props.text IS NULL
-    2. For each: fetch binary from TK API (Document({id})/resource)
-    3. Extract text from PDF (pdfminer.six)
-    4. Store text via AQL MERGE so other props are untouched
+    1. Query papers WHERE kind CONTAINS filter AND props.text IS NULL, with the dossier they
+       are part of (number and addition) and their number in it
+    2. Build the identifier ``kst-<dossier>-<number>`` and fetch its XML
+    3. Take the plain text of the XML
+    4. Store it via AQL MERGE so the other props are untouched, one paper at a time
     5. Report created / skipped / error counts
 """
 
 from __future__ import annotations
 
-import time
-from io import BytesIO
+import datetime as dt
+import xml.etree.ElementTree as ET
 from typing import Any
 
-from lawgraph.clients.tk import TKClient
+from lawgraph.clients.kamerstuk import KamerstukClient
+from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
+    RELATION_PART_OF,
+)
+from lawgraph.core.identifiers import kamerstuk_identifier
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.progress import Progress
+from lawgraph.core.time import iso_timestamp
+from lawgraph.core.xml import text_of
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.base import PipelineBase
+from lawgraph.pipelines.retrieve.base import (
+    MISSING_FOR_DAYS,
+    FailureStreak,
+    SourceDown,
+    add_outcome,
+    failure_reason,
+)
 
 logger = get_logger(__name__)
 
-# soort substrings that qualify a publication for text hydration
-_DEFAULT_SOORT_FILTER = "toelichting"
+# kind substrings that qualify a publication for text hydration
+_DEFAULT_KIND_FILTER = "toelichting"
 
-# Hard cap on stored text (chars).  The semantic pipeline has its own read cap
-# (_MAX_TEXT_LENGTH = 40 000), but storing more lets us raise that cap later
-# without re-fetching.
+# Hard cap on stored text (chars). The semantic pipelines have their own read caps; storing
+# more lets us raise those later without fetching again.
 _STORE_TEXT_LIMIT = 500_000
 
-# Seconds to wait between TK API calls to avoid hammering the endpoint
-_RATE_LIMIT_SLEEP = 0.5
+
+def xml_text(xml: str) -> str | None:
+    """The plain text of a Kamerstuk XML, or ``None`` for XML without any text.
+
+    Raises ``ET.ParseError`` for a document that is not XML: that must not pass for an empty
+    paper.
+    """
+    root = ET.fromstring(xml.lstrip("﻿"))
+    return text_of(root, " ").strip() or None
 
 
-def _extract_pdf_text(content: bytes) -> str | None:
-    """Return plain text extracted from *content* (PDF bytes), or None on failure."""
-    try:
-        from pdfminer.high_level import extract_text  # lazy import
+class TKContentRetrievePipeline(PipelineBase):
+    """Fetch and store the text of Tweede Kamer papers from their XML.
 
-        text = extract_text(BytesIO(content)).strip()
-        return text if text else None
-    except Exception as exc:
-        logger.debug("PDF text extraction failed: %s", exc)
-        return None
-
-
-class TKTextHydratePipeline:
-    """Fetch and store full-text content for TK publications.
-
-    Only publications whose ``props.soort`` contains *soort_filter* (case-
-    insensitive) and that do not yet have ``props.text`` are processed.
+    Only papers whose ``props.kind`` contains *kind_filter* (case-insensitive) and that do
+    not yet have ``props.text`` are processed.
     """
 
     def __init__(
         self,
         *,
         store: ArangoStore,
-        tk_client: TKClient | None = None,
+        client: KamerstukClient | None = None,
     ) -> None:
-        self.store = store
-        self.tk = tk_client or TKClient()
+        super().__init__(store)
+        self.client = client or KamerstukClient()
 
     # ── public ────────────────────────────────────────────────────────────────
 
     def run(
         self,
         *,
-        soort_filter: str = _DEFAULT_SOORT_FILTER,
+        kind_filter: str = _DEFAULT_KIND_FILTER,
         dry_run: bool = False,
+        papers: list[dict[str, Any]] | None = None,
     ) -> PipelineResult:
-        """Hydrate text for all qualifying publications.
+        """Hydrate text for all qualifying papers.
 
         Args:
-            soort_filter: Case-insensitive substring matched against
-                ``props.soort``.  Defaults to ``"toelichting"``.
+            kind_filter: Case-insensitive substring matched against ``props.kind``.
             dry_run: When True, log what would happen but make no changes.
+            papers: What ``unhydrated`` answered, when the caller asked already.
         """
         result = PipelineResult()
-        publications = self._query_unhydrated(soort_filter)
+        if papers is None:
+            papers = self.unhydrated(kind_filter)
 
-        if not publications:
-            logger.info(
-                "No unhydrated publications found for soort filter '%s'.", soort_filter
-            )
+        if not papers:
+            logger.info("No unhydrated papers found for kind filter '%s'.", kind_filter)
             return result
 
         logger.info(
-            "Hydrating text for %d publications (soort contains '%s')%s.",
-            len(publications),
-            soort_filter,
+            "Fetching the XML of %d papers (kind contains '%s')%s.",
+            len(papers),
+            kind_filter,
             " — DRY RUN" if dry_run else "",
         )
 
-        for pub in publications:
-            key = pub.get("_key", "")
-            props: dict[str, Any] = pub.get("props") or {}
-            external_id: str | None = props.get("external_id")
-            title = props.get("title") or props.get("display_name") or key
+        progress = self.progress = Progress("papers", total=len(papers))
+        streak = FailureStreak("Kamerstuk XML")
+        try:
+            for paper in papers:
+                identifier = kamerstuk_identifier(
+                    paper["number"], paper.get("suffix"), paper["sequence"]
+                )
+                if dry_run:
+                    progress.skip("dry run", identifier)
+                    continue
+                self._hydrate_one(paper, identifier, streak)
+        except SourceDown as exc:
+            logger.error(str(exc))
+            down = [str(exc)]
+        else:
+            down = []
+        finally:
+            progress.finish()
 
-            if not external_id:
-                logger.debug("Skipping publication %s — no external_id.", key)
-                result.skipped += 1
-                continue
-
-            if dry_run:
-                logger.info("DRY RUN: would fetch %s (%s)", external_id, title)
-                result.skipped += 1
-                continue
-
-            self._hydrate_one(key, external_id, title, result)
-            time.sleep(_RATE_LIMIT_SLEEP)
-
-        logger.info("TK content hydration: %s.", result.summary())
+        result.created = progress.done
+        add_outcome(result, progress)
+        result.errors.extend(down)
         return result
 
-    # ── private ───────────────────────────────────────────────────────────────
+    def unhydrated(self, kind_filter: str) -> list[dict[str, Any]]:
+        """Papers without text, with the dossier they belong to (a paper without one is left).
 
-    def _query_unhydrated(self, soort_filter: str) -> list[dict[str, Any]]:
-        aql = """
-            FOR pub IN publications
-                FILTER CONTAINS(LOWER(pub.props.soort), @soort)
-                    AND (pub.props.text == null OR pub.props.text == "")
-                    AND pub.props.external_id != null
-                RETURN pub
+        Also what ``fill-gaps`` reports: a report from a query of its own listed the papers
+        this one leaves out (no dossier, no sequence, a text that was missing last month).
         """
-        return list(self.store.query(aql, {"soort": soort_filter.lower()}))
+        aql = f"""
+            FOR pub IN {COLLECTION_DOCUMENTS}
+                FILTER "TK" IN pub.labels
+                FILTER CONTAINS(LOWER(pub.props.kind || ""), @kind)
+                FILTER pub.props.text == null OR pub.props.text == ""
+                FILTER pub.props.text_missing_at == null
+                    OR pub.props.text_missing_at < @missing_before
+                FILTER pub.props.sequence != null
+                LET dossier = FIRST(
+                    FOR e IN {COLLECTION_EDGES}
+                        FILTER e._from == pub._id AND e.relation == @part_of
+                        FILTER STARTS_WITH(e._to, "{COLLECTION_DOSSIERS}/")
+                        FOR d IN {COLLECTION_DOSSIERS}
+                            FILTER d._id == e._to
+                            RETURN d
+                )
+                FILTER dossier != null AND dossier.props.number != null
+                RETURN {{
+                    key: pub._key,
+                    title: pub.props.title || pub.props.display_name || pub._key,
+                    number: dossier.props.number,
+                    suffix: dossier.props.suffix,
+                    sequence: pub.props.sequence
+                }}
+        """
+        missing_before = iso_timestamp(_now() - dt.timedelta(days=MISSING_FOR_DAYS))
+        bind = {
+            "kind": kind_filter.lower(),
+            "part_of": RELATION_PART_OF,
+            "missing_before": missing_before,
+        }
+        return list(self.store.query(aql, bind))
 
     def _hydrate_one(
-        self,
-        key: str,
-        external_id: str,
-        title: str,
-        result: PipelineResult,
+        self, paper: dict[str, Any], identifier: str, streak: FailureStreak
     ) -> None:
+        progress = self.progress
         try:
-            logger.info("Fetching %s — %s", external_id, title[:80])
-            content = self.tk.fetch_document_bytes(external_id)
+            xml = self.client.fetch_kamerstuk_xml(identifier)
         except Exception as exc:
-            logger.warning("Failed to fetch %s: %s", external_id, exc)
-            result.errors.append(f"{external_id}: fetch failed — {exc}")
+            progress.fail(f"download failed ({failure_reason(exc)})", identifier)
+            streak.failed(identifier, exc)
             return
+        streak.ok()
 
-        text = _extract_pdf_text(content)
+        if xml is None:
+            progress.skip("no XML in the repository (HTTP 404)", identifier)
+            self._set_prop(paper["key"], "text_missing_at", iso_timestamp(_now()))
+            return
+        try:
+            text = xml_text(xml)
+        except ET.ParseError:
+            progress.fail("the XML cannot be read", identifier)
+            return
         if not text:
-            logger.warning(
-                "No text extracted from %s (content length=%d).",
-                external_id,
-                len(content),
-            )
-            result.skipped += 1
+            progress.skip("no text in the XML", identifier)
             return
 
-        text = text[:_STORE_TEXT_LIMIT]
-        self._store_text(key, text)
-        logger.info(
-            "Stored %d chars for %s (%s).",
-            len(text),
-            external_id,
-            title[:60],
-        )
-        result.created += 1
+        if len(text) > _STORE_TEXT_LIMIT:
+            progress.note(
+                f"text longer than {_STORE_TEXT_LIMIT:,} chars; storing the first part",
+                identifier,
+            )
+            text = text[:_STORE_TEXT_LIMIT]
+        self._set_prop(paper["key"], "text", text)
+        progress.ok()
 
-    def _store_text(self, key: str, text: str) -> None:
-        """Merge props.text into the publication without touching other props."""
-        aql = """
-            FOR pub IN publications
+    def _set_prop(self, key: str, name: str, value: str) -> None:
+        """Set one prop of the paper without touching the others."""
+        aql = f"""
+            FOR pub IN {COLLECTION_DOCUMENTS}
                 FILTER pub._key == @key
-                UPDATE pub WITH {props: MERGE(pub.props, {text: @text})} IN publications
+                UPDATE pub WITH {{props: {{[@name]: @value}}}} IN {COLLECTION_DOCUMENTS}
         """
         # Consume the cursor (even though it returns nothing useful).
-        list(self.store.query(aql, {"key": key, "text": text}))
+        list(self.store.query(aql, {"key": key, "name": name, "value": value}))
+
+
+def _now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)

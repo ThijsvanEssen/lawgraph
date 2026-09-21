@@ -7,14 +7,14 @@ from fastapi.responses import JSONResponse
 
 from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
-    get_heat_counts,
-    get_in_flux_counts,
+from lawgraph.api.queries.nodes import (
+    NodeNotFoundError,
+    UnsupportedCollectionError,
     get_node_neighborhood,
     get_node_with_neighbors,
 )
-from lawgraph.api.queries.nodes import NodeNotFoundError, UnsupportedCollectionError
-from lawgraph.api.schemas import (
+from lawgraph.api.queries.overlay import get_heat_counts, get_in_flux_counts
+from lawgraph.api.schemas.nodes import (
     DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
     NeighborDTO,
@@ -39,11 +39,11 @@ _overlay_cache: TTLCache[str, Any] = TTLCache(maxsize=128)
 
 @router.get(
     "/in-flux",
-    summary="Bulk in-flux teller per node",
+    summary="Bulk in-flux count per node",
     description=(
-        "Geeft een map van node-ID → aantal open voorgestelde mutaties. "
-        "Alleen nodes met ≥1 open mutatie zijn opgenomen. "
-        "Gebruik dit om de in-flux ring op graafnodes te renderen."
+        "A map of node id → number of open proposed changes. Only nodes with "
+        "at least one open change are included. Use it to render the in-flux "
+        "ring on graph nodes."
     ),
     tags=["nodes"],
     response_class=JSONResponse,
@@ -61,11 +61,11 @@ def bulk_in_flux(
 
 @router.get(
     "/heat",
-    summary="Bulk activiteitsscore per node (heat layer)",
+    summary="Bulk activity score per node (heat layer)",
     description=(
-        "Geeft een map van node-ID → activiteitscount over de afgelopen N maanden. "
-        "Activiteit = aantal inkomende edges aangemaakt in de periode. "
-        "Gebruik months=3 voor een 90-dagenvenster."
+        "A map of node id → activity count over the past N months, where "
+        "activity is the number of incoming edges created in that window. "
+        "Pass months=3 for a 90-day window."
     ),
     tags=["nodes"],
     # No response_model — Pydantic validation of a 40K-key dict adds
@@ -100,10 +100,11 @@ def bulk_heat(
 @router.get(
     "/{collection}/{key}",
     response_model=NodeGraphResponse,
-    summary="Verken een node en zijn buren",
+    summary="Explore a node and its neighbors",
     description=(
-        "Haalt een node uit de opgegeven collectie op en levert alle buren "
-        "via de gecombineerde edges-collectie, inclusief richting en confidence."
+        "Fetches a node from the given collection and returns all its "
+        "neighbors from the unified edge collection, with direction and "
+        "confidence."
     ),
     tags=["nodes"],
 )
@@ -118,7 +119,7 @@ def get_node_graph(
             le=5000,
             description=(
                 "Overall cap on neighbors returned. Per-(relation, neighbor "
-                "collection) caps are applied first (e.g. fracties cap STEMT "
+                "collection) caps are applied first (e.g. factions cap VOTED "
                 "at 20 per destination collection); the result is then capped "
                 "to this overall limit."
             ),
@@ -147,10 +148,7 @@ def get_node_graph(
         for entry in data.neighbors
     ]
 
-    # strict and semantic are kept as backwards-compat aliases pointing to all neighbors.
-    neighbors = NodeNeighborsDTO(
-        all=all_neighbors, strict=all_neighbors, semantic=all_neighbors
-    )
+    neighbors = NodeNeighborsDTO(all=all_neighbors)
     return NodeGraphResponse(
         node=BaseNodeDTO.from_document(
             data.node, drop_props_keys=DROP_PROPS_KEYS_GRAPH
@@ -162,11 +160,10 @@ def get_node_graph(
 @router.get(
     "/{collection}/{key}/neighborhood",
     response_model=NodeNeighborhoodResponse,
-    summary="BFS-buurt rond een node",
+    summary="BFS neighborhood around a node",
     description=(
-        "Levert in één query alle nodes en edges binnen `depth` hops rondom "
-        "de focal node. Vervangt N sequentiële `/api/nodes/{coll}/{key}` "
-        "calls met één traversal-query."
+        "Returns every node and edge within `depth` hops of the focal node in "
+        "a single traversal query."
     ),
     tags=["nodes"],
 )

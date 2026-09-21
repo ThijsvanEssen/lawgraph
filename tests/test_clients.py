@@ -23,6 +23,7 @@ class DummyResponse(requests.Response):
         super().__init__()
         self._json_data = json_data
         self._text_override = text
+        self._content = text.encode("utf-8")
         self.status_code = status
         self.reason = "OK" if status < 400 else "Error"
 
@@ -68,13 +69,14 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
     session = DummySession(DummyResponse(json_data=dummy_json))
     client = TKClient(session=session)
 
-    # Forceer base_url zodat test niet afhankelijk is van .env
+    # Fixed base URL: the assertion must not depend on TK_API_BASE.
     client.base_url = "https://example.org/OData/v4/2.0/"
 
     since = dt.datetime(2025, 1, 1, 12, 0, 0)
 
     # Act
-    result = client.zaken_modified_since(since, top=10)
+    # The fetchers are lazy: a page is requested when the records are read.
+    result = list(client.zaken_modified_since(since, top=10))
 
     # Assert
     assert session.calls == 1
@@ -84,7 +86,7 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
 
     flt = session.last_params.get("$filter", "")
     assert "ApiGewijzigdOp ge " in flt
-    assert "2025-01-01T12:00:00" in flt  # tijdstip moet erin zitten
+    assert "2025-01-01T12:00:00" in flt
 
     assert isinstance(result, list)
     assert result[0]["Id"] == 1
@@ -93,31 +95,6 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
 # --------------------------------------------------------------------
 # RechtspraakClient tests
 # --------------------------------------------------------------------
-
-
-def test_rechtspraak_fetch_ecli_index_xml_uses_correct_path_and_params() -> None:
-    # Arrange
-    xml_body = "<index>ok</index>"
-    session = DummySession(DummyResponse(text=xml_body))
-    client = RechtspraakClient(session=session)
-    client.base_url = "https://data.example.org/"
-
-    since = dt.datetime(2025, 1, 1, 12, 0, 0)
-
-    # Act
-    result = client.fetch_ecli_index_xml(
-        modified_since=since,
-        extra_params={"rechtsgebied": "bestuursrecht"},
-    )
-
-    # Assert
-    assert session.calls == 1
-    assert session.last_url == "https://data.example.org/uitspraken/zoeken"
-    assert session.last_params is not None
-    assert session.last_params["rechtsgebied"] == "bestuursrecht"
-    assert "modifiedsince" in session.last_params
-    assert "2025-01-01T12:00:00" in session.last_params["modifiedsince"]
-    assert result == xml_body
 
 
 def test_rechtspraak_fetch_ecli_content_uses_correct_path_and_param() -> None:
@@ -174,3 +151,116 @@ def test_tkclient_keyword_with_single_quote_does_not_corrupt_odata_filter() -> N
     # The single quote must be doubled, not left bare (which would break OData).
     assert "l''homme" in result
     assert "l'homme'" not in result.replace("l''homme", "")
+
+
+def test_every_get_is_retried_also_the_first_page_of_a_paged_fetch(monkeypatch) -> None:
+    """One 503 on page one must not abort a fetch of a thousand pages."""
+    import requests
+
+    from lawgraph.clients import base as base_module
+    from lawgraph.clients.base import BaseClient
+
+    monkeypatch.setattr(base_module.time, "sleep", lambda _s: None)
+
+    class Response:
+        def __init__(self, status: int, body: dict) -> None:
+            self.status_code, self.reason, self.headers, self._body = (
+                status,
+                "",
+                {},
+                body,
+            )
+            self.text, self.content = "text", b"text"
+
+        def json(self) -> dict:
+            return self._body
+
+        def raise_for_status(self) -> None:
+            if self.status_code >= 400:
+                raise requests.HTTPError(response=self)  # type: ignore[arg-type]
+
+    class Session:
+        def __init__(self) -> None:
+            self.answers = [Response(503, {}), Response(200, {"value": [{"Id": "1"}]})]
+            self.headers_seen: list[dict | None] = []
+
+        def get(self, url, *, params=None, timeout=30, stream=False, headers=None):
+            self.headers_seen.append(headers)
+            return self.answers.pop(0)
+
+    session = Session()
+    client = BaseClient(base_url="https://example.test", session=session)  # type: ignore[arg-type]
+    assert list(client._paged_get("Zaak")) == [{"Id": "1"}]
+
+    session.answers = [Response(503, {}), Response(200, {})]
+    assert client._get_text("uitspraken/content") == "text"
+    assert not hasattr(client, "_get_raw")  # no GET without retry is left
+
+
+def test_an_answer_that_is_not_200_is_not_the_document() -> None:
+    """202 Accepted passes raise_for_status; its body stored as a judgment is never refetched."""
+    import pytest
+    import requests
+
+    from lawgraph.clients.base import BaseClient
+
+    class Response:
+        status_code, reason, headers, text = (
+            202,
+            "Accepted",
+            {},
+            "<html>being prepared</html>",
+        )
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class Session:
+        def get(self, url, **_kw):
+            return Response()
+
+    client = BaseClient(base_url="https://example.test", session=Session())  # type: ignore[arg-type]
+    with pytest.raises(requests.HTTPError, match="202 is not the document"):
+        client._get_text("uitspraken/content")
+
+
+def test_a_tk_listing_that_ends_before_its_count_is_an_error() -> None:
+    """A short page ends the paging; a server that lowers its page size would cut the rest."""
+    import pytest
+
+    from lawgraph.clients.tk import TKClient
+
+    client = TKClient(session=object())  # type: ignore[arg-type]
+    pages = [{"@odata.count": 600, "value": [{"Id": str(n)} for n in range(100)]}]
+    client._get_json = lambda path, params=None, **kw: pages.pop(0)  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="100 records read, the API counts 600"):
+        list(client._skip_paged_get("Stemming"))
+
+    complete = [{"@odata.count": 3, "value": [{"Id": "1"}, {"Id": "2"}, {"Id": "3"}]}]
+    client._get_json = lambda path, params=None, **kw: complete.pop(0)  # type: ignore[method-assign]
+    assert len(list(client._skip_paged_get("Stemming"))) == 3
+
+
+def test_a_body_is_decoded_by_its_own_declaration_not_by_the_fallback_of_requests() -> (
+    None
+):
+    """requests reads text/xml without a charset as ISO-8859-1: "é" would become "Ã©"."""
+    from lawgraph.clients.base import response_text
+
+    def response(body: bytes, content_type: str) -> requests.Response:
+        resp = requests.Response()
+        resp._content, resp.status_code = body, 200
+        resp.headers["Content-Type"] = content_type
+        return resp
+
+    utf8 = "<?xml version='1.0' encoding='UTF-8'?><a>Coördinatie één</a>".encode()
+    assert "Coördinatie één" in response_text(response(utf8, "text/xml"))
+    assert "Coördinatie één" in response_text(
+        response(b"\xef\xbb\xbf" + utf8, "text/xml")
+    )
+    latin = "<?xml version='1.0' encoding='ISO-8859-1'?><a>één</a>".encode("latin-1")
+    assert "één" in response_text(response(latin, "application/xml"))
+    assert "één" in response_text(
+        response("<a>één</a>".encode(), "text/html")
+    )  # no declaration
+    assert "één" in response_text(response(latin, "text/xml; charset=ISO-8859-1"))

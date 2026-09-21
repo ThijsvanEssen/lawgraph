@@ -7,13 +7,14 @@ from typing import Any
 
 from arango.exceptions import DocumentDeleteError
 
+from lawgraph.config.constants import COLLECTION_WATCHES
 from lawgraph.db import ArangoStore
 
 
 def list_watches(store: ArangoStore) -> list[dict[str, Any]]:
     """Return all watches, newest first."""
-    aql = """
-    FOR doc IN watches
+    aql = f"""
+    FOR doc IN {COLLECTION_WATCHES}
         SORT doc.created_at DESC
         RETURN doc
     """

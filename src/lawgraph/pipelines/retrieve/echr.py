@@ -8,14 +8,14 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 
-from .base import RetrievePipelineBase, RetrieveRecord
+from .base import RetrievePipelineBase, RetrieveRecord, missing_record
 
 logger = get_logger(__name__)
 
 _FULL_RUN_MAX_RECORDS = 50000
 
 
-class EchrRetrievePipeline(RetrievePipelineBase):
+class ECHRRetrievePipeline(RetrievePipelineBase):
     """Retrieve ECHR HUDOC judgments for a given respondent country."""
 
     def __init__(self, store: ArangoStore, client: EchrClient | None = None) -> None:
@@ -28,13 +28,26 @@ class EchrRetrievePipeline(RetrievePipelineBase):
         respondent: str = "NLD",
         since_date: str | None = None,
         max_records: int = 10000,
+        eclis: list[str] | None = None,
         **kwargs,
     ) -> list[RetrieveRecord]:
-        judgments = self.client.search_judgments(
-            respondent=respondent,
-            since_date=since_date,
-            max_records=max_records,
-        )
+        """The judgments against *respondent*, or the judgments with *eclis* (any state)."""
+        missing: list[RetrieveRecord] = []
+        if eclis:
+            wanted = self._without_missing(SOURCE_ECHR, RAW_KIND_ECHR_JUDGMENT, eclis)
+            judgments = self.client.fetch_by_ecli(wanted)
+            answered = {str(j.get("ecli") or "").upper() for j in judgments}
+            missing = [
+                missing_record(SOURCE_ECHR, RAW_KIND_ECHR_JUDGMENT, ecli)
+                for ecli in wanted
+                if ecli.upper() not in answered
+            ]
+        else:
+            judgments = self.client.search_judgments(
+                respondent=respondent,
+                since_date=since_date,
+                max_records=max_records,
+            )
 
         records: list[RetrieveRecord] = []
         for judgment in judgments:
@@ -51,7 +64,7 @@ class EchrRetrievePipeline(RetrievePipelineBase):
                         "appno": judgment.get("appno"),
                         "docname": judgment.get("docname"),
                         "kpdate": judgment.get("kpdate"),
-                        "respondent": respondent,
+                        "respondent": judgment.get("respondent") or respondent,
                     },
                 )
             )
@@ -61,7 +74,7 @@ class EchrRetrievePipeline(RetrievePipelineBase):
             len(records),
             respondent,
         )
-        return records
+        return [*records, *missing]
 
     def run_full(self, respondent: str = "NLD") -> PipelineResult:
         """Fetch all available ECHR judgments for the respondent."""

@@ -1,27 +1,49 @@
+"""Retrieve pipeline for the judgments of the Rechtspraak (data.rechtspraak.nl)."""
+
 from __future__ import annotations
 
 import datetime as dt
-import xml.etree.ElementTree as ET
-from collections.abc import Sequence
-from typing import Any
+import itertools
+from collections.abc import Iterator, Sequence
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
-    RAW_KIND_RS_INDEX,
+    RECHTSPRAAK_COURT_GROUPS,
+    RECHTSPRAAK_COURTS,
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 
-from .base import RetrievePipelineBase, RetrieveRecord
+from .base import (
+    RESUME_WITHIN_HOURS,
+    FailureStreak,
+    RetrievePipelineBase,
+    RetrieveRecord,
+    failure_reason,
+    is_not_found,
+    missing_record,
+)
 
 logger = get_logger(__name__)
 
 
+def resolve_courts(names: Sequence[str]) -> list[str]:
+    """OWMS terms of court names or groups (``hr``, ``rvs``, ``hoven``); unknown names raise."""
+    terms: list[str] = []
+    for name in names:
+        for key in RECHTSPRAAK_COURT_GROUPS.get(name, (name,)):
+            if key not in RECHTSPRAAK_COURTS:
+                known = sorted({*RECHTSPRAAK_COURTS, *RECHTSPRAAK_COURT_GROUPS})
+                raise ValueError(f"unknown court {name!r}; known: {', '.join(known)}")
+            if RECHTSPRAAK_COURTS[key] not in terms:
+                terms.append(RECHTSPRAAK_COURTS[key])
+    return terms
+
+
 class RechtspraakRetrievePipeline(RetrievePipelineBase):
-    """Retrieve pipeline that handles Rechtspraak index snapshots and contents."""
+    """Store the XML of judgments, one ``rs-content`` record per ECLI."""
 
     def __init__(
         self, store: ArangoStore, rs_client: RechtspraakClient | None = None
@@ -29,144 +51,92 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.rs = rs_client or RechtspraakClient()
 
-    def fetch(
-        self,
-        *args: object,
-        fetch_index: bool = False,
-        since: dt.datetime | None = None,
-        extra_params: dict[str, Any] | None = None,
-        eclis: Sequence[str] | None = None,
-        **kwargs: object,
-    ) -> Sequence[RetrieveRecord]:
-        """Return raw_records for Rechtspraak index snapshots and specific ECLI content."""
-        logger.info(
-            "Fetching Rechtspraak data (index=%s, eclis=%d).",
-            fetch_index,
-            len(eclis) if eclis else 0,
-        )
-        records: list[RetrieveRecord] = []
-
-        if fetch_index:
-            xml_index = self.rs.fetch_ecli_index_xml(
-                modified_since=since,
-                extra_params=extra_params,
-            )
-            records.append(
-                RetrieveRecord(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_INDEX,
-                    external_id=None,
-                    payload_text=xml_index,
-                    meta={
-                        "modified_since": since.isoformat() if since else None,
-                        "extra_params": extra_params,
-                    },
-                )
-            )
-
-        if eclis:
-            for ecli in eclis:
-                try:
-                    xml = self.rs.fetch_ecli_content(ecli)
-                except Exception as exc:
-                    logger.warning("Skipping ECLI %s: %s", ecli, exc)
-                    continue
-                records.append(
-                    RetrieveRecord(
-                        source=SOURCE_RECHTSPRAAK,
-                        kind=RAW_KIND_RS_CONTENT,
-                        external_id=ecli,
-                        payload_text=xml,
-                        meta={"ecli": ecli},
-                    )
-                )
-
-        index_count = sum(1 for rec in records if rec.kind == RAW_KIND_RS_INDEX)
-        content_count = sum(1 for rec in records if rec.kind == RAW_KIND_RS_CONTENT)
-        logger.info(
-            "Rechtspraak retrieve created %d records (%d index, %d content).",
-            len(records),
-            index_count,
-            content_count,
-        )
-        return records
-
-    def run_full(
+    def fetch(  # type: ignore[override]
         self,
         *,
-        extra_params: dict[str, Any] | None = None,
-        max_records: int = 5_000_000,
-    ) -> PipelineResult:
-        """Full-load mode: paginate the entire Rechtspraak index without a date filter.
+        courts: Sequence[str] | None = None,
+        date_from: dt.date | None = None,
+        date_to: dt.date | None = None,
+        modified_from: dt.datetime | None = None,
+        eclis: Sequence[str] | None = None,
+        **kwargs: object,
+    ) -> Iterator[RetrieveRecord]:
+        """Yield the content of each judgment as it is downloaded.
 
-        Fetches index pages with ``max=1000`` and ``from=N`` until a page smaller than
-        the page size is returned or ``max_records`` is reached.  Each page is stored as
-        a separate ``RAW_KIND_RS_INDEX`` raw record keyed by its offset so re-runs are
-        idempotent.
+        *courts* (names as in ``resolve_courts``) selects judgments through the index, by
+        decision date when *date_from* is given; a judgment already stored and not changed
+        since is skipped. *eclis* are fetched as they are, unless stored in the last 24 hours.
         """
-        result = PipelineResult()
-        page_size = 1000
-        start = 0
+        stored = self._stored_at(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT)
+        todo: dict[str, dt.datetime | None] = {}
 
-        logger.info("Rechtspraak full-load: starting paginated index retrieval.")
-
-        while start < max_records:
-            params: dict[str, Any] = dict(extra_params or {})
-            params["max"] = str(page_size)
-            params["from"] = str(start)
-
-            try:
-                xml_text = self.rs.fetch_ecli_index_xml(
-                    modified_since=None, extra_params=params
+        if courts:
+            skipped = 0
+            terms = resolve_courts(courts)
+            listings = [
+                self.rs.iter_index(courts=terms, date_from=date_from, date_to=date_to)
+            ]
+            if modified_from is not None:
+                # Also what was published or corrected since, whenever it was decided: a
+                # judgment published months after its decision is in no decision window.
+                listings.append(
+                    self.rs.iter_index(courts=terms, modified_from=modified_from)
                 )
-            except Exception as exc:
-                msg = f"Rechtspraak index fetch failed (from={start}): {exc}"
-                logger.error(msg)
-                result.add_error(msg)
-                break
-
-            entry_count = self._count_index_entries(xml_text)
-            record = RetrieveRecord(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_INDEX,
-                external_id=f"full_page_{start}",
-                payload_text=xml_text,
-                meta={"from": start, "max": page_size, "full_load": True},
-            )
-            try:
-                self._insert(record)
-                result.created += 1
-            except Exception as exc:
-                msg = f"Could not store Rechtspraak index page (from={start}): {exc}"
-                logger.error(msg)
-                result.add_error(msg)
-
+            for entry in itertools.chain(*listings):
+                have = stored.get(entry.ecli)
+                if have and entry.updated and have >= entry.updated:
+                    skipped += 1
+                else:
+                    todo[entry.ecli] = entry.updated
             logger.info(
-                "Rechtspraak full-load: stored index page from=%d (%d entries).",
-                start,
-                entry_count,
+                "Rechtspraak %s (%s to %s): %d judgments to download, %d already stored "
+                "and unchanged.",
+                ", ".join(courts),
+                date_from or "the start",
+                date_to or "today",
+                len(todo),
+                skipped,
             )
 
-            if entry_count < page_size:
-                break
-            start += page_size
-
-        logger.info(
-            "Rechtspraak full-load completed: %d pages stored, %d errors.",
-            result.created,
-            len(result.errors),
+        recent = dt.datetime.now(dt.timezone.utc) - dt.timedelta(
+            hours=RESUME_WITHIN_HOURS
         )
-        return result
+        for ecli in eclis or []:
+            if not (stored.get(ecli) and stored[ecli] >= recent):
+                todo.setdefault(ecli, None)
 
-    @staticmethod
-    def _count_index_entries(xml_text: str) -> int:
-        """Count Atom <entry> elements in an index page XML string."""
-        try:
-            root = ET.fromstring(xml_text)
-            return sum(
-                1
-                for el in root
-                if (el.tag.split("}", 1)[-1] if "}" in el.tag else el.tag) == "entry"
+        wanted = self._without_missing(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, todo)
+        self.progress.expect(len(wanted))
+        streak = FailureStreak("Rechtspraak")
+        for ecli in wanted:
+            updated = todo[ecli]
+            try:
+                xml = self.rs.fetch_ecli_content(ecli)
+            except Exception as exc:
+                if is_not_found(exc):
+                    self.progress.skip("no content (HTTP 404)", ecli)
+                    streak.ok()
+                    yield missing_record(
+                        SOURCE_RECHTSPRAAK,
+                        RAW_KIND_RS_CONTENT,
+                        ecli,
+                        listed=updated
+                        is not None,  # named by the index, not by a citation
+                    )
+                else:
+                    # An error of the step (exit 1), not a skip: a source that refuses
+                    # everything must not end as "N skipped".
+                    self.progress.fail(f"download failed ({failure_reason(exc)})", ecli)
+                    streak.failed(ecli, exc)
+                continue
+            streak.ok()
+            yield RetrieveRecord(
+                source=SOURCE_RECHTSPRAAK,
+                kind=RAW_KIND_RS_CONTENT,
+                external_id=ecli,
+                payload_text=xml,
+                meta={
+                    "ecli": ecli,
+                    "updated": updated.isoformat() if updated else None,
+                },
             )
-        except ET.ParseError:
-            return xml_text.count("<entry>")

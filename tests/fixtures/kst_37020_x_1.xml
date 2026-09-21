@@ -1,0 +1,432 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/OP/2012-04-13/xsd/op-xsd-2012-04-13.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-37020-X-1/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <kamerstukkop>
+      <tekstregel inhoud="vergaderjaar">Vergaderjaar 2026‒2027</tekstregel>
+      <tekstregel inhoud="kameraanduiding">Tweede Kamer der Staten-Generaal</tekstregel>
+      <tekstregel inhoud="kamernummer">2</tekstregel>
+      <tekstregel inhoud="documenttype">Kamerstukken</tekstregel>
+    </kamerstukkop>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>37 020</dossiernr>
+        <begrotingshoofdstuk>X</begrotingshoofdstuk>
+      </dossiernummer>
+      <titel>Vaststelling van de begrotingsstaten van het ministerie van Defensie (X) voor het jaar 2027</titel>
+    </dossier>
+    <stuk>
+      <stuknr>Nr. <ondernummer kamer="2">1</ondernummer></stuknr>
+      <titel>VOORSTEL VAN WET</titel>
+      <datumtekst>Ontvangen <datum isodatum="2026-09-15">15 september 2026</datum></datumtekst>
+      <voorstel-wet>
+        <aanhef>
+          <wie>Wij Willem-Alexander, bij de gratie Gods, Koning der Nederlanden, Prins van Oranje-Nassau, enz. enz. enz.</wie>
+          <considerans>
+            <considerans.al>Allen, die deze zullen zien of horen lezen, saluut! doen te weten:</considerans.al>
+            <considerans.al>Alzo Wij in overweging genomen hebben, dat ingevolge artikel 105 van de Grondwet de begroting van de uitgaven en de ontvangsten van het Rijk bij de wet moet worden vastgesteld en dat artikel 2.1 van de Comptabiliteitswet 2016 bepaalt welke begrotingen tot de rijksbegroting behoren;</considerans.al>
+            <considerans.al>Zo is het, dat Wij, de Afdeling advisering van de Raad van State gehoord, en met gemeen overleg der Staten-Generaal, hebben goedgevonden en verstaan, gelijk Wij goedvinden en verstaan bij deze:</considerans.al>
+          </considerans>
+        </aanhef>
+        <wettekst>
+          <artikel>
+            <kop>
+              <label>Artikel</label>
+              <nr>1</nr>
+            </kop>
+            <al>De bĳ deze wet behorende departementale begrotingsstaat voor het jaar 2027 wordt vastgesteld.</al>
+          </artikel>
+          <artikel>
+            <kop>
+              <label>Artikel</label>
+              <nr>2</nr>
+            </kop>
+            <al>De bij deze wet behorende begrotingsstaat inzake het agentschap Paresto voor het jaar 2027 wordt vastgesteld.</al>
+          </artikel>
+          <artikel>
+            <kop>
+              <label>Artikel</label>
+              <nr>3</nr>
+            </kop>
+            <al>De vaststelling van de begrotingsstaten geschiedt in duizenden euro’s.</al>
+          </artikel>
+          <artikel>
+            <kop>
+              <label>Artikel</label>
+              <nr>4</nr>
+            </kop>
+            <al>Deze wet treedt in werking met ingang van 1 januari van het onderhavige begrotingsjaar. Indien het Staatsblad waarin deze wet wordt geplaatst, wordt uitgegeven op of na deze datum van 1 januari, treedt zĳ in werking met ingang van de dag na de datum van uitgifte van dat Staatsblad en werkt zĳ terug tot en met 1 januari.</al>
+          </artikel>
+        </wettekst>
+        <voorstel-sluiting>
+          <slotformulering>
+            <al>Lasten en bevelen dat deze in het Staatsblad zal worden geplaatst en dat alle ministeries, autoriteiten, colleges en ambtenaren die zulks aangaat, aan de nauwkeurige uitvoering de hand zullen houden.</al>
+          </slotformulering>
+          <label>Gegeven</label>
+          <ondertekening>
+            <functie>De Minister van Defensie, </functie>
+            <naam>
+              <achternaam>D. Yeşilgöz-Zegerius</achternaam>
+            </naam>
+          </ondertekening>
+        </voorstel-sluiting>
+      </voorstel-wet>
+      <algemeen>
+        <vrije-tekst>
+          <tekst>
+            <tussenkop kopopmaak="halfvet">Begrotingsstaat</tussenkop>
+            <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="2" pdf-table-positioning="volledig" tablebreak="no">
+              <title>Vastgestelde departementale begrotingsstaat van het ministerie van Defensie (X) voor het jaar 2027 (bedragen x € 1.000)</title>
+              <tgroup tgroupstyle="kio2" cols="5">
+                <colspec colnum="1" colname="col1" colwidth="7.8*" />
+                <colspec colnum="2" colname="col2" colwidth="31.299*" />
+                <colspec colnum="3" colname="col3" colwidth="20.3*" />
+                <colspec colnum="4" colname="col4" colwidth="20.3*" />
+                <colspec colnum="5" colname="col5" colwidth="20.3*" />
+                <thead>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>Art.</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Omschrijving</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" valign="top" align="center" namest="col3" nameend="col5">
+                      <al>Vastgestelde begroting</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>Verplichtingen</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>Uitgaven</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>Ontvangsten</al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>
+                        <nadruk type="vet">Totaal</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>
+                        <nadruk type="vet">14.475.618</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>
+                        <nadruk type="vet">14.792.147</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>
+                        <nadruk type="vet">242.531</nadruk>
+                      </al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>
+                        <nadruk type="vet">Beleidsartikelen</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>1</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Inzet</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>2.727.644</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>2.856.815</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>97.087</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>2</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Koninklijke Marine</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>1.231.909</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>1.306.560</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>12.324</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>3</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Koninklijke Landmacht</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>2.302.811</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>2.311.020</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>8.054</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>4</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Koninklijke Luchtmacht</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>1.153.416</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>1.187.916</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>12.111</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>5</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Koninklijke Marechaussee</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>867.421</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>901.296</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>4.459</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>7</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Commando Materieel en IT</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>1.093.443</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>1.096.519</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>25.765</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>8</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Defensie Ondersteuningscommando</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>2.094.764</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>2.106.629</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>72.995</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>
+                        <nadruk type="vet">Niet-beleidsartikelen</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>9</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Algemeen</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>337.744</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>338.349</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>1.600</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>10</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Apparaat kerndepartement</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>1.749.696</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>1.770.273</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>8.136</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>11</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Geheim</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>21.764</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>21.764</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>0</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                      <al>12</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top">
+                      <al>Nog onverdeeld</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                      <al>895.006</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                      <al>895.006</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                      <al>0</al>
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+            <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="2" pdf-table-positioning="volledig" tablebreak="yes">
+              <title>Vastgestelde begrotingsstaat inzake het baten-lastenagentschap Paresto voor het jaar 2027 (bedragen x € 1.000)</title>
+              <tgroup tgroupstyle="kio2" cols="4">
+                <colspec colnum="1" colname="col1" colwidth="55*" />
+                <colspec colnum="2" colname="col2" colwidth="15*" />
+                <colspec colnum="3" colname="col3" colwidth="15*" />
+                <colspec colnum="4" colname="col4" colwidth="15*" />
+                <thead>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" colname="col1" valign="middle">
+                      <al>Naam baten- lastenagentschap</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col2" align="right" valign="middle">
+                      <al>Baten</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" align="right" valign="middle">
+                      <al>Lasten</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" align="right" valign="middle">
+                      <al>Saldo baten en lasten</al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" colname="col1" valign="middle">
+                      <al>Paresto</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col2" align="right" valign="middle">
+                      <al>111.126</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" align="right" valign="middle">
+                      <al>111.126</al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" align="right" valign="middle">
+                      <al>0</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" rotate="0" colname="col1" valign="middle">
+                      <al>
+                        <nadruk type="vet">Totaal</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col2" align="right" valign="middle">
+                      <al>
+                        <nadruk type="vet">111.126</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col3" align="right" valign="middle">
+                      <al>
+                        <nadruk type="vet">111.126</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" rotate="0" colname="col4" align="right" valign="middle">
+                      <al>
+                        <nadruk type="vet">0</nadruk>
+                      </al>
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+          </tekst>
+        </vrije-tekst>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

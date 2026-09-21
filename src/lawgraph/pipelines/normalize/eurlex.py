@@ -1,24 +1,29 @@
 from __future__ import annotations
 
 import datetime as dt
-import os
 import re
+from collections.abc import Iterable, Iterator
 from html.parser import HTMLParser
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     RAW_SOURCE_KINDS,
-    RELATION_PART_OF_INSTRUMENT,
+    RELATION_PART_OF,
     SOURCE_EURLEX,
 )
+from lawgraph.config.settings import EURLEX_MAX_ARTICLE_NUMBER
+from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import ArangoStore
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.core.xml import XML_TAG_RE
+from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
+
+EDGE_SOURCE = "eu-normalize"
 
 _NODE_BATCH_SIZE = 200
 
@@ -80,16 +85,6 @@ class _TextExtractor(HTMLParser):
         return "".join(self._parts)
 
 
-# Read at module import time; changing the env var requires a process restart.
-try:
-    _EU_MAX_ARTICLE_NUMBER: int = int(os.getenv("EURLEX_MAX_ARTICLE_NUMBER", "200"))
-except ValueError as _exc:
-    raise ValueError(
-        f"EURLEX_MAX_ARTICLE_NUMBER must be an integer, got: "
-        f"{os.getenv('EURLEX_MAX_ARTICLE_NUMBER')!r}"
-    ) from _exc
-
-
 def _html_to_text(html: str) -> str:
     parser = _TextExtractor()
     parser.feed(html)
@@ -107,14 +102,13 @@ _DOC_TI_RE = re.compile(
     r'<p[^>]+class=["\'][^"\']*doc-ti[^"\']*["\'][^>]*>(.*?)</p>',
     re.IGNORECASE | re.DOTALL,
 )
-_HTML_TAG_RE = re.compile(r"<[^>]+>")
-_CELEX_CITATION_RE = re.compile(r"^3(\d{4})([LRDF])(\d+)$", re.ASCII)
 
-_CELEX_TYPE_LABELS: dict[str, str] = {
-    "L": "Richtlijn",
-    "R": "Verordening",
-    "D": "Besluit",
-    "F": "Kaderbesluit",
+# Dutch citation label per instrument kind (CELEX letters live in core.identifiers).
+_KIND_CITATION_LABELS: dict[str, str] = {
+    "directive": "Richtlijn",
+    "regulation": "Verordening",
+    "decision": "Besluit",
+    "framework_decision": "Kaderbesluit",
 }
 
 
@@ -122,7 +116,7 @@ def _extract_eu_title_from_html(html: str) -> str | None:
     """Return the document title from CELLAR HTML, or None if not found."""
     m = _DOC_TI_RE.search(html)
     if m:
-        text = _HTML_TAG_RE.sub("", m.group(1)).replace("\xa0", " ").strip()
+        text = XML_TAG_RE.sub("", m.group(1)).replace("\xa0", " ").strip()
         if len(text) > 5:
             return " ".join(text.split())
     return None
@@ -130,15 +124,15 @@ def _extract_eu_title_from_html(html: str) -> str | None:
 
 def _derive_eu_citation_title(celex: str) -> str | None:
     """Derive a short citation title from a CELEX number, e.g. 'Richtlijn 2010/64/EU'."""
-    m = _CELEX_CITATION_RE.match(celex.upper())
-    if not m:
+    parsed = parse_celex(celex)
+    if parsed is None or parsed.kind is None:
         return None
-    year, doc_type, number = m.group(1), m.group(2), m.group(3).lstrip("0") or "0"
-    label = _CELEX_TYPE_LABELS.get(doc_type)
+    label = _KIND_CITATION_LABELS.get(parsed.kind)
     if not label:
         return None
-    suffix = "JBZ" if doc_type == "F" else "EU"
-    return f"{label} {year}/{number}/{suffix}"
+    number = parsed.number.lstrip("0") or "0"
+    suffix = "JBZ" if parsed.kind == "framework_decision" else "EU"
+    return f"{label} {parsed.year}/{number}/{suffix}"
 
 
 def _extract_eu_articles(html: str, celex: str) -> list[dict[str, str]]:
@@ -154,7 +148,7 @@ def _extract_eu_articles(html: str, celex: str) -> list[dict[str, str]]:
         # Skip unreasonably large article numbers (treaty cross-references in preamble)
         try:
             int_val = int(re.sub(r"[a-z]+$", "", article_number))
-            if int_val > _EU_MAX_ARTICLE_NUMBER:
+            if int_val > EURLEX_MAX_ARTICLE_NUMBER:
                 continue
         except ValueError:
             pass
@@ -175,7 +169,7 @@ def _extract_eu_articles(html: str, celex: str) -> list[dict[str, str]]:
     return articles
 
 
-class EUNormalizePipeline(NormalizePipeline):
+class EurlexNormalizePipeline(NormalizePipelineBase):
     """Normalization pipeline that turns EUR-Lex raw dumps into instrument + article nodes."""
 
     def __init__(self, *, store: ArangoStore) -> None:
@@ -185,33 +179,29 @@ class EUNormalizePipeline(NormalizePipeline):
         self,
         *,
         since: dt.datetime | None = None,
-    ) -> list[dict[str, Any]]:
-        """Load EUR-Lex CELEX html dumps from raw_sources."""
-        kinds = list(RAW_SOURCE_KINDS[SOURCE_EURLEX])
-        records = self._query_raw_sources(
+    ) -> Iterator[dict[str, Any]]:
+        """Stream the EUR-Lex CELEX html dumps from raw_sources (whole acts: 20 at a time)."""
+        return self._iter_raw_sources(
             source=SOURCE_EURLEX,
-            kinds=kinds,
+            kinds=list(RAW_SOURCE_KINDS[SOURCE_EURLEX]),
             since=since,
         )
 
-        logger.info(
-            "Loaded %d EUR-Lex html records from raw_sources.",
-            len(records),
-        )
-
-        return records
-
     def normalize_nodes(
         self,
-        raw: list[dict[str, Any]],
+        raw: Iterable[dict[str, Any]],
         result: PipelineResult,
     ) -> dict[str, Any]:
-        """Normalize EUR-Lex raw HTML into instrument and article nodes."""
+        """Normalize EUR-Lex raw HTML into instrument and article nodes.
+
+        The articles are written as they are parsed; what is kept for the PART_OF edges is
+        a node without props per article, not its text.
+        """
         instruments_by_celex: dict[str, Node] = {}
         articles_by_celex: dict[str, list[Node]] = {}
-        celex_records = raw
+        writer = NodeWriter(self.store, batch_size=_NODE_BATCH_SIZE)
 
-        for raw_entry in celex_records:
+        for raw_entry in raw:
             payload_text = self._payload_text(raw_entry)
             meta = self._meta(raw_entry)
             celex = meta.get("celex")
@@ -258,7 +248,7 @@ class EUNormalizePipeline(NormalizePipeline):
                 labels=labels,
                 props=props,
             )
-            inserted_instrument = self.store.insert_or_update(instrument_node)
+            inserted_instrument, _ = self.store.insert_or_update(instrument_node)
             instruments_by_celex[celex] = inserted_instrument
 
             # --- article nodes ---
@@ -271,13 +261,12 @@ class EUNormalizePipeline(NormalizePipeline):
                 continue
 
             # Citation title for articles: prefer the stored instrument value so a
-            # previously-seeded title (e.g. "EVRM") is not overwritten by the CELEX
+            # title already seeded (e.g. "EVRM") is not overwritten by the CELEX
             # pattern derivation.
             inst_props = inserted_instrument.props
             eu_ct = inst_props.get("citation_title") or inst_props.get("title")
 
             article_nodes: list[Node] = []
-            article_docs: list[dict[str, Any]] = []
             for art in raw_articles:
                 article_number = art["article_number"]
                 article_props: dict[str, Any] = {
@@ -294,28 +283,27 @@ class EUNormalizePipeline(NormalizePipeline):
                 )
                 article_key = make_node_key(celex, article_number)
                 article_node = Node(
-                    collection=COLLECTION_INSTRUMENT_ARTICLES,
+                    collection=COLLECTION_ARTICLES,
                     type=NodeType.ARTICLE,
                     key=article_key,
                     labels=["EU", "Article"],
                     props=article_props,
                 )
-                article_docs.append(article_node.to_document())
-                article_nodes.append(article_node)
-
-            # Batch-upsert all article nodes for this CELEX record.
-            if article_docs:
-                for batch_start in range(0, len(article_docs), _NODE_BATCH_SIZE):
-                    batch = article_docs[batch_start : batch_start + _NODE_BATCH_SIZE]
-                    self.store.bulk_insert_or_update_nodes(
-                        COLLECTION_INSTRUMENT_ARTICLES, batch
+                writer.add(article_node)
+                article_nodes.append(
+                    Node(
+                        collection=COLLECTION_ARTICLES,
+                        type=NodeType.ARTICLE,
+                        key=article_key,
+                        props={},
+                        _skip_validation=True,
                     )
+                )
 
-            articles_by_celex[celex] = [
-                node.with_key(node.key or "") for node in article_nodes
-            ]
+            articles_by_celex[celex] = article_nodes
             logger.debug("CELEX %s: %d articles extracted.", celex, len(article_nodes))
 
+        writer.flush()
         total_articles = sum(len(v) for v in articles_by_celex.values())
         logger.info(
             "Created %d EUR-Lex instrument nodes and %d article nodes.",
@@ -330,11 +318,11 @@ class EUNormalizePipeline(NormalizePipeline):
 
     def build_edges(
         self,
-        raw: list[dict[str, Any]],
+        raw: Iterable[dict[str, Any]],
         normalized: dict[str, Any],
-    ) -> int:
-        """Create PART_OF_INSTRUMENT edges for articles."""
-        edge_count = 0
+    ) -> None:
+        """Create PART_OF edges from articles to their instrument."""
+        writer = EdgeWriter(self.store)
 
         # Article → instrument edges
         instruments_by_celex: dict[str, Node] = normalized.get(
@@ -342,21 +330,13 @@ class EUNormalizePipeline(NormalizePipeline):
         )
         for celex, article_nodes in normalized.get("articles_by_celex", {}).items():
             instrument = instruments_by_celex.get(celex)
-            if not instrument or not instrument.arango_id:
+            if not instrument:
                 continue
             for article in article_nodes:
-                if not article.arango_id:
-                    continue
-                self.store.create_edge(
-                    from_id=article.arango_id,
-                    to_id=instrument.arango_id,
-                    relation=RELATION_PART_OF_INSTRUMENT,
-                    source="eu-normalize",
+                writer.add(
+                    article.arango_id,
+                    instrument.arango_id,
+                    RELATION_PART_OF,
+                    source=EDGE_SOURCE,
                 )
-                edge_count += 1
-
-        logger.info(
-            "EUNormalizePipeline created %d edges.",
-            edge_count,
-        )
-        return edge_count
+        writer.flush()

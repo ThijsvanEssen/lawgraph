@@ -1,0 +1,416 @@
+<?xml version='1.0' encoding='utf-8'?>
+<toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0001840/2023-02-22/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBR0001840" inwerkingtreding="2023-02-22">
+  <bwb-inputbestand>BWBR0001840_2022-11-01_0</bwb-inputbestand>
+  <bwb-wijzigingen />
+  <wetgeving dtdversie="2.0" soort="wet" xml:lang="nl" stam-id="2990003" versie-id="28844672" id="C40844421" label-id="2942374" inwerkingtredingsdatum="2022-07-06">
+    <intitule bwb-ng-variabel-deel="/Intitule" stam-id="2990023" versie-id="4626712" id="C4626711" label-id="2940484" inwerking="1840-09-12" bron="Stb.1840-54" effect="nieuwe-regeling" ondertekening_bron="1840-09-04" status="goed">Grondwet voor het Koninkrijk der Nederlanden van 24 augustus 1815 <meta-data>
+        <brondata>
+          <oorspronkelijk>
+            <publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="">
+              <publicatiejaar>1840</publicatiejaar>
+              <publicatienr>54</publicatienr>
+              <ondertekeningsdatum isodatum="1840-09-04">04-09-1840</ondertekeningsdatum>
+            </publicatie>
+          </oorspronkelijk>
+          <inwerkingtreding>
+            <publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="">
+              <publicatiejaar>1840</publicatiejaar>
+              <publicatienr>54</publicatienr>
+              <ondertekeningsdatum isodatum="1840-09-04">04-09-1840</ondertekeningsdatum>
+            </publicatie>
+            <inwerkingtreding.datum isodatum="1840-09-12">12-09-1840</inwerkingtreding.datum>
+          </inwerkingtreding>
+        </brondata>
+      </meta-data>
+    </intitule>
+    <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="2990033" versie-id="4626722" id="C4626721" label-id="2940494" inwerking="1840-09-12" bron="Stb.1840-54" effect="nieuwe-regeling" ondertekening_bron="1840-09-04">Grondwet<meta-data>
+        <brondata>
+          <oorspronkelijk>
+            <publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="">
+              <publicatiejaar>1840</publicatiejaar>
+              <publicatienr>54</publicatienr>
+              <ondertekeningsdatum isodatum="1840-09-04">04-09-1840</ondertekeningsdatum>
+            </publicatie>
+          </oorspronkelijk>
+          <inwerkingtreding>
+            <publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="">
+              <publicatiejaar>1840</publicatiejaar>
+              <publicatienr>54</publicatienr>
+              <ondertekeningsdatum isodatum="1840-09-04">04-09-1840</ondertekeningsdatum>
+            </publicatie>
+            <inwerkingtreding.datum isodatum="1840-09-12">12-09-1840</inwerkingtreding.datum>
+          </inwerkingtreding>
+        </brondata>
+      </meta-data>
+    </citeertitel>
+    <wet-besluit>
+      <wettekst>
+        <artikel bwb-ng-variabel-deel="/Hoofdstuk1/Artikel7" stam-id="2990103" versie-id="25689252" id="C36647081" label-id="2940564" inwerking="2018-12-21" label="Artikel 7" bron="Stb.2019-33" effect="tekstplaatsing-wijziging" ondertekening_bron="2019-01-16" publicatie_bron="2019-02-08" publicatie_iwt="2018-12-21" status="goed">
+          <kop>
+            <label>Artikel</label>
+            <nr status="officieel">7</nr>
+          </kop>
+          <lid bwb-ng-variabel-deel="/Hoofdstuk1/Artikel7/Lid1" label-id="2940564L1">
+            <lidnr status="officieel">1</lidnr>
+            <al>Niemand heeft voorafgaand verlof nodig om door de drukpers gedachten of gevoelens te openbaren, behoudens ieders verantwoordelijkheid volgens de wet. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=1&amp;artikel=7&amp;lid=1&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="lid=1" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <lid bwb-ng-variabel-deel="/Hoofdstuk1/Artikel7/Lid2" label-id="2940564L2">
+            <lidnr status="officieel">2</lidnr>
+            <al> De wet stelt regels omtrent radio en televisie. Er is geen voorafgaand toezicht op de inhoud van een radio- of televisieuitzending. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=1&amp;artikel=7&amp;lid=2&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="lid=2" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <lid bwb-ng-variabel-deel="/Hoofdstuk1/Artikel7/Lid3" label-id="2940564L3">
+            <lidnr status="officieel">3</lidnr>
+            <al> Voor het openbaren van gedachten of gevoelens door andere dan in de voorgaande leden genoemde middelen heeft niemand voorafgaand verlof nodig wegens de inhoud daarvan, behoudens ieders verantwoordelijkheid volgens de wet. De wet kan het geven van vertoningen toegankelijk voor personen jonger dan zestien jaar regelen ter bescherming van de goede zeden. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=1&amp;artikel=7&amp;lid=3&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="lid=3" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <lid bwb-ng-variabel-deel="/Hoofdstuk1/Artikel7/Lid4" label-id="2940564L4">
+            <lidnr status="officieel">4</lidnr>
+            <al> De voorgaande leden zijn niet van toepassing op het maken van handelsreclame. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=1&amp;artikel=7&amp;lid=4&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="lid=4" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <meta-data>
+            <brondata>
+              <oorspronkelijk>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2019-33">
+                  <publicatiejaar>2019</publicatiejaar>
+                  <publicatienr>33</publicatienr>
+                  <uitgiftedatum isodatum="2019-02-08">08-02-2019</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2019-01-16">16-01-2019</ondertekeningsdatum>
+                </publicatie>
+              </oorspronkelijk>
+              <inwerkingtreding>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2018-493">
+                  <publicatiejaar>2018</publicatiejaar>
+                  <publicatienr>493</publicatienr>
+                  <uitgiftedatum isodatum="2018-12-21">21-12-2018</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2018-11-26">26-11-2018</ondertekeningsdatum>
+                  <dossierref dossier="34716">34716</dossierref>
+                </publicatie>
+                <inwerkingtreding.datum isodatum="2018-12-21">21-12-2018</inwerkingtreding.datum>
+              </inwerkingtreding>
+            </brondata>
+            <jcis>
+              <jci versie="1.0" verwijzing="1.0:c:BWBR0001840&amp;artikel=7&amp;g=2023-02-22" onderdeel="artikel=7" korte-verwijzing="1.0:c:BWBR0001840&amp;artikel=7" />
+              <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=1&amp;artikel=7&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="artikel=7" korte-verwijzing="jci1.3:c:BWBR0001840&amp;artikel=7" />
+            </jcis>
+          </meta-data>
+        </artikel>
+        <artikel bwb-ng-variabel-deel="/Hoofdstuk5/Paragraaf2/Artikel101" stam-id="2991133" versie-id="4627832" id="C4627831" label-id="2941594" inwerking="1995-11-01" label="Artikel 101" bron="Stb.1995-401" effect="vervallen" ondertekening_bron="1995-07-10" publicatie_bron="1995-09-05" publicatie_iwt="1995-09-05" status="vervallen">
+          <kop>
+            <label>Artikel</label>
+            <nr>101</nr>
+          </kop>
+          <al>
+            <redactie type="vervanging">Vervallen</redactie>
+          </al>
+          <meta-data>
+            <brondata>
+              <oorspronkelijk>
+                <publicatie effect="vervallen" soort="Stb" urlidentifier="stb-1995-401">
+                  <publicatiejaar>1995</publicatiejaar>
+                  <publicatienr>401</publicatienr>
+                  <uitgiftedatum isodatum="1995-09-05">05-09-1995</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="1995-07-10">10-07-1995</ondertekeningsdatum>
+                  <dossierref dossier="19952">19952</dossierref>
+                </publicatie>
+              </oorspronkelijk>
+              <inwerkingtreding>
+                <publicatie effect="vervallen" soort="Stb" urlidentifier="stb-1995-401">
+                  <publicatiejaar>1995</publicatiejaar>
+                  <publicatienr>401</publicatienr>
+                  <uitgiftedatum isodatum="1995-09-05">05-09-1995</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="1995-07-10">10-07-1995</ondertekeningsdatum>
+                  <dossierref dossier="19952">19952</dossierref>
+                </publicatie>
+                <inwerkingtreding.datum isodatum="1995-11-01">01-11-1995</inwerkingtreding.datum>
+              </inwerkingtreding>
+            </brondata>
+            <jcis>
+              <jci versie="1.0" verwijzing="1.0:c:BWBR0001840&amp;artikel=101&amp;g=2023-02-22" onderdeel="artikel=101" korte-verwijzing="1.0:c:BWBR0001840&amp;artikel=101" />
+              <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=5&amp;paragraaf=2&amp;artikel=101&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="artikel=101" korte-verwijzing="jci1.3:c:BWBR0001840&amp;artikel=101" />
+            </jcis>
+          </meta-data>
+        </artikel>
+        <artikel bwb-ng-variabel-deel="/Hoofdstuk5/Paragraaf1/Artikel82" stam-id="2990933" versie-id="25690042" id="C36647871" label-id="2941394" inwerking="2018-12-21" label="Artikel 82" bron="Stb.2019-33" effect="tekstplaatsing-wijziging" ondertekening_bron="2019-01-16" publicatie_bron="2019-02-08" publicatie_iwt="2018-12-21" status="goed">
+          <kop>
+            <label>Artikel</label>
+            <nr status="officieel">82</nr>
+          </kop>
+          <lid bwb-ng-variabel-deel="/Hoofdstuk5/Paragraaf1/Artikel82/Lid1" label-id="2941394L1">
+            <lidnr status="officieel">1</lidnr>
+            <al>Voorstellen van wet kunnen worden ingediend door of vanwege de Koning en door de Tweede Kamer der Staten-Generaal. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=5&amp;paragraaf=1&amp;artikel=82&amp;lid=1&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="lid=1" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <lid bwb-ng-variabel-deel="/Hoofdstuk5/Paragraaf1/Artikel82/Lid2" label-id="2941394L2">
+            <lidnr status="officieel">2</lidnr>
+            <al> Voorstellen van wet waarvoor behandeling door de Staten-Generaal in verenigde vergadering is voorgeschreven, kunnen worden ingediend door of vanwege de Koning en, voor zover de betreffende artikelen van <intref doc="jci1.3:c:BWBR0001840&amp;hoofdstuk=2&amp;z=2023-02-22&amp;g=2023-02-22" label-id="2941024" verwijzing-id="1465741" bwb-id="BWBR0001840" bwb-ng-variabel-deel="/Hoofdstuk2">hoofdstuk 2</intref> dit toelaten, door de verenigde vergadering. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=5&amp;paragraaf=1&amp;artikel=82&amp;lid=2&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="lid=2" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <lid bwb-ng-variabel-deel="/Hoofdstuk5/Paragraaf1/Artikel82/Lid3" label-id="2941394L3">
+            <lidnr status="officieel">3</lidnr>
+            <al> Voorstellen van wet, in te dienen door de Tweede Kamer onderscheidenlijk de verenigde vergadering, worden bij haar door een of meer leden aanhangig gemaakt. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=5&amp;paragraaf=1&amp;artikel=82&amp;lid=3&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="lid=3" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <meta-data>
+            <brondata>
+              <oorspronkelijk>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2019-33">
+                  <publicatiejaar>2019</publicatiejaar>
+                  <publicatienr>33</publicatienr>
+                  <uitgiftedatum isodatum="2019-02-08">08-02-2019</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2019-01-16">16-01-2019</ondertekeningsdatum>
+                </publicatie>
+              </oorspronkelijk>
+              <inwerkingtreding>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2018-493">
+                  <publicatiejaar>2018</publicatiejaar>
+                  <publicatienr>493</publicatienr>
+                  <uitgiftedatum isodatum="2018-12-21">21-12-2018</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2018-11-26">26-11-2018</ondertekeningsdatum>
+                  <dossierref dossier="34716">34716</dossierref>
+                </publicatie>
+                <inwerkingtreding.datum isodatum="2018-12-21">21-12-2018</inwerkingtreding.datum>
+              </inwerkingtreding>
+            </brondata>
+            <jcis>
+              <jci versie="1.0" verwijzing="1.0:c:BWBR0001840&amp;artikel=82&amp;g=2023-02-22" onderdeel="artikel=82" korte-verwijzing="1.0:c:BWBR0001840&amp;artikel=82" />
+              <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=5&amp;paragraaf=1&amp;artikel=82&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="artikel=82" korte-verwijzing="jci1.3:c:BWBR0001840&amp;artikel=82" />
+            </jcis>
+          </meta-data>
+        </artikel>
+        <artikel bwb-ng-variabel-deel="/Hoofdstuk8/Artikel142" stam-id="2991583" versie-id="25690872" id="C36648701" label-id="2942044" inwerking="2018-12-21" label="Artikel 142" bron="Stb.2019-33" effect="tekstplaatsing-wijziging" ondertekening_bron="2019-01-16" publicatie_bron="2019-02-08" publicatie_iwt="2018-12-21" status="goed">
+          <kop>
+            <label>Artikel</label>
+            <nr status="officieel">142</nr>
+          </kop>
+          <al>De Grondwet kan bij de wet met het <extref doc="jci1.3:c:BWBR0002154" label-id="3075364" verwijzing-id="1465761" bwb-id="BWBR0002154">Statuut voor het Koninkrijk der Nederlanden</extref> in overeenstemming worden gebracht. De <intref doc="jci1.3:c:BWBR0001840&amp;hoofdstuk=8&amp;artikel=139&amp;z=2023-02-22&amp;g=2023-02-22" label-id="2942014" verwijzing-id="1465762" bwb-id="BWBR0001840" bwb-ng-variabel-deel="/Hoofdstuk8/Artikel139">artikelen 139</intref>, <intref doc="jci1.3:c:BWBR0001840&amp;hoofdstuk=8&amp;artikel=140&amp;z=2023-02-22&amp;g=2023-02-22" label-id="2942024" verwijzing-id="1465763" bwb-id="BWBR0001840" bwb-ng-variabel-deel="/Hoofdstuk8/Artikel140">140</intref> en <intref doc="jci1.3:c:BWBR0001840&amp;hoofdstuk=8&amp;artikel=141&amp;z=2023-02-22&amp;g=2023-02-22" label-id="2942034" verwijzing-id="1465764" bwb-id="BWBR0001840" bwb-ng-variabel-deel="/Hoofdstuk8/Artikel141">141</intref> zijn van overeenkomstige toepassing. </al>
+          <meta-data>
+            <brondata>
+              <oorspronkelijk>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2019-33">
+                  <publicatiejaar>2019</publicatiejaar>
+                  <publicatienr>33</publicatienr>
+                  <uitgiftedatum isodatum="2019-02-08">08-02-2019</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2019-01-16">16-01-2019</ondertekeningsdatum>
+                </publicatie>
+              </oorspronkelijk>
+              <inwerkingtreding>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2018-493">
+                  <publicatiejaar>2018</publicatiejaar>
+                  <publicatienr>493</publicatienr>
+                  <uitgiftedatum isodatum="2018-12-21">21-12-2018</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2018-11-26">26-11-2018</ondertekeningsdatum>
+                  <dossierref dossier="34716">34716</dossierref>
+                </publicatie>
+                <inwerkingtreding.datum isodatum="2018-12-21">21-12-2018</inwerkingtreding.datum>
+              </inwerkingtreding>
+            </brondata>
+            <jcis>
+              <jci versie="1.0" verwijzing="1.0:c:BWBR0001840&amp;artikel=142&amp;g=2023-02-22" onderdeel="artikel=142" korte-verwijzing="1.0:c:BWBR0001840&amp;artikel=142" />
+              <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=8&amp;artikel=142&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="artikel=142" korte-verwijzing="jci1.3:c:BWBR0001840&amp;artikel=142" />
+            </jcis>
+          </meta-data>
+        </artikel>
+        <artikel bwb-ng-variabel-deel="/Artikel" stam-id="16464063" versie-id="28844682" id="C40844431" label-id="14536424" inwerking="2022-08-30" bron="Stb.2022-332" effect="nieuw" ondertekening_bron="2022-07-06" publicatie_bron="2022-08-30" publicatie_iwt="2022-08-30" status="goed">
+          <kop>
+            <titel status="officieel">Algemene bepaling</titel>
+          </kop>
+          <al>De Grondwet waarborgt de grondrechten en de democratische rechtsstaat.</al>
+          <meta-data>
+            <brondata>
+              <oorspronkelijk>
+                <publicatie effect="nieuw" soort="Stb" urlidentifier="stb-2022-332">
+                  <publicatiejaar>2022</publicatiejaar>
+                  <publicatienr>332</publicatienr>
+                  <uitgiftedatum isodatum="2022-08-30">30-08-2022</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2022-07-06">06-07-2022</ondertekeningsdatum>
+                  <dossierref dossier="35786">35786</dossierref>
+                </publicatie>
+              </oorspronkelijk>
+              <inwerkingtreding>
+                <publicatie effect="nieuw" soort="Stb" urlidentifier="stb-2022-332">
+                  <publicatiejaar>2022</publicatiejaar>
+                  <publicatienr>332</publicatienr>
+                  <uitgiftedatum isodatum="2022-08-30">30-08-2022</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2022-07-06">06-07-2022</ondertekeningsdatum>
+                  <dossierref dossier="35786">35786</dossierref>
+                </publicatie>
+                <inwerkingtreding.datum isodatum="2022-08-30">30-08-2022</inwerkingtreding.datum>
+              </inwerkingtreding>
+              <opmerkingen-inhoud>
+                <al>De eerste lezing is  gepubliceerd in Stb. 2018/86.</al>
+              </opmerkingen-inhoud>
+            </brondata>
+          </meta-data>
+        </artikel>
+        <artikel bwb-ng-variabel-deel="/Hoofdstuk5/Paragraaf2/Artikel92" stam-id="2991043" versie-id="25690152" id="C36647981" label-id="2941504" inwerking="2018-12-21" label="Artikel 92" bron="Stb.2019-33" effect="tekstplaatsing-wijziging" ondertekening_bron="2019-01-16" publicatie_bron="2019-02-08" publicatie_iwt="2018-12-21" status="goed">
+          <kop>
+            <label>Artikel</label>
+            <nr status="officieel">92</nr>
+          </kop>
+          <al>Met inachtneming, zo nodig, van het bepaalde in <intref doc="jci1.3:c:BWBR0001840&amp;hoofdstuk=5&amp;paragraaf=2&amp;artikel=91&amp;z=2023-02-22&amp;g=2023-02-22" label-id="2941494" verwijzing-id="1465742" bwb-id="BWBR0001840" bwb-ng-variabel-deel="/Hoofdstuk5/Paragraaf2/Artikel91">artikel 91, derde lid</intref>, kunnen bij of krachtens verdrag aan volkenrechtelijke organisaties bevoegdheden tot wetgeving, bestuur en rechtspraak worden opgedragen. </al>
+          <meta-data>
+            <brondata>
+              <oorspronkelijk>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2019-33">
+                  <publicatiejaar>2019</publicatiejaar>
+                  <publicatienr>33</publicatienr>
+                  <uitgiftedatum isodatum="2019-02-08">08-02-2019</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2019-01-16">16-01-2019</ondertekeningsdatum>
+                </publicatie>
+              </oorspronkelijk>
+              <inwerkingtreding>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2018-493">
+                  <publicatiejaar>2018</publicatiejaar>
+                  <publicatienr>493</publicatienr>
+                  <uitgiftedatum isodatum="2018-12-21">21-12-2018</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2018-11-26">26-11-2018</ondertekeningsdatum>
+                  <dossierref dossier="34716">34716</dossierref>
+                </publicatie>
+                <inwerkingtreding.datum isodatum="2018-12-21">21-12-2018</inwerkingtreding.datum>
+              </inwerkingtreding>
+            </brondata>
+            <jcis>
+              <jci versie="1.0" verwijzing="1.0:c:BWBR0001840&amp;artikel=92&amp;g=2023-02-22" onderdeel="artikel=92" korte-verwijzing="1.0:c:BWBR0001840&amp;artikel=92" />
+              <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=5&amp;paragraaf=2&amp;artikel=92&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="artikel=92" korte-verwijzing="jci1.3:c:BWBR0001840&amp;artikel=92" />
+            </jcis>
+          </meta-data>
+        </artikel>
+        <artikel bwb-ng-variabel-deel="/Hoofdstuk8/Artikel138" stam-id="2991543" versie-id="25690722" id="C36649861" label-id="2942004" inwerking="2018-12-21" label="Artikel 138" bron="Stb.2019-33" effect="tekstplaatsing-wijziging" ondertekening_bron="2019-01-16" publicatie_bron="2019-02-08" publicatie_iwt="2018-12-21" status="goed">
+          <kop>
+            <label>Artikel</label>
+            <nr status="officieel">138</nr>
+          </kop>
+          <lid bwb-ng-variabel-deel="/Hoofdstuk8/Artikel138/Lid1" label-id="2942004L1">
+            <lidnr status="officieel">1</lidnr>
+            <al>Voordat de in tweede lezing aangenomen voorstellen tot verandering in de Grondwet door de Koning worden bekrachtigd, kunnen bij de wet: </al>
+            <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+              <li bwb-ng-variabel-deel="/Hoofdstuk8/Artikel138/Lid1/Onderdeela">
+                <li.nr>a.</li.nr>
+                <al>de aangenomen voorstellen en de ongewijzigd gebleven bepalingen van de Grondwet voor zoveel nodig aan elkaar worden aangepast; </al>
+                <meta-data>
+                  <jcis>
+                    <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=8&amp;artikel=138&amp;lid=1&amp;o=a&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="o=a" />
+                  </jcis>
+                </meta-data>
+              </li>
+              <li bwb-ng-variabel-deel="/Hoofdstuk8/Artikel138/Lid1/Onderdeelb">
+                <li.nr>b.</li.nr>
+                <al>de indeling in en de plaats van hoofdstukken, paragrafen en artikelen, alsmede de opschriften worden gewijzigd. </al>
+                <meta-data>
+                  <jcis>
+                    <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=8&amp;artikel=138&amp;lid=1&amp;o=b&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="o=b" />
+                  </jcis>
+                </meta-data>
+              </li>
+            </lijst>
+            <al />
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=8&amp;artikel=138&amp;lid=1&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="lid=1" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <lid bwb-ng-variabel-deel="/Hoofdstuk8/Artikel138/Lid2" label-id="2942004L2">
+            <lidnr status="officieel">2</lidnr>
+            <al> Een voorstel van wet, houdende voorzieningen als bedoeld in het eerste lid onder a, kunnen de kamers alleen aannemen met ten minste twee derden van het aantal uitgebrachte stemmen. </al>
+            <meta-data>
+              <jcis>
+                <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=8&amp;artikel=138&amp;lid=2&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="lid=2" />
+              </jcis>
+            </meta-data>
+          </lid>
+          <meta-data>
+            <brondata>
+              <oorspronkelijk>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2019-33">
+                  <publicatiejaar>2019</publicatiejaar>
+                  <publicatienr>33</publicatienr>
+                  <uitgiftedatum isodatum="2019-02-08">08-02-2019</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2019-01-16">16-01-2019</ondertekeningsdatum>
+                </publicatie>
+              </oorspronkelijk>
+              <inwerkingtreding>
+                <publicatie effect="tekstplaatsing-wijziging" soort="Stb" urlidentifier="stb-2018-493">
+                  <publicatiejaar>2018</publicatiejaar>
+                  <publicatienr>493</publicatienr>
+                  <uitgiftedatum isodatum="2018-12-21">21-12-2018</uitgiftedatum>
+                  <ondertekeningsdatum isodatum="2018-11-26">26-11-2018</ondertekeningsdatum>
+                  <dossierref dossier="34716">34716</dossierref>
+                </publicatie>
+                <inwerkingtreding.datum isodatum="2018-12-21">21-12-2018</inwerkingtreding.datum>
+              </inwerkingtreding>
+              <opmerkingen-inhoud>
+                <al>Abusievelijk is in het tweede lid na het woord 'lid' een komma ingevoegd.</al>
+              </opmerkingen-inhoud>
+            </brondata>
+            <jcis>
+              <jci versie="1.0" verwijzing="1.0:c:BWBR0001840&amp;artikel=138&amp;g=2023-02-22" onderdeel="artikel=138" korte-verwijzing="1.0:c:BWBR0001840&amp;artikel=138" />
+              <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;hoofdstuk=8&amp;artikel=138&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="artikel=138" korte-verwijzing="jci1.3:c:BWBR0001840&amp;artikel=138" />
+            </jcis>
+          </meta-data>
+        </artikel>
+      </wettekst>
+    </wet-besluit>
+    <meta-data>
+      <brondata>
+        <oorspronkelijk>
+          <publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2022-332">
+            <publicatiejaar>2022</publicatiejaar>
+            <publicatienr>332</publicatienr>
+            <uitgiftedatum isodatum="2022-08-30">30-08-2022</uitgiftedatum>
+            <ondertekeningsdatum isodatum="2022-07-06">06-07-2022</ondertekeningsdatum>
+            <dossierref dossier="35786">35786</dossierref>
+          </publicatie>
+        </oorspronkelijk>
+        <inwerkingtreding>
+          <publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2022-332">
+            <publicatiejaar>2022</publicatiejaar>
+            <publicatienr>332</publicatienr>
+            <uitgiftedatum isodatum="2022-08-30">30-08-2022</uitgiftedatum>
+            <ondertekeningsdatum isodatum="2022-07-06">06-07-2022</ondertekeningsdatum>
+            <dossierref dossier="35786">35786</dossierref>
+          </publicatie>
+          <inwerkingtreding.datum isodatum="2022-07-06">06-07-2022</inwerkingtreding.datum>
+        </inwerkingtreding>
+        <opmerkingen-inhoud>
+          <al>De eerste lezing is  gepubliceerd in Stb. 2018/86.</al>
+        </opmerkingen-inhoud>
+      </brondata>
+      <jcis>
+        <jci versie="1.0" verwijzing="1.0:c:BWBR0001840&amp;g=2023-02-22" onderdeel="wetgeving" korte-verwijzing="1.0:c:BWBR0001840" />
+        <jci versie="1.3" verwijzing="jci1.3:c:BWBR0001840&amp;z=2023-02-22&amp;g=2023-02-22" onderdeel="wetgeving" korte-verwijzing="jci1.3:c:BWBR0001840" />
+      </jcis>
+    </meta-data>
+  </wetgeving>
+</toestand>

@@ -3,46 +3,49 @@
 from __future__ import annotations
 
 import datetime as dt
-import re
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_PUBLICATIONS,
+    COLLECTION_DOCUMENTS,
     RAW_KIND_STCRT_REGELING,
     SOURCE_STAATSCOURANT,
 )
+from lawgraph.core.identifiers import STCRT_ID_PATTERN, find_bwb_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.publication_xml import publication_title
+from lawgraph.core.time import iso_date
+from lawgraph.core.xml import find_text, text_of
+from lawgraph.db import NodeWriter
 from lawgraph.db.store import ArangoStore
-from lawgraph.pipelines.normalize._xml import find_text
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
-_STCRT_ID_PATTERN = re.compile(r"stcrt-(\d{4})-(\d+)", re.IGNORECASE)
-_BWBR_PATTERN = re.compile(r"\b(BWBR0\d{6})\b", re.IGNORECASE)
 
-
-class StaatscourantNormalizePipeline(NormalizePipeline):
+class StaatscourantNormalizePipeline(NormalizePipelineBase):
     """Normalize Staatscourant ministeriele regelingen XML into Publication nodes."""
 
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:
-        rows = self._query_raw_sources(
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
+        return self._iter_raw_sources(
             source=SOURCE_STAATSCOURANT,
             kinds=[RAW_KIND_STCRT_REGELING],
             since=since,
+            batch_size=20,
         )
-        logger.info("Loaded %d Staatscourant raw_sources.", len(rows))
-        return rows
 
     def normalize_nodes(
-        self, raw: list[dict[str, Any]], result: PipelineResult
-    ) -> dict[str, Node]:
-        nodes: dict[str, Node] = {}
+        self, raw: Iterable[dict[str, Any]], result: PipelineResult
+    ) -> int:
+        count = 0
+        writer = NodeWriter(self.store)
 
         for record in raw:
             identifier = record.get("external_id") or record.get("identifier") or ""
@@ -59,12 +62,13 @@ class StaatscourantNormalizePipeline(NormalizePipeline):
                 result.skipped += 1
                 continue
 
-            node = self.store.insert_or_update(node)
-            nodes[identifier] = node
-            result.created += 1
+            writer.add(node)
+            count += 1
 
-        logger.info("Staatscourant normalize: %d publications processed.", len(nodes))
-        return nodes
+        writer.flush()
+
+        logger.info("Staatscourant normalize: %d publications processed.", count)
+        return count
 
     def _parse_publication(self, identifier: str, xml_text: str) -> Node | None:
         try:
@@ -75,35 +79,26 @@ class StaatscourantNormalizePipeline(NormalizePipeline):
             )
             return None
 
-        m = _STCRT_ID_PATTERN.search(identifier)
+        m = STCRT_ID_PATTERN.search(identifier)
         year = m.group(1) if m else ""
         number = m.group(2) if m else ""
 
-        title = (
-            find_text(root, "citeertitel")
-            or find_text(root, "officiele-titel", "officieletitel")
-            or find_text(root, "titel")
-            or f"Staatscourant {year}/{number}"
-        )
+        title = publication_title(root, f"Staatscourant {year}/{number}")
 
         # Extract the full text of the regulation
-        tekst = find_text(root, "tekst", "body", "inhoud")
-        if not tekst:
-            tekst = " ".join(root.itertext()).strip()[:100000]
+        text = find_text(root, "tekst", "body", "inhoud")
+        if not text:
+            text = text_of(root, " ")[:100000]
 
-        bwb_id: str | None = None
-        bwb_m = _BWBR_PATTERN.search(ET.tostring(root, encoding="unicode"))
-        if bwb_m:
-            bwb_id = bwb_m.group(1).upper()
-
-        date_text = find_text(root, "publicatiedatum", "datum")
+        bwb_id = find_bwb_id(xml_text)
+        date = iso_date(find_text(root, "publicatiedatum", "datum"))
 
         props: dict[str, Any] = {
             "source": SOURCE_STAATSCOURANT,
             "identifier": identifier,
-            "soort": "Ministeriële regeling",
+            "kind": "Ministeriële regeling",
             "title": title,
-            "text": tekst or "",
+            "text": text or "",
             "year": year,
             "number": number,
             "display_name": (
@@ -112,19 +107,17 @@ class StaatscourantNormalizePipeline(NormalizePipeline):
         }
         if bwb_id:
             props["bwb_id"] = bwb_id
-        if date_text:
-            props["datum"] = date_text[:10]
+        if date:
+            props["date"] = date
 
         key = make_node_key("stcrt", identifier)
         return Node(
-            collection=COLLECTION_PUBLICATIONS,
-            type=NodeType.PUBLICATION,
+            collection=COLLECTION_DOCUMENTS,
+            type=NodeType.DOCUMENT,
             key=key,
             labels=["Staatscourant", "Regeling"],
             props=props,
         )
 
-    def build_edges(
-        self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> int:
-        return 0
+    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
+        """No structural edges here — the semantic pipeline writes EXPLAINS."""

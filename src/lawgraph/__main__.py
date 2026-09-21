@@ -1,18 +1,10 @@
-"""Unified CLI dispatcher for lawgraph.
+"""The ``lawgraph`` command (also ``python -m lawgraph``).
 
-Invoked as ``lawgraph <phase> <source> [options]`` (via the entry point) or
-``python -m lawgraph <phase> <source> [options]``.
+    lawgraph <retrieve|normalize|semantic> <source|all> [options]
+    lawgraph <bootstrap|check|expand-graph|fill-gaps> [options]
+    lawgraph sources
 
-Phases:   retrieve | normalize | semantic
-Sources:  any source ID from the registry (with hyphens), or ``all``
-
-Examples:
-    lawgraph normalize bwb --since 7d
-    lawgraph normalize all
-    lawgraph retrieve tk --mode full
-    lawgraph semantic judgment-citations --since-days 30
-    lawgraph bootstrap
-    lawgraph expand-graph
+Sources and their order come from ``lawgraph.sources.registry``.
 """
 
 from __future__ import annotations
@@ -20,122 +12,101 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable
 
-from dotenv import load_dotenv
+from lawgraph.commands.bootstrap import main as bootstrap
+from lawgraph.commands.check import main as check
+from lawgraph.commands.expand_graph import main as expand_graph
+from lawgraph.commands.fill_gaps import main as fill_gaps
+from lawgraph.core.logging import get_logger, log_step, setup_logging
+from lawgraph.pipelines.orchestration import (
+    run_normalize_all,
+    run_retrieve_all,
+    run_semantic_all,
+)
+from lawgraph.sources.registry import SOURCES, describe
 
-from lawgraph.core.logging import setup_logging
+Main = Callable[..., None]
+
+_COMMANDS: dict[str, Main] = {
+    "bootstrap": bootstrap,
+    "check": check,
+    "expand-graph": expand_graph,
+    "fill-gaps": fill_gaps,
+}
+_PHASE_ALL: dict[str, Main] = {
+    "retrieve": run_retrieve_all,
+    "normalize": run_normalize_all,
+    "semantic": run_semantic_all,
+}
 
 
-def _build_dispatch() -> dict[str, dict[str, Callable]]:
-    """Build the phase → source → main() dispatch table (deferred imports)."""
-    from lawgraph.pipelines.orchestration import run_normalize_all as norm_all
-    from lawgraph.pipelines.orchestration import run_retrieve_all as retr_all
-    from lawgraph.pipelines.orchestration import run_semantic_all as sem_all
-    from lawgraph.sources.registry import SOURCES
+def _build_dispatch() -> dict[str, dict[str, Main]]:
+    """phase -> CLI source name -> ``main(argv)``; ``tk_dossiers`` becomes ``tk-dossiers``."""
+    dispatch: dict[str, dict[str, Main]] = {}
+    for phase, run_all in _PHASE_ALL.items():
+        dispatch[phase] = {"all": run_all}
+        for source in SOURCES:
+            main = getattr(source, f"{phase}_main")
+            if main is not None:
+                dispatch[phase][source.id.replace("_", "-")] = main
+    return dispatch
 
-    # Build source-keyed dicts from the registry (id with underscores → hyphens for CLI)
-    retrieve_map: dict[str, Callable] = {"all": retr_all}
-    normalize_map: dict[str, Callable] = {"all": norm_all}
-    semantic_map: dict[str, Callable] = {"all": sem_all}
 
+def _sources_overview() -> str:
+    """Every source with what each of its phases does, in the order the phases run."""
+    lines = ["Sources, in registry order (the order of `<phase> all`):", ""]
     for source in SOURCES:
-        cli_key = source.id.replace("_", "-")
-        if source.retrieve_main is not None:
-            retrieve_map[cli_key] = source.retrieve_main
-        if source.normalize_main is not None:
-            normalize_map[cli_key] = source.normalize_main
-        if source.semantic_main is not None:
-            semantic_map[cli_key] = source.semantic_main
-
-    # Retrieve-only sources not covered by retrieve_argv_builder (ad-hoc)
-    from lawgraph.pipelines.retrieve_cli import (
-        retrieve_bwb_history,
-        retrieve_tk_content,
-    )
-
-    retrieve_map["bwb-history"] = retrieve_bwb_history
-    retrieve_map["tk-content"] = retrieve_tk_content
-
-    return {
-        "retrieve": retrieve_map,
-        "normalize": normalize_map,
-        "semantic": semantic_map,
-    }
+        lines.append(f"{source.id.replace('_', '-')}  —  {source.display_name}")
+        for phase in ("retrieve", "normalize", "semantic"):
+            if getattr(source, f"{phase}_main") is None:
+                continue
+            note = ""
+            if phase == "retrieve" and source.retrieve_argv_builder is None:
+                note = " [manual: not in retrieve all]"
+            text = source.descriptions.get(phase, "(no description)")
+            lines.append(f"    {phase:<10} {text}{note}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
 
 
-def _print_help(dispatch: dict[str, dict[str, Callable]] | None = None) -> None:
-    print("Usage: lawgraph <phase> <source> [options]")
-    print()
-    print("Phases and sources:")
-    if dispatch:
-        for phase, sources in dispatch.items():
-            print(f"  {phase}: {', '.join(sorted(sources))}")
-    else:
-        print("  retrieve | normalize | semantic")
-    print()
-    print("Special commands:")
-    print("  lawgraph bootstrap            Bootstrap database from scratch")
-    print("  lawgraph expand-graph         Iterative fill-gaps loop")
-    print("  lawgraph fill-gaps            Diagnose and fill knowledge gaps")
-    print()
-    print("Pass --help after a source name for source-specific options:")
-    print("  lawgraph normalize bwb --help")
+def _usage(dispatch: dict[str, dict[str, Main]]) -> str:
+    lines = ["Usage: lawgraph <phase> <source> [options]", ""]
+    lines += [
+        f"  {phase}: {', '.join(sorted(mains))}" for phase, mains in dispatch.items()
+    ]
+    lines += ["", f"       lawgraph <{'|'.join(_COMMANDS)}> [options]", ""]
+    lines += ["       lawgraph sources     what every source and phase does", ""]
+    lines += ["Add --help after a command for its options."]
+    return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> None:
-    load_dotenv()
-    setup_logging()
-
-    if argv is None:
-        argv = sys.argv[1:]
-
-    if not argv or argv[0] in ("-h", "--help"):
-        _print_help()
-        return
-
-    phase = argv[0]
-    rest = argv[1:]
-
-    if phase == "bootstrap":
-        from lawgraph.commands.bootstrap import main as bootstrap_main
-
-        bootstrap_main(argv=rest)
-        return
-    if phase == "expand-graph":
-        from lawgraph.commands.expand_graph import main as expand_main
-
-        expand_main(argv=rest)
-        return
-    if phase == "fill-gaps":
-        from lawgraph.commands.fill_gaps import main as fill_gaps_main
-
-        fill_gaps_main(argv=rest)
-        return
-
+    argv = sys.argv[1:] if argv is None else argv
     dispatch = _build_dispatch()
 
-    if phase not in dispatch:
-        print(f"error: unknown phase '{phase}'\n", file=sys.stderr)
-        _print_help(dispatch)
-        sys.exit(1)
-
-    phase_dispatch = dispatch[phase]
-
-    if not rest or rest[0] in ("-h", "--help"):
-        print(f"Usage: lawgraph {phase} <source> [options]")
-        print(f"Sources: {', '.join(sorted(phase_dispatch))}")
+    if not argv or argv[0] in ("-h", "--help"):
+        print(_usage(dispatch))
         return
 
-    source = rest[0]
-    source_argv = rest[1:]
+    command, rest = argv[0], argv[1:]
+    if command == "sources":
+        print(_sources_overview())
+        return
+    if command in _COMMANDS:
+        setup_logging()
+        with log_step(command):
+            _COMMANDS[command](argv=rest)
+        return
 
-    if source not in phase_dispatch:
-        print(
-            f"error: unknown source '{source}' for phase '{phase}'\n", file=sys.stderr
-        )
-        print(f"Available: {', '.join(sorted(phase_dispatch))}", file=sys.stderr)
-        sys.exit(1)
+    if command not in dispatch or not rest or rest[0] not in dispatch[command]:
+        print(_usage(dispatch), file=sys.stderr)
+        sys.exit(2)
 
-    phase_dispatch[source](argv=source_argv)
+    setup_logging()
+    with log_step(f"{command} {rest[0]}"):
+        description = describe(command, rest[0])
+        if description:
+            get_logger(__name__).info("%s", description)
+        dispatch[command][rest[0]](argv=rest[1:])
 
 
 if __name__ == "__main__":

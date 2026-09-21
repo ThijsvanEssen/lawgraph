@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,17 +18,20 @@ from lawgraph.api.queries._helpers import (
     _load_document_by_ref,
     _resolve_target_from_entry,
 )
+from lawgraph.api.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_ARTICLES,
+    COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     EDGE_STATUS_VOORGESTELD,
-    RELATION_INTRODUCEERT,
-    RELATION_LICHT_TOE,
-    RELATION_MENTIONS_ARTICLE,
-    RELATION_REFERS_TO_ARTICLE,
-    RELATION_TREKT_IN,
-    RELATION_WIJZIGT,
+    RELATION_AMENDS,
+    RELATION_EXPLAINS,
+    RELATION_INTRODUCES,
+    RELATION_PART_OF,
+    RELATION_REFERS_TO,
+    RELATION_REPEALS,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 
@@ -38,6 +42,13 @@ class ArticleDetailData:
     instrument: dict[str, Any] | None
     judgments: list[dict[str, Any]]
     metadata: dict[str, Any]
+
+
+@dataclass
+class ArticleHistoryData:
+    article: dict[str, Any]
+    versions: list[dict[str, Any]]
+    dossier_titles: dict[str, str | None]
 
 
 @dataclass
@@ -77,9 +88,9 @@ def get_article_with_relations(
     bwb_id: str,
     article_number: str,
 ) -> ArticleDetailData:
-    """Fetch an article along with its parent instrument and mentioning judgments."""
+    """Fetch an article with its parent instrument and the judgments citing it."""
     article_key = make_node_key(bwb_id, article_number)
-    article_doc = store.instrument_articles.get(article_key)
+    article_doc = store.articles.get(article_key)
     article_doc = _ensure_doc(article_doc)
     if article_doc is None:
         raise ValueError("article not found")
@@ -95,6 +106,51 @@ def get_article_with_relations(
         judgments=judgments,
         metadata=metadata,
     )
+
+
+def get_article_history(
+    store: ArangoStore,
+    bwb_id: str,
+    article_number: str,
+) -> ArticleHistoryData:
+    """All versions of one article identity, oldest first, plus dossier titles.
+
+    The current article is resolved by key (``ValueError`` when unknown). Its
+    identity inside the regulation is ``(bwb_id, stam_id)``; an article without a
+    ``stam_id`` is matched on ``(bwb_id, article_number)``. Query budget: one for
+    the versions and, when the publications name dossiers, one for their titles —
+    independent of the number of versions.
+    """
+    article_key = make_node_key(bwb_id, article_number)
+    article = _ensure_doc(store.articles.get(article_key))
+    if article is None:
+        raise ValueError("article not found")
+
+    props = article.get("props") or {}
+    stam_id = props.get("stam_id")
+    doc_bwb_id = props.get("bwb_id") or bwb_id.upper()
+    if stam_id:
+        identity_filter = "FILTER v.props.stam_id == @identity"
+        identity = stam_id
+    else:
+        identity_filter = "FILTER v.props.article_number == @identity"
+        identity = props.get("article_number") or article_number
+    aql = f"""
+    FOR v IN {COLLECTION_ARTICLE_VERSIONS}
+        FILTER v.props.bwb_id == @bwb_id
+        {identity_filter}
+        SORT v.props.valid_from ASC, v._key ASC
+        RETURN v
+    """
+    versions = list(store.query(aql, {"bwb_id": doc_bwb_id, "identity": identity}))
+
+    publications = [
+        (v.get("props") or {}).get(field)
+        for v in versions
+        for field in ("origin_publication", "commencement_publication")
+    ]
+    titles = get_dossier_titles(store, collect_dossier_numbers(publications))
+    return ArticleHistoryData(article=article, versions=versions, dossier_titles=titles)
 
 
 def get_article_citations(
@@ -118,7 +174,7 @@ def get_article_citations(
         RETURN edge
     """
     for edge in store.query(
-        aql, {"article_id": article_id, "relation": RELATION_REFERS_TO_ARTICLE}
+        aql, {"article_id": article_id, "relation": RELATION_REFERS_TO}
     ):
         target_doc = _load_document_by_ref(store, edge.get("_to"))
         if not target_doc:
@@ -157,22 +213,20 @@ def get_article_legislative_history(
 ) -> list[dict[str, Any]]:
     """Return dossiers/documents that introduced, amended, or propose to amend an article.
 
-    Each entry: {dossier_id, dossier_titel, datum, soort, status, samenvatting}.
+    Each entry: {dossier_id, dossier_number, dossier_title, date, kind, status,
+    summary, document_id}.
     """
-    from lawgraph.config.constants import RELATION_DEEL_VAN_DOSSIER
-
     if article_id is None:
         article_key = make_node_key(bwb_id, article_number)
-        article_id = f"{COLLECTION_INSTRUMENT_ARTICLES}/{article_key}"
+        article_id = f"{COLLECTION_ARTICLES}/{article_key}"
 
-    # Edges pointing TO this article from publications (wijzigt/introduceert/trekt_in)
-    # plus edges from the unified collection
+    # Every edge pointing at this article that says something about its text.
     mutation_relations = [
-        RELATION_WIJZIGT,
-        RELATION_INTRODUCEERT,
-        RELATION_TREKT_IN,
-        RELATION_LICHT_TOE,
-        RELATION_MENTIONS_ARTICLE,
+        RELATION_AMENDS,
+        RELATION_INTRODUCES,
+        RELATION_REPEALS,
+        RELATION_EXPLAINS,
+        RELATION_REFERS_TO,
     ]
     aql = f"""
     FOR edge IN {COLLECTION_EDGES}
@@ -180,23 +234,23 @@ def get_article_legislative_history(
         FILTER edge.relation IN @relations
         LET doc = DOCUMENT(edge._from)
         FILTER doc != null
-        LET col = SPLIT(edge._from, '/')[0]
         LET dossier = FIRST(
             FOR e2 IN {COLLECTION_EDGES}
-                FILTER e2._from == edge._from AND e2.relation == '{RELATION_DEEL_VAN_DOSSIER}'
+                FILTER e2._from == edge._from AND e2.relation == '{RELATION_PART_OF}'
+                FILTER STARTS_WITH(e2._to, '{COLLECTION_DOSSIERS}/')
                 LET d = DOCUMENT(e2._to)
-                FILTER d != null AND SPLIT(e2._to, '/')[0] == 'kamerstukdossiers'
+                FILTER d != null
                 LIMIT 1 RETURN d
         )
-        SORT edge.status == '{EDGE_STATUS_VOORGESTELD}' ? 0 : 1, doc.props.datum DESC
+        SORT edge.status == '{EDGE_STATUS_VOORGESTELD}' ? 0 : 1, doc.props.date DESC
         RETURN {{
             dossier_id: (dossier != null ? dossier._id : null),
-            dossier_nummer: (dossier != null ? dossier.props.kamerstuknummer : null),
-            dossier_titel: (dossier != null ? dossier.props.titel : null),
-            datum: doc.props.datum,
-            soort: doc.props.soort,
+            dossier_number: (dossier != null ? dossier.props.number : null),
+            dossier_title: (dossier != null ? dossier.props.title : null),
+            date: doc.props.date,
+            kind: doc.props.kind,
             status: edge.status,
-            samenvatting: doc.props.display_name,
+            summary: doc.props.display_name,
             document_id: doc._id
         }}
     """
@@ -214,21 +268,36 @@ def get_article_legislative_history(
 def get_article_in_flux(
     store: ArangoStore, bwb_id: str, article_number: str, article_id: str | None = None
 ) -> dict[str, Any]:
-    """Return in-flux status for an article: boolean + count of open dossiers targeting it."""
+    """In-flux status for an article: a flag plus the number of proposed edges."""
     if article_id is None:
         article_key = make_node_key(bwb_id, article_number)
-        article_id = f"{COLLECTION_INSTRUMENT_ARTICLES}/{article_key}"
+        article_id = f"{COLLECTION_ARTICLES}/{article_key}"
 
     aql = f"""
-    LET voorgesteld_count = LENGTH(
+    LET proposed = LENGTH(
         FOR edge IN {COLLECTION_EDGES}
             FILTER edge._to == @article_id
             FILTER edge.status == '{EDGE_STATUS_VOORGESTELD}'
             RETURN 1
     )
-    RETURN {{ in_flux: voorgesteld_count > 0, open_dossier_count: voorgesteld_count }}
+    RETURN {{ in_flux: proposed > 0, open_dossier_count: proposed }}
     """
     rows = list(store.query(aql, {"article_id": article_id}))
     if rows:
         return rows[0]
     return {"in_flux": False, "open_dossier_count": 0}
+
+
+def get_articles_by_keys(
+    store: ArangoStore, keys: Iterable[str]
+) -> dict[str, dict[str, Any]]:
+    """Fetch article documents for many keys in one query, keyed by ``_key``."""
+    key_list = list(set(keys))
+    if not key_list:
+        return {}
+    aql = f"""
+    FOR doc IN {COLLECTION_ARTICLES}
+        FILTER doc._key IN @keys
+        RETURN doc
+    """
+    return {doc["_key"]: doc for doc in store.query(aql, {"keys": key_list})}

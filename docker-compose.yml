@@ -2,13 +2,34 @@ services:
   arangodb:
     image: arangodb:3.12
     container_name: arango-lawgraph
+    restart: unless-stopped
     ports:
       - "8529:8529"
     environment:
       - ARANGO_ROOT_PASSWORD=${ARANGO_ROOT_PASSWORD}
+    # ArangoDB sizes its caches from the memory it sees (the whole Docker VM) and has no limit
+    # of its own: on an 8 GB VM it grew until the kernel killed it (exit 137, OOMKilled) in
+    # the middle of a load. The caches are bounded here so that it stays well under mem_limit.
+    mem_limit: 5g
+    command:
+      - arangod
+      - --rocksdb.block-cache-size=1073741824           # 1 GiB
+      - --rocksdb.enforce-block-cache-size-limit=true
+      - --rocksdb.total-write-buffer-size=536870912     # 512 MiB
+      - --cache.size=268435456                          # 256 MiB
+      - --query.memory-limit=1073741824                 # 1 GiB per query
+      - --query.global-memory-limit=2147483648          # 2 GiB for all queries together
     volumes:
       - arango_data:/var/lib/arangodb3
       - arango_apps:/var/lib/arangodb3-apps
+
+# The data lives in volumes that compose does not own: `docker compose down -v` removes the
+# volumes of a project, and that is how this database was lost once. Create them once:
+#   docker volume create lawgraph_arango_data && docker volume create lawgraph_arango_apps
 volumes:
   arango_data:
+    external: true
+    name: lawgraph_arango_data
   arango_apps:
+    external: true
+    name: lawgraph_arango_apps

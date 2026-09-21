@@ -1,0 +1,40 @@
+{
+ "resultcount": 827,
+ "results": [
+  {
+   "columns": {
+    "respondent": "NLD",
+    "importance": "3",
+    "article": "8;8-1",
+    "docname": "AFFAIRE A.A. c. PAYS-BAS",
+    "languageisocode": "FRE",
+    "itemid": "001-252409",
+    "kpdate": "2026-09-08T00:00:00",
+    "conclusion": "Non-violation de l'article 8 - Droit au respect de la vie privée et familiale (Article 8-1 - Respect de la vie familiale)",
+    "doctype": "HFJUD",
+    "applicability": "55",
+    "originatingbody": "7",
+    "appno": "7481/23",
+    "rank": "2"
+   }
+  },
+  {
+   "columns": {
+    "respondent": "NLD",
+    "importance": "3",
+    "article": "8;8-1",
+    "docname": "CASE OF A.A. v. THE NETHERLANDS",
+    "languageisocode": "ENG",
+    "itemid": "001-252192",
+    "kpdate": "2026-09-08T00:00:00",
+    "conclusion": "No violation of Article 8 - Right to respect for private and family life (Article 8-1 - Respect for family life)",
+    "doctype": "HEJUD",
+    "applicability": "55",
+    "originatingbody": "7",
+    "appno": "7481/23",
+    "rank": "2"
+   }
+  }
+ ],
+ "message": null
+}

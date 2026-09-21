@@ -3,53 +3,24 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Iterable
+from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
-    COLLECTION_JUDGMENTS,
-    RAW_KIND_RS_CONTENT,
-    RELATION_CITES_ARTICLE,
-    SOURCE_RECHTSPRAAK,
+    COLLECTION_ARTICLES,
+    RELATION_REFERS_TO,
 )
+from lawgraph.core.citations import CitationHit, hit_reason, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
 from .base import SemanticPipelineBase
-from .citation_detect import CitationHit, DutchCitationExtractor, hit_reason, strip_xml
+from .detection import build_extractor, detect_in_text
 
 logger = get_logger(__name__)
 
-# Exported for backward compatibility with existing tests and callers.
-CodeMapping = dict[str, str]
 
 SEMANTIC_SOURCE = "rechtspraak-article-linker"
-
-
-# ---------------------------------------------------------------------------
-# Backward-compat public function
-# ---------------------------------------------------------------------------
-
-
-def detect_article_references(
-    text: str | None,
-    mapping: dict[str, str],
-) -> list[CitationHit]:
-    """Return article citations detected in *text*.
-
-    Thin wrapper around ``DutchCitationExtractor`` kept for backward compat.
-    Also appends bare ``artikel X`` hits (no law code, confidence 0.35) so
-    that callers which depend on low-confidence bare detection still work.
-    """
-    if not text:
-        return []
-    extractor = DutchCitationExtractor(code_aliases=mapping)
-    hits = extractor.extract(text)
-    coded_nums = {h.article_number for h in hits if h.article_number}
-    bare = extractor.extract_bare(text, confidence=0.35)
-    hits.extend(b for b in bare if b.article_number not in coded_nums)
-    return hits
 
 
 # ---------------------------------------------------------------------------
@@ -57,40 +28,38 @@ def detect_article_references(
 # ---------------------------------------------------------------------------
 
 
-class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
+class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
     """Link Rechtspraak judgments to BWB articles via semantic edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
         since_iso = iso_timestamp(since)
-        eclis = self._recent_rechtspraak_eclis(since_iso)
-        judgments = list(self._load_judgments(eclis))
 
         mapping = self._load_code_aliases()
-        if not mapping:
-            logger.warning("No code_aliases configured; skipping semantic linkage.")
+        instrument_aliases = self._load_instrument_aliases()
+        if not mapping and not instrument_aliases:
+            logger.warning("No code or name aliases configured; skipping linkage.")
             return result
 
-        extractor = DutchCitationExtractor(code_aliases=mapping)
+        extractor = build_extractor(mapping, instrument_aliases)
 
         logger.info(
-            "Processing %d Rechtspraak judgments for article references (since=%s).",
-            len(judgments),
+            "Processing Rechtspraak judgments for article references (since=%s).",
             describe_since(since),
         )
 
         edge_batch: list[dict[str, Any]] = []
+        judgment_count = 0
 
-        for doc in judgments:
-            judgment = Node.from_document(COLLECTION_JUDGMENTS, doc)
-            raw_text = self._extract_judgment_text(judgment)
-            text = strip_xml(raw_text) if raw_text else None
-            hits = extractor.extract(text or "")
+        # The XML of each judgment streams from raw_sources, where retrieve stored it.
+        for judgment, xml in self._judgment_texts(since_iso):
+            judgment_count += 1
+            hits = detect_in_text(strip_xml(xml), extractor)
             if not hits:
                 continue
 
             for hit in hits:
-                if not hit.bwb_id and not hit.celex:
+                if hit.kind != "article":
                     continue
 
                 article = self._resolve_article(hit)
@@ -100,7 +69,7 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
                 edge_doc = self._make_edge_doc(
                     from_node=judgment,
                     to_node=article,
-                    relation=RELATION_CITES_ARTICLE,
+                    relation=RELATION_REFERS_TO,
                     source=SEMANTIC_SOURCE,
                     confidence=hit.confidence,
                     meta={
@@ -127,20 +96,25 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
             result.created += created
             result.updated += updated
 
-        logger.info("Rechtspraak article linker: %s.", result.summary())
+        logger.info(
+            "Rechtspraak article linker: %d judgments, %s.",
+            judgment_count,
+            result.summary(),
+        )
         return result
 
     def _resolve_article(self, hit: CitationHit) -> Node | None:
         if hit.bwb_id and hit.article_number:
             article_key = make_node_key(hit.bwb_id, hit.article_number)
-            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
+            node = self._lookup_node(COLLECTION_ARTICLES, article_key)
             if node is None and hit.confidence >= 0.9:
                 node = self.store.ensure_stub_node(
-                    COLLECTION_INSTRUMENT_ARTICLES,
+                    COLLECTION_ARTICLES,
                     article_key,
                     NodeType.ARTICLE,
                     props={"bwb_id": hit.bwb_id, "article_number": hit.article_number},
                 )
+                self._remember_node(node)
             if node is None:
                 logger.debug(
                     "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",
@@ -152,14 +126,15 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
 
         if hit.celex and hit.article_number:
             article_key = make_node_key(hit.celex, hit.article_number)
-            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, article_key)
+            node = self._lookup_node(COLLECTION_ARTICLES, article_key)
             if node is None and hit.confidence >= 0.9:
                 node = self.store.ensure_stub_node(
-                    COLLECTION_INSTRUMENT_ARTICLES,
+                    COLLECTION_ARTICLES,
                     article_key,
                     NodeType.ARTICLE,
                     props={"celex": hit.celex, "article_number": hit.article_number},
                 )
+                self._remember_node(node)
             if node is None:
                 logger.debug(
                     "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",
@@ -170,49 +145,3 @@ class RechtspraakArticleSemanticPipeline(SemanticPipelineBase):
             return node
 
         return None
-
-    def _recent_rechtspraak_eclis(self, since_iso: str | None) -> set[str]:
-        if since_iso is None:
-            return set()
-
-        bind_vars = {
-            "source": SOURCE_RECHTSPRAAK,
-            "kind": RAW_KIND_RS_CONTENT,
-            "since": since_iso,
-        }
-        aql = """
-        FOR raw IN raw_sources
-            FILTER raw.source == @source
-            FILTER raw.kind == @kind
-            FILTER raw.fetched_at >= @since
-            FILTER raw.meta.ecli != null
-        RETURN raw.meta.ecli
-        """
-        eclis: set[str] = set()
-        for row in self.store.query(aql, bind_vars=bind_vars):
-            if row:
-                eclis.add(row)
-        return eclis
-
-    def _load_judgments(self, eclis: Iterable[str]) -> Iterable[dict[str, Any]]:
-        collection = COLLECTION_JUDGMENTS
-        if eclis:
-            bind_vars = {"eclis": list(eclis)}
-            aql = f"""
-            FOR doc IN {collection}
-                FILTER doc.props.ecli IN @eclis
-            RETURN doc
-            """
-        else:
-            bind_vars = {}
-            aql = f"FOR doc IN {collection} RETURN doc"
-        return self.store.query(aql, bind_vars=bind_vars)
-
-    def _extract_judgment_text(self, judgment: Node) -> str | None:
-        props = judgment.props
-        fragments: list[str] = []
-        for key in ("raw_xml", "text", "summary"):
-            value = props.get(key)
-            if isinstance(value, str) and value.strip():
-                fragments.append(value.strip())
-        return "\n\n".join(fragments) if fragments else None

@@ -1,266 +1,93 @@
-"""Semantic linkage pipeline that connects TK publications to legal articles."""
+"""Semantic linkage pipeline that connects TK documents to the articles they cite."""
 
 from __future__ import annotations
 
 import datetime as dt
-import re
 from typing import Any, Callable, Iterable
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENT_ARTICLES,
+    COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_PROCEDURES,
-    COLLECTION_PUBLICATIONS,
-    RAW_KIND_TK_DOCUMENTVERSIE,
-    RAW_KIND_TK_ZAAK,
-    RELATION_EXPLAINS_ARTICLE,
-    RELATION_MENTIONS_ARTICLE,
-    RELATION_MENTIONS_INSTRUMENT,
+    COLLECTION_RAW_SOURCES,
+    MAX_SEMANTIC_TEXT_LENGTH,
+    RAW_KIND_TK_DOCUMENT,
+    RELATION_REFERS_TO,
     SOURCE_TK,
+)
+from lawgraph.core.aliases import AliasMatcher, InstrumentAliasMap
+from lawgraph.core.citations import (
+    CitationHit,
+    DutchCitationExtractor,
+    coerce_text,
+    hit_reason,
+    make_snippet,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 
-from .base import InstrumentAliasMap, SemanticPipelineBase
-from .citation_detect import (
-    CitationHit,
-    DutchCitationExtractor,
-    coerce_text,
-    format_celex,
-    hit_reason,
-    make_snippet,
-)
+from .base import SemanticPipelineBase
+from .detection import build_extractor, detect_in_text
 
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "tk-article-linker"
-
-_MAX_TEXT_LENGTH = 200_000
-
-# Soort values that indicate an explanatory (MvT) document.
-_MVT_SOORT_MARKER = "toelichting"
-
-# ---------------------------------------------------------------------------
-# Instrument-level patterns (not driven by registry — EU/BWBR literal forms)
-# ---------------------------------------------------------------------------
-
-_BWBR_PATTERN = re.compile(r"\b(BWBR0\d{6})\b", re.IGNORECASE)
-_CELEX_DIRECT_PATTERN = re.compile(r"\bCELEX:([0-9A-Z()\\/.\-]+)\b", re.IGNORECASE)
-_RICHTLIJN_PATTERN = re.compile(
-    r"\bRichtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
-)
-_VERORDENING_PATTERN = re.compile(
-    r"\bVerordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b", re.IGNORECASE
-)
-
-# EU article-level patterns (year+number → CELEX, not registry-driven)
-_ARTICLE_RICHTLIJN_PATTERN = re.compile(
-    r"\bartikel\s+(\d+[a-z]*)\s+van\s+(?:de\s+)?[Rr]ichtlijn\s+(\d{4})/(\d+)(?:/EU|/EG)?\b",
-    re.IGNORECASE,
-)
-_ARTICLE_VERORDENING_PATTERN = re.compile(
-    r"\bartikel\s+(\d+[a-z]*)\s+van\s+(?:de\s+)?[Vv]erordening\s+(\d{4})/(\d+)(?:/EU|/EG)?\b",
-    re.IGNORECASE,
-)
-_ARTICLE_BESLUIT_PATTERN = re.compile(
-    r"\bartikel\s+(\d+[a-z]*)\s+van\s+(?:het\s+)?[Bb]esluit\s+(\d{4})/(\d+)(?:/EU|/EG|/GBVB)?\b",
-    re.IGNORECASE,
-)
-_ARTICLE_KADERBESLUIT_PATTERN = re.compile(
-    r"\bartikel\s+(\d+[a-z]*)\s+van\s+(?:het\s+)?[Kk]aderbesluit\s+(\d{4})/(\d+)(?:/JBZ|/EU)?\b",
-    re.IGNORECASE,
-)
-
-_EU_ARTICLE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (_ARTICLE_RICHTLIJN_PATTERN, "directive"),
-    (_ARTICLE_VERORDENING_PATTERN, "regulation"),
-    (_ARTICLE_BESLUIT_PATTERN, "decision"),
-    (_ARTICLE_KADERBESLUIT_PATTERN, "framework_decision"),
-)
-
-# ---------------------------------------------------------------------------
-# Relation selector
-# ---------------------------------------------------------------------------
-
-
-def _pick_tk_relation(document: Node, hit_kind: str) -> str:
-    if hit_kind == "instrument":
-        return RELATION_MENTIONS_INSTRUMENT
-    soort = str(document.props.get("soort") or "").lower()
-    if _MVT_SOORT_MARKER in soort:
-        return RELATION_EXPLAINS_ARTICLE
-    return RELATION_MENTIONS_ARTICLE
-
 
 # ---------------------------------------------------------------------------
 # Instrument-level hit collectors
 # ---------------------------------------------------------------------------
 
 
-def _build_named_act_patterns(
-    aliases: InstrumentAliasMap,
-) -> list[tuple[str, re.Pattern[str], str | None, str | None]]:
-    patterns: list[tuple[str, re.Pattern[str], str | None, str | None]] = []
-    for label, (bwb_id, celex) in aliases.items():
-        if not (bwb_id or celex):
-            continue
-        escaped = re.escape(label)
-        pattern = re.compile(rf"(?<!\w){escaped}(?!\w)", re.IGNORECASE)
-        patterns.append((label, pattern, bwb_id, celex))
-    return patterns
+class NamedActs:
+    """The law names of the graph, matched against a text in one pass (``AliasMatcher``)."""
 
+    def __init__(self, aliases: InstrumentAliasMap) -> None:
+        self._targets = [
+            (bwb_id, celex) for bwb_id, celex in aliases.values() if bwb_id or celex
+        ]
+        self._matcher = AliasMatcher(
+            label for label, (bwb_id, celex) in aliases.items() if bwb_id or celex
+        )
 
-def _collect_named_act_hits(
-    text: str,
-    patterns: list[tuple[str, re.Pattern[str], str | None, str | None]],
-    record: Callable[[CitationHit], None],
-) -> None:
-    for _, pattern, bwb_id, celex in patterns:
-        for match in pattern.finditer(text):
+    def collect_hits(self, text: str, record: Callable[[CitationHit], None]) -> None:
+        for order, start, end in self._matcher.first_matches(text):
+            bwb_id, celex = self._targets[order]
             record(
                 CitationHit(
                     kind="instrument",
                     bwb_id=bwb_id,
                     celex=celex,
                     confidence=0.6,
-                    raw_match=match.group(0),
-                    snippet=make_snippet(text, match.span()),
+                    raw_match=text[start:end],
+                    snippet=make_snippet(text, (start, end)),
                 )
             )
-
-
-def _collect_bwbr_hits(
-    text: str,
-    record: Callable[[CitationHit], None],
-) -> None:
-    for match in _BWBR_PATTERN.finditer(text):
-        identifier = match.group(1).upper()
-        record(
-            CitationHit(
-                kind="instrument",
-                bwb_id=identifier,
-                confidence=0.75,
-                raw_match=match.group(0),
-                snippet=make_snippet(text, match.span()),
-            )
-        )
-
-
-def _collect_celex_hits(
-    text: str,
-    record: Callable[[CitationHit], None],
-) -> None:
-    for match in _CELEX_DIRECT_PATTERN.finditer(text):
-        celex_value = match.group(1).upper()
-        record(
-            CitationHit(
-                kind="instrument",
-                celex=celex_value,
-                confidence=0.9,
-                raw_match=match.group(0),
-                snippet=make_snippet(text, match.span()),
-            )
-        )
-
-
-def _collect_eu_instrument_hits(
-    text: str,
-    record: Callable[[CitationHit], None],
-) -> None:
-    for pattern, kind in (
-        (_RICHTLIJN_PATTERN, "directive"),
-        (_VERORDENING_PATTERN, "regulation"),
-    ):
-        for match in pattern.finditer(text):
-            celex_value = format_celex(kind, match.group(1), match.group(2))  # type: ignore[arg-type]
-            record(
-                CitationHit(
-                    kind="instrument",
-                    celex=celex_value,
-                    confidence=0.65,
-                    raw_match=match.group(0),
-                    snippet=make_snippet(text, match.span()),
-                )
-            )
-
-
-def _collect_eu_article_hits(
-    text: str,
-    record: Callable[[CitationHit], None],
-) -> None:
-    for pattern, kind in _EU_ARTICLE_PATTERNS:
-        for match in pattern.finditer(text):
-            article_number = match.group(1)
-            year = match.group(2)
-            number_value = match.group(3)
-            celex = format_celex(kind, year, number_value)  # type: ignore[arg-type]
-            record(
-                CitationHit(
-                    kind="article",
-                    celex=celex,
-                    article_number=article_number,
-                    confidence=0.88,
-                    raw_match=match.group(0),
-                    snippet=make_snippet(text, match.span()),
-                )
-            )
-
-
-# ---------------------------------------------------------------------------
-# Backward-compat public function
-# ---------------------------------------------------------------------------
 
 
 def detect_tk_citations(
     text: str,
     code_aliases: dict[str, str],
-    instrument_aliases: InstrumentAliasMap | dict[str, Any],
+    instrument_aliases: InstrumentAliasMap,
 ) -> list[CitationHit]:
-    """Detect article and instrument citations in TK publication text.
-
-    Thin wrapper around ``DutchCitationExtractor`` kept for backward compat.
-    New code should instantiate ``DutchCitationExtractor`` directly.
-    """
+    """Detect article and instrument citations in the text of a TK document."""
     if not text:
         return []
 
-    parsed_aliases: InstrumentAliasMap = SemanticPipelineBase._parse_instrument_aliases(
-        instrument_aliases
+    return _collect_tk_hits(
+        text,
+        build_extractor(code_aliases, instrument_aliases),
+        NamedActs(instrument_aliases),
     )
 
-    # Build name_aliases: {full name → first non-None id (bwb or celex)}
-    name_aliases: dict[str, str] = {}
-    for name, (bwb_id, celex) in parsed_aliases.items():
-        law_id = bwb_id or celex
-        if law_id:
-            name_aliases[name] = law_id
 
-    extractor = DutchCitationExtractor(
-        code_aliases=code_aliases,
-        name_aliases=name_aliases,
-    )
-    hits = extractor.extract(text)
-
-    seen: set[tuple[str | None, str | None]] = {
-        (h.bwb_id, h.celex) for h in hits if h.kind == "instrument"
-    }
-
-    def _record(hit: CitationHit) -> None:
-        key = (hit.bwb_id, hit.celex)
-        if key in seen:
-            return
-        seen.add(key)
-        hits.append(hit)
-
-    named_act_patterns = _build_named_act_patterns(parsed_aliases)
-    _collect_named_act_hits(text, named_act_patterns, _record)
-    _collect_bwbr_hits(text, _record)
-    _collect_celex_hits(text, _record)
-    _collect_eu_instrument_hits(text, _record)
-    _collect_eu_article_hits(text, _record)
-
-    return hits
+def _collect_tk_hits(
+    text: str,
+    extractor: DutchCitationExtractor,
+    named_acts: NamedActs,
+) -> list[CitationHit]:
+    """Registry-driven article hits plus every instrument-level TK pattern."""
+    return detect_in_text(text, extractor, extra=named_acts.collect_hits)
 
 
 # ---------------------------------------------------------------------------
@@ -268,8 +95,8 @@ def detect_tk_citations(
 # ---------------------------------------------------------------------------
 
 
-class TKArticleSemanticPipeline(SemanticPipelineBase):
-    """Pipeline connecting TK publications and procedures to legal articles."""
+class TKArticlesSemanticPipeline(SemanticPipelineBase):
+    """Pipeline connecting TK documents to the articles and instruments they cite."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
@@ -282,18 +109,8 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
                 "No instrument or code aliases configured for TK semantic linking."
             )
 
-        # Build name_aliases for DutchCitationExtractor (article-level "van de" form)
-        name_aliases: dict[str, str] = {}
-        for name, (bwb_id, celex) in instrument_aliases.items():
-            law_id = bwb_id or celex
-            if law_id:
-                name_aliases[name] = law_id
-
-        extractor = DutchCitationExtractor(
-            code_aliases=code_aliases,
-            name_aliases=name_aliases,
-        )
-        named_act_patterns = _build_named_act_patterns(instrument_aliases)
+        extractor = build_extractor(code_aliases, instrument_aliases)
+        named_acts = NamedActs(instrument_aliases)
 
         logger.info(
             "Processing TK documents for semantic linking (since=%s).",
@@ -303,14 +120,15 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
         edge_batch: list[dict[str, Any]] = []
         doc_count = 0
 
-        for document in self._load_tk_documents(since_iso=since_iso):
+        documents = self._load_tk_documents(since_iso=since_iso)
+        for document in self._track(documents, "TK documents"):
             doc_count += 1
             text = self._extract_document_text(document)
             if not text:
                 result.skipped += 1
                 continue
 
-            hits = self._collect_all_hits(text, extractor, named_act_patterns)
+            hits = _collect_tk_hits(text, extractor, named_acts)
             if not hits:
                 continue
 
@@ -318,7 +136,6 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
                 target_node = self._resolve_target_node(hit)
                 if not target_node:
                     continue
-                relation = _pick_tk_relation(document, hit.kind)
                 meta = {
                     k: v
                     for k, v in {
@@ -332,7 +149,7 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
                 edge_doc = self._make_edge_doc(
                     from_node=document,
                     to_node=target_node,
-                    relation=relation,
+                    relation=RELATION_REFERS_TO,
                     source=SEMANTIC_SOURCE,
                     confidence=hit.confidence,
                     meta=meta,
@@ -357,83 +174,52 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
         )
         return result
 
-    def _collect_all_hits(
-        self,
-        text: str,
-        extractor: DutchCitationExtractor,
-        named_act_patterns: list[tuple[str, re.Pattern[str], str | None, str | None]],
-    ) -> list[CitationHit]:
-        hits = extractor.extract(text)
-
-        seen_instruments: set[tuple[str | None, str | None]] = {
-            (h.bwb_id, h.celex) for h in hits if h.kind == "instrument"
-        }
-
-        def _record(hit: CitationHit) -> None:
-            key = (hit.bwb_id, hit.celex)
-            if key in seen_instruments:
-                return
-            seen_instruments.add(key)
-            hits.append(hit)
-
-        _collect_named_act_hits(text, named_act_patterns, _record)
-        _collect_bwbr_hits(text, _record)
-        _collect_celex_hits(text, _record)
-        _collect_eu_instrument_hits(text, _record)
-        _collect_eu_article_hits(text, _record)
-
-        return hits
-
     def _load_tk_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
+        """TK documents; only a Document may be the source of a REFERS_TO edge."""
+        bind_vars: dict[str, Any] | None = None
+        id_filter = ""
         if since_iso is not None:
-            recent_ids: set[str] = set()
-            for kind in (RAW_KIND_TK_DOCUMENTVERSIE, RAW_KIND_TK_ZAAK):
-                aql = """
-                FOR raw IN raw_sources
-                    FILTER raw.source == @source AND raw.kind == @kind
-                    FILTER raw.fetched_at >= @since
-                    FILTER raw.external_id != null
-                RETURN raw.external_id
-                """
-                for row in self.store.query(
-                    aql,
-                    bind_vars={"source": SOURCE_TK, "kind": kind, "since": since_iso},
-                ):
-                    if isinstance(row, str):
-                        recent_ids.add(row)
-                    elif isinstance(row, dict):
-                        eid = row.get("external_id")
-                        if eid:
-                            recent_ids.add(str(eid))
+            recent_ids = self._recent_external_ids(since_iso)
             if not recent_ids:
                 return
-            id_list = list(recent_ids)
-            for collection in (COLLECTION_PUBLICATIONS, COLLECTION_PROCEDURES):
-                aql = (
-                    f"FOR doc IN {collection}\n"
-                    '    FILTER "TK" IN doc.labels\n'
-                    "    FILTER doc.props.external_id IN @ids\n"
-                    "    RETURN doc"
-                )
-                for doc in self.store.query(aql, bind_vars={"ids": id_list}):
-                    yield Node.from_document(collection, doc)
-        else:
-            for collection in (COLLECTION_PUBLICATIONS, COLLECTION_PROCEDURES):
-                aql = (
-                    f"FOR doc IN {collection}\n"
-                    '    FILTER "TK" IN doc.labels\n'
-                    "    RETURN doc"
-                )
-                for doc in self.store.query(aql):
-                    yield Node.from_document(collection, doc)
+            id_filter = "    FILTER doc.props.external_id IN @ids\n"
+            bind_vars = {"ids": sorted(recent_ids)}
+
+        aql = (
+            f"FOR doc IN {COLLECTION_DOCUMENTS}\n"
+            '    FILTER "TK" IN doc.labels\n'
+            f"{id_filter}"
+            "    RETURN doc"
+        )
+        for doc in self.store.query(aql, bind_vars=bind_vars):
+            yield Node.from_document(COLLECTION_DOCUMENTS, doc)
+
+    def _recent_external_ids(self, since_iso: str) -> set[str]:
+        """External ids of TK documents fetched at or after *since_iso*."""
+        aql = f"""
+        FOR raw IN {COLLECTION_RAW_SOURCES}
+            FILTER raw.source == @source AND raw.kind == @kind
+            FILTER raw.fetched_at >= @since
+            FILTER raw.external_id != null
+        RETURN raw.external_id
+        """
+        rows = self.store.query(
+            aql,
+            bind_vars={
+                "source": SOURCE_TK,
+                "kind": RAW_KIND_TK_DOCUMENT,
+                "since": since_iso,
+            },
+        )
+        return {str(row) for row in rows if isinstance(row, str)}
 
     def _resolve_target_node(self, hit: CitationHit) -> Node | None:
         if hit.kind == "article" and hit.bwb_id and hit.article_number:
             key = make_node_key(hit.bwb_id, hit.article_number)
-            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+            node = self._lookup_node(COLLECTION_ARTICLES, key)
             if node is None and hit.confidence >= 0.85:
                 stub = Node(
-                    collection=COLLECTION_INSTRUMENT_ARTICLES,
+                    collection=COLLECTION_ARTICLES,
                     key=key,
                     type=NodeType.ARTICLE,
                     props={
@@ -443,7 +229,8 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
                         "display_name": f"Artikel {hit.article_number} ({hit.bwb_id})",
                     },
                 )
-                node = self.store.insert_or_update(stub)
+                node, _ = self.store.insert_or_update(stub)
+                self._remember_node(node)
             if node is None:
                 logger.debug(
                     "TK semantic: no node found for %s %s (confidence=%.2f)",
@@ -455,10 +242,10 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
 
         if hit.kind == "article" and hit.celex and hit.article_number:
             key = make_node_key(hit.celex, hit.article_number)
-            node = self.store.get_node(COLLECTION_INSTRUMENT_ARTICLES, key)
+            node = self._lookup_node(COLLECTION_ARTICLES, key)
             if node is None and hit.confidence >= 0.85:
                 stub = Node(
-                    collection=COLLECTION_INSTRUMENT_ARTICLES,
+                    collection=COLLECTION_ARTICLES,
                     key=key,
                     type=NodeType.ARTICLE,
                     props={
@@ -468,7 +255,8 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
                         "display_name": f"Artikel {hit.article_number} ({hit.celex})",
                     },
                 )
-                node = self.store.insert_or_update(stub)
+                node, _ = self.store.insert_or_update(stub)
+                self._remember_node(node)
             if node is None:
                 logger.debug(
                     "TK semantic: no node found for %s %s (confidence=%.2f)",
@@ -480,14 +268,14 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
 
         if hit.celex:
             key = make_node_key(hit.celex)
-            node = self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            node = self._lookup_node(COLLECTION_INSTRUMENTS, key)
             if node is None:
                 logger.debug("TK semantic: no instrument node for CELEX %s", hit.celex)
             return node
 
         if hit.bwb_id:
             key = make_node_key(hit.bwb_id)
-            node = self.store.get_node(COLLECTION_INSTRUMENTS, key)
+            node = self._lookup_node(COLLECTION_INSTRUMENTS, key)
             if node is None:
                 logger.debug("TK semantic: no instrument node for BWB %s", hit.bwb_id)
             return node
@@ -511,10 +299,10 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
         if not fragments:
             return None
         text = "\n".join(fragments)
-        if len(text) >= _MAX_TEXT_LENGTH:
+        if len(text) >= MAX_SEMANTIC_TEXT_LENGTH:
             logger.debug(
                 "TK semantic: document text reached collection limit of %d chars (node %s).",
-                _MAX_TEXT_LENGTH,
+                MAX_SEMANTIC_TEXT_LENGTH,
                 document.key,
             )
         return text
@@ -525,7 +313,7 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
         fragments: list[str],
         current_length: int,
     ) -> int:
-        if current_length >= _MAX_TEXT_LENGTH:
+        if current_length >= MAX_SEMANTIC_TEXT_LENGTH:
             return current_length
         if isinstance(value, str):
             snippet = value.strip()
@@ -546,7 +334,7 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
     ) -> int:
         for child in value.values():
             current_length = self._collect_raw_text(child, fragments, current_length)
-            if current_length >= _MAX_TEXT_LENGTH:
+            if current_length >= MAX_SEMANTIC_TEXT_LENGTH:
                 break
         return current_length
 
@@ -558,6 +346,6 @@ class TKArticleSemanticPipeline(SemanticPipelineBase):
     ) -> int:
         for item in value:
             current_length = self._collect_raw_text(item, fragments, current_length)
-            if current_length >= _MAX_TEXT_LENGTH:
+            if current_length >= MAX_SEMANTIC_TEXT_LENGTH:
                 break
         return current_length

@@ -3,41 +3,47 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
+    MAX_TITLE_CHARS,
     RAW_KIND_ECHR_JUDGMENT,
     SOURCE_ECHR,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
+from lawgraph.db import NodeWriter
 from lawgraph.db.store import ArangoStore
-from lawgraph.pipelines.normalize.base import NormalizePipeline
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
 
-class EchrNormalizePipeline(NormalizePipeline):
+class ECHRNormalizePipeline(NormalizePipelineBase):
     """Normalize ECHR HUDOC judgment JSON into Judgment nodes."""
 
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> list[dict[str, Any]]:
-        rows = self._query_raw_sources(
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
+        return self._iter_raw_sources(
             source=SOURCE_ECHR,
             kinds=[RAW_KIND_ECHR_JUDGMENT],
             since=since,
+            batch_size=1000,
         )
-        logger.info("Loaded %d ECHR raw_sources.", len(rows))
-        return rows
 
     def normalize_nodes(
-        self, raw: list[dict[str, Any]], result: PipelineResult
-    ) -> dict[str, Node]:
-        nodes: dict[str, Node] = {}
+        self, raw: Iterable[dict[str, Any]], result: PipelineResult
+    ) -> int:
+        count = 0
+        english: dict[str, bool] = {}
+        writer = NodeWriter(self.store)
 
         for record in raw:
             payload = self._payload_json(record)
@@ -60,7 +66,9 @@ class EchrNormalizePipeline(NormalizePipeline):
             originating_body = payload.get("originatingbody") or ""
 
             # Construct a human-readable display name
-            display_name = docname[:200] if docname else f"ECHR {appno or item_id}"
+            display_name = (
+                docname[:MAX_TITLE_CHARS] if docname else f"ECHR {appno or item_id}"
+            )
 
             props: dict[str, Any] = {
                 "source": SOURCE_ECHR,
@@ -80,7 +88,17 @@ class EchrNormalizePipeline(NormalizePipeline):
                 except (TypeError, ValueError):
                     props["importance"] = importance
 
-            key = make_node_key("echr", item_id)
+            # By its ECLI when it has one: that is what a Dutch judgment cites, so the stub
+            # of a cited judgment and the judgment itself are the same node. HUDOC holds a
+            # judgment once per language; the English record is the one that stays.
+            ecli = str(payload.get("ecli") or "").strip().upper()
+            if ecli:
+                props["ecli"] = ecli
+                if english.get(ecli) and payload.get("languageisocode") != "ENG":
+                    result.skipped += 1
+                    continue
+                english[ecli] = payload.get("languageisocode") == "ENG"
+            key = make_node_key(ecli) if ecli else make_node_key("echr", item_id)
             node = Node(
                 collection=COLLECTION_JUDGMENTS,
                 type=NodeType.JUDGMENT,
@@ -88,14 +106,13 @@ class EchrNormalizePipeline(NormalizePipeline):
                 labels=["ECHR"],
                 props=props,
             )
-            node = self.store.insert_or_update(node)
-            nodes[item_id] = node
-            result.created += 1
+            writer.add(node)
+            count += 1
 
-        logger.info("ECHR normalize: %d judgments processed.", len(nodes))
-        return nodes
+        writer.flush()
 
-    def build_edges(
-        self, raw: list[dict[str, Any]], normalized: dict[str, Node]
-    ) -> int:
-        return 0
+        logger.info("ECHR normalize: %d judgments processed.", count)
+        return count
+
+    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
+        """No structural edges: citations are linked by the semantic pipelines."""

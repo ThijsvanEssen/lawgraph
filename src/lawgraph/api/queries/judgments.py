@@ -7,10 +7,12 @@ from typing import Any
 
 from lawgraph.api.queries._helpers import _load_judgment
 from lawgraph.config.constants import (
-    RELATION_MENTIONS_ARTICLE,
-    RELATION_PART_OF_INSTRUMENT,
+    COLLECTION_ARTICLES,
+    COLLECTION_EDGES,
+    COLLECTION_JUDGMENTS,
+    RELATION_PART_OF,
+    RELATION_REFERS_TO,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.db import ArangoStore
 
 
@@ -28,17 +30,11 @@ class JudgmentDetailData:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-JUDGMENT_SORTS = ("date_desc", "date_asc", "citation_count")
-
-
 def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetailData:
-    """Fetch a judgment and its referenced articles in a single AQL pass.
+    """Fetch a judgment and the articles it refers to in a single AQL pass.
 
-    Previous implementation issued 2N+1 queries (edges list + per-article
-    document fetch + per-article instrument lookup). This version collapses
-    everything into one query: DOCUMENT() inline lookups and a nested
-    FIRST(...) subquery for the PART_OF_INSTRUMENT edge, so ArangoDB resolves
-    all joins server-side.
+    DOCUMENT() inline lookups and a nested FIRST(...) subquery for the PART_OF
+    edge let ArangoDB resolve every join server-side.
     """
     judgment_doc = _load_judgment(store, ecli)
     if judgment_doc is None:
@@ -46,7 +42,8 @@ def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetail
 
     aql = f"""
     FOR edge IN {COLLECTION_EDGES}
-        FILTER edge._from == @jid AND edge.relation == @mentions
+        FILTER edge._from == @jid AND edge.relation == @refers_to
+        FILTER STARTS_WITH(edge._to, '{COLLECTION_ARTICLES}/')
         LET article = DOCUMENT(edge._to)
         FILTER article != null
         LET instrument = FIRST(
@@ -62,8 +59,8 @@ def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetail
             aql,
             {
                 "jid": judgment_doc["_id"],
-                "mentions": RELATION_MENTIONS_ARTICLE,
-                "part_of": RELATION_PART_OF_INSTRUMENT,
+                "refers_to": RELATION_REFERS_TO,
+                "part_of": RELATION_PART_OF,
             },
         )
     )
@@ -98,9 +95,8 @@ def get_judgments_list(
       * Free-text via ``search_judgments`` ArangoSearch view (BM25). Without
         the view, ``CONTAINS(LOWER(props.summary), @q)`` dominates wall time
         because summaries are multi-KB.
-      * ``tier``, ``court_code``, ``date`` read from precomputed props
-        (back-filled by ``lawgraph-backfill-judgment-stats``); fall back to
-        inline derivation when a doc predates the backfill.
+      * ``tier``, ``court_code``, ``date_eff`` and ``source`` are read from
+        the props the normalize pipelines write.
       * ``inbound_citation_count`` is only computed when needed (sort by
         citation count or ``cited_by_min`` filter) — and only for the
         LIMITed page, not the whole base set.
@@ -109,9 +105,9 @@ def get_judgments_list(
     """
     from lawgraph.api.queries.search import build_search_clause, tokenize_search_query
 
-    # Precomputed inbound count lives on ``props.inbound_citation_count``,
-    # back-filled and indexed. SORT/FILTER on citation count are served by
-    # the persistent index — no per-row edge subquery on the list path.
+    # The inbound count lives on the indexed ``props.inbound_citation_count``,
+    # so SORT/FILTER on citation count are served by the persistent index —
+    # no per-row edge subquery on the list path.
     tokens = tokenize_search_query(q) if q else []
     use_search = bool(tokens)
     has_filter = bool(
@@ -162,103 +158,56 @@ def get_judgments_list(
     from_clause = (
         f'FOR doc IN search_judgments SEARCH ANALYZER({search_clause}, "text_en")'
         if use_search
-        else "FOR doc IN judgments"
+        else f"FOR doc IN {COLLECTION_JUDGMENTS}"
     )
-
     # Single FOR with SORT + LIMIT against the indexed props — the planner
     # turns this into an IndexNode (no SortNode), so only @limit rows are
-    # ever materialised. The "LET base = (…) FOR row IN base SORT …"
-    # two-stage shape we used before blocked the index optimisation and
-    # forced a full-collection sort.
-    # Source derivation from ECLI prefix — covers records where props.source
-    # was never backfilled. Applied both in the FILTER (so ?source=echr works)
-    # and in the RETURN projection.
-    _source_expr = (
-        "doc.props.source != null ? doc.props.source"
-        " : (STARTS_WITH(_ecli, 'ECLI:NL:') ? 'rechtspraak'"
-        "  : (STARTS_WITH(_ecli, 'ECLI:CE:ECHR:') ? 'echr'"
-        "   : (STARTS_WITH(_ecli, 'ECLI:EU:') ? 'cjeu' : null)))"
-    )
-
-    aql = f"""
-    LET items = (
-        {from_clause}
+    # ever materialised.
+    filters = f"""
             FILTER @court == null OR doc.props.court_code == @court
             FILTER @tier == null OR doc.props.tier == @tier
-            LET _ecli = doc.props.ecli != null ? doc.props.ecli : doc._key
-            LET _source = {_source_expr}
-            FILTER @source == null OR _source == @source
+            FILTER @source == null OR doc.props.source == @source
             FILTER @from == null
                 OR (doc.props.date_eff != null AND doc.props.date_eff >= @from)
             FILTER @to == null
                 OR (doc.props.date_eff != null AND doc.props.date_eff <= @to)
             {cited_filter}
+    """
+
+    aql = f"""
+    LET items = (
+        {from_clause}
+            {filters}
             {sort_clause}
             LIMIT @offset, @limit
             LET props = doc.props
-            LET ecli = _ecli
-            LET ecli_parts = SPLIT(ecli, ':')
-            LET court_code = (
-                props.court_code != null ? props.court_code :
-                (LENGTH(ecli_parts) >= 3 ? UPPER(ecli_parts[2]) : null)
-            )
-            LET tier = (
-                props.tier != null ? props.tier :
-                (court_code == 'HR' ? 'hoge_raad' :
-                 (court_code != null AND STARTS_WITH(court_code, 'GH') ? 'gerechtshof' :
-                  (court_code != null AND STARTS_WITH(court_code, 'RB') ? 'rechtbank' :
-                   (court_code == null ? null : 'bijzonder'))))
-            )
-            LET judgment_date = (
-                props.date_eff != null ? props.date_eff :
-                (props.judgment_metadata != null AND props.judgment_metadata.date != null
-                    ? props.judgment_metadata.date :
-                 (props.meta != null AND props.meta.date != null ? props.meta.date :
-                  (props.date != null ? props.date : null)))
-            )
             RETURN {{
                 _id: doc._id,
                 _key: doc._key,
-                ecli: ecli,
+                ecli: props.ecli != null ? props.ecli : doc._key,
                 display_name: props.display_name,
                 summary: props.summary,
-                court_code: court_code,
-                tier: tier,
-                date: judgment_date,
-                source: _source,
+                court_code: props.court_code,
+                tier: props.tier,
+                date: props.date_eff,
+                source: props.source,
                 inbound_citation_count: props.inbound_citation_count
             }}
     )
     """
 
     # Total: cheap when unfiltered (collection count); otherwise a separate
-    # count-only pass that doesn't materialise rows. We accept the second
-    # round-trip because it scans an indexed collection and never builds
-    # docs.
+    # count-only pass that never materialises documents.
     if has_filter:
-        count_from_clause = (
-            f'FOR doc IN search_judgments SEARCH ANALYZER({search_clause}, "text_en")'
-            if use_search
-            else "FOR doc IN judgments"
-        )
         aql += f"""
     LET total = LENGTH(
-        {count_from_clause}
-            FILTER @court == null OR doc.props.court_code == @court
-            FILTER @tier == null OR doc.props.tier == @tier
-            LET _ecli = doc.props.ecli != null ? doc.props.ecli : doc._key
-            LET _source = {_source_expr}
-            FILTER @source == null OR _source == @source
-            FILTER @from == null
-                OR (doc.props.date_eff != null AND doc.props.date_eff >= @from)
-            FILTER @to == null
-                OR (doc.props.date_eff != null AND doc.props.date_eff <= @to)
-            {cited_filter}
+        {from_clause}
+            {filters}
             RETURN 1
     )
     """
     else:
-        aql += "LET total = COLLECTION_COUNT('judgments')\n"
+        aql += f"LET total = COLLECTION_COUNT('{COLLECTION_JUDGMENTS}')\n"
 
     aql += "RETURN { total: total, items: items }\n"
 

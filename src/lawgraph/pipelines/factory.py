@@ -1,24 +1,9 @@
-"""Factory for generating pipeline CLI entry points.
+"""Shared command-line plumbing of the pipeline steps.
 
-Every normalize and semantic CLI follows the same boilerplate pattern.
-``make_pipeline_cli`` generates a ``main(argv)`` function that handles:
-  - argument parsing (--since, --since-days)
-  - load_dotenv / setup_logging
-  - ArangoStore construction
-  - pipeline instantiation and run()
-  - error logging and sys.exit(1) on failure
-
-Usage (typical normalize CLI):
-    from lawgraph.pipelines.factory import make_pipeline_cli
-    from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
-    main = make_pipeline_cli(BWBNormalizePipeline, description="...", with_since=True)
-
-For pipelines with extra constructor args, supply ``add_args`` and ``make_extra_kwargs``:
-    def _add(parser):
-        parser.add_argument("--store-citations", action="store_true")
-    def _kwargs(args):
-        return {"store_citations": args.store_citations}
-    main = make_pipeline_cli(MyPipeline, add_args=_add, make_extra_kwargs=_kwargs)
+``run_step`` is the one place that decides how a step ends: it logs the result and exits
+with code 1 when the step raised or its result has errors. ``make_pipeline_cli`` builds the
+``main(argv)`` of a normalize or semantic pipeline on top of it. ``run_command`` is how a
+composite command (``<phase> all``, ``bootstrap``, ``expand-graph``) runs another command.
 """
 
 from __future__ import annotations
@@ -26,88 +11,143 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import sys
-from typing import Any, Callable
+import time
+from collections.abc import Callable
+from typing import Any
 
-from dotenv import load_dotenv
-
-from lawgraph.core.logging import get_logger, setup_logging
-from lawgraph.core.time import parse_since as _parse_since
+from lawgraph.core.logging import get_logger, log_step, setup_logging
+from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.watermark import LAST
 
-_SINCE_HELP = "Only process records fetched since this date (ISO 8601 or '7d')."
-_SINCE_DAYS_HELP = "Look back this many days; 0 means full history."
+logger = get_logger(__name__)
+
+_SINCE_HELP = (
+    "Only records since this moment: ISO 8601 ('2024-01-01') or relative ('7d')."
+)
+
+
+def add_since_argument(
+    parser: argparse.ArgumentParser,
+    flag: str = "--since",
+    *,
+    default: str | None = None,
+    help: str = _SINCE_HELP,
+    last: bool = False,
+) -> None:
+    """With *last* the value ``last`` is passed on as it is (see ``pipelines/watermark``)."""
+    parse = _since_or_last if last else _since
+    parser.add_argument(flag, type=parse, default=_since(default), help=help)
+
+
+def _since_or_last(value: str) -> dt.datetime | str | None:
+    return LAST if value.strip().lower() == LAST else _since(value)
+
+
+def _since(value: str | None) -> dt.datetime | None:
+    try:
+        return parse_since(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
+def run_step(name: str, run: Callable[[], PipelineResult]) -> None:
+    """Run one pipeline step, log its summary and duration, and exit 1 when it failed."""
+    setup_logging()
+    started = time.monotonic()
+    try:
+        result = run()
+    except Exception as exc:
+        logger.error(
+            "%s failed after %s: %s",
+            name,
+            format_duration(time.monotonic() - started),
+            exc,
+        )
+        sys.exit(1)
+
+    logger.info(
+        "%s: %s in %s.",
+        name,
+        result.summary(),
+        format_duration(time.monotonic() - started),
+    )
+    for error in result.errors:
+        logger.error("%s error: %s", name, error)
+    if result.errors:
+        sys.exit(1)
+
+
+def run_command(
+    name: str,
+    main: Callable[..., None],
+    argv: list[str],
+    *,
+    step: str | None = None,
+    description: str = "",
+) -> bool:
+    """Run ``main(argv)``; return False when it raised or exited with a non-zero code.
+
+    Every log line written inside carries *step* (default *name*), and the start line says
+    what the step does and with which options.
+    """
+    with log_step(step or name):
+        options = f" ({' '.join(argv)})" if argv else ""
+        logger.info(
+            "%s: starting%s%s",
+            name,
+            f" — {description}" if description else "",
+            options,
+        )
+        started = time.monotonic()
+        try:
+            main(argv=argv)
+        except SystemExit as exc:
+            if exc.code not in (None, 0):
+                logger.error(
+                    "%s: exited with code %s after %s.",
+                    name,
+                    exc.code,
+                    format_duration(time.monotonic() - started),
+                )
+                return False
+        except Exception as exc:
+            logger.error("%s: raised %s", name, exc)
+            return False
+        logger.info(
+            "%s: completed in %s.", name, format_duration(time.monotonic() - started)
+        )
+        return True
 
 
 def make_pipeline_cli(
     pipeline_cls: type,
     *,
-    description: str = "",
+    description: str,
     with_since: bool = False,
-    with_since_days: bool = False,
     add_args: Callable[[argparse.ArgumentParser], None] | None = None,
     make_extra_kwargs: Callable[[argparse.Namespace], dict[str, Any]] | None = None,
 ) -> Callable[[list[str] | None], None]:
-    """Generate a ``main(argv)`` function for a pipeline CLI.
+    """Build ``main(argv)`` for a pipeline whose ``run`` takes at most ``since``.
 
-    Args:
-        pipeline_cls: Pipeline class to instantiate.  Must accept ``store``
-            kwarg and optionally extra kwargs from ``make_extra_kwargs``.
-        description: ``argparse`` help text.
-        with_since: Add ``--since`` (ISO 8601 or relative, e.g. ``7d``).
-            Parsed value is forwarded as ``since=<datetime>`` to ``run()``.
-        with_since_days: Add ``--since-days`` (int; 0 = full history).
-            Computes a ``datetime`` and passes it as ``since=<datetime>``.
-        add_args: Hook to add extra ``argparse`` arguments to the parser.
-        make_extra_kwargs: Extract extra pipeline constructor kwargs from the
-            parsed ``Namespace``.  Called after all standard resolution.
+    ``add_args`` adds options to the parser; ``make_extra_kwargs`` turns the parsed options
+    into constructor arguments of *pipeline_cls*.
     """
 
     def main(argv: list[str] | None = None) -> None:
         parser = argparse.ArgumentParser(description=description)
         if with_since:
-            parser.add_argument("--since", default=None, help=_SINCE_HELP)
-        if with_since_days:
-            parser.add_argument(
-                "--since-days", type=int, default=0, help=_SINCE_DAYS_HELP
-            )
+            add_since_argument(parser)
         if add_args:
             add_args(parser)
         args = parser.parse_args(argv)
 
-        load_dotenv()
-        setup_logging()
-        logger = get_logger(pipeline_cls.__module__)
+        def run() -> PipelineResult:
+            extra = make_extra_kwargs(args) if make_extra_kwargs else {}
+            pipeline = pipeline_cls(store=ArangoStore(), **extra)
+            return pipeline.run(since=args.since) if with_since else pipeline.run()
 
-        # Resolve since
-        since: dt.datetime | None = None
-        if with_since:
-            try:
-                since = _parse_since(args.since)
-            except ValueError as exc:
-                parser.error(str(exc))
-                return
-        elif with_since_days:
-            days = args.since_days
-            if days > 0:
-                since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)
-
-        # Build pipeline kwargs
-        store = ArangoStore()
-        kwargs: dict[str, Any] = {"store": store}
-        if make_extra_kwargs:
-            kwargs.update(make_extra_kwargs(args))
-
-        pipeline = pipeline_cls(**kwargs)
-        try:
-            result = pipeline.run(since=since)
-        except Exception as exc:
-            logger.error("%s failed: %s", pipeline_cls.__name__, exc)
-            sys.exit(1)
-
-        logger.info("%s: %s.", pipeline_cls.__name__, result.summary())
-        if result.errors:
-            for err in result.errors:
-                logger.warning("%s error: %s", pipeline_cls.__name__, err)
-            sys.exit(1)
+        run_step(pipeline_cls.__name__, run)
 
     return main

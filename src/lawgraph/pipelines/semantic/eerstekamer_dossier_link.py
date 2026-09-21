@@ -1,28 +1,23 @@
-"""Semantic pipeline: EK stukken → DEEL_VAN_DOSSIER → TK kamerstukdossier.
+"""Link Eerste Kamer documents to the Tweede Kamer dossier they belong to.
 
-The Eerste Kamer processes the same legislative bills as the Tweede Kamer.
-Each EK Kamerstuk carries a ``DossierNummer`` that corresponds directly to
-the TK kamerstukdossier ``nummer`` field.
-
-This pipeline creates DEEL_VAN_DOSSIER edges from EK publications to the
-matching TK kamerstukdossier.  It mirrors what the TK normalize pipeline
-does for TK documents — just cross-chamber.
+Both chambers handle the same bill. An EK Kamerstuk carries the number of the TK
+kamerstukdossier (``dossier_number``, plus ``dossier_suffix`` for a budget chapter such as
+``35925 VII``), which is enough to write the same PART_OF edge the TK documents get, just
+cross-chamber.
 """
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_KAMERSTUKDOSSIERS,
-    COLLECTION_PUBLICATIONS,
-    RELATION_DEEL_VAN_DOSSIER,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    RELATION_PART_OF,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
-from lawgraph.core.time import iso_timestamp
 
 from .base import SemanticPipelineBase
 
@@ -31,99 +26,71 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "ek-dossier-linker"
 
 
-class EerstekamerDossierLinkPipeline(SemanticPipelineBase):
-    """Links EK publications to TK kamerstukdossiers via DossierNummer."""
+class EerstekamerDossierLinkSemanticPipeline(SemanticPipelineBase):
+    """Links EK documents to TK kamerstukdossiers via DossierNummer."""
 
-    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+    def run(self) -> PipelineResult:
         result = PipelineResult()
 
-        # EK stukken that have a dossier_nummer
-        since_filter = (
-            "FILTER pub.props.fetched_at >= @since" if since is not None else ""
-        )
         aql = f"""
-FOR pub IN publications
-  FILTER pub.props.source == @source
-  FILTER pub.props.dossier_nummer != null
-  {since_filter}
-  LET dos = FIRST(
-    FOR d IN kamerstukdossiers
-      FILTER TO_STRING(d.props.nummer) == TO_STRING(pub.props.dossier_nummer)
-        OR d.props.kamerstuknummer == TO_STRING(pub.props.dossier_nummer)
+FOR document IN {COLLECTION_DOCUMENTS}
+  FILTER document.props.source == @source
+  FILTER document.props.dossier_number != null
+  LET dossier = FIRST(
+    FOR d IN {COLLECTION_DOSSIERS}
+      FILTER d.props.number == TO_STRING(document.props.dossier_number)
+      FILTER (d.props.suffix || "") == (document.props.dossier_suffix || "")
       LIMIT 1
       RETURN d
   )
-  FILTER dos != null
-  LIMIT 10000
+  FILTER dossier != null
   RETURN {{
-    pub_id: pub._id, pub_key: pub._key,
-    dos_id: dos._id, dos_key: dos._key,
-    dossier_nummer: pub.props.dossier_nummer
+    document_key: document._key,
+    dossier_key: dossier._key,
+    dossier_number: document.props.dossier_number,
+    dossier_suffix: document.props.dossier_suffix
   }}
 """
-        bind_vars: dict[str, Any] = {"source": SOURCE_EERSTEKAMER}
-        if since is not None:
-            bind_vars["since"] = iso_timestamp(since)
-        try:
-            rows = list(self.store.query(aql, bind_vars))
-        except Exception as exc:
-            logger.warning("EK dossier link query failed: %s", exc)
-            return result
-
+        papers = self.store.query(aql, {"source": SOURCE_EERSTEKAMER})
+        rows = list(self._track(papers, "Eerste Kamer papers"))
         if not rows:
-            logger.debug(
-                "EK dossier link: no EK stukken with matching TK dossiers found."
-            )
+            logger.info("EK dossier link: no EK stuk matches a TK dossier.")
             return result
-
-        logger.info(
-            "EK dossier link: processing %d EK-publication / TK-dossier pairs.",
-            len(rows),
-        )
 
         seen: set[tuple[str, str]] = set()
+        edge_batch: list[dict[str, Any]] = []
         for row in rows:
-            pub_id = row.get("pub_id")
-            pub_key = row.get("pub_key")
-            dos_id = row.get("dos_id")
-            dos_key = row.get("dos_key")
-            dossier_nummer = row.get("dossier_nummer")
-
-            if not pub_id or not dos_id:
-                result.skipped += 1
-                continue
-
-            pair = (pub_id, dos_id)
+            pair = (row["document_key"], row["dossier_key"])
             if pair in seen:
                 continue
             seen.add(pair)
-
-            pub_node = Node(
-                collection=COLLECTION_PUBLICATIONS,
-                type=NodeType.PUBLICATION,
-                key=pub_key,
-                props={},
+            self._queue_edge(
+                edge_batch,
+                self._make_edge_doc(
+                    from_node=Node(
+                        collection=COLLECTION_DOCUMENTS,
+                        type=NodeType.DOCUMENT,
+                        key=row["document_key"],
+                        props={},
+                    ),
+                    to_node=Node(
+                        collection=COLLECTION_DOSSIERS,
+                        type=NodeType.DOSSIER,
+                        key=row["dossier_key"],
+                        props={},
+                    ),
+                    relation=RELATION_PART_OF,
+                    source=SEMANTIC_SOURCE,
+                    confidence=0.95,
+                    meta={
+                        "dossier_number": str(row["dossier_number"]),
+                        "dossier_suffix": row.get("dossier_suffix"),
+                        "chamber": "EK",
+                    },
+                ),
+                result,
             )
-            dos_node = Node(
-                collection=COLLECTION_KAMERSTUKDOSSIERS,
-                type=NodeType.DOSSIER,
-                key=dos_key,
-                props={},
-            )
 
-            created = self._create_semantic_edge(
-                from_node=pub_node,
-                to_node=dos_node,
-                relation=RELATION_DEEL_VAN_DOSSIER,
-                source=SEMANTIC_SOURCE,
-                confidence=0.95,
-                meta={"dossier_nummer": str(dossier_nummer), "chamber": "EK"},
-                result=result,
-            )
-            if created:
-                result.created += 1
-            else:
-                result.updated += 1
-
+        self._write_batch(edge_batch, result)
         logger.info("EK dossier link: %s.", result.summary())
         return result

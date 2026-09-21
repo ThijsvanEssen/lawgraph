@@ -6,12 +6,12 @@ from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import (
+from lawgraph.api.queries.graph import (
     get_global_graph,
     get_instrument_layer_graph,
     get_judgment_graph,
 )
-from lawgraph.api.schemas import (
+from lawgraph.api.schemas.graph import (
     ArticleGraphNodeDTO,
     GlobalGraphResponse,
     GraphEdgeDTO,
@@ -39,21 +39,21 @@ _layer_cache: TTLCache[str, Any] = TTLCache(maxsize=16, ttl=60.0)
 @router.get(
     "/global",
     response_model=GlobalGraphResponse,
-    summary="Volledig globaal graph — alle nodes en edges zonder instrumentfilter",
+    summary="Whole graph — every node and edge, no instrument filter",
     description=(
-        "Geeft alle instrumenten, artikelen, uitspraken en edges terug, "
-        "inclusief nodes die niet aan een instrument zijn gekoppeld. "
-        "Gebruik `include_judgments=false` om uitspraken weg te laten."
+        "Every instrument, article, judgment and edge, including nodes that "
+        "hang off no instrument. Pass `include_judgments=false` to leave the "
+        "judgments out."
     ),
     tags=["graph"],
 )
 def get_global_graph_route(
     store: Annotated[ArangoStore, Depends(get_store)],
     include_judgments: Annotated[
-        bool, Query(description="Voeg uitspraken toe aan het graph")
+        bool, Query(description="Include judgments in the graph")
     ] = True,
     max_judgments: Annotated[
-        int, Query(ge=1, le=5000, description="Maximaal aantal uitspraken")
+        int, Query(ge=1, le=5000, description="Maximum number of judgments")
     ] = 500,
 ) -> GlobalGraphResponse:
     cache_key = f"global:j={int(include_judgments)}:n={max_judgments}"
@@ -96,12 +96,12 @@ def get_global_graph_route(
 @router.get(
     "/instruments",
     response_model=InstrumentLayerGraphResponse,
-    summary="Wet-niveau graph — instrumenten als knopen met geaggregeerde citatie-edges",
+    summary="Instrument-level graph — instruments as nodes with aggregated edges",
     description=(
-        "Geeft alle instrumenten (NL en EU) terug als knopen, met edges tussen instrumenten die "
-        "gebaseerd zijn op geaggregeerde artikel-niveau citaties (`verwijst_naar`, gewogen) "
-        "en directe `implementeert`-edges (IMPLEMENTS_DIRECTIVE). "
-        "Gebruik dit voor de 'layer view' waarbij elke knoop een volledige wet vertegenwoordigt."
+        "Every instrument (NL and EU) as a node, with edges between instruments "
+        "aggregated from article-level references (REFERS_TO, weighted) plus "
+        "the direct IMPLEMENTS and AMENDS edges. Use this for the layer view, "
+        "where each node stands for a whole law."
     ),
     tags=["graph"],
 )
@@ -142,15 +142,14 @@ def get_instrument_layer_graph_route(
 @router.get(
     "/judgments",
     response_model=JudgmentLayerGraphResponse,
-    summary="Uitspraak-niveau graph — uitspraken als knopen met citatie-edges",
+    summary="Judgment-level graph — judgments as nodes with citation edges",
     description=(
-        "Geeft alle geladen uitspraken terug als knopen, met twee soorten edges:\n\n"
-        "- **`citeert`** — uitspraak → uitspraak (CITES_JUDGMENT, weight=1)\n"
-        "- **`citeert_wet`** — uitspraak → instrument, geaggregeerd vanuit CITES_ARTICLE "
-        "(weight = aantal unieke geciteerde artikelen in dat instrument)\n\n"
-        "De wetnodes zijn de instrumenten die door de uitspraken worden geciteerd — "
-        "handig als ankerpunten in de visualisatie. "
-        "Gebruik `max_judgments` om de omvang te beperken; standaard 1000."
+        "Every loaded judgment as a node, with REFERS_TO edges to the "
+        "instruments it cites, aggregated from the article-level references "
+        "(weight = number of distinct articles cited in that instrument).\n\n"
+        "The instrument nodes are the instruments the judgments cite — useful "
+        "as anchor points in the visualisation. Use `max_judgments` to bound "
+        "the size; the default is 1000."
     ),
     tags=["graph"],
 )
@@ -158,11 +157,11 @@ def get_judgment_graph_route(
     store: Annotated[ArangoStore, Depends(get_store)],
     max_judgments: Annotated[
         int,
-        Query(ge=1, le=10000, description="Maximaal aantal uitspraken"),
+        Query(ge=1, le=10000, description="Maximum number of judgments"),
     ] = 1000,
     include_stubs: Annotated[
         bool,
-        Query(description="Voeg stub-uitspraken toe (nog niet geladen)"),
+        Query(description="Include stub judgments (not yet loaded)"),
     ] = False,
 ) -> JudgmentLayerGraphResponse:
     cache_key = f"judgment_layer:n={max_judgments}:stubs={int(include_stubs)}"

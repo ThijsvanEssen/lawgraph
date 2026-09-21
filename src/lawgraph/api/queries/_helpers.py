@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import Any, cast
 
 from lawgraph.config.constants import (
+    COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
-    RELATION_MENTIONS_ARTICLE,
-    RELATION_PART_OF_INSTRUMENT,
+    RELATION_PART_OF,
+    RELATION_REFERS_TO,
 )
-from lawgraph.config.settings import COLLECTION_EDGES
 from lawgraph.core.models import make_node_key, parse_arango_id
 from lawgraph.db import ArangoStore
 
@@ -24,7 +24,7 @@ def _find_instrument_for_article(
         RETURN DOCUMENT(edge._to)
     """
     for doc in store.query(
-        aql, {"article_id": article_id, "relation": RELATION_PART_OF_INSTRUMENT}
+        aql, {"article_id": article_id, "relation": RELATION_PART_OF}
     ):
         return doc
     return None
@@ -36,41 +36,40 @@ def _find_judgments_for_article(
     aql = f"""
     FOR edge IN {COLLECTION_EDGES}
         FILTER edge._to == @article_id AND edge.relation == @relation
+        FILTER STARTS_WITH(edge._from, '{COLLECTION_JUDGMENTS}/')
         LET j = DOCUMENT(edge._from)
         FILTER j != null
-        RETURN j
+        // What the response shows of a judgment. A much cited article has thousands of
+        // them, and whole judgments (text, paragraphs) pass the memory a query may use.
+        RETURN {{
+            _id: j._id,
+            _key: j._key,
+            props: {{ecli: j.props.ecli, display_name: j.props.display_name}}
+        }}
     """
     return list(
-        store.query(
-            aql, {"article_id": article_id, "relation": RELATION_MENTIONS_ARTICLE}
-        )
+        store.query(aql, {"article_id": article_id, "relation": RELATION_REFERS_TO})
     )
 
 
 def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
-    key = make_node_key(ecli)
-    raw_doc = store.judgments.get(key)
-    doc = _ensure_doc(raw_doc)
-    if doc is not None:
-        return doc
+    """The judgment with this ECLI, or the ECHR decision with this item id or appno.
+
+    Keys are lower case, so the ECLI in any case is one key lookup; an id nobody loaded
+    costs two key lookups and one index lookup, not a read of every judgment.
+    """
+    for key in (make_node_key(ecli), make_node_key("echr", ecli)):
+        doc = _ensure_doc(store.judgments.get(key))
+        if doc is not None:
+            return doc
+    # ECHR decisions from before the court gave out ECLIs are asked for by their appno.
     aql = f"""
     FOR candidate IN {COLLECTION_JUDGMENTS}
-        FILTER LOWER(candidate.props.ecli) == @ecli
+        FILTER candidate.props.appno != null AND candidate.props.appno == @appno
         LIMIT 1
         RETURN candidate
     """
-    for result in store.query(aql, {"ecli": ecli.lower()}):
-        return result
-    # Fallback for ECHR judgments that have no ECLI — match by appno or external_id.
-    aql_alt = f"""
-    FOR candidate IN {COLLECTION_JUDGMENTS}
-        FILTER candidate.props.appno == @val OR candidate.props.external_id == @val
-        LIMIT 1
-        RETURN candidate
-    """
-    for result in store.query(aql_alt, {"val": ecli}):
-        return result
-    return None
+    return next(iter(store.query(aql, {"appno": ecli})), None)
 
 
 def _load_document_by_ref(store: ArangoStore, ref: str | None) -> dict[str, Any] | None:
@@ -163,5 +162,5 @@ def _resolve_target_from_entry(
     if not bwb_id or not article_number:
         return None
     key = make_node_key(str(bwb_id), str(article_number))
-    doc = store.instrument_articles.get(key)
+    doc = store.articles.get(key)
     return _ensure_doc(doc)
