@@ -31,6 +31,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `.../history` | every version of the article, oldest first: validity period, text, `effect`, normalized `change` (`introduces`, `amends`, `repeals`), amending publication (`amended_by`) and commencement publication, each with its dossiers and its `parts`. The article is identified by `stam_id`, so renumbering does not break history; 404 for an unknown article |
 | `.../legislative-history` | dossiers and documents that introduced, amended or propose to amend the article, including `voorgesteld`; empty list, never 404 |
 | `.../in-flux` | whether an open bill targets the article: `{in_flux, open_dossier_count}`; never 404 |
+| `.../cited-by` | the passages of judgments that cite the article, one row per mention (`judgment`, `paragraph_id`, `paragraph_number`, the `leden`, `onderdelen` and `aanhef` it names, `snippet`, `confidence`), newest judgment first; `court`, `tier`, `lid` (a lid number the passage names), `limit` (max 200), `offset`, exact `total`; 404 for an unknown article |
 | `.../relationships` | outgoing and incoming references with `semantic_type`, explanation, badge, community votes, the span of the reference (`start`, `end`, `text`, in the referring article) and the `leden`, `onderdelen` and `aanhef` it names, and annex scopes |
 
 ### Instruments and annexes
@@ -56,7 +57,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | Path | Returns |
 |------|---------|
 | `GET /api/judgments` | paged list; `q`, `court` (ECLI code), `tier` (`hoge_raad`, `gerechtshof`, `rechtbank`, `bijzonder`), `source`, `from`, `to`, `cited_by_min`, `sort` (`date_desc`, `date_asc`, `citation_count`) |
-| `/api/judgments/{ecli}` | the judgment with the articles its `REFERS_TO` edges point at, each with its parent instrument |
+| `/api/judgments/{ecli}` | the judgment with its `paragraphs` (each with a `paragraph_id` for deep links, its printed `number` and the article `citations` in it, one per occurrence with `start` and `end`), the articles its `REFERS_TO` edges point at with their parent instrument (`articles`), and the same articles as `cited_articles` with the paragraphs that cite them, the lid or onderdeel named and a snippet. Citations are read from the stored edges; nothing is detected per request |
 
 ### Parliament
 

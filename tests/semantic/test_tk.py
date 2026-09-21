@@ -159,6 +159,33 @@ def test_tk_pipeline_links_to_article_node() -> None:
     assert isinstance(edge["confidence"], float)
 
 
+def test_tk_edge_names_the_parts_of_the_article_as_a_judgment_edge_does() -> None:
+    doc = _make_tk_document("tk-1", "Wijziging van artikel 287, derde lid, onder a, Sr")
+    article_key = make_node_key("BWBR0001854", "287")
+    store = _FakeStore(
+        documents=[doc],
+        instruments={
+            make_node_key("BWBR0001854"): _make_instrument(
+                make_node_key("BWBR0001854"),
+                {"bwb_id": "BWBR0001854", "short_title": "Sr"},
+            )
+        },
+        articles={
+            article_key: _make_article(
+                article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
+            )
+        },
+    )
+
+    TKSemanticPipeline(store=store).run()
+
+    (edge,) = store.edges.values()
+    assert edge["meta"]["qualifier"] == "derde lid, onder a"
+    assert edge["meta"]["leden"] == ["3"]
+    assert edge["meta"]["onderdelen"] == ["a"]
+    assert "aanhef" not in edge["meta"]  # nothing named: empty values are left out
+
+
 def test_tk_pipeline_links_to_celex_instrument() -> None:
     text = "Implementatie van CELEX:32019L1158"
     doc = _make_tk_document("tk-2", text)

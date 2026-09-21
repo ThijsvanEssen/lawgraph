@@ -23,8 +23,7 @@ slash enforced), one `requests.Session`, 30 s timeout, and retry with exponentia
 (5 tries, factor 2) on HTTP 429, 502, 503, 504 and connection errors. No source needs an API key.
 
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
-`instruments.props.short_title` and law names through instrument titles; the API judgment
-view uses the same lookup. `normalize bwb` writes `short_title` from the official
+`instruments.props.short_title` and law names through instrument titles; `normalize bwb` writes `short_title` from the official
 abbreviations in the BWB WTI files (see BWB below). A code split over books resolves through
 the book in the article number: `artikel 6:162 BW` cites article `162` of the regulation whose
 short title is `BW6` (`DutchCitationExtractor`); without a book (`artikel 162 BW`) or with an
@@ -91,7 +90,9 @@ Committee from `Voortouwcommissie_Id`), `MADE_IN` (Commitment to Activity), `MEM
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text and
 every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
 `instruments.props.short_title` (codes such as `Sr`) and instrument titles (see `semantic
-rechtspraak` for the article forms).
+rechtspraak` for the article forms). The qualifier of an article edge is read into `meta.leden`,
+`meta.onderdelen` and `meta.aanhef` as on judgment edges; only the first citation of an article
+in a document is kept.
 
 | Pattern | Kind | Confidence |
 |---------|------|-----------|
@@ -161,14 +162,18 @@ the rechtbanken (over 100,000 in two years), are chosen with `--court`.
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
 `case_number`, `procedure` as `judgment_metadata.type`, `subject`s, `relation` ECLIs as
 `related_eclis`), `inhoudsindicatie` as `summary`, `uitspraak` as `text` and as `paragraphs`
-(heading, subheading, body). The XML itself stays in `raw_sources`. `court_code` is the ECLI court
+(heading, subheading, body; see the paragraph props in the data model). The XML itself stays
+in `raw_sources`. `court_code` is the ECLI court
 segment; `tier` is `hoge_raad` (`HR`), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or
 `bijzonder`; `date_eff` is the judgment date.
 
-**Semantic `rechtspraak`.** Reads the XML of each judgment from `raw_sources`, strips the tags and
-extracts article citations with the detector of `tk`, without its instrument-level title
-patterns: the EU forms and `CELEX`/`BWBR` literals are kept. The detector reads the article
-first and resolves the law after it:
+**Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
+made and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
+over a paragraph break; a citation that runs over one is dropped), with the detector of `tk`,
+without its instrument-level title patterns: the EU forms and `CELEX`/`BWBR` literals are
+kept. Every citation counts, not only the first of an article: each becomes a mention with
+its paragraph and the span in that paragraph's text (`core/mentions.py`). The detector reads
+the article first and resolves the law after it:
 
 | Form | Confidence |
 |------|-----------|
@@ -180,6 +185,14 @@ first and resolves the law after it:
 Codes come from `instruments.props.short_title`, names from instrument titles; a title two
 instruments share is not a name. A missing target article is created as a stub from 0.9; an
 article cited only as `artikel N` with no law is not written.
+
+One `REFERS_TO` edge per judgment and article, its `confidence` the strongest mention and
+`meta.mentions` the mentions in reading order (`paragraph_id`, `paragraph_number`, `start`,
+`end`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `snippet`, `confidence`),
+`meta.mention_count` how many there are: an edge keeps the first 100 and counts the rest. The
+lid, onderdelen and aanhef are read from the qualifier with `core/qualifiers.py`, as `semantic
+bwb` and `semantic tk` do. Text of a judgment outside `uitspraak` (the `inhoudsindicatie`) is not
+read. `--since` takes the judgments retrieved from then on.
 
 **Semantic `rechtspraak-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the XML of each judgment (from `raw_sources`):
 `REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations, missing judgments become stubs.

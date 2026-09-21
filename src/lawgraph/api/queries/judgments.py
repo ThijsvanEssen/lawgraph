@@ -20,6 +20,9 @@ from lawgraph.db import ArangoStore
 class JudgmentArticleRelation:
     article: dict[str, Any]
     instrument: dict[str, Any] | None
+    confidence: float | None = None
+    # ``meta`` of the REFERS_TO edge: ``mentions`` and ``mention_count`` (core.mentions)
+    meta: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -52,7 +55,12 @@ def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetail
                 LIMIT 1
                 RETURN DOCUMENT(ie._to)
         )
-        RETURN {{ article: article, instrument: instrument }}
+        RETURN {{
+            article: article,
+            instrument: instrument,
+            confidence: edge.confidence,
+            meta: edge.meta
+        }}
     """
     rows = list(
         store.query(
@@ -65,7 +73,12 @@ def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetail
         )
     )
     article_relations = [
-        JudgmentArticleRelation(article=r["article"], instrument=r.get("instrument"))
+        JudgmentArticleRelation(
+            article=r["article"],
+            instrument=r.get("instrument"),
+            confidence=r.get("confidence"),
+            meta=r.get("meta") or {},
+        )
         for r in rows
     ]
 

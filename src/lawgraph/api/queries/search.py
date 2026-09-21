@@ -153,22 +153,6 @@ def load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
     return alias_map
 
 
-def load_code_aliases(store: ArangoStore) -> dict[str, str]:
-    """Law abbreviation (``short_title``, e.g. ``Sr``) → bwb_id, cached for 60 s."""
-    cached = _alias_map_cache.get("codes")
-    if cached is not _MISSING:
-        return cached  # type: ignore[return-value]
-
-    aql = f"""
-    FOR i IN {COLLECTION_INSTRUMENTS}
-        FILTER i.props.bwb_id != null AND i.props.short_title != null
-        RETURN [i.props.short_title, i.props.bwb_id]
-    """
-    codes = dict(store.query(aql))
-    _alias_map_cache.set("codes", codes)
-    return codes
-
-
 def parse_search_query(q: str, alias_map: dict[str, str]) -> dict[str, Any]:
     """Inspect *q* for known reference patterns.
 

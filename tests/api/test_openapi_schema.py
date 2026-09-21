@@ -69,3 +69,53 @@ def test_an_article_says_where_its_parts_and_references_are() -> None:
     assert qualifier | {"reference_kind", "start", "end", "text"} <= _properties(
         "ArticleRelationshipWithType"
     )
+
+
+def test_a_judgment_says_which_paragraphs_cite_which_article() -> None:
+    qualifier = {"leden", "onderdelen", "aanhef"}
+    assert "paragraph_id" in _properties("JudgmentParagraph")
+    assert "cited_articles" in _properties("JudgmentDetailResponse")
+    assert qualifier | {
+        "article",
+        "qualifier",
+        "paragraph_ids",
+        "paragraph_numbers",
+        "snippet",
+        "confidence",
+        "mention_count",
+    } == _properties("JudgmentCitedArticle")
+
+
+def test_an_article_lists_the_passages_that_cite_it() -> None:
+    operation = SPEC["paths"]["/api/articles/{bwb_id}/{article_number}/cited-by"]["get"]
+    parameters = {p["name"]: p for p in operation["parameters"]}
+    assert {"limit", "offset", "court", "tier", "lid"} <= set(parameters)
+    assert (
+        parameters["limit"]["schema"]["maximum"]
+        >= parameters["limit"]["schema"]["default"]
+    )
+    assert parameters["offset"]["schema"]["minimum"] == 0
+    assert {"article_id", "items", "total"} == _properties("ArticleCitedByResponse")
+    assert {
+        "judgment",
+        "paragraph_id",
+        "paragraph_number",
+        "qualifier",
+        "start",
+        "end",
+        "text",
+        "snippet",
+        "confidence",
+        "leden",
+        "onderdelen",
+        "aanhef",
+    } == _properties("ArticleCitedByItem")
+    assert {
+        "id",
+        "key",
+        "ecli",
+        "court",
+        "tier",
+        "date",
+        "display_name",
+    } == _properties("CitedByJudgment")

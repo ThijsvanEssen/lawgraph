@@ -48,8 +48,8 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
     assert first["judgments"] >= 100 and first["instruments"] >= 20
     assert all(first[name] > 0 for name in COLLECTIONS), first
 
-    # The judgment linkers read the XML from raw_sources (it is not kept on the node): every
-    # judgment cites the next one and two articles.
+    # The ECLI linker reads the XML from raw_sources (it is not kept on the node), the article
+    # linker the paragraphs of the node: every judgment cites the next one and two articles.
     linked = "FOR e IN edges FILTER STARTS_WITH(e._from, 'judgments/') RETURN e._to"
     targets = list(store.query(linked))
     assert sum(t.startswith("judgments/") for t in targets) >= 100

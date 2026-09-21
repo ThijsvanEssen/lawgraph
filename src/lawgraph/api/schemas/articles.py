@@ -17,6 +17,7 @@ from lawgraph.api.schemas.common import (
     QualifierFields,
 )
 from lawgraph.core.bwb_xml import effect_kind
+from lawgraph.core.mentions import Mention
 from lawgraph.core.qualifiers import Qualifier
 
 
@@ -276,6 +277,86 @@ class ArticleDetailResponse(BaseModel):
         default_factory=list
     )
     scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
+
+
+class CitedByJudgment(BaseModel):
+    """The judgment of a passage that cites an article."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    ecli: str | None
+    court: str | None = Field(description="ECLI court code, `HR`, `RBAMS`.")
+    tier: str | None = Field(
+        description="`hoge_raad`, `gerechtshof`, `rechtbank` or `bijzonder`."
+    )
+    date: str | None = Field(description="Date of the judgment, YYYY-MM-DD.")
+    display_name: str | None
+
+
+class ArticleCitedByItem(QualifierFields):
+    """One passage of a judgment that cites the article. `leden`, `onderdelen` and
+    `aanhef` say what the passage names of it."""
+
+    judgment: CitedByJudgment
+    paragraph_id: str = Field(
+        description="The paragraph, as `paragraph_id` of `/api/judgments/{ecli}`."
+    )
+    paragraph_number: str | None = Field(
+        description="Its printed number (`5.3`), null when it has none."
+    )
+    qualifier: str | None = Field(
+        description="The qualifier as the judgment wrote it, `derde lid`."
+    )
+    start: int = Field(
+        description="Offset of the citation in the text of the paragraph."
+    )
+    end: int
+    text: str = Field(description="The citation as written: `text[start:end]`.")
+    snippet: str = Field(description="The text of the paragraph around the citation.")
+    confidence: float
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> ArticleCitedByItem | None:
+        """Build from a `{judgment, mention}` row; None when the mention is malformed."""
+        mention = Mention.from_dict(row.get("mention"))
+        if mention is None:
+            return None
+        doc = row["judgment"]
+        props = doc.get("props") or {}
+        return cls(
+            judgment=CitedByJudgment(
+                id=doc["_id"],
+                key=doc["_key"],
+                ecli=props.get("ecli"),
+                court=props.get("court_code"),
+                tier=props.get("tier"),
+                date=props.get("date_eff"),
+                display_name=props.get("display_name"),
+            ),
+            paragraph_id=mention.paragraph_id,
+            paragraph_number=mention.paragraph_number,
+            qualifier=mention.qualifier,
+            start=mention.start,
+            end=mention.end,
+            text=mention.raw_match,
+            snippet=mention.snippet,
+            confidence=mention.confidence,
+            **mention.parts.to_dict(),
+        )
+
+
+class ArticleCitedByResponse(BaseModel):
+    """Response for GET /api/articles/{bwb_id}/{article_number}/cited-by."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    article_id: str
+    items: list[ArticleCitedByItem]
+    total: int = Field(
+        description="Every passage that matches the filters, independent of `limit`."
+    )
 
 
 class LegislativeHistoryEntry(BaseModel):

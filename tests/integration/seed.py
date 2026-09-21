@@ -156,8 +156,9 @@ def tk_records(documents: int) -> Iterator[tuple[str, str, dict[str, Any]]]:
 def judgment_xml(number: int, paragraphs: int = 40) -> str:
     cited = f"ECLI:NL:HR:2020:{number + 1}"
     body = "".join(
-        f"<para>De rechtbank overweegt ({number}.{i}) dat artikel 1 van de Grondwet en "
-        f"artikel 8:1 Awb van toepassing zijn, zie ook {cited}.</para>"
+        f"<paragroup><nr>1.{i}</nr><para>De rechtbank overweegt ({number}.{i}) dat "
+        f"artikel 1 van de Grondwet en artikel 8:1 Awb van toepassing zijn, zie ook "
+        f"{cited}.</para></paragroup>"
         for i in range(paragraphs)
     )
     return (
@@ -166,7 +167,7 @@ def judgment_xml(number: int, paragraphs: int = 40) -> str:
         f"<dcterms:identifier>ECLI:NL:HR:2020:{number}</dcterms:identifier>"
         "<dcterms:creator>Hoge Raad</dcterms:creator><dcterms:date>2020-01-02</dcterms:date>"
         "</rdf:Description></rdf:RDF><inhoudsindicatie><para>Samenvatting.</para>"
-        f'</inhoudsindicatie><uitspraak><section nr="1"><title>Overwegingen</title>{body}'
+        f"</inhoudsindicatie><uitspraak><section><title><nr>1</nr>Overwegingen</title>{body}"
         "</section></uitspraak></open>"
     )
 

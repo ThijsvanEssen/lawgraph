@@ -5,12 +5,11 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.articles import get_articles_by_keys
 from lawgraph.api.queries.judgments import (
+    JudgmentArticleRelation,
     get_judgment_with_relations,
     get_judgments_list,
 )
-from lawgraph.api.queries.search import load_code_aliases
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -18,16 +17,15 @@ from lawgraph.api.schemas.common import (
     JudgmentSummaryDTO,
 )
 from lawgraph.api.schemas.judgments import (
+    JudgmentCitedArticle,
     JudgmentDetailResponse,
     JudgmentDTO,
     JudgmentListItemDTO,
     JudgmentListResponse,
-    JudgmentParagraph,
+    mentions_of,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
-from lawgraph.core.citations import detect_article_references
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
@@ -119,12 +117,23 @@ def get_judgment_detail(
         ArticleRelationDTO.from_documents(rel.article, rel.instrument)
         for rel in data.articles
     ]
+    cited_articles = [
+        JudgmentCitedArticle.from_relation(article, rel.meta, rel.confidence)
+        for article, rel in zip(articles, data.articles, strict=True)
+    ]
 
     judgment = JudgmentDTO.from_document(data.judgment)
-    if judgment.paragraphs:
-        judgment = judgment.model_copy(
-            update={"paragraphs": _enrich_paragraphs(judgment.paragraphs, store)}
-        )
+    citations = _citations_by_paragraph(data.articles)
+    judgment = judgment.model_copy(
+        update={
+            "paragraphs": [
+                paragraph.model_copy(
+                    update={"citations": citations.get(paragraph.paragraph_id, [])}
+                )
+                for paragraph in judgment.paragraphs
+            ]
+        }
+    )
 
     cited_judgments = [
         JudgmentSummaryDTO.from_document(doc) for doc in data.cited_judgments
@@ -133,73 +142,42 @@ def get_judgment_detail(
     return JudgmentDetailResponse(
         judgment=judgment,
         articles=articles,
+        cited_articles=cited_articles,
         cited_judgments=cited_judgments,
         metadata=data.metadata or None,
     )
 
 
-def _enrich_paragraphs(
-    paragraphs: list[JudgmentParagraph],
-    store: ArangoStore,
-) -> list[JudgmentParagraph]:
-    """Add inline article citation spans to each paragraph.
+def _citations_by_paragraph(
+    relations: list[JudgmentArticleRelation],
+) -> dict[str, list[ArticleCitationSpan]]:
+    """The stored mentions of every cited article, as the citation spans of their paragraph.
 
-    All article lookups are batched into a single AQL query so we pay one
-    round-trip for the whole judgment instead of one per citation hit.
+    Detected when the judgment was linked (``semantic rechtspraak``), so serving one costs
+    no detection.
     """
-    # First pass: collect all hits across all paragraphs.
-    code_aliases = load_code_aliases(store)
-    para_hits: list[tuple[JudgmentParagraph, list]] = []
-    all_keys: list[str] = []
-    for para in paragraphs:
-        hits = detect_article_references(para.text, code_aliases)
-        valid = [h for h in hits if h.bwb_id]
-        para_hits.append((para, valid))
-        for h in valid:
-            all_keys.append(make_node_key(h.bwb_id or "", h.article_number or ""))
-
-    if not all_keys:
-        return list(paragraphs)
-
-    # Single bulk fetch for all referenced article keys.
-    article_by_key = get_articles_by_keys(store, set(all_keys))
-
-    # Second pass: build enriched paragraphs.
-    result: list[JudgmentParagraph] = []
-    for para, hits in para_hits:
-        citations: list[ArticleCitationSpan] = []
-        for hit in hits:
-            article_key = make_node_key(hit.bwb_id or "", hit.article_number or "")
-            doc = article_by_key.get(article_key)
-            if doc is None:
-                continue
-            props = doc.get("props") or {}
-            start: int | None = None
-            end: int | None = None
-            if hit.raw_match:
-                pos = para.text.find(hit.raw_match)
-                if pos >= 0:
-                    start = pos
-                    end = pos + len(hit.raw_match)
-            citations.append(
+    spans: dict[str, list[ArticleCitationSpan]] = {}
+    for relation in relations:
+        props = relation.article.get("props") or {}
+        target = ArticleCitationTarget(
+            id=relation.article["_id"],
+            key=relation.article["_key"],
+            collection=COLLECTION_ARTICLES,
+            bwb_id=props.get("bwb_id"),
+            article_number=props.get("article_number"),
+            display_name=props.get("display_name"),
+        )
+        for mention in mentions_of(relation.meta):
+            spans.setdefault(mention.paragraph_id, []).append(
                 ArticleCitationSpan(
-                    start=start,
-                    end=end,
-                    text=hit.raw_match,
-                    target=ArticleCitationTarget(
-                        id=doc["_id"],
-                        key=doc["_key"],
-                        collection=COLLECTION_ARTICLES,
-                        bwb_id=props.get("bwb_id"),
-                        article_number=props.get("article_number"),
-                        display_name=props.get("display_name"),
-                    ),
-                    confidence=hit.confidence,
+                    start=mention.start,
+                    end=mention.end,
+                    text=mention.raw_match,
+                    target=target,
+                    confidence=mention.confidence,
+                    **mention.parts.to_dict(),
                 )
             )
-        result.append(
-            JudgmentParagraph(
-                number=para.number, kind=para.kind, text=para.text, citations=citations
-            )
-        )
-    return result
+    for paragraph_spans in spans.values():
+        paragraph_spans.sort(key=lambda span: span.start or 0)
+    return spans

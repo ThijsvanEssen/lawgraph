@@ -194,14 +194,18 @@ def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
 
 
 class _JudgmentStore:
-    """raw_sources holds the XML of three judgments; the query carries the date filter."""
+    """Three judgments as ``normalize rechtspraak`` made them; the queries carry the filters."""
 
     def __init__(self) -> None:
         self.binds: list[dict] = []
+        self.recent: list[dict] = []
         self.pulled = 0
 
     def query(self, aql, bind_vars=None, **kw):
-        assert "raw_sources" in aql and "judgments" not in aql.split("RETURN")[0]
+        if "raw_sources" in aql:  # the ECLIs of the judgments retrieved since a date
+            self.recent.append(dict(bind_vars or {}))
+            return iter(["ECLI:NL:HR:2020:1"])
+        assert "FOR j IN judgments" in aql
         if "COLLECT WITH COUNT" in aql:  # the total for the progress line
             return iter([3])
         self.binds.append(dict(bind_vars or {}))
@@ -210,8 +214,15 @@ class _JudgmentStore:
             for n in range(3):
                 self.pulled += 1
                 yield {
-                    "ecli": f"ECLI:NL:HR:2020:{n}",
-                    "xml": "<open>geen artikel</open>",
+                    "_key": f"ecli_nl_hr_2020_{n}",
+                    "type": "judgment",
+                    "labels": ["Rechtspraak"],
+                    "props": {
+                        "ecli": f"ECLI:NL:HR:2020:{n}",
+                        "paragraphs": [
+                            {"id": "p-1", "number": None, "kind": "body", "text": "x"}
+                        ],
+                    },
                 }
 
         return cursor()
@@ -224,18 +235,19 @@ def _linker(store):
     return pipeline
 
 
-def test_the_article_linker_reads_the_xml_where_retrieve_stored_it() -> None:
-    """Not from the judgment node: the XML is not kept there (a third of the collection)."""
+def test_the_article_linker_reads_the_paragraphs_normalize_made() -> None:
+    """Not the XML: the paragraphs it serves are the ones whose ids it records."""
     store = _JudgmentStore()
     result = _linker(store).run()
     assert result.errors == [] and store.pulled == 3
-    assert store.binds == [{"source": "rechtspraak", "kind": "rs-content"}]
+    assert store.binds == [{"source": "rechtspraak"}] and store.recent == []
 
 
-def test_an_incremental_run_asks_for_the_judgments_fetched_since() -> None:
+def test_an_incremental_run_asks_for_the_judgments_retrieved_since() -> None:
     store = _JudgmentStore()
     _linker(store).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
-    assert store.binds[0]["since"] == "2025-01-01T00:00:00Z"
+    assert store.recent[0]["since"] == "2025-01-01T00:00:00Z"
+    assert store.binds == [{"source": "rechtspraak", "eclis": ["ECLI:NL:HR:2020:1"]}]
 
 
 # ── the BWB article linker ───────────────────────────────────────────────────

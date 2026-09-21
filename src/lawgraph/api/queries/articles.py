@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -25,6 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_JUDGMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
@@ -309,16 +309,90 @@ def get_article_in_flux(
     return {"in_flux": False, "open_dossier_count": 0}
 
 
-def get_articles_by_keys(
-    store: ArangoStore, keys: Iterable[str]
-) -> dict[str, dict[str, Any]]:
-    """Fetch article documents for many keys in one query, keyed by ``_key``."""
-    key_list = list(set(keys))
-    if not key_list:
-        return {}
-    aql = f"""
-    FOR doc IN {COLLECTION_ARTICLES}
-        FILTER doc._key IN @keys
-        RETURN doc
+def get_article_cited_by(
+    store: ArangoStore,
+    article_id: str,
+    *,
+    court: str | None = None,
+    tier: str | None = None,
+    lid: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    """The passages of judgments that cite an article: one row per mention, newest first.
+
+    ``(rows, total)`` with ``{judgment, mention}`` rows; ``total`` counts every mention that
+    passes the filters, whatever the page. Filters: the ``court`` (ECLI court code) and
+    ``tier`` of the judgment, and a ``lid`` number that the mention names.
+
+    A much cited article has thousands of judgments (Sr 287, Awb 6:2) and a judgment is
+    its text and its paragraphs. The first pass reads the edges of the article by
+    ``(_to, relation)`` and keeps only what filters and sorts a mention (the edge, its
+    position, the date and the ECLI); the mentions of the page, with their snippets, are
+    read after the ``LIMIT``, for ``limit`` rows and not for all of them.
+
+    The judgment is joined through its primary index, not ``DOCUMENT()``: the join reads
+    the few attributes used, where ``DOCUMENT()`` holds the whole judgment in the memory of
+    the query, for every judgment of the article at once.
     """
-    return {doc["_key"]: doc for doc in store.query(aql, {"keys": key_list})}
+    aql = f"""
+    LET hits = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == @article_id AND e.relation == @relation
+            FILTER STARTS_WITH(e._from, '{COLLECTION_JUDGMENTS}/')
+            FOR j IN {COLLECTION_JUDGMENTS}
+                FILTER j._id == e._from
+                FILTER @court == null OR j.props.court_code == @court
+                FILTER @tier == null OR j.props.tier == @tier
+                LET count = LENGTH(e.meta.mentions)
+                FILTER count > 0
+                FOR position IN 0..count - 1
+                    FILTER @lid == null OR @lid IN e.meta.mentions[position].leden
+                    RETURN {{
+                        edge: e._id,
+                        position: position,
+                        date: j.props.date_eff,
+                        ecli: j.props.ecli
+                    }}
+    )
+    LET page = (
+        FOR hit IN hits
+            SORT hit.date DESC, hit.ecli ASC, hit.edge ASC, hit.position ASC
+            LIMIT @offset, @limit
+            RETURN hit
+    )
+    RETURN {{
+        total: LENGTH(hits),
+        items: (
+            FOR hit IN page
+                LET e = DOCUMENT(hit.edge)
+                FOR j IN {COLLECTION_JUDGMENTS}
+                    FILTER j._id == e._from
+                    RETURN {{
+                        judgment: {{
+                            _id: j._id,
+                            _key: j._key,
+                            props: {{
+                                ecli: j.props.ecli,
+                                display_name: j.props.display_name,
+                                court_code: j.props.court_code,
+                                tier: j.props.tier,
+                                date_eff: j.props.date_eff
+                            }}
+                        }},
+                        mention: e.meta.mentions[hit.position]
+                    }}
+        )
+    }}
+    """
+    bind = {
+        "article_id": article_id,
+        "relation": RELATION_REFERS_TO,
+        "court": court.upper() if court else None,
+        "tier": tier,
+        "lid": lid.lower() if lid else None,
+        "limit": limit,
+        "offset": offset,
+    }
+    answer = next(iter(store.query(aql, bind)), None) or {"total": 0, "items": []}
+    return list(answer["items"]), int(answer["total"])
