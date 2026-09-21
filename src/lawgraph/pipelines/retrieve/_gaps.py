@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EU_CELEX,
     RAW_KIND_MISSING_SUFFIX,
     RAW_KIND_RS_CONTENT,
+    SOURCE_BWB,
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.identifiers import CELEX_AQL_REGEX, find_celex_ids
@@ -36,13 +37,37 @@ DEFAULT_MIN_STUBS = 3
 
 
 def bwb_gaps(store: Store, *, min_stubs: int = DEFAULT_MIN_STUBS) -> list[str]:
-    """BWB ids of the laws that are not loaded and have *min_stubs* stub articles or more."""
+    """BWB ids of the laws that are referred to and not loaded.
+
+    A law of which *min_stubs* articles or more are referred to, and every law a loaded
+    regulation is issued under ("Gelet op"): that one is named by the legislator, not
+    found in running text, so one mention is enough. (The Wft and the Wwft were named as a
+    basis 1,203 and 73 times and were in no list of gaps: a basis whose law is absent made
+    no stub.)
+    """
     loaded = loaded_bwb_ids(store)
-    return [
+    cited = [
         row["bwb_id"]
         for row in stub_article_counts(store)
         if row["bwb_id"] not in loaded and row["count"] >= min_stubs
     ]
+    return list(
+        dict.fromkeys([*cited, *(b for b in basis_laws(store) if b not in loaded)])
+    )
+
+
+def basis_laws(store: Store) -> list[str]:
+    """BWB ids named as the basis of a loaded regulation, the most named first."""
+    aql = f"""
+    FOR regulation IN {COLLECTION_INSTRUMENTS}
+      FILTER regulation.props.source == @source AND LENGTH(regulation.props.basis) > 0
+      FOR basis IN regulation.props.basis
+        FILTER basis.bwb_id != null
+        COLLECT bwb_id = UPPER(basis.bwb_id) WITH COUNT INTO named
+        SORT named DESC
+        RETURN bwb_id
+    """
+    return [str(bwb_id) for bwb_id in store.query(aql, {"source": SOURCE_BWB})]
 
 
 def loaded_bwb_ids(store: Store) -> set[str]:

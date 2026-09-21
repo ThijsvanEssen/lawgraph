@@ -35,6 +35,8 @@ WTI_HEAD_LIMIT = 1_000_000
 # The page sizes tried for a page the service answers empty: the big pages (3 MB) are the ones
 # it fails on.
 EMPTY_PAGE_SIZES = (SRU_PAGE_SIZE, SRU_PAGE_SIZE, 500, 250, 100, 50)
+# How often a type is listed before a listing that stays short is an error.
+LISTING_ATTEMPTS = 3
 
 
 # Element of an SRU record -> field of ``ToestandMeta``.
@@ -133,6 +135,55 @@ class BWBClient(BaseClient):
             "although records remain"
         )
 
+    def _toestanden_of_type(
+        self, doc_type: str, max_records: int
+    ) -> dict[str, ToestandMeta]:
+        """Every toestand of *doc_type* by its location; raises when the listing is short.
+
+        The service does not sort and cannot be asked to, and under load it has answered
+        records it had given before for a later page: 25,000 records for a total of 24,216,
+        holding 1,335 of the 3,204 laws. A toestand has a location of its own, so the
+        listing is complete when it holds as many locations as the service reports; a
+        short one is listed again, and what is still short after that is an error.
+        """
+        toestanden: dict[str, ToestandMeta] = {}
+        total = 0
+        for attempt in range(1, LISTING_ATTEMPTS + 1):
+            total = self._list_into(toestanden, doc_type, max_records)
+            if len(toestanden) >= total:
+                return toestanden
+            logger.warning(
+                "BWB SRU (type=%s): %d of %d toestanden after listing %d: pages were "
+                "repeated or lost; listing it again.",
+                doc_type,
+                len(toestanden),
+                total,
+                attempt,
+            )
+        raise RuntimeError(
+            f"BWB SRU error (type={doc_type}): {len(toestanden)} of {total} toestanden "
+            f"after {LISTING_ATTEMPTS} listings: the listing is not complete"
+        )
+
+    def _list_into(
+        self, toestanden: dict[str, ToestandMeta], doc_type: str, max_records: int
+    ) -> int:
+        """Walk the pages of *doc_type* once, adding to *toestanden*; the reported total."""
+        total = 0
+        start = 1
+        while start <= max_records:
+            root = self._sru_page(doc_type, start)
+            total = number_of_records(root)
+            records = [e for e in root.iter() if local_name(e.tag) == "record"]
+            for element in records:
+                meta = self._parse_record(element)
+                if meta and meta["bwb_id"]:
+                    toestanden[meta["locatie_toestand"]] = meta
+            start += len(records)
+            if start > total:
+                break
+        return total
+
     def enumerate_all_ids(
         self,
         *,
@@ -166,48 +217,16 @@ class BWBClient(BaseClient):
 
         for doc_type in types:
             logger.info("Enumerating BWB IDs for type=%s", doc_type)
-            fetched = 0
-            total = 0
-            start = 1
-            while start <= max_records:
-                root = self._sru_page(doc_type, start)
-                total = number_of_records(root)
-                records = [e for e in root.iter() if local_name(e.tag) == "record"]
-                for element in records:
-                    meta = self._parse_record(element)
-                    if meta and meta["bwb_id"]:
-                        known = latest.get(meta["bwb_id"])
-                        if known is None or _newer(meta, known):
-                            latest[meta["bwb_id"]] = meta
-                fetched += len(records)
-                start += len(records)
-                if start > total:
-                    break
-            else:
-                logger.warning(
-                    "BWB enumeration hit max_records=%d for type=%s; ids may be missing.",
-                    max_records,
-                    doc_type,
-                )
-            if start <= max_records and fetched < total:
-                raise RuntimeError(
-                    f"BWB SRU error (type={doc_type}): {fetched} records read, the "
-                    f"service reports {total}"
-                )
-            if fetched > total:
-                # the toestanden change while they are listed, and a page can overlap
-                logger.warning(
-                    "BWB SRU (type=%s): %d records read for a reported total of %d.",
-                    doc_type,
-                    fetched,
-                    total,
-                )
-
+            toestanden = self._toestanden_of_type(doc_type, max_records)
+            for meta in toestanden.values():
+                known = latest.get(meta["bwb_id"])
+                if known is None or _newer(meta, known):
+                    latest[meta["bwb_id"]] = meta
             logger.info(
                 "Enumerated %d unique BWB IDs so far (type=%s done, %d toestanden).",
                 len(latest),
                 doc_type,
-                fetched,
+                len(toestanden),
             )
 
         logger.info("BWB enumeration complete: %d unique IDs total.", len(latest))
