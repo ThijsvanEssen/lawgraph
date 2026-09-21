@@ -1,28 +1,24 @@
-"""Shared base class for all pipeline types (retrieve, normalize, semantic)."""
+"""What every pipeline shares: the store it works on, and the sign to stop.
+
+A pipeline has a ``run`` that returns a ``PipelineResult``. What ``run`` takes differs per
+phase and is said where it matters: a retrieve pipeline takes what its command parsed
+(``retrieve_commands``), a normalize or semantic pipeline takes ``since`` or nothing
+(``command.PipelineCommand`` reads that from its signature, and a test holds every
+registered pipeline to it).
+"""
 
 from __future__ import annotations
 
 import threading
-from abc import ABC, abstractmethod
-from typing import Any
 
-from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import Store
 
 
-class PipelineBase(ABC):
-    """Common foundation for retrieve, normalize, and semantic pipelines.
+class PipelineBase:
+    """A pipeline works on one store."""
 
-    Provides: db store reference and the run() contract.
-    Subclasses add phase-specific orchestration and helpers on top.
-    """
-
-    def __init__(self, store: ArangoStore) -> None:
+    def __init__(self, store: Store) -> None:
         self.store = store
-
-    @abstractmethod
-    def run(self, **kwargs: Any) -> PipelineResult:
-        """Execute the pipeline and return a result summary."""
 
 
 # Set when the user interrupts a command that runs steps on threads (``retrieve all

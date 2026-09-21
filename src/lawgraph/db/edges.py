@@ -14,7 +14,8 @@ from typing import Any
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db.store import ArangoStore, edge_key
+from lawgraph.db.counting import Store
+from lawgraph.db.store import edge_key
 
 logger = get_logger(__name__)
 
@@ -68,9 +69,7 @@ class EdgeWriter:
     memory stays bounded on large runs. A failing batch is logged and re-raised.
     """
 
-    def __init__(
-        self, store: ArangoStore, *, batch_size: int = DEFAULT_BATCH_SIZE
-    ) -> None:
+    def __init__(self, store: Store, *, batch_size: int = DEFAULT_BATCH_SIZE) -> None:
         self._store = store
         self._batch_size = batch_size
         self._pending: dict[str, dict[str, Any]] = {}
