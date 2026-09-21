@@ -439,7 +439,7 @@ def _query_stub_judgments(store: ArangoStore) -> list[str]:
         )
     )
     eclis = [ecli for ecli in store.query(aql) if ecli not in missing]
-    return _capped(cast(list[str], eclis), "stub judgments")
+    return _capped(eclis, "stub judgments")
 
 
 def _build_name_cache(store: ArangoStore) -> dict[str, str]:
@@ -492,7 +492,7 @@ def _query_stub_echr_judgments(store: ArangoStore) -> list[str]:
       SORT j.props.ecli
       RETURN j.props.ecli
     """
-    return cast(list[str], [e for e in store.query(aql) if e])
+    return [e for e in store.query(aql) if e]
 
 
 def _query_stub_verdragen(store: ArangoStore) -> list[str]:
@@ -503,7 +503,7 @@ def _query_stub_verdragen(store: ArangoStore) -> list[str]:
         AND inst.props.kind IN ["verdrag", "bilateraalverdrag", "multilateraalverdrag"]
       RETURN inst.props.external_id
     """
-    return cast(list[str], [e for e in store.query(aql) if e])
+    return [e for e in store.query(aql) if e]
 
 
 def _print_echr_stub_report(eclis: list[str]) -> None:

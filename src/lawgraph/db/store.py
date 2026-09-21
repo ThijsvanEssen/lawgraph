@@ -142,7 +142,7 @@ def _retry_write(what: str, write: Callable[[], T]) -> T:
     return write()
 
 
-def _closing(cursor: Any) -> Iterator[dict[str, Any]]:
+def _closing(cursor: Any) -> Iterator[Any]:
     """The rows of *cursor*; the cursor is closed when the reader stops, however it stops.
 
     A reader that raises halfway would leave its query (and the snapshot it holds) open on
@@ -216,8 +216,10 @@ class ArangoStore:
         *,
         batch_size: int = 1000,
         ttl: float = CURSOR_TTL_SECONDS,
-    ) -> Iterable[dict[str, Any]]:
+    ) -> Iterator[Any]:
         """Execute an AQL query; a query that only reads streams its result.
+
+        A row is whatever the query returns: a document, a projection, a count, a key.
 
         Without a streaming cursor the server builds the whole result in its memory before
         it sends the first batch: 41,000 BWB toestanden of 80 KB are 3 GB, and that query
