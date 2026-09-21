@@ -72,20 +72,15 @@ def normalize_members(
 def normalize_factions(
     store: ArangoStore,
     faction_raws: list[dict[str, Any]],
-    vote_raws: Iterable[dict[str, Any]],
+    vote_labels: set[str],
 ) -> dict[str, Node]:
     """Fractie nodes, keyed by TK ``Id``.
 
     Several records can share one abbreviation — a party that dissolves and
     reforms gets a fresh record — so they are deduplicated per node key before
-    anything is written, with the seated record winning.
+    anything is written, with the seated record winning. *vote_labels* are the spellings
+    votes use for a faction (``Stemming.ActorFractie``).
     """
-    vote_labels = {
-        label
-        for raw in vote_raws
-        if (label := (payload_json(raw).get("ActorFractie") or "").strip())
-    }
-
     newest: dict[str, dict[str, Any]] = {}
     for raw in faction_raws:
         payload = payload_json(raw)

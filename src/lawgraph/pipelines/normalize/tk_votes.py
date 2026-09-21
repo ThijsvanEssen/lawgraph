@@ -8,6 +8,7 @@ member on a roll-call (``Hoofdelijk``), from the faction otherwise.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -26,37 +27,43 @@ from lawgraph.pipelines.normalize.tk_cases import link_node
 logger = get_logger(__name__)
 
 
-def read_votes(
-    raw_records: Iterable[dict[str, Any]],
-) -> dict[str, list[VoteCast]]:
+@dataclass
+class Votes:
+    """What one walk over the Stemming rows yields (190K rows for two years: read once)."""
+
+    by_decision: dict[str, list[VoteCast]] = field(default_factory=dict)
+    # The expanded Besluit rides along on every row; the first that carries it is kept.
+    decisions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    faction_labels: set[str] = field(
+        default_factory=set
+    )  # every ``ActorFractie`` spelling
+    rows: int = 0
+
+
+def read_votes(raw_records: Iterable[dict[str, Any]]) -> Votes:
     """Group the Stemming rows by ``Besluit_Id``."""
-    by_decision: dict[str, list[VoteCast]] = {}
+    votes = Votes()
     for raw in raw_records:
-        cast = tk_records.vote(payload_json(raw))
-        if cast is not None:
-            by_decision.setdefault(cast.decision_id, []).append(cast)
-    return by_decision
-
-
-def normalize_decisions(
-    store: ArangoStore,
-    raw_records: Iterable[dict[str, Any]],
-    votes_by_decision: dict[str, list[VoteCast]],
-) -> dict[str, Node]:
-    """Decision nodes, keyed by TK ``Besluit_Id``.
-
-    The expanded Besluit rides along on every Stemming row of the decision;
-    the first one that carries it describes the whole group.
-    """
-    decisions: dict[str, dict[str, Any]] = {}
-    rows = 0
-    for raw in raw_records:
-        rows += 1
+        votes.rows += 1
         payload = payload_json(raw)
-        decision_id = str(payload.get("Besluit_Id") or "")
+        label = (payload.get("ActorFractie") or "").strip()
+        if label:
+            votes.faction_labels.add(label)
+        cast = tk_records.vote(payload)
+        if cast is None:
+            continue
+        votes.by_decision.setdefault(cast.decision_id, []).append(cast)
         decision = payload.get("Besluit")
-        if decision_id and isinstance(decision, dict) and decision_id not in decisions:
-            decisions[decision_id] = decision
+        if isinstance(decision, dict) and cast.decision_id not in votes.decisions:
+            votes.decisions[cast.decision_id] = decision
+    return votes
+
+
+def normalize_decisions(store: ArangoStore, votes: Votes) -> dict[str, Node]:
+    """Decision nodes, keyed by TK ``Besluit_Id``."""
+    decisions = votes.decisions
+    votes_by_decision = votes.by_decision
+    rows = votes.rows
 
     nodes: dict[str, Node] = {}
     for decision_id, votes in votes_by_decision.items():

@@ -16,7 +16,7 @@ is what this module keeps.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -27,6 +27,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
+    COLLECTION_RAW_SOURCES,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
@@ -51,6 +52,8 @@ from lawgraph.core.dossier_stages import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.progress import Progress
+from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.normalize import tk_cases, tk_members, tk_votes
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
@@ -83,12 +86,47 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         self, *, since: dt.datetime | None = None
     ) -> dict[str, Iterable[dict[str, Any]]]:
         """The records per kind, streamed when they are walked: 360K payloads are not kept."""
-        return {
+        self._incremental = since is not None
+        raw: dict[str, Iterable[dict[str, Any]]] = {
             kind: RawRecords(
                 self, source=SOURCE_TK, kinds=[kind], since=since, batch_size=1000
             )
             for kind in RAW_KINDS
         }
+        if since is not None:
+            raw[RAW_KIND_TK_STEMMING] = self._rows_of_decisions_voted_since(since)
+        return raw
+
+    def _rows_of_decisions_voted_since(
+        self, since: dt.datetime
+    ) -> Iterator[dict[str, Any]]:
+        """Every Stemming row of the decisions that have a row in the window.
+
+        A decision is its rows together (the tally, who voted): one corrected vote must
+        not turn it into a decision of one.
+        """
+        bind_vars = {"source": SOURCE_TK, "kind": RAW_KIND_TK_STEMMING}
+        touched = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind AND r.fetched_at >= @since
+            FILTER r.payload_json.Besluit_Id != null
+            RETURN DISTINCT r.payload_json.Besluit_Id
+        """
+        decisions = list(
+            self.store.query(touched, {**bind_vars, "since": iso_timestamp(since)})
+        )
+        rows = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind
+            FILTER r.payload_json.Besluit_Id IN @decisions
+            RETURN r
+        """
+        progress = Progress(f"{RAW_KIND_TK_STEMMING} records")
+        yield from progress.track(
+            self.store.query(rows, {**bind_vars, "decisions": decisions})
+            if decisions
+            else ()
+        )
 
     def normalize_nodes(
         self,
@@ -96,8 +134,12 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         result: PipelineResult,
     ) -> dict[str, Any]:
         store = self.store
-        vote_raws = raw[RAW_KIND_TK_STEMMING]
-        votes = tk_votes.read_votes(vote_raws)
+        votes = tk_votes.read_votes(raw[RAW_KIND_TK_STEMMING])
+        vote_labels = votes.faction_labels
+        if self._incremental:
+            # The factions are written again with the spellings votes gave them: those of
+            # the window alone would take away what earlier votes taught.
+            vote_labels = vote_labels | self._stored_faction_aliases()
 
         normalized = {
             "committees": tk_members.normalize_committees(
@@ -105,7 +147,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             ),
             "members": tk_members.normalize_members(store, raw[RAW_KIND_TK_PERSOON]),
             "factions": tk_members.normalize_factions(
-                store, raw[RAW_KIND_TK_FRACTIE], vote_raws
+                store, raw[RAW_KIND_TK_FRACTIE], vote_labels
             ),
             "dossiers": self._normalize_dossiers(raw[RAW_KIND_TK_DOSSIER]),
             "activities": tk_cases.normalize_activities(
@@ -115,9 +157,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 store, raw[RAW_KIND_TK_TOEZEGGING]
             ),
             "documents": tk_cases.normalize_documents(store, raw[RAW_KIND_TK_DOCUMENT]),
-            "votes": votes,
+            "votes": votes.by_decision,
         }
-        normalized["decisions"] = tk_votes.normalize_decisions(store, vote_raws, votes)
+        normalized["decisions"] = tk_votes.normalize_decisions(store, votes)
         self._refresh_case_kinds(normalized["activities"])
         return normalized
 
@@ -180,6 +222,14 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         # Once the edges exist, each dossier's documents can be walked to
         # derive its title and stage, so reads stay O(1).
         self._backfill_titles_and_stages(normalized["dossiers"])
+
+    def _stored_faction_aliases(self) -> set[str]:
+        aql = f"""
+        FOR faction IN {COLLECTION_FACTIONS}
+            FOR alias IN faction.props.aliases || []
+                RETURN DISTINCT alias
+        """
+        return set(self.store.query(aql))
 
     def _stored(self, collection: str, node_type: NodeType) -> dict[str, Node]:
         """The stored nodes of *collection* by TK ``Id``, with the props the edges read."""
@@ -254,6 +304,13 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         for keys in chunked(sorted_kinds, 5000):
             for row in self.store.query(lookup, {"keys": keys}):
                 stored[row["key"]] = row["case_kinds"]
+
+        if self._incremental:
+            # The activities of the window add to what earlier ones gave the dossier.
+            sorted_kinds = {
+                key: sorted(set(kinds) | set(stored.get(key) or []))
+                for key, kinds in sorted_kinds.items()
+            }
 
         changed = [
             {

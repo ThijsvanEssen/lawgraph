@@ -407,13 +407,13 @@ def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
         _vote_raw(Soort="Onthouden", FractieGrootte=1, Fractie_Id="f-unknown"),
     ]
     votes = tk_votes.read_votes(raws)
-    decisions = tk_votes.normalize_decisions(store, raws, votes)
+    decisions = tk_votes.normalize_decisions(store, votes)
     factions = {
         "f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd"),
         "f-d66": _node(COLLECTION_FACTIONS, NodeType.FACTION, "d66"),
     }
 
-    tk_votes.link_votes(store, votes, decisions, factions, source=SOURCE)
+    tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision_id = f"{COLLECTION_DECISIONS}/{decisions['b-1'].key}"
     assert store.edge_meta == {
@@ -445,10 +445,10 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
         ),
     ]
     votes = tk_votes.read_votes(raws)
-    decisions = tk_votes.normalize_decisions(store, raws, votes)
+    decisions = tk_votes.normalize_decisions(store, votes)
     factions = {"f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd")}
 
-    tk_votes.link_votes(store, votes, decisions, factions, source=SOURCE)
+    tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision = decisions["b-1"]
     assert decision.props["vote_kind"] == "member"
