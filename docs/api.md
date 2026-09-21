@@ -27,11 +27,11 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 
 | Path | Returns |
 |------|---------|
-| `/api/articles/{bwb_id}/{article_number}` | the article, its instrument, citing judgments and citations |
-| `.../history` | every version of the article, oldest first: validity period, text, `effect`, normalized `change` (`introduces`, `amends`, `repeals`), amending publication (`amended_by`) and commencement publication, each with its dossiers. The article is identified by `stam_id`, so renumbering does not break history; 404 for an unknown article |
+| `/api/articles/{bwb_id}/{article_number}` | the article with its `parts` (aanhef, leden and onderdelen as spans of `text`), its instrument, citing judgments, `citations` (the resolved references, one per target) and `references` (every reference in the text, with the `leden`, `onderdelen` and `aanhef` it names, also when the target is not in the graph) |
+| `.../history` | every version of the article, oldest first: validity period, text, `effect`, normalized `change` (`introduces`, `amends`, `repeals`), amending publication (`amended_by`) and commencement publication, each with its dossiers and its `parts`. The article is identified by `stam_id`, so renumbering does not break history; 404 for an unknown article |
 | `.../legislative-history` | dossiers and documents that introduced, amended or propose to amend the article, including `voorgesteld`; empty list, never 404 |
 | `.../in-flux` | whether an open bill targets the article: `{in_flux, open_dossier_count}`; never 404 |
-| `.../relationships` | outgoing and incoming references with `semantic_type`, explanation, badge, community votes, and annex scopes |
+| `.../relationships` | outgoing and incoming references with `semantic_type`, explanation, badge, community votes, the span of the reference (`start`, `end`, `text`, in the referring article) and the `leden`, `onderdelen` and `aanhef` it names, and annex scopes |
 
 ### Instruments and annexes
 

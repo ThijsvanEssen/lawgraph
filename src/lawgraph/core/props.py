@@ -115,6 +115,9 @@ class ArticleProps(_CommonProps):
     source_publication: str | None = None  # e.g. "Stb.2019-33"
     repealed: bool | None = None
     last_article_number: str | None = None  # historical identities only
+    parts: list[dict[str, Any]] | None = (
+        None  # aanhef, leden, onderdelen: id, kind, number, start, end
+    )
     references: list[dict[str, Any]] | None = None  # structured refs from the XML
 
 
@@ -147,6 +150,7 @@ class ArticleVersionProps(_CommonProps):
     stam_id: str | None = None
     versie_id: str | None = None
     path: str | None = None
+    parts: list[dict[str, Any]] | None = None  # as on Article: offsets into ``text``
     effect: str | None = None  # BWB effect: nieuw / wijziging / vervallen …
     source_publication: str | None = None  # bron, e.g. "Stb.2019-33"
     origin_publication: dict[str, Any] | None = None  # Publication.to_dict()
