@@ -129,6 +129,169 @@ def test_party_colors_are_served_under_parties() -> None:
     assert body["colors"]["VVD"].startswith("#")
 
 
+_DOCUMENT_ROW = {
+    "id": "documents/mvt",
+    "key": "mvt",
+    "kind": "Memorie van toelichting",
+    "title": "MvT",
+    "sequence": 3,
+    "session_year": "2024-2025",
+    "date": "2025-01-10",
+    "tk_url": "https://tk.example/mvt",
+    "display_name": "MvT",
+    "source": "tk",
+    "labels": ["TK"],
+}
+
+
+def test_the_documents_of_a_dossier_say_their_chamber_and_kind(monkeypatch) -> None:
+    ek = {**_DOCUMENT_ROW, "key": "ek_1", "source": "eerstekamer", "labels": ["EK"]}
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_by_number",
+        lambda store, number: _DOSSIER,
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_documents",
+        lambda store, dossier_id, **kwargs: {
+            "total": 2,
+            "items": [_DOCUMENT_ROW, {**ek, "kind": "Verslag"}],
+        },
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_number_to_id_map",
+        lambda store, numbers: {"36000": "dossiers/36000"},
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_documents_for_dossiers",
+        lambda store, ids, **kwargs: {"dossiers/36000": [_DOCUMENT_ROW]},
+    )
+    listed = client.get("/api/dossiers/36000/documents").json()["items"]
+    assert [(d["chamber"], d["source"], d["is_explanatory"]) for d in listed] == [
+        ("TK", "tk", True),
+        ("EK", "eerstekamer", False),
+    ]
+    bulk = client.get("/api/dossiers/documents/bulk?numbers=36000").json()
+    assert bulk["items"]["36000"][0] == listed[0]  # every list of documents agrees
+
+
+_TIMELINE_ROWS = [
+    {
+        "date": "2025-01-10",
+        "kind": "Memorie van toelichting",
+        "title": "MvT",
+        "tk_url": "https://tk.example/mvt",
+        "body": {
+            "kind": "Memorie van toelichting",
+            "title": "MvT",
+            "sequence": 3,
+            "session_year": "2024-2025",
+            "tk_url": "https://tk.example/mvt",
+            "source": "tk",
+        },
+        "labels": ["TK"],
+        "node_id": "documents/mvt",
+        "node_type": "document",
+        "committee": None,
+    },
+    {
+        "date": "2025-03-06",
+        "kind": "Commissiedebat",
+        "title": "Debat",
+        "tk_url": None,
+        "body": {"kind": "Commissiedebat", "agenda_title": "2025-03-06 - Debat"},
+        "labels": ["TK"],
+        "node_id": "activities/a1",
+        "node_type": "activity",
+        "committee": {"key": "ienw", "slug": "ienw", "name": "Infrastructuur"},
+    },
+    {
+        "date": "2025-03-08",
+        "kind": "Stemming",
+        "title": "Stemming",
+        "tk_url": None,
+        "body": {
+            "subject": "Motie",
+            "passed": True,
+            "tally": {"Voor": 80},
+            "voters": {"Voor": 5},
+            "decision_id": "b1",
+            "document": {
+                "id": "documents/motie",
+                "key": "motie",
+                "kind": "Motie",
+                "chamber": "TK",
+                "source": "tk",
+                "is_explanatory": False,
+                "dictum_excerpt": "De Kamer verzoekt",
+                "signatories": [
+                    {"name": "Lid A", "role": "indiener", "source_role": "Eerste"}
+                ],
+            },
+        },
+        "labels": ["TK"],
+        "node_id": "decisions/d1",
+        "node_type": "decision",
+        "committee": None,
+    },
+    {
+        "date": "2025-03-11",
+        "kind": "Toezegging",
+        "title": "Toezegging",
+        "tk_url": None,
+        "body": {"text": "De minister zegt toe.", "status": "open"},
+        "labels": ["TK"],
+        "node_id": "commitments/t1",
+        "node_type": "commitment",
+        "committee": None,
+    },
+]
+
+
+def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_by_number",
+        lambda store, number: _DOSSIER,
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_timeline",
+        lambda store, dossier_id, **kwargs: _TIMELINE_ROWS,
+    )
+    body = client.get("/api/dossiers/36000/timeline").json()
+    document, activity, decision, commitment = body["entries"]
+
+    assert document["body"] == {
+        "chamber": "TK",
+        "source": "tk",
+        "is_explanatory": True,
+        "kind": "Memorie van toelichting",
+        "title": "MvT",
+        "sequence": 3,
+        "session_year": "2024-2025",
+        "tk_url": "https://tk.example/mvt",
+        "url": None,
+    }
+    assert "committee" not in document
+    assert activity["committee"] == {
+        "key": "ienw",
+        "slug": "ienw",
+        "name": "Infrastructuur",
+    }
+    assert activity["body"]["agenda_title"] == "2025-03-06 - Debat"
+    assert decision["body"]["tally"] == {"Voor": 80}
+    assert decision["body"]["external_id"] == "b1"
+    assert decision["body"]["document"]["signatories"][0]["role"] == "indiener"
+    assert decision["body"]["document"]["chamber"] == "TK"
+    assert commitment["body"]["text"] == "De minister zegt toe."
+    assert commitment["body"]["status"] == "open"
+
+
+def test_a_plenary_activity_has_no_committee() -> None:
+    from lawgraph.api.schemas.dossiers import timeline_entry
+
+    plenary = {**_TIMELINE_ROWS[1], "committee": None}
+    assert timeline_entry(plenary).model_dump()["committee"] is None  # type: ignore[union-attr]
+
+
 # ── committees, members, factions ────────────────────────────────────────────
 
 
@@ -210,6 +373,41 @@ def test_decisions_are_listed_with_their_tally(monkeypatch) -> None:
     assert body["total"] == 1
     assert body["items"][0]["tally"] == {"Voor": 76, "Tegen": 74}
     assert body["items"][0]["vote_kind"] == "faction"
+
+
+def test_decisions_are_filtered_by_dossier(monkeypatch) -> None:
+    asked: list[dict] = []
+
+    def fake(store, **kwargs):
+        asked.append(kwargs)
+        return {"total": 1, "items": [_DECISION]}
+
+    monkeypatch.setattr("lawgraph.api.routes.decisions.get_decisions", fake)
+    assert client.get("/api/decisions?dossier=36000").json()["total"] == 1
+    assert asked[0]["dossier"] == "36000"
+    assert client.get("/api/decisions?dossier=x").status_code == 422
+
+
+def test_a_decisions_document_carries_its_links(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "lawgraph.api.routes.decisions.get_decision_detail",
+        lambda store, key: {"_id": "decisions/d", "_key": "d", "props": {}},
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.decisions.get_decision_document",
+        lambda store, decision: {
+            "_id": "documents/m",
+            "_key": "m",
+            "labels": ["TK"],
+            "props": {"kind": "Motie", "source": "tk"},
+        },
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.decisions.get_document_links",
+        lambda store, document_id: {"dossier_numbers": ["36000"], "explains": []},
+    )
+    body = client.get("/api/decisions/d/document").json()
+    assert body["chamber"] == "TK" and body["dossier_numbers"] == ["36000"]
 
 
 def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:

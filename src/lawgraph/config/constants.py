@@ -161,6 +161,14 @@ SOURCE_ECHR = "echr"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
 
+# The chambers of the States General, as a document or decision carries them in its labels.
+CHAMBER_TK = "TK"
+CHAMBER_EK = "EK"
+
+# A document is explanatory (an MvT, NvT, nota van toelichting) when its ``props.kind``
+# contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.
+EXPLANATORY_KIND_MARKER = "toelichting"
+
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 
 RAW_KIND_TK_ZAAK = "tk-zaak"

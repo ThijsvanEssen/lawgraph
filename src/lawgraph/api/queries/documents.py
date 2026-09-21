@@ -4,11 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from lawgraph.api.queries.dossiers import _dossier_documents_aql
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_INSTRUMENTS,
     RELATION_EXPLAINS,
+    RELATION_PART_OF,
     RELATION_REFERS_TO,
+    RELATION_VERSION_OF,
 )
 from lawgraph.db import ArangoStore
 
@@ -26,16 +33,21 @@ def list_documents(
     kind: str | None,
     chamber: str | None,
     source: str | None,
+    dossier_id: str | None,
     limit: int,
-) -> list[dict[str, Any]]:
-    """Document rows with the number of articles each one links to.
+    offset: int,
+) -> dict[str, Any]:
+    """A page of document rows, and how many documents match in all.
 
-    The count is computed for the limited page only, so the whole list is one
-    round trip.
+    Each row carries the number of articles the document links to, computed for the
+    page only. ``total`` is a separate count that materialises no document. With
+    *dossier_id* the documents are those of that dossier, PART_OF it directly or
+    through a case, as ``get_dossier_documents`` finds them.
     """
     filters: list[str] = []
     bind: dict[str, Any] = {
         "limit": limit,
+        "offset": offset,
         "linking": [RELATION_REFERS_TO, RELATION_EXPLAINS],
     }
 
@@ -55,11 +67,25 @@ def list_documents(
         )
         bind["q"] = q
 
-    aql = f"""
-FOR document IN {COLLECTION_DOCUMENTS}
-    {chr(10).join(f"    {f}" for f in filters)}
+    where = chr(10).join(f"    {f}" for f in filters)
+    if dossier_id:
+        bind["dossier_id"] = dossier_id
+        bind["part_of"] = RELATION_PART_OF
+        documents = "all_documents"
+    else:
+        documents = COLLECTION_DOCUMENTS
+    total = (
+        f"LENGTH(FOR document IN {documents}\n{where}\n    RETURN 1)"
+        if filters or dossier_id
+        else f"COLLECTION_COUNT('{COLLECTION_DOCUMENTS}')"
+    )
+    page = f"""
+LET total = {total}
+LET items = (
+    FOR document IN {documents}
+    {where}
     SORT document.props.date DESC, document.props.title ASC
-    LIMIT @limit
+    LIMIT @offset, @limit
     LET linked = LENGTH(
         FOR e IN {COLLECTION_EDGES}
             FILTER e._from == document._id
@@ -73,8 +99,73 @@ FOR document IN {COLLECTION_DOCUMENTS}
         date: document.props.date,
         external_id: document.props.external_id,
         source: document.props.source,
+        labels: document.labels,
         has_text: document.props.text != null,
         linked_articles: linked
     }}
+)
+RETURN {{ total: total, items: items }}
 """
-    return list(store.query(aql, bind_vars=bind))
+    aql = (
+        f"LET dossier_id = @dossier_id\n{_dossier_documents_aql(page)}"
+        if dossier_id
+        else page
+    )
+    rows = list(store.query(aql, bind_vars=bind))
+    return rows[0] if rows else {"total": 0, "items": []}
+
+
+def get_document_links(store: ArangoStore, document_id: str) -> dict[str, Any]:
+    """The dossiers a document is PART_OF and the articles or laws it EXPLAINS.
+
+    ``dossier_numbers`` come from the PART_OF edges to dossier nodes, which both
+    chambers write (an Eerste Kamer paper names its dossier in ``dossier_number``, a
+    Tweede Kamer one in ``dossier_numbers``), so it is the number the ``dossier``
+    filters use. ``explains`` resolves each EXPLAINS target to what a reader
+    cites: an article version to its article (through VERSION_OF; a version without
+    an article is left out), an article as it is, an instrument as ``instruments``.
+    """
+    aql = f"""
+    LET dossier_numbers = SORTED_UNIQUE((
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._from == @document_id AND e.relation == @part_of
+            FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+            LET dossier = DOCUMENT(e._to)
+            FILTER dossier != null AND dossier.props.number != null
+            RETURN dossier.props.number
+    ))
+    LET targets = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._from == @document_id AND e.relation == @explains
+            LET target = STARTS_WITH(e._to, '{COLLECTION_ARTICLE_VERSIONS}/') ? FIRST(
+                FOR v IN {COLLECTION_EDGES}
+                    FILTER v._from == e._to AND v.relation == @version_of
+                    FILTER STARTS_WITH(v._to, '{COLLECTION_ARTICLES}/')
+                    LIMIT 1
+                    RETURN DOCUMENT(v._to)
+            ) : DOCUMENT(e._to)
+            FILTER target != null
+            LET collection = PARSE_IDENTIFIER(target._id).collection
+            FILTER collection IN ['{COLLECTION_ARTICLES}', '{COLLECTION_INSTRUMENTS}']
+            RETURN {{
+                id: target._id,
+                key: target._key,
+                collection: collection,
+                bwb_id: target.props.bwb_id,
+                article_number: collection == '{COLLECTION_ARTICLES}'
+                    ? target.props.article_number : null
+            }}
+    )
+    RETURN {{
+        dossier_numbers: dossier_numbers,
+        explains: (FOR target IN UNIQUE(targets) SORT target.id RETURN target)
+    }}
+    """
+    bind = {
+        "document_id": document_id,
+        "part_of": RELATION_PART_OF,
+        "explains": RELATION_EXPLAINS,
+        "version_of": RELATION_VERSION_OF,
+    }
+    rows = list(store.query(aql, bind))
+    return rows[0] if rows else {"dossier_numbers": [], "explains": []}

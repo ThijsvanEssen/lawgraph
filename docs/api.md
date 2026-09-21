@@ -65,17 +65,17 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `GET /api/dossiers/open` | dossiers not yet closed; `committee` (slug), `subject`, `stage`, `has_stage` (all listed stages), `limit`, `offset` |
 | `/api/dossiers/recent` | dossiers with activity in `days` (default 30) |
 | `/api/dossiers/{number}` | header, current stage, counts of documents, activities, decisions, commitments |
-| `.../timeline` | documents, activities, decisions and commitments; `order` (`desc`, `asc`), `kind` (comma-separated), `limit` |
-| `.../documents` | documents linked directly or through a case, newest first, with `total` |
+| `.../timeline` | documents, activities, decisions and commitments; `order` (`desc`, `asc`), `kind` (comma-separated), `limit`. Each entry has `node_type` and a `body` typed by it: a document (`kind`, `title`, `sequence`, `session_year`, `tk_url`, `url`, `chamber`, `source`, `is_explanatory`; never its text), an activity (`kind`, `agenda_title`, `number`; the entry also has `committee` `{key, slug, name}`, null for plenary), a decision (`subject`, `passed`, `vote_kind`, `tally`, `voters`, `external_id`, and the decided `document` with `dictum_excerpt` and `signatories`) or a commitment (`text`, `minister_name`, `minister_role`, `status`, `expected_resolution`) |
+| `.../documents` | documents linked directly or through a case, newest first, with `total`; like every document in the API each has `chamber` (`TK`, `EK`, null for Staatsblad and Staatscourant), `source` and `is_explanatory` |
 | `.../mutations` | the subgraph of `voorgesteld` edges, in graph shape |
 | `/api/dossiers/documents/bulk?numbers=a,b` | top `per_dossier_limit` (default 8) documents per dossier |
-| `GET /api/decisions`, `/{key}`, `/{key}/document` | decisions (`passed`, `party`, `chamber` `TK`/`EK`; the Eerste Kamer has papers but no votes) with every vote cast — per member on a roll-call, per faction otherwise; the decided motion, amendment or bill with text |
+| `GET /api/decisions`, `/{key}`, `/{key}/document` | decisions (`passed`, `party`, `chamber` `TK`/`EK`, `dossier` number; the Eerste Kamer has papers but no votes) with every vote cast — per member on a roll-call, per faction otherwise; the decided motion, amendment or bill with text |
 | `GET /api/committees`, `/with-members`, `/{slug}` | committees; detail lists current members (`current_only=true`, the default) and the dossiers it leads |
 | `GET /api/members`, `/{key}`, `/{key}/votes`, `/{key}/touched-instruments` | members (filter `party`, `active`, `q`; ministers only with `include_all`); a member's votes, a faction vote counted only for the period they belonged to it; laws the member proposed changes to |
 | `GET /api/factions`, `/{key}`, `/{key}/touched-instruments` | factions with member counts; the same aggregate per faction |
 | `GET /api/parliament/seats` | seated factions with seat counts in plenary-hall order |
 | `GET /api/parties/colors` | party abbreviation to hex colour |
-| `GET /api/documents`, `/{key}` | documents across sources, metadata only (`q`, `kind`, `chamber`, `source`, `limit` up to 1000); one with its extracted text (null when `tk-content` has not reached it) |
+| `GET /api/documents`, `/{key}` | documents across sources, metadata only (`q`, `kind`, `chamber`, `source`, `dossier` number: documents linked directly or through a case; `limit` up to 1000, `offset`; `total` counts all matches); one with its extracted text (null when `tk-content` has not reached it), `dossier_numbers` (the dossiers it is `PART_OF`, in either chamber) and `explains` (the articles and instruments it `EXPLAINS`: `id`, `key`, `collection`, `bwb_id`, `article_number`; an article version resolves to its article, an instrument has no `article_number`) |
 
 ### Graph, search, nodes
 

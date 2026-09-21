@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, get_args
+from typing import Annotated, Any, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+
+from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+
+# A dossier number as the API takes it: 29684, or with an addition, 29684-I.
+DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z]+)?$"
 
 # Stage names are the Dutch legislative vocabulary the classifier speaks.
 DossierStage = Literal[
@@ -39,8 +44,107 @@ def _stages(values: Any) -> list[DossierStage]:
     return [v for v in (values or []) if v in valid]
 
 
-class TimelineEntryDTO(BaseModel):
-    """One entry in a dossier timeline; ``body`` depends on ``kind``."""
+class TimelineCommitteeDTO(BaseModel):
+    """The committee that leads an activity."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    slug: str | None = None
+    name: str | None = None
+
+
+class TimelineSignatoryDTO(BaseModel):
+    """Who signed the document a decision was taken on."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    member_key: str | None = None
+    name: str | None = None
+    party: str | None = None
+    role: str = Field(..., description="'indiener' or 'mede-indiener'.")
+    source_role: str = Field("", description="The role as the source wrote it.")
+
+
+class TimelineDocumentSummaryDTO(DocumentOrigin):
+    """The document a decision was taken on: what it says and who signed it."""
+
+    id: str
+    key: str
+    kind: str | None = None
+    title: str | None = None
+    sequence: int | None = None
+    session_year: str | None = None
+    date: str | None = None
+    tk_url: str | None = None
+    dictum_excerpt: str | None = Field(
+        None, description="The first 280 characters of the document's text."
+    )
+    signatories: list[TimelineSignatoryDTO] = Field(default_factory=list)
+
+
+class TimelineDocumentBody(DocumentOrigin):
+    """A document entry: what identifies the document, never its text.
+
+    Fetch ``/api/documents/{key}`` for the text. ``url`` is the page of an Eerste
+    Kamer paper on officielebekendmakingen.nl; ``tk_url`` the paper on tweedekamer.nl.
+    """
+
+    kind: str | None = None
+    title: str | None = None
+    sequence: int | None = Field(
+        None, description="Document number within the dossier."
+    )
+    session_year: str | None = Field(None, description="Parliamentary year.")
+    tk_url: str | None = None
+    url: str | None = None
+
+
+class TimelineActivityBody(BaseModel):
+    """An activity entry: a debate, hearing or other agenda item."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str | None = Field(None, description="E.g. 'Commissiedebat'.")
+    agenda_title: str | None = Field(
+        None, description="The agenda item; starts with the date."
+    )
+    number: str | None = Field(None, description="The activity number.")
+
+
+class TimelineDecisionBody(BaseModel):
+    """A decision entry: the vote, and the document it was taken on.
+
+    ``tally`` is seats per choice and ``voters`` how many factions (or members)
+    cast each. ``document`` is the motion or amendment decided on, when it can be
+    resolved.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    subject: str | None = None
+    passed: bool | None = None
+    vote_kind: str | None = None
+    tally: dict[str, int] = Field(default_factory=dict)
+    voters: dict[str, int] = Field(default_factory=dict)
+    external_id: str | None = Field(None, description="TK Besluit identifier.")
+    document: TimelineDocumentSummaryDTO | None = None
+
+
+class TimelineCommitmentBody(BaseModel):
+    """A commitment (toezegging) entry."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str | None = None
+    minister_name: str | None = None
+    minister_role: str | None = None
+    status: str | None = Field(None, description="'open', 'done' or 'vervallen'.")
+    expected_resolution: str | None = None
+
+
+class _TimelineEntry(BaseModel):
+    """What every timeline entry has; the body and ``node_type`` say the rest."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -48,15 +152,85 @@ class TimelineEntryDTO(BaseModel):
     kind: str
     title: str | None
     node_id: str
-    node_type: str
     tk_url: str | None = None
-    body: dict[str, Any] = Field(default_factory=dict)
 
 
-class DossierDocumentDTO(BaseModel):
+class TimelineDocumentEntry(_TimelineEntry):
+    """A document that is PART_OF the dossier."""
+
+    node_type: Literal["document"]
+    body: TimelineDocumentBody
+
+
+class TimelineActivityEntry(_TimelineEntry):
+    """An activity ABOUT the dossier; ``committee`` is null for a plenary one."""
+
+    node_type: Literal["activity"]
+    body: TimelineActivityBody
+    committee: TimelineCommitteeDTO | None = None
+
+
+class TimelineDecisionEntry(_TimelineEntry):
+    """A decision ABOUT the dossier."""
+
+    node_type: Literal["decision"]
+    body: TimelineDecisionBody
+
+
+class TimelineCommitmentEntry(_TimelineEntry):
+    """A commitment ABOUT the dossier."""
+
+    node_type: Literal["commitment"]
+    body: TimelineCommitmentBody
+
+
+TimelineEntryDTO = Annotated[
+    TimelineDocumentEntry
+    | TimelineActivityEntry
+    | TimelineDecisionEntry
+    | TimelineCommitmentEntry,
+    Field(discriminator="node_type"),
+]
+_TIMELINE_ENTRY: TypeAdapter[TimelineEntryDTO] = TypeAdapter(TimelineEntryDTO)
+
+
+def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
+    """The typed entry for one timeline row of ``get_dossier_timeline``."""
+    body = row.get("body") or {}
+    common = {
+        "date": row.get("date"),
+        "kind": row.get("kind") or "",
+        "title": row.get("title"),
+        "node_id": row.get("node_id") or "",
+        "tk_url": row.get("tk_url"),
+        "node_type": row.get("node_type"),
+    }
+    node_type = row.get("node_type")
+    if node_type == "document":
+        common["body"] = {
+            **{f: body.get(f) for f in ("kind", "title", "sequence", "session_year")},
+            **{f: body.get(f) for f in ("tk_url", "url")},
+            **origin_fields(row.get("labels"), body.get("source"), body.get("kind")),
+        }
+    elif node_type == "decision":
+        common["body"] = {
+            "subject": body.get("subject"),
+            "passed": body.get("passed"),
+            "vote_kind": body.get("vote_kind"),
+            "tally": body.get("tally") or {},
+            "voters": body.get("voters") or {},
+            "external_id": body.get("decision_id"),
+            "document": body.get("document"),
+        }
+    else:
+        common["body"] = body
+    if node_type == "activity":
+        common["committee"] = row.get("committee")
+    return _TIMELINE_ENTRY.validate_python(common)
+
+
+class DossierDocumentDTO(DocumentOrigin):
     """One document linked to a dossier."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -69,6 +243,22 @@ class DossierDocumentDTO(BaseModel):
     date: str | None = None
     tk_url: str | None = None
     display_name: str | None = None
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> DossierDocumentDTO:
+        """From a document row of ``get_dossier_documents``."""
+        return cls(
+            id=row["id"],
+            key=row["key"],
+            kind=row.get("kind"),
+            title=row.get("title"),
+            sequence=row.get("sequence"),
+            session_year=row.get("session_year"),
+            date=row.get("date"),
+            tk_url=row.get("tk_url"),
+            display_name=row.get("display_name"),
+            **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
+        )
 
 
 class DossierDocumentsResponse(BaseModel):

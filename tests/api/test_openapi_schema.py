@@ -47,3 +47,35 @@ def test_a_route_that_writes_names_its_key_in_the_schema() -> None:
         assert bool(operation.get("security")) == (method in WRITING), (
             f"{method} {path}"
         )
+
+
+def test_a_timeline_entry_is_typed_by_its_node_and_carries_no_free_body() -> None:
+    schemas = SPEC["components"]["schemas"]
+    entries = schemas["DossierTimelineResponse"]["properties"]["entries"]["items"]
+    assert entries["discriminator"]["propertyName"] == "node_type"
+    assert set(entries["discriminator"]["mapping"]) == {
+        "document",
+        "activity",
+        "decision",
+        "commitment",
+    }
+    for name in entries["discriminator"]["mapping"].values():
+        body = schemas[name.rsplit("/", 1)[1]]["properties"]["body"]
+        assert "$ref" in body, name  # a typed body, not an open object
+    assert "committee" in schemas["TimelineActivityEntry"]["properties"]
+    for body in ("TimelineDocumentBody", "TimelineDecisionBody"):
+        assert "text" not in schemas[body]["properties"]
+        assert "raw" not in schemas[body]["properties"]
+
+
+def test_every_document_answer_says_its_chamber_source_and_kind() -> None:
+    schemas = SPEC["components"]["schemas"]
+    for name in (
+        "DocumentSummaryDTO",
+        "DocumentTextResponse",
+        "DossierDocumentDTO",
+        "TimelineDocumentBody",
+    ):
+        assert {"chamber", "source", "is_explanatory"} <= set(
+            schemas[name]["properties"]
+        ), name

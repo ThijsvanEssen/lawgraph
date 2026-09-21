@@ -28,6 +28,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
+from lawgraph.core.documents import chamber_of, is_explanatory
 from lawgraph.core.dossier_stages import (
     accumulate_stage_signals,
     classify_track_kind,
@@ -48,6 +49,37 @@ MUTATION_RELATIONS = (
 EXPLANATION_RELATIONS = (RELATION_EXPLAINS,)
 
 _DICTUM_EXCERPT_CHARS = 280
+
+# The props of a timeline node that its entry shows, per node type. A document's
+# ``text`` and ``raw`` are not among them: the timeline is not where a document is read.
+_TIMELINE_BODY_PROPS: dict[str, list[str]] = {
+    "document": [
+        "kind",
+        "title",
+        "sequence",
+        "session_year",
+        "tk_url",
+        "url",
+        "source",
+    ],
+    "activity": ["kind", "agenda_title", "number"],
+    "decision": [
+        "subject",
+        "passed",
+        "vote_kind",
+        "tally",
+        "voters",
+        "decision_id",
+        "primary_case_id",
+    ],
+    "commitment": [
+        "text",
+        "minister_name",
+        "minister_role",
+        "status",
+        "expected_resolution",
+    ],
+}
 
 # TK writes 'Eerste ondertekenaar' / 'Mede ondertekenaar'; the frontend shows
 # who submitted a document and who co-signed it.
@@ -236,14 +268,19 @@ def get_dossier_timeline(
     """Everything that happened in a dossier, in date order.
 
     Documents are PART_OF the dossier; activities, decisions and commitments
-    are ABOUT it. A decision entry also carries the motion or amendment it
-    decided on, with its dictum excerpt and signatories.
+    are ABOUT it. A row carries the props its entry shows (``body``, see
+    ``_TIMELINE_BODY_PROPS``) and the node's ``labels``; an activity row also its
+    lead committee (``committee``, null for plenary), looked up for the page only.
+    A decision entry carries the motion or amendment it decided on, with its
+    dictum excerpt and signatories.
     """
     bind: dict[str, Any] = {
         "dossier_id": dossier_id,
         "limit": limit,
         "part_of": RELATION_PART_OF,
         "about": RELATION_ABOUT,
+        "led_by": RELATION_LED_BY,
+        "body_props": _TIMELINE_BODY_PROPS,
     }
     kind_clause = ""
     if kind_filter:
@@ -274,7 +311,8 @@ def get_dossier_timeline(
                    : node.type == 'commitment' ? 'Toezegging' : 'Document'),
             title: node.props.display_name,
             tk_url: node.props.tk_url,
-            body: node.props,
+            body: KEEP(node.props, @body_props[node.type]),
+            labels: node.labels,
             node_id: node._id,
             node_type: node.type
         }}
@@ -282,7 +320,19 @@ def get_dossier_timeline(
         {kind_clause}
         SORT entry.date {"DESC" if order == "desc" else "ASC"}
         LIMIT @limit
-        RETURN entry
+        LET committee = node.type == 'activity' ? FIRST(
+            FOR led IN {COLLECTION_EDGES}
+                FILTER led._from == node._id AND led.relation == @led_by
+                LET lead = DOCUMENT(led._to)
+                FILTER lead != null
+                LIMIT 1
+                RETURN {{
+                    key: lead._key,
+                    slug: lead.props.slug,
+                    name: lead.props.name
+                }}
+        ) : null
+        RETURN MERGE(entry, {{ committee: committee }})
     """
     rows = list(store.query(aql, bind))
     _attach_decision_documents(store, dossier_id, rows)
@@ -368,6 +418,9 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "session_year": props.get("session_year"),
         "date": props.get("date"),
         "tk_url": props.get("tk_url"),
+        "source": props.get("source"),
+        "chamber": chamber_of(document.get("labels")),
+        "is_explanatory": is_explanatory(props.get("kind")),
         "dictum_excerpt": " ".join(text.split())[:_DICTUM_EXCERPT_CHARS] or None,
         "signatories": signatories,
     }
@@ -384,7 +437,9 @@ _DOSSIER_DOCUMENT_ROW = """
                 session_year: document.props.session_year,
                 date: document.props.date,
                 tk_url: document.props.tk_url,
-                display_name: document.props.display_name
+                display_name: document.props.display_name,
+                source: document.props.source,
+                labels: document.labels
             }"""
 
 

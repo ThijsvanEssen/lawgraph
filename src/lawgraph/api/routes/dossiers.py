@@ -30,6 +30,7 @@ from lawgraph.api.queries.dossiers import (
     get_recent_dossiers,
 )
 from lawgraph.api.schemas.dossiers import (
+    DOSSIER_NUMBER_PATTERN,
     DossierDetailResponse,
     DossierDocumentDTO,
     DossierDocumentsBulkResponse,
@@ -40,19 +41,17 @@ from lawgraph.api.schemas.dossiers import (
     DossierMutationsResponse,
     DossierSummaryDTO,
     DossierTimelineResponse,
-    TimelineEntryDTO,
+    timeline_entry,
 )
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
 
-_NUMBER_PATTERN = r"^\d+(-[A-Za-z]+)?$"
-
 DossierNumber = Annotated[
     str,
     Path(
         description="Dossier number, e.g. 29684 or 29684-I.",
-        pattern=_NUMBER_PATTERN,
+        pattern=DOSSIER_NUMBER_PATTERN,
     ),
 ]
 
@@ -171,7 +170,7 @@ def list_documents_for_dossiers(
     )
     return DossierDocumentsBulkResponse(
         items={
-            number: [DossierDocumentDTO(**d) for d in by_id.get(dossier_id, [])]
+            number: [DossierDocumentDTO.from_row(d) for d in by_id.get(dossier_id, [])]
             for number, dossier_id in number_to_id.items()
         }
     )
@@ -218,7 +217,7 @@ def list_dossier_documents(
     raw = get_dossier_documents(store, dossier["_id"], limit=limit, offset=offset)
     return DossierDocumentsResponse(
         total=int(raw.get("total") or 0),
-        items=[DossierDocumentDTO(**d) for d in raw.get("items") or []],
+        items=[DossierDocumentDTO.from_row(d) for d in raw.get("items") or []],
     )
 
 
@@ -249,18 +248,7 @@ def get_timeline(
         kind_filter=[k.strip() for k in kind.split(",")] if kind else None,
         limit=limit,
     )
-    entries = [
-        TimelineEntryDTO(
-            date=row.get("date"),
-            kind=row.get("kind") or "",
-            title=row.get("title"),
-            node_id=row.get("node_id") or "",
-            node_type=row.get("node_type") or "",
-            tk_url=row.get("tk_url"),
-            body=row.get("body") or {},
-        )
-        for row in rows
-    ]
+    entries = [timeline_entry(row) for row in rows]
     return DossierTimelineResponse(
         number=number, total=len(entries), order=order, entries=entries
     )

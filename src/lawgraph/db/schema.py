@@ -350,6 +350,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_ACTIVITIES, ["props.date"], False),
         (COLLECTION_DECISIONS, ["props.passed"], False),
         (COLLECTION_DECISIONS, ["props.date"], False),
+        # `GET /api/decisions?dossier=`: `@number IN decision.props.dossier_numbers`
+        (COLLECTION_DECISIONS, ["props.dossier_numbers[*]"], False),
         (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
         (COLLECTION_COMMITMENTS, ["props.status"], False),
         (COLLECTION_WATCHES, ["node_id"], False),
