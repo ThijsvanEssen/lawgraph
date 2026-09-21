@@ -6,7 +6,7 @@ from typing import Any
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, make_node_key
-from lawgraph.pipelines.semantic.echr_citations import ECHRCitationsSemanticPipeline
+from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline
 
 
 class _FakeStore:
@@ -67,7 +67,7 @@ def test_pipeline_links_convention_articles() -> None:
             }
         ]
     )
-    pipeline = ECHRCitationsSemanticPipeline(store=store)
+    pipeline = ECHRSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 2
@@ -89,7 +89,7 @@ def test_pipeline_creates_mentions_instrument_for_bwb_in_conclusion() -> None:
         ],
         instrument_rows=[{"_key": inst_key, "props": {"bwb_id": bwb_id}}],
     )
-    pipeline = ECHRCitationsSemanticPipeline(store=store)
+    pipeline = ECHRSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created >= 1
@@ -99,6 +99,6 @@ def test_pipeline_creates_mentions_instrument_for_bwb_in_conclusion() -> None:
 
 def test_pipeline_returns_empty_when_no_judgments() -> None:
     store = _FakeStore(judgment_rows=[])
-    pipeline = ECHRCitationsSemanticPipeline(store=store)
+    pipeline = ECHRSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0

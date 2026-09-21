@@ -266,8 +266,8 @@ def test_a_join_on_a_sparse_index_excludes_null() -> None:
 # ── semantic pipelines read the props they use ───────────────────────────────
 
 _WHOLE_DOCUMENT = re.compile(r"RETURN (doc|art|inst|j|pub)\b(?![._\[])")
-# tk_articles scans every text prop of a paper and its API payload: it needs the document.
-_READS_WHOLE_DOCUMENTS = {"tk_articles.py"}
+# `semantic tk` scans every text prop of a paper and its API payload: it needs the document.
+_READS_WHOLE_DOCUMENTS = {"tk.py"}
 
 
 def test_a_semantic_pipeline_does_not_have_whole_documents_sent_over() -> None:
@@ -307,7 +307,7 @@ def test_every_pipeline_reports_progress() -> None:
                 continue  # helpers and detectors, not a pipeline
             if not any(call in text for call in calls) and "super().run(" not in text:
                 silent.append(f"{phase}/{path.name}")
-    assert "Progress(" in (pipelines / "list_stats.py").read_text()
+    assert "Progress(" in (pipelines / "semantic" / "graph_list_stats.py").read_text()
     assert not silent, f"no progress reported by: {silent}"
 
 

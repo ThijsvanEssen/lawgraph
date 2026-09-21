@@ -31,7 +31,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.xml import iter_named
 from lawgraph.db import EdgeWriter
-from lawgraph.pipelines.semantic.annex_detect import detect_annex_references
+from lawgraph.pipelines.semantic._annex_detect import detect_annex_references
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase, slim
 
 logger = get_logger(__name__)
@@ -39,7 +39,7 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "bwb-annex-links"
 
 
-class AnnexLinksSemanticPipeline(SemanticPipelineBase):
+class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
     """Extract annex nodes from BWB XML and link referencing articles."""
 
     def run(self) -> PipelineResult:

@@ -14,8 +14,8 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 
+from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
-from .detection import build_extractor, detect_in_text
 
 logger = get_logger(__name__)
 
@@ -28,7 +28,7 @@ SEMANTIC_SOURCE = "rechtspraak-article-linker"
 # ---------------------------------------------------------------------------
 
 
-class RechtspraakArticlesSemanticPipeline(SemanticPipelineBase):
+class RechtspraakSemanticPipeline(SemanticPipelineBase):
     """Link Rechtspraak judgments to BWB articles via semantic edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:

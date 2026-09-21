@@ -79,7 +79,7 @@ FOR doc IN {COLLECTION_DOCUMENTS}
 """
 
 
-class MvtArticlesSemanticPipeline(SemanticPipelineBase):
+class TKMvtSemanticPipeline(SemanticPipelineBase):
     """Link explanatory memoranda to the article versions they explain."""
 
     def run(self) -> PipelineResult:

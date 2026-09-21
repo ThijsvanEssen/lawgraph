@@ -37,7 +37,7 @@ _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
 }
 
 
-class StaatscourantRegelingSemanticPipeline(SemanticPipelineBase):
+class StaatscourantSemanticPipeline(SemanticPipelineBase):
     """Links Staatscourant ministerial regulations to BWB instruments via EXPLAINS."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:

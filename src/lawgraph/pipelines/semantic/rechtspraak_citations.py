@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "judgment-citation-linker"
 
 
-class JudgmentCitationsSemanticPipeline(SemanticPipelineBase):
+class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:

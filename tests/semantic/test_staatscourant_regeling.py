@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from lawgraph.pipelines.semantic.staatscourant_regeling import (
-    StaatscourantRegelingSemanticPipeline,
+from lawgraph.pipelines.semantic.staatscourant import (
+    StaatscourantSemanticPipeline,
 )
 
 
@@ -23,7 +23,7 @@ class _Store:
 
 def _queries() -> list[str]:
     store = _Store()
-    StaatscourantRegelingSemanticPipeline(store=store).run()
+    StaatscourantSemanticPipeline(store=store).run()
     return store.queries
 
 
@@ -60,7 +60,7 @@ def test_since_is_compared_as_a_date_with_the_date_of_the_publication() -> None:
 
     store = Binds()
     since = dt.datetime(2026, 9, 19, 6, 0, tzinfo=dt.timezone.utc)
-    StaatscourantRegelingSemanticPipeline(store=store).run(since=since)
+    StaatscourantSemanticPipeline(store=store).run(since=since)
     assert {b["since_iso"] for b in store.binds if "since_iso" in b} == {"2026-09-19"}
 
 
@@ -74,4 +74,4 @@ def test_a_failing_query_ends_the_step_instead_of_leaving_its_edges_out() -> Non
             return []
 
     with pytest.raises(RuntimeError, match="memory limit exceeded"):
-        StaatscourantRegelingSemanticPipeline(store=Failing()).run()
+        StaatscourantSemanticPipeline(store=Failing()).run()

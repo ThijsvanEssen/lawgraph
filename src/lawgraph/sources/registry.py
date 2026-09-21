@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from lawgraph.pipelines.command import Command, PipelineCommand
-from lawgraph.pipelines.list_stats import main as list_stats_main
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
@@ -39,37 +38,40 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_tk_dossiers,
     retrieve_verdragenbank,
 )
-from lawgraph.pipelines.semantic.amendment_articles import (
-    AmendmentArticlesSemanticPipeline,
-)
-from lawgraph.pipelines.semantic.annex_links import AnnexLinksSemanticPipeline
+from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
-from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
-from lawgraph.pipelines.semantic.echr_citations import ECHRCitationsSemanticPipeline
-from lawgraph.pipelines.semantic.eerstekamer_dossier_link import (
-    EerstekamerDossierLinkSemanticPipeline,
+from lawgraph.pipelines.semantic.bwb_relation_types import (
+    BWBRelationTypesSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.eu_articles import EUArticlesSemanticPipeline
+from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline
+from lawgraph.pipelines.semantic.eerstekamer import (
+    EerstekamerSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.eurlex import EurlexSemanticPipeline
+from lawgraph.pipelines.semantic.graph_list_stats import main as list_stats_main
 from lawgraph.pipelines.semantic.instrument_relations import (
     InstrumentRelationsSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.judgment_appeal import JudgmentAppealSemanticPipeline
-from lawgraph.pipelines.semantic.judgment_citations import (
-    JudgmentCitationsSemanticPipeline,
+from lawgraph.pipelines.semantic.rechtspraak import (
+    RechtspraakSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.mvt_articles import MvtArticlesSemanticPipeline
-from lawgraph.pipelines.semantic.rechtspraak_articles import (
-    RechtspraakArticlesSemanticPipeline,
+from lawgraph.pipelines.semantic.rechtspraak_appeal import (
+    RechtspraakAppealSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.relation_semantics import (
-    RelationSemanticsSemanticPipeline,
+from lawgraph.pipelines.semantic.rechtspraak_citations import (
+    RechtspraakCitationsSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.staatsblad_nvt import StaatsbladNvtSemanticPipeline
-from lawgraph.pipelines.semantic.staatscourant_regeling import (
-    StaatscourantRegelingSemanticPipeline,
+from lawgraph.pipelines.semantic.staatsblad import StaatsbladSemanticPipeline
+from lawgraph.pipelines.semantic.staatscourant import (
+    StaatscourantSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.tk_articles import TKArticlesSemanticPipeline
+from lawgraph.pipelines.semantic.tk import TKSemanticPipeline
+from lawgraph.pipelines.semantic.tk_amendment_articles import (
+    TKAmendmentArticlesSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 
 # Retrieve steps that share a server.
 LANE_TWEEDE_KAMER = "tweede_kamer"
@@ -163,7 +165,7 @@ def _register_tk() -> list[SourceDescriptor]:
         description="Normalize raw TK dossier records.",
     )
     semantic = PipelineCommand(
-        TKArticlesSemanticPipeline,
+        TKSemanticPipeline,
         description="Detect TK references to Dutch and EU articles.",
     )
     return [
@@ -223,7 +225,7 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
         description="Normalize raw Rechtspraak records.",
     )
     semantic = PipelineCommand(
-        RechtspraakArticlesSemanticPipeline,
+        RechtspraakSemanticPipeline,
         description="Detect references to BWB articles in Rechtspraak judgments.",
     )
     return [
@@ -255,7 +257,7 @@ def _register_eurlex() -> list[SourceDescriptor]:
         description="Normalize raw EUR-Lex records.",
     )
     semantic = PipelineCommand(
-        EUArticlesSemanticPipeline,
+        EurlexSemanticPipeline,
         description="Link EU instruments to national and EU articles.",
     )
     return [
@@ -292,7 +294,7 @@ def _register_bwb() -> list[SourceDescriptor]:
         description="Normalize historical BWB toestanden.",
     )
     semantic = PipelineCommand(
-        BWBArticlesSemanticPipeline,
+        BWBSemanticPipeline,
         description="Detect BWB article references and store REFERS_TO edges.",
         add_args=_bwb_articles_add_args,
         make_extra_kwargs=_bwb_articles_extra_kwargs,
@@ -309,7 +311,7 @@ def _register_bwb() -> list[SourceDescriptor]:
         ),
     )
     semantic_annexes = PipelineCommand(
-        AnnexLinksSemanticPipeline,
+        BWBAnnexesSemanticPipeline,
         description="Extract annex nodes from BWB XML and create SCOPED_BY edges.",
     )
     return [
@@ -378,7 +380,7 @@ def _register_staatsblad() -> list[SourceDescriptor]:
         description="Normalize raw Staatsblad AMvB records.",
     )
     semantic = PipelineCommand(
-        StaatsbladNvtSemanticPipeline,
+        StaatsbladSemanticPipeline,
         description="Link Staatsblad NvT publications to BWB instruments.",
     )
     return [
@@ -412,7 +414,7 @@ def _register_staatscourant() -> list[SourceDescriptor]:
         description="Normalize Staatscourant ministeriele regelingen.",
     )
     semantic = PipelineCommand(
-        StaatscourantRegelingSemanticPipeline,
+        StaatscourantSemanticPipeline,
         description="Create EXPLAINS edges from Staatscourant regulations.",
     )
     return [
@@ -441,7 +443,7 @@ def _register_eerstekamer() -> list[SourceDescriptor]:
         description="Normalize Eerste Kamer Kamerstukken.",
     )
     semantic = PipelineCommand(
-        EerstekamerDossierLinkSemanticPipeline,
+        EerstekamerSemanticPipeline,
         description="Link Eerste Kamer Kamerstukken to their Tweede Kamer dossier.",
     )
     return [
@@ -468,7 +470,7 @@ def _register_echr() -> list[SourceDescriptor]:
         description="Normalize ECHR HUDOC judgments.",
     )
     semantic = PipelineCommand(
-        ECHRCitationsSemanticPipeline,
+        ECHRSemanticPipeline,
         description="Create REFERS_TO edges from ECHR judgments to articles and instruments.",
     )
     return [
@@ -513,11 +515,11 @@ def _register_verdragenbank() -> list[SourceDescriptor]:
 
 def _register_cross_source_semantic() -> list[SourceDescriptor]:
     semantic_judgment_citations = PipelineCommand(
-        JudgmentCitationsSemanticPipeline,
+        RechtspraakCitationsSemanticPipeline,
         description="Detect ECLI cross-references and create REFERS_TO edges between judgments.",
     )
     semantic_judgment_appeal = PipelineCommand(
-        JudgmentAppealSemanticPipeline,
+        RechtspraakAppealSemanticPipeline,
         description="Create APPEAL_OF edges from hoger beroep/cassatie to prior proceedings.",
     )
     semantic_instrument_relations = PipelineCommand(
@@ -525,15 +527,15 @@ def _register_cross_source_semantic() -> list[SourceDescriptor]:
         description="Detect AMENDS and IMPLEMENTS edges between instruments.",
     )
     semantic_amendment_articles = PipelineCommand(
-        AmendmentArticlesSemanticPipeline,
+        TKAmendmentArticlesSemanticPipeline,
         description="Detect amendment language; write AMENDS/INTRODUCES/REPEALS edges.",
     )
     semantic_mvt_articles = PipelineCommand(
-        MvtArticlesSemanticPipeline,
+        TKMvtSemanticPipeline,
         description="Link MvT/NvT documents to the article versions they explain (EXPLAINS).",
     )
     semantic_relation_semantics = PipelineCommand(
-        RelationSemanticsSemanticPipeline,
+        BWBRelationTypesSemanticPipeline,
         description="Classify article-to-article REFERS_TO edges with semantic relationship types.",
     )
     return [

@@ -6,8 +6,8 @@ from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.citations import detect_article_references
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.base import CodeMapping
-from lawgraph.pipelines.semantic.rechtspraak_articles import (
-    RechtspraakArticlesSemanticPipeline,
+from lawgraph.pipelines.semantic.rechtspraak import (
+    RechtspraakSemanticPipeline,
 )
 from tests.conftest import _BaseFakeStore
 
@@ -117,7 +117,7 @@ def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
         articles={article_doc["_key"]: article_doc},
         instruments=[instrument_row],
     )
-    pipeline = RechtspraakArticlesSemanticPipeline(store=store)
+    pipeline = RechtspraakSemanticPipeline(store=store)
 
     created_first = pipeline.run()
     assert created_first.created == 1
@@ -150,7 +150,7 @@ def _edges(text: str, instruments: list[dict[str, Any]]) -> dict[str, dict[str, 
     store = _FakeStore(
         judgments=[_judgment(text)], articles=articles, instruments=instruments
     )
-    RechtspraakArticlesSemanticPipeline(store=store).run()
+    RechtspraakSemanticPipeline(store=store).run()
     return store.edges
 
 

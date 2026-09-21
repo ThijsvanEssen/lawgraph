@@ -130,7 +130,7 @@ def detect_amendment_citations(
     return results
 
 
-class AmendmentArticlesSemanticPipeline(SemanticPipelineBase):
+class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
     """Detect amendment language and create AMENDS/INTRODUCES/REPEALS edges."""
 
     def run(self) -> PipelineResult:

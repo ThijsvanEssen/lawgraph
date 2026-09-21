@@ -5,9 +5,9 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from lawgraph.config.constants import SCOPE_TYPE_DISCRETIONARY, SCOPE_TYPE_FIXED
-from lawgraph.pipelines.semantic.annex_detect import detect_annex_references
-from lawgraph.pipelines.semantic.annex_links import (
-    AnnexLinksSemanticPipeline,
+from lawgraph.pipelines.semantic._annex_detect import detect_annex_references
+from lawgraph.pipelines.semantic.bwb_annexes import (
+    BWBAnnexesSemanticPipeline,
     annex_node_key,
 )
 
@@ -16,8 +16,8 @@ class _DummyStore:
     pass
 
 
-def _pipeline() -> AnnexLinksSemanticPipeline:
-    return AnnexLinksSemanticPipeline(store=_DummyStore())
+def _pipeline() -> BWBAnnexesSemanticPipeline:
+    return BWBAnnexesSemanticPipeline(store=_DummyStore())
 
 
 # ── text detection ───────────────────────────────────────────────────────────

@@ -115,5 +115,5 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
     def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
         """None. A paper reaches the graph through its Tweede Kamer dossier.
 
-        ``EerstekamerDossierLinkSemanticPipeline`` matches the dossier number.
+        ``EerstekamerSemanticPipeline`` matches the dossier number.
         """

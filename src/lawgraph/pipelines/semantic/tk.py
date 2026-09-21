@@ -28,8 +28,8 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 
+from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
-from .detection import build_extractor, detect_in_text
 
 logger = get_logger(__name__)
 
@@ -96,7 +96,7 @@ def _collect_tk_hits(
 # ---------------------------------------------------------------------------
 
 
-class TKArticlesSemanticPipeline(SemanticPipelineBase):
+class TKSemanticPipeline(SemanticPipelineBase):
     """Pipeline connecting TK documents to the articles and instruments they cite."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:

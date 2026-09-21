@@ -21,7 +21,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
-from lawgraph.pipelines.semantic.bwb_references import (
+from lawgraph.pipelines.semantic._bwb_references import (
     ArticleReferenceHit,
     hits_from_references,
 )
@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "bwb-article-references"
 
 
-class BWBArticlesSemanticPipeline(SemanticPipelineBase):
+class BWBSemanticPipeline(SemanticPipelineBase):
     """Link article-to-article references recorded in the BWB XML."""
 
     _ARTICLE_CHUNK = 500

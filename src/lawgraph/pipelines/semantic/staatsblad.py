@@ -62,7 +62,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
 """
 
 
-class StaatsbladNvtSemanticPipeline(SemanticPipelineBase):
+class StaatsbladSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking Staatsblad NvT documents to BWB instruments via EXPLAINS."""
 
     def run(self) -> PipelineResult:

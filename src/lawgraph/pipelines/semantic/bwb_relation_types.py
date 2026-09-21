@@ -24,13 +24,15 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
+from lawgraph.pipelines.semantic._relation_type_patterns import (
+    classify_citation_context,
+)
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
-from lawgraph.pipelines.semantic.semantic_classify import classify_citation_context
 
 logger = get_logger(__name__)
 
 
-class RelationSemanticsSemanticPipeline(SemanticPipelineBase):
+class BWBRelationTypesSemanticPipeline(SemanticPipelineBase):
     """Assign semantic_type to article-to-article reference edges."""
 
     _UPDATE_BATCH_SIZE = 500

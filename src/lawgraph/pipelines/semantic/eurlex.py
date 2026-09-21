@@ -115,7 +115,7 @@ def _collect_bwb_alias_hits(
         )
 
 
-class EUArticlesSemanticPipeline(SemanticPipelineBase):
+class EurlexSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking EU instruments to BWB/EU articles via semantic edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:

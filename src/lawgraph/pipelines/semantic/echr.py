@@ -85,7 +85,7 @@ def _ensure_echr_article(
     return stored
 
 
-class ECHRCitationsSemanticPipeline(SemanticPipelineBase):
+class ECHRSemanticPipeline(SemanticPipelineBase):
     """Links ECHR judgments to cited Convention articles and mentioned instruments."""
 
     def _link_convention_articles(

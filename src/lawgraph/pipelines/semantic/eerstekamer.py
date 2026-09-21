@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "ek-dossier-linker"
 
 
-class EerstekamerDossierLinkSemanticPipeline(SemanticPipelineBase):
+class EerstekamerSemanticPipeline(SemanticPipelineBase):
     """Links EK documents to TK kamerstukdossiers via DossierNummer."""
 
     def run(self) -> PipelineResult:

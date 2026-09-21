@@ -27,7 +27,7 @@ SEMANTIC_SOURCE = "judgment-appeal-linker"
 _APPEAL_PATTERN = re.compile(r"\b(?:hoger beroep|cassatie)\b", re.IGNORECASE)
 
 
-class JudgmentAppealSemanticPipeline(SemanticPipelineBase):
+class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
     """Create APPEAL_OF edges from appeal judgments to their prior proceedings."""
 
     def run(self) -> PipelineResult:
