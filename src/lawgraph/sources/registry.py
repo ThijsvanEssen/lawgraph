@@ -292,8 +292,8 @@ RETRIEVE: list[Pipeline] = [
     _pipeline(
         retrieve_eurlex,
         (
-            "EU acts as HTML by CELEX number: those already in the graph (fill-gaps adds the ones"
-            " records refer to)."
+            "EU acts as HTML by CELEX number: those already in the graph (--mode gaps adds the"
+            " ones BWB regulations name)."
         ),
         argv_for_all=_no_argv,
         fills_gaps=True,

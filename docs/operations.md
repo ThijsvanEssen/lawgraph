@@ -86,16 +86,16 @@ and exits 1 when any of them failed.
 | `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 6). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode to `bwb` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`) are always read in full. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn. `staatsblad` reads the stored BWB toestanden, so it starts when `bwb` has ended (and last on its server, so the others do not wait with it) |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` |
-| `retrieve tk-content` | `--kind` (default `toelichting`), `--dry-run` |
+| `retrieve tk-content` | `--mode gaps` (the only mode), `--kind` (default `toelichting`), `--dry-run` |
 | `retrieve rechtspraak` | `--court` (repeatable; default `hr`, `rvs`, `hoven`), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
-| `retrieve eurlex` | `--mode incremental\|full\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
-| `retrieve bwb` | `--mode`, `--bwb-id` (repeatable; default `BWB_IDS`) |
+| `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
+| `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
 | `retrieve bwb-history` | optional BWB ids (all when omitted) |
 | `retrieve staatsblad` | `--mode from-graph\|full` |
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--max-records` |
 | `retrieve eerstekamer` | `--mode`, `--since`, `--max-records` |
-| `retrieve verdragenbank` | `--max-records` |
+| `retrieve verdragenbank` | `--mode full\|gaps`, `--max-records` |
 
 ### normalize
 
@@ -135,20 +135,20 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, EU acts, treaties, memoranda without text) |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
 
 `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>=true` (case-insensitive `true`; any other value does not skip)
-skips one step of `retrieve all`, `normalize all` or `semantic all`. `<SOURCE>` is the source id
-in upper case with underscores.
+skips one pipeline of `retrieve all`, `normalize all` or `semantic all`. `<PIPELINE>` is the
+pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
-| Phase | Sources |
-|-------|---------|
+| Phase | Pipelines |
+|-------|-----------|
 | `RETRIEVE` | `TK`, `TK_DOSSIERS`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK` |
 | `NORMALIZE` | the same plus `BWB_HISTORY` |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `JUDGMENT_CITATIONS`, `JUDGMENT_APPEAL`, `INSTRUMENT_RELATIONS`, `AMENDMENT_ARTICLES`, `MVT_ARTICLES`, `RELATION_SEMANTICS`, `LIST_STATS` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `BWB_RELATION_TYPES`, `GRAPH_LIST_STATS` |
 
 ## Runs
 
@@ -237,7 +237,7 @@ memory, sets `mem_limit: 5g` and restarts the server when it stops. A bulk write
 nothing; when it stays away the step ends there instead of fetching on. A view the server
 log reports as `out of sync` is rebuilt by dropping it and starting any command
 (`ArangoStore()` creates what is missing).
-Measured on the full database of 2026-09-21 (165,000 judgments, 2.8 million edges, 937,000
+Measured on the full database (165,000 judgments, 2.8 million edges, 937,000
 documents in the search views): ArangoSearch holds about 0.7 GB (mapped 276 MB, readers 63
 MB, writers 366 MB; 3.0 GB of index on disk), the server 2.1 GB resident, the container 2.7
 of its 5 GB.
@@ -275,7 +275,7 @@ With cron:
 
 On macOS the scripts run under `caffeinate -i`, which keeps the machine from idle sleep. A
 closed lid on battery still sleeps: the run pauses until the next wake and its log shows
-gaps of minutes (seen in the rebuild of 2026-09-21). Keep it on power, or the lid open.
+gaps of minutes. Keep it on power, or the lid open.
 
 Before the first scheduled run one complete run has to be on record (`bootstrap`, or each
 `<phase> all` once with a date), or `--since last` is refused.

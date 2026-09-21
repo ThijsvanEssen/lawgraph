@@ -21,9 +21,9 @@ The names say what they take, each built on the one before::
     pipeline.run()                        -> PipelineResult   the work
     command(argv)                         -> PipelineResult   options -> a pipeline run
     run_command(label, command, argv)     -> Outcome          label, time, catch
-    run_step(step)                        -> Outcome          skipped, or run_command
-    run_steps(steps)                      -> [Outcome]        in turn or in lanes; the table
-    _run_phase(phase, ...)                -> PipelineResult   --since last, the steps, the mark
+    run_pipeline(pipeline, argv)          -> Outcome          skipped, or run_command
+    run_pipelines(pipelines, argv_of)     -> [Outcome]        in turn or in lanes; the table
+    _run_phase(phase, ...)                -> PipelineResult   --since last, the pipelines, the mark
 
 (the last three in ``orchestration``).
 """

@@ -146,7 +146,7 @@ def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
         )
     if args.mode == "nim":
         return pipeline.run_nim(country_code=args.country, lang=args.lang)
-    if args.mode == GAPS:  # the acts BWB articles name
+    if args.mode == GAPS:  # the acts BWB regulations name
         return pipeline.run(celex_ids=_gaps.eurlex_gaps(store), lang=args.lang)
 
     known_celex = args.celex or list(store.query(_KNOWN_CELEX_AQL))

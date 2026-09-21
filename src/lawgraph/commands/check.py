@@ -224,7 +224,7 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
 
 def _check_cases(store: ArangoStore, report: Report) -> None:
     """A case reaches its dossier through the number it carries; when none of them carries
-    one, the request for the cases did not ask for the dossier (it once did not)."""
+    one, the request for the cases did not ask for the dossier."""
     aql = f"""
     FOR case IN {COLLECTION_CASES}
         COLLECT named = LENGTH(case.props.dossier_numbers || []) > 0 WITH COUNT INTO n

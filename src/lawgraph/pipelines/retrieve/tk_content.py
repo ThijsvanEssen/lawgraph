@@ -137,8 +137,8 @@ class TKContentRetrievePipeline(PipelineBase):
     def unhydrated(self, kind_filter: str) -> list[dict[str, Any]]:
         """Papers without text, with the dossier they belong to (a paper without one is left).
 
-        Also what ``fill-gaps`` reports: a report from a query of its own listed the papers
-        this one leaves out (no dossier, no sequence, a text that was missing last month).
+        Also what ``lawgraph gaps`` reports, so the report names exactly the papers a run
+        fetches (none without a dossier or a sequence, none whose text was missing last month).
         """
         aql = f"""
             FOR pub IN {COLLECTION_DOCUMENTS}

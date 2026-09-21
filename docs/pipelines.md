@@ -16,10 +16,11 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
+| The graph itself (`graph`) | none | none | `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: base URL from `config/settings.py` (trailing
 slash enforced), one `requests.Session`, 30 s timeout, and retry with exponential backoff
-(3 tries, factor 2) on HTTP 429, 503 and connection errors. No source needs an API key.
+(5 tries, factor 2) on HTTP 429, 502, 503, 504 and connection errors. No source needs an API key.
 
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
 `instruments.props.short_title` and law names through instrument titles; the API judgment
@@ -454,4 +455,4 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 | semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `tk-content` |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`) |--judgments-only|--committees-only|--articles-only]` |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |
