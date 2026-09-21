@@ -331,3 +331,10 @@ def test_a_vote_cast_is_a_slotted_object_with_shared_strings() -> None:
     assert first is not None and second is not None
     assert not hasattr(first, "__dict__")
     assert first.choice is second.choice and first.faction_id is second.faction_id
+
+
+def test_a_document_says_which_source_it_is_from() -> None:
+    """Every other source does; without it `/api/documents?source=tk` found none of the
+    126,710 papers and `/api/stats` counted them as unknown."""
+    _, props = tk_records.document({"Id": "doc-1", "Soort": "Motie"})  # type: ignore[misc]
+    assert props["source"] == "tk"
