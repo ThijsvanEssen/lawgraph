@@ -11,7 +11,8 @@ the two `POST` endpoints under `/api/relationships`.
 
 ## Endpoints
 
-Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`); a dossier `number`
+Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`); an instrument
+route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A dossier `number`
 matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameters `limit` and
 `offset` have the bounds shown in `/docs`.
 
@@ -38,6 +39,8 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | Path | Returns |
 |------|---------|
 | `GET /api/instruments` | paged list; `q`, `jurisdiction` (`nl`, `eu`), `kind`, `article_count_min`, `sort` (default `title`) |
+| `GET /api/instruments/{identifier}` | one instrument: identifiers, names, jurisdiction, kind, dates, article count. `identifier` is a BWB id, a CELEX number or a node key (`echr_convention`, `verdrag_012345`); 404 when unknown |
+| `.../eu-links` | `implements` (EU acts whose CELEX number the instrument's text names) and `implemented_by` (regulations that name this act), each with `instrument`, `relation`, `confidence`, `basis`, `source`, `meta`; `international`: treaties that articles refer to (with the treaty article) and ECHR judgments that refer to the instrument or its articles, with the edge `meta`; `*_total` fields are absolute, `limit` (max 2000) bounds each list |
 | `/api/instruments/{bwb_id}/articles` | articles in natural order (`24` before `24c` before `25`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
 | `.../articles/at/{at_date}` | article versions valid on `YYYY-MM-DD` (`valid_from <= date < valid_until`) |
 | `.../versions` | every toestand, newest first, `current` flagged |
@@ -50,6 +53,19 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `.../shared-annexes` | annexes shared with other laws |
 | `GET /api/annexes` | annexes; `bwb_id`, `shared_across_laws` |
 | `/api/annexes/{key}` and `.../referenced-by` | one annex with entries; the articles that scope by it |
+
+`IMPLEMENTS` says that the text of a national regulation names the CELEX number of an EU act
+(`basis: celex_named_in_text`, confidence 0.75). It is not a transposition relation and it
+is not per article, so `eu-links` has no article list for it. `international` holds what
+the graph links: `REFERS_TO` edges from articles to BWB treaties (`BWBV...`) and from ECHR
+judgments to instruments and to articles of the ECHR Convention. Verdragenbank treaties and
+Convention articles have no link from Dutch text, so nothing is returned for them.
+
+`articles`, `citations`, `judgments`, `dossiers`, `amended-by`, `related-instruments` and
+`cross-law-dependencies` answer for an EU act too; `bwb_id` in their response then holds the
+CELEX number as requested. `versions`, `articles/at` and `shared-annexes` are about BWB
+toestanden and annexes: for a CELEX number they are empty. An identifier that names nothing
+gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 
 ### Judgments
 

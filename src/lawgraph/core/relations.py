@@ -132,7 +132,8 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "IMPLEMENTS",
         (_I,),
         (_I,),
-        "A national instrument transposes an EU directive.",
+        "A national instrument whose text names the CELEX number of an EU act; "
+        "not a transposition claim, and not per article.",
     ),
     RelationSpec(
         "LEGISLATED_IN",

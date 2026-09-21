@@ -103,6 +103,7 @@ class ArticleRelationDTO(BaseModel):
     key: str
     display_name: str | None
     bwb_id: str | None
+    celex: str | None = None
     article_number: str | None
     instrument: InstrumentSummaryDTO | None
 
@@ -123,6 +124,7 @@ class ArticleRelationDTO(BaseModel):
             key=article_doc["_key"],
             display_name=props.get("display_name"),
             bwb_id=props.get("bwb_id"),
+            celex=props.get("celex"),
             article_number=props.get("article_number"),
             instrument=instrument,
         )
