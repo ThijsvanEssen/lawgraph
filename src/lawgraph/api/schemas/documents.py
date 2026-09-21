@@ -34,8 +34,8 @@ class DocumentListResponse(BaseModel):
 class DocumentTextResponse(BaseModel):
     """One document with its text.
 
-    ``text`` is null until the hydration pipeline has run for it — a scanned
-    PDF without a text layer never gets one.
+    ``text`` is null until ``normalize tk-content`` has run for it: a paper
+    from before December 1994 has no XML and never gets one.
     """
 
     model_config = ConfigDict(extra="forbid")

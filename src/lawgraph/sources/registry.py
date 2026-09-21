@@ -34,6 +34,7 @@ from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipelin
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
+from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve_commands import (
@@ -274,8 +275,8 @@ RETRIEVE: list[Pipeline] = [
     _pipeline(
         retrieve_tk_content,
         (
-            "Text of Tweede Kamer papers (explanatory memoranda) from their XML in the KOOP "
-            "repository; slow, one XML per paper."
+            "XML of Tweede Kamer papers (explanatory memoranda) from the KOOP repository; slow, "
+            "one XML per paper."
         ),
         lane=LANE_KOOP_REPOSITORY,  # the papers come from repository.overheid.nl
         fills_gaps=True,
@@ -358,6 +359,13 @@ NORMALIZE: list[Pipeline] = [
         (
             "Committees, members, factions, dossiers, activities, votes, commitments and "
             "documents as nodes, with their edges."
+        ),
+    ),
+    _pipeline(
+        TKContentNormalizePipeline,
+        (
+            "Text and sections (articles, onderdelen, leden) of the papers whose XML was "
+            "retrieved, on their documents."
         ),
     ),
     _pipeline(

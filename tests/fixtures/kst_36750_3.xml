@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+   <metadata>
+      <meta name="DC.identifier" scheme="OVERHEIDop.ParlID" content="kst-36750-3"/>
+      <meta name="OVERHEIDop.ondernummer" content="3"/>
+      <meta name="DCTERMS.available" scheme="DCTERMS.W3CDTF" content="2025-05-22"/>
+      <meta name="DC.type" scheme="OVERHEIDop.KamerstukTypen" content="Overig"/>
+      <meta name="OVERHEIDop.dossiernummer" content="36750"/>
+      <meta name="OVERHEIDop.configuratie" scheme=""
+            content="https://repository.officiele-overheidspublicaties.nl/MasterConfiguraties/MC-OEP-Kamerstuk-Web/1.10/xml/MC-OEP-Kamerstuk-Web.xml"/>
+      <meta name="OVERHEIDop.documenttitel" scheme="" content="Memorie van toelichting"/>
+      <meta name="OVERHEIDop.indiener" scheme="" content="L. Bromet"/>
+      <meta name="OVERHEIDop.indiener" scheme="" content="P.A. Grinwis"/>
+      <meta name="OVERHEIDop.indiener" scheme="" content="E.C. Vedder"/>
+      <meta name="OVERHEIDop.dossiertitel" scheme=""
+            content="Voorstel van wet van de leden Vedder, Grinwis en Bromet tot wijziging van de Tijdelijke wet Klimaatfonds in verband met het beschikbaar stellen van financiële middelen uit het Klimaatfonds voor de landbouwsector"/>
+      <meta name="DCTERMS.alternative" scheme="" content=""/>
+      <meta name="OVERHEIDop.vergaderjaar" scheme="" content="2024-2025"/>
+      <meta name="DC.creator" scheme="OVERHEID.StatenGeneraal"
+            content="Tweede Kamer der Staten-Generaal"/>
+      <meta name="DC.type" scheme="OVERHEIDop.Parlementair" content="Kamerstuk"/>
+      <meta name="DCTERMS.issued" scheme="DCTERMS.W3CDTF" content="2025-05-21"/>
+      <meta name="DC.title" scheme=""
+            content="Voorstel van wet van de leden Vedder, Grinwis en Bromet tot wijziging van de Tijdelijke wet Klimaatfonds in verband met het beschikbaar stellen van financiële middelen uit het Klimaatfonds voor de landbouwsector; Memorie van toelichting (initiatiefvoorstel); Memorie van toelichting"/>
+      <meta name="DCTERMS.language" scheme="DCTERMS.RFC4646" content="nl"/>
+      <meta name="OVERHEIDop.doctype" scheme="" content="Officiële Publicaties, versie 1.1"/>
+      <meta name="DC.type" scheme="OVERHEID.Informatietype" content="officiële publicatie"/>
+      <meta name="OVERHEIDop.publicationName" scheme="" content="Kamerstuk"/>
+      <meta name="OVERHEID.organisationType" scheme="OVERHEID.Organisatietype"
+            content="staten generaal"/>
+      <meta name="OVERHEID.category" scheme="OVERHEID.TaxonomieBeleidsagenda"
+            content="Landbouw | Organisatie en beleid"/>
+      <meta name="OVERHEID.category" scheme="OVERHEID.TaxonomieBeleidsagenda"
+            content="Natuur en milieu | Organisatie en beleid"/>
+      <meta name="OVERHEIDop.versieInformatie" content=""/>
+   </metadata>
+   <kamerstuk>
+      <kamerstukkop>
+         <tekstregel inhoud="vergaderjaar">Vergaderjaar 2024-2025</tekstregel>
+         <tekstregel inhoud="kameraanduiding">Tweede Kamer der Staten-Generaal</tekstregel>
+         <tekstregel inhoud="kamernummer">2</tekstregel>
+         <tekstregel inhoud="documenttype">Kamerstukken</tekstregel>
+      </kamerstukkop>
+      <dossier>
+         <dossiernummer>
+            <dossiernr>36 750</dossiernr>
+         </dossiernummer>
+         <titel>Voorstel van wet van de leden Vedder, Grinwis en Bromet tot wijziging van de Tijdelijke wet Klimaatfonds in verband met het beschikbaar stellen van financiële middelen uit het Klimaatfonds voor de landbouwsector</titel>
+      </dossier>
+      <stuk>
+         <stuknr>Nr. <ondernummer kamer="2">3</ondernummer>
+         </stuknr>
+         <titel>MEMORIE VAN TOELICHTING</titel>
+         <algemeen>
+            <vrije-tekst>
+               <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                     <nr status="officieel">I.</nr>
+                     <titel>ALGEMEEN</titel>
+                  </kop>
+                  <divisie opmaak="default">
+                     <kop kopopmaak="cur">
+                        <nr status="officieel">1.</nr>
+                        <titel>Inleiding</titel>
+                     </kop>
+                     <al>In Nederland moet volgens de nationale Klimaatwet de uitstoot van broeikasgassen in 2030 tenminste 55% lager zijn dan in 1990. Op basis van deze opgave en de opgave die volgt uit internationale klimaatafspraken en het Klimaatakkoord heeft Nederland ook een klimaatopgave voor landbouw en landgebruik. Ook hebben 159 landen, waaronder Nederland, de Global Methane Pledge uit 2021 ondertekend waarmee is afgesproken dat de mondiale uitstoot van het broeikasgas methaan, veroorzaakt door menselijk handelen, terug wordt gedrongen met 30% in 2030 ten opzichte van 2020.<noot id="ID-1196543-d36e73" type="voet">
+                           <noot.nr>1</noot.nr>
+                           <noot.al>Global Methane Pledge (<extref soort="URL" doc="https://www.globalmethanepledge.org/" status="actief">https://www.globalmethanepledge.org/</extref>)</noot.al>
+                        </noot>
+                     </al>
+                     <al>Al in het Klimaatakkoord van 2019 zijn per economische sector afspraken gemaakt over de bijdrage die zij moeten leveren om de doelstellingen uit de Klimaatwet te halen. Voor de landbouw (inclusief glastuinbouw) is in het Klimaatakkoord de ambitie uitgesproken om in 2030 te komen tot een reductie in Nederland van 6 megaton CO<inf>2</inf>-equivalenten.<noot id="ID-1196543-d36e84" type="voet">
+                           <noot.nr>2</noot.nr>
+                           <noot.al>Klimaatakkoord, 28 juni 2019, p. 120.</noot.al>
+                        </noot> Van deze 6 megaton moet in de veehouderij en akkerbouw een emissiereductie van 5 megaton CO<inf>2</inf>-equivalenten in 2030 worden gerealiseerd.<noot id="ID-1196543-d36e92" type="voet">
+                           <noot.nr>3</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2022/23, <extref doc="kst-36277-3" soort="document" status="actief">36 277, nr. 3</extref>.</noot.al>
+                        </noot> De resterende 1 megaton CO<inf>2</inf>-equivalenten betreft de klimaatopgave voor de glastuinbouwsector.</al>
+                     <al>De regering erkent in het Regeerprogramma dat de klimaatopgave vraagt om een flinke inzet van alle sectoren in Nederland, inclusief landbouw en landgebruik. Er wordt daarom vastgehouden aan de afgesproken sectorale restemissiedoelen voor landbouw en voor landgebruik.<noot id="ID-1196543-d36e105" type="voet">
+                           <noot.nr>4</noot.nr>
+                           <noot.al>Regeerprogramma kabinet-Schoof, 13 september 2024, p. 48.</noot.al>
+                        </noot> Het gaat hierbij om de restemissiedoelen van broeikasgassen, zoals die voor de sectoren landbouw en landgebruik bereikt moeten zijn in 2030 en die volgen uit de wettelijke doelstellingen die in 2030 onontkoombaar moeten zijn gerealiseerd. Voor de landbouwsector gaat het daarbij om een restemissiedoel van 17,9 megaton in 2030.</al>
+                     <al>Het aandeel van de landbouwsector in de klimaatopgave is substantieel. In 2023 waren de sectoren landbouw (inclusief glastuinbouw) en landgebruik goed voor 28,8 megaton aan broeikasgasemissies van de in totaal 147 megaton die door alle sectoren bij elkaar werd uitgestoten.<noot id="ID-1196543-d36e116" type="voet">
+                           <noot.nr>5</noot.nr>
+                           <noot.al>Planbureau voor de Leefomgeving, <nadruk type="cur">Klimaat- en Energieverkenning 2024</nadruk>, Den Haag: 2024, p.18.</noot.al>
+                        </noot> Met name op het gebied van methaanemissies heeft de landbouw een groot aandeel. In de Klimaat- en Energieverkenning 2024 (hierna: KEV 2024) wordt geraamd dat de landbouw in 2030 een aandeel van 12,1 megaton heeft in de methaanemissies, ofwel driekwart van de totale methaanemissies in Nederland. In deze zelfde raming stelt het Planbureau voor de Leefomgeving (hierna: PBL) dat de bijdrage van de landbouw, en specifiek van de veehouderij en akkerbouw, daarmee groot blijft en het tempo van de reductie beperkt is.<noot id="ID-1196543-d36e127" type="voet">
+                           <noot.nr>6</noot.nr>
+                           <noot.al>Planbureau voor de Leefomgeving, <nadruk type="cur">Klimaat- en Energieverkenning 2024</nadruk>, Den Haag: 2024, p.12.</noot.al>
+                        </noot>
+                     </al>
+                     <al>Uit de KEV 2024 blijkt tevens dat het restemissiedoel voor de landbouw nog niet binnen bereik is. Volgens het PBL dalen de broeikasgasemissies door de landbouw naar verwachting van 25,0 megaton CO<inf>2</inf>-equivalenten in 2023 naar ongeveer 22,0 megaton CO<inf>2</inf>-equivalenten in 2030. Daarmee ligt de geraamde uitstoot van broeikasgassen door de landbouwsector in 2030 circa 34% lager dan in 1990. Het PBL noemt de kans dat de broeikasgasemissies van de landbouw in 2030 op of onder het afgesproken sectorale restemissiedoel liggen heel erg onwaarschijnlijk en schat deze in op minder dan 5%.<noot id="ID-1196543-d36e140" type="voet">
+                           <noot.nr>7</noot.nr>
+                           <noot.al>Planbureau voor de Leefomgeving, <nadruk type="cur">Klimaat- en Energieverkenning 2024</nadruk>, Den Haag: 2024.</noot.al>
+                        </noot> Hetzelfde geldt voor de doelstelling van 30% methaanemissiereductie in 2030 ten opzichte van 2020, gebaseerd op de Global Methane Pledge; het PBL raamt een daling van methaanemissies van 17% ten opzichte van 2020 in 2030. De Afdeling advisering van de Raad van State (hierna: de Afdeling) stelt op basis van de KEV 2024 (wederom) vast dat de ontwikkelingen in de landbouwsector zorgelijk zijn als het gaat om het halen van de klimaatdoelen, inclusief het methaan<?xpp afbm?>doel.<noot id="ID-1196543-d36e151" type="voet">
+                           <noot.nr>8</noot.nr>
+                           <noot.al>Afdeling advisering van de Raad van State, <nadruk type="cur">Advies Raad van State Klimaatnota 2024</nadruk>, No. W19.24.00242/IV.</noot.al>
+                        </noot>
+                     </al>
+                     <al>Om het sectorale restemissiedoel voor landbouw en voor landgebruik in 2030 te halen zijn dus meer inspanningen nodig. De Afdeling merkt in haar advies over de Klimaatnota 2024 niet voor niets op dat: «er op dit moment nauwelijks concrete maatregelen in beeld zijn om de doelstellingen voor de landbouwsector binnen bereik te brengen». De Afdeling adviseert daarom om zo snel mogelijk maatregelen te treffen die de klimaatdoelstellingen voor de landbouwsector binnen bereik brengen. Voor deze aanvullende maatregelen zullen ook financiële middelen beschikbaar gesteld moeten worden. Deze middelen zijn op dit moment echter niet beschikbaar. Momenteel zijn vanuit de begroting van het Ministerie van Landbouw, Visserij, Voedselzekerheid en Natuur zeer beperkt middelen beschikbaar voor het nemen van klimaatmaatregelen. Het gaat daarbij om een garantstelling van 80% van € 70 miljoen aan het Nationaal Groenfonds voor projecten die een bijdrage leveren aan de klimaatdoelstellingen van de sector landbouw en landgebruik, een budget van € 3,5 miljoen per jaar voor de Klimaatimpuls Natuur en Biodiversiteit en € 2,1 miljoen voor maatregelen in de veehouderij gericht op de reductie van broeikasgassen via voer, dier, stal en mest.<noot id="ID-1196543-d36e165" type="voet">
+                           <noot.nr>9</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2024/25, <extref doc="kst-36600-XIV-2" soort="document" status="actief">36 600 XIV, nr. 2</extref>.</noot.al>
+                        </noot> Vanuit de begroting van het Klimaatfonds is € 77 miljoen beschikbaar voor subsidie voor verduurzaming landbouw naar aanleiding van de ETS2 opt-in.<noot id="ID-1196543-d36e175" type="voet">
+                           <noot.nr>10</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II </nadruk>2024/25, <extref doc="kst-36600-M-2" soort="document" status="actief">36 600 M, nr. 2</extref>.</noot.al>
+                        </noot> Deze maatregel ziet alleen op het gebruik van fossiele brandstoffen in de landbouw. De emissiereductie die door minder fossiele brandstoffen te gebruiken wordt gerealiseerd heeft geen impact op de opgave op het gebied van landbouw en landgebruik, omdat de reductie ten goede komt van de taakstelling van de mobiliteitssector. Methaanemissies worden met deze maatregel niet verminderd.</al>
+                     <al>Gezien de urgentie om maatregelen te treffen die de klimaatdoelen in de landbouwsector binnen bereik brengen en de geringe financiële middelen die daarvoor beschikbaar zijn, ligt het voor de hand om aanspraak te doen op het Klimaatfonds om het nemen van de nodige klimaatmaatregelen in de landbouwsector mogelijk te maken. Op dit moment kan de landbouwsector echter geen aanspraak maken op het Klimaatfonds.</al>
+                  </divisie>
+                  <divisie opmaak="default">
+                     <kop kopopmaak="cur">
+                        <nr status="officieel">2.</nr>
+                        <titel>Hoofdlijnen wetsvoorstel</titel>
+                     </kop>
+                     <al>Voor alle economische sectoren die worden genoemd in het Klimaatakkoord geldt dat zij in aanmerking komen voor middelen uit het Klimaatfonds. Het moet dan wel gaan om maatregelen die passen binnen de bestedingsdoelen zoals die zijn geformuleerd in artikel 2 van het Klimaatfonds.<noot id="ID-1196543-d36e198" type="voet">
+                           <noot.nr>11</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2022/23, <extref doc="kst-36274-3" soort="document" status="actief">36 274, nr. 3</extref>, p. 5.</noot.al>
+                        </noot> In de Tijdelijke wet Klimaatfonds wordt echter één uitzondering genoemd. Maatregelen uit de landbouwsector en de natuursector die voor financiering uit het Transitiefonds landelijk gebied en natuur in aanmer<?xpp afbm?>king komen, worden van middelen uit het Klimaatfonds uitgesloten. Dit betekent dat maatregelen gericht op het terugdringen van broeikasgasemissies in de veehouderij en landgebruik door extensivering van landbouw en maatregelen gericht op nieuwe verdienmodellen voor kringlooplandbouw niet in aanmerking komen voor financiële middelen uit het Klimaatfonds.<noot id="ID-1196543-d36e208" type="voet">
+                           <noot.nr>12</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2022/23, <extref doc="kst-36274-3" soort="document" status="actief">36 274, nr. 3</extref>, p. 5.</noot.al>
+                        </noot>
+                     </al>
+                     <al>Deze uitzondering geldt voor vrijwel de gehele landbouwsector, maar niet voor de glastuinbouw. De klimaatopgave voor de glastuinbouw maakte namelijk geen onderdeel uit van de integrale aanpak in het landelijk gebied die vanuit het Transitiefonds moest worden gefinancierd. Maatregelen met het oog op het realiseren van de klimaatopgave in de glastuinbouw worden daarom wel gefinancierd vanuit het Klimaatfonds.<noot id="ID-1196543-d36e220" type="voet">
+                           <noot.nr>13</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2022/23, <extref doc="kst-36274-3" soort="document" status="actief">36 274, nr. 3</extref>, p. 7 en <nadruk type="cur">Kamerstukken II</nadruk> 2022/23, <extref doc="kst-36277-3" soort="document" status="actief">36 277, nr. 3</extref>.</noot.al>
+                        </noot>
+                     </al>
+                     <al>De keuze om de landbouw- en natuurmaatregelen uit te sluiten van bekostiging uit het Klimaatfonds is destijds genomen om het Klimaatfonds af te bakenen ten opzichte van het Transitiefonds landelijk gebied en natuur. Met het Transitiefonds zou er al een andere bron van financiering komen die expliciet bedoeld was voor het bekostigen van klimaatmaatregelen in de landbouw. Het Transitiefonds landelijk gebied en natuur had namelijk als doel om te voorzien in «financiering en bekostiging van landbouw en natuurmaatregelen gericht op realisatie van de doelen op het vlak van natuur, stikstof, water en klimaat, alsmede de transitie die hiervoor nodig is in de landbouw en het landelijk gebied». In de memorie van toelichting op de Tijdelijke wet Transitiefonds wordt gesteld dat de nodige broeikasgasreductie voor een belangrijk deel gerealiseerd moet worden met de integrale aanpak in het landelijk gebied, vormgegeven in het inmiddels gestopte Nationaal Programma Landelijk Gebied (hierna: NPLG). Om te voorkomen dat middelen uit het Klimaatfonds zouden worden ingezet voor maatregelen en projecten waarvan de bekostiging reeds in het Transitiefonds was voorzien, was het ook volstrekt logisch om landbouw- en natuurmaatregelen uit te sluiten van financiering uit het Klimaatfonds.<noot id="ID-1196543-d36e235" type="voet">
+                           <noot.nr>14</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2022/23, <extref doc="kst-36274-3" soort="document" status="actief">36 274, nr. 3</extref>, p. 5 en p.18.</noot.al>
+                        </noot>
+                     </al>
+                     <al>De Tweede Kamer stemde op 23 mei 2023 in met het voorstel van wet voor de Tijdelijke wet Transitiefonds landelijk gebied en natuur. Op 15 december 2023 werd het «Ontwerp Nationaal Programma Landelijk Gebied» gepubliceerd. Hierin staat dat het NPLG zich richt op de realisatie van de klimaatopgave voor veehouderij en akkerbouw. Ook de opgave voor de sector landgebruik moest volledig gerealiseerd worden via het NPLG. De gerealiseerde emissiereductie in de landbouwsector is niet voldoende en het NPLG zou een verdere impuls geven aan de benodigde forse inspanning. Met de brief<noot id="ID-1196543-d36e247" type="voet">
+                           <noot.nr>15</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2022/23, <extref doc="kst-34682-114" soort="document" status="actief">34 682, nr. 114</extref>.</noot.al>
+                        </noot> van 10 februari 2023 is destijds tevens een regionale verdeling van de benodigde emissiereductie om het 2030-doel te behalen in megaton CO<inf>2</inf> equivalenten vastgesteld.</al>
+                     <al>De huidige regering kondigde in het hoofdlijnenakkoord en haar regeerprogramma echter aan dat zij het budget voor de uitvoering van het NPLG en de provinciale gebiedsprogramma’s op een andere wijze wenste in te zetten. Op 16 september 2024 kondigde de Minister-President daarom aan dat het wetsvoorstel Tijdelijke wet Transitiefonds landelijk gebied en natuur zou worden ingetrokken.<noot id="ID-1196543-d36e260" type="voet">
+                           <noot.nr>16</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2023/24, <extref doc="kst-36471-97" soort="document" status="actief">36 471, nr. 97</extref>.</noot.al>
+                        </noot> Met de brief<noot id="ID-1196543-d36e270" type="voet">
+                           <noot.nr>17</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2024/25, <extref doc="kst-36277-59" soort="document" status="actief">36 277, nr. 59</extref>.</noot.al>
+                        </noot> van 29 november 2024 is het wetsvoorstel, daartoe gemachtigd door de Koning, formeel inge<?xpp afbm?>trokken door de Minister van Landbouw, Visserij, Voedselzekerheid en Natuur (hierna: Minister van LVVN). In een brief<noot id="ID-1196543-d36e280" type="voet">
+                           <noot.nr>18</noot.nr>
+                           <noot.al>Brief aan de Minister namens 186 Statenleden uit alle provincies Programma landelijk gebied de prullenbak in – WAT MAAKT U ONS NOU?.</noot.al>
+                        </noot> van 186 Statenleden uit alle provincies wordt gesteld dat het NPLG en middelen uit het Transitiefonds de basis bieden van provinciale plannen voor het landelijk gebied. De uitwerking en uitvoering van verschillende Provinciale Programma’s Landelijk Gebied zijn vanwege dit kabinetsbesluit door provinciebesturen voorlopig stopgezet of worden herzien.</al>
+                     <al>Met het intrekken van het wetsvoorstel Tijdelijke wet Transitiefonds landelijk gebied en natuur gaat het enige argument om de landbouwsector uit te sluiten van middelen uit het Klimaatfonds niet meer op. Er is immers geen sprake meer van een fonds anders dan het Klimaatfonds waaruit klimaatmaatregelen in de landbouw kunnen worden bekostigd. Daarmee is een afbakening tussen het Klimaatfonds en het Transitiefonds ook niet meer nodig. Wat wel nodig blijft is het treffen van maatregelen om de uitstoot van broeikasgassen in de landbouwsector omlaag te brengen. Met het vervallen van het Transitiefonds is het belangrijk dat de landbouwsectoren niet zijnde glastuinbouw nu ook toegang kunnen krijgen tot het Klimaatfonds, zoals dat op dit moment ook voor de glastuinbouwsector al mogelijk is. Toegang van de landbouwsector tot het Klimaatfonds is essentieel om de doelen, vastgelegd in de Klimaatwet, te verwezenlijken.</al>
+                     <al>Bovendien is het Klimaatfonds een overhevelingsfonds: meerjarige plannen op verschillende begrotingen worden via het fonds gefaciliteerd die (deels) inhoudelijk samenhangen.</al>
+                     <al>Om de klimaatdoelen voor de landbouwsector te halen is het essentieel om boeren te ondersteunen in hun inspanningen om de emissies te verminderen en extra koolstof vast te leggen. Daar zijn uiteraard ook financiële middelen voor nodig. Zonder het Transitiefonds en zonder financiering uit het Klimaatfonds zijn deze middelen echter niet in voldoende mate beschikbaar. Gezien de klimaatdoelen voor de landbouwsector, het feit dat deze doelen nog niet binnen bereik zijn, het gebrek aan financiële middelen om deze doelen te halen en het feit dat het enige argument om de landbouwsector uit te sluiten van financiering uit het Klimaatfonds is vervallen wordt met dit wetsvoorstel de uitzondering voor maatregelen uit de landbouw- en natuursector uit de Tijdelijke wet Klimaatfonds geschrapt. Specifiek gaat het om het vervallen van het derde en vierde lid in artikel 2 van de Tijdelijke wet Klimaatfonds.</al>
+                  </divisie>
+                  <divisie opmaak="default">
+                     <kop kopopmaak="cur">
+                        <nr status="officieel">3.</nr>
+                        <titel>Financiële gevolgen</titel>
+                     </kop>
+                     <al>Het openstellen van het Klimaatfonds voor de landbouw- en natuursector heeft geen directe financiële gevolgen. Het budget voor het Klimaatfonds blijft met deze beoogde wetswijziging ongewijzigd. Dit voorstel heeft tevens geen directe financiële gevolgen voor uitvoerende overheden, bijvoorbeeld op het gebied van uitvoeringskosten. Daadwerkelijke maatregelen voor de reductie van broeikasgasemissies in de landbouw- en natuursector en de uitvoering van deze maatregelen (inclusief uitvoeringskosten) zullen immers pas plaats kunnen vinden, nadat er een aanvraag van middelen uit het Klimaatfonds is ingediend en deze is goedgekeurd door de fondsbeheerder van het Klimaatfonds. Wanneer de uitzondering voor maatregelen uit de landbouw- en natuursector vervalt zullen voorgestelde maatregelen waarvoor middelen uit het Klimaatfonds beschikbaar worden gesteld aan dezelfde voorwaarden moeten voldoen als maatregelen in andere economische sectoren. Bij besteding van middelen vanuit het Klimaatfonds blijft broeikasgasreductie een voorwaarde, zoals opgenomen in de Tijdelijke wet Klimaatfonds.</al>
+                     <al>De Minister van Klimaat en Groene Groei heeft als fondsbeheerder de taak om te beoordelen of maatregelen die door departementen worden voorgesteld gefinancierd kunnen worden uit het fonds. Ook voor maatregelen in de landbouwsector zal gelden dat voorgestelde maatregelen integraal worden beoordeeld en in onderlinge samenhang met maatregelen in andere sectoren worden bezien. In de Tijdelijke wet Klimaatfonds is opgenomen dat de fondsbeheerder onder meer de volgende criteria betrekt bij deze beoordeling: (1) doeltreffendheid, (2) doelmatigheid, (3) additionaliteit en (4) uitvoerbaarheid.<noot id="ID-1196543-d36e308" type="voet">
+                           <noot.nr>19</noot.nr>
+                           <noot.al>
+                              <nadruk type="cur">Kamerstukken II</nadruk> 2022/23, <extref doc="kst-36274-3" soort="document" status="actief">36 274, nr. 3</extref>, p. 7–8.</noot.al>
+                        </noot> Aan de hand van deze criteria wordt onder andere getoetst of  broeikasgasreductie een indirect of direct doel is van de maatregel en de maatregelen bijdragen aan de bestedingsdoelen van het fonds, geformuleerd in artikel 2 van de Tijdelijke wet Klimaatfonds.</al>
+                     <al>Nadat het Klimaatfonds wordt opengesteld voor de landbouwsector zullen door de fondsbeheerder goedgekeurde maatregelen terugkomen op de ontwerpbegroting voor het fonds die ieder jaar op Prinsjesdag wordt ingediend. In het Meerjarenprogramma Klimaatfonds die als bijlage bij deze ontwerpbegroting naar het parlement wordt gestuurd wordt vervolgens inzicht verschaft in de toekomstige en lopende maatregelen die worden gefinancierd uit het fonds en is informatie te vinden over de uitgaven die via de begroting van het Ministerie van Landbouw, Visserij, Voedselzekerheid en Natuur ten laste van de begroting van het Klimaatfonds worden gebracht.</al>
+                     <al>Vanwege de samenhang van klimaat met andere opgaven in de landbouw dient de Minister van LVVN bij een aanvraag van middelen uit het Klimaatfonds te reflecteren op de uitwerking van de beoogde maatregelen op andere doelstellingen die onderdeel zijn van de landbouwtransitie, zoals stikstof, waterkwaliteit, instandhouding van Natura 2000-gebieden, de economische, ecologische en sociale verduurzaming van de landbouw, dierenwelzijn en volksgezondheid. Het uitgangspunt is het integraal aanpakken van de landbouwopgaven, waarbij in ieder geval zoveel mogelijk wordt voorkomen dat maatregelen op het gebied van klimaat een significant negatief effect hebben op andere aspecten van de transitie in de landbouw.</al>
+                     <al>De aan maatregelen in de landbouwsector toegekende financiële middelen komen pas daadwerkelijk tot besteding, nadat zowel het kabinet als het parlement hebben ingestemd met het meerjarenprogramma en de fondsbegroting. Pas hierna worden de middelen overgeheveld naar de departementale begroting en is de Minister van LVVN verantwoordelijk voor de besteding en uitvoering van de toegekende middelen.</al>
+                  </divisie>
+               </divisie>
+               <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                     <nr status="officieel">II.</nr>
+                     <titel>ARTIKELSGEWIJS</titel>
+                  </kop>
+                  <tussenkop kopopmaak="cur">Artikel I</tussenkop>
+                  <al>Dit wetsvoorstel beoogt artikel 2 van de Tijdelijke wet Klimaatfonds aan te passen. In het derde lid is opgenomen dat de middelen uit het Klimaatfonds niet kunnen worden gebruikt voor de financiering van maatregelen in de landbouwsector met het oog op de klimaatdoelen die voor deze sector zijn vastgesteld. Door dit lid te laten vervallen ontstaat de mogelijkheid om ook financiële ondersteuning te bieden aan maatregelen gericht op het terugdringen van broeikasgasemissie in de veehouderij en landgebruik. Uit het vierde lid volgt dat de klimaatmaatregelen in de glastuinbouw wel voor financiering in aanmerking komen. Dit vierde lid komt door de samenhang met het vervallende derde lid te vervallen.</al>
+                  <tussenkop kopopmaak="cur">Artikel II</tussenkop>
+                  <al>De datum van inwerkingtreding van deze wet wordt bij koninklijk besluit bepaald.</al>
+               </divisie>
+            </vrije-tekst>
+            <tekst-sluiting>
+               <ondertekening>
+                  <naam>
+                     <achternaam>Vedder</achternaam>
+                  </naam>
+                  <naam>
+                     <achternaam>Grinwis</achternaam>
+                  </naam>
+                  <naam>
+                     <achternaam>Bromet</achternaam>
+                  </naam>
+               </ondertekening>
+            </tekst-sluiting>
+         </algemeen>
+      </stuk>
+   </kamerstuk>
+</officiele-publicatie>

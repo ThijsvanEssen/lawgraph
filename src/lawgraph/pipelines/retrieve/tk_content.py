@@ -1,73 +1,57 @@
-"""Pipeline that fetches the text of Tweede Kamer papers as XML and stores it in props.text.
+"""Pipeline that fetches the XML of Tweede Kamer papers and stores it in raw_sources.
 
 Only papers whose kind contains a substring (default ``toelichting``) qualify: the ones that
 feed the memorandum context (``tk-mvt``, ``tk-amendment-articles``), not the whole corpus.
 The Tweede Kamer's own API serves only a PDF; the KOOP repository has the same paper as
-structured XML, filed under its dossier.
+structured XML, filed under its dossier. ``normalize tk-content`` reads the XML from the
+raw records.
 
 Flow:
-    1. Query papers WHERE kind CONTAINS filter AND props.text IS NULL, with the dossier they
-       are part of (number and addition) and their number in it
+    1. The papers of the graph that have a dossier and a number in it and no raw XML yet
+       (``_gaps.kamerstuk_gaps``)
     2. Build the identifier ``kst-<dossier>-<number>`` and fetch its XML
-    3. Take the plain text of the XML
-    4. Store it via AQL MERGE so the other props are untouched, one paper at a time
-    5. Report created / skipped / error counts
+    3. Store it unchanged, keyed by the identifier; an answer of HTTP 404 becomes a record
+       that says so
+    4. Report created / skipped / error counts
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.clients.kamerstuk import KamerstukClient
-from lawgraph.config.constants import (
-    COLLECTION_DOCUMENTS,
-    COLLECTION_DOSSIERS,
-    COLLECTION_EDGES,
-    RELATION_PART_OF,
-)
-from lawgraph.core.identifiers import kamerstuk_identifier
+from lawgraph.config.constants import RAW_KIND_TK_KAMERSTUK_XML, SOURCE_TK
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.progress import Progress
-from lawgraph.core.time import iso_timestamp
-from lawgraph.core.xml import text_of
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.base import PipelineBase
+from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.base import (
-    MISSING_FOR_DAYS,
     FailureStreak,
-    SourceDown,
-    add_outcome,
+    RetrievePipelineBase,
+    RetrieveRecord,
     failure_reason,
+    missing_record,
 )
 
 logger = get_logger(__name__)
 
-# kind substrings that qualify a publication for text hydration
+# kind substrings that qualify a publication for fetching
 _DEFAULT_KIND_FILTER = "toelichting"
 
-# Hard cap on stored text (chars). The semantic pipelines have their own read caps; storing
-# more lets us raise those later without fetching again.
-_STORE_TEXT_LIMIT = 500_000
+# A new paper is first published as a PDF only ("Onopgemaakt"); its XML follows within about
+# two working days. A paper this young that the repository has no XML for yet is asked for
+# again soon, not after the month of a document that was never there.
+_FRESH_FOR_DAYS = 7
 
 
-def xml_text(xml: str) -> str | None:
-    """The plain text of a Kamerstuk XML, or ``None`` for XML without any text.
+class TKContentRetrievePipeline(RetrievePipelineBase):
+    """Fetch the XML of Tweede Kamer papers and store it.
 
-    Raises ``ET.ParseError`` for a document that is not XML: that must not pass for an empty
-    paper.
-    """
-    root = ET.fromstring(xml.lstrip("﻿"))
-    return text_of(root, " ").strip() or None
-
-
-class TKContentRetrievePipeline(PipelineBase):
-    """Fetch and store the text of Tweede Kamer papers from their XML.
-
-    Only papers whose ``props.kind`` contains *kind_filter* (case-insensitive) and that do
-    not yet have ``props.text`` are processed.
+    Only papers whose ``props.kind`` contains *kind_filter* (case-insensitive) and of which no
+    XML is stored yet are processed.
     """
 
     def __init__(
@@ -79,144 +63,87 @@ class TKContentRetrievePipeline(PipelineBase):
         super().__init__(store)
         self.client = client or KamerstukClient()
 
-    # ── public ────────────────────────────────────────────────────────────────
-
-    def run(
+    def run(  # type: ignore[override]
         self,
         *,
         kind_filter: str = _DEFAULT_KIND_FILTER,
         dry_run: bool = False,
-        papers: list[dict[str, Any]] | None = None,
     ) -> PipelineResult:
-        """Hydrate text for all qualifying papers.
+        """Fetch the XML of every qualifying paper that has none stored.
 
         Args:
             kind_filter: Case-insensitive substring matched against ``props.kind``.
             dry_run: When True, log what would happen but make no changes.
-            papers: What ``unhydrated`` answered, when the caller asked already.
         """
-        result = PipelineResult()
-        if papers is None:
-            papers = self.unhydrated(kind_filter)
-
+        papers = _gaps.kamerstuk_gaps(self.store, kind_filter)
         if not papers:
-            logger.info("No unhydrated papers found for kind filter '%s'.", kind_filter)
-            return result
-
+            logger.info(
+                "No papers without XML found for kind filter '%s'.", kind_filter
+            )
+            return PipelineResult()
         logger.info(
             "Fetching the XML of %d papers (kind contains '%s')%s.",
             len(papers),
             kind_filter,
             " — DRY RUN" if dry_run else "",
         )
+        return self._store_all(self._fetch_papers(papers, dry_run), what="papers")
 
-        progress = self.progress = Progress("papers", total=len(papers))
+    def _fetch_papers(
+        self, papers: list[dict[str, Any]], dry_run: bool
+    ) -> Iterator[RetrieveRecord]:
+        self.progress.expect(len(papers))
         streak = FailureStreak("Kamerstuk XML")
-        try:
-            for paper in papers:
-                identifier = kamerstuk_identifier(
-                    paper["number"], paper.get("suffix"), paper["sequence"]
-                )
-                if dry_run:
-                    progress.skip("dry run", identifier)
-                    continue
-                self._hydrate_one(paper, identifier, streak)
-        except SourceDown as exc:
-            logger.error(str(exc))
-            down = [str(exc)]
-        else:
-            down = []
-        finally:
-            progress.finish()
+        for paper in papers:
+            identifier = paper["identifier"]
+            if dry_run:
+                self.progress.skip("dry run", identifier)
+                continue
+            record = self._fetch_one(paper, identifier, streak)
+            if record is not None:
+                yield record
 
-        result.created = progress.done
-        add_outcome(result, progress)
-        result.errors.extend(down)
-        return result
-
-    def unhydrated(self, kind_filter: str) -> list[dict[str, Any]]:
-        """Papers without text, with the dossier they belong to (a paper without one is left).
-
-        Also what ``lawgraph gaps`` reports, so the report names exactly the papers a run
-        fetches (none without a dossier or a sequence, none whose text was missing last month).
-        """
-        aql = f"""
-            FOR pub IN {COLLECTION_DOCUMENTS}
-                FILTER "TK" IN pub.labels
-                FILTER CONTAINS(LOWER(pub.props.kind || ""), @kind)
-                FILTER pub.props.text == null OR pub.props.text == ""
-                FILTER pub.props.text_missing_at == null
-                    OR pub.props.text_missing_at < @missing_before
-                FILTER pub.props.sequence != null
-                LET dossier = FIRST(
-                    FOR e IN {COLLECTION_EDGES}
-                        FILTER e._from == pub._id AND e.relation == @part_of
-                        FILTER STARTS_WITH(e._to, "{COLLECTION_DOSSIERS}/")
-                        FOR d IN {COLLECTION_DOSSIERS}
-                            FILTER d._id == e._to
-                            RETURN d
-                )
-                FILTER dossier != null AND dossier.props.number != null
-                RETURN {{
-                    key: pub._key,
-                    title: pub.props.title || pub.props.display_name || pub._key,
-                    number: dossier.props.number,
-                    suffix: dossier.props.suffix,
-                    sequence: pub.props.sequence
-                }}
-        """
-        missing_before = iso_timestamp(_now() - dt.timedelta(days=MISSING_FOR_DAYS))
-        bind = {
-            "kind": kind_filter.lower(),
-            "part_of": RELATION_PART_OF,
-            "missing_before": missing_before,
-        }
-        return list(self.store.query(aql, bind))
-
-    def _hydrate_one(
+    def _fetch_one(
         self, paper: dict[str, Any], identifier: str, streak: FailureStreak
-    ) -> None:
+    ) -> RetrieveRecord | None:
         progress = self.progress
         try:
             xml = self.client.fetch_kamerstuk_xml(identifier)
         except Exception as exc:
             progress.fail(f"download failed ({failure_reason(exc)})", identifier)
             streak.failed(identifier, exc)
-            return
+            return None
         streak.ok()
 
         if xml is None:
             progress.skip("no XML in the repository (HTTP 404)", identifier)
-            self._set_prop(paper["key"], "text_missing_at", iso_timestamp(_now()))
-            return
-        try:
-            text = xml_text(xml)
-        except ET.ParseError:
-            progress.fail("the XML cannot be read", identifier)
-            return
-        if not text:
-            progress.skip("no text in the XML", identifier)
-            return
-
-        if len(text) > _STORE_TEXT_LIMIT:
-            progress.note(
-                f"text longer than {_STORE_TEXT_LIMIT:,} chars; storing the first part",
+            return missing_record(
+                SOURCE_TK,
+                RAW_KIND_TK_KAMERSTUK_XML,
                 identifier,
+                listed=_is_fresh(paper.get("date")),
             )
-            text = text[:_STORE_TEXT_LIMIT]
-        self._set_prop(paper["key"], "text", text)
-        progress.ok()
+        try:
+            ET.fromstring(xml.lstrip("﻿"))
+        except ET.ParseError:
+            # An error page that answered 200 must not be kept for a paper: it is not asked
+            # for again once a record exists.
+            progress.fail("the XML cannot be read", identifier)
+            return None
+        return RetrieveRecord(
+            source=SOURCE_TK,
+            kind=RAW_KIND_TK_KAMERSTUK_XML,
+            external_id=identifier,
+            payload_text=xml,
+            meta={"document": paper["key"]},
+        )
 
-    def _set_prop(self, key: str, name: str, value: str | None) -> None:
-        """Set one prop of the paper without touching the others."""
-        aql = f"""
-            FOR pub IN {COLLECTION_DOCUMENTS}
-                FILTER pub._key == @key
-                UPDATE pub WITH {{props: {{[@name]: @value}}}} IN {COLLECTION_DOCUMENTS}
-        """
-        # Consume the cursor (even though it returns nothing useful).
-        list(self.store.query(aql, {"key": key, "name": name, "value": value}))
 
-
-def _now() -> dt.datetime:
-    return dt.datetime.now(dt.timezone.utc)
+def _is_fresh(date: object) -> bool:
+    """Whether a paper dated *date* (ISO) is young enough for its XML to be on its way."""
+    try:
+        published = dt.date.fromisoformat(str(date)[:10])
+    except ValueError:
+        return False
+    today = dt.datetime.now(dt.timezone.utc).date()
+    return today - published <= dt.timedelta(days=_FRESH_FOR_DAYS)

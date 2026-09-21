@@ -10,6 +10,7 @@ command does. Every check is one read-only query; a problem is an error of the c
   edges    no edge points to a node that does not exist
   views    every search view holds what its collection holds (``out of sync`` after a crash)
   derived  what a normalize step keeps for a semantic step is there on every node it is read from
+  papers   the XML of Tweede Kamer papers that was retrieved has been read into their documents
   cases    cases name the dossier they belong to
 """
 
@@ -33,6 +34,7 @@ from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     RAW_KIND_STB_AMVB,
     RAW_KIND_STCRT_REGELING,
+    RAW_KIND_TK_KAMERSTUK_XML,
     RAW_KIND_TK_ZAAK,
     RAW_KIND_VERDRAG,
     RAW_SOURCE_KINDS,
@@ -46,6 +48,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
     SOURCE_VERDRAGENBANK,
 )
+from lawgraph.core.kamerstuk_xml import TEXT_SOURCE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
@@ -80,7 +83,7 @@ RECORD_KIND = {
 }
 NORMALIZED_SHARE = 0.9
 # Kinds that are only there after a manual command; their absence says nothing.
-OPTIONAL_KINDS = {RAW_KIND_BWB_TOESTAND_ALL}
+OPTIONAL_KINDS = {RAW_KIND_BWB_TOESTAND_ALL, RAW_KIND_TK_KAMERSTUK_XML}
 
 
 @dataclass
@@ -105,6 +108,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
         _check_edges(store, report)
     _check_views(store, report)
     _check_derived(store, report)
+    _check_papers(store, raw, report)
     _check_cases(store, report)
     return report
 
@@ -224,6 +228,33 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
         )
     else:
         report.note("derived: every BWB regulation carries its basis and EU acts")
+
+
+def _check_papers(
+    store: ArangoStore, raw: dict[tuple[str, str], int], report: Report
+) -> None:
+    """``retrieve tk-content`` keeps the XML of a paper; ``normalize tk-content`` writes its
+    text and sections on the document. Without that step the documents keep no text, and the
+    semantic steps read nothing of the papers."""
+    stored = raw.get((SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML), 0)
+    if not stored:
+        return
+    aql = f"""
+    FOR d IN {COLLECTION_DOCUMENTS}
+        FILTER d.props.source == @source AND d.props.text_source == @text_source
+        COLLECT WITH COUNT INTO n
+        RETURN n
+    """
+    bind = {"source": SOURCE_TK, "text_source": TEXT_SOURCE}
+    read = next(iter(store.query(aql, bind)), 0)
+    if read < stored * NORMALIZED_SHARE:
+        report.problem(
+            f"tk: {stored:,} {RAW_KIND_TK_KAMERSTUK_XML} records and {read:,} documents with "
+            "their text and sections: normalize is behind. Run `lawgraph normalize tk-content`, "
+            "then `lawgraph semantic all`."
+        )
+    else:
+        report.note(f"papers: {read:,} documents read from {stored:,} XML records")
 
 
 def _check_cases(store: ArangoStore, report: Report) -> None:

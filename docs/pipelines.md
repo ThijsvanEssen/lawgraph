@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt` |
 | Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
@@ -41,7 +41,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 |---------|---------|--------------|
 | `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
-| `retrieve tk-content` | XML text of documents whose `kind` contains `--kind` (default `toelichting`) and that have no `props.text`; `--dry-run` | writes `documents.props.text` |
+| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`) of which none is stored; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 
 `tk-dossiers` options: `--since`, `--skip-members` (also skips Fractie and FractieZetelPersoon),
 `--skip-decisions`, `--decisions-since`, `--skip-documents`, `--documents-since`,
@@ -63,13 +63,35 @@ Client quirks:
   XML in the KOOP repository, filed under its dossier
   (`.../kst/<dossier>/kst-<dossier>-<number>/1/xml/kst-<dossier>-<number>.xml`, the dossier
   being the number with its addition, `37020-X` for a budget chapter). It builds the identifier
-  from the dossier the paper is `PART_OF` and its `sequence`, takes the plain text of the XML,
-  keeps at most 500,000 characters (and logs when it cuts), and stores each paper as it comes.
-  A paper the repository does not have (404) is skipped; 25 failures in a row fail the step.
+  from the dossier the paper is `PART_OF` and its `sequence`, and stores the XML unchanged as
+  `tk-kamerstuk-xml` under that identifier (`meta.document` is the key of the Document). The
+  papers it fetches are those without such a record and without a `-missing` record that is
+  still to wait (`lawgraph gaps` lists them). A paper the repository has no XML for (404)
+  becomes a `-missing` record: for 30 days, or for 3 when the paper is a week old or younger
+  (new papers are published as a PDF first and their XML follows within days). Error pages that
+  answer 200 are not stored; 25 failures in a row fail the step. XML exists for papers from
+  December 1994 on.
 
 **Normalize `tk`.** Zaak to Case (`cases`, key = Zaak GUID, whole payload in `props.raw`,
 `dossier_numbers` kept for the dossier pipeline). No edges: a case is linked once the dossiers
 exist.
+
+**Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
+`fetched_at`), turns each into text and sections with `core/kamerstuk_xml.py` and writes them
+on the Document named by `meta.document`. A record whose Document does not exist yet, whose
+XML cannot be read or that has no text is skipped and counted; run it after `normalize
+tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
+...) is described in `docs/data-model.md`.
+
+The parser handles both dialects of the XML (`kamerwrk`, 1995-2009, with flat `tuskop`
+headings; `officiele-publicatie`, 2010 on, with nested `divisie/kop` and flat `tussenkop`).
+The artikelsgewijs part is heading text only, so the parser reads it from the words of the
+headings: an opener ("Artikelsgewijs", "Artikelsgewijze toelichting", "Artikelen"), then
+article headings (`Artikel 3`, `Artikelen 3 en 4`, `Artikel II`, `Artikel 3:159n`,
+`Artikel I, onderdeel B (artikel 1a)`), `onderdeel` and `lid` headings under them, until a
+heading of the opener's level or a bijlage. Article numbers come from the grammar of
+`core/citations.py`. On a corpus of 147 real papers a structure with an opener and articles
+is found in about 70%, and article headings without an opener in another 5%.
 
 **Normalize `tk-dossiers`.** Order: committees, members, factions, dossiers, activities,
 commitments, documents, decisions; then edges; then a backfill of title and stages onto each
@@ -88,8 +110,8 @@ to Case and Dossier; Commitment to the dossiers of its activity), `LED_BY` (Acti
 Committee from `Voortouwcommissie_Id`), `MADE_IN` (Commitment to Activity), `MEMBER_OF`
 (dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`.
 
-**Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text and
-every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
+**Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
+footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
 `instruments.props.short_title` (codes such as `Sr`) and instrument titles (see `semantic
 rechtspraak` for the article forms).
 
@@ -115,7 +137,7 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 | `IMPLEMENTS` (Instrument to Instrument) | CELEX `3YYYY[CLRDF]NNNN` in the BWB XML of an instrument (`props.celex_refs`, kept by `normalize bwb`); both instruments must exist | 0.75 |
 
 **Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by
-`tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
+`normalize tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
 else its `AMENDS` edges to instruments). Targets must exist. Every edge is written with status
 `voorgesteld`.
 
@@ -450,9 +472,10 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
+| normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
-| semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `tk-content` |
+| semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `normalize tk-content` |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

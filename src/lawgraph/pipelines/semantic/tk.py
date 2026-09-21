@@ -278,6 +278,18 @@ class TKSemanticPipeline(SemanticPipelineBase):
                 continue
             fragments.append(text_value)
             total_length += len(text_value)
+        # A footnote is no part of ``text`` (``normalize tk-content`` moves it out), and cites
+        # laws as much as the text does.
+        notes = coerce_text(
+            "\n".join(
+                str(note.get("text") or "")
+                for note in document.props.get("footnotes") or []
+                if isinstance(note, dict)
+            )
+        )
+        if notes:
+            fragments.append(notes)
+            total_length += len(notes)
 
         total_length = self._collect_raw_text(
             document.props.get("raw"), fragments, total_length

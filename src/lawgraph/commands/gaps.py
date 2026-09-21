@@ -26,7 +26,6 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.retrieve import _gaps
-from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 
 logger = get_logger(__name__)
 
@@ -66,7 +65,7 @@ def _report(store: ArangoStore, min_stubs: int) -> None:
     _print_stub_report(missing, known, name_cache, min_stubs)
 
     _print_judgment_stub_report(_gaps.rechtspraak_gaps(store))
-    _print_mvt_report(TKContentRetrievePipeline(store=store).unhydrated("toelichting"))
+    _print_mvt_report(_gaps.kamerstuk_gaps(store, "toelichting"))
     _print_celex_stub_report(_gaps.eurlex_gaps(store))
     _print_echr_stub_report(_gaps.echr_gaps(store))
     _print_verdrag_stub_report(_gaps.verdragenbank_gaps(store))
@@ -241,18 +240,19 @@ def _print_judgment_stub_report(eclis: list[str]) -> None:
 def _print_mvt_report(gap: list[dict[str, Any]]) -> None:
     print()
     print("═" * 60)
-    print("  MvT HYDRATION STATUS")
+    print("  MvT XML STATUS")
     print("═" * 60)
 
     if not gap:
-        print("\n  All MvT documents have been hydrated.")
+        print("\n  Every MvT document has its XML.")
         return
 
-    print(f"\n  {len(gap)} MvT document(s) without text (`retrieve tk-content`):\n")
+    print(f"\n  {len(gap)} MvT document(s) without XML (`retrieve tk-content`):\n")
     for pub in gap:
         title = (pub.get("title") or pub.get("key") or "")[:70]
         print(f"    [{pub['number']} nr. {pub['sequence']}] {title}")
     print()
     print(
-        "  Note: scanned PDFs may fail text extraction; check the log of the retrieve."
+        "  Note: papers from before December 1994 exist as PDF only; a paper this week may "
+        "still have to be published as XML."
     )

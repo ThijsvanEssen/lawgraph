@@ -78,6 +78,11 @@ def _create_database_if_missing(client: ArangoClient) -> None:
         logger.info("Created database %s.", ARANGO_DB_NAME)
 
 
+def raw_key(source: str, kind: str, external_id: str) -> str:
+    """The ``_key`` of the raw_sources document of (source, kind, external_id)."""
+    return hashlib.sha1(f"{source}:{kind}:{external_id}".encode()).hexdigest()
+
+
 def raw_source_doc(
     *,
     source: str,
@@ -93,7 +98,7 @@ def raw_source_doc(
     buffered write stores it.
     """
     if external_id is not None:
-        key = hashlib.sha1(f"{source}:{kind}:{external_id}".encode()).hexdigest()
+        key = raw_key(source, kind, external_id)
     else:
         key = str(uuid4())
     return {
