@@ -15,6 +15,7 @@ from lawgraph.core.judgments import (
     extract_judgment_text,
     extract_rdf_metadata,
     extract_sections,
+    parse_judgment,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -65,6 +66,12 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
             )
             return None, None
 
+        try:
+            root = parse_judgment(payload_text)  # once, for the three extractors below
+        except ValueError as exc:
+            self._unreadable.append(f"{ecli} ({exc})")
+            return None, None
+
         props: dict[str, Any] = {
             "source": SOURCE_RECHTSPRAAK,
             "ecli": ecli,
@@ -74,13 +81,13 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         if meta:
             props["meta"] = meta
 
-        summary, text = extract_judgment_text(payload_text)
+        summary, text = extract_judgment_text(root)
         if summary:
             props["summary"] = summary
         if text:
             props["text"] = text
 
-        judgment_meta, subjects = extract_rdf_metadata(payload_text)
+        judgment_meta, subjects = extract_rdf_metadata(root)
         if judgment_meta:
             props["judgment_metadata"] = judgment_meta
             for field in ("court", "date", "case_number"):
@@ -91,7 +98,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         if subjects:
             props["subjects"] = subjects
 
-        sections = extract_sections(payload_text)
+        sections = extract_sections(root)
         if sections:
             props["paragraphs"] = sections
 
@@ -119,6 +126,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
     ) -> dict[str, Any]:
         """Convert Rechtspraak content payloads into judgment nodes, one batch at a time."""
         count = 0
+        self._unreadable: list[str] = []
         with NodeWriter(self.store) as writer:
             for raw_entry in raw.get("content", []):
                 ecli, node = self._build_content_node(raw_entry)
@@ -128,6 +136,13 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                 else:
                     result.skipped += 1
 
+        if self._unreadable:
+            logger.warning(
+                "%d judgment(s) whose stored XML cannot be read were left out (first: %s); "
+                "`retrieve rechtspraak --ecli` fetches one again.",
+                len(self._unreadable),
+                self._unreadable[0],
+            )
         logger.info("Created %d Rechtspraak judgment nodes.", count)
         return {"judgments": count}
 

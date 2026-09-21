@@ -8,5 +8,4 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .DS_Store
-.claude/worktrees/
-.claude/settings.local.json
+.claude/

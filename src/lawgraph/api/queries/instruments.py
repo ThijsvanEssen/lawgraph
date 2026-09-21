@@ -539,7 +539,7 @@ def get_instruments_list(
         view with BM25 ranking — orders of magnitude cheaper than a per-row
         ``CONTAINS(LOWER(...))`` scan.
       * Filter fields (jurisdiction, kind, article_count) and the sort key
-        for ``article_count`` are read from the props ``list_stats``
+        for ``article_count`` are read from the props ``graph-list-stats``
         precomputes on the instrument document.
       * ``total`` is exact when ``q``/filters are applied (cheap because the
         filtered base set is small); an unfiltered list returns the collection

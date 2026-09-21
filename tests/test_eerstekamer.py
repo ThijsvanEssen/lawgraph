@@ -16,8 +16,8 @@ from lawgraph.pipelines.normalize.eerstekamer import (
     split_dossier_number,
 )
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
-from lawgraph.pipelines.semantic.eerstekamer_dossier_link import (
-    EerstekamerDossierLinkSemanticPipeline,
+from lawgraph.pipelines.semantic.eerstekamer import (
+    EerstekamerSemanticPipeline,
 )
 from tests.conftest import _BaseFakeStore
 from tests.fakes import FakeResponse, RawSourcesFake
@@ -237,7 +237,7 @@ def test_the_paper_is_part_of_the_tk_dossier() -> None:
         }
     ]
     store = _LinkStore(rows)
-    result = EerstekamerDossierLinkSemanticPipeline(store=store).run()
+    result = EerstekamerSemanticPipeline(store=store).run()
 
     assert result.created == 1
     edge = next(iter(store.edges.values()))
@@ -250,13 +250,11 @@ def test_the_paper_is_part_of_the_tk_dossier() -> None:
 
 def test_the_link_query_matches_the_addition_and_has_no_row_cap() -> None:
     store = _LinkStore([])
-    EerstekamerDossierLinkSemanticPipeline(store=store).run()
+    EerstekamerSemanticPipeline(store=store).run()
     aql = store.queries[0]
     assert '(d.props.suffix || "") == (document.props.dossier_suffix || "")' in aql
     assert "LIMIT 10000" not in aql
 
 
 def test_no_match_writes_nothing() -> None:
-    assert (
-        EerstekamerDossierLinkSemanticPipeline(store=_LinkStore([])).run().created == 0
-    )
+    assert EerstekamerSemanticPipeline(store=_LinkStore([])).run().created == 0

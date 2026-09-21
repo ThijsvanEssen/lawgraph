@@ -269,7 +269,8 @@ HOST_MIN_INTERVAL: dict[str, float] = {
     "repository.overheid.nl": 0.5,
     "hudoc.echr.coe.int": 0.5,
     "publications.europa.eu": 0.3,
-    "data.rechtspraak.nl": 0.2,
+    # Rechtspraak allows "niet meer dan 10 requests per seconde" and asks to mind the others.
+    "data.rechtspraak.nl": 0.125,
     "gegevensmagazijn.tweedekamer.nl": 0.1,
     "zoekservice.overheid.nl": 0.1,
     "repository.officiele-overheidspublicaties.nl": 0.1,

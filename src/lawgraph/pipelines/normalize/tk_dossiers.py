@@ -54,7 +54,9 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
-from lawgraph.pipelines.normalize import tk_cases, tk_members, tk_votes
+from lawgraph.pipelines.normalize import _tk_cases as tk_cases
+from lawgraph.pipelines.normalize import _tk_members as tk_members
+from lawgraph.pipelines.normalize import _tk_votes as tk_votes
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
 logger = get_logger(__name__)
@@ -141,7 +143,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             # the window alone would take away what earlier votes taught.
             vote_labels = vote_labels | self._stored_faction_aliases()
 
-        normalized = {
+        normalized: dict[str, Any] = {
             "committees": tk_members.normalize_committees(
                 store, raw[RAW_KIND_TK_COMMISSIE]
             ),

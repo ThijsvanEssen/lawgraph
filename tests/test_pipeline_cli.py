@@ -1,73 +1,157 @@
-"""Every pipeline command ends the same way: exit code 1 when it raised or reported errors."""
+"""A command returns what it did; ``run_command`` decides how it ended; ``__main__`` exits."""
 
 from __future__ import annotations
 
 import datetime as dt
+from pathlib import Path
 
 import pytest
 
+from lawgraph import __main__ as entry
 from lawgraph.core.models import PipelineResult
-from lawgraph.pipelines import factory
-from lawgraph.pipelines.factory import make_pipeline_cli, run_command, run_step
+from lawgraph.pipelines import command as command_module
+from lawgraph.pipelines.command import (
+    Outcome,
+    PipelineCommand,
+    State,
+    accepts_since,
+    combined_result,
+    run_command,
+)
+
+SRC = Path(__file__).resolve().parents[1] / "src" / "lawgraph"
 
 
-def test_run_step_returns_normally_on_success() -> None:
-    run_step("step", lambda: PipelineResult(created=1))
+# ── run_command ──────────────────────────────────────────────────────────────────
 
 
-def test_run_step_exits_1_when_the_result_has_errors() -> None:
-    with pytest.raises(SystemExit) as exit_info:
-        run_step("step", lambda: PipelineResult(errors=["boom"]))
-    assert exit_info.value.code == 1
+def test_a_command_that_went_well_ends_ok_with_its_result() -> None:
+    outcome = run_command("normalize x", lambda argv: PipelineResult(created=1), [])
+    assert (outcome.label, outcome.state) == ("normalize x", State.OK)
+    assert outcome.result.created == 1
 
 
-def test_run_step_exits_1_when_the_step_raises() -> None:
-    def run() -> PipelineResult:
+def test_a_result_with_errors_ends_failed() -> None:
+    outcome = run_command(
+        "normalize x", lambda argv: PipelineResult(errors=["boom"]), []
+    )
+    assert outcome.state is State.FAILED and outcome.result.errors == ["boom"]
+
+
+def test_a_command_that_raises_ends_failed_and_the_caller_goes_on() -> None:
+    def command(argv: list[str]) -> PipelineResult:
         raise RuntimeError("database unreachable")
 
+    outcome = run_command("normalize x", command, [])
+    assert outcome.state is State.FAILED
+    assert outcome.result.errors == ["RuntimeError: database unreachable"]
+
+
+def test_ctrl_c_and_a_wrong_command_line_are_not_swallowed() -> None:
+    def interrupted(argv: list[str]) -> PipelineResult:
+        raise KeyboardInterrupt
+
+    def misread(argv: list[str]) -> PipelineResult:
+        raise SystemExit(2)  # argparse
+
+    with pytest.raises(KeyboardInterrupt):
+        run_command("x", interrupted, [])
+    with pytest.raises(SystemExit):
+        run_command("x", misread, [])
+
+
+def test_a_parent_adds_up_its_steps_and_names_the_one_that_failed() -> None:
+    outcomes = [
+        Outcome("normalize a", State.OK, PipelineResult(created=2, skipped=1)),
+        Outcome("normalize b", State.FAILED, PipelineResult(created=1, errors=["x"])),
+        Outcome("normalize c", State.SKIPPED),
+    ]
+    total = combined_result(outcomes)
+    assert (total.created, total.skipped) == (3, 1)
+    assert total.errors == ["normalize b failed"]  # its own errors were logged under it
+
+
+# ── the exit code ────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("result", "code"),
+    [(PipelineResult(created=1), None), (PipelineResult(errors=["boom"]), 1)],
+)
+def test_only_the_entry_point_turns_an_outcome_into_an_exit_code(
+    monkeypatch, result: PipelineResult, code: int | None
+) -> None:
+    monkeypatch.setitem(entry._COMMANDS, "check", lambda argv: result)
+    if code is None:
+        entry.main(["check"])
+        return
     with pytest.raises(SystemExit) as exit_info:
-        run_step("step", run)
-    assert exit_info.value.code == 1
+        entry.main(["check"])
+    assert exit_info.value.code == code
 
 
-def test_run_command_reports_failure_instead_of_exiting() -> None:
-    def failing(argv: list[str]) -> None:
-        raise SystemExit(1)
-
-    assert run_command("ok", lambda argv: None, []) is True
-    assert run_command("failing", failing, []) is False
+# ── a command made from a pipeline ───────────────────────────────────────────
 
 
-class _RecordingPipeline:
+class _Dated:
     calls: list[dict] = []
 
     def __init__(self, store: object) -> None:
         pass
 
-    def run(self, **kwargs: object) -> PipelineResult:
-        self.calls.append(kwargs)
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        self.calls.append({"since": since})
+        return PipelineResult(created=1)
+
+
+class _Undated(_Dated):
+    def run(self) -> PipelineResult:  # type: ignore[override]
+        self.calls.append({})
         return PipelineResult()
 
 
-def test_since_is_parsed_and_passed_only_when_the_command_accepts_it(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(factory, "ArangoStore", lambda: object())
-    _RecordingPipeline.calls = []
+def test_a_command_has_since_when_the_run_of_its_pipeline_takes_it(monkeypatch) -> None:
+    """It was said three times (`with_since`, `semantic_accepts_since`, the signature) and
+    a step that missed one ran in full without a word, or died on an unknown option."""
+    monkeypatch.setattr(command_module, "ArangoStore", lambda: object())
+    _Dated.calls = []
+    dated, undated = PipelineCommand(_Dated, ""), PipelineCommand(_Undated, "")
 
-    make_pipeline_cli(_RecordingPipeline, description="", with_since=True)(
-        ["--since", "2024-01-01"]
-    )
-    make_pipeline_cli(_RecordingPipeline, description="")([])
-
-    assert _RecordingPipeline.calls == [
+    assert accepts_since(dated) and not accepts_since(undated)
+    assert dated(["--since", "2024-01-01"]).created == 1
+    undated([])
+    assert _Dated.calls == [
         {"since": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc)},
         {},
     ]
-
-
-def test_command_without_since_rejects_the_option(monkeypatch) -> None:
-    monkeypatch.setattr(factory, "ArangoStore", lambda: object())
     with pytest.raises(SystemExit) as exit_info:
-        make_pipeline_cli(_RecordingPipeline, description="")(["--since", "7d"])
+        undated(["--since", "7d"])
     assert exit_info.value.code == 2
+
+
+def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
+    import inspect
+
+    from lawgraph.sources.registry import PIPELINES
+
+    commands = [
+        pipeline.command
+        for phase in ("normalize", "semantic")
+        for pipeline in PIPELINES[phase]  # type: ignore[index]
+        if isinstance(pipeline.command, PipelineCommand)
+    ]
+    assert len(commands) > 25
+    for command in commands:
+        parameters = set(inspect.signature(command.pipeline_cls.run).parameters)
+        assert parameters - {"self"} <= {"since"}, command.pipeline_cls.__name__
+    assert all(accepts_since(p.command) for p in PIPELINES["normalize"])
+
+
+def test_a_result_says_what_was_left_as_it_was() -> None:
+    """A second run over the same records is mostly that; without it the line said
+    "nothing to do" for a step that looked 40,000 documents up."""
+    assert PipelineResult(unchanged=41_200, updated=3).summary() == (
+        "3 updated, 41,200 unchanged"
+    )
+    total = combined_result([Outcome("a", State.OK, PipelineResult(unchanged=2))] * 2)
+    assert total.unchanged == 4

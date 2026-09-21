@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from lawgraph.api.dependencies import get_store
+from lawgraph.api.dependencies import (
+    get_store,
+    require_curation_key,
+    require_write_key,
+)
 from lawgraph.api.queries.relationships import (
     resolve_article_id,
     search_relationships,
@@ -23,26 +26,11 @@ from lawgraph.api.schemas.relationships import (
     RelationshipVoteResponse,
 )
 from lawgraph.config.constants import SEMANTIC_RELATIONSHIP_TYPES, SEMANTIC_SOURCES
-from lawgraph.config.settings import curation_api_key
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
 logger = get_logger(__name__)
-
-
-def _require_curation_key(
-    x_curation_key: Annotated[str | None, Header()] = None,
-) -> None:
-    """Require the shared curation key; curation is disabled while no key is configured."""
-    expected = curation_api_key()
-    if not expected:
-        raise HTTPException(
-            status_code=503,
-            detail="Curation is not enabled on this deployment.",
-        )
-    if not x_curation_key or not secrets.compare_digest(x_curation_key, expected):
-        raise HTTPException(status_code=401, detail="Invalid curation key.")
 
 
 @router.get(
@@ -51,7 +39,7 @@ def _require_curation_key(
     description="The supported semantic relationship types and source values.",
     tags=["relationships"],
 )
-def get_relationship_types() -> dict:
+def get_relationship_types() -> dict[str, list[str]]:
     return {
         "semantic_types": sorted(SEMANTIC_RELATIONSHIP_TYPES),
         "semantic_sources": sorted(SEMANTIC_SOURCES),
@@ -106,7 +94,7 @@ def search(
         "semantic metadata. Requires the X-Curation-Key header."
     ),
     tags=["relationships"],
-    dependencies=[Depends(_require_curation_key)],
+    dependencies=[Depends(require_curation_key)],
 )
 def tag(
     body: RelationshipTagRequest,
@@ -134,8 +122,12 @@ def tag(
     "/{edge_id}/vote",
     response_model=RelationshipVoteResponse,
     summary="Vote on a semantic relationship",
-    description="Community endpoint: increments a relationship's upvote or downvote count.",
+    description=(
+        "Community endpoint: increments a relationship's upvote or downvote count. "
+        "Requires the X-Write-Key header."
+    ),
     tags=["relationships"],
+    dependencies=[Depends(require_write_key)],
 )
 def vote(
     edge_id: str,

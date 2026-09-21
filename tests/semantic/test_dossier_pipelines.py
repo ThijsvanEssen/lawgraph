@@ -7,9 +7,9 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import RELATION_EXPLAINS
-from lawgraph.pipelines.semantic.staatsblad_nvt import StaatsbladNvtSemanticPipeline
-from lawgraph.pipelines.semantic.staatscourant_regeling import (
-    StaatscourantRegelingSemanticPipeline,
+from lawgraph.pipelines.semantic.staatsblad import StaatsbladSemanticPipeline
+from lawgraph.pipelines.semantic.staatscourant import (
+    StaatscourantSemanticPipeline,
 )
 from tests.conftest import _BaseFakeStore
 
@@ -29,7 +29,7 @@ class _FakeStore(_BaseFakeStore):
 
 
 # ---------------------------------------------------------------------------
-# StaatsbladNvtSemanticPipeline
+# StaatsbladSemanticPipeline
 # ---------------------------------------------------------------------------
 
 
@@ -44,7 +44,7 @@ def test_staatsblad_nvt_creates_explains_instrument_edge() -> None:
         }
     ]
     store = _FakeStore(rows=rows)
-    pipeline = StaatsbladNvtSemanticPipeline(store=store)
+    pipeline = StaatsbladSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -54,7 +54,7 @@ def test_staatsblad_nvt_creates_explains_instrument_edge() -> None:
 
 
 # ---------------------------------------------------------------------------
-# StaatscourantRegelingSemanticPipeline
+# StaatscourantSemanticPipeline
 # ---------------------------------------------------------------------------
 
 
@@ -71,7 +71,7 @@ def test_staatscourant_regeling_creates_explains_instrument_edge() -> None:
     # The pipeline calls query three times: bwb query, title query, text-scan query.
     # All return the same row — dedup ensures only 1 edge is created.
     store = _FakeStore(rows=rows)
-    pipeline = StaatscourantRegelingSemanticPipeline(store=store)
+    pipeline = StaatscourantSemanticPipeline(store=store)
     result = pipeline.run()
 
     assert result.created == 1
@@ -101,8 +101,8 @@ def test_semantic_edges_are_written_in_bulk_batches() -> None:
             return super().bulk_insert_or_update_edges(docs)
 
     store = _CountingStore(rows=rows)
-    result = StaatsbladNvtSemanticPipeline(store=store).run()
+    result = StaatsbladSemanticPipeline(store=store).run()
 
     assert result.created == 1200
     assert len(store.edges) == 1200
-    assert store.bulk_calls == 3  # 500 + 500 + 200
+    assert store.bulk_calls == 2  # 1000 + 200: the batches of `EdgeWriter`

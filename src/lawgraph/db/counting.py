@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.models import Node
+from lawgraph.db.store import ArangoStore
 
 
 @dataclass
@@ -33,6 +34,10 @@ class WriteCounts:
     @property
     def updated(self) -> int:
         return self.nodes_updated + self.edges_updated
+
+    @property
+    def unchanged(self) -> int:
+        return self.nodes_unchanged + self.edges_unchanged
 
     def describe(self) -> str:
         return (
@@ -81,3 +86,7 @@ class CountingStore:
         self.writes.edges_updated += updated
         self.writes.edges_unchanged += max(0, len(docs) - created - updated)
         return created, updated
+
+
+# What a writer or a helper of a pipeline is handed: the store, or the store that counts.
+Store = ArangoStore | CountingStore

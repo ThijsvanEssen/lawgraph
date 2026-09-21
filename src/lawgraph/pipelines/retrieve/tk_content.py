@@ -1,7 +1,7 @@
 """Pipeline that fetches the text of Tweede Kamer papers as XML and stores it in props.text.
 
 Only papers whose kind contains a substring (default ``toelichting``) qualify: the ones that
-feed the memorandum context (``mvt-articles``, ``amendment-articles``), not the whole corpus.
+feed the memorandum context (``tk-mvt``, ``tk-amendment-articles``), not the whole corpus.
 The Tweede Kamer's own API serves only a PDF; the KOOP repository has the same paper as
 structured XML, filed under its dossier.
 
@@ -137,8 +137,8 @@ class TKContentRetrievePipeline(PipelineBase):
     def unhydrated(self, kind_filter: str) -> list[dict[str, Any]]:
         """Papers without text, with the dossier they belong to (a paper without one is left).
 
-        Also what ``fill-gaps`` reports: a report from a query of its own listed the papers
-        this one leaves out (no dossier, no sequence, a text that was missing last month).
+        Also what ``lawgraph gaps`` reports, so the report names exactly the papers a run
+        fetches (none without a dossier or a sequence, none whose text was missing last month).
         """
         aql = f"""
             FOR pub IN {COLLECTION_DOCUMENTS}
@@ -207,7 +207,7 @@ class TKContentRetrievePipeline(PipelineBase):
         self._set_prop(paper["key"], "text", text)
         progress.ok()
 
-    def _set_prop(self, key: str, name: str, value: str) -> None:
+    def _set_prop(self, key: str, name: str, value: str | None) -> None:
         """Set one prop of the paper without touching the others."""
         aql = f"""
             FOR pub IN {COLLECTION_DOCUMENTS}

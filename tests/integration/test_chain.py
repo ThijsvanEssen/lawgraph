@@ -151,7 +151,7 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
         )
     cli("normalize", "all")
     cli("semantic", "bwb-grondslagen")
-    cli("semantic", "instrument-relations")
+    cli("semantic", "bwb-implements")
 
     aql = """
     FOR e IN edges
@@ -164,3 +164,140 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
         ["BASED_ON", "articles/bwbr0001947_133"],
         ["IMPLEMENTS", "instruments/32016r0679"],
     ]
+
+
+def test_check_says_when_a_regulation_lacks_what_the_semantic_steps_read(
+    database: str, cli: Any
+) -> None:
+    """The copy on the node is only as good as the run that made it."""
+    store = ArangoStore()
+    seed(store, documents=0, judgments=0, regulations=3)
+    cli("normalize", "bwb")
+    assert not [p for p in check(store, edges=False).problems if "basis" in p]
+
+    store.query(  # a regulation as a `normalize bwb` from before the props were kept left it
+        "FOR i IN instruments FILTER i.props.source == 'bwb' LIMIT 1 "
+        "UPDATE i WITH {props: {basis: null}} IN instruments OPTIONS {keepNull: false}"
+    )
+    problems = [p for p in check(store, edges=False).problems if "basis" in p]
+    assert problems and "1 BWB regulations" in problems[0]
+    assert "normalize bwb" in problems[0]
+
+
+def test_check_says_when_no_case_names_a_dossier(database: str, cli: Any) -> None:
+    store = ArangoStore()
+    seed(
+        store, documents=10, judgments=0, regulations=0
+    )  # the seeded cases name theirs
+    cli("normalize", "tk")
+    assert not [p for p in check(store, edges=False).problems if "names a dossier" in p]
+
+    store.query(
+        "FOR c IN cases UPDATE c WITH {props: {dossier_numbers: []}} IN cases "
+        "OPTIONS {mergeObjects: true}"
+    )
+    problems = [p for p in check(store, edges=False).problems if "names a dossier" in p]
+    assert problems and "retrieve tk" in problems[0]
+
+
+_LAW_WITH_AN_ANNEX = """<toestand bwb-id="BWBR9200001"><wetgeving soort="wet">
+<citeertitel>Sectorenwet</citeertitel><wet-besluit><wettekst>
+<artikel><kop><nr>1</nr></kop>
+<al>De sectoren, vermeld in bijlage I, vallen onder deze wet.</al></artikel>
+</wettekst></wet-besluit>
+<bijlage><kop><label>Bijlage</label><nr>I</nr><titel>Sectoren</titel></kop>
+<al>Energie.</al></bijlage>
+</wetgeving></toestand>"""
+
+
+def test_an_annex_is_a_node_of_normalize_and_a_link_of_semantic(
+    database: str, cli: Any
+) -> None:
+    """The annex nodes were made by a semantic step that read and parsed every toestand
+    again (1m48 of each `semantic all`); normalize parses them anyway."""
+    from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, SOURCE_BWB
+    from lawgraph.db import RawSourceWriter, raw_source_doc
+
+    store = ArangoStore()
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_BWB,
+                kind=RAW_KIND_BWB_TOESTAND,
+                external_id="BWBR9200001",
+                payload_text=_LAW_WITH_AN_ANNEX,
+                meta={"bwb_id": "BWBR9200001"},
+            )
+        )
+    cli("normalize", "bwb")
+    annex = store.db.collection("annexes").get("bwbr9200001_annex_i")
+    assert annex["props"]["title"] == "Sectoren" and not annex["props"].get("stub")
+    edges = (
+        "FOR e IN edges FILTER e._from == @a OR e._to == @a "
+        "RETURN [e.relation, e._from, e._to]"
+    )
+    assert list(store.query(edges, {"a": annex["_id"]})) == [
+        ["PART_OF", annex["_id"], "instruments/bwbr9200001"]
+    ]
+
+    cli("semantic", "bwb-annexes")
+    assert sorted(store.query(edges, {"a": annex["_id"]})) == [
+        ["PART_OF", annex["_id"], "instruments/bwbr9200001"],
+        ["SCOPED_BY", "articles/bwbr9200001_1", annex["_id"]],
+    ]
+
+
+def test_a_law_a_regulation_is_issued_under_is_a_gap_when_it_is_not_loaded(
+    database: str, cli: Any
+) -> None:
+    """`bwb-grondslagen` leaves a basis out when its law is absent, and nothing listed
+    that law as a gap: 466 laws of the rebuild, the Wft among them."""
+    from lawgraph.pipelines.retrieve import _gaps
+
+    store = ArangoStore()
+    seed(
+        store, documents=0, judgments=0, regulations=2
+    )  # the AMvB: "Gelet op" BWBR0001947
+    cli("normalize", "bwb")
+    assert "BWBR0001947" in _gaps.bwb_gaps(store)
+    assert "BWBR0001840" not in _gaps.bwb_gaps(store)  # the Grondwet is loaded
+
+
+def test_an_eu_act_a_regulation_names_is_a_gap_until_it_is_retrieved(
+    database: str, cli: Any
+) -> None:
+    """The CELEX id is an attribute of the link, not text of the article: a scan of the
+    article texts found none, and the rebuild ended without one EU act (3,951 named)."""
+    from lawgraph.config.constants import (
+        RAW_KIND_BWB_TOESTAND,
+        RAW_KIND_EU_CELEX,
+        SOURCE_BWB,
+        SOURCE_EURLEX,
+    )
+    from lawgraph.db import RawSourceWriter, raw_source_doc
+    from lawgraph.pipelines.retrieve import _gaps
+    from tests.integration.seed import FIXTURES
+
+    amvb = (FIXTURES / "bwb_amvb_toestand.xml").read_text()
+    link = '<extref doc="32016R0679" reeks="Celex">verordening (EU) 2016/679</extref>'
+    amvb = amvb.replace("</toestand>", f"<!-- {link} --></toestand>")
+    store = ArangoStore()
+
+    def store_raw(source: str, kind: str, external_id: str, text: str) -> None:
+        with RawSourceWriter(store) as writer:
+            writer.add(
+                raw_source_doc(
+                    source=source,
+                    kind=kind,
+                    external_id=external_id,
+                    payload_text=text,
+                    meta={},
+                )
+            )
+
+    store_raw(SOURCE_BWB, RAW_KIND_BWB_TOESTAND, "BWBR0001950", amvb)
+    cli("normalize", "bwb")
+    assert _gaps.eurlex_gaps(store) == ["32016R0679"]
+
+    store_raw(SOURCE_EURLEX, RAW_KIND_EU_CELEX, "32016R0679", "<html></html>")
+    assert _gaps.eurlex_gaps(store) == []

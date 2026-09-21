@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from lawgraph.api.dependencies import get_store
+from lawgraph.api.dependencies import get_store, require_write_key
 from lawgraph.api.queries.watches import create_watch, delete_watch, list_watches
 from lawgraph.api.schemas.watches import WatchIn, WatchOut
 from lawgraph.core.logging import get_logger
@@ -34,7 +34,9 @@ def get_watches(
     response_model=WatchOut,
     status_code=201,
     summary="Add a node to the watchlist",
+    description="Requires the X-Write-Key header.",
     tags=["watches"],
+    dependencies=[Depends(require_write_key)],
 )
 def add_watch(
     body: WatchIn,
@@ -71,9 +73,10 @@ def add_watch(
     summary="Remove a watch",
     description=(
         "Removes a watch by its ``_key``. Returns HTTP 204 with no body on "
-        "success, 404 when the watch does not exist."
+        "success, 404 when the watch does not exist. Requires the X-Write-Key header."
     ),
     tags=["watches"],
+    dependencies=[Depends(require_write_key)],
 )
 def remove_watch(
     watch_id: str,

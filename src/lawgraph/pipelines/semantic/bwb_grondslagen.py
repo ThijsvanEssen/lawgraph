@@ -57,14 +57,11 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         rows = self.store.query(_BASIS_AQL, {"source": SOURCE_BWB})
         for chunk in chunked(self._track(rows, "regulations with a basis"), _CHUNK):
             self._link_chunk(chunk, edges, result)
-        edges.flush()
-        result.created += edges.created
-        result.updated += edges.updated
-        logger.info("BWB grondslagen: %s.", result.summary())
+        edges.flush_into(result)
         return result
 
     def _link_chunk(

@@ -9,17 +9,17 @@ from typing import Any
 import pytest
 import requests
 
-from lawgraph.commands import fill_gaps
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
-from lawgraph.pipelines.retrieve.base import FailureStreak, SourceDown
+from lawgraph.pipelines.retrieve import _gaps
+from lawgraph.pipelines.retrieve.base import FETCH_WORKERS, FailureStreak, SourceDown
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
-from lawgraph.pipelines.semantic.rechtspraak_articles import (
-    RechtspraakArticlesSemanticPipeline,
+from lawgraph.pipelines.semantic.rechtspraak import (
+    RechtspraakSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.staatscourant_regeling import (
-    StaatscourantRegelingSemanticPipeline,
+from lawgraph.pipelines.semantic.staatscourant import (
+    StaatscourantSemanticPipeline,
 )
 from tests.fakes import RawSourcesFake
 
@@ -69,7 +69,8 @@ def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing() -> None:
 
     assert result.created == 0
     assert "seems to be down" in result.errors[0]
-    assert rs.calls == 25  # it stopped at the 25th failure, it did not try all 200
+    # it stopped at the 25th failure; a few more were under way, it did not try all 200
+    assert 25 <= rs.calls <= 25 + 4 * FETCH_WORKERS
 
 
 def test_rechtspraak_missing_judgments_are_not_a_dead_source() -> None:
@@ -115,29 +116,29 @@ def test_the_staatscourant_text_scan_has_no_row_cap_and_lets_errors_out() -> Non
             queries.append(aql)
             raise RuntimeError("query failed")
 
-    pipeline = StaatscourantRegelingSemanticPipeline(store=Store())
+    pipeline = StaatscourantSemanticPipeline(store=Store())
     with pytest.raises(RuntimeError, match="query failed"):
         pipeline._text_scan_match(set())
     assert "LIMIT" not in queries[0]
 
 
-def test_fill_gaps_says_when_it_takes_only_the_first_stubs(caplog) -> None:
-    rows = [f"ECLI:{n}" for n in range(fill_gaps.MAX_GAPS_PER_RUN + 5)]
+def test_a_gaps_run_says_when_it_takes_only_the_first_stubs(caplog) -> None:
+    rows = [f"ECLI:{n}" for n in range(_gaps.MAX_GAPS_PER_RUN + 5)]
     with caplog.at_level("WARNING"):
-        taken = fill_gaps._capped(rows, "stub judgments")
-    assert len(taken) == fill_gaps.MAX_GAPS_PER_RUN
+        taken = _gaps._capped(rows, "stub judgments")
+    assert len(taken) == _gaps.MAX_GAPS_PER_RUN
     assert any(
         "takes the first" in m and "stub judgments" in m for m in caplog.messages
     )
 
 
-def test_fill_gaps_below_the_cap_says_nothing(caplog) -> None:
+def test_below_the_cap_nothing_is_said(caplog) -> None:
     with caplog.at_level("WARNING"):
-        assert fill_gaps._capped(["a", "b"], "x") == ["a", "b"]
+        assert _gaps._capped(["a", "b"], "x") == ["a", "b"]
     assert not caplog.messages
 
 
-def test_fill_gaps_queries_are_not_capped_in_aql() -> None:
+def test_the_gap_queries_are_not_capped_in_aql() -> None:
     seen: list[str] = []
 
     class Store:
@@ -145,7 +146,7 @@ def test_fill_gaps_queries_are_not_capped_in_aql() -> None:
             seen.append(aql)
             return iter([])
 
-    fill_gaps._query_stub_judgments(Store())
+    _gaps.rechtspraak_gaps(Store())
     assert not any("LIMIT" in aql for aql in seen)
 
 
@@ -217,7 +218,7 @@ class _JudgmentStore:
 
 
 def _linker(store):
-    pipeline = RechtspraakArticlesSemanticPipeline(store=store)
+    pipeline = RechtspraakSemanticPipeline(store=store)
     pipeline._load_code_aliases = lambda: {"Sr": "BWBR0001854"}  # type: ignore[method-assign]
     pipeline._load_instrument_aliases = dict  # type: ignore[method-assign,assignment]
     return pipeline
@@ -241,7 +242,7 @@ def test_an_incremental_run_asks_for_the_judgments_fetched_since() -> None:
 
 
 def test_recent_bwb_ids_are_asked_for_once_not_once_per_regulation() -> None:
-    from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
+    from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 
     queries: list[str] = []
 
@@ -250,21 +251,21 @@ def test_recent_bwb_ids_are_asked_for_once_not_once_per_regulation() -> None:
             queries.append(aql)
             return iter(["BWBR0000002"] if "raw_sources" in aql else [])
 
-    pipeline = BWBArticlesSemanticPipeline(store=Store())
+    pipeline = BWBSemanticPipeline(store=Store())
     ids = [f"BWBR{n:07d}" for n in range(1, 500)]
     list(pipeline._load_articles(ids, since_iso="2025-01-01T00:00:00Z"))
     assert sum("raw_sources" in q for q in queries) == 1
 
 
 def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph() -> None:
-    from lawgraph.pipelines.semantic.bwb_articles import BWBArticlesSemanticPipeline
+    from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 
     class Store:
         def query(self, aql, bind_vars=None, **kw):
             raise RuntimeError("database gone")
 
     with pytest.raises(RuntimeError, match="database gone"):
-        BWBArticlesSemanticPipeline(store=Store())._load_bwb_ids_from_graph()
+        BWBSemanticPipeline(store=Store())._load_bwb_ids_from_graph()
 
 
 # ── a failing write is an error of the step ──────────────────────────────────
@@ -297,7 +298,7 @@ def test_tk_dossiers_a_failing_write_is_an_error_not_only_a_log_line() -> None:
 
 def test_the_query_cursor_outlives_a_consumer_that_works_on_every_batch() -> None:
     """The server drops a cursor unread for 30 s ("cursor not found"): semantic tk and
-    instrument-relations failed on it after streaming their documents."""
+    tk-amends failed on it after streaming their documents."""
     from lawgraph.db.store import CURSOR_TTL_SECONDS, ArangoStore
 
     seen: dict[str, Any] = {}
@@ -329,35 +330,3 @@ def test_a_caller_can_ask_for_a_different_ttl() -> None:
     store.db = SimpleNamespace(aql=Aql())
     store.query("RETURN 1", ttl=60)
     assert seen["ttl"] == 60
-
-
-# ── fill-gaps reports what it will fetch ─────────────────────────────────────
-
-
-def test_fill_gaps_reports_and_fetches_the_papers_the_retriever_asks_for(
-    monkeypatch,
-) -> None:
-    """A query of its own listed papers the retriever leaves out (no dossier, a text that
-    was missing last month): reported as a gap on every run, never fetched."""
-    from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
-
-    asked: list[str] = []
-    papers = [{"key": "d1", "title": "MvT", "number": 36000, "sequence": 3}]
-    ran: dict[str, Any] = {}
-
-    monkeypatch.setattr(
-        TKContentRetrievePipeline,
-        "unhydrated",
-        lambda self, kind: asked.append(kind) or papers,
-    )
-    monkeypatch.setattr(
-        TKContentRetrievePipeline,
-        "run",
-        lambda self, **kw: ran.update(kw) or PipelineResult(),
-    )
-    store = SimpleNamespace()
-    gap = TKContentRetrievePipeline(store=store).unhydrated("toelichting")
-    fill_gaps._apply_mvt_gaps(store, SimpleNamespace(no_mvt=False), gap)
-
-    assert ran["papers"] is papers  # not asked for a second time
-    assert asked == ["toelichting"]

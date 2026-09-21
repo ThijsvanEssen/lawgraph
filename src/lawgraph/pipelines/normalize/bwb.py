@@ -6,6 +6,7 @@ from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     RAW_KIND_BWB_TOESTAND,
@@ -13,10 +14,15 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     SOURCE_BWB,
 )
+from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key, annex_props
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_wti import choose_short_titles, parse_abbreviations
-from lawgraph.core.bwb_xml import article_props, instrument_props, parse_toestand
-from lawgraph.core.identifiers import find_celex_ids
+from lawgraph.core.bwb_xml import (
+    article_props,
+    celex_refs,
+    instrument_props,
+    parse_toestand,
+)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
@@ -55,6 +61,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         """Parse the current BWB toestand of each regulation into Instrument and Article nodes."""
         instruments_by_bwb: dict[str, Node] = {}
         articles_by_bwb: dict[str, list[Node]] = {}
+        annexes_by_bwb: dict[str, list[str]] = {}  # annex keys
         article_count = 0
 
         with NodeWriter(self.store) as writer:
@@ -76,10 +83,32 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 instrument = instruments_by_bwb.get(bwb_id)
                 if instrument is None:
                     props = instrument_props(
-                        toestand, bwb_id, celex_refs=find_celex_ids(payload_text)
+                        toestand, bwb_id, celex_refs=celex_refs(payload_text)
                     )
-                    instrument = self._upsert_instrument(bwb_id, props)
+                    # Through the writer, like the articles: one request per regulation
+                    # was 42,000 round trips, and a write also when nothing changed.
+                    instrument = Node(
+                        collection=COLLECTION_INSTRUMENTS,
+                        type=NodeType.INSTRUMENT,
+                        key=make_node_key(bwb_id),
+                        labels=["BWB"],
+                        props=props,
+                    )
+                    writer.add(instrument)
                     instruments_by_bwb[bwb_id] = instrument
+
+                for annex in toestand.annexes:
+                    key = annex_node_key(bwb_id, annex.label)
+                    writer.add(
+                        Node(
+                            collection=COLLECTION_ANNEXES,
+                            type=NodeType.ANNEX,
+                            key=key,
+                            labels=["BWB", "Annex"],
+                            props=annex_props(annex, bwb_id),
+                        )
+                    )
+                    annexes_by_bwb.setdefault(bwb_id, []).append(key)
 
                 for article in toestand.articles:
                     if not article.number or not article.text:
@@ -121,6 +150,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         return {
             "instruments_by_bwb": instruments_by_bwb,
             "articles_by_bwb": articles_by_bwb,
+            "annexes_by_bwb": annexes_by_bwb,
         }
 
     def build_edges(
@@ -128,10 +158,10 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         raw: Any,
         normalized: dict[str, Any],
     ) -> None:
-        """Link BWB articles to their instruments with PART_OF edges."""
+        """PART_OF from every article and annex to its instrument."""
         instruments: dict[str, Node] = normalized.get("instruments_by_bwb", {})
         articles: dict[str, list[Node]] = normalized.get("articles_by_bwb", {})
-        writer = EdgeWriter(self.store)
+        writer = EdgeWriter(self.store, what="article and annex edges")
         for bwb_id, instrument in instruments.items():
             for article in articles.get(bwb_id, []):
                 writer.add(
@@ -139,6 +169,14 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     instrument.arango_id,
                     RELATION_PART_OF,
                     source=EDGE_SOURCE,
+                )
+            for annex_key in normalized.get("annexes_by_bwb", {}).get(bwb_id, []):
+                writer.add(
+                    f"{COLLECTION_ANNEXES}/{annex_key}",
+                    instrument.arango_id,
+                    RELATION_PART_OF,
+                    source=ANNEX_EDGE_SOURCE,
+                    confidence=1.0,
                 )
         writer.flush()
 
@@ -189,14 +227,3 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             sum(1 for row in rows if row["short_title"]),
             changed,
         )
-
-    def _upsert_instrument(self, bwb_id: str, props: dict[str, Any]) -> Node:
-        node = Node(
-            collection=COLLECTION_INSTRUMENTS,
-            type=NodeType.INSTRUMENT,
-            key=make_node_key(bwb_id),
-            labels=["BWB"],
-            props=props,
-        )
-        instrument, _ = self.store.insert_or_update(node)
-        return instrument

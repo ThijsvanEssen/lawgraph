@@ -11,10 +11,10 @@ import pytest
 from lawgraph.core import logging as lg
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
-from lawgraph.pipelines import factory
-from lawgraph.pipelines.factory import run_command, run_step
-from lawgraph.pipelines.orchestration import _run_phase, _Step
-from lawgraph.sources.registry import SOURCES, describe
+from lawgraph.pipelines import command as command_module
+from lawgraph.pipelines.command import State, run_command
+from lawgraph.pipelines.orchestration import run_pipelines
+from lawgraph.sources.registry import PHASES, PIPELINES, Pipeline
 
 
 @pytest.fixture
@@ -98,37 +98,47 @@ def test_json_lines_have_the_step() -> None:
 def test_a_step_says_what_it_does_with_which_options_and_how_long(
     lines, monkeypatch
 ) -> None:
-    monkeypatch.setattr(factory.time, "monotonic", iter([0.0, 252.0]).__next__)
+    monkeypatch.setattr(command_module.time, "monotonic", iter([0.0, 252.0]).__next__)
     seen: list[str] = []
-    ok = run_command(
-        "Staatscourant",
-        lambda argv: seen.append(lg.current_step()),
+
+    def command(argv: list[str]) -> PipelineResult:
+        seen.append(lg.current_step())
+        return PipelineResult(created=5)
+
+    outcome = run_command(
+        "retrieve staatscourant",
+        command,
         ["--mode", "incremental", "--since", "2024-09-20"],
-        step="retrieve staatscourant",
         description="Ministerial regulations from the Staatscourant.",
     )
-    assert ok and seen == ["retrieve staatscourant"]
-    start, end = lines()
+    assert outcome.state is State.OK and seen == ["retrieve staatscourant"]
+    start, end = lines()  # one line to start and one to end, whoever runs the step
     assert "[retrieve staatscourant]" in start
-    assert "starting — Ministerial regulations from the Staatscourant." in start
-    assert "(--mode incremental --since 2024-09-20)" in start
-    assert "completed in 4m12s." in end
+    assert start.endswith(
+        "Starting: Ministerial regulations from the Staatscourant "
+        "(--mode incremental --since 2024-09-20)."
+    )
+    assert "Done in 4m12s: 5 created." in end
 
 
-def test_a_failing_step_says_how_long_it_ran(lines, monkeypatch) -> None:
-    monkeypatch.setattr(factory.time, "monotonic", iter([0.0, 65.0]).__next__)
+def test_a_failing_step_says_how_long_it_ran_and_why(lines, monkeypatch) -> None:
+    monkeypatch.setattr(
+        command_module.time, "monotonic", iter([0.0, 65.0, 65.0]).__next__
+    )
 
-    def fail(argv: list[str]) -> None:
-        raise SystemExit(1)
+    def fail(argv: list[str]) -> PipelineResult:
+        raise RuntimeError("no route to host")
 
-    assert run_command("X", fail, [], step="normalize x") is False
-    assert "exited with code 1 after 1m05s" in lines()[-1]
+    assert run_command("normalize x", fail, []).state is State.FAILED
+    assert "Failed after 1m05s: RuntimeError: no route to host" in lines()[-1]
 
 
-def test_run_step_reports_the_summary_and_the_duration(lines, monkeypatch) -> None:
-    monkeypatch.setattr(factory.time, "monotonic", iter([0.0, 12.0]).__next__)
-    run_step("TK retrieve", lambda: PipelineResult(created=5))
-    assert "TK retrieve: " in lines()[0] and "in 12s." in lines()[0]
+def test_every_error_of_a_result_is_a_line(lines) -> None:
+    run_command("normalize x", lambda argv: PipelineResult(errors=["a", "b"]), [])
+    assert [line.split("Error: ")[1] for line in lines() if "Error: " in line] == [
+        "a",
+        "b",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -139,46 +149,55 @@ def test_format_duration(seconds, text) -> None:
     assert format_duration(seconds) == text
 
 
-def test_the_orchestrator_labels_each_step_with_phase_and_source() -> None:
+def test_a_step_is_called_what_one_types_everywhere(lines) -> None:
+    """One name: in the log context, in the table of the phase, in the error of the parent."""
     labels: list[str] = []
-    steps = [
-        _Step(
-            "tk_dossiers",
-            "TK dossiers",
-            lambda argv: labels.append(lg.current_step()),
-            [],
-        ),
-        _Step("bwb", "BWB", lambda argv: labels.append(lg.current_step()), []),
+
+    def command(argv: list[str]) -> PipelineResult:
+        labels.append(lg.current_step())
+        return PipelineResult()
+
+    pipelines = [
+        Pipeline("normalize", "tk", "dossiers", command, ""),
+        Pipeline("normalize", "bwb", None, command, ""),
     ]
-    _run_phase("normalize", steps)
+    outcomes = run_pipelines(pipelines, lambda pipeline: [])
     assert labels == ["normalize tk-dossiers", "normalize bwb"]
+    assert [o.label for o in outcomes] == labels
+    table = [line for line in lines() if line.rstrip().endswith(" ok")]
+    assert [line.split()[-4:-2] for line in table] == [
+        label.split() for label in labels
+    ]
 
 
 # ── the descriptions ─────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("source", SOURCES, ids=lambda s: s.id)
-def test_every_command_of_every_source_is_described(source) -> None:
-    for phase in ("retrieve", "normalize", "semantic"):
-        if getattr(source, f"{phase}_main") is not None:
-            assert source.descriptions.get(phase), f"{phase} {source.id}"
+ALL_PIPELINES = [pipeline for phase in PHASES for pipeline in PIPELINES[phase]]
 
 
-def test_describe_accepts_the_cli_spelling() -> None:
-    assert describe("normalize", "tk-dossiers") == describe("normalize", "tk_dossiers")
-    assert "Kamerstukken" in describe("retrieve", "eerstekamer")
-    assert describe("retrieve", "nonexistent") == ""
-    assert describe("semantic", "tk-content") == ""
+@pytest.mark.parametrize("pipeline", ALL_PIPELINES, ids=lambda p: p.address)
+def test_every_pipeline_says_what_it_does(pipeline: Pipeline) -> None:
+    assert len(pipeline.description) > 10 and pipeline.description.endswith(".")
 
 
-def test_the_sources_command_lists_every_source_and_marks_manual_ones(capsys) -> None:
+def test_the_sources_command_lists_every_pipeline_under_its_source(capsys) -> None:
     from lawgraph.__main__ import main
 
     main(["sources"])
-    out = capsys.readouterr().out
-    for source in SOURCES:
-        assert source.id.replace("_", "-") in out
-    tk_content = next(b for b in out.split("\n\n") if b.startswith("tk-content"))
-    assert "[manual: not in retrieve all]" in tk_content
-    staatscourant = next(b for b in out.split("\n\n") if b.startswith("staatscourant"))
-    assert "manual" not in staatscourant
+    blocks = {b.split()[0]: b for b in capsys.readouterr().out.split("\n\n")[1:]}
+    for pipeline in ALL_PIPELINES:
+        assert pipeline.address in blocks[pipeline.source]
+    content = next(
+        line for line in blocks["tk"].splitlines() if "retrieve tk-content" in line
+    )
+    assert "[manual: not in retrieve all]" in content
+    assert "manual" not in blocks["staatscourant"]
+    assert "semantic rechtspraak-citations" in blocks["rechtspraak"]
+
+
+def test_the_start_line_ends_with_one_full_stop(lines) -> None:
+    run_command(
+        "normalize tk", lambda argv: PipelineResult(), [], description="Cases as nodes."
+    )
+    assert lines()[0].endswith("Starting: Cases as nodes.")

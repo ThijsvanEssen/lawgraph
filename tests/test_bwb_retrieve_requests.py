@@ -53,6 +53,8 @@ class _Store(RawSourcesFake):
     def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list[Any]:
         bind = bind_vars or {}
         rows = [d for (kind, _), d in self.docs.items() if kind == bind["kind"]]
+        if "now" in bind:  # remembered as missing: every such record is a fresh one
+            return [d["external_id"] for d in rows]
         if "cutoff" in bind:  # stored since: everything here was stored just now
             return [d["external_id"] for d in rows if not d.get("old")]
         return [
@@ -151,3 +153,37 @@ def test_an_id_that_is_asked_for_by_name_is_always_downloaded() -> None:
     BWBRetrievePipeline(store=store, client=client).run(bwb_ids=["BWBR1"])  # type: ignore[arg-type]
 
     assert client.requests == ["sru BWBR1", "xml BWBR1", "wti BWBR1"]
+
+
+def test_a_toestand_the_repository_does_not_serve_is_remembered_not_a_failure() -> None:
+    """BWBR0015091 on 2026-09-21: listed by the SRU, and its file redirects to itself
+    (HTTP 301 for ever). As a failure it made every full load end failed."""
+    import requests
+
+    from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
+
+    response = requests.Response()
+    response.status_code = 301
+
+    class Client(_Client):
+        def fetch_toestand_xml(self, meta: ToestandMeta) -> str:
+            self.requests.append(f"xml {meta['bwb_id']}")
+            if meta["bwb_id"] == "BWBR2":
+                raise requests.TooManyRedirects("30 redirects", response=response)
+            return "<toestand/>"
+
+    store = _Store()
+    client = Client(
+        {"BWBR1": _meta("BWBR1", "2020-01-01"), "BWBR2": _meta("BWBR2", "2020-01-01")}
+    )
+    result = BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
+
+    assert result.errors == []
+    missing = store.docs[(RAW_KIND_BWB_TOESTAND + RAW_KIND_MISSING_SUFFIX, "BWBR2")]
+    assert missing["meta"]["status"] == 301
+    assert (RAW_KIND_BWB_TOESTAND, "BWBR1") in store.docs
+
+    client.requests.clear()
+    store.docs[(RAW_KIND_BWB_TOESTAND, "BWBR1")]["old"] = True  # not stored today
+    BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
+    assert "xml BWBR2" not in client.requests

@@ -3,18 +3,19 @@
 A step can end "successfully" and still leave nothing behind: a source that answers no records
 for a parameter it does not understand, a normalize step that was never run, a search view
 that lost its index when the server was killed. Nothing complains about that on its own; this
-command does. Every check is one read-only query, and it exits 1 when one of them fails:
+command does. Every check is one read-only query; a problem is an error of the command:
 
   raw      every raw kind of the registry holds records
   nodes    every source with raw records has nodes (normalize did run and wrote something)
   edges    no edge points to a node that does not exist
   views    every search view holds what its collection holds (``out of sync`` after a crash)
+  derived  what a normalize step keeps for a semantic step is there on every node it is read from
+  cases    cases name the dossier they belong to
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
 from dataclasses import dataclass, field
 
 from lawgraph.config.constants import (
@@ -45,7 +46,8 @@ from lawgraph.config.constants import (
     SOURCE_TK,
     SOURCE_VERDRAGENBANK,
 )
-from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 from lawgraph.db.schema import SEARCH_VIEWS
 
@@ -87,8 +89,7 @@ class Report:
     notes: list[str] = field(default_factory=list)
 
     def problem(self, message: str) -> None:
-        self.problems.append(message)
-        logger.error("%s", message)
+        self.problems.append(message)  # logged as the errors of the command
 
     def note(self, message: str) -> None:
         self.notes.append(message)
@@ -103,16 +104,22 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     if edges:
         _check_edges(store, report)
     _check_views(store, report)
+    _check_derived(store, report)
+    _check_cases(store, report)
     return report
 
 
+# Grouped on the fields of the index, so the count walks the index and reads no document.
+_RAW_COUNTS_AQL = f"""
+FOR r IN {COLLECTION_RAW_SOURCES}
+    COLLECT source = r.source, kind = r.kind WITH COUNT INTO n
+    RETURN {{source, kind, n}}
+"""
+
+
 def _raw_counts(store: ArangoStore) -> dict[tuple[str, str], int]:
-    aql = f"""
-    FOR r IN {COLLECTION_RAW_SOURCES}
-        COLLECT source = r.source, kind = r.kind WITH COUNT INTO n
-        RETURN {{source, kind, n}}
-    """
-    return {(row["source"], row["kind"]): row["n"] for row in store.query(aql)}
+    rows = store.query(_RAW_COUNTS_AQL)
+    return {(row["source"], row["kind"]): row["n"] for row in rows}
 
 
 def _check_raw(raw: dict[tuple[str, str], int], report: Report) -> None:
@@ -196,8 +203,50 @@ def _check_views(store: ArangoStore, report: Report) -> None:
             )
 
 
-def main(argv: list[str] | None = None) -> None:
-    setup_logging()
+def _check_derived(store: ArangoStore, report: Report) -> None:
+    """``normalize bwb`` keeps the basis and the EU acts of a regulation on its node, and
+    ``semantic bwb-grondslagen`` and ``semantic bwb-implements`` read only that: a regulation
+    normalized before it was kept would give them nothing, and nothing would say so."""
+    aql = f"""
+    FOR regulation IN {COLLECTION_INSTRUMENTS}
+        FILTER regulation.props.source == @source AND regulation.props.stub != true
+        FILTER "Publication" NOT IN regulation.labels
+        FILTER regulation.props.basis == null OR regulation.props.celex_refs == null
+        COLLECT WITH COUNT INTO n
+        RETURN n
+    """
+    behind = next(iter(store.query(aql, {"source": SOURCE_BWB})), 0)
+    if behind:
+        report.problem(
+            f"{behind:,} BWB regulations carry no `basis` / `celex_refs`: BASED_ON and "
+            "IMPLEMENTS are read from them. Run `lawgraph normalize bwb`, then "
+            "`lawgraph semantic all`."
+        )
+    else:
+        report.note("derived: every BWB regulation carries its basis and EU acts")
+
+
+def _check_cases(store: ArangoStore, report: Report) -> None:
+    """A case reaches its dossier through the number it carries; when none of them carries
+    one, the request for the cases did not ask for the dossier."""
+    aql = f"""
+    FOR case IN {COLLECTION_CASES}
+        COLLECT named = LENGTH(case.props.dossier_numbers || []) > 0 WITH COUNT INTO n
+        RETURN [named, n]
+    """
+    counts = dict(store.query(aql))
+    total = sum(counts.values())
+    if total and not counts.get(True):
+        report.problem(
+            f"none of the {total:,} cases names a dossier, so no case is part of one. "
+            "Run `lawgraph retrieve tk` again for the window, then `normalize tk` and "
+            "`normalize tk-dossiers`."
+        )
+    elif total:
+        report.note(f"cases: {counts[True]:,} of {total:,} name a dossier")
+
+
+def main(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument(
         "--skip-edges",
@@ -206,7 +255,4 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
     report = check(ArangoStore(), edges=not args.skip_edges)
-    if report.problems:
-        logger.error("check: %d problem(s).", len(report.problems))
-        sys.exit(1)
-    logger.info("check: no problems.")
+    return PipelineResult(errors=report.problems)

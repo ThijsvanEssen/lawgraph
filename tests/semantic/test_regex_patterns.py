@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from lawgraph.core.citations import format_celex
-from lawgraph.pipelines.semantic.amendment_articles import (
+from lawgraph.pipelines.semantic.tk_amendment_articles import (
     _KOMT_TE_LUIDEN,
     _VERVALT,
     _VERVANGEN_DOOR,

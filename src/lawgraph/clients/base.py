@@ -64,7 +64,7 @@ class BaseClient:
         url: str,
         *,
         params: dict | None = None,
-        timeout: int = 30,
+        timeout: float = 30,
         stream: bool = False,
         headers: dict[str, str] | None = None,
     ) -> requests.Response:
@@ -74,9 +74,8 @@ class BaseClient:
         closes the response.
         """
         logger.debug("HTTP GET url=%s params=%r", url, params)
-        extra = {"headers": headers} if headers else {}
         resp = self.session.get(
-            url, params=params, timeout=timeout, stream=stream, **extra
+            url, params=params, timeout=timeout, stream=stream, headers=headers
         )
         logger.debug(
             "HTTP response status=%s reason=%s",
@@ -97,7 +96,7 @@ class BaseClient:
         path: str,
         *,
         params: dict | None = None,
-        timeout: int = 30,
+        timeout: float = 30,
         retries: int = 5,
         backoff_factor: float = 2.0,
     ) -> requests.Response:
@@ -120,7 +119,7 @@ class BaseClient:
         url: str,
         *,
         params: dict | None = None,
-        timeout: int = 30,
+        timeout: float = 30,
         retries: int = 5,
         backoff_factor: float = 2.0,
         stream: bool = False,
@@ -187,7 +186,7 @@ class BaseClient:
         path: str,
         *,
         params: dict | None = None,
-        timeout: int = 30,
+        timeout: float = 30,
     ) -> dict[str, Any] | list[Any]:
         """Get JSON from the endpoint (with retry) and log item counts when present."""
         resp = self._get_raw_with_retry(path, params=params, timeout=timeout)
@@ -201,7 +200,7 @@ class BaseClient:
         path: str,
         *,
         params: dict | None = None,
-        timeout: int = 30,
+        timeout: float = 30,
     ) -> str:
         """Retrieve the text of the requested resource (with retry)."""
         resp = self._get_raw_with_retry(path, params=params, timeout=timeout)
@@ -212,7 +211,7 @@ class BaseClient:
         path: str,
         *,
         params: dict | None = None,
-        timeout: int = 30,
+        timeout: float = 30,
         result_key: str = "value",
         next_link_key: str | None = "@odata.nextLink",
     ) -> Iterator[dict[str, Any]]:

@@ -3,7 +3,7 @@
     class name = CamelCase(module name) + Phase + "Pipeline"
 
 with the acronyms BWB, TK, EU and ECHR in capitals, e.g. ``tk_articles`` in
-``pipelines/semantic/`` -> ``TKArticlesSemanticPipeline``. Base classes are
+``pipelines/semantic/`` -> ``TKSemanticPipeline``. Base classes are
 ``<Phase>PipelineBase``. Every concrete pipeline inherits ``PipelineBase``.
 """
 

@@ -6,7 +6,7 @@ from typing import Any
 
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.counting import Store
 
 logger = get_logger(__name__)
 
@@ -29,9 +29,7 @@ class NodeWriter:
                 writer.add(node)
     """
 
-    def __init__(
-        self, store: ArangoStore, *, batch_size: int = DEFAULT_BATCH_SIZE
-    ) -> None:
+    def __init__(self, store: Store, *, batch_size: int = DEFAULT_BATCH_SIZE) -> None:
         self._store = store
         self._batch_size = batch_size
         self._pending: dict[str, dict[str, dict[str, Any]]] = {}

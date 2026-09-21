@@ -106,7 +106,7 @@ they are out of date. Do not edit inside the markers.
 | `_from`, `_to` | node ids (`collection/key`) |
 | `relation` | a catalogue name |
 | `source` | the pipeline that wrote the edge (`bwb-amendments`, `tk-article-linker`, ...) |
-| `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `amendment-articles` and by the `AMENDS` half of `instrument-relations` |
+| `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
 | `confidence` | 0-1; absent on structural edges; 1.0 when read from source XML |
 | `created_at` | set on insert only |
 | `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
@@ -135,7 +135,9 @@ statutes made by the legislator:
   `ministeriele-regeling` and `beleidsregel`. `circulaire` is not ingested.
 - A BWB regulation also carries what its toestand says other steps link from: `basis` (the
   `Gelet op` references: `bwb_id`, `article`, `doc`, `text`) and `celex_refs` (the EU acts its
-  text names).
+  text names, which is also what `retrieve eurlex --mode gaps` fetches). One Celex link in
+  eight has an id with an impossible year in the source; it is rebuilt from the text of the
+  link ("verordening (EU) 2021/784") or left out.
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records.
 - EU directives, regulations and decisions (`celex`).
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too

@@ -13,7 +13,10 @@ from typing import Any
 
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK
 from lawgraph.core.logging import get_logger
-from lawgraph.db.store import ArangoStore, edge_key
+from lawgraph.core.models import PipelineResult
+from lawgraph.core.progress import Progress
+from lawgraph.db.counting import Store
+from lawgraph.db.store import edge_key
 
 logger = get_logger(__name__)
 
@@ -57,7 +60,7 @@ class EdgeWriter:
 
     Usage::
 
-        writer = EdgeWriter(self.store)
+        writer = EdgeWriter(self.store, what=None)
         for ...:
             writer.add(from_id, to_id, RELATION_X, source="...")
         writer.flush()          # or use it as a context manager
@@ -68,14 +71,26 @@ class EdgeWriter:
     """
 
     def __init__(
-        self, store: ArangoStore, *, batch_size: int = DEFAULT_BATCH_SIZE
+        self,
+        store: Store,
+        *,
+        what: str | None,
+        batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> None:
+        """*what* names the edges ("VOTED edges"): the writer then reports how far it is.
+
+        For a phase that only writes edges. A loop that tracks its own records (a semantic
+        pipeline and its documents) says ``what=None``: one pipeline shows one line. The
+        argument has no default, so neither is chosen by forgetting.
+        """
         self._store = store
         self._batch_size = batch_size
         self._pending: dict[str, dict[str, Any]] = {}
+        self.progress = Progress(what) if what else None
         self.added = 0
         self.created = 0
         self.updated = 0
+        self.unchanged = 0
 
     def add(
         self,
@@ -90,15 +105,24 @@ class EdgeWriter:
         self.add_doc(make_edge_doc(from_id, to_id, relation, **fields))
         return True
 
-    def add_doc(self, doc: dict[str, Any]) -> None:
-        """Queue a prepared edge document (e.g. from ``make_edge_doc``)."""
+    def add_doc(self, doc: dict[str, Any] | None) -> None:
+        """Queue a prepared edge document; ``None`` (an edge that could not be made) is not."""
+        if doc is None:
+            return
         self._pending[doc["_key"]] = doc
         self.added += 1
         if len(self._pending) >= self._batch_size:
-            self.flush()
+            self._write_pending()
 
     def flush(self) -> tuple[int, int]:
-        """Write everything queued; returns (created, updated) for this flush."""
+        """Write everything queued and end the progress line; (created, updated) of it."""
+        written = self._write_pending()
+        if self.progress:
+            self.progress.finish()
+            self.progress = None
+        return written
+
+    def _write_pending(self) -> tuple[int, int]:
         if not self._pending:
             return 0, 0
         batch = list(self._pending.values())
@@ -110,7 +134,23 @@ class EdgeWriter:
             raise
         self.created += created
         self.updated += updated
+        self.unchanged += max(0, len(batch) - created - updated)
+        if self.progress:
+            self.progress.ok(len(batch))
         return created, updated
+
+    def flush_into(self, result: PipelineResult) -> None:
+        """Write what is queued and add what this writer created, updated and found
+        unchanged to *result*.
+
+        The one way a pipeline ends its edges: nothing is counted by hand, so nothing can
+        be forgotten (the annex edges were written and never counted).
+        """
+        self.flush()
+        result.created += self.created
+        result.updated += self.updated
+        result.unchanged += self.unchanged
+        self.created = self.updated = self.unchanged = 0
 
     def __enter__(self) -> EdgeWriter:
         return self

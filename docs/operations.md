@@ -42,8 +42,8 @@ All default to the public endpoints; no key is required.
 |----------|---------|---------|
 | `BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
 | `EURLEX_MAX_ARTICLE_NUMBER` | `200` | EU articles above this number are not written |
-| `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `relation-semantics` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` |
-| `LAWGRAPH_<PHASE>_SKIP_<SOURCE>` | unset | `true` skips that step of `<phase> all` (see below) |
+| `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` |
+| `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | unset | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
 
 ### API
 
@@ -55,6 +55,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
 | `LAWGRAPH_CURATION_API_KEY` | unset | enables `POST /api/relationships/tag` |
+| `LAWGRAPH_WRITE_API_KEY` | unset | enables the watch endpoints and the relationship vote (`X-Write-Key`); unset answers 503 |
 
 ### Logging and tests
 
@@ -75,8 +76,8 @@ reaches six hours further back than it says, so that runs that follow each other
 run that starts late or a source that indexes a change late leaves no hole, and everything
 is an upsert.
 Every command exits with code 1 when it raised or its result has errors; a composite command
-(`<phase> all`, `bootstrap`, `expand-graph`) continues after a failing step unless `--strict`
-and exits 1 when any step failed.
+(`<phase> all`, `bootstrap`, `expand-graph`) continues after a failing pipeline unless `--strict`
+and exits 1 when any of them failed.
 
 ### retrieve
 
@@ -85,16 +86,16 @@ and exits 1 when any step failed.
 | `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 6). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode to `bwb` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`) are always read in full. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn. `staatsblad` reads the stored BWB toestanden, so it starts when `bwb` has ended (and last on its server, so the others do not wait with it) |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` |
-| `retrieve tk-content` | `--kind` (default `toelichting`), `--dry-run` |
+| `retrieve tk-content` | `--mode gaps` (the only mode), `--kind` (default `toelichting`), `--dry-run` |
 | `retrieve rechtspraak` | `--court` (repeatable; default `hr`, `rvs`, `hoven`), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
-| `retrieve eurlex` | `--mode incremental\|full\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
-| `retrieve bwb` | `--mode`, `--bwb-id` (repeatable; default `BWB_IDS`) |
+| `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
+| `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
 | `retrieve bwb-history` | optional BWB ids (all when omitted) |
 | `retrieve staatsblad` | `--mode from-graph\|full` |
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--max-records` |
 | `retrieve eerstekamer` | `--mode`, `--since`, `--max-records` |
-| `retrieve verdragenbank` | `--max-records` |
+| `retrieve verdragenbank` | `--mode full\|gaps`, `--max-records` |
 
 ### normalize
 
@@ -110,42 +111,44 @@ passed to the pipelines that accept it and the others run in full.
 
 | Command | Options |
 |---------|---------|
-| `tk`, `rechtspraak`, `eurlex`, `judgment-citations` | `--since`: sources whose raw record was fetched since then |
+| `tk`, `rechtspraak`, `eurlex`, `rechtspraak-citations` | `--since`: sources whose raw record was fetched since then |
 | `bwb` | `--since` (as above), `--store-citations` |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes` | none |
 | `staatsblad`, `eerstekamer`, `echr` | none |
 | `staatscourant` | `--since`: publications dated since then |
-| `judgment-appeal` | none |
-| `instrument-relations` | `--since`: documents dated since then (`IMPLEMENTS` always reads the regulations that name an EU act) |
-| `amendment-articles`, `mvt-articles`, `relation-semantics` | none |
-| `list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
+| `rechtspraak-appeal` | none |
+| `tk-amends` | `--since`: documents dated since then |
+| `bwb-implements` | none (reads the regulations that name an EU act) |
+| `tk-amendment-articles`, `tk-mvt`, `bwb-relation-types` | none |
+| `graph-list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 
 The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
-`bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `judgment-citations`,
-`judgment-appeal`, `instrument-relations`, `amendment-articles`, `mvt-articles`,
-`relation-semantics`, `list-stats`.
+`bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-citations`,
+`rechtspraak-appeal`, `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-mvt`,
+`bwb-relation-types`, `graph-list-stats`.
 
 ### Other commands
 
 | Command | Behaviour |
 |---------|-----------|
 | `lawgraph bootstrap [--window DATE] [--jobs N] [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve]` | `retrieve all --mode full --window DATE --jobs N` (default `730d` and one job per server; `all` loads the whole history of the producing sources), `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5) |
-| `lawgraph expand-graph [--max-iterations N] [--dry-run]` | repeats `fill-gaps --apply` and, since the iteration began, `normalize all --since` and `semantic all --since`, while `fill-gaps` keeps retrieving records (default 10 iterations); then one full `semantic all`, for the texts loaded earlier that name a law loaded now; `--dry-run` only prints the `fill-gaps` report |
-| `lawgraph fill-gaps [--apply] [--min-stubs N] [--bwb-id ID ...] [--no-mvt] [--no-semantic] [--no-case-law] [--no-eurlex] [--no-echr] [--no-verdragen]` | reports stub laws (referenced by loaded instruments, ranked by reference count; laws with at least `--min-stubs`, default 3, are added), stub judgments, stub EU, ECHR and treaty records and toelichting texts without text; `--apply` retrieves and normalizes them |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
+| `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, EU acts, treaties, memoranda without text) |
+| `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
 
-`LAWGRAPH_<PHASE>_SKIP_<SOURCE>=true` (case-insensitive `true`; any other value does not skip)
-skips one step of `retrieve all`, `normalize all` or `semantic all`. `<SOURCE>` is the source id
-in upper case with underscores.
+`LAWGRAPH_<PHASE>_SKIP_<PIPELINE>=true` (case-insensitive `true`; any other value does not skip)
+skips one pipeline of `retrieve all`, `normalize all` or `semantic all`. `<PIPELINE>` is the
+pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
-| Phase | Sources |
-|-------|---------|
+| Phase | Pipelines |
+|-------|-----------|
 | `RETRIEVE` | `TK`, `TK_DOSSIERS`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK` |
 | `NORMALIZE` | the same plus `BWB_HISTORY` |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `JUDGMENT_CITATIONS`, `JUDGMENT_APPEAL`, `INSTRUMENT_RELATIONS`, `AMENDMENT_ARTICLES`, `MVT_ARTICLES`, `RELATION_SEMANTICS`, `LIST_STATS` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `BWB_RELATION_TYPES`, `GRAPH_LIST_STATS` |
 
 ## Runs
 
@@ -154,7 +157,7 @@ in upper case with underscores.
 ```bash
 lawgraph retrieve all --mode full --window 730d
 lawgraph retrieve bwb-history            # optional: every BWB toestand
-lawgraph retrieve tk-content             # optional: MvT text, needed by amendment-articles
+lawgraph retrieve tk-content             # optional: MvT text, needed by tk-amendment-articles
 lawgraph retrieve rechtspraak --ecli ECLI:NL:HR:2023:1234 ...   # judgment content
 lawgraph normalize all
 lawgraph semantic all
@@ -189,8 +192,7 @@ the WTI records that `retrieve bwb` stores and are written by `normalize bwb`, s
 before `semantic`. `normalize bwb --since` still re-evaluates the short title of every
 regulation, because an abbreviation claimed by a newly loaded regulation stops being unique.
 Incremental `retrieve eurlex` re-fetches the CELEX numbers of the instruments already in the
-graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML. Scheduling is not wired: run the commands from cron or a
-scheduler of your choice.
+graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML.
 
 **Slow steps.**
 
@@ -235,6 +237,10 @@ memory, sets `mem_limit: 5g` and restarts the server when it stops. A bulk write
 nothing; when it stays away the step ends there instead of fetching on. A view the server
 log reports as `out of sync` is rebuilt by dropping it and starting any command
 (`ArangoStore()` creates what is missing).
+Measured on the full database (165,000 judgments, 2.8 million edges, 937,000
+documents in the search views): ArangoSearch holds about 0.7 GB (mapped 276 MB, readers 63
+MB, writers 366 MB; 3.0 GB of index on disk), the server 2.1 GB resident, the container 2.7
+of its 5 GB.
 
 **Interruptions.** A retrieve stores its records while it fetches, a buffer at a time
 (`RawSourceWriter`: 500 records, 8 MB of text or 5 seconds, whichever comes first). An
@@ -244,9 +250,35 @@ the process or the machine loses at most that last buffer. A step that downloads
 skips the records stored in the last 24 hours, so a re-run only does the rest. A refresh
 later downloads what the source lists as new or changed: a Staatscourant or Staatsblad
 publication stored after its `modified` date, a BWB toestand that is still the stored one and
-a judgment not updated since are left alone; a document that answered HTTP 404 is asked for
-again after 30 days. The Tweede Kamer pages are read again from the start on a
+a judgment not updated since are left alone; a document that answered HTTP 404, or a
+redirect that leads nowhere, is asked for again after 30 days (3 when the source listed it
+itself, as the SRU does a BWB toestand). The Tweede Kamer pages are read again from the start on a
 re-run (upserts, so only time is repeated).
+
+**Scheduled.** `scripts/daily.sh` and `scripts/weekly.sh` are what a scheduler runs; nothing
+is installed for you.
+
+| Script | Runs | Why |
+|--------|------|-----|
+| `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges` | what the sources changed; a day without a run is caught up by the next |
+| `weekly.sh` | `semantic all`, `expand-graph`, `check` | a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
+
+One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so), a
+failing command fails the run and the next command still runs, one log per run in
+`~/Library/Logs/lawgraph/` (`LAWGRAPH_LOG_DIR`) and one line per run in `runs.log` there.
+With cron:
+
+```
+30 5 * * *   /path/to/lawgraph/scripts/daily.sh
+0  7 * * 0   /path/to/lawgraph/scripts/weekly.sh
+```
+
+On macOS the scripts run under `caffeinate -i`, which keeps the machine from idle sleep. A
+closed lid on battery still sleeps: the run pauses until the next wake and its log shows
+gaps of minutes. Keep it on power, or the lid open.
+
+Before the first scheduled run one complete run has to be on record (`bootstrap`, or each
+`<phase> all` once with a date), or `--since last` is refused.
 
 ## Observability
 
@@ -287,6 +319,7 @@ pytest tests -q                       # several hundred tests, offline, a few se
 ALLOW_NETWORK_TESTS=1 pytest tests    # also calls the real APIs
 ruff check src tests
 ruff format --check src tests
+mypy                                  # src, configured in pyproject.toml
 ```
 
 The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no unit
@@ -312,5 +345,5 @@ a real run gets a test here first: small data on a small server fails the way th
 does on the real one. Layout: `tests/api/` (routes), `tests/normalize/` and
 `tests/semantic/` (one file per source or detector), `tests/test_*.py` (clients, core helpers,
 bulk writers, registry, naming, conventions, relation catalogue, props). CI (`.github/workflows`) runs
-`pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format, end-of-file,
+`mypy` and `pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format, end-of-file,
 trailing whitespace, private-key detection, YAML and merge-conflict checks.

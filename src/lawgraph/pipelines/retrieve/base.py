@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections import deque
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.raw import Failure, StoreUnavailable
 from lawgraph.pipelines.base import STOP, PipelineBase
+
+T = TypeVar("T")
 
 logger = get_logger(__name__)
 
@@ -81,12 +85,18 @@ class FailureStreak:
 
 
 def missing_record(
-    source: str, kind: str, external_id: str, *, listed: bool = False
+    source: str,
+    kind: str,
+    external_id: str,
+    *,
+    listed: bool = False,
+    status: int = 404,
 ) -> RetrieveRecord:
     """The record that remembers that *source* has no *kind* document for *external_id*.
 
     *listed*: the source itself named the document (an index, an SRU listing), so it is asked
-    for again after ``MISSING_LISTED_FOR_DAYS`` instead of ``MISSING_FOR_DAYS``.
+    for again after ``MISSING_LISTED_FOR_DAYS`` instead of ``MISSING_FOR_DAYS``. *status* is
+    what the source answered (``status_of``).
     """
     days = MISSING_LISTED_FOR_DAYS if listed else MISSING_FOR_DAYS
     retry_after = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days)
@@ -94,9 +104,19 @@ def missing_record(
         source=source,
         kind=kind + RAW_KIND_MISSING_SUFFIX,
         external_id=external_id,
-        meta={"kind": kind, "status": 404, "retry_after": iso_timestamp(retry_after)},
+        meta={
+            "kind": kind,
+            "status": status,
+            "retry_after": iso_timestamp(retry_after),
+        },
         counts=False,
     )
+
+
+def status_of(exc: Exception) -> int | None:
+    """The HTTP status a failed request ended with, when it got an answer at all."""
+    response = getattr(exc, "response", None)
+    return getattr(response, "status_code", None) if response is not None else None
 
 
 def failure_reason(exc: Exception) -> str:
@@ -114,9 +134,58 @@ def add_outcome(result: PipelineResult, progress: Progress) -> None:
 
 
 def is_not_found(exc: Exception) -> bool:
-    """HTTP 404: the source does not have the document, which is not a failure."""
-    response = getattr(exc, "response", None)
-    return response is not None and getattr(response, "status_code", None) == 404
+    """The source does not have the document, which is not a failure.
+
+    HTTP 404, or a redirect as the last answer: redirects are followed, so that is one that
+    leads nowhere (the BWB repository redirects the file of a withdrawn toestand to itself).
+    """
+    status = status_of(exc)
+    return status is not None and (status == 404 or 300 <= status < 400)
+
+
+# Requests of one source that are under way at the same time. The pacer of the host still
+# hands out one slot per interval; the workers only keep the time one request takes from
+# being the limit (at 0.2 s a request, 5 a second was the ceiling whatever the host allows).
+FETCH_WORKERS = 4
+
+
+def fetched_side_by_side(
+    ids: Iterable[str],
+    fetch: Callable[[str], T],
+    *,
+    workers: int = FETCH_WORKERS,
+) -> Iterator[tuple[str, T | Exception]]:
+    """``(id, what fetch returned or raised)`` in the order of *ids*.
+
+    At most ``4 x workers`` ids are taken from *ids* ahead of the reader, so a long list is
+    not downloaded ahead of the writer. Ctrl-C (``STOP``) ends it with ``KeyboardInterrupt``
+    between two ids.
+    """
+
+    def attempt(one: str) -> T | Exception:
+        try:
+            return fetch(one)
+        except Exception as exc:
+            return exc
+
+    window: deque[tuple[str, Future[T | Exception]]] = deque()
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="fetch") as pool:
+        try:
+            for one in ids:
+                if STOP.is_set():
+                    raise KeyboardInterrupt
+                window.append((one, pool.submit(attempt, one)))
+                if len(window) >= 4 * workers:
+                    done, future = window.popleft()
+                    yield done, future.result()
+            while window:
+                if STOP.is_set():
+                    raise KeyboardInterrupt
+                done, future = window.popleft()
+                yield done, future.result()
+        finally:
+            for _, future in window:
+                future.cancel()
 
 
 class RetrievePipelineBase(PipelineBase):
@@ -127,11 +196,7 @@ class RetrievePipelineBase(PipelineBase):
     number of records once known, ``skip`` a record on purpose, ``fail`` one that went wrong.
     """
 
-    progress: Progress
-
-    def __init__(self, store: ArangoStore) -> None:
-        super().__init__(store)
-        self.progress = Progress()
+    progress: Progress  # of the records being stored; made by ``_store_all``
 
     def run(self, **kwargs: Any) -> PipelineResult:
         def records() -> Iterator[RetrieveRecord]:

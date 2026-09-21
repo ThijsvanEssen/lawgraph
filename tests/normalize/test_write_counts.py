@@ -5,6 +5,8 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
+import pytest
+
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import CountingStore, EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -24,7 +26,7 @@ def _node(key: str, collection: str = "documents") -> Node:
 
 def _link_in_helper(store: Any, from_id: str, to_id: str) -> None:
     """Like the tk_* helper modules: gets the store, builds its own writer."""
-    with EdgeWriter(store) as writer:
+    with EdgeWriter(store, what=None) as writer:
         writer.add(from_id, to_id, "PART_OF", source="test")
 
 
@@ -126,12 +128,16 @@ def test_rerunning_one_pipeline_instance_does_not_carry_counts_over() -> None:
     assert (result.created, result.updated) == (0, 8)
 
 
-def test_failed_run_still_reports_what_it_wrote_before_failing() -> None:
-    result = _Pipeline(_BaseFakeStore(), fail_in_edges=True).run()
-
-    assert result.created == 5  # the nodes; no edges were written
-    assert len(result.errors) == 1
-    assert "boom" in result.errors[0]
+def test_a_run_that_raises_says_what_it_wrote_before_and_lets_the_error_out(
+    caplog,
+) -> None:
+    """``run_command`` names the step and the error; the pipeline does not half-handle it."""
+    with caplog.at_level("INFO"), pytest.raises(RuntimeError, match="boom"):
+        _Pipeline(_BaseFakeStore(), fail_in_edges=True).run()
+    assert any(
+        "Written before the failure: nodes 5 created" in message
+        for message in caplog.messages
+    )
 
 
 # ── a real pipeline, end to end ──────────────────────────────────────────────

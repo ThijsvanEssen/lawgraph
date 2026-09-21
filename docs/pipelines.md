@@ -7,19 +7,20 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers` | `tk`, `instrument-relations`, `amendment-articles`, `mvt-articles` |
-| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `judgment-citations`, `judgment-appeal` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt` |
+| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
-| BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `relation-semantics` |
+| BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant` | `staatscourant` | `staatscourant` |
 | Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
+| The graph itself (`graph`) | none | none | `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: base URL from `config/settings.py` (trailing
 slash enforced), one `requests.Session`, 30 s timeout, and retry with exponential backoff
-(3 tries, factor 2) on HTTP 429, 503 and connection errors. No source needs an API key.
+(5 tries, factor 2) on HTTP 429, 502, 503, 504 and connection errors. No source needs an API key.
 
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
 `instruments.props.short_title` and law names through instrument titles; the API judgment
@@ -106,14 +107,14 @@ created as a stub when the confidence is at least 0.85; instruments are never cr
 hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_instrument`,
 `celex_instrument`) and `qualifier`.
 
-**Semantic `instrument-relations`.** Two detectors:
+**Semantic `tk-amends` and `bwb-implements`.** One detector each:
 
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
 | `AMENDS` (Document to Instrument, `voorgesteld`) | TK document title contains `wijziging van` and a known instrument title | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | CELEX `3YYYY[CLRDF]NNNN` in the BWB XML of an instrument (`props.celex_refs`, kept by `normalize bwb`); both instruments must exist | 0.75 |
 
-**Semantic `amendment-articles`.** Scans TK documents that have `props.text` (filled by
+**Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by
 `tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
 else its `AMENDS` edges to instruments). Targets must exist. Every edge is written with status
 `voorgesteld`.
@@ -126,7 +127,7 @@ else its `AMENDS` edges to instruments). Targets must exist. Every edge is writt
 | `Artikel N ... vervalt` / `komt te vervallen` | `REPEALS` | 0.80 |
 | `In artikel N ... wordt` | `AMENDS` | 0.80 |
 
-**Semantic `mvt-articles`.** No text matching: the link is read from the graph. For every
+**Semantic `tk-mvt`.** No text matching: the link is read from the graph. For every
 document whose `kind` contains `toelichting`, one AQL pass walks
 `Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS-> Article`
 and writes `EXPLAINS` at confidence 1.0 to the `meta.article_version` of each change edge, to
@@ -150,7 +151,7 @@ index) is skipped, so a re-run or a resumed run only downloads the rest.
 | `--court NAME` (repeatable) | `hr`, `rvs`, `crvb`, `cbb`, `gh-amsterdam`, `gh-arnhem-leeuwarden`, `gh-den-haag`, `gh-s-hertogenbosch` (the older `gh-arnhem`, `gh-leeuwarden`, `gh-s-gravenhage`), or the group `hoven` (all courts of appeal). Default: `hr`, `rvs`, `hoven`; none when only `--ecli` is given |
 | `--mode incremental` (default) | judgments decided from `--since` (default `1d`) minus 30 days, because judgments are published up to weeks after the decision |
 | `--mode full` | no date filter: every judgment of the courts (the Raad van State alone is far over 100,000) |
-| `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`fill-gaps` uses this for stubs); skipped when stored in the last 24 hours |
+| `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
 
 Over the last two years the default courts hold about 33,000 judgments (Hoge Raad 4,100, Raad van
 State 11,000, the four courts of appeal about 18,000), a few hours at the paced rate.
@@ -180,10 +181,10 @@ Codes come from `instruments.props.short_title`, names from instrument titles; a
 instruments share is not a name. A missing target article is created as a stub from 0.9; an
 article cited only as `artikel N` with no law is not written.
 
-**Semantic `judgment-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the XML of each judgment (from `raw_sources`):
+**Semantic `rechtspraak-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the XML of each judgment (from `raw_sources`):
 `REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations, missing judgments become stubs.
 
-**Semantic `judgment-appeal`.** Judgments with `related_eclis` whose `judgment_metadata.type`
+**Semantic `rechtspraak-appeal`.** Judgments with `related_eclis` whose `judgment_metadata.type`
 contains `hoger beroep` or `cassatie`: `APPEAL_OF` from the appeal judgment to each related
 ECLI, 0.95, `meta.procedure_type`; missing judgments become stubs.
 
@@ -197,7 +198,7 @@ language, redirects followed, 60 s timeout). CELEX numbers are enumerated by SPA
 entry for many recent acts (about 150 directives for 2010, 1 for 2016; the GDPR is missing),
 it answers HTTP 500 from offset 10000 (a failing page raises), and it holds no national
 implementation measures. Acts are therefore fetched by the CELEX numbers that loaded records
-refer to (`fill-gaps`, `expand-graph`), not by listing them.
+refer to (`retrieve eurlex --mode gaps`, `expand-graph`), not by listing them.
 
 **Retrieve `--mode`.**
 
@@ -327,14 +328,15 @@ which `normalize bwb` keeps when it parses the toestand; no XML is read again.
 
 Versions with an unknown effect or without a matching article count as skipped.
 
-**Semantic `bwb-annexes`.** Pass 1 parses `<bijlage>` elements from the raw toestand XML into
-Annex nodes (`label`, `title`, `description` up to 2,000 characters, `entries` from `<li>` items,
-at most 200) with `PART_OF` to the instrument. Pass 2 finds `bijlage <label>` in article texts
-and writes `SCOPED_BY` (0.9 with a label, 0.7 without) with `meta.scope_type` `discretionary`
-when ministerial-designation wording is near (`bij ministeriële regeling`, `Onze Minister
-kan ...`), else `fixed`. A reference to an annex the XML did not contain gets a stub.
+**Semantic `bwb-annexes`.** Finds `bijlage <label>` in article texts and writes `SCOPED_BY`
+(0.9 with a label, 0.7 without) with `meta.scope_type` `discretionary` when
+ministerial-designation wording is near (`bij ministeriële regeling`, `Onze Minister
+kan ...`), else `fixed`. The Annex nodes (`label`, `title`, `description` up to 2,000
+characters, `entries` from `<li>` items, at most 200) and their `PART_OF` to the instrument
+are made by `normalize bwb` from the toestand it parses; a reference to an annex that is not
+there gets a stub.
 
-**Semantic `relation-semantics`.** Sets `semantic_type` on article-to-article `REFERS_TO` edges
+**Semantic `bwb-relation-types`.** Sets `semantic_type` on article-to-article `REFERS_TO` edges
 from the text around the reference (`meta.start`/`end`): a trigger phrase in the 40 characters before
 the reference scores 0.9, elsewhere within 120 characters either side 0.7, no trigger gives
 `cross_reference` at 0.5. Types and their patterns: `limiting_exception`,
@@ -449,8 +451,8 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
-| semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `relation-semantics` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `relation-semantics` runs after `bwb` |
-| semantic `amendment-articles` | `instrument-relations` (the document-to-instrument `AMENDS` edges), document text from `tk-content` |
-| semantic `mvt-articles` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
+| semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
+| semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `tk-content` |
+| semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
-| semantic `list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`) |--judgments-only|--committees-only|--articles-only]` |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |
