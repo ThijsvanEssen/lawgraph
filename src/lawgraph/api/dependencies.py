@@ -26,6 +26,7 @@ from lawgraph.db import ArangoStore
 _store: ArangoStore | None = None
 
 _WRITING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_ROUTE_HOLDERS = ("app", "router", "original_router")
 
 
 def get_store() -> ArangoStore:
@@ -67,11 +68,8 @@ def _api_routes(routes: Iterable[Any]) -> Iterator[APIRoute]:
         if isinstance(route, APIRoute):
             yield route
             continue
-        for holder in (
-            route,
-            getattr(route, "app", None),
-            getattr(route, "router", None),
-        ):
+        # A mounted app, a router, or how FastAPI 0.141 keeps an included router.
+        for holder in (route, *(getattr(route, name, None) for name in _ROUTE_HOLDERS)):
             inner = getattr(holder, "routes", None)
             if inner:
                 yield from _api_routes(inner)
