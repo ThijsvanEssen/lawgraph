@@ -53,29 +53,23 @@ def _find_judgments_for_article(
 
 
 def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
-    key = make_node_key(ecli)
-    raw_doc = store.judgments.get(key)
-    doc = _ensure_doc(raw_doc)
-    if doc is not None:
-        return doc
+    """The judgment with this ECLI, or the ECHR decision with this item id or appno.
+
+    Keys are lower case, so the ECLI in any case is one key lookup; an id nobody loaded
+    costs two key lookups and one index lookup, not a read of every judgment.
+    """
+    for key in (make_node_key(ecli), make_node_key("echr", ecli)):
+        doc = _ensure_doc(store.judgments.get(key))
+        if doc is not None:
+            return doc
+    # ECHR decisions from before the court gave out ECLIs are asked for by their appno.
     aql = f"""
     FOR candidate IN {COLLECTION_JUDGMENTS}
-        FILTER LOWER(candidate.props.ecli) == @ecli
+        FILTER candidate.props.appno != null AND candidate.props.appno == @appno
         LIMIT 1
         RETURN candidate
     """
-    for result in store.query(aql, {"ecli": ecli.lower()}):
-        return result
-    # ECHR judgments have no ECLI — match them by appno or external_id.
-    aql_alt = f"""
-    FOR candidate IN {COLLECTION_JUDGMENTS}
-        FILTER candidate.props.appno == @val OR candidate.props.external_id == @val
-        LIMIT 1
-        RETURN candidate
-    """
-    for result in store.query(aql_alt, {"val": ecli}):
-        return result
-    return None
+    return next(iter(store.query(aql, {"appno": ecli})), None)
 
 
 def _load_document_by_ref(store: ArangoStore, ref: str | None) -> dict[str, Any] | None:

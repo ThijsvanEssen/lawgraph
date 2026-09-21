@@ -310,6 +310,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
             True,
         ),
         (COLLECTION_JUDGMENTS, ["props.ecli"], True),
+        (COLLECTION_JUDGMENTS, ["props.appno"], False),
         (COLLECTION_JUDGMENTS, ["props.source"], False, True),
         (COLLECTION_DOCUMENTS, ["props.source"], False, True),
         # Precomputed list-endpoint keys, written by ``list_stats`` and the
