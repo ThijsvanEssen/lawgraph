@@ -355,7 +355,18 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
 
     def _dossier_signals(self, dossier_ids: list[str]) -> dict[str, dict[str, Any]]:
-        """Documents, activities and decisions per dossier, in chunked queries."""
+        """Documents, activities and decisions per dossier, in chunked queries.
+
+        Every subquery returns the few fields that are used: a list of whole documents (their
+        text, their payload) is built in the memory of the server before it is projected.
+        """
+        signal = """{
+                            id: doc._id,
+                            kind: doc.props.kind,
+                            date: doc.props.date,
+                            title: (doc.props.title != null ? doc.props.title
+                                    : doc.props.display_name)
+                        }"""
         aql = f"""
         FOR dossier_id IN @dossier_ids
             LET direct = (
@@ -364,7 +375,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                     FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
                     LET doc = DOCUMENT(e._from)
                     FILTER doc != null
-                    RETURN doc
+                    RETURN {signal}
             )
             LET via_case = (
                 FOR e1 IN {COLLECTION_EDGES}
@@ -375,35 +386,35 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                         FILTER STARTS_WITH(e2._from, '{COLLECTION_DOCUMENTS}/')
                         LET doc = DOCUMENT(e2._from)
                         FILTER doc != null
-                        RETURN doc
+                        RETURN {signal}
             )
             LET subjects = (
                 FOR e IN {COLLECTION_EDGES}
                     FILTER e._to == dossier_id AND e.relation == @about
                     LET node = DOCUMENT(e._from)
                     FILTER node != null
-                    RETURN node
+                    RETURN {{
+                        id: node._id,
+                        kind: node.props.kind,
+                        date: node.props.date,
+                        passed: node.props.passed
+                    }}
             )
             RETURN {{
                 dossier_id: dossier_id,
                 docs: (
                     FOR doc IN UNIQUE(APPEND(direct, via_case))
-                        RETURN {{
-                            kind: doc.props.kind,
-                            date: doc.props.date,
-                            title: (doc.props.title != null ? doc.props.title
-                                    : doc.props.display_name)
-                        }}
+                        RETURN UNSET(doc, "id")
                 ),
                 activities: (
                     FOR node IN subjects
-                        FILTER STARTS_WITH(node._id, '{COLLECTION_ACTIVITIES}/')
-                        RETURN {{kind: node.props.kind, date: node.props.date}}
+                        FILTER STARTS_WITH(node.id, '{COLLECTION_ACTIVITIES}/')
+                        RETURN {{kind: node.kind, date: node.date}}
                 ),
                 decisions: (
                     FOR node IN subjects
-                        FILTER STARTS_WITH(node._id, '{COLLECTION_DECISIONS}/')
-                        RETURN {{date: node.props.date, passed: node.props.passed}}
+                        FILTER STARTS_WITH(node.id, '{COLLECTION_DECISIONS}/')
+                        RETURN {{date: node.date, passed: node.passed}}
                 )
             }}
         """

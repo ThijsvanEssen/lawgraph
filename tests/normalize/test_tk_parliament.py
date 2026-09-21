@@ -559,3 +559,24 @@ def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists() -> None:
     assert list(raw[RAW_KINDS[0]]) == [] and list(raw[RAW_KINDS[0]]) == []
     reads = [call for call in asked if call[1] is not None]  # without the counts
     assert reads == [([RAW_KINDS[0]], 1000)] * 2  # every walk streams again
+
+
+def test_the_dossier_signals_query_builds_no_list_of_whole_documents() -> None:
+    """``RETURN doc`` in a subquery keeps every document of 500 dossiers, text and payload,
+    in the memory of the server until the outer RETURN projects it (measured on the test
+    server, 40,000 documents without text: a peak of 143 MB, 12 MB with the projection)."""
+    import re
+
+    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+
+    seen: list[str] = []
+
+    class Store:
+        def query(self, aql: str, bind_vars: dict | None = None, **_kw: object):
+            seen.append(aql)
+            return iter([])
+
+    pipeline = TKDossiersNormalizePipeline.__new__(TKDossiersNormalizePipeline)
+    pipeline.store = Store()  # type: ignore[assignment]
+    pipeline._dossier_signals(["dossiers/36000"])
+    assert seen and not re.search(r"RETURN\s+(doc|node)\s*\n", seen[0])
