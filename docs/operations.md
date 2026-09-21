@@ -271,6 +271,10 @@ With cron:
 0  7 * * 0   /path/to/lawgraph/scripts/weekly.sh
 ```
 
+On macOS the scripts run under `caffeinate -i`, which keeps the machine from idle sleep. A
+closed lid on battery still sleeps: the run pauses until the next wake and its log shows
+gaps of minutes (seen in the rebuild of 2026-09-21). Keep it on power, or the lid open.
+
 Before the first scheduled run one complete run has to be on record (`bootstrap`, or each
 `<phase> all` once with a date), or `--since last` is refused.
 
