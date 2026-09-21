@@ -409,3 +409,36 @@ def test_an_interrupt_stops_the_other_lanes_too() -> None:
     finally:
         STOP.clear()
     assert time.monotonic() - started < 5 and len(looped) < 1_000
+
+
+# ── filling gaps is a way to retrieve ────────────────────────────────────────
+
+
+def test_gaps_mode_runs_the_sources_that_can_fetch_what_the_graph_lacks(
+    monkeypatch, recorded
+) -> None:
+    """Every source fetches its own gaps, in lanes, under its own address: it was one
+    `fill-gaps` that fetched them one after the other and normalized in between."""
+    store = PipelineStateFake()
+    monkeypatch.setattr(orchestration, "ArangoStore", lambda: store)
+    result = retrieve_all(["--mode", "gaps"])
+
+    assert result.errors == []
+    assert (
+        set(recorded)
+        == {
+            "bwb",
+            "echr",
+            "eurlex",
+            "rechtspraak",
+            "tk-content",  # a manual command otherwise: the text of papers is a gap by nature
+            "verdragenbank",
+        }
+    )
+    assert all(argv == ["--mode", "gaps"] for argv in recorded.values())
+    assert store.state == {}  # a gaps run says nothing about a date: the mark stays
+
+
+def test_two_gap_pipelines_on_one_host_share_its_lane() -> None:
+    by_name = {p.name: p for p in registry.PIPELINES["retrieve"] if p.fills_gaps}
+    assert by_name["tk-content"].lane_id == by_name["verdragenbank"].lane_id

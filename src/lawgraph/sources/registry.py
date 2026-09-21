@@ -132,6 +132,9 @@ class Pipeline:
     argv_for_all: Callable[[RetrieveCtx], list[str]] | None = None
     lane: str = ""
     after: tuple[str, ...] = ()
+    # Retrieve only: the command has ``--mode gaps`` (what the graph refers to and lacks),
+    # so it is part of ``retrieve all --mode gaps`` and of every round of ``expand-graph``.
+    fills_gaps: bool = False
 
     @property
     def name(self) -> str:
@@ -183,6 +186,7 @@ def _pipeline(
     argv_for_all: Callable[[RetrieveCtx], list[str]] | None = None,
     lane: str = "",
     after: tuple[str, ...] = (),
+    fills_gaps: bool = False,
 ) -> Pipeline:
     """Register a pipeline class, a ``PipelineCommand`` or a hand-written command."""
     cls = runs.pipeline_cls if isinstance(runs, PipelineCommand) else runs
@@ -203,7 +207,7 @@ def _pipeline(
         phase, source, part = _address_of(runs.__module__, runs.__name__)
         command = runs
     return Pipeline(
-        phase, source, part, command, description, argv_for_all, lane, after
+        phase, source, part, command, description, argv_for_all, lane, after, fills_gaps
     )
 
 
@@ -273,6 +277,8 @@ RETRIEVE: list[Pipeline] = [
             "Text of Tweede Kamer papers (explanatory memoranda) from their XML in the KOOP "
             "repository; slow, one XML per paper."
         ),
+        lane=LANE_KOOP_REPOSITORY,  # the papers come from repository.overheid.nl
+        fills_gaps=True,
     ),
     _pipeline(
         retrieve_rechtspraak,
@@ -281,6 +287,7 @@ RETRIEVE: list[Pipeline] = [
             "date, and those given with --ecli."
         ),
         argv_for_all=_windowed_argv,
+        fills_gaps=True,
     ),
     _pipeline(
         retrieve_eurlex,
@@ -289,6 +296,7 @@ RETRIEVE: list[Pipeline] = [
             " records refer to)."
         ),
         argv_for_all=_no_argv,
+        fills_gaps=True,
     ),
     _pipeline(
         retrieve_bwb,
@@ -297,6 +305,7 @@ RETRIEVE: list[Pipeline] = [
             "regulation."
         ),
         argv_for_all=_mode_argv,
+        fills_gaps=True,
     ),
     _pipeline(
         retrieve_bwb_history,
@@ -328,12 +337,14 @@ RETRIEVE: list[Pipeline] = [
         retrieve_echr,
         "European Court of Human Rights judgments against the Netherlands (HUDOC).",
         argv_for_all=_windowed_argv,
+        fills_gaps=True,
     ),
     _pipeline(
         retrieve_verdragenbank,
         "Treaties the Netherlands is party to, from the KOOP SRU.",
         argv_for_all=_no_argv,
         lane=LANE_KOOP_REPOSITORY,
+        fills_gaps=True,
     ),
 ]
 

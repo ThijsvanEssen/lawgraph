@@ -157,7 +157,7 @@ def test_staatscourant_stores_each_publication_as_it_is_downloaded() -> None:
 
 
 def test_staatscourant_rerun_downloads_only_the_rest() -> None:
-    """Asked for by name (fill-gaps): what an interrupted run stored today is not repeated."""
+    """Asked for by name (a gaps run): what an interrupted run stored today is not repeated."""
     ids = ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3"]
     client = _Staatscourant(ids)
     store = _Store(recent=["stcrt-2020-1", "stcrt-2020-2"])

@@ -17,6 +17,7 @@ from lawgraph.config.settings import BWB_IDS
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines.command import add_since_argument
+from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
@@ -36,9 +37,13 @@ _KNOWN_CELEX_AQL = (
 )
 
 
+GAPS = "gaps"  # fetch what the graph refers to and only holds a stub of (``_gaps.py``)
+
+
 def _add_mode_argument(
     parser: argparse.ArgumentParser, *, extra_modes: tuple[str, ...] = ()
 ) -> None:
+    """What to fetch: what changed (``incremental``), all of it (``full``), or an extra mode."""
     parser.add_argument(
         "--mode", choices=["incremental", "full", *extra_modes], default="incremental"
     )
@@ -58,12 +63,22 @@ def retrieve_bwb(argv: list[str] | None = None) -> PipelineResult:
         action="append",
         help="Incremental mode: regulation to fetch (repeatable); default is BWB_IDS.",
     )
-    _add_mode_argument(parser)
+    parser.add_argument(
+        "--min-stubs",
+        type=int,
+        default=_gaps.DEFAULT_MIN_STUBS,
+        metavar="N",
+        help="Gaps mode: a law is fetched when N of its articles are referred to.",
+    )
+    _add_mode_argument(parser, extra_modes=(GAPS,))
     args = parser.parse_args(argv)
 
-    pipeline = BWBRetrievePipeline(store=ArangoStore())
+    store = ArangoStore()
+    pipeline = BWBRetrievePipeline(store=store)
     if args.mode == "full":
         return pipeline.run_full()
+    if args.mode == GAPS:
+        return pipeline.run(bwb_ids=_gaps.bwb_gaps(store, min_stubs=args.min_stubs))
     return pipeline.run(bwb_ids=args.bwb_ids or BWB_IDS)
 
 
@@ -85,12 +100,15 @@ def retrieve_echr(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument("--respondent", default="NLD")
     parser.add_argument("--max-records", type=int, default=10000)
     add_since_argument(parser)
-    _add_mode_argument(parser)
+    _add_mode_argument(parser, extra_modes=(GAPS,))
     args = parser.parse_args(argv)
 
-    pipeline = ECHRRetrievePipeline(ArangoStore())
+    store = ArangoStore()
+    pipeline = ECHRRetrievePipeline(store)
     if args.mode == "full":
         return pipeline.run_full(respondent=args.respondent)
+    if args.mode == GAPS:  # the cited judgments, against any state
+        return pipeline.run(eclis=_gaps.echr_gaps(store))
     return pipeline.run(
         respondent=args.respondent,
         since_date=_date(args.since),
@@ -117,7 +135,7 @@ def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
         help="Full mode: act type to list (repeatable, default: directive). "
         "The listing is incomplete for recent years and stops at 10000 acts per type.",
     )
-    _add_mode_argument(parser, extra_modes=("nim", "cjeu", "com"))
+    _add_mode_argument(parser, extra_modes=("nim", "cjeu", "com", GAPS))
     args = parser.parse_args(argv)
 
     store = ArangoStore()
@@ -128,6 +146,8 @@ def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
         )
     if args.mode == "nim":
         return pipeline.run_nim(country_code=args.country, lang=args.lang)
+    if args.mode == GAPS:  # the acts BWB articles name
+        return pipeline.run(celex_ids=_gaps.eurlex_gaps(store), lang=args.lang)
 
     known_celex = args.celex or list(store.query(_KNOWN_CELEX_AQL))
     if args.mode == "cjeu":
@@ -171,8 +191,13 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
         "--ecli", action="append", help="Judgment to fetch as it is (repeatable)."
     )
     add_since_argument(parser, default="1d")
-    _add_mode_argument(parser)
+    _add_mode_argument(parser, extra_modes=(GAPS,))
     args = parser.parse_args(argv)
+
+    store = ArangoStore()
+    if args.mode == GAPS:  # the cited judgments, of whatever court
+        eclis = _gaps.rechtspraak_gaps(store)
+        return RechtspraakRetrievePipeline(store).run(courts=[], eclis=eclis)
 
     courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
     date_from = modified_from = None
@@ -182,7 +207,7 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
         window = dt.datetime.now(dt.timezone.utc) - args.since
         if window <= dt.timedelta(days=RECHTSPRAAK_MODIFIED_WINDOW_DAYS):
             modified_from = args.since
-    pipeline = RechtspraakRetrievePipeline(ArangoStore())
+    pipeline = RechtspraakRetrievePipeline(store)
     return pipeline.run(
         courts=courts,
         date_from=date_from,
@@ -239,6 +264,12 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     )
     parser.add_argument("--kind", default="toelichting")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--mode",
+        choices=[GAPS],
+        default=GAPS,
+        help="The only mode: the papers of --kind that have no text yet.",
+    )
     args = parser.parse_args(argv)
 
     pipeline = TKContentRetrievePipeline(store=ArangoStore())
@@ -280,7 +311,16 @@ def retrieve_verdragenbank(argv: list[str] | None = None) -> PipelineResult:
         description="Retrieve treaties from the Verdragenbank."
     )
     parser.add_argument("--max-records", type=int, default=None)
+    parser.add_argument(
+        "--mode",
+        choices=["full", GAPS],
+        default="full",
+        help="gaps: only when a treaty is referred to that is not loaded (the register "
+        "has no fetch per treaty, so it is read again in full).",
+    )
     args = parser.parse_args(argv)
 
-    pipeline = VerdragenbankRetrievePipeline(ArangoStore())
-    return pipeline.run(max_records=args.max_records)
+    store = ArangoStore()
+    if args.mode == GAPS and not _gaps.verdragenbank_gaps(store):
+        return PipelineResult()
+    return VerdragenbankRetrievePipeline(store).run(max_records=args.max_records)

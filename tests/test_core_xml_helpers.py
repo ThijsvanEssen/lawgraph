@@ -43,11 +43,11 @@ def test_normalize_instrument_id() -> None:
     assert aliases.normalize_instrument_id("") is None
 
 
-def test_fill_gaps_names_a_law_from_its_sru_record_without_downloading_it(
+def test_the_gaps_report_names_a_law_from_its_sru_record_without_downloading_it(
     monkeypatch,
 ) -> None:
-    """The report needs a name; the toestand is the whole law, fetched again by --apply."""
-    from lawgraph.commands import fill_gaps
+    """The report needs a name; the toestand is the whole law, fetched by the gaps run."""
+    from lawgraph.commands import gaps
 
     titles = {"BWBR1": "Wet op X", "BWBR2": None}
 
@@ -60,8 +60,8 @@ def test_fill_gaps_names_a_law_from_its_sru_record_without_downloading_it(
         def fetch_toestand_xml(self, meta: dict) -> str:
             raise AssertionError("the toestand is not needed for a name")
 
-    monkeypatch.setattr(fill_gaps, "BWBClient", _FakeClient)
-    result = fill_gaps._resolve_names_from_bwb(
+    monkeypatch.setattr(gaps, "BWBClient", _FakeClient)
+    result = gaps._resolve_names_from_bwb(
         ["BWBR1", "BWBR2", "BWBR3"], {"BWBR9": "Bekend"}
     )
     assert result == {"BWBR9": "Bekend", "BWBR1": "Wet op X"}

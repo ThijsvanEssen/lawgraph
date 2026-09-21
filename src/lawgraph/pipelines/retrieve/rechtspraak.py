@@ -22,6 +22,7 @@ from .base import (
     RetrievePipelineBase,
     RetrieveRecord,
     failure_reason,
+    fetched_side_by_side,
     is_not_found,
     missing_record,
 )
@@ -108,11 +109,11 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         wanted = self._without_missing(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, todo)
         self.progress.expect(len(wanted))
         streak = FailureStreak("Rechtspraak")
-        for ecli in wanted:
+        # Side by side: a judgment takes longer to arrive than the host asks between two.
+        for ecli, xml in fetched_side_by_side(wanted, self.rs.fetch_ecli_content):
             updated = todo[ecli]
-            try:
-                xml = self.rs.fetch_ecli_content(ecli)
-            except Exception as exc:
+            if isinstance(xml, Exception):
+                exc = xml
                 if is_not_found(exc):
                     self.progress.skip("no content (HTTP 404)", ecli)
                     streak.ok()

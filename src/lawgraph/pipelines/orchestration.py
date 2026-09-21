@@ -29,6 +29,7 @@ from lawgraph.pipelines.command import (
     combined_result,
     run_command,
 )
+from lawgraph.pipelines.retrieve_commands import GAPS
 from lawgraph.sources.registry import PIPELINES, Phase, Pipeline, RetrieveCtx
 
 logger = get_logger(__name__)
@@ -180,13 +181,11 @@ def _run_phase(
             args.since.isoformat(timespec="seconds"),
         )
     began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
-    pipelines = [
-        pipeline
-        for pipeline in PIPELINES[phase]
-        if phase != "retrieve" or pipeline.argv_for_all is not None
-    ]
-    outcomes = run_pipelines(pipelines, argv_of(args), strict=strict, jobs=jobs)
-    if all(outcome.state is State.OK for outcome in outcomes):
+    outcomes = run_pipelines(
+        _pipelines_of(phase, args), argv_of(args), strict=strict, jobs=jobs
+    )
+    filling_gaps = getattr(args, "mode", None) == GAPS  # says nothing about a date
+    if not filling_gaps and all(outcome.state is State.OK for outcome in outcomes):
         watermark.advance(store, phase, began=began, since=read_since(args))
     return combined_result(outcomes)
 
@@ -200,7 +199,11 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
         help="Incremental mode: what changed since then (ISO date or 7d)." + _LAST_HELP,
     )
     parser.add_argument(
-        "--mode", choices=["incremental", "full"], default="incremental"
+        "--mode",
+        choices=["incremental", "full", GAPS],
+        default="incremental",
+        help="incremental: what changed since --since; full: all inside --window; gaps: what "
+        "the graph refers to and only holds a stub of, from every source that can fetch it.",
     )
     parser.add_argument(
         "--window",
@@ -235,7 +238,19 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
     )
 
 
+def _pipelines_of(phase: Phase, args: argparse.Namespace) -> list[Pipeline]:
+    """The pipelines ``<phase> all`` runs: all of them, but for retrieve those that have
+    options for it, or in gaps mode those that can fill gaps."""
+    if phase != "retrieve":
+        return PIPELINES[phase]
+    if args.mode == GAPS:
+        return [pipeline for pipeline in PIPELINES[phase] if pipeline.fills_gaps]
+    return [p for p in PIPELINES[phase] if p.argv_for_all is not None]
+
+
 def _retrieve_argv(args: argparse.Namespace) -> ArgvOf:
+    if args.mode == GAPS:
+        return lambda pipeline: ["--mode", GAPS]
     ctx = RetrieveCtx(
         since=args.since.isoformat(),
         mode=args.mode,
