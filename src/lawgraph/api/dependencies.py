@@ -14,7 +14,8 @@ its own server, which holds the key and passes the request on.
 from __future__ import annotations
 
 import secrets
-from typing import Annotated
+from collections.abc import Iterable, Iterator
+from typing import Annotated, Any
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.routing import APIRoute
@@ -60,15 +61,49 @@ def require_curation_key(
 _KEYS = (require_write_key, require_curation_key)
 
 
-def refuse_open_writes(app: FastAPI) -> None:
-    """Raise when a route that writes asks for no key."""
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
+def _api_routes(routes: Iterable[Any]) -> Iterator[APIRoute]:
+    """Every API route, also those of a router that is mounted rather than copied in."""
+    for route in routes:
+        if isinstance(route, APIRoute):
+            yield route
             continue
+        for holder in (
+            route,
+            getattr(route, "app", None),
+            getattr(route, "router", None),
+        ):
+            inner = getattr(holder, "routes", None)
+            if inner:
+                yield from _api_routes(inner)
+                break
+
+
+def _asks_for_a_key(route: APIRoute) -> bool:
+    declared = [getattr(d, "dependency", None) for d in route.dependencies]
+    resolved = [d.call for d in route.dependant.dependencies]
+    return any(call in _KEYS for call in (*declared, *resolved))
+
+
+def refuse_open_writes(app: FastAPI) -> int:
+    """Raise when a route that writes asks for no key; how many writing routes it checked.
+
+    It also raises when it finds no route at all: a check that sees nothing must not pass
+    (how a framework stores its routes changes between versions).
+    """
+    routes = list(_api_routes(app.routes))
+    if not routes:
+        raise RuntimeError(
+            "refuse_open_writes found no route to check: refusing to start."
+        )
+    checked = 0
+    for route in routes:
         writes = sorted(_WRITING_METHODS & set(route.methods or ()))
-        asks = any(d.call in _KEYS for d in route.dependant.dependencies)
-        if writes and not asks:
+        if not writes:
+            continue
+        checked += 1
+        if not _asks_for_a_key(route):
             raise RuntimeError(
                 f"{'/'.join(writes)} {route.path} asks for no key: add "
                 "`dependencies=[Depends(require_write_key)]` (or the curation key)."
             )
+    return checked

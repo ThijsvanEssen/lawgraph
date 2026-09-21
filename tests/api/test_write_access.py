@@ -72,4 +72,25 @@ def test_the_app_does_not_start_with_a_write_route_that_asks_for_no_key() -> Non
 
 
 def test_every_write_route_of_the_real_app_asks_for_a_key() -> None:
-    refuse_open_writes(app)
+    assert (
+        refuse_open_writes(app) >= 4
+    )  # two on watches, the vote, the tag: it saw them
+
+
+def test_an_app_in_which_no_route_is_found_is_refused() -> None:
+    """A check that sees nothing must not pass."""
+    with pytest.raises(RuntimeError, match="found no route"):
+        refuse_open_writes(FastAPI(openapi_url=None, docs_url=None, redoc_url=None))
+
+
+def test_a_route_of_a_mounted_app_is_seen_too() -> None:
+    inner = FastAPI()
+
+    @inner.post("/things")
+    def create_thing() -> dict:
+        return {}
+
+    outer = FastAPI()
+    outer.mount("/inner", inner)
+    with pytest.raises(RuntimeError, match=r"POST /things.*asks for no key"):
+        refuse_open_writes(outer)
