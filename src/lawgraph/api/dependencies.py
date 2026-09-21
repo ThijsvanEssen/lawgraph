@@ -92,8 +92,13 @@ def refuse_open_writes(app: FastAPI) -> int:
     """
     routes = list(_api_routes(app.routes))
     if not routes:
+        held = sorted(
+            f"{type(route).__module__}.{type(route).__name__}{sorted(vars(route))}"
+            for route in app.routes
+        )
         raise RuntimeError(
-            "refuse_open_writes found no route to check: refusing to start."
+            "refuse_open_writes found no route to check: refusing to start. "
+            f"The app holds: {held[:3]}"
         )
     checked = 0
     for route in routes:
