@@ -16,7 +16,27 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.models import NodeType
 from lawgraph.db import ArangoStore
+
+# What the layers can be narrowed to: the relations their edges have, the node types they show.
+GLOBAL_GRAPH_RELATIONS = (
+    RELATION_REFERS_TO,
+    RELATION_EXPLAINS,
+    RELATION_PART_OF,
+    RELATION_IMPLEMENTS,
+    RELATION_AMENDS,
+)
+GLOBAL_GRAPH_NODE_TYPES = (
+    NodeType.INSTRUMENT.value,
+    NodeType.ARTICLE.value,
+    NodeType.JUDGMENT.value,
+)
+INSTRUMENT_LAYER_RELATIONS = (
+    RELATION_REFERS_TO,
+    RELATION_IMPLEMENTS,
+    RELATION_AMENDS,
+)
 
 
 @dataclass
@@ -56,8 +76,13 @@ class GlobalGraphData:
     metadata: dict[str, Any] | None = None
 
 
-def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
+def get_instrument_layer_graph(
+    store: ArangoStore, *, relations: tuple[str, ...] = INSTRUMENT_LAYER_RELATIONS
+) -> InstrumentLayerData:
     """Return all non-stub instruments and aggregated inter-instrument reference edges.
+
+    ``relations`` are the kinds of edge to return; the aggregate of article-level
+    references is a ``REFERS_TO`` edge.
 
     ``articles`` is scanned once into an ``id → bwb_id`` map and every edge
     endpoint is resolved against it, so no per-edge ``DOCUMENT()`` lookup is
@@ -97,9 +122,11 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
     # Aggregate article-level citations into instrument-level weighted edges.
     # The MERGE builds the article_id → bwb_id map upfront; the edge scan
     # then resolves both endpoints by dict lookup instead of DOCUMENT().
-    rows: list[dict[str, Any]] = list(
-        store.query(
-            f"""
+    rows: list[dict[str, Any]] = []
+    if RELATION_REFERS_TO in relations:
+        rows = list(
+            store.query(
+                f"""
         LET id_to_bwb = MERGE(
             FOR a IN {COLLECTION_ARTICLES}
                 FILTER a.props.bwb_id != null
@@ -114,8 +141,8 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
             FILTER cnt >= 2
             RETURN {{ from_bwb: fb, to_bwb: tb, weight: cnt }}
     """
+            )
         )
-    )
 
     graph_edges: list[GraphEdge] = []
     for row in rows:
@@ -136,11 +163,12 @@ def get_instrument_layer_graph(store: ArangoStore) -> InstrumentLayerData:
         store.query(
             f"""
         FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation IN ["{RELATION_IMPLEMENTS}", "{RELATION_AMENDS}", "{RELATION_REFERS_TO}"]
+            FILTER e.relation IN @relations
             FILTER SPLIT(e._from, "/")[0] IN ["{COLLECTION_INSTRUMENTS}", "{COLLECTION_ARTICLES}"]
             FILTER SPLIT(e._to, "/")[0] == "{COLLECTION_INSTRUMENTS}"
             RETURN {{from_id: e._from, to_id: e._to, relation_type: e.relation}}
-    """
+    """,
+            {"relations": list(relations)},
         )
     )
     for de in direct:
@@ -266,30 +294,39 @@ def get_judgment_graph(
 def get_global_graph(
     store: ArangoStore,
     *,
-    include_judgments: bool = True,
+    node_types: tuple[str, ...] = GLOBAL_GRAPH_NODE_TYPES,
+    relations: tuple[str, ...] = GLOBAL_GRAPH_RELATIONS,
     max_judgments: int = 500,
 ) -> GlobalGraphData:
-    """Return a sample global graph: all instruments, stub articles, and optional judgments."""
-    instruments: list[dict[str, Any]] = list(
-        store.query(
-            f"""
+    """Return a sample global graph: all instruments, stub articles, and optional judgments.
+
+    ``node_types`` are the kinds of node to load and ``relations`` the kinds of edge to keep
+    between them.
+    """
+    instruments: list[dict[str, Any]] = []
+    if NodeType.INSTRUMENT.value in node_types:
+        instruments = list(
+            store.query(
+                f"""
         FOR inst IN {COLLECTION_INSTRUMENTS}
             FILTER inst.props.stub != true OR inst.props.stub == null
             RETURN inst
     """
+            )
         )
-    )
-    articles: list[dict[str, Any]] = list(
-        store.query(
-            f"""
+    articles: list[dict[str, Any]] = []
+    if NodeType.ARTICLE.value in node_types:
+        articles = list(
+            store.query(
+                f"""
         FOR art IN {COLLECTION_ARTICLES}
             LIMIT 5000
             RETURN MERGE(art, {{props: UNSET(art.props, "text")}})
     """
+            )
         )
-    )
     judgments: list[dict[str, Any]] = []
-    if include_judgments:
+    if NodeType.JUDGMENT.value in node_types:
         judgments = list(
             store.query(
                 f"""
@@ -314,15 +351,12 @@ def get_global_graph(
         store.query(
             f"""
         FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation IN [
-                "{RELATION_REFERS_TO}", "{RELATION_EXPLAINS}",
-                "{RELATION_PART_OF}", "{RELATION_IMPLEMENTS}", "{RELATION_AMENDS}"
-            ]
+            FILTER e.relation IN @relations
             FILTER e._from IN @ids AND e._to IN @ids
             LIMIT 10000
             RETURN {{from_id: e._from, to_id: e._to, relation_type: e.relation, confidence: e.confidence}}
     """,
-            {"ids": all_ids},
+            {"ids": all_ids, "relations": list(relations)},
         )
     )
 

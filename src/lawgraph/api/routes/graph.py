@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import parse_choices
 from lawgraph.api.queries.graph import (
+    GLOBAL_GRAPH_NODE_TYPES,
+    GLOBAL_GRAPH_RELATIONS,
+    INSTRUMENT_LAYER_RELATIONS,
     get_global_graph,
     get_instrument_layer_graph,
     get_judgment_graph,
@@ -42,29 +46,42 @@ _layer_cache: TTLCache[str, Any] = TTLCache(maxsize=16, ttl=60.0)
     summary="Whole graph — every node and edge, no instrument filter",
     description=(
         "Every instrument, article, judgment and edge, including nodes that "
-        "hang off no instrument. Pass `include_judgments=false` to leave the "
-        "judgments out."
+        "hang off no instrument. `node_types` (`instrument`, `article`, "
+        "`judgment`; default all three) says which nodes to load and `relations` "
+        "(`REFERS_TO`, `EXPLAINS`, `PART_OF`, `IMPLEMENTS`, `AMENDS`; default all "
+        "five) which edges to keep between them."
     ),
     tags=["graph"],
 )
 def get_global_graph_route(
     store: Annotated[ArangoStore, Depends(get_store)],
-    include_judgments: Annotated[
-        bool, Query(description="Include judgments in the graph")
-    ] = True,
+    node_types: Annotated[
+        str | None,
+        Query(description="Comma-separated node types to load."),
+    ] = None,
+    relations: Annotated[
+        str | None,
+        Query(description="Comma-separated relations to keep."),
+    ] = None,
     max_judgments: Annotated[
         int, Query(ge=1, le=5000, description="Maximum number of judgments")
     ] = 500,
 ) -> GlobalGraphResponse:
-    cache_key = f"global:j={int(include_judgments)}:n={max_judgments}"
+    types = (
+        parse_choices(node_types, GLOBAL_GRAPH_NODE_TYPES, "node_types")
+        or GLOBAL_GRAPH_NODE_TYPES
+    )
+    kinds = (
+        parse_choices(relations, GLOBAL_GRAPH_RELATIONS, "relations")
+        or GLOBAL_GRAPH_RELATIONS
+    )
+    cache_key = f"global:t={','.join(types)}:r={','.join(kinds)}:n={max_judgments}"
     cached = _layer_cache.get(cache_key)
     if cached is not _MISSING:
         return cached  # type: ignore[return-value]
 
     data = get_global_graph(
-        store,
-        include_judgments=include_judgments,
-        max_judgments=max_judgments,
+        store, node_types=types, relations=kinds, max_judgments=max_judgments
     )
 
     edges = [
@@ -101,18 +118,28 @@ def get_global_graph_route(
         "Every instrument (NL and EU) as a node, with edges between instruments "
         "aggregated from article-level references (REFERS_TO, weighted) plus "
         "the direct IMPLEMENTS and AMENDS edges. Use this for the layer view, "
-        "where each node stands for a whole law."
+        "where each node stands for a whole law. `relations` (`REFERS_TO`, "
+        "`IMPLEMENTS`, `AMENDS`; default all three) says which edges to return."
     ),
     tags=["graph"],
 )
 def get_instrument_layer_graph_route(
     store: Annotated[ArangoStore, Depends(get_store)],
+    relations: Annotated[
+        str | None,
+        Query(description="Comma-separated relations to keep."),
+    ] = None,
 ) -> InstrumentLayerGraphResponse:
-    cached = _layer_cache.get("instrument_layer")
+    kinds = (
+        parse_choices(relations, INSTRUMENT_LAYER_RELATIONS, "relations")
+        or INSTRUMENT_LAYER_RELATIONS
+    )
+    cache_key = f"instrument_layer:r={','.join(kinds)}"
+    cached = _layer_cache.get(cache_key)
     if cached is not _MISSING:
         return cached  # type: ignore[return-value]
 
-    data = get_instrument_layer_graph(store)
+    data = get_instrument_layer_graph(store, relations=kinds)
 
     edges = [
         InstrumentEdgeDTO(
@@ -135,7 +162,7 @@ def get_instrument_layer_graph_route(
         edges=edges,
         metadata=data.metadata,
     )
-    _layer_cache.set("instrument_layer", response)
+    _layer_cache.set(cache_key, response)
     return response
 
 

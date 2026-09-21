@@ -13,7 +13,9 @@ A node is a document `{_key, type, labels, props}`:
   non-alphanumerics replaced by `_`), so every pipeline can be re-run.
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
   `annex`, `judgment`, `dossier`, `case`, `document`, `activity`, `decision`, `commitment`,
-  `member`, `faction`, `committee`, `topic`).
+  `member`, `faction`, `committee`, `topic`). Every type has its own collection and every
+  collection holds one type (`core.models.COLLECTION_OF_TYPE`), so the collection in an id
+  says the type.
 - `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` are validated against a strict Pydantic schema per collection (`core/props.py`);

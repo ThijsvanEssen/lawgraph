@@ -81,11 +81,12 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 
 | Path | Returns |
 |------|---------|
-| `GET /api/graph/global` | instruments, articles, judgments and edges; `include_judgments`, `max_judgments` |
-| `/api/graph/instruments` | instruments as nodes, edges aggregated from article-level `REFERS_TO` plus the direct `IMPLEMENTS` and `AMENDS` edges |
-| `/api/graph/judgments` | judgments and their edges; `max_judgments`, `include_stubs` |
-| `/api/nodes/{collection}/{key}` | a node with all neighbours, direction and confidence; `neighbor_limit` |
-| `.../neighborhood` | nodes and edges within `depth` (1-4) hops, capped by `cap` |
+| `GET /api/graph/global` | instruments, articles, judgments and edges; `node_types` (`instrument`, `article`, `judgment`), `relations` (`REFERS_TO`, `EXPLAINS`, `PART_OF`, `IMPLEMENTS`, `AMENDS`), `max_judgments` |
+| `/api/graph/instruments` | instruments as nodes, edges aggregated from article-level `REFERS_TO` plus the direct `IMPLEMENTS` and `AMENDS` edges; `relations` (`REFERS_TO`, `IMPLEMENTS`, `AMENDS`) |
+| `/api/graph/judgments` | judgments and their edges; `max_judgments`, `include_stubs`. No relation or type filter: its edges are all aggregated `REFERS_TO`, its nodes judgments and the instruments they cite |
+| `/api/nodes/{collection}/{key}` | a node (any node collection) with its neighbours in buckets of one relation, direction and neighbour collection. Every neighbour carries its edge: `edge_id` (the edge `_key`, as in `/api/relationships/{edge_id}/vote`), `status`, `confidence`, `meta`. A bucket has `type`, `total` (its edges), `next_offset` (null on the last page) and `items`; `limit` (default 30, max 200) and `offset` page inside every bucket. Bucket and page order are the same on every request |
+| `.../facets` | `items` of `{relation, direction, collection, type, count}` and `total` (all edges), counted in the database without reading the neighbours |
+| `.../neighborhood` | nodes and edges within `depth` (1-4) hops, capped by `cap`; the filters below shape the traversal |
 | `/api/nodes/in-flux`, `/api/nodes/heat` | node id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6), `min_count`. Both answer a plain map (`{"articles/bwbr0001854_287": 3}`), not validated through a response model |
 | `GET /api/search?q=` | text search over `types` (`articles`, `committees`, `documents`, `dossiers`, `factions`, `instruments`, `judgments`, `members`; all by default), `kind`, `limit`; every hit has `score` 1.0 (no ranking) |
 
@@ -99,13 +100,25 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | POST | `/api/relationships/{edge_id}/vote` | body `{"vote": "upvote" or "downvote"}`; increments the community counter |
 | GET, POST, DELETE | `/api/watches`, `/api/watches/{watch_id}` | saved node watches: list (newest first), create (201; 400 when `node_id` is malformed or the node does not exist), delete (204, 404) |
 
+### Neighbour filters
+
+`/api/nodes/{collection}/{key}`, `.../facets` and `.../neighborhood` take the same filters:
+`relations` and `node_types` (comma-separated relation names and `NodeType` values),
+`direction` (`outbound`, `inbound`) and `status` (`canoniek`, `voorgesteld`). A name that does
+not exist is 422. On the node and facets routes they narrow the edges, so totals count what
+remains. On `.../neighborhood` they shape the walk: it follows only edges of those relations
+and status, only in that direction (at every hop), and only through nodes of those types (the
+focal node is always kept); the edges returned between the kept nodes are those of the
+relations and status.
+
 ## Response conventions
 
 - Every DTO forbids unknown fields (`extra="forbid"`).
 - Node references use `id` (`collection/key`) and `key`; edges use `from` and `to`.
 - List responses carry `items` and `total`, the absolute number of matches independent of
   `limit`. Some carry a domain name instead of `items` (`entries` for timelines, `versions`,
-  `votes`, `relationships`).
+  `votes`, `relationships`). The neighbours of a node are grouped in `buckets`, each with its
+  own `items`, `total` and `next_offset`.
 - Errors: 401 missing or wrong key, 404 unknown resource, 422 invalid parameter, 429 rate
   limited, 503 database unreachable or writing not configured.
 - Responses of the route handlers carry an `X-Request-ID` header.
@@ -118,6 +131,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `search`, `stats`, `watches`, `relationships`, `annexes`, `parliament`) |
 | `api/queries/` | AQL per domain; user input only through bind variables |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
+| `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
 | `api/dependencies.py` | `get_store()`: one shared `ArangoStore`; the two keys and `refuse_open_writes` |
 | `api/cache.py` | `TTLCache`: in-process LRU with TTL (`LAWGRAPH_CACHE_TTL` 60 s, `LAWGRAPH_CACHE_MAXSIZE` 512) used by several routes |
 

@@ -47,3 +47,50 @@ def test_a_route_that_writes_names_its_key_in_the_schema() -> None:
         assert bool(operation.get("security")) == (method in WRITING), (
             f"{method} {path}"
         )
+
+
+def _parameters(path: str) -> set[str]:
+    return {
+        p["name"]
+        for p in SPEC["paths"][path]["get"].get("parameters", [])
+        if p["in"] == "query"
+    }
+
+
+def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> None:
+    filters = {"relations", "node_types", "direction", "status"}
+    node = "/api/nodes/{collection}/{key}"
+    assert _parameters(node) == filters | {"limit", "offset"}
+    assert _parameters(f"{node}/facets") == filters
+    assert _parameters(f"{node}/neighborhood") == filters | {"depth", "cap"}
+
+    schemas = SPEC["components"]["schemas"]
+    assert {"edge_id", "status", "meta", "confidence"} <= set(
+        schemas["NeighborDTO"]["properties"]
+    )
+    assert set(schemas["NeighborBucketDTO"]["properties"]) == {
+        "relation",
+        "direction",
+        "collection",
+        "type",
+        "total",
+        "next_offset",
+        "items",
+    }
+    assert set(schemas["NodeFacetDTO"]["properties"]) == {
+        "relation",
+        "direction",
+        "collection",
+        "type",
+        "count",
+    }
+
+
+def test_the_graph_routes_that_can_be_narrowed_say_so() -> None:
+    assert _parameters("/api/graph/global") == {
+        "node_types",
+        "relations",
+        "max_judgments",
+    }
+    assert _parameters("/api/graph/instruments") == {"relations"}
+    assert _parameters("/api/graph/judgments") == {"max_judgments", "include_stubs"}
