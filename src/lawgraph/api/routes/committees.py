@@ -3,25 +3,30 @@
 GET /api/committees                          — every committee
 GET /api/committees/with-members             — every committee with its members
 GET /api/committees/{slug}                   — one committee in full
+GET /api/committees/{slug}/activities        — the activities it leads
 GET /api/members                             — members of parliament
 GET /api/members/{key}                       — one member
 GET /api/members/{key}/votes                 — how a member voted
+GET /api/members/{key}/dossiers              — the dossiers a member authored in
 GET /api/members/{key}/touched-instruments   — the laws a member changes most
 GET /api/factions                            — parliamentary parties
 GET /api/factions/{key}                      — one party
+GET /api/factions/{key}/dossiers             — the dossiers a party authored in
 GET /api/factions/{key}/touched-instruments  — the laws a party changes most
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries.committees import (
+    get_actor_dossiers,
     get_actor_touched_instruments,
+    get_committee_activities,
     get_committee_detail,
     get_committees,
     get_committees_with_members,
@@ -29,7 +34,12 @@ from lawgraph.api.queries.committees import (
     get_member_votes,
     get_members,
 )
+from lawgraph.api.queries.dossiers import enrich_dossier_docs
 from lawgraph.api.schemas.committees import (
+    ActorDossierDTO,
+    ActorDossiersResponse,
+    CommitteeActivitiesResponse,
+    CommitteeActivityDTO,
     CommitteeDetailDTO,
     CommitteeDTO,
     CommitteeWithMembersDTO,
@@ -52,6 +62,12 @@ factions_router = APIRouter()
 # parliamentary layer loads first, so a short cache spares every cold click
 # the aggregation.
 _bulk_cache: TTLCache[str, Any] = TTLCache(maxsize=32)
+
+# A faction's dossiers walk every AUTHORED edge of every member it ever had, so a page
+# is worth keeping for the next click.
+_faction_dossiers_cache: TTLCache[tuple[str, int, int], ActorDossiersResponse] = (
+    TTLCache(maxsize=64)
+)
 
 
 @router.get(
@@ -101,10 +117,12 @@ def list_committees_with_members(
     response_model=CommitteeDetailDTO,
     summary="Committee detail",
     description=(
-        "One committee with its members and the dossiers it leads. By default "
+        "One committee with its members and a page of the dossiers it leads, "
+        "newest first; ``dossier_total`` is the absolute count. By default "
         "only current members are returned — a seat with no end date, or an "
         "end date still ahead. Pass ``?current_only=false`` for every member "
-        "the committee ever had."
+        "the committee ever had. ``limit``, ``offset`` and ``status`` page and "
+        "filter the dossiers."
     ),
     tags=["committees"],
 )
@@ -114,11 +132,49 @@ def get_committee(
     current_only: Annotated[
         bool, Query(description="Only members currently seated on this committee.")
     ] = True,
+    status: Annotated[
+        Literal["open", "closed"] | None,
+        Query(description="Only the open or only the closed dossiers."),
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=500, description="Dossiers per page.")] = 100,
+    offset: Annotated[int, Query(ge=0, description="Dossiers to skip.")] = 0,
 ) -> CommitteeDetailDTO:
-    doc = get_committee_detail(store, slug, current_only=current_only)
+    doc = get_committee_detail(
+        store,
+        slug,
+        current_only=current_only,
+        status=status,
+        limit=limit,
+        offset=offset,
+    )
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Committee '{slug}' not found.")
     return CommitteeDetailDTO.from_detail_document(doc)
+
+
+@router.get(
+    "/{slug}/activities",
+    response_model=CommitteeActivitiesResponse,
+    summary="Committee activities",
+    description=(
+        "The activities (debates, hearings) a committee leads, newest first, "
+        "with the dossiers on their agenda. ``total`` is the absolute count."
+    ),
+    tags=["committees"],
+)
+def list_committee_activities(
+    slug: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> CommitteeActivitiesResponse:
+    raw = get_committee_activities(store, slug, limit=limit, offset=offset)
+    if raw is None:
+        raise HTTPException(status_code=404, detail=f"Committee '{slug}' not found.")
+    return CommitteeActivitiesResponse(
+        total=int(raw.get("total") or 0),
+        items=[CommitteeActivityDTO(**item) for item in raw.get("items") or []],
+    )
 
 
 @members_router.get(
@@ -190,13 +246,35 @@ def list_member_votes(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> MemberVotesResponse:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    member_id = node.id or ""
+    member_id = node.arango_id or ""
     votes = get_member_votes(store, member_id, limit=limit)
     return MemberVotesResponse(
         member_id=member_id,
         count=len(votes),
         votes=[MemberVoteDTO(**v) for v in votes],
     )
+
+
+@members_router.get(
+    "/{key}/dossiers",
+    response_model=ActorDossiersResponse,
+    summary="Dossiers a member authored in",
+    description=(
+        "The dossiers in which this member signed or submitted documents "
+        "(``AUTHORED``), newest opened first. Each dossier carries the roles "
+        "the member had there and the number of documents. ``total`` is the "
+        "absolute count."
+    ),
+    tags=["members"],
+)
+def list_member_dossiers(
+    key: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ActorDossiersResponse:
+    node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
+    return _actor_dossiers(store, node.arango_id or "", limit, offset)
 
 
 @members_router.get(
@@ -215,7 +293,7 @@ def list_member_touched_instruments(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    return _touched_instruments(store, node.id or "", limit)
+    return _touched_instruments(store, node.arango_id or "", limit)
 
 
 @factions_router.get(
@@ -258,12 +336,40 @@ def get_faction(
 ) -> FactionDetailDTO:
     node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
     return FactionDetailDTO(
-        id=node.id or "",
+        id=node.arango_id or "",
         key=node.key or "",
         type=node.type.value,
         labels=list(node.labels or []),
         props=node.props,
     )
+
+
+@factions_router.get(
+    "/{key}/dossiers",
+    response_model=ActorDossiersResponse,
+    summary="Dossiers a faction authored in",
+    description=(
+        "The dossiers in which members of this faction signed or submitted "
+        "documents while they belonged to it, newest opened first. Same shape "
+        "as the member variant; ``roles`` and ``document_count`` cover all "
+        "those members."
+    ),
+    tags=["factions"],
+)
+def list_faction_dossiers(
+    key: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ActorDossiersResponse:
+    node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
+    cache_key = (node.arango_id or "", limit, offset)
+    cached = _faction_dossiers_cache.get(cache_key)
+    if cached is not _MISSING:
+        return cached  # type: ignore[return-value]
+    response = _actor_dossiers(store, node.arango_id or "", limit, offset)
+    _faction_dossiers_cache.set(cache_key, response)
+    return response
 
 
 @factions_router.get(
@@ -282,7 +388,7 @@ def list_faction_touched_instruments(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
     node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
-    return _touched_instruments(store, node.id or "", limit)
+    return _touched_instruments(store, node.arango_id or "", limit)
 
 
 def _node_or_404(store: ArangoStore, collection: str, key: str, label: str) -> Any:
@@ -294,7 +400,7 @@ def _node_or_404(store: ArangoStore, collection: str, key: str, label: str) -> A
 
 def _as_document(node: Any) -> dict[str, Any]:
     return {
-        "_id": node.id,
+        "_id": node.arango_id,
         "_key": node.key,
         "type": node.type.value,
         "labels": node.labels,
@@ -310,4 +416,17 @@ def _touched_instruments(
         actor_id=actor_id,
         count=len(items),
         items=[TouchedInstrumentDTO(**item) for item in items],
+    )
+
+
+def _actor_dossiers(
+    store: ArangoStore, actor_id: str, limit: int, offset: int
+) -> ActorDossiersResponse:
+    raw = get_actor_dossiers(store, actor_id, limit=limit, offset=offset)
+    rows = raw.get("items") or []
+    enrich_dossier_docs(store, [row["dossier"] for row in rows])
+    return ActorDossiersResponse(
+        actor_id=actor_id,
+        total=int(raw.get("total") or 0),
+        items=[ActorDossierDTO.from_row(row) for row in rows],
     )

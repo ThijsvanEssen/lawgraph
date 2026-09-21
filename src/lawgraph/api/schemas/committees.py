@@ -254,12 +254,19 @@ class CommitteeWithMembersDTO(CommitteeDTO):
 
 
 class CommitteeDetailDTO(CommitteeDTO):
-    """A committee with its members and the dossiers it leads."""
+    """A committee with its members and a page of the dossiers it leads.
+
+    ``dossiers`` is one page; ``dossier_total`` counts every dossier that matches the
+    ``status`` filter, and ``active_dossier_count`` the open ones whatever the filter.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     members: list[MemberDTO] = []
     dossiers: list[DossierSummaryDTO] = []
+    dossier_total: int = Field(
+        0, description="Dossiers matching ``status``, independent of limit and offset."
+    )
 
     @classmethod
     def from_detail_document(cls, doc: dict[str, Any]) -> CommitteeDetailDTO:
@@ -274,7 +281,68 @@ class CommitteeDetailDTO(CommitteeDTO):
             abbreviation=props.get("abbreviation"),
             slug=props.get("slug"),
             kind=props.get("type"),
-            active_dossier_count=sum(1 for d in dossiers if not d.closed),
+            active_dossier_count=int(doc.get("open_dossier_count") or 0),
             members=[MemberDTO.from_document(m) for m in doc.get("members") or []],
             dossiers=dossiers,
+            dossier_total=int(doc.get("dossier_total") or 0),
         )
+
+
+class CommitteeActivityDTO(BaseModel):
+    """One activity (debate, hearing) a committee leads."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    date: str | None = Field(None, description="YYYY-MM-DD.")
+    kind: str | None = Field(
+        None, description="The source's ``Soort``, e.g. Commissiedebat."
+    )
+    agenda_title: str | None = None
+    dossier_numbers: list[str] = Field(
+        default_factory=list, description="Dossiers on the agenda of the activity."
+    )
+
+
+class CommitteeActivitiesResponse(BaseModel):
+    """A page of a committee's activities, newest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int = Field(
+        ..., description="Activities of the committee, independent of limit and offset."
+    )
+    items: list[CommitteeActivityDTO]
+
+
+class ActorDossierDTO(DossierSummaryDTO):
+    """A dossier a member or faction authored documents in.
+
+    ``roles`` are the distinct ``AUTHORED`` roles as the source wrote them
+    (``Eerste ondertekenaar``, ``Mede ondertekenaar``, ...); ``document_count`` the distinct
+    documents authored in the dossier.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    roles: list[str] = Field(default_factory=list)
+    document_count: int = 0
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> ActorDossierDTO:
+        return cls(
+            **DossierSummaryDTO.from_document(row["dossier"]).model_dump(),
+            roles=list(row.get("roles") or []),
+            document_count=int(row.get("document_count") or 0),
+        )
+
+
+class ActorDossiersResponse(BaseModel):
+    """A page of the dossiers a member or faction authored documents in."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    actor_id: str = Field(..., description="Arango _id of the member or faction.")
+    total: int = Field(..., description="Dossiers, independent of limit and offset.")
+    items: list[ActorDossierDTO]

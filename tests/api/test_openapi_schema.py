@@ -47,3 +47,34 @@ def test_a_route_that_writes_names_its_key_in_the_schema() -> None:
         assert bool(operation.get("security")) == (method in WRITING), (
             f"{method} {path}"
         )
+
+
+def test_the_dossier_hub_and_the_authorship_lists_are_in_the_schema() -> None:
+    schemas = SPEC["components"]["schemas"]
+    detail = schemas["DossierDetailResponse"]["properties"]
+    assert {"instruments", "committees", "documents_by_kind", "senate"} <= set(detail)
+    assert schemas["DossierCommitteeDTO"]["properties"]["role"]["const"] == "lead"
+    instrument = schemas["DossierInstrumentDTO"]["properties"]
+    assert set(instrument["relation"]["enum"]) == {
+        "legislated_in",
+        "amends",
+        "introduces",
+        "repeals",
+    }
+    assert set(instrument["status"]["enum"]) == {"canoniek", "voorgesteld"}
+
+    paths = SPEC["paths"]
+    for path in (
+        "/api/committees/{slug}/activities",
+        "/api/members/{key}/dossiers",
+        "/api/factions/{key}/dossiers",
+    ):
+        parameters = {p["name"]: p for p in paths[path]["get"]["parameters"]}
+        assert parameters["limit"]["schema"]["maximum"] == 500, path
+        assert parameters["offset"]["schema"]["minimum"] == 0, path
+
+    committee = {
+        p["name"]: p for p in paths["/api/committees/{slug}"]["get"]["parameters"]
+    }
+    assert {"status", "limit", "offset"} <= set(committee)
+    assert "open" in str(committee["status"]["schema"])

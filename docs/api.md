@@ -64,15 +64,16 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 |------|---------|
 | `GET /api/dossiers/open` | dossiers not yet closed; `committee` (slug), `subject`, `stage`, `has_stage` (all listed stages), `limit`, `offset` |
 | `/api/dossiers/recent` | dossiers with activity in `days` (default 30) |
-| `/api/dossiers/{number}` | header, current stage, counts of documents, activities, decisions, commitments |
+| `/api/dossiers/{number}` | header, current stage, counts of documents, activities, decisions, commitments, and the dossier hub: `instruments` (`id`, `key`, `bwb_id`, `celex`, `display_name`, `jurisdiction`, `relation` `legislated_in`/`amends`/`introduces`/`repeals`, `status` `canoniek`/`voorgesteld`; one item per instrument, relation and status), `committees` (leading an activity about the dossier, `role` `lead`), `documents_by_kind` (counts per document `kind`), `senate` (`document_count`, `first_date` of the Eerste Kamer papers) |
 | `.../timeline` | documents, activities, decisions and commitments; `order` (`desc`, `asc`), `kind` (comma-separated), `limit` |
 | `.../documents` | documents linked directly or through a case, newest first, with `total` |
 | `.../mutations` | the subgraph of `voorgesteld` edges, in graph shape |
 | `/api/dossiers/documents/bulk?numbers=a,b` | top `per_dossier_limit` (default 8) documents per dossier |
 | `GET /api/decisions`, `/{key}`, `/{key}/document` | decisions (`passed`, `party`, `chamber` `TK`/`EK`; the Eerste Kamer has papers but no votes) with every vote cast — per member on a roll-call, per faction otherwise; the decided motion, amendment or bill with text |
-| `GET /api/committees`, `/with-members`, `/{slug}` | committees; detail lists current members (`current_only=true`, the default) and the dossiers it leads |
-| `GET /api/members`, `/{key}`, `/{key}/votes`, `/{key}/touched-instruments` | members (filter `party`, `active`, `q`; ministers only with `include_all`); a member's votes, a faction vote counted only for the period they belonged to it; laws the member proposed changes to |
-| `GET /api/factions`, `/{key}`, `/{key}/touched-instruments` | factions with member counts; the same aggregate per faction |
+| `GET /api/committees`, `/with-members`, `/{slug}` | committees; detail lists current members (`current_only=true`, the default) and a page of the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, `offset`; `dossier_total` counts the matches, `active_dossier_count` the open dossiers) |
+| `/api/committees/{slug}/activities` | the activities the committee leads, newest first, each with `date`, `kind`, `agenda_title`, `dossier_numbers`; `limit`, `offset`, `total` |
+| `GET /api/members`, `/{key}`, `/{key}/votes`, `/{key}/dossiers`, `/{key}/touched-instruments` | members (filter `party`, `active`, `q`; ministers only with `include_all`); a member's votes, a faction vote counted only for the period they belonged to it; the dossiers the member authored documents in (`AUTHORED`), each a dossier summary plus `roles` (the source's role names) and `document_count`, paged with `total`; laws the member proposed changes to |
+| `GET /api/factions`, `/{key}`, `/{key}/dossiers`, `/{key}/touched-instruments` | factions with member counts; the same two aggregates per faction (its dossiers are those its members signed documents in while they belonged to it) |
 | `GET /api/parliament/seats` | seated factions with seat counts in plenary-hall order |
 | `GET /api/parties/colors` | party abbreviation to hex colour |
 | `GET /api/documents`, `/{key}` | documents across sources, metadata only (`q`, `kind`, `chamber`, `source`, `limit` up to 1000); one with its extracted text (null when `tk-content` has not reached it) |

@@ -23,6 +23,7 @@ from lawgraph.api.queries.dossiers import (
     get_documents_for_dossiers,
     get_dossier_by_number,
     get_dossier_documents,
+    get_dossier_hub,
     get_dossier_mutations,
     get_dossier_number_to_id_map,
     get_dossier_timeline,
@@ -182,8 +183,11 @@ def list_documents_for_dossiers(
     response_model=DossierDetailResponse,
     summary="Dossier detail",
     description=(
-        "One dossier: its title, stage, and how many documents, activities, "
-        "decisions and commitments it holds."
+        "One dossier: its title, stage, how many documents, activities, "
+        "decisions and commitments it holds, and what it links to: the "
+        "instruments it legislated, amends, introduces or repeals (one item per "
+        "instrument, relation and status), the committees that lead its "
+        "activities, its documents per kind and its Eerste Kamer papers."
     ),
     tags=["dossiers"],
 )
@@ -194,7 +198,9 @@ def get_dossier(
     dossier = _dossier_or_404(store, number)
     enrich_dossier_docs(store, [dossier])
     return DossierDetailResponse.from_document(
-        dossier, counts=count_dossier_members(store, dossier["_id"])
+        dossier,
+        counts=count_dossier_members(store, dossier["_id"]),
+        hub=get_dossier_hub(store, dossier["_id"]),
     )
 
 
