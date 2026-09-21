@@ -141,7 +141,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             # the window alone would take away what earlier votes taught.
             vote_labels = vote_labels | self._stored_faction_aliases()
 
-        normalized = {
+        normalized: dict[str, Any] = {
             "committees": tk_members.normalize_committees(
                 store, raw[RAW_KIND_TK_COMMISSIE]
             ),

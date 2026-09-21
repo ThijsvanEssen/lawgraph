@@ -63,7 +63,7 @@ class PipelineCommand:
     into constructor arguments of the pipeline.
     """
 
-    pipeline_cls: type
+    pipeline_cls: type[Any]
     description: str
     add_args: Callable[[argparse.ArgumentParser], None] | None = None
     make_extra_kwargs: Callable[[argparse.Namespace], dict[str, Any]] | None = None

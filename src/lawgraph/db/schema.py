@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from arango.exceptions import CollectionCreateError
 
@@ -30,8 +30,18 @@ from lawgraph.config.constants import (
 
 if TYPE_CHECKING:
     from arango.database import StandardDatabase
+    from arango.result import Result
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def _at_once(answer: Result[T]) -> T:
+    """The driver types every call as its answer or a job that will have it; a plain
+    database connection, the only kind used here, answers at once."""
+    return cast(T, answer)
+
 
 _DUPLICATE_NAME = 1207  # ArangoDB: a collection of that name exists
 
@@ -70,7 +80,7 @@ def _ensure_analyzers(db: StandardDatabase) -> None:
     * ``lawgraph_norm`` — lowercased identity, so identifier fields like
       ``bwb_id='BWBR0001903'`` match a case-insensitive prefix query.
     """
-    specs = [
+    specs: list[dict[str, Any]] = [
         {
             # Pipeline: lowercase → ngram. The bare ngram analyzer is
             # case-preserving, which would cause 'Vordering' (capital V)
@@ -112,7 +122,7 @@ def _ensure_analyzers(db: StandardDatabase) -> None:
     # any view referencing the analyzer would block the drop. Stored
     # properties are also normalised on read (defaults injected,
     # field ordering changes), so comparing them is unreliable.
-    existing = {a["name"].split("::")[-1] for a in db.analyzers()}
+    existing = {a["name"].split("::")[-1] for a in _at_once(db.analyzers())}
     for spec in specs:
         if spec["name"] in existing:
             continue
@@ -212,7 +222,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
     after a fresh start may briefly miss recently inserted docs.
     """
     view_specs = _VIEW_SPECS
-    existing_views = {v["name"] for v in db.views()}
+    existing_views = {v["name"] for v in _at_once(db.views())}
     for view_name, links in view_specs.items():
         view_links: dict[str, Any] = {}
         for coll, fields in links.items():
@@ -235,7 +245,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
                 db.create_arangosearch_view(view_name, properties=properties)
                 logger.info("Created ArangoSearch view %s", view_name)
             else:
-                current_links = db.view(view_name).get("links", {})
+                current_links = _at_once(db.view(view_name)).get("links", {})
                 if _indexed_fields(current_links) != _indexed_fields(view_links):
                     db.update_arangosearch_view(view_name, properties=properties)
                     logger.info("Updated ArangoSearch view %s", view_name)
@@ -376,7 +386,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         coll = db.collection(coll_name)
         existing_by_fields = {
             tuple(idx["fields"]): idx
-            for idx in coll.indexes()
+            for idx in _at_once(coll.indexes())
             if idx.get("type") == "persistent"
         }
         key = tuple(fields)

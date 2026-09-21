@@ -46,7 +46,7 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or TKClient()
 
-    def run(
+    def run(  # type: ignore[override]  # its own options; not the fetch template of the base
         self,
         *,
         since: dt.datetime | None = None,

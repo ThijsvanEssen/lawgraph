@@ -27,6 +27,7 @@ dependencies = [
 dev = [
   "pytest>=8.0.0",
   "ruff>=0.5.0",
+  "mypy>=2.1",
   "httpx>=0.28.1",
   "pre-commit>=3.0",
 ]
@@ -60,6 +61,14 @@ max-line-length = 100
 
 [tool.ruff.lint.per-file-ignores]
 "src/lawgraph/api/queries/*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["requests.*"]  # no stubs installed; the clients annotate what they use of it
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

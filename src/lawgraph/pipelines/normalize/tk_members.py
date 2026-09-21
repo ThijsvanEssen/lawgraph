@@ -71,7 +71,7 @@ def normalize_members(
 
 def normalize_factions(
     store: Store,
-    faction_raws: list[dict[str, Any]],
+    faction_raws: Iterable[dict[str, Any]],
     vote_labels: set[str],
 ) -> dict[str, Node]:
     """Fractie nodes, keyed by TK ``Id``.
@@ -116,7 +116,7 @@ def normalize_factions(
 
 def link_members_to_committees(
     store: Store,
-    committee_raws: list[dict[str, Any]],
+    committee_raws: Iterable[dict[str, Any]],
     *,
     source: str,
 ) -> None:
@@ -157,7 +157,7 @@ def link_members_to_committees(
 
 def link_members_to_factions(
     store: Store,
-    seat_raws: list[dict[str, Any]],
+    seat_raws: Iterable[dict[str, Any]],
     member_nodes: dict[str, Node],
     faction_nodes: dict[str, Node],
     *,
