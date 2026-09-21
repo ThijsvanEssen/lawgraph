@@ -109,10 +109,21 @@ class BWBRelationTypesSemanticPipeline(SemanticPipelineBase):
         batch: list[dict[str, Any]],
         result: PipelineResult,
     ) -> int:
-        """Apply one batch of semantic-type updates. Returns updated count."""
+        """Write the classifications of *batch* that differ from the stored ones.
+
+        ``updated_at`` says when a classification changed. Set on every run it made every
+        edge differ from itself: 330,000 edges written again each time.
+        """
         now = iso_timestamp(dt.datetime.now(dt.timezone.utc).replace(microsecond=0))
         aql = f"""
         FOR u IN @updates
+            LET stored = DOCUMENT({COLLECTION_EDGES}, u.key)
+            FILTER stored != null
+            FILTER stored.semantic_type != u.semantic_type
+                OR stored.semantic_source != @structured
+                OR stored.explanation != u.explanation
+                OR stored.meta.semantic_pattern != u.pattern
+                OR stored.meta.semantic_confidence != u.semantic_confidence
             UPDATE u.key WITH {{
                 semantic_type: u.semantic_type,
                 semantic_source: @structured,
@@ -131,4 +142,6 @@ class BWBRelationTypesSemanticPipeline(SemanticPipelineBase):
             "structured": SEMANTIC_SOURCE_STRUCTURED,
             "now": now,
         }
-        return len(list(self.store.query(aql, bind)))
+        updated = len(list(self.store.query(aql, bind)))
+        result.unchanged += len(batch) - updated
+        return updated

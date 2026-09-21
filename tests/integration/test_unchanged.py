@@ -62,3 +62,44 @@ def test_a_changed_document_is_written_and_the_rest_is_left_alone(
     ]
     store.bulk_insert_or_update_nodes("cases", new_and_twice)
     assert store.db.collection("cases").get("n9")["props"]["title"] == "y"
+
+
+_LAW = """<toestand bwb-id="BWBR9100001"><wetgeving soort="wet"><citeertitel>Testwet</citeertitel>
+<wet-besluit><wettekst>
+<artikel><kop><nr>1</nr></kop><al>De minister stelt regels.</al></artikel>
+<artikel><kop><nr>2</nr></kop><al>In afwijking van <intref doc="jci1.3:c:BWBR9100001&amp;artikel=1"
+ bwb-id="BWBR9100001">artikel 1</intref> geldt dit artikel niet voor gemeenten.</al></artikel>
+</wettekst></wet-besluit></wetgeving></toestand>"""
+
+
+def test_classifying_relations_again_writes_only_what_changed(
+    database: str, cli: Any
+) -> None:
+    """`updated_at` was set to now on every edge on every run, so all 330,000 classified
+    edges of the rebuild were written again each time (a minute, and "328,571 updated")."""
+    from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, SOURCE_BWB
+    from lawgraph.db import RawSourceWriter, raw_source_doc
+
+    store = ArangoStore()
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_BWB,
+                kind=RAW_KIND_BWB_TOESTAND,
+                external_id="BWBR9100001",
+                payload_text=_LAW,
+                meta={"bwb_id": "BWBR9100001"},
+            )
+        )
+    cli("normalize", "bwb")
+    cli("semantic", "bwb")
+    first = cli("semantic", "bwb-relation-types")
+    classified = "FOR e IN edges FILTER e.semantic_type != null RETURN [e._key, e._rev]"
+    before = dict(store.query(classified))
+    assert before, first.stderr[-600:]
+
+    again = cli("semantic", "bwb-relation-types")
+    assert dict(store.query(classified)) == before
+    assert re.search(r"Done in \S+: [\d,]+ unchanged", again.stderr), again.stderr[
+        -300:
+    ]
