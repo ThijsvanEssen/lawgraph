@@ -137,15 +137,11 @@ def _mode_argv(ctx: RetrieveCtx) -> list[str]:
     return ["--mode", ctx.mode]
 
 
-def _mode_and_since_argv(ctx: RetrieveCtx) -> list[str]:
-    return ["--mode", ctx.mode, "--since", ctx.since]
-
-
 def _windowed_argv(ctx: RetrieveCtx) -> list[str]:
     """Sources that keep producing: a full load only reads what changed inside the window."""
     if ctx.mode == "full" and ctx.window:
         return ["--mode", "incremental", "--since", ctx.window]
-    return _mode_and_since_argv(ctx)
+    return ["--mode", ctx.mode, "--since", ctx.since]
 
 
 def _tk_dossiers_argv(ctx: RetrieveCtx) -> list[str]:
