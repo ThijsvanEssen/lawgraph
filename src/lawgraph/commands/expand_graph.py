@@ -25,9 +25,11 @@ from lawgraph.pipelines.retrieve_commands import GAPS
 
 logger = get_logger(__name__)
 
+# Grouped on the fields of the index, so the count walks the index: as a scan of the
+# collection it read every document, and an EU act is up to 1 MB.
 _RECORDS_AQL = f"""
 FOR r IN {COLLECTION_RAW_SOURCES}
-    COLLECT kind = r.kind WITH COUNT INTO n
+    COLLECT source = r.source, kind = r.kind WITH COUNT INTO n
     FILTER NOT LIKE(kind, @missing)
     RETURN n
 """

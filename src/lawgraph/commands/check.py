@@ -109,13 +109,17 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     return report
 
 
+# Grouped on the fields of the index, so the count walks the index and reads no document.
+_RAW_COUNTS_AQL = f"""
+FOR r IN {COLLECTION_RAW_SOURCES}
+    COLLECT source = r.source, kind = r.kind WITH COUNT INTO n
+    RETURN {{source, kind, n}}
+"""
+
+
 def _raw_counts(store: ArangoStore) -> dict[tuple[str, str], int]:
-    aql = f"""
-    FOR r IN {COLLECTION_RAW_SOURCES}
-        COLLECT source = r.source, kind = r.kind WITH COUNT INTO n
-        RETURN {{source, kind, n}}
-    """
-    return {(row["source"], row["kind"]): row["n"] for row in store.query(aql)}
+    rows = store.query(_RAW_COUNTS_AQL)
+    return {(row["source"], row["kind"]): row["n"] for row in rows}
 
 
 def _check_raw(raw: dict[tuple[str, str], int], report: Report) -> None:
