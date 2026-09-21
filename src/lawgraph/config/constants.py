@@ -25,6 +25,7 @@ COLLECTION_TOPICS = "topics"
 COLLECTION_RAW_SOURCES = "raw_sources"
 COLLECTION_WATCHES = "watches"
 COLLECTION_ANNEXES = "annexes"
+COLLECTION_PIPELINE_STATE = "pipeline_state"  # until when each phase is complete
 COLLECTION_EDGES = "edges"
 
 DOCUMENT_COLLECTIONS: tuple[str, ...] = (
@@ -47,6 +48,7 @@ DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     COLLECTION_EDGE_STATUS_LOG,
     COLLECTION_WATCHES,
     COLLECTION_ANNEXES,
+    COLLECTION_PIPELINE_STATE,
 )
 
 # ── Edge status values ────────────────────────────────────────────────────────

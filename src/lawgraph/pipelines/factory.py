@@ -19,6 +19,7 @@ from lawgraph.core.logging import get_logger, log_step, setup_logging
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines.watermark import LAST
 
 logger = get_logger(__name__)
 
@@ -33,8 +34,15 @@ def add_since_argument(
     *,
     default: str | None = None,
     help: str = _SINCE_HELP,
+    last: bool = False,
 ) -> None:
-    parser.add_argument(flag, type=_since, default=_since(default), help=help)
+    """With *last* the value ``last`` is passed on as it is (see ``pipelines/watermark``)."""
+    parse = _since_or_last if last else _since
+    parser.add_argument(flag, type=parse, default=_since(default), help=help)
+
+
+def _since_or_last(value: str) -> dt.datetime | str | None:
+    return LAST if value.strip().lower() == LAST else _since(value)
 
 
 def _since(value: str | None) -> dt.datetime | None:

@@ -82,7 +82,7 @@ and exits 1 when any step failed.
 
 | Command | Options |
 |---------|---------|
-| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 6). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode to `bwb` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`) are always read in full. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn. `staatsblad` reads the stored BWB toestanden, so it starts when `bwb` has ended (and last on its server, so the others do not wait with it) |
+| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 6). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode to `bwb` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`) are always read in full. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn. `staatsblad` reads the stored BWB toestanden, so it starts when `bwb` has ended (and last on its server, so the others do not wait with it) |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` |
 | `retrieve tk-content` | `--kind` (default `toelichting`), `--dry-run` |
@@ -171,10 +171,17 @@ a date such as `--window 2015-01-01`.
 **Incremental.**
 
 ```bash
-lawgraph retrieve all --since 7d
-lawgraph normalize all --since 7d
-lawgraph semantic all --since 7d
+lawgraph retrieve all --since last
+lawgraph normalize all --since last
+lawgraph semantic all --since last
 ```
+
+`--since last` goes on where the last complete run of that command began (less the six hours
+of overlap every relative `--since` gets), so a day on which nothing ran is caught up by the
+next run. A `<phase> all` that ends without a failed or skipped step records when it began,
+in `pipeline_state`; a run whose own `--since` lies after that mark leaves a hole and does
+not move it (it says so). Before the first complete run `--since last` is refused (exit 2):
+`bootstrap`, or a run with a date such as `--since 7d`, puts one on record.
 
 Incremental `retrieve bwb` needs `BWB_IDS` or `--bwb-id`, otherwise it fetches nothing.
 Law abbreviations (`instruments.props.short_title`, used by the citation detectors) come from

@@ -44,3 +44,21 @@ class FakeResponse:
         self.content = text.encode("utf-8")
         self.headers = {"Content-Type": content_type}
         self.status_code = 200
+
+
+class PipelineStateFake:
+    """A store as ``pipelines/watermark`` sees it: the ``pipeline_state`` collection."""
+
+    def __init__(self) -> None:
+        self.state: dict[str, dict[str, Any]] = {}
+
+    def collection(self, name: str) -> PipelineStateFake:
+        assert name == "pipeline_state"
+        return self
+
+    def get(self, key: str) -> dict[str, Any] | None:
+        return self.state.get(key)
+
+    def insert(self, doc: dict[str, Any], overwrite: bool = False) -> None:
+        assert overwrite
+        self.state[doc["_key"]] = doc

@@ -238,3 +238,21 @@ def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
     assert set(incremental) <= set(full)
     missed = {key for key in set(full) - set(incremental) if full[key] in of_the_round}
     assert not missed
+
+
+def test_since_last_goes_on_where_the_last_complete_run_began(
+    database: str, cli: Any
+) -> None:
+    store = ArangoStore()
+    seed(store, documents=5, judgments=3, regulations=1)
+    refused = cli("normalize", "all", "--since", "last", check=False)
+    assert refused.returncode == 2 and "No complete `normalize all`" in refused.stderr
+
+    cli("normalize", "all")
+    mark = store.db.collection("pipeline_state").get("normalize")["covered_until"]
+    time.sleep(1.1)
+    again = cli("normalize", "all", "--since", "last")
+    assert "since the last complete run" in again.stderr
+    assert (
+        store.db.collection("pipeline_state").get("normalize")["covered_until"] > mark
+    )

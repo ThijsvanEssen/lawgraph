@@ -14,6 +14,7 @@ from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.logging import get_logger, setup_logging
 from lawgraph.core.time import parse_since
 from lawgraph.db import ArangoStore
+from lawgraph.pipelines import watermark
 from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.factory import add_since_argument, run_command
 from lawgraph.sources.registry import SOURCES, RetrieveCtx, describe
@@ -109,7 +110,7 @@ def _run_in_lanes(phase: str, steps: list[_Step], jobs: int) -> list[tuple[str, 
 
 def _run_phase(
     phase: str, steps: list[_Step], *, strict: bool = False, jobs: int = 1
-) -> None:
+) -> list[tuple[str, str]]:
     """Run *steps*, log a summary table and exit 1 when any step failed.
 
     With ``jobs > 1`` the steps run in lanes (see ``run_retrieve_all``); ``strict`` only
@@ -135,6 +136,7 @@ def _run_phase(
         logger.error("%s finished with %d failure(s).", label, len(failures))
         sys.exit(1)
     logger.info("%s completed successfully.", label)
+    return results
 
 
 def _window(value: str) -> dt.datetime | None:
@@ -151,10 +153,49 @@ def _since_argv(args: argparse.Namespace) -> list[str]:
     return ["--since", args.since.isoformat()] if args.since else []
 
 
+_LAST_HELP = " 'last' goes on where the last complete run of this command began, however long ago."
+
+
+def _run_marked(
+    phase: str,
+    args: argparse.Namespace,
+    run: Callable[[], list[tuple[str, str]]],
+    *,
+    read_since: Callable[[argparse.Namespace], dt.datetime | None] = lambda a: a.since,
+) -> None:
+    """Resolve ``--since last``, run the phase and record that it is complete.
+
+    *run* is called when ``args.since`` is a date; it exits when a step failed. A run with
+    a skipped step is not complete. *read_since* says since when the run read its sources
+    (None: all there is) when that is not ``--since``.
+    """
+    store = ArangoStore()
+    if args.since == watermark.LAST:
+        try:
+            args.since = watermark.since_last(store, phase)
+        except watermark.NothingOnRecord as exc:
+            logger.error("%s", exc)
+            sys.exit(2)
+        logger.info(
+            "%s all: since the last complete run (%s).",
+            phase,
+            args.since.isoformat(timespec="seconds"),
+        )
+    began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    results = run()
+    if all(state == "ok" for _, state in results):
+        watermark.advance(store, phase, began=began, since=read_since(args))
+
+
 def run_retrieve_all(argv: list[str] | None = None) -> None:
     setup_logging()
     parser = argparse.ArgumentParser(description="Run all retrieve pipelines.")
-    add_since_argument(parser, default="1d")
+    add_since_argument(
+        parser,
+        default="1d",
+        last=True,
+        help="Incremental mode: what changed since then (ISO date or 7d)." + _LAST_HELP,
+    )
     parser.add_argument(
         "--mode", choices=["incremental", "full"], default="incremental"
     )
@@ -180,6 +221,16 @@ def run_retrieve_all(argv: list[str] | None = None) -> None:
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
 
+    _run_marked(
+        "retrieve",
+        args,
+        lambda: _retrieve_all(args),
+        # a full load reads what changed inside the window (all of it without one)
+        read_since=lambda a: a.window if a.mode == "full" else a.since,
+    )
+
+
+def _retrieve_all(args: argparse.Namespace) -> list[tuple[str, str]]:
     ctx = RetrieveCtx(
         since=args.since.isoformat(),
         mode=args.mode,
@@ -197,24 +248,28 @@ def run_retrieve_all(argv: list[str] | None = None) -> None:
         for s in SOURCES
         if s.retrieve_main is not None and s.retrieve_argv_builder is not None
     ]
-    if args.jobs > 1:
-        # Create the database and schema once; threads that all find it missing would race.
-        ArangoStore()
-    _run_phase("retrieve", steps, jobs=args.jobs)
+    return _run_phase("retrieve", steps, jobs=args.jobs)
 
 
 def run_normalize_all(argv: list[str] | None = None) -> None:
     setup_logging()
     parser = argparse.ArgumentParser(description="Run all normalize pipelines.")
-    add_since_argument(parser)
+    add_since_argument(
+        parser,
+        last=True,
+        help="Only the raw records fetched since then (ISO date or 7d)." + _LAST_HELP,
+    )
     args = parser.parse_args(argv)
 
-    steps = [
-        _Step(s.id, s.display_name, s.normalize_main, _since_argv(args))
-        for s in SOURCES
-        if s.normalize_main is not None
-    ]
-    _run_phase("normalize", steps)
+    def run() -> list[tuple[str, str]]:
+        steps = [
+            _Step(s.id, s.display_name, s.normalize_main, _since_argv(args))
+            for s in SOURCES
+            if s.normalize_main is not None
+        ]
+        return _run_phase("normalize", steps)
+
+    _run_marked("normalize", args, run)
 
 
 def run_semantic_all(argv: list[str] | None = None) -> None:
@@ -222,21 +277,26 @@ def run_semantic_all(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Run all semantic pipelines.")
     add_since_argument(
         parser,
-        help="Passed to the pipelines that accept --since; the others run in full.",
+        last=True,
+        help="Passed to the pipelines that accept --since; the others run in full."
+        + _LAST_HELP,
     )
     parser.add_argument(
         "--strict", action="store_true", help="Stop at the first failing step."
     )
     args = parser.parse_args(argv)
 
-    steps = [
-        _Step(
-            s.id,
-            s.display_name,
-            s.semantic_main,
-            _since_argv(args) if s.semantic_accepts_since else [],
-        )
-        for s in SOURCES
-        if s.semantic_main is not None
-    ]
-    _run_phase("semantic", steps, strict=args.strict)
+    def run() -> list[tuple[str, str]]:
+        steps = [
+            _Step(
+                s.id,
+                s.display_name,
+                s.semantic_main,
+                _since_argv(args) if s.semantic_accepts_since else [],
+            )
+            for s in SOURCES
+            if s.semantic_main is not None
+        ]
+        return _run_phase("semantic", steps, strict=args.strict)
+
+    _run_marked("semantic", args, run)

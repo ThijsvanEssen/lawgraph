@@ -24,7 +24,8 @@ A node is a document `{_key, type, labels, props}`:
 
 Other collections: `raw_sources` (verbatim payloads), `watches` (saved node watches, not
 scoped to a user), `edge_status_log` (audit rows written by `ArangoStore.flip_edge_status`,
-which no pipeline calls), `topics` (schema only; nothing writes it).
+which no pipeline calls), `topics` (schema only; nothing writes it), `pipeline_state` (one
+document per phase: when its last complete `<phase> all` began, for `--since last`).
 
 ## Node types and relation catalogue
 

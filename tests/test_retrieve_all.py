@@ -18,6 +18,7 @@ from lawgraph.pipelines.orchestration import (
 )
 from lawgraph.sources import registry
 from lawgraph.sources.registry import RetrieveCtx
+from tests.fakes import PipelineStateFake
 
 WINDOW = "2024-09-20T00:00:00+00:00"
 
@@ -172,7 +173,7 @@ PRODUCING = ("tk", "rechtspraak", "staatscourant", "eerstekamer", "echr")
 def test_the_window_reaches_the_sources_that_keep_producing(
     monkeypatch, recorded
 ) -> None:
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
+    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
     run_retrieve_all(["--mode", "full", "--window", "2024-09-20"])
     for source in PRODUCING:
         assert recorded[source] == ["--mode", "incremental", "--since", WINDOW], source
@@ -183,7 +184,7 @@ def test_the_window_reaches_the_sources_that_keep_producing(
 def test_reference_sources_are_read_in_full_whatever_the_window(
     monkeypatch, recorded
 ) -> None:
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
+    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
     run_retrieve_all(["--mode", "full", "--window", "2024-09-20"])
     assert recorded["bwb"] == ["--mode", "full"]
     assert WINDOW not in recorded["verdragenbank"]
@@ -191,7 +192,7 @@ def test_reference_sources_are_read_in_full_whatever_the_window(
 
 
 def test_window_all_loads_the_whole_history(monkeypatch, recorded) -> None:
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
+    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
     run_retrieve_all(["--mode", "full", "--window", "all"])
     for source in PRODUCING:
         assert recorded[source][:2] == ["--mode", "full"], source
@@ -201,7 +202,7 @@ def test_window_all_loads_the_whole_history(monkeypatch, recorded) -> None:
 def test_without_a_window_a_full_load_reads_two_years(monkeypatch, recorded) -> None:
     import datetime as dt
 
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
+    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
     run_retrieve_all(["--mode", "full"])
     since = dt.datetime.fromisoformat(recorded["tk"][3])
     age = dt.datetime.now(dt.timezone.utc) - since
@@ -209,7 +210,7 @@ def test_without_a_window_a_full_load_reads_two_years(monkeypatch, recorded) -> 
 
 
 def test_an_incremental_run_ignores_the_window(monkeypatch, recorded) -> None:
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: object())
+    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
     run_retrieve_all(["--since", "7d", "--window", "2024-09-20"])
     assert recorded["staatscourant"][:3] == ["--mode", "incremental", "--since"]
     assert WINDOW not in recorded["staatscourant"]
@@ -223,7 +224,12 @@ def test_a_bad_window_is_rejected() -> None:
 
 def test_the_schema_is_created_once_before_the_threads_start(monkeypatch) -> None:
     events: list[str] = []
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: events.append("store"))
+
+    def store() -> PipelineStateFake:
+        events.append("store")
+        return PipelineStateFake()
+
+    monkeypatch.setattr(orchestration, "ArangoStore", store)
     sources = [
         dataclasses.replace(s, retrieve_main=lambda argv: events.append("step"))
         if s.retrieve_main is not None
@@ -232,18 +238,9 @@ def test_the_schema_is_created_once_before_the_threads_start(monkeypatch) -> Non
     ]
     monkeypatch.setattr(orchestration, "SOURCES", sources)
     run_retrieve_all(["--jobs", "3"])
-    assert events[0] == "store"
+    assert events[0] == "store"  # the store of the watermark: before any lane starts
     assert events.count("store") == 1
     assert "step" in events
-
-
-def test_one_job_needs_no_upfront_store(monkeypatch, recorded) -> None:
-    def no_store() -> None:
-        raise AssertionError("the sequential run opens its own stores")
-
-    monkeypatch.setattr(orchestration, "ArangoStore", no_store)
-    run_retrieve_all(["--jobs", "1"])
-    assert recorded
 
 
 def test_jobs_must_be_positive() -> None:
