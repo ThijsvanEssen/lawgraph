@@ -78,7 +78,16 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     props = instrument_props(
                         toestand, bwb_id, celex_refs=find_celex_ids(payload_text)
                     )
-                    instrument = self._upsert_instrument(bwb_id, props)
+                    # Through the writer, like the articles: one request per regulation
+                    # was 42,000 round trips, and a write also when nothing changed.
+                    instrument = Node(
+                        collection=COLLECTION_INSTRUMENTS,
+                        type=NodeType.INSTRUMENT,
+                        key=make_node_key(bwb_id),
+                        labels=["BWB"],
+                        props=props,
+                    )
+                    writer.add(instrument)
                     instruments_by_bwb[bwb_id] = instrument
 
                 for article in toestand.articles:
@@ -189,14 +198,3 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             sum(1 for row in rows if row["short_title"]),
             changed,
         )
-
-    def _upsert_instrument(self, bwb_id: str, props: dict[str, Any]) -> Node:
-        node = Node(
-            collection=COLLECTION_INSTRUMENTS,
-            type=NodeType.INSTRUMENT,
-            key=make_node_key(bwb_id),
-            labels=["BWB"],
-            props=props,
-        )
-        instrument, _ = self.store.insert_or_update(node)
-        return instrument
