@@ -49,17 +49,20 @@ def edge_key(from_id: str, relation: str, to_id: str) -> str:
 # are merged one level deep here, and the statements say ``mergeObjects: false``: an UPDATE
 # merges nested objects by default, which kept every key a nested value ever had (a vote
 # tally showed the choice nobody made any more next to the one they changed it to).
+#
+# ``{old}`` is the stored document: ``OLD`` in the UPDATE, and the document looked up before
+# it in the bulk upsert, which leaves a document alone when the update would change nothing.
 _NODE_UPSERT_UPDATE = """
     type: doc.type,
-    labels: UNIQUE(APPEND(OLD.labels, doc.labels)),
-    props: MERGE(OLD.props, doc.props)
+    labels: UNIQUE(APPEND({old}.labels, doc.labels)),
+    props: MERGE({old}.props, doc.props)
 """
 
 _EDGE_UPSERT_UPDATE = """
     confidence: doc.confidence,
     source: doc.source,
     status: doc.status,
-    meta: MERGE(OLD.meta, doc.meta)
+    meta: MERGE({old}.meta, doc.meta)
 """
 
 
@@ -327,6 +330,11 @@ class ArangoStore:
         Returns (created_count, updated_count). The *update_clause* string is
         interpolated verbatim — callers must pass one of the module-level
         ``_NODE_UPSERT_UPDATE`` or ``_EDGE_UPSERT_UPDATE`` constants.
+
+        A document the update would not change is not written and not counted: a run over
+        records that did not change costs a lookup per document, not a write, a WAL entry
+        and a pass of the search view (measured: `normalize tk-dossiers` over 40,000 votes
+        a second time, 27 s -> 8.5 s).
         """
         if not docs:
             return 0, 0
@@ -334,12 +342,16 @@ class ArangoStore:
         if collection not in DOCUMENT_COLLECTIONS and collection != COLLECTION_EDGES:
             raise ValueError(f"Unknown collection: {collection!r}")
 
+        unchanged = update_clause.format(old="stored")
+        update = update_clause.format(old="OLD")
         aql = f"""
         LET results = (
             FOR doc IN @docs
+                LET stored = DOCUMENT({collection}, doc._key)
+                FILTER stored == null OR NOT MATCHES(stored, {{{unchanged}}})
                 UPSERT {{_key: doc._key}}
                 INSERT doc
-                UPDATE {{{update_clause}}}
+                UPDATE {{{update}}}
                 IN {collection} OPTIONS {{ mergeObjects: false }}
                 RETURN {{was_new: OLD == null}}
         )

@@ -17,12 +17,14 @@ from lawgraph.core.models import Node
 
 @dataclass
 class WriteCounts:
-    """Nodes and edges a store created or updated."""
+    """Nodes and edges a store created, updated or found to be what was written."""
 
     nodes_created: int = 0
     nodes_updated: int = 0
+    nodes_unchanged: int = 0
     edges_created: int = 0
     edges_updated: int = 0
+    edges_unchanged: int = 0
 
     @property
     def created(self) -> int:
@@ -34,8 +36,10 @@ class WriteCounts:
 
     def describe(self) -> str:
         return (
-            f"nodes {self.nodes_created} created / {self.nodes_updated} updated, "
-            f"edges {self.edges_created} created / {self.edges_updated} updated"
+            f"nodes {self.nodes_created:,} created / {self.nodes_updated:,} updated / "
+            f"{self.nodes_unchanged:,} unchanged, "
+            f"edges {self.edges_created:,} created / {self.edges_updated:,} updated / "
+            f"{self.edges_unchanged:,} unchanged"
         )
 
 
@@ -66,6 +70,7 @@ class CountingStore:
         created, updated = self._store.bulk_insert_or_update_nodes(collection, docs)
         self.writes.nodes_created += created
         self.writes.nodes_updated += updated
+        self.writes.nodes_unchanged += max(0, len(docs) - created - updated)
         return created, updated
 
     def bulk_insert_or_update_edges(
@@ -74,4 +79,5 @@ class CountingStore:
         created, updated = self._store.bulk_insert_or_update_edges(docs)
         self.writes.edges_created += created
         self.writes.edges_updated += updated
+        self.writes.edges_unchanged += max(0, len(docs) - created - updated)
         return created, updated

@@ -254,7 +254,8 @@ re-run (upserts, so only time is repeated).
   of `retrieve all` are marked.
 - Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors) and its
   duration; errors are listed and set exit code 1. Orchestrators print a per-step summary table
-  at the end.
+  at the end. A node or edge that a run would write as it already is, is not written: it is
+  counted as `unchanged`, so `updated` is what really changed.
 - Progress (`core/progress.py`, used by every pipeline of every phase; a test enforces it): no
   line per record. In a terminal every running step has one line at the bottom,
   `[retrieve rechtspraak] 12,400 / 34,593 (36%) judgments · 4.9/s · ~1h12m left · 3 skipped ·
