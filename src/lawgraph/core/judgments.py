@@ -203,10 +203,13 @@ class IndexEntry:
 def parse_index(xml_text: str) -> tuple[int | None, list[IndexEntry]]:
     """``(total, entries)`` of an Atom index page; the total is what the search matched.
 
-    Raises ``ET.ParseError`` on a page that is not XML: an index that cannot be read must
-    not look like an empty one.
+    Raises on a page that is not XML (``ET.ParseError``) or not a feed (``ValueError``; a
+    maintenance page can be well-formed): an index that cannot be read must not look like
+    an empty one.
     """
     root = ET.fromstring(xml_text)
+    if local_name(root.tag) != "feed":
+        raise ValueError(f"not an Atom feed: the page is a <{local_name(root.tag)}>")
     total: int | None = None
     entries: list[IndexEntry] = []
     for child in root:

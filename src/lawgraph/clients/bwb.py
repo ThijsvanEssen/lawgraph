@@ -7,7 +7,7 @@ from typing import Callable, TypedDict
 
 from requests import Session
 
-from lawgraph.clients._sru import number_of_records, raise_on_diagnostic
+from lawgraph.clients._sru import number_of_records, parse_response
 from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
@@ -99,8 +99,9 @@ class BWBClient(BaseClient):
             resp = self._get_raw_absolute_with_retry(
                 BWB_SRU_ENDPOINT, params=params, timeout=120
             )
-            root = ET.fromstring(resp.content)
-            raise_on_diagnostic(root, context=f"BWB type={doc_type} start={start}")
+            root = parse_response(
+                resp.content, context=f"BWB type={doc_type} start={start}"
+            )
             if start > number_of_records(root) or any(
                 local_name(e.tag) == "record" for e in root.iter()
             ):
@@ -212,8 +213,7 @@ class BWBClient(BaseClient):
             BWB_SRU_ENDPOINT, params=params, timeout=30
         )
 
-        root = ET.fromstring(resp.content)
-        raise_on_diagnostic(root, context=f"BWB toestanden of {bwb_id}")
+        root = parse_response(resp.content, context=f"BWB toestanden of {bwb_id}")
         total = number_of_records(root)
         if total > 500:
             # One page of 500 is asked for; more toestanden than that would be cut silently.

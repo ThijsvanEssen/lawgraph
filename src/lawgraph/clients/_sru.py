@@ -20,11 +20,14 @@ _IDENTIFIER_RE = re.compile(r"[\w.-]+")
 SRU_PAGE_SIZE = 100
 
 
-def raise_on_diagnostic(root: ET.Element, *, context: str) -> None:
-    """Raise when an SRU response is a ``<diagnostic>`` error, not a result page.
+def parse_response(content: bytes, *, context: str) -> ET.Element:
+    """The root of an SRU result page; raises when *content* is anything else.
 
-    Without this an unsupported index or a bad query looks like a search with no results.
+    A maintenance page sent with HTTP 200 can be well-formed XML, and an unsupported index
+    or a bad query answers a ``<diagnostic>``: both would look like a search with no results.
+    *content* is bytes: the parser reads the encoding the document declares.
     """
+    root = ET.fromstring(content)
     for element in root.iter():
         if local_name(element.tag) == "diagnostic":
             message = next(
@@ -36,6 +39,12 @@ def raise_on_diagnostic(root: ET.Element, *, context: str) -> None:
                 "unknown SRU error",
             )
             raise RuntimeError(f"SRU error ({context}): {message}")
+    # After the diagnostics: BWB answers an error as a bare <diagnostics>.
+    if local_name(root.tag) != "searchRetrieveResponse":
+        raise RuntimeError(
+            f"not an SRU response ({context}): the page is a <{local_name(root.tag)}>"
+        )
+    return root
 
 
 def number_of_records(root: ET.Element) -> int:
@@ -97,10 +106,7 @@ def iter_publications(
         if connection:
             params["x-connection"] = connection
         resp = client._get_raw_absolute_with_retry(endpoint, params=params, timeout=60)
-        root = ET.fromstring(
-            resp.content
-        )  # bytes: the parser reads the declared encoding
-        raise_on_diagnostic(root, context=f"{context} after {last}")
+        root = parse_response(resp.content, context=f"{context} after {last}")
 
         if total is None:
             total = number_of_records(root)

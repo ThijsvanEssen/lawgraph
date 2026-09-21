@@ -49,6 +49,13 @@ def test_an_index_that_is_not_xml_raises() -> None:
         parse_index("<html>Bad gateway")
 
 
+def test_a_page_that_is_no_feed_is_not_an_empty_index() -> None:
+    """A maintenance page sent with HTTP 200 can be well-formed; it holds no entries."""
+    page = '<html xmlns="http://www.w3.org/1999/xhtml"><body>Onderhoud</body></html>'
+    with pytest.raises(ValueError, match="not an Atom feed.*<html>"):
+        parse_index(page)
+
+
 # ── the client ───────────────────────────────────────────────────────────────
 
 

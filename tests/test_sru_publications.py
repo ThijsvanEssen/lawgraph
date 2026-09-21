@@ -102,6 +102,28 @@ def test_an_sru_error_raises_instead_of_an_empty_result(cls, search) -> None:
         getattr(client, search)()
 
 
+# A page a proxy sends with HTTP 200: well-formed, so it parses, and it holds no records.
+MAINTENANCE_PAGE = (
+    '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Onderhoud</title></head>'
+    "<body><p>De dienst is tijdelijk niet beschikbaar.</p></body></html>"
+)
+
+
+@pytest.mark.parametrize(
+    ("cls", "search"),
+    [
+        (StaatsbladClient, "search_amvbs"),
+        (StaatscourantClient, "search_ministeriele_regelingen"),
+    ],
+)
+def test_a_page_that_is_no_sru_response_raises_instead_of_an_empty_result(
+    cls, search
+) -> None:
+    client = _client(cls, [MAINTENANCE_PAGE], [])
+    with pytest.raises(RuntimeError, match="not an SRU response.*<html>"):
+        getattr(client, search)()
+
+
 @pytest.mark.parametrize(
     ("cls", "search"),
     [
