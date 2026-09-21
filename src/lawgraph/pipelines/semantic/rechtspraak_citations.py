@@ -41,7 +41,6 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
 
         ecli_to_id = self._resolve_eclis(all_cited_eclis)
         self._emit_edges(pending, ecli_to_id, result)
-        logger.info("Judgment citation linker: %s.", result.summary())
         return result
 
     def _collect_references(

@@ -34,7 +34,6 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         self._link_articles(result, self._annex_keys())
-        logger.info("Annex links: %s.", result.summary())
         return result
 
     def _annex_keys(self) -> set[str]:

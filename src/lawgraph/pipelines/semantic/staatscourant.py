@@ -159,7 +159,6 @@ FOR pub IN {COLLECTION_DOCUMENTS}
             )
 
         edges.flush_into(result)
-        logger.info("Staatscourant regeling semantic: %s.", result.summary())
         return result
 
     def _text_scan_match(

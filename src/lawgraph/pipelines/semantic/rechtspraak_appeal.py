@@ -62,7 +62,6 @@ FOR j IN {COLLECTION_JUDGMENTS}
         self._link_appeals(appeal_rows, ecli_to_id, edges)
         edges.flush_into(result)
 
-        logger.info("Judgment appeal linker: %s.", result.summary())
         return result
 
     def _filter_appeal_rows(

@@ -69,11 +69,7 @@ class BWBRelationTypesSemanticPipeline(SemanticPipelineBase):
         if batch:
             result.updated += self._flush_updates(batch, result)
 
-        logger.info(
-            "Relation semantics: %d edges classified, %s.",
-            classified,
-            result.summary(),
-        )
+        logger.info("%d edges classified.", classified)
         return result
 
     def _load_articles_with_edges(self) -> Any:

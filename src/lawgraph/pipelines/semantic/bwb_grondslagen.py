@@ -62,7 +62,6 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
         for chunk in chunked(self._track(rows, "regulations with a basis"), _CHUNK):
             self._link_chunk(chunk, edges, result)
         edges.flush_into(result)
-        logger.info("BWB grondslagen: %s.", result.summary())
         return result
 
     def _link_chunk(

@@ -110,7 +110,6 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
 
         edges.flush_into(result)
 
-        logger.info("AMENDS: %s.", result.summary())
         return result
 
     def _load_tk_documents(self, since: dt.datetime | None = None) -> Iterable[Node]:

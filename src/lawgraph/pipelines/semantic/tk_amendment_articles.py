@@ -147,11 +147,9 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         )
 
         edges = EdgeWriter(self.store, what=None)
-        doc_count = 0
 
         documents = self._load_tk_documents(amends_index)
         for document in self._track(documents, "TK documents"):
-            doc_count += 1
             bwb_ids = self._resolve_bwb_ids(document, amends_index)
             if not bwb_ids:
                 logger.debug(
@@ -200,11 +198,6 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
 
         edges.flush_into(result)
 
-        logger.info(
-            "Amendment article linker: processed %d documents, %s.",
-            doc_count,
-            result.summary(),
-        )
         return result
 
     def _load_tk_documents(self, amends_index: dict[str, list[str]]) -> Iterable[Node]:

@@ -89,5 +89,4 @@ FOR document IN {COLLECTION_DOCUMENTS}
             )
 
         edges.flush_into(result)
-        logger.info("EK dossier link: %s.", result.summary())
         return result

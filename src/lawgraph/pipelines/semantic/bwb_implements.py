@@ -59,7 +59,6 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
 
         edges.flush_into(result)
 
-        logger.info("IMPLEMENTS: %s.", result.summary())
         return result
 
     def _load_celex_references(self) -> Iterable[tuple[str, list[str]]]:

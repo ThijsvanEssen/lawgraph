@@ -119,11 +119,9 @@ class TKSemanticPipeline(SemanticPipelineBase):
         )
 
         edges = EdgeWriter(self.store, what=None)
-        doc_count = 0
 
         documents = self._load_tk_documents(since_iso=since_iso)
         for document in self._track(documents, "TK documents"):
-            doc_count += 1
             text = self._extract_document_text(document)
             if not text:
                 result.skipped += 1
@@ -160,11 +158,6 @@ class TKSemanticPipeline(SemanticPipelineBase):
 
         edges.flush_into(result)
 
-        logger.info(
-            "TK semantic article linker: processed %d documents, %s.",
-            doc_count,
-            result.summary(),
-        )
         return result
 
     def _load_tk_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:

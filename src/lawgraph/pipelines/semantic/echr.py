@@ -241,5 +241,4 @@ FOR inst IN {COLLECTION_INSTRUMENTS}
         self._link_bwb_mentions(result, rows, bwb_id_to_node, edges)
         edges.flush_into(result)
 
-        logger.info("ECHR citations: %s.", result.summary())
         return result

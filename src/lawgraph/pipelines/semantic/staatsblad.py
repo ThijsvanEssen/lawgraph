@@ -135,5 +135,4 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
             )
 
         edges.flush_into(result)
-        logger.info("Staatsblad NvT semantic linker: %s.", result.summary())
         return result
