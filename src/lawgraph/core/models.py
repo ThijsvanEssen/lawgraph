@@ -35,6 +35,7 @@ class PipelineResult:
 
     created: int = 0
     updated: int = 0
+    unchanged: int = 0  # written as it already was: looked up, left alone
     skipped: int = 0
     errors: list[str] = field(default_factory=list)
 
@@ -45,18 +46,20 @@ class PipelineResult:
         return PipelineResult(
             created=self.created + other.created,
             updated=self.updated + other.updated,
+            unchanged=self.unchanged + other.unchanged,
             skipped=self.skipped + other.skipped,
             errors=[*self.errors, *other.errors],
         )
 
     def summary(self) -> str:
         parts: list[str] = []
-        if self.created:
-            parts.append(f"{self.created} created")
-        if self.updated:
-            parts.append(f"{self.updated} updated")
-        if self.skipped:
-            parts.append(f"{self.skipped} skipped")
+        counts = (
+            ("created", self.created),
+            ("updated", self.updated),
+            ("unchanged", self.unchanged),
+            ("skipped", self.skipped),
+        )
+        parts.extend(f"{count:,} {what}" for what, count in counts if count)
         if self.errors:
             parts.append(f"{len(self.errors)} errors")
         return ", ".join(parts) if parts else "nothing to do"

@@ -87,6 +87,7 @@ def combined(outcomes: Iterable[Outcome]) -> PipelineResult:
     for outcome in outcomes:
         total.created += outcome.result.created
         total.updated += outcome.result.updated
+        total.unchanged += outcome.result.unchanged
         total.skipped += outcome.result.skipped
         if outcome.state is State.FAILED:
             total.add_error(f"{outcome.label} failed")

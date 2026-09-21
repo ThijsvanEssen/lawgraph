@@ -76,6 +76,7 @@ class EdgeWriter:
         self.added = 0
         self.created = 0
         self.updated = 0
+        self.unchanged = 0
 
     def add(
         self,
@@ -112,10 +113,12 @@ class EdgeWriter:
             raise
         self.created += created
         self.updated += updated
+        self.unchanged += max(0, len(batch) - created - updated)
         return created, updated
 
     def flush_into(self, result: PipelineResult) -> None:
-        """Write what is queued and add what this writer created and updated to *result*.
+        """Write what is queued and add what this writer created, updated and found
+        unchanged to *result*.
 
         The one way a pipeline ends its edges: nothing is counted by hand, so nothing can
         be forgotten (the annex edges were written and never counted).
@@ -123,7 +126,8 @@ class EdgeWriter:
         self.flush()
         result.created += self.created
         result.updated += self.updated
-        self.created = self.updated = 0
+        result.unchanged += self.unchanged
+        self.created = self.updated = self.unchanged = 0
 
     def __enter__(self) -> EdgeWriter:
         return self

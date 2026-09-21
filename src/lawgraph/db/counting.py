@@ -35,6 +35,10 @@ class WriteCounts:
     def updated(self) -> int:
         return self.nodes_updated + self.edges_updated
 
+    @property
+    def unchanged(self) -> int:
+        return self.nodes_unchanged + self.edges_unchanged
+
     def describe(self) -> str:
         return (
             f"nodes {self.nodes_created:,} created / {self.nodes_updated:,} updated / "
