@@ -45,7 +45,10 @@ def edge_key(from_id: str, relation: str, to_id: str) -> str:
     return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
 
 
-# AQL templates shared between single-doc and batch upsert methods.
+# AQL templates shared between single-doc and batch upsert methods. ``props`` and ``meta``
+# are merged one level deep here, and the statements say ``mergeObjects: false``: an UPDATE
+# merges nested objects by default, which kept every key a nested value ever had (a vote
+# tally showed the choice nobody made any more next to the one they changed it to).
 _NODE_UPSERT_UPDATE = """
     type: doc.type,
     labels: UNIQUE(APPEND(OLD.labels, doc.labels)),
@@ -293,7 +296,7 @@ class ArangoStore:
             labels: UNIQUE(APPEND(OLD.labels, @labels)),
             props: MERGE(OLD.props, @props)
         }}
-        IN {node.collection}
+        IN {node.collection} OPTIONS {{ mergeObjects: false }}
         RETURN {{doc: NEW, was_new: OLD == null}}
         """
         bind_vars: dict[str, Any] = {
@@ -337,7 +340,7 @@ class ArangoStore:
                 UPSERT {{_key: doc._key}}
                 INSERT doc
                 UPDATE {{{update_clause}}}
-                IN {collection}
+                IN {collection} OPTIONS {{ mergeObjects: false }}
                 RETURN {{was_new: OLD == null}}
         )
         RETURN {{
