@@ -55,6 +55,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
 | `LAWGRAPH_CURATION_API_KEY` | unset | enables `POST /api/relationships/tag` |
+| `LAWGRAPH_WRITE_API_KEY` | unset | enables the watch endpoints and the relationship vote (`X-Write-Key`); unset answers 503 |
 
 ### Logging and tests
 

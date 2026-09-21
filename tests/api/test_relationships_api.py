@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.config.constants import RELATION_SCOPED_BY
 
 client = TestClient(app)
+WRITE_KEY = {"X-Write-Key": "secret"}
+
+
+@pytest.fixture(autouse=True)
+def _a_configured_write_key(monkeypatch) -> None:
+    monkeypatch.setenv("LAWGRAPH_WRITE_API_KEY", "secret")
+
 
 _SOURCE_ARTICLE = {
     "_id": "articles/bwbr0001854_287",
@@ -209,7 +217,9 @@ def test_vote_updates_counters(monkeypatch):
             "community_upvotes": 4,
         },
     )
-    response = client.post("/api/relationships/abc123/vote", json={"vote": "upvote"})
+    response = client.post(
+        "/api/relationships/abc123/vote", json={"vote": "upvote"}, headers=WRITE_KEY
+    )
     assert response.status_code == 200
     payload = response.json()
     assert payload["community_votes"] == {"upvotes": 4, "downvotes": 1}
@@ -220,10 +230,14 @@ def test_vote_unknown_edge_404(monkeypatch):
         "lawgraph.api.routes.relationships.vote_relationship",
         lambda store, edge_id, vote: None,
     )
-    response = client.post("/api/relationships/nope/vote", json={"vote": "upvote"})
+    response = client.post(
+        "/api/relationships/nope/vote", json={"vote": "upvote"}, headers=WRITE_KEY
+    )
     assert response.status_code == 404
 
 
 def test_vote_invalid_value_422():
-    response = client.post("/api/relationships/abc123/vote", json={"vote": "sideways"})
+    response = client.post(
+        "/api/relationships/abc123/vote", json={"vote": "sideways"}, headers=WRITE_KEY
+    )
     assert response.status_code == 422

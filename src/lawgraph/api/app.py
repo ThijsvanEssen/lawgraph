@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response as StarletteResponse
 
-from lawgraph.api.dependencies import get_store
+from lawgraph.api.dependencies import get_store, refuse_open_writes
 from lawgraph.api.routes import (
     annexes,
     articles,
@@ -212,6 +212,7 @@ for _name, _router in (
     ("parliament", parliament.router),
 ):
     app.include_router(_router, prefix=f"/api/{_name}", tags=[_name])
+refuse_open_writes(app)  # a route that writes without asking for a key stops the start
 
 
 @app.middleware("http")

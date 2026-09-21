@@ -130,8 +130,17 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 
 ## Authentication
 
-Reads are public. `POST /api/relationships/tag` requires the header `X-Curation-Key` equal to
-`LAWGRAPH_CURATION_API_KEY` (compared in constant time); without that variable the endpoint
-answers 503, with a wrong key 401. One shared key is the only mechanism: there are no users
-or roles. `POST /api/relationships/{edge_id}/vote` and the watch endpoints need no
-credential.
+Reads are public. Every route that writes asks for a shared key, compared in constant time:
+
+| Header | Variable | Routes |
+|--------|----------|--------|
+| `X-Write-Key` | `LAWGRAPH_WRITE_API_KEY` | `POST` and `DELETE` on `/api/watches`, `POST /api/relationships/{edge_id}/vote` |
+| `X-Curation-Key` | `LAWGRAPH_CURATION_API_KEY` | `POST /api/relationships/tag` |
+
+Without the variable the routes answer 503 (an API nobody configured writes nothing), with a
+missing or wrong key 401. `refuse_open_writes` (`api/dependencies.py`) runs when the app is
+built and stops it when a route that writes asks for neither key.
+
+The keys are for a server to send. A browser app cannot keep one: it calls a route of its own
+server, which holds the key and passes the request on. There are no users or roles, so a vote
+is not tied to a person and a watch list is one list for the deployment.
