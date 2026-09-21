@@ -264,3 +264,28 @@ def test_a_body_is_decoded_by_its_own_declaration_not_by_the_fallback_of_request
         response("<a>één</a>".encode(), "text/html")
     )  # no declaration
     assert "één" in response_text(response(latin, "text/xml; charset=ISO-8859-1"))
+
+
+def test_a_case_is_asked_for_with_the_dossier_it_belongs_to() -> None:
+    """The normalizer reads the dossier number from ``Zaak.Kamerstukdossier``, and the
+    request never asked for it: in the rebuild of 2026-09-20 none of 83,100 cases carried a
+    dossier number and "Linked 0 cases to dossiers" was an INFO line."""
+    import datetime as dt
+
+    from lawgraph.clients.tk import TKClient
+    from lawgraph.core import tk_records
+
+    asked: list[dict] = []
+    client = TKClient.__new__(TKClient)
+
+    def paged_get(entity: str, params: dict | None = None):
+        asked.append({"entity": entity, **(params or {})})
+        return iter([{"Id": "z-1", "Kamerstukdossier": [{"Nummer": 36590}]}])
+
+    client._paged_get = paged_get  # type: ignore[method-assign]
+    cases = list(client.zaken_modified_since(dt.datetime(2025, 1, 1), top=None))
+
+    assert asked[0]["entity"] == "Zaak"
+    assert asked[0]["$expand"].startswith("Kamerstukdossier(")
+    assert "Nummer" in asked[0]["$expand"]
+    assert tk_records.dossier_numbers(cases) == ["36590"]

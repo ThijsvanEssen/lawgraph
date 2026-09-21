@@ -91,7 +91,11 @@ class TKClient(BaseClient):
         odata_filter = f"ApiGewijzigdOp ge {since_string}"
         if keywords and keyword_fields:
             odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
-        params: dict[str, Any] = {"$filter": odata_filter}
+        params: dict[str, Any] = {
+            "$filter": odata_filter,
+            # What `normalize tk` reads the dossier numbers of a case from.
+            "$expand": "Kamerstukdossier($select=Id,Nummer,Toevoeging)",
+        }
         if top is not None:
             params["$top"] = top
         logger.info("Fetching Zaak modified since %s", since_string)

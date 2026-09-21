@@ -182,3 +182,19 @@ def test_check_says_when_a_regulation_lacks_what_the_semantic_steps_read(
     problems = [p for p in check(store, edges=False).problems if "basis" in p]
     assert problems and "1 BWB regulations" in problems[0]
     assert "normalize bwb" in problems[0]
+
+
+def test_check_says_when_no_case_names_a_dossier(database: str, cli: Any) -> None:
+    store = ArangoStore()
+    seed(
+        store, documents=10, judgments=0, regulations=0
+    )  # the seeded cases name theirs
+    cli("normalize", "tk")
+    assert not [p for p in check(store, edges=False).problems if "names a dossier" in p]
+
+    store.query(
+        "FOR c IN cases UPDATE c WITH {props: {dossier_numbers: []}} IN cases "
+        "OPTIONS {mergeObjects: true}"
+    )
+    problems = [p for p in check(store, edges=False).problems if "names a dossier" in p]
+    assert problems and "retrieve tk" in problems[0]
