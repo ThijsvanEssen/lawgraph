@@ -113,7 +113,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
         )
 
         seen: set[tuple[str, str]] = set()
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         for row in rows:
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")

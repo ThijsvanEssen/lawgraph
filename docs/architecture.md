@@ -18,7 +18,7 @@ external source ──retrieve──▶ raw_sources ──normalize──▶ nod
 Contract shared by all pipelines:
 
 - `run(...) -> PipelineResult` with `created`, `updated`, `skipped`, `errors`.
-- Errors on one record are logged and counted; the run continues. A failure of the whole step
+- Errors on one record are logged and counted; the run continues. A failure of the whole pipeline
   is recorded in `errors`, and the CLI exits with code 1 when `errors` is non-empty.
 - Normalize pipelines implement `fetch_raw` -> `normalize_nodes` -> `build_edges`
   (`NormalizePipelineBase`). They do not count their writes: the base class hands them a
@@ -26,21 +26,44 @@ Contract shared by all pipelines:
   counts the store returns from `bulk_insert_or_update_nodes`, `bulk_insert_or_update_edges`
   and `insert_or_update`. That covers `NodeWriter`, `EdgeWriter`, direct store calls and
   helpers that only receive `store`. `run` adds the tally (nodes plus edges) to `created`
-  and `updated`, also when the step failed halfway, and logs the node/edge breakdown. A
+  and `updated`, also when the pipeline failed halfway, and logs the node/edge breakdown. A
   pipeline only records what the store cannot see: `result.skipped` and `result.add_error`.
   Retrieve pipelines extend `RetrievePipelineBase` (`fetch` returns
   `RetrieveRecord`s that are stored) or override `run`. Semantic pipelines implement `run` on
   `SemanticPipelineBase`.
 - Removed upstream records are not deleted from the graph.
 
-## Source registry and CLI dispatch
+## Phases, sources, pipelines and their address
 
-`sources/registry.py` holds one `SourceDescriptor` per source with its retrieve, normalize and
-semantic entry points. It is the only place that defines CLI commands and their order; the
-skip variable of a step is derived from its phase and source id:
+A **phase** is `retrieve`, `normalize` or `semantic`. A **source** is where records come from
+(`SOURCES` in `sources/registry.py`; `graph` is what works on the whole graph). A **pipeline**
+is one unit of work in one phase for one source, and it has an address:
 
-- `lawgraph <phase> <source>` (`__main__.py`) builds its dispatch table from the registry;
-  a source id `tk_dossiers` becomes the command `tk-dossiers`.
+```
+<phase> <source>[-<part>]                 normalize tk-dossiers
+lawgraph normalize tk-dossiers            what one types
+[normalize tk-dossiers]                   the label of its log lines, its row in the table
+pipelines/normalize/tk_dossiers.py        its module
+TKDossiersNormalizePipeline               its class
+LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS       its skip variable
+```
+
+The main pipeline of a source has no part (`normalize bwb`). A pipeline that links two
+sources belongs to the one its edges start at, the text that is read (`semantic tk-mvt`,
+`semantic bwb-implements`). A module of a phase package that is no pipeline starts with an
+underscore, so every other file in the directory is an address.
+
+The address is written nowhere: the registry reads it from the module of the class (or, for
+retrieve, from the name of the command function `retrieve_<source>[_<part>]`) and refuses, at
+import, a class whose name does not follow. The registry lists the pipelines per phase in the
+order `<phase> all` runs them; one that reads edges written by another comes after it.
+`lawgraph sources` prints every pipeline under its source.
+
+Conventions are enforced where that is possible, in this order of preference: derived (the
+address), typed (`Phase`, `Store`, a required `EdgeWriter(what=...)`; mypy is a check of CI),
+linted (`sys.exit` and `setup_logging` outside the entry points are banned in
+`pyproject.toml`), and tested (`tests/test_conventions.py`) for what is left.
+
 - A **command** is a function `(argv) -> PipelineResult` (`pipelines/command.py`): it parses
   its options, does its work and returns what it did. Normalize and semantic commands are made
   from a pipeline class by `PipelineCommand`, which reads from the `run` of the pipeline
@@ -51,29 +74,31 @@ skip variable of a step is derived from its phase and source id:
   `__main__` for what was typed and by a composite command for its parts. `run_command` is the
   one place that sets the log context, writes one line to start and one to end, measures the
   time and turns an exception or a result with errors into a failed `Outcome`. The label is
-  what one types (`normalize bwb`) and is the name of the step everywhere.
-- A **step** is one phase of one source (`pipelines/orchestration.py`). The names say what
-  they take, each built on the one before: `run_step(step)` runs one (or skips it),
-  `run_steps(steps)` a list in registry order (in lanes for retrieve) with a table of how
-  each ended, going on after a failure unless `--strict`, and `_run_phase(phase, ...)` the
-  steps of a whole phase with the mark of `--since last`; `retrieve_all`, `normalize_all` and
-  `semantic_all` are the commands on top. The result of a composite command is the sum of
-  its parts, with one error per failed part (`combined_result`).
+  the address of the pipeline (`normalize bwb`), or the name of the command (`bootstrap`).
+- `<phase> all` (`pipelines/orchestration.py`) runs the pipelines of a phase. The names say
+  what they take, each built on the one before: `run_pipeline(pipeline, argv)` runs one (or
+  skips it), `run_pipelines(pipelines, argv_of)` a list in registry order (in lanes for
+  retrieve) with a table of how each ended, going on after a failure unless `--strict`, and
+  `_run_phase(phase, ...)` all pipelines of a phase with the mark of `--since last`;
+  `retrieve_all`, `normalize_all` and `semantic_all` are the commands on top. The result of a
+  composite command is the sum of its parts, with one error per failed part
+  (`combined_result`).
 - A pipeline catches what it can deal with itself: one record of many that cannot be read
   or fetched is left out, counted and named once (`Progress`, `result.skipped`). A query or
-  a write that fails is not that: it raises, and `run_command` ends the step as failed with the
+  a write that fails is not that: it raises, and `run_command` ends the pipeline as failed with the
   error. No pipeline turns a failed query into a run over half the data.
 - Only `__main__` sets up logging and ends the process: exit code 0, 1 when the command
   failed, 2 for a command line that cannot be read. A test keeps `sys.exit` and
   `setup_logging()` out of every other module, so any command can be a part of another.
 - There is one date option, `--since` (ISO 8601 or relative, `7d`). A command has it only
   when its pipeline filters on it.
-- A step with no `retrieve_argv_builder` (`bwb-history`, `tk-content`) is a manual command
+- A retrieve pipeline without `argv_for_all` (`bwb-history`, `tk-content`) is a manual command
   and is not part of `retrieve all`.
 - The order in the registry is the order of `semantic all`; pipelines that read edges written
   by others are placed after them.
 
-Adding a source: write the pipelines, add a `SourceDescriptor`.
+Adding a pipeline: write the module under its address and add one `_pipeline(...)` line to
+the list of its phase. Adding a source: add it to `SOURCES` first.
 
 ## Layering
 
@@ -130,7 +155,7 @@ administer the server), then the missing collections, indexes, analyzers and sea
 | Pipeline class name = CamelCase(module) + Phase + `Pipeline` (acronyms BWB, TK, EU, ECHR in capitals); base classes `<Phase>PipelineBase`; every pipeline inherits `PipelineBase` | `tests/test_pipeline_naming.py` |
 | McCabe complexity C901 <= 15 | `ruff` (`pyproject.toml`), CI pre-commit |
 | Relation catalogue: names are English `UPPER_SNAKE` verbs, never repeat the target type, every endpoint is a known collection, only instruments and bills amend / introduce / repeal, the `RELATION_*` constants are exactly the catalogue; the generated tables in `docs/data-model.md` are current | `tests/test_relation_catalogue.py` |
-| CLI commands and their order come only from the registry; skip variables follow `LAWGRAPH_<PHASE>_SKIP_<SOURCE_ID>`; `list-stats` runs last; manual sources stay out of `retrieve all`; dependencies precede dependents in `semantic all` | `tests/test_source_registry.py` |
+| CLI commands and their order come only from the registry; skip variables follow `LAWGRAPH_<PHASE>_SKIP_<SOURCE_ID>`; `graph-list-stats` runs last; manual sources stay out of `retrieve all`; dependencies precede dependents in `semantic all` | `tests/test_source_registry.py` |
 | Only `config/settings.py` reads the environment; collection names are spelled out only in `config/constants.py`, also inside AQL; `.env.example` lists only variables that are read | `tests/test_configuration.py` |
 | Every command exits 1 when it raised or reported errors; `--since` reaches a pipeline only when the command accepts it | `tests/test_pipeline_cli.py` |
 | A relation name is spelled out only in `config/constants.py` and `core/relations.py` — everywhere else, including AQL, it comes from a `RELATION_*` constant | `tests/test_conventions.py` |

@@ -48,7 +48,7 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
             describe_since(since),
         )
 
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         judgment_count = 0
 
         # The XML of each judgment streams from raw_sources, where retrieve stored it.

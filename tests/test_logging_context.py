@@ -13,8 +13,8 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
 from lawgraph.pipelines import command as command_module
 from lawgraph.pipelines.command import State, run_command
-from lawgraph.pipelines.orchestration import Step, run_steps
-from lawgraph.sources.registry import SOURCES, describe
+from lawgraph.pipelines.orchestration import run_pipelines
+from lawgraph.sources.registry import PHASES, PIPELINES, Pipeline
 
 
 @pytest.fixture
@@ -157,11 +157,11 @@ def test_a_step_is_called_what_one_types_everywhere(lines) -> None:
         labels.append(lg.current_step())
         return PipelineResult()
 
-    steps = [
-        Step("normalize", "tk_dossiers", command, []),
-        Step("normalize", "bwb", command, []),
+    pipelines = [
+        Pipeline("normalize", "tk", "dossiers", command, ""),
+        Pipeline("normalize", "bwb", None, command, ""),
     ]
-    outcomes = run_steps(steps)
+    outcomes = run_pipelines(pipelines, lambda pipeline: [])
     assert labels == ["normalize tk-dossiers", "normalize bwb"]
     assert [o.label for o in outcomes] == labels
     table = [line for line in lines() if line.rstrip().endswith(" ok")]
@@ -173,31 +173,27 @@ def test_a_step_is_called_what_one_types_everywhere(lines) -> None:
 # ── the descriptions ─────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("source", SOURCES, ids=lambda s: s.id)
-def test_every_command_of_every_source_is_described(source) -> None:
-    for phase in ("retrieve", "normalize", "semantic"):
-        if getattr(source, f"{phase}_command") is not None:
-            assert source.descriptions.get(phase), f"{phase} {source.id}"
+ALL_PIPELINES = [pipeline for phase in PHASES for pipeline in PIPELINES[phase]]
 
 
-def test_describe_accepts_the_cli_spelling() -> None:
-    assert describe("normalize", "tk-dossiers") == describe("normalize", "tk_dossiers")
-    assert "Kamerstukken" in describe("retrieve", "eerstekamer")
-    assert describe("retrieve", "nonexistent") == ""
-    assert describe("semantic", "tk-content") == ""
+@pytest.mark.parametrize("pipeline", ALL_PIPELINES, ids=lambda p: p.address)
+def test_every_pipeline_says_what_it_does(pipeline: Pipeline) -> None:
+    assert len(pipeline.description) > 10 and pipeline.description.endswith(".")
 
 
-def test_the_sources_command_lists_every_source_and_marks_manual_ones(capsys) -> None:
+def test_the_sources_command_lists_every_pipeline_under_its_source(capsys) -> None:
     from lawgraph.__main__ import main
 
     main(["sources"])
-    out = capsys.readouterr().out
-    for source in SOURCES:
-        assert source.id.replace("_", "-") in out
-    tk_content = next(b for b in out.split("\n\n") if b.startswith("tk-content"))
-    assert "[manual: not in retrieve all]" in tk_content
-    staatscourant = next(b for b in out.split("\n\n") if b.startswith("staatscourant"))
-    assert "manual" not in staatscourant
+    blocks = {b.split()[0]: b for b in capsys.readouterr().out.split("\n\n")[1:]}
+    for pipeline in ALL_PIPELINES:
+        assert pipeline.address in blocks[pipeline.source]
+    content = next(
+        line for line in blocks["tk"].splitlines() if "retrieve tk-content" in line
+    )
+    assert "[manual: not in retrieve all]" in content
+    assert "manual" not in blocks["staatscourant"]
+    assert "semantic rechtspraak-citations" in blocks["rechtspraak"]
 
 
 def test_the_start_line_ends_with_one_full_stop(lines) -> None:

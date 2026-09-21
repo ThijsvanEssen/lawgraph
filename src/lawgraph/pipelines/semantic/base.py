@@ -73,6 +73,15 @@ class SemanticPipelineBase(PipelineBase):
         # (collection, key) -> lightweight Node, or None when known to be absent.
         self._node_cache: dict[tuple[str, str], Node | None] = {}
 
+    def _resolve_instrument(
+        self, *, bwb_id: str | None = None, celex: str | None = None
+    ) -> Node | None:
+        """The instrument with this BWB id or CELEX number, when it is in the graph."""
+        key = bwb_id or celex
+        if not key:
+            return None
+        return self._lookup_node(COLLECTION_INSTRUMENTS, make_node_key(key))
+
     # ---------------------------------------------------------------- progress
 
     def _track(

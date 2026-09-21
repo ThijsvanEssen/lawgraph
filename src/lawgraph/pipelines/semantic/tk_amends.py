@@ -1,9 +1,8 @@
-"""Semantic pipelines for instrument-level relations.
+"""``semantic tk-amends``: a Tweede Kamer document that amends a law, by its title.
 
-AMENDS     — a TK document whose title signals a legislative amendment to a
-             known statute (via instrument_aliases).
-IMPLEMENTS — an NL statute whose BWB source text contains a CELEX reference,
-             linking it to the EU instrument it transposes.
+AMENDS from a TK document whose title signals a legislative amendment ("Wijziging van
+de ...") to a statute that is in the graph, found through the instrument aliases. The edges
+are what ``semantic tk-amendment-articles`` starts from.
 """
 
 from __future__ import annotations
@@ -14,15 +13,12 @@ from typing import Any, Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
-    COLLECTION_INSTRUMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
-    RELATION_IMPLEMENTS,
-    SOURCE_BWB,
 )
 from lawgraph.core.aliases import InstrumentAliasMap
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter
 
 from .base import SemanticPipelineBase, slim
@@ -30,7 +26,6 @@ from .base import SemanticPipelineBase, slim
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE_AMENDS = "tk-amends-instrument"
-SEMANTIC_SOURCE_IMPLEMENTS = "bwb-implements-directive"
 
 _AMENDS_PATTERN = re.compile(
     r"\bwijziging\s+van\b",
@@ -78,21 +73,10 @@ def detect_amends_instrument(
 # ---------------------------------------------------------------------------
 
 
-class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
-    """Writes AMENDS edges from bills and IMPLEMENTS edges between instruments."""
+class TKAmendsSemanticPipeline(SemanticPipelineBase):
+    """AMENDS edges from bills to the instruments their title says they change."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        result = PipelineResult()
-        result = result.merge(self._run_amends_instrument(since=since))
-        result = result.merge(self._run_implements_directive())
-        logger.info("Instrument relations pipeline: %s.", result.summary())
-        return result
-
-    # ------------------------------------------------------------------ amends
-
-    def _run_amends_instrument(
-        self, since: dt.datetime | None = None
-    ) -> PipelineResult:
         result = PipelineResult()
         instrument_aliases = self._load_instrument_aliases()
         if not instrument_aliases:
@@ -101,7 +85,7 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
             )
             return result
 
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         documents = self._load_tk_documents(since=since)
         for doc_node in self._track(documents, "TK documents"):
             title = doc_node.props.get("title") or doc_node.props.get("display_name")
@@ -146,65 +130,3 @@ class InstrumentRelationsSemanticPipeline(SemanticPipelineBase):
         )
         for doc in self.store.query(aql, bind_vars):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)
-
-    # ------------------------------------------------------------------ implements
-
-    def _run_implements_directive(self) -> PipelineResult:
-        result = PipelineResult()
-        edges = EdgeWriter(self.store)
-
-        # The CELEX numbers a regulation names: ``normalize bwb`` keeps them on the node.
-        regulations = self._load_celex_references()
-        for bwb_id, celex_refs in self._track(
-            regulations, "regulations naming EU acts"
-        ):
-            instrument_node = self._resolve_instrument(bwb_id=bwb_id)
-            if not instrument_node:
-                continue
-            for celex in celex_refs:
-                eu_node = self._resolve_instrument(celex=celex)
-                if not eu_node:
-                    continue
-                if eu_node.key == instrument_node.key:
-                    continue
-                edge_doc = self._make_edge_doc(
-                    from_node=instrument_node,
-                    to_node=eu_node,
-                    relation=RELATION_IMPLEMENTS,
-                    source=SEMANTIC_SOURCE_IMPLEMENTS,
-                    confidence=0.75,
-                    meta={"celex": celex},
-                )
-                if edge_doc:
-                    edges.add_doc(edge_doc)
-
-        edges.flush_into(result)
-
-        logger.info("IMPLEMENTS: %s.", result.summary())
-        return result
-
-    def _load_celex_references(self) -> Iterable[tuple[str, list[str]]]:
-        """``(bwb_id, CELEX numbers)`` of the regulations that name an EU act."""
-        aql = f"""
-        FOR regulation IN {COLLECTION_INSTRUMENTS}
-            FILTER regulation.props.source == @source
-            FILTER LENGTH(regulation.props.celex_refs) > 0
-            RETURN [regulation.props.bwb_id, regulation.props.celex_refs]
-        """
-        for bwb_id, celex_refs in self.store.query(aql, {"source": SOURCE_BWB}):
-            if bwb_id:
-                yield str(bwb_id), list(celex_refs)
-
-    # ------------------------------------------------------------------ helpers
-
-    def _resolve_instrument(
-        self,
-        *,
-        bwb_id: str | None = None,
-        celex: str | None = None,
-    ) -> Node | None:
-        if bwb_id:
-            return self._lookup_node(COLLECTION_INSTRUMENTS, make_node_key(bwb_id))
-        if celex:
-            return self._lookup_node(COLLECTION_INSTRUMENTS, make_node_key(celex))
-        return None

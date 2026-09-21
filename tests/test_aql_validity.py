@@ -2,7 +2,7 @@
 
 The rest of the suite runs on fake stores, so a query the server rejects (an operator it does
 not know, a misspelt function) only shows in a real run: ``??`` is not AQL, and ``semantic
-mvt-articles`` failed on it. This test collects the whole queries written as strings in
+tk-mvt`` failed on it. This test collects the whole queries written as strings in
 ``src/lawgraph`` (constants and f-strings that only use constants), creates a scratch database
 with the real schema, and asks the server to ``explain`` each of them. Queries that are only a
 part, completed at run time, and bind values of the wrong type are not judged.

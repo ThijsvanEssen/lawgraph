@@ -151,7 +151,7 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
         )
     cli("normalize", "all")
     cli("semantic", "bwb-grondslagen")
-    cli("semantic", "instrument-relations")
+    cli("semantic", "bwb-implements")
 
     aql = """
     FOR e IN edges

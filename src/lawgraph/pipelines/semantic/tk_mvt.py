@@ -90,7 +90,7 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
             "change_relations": list(_CHANGE_RELATIONS),
         }
 
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         documents = 0
         targets = self.store.query(_TARGETS_AQL, bind_vars)
         for row in self._track(targets, "explanatory memoranda"):

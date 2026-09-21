@@ -235,7 +235,7 @@ FOR inst IN {COLLECTION_INSTRUMENTS}
                     )
 
         article_cache: dict[str, Node | None] = {}
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
 
         self._link_convention_articles(result, rows, convention, article_cache, edges)
         self._link_bwb_mentions(result, rows, bwb_id_to_node, edges)

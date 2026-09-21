@@ -1,4 +1,4 @@
-"""Tests for the judgment-citations semantic pipeline."""
+"""Tests for the rechtspraak-citations semantic pipeline."""
 
 from __future__ import annotations
 

@@ -297,7 +297,7 @@ def test_tk_dossiers_a_failing_write_is_an_error_not_only_a_log_line() -> None:
 
 def test_the_query_cursor_outlives_a_consumer_that_works_on_every_batch() -> None:
     """The server drops a cursor unread for 30 s ("cursor not found"): semantic tk and
-    instrument-relations failed on it after streaming their documents."""
+    tk-amends failed on it after streaming their documents."""
     from lawgraph.db.store import CURSOR_TTL_SECONDS, ArangoStore
 
     seen: dict[str, Any] = {}

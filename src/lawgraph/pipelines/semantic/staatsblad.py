@@ -85,7 +85,7 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
 
         # Deduplicate by (pub_id, inst_id)
         seen: set[tuple[str, str]] = set()
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
 
         for row in self._track(rows, "publications", total=len(rows)):
             pub_id = row.get("pub_id")

@@ -118,7 +118,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
             describe_since(since),
         )
 
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         doc_count = 0
 
         documents = self._load_tk_documents(since_iso=since_iso)

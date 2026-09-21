@@ -146,7 +146,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
             len(amends_index),
         )
 
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         doc_count = 0
 
         documents = self._load_tk_documents(amends_index)
@@ -224,7 +224,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
     def _load_amends_instrument_index(self) -> dict[str, list[str]]:
         """Build a document-id → [bwb_id, ...] map from document → instrument edges.
 
-        The instrument_relations pipeline writes one AMENDS edge per (document,
+        ``semantic tk-amends`` writes one AMENDS edge per (document,
         instrument) pair when a document's title signals legislative amendment
         intent. Loading these once avoids an N-queries-per-document scan inside
         the run loop.
@@ -258,7 +258,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         Resolution order:
           1. Direct ``props.bwb_id`` if set.
           2. AMENDS edges from this document to an instrument (built upstream by
-             the instrument_relations pipeline).
+             ``semantic tk-amends``).
         """
         bwb_ids: list[str] = []
 

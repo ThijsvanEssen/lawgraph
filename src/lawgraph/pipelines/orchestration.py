@@ -1,10 +1,9 @@
-"""The ``<phase> all`` commands: every registered step of a phase, in registry order.
+"""The ``<phase> all`` commands: every pipeline of a phase, in registry order.
 
-A step is one phase of one source, and its label is what one types: ``normalize bwb``.
-``run_step`` runs one through ``command.run_command``, ``run_steps`` a list of them (side by
-side in lanes for retrieve) with the table of how each ended, and ``_run_phase`` the steps
-of a whole phase, keeping the mark of ``--since last``. The three commands at the end are
-what ``lawgraph <phase> all`` runs.
+``run_pipeline`` runs one pipeline of the registry through ``command.run_command``,
+``run_pipelines`` a list of them (side by side in lanes for retrieve) with the table of how
+each ended, and ``_run_phase`` all pipelines of a phase, keeping the mark of ``--since
+last``. The three commands at the end are what ``lawgraph <phase> all`` runs.
 """
 
 from __future__ import annotations
@@ -14,7 +13,6 @@ import datetime as dt
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
 
 from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.logging import get_logger, log_step
@@ -24,7 +22,6 @@ from lawgraph.db import ArangoStore
 from lawgraph.pipelines import watermark
 from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.command import (
-    Command,
     Outcome,
     State,
     accepts_since,
@@ -32,84 +29,61 @@ from lawgraph.pipelines.command import (
     combined_result,
     run_command,
 )
-from lawgraph.sources.registry import SOURCES, RetrieveCtx, describe
+from lawgraph.sources.registry import PIPELINES, Phase, Pipeline, RetrieveCtx
 
 logger = get_logger(__name__)
 
 # One per server (lane): each server is paced on its own, so there is nothing to wait for.
 DEFAULT_RETRIEVE_JOBS = len(
-    {
-        s.retrieve_lane or s.id
-        for s in SOURCES
-        if s.retrieve_command is not None and s.retrieve_argv_builder is not None
-    }
+    {p.lane_id for p in PIPELINES["retrieve"] if p.argv_for_all is not None}
 )
 DEFAULT_WINDOW = "730d"
 
 
-@dataclass(frozen=True)
-class Step:
-    """One phase of one source, ready to run."""
-
-    phase: str
-    source_id: str
-    command: Command
-    argv: list[str]
-    lane: str = ""  # steps of one lane (one server) never run at the same time
-    after: tuple[str, ...] = ()  # source ids whose step must have ended first
-
-    @property
-    def label(self) -> str:
-        """``normalize tk-dossiers``: the words of the command line."""
-        return f"{self.phase} {self.source_id.replace('_', '-')}"
-
-    @property
-    def lane_id(self) -> str:
-        return self.lane or self.source_id
-
-
-def run_step(step: Step) -> Outcome:
-    """Run *step*, unless ``LAWGRAPH_<PHASE>_SKIP_<SOURCE>`` leaves it out."""
-    if skip_step(step.phase, step.source_id):
-        with log_step(step.label):
-            logger.info("Skipped (%s).", skip_variable(step.phase, step.source_id))
-        return Outcome(step.label, State.SKIPPED)
+def run_pipeline(pipeline: Pipeline, argv: list[str]) -> Outcome:
+    """Run *pipeline*, unless ``LAWGRAPH_<PHASE>_SKIP_<NAME>`` leaves it out."""
+    if skip_step(pipeline.phase, pipeline.name):
+        with log_step(pipeline.address):
+            logger.info("Skipped (%s).", skip_variable(pipeline.phase, pipeline.name))
+        return Outcome(pipeline.address, State.SKIPPED)
     return run_command(
-        step.label,
-        step.command,
-        step.argv,
-        description=describe(step.phase, step.source_id),
+        pipeline.address, pipeline.command, argv, description=pipeline.description
     )
 
 
-def _run_steps_in_lanes(steps: list[Step], jobs: int) -> list[Outcome]:
-    """Run the lanes side by side, at most *jobs* steps at a time.
+ArgvOf = Callable[[Pipeline], list[str]]  # the options a pipeline gets in this run
 
-    The steps of one lane run one after the other. A step with ``after`` waits until those
-    steps (of other lanes) have ended; it comes last in its own lane so the lane does not
-    stand still, and while it waits it does not take one of the *jobs* places. Returns the
-    outcomes in the order of *steps*.
+
+def _run_pipelines_in_lanes(
+    pipelines: list[Pipeline], argv_of: ArgvOf, jobs: int
+) -> list[Outcome]:
+    """Run the lanes side by side, at most *jobs* pipelines at a time.
+
+    The pipelines of one lane run one after the other. One with ``after`` waits until those
+    pipelines (of other lanes) have ended; it comes last in its own lane so the lane does
+    not stand still, and while it waits it does not take one of the *jobs* places. Returns
+    the outcomes in the order of *pipelines*.
     """
-    lanes: dict[str, list[Step]] = {}
-    for step in steps:
-        lanes.setdefault(step.lane_id, []).append(step)
-    ended = {step.source_id: threading.Event() for step in steps}
+    lanes: dict[str, list[Pipeline]] = {}
+    for pipeline in pipelines:
+        lanes.setdefault(pipeline.lane_id, []).append(pipeline)
+    ended = {pipeline.name: threading.Event() for pipeline in pipelines}
     places = threading.Semaphore(jobs)
 
-    def run_lane(lane: list[Step]) -> list[Outcome]:
+    def run_lane(lane: list[Pipeline]) -> list[Outcome]:
         outcomes = []
-        waiting_last = sorted(lane, key=lambda s: bool(s.after))  # a stable sort
-        for step in waiting_last:
+        waiting_last = sorted(lane, key=lambda p: bool(p.after))  # a stable sort
+        for pipeline in waiting_last:
             if STOP.is_set():
                 break
-            for source_id in step.after:
-                if source_id in ended:
-                    ended[source_id].wait()
+            for name in pipeline.after:
+                if name in ended:
+                    ended[name].wait()
             try:
                 with places:
-                    outcomes.append(run_step(step))
+                    outcomes.append(run_pipeline(pipeline, argv_of(pipeline)))
             finally:
-                ended[step.source_id].set()
+                ended[pipeline.name].set()
         return outcomes
 
     with ThreadPoolExecutor(max_workers=len(lanes), thread_name_prefix="lane") as pool:
@@ -119,31 +93,35 @@ def _run_steps_in_lanes(steps: list[Step], jobs: int) -> list[Outcome]:
         except KeyboardInterrupt:
             # Ctrl-C reaches this thread only, and leaving the pool waits for the lanes.
             logger.warning(
-                "Interrupted: the running steps store what they have and stop."
+                "Interrupted: the running pipelines store what they have and stop."
             )
             STOP.set()
             for event in ended.values():
                 event.set()
             raise
-    return [by_label[step.label] for step in steps]
+    return [by_label[pipeline.address] for pipeline in pipelines]
 
 
-def run_steps(
-    steps: list[Step], *, strict: bool = False, jobs: int = 1
+def run_pipelines(
+    pipelines: list[Pipeline],
+    argv_of: ArgvOf,
+    *,
+    strict: bool = False,
+    jobs: int = 1,
 ) -> list[Outcome]:
-    """Run *steps* and log the table of how each ended.
+    """Run *pipelines*, each with the options *argv_of* gives it, and log how each ended.
 
-    With ``jobs > 1`` the steps run in lanes; ``strict`` (stop at the first failed step)
-    only applies to a run in turn.
+    With ``jobs > 1`` they run in lanes; ``strict`` (stop at the first that failed) only
+    applies to a run in turn.
     """
     if jobs > 1:
-        outcomes = _run_steps_in_lanes(steps, jobs)
+        outcomes = _run_pipelines_in_lanes(pipelines, argv_of, jobs)
     else:
         outcomes = []
-        for step in steps:
-            outcomes.append(run_step(step))
+        for pipeline in pipelines:
+            outcomes.append(run_pipeline(pipeline, argv_of(pipeline)))
             if strict and outcomes[-1].state is State.FAILED:
-                logger.error("Stopping after '%s' (--strict).", step.label)
+                logger.error("Stopping after '%s' (--strict).", pipeline.address)
                 break
 
     for outcome in outcomes:
@@ -166,21 +144,20 @@ def _window(value: str) -> dt.datetime | None:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
-def _since_argv(args: argparse.Namespace, command: Command) -> list[str]:
-    """``--since`` for a command that has it; a command without it runs in full."""
-    if args.since and accepts_since(command):
-        return ["--since", args.since.isoformat()]
-    return []
+def _since_argv(args: argparse.Namespace) -> ArgvOf:
+    """``--since`` for a pipeline whose command has it; one without it runs in full."""
+    since = ["--since", args.since.isoformat()] if args.since else []
+    return lambda pipeline: since if accepts_since(pipeline.command) else []
 
 
 _LAST_HELP = " 'last' goes on where the last complete run of this command began, however long ago."
 
 
 def _run_phase(
-    phase: str,
+    phase: Phase,
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    steps_of: Callable[[argparse.Namespace], list[Step]],
+    argv_of: Callable[[argparse.Namespace], ArgvOf],
     *,
     read_since: Callable[[argparse.Namespace], dt.datetime | None] = lambda a: a.since,
     strict: bool = False,
@@ -188,7 +165,7 @@ def _run_phase(
 ) -> PipelineResult:
     """Resolve ``--since last``, run the phase and record when it was complete.
 
-    Complete is: every step ended ``ok`` (a skipped step is a hole). *read_since* says
+    Complete is: every pipeline ended ``ok`` (a skipped one is a hole). *read_since* says
     since when the run read its sources (None: all there is) when that is not ``--since``.
     The store is opened before any lane starts, which also creates the schema once.
     """
@@ -203,7 +180,12 @@ def _run_phase(
             args.since.isoformat(timespec="seconds"),
         )
     began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
-    outcomes = run_steps(steps_of(args), strict=strict, jobs=jobs)
+    pipelines = [
+        pipeline
+        for pipeline in PIPELINES[phase]
+        if phase != "retrieve" or pipeline.argv_for_all is not None
+    ]
+    outcomes = run_pipelines(pipelines, argv_of(args), strict=strict, jobs=jobs)
     if all(outcome.state is State.OK for outcome in outcomes):
         watermark.advance(store, phase, began=began, since=read_since(args))
     return combined_result(outcomes)
@@ -246,31 +228,20 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
         "retrieve",
         parser,
         args,
-        _retrieve_steps,
+        _retrieve_argv,
         # a full load reads what changed inside the window (all of it without one)
         read_since=lambda a: a.window if a.mode == "full" else a.since,
         jobs=args.jobs,
     )
 
 
-def _retrieve_steps(args: argparse.Namespace) -> list[Step]:
+def _retrieve_argv(args: argparse.Namespace) -> ArgvOf:
     ctx = RetrieveCtx(
         since=args.since.isoformat(),
         mode=args.mode,
         window=args.window.isoformat() if args.window else None,
     )
-    return [
-        Step(
-            "retrieve",
-            s.id,
-            s.retrieve_command,
-            s.retrieve_argv_builder(ctx),
-            s.retrieve_lane or "",
-            s.retrieve_after,
-        )
-        for s in SOURCES
-        if s.retrieve_command is not None and s.retrieve_argv_builder is not None
-    ]
+    return lambda pipeline: pipeline.argv_for_all(ctx) if pipeline.argv_for_all else []
 
 
 def normalize_all(argv: list[str] | None = None) -> PipelineResult:
@@ -281,20 +252,7 @@ def normalize_all(argv: list[str] | None = None) -> PipelineResult:
         help="Only the raw records fetched since then (ISO date or 7d)." + _LAST_HELP,
     )
     args = parser.parse_args(argv)
-    return _run_phase("normalize", parser, args, _normalize_steps)
-
-
-def _normalize_steps(args: argparse.Namespace) -> list[Step]:
-    return [
-        Step(
-            "normalize",
-            s.id,
-            s.normalize_command,
-            _since_argv(args, s.normalize_command),
-        )
-        for s in SOURCES
-        if s.normalize_command is not None
-    ]
+    return _run_phase("normalize", parser, args, _since_argv)
 
 
 def semantic_all(argv: list[str] | None = None) -> PipelineResult:
@@ -309,14 +267,4 @@ def semantic_all(argv: list[str] | None = None) -> PipelineResult:
         "--strict", action="store_true", help="Stop at the first failing step."
     )
     args = parser.parse_args(argv)
-    return _run_phase("semantic", parser, args, _semantic_steps, strict=args.strict)
-
-
-def _semantic_steps(args: argparse.Namespace) -> list[Step]:
-    return [
-        Step(
-            "semantic", s.id, s.semantic_command, _since_argv(args, s.semantic_command)
-        )
-        for s in SOURCES
-        if s.semantic_command is not None
-    ]
+    return _run_phase("semantic", parser, args, _since_argv, strict=args.strict)

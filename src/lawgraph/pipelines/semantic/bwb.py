@@ -60,7 +60,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
 
         hits_detected = 0
         articles_seen = 0
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         # Stream articles (they carry full text) and process them in chunks so
         # that all reference targets of a chunk are resolved with ONE lookup.
         articles = self._track(

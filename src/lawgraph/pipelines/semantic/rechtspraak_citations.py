@@ -71,7 +71,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         ecli_to_id: dict[str, str],
         result: PipelineResult,
     ) -> None:
-        edges = EdgeWriter(self.store)
+        edges = EdgeWriter(self.store, what=None)
         for from_id, cited_ecli in pending:
             to_id = ecli_to_id.get(cited_ecli)
             if not to_id:
