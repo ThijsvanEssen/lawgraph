@@ -4,44 +4,41 @@
     lawgraph <bootstrap|check|expand-graph|fill-gaps> [options]
     lawgraph sources
 
-Sources and their order come from ``lawgraph.sources.registry``.
+Sources and their order come from ``lawgraph.sources.registry``. This is the one place
+that sets up logging and ends the process: 0 when the command went well, 1 when it failed,
+2 for a command line that cannot be read (argparse).
 """
 
 from __future__ import annotations
 
 import sys
-from collections.abc import Callable
 
 from lawgraph.commands.bootstrap import main as bootstrap
 from lawgraph.commands.check import main as check
 from lawgraph.commands.expand_graph import main as expand_graph
 from lawgraph.commands.fill_gaps import main as fill_gaps
-from lawgraph.core.logging import get_logger, log_step, setup_logging
-from lawgraph.pipelines.orchestration import (
-    run_normalize_all,
-    run_retrieve_all,
-    run_semantic_all,
-)
+from lawgraph.core.logging import setup_logging
+from lawgraph.pipelines.command import Command
+from lawgraph.pipelines.execution import State, execute
+from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
 from lawgraph.sources.registry import SOURCES, describe
 
-Main = Callable[..., None]
-
-_COMMANDS: dict[str, Main] = {
+_COMMANDS: dict[str, Command] = {
     "bootstrap": bootstrap,
     "check": check,
     "expand-graph": expand_graph,
     "fill-gaps": fill_gaps,
 }
-_PHASE_ALL: dict[str, Main] = {
-    "retrieve": run_retrieve_all,
-    "normalize": run_normalize_all,
-    "semantic": run_semantic_all,
+_PHASE_ALL: dict[str, Command] = {
+    "retrieve": retrieve_all,
+    "normalize": normalize_all,
+    "semantic": semantic_all,
 }
 
 
-def _build_dispatch() -> dict[str, dict[str, Main]]:
+def _build_dispatch() -> dict[str, dict[str, Command]]:
     """phase -> CLI source name -> ``main(argv)``; ``tk_dossiers`` becomes ``tk-dossiers``."""
-    dispatch: dict[str, dict[str, Main]] = {}
+    dispatch: dict[str, dict[str, Command]] = {}
     for phase, run_all in _PHASE_ALL.items():
         dispatch[phase] = {"all": run_all}
         for source in SOURCES:
@@ -68,7 +65,7 @@ def _sources_overview() -> str:
     return "\n".join(lines).rstrip()
 
 
-def _usage(dispatch: dict[str, dict[str, Main]]) -> str:
+def _usage(dispatch: dict[str, dict[str, Command]]) -> str:
     lines = ["Usage: lawgraph <phase> <source> [options]", ""]
     lines += [
         f"  {phase}: {', '.join(sorted(mains))}" for phase, mains in dispatch.items()
@@ -92,21 +89,22 @@ def main(argv: list[str] | None = None) -> None:
         print(_sources_overview())
         return
     if command in _COMMANDS:
-        setup_logging()
-        with log_step(command):
-            _COMMANDS[command](argv=rest)
-        return
-
-    if command not in dispatch or not rest or rest[0] not in dispatch[command]:
+        label, chosen, options, description = command, _COMMANDS[command], rest, ""
+    elif command in dispatch and rest and rest[0] in dispatch[command]:
+        label, chosen, options = (
+            f"{command} {rest[0]}",
+            dispatch[command][rest[0]],
+            rest[1:],
+        )
+        description = describe(command, rest[0])
+    else:
         print(_usage(dispatch), file=sys.stderr)
         sys.exit(2)
 
     setup_logging()
-    with log_step(f"{command} {rest[0]}"):
-        description = describe(command, rest[0])
-        if description:
-            get_logger(__name__).info("%s", description)
-        dispatch[command][rest[0]](argv=rest[1:])
+    outcome = execute(label, chosen, options, description=description)
+    if outcome.state is State.FAILED:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

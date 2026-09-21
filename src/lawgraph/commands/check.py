@@ -3,7 +3,7 @@
 A step can end "successfully" and still leave nothing behind: a source that answers no records
 for a parameter it does not understand, a normalize step that was never run, a search view
 that lost its index when the server was killed. Nothing complains about that on its own; this
-command does. Every check is one read-only query, and it exits 1 when one of them fails:
+command does. Every check is one read-only query; a problem is an error of the command:
 
   raw      every raw kind of the registry holds records
   nodes    every source with raw records has nodes (normalize did run and wrote something)
@@ -15,7 +15,6 @@ command does. Every check is one read-only query, and it exits 1 when one of the
 from __future__ import annotations
 
 import argparse
-import sys
 from dataclasses import dataclass, field
 
 from lawgraph.config.constants import (
@@ -46,7 +45,8 @@ from lawgraph.config.constants import (
     SOURCE_TK,
     SOURCE_VERDRAGENBANK,
 )
-from lawgraph.core.logging import get_logger, setup_logging
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 from lawgraph.db.schema import SEARCH_VIEWS
 
@@ -88,8 +88,7 @@ class Report:
     notes: list[str] = field(default_factory=list)
 
     def problem(self, message: str) -> None:
-        self.problems.append(message)
-        logger.error("%s", message)
+        self.problems.append(message)  # logged as the errors of the command
 
     def note(self, message: str) -> None:
         self.notes.append(message)
@@ -221,8 +220,7 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
         report.note("derived: every BWB regulation carries its basis and EU acts")
 
 
-def main(argv: list[str] | None = None) -> None:
-    setup_logging()
+def main(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument(
         "--skip-edges",
@@ -231,7 +229,4 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
     report = check(ArangoStore(), edges=not args.skip_edges)
-    if report.problems:
-        logger.error("check: %d problem(s).", len(report.problems))
-        sys.exit(1)
-    logger.info("check: no problems.")
+    return PipelineResult(errors=report.problems)

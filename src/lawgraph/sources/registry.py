@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Callable
 
-from lawgraph.pipelines.factory import make_pipeline_cli
+from lawgraph.pipelines.command import pipeline_command
 from lawgraph.pipelines.list_stats import main as list_stats_main
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
@@ -159,17 +159,17 @@ def _tk_dossiers_argv(ctx: RetrieveCtx) -> list[str]:
 
 
 def _register_tk() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = pipeline_command(
         TKNormalizePipeline,
         description="Normalize raw TK records.",
         with_since=True,
     )
-    normalize_dossiers = make_pipeline_cli(
+    normalize_dossiers = pipeline_command(
         TKDossiersNormalizePipeline,
         description="Normalize raw TK dossier records.",
         with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = pipeline_command(
         TKArticlesSemanticPipeline,
         description="Detect TK references to Dutch and EU articles.",
         with_since=True,
@@ -227,12 +227,12 @@ def _register_tk() -> list[SourceDescriptor]:
 
 
 def _register_rechtspraak() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = pipeline_command(
         RechtspraakNormalizePipeline,
         description="Normalize raw Rechtspraak records.",
         with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = pipeline_command(
         RechtspraakArticlesSemanticPipeline,
         description="Detect references to BWB articles in Rechtspraak judgments.",
         with_since=True,
@@ -262,12 +262,12 @@ def _register_rechtspraak() -> list[SourceDescriptor]:
 
 
 def _register_eurlex() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = pipeline_command(
         EurlexNormalizePipeline,
         description="Normalize raw EUR-Lex records.",
         with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = pipeline_command(
         EUArticlesSemanticPipeline,
         description="Link EU instruments to national and EU articles.",
         with_since=True,
@@ -298,35 +298,35 @@ def _register_eurlex() -> list[SourceDescriptor]:
 
 
 def _register_bwb() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = pipeline_command(
         BWBNormalizePipeline,
         description="Normalize raw BWB records.",
         with_since=True,
     )
-    normalize_history = make_pipeline_cli(
+    normalize_history = pipeline_command(
         BWBHistoryNormalizePipeline,
         description="Normalize historical BWB toestanden.",
         with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = pipeline_command(
         BWBArticlesSemanticPipeline,
         description="Detect BWB article references and store REFERS_TO edges.",
         with_since=True,
         add_args=_bwb_articles_add_args,
         make_extra_kwargs=_bwb_articles_extra_kwargs,
     )
-    semantic_grondslagen = make_pipeline_cli(
+    semantic_grondslagen = pipeline_command(
         BWBGrondslagenSemanticPipeline,
         description="Create BASED_ON edges from the 'Gelet op' basis of BWB regulations.",
     )
-    semantic_amendments = make_pipeline_cli(
+    semantic_amendments = pipeline_command(
         BWBAmendmentsSemanticPipeline,
         description=(
             "Create AMENDS/INTRODUCES/REPEALS edges from amending publications "
             "and LEGISLATED_IN edges from dossier references."
         ),
     )
-    semantic_annexes = make_pipeline_cli(
+    semantic_annexes = pipeline_command(
         AnnexLinksSemanticPipeline,
         description="Extract annex nodes from BWB XML and create SCOPED_BY edges.",
     )
@@ -392,12 +392,12 @@ def _register_bwb() -> list[SourceDescriptor]:
 
 
 def _register_staatsblad() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = pipeline_command(
         StaatsbladNormalizePipeline,
         description="Normalize raw Staatsblad AMvB records.",
         with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = pipeline_command(
         StaatsbladNvtSemanticPipeline,
         description="Link Staatsblad NvT publications to BWB instruments.",
     )
@@ -427,12 +427,12 @@ def _register_staatsblad() -> list[SourceDescriptor]:
 
 
 def _register_staatscourant() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = pipeline_command(
         StaatscourantNormalizePipeline,
         description="Normalize Staatscourant ministeriele regelingen.",
         with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = pipeline_command(
         StaatscourantRegelingSemanticPipeline,
         description="Create EXPLAINS edges from Staatscourant regulations.",
         with_since=True,
@@ -459,12 +459,12 @@ def _register_staatscourant() -> list[SourceDescriptor]:
 
 
 def _register_eerstekamer() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = pipeline_command(
         EerstekamerNormalizePipeline,
         description="Normalize Eerste Kamer Kamerstukken.",
         with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = pipeline_command(
         EerstekamerDossierLinkSemanticPipeline,
         description="Link Eerste Kamer Kamerstukken to their Tweede Kamer dossier.",
     )
@@ -487,12 +487,12 @@ def _register_eerstekamer() -> list[SourceDescriptor]:
 
 
 def _register_echr() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = pipeline_command(
         ECHRNormalizePipeline,
         description="Normalize ECHR HUDOC judgments.",
         with_since=True,
     )
-    semantic = make_pipeline_cli(
+    semantic = pipeline_command(
         ECHRCitationsSemanticPipeline,
         description="Create REFERS_TO edges from ECHR judgments to articles and instruments.",
     )
@@ -516,7 +516,7 @@ def _register_echr() -> list[SourceDescriptor]:
 
 
 def _register_verdragenbank() -> list[SourceDescriptor]:
-    normalize = make_pipeline_cli(
+    normalize = pipeline_command(
         VerdragenbankNormalizePipeline,
         description="Normalize Verdragenbank treaty records.",
         with_since=True,
@@ -538,29 +538,29 @@ def _register_verdragenbank() -> list[SourceDescriptor]:
 
 
 def _register_cross_source_semantic() -> list[SourceDescriptor]:
-    semantic_judgment_citations = make_pipeline_cli(
+    semantic_judgment_citations = pipeline_command(
         JudgmentCitationsSemanticPipeline,
         description="Detect ECLI cross-references and create REFERS_TO edges between judgments.",
         with_since=True,
     )
-    semantic_judgment_appeal = make_pipeline_cli(
+    semantic_judgment_appeal = pipeline_command(
         JudgmentAppealSemanticPipeline,
         description="Create APPEAL_OF edges from hoger beroep/cassatie to prior proceedings.",
     )
-    semantic_instrument_relations = make_pipeline_cli(
+    semantic_instrument_relations = pipeline_command(
         InstrumentRelationsSemanticPipeline,
         description="Detect AMENDS and IMPLEMENTS edges between instruments.",
         with_since=True,
     )
-    semantic_amendment_articles = make_pipeline_cli(
+    semantic_amendment_articles = pipeline_command(
         AmendmentArticlesSemanticPipeline,
         description="Detect amendment language; write AMENDS/INTRODUCES/REPEALS edges.",
     )
-    semantic_mvt_articles = make_pipeline_cli(
+    semantic_mvt_articles = pipeline_command(
         MvtArticlesSemanticPipeline,
         description="Link MvT/NvT documents to the article versions they explain (EXPLAINS).",
     )
-    semantic_relation_semantics = make_pipeline_cli(
+    semantic_relation_semantics = pipeline_command(
         RelationSemanticsSemanticPipeline,
         description="Classify article-to-article REFERS_TO edges with semantic relationship types.",
     )

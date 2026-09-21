@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import BWB_IDS
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.factory import add_since_argument, run_step
+from lawgraph.pipelines.command import add_since_argument
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
@@ -48,7 +48,7 @@ def _date(since: dt.datetime | None) -> str | None:
     return since.date().isoformat() if since else None
 
 
-def retrieve_bwb(argv: list[str] | None = None) -> None:
+def retrieve_bwb(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve the current BWB toestand of regulations."
     )
@@ -61,32 +61,26 @@ def retrieve_bwb(argv: list[str] | None = None) -> None:
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        pipeline = BWBRetrievePipeline(store=ArangoStore())
-        if args.mode == "full":
-            return pipeline.run_full()
-        return pipeline.run(bwb_ids=args.bwb_ids or BWB_IDS)
-
-    run_step("BWB retrieve", run)
+    pipeline = BWBRetrievePipeline(store=ArangoStore())
+    if args.mode == "full":
+        return pipeline.run_full()
+    return pipeline.run(bwb_ids=args.bwb_ids or BWB_IDS)
 
 
-def retrieve_bwb_history(argv: list[str] | None = None) -> None:
+def retrieve_bwb_history(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve every historical BWB toestand."
     )
     parser.add_argument("bwb_ids", nargs="*", help="Default: all regulations.")
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        pipeline = BWBRetrievePipeline(store=ArangoStore())
-        if args.bwb_ids:
-            return pipeline.run_history(bwb_ids=args.bwb_ids)
-        return pipeline.run_history_full()
-
-    run_step("BWB history retrieve", run)
+    pipeline = BWBRetrievePipeline(store=ArangoStore())
+    if args.bwb_ids:
+        return pipeline.run_history(bwb_ids=args.bwb_ids)
+    return pipeline.run_history_full()
 
 
-def retrieve_echr(argv: list[str] | None = None) -> None:
+def retrieve_echr(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(description="Retrieve ECHR HUDOC judgments.")
     parser.add_argument("--respondent", default="NLD")
     parser.add_argument("--max-records", type=int, default=10000)
@@ -94,20 +88,17 @@ def retrieve_echr(argv: list[str] | None = None) -> None:
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        pipeline = ECHRRetrievePipeline(ArangoStore())
-        if args.mode == "full":
-            return pipeline.run_full(respondent=args.respondent)
-        return pipeline.run(
-            respondent=args.respondent,
-            since_date=_date(args.since),
-            max_records=args.max_records,
-        )
-
-    run_step("ECHR retrieve", run)
+    pipeline = ECHRRetrievePipeline(ArangoStore())
+    if args.mode == "full":
+        return pipeline.run_full(respondent=args.respondent)
+    return pipeline.run(
+        respondent=args.respondent,
+        since_date=_date(args.since),
+        max_records=args.max_records,
+    )
 
 
-def retrieve_eurlex(argv: list[str] | None = None) -> None:
+def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve EUR-Lex acts by CELEX number."
     )
@@ -129,31 +120,28 @@ def retrieve_eurlex(argv: list[str] | None = None) -> None:
     _add_mode_argument(parser, extra_modes=("nim", "cjeu", "com"))
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        store = ArangoStore()
-        pipeline = EurlexRetrievePipeline(store)
-        if args.mode == "full":
-            return pipeline.run_full(
-                lang=args.lang, cdm_types=tuple(args.cdm_types or ("directive",))
-            )
-        if args.mode == "nim":
-            return pipeline.run_nim(country_code=args.country, lang=args.lang)
+    store = ArangoStore()
+    pipeline = EurlexRetrievePipeline(store)
+    if args.mode == "full":
+        return pipeline.run_full(
+            lang=args.lang, cdm_types=tuple(args.cdm_types or ("directive",))
+        )
+    if args.mode == "nim":
+        return pipeline.run_nim(country_code=args.country, lang=args.lang)
 
-        known_celex = args.celex or list(store.query(_KNOWN_CELEX_AQL))
-        if args.mode == "cjeu":
-            return pipeline.run_cjeu(
-                celex_ids=known_celex or None,
-                country_code=args.country,
-                lang=args.lang,
-            )
-        if args.mode == "com":
-            return pipeline.run_com(celex_ids=known_celex, lang=args.lang)
-        return pipeline.run(celex_ids=known_celex, lang=args.lang)
-
-    run_step("EUR-Lex retrieve", run)
+    known_celex = args.celex or list(store.query(_KNOWN_CELEX_AQL))
+    if args.mode == "cjeu":
+        return pipeline.run_cjeu(
+            celex_ids=known_celex or None,
+            country_code=args.country,
+            lang=args.lang,
+        )
+    if args.mode == "com":
+        return pipeline.run_com(celex_ids=known_celex, lang=args.lang)
+    return pipeline.run(celex_ids=known_celex, lang=args.lang)
 
 
-def retrieve_eerstekamer(argv: list[str] | None = None) -> None:
+def retrieve_eerstekamer(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve the Eerste Kamer Kamerstukken (KOOP SRU)."
     )
@@ -162,15 +150,12 @@ def retrieve_eerstekamer(argv: list[str] | None = None) -> None:
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        pipeline = EerstekamerRetrievePipeline(ArangoStore())
-        since = None if args.mode == "full" else _date(args.since)
-        return pipeline.run(since=since, limit=args.max_records)
-
-    run_step("Eerste Kamer retrieve", run)
+    pipeline = EerstekamerRetrievePipeline(ArangoStore())
+    since = None if args.mode == "full" else _date(args.since)
+    return pipeline.run(since=since, limit=args.max_records)
 
 
-def retrieve_rechtspraak(argv: list[str] | None = None) -> None:
+def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve Rechtspraak judgments of chosen courts, by decision date."
     )
@@ -189,44 +174,38 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> None:
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
-        date_from = modified_from = None
-        if args.mode == "incremental":
-            lag = dt.timedelta(days=RECHTSPRAAK_PUBLICATION_LAG_DAYS)
-            date_from = (args.since - lag).date()
-            window = dt.datetime.now(dt.timezone.utc) - args.since
-            if window <= dt.timedelta(days=RECHTSPRAAK_MODIFIED_WINDOW_DAYS):
-                modified_from = args.since
-        pipeline = RechtspraakRetrievePipeline(ArangoStore())
-        return pipeline.run(
-            courts=courts,
-            date_from=date_from,
-            modified_from=modified_from,
-            eclis=args.ecli or [],
-        )
-
-    run_step("Rechtspraak retrieve", run)
+    courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
+    date_from = modified_from = None
+    if args.mode == "incremental":
+        lag = dt.timedelta(days=RECHTSPRAAK_PUBLICATION_LAG_DAYS)
+        date_from = (args.since - lag).date()
+        window = dt.datetime.now(dt.timezone.utc) - args.since
+        if window <= dt.timedelta(days=RECHTSPRAAK_MODIFIED_WINDOW_DAYS):
+            modified_from = args.since
+    pipeline = RechtspraakRetrievePipeline(ArangoStore())
+    return pipeline.run(
+        courts=courts,
+        date_from=date_from,
+        modified_from=modified_from,
+        eclis=args.ecli or [],
+    )
 
 
-def retrieve_staatsblad(argv: list[str] | None = None) -> None:
+def retrieve_staatsblad(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve Staatsblad publications of AMvBs."
     )
     parser.add_argument("--mode", choices=["from-graph", "full"], default="from-graph")
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        store = ArangoStore()
-        pipeline = StaatsbladRetrievePipeline(store=store)
-        if args.mode == "full":
-            return pipeline.run_full()
-        return pipeline.run_from_bwb_graph(store)
-
-    run_step("Staatsblad retrieve", run)
+    store = ArangoStore()
+    pipeline = StaatsbladRetrievePipeline(store=store)
+    if args.mode == "full":
+        return pipeline.run_full()
+    return pipeline.run_from_bwb_graph(store)
 
 
-def retrieve_staatscourant(argv: list[str] | None = None) -> None:
+def retrieve_staatscourant(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve Staatscourant ministerial regulations."
     )
@@ -235,32 +214,26 @@ def retrieve_staatscourant(argv: list[str] | None = None) -> None:
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        pipeline = StaatscourantRetrievePipeline(ArangoStore())
-        if args.identifiers:
-            return pipeline.run(identifiers=args.identifiers)
-        if args.mode == "full":
-            return pipeline.run_full()
-        return pipeline.run(since=_date(args.since))
-
-    run_step("Staatscourant retrieve", run)
+    pipeline = StaatscourantRetrievePipeline(ArangoStore())
+    if args.identifiers:
+        return pipeline.run(identifiers=args.identifiers)
+    if args.mode == "full":
+        return pipeline.run_full()
+    return pipeline.run(since=_date(args.since))
 
 
-def retrieve_tk(argv: list[str] | None = None) -> None:
+def retrieve_tk(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(description="Retrieve Tweede Kamer cases.")
     parser.add_argument("--limit", type=int, default=0)
     add_since_argument(parser, default="1d")
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        since = _TK_EPOCH if args.mode == "full" else args.since
-        return TKRetrievePipeline(ArangoStore()).run(since=since, limit=args.limit)
-
-    run_step("TK retrieve", run)
+    since = _TK_EPOCH if args.mode == "full" else args.since
+    return TKRetrievePipeline(ArangoStore()).run(since=since, limit=args.limit)
 
 
-def retrieve_tk_content(argv: list[str] | None = None) -> None:
+def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve the PDF text of Tweede Kamer documents."
     )
@@ -268,14 +241,11 @@ def retrieve_tk_content(argv: list[str] | None = None) -> None:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        pipeline = TKContentRetrievePipeline(store=ArangoStore())
-        return pipeline.run(kind_filter=args.kind, dry_run=args.dry_run)
-
-    run_step("TK content retrieve", run)
+    pipeline = TKContentRetrievePipeline(store=ArangoStore())
+    return pipeline.run(kind_filter=args.kind, dry_run=args.dry_run)
 
 
-def retrieve_tk_dossiers(argv: list[str] | None = None) -> None:
+def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve Tweede Kamer dossiers, decisions, votes, committees and members."
     )
@@ -294,29 +264,23 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> None:
     parser.add_argument("--dossier-number", type=int, default=None, metavar="N")
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        return TKDossiersRetrievePipeline(store=ArangoStore()).run(
-            since=args.since,
-            decisions_since=args.decisions_since,
-            documents_since=args.documents_since,
-            skip_members=args.skip_members,
-            skip_decisions=args.skip_decisions,
-            skip_documents=args.skip_documents,
-            dossier_number=args.dossier_number,
-        )
-
-    run_step("TK dossiers retrieve", run)
+    return TKDossiersRetrievePipeline(store=ArangoStore()).run(
+        since=args.since,
+        decisions_since=args.decisions_since,
+        documents_since=args.documents_since,
+        skip_members=args.skip_members,
+        skip_decisions=args.skip_decisions,
+        skip_documents=args.skip_documents,
+        dossier_number=args.dossier_number,
+    )
 
 
-def retrieve_verdragenbank(argv: list[str] | None = None) -> None:
+def retrieve_verdragenbank(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve treaties from the Verdragenbank."
     )
     parser.add_argument("--max-records", type=int, default=None)
     args = parser.parse_args(argv)
 
-    def run() -> PipelineResult:
-        pipeline = VerdragenbankRetrievePipeline(ArangoStore())
-        return pipeline.run(max_records=args.max_records)
-
-    run_step("Verdragenbank retrieve", run)
+    pipeline = VerdragenbankRetrievePipeline(ArangoStore())
+    return pipeline.run(max_records=args.max_records)

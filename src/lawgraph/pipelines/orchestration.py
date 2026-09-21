@@ -1,22 +1,29 @@
-"""The ``<phase> all`` commands: run every registered step of a phase in registry order."""
+"""The ``<phase> all`` commands: every registered step of a phase, in registry order.
+
+A step is one phase of one source, and its label is what one types: ``normalize bwb``.
+``run_phase`` runs the steps through ``execution.execute`` (side by side in lanes for
+retrieve), logs the table of how each ended and hands the outcomes back; the commands
+below turn them into their own result and keep the mark of ``--since last``.
+"""
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
-import sys
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from lawgraph.config.settings import skip_step, skip_variable
-from lawgraph.core.logging import get_logger, setup_logging
-from lawgraph.core.time import parse_since
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import ArangoStore
 from lawgraph.pipelines import watermark
 from lawgraph.pipelines.base import STOP
-from lawgraph.pipelines.factory import add_since_argument, run_command
+from lawgraph.pipelines.command import Command, add_since_argument
+from lawgraph.pipelines.execution import Outcome, State, combined, execute, skipped
 from lawgraph.sources.registry import SOURCES, RetrieveCtx, describe
 
 logger = get_logger(__name__)
@@ -33,51 +40,53 @@ DEFAULT_WINDOW = "730d"
 
 
 @dataclass(frozen=True)
-class _Step:
+class Step:
+    """One phase of one source, ready to run."""
+
+    phase: str
     source_id: str
-    name: str
-    main: Callable[..., None]
+    command: Command
     argv: list[str]
-    lane: str = ""
+    lane: str = ""  # steps of one lane (one server) never run at the same time
     after: tuple[str, ...] = ()  # source ids whose step must have ended first
+
+    @property
+    def label(self) -> str:
+        """``normalize tk-dossiers``: the words of the command line."""
+        return f"{self.phase} {self.source_id.replace('_', '-')}"
 
     @property
     def lane_id(self) -> str:
         return self.lane or self.source_id
 
 
-def _run_step(phase: str, step: _Step) -> str:
-    """Run one step; ``ok``, ``failed`` or ``skipped``."""
-    if skip_step(phase, step.source_id):
-        logger.info("%s skipped (%s).", step.name, skip_variable(phase, step.source_id))
-        return "skipped"
-    label = f"{phase} {step.source_id.replace('_', '-')}"
-    succeeded = run_command(
-        step.name,
-        step.main,
+def _run(step: Step) -> Outcome:
+    if skip_step(step.phase, step.source_id):
+        return skipped(step.label, skip_variable(step.phase, step.source_id))
+    return execute(
+        step.label,
+        step.command,
         step.argv,
-        step=label,
-        description=describe(phase, step.source_id),
+        description=describe(step.phase, step.source_id),
     )
-    return "ok" if succeeded else "failed"
 
 
-def _run_in_lanes(phase: str, steps: list[_Step], jobs: int) -> list[tuple[str, str]]:
+def _run_in_lanes(steps: list[Step], jobs: int) -> list[Outcome]:
     """Run the lanes side by side, at most *jobs* steps at a time.
 
     The steps of one lane run one after the other. A step with ``after`` waits until those
     steps (of other lanes) have ended; it comes last in its own lane so the lane does not
     stand still, and while it waits it does not take one of the *jobs* places. Returns the
-    results in the order of *steps*.
+    outcomes in the order of *steps*.
     """
-    lanes: dict[str, list[_Step]] = {}
+    lanes: dict[str, list[Step]] = {}
     for step in steps:
         lanes.setdefault(step.lane_id, []).append(step)
     ended = {step.source_id: threading.Event() for step in steps}
     places = threading.Semaphore(jobs)
 
-    def run_lane(lane: list[_Step]) -> list[tuple[str, str]]:
-        results = []
+    def run_lane(lane: list[Step]) -> list[Outcome]:
+        outcomes = []
         waiting_last = sorted(lane, key=lambda s: bool(s.after))  # a stable sort
         for step in waiting_last:
             if STOP.is_set():
@@ -87,15 +96,15 @@ def _run_in_lanes(phase: str, steps: list[_Step], jobs: int) -> list[tuple[str, 
                     ended[source_id].wait()
             try:
                 with places:
-                    results.append((step.name, _run_step(phase, step)))
+                    outcomes.append(_run(step))
             finally:
                 ended[step.source_id].set()
-        return results
+        return outcomes
 
-    with ThreadPoolExecutor(max_workers=len(lanes), thread_name_prefix=phase) as pool:
+    with ThreadPoolExecutor(max_workers=len(lanes), thread_name_prefix="lane") as pool:
         futures = [pool.submit(run_lane, lane) for lane in lanes.values()]
         try:
-            status = {name: state for f in futures for name, state in f.result()}
+            by_label = {o.label: o for future in futures for o in future.result()}
         except KeyboardInterrupt:
             # Ctrl-C reaches this thread only, and leaving the pool waits for the lanes.
             logger.warning(
@@ -105,38 +114,35 @@ def _run_in_lanes(phase: str, steps: list[_Step], jobs: int) -> list[tuple[str, 
             for event in ended.values():
                 event.set()
             raise
-    return [(step.name, status[step.name]) for step in steps]
+    return [by_label[step.label] for step in steps]
 
 
-def _run_phase(
-    phase: str, steps: list[_Step], *, strict: bool = False, jobs: int = 1
-) -> list[tuple[str, str]]:
-    """Run *steps*, log a summary table and exit 1 when any step failed.
+def run_phase(
+    steps: list[Step], *, strict: bool = False, jobs: int = 1
+) -> list[Outcome]:
+    """Run *steps* and log the table of how each ended.
 
-    With ``jobs > 1`` the steps run in lanes (see ``run_retrieve_all``); ``strict`` only
-    applies to a sequential run.
+    With ``jobs > 1`` the steps run in lanes; ``strict`` (stop at the first failed step)
+    only applies to a run in turn.
     """
-    label = f"{phase} all"
-    results: list[tuple[str, str]] = []
     if jobs > 1:
-        results = _run_in_lanes(phase, steps, jobs)
+        outcomes = _run_in_lanes(steps, jobs)
     else:
+        outcomes = []
         for step in steps:
-            state = _run_step(phase, step)
-            results.append((step.name, state))
-            if strict and state == "failed":
-                logger.error("%s: aborting after '%s' (--strict).", label, step.name)
+            outcomes.append(_run(step))
+            if strict and outcomes[-1].state is State.FAILED:
+                logger.error("Stopping after '%s' (--strict).", step.label)
                 break
 
-    logger.info("%s summary:", label)
-    for name, status in results:
-        logger.info("  %-40s %s", name, status)
-    failures = [name for name, status in results if status == "failed"]
-    if failures:
-        logger.error("%s finished with %d failure(s).", label, len(failures))
-        sys.exit(1)
-    logger.info("%s completed successfully.", label)
-    return results
+    for outcome in outcomes:
+        took = (
+            format_duration(outcome.seconds)
+            if outcome.state is not State.SKIPPED
+            else ""
+        )
+        logger.info("  %-32s %8s  %s", outcome.label, took, outcome.state.value)
+    return outcomes
 
 
 def _window(value: str) -> dt.datetime | None:
@@ -156,39 +162,40 @@ def _since_argv(args: argparse.Namespace) -> list[str]:
 _LAST_HELP = " 'last' goes on where the last complete run of this command began, however long ago."
 
 
-def _run_marked(
+def _run_and_mark(
     phase: str,
+    parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    run: Callable[[], list[tuple[str, str]]],
+    steps_of: Callable[[argparse.Namespace], list[Step]],
     *,
     read_since: Callable[[argparse.Namespace], dt.datetime | None] = lambda a: a.since,
-) -> None:
-    """Resolve ``--since last``, run the phase and record that it is complete.
+    strict: bool = False,
+    jobs: int = 1,
+) -> PipelineResult:
+    """Resolve ``--since last``, run the phase and record when it was complete.
 
-    *run* is called when ``args.since`` is a date; it exits when a step failed. A run with
-    a skipped step is not complete. *read_since* says since when the run read its sources
-    (None: all there is) when that is not ``--since``.
+    Complete is: every step ended ``ok`` (a skipped step is a hole). *read_since* says
+    since when the run read its sources (None: all there is) when that is not ``--since``.
+    The store is opened before any lane starts, which also creates the schema once.
     """
     store = ArangoStore()
     if args.since == watermark.LAST:
         try:
             args.since = watermark.since_last(store, phase)
         except watermark.NothingOnRecord as exc:
-            logger.error("%s", exc)
-            sys.exit(2)
+            parser.error(str(exc))  # a wrong command line: exit code 2
         logger.info(
-            "%s all: since the last complete run (%s).",
-            phase,
+            "Since the last complete run (%s).",
             args.since.isoformat(timespec="seconds"),
         )
     began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
-    results = run()
-    if all(state == "ok" for _, state in results):
+    outcomes = run_phase(steps_of(args), strict=strict, jobs=jobs)
+    if all(outcome.state is State.OK for outcome in outcomes):
         watermark.advance(store, phase, began=began, since=read_since(args))
+    return combined(outcomes)
 
 
-def run_retrieve_all(argv: list[str] | None = None) -> None:
-    setup_logging()
+def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(description="Run all retrieve pipelines.")
     add_since_argument(
         parser,
@@ -221,25 +228,27 @@ def run_retrieve_all(argv: list[str] | None = None) -> None:
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
 
-    _run_marked(
+    return _run_and_mark(
         "retrieve",
+        parser,
         args,
-        lambda: _retrieve_all(args),
+        _retrieve_steps,
         # a full load reads what changed inside the window (all of it without one)
         read_since=lambda a: a.window if a.mode == "full" else a.since,
+        jobs=args.jobs,
     )
 
 
-def _retrieve_all(args: argparse.Namespace) -> list[tuple[str, str]]:
+def _retrieve_steps(args: argparse.Namespace) -> list[Step]:
     ctx = RetrieveCtx(
         since=args.since.isoformat(),
         mode=args.mode,
         window=args.window.isoformat() if args.window else None,
     )
-    steps = [
-        _Step(
+    return [
+        Step(
+            "retrieve",
             s.id,
-            s.display_name,
             s.retrieve_main,
             s.retrieve_argv_builder(ctx),
             s.retrieve_lane or "",
@@ -248,11 +257,9 @@ def _retrieve_all(args: argparse.Namespace) -> list[tuple[str, str]]:
         for s in SOURCES
         if s.retrieve_main is not None and s.retrieve_argv_builder is not None
     ]
-    return _run_phase("retrieve", steps, jobs=args.jobs)
 
 
-def run_normalize_all(argv: list[str] | None = None) -> None:
-    setup_logging()
+def normalize_all(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(description="Run all normalize pipelines.")
     add_since_argument(
         parser,
@@ -260,20 +267,18 @@ def run_normalize_all(argv: list[str] | None = None) -> None:
         help="Only the raw records fetched since then (ISO date or 7d)." + _LAST_HELP,
     )
     args = parser.parse_args(argv)
-
-    def run() -> list[tuple[str, str]]:
-        steps = [
-            _Step(s.id, s.display_name, s.normalize_main, _since_argv(args))
-            for s in SOURCES
-            if s.normalize_main is not None
-        ]
-        return _run_phase("normalize", steps)
-
-    _run_marked("normalize", args, run)
+    return _run_and_mark("normalize", parser, args, _normalize_steps)
 
 
-def run_semantic_all(argv: list[str] | None = None) -> None:
-    setup_logging()
+def _normalize_steps(args: argparse.Namespace) -> list[Step]:
+    return [
+        Step("normalize", s.id, s.normalize_main, _since_argv(args))
+        for s in SOURCES
+        if s.normalize_main is not None
+    ]
+
+
+def semantic_all(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(description="Run all semantic pipelines.")
     add_since_argument(
         parser,
@@ -285,18 +290,17 @@ def run_semantic_all(argv: list[str] | None = None) -> None:
         "--strict", action="store_true", help="Stop at the first failing step."
     )
     args = parser.parse_args(argv)
+    return _run_and_mark("semantic", parser, args, _semantic_steps, strict=args.strict)
 
-    def run() -> list[tuple[str, str]]:
-        steps = [
-            _Step(
-                s.id,
-                s.display_name,
-                s.semantic_main,
-                _since_argv(args) if s.semantic_accepts_since else [],
-            )
-            for s in SOURCES
-            if s.semantic_main is not None
-        ]
-        return _run_phase("semantic", steps, strict=args.strict)
 
-    _run_marked("semantic", args, run)
+def _semantic_steps(args: argparse.Namespace) -> list[Step]:
+    return [
+        Step(
+            "semantic",
+            s.id,
+            s.semantic_main,
+            _since_argv(args) if s.semantic_accepts_since else [],
+        )
+        for s in SOURCES
+        if s.semantic_main is not None
+    ]

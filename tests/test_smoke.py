@@ -15,7 +15,8 @@ import pytest
         "lawgraph.core.time",
         "lawgraph.db.store",
         "lawgraph.pipelines.base",
-        "lawgraph.pipelines.factory",
+        "lawgraph.pipelines.command",
+        "lawgraph.pipelines.execution",
         "lawgraph.sources.registry",
     ],
 )

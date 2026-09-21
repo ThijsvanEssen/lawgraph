@@ -12,24 +12,20 @@ given; the exit code is 1 when any phase failed.
 from __future__ import annotations
 
 import argparse
-import sys
 
 from lawgraph.commands.expand_graph import main as expand_graph
-from lawgraph.core.logging import get_logger, setup_logging
-from lawgraph.pipelines.factory import run_command
+from lawgraph.core.models import PipelineResult
+from lawgraph.pipelines.execution import Outcome, State, combined, execute
 from lawgraph.pipelines.orchestration import (
     DEFAULT_RETRIEVE_JOBS,
     DEFAULT_WINDOW,
-    run_normalize_all,
-    run_retrieve_all,
-    run_semantic_all,
+    normalize_all,
+    retrieve_all,
+    semantic_all,
 )
 
-logger = get_logger(__name__)
 
-
-def main(argv: list[str] | None = None) -> None:
-    setup_logging()
+def main(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(description="Fill an empty LawGraph database.")
     parser.add_argument("--max-expand", type=int, default=5, metavar="N")
     parser.add_argument("--skip-expand", action="store_true")
@@ -50,7 +46,7 @@ def main(argv: list[str] | None = None) -> None:
     phases = [
         (
             "retrieve all",
-            run_retrieve_all,
+            retrieve_all,
             [
                 "--mode",
                 "full",
@@ -60,8 +56,8 @@ def main(argv: list[str] | None = None) -> None:
                 str(args.jobs),
             ],
         ),
-        ("normalize all", run_normalize_all, []),
-        ("semantic all", run_semantic_all, ["--strict"] if args.strict else []),
+        ("normalize all", normalize_all, []),
+        ("semantic all", semantic_all, ["--strict"] if args.strict else []),
         ("expand-graph", expand_graph, ["--max-iterations", str(args.max_expand)]),
     ]
     skipped = {
@@ -73,16 +69,11 @@ def main(argv: list[str] | None = None) -> None:
         if skip
     }
 
-    failed = False
-    for name, main_fn, phase_argv in phases:
-        if name in skipped:
+    outcomes: list[Outcome] = []
+    for label, command, command_argv in phases:
+        if label in skipped:
             continue
-        if not run_command(name, main_fn, phase_argv):
-            failed = True
-            if args.strict:
-                break
-
-    if failed:
-        logger.error("bootstrap finished with failures.")
-        sys.exit(1)
-    logger.info("bootstrap completed.")
+        outcomes.append(execute(label, command, command_argv))
+        if args.strict and outcomes[-1].state is State.FAILED:
+            break
+    return combined(outcomes)
