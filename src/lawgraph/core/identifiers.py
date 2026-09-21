@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -42,11 +43,6 @@ _CELEX_MATCH_LETTERS = "CLRDF"
 CELEX_PATTERN = re.compile(
     rf"\b3\d{{4}}[{_CELEX_MATCH_LETTERS}]\d{{4}}\b", re.IGNORECASE
 )
-# The same id for a query: AQL's REGEX_TEST knows no ``\b``, so this finds a superset and
-# ``find_celex_ids`` decides. It keeps a scan from sending every text to Python.
-CELEX_AQL_REGEX = (
-    f"3[0-9]{{4}}[{_CELEX_MATCH_LETTERS}{_CELEX_MATCH_LETTERS.lower()}][0-9]{{4}}"
-)
 _CELEX_FULL = re.compile(rf"^3(\d{{4}})([{_CELEX_MATCH_LETTERS}])(\d+)$", re.ASCII)
 
 
@@ -80,6 +76,34 @@ def parse_celex(value: str) -> ParsedCelex | None:
 def find_celex_ids(text: str) -> list[str]:
     """Return the numeric CELEX ids found in *text*, upper-cased, in order."""
     return [m.group(0).upper() for m in CELEX_PATTERN.finditer(text)]
+
+
+_FIRST_CELEX_YEAR = 1951  # the Treaty of Paris
+_YEAR_AND_NUMBER = re.compile(r"(\d{1,4})/(\d{1,4})")
+
+
+def has_possible_year(celex: str) -> bool:
+    """Whether the year of a CELEX id found in text can be one: no later than next year."""
+    return _FIRST_CELEX_YEAR <= int(celex[1:5]) <= dt.date.today().year + 1
+
+
+def rebuilt_celex(odd: str, link_text: str) -> str | None:
+    """The id a BWB Celex link means when its ``doc`` has an impossible year, or ``None``.
+
+    KOOP writes such a link with the year where the number belongs (``32684R2021`` for
+    "verordening (EU) 2021/784"). The number is what stands next to that year in the text
+    of the link; number/year is how only a regulation is cited, whatever the letter says.
+    Without that year in the text there is nothing to rebuild from: no id, not a guess.
+    """
+    year, letter = odd[6:], odd[5].upper()
+    if not has_possible_year(f"3{year}"):
+        return None
+    for first, second in _YEAR_AND_NUMBER.findall(link_text):
+        if first == year:
+            return f"3{year}{letter}{int(second):04d}"
+        if second == year:
+            return f"3{year}R{int(first):04d}"
+    return None
 
 
 # ── KOOP publication ids and id-list cleaning ────────────────────────────────

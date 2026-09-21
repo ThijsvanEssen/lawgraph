@@ -19,6 +19,7 @@ Text offsets of references refer to ``ArticleXml.text`` (same string).
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -26,7 +27,12 @@ from typing import Any
 
 from lawgraph.config.constants import SOURCE_BWB
 from lawgraph.core.annex_xml import AnnexXml, parse_annexes
-from lawgraph.core.identifiers import is_bwb_id
+from lawgraph.core.identifiers import (
+    find_celex_ids,
+    has_possible_year,
+    is_bwb_id,
+    rebuilt_celex,
+)
 from lawgraph.core.models import make_node_key
 from lawgraph.core.xml import find_descendant, iter_named, local_name, text_of
 
@@ -521,6 +527,29 @@ def parse_toestand(xml_text: str) -> ToestandXml:
 
 def _drop_none(props: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in props.items() if v is not None}
+
+
+_CELEX_LINK = re.compile(
+    r'<extref\b[^>]*\bdoc="(3\d{4}[A-Za-z]\d{4})"[^>]*>(.*?)</extref>', re.DOTALL
+)
+_TAGS_AND_SPACE_AT_A_SLASH = re.compile(r"<[^>]+>|\s+(?=/)|(?<=/)\s+")
+
+
+def celex_refs(toestand_xml: str) -> list[str]:
+    """The EU acts a toestand names: every CELEX id in it, a link's ``doc`` among them.
+
+    An id with an impossible year is no act; as the ``doc`` of a link it is rebuilt from
+    the text of the link (``rebuilt_celex``), and left out when that cannot be done.
+    """
+    named = {
+        celex for celex in find_celex_ids(toestand_xml) if has_possible_year(celex)
+    }
+    for doc, inner in _CELEX_LINK.findall(toestand_xml):
+        if not has_possible_year(doc):
+            rebuilt = rebuilt_celex(doc, _TAGS_AND_SPACE_AT_A_SLASH.sub("", inner))
+            if rebuilt:
+                named.add(rebuilt)
+    return sorted(named)
 
 
 def instrument_props(

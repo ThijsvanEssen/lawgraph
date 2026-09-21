@@ -99,39 +99,42 @@ def test_derive_eu_citation_title(celex: str, title: str | None) -> None:
     assert _derive_eu_citation_title(celex) == title
 
 
-def test_the_query_regex_finds_every_text_the_pattern_finds() -> None:
-    """The server-side prefilter of the EUR-Lex gaps may send too much, never too little."""
-    import re
+# The links of BWBR0001854, BWBR0001860 and others, as KOOP publishes them: one Celex link
+# in eight (5,974 of 48,767 in the rebuild of 2026-09-21) has the year where the number
+# belongs and digits that are no year where the year belongs. Cellar has none of those ids
+# and has every rebuilt one below.
+@pytest.mark.parametrize(
+    ("doc", "text", "celex"),
+    [
+        ("32684R2021", "verordening (EU) 2021/784", "32021R0784"),
+        ("31923R2021", "Verordening (EU) 2021/23", "32021R0023"),
+        ("32365R2015", "(EU) 2015/2365", "32015R2365"),
+        # number/year is how only a regulation is cited, whatever letter the link has
+        ("32993L2010", "nr. 1093/2010", "32010R1093"),
+        ("32496L2014", "596/2014", "32014R0596"),
+        # nothing in the text to rebuild it from: no id beats a guessed one
+        ("32112R0260", "Verordening (EU) nr. 260/212", None),
+        ("32508R0089", "89/608/EEG", None),
+    ],
+)
+def test_a_celex_link_with_an_impossible_year_is_rebuilt_from_its_text(
+    doc: str, text: str, celex: str | None
+) -> None:
+    from lawgraph.core.identifiers import rebuilt_celex
 
-    from lawgraph.core.identifiers import CELEX_AQL_REGEX, find_celex_ids
-
-    prefilter = re.compile(
-        CELEX_AQL_REGEX
-    )  # the syntax AQL's REGEX_TEST shares with re
-    texts = [
-        "zie richtlijn 32016L0680 en verordening 32016r0679.",
-        "geen verwijzing, wel een getal 320160680 en een jaar 2016",
-        "x32016L0680x",  # no word boundary: the prefilter sends it, the pattern refuses it
-        "",
-    ]
-    for text in texts:
-        assert bool(prefilter.search(text)) >= bool(find_celex_ids(text)), text
-    assert [bool(prefilter.search(t)) for t in texts] == [True, False, True, False]
+    assert rebuilt_celex(doc, text) == celex
 
 
-def test_the_gap_query_lets_the_server_leave_out_the_texts_without_a_celex_id() -> None:
-    from lawgraph.core.identifiers import CELEX_AQL_REGEX
-    from lawgraph.pipelines.retrieve import _gaps
+def test_the_eu_acts_of_a_regulation_are_the_possible_ids_and_the_rebuilt_ones() -> (
+    None
+):
+    from lawgraph.core.bwb_xml import celex_refs
 
-    asked: list[tuple[str, dict]] = []
-
-    class Store:
-        def query(self, aql, bind_vars=None, **_kw):
-            asked.append((aql, dict(bind_vars or {})))
-            if "REGEX_TEST" in aql:
-                return iter(["krachtens richtlijn 32010L0064 en 32016L0680"])
-            return iter(["32016L0680"] if "instruments" in aql else [])
-
-    assert _gaps.eurlex_gaps(Store()) == ["32010L0064"]  # type: ignore[arg-type]
-    scan = [bind for aql, bind in asked if "REGEX_TEST(art.props.text, @celex)" in aql]
-    assert scan == [{"celex": CELEX_AQL_REGEX}]
+    xml = (
+        '<al>zie <extref doc="32016R0679" label="verordening" reeks="Celex">de AVG</extref>,'
+        ' <extref doc="32684R2021" label="verordening" reeks="Celex">verordening (EU)'
+        "\n 2021/<nadruk>784</nadruk></extref> en"
+        ' <extref doc="32112R0260" reeks="Celex">Verordening (EU) nr. 260/212</extref>'
+        " <!-- 32010L0064 --></al>"
+    )
+    assert celex_refs(xml) == ["32010L0064", "32016R0679", "32021R0784"]

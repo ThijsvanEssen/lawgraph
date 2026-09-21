@@ -250,8 +250,9 @@ the process or the machine loses at most that last buffer. A step that downloads
 skips the records stored in the last 24 hours, so a re-run only does the rest. A refresh
 later downloads what the source lists as new or changed: a Staatscourant or Staatsblad
 publication stored after its `modified` date, a BWB toestand that is still the stored one and
-a judgment not updated since are left alone; a document that answered HTTP 404 is asked for
-again after 30 days. The Tweede Kamer pages are read again from the start on a
+a judgment not updated since are left alone; a document that answered HTTP 404, or a
+redirect that leads nowhere, is asked for again after 30 days (3 when the source listed it
+itself, as the SRU does a BWB toestand). The Tweede Kamer pages are read again from the start on a
 re-run (upserts, so only time is repeated).
 
 **Scheduled.** `scripts/daily.sh` and `scripts/weekly.sh` are what a scheduler runs; nothing

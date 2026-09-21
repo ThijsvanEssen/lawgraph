@@ -261,3 +261,43 @@ def test_a_law_a_regulation_is_issued_under_is_a_gap_when_it_is_not_loaded(
     cli("normalize", "bwb")
     assert "BWBR0001947" in _gaps.bwb_gaps(store)
     assert "BWBR0001840" not in _gaps.bwb_gaps(store)  # the Grondwet is loaded
+
+
+def test_an_eu_act_a_regulation_names_is_a_gap_until_it_is_retrieved(
+    database: str, cli: Any
+) -> None:
+    """The CELEX id is an attribute of the link, not text of the article: a scan of the
+    article texts found none, and the rebuild ended without one EU act (3,951 named)."""
+    from lawgraph.config.constants import (
+        RAW_KIND_BWB_TOESTAND,
+        RAW_KIND_EU_CELEX,
+        SOURCE_BWB,
+        SOURCE_EURLEX,
+    )
+    from lawgraph.db import RawSourceWriter, raw_source_doc
+    from lawgraph.pipelines.retrieve import _gaps
+    from tests.integration.seed import FIXTURES
+
+    amvb = (FIXTURES / "bwb_amvb_toestand.xml").read_text()
+    link = '<extref doc="32016R0679" reeks="Celex">verordening (EU) 2016/679</extref>'
+    amvb = amvb.replace("</toestand>", f"<!-- {link} --></toestand>")
+    store = ArangoStore()
+
+    def store_raw(source: str, kind: str, external_id: str, text: str) -> None:
+        with RawSourceWriter(store) as writer:
+            writer.add(
+                raw_source_doc(
+                    source=source,
+                    kind=kind,
+                    external_id=external_id,
+                    payload_text=text,
+                    meta={},
+                )
+            )
+
+    store_raw(SOURCE_BWB, RAW_KIND_BWB_TOESTAND, "BWBR0001950", amvb)
+    cli("normalize", "bwb")
+    assert _gaps.eurlex_gaps(store) == ["32016R0679"]
+
+    store_raw(SOURCE_EURLEX, RAW_KIND_EU_CELEX, "32016R0679", "<html></html>")
+    assert _gaps.eurlex_gaps(store) == []

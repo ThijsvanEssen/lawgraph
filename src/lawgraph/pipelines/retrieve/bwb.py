@@ -21,6 +21,9 @@ from .base import (
     RetrieveRecord,
     failure_reason,
     fetched_side_by_side,
+    is_not_found,
+    missing_record,
+    status_of,
 )
 
 logger = get_logger(__name__)
@@ -72,7 +75,11 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             return result
 
         done = self._recently_stored(SOURCE_BWB, RAW_KIND_BWB_TOESTAND)
-        todo = [bwb_id for bwb_id in normalized if bwb_id not in done]
+        todo = self._without_missing(
+            SOURCE_BWB,
+            RAW_KIND_BWB_TOESTAND,
+            [bwb_id for bwb_id in normalized if bwb_id not in done],
+        )
         logger.info(
             "Starting BWB retrieve for %d IDs (%d already stored in the last 24 hours).",
             len(normalized),
@@ -114,7 +121,24 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                     return _Download(fail=reason)
             if meta is None:
                 return _Download(skip="no toestand in the SRU")
-            xml_text = self.client.fetch_toestand_xml(meta)
+            try:
+                xml_text = self.client.fetch_toestand_xml(meta)
+            except Exception as exc:
+                if not is_not_found(exc):
+                    raise
+                # Listed by the SRU, so asked for again in a few days.
+                return _Download(
+                    records=[
+                        missing_record(
+                            SOURCE_BWB,
+                            RAW_KIND_BWB_TOESTAND,
+                            bwb_id,
+                            listed=True,
+                            status=status_of(exc) or 404,
+                        )
+                    ],
+                    skip=f"no toestand file at the source ({failure_reason(exc)})",
+                )
             got = _Download()
             # The toestand last: it is what a re-run takes for "this regulation is done".
             self._add_wti_general_info(meta, got)
