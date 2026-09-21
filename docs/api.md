@@ -4,7 +4,9 @@ A FastAPI service over the graph (`lawgraph.api.app:app`), read-only except for 
 semantic-relationship curation. Start it with
 `lawgraph-api` (uvicorn, `LAWGRAPH_API_HOST`:`LAWGRAPH_API_PORT`, default `127.0.0.1:8000`; set the host to `0.0.0.0` to serve other machines) or
 `uvicorn lawgraph.api.app:app --reload`. The interactive schema is at `/docs`, the machine
-schema at `/openapi.json`. The write endpoints are `POST` and `DELETE` on `/api/watches` and
+schema at `/openapi.json`: every route has a summary, a tag and a typed answer, and a route
+that writes names its key (`tests/api/test_openapi_schema.py` holds the schema to that), so
+a client can generate its types from it. The write endpoints are `POST` and `DELETE` on `/api/watches` and
 the two `POST` endpoints under `/api/relationships`.
 
 ## Endpoints
@@ -84,7 +86,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `/api/graph/judgments` | judgments and their edges; `max_judgments`, `include_stubs` |
 | `/api/nodes/{collection}/{key}` | a node with all neighbours, direction and confidence; `neighbor_limit` |
 | `.../neighborhood` | nodes and edges within `depth` (1-4) hops, capped by `cap` |
-| `/api/nodes/in-flux`, `/api/nodes/heat` | node id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6), `min_count` |
+| `/api/nodes/in-flux`, `/api/nodes/heat` | node id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6), `min_count`. Both answer a plain map (`{"articles/bwbr0001854_287": 3}`), not validated through a response model |
 | `GET /api/search?q=` | text search over `types` (`articles`, `committees`, `documents`, `dossiers`, `factions`, `instruments`, `judgments`, `members`; all by default), `kind`, `limit`; every hit has `score` 1.0 (no ranking) |
 
 ### Semantic relationships and watches
@@ -104,8 +106,8 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 - List responses carry `items` and `total`, the absolute number of matches independent of
   `limit`. Some carry a domain name instead of `items` (`entries` for timelines, `versions`,
   `votes`, `relationships`).
-- Errors: 404 unknown resource, 422 invalid parameter, 429 rate limited, 503 database
-  unreachable or curation disabled.
+- Errors: 401 missing or wrong key, 404 unknown resource, 422 invalid parameter, 429 rate
+  limited, 503 database unreachable or writing not configured.
 - Responses of the route handlers carry an `X-Request-ID` header.
 
 ## Layout
@@ -116,7 +118,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `search`, `stats`, `watches`, `relationships`, `annexes`, `parliament`) |
 | `api/queries/` | AQL per domain; user input only through bind variables |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
-| `api/dependencies.py` | `get_store()`: one shared `ArangoStore` |
+| `api/dependencies.py` | `get_store()`: one shared `ArangoStore`; the two keys and `refuse_open_writes` |
 | `api/cache.py` | `TTLCache`: in-process LRU with TTL (`LAWGRAPH_CACHE_TTL` 60 s, `LAWGRAPH_CACHE_MAXSIZE` 512) used by several routes |
 
 ## Middleware
@@ -137,7 +139,8 @@ Reads are public. Every route that writes asks for a shared key, compared in con
 | `X-Write-Key` | `LAWGRAPH_WRITE_API_KEY` | `POST` and `DELETE` on `/api/watches`, `POST /api/relationships/{edge_id}/vote` |
 | `X-Curation-Key` | `LAWGRAPH_CURATION_API_KEY` | `POST /api/relationships/tag` |
 
-Without the variable the routes answer 503 (an API nobody configured writes nothing), with a
+The schema declares both as API keys, so `/docs` has an Authorize button. Without the
+variable the routes answer 503 (an API nobody configured writes nothing), with a
 missing or wrong key 401. `refuse_open_writes` (`api/dependencies.py`) runs when the app is
 built and stops it when a route that writes asks for neither key.
 

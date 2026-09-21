@@ -17,8 +17,9 @@ import secrets
 from collections.abc import Iterable, Iterator
 from typing import Annotated, Any
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException, Security
 from fastapi.routing import APIRoute
+from fastapi.security import APIKeyHeader
 
 from lawgraph.config.settings import curation_api_key, write_api_key
 from lawgraph.db import ArangoStore
@@ -47,16 +48,31 @@ def _require(sent: str | None, expected: str | None, variable: str) -> None:
         raise HTTPException(status_code=401, detail="Missing or invalid key.")
 
 
-def require_write_key(x_write_key: Annotated[str | None, Header()] = None) -> None:
+# Declared as API keys, so the schema names them per route and `/docs` can send them.
+_WRITE_KEY = APIKeyHeader(
+    name="X-Write-Key",
+    scheme_name="WriteKey",
+    description="Shared key for watches and votes (`LAWGRAPH_WRITE_API_KEY`).",
+    auto_error=False,
+)
+_CURATION_KEY = APIKeyHeader(
+    name="X-Curation-Key",
+    scheme_name="CurationKey",
+    description="Shared key for tagging relationships (`LAWGRAPH_CURATION_API_KEY`).",
+    auto_error=False,
+)
+
+
+def require_write_key(sent: Annotated[str | None, Security(_WRITE_KEY)] = None) -> None:
     """``X-Write-Key``: watches and votes."""
-    _require(x_write_key, write_api_key(), "LAWGRAPH_WRITE_API_KEY")
+    _require(sent, write_api_key(), "LAWGRAPH_WRITE_API_KEY")
 
 
 def require_curation_key(
-    x_curation_key: Annotated[str | None, Header()] = None,
+    sent: Annotated[str | None, Security(_CURATION_KEY)] = None,
 ) -> None:
     """``X-Curation-Key``: what changes the meaning of the graph."""
-    _require(x_curation_key, curation_api_key(), "LAWGRAPH_CURATION_API_KEY")
+    _require(sent, curation_api_key(), "LAWGRAPH_CURATION_API_KEY")
 
 
 _KEYS = (require_write_key, require_curation_key)

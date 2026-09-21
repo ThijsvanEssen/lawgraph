@@ -37,6 +37,24 @@ logger = get_logger(__name__)
 _overlay_cache: TTLCache[str, Any] = TTLCache(maxsize=128)
 
 
+# The two overlays answer raw JSON: validating a map of 40,000 keys through a response
+# model took about 200 ms a request. The schema says what the map is.
+_COUNT_PER_NODE: dict[int | str, dict[str, Any]] = {
+    200: {
+        "description": "Node id (`collection/key`) to count.",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": {"type": "integer"},
+                    "example": {"articles/bwbr0001854_287": 3},
+                }
+            }
+        },
+    }
+}
+
+
 @router.get(
     "/in-flux",
     summary="Bulk in-flux count per node",
@@ -47,6 +65,7 @@ _overlay_cache: TTLCache[str, Any] = TTLCache(maxsize=128)
     ),
     tags=["nodes"],
     response_class=JSONResponse,
+    responses=_COUNT_PER_NODE,
 )
 def bulk_in_flux(
     store: Annotated[ArangoStore, Depends(get_store)],
@@ -68,9 +87,8 @@ def bulk_in_flux(
         "Pass months=3 for a 90-day window."
     ),
     tags=["nodes"],
-    # No response_model — Pydantic validation of a 40K-key dict adds
-    # ~200 ms per request for zero correctness benefit. Return raw JSON.
     response_class=JSONResponse,
+    responses=_COUNT_PER_NODE,
 )
 def bulk_heat(
     store: Annotated[ArangoStore, Depends(get_store)],
