@@ -74,9 +74,8 @@ class BaseClient:
         closes the response.
         """
         logger.debug("HTTP GET url=%s params=%r", url, params)
-        extra = {"headers": headers} if headers else {}
         resp = self.session.get(
-            url, params=params, timeout=timeout, stream=stream, **extra
+            url, params=params, timeout=timeout, stream=stream, headers=headers
         )
         logger.debug(
             "HTTP response status=%s reason=%s",
