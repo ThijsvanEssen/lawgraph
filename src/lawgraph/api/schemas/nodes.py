@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.core.models import TYPE_OF_COLLECTION
+
 # Props a node response leaves out by default: none (the graph views drop the large ones).
 _DROP_PROPS_KEYS: tuple[str, ...] = ()
 
@@ -22,7 +24,13 @@ DROP_PROPS_KEYS_GRAPH = (
     "judgment_metadata",
     "raw_data",
     "raw",  # documents carry the source TK payload here
+    "entries",  # annexes carry their table rows here
 )
+
+
+def node_type_of(collection: str) -> str:
+    node_type = TYPE_OF_COLLECTION.get(collection)
+    return node_type.value if node_type else ""
 
 
 def _build_node_payload(
@@ -71,7 +79,7 @@ class BaseNodeDTO(BaseModel):
 
 
 class NeighborDTO(BaseModel):
-    """Neighbor view used by the generic node explorer."""
+    """A neighbour with the edge that leads to it, used by the generic node explorer."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -82,22 +90,46 @@ class NeighborDTO(BaseModel):
     display_name: str | None
     labels: list[str]
     props: dict[str, Any] | None
+    edge_id: str
     relation: str | None
     direction: Literal["outbound", "inbound"]
     confidence: float | None
+    status: str | None
+    meta: dict[str, Any] | None
 
     @classmethod
     def from_entry(
         cls,
         doc: dict[str, Any],
-        relation: str | None,
+        edge: dict[str, Any],
         direction: Literal["outbound", "inbound"],
         confidence: float | None,
     ) -> NeighborDTO:
         payload = _build_node_payload(doc, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
+        meta = edge.get("meta")
         return cls(
-            **payload, relation=relation, direction=direction, confidence=confidence
+            **payload,
+            edge_id=edge["_key"],
+            relation=edge.get("relation"),
+            direction=direction,
+            confidence=confidence,
+            status=edge.get("status"),
+            meta=meta if isinstance(meta, dict) else None,
         )
+
+
+class NeighborBucketDTO(BaseModel):
+    """The neighbours that share a relation, a direction and a collection: one page of them."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    relation: str | None
+    direction: Literal["outbound", "inbound"]
+    collection: str
+    type: str
+    total: int
+    next_offset: int | None
+    items: list[NeighborDTO]
 
 
 class NodeNeighborsDTO(BaseModel):
@@ -105,7 +137,29 @@ class NodeNeighborsDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    all: list[NeighborDTO] = Field(default_factory=list)
+    total: int
+    buckets: list[NeighborBucketDTO] = Field(default_factory=list)
+
+
+class NodeFacetDTO(BaseModel):
+    """How many edges of a node share a relation, a direction and a neighbour collection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    relation: str | None
+    direction: Literal["outbound", "inbound"]
+    collection: str
+    type: str
+    count: int
+
+
+class NodeFacetsResponse(BaseModel):
+    """Response for GET /api/nodes/{collection}/{key}/facets."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[NodeFacetDTO]
+    total: int
 
 
 class NodeGraphResponse(BaseModel):

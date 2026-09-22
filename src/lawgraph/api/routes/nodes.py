@@ -1,15 +1,19 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import parse_choices
 from lawgraph.api.queries.nodes import (
+    DEFAULT_BUCKET_LIMIT,
+    NeighborFilter,
     NodeNotFoundError,
     UnsupportedCollectionError,
+    get_node_facets,
     get_node_neighborhood,
     get_node_with_neighbors,
 )
@@ -17,13 +21,20 @@ from lawgraph.api.queries.overlay import get_heat_counts, get_in_flux_counts
 from lawgraph.api.schemas.nodes import (
     DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
+    NeighborBucketDTO,
     NeighborDTO,
+    NodeFacetDTO,
+    NodeFacetsResponse,
     NodeGraphResponse,
     NodeNeighborhoodEdge,
     NodeNeighborhoodResponse,
     NodeNeighborsDTO,
+    node_type_of,
 )
+from lawgraph.config.constants import EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD
 from lawgraph.core.logging import get_logger
+from lawgraph.core.models import NodeType
+from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
@@ -115,14 +126,57 @@ def bulk_heat(
     return JSONResponse(cached)
 
 
+def neighbor_filter(
+    relations: Annotated[
+        str | None,
+        Query(description="Comma-separated relations to keep (`REFERS_TO,PART_OF`)."),
+    ] = None,
+    node_types: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated node types to keep (`article,judgment`).",
+        ),
+    ] = None,
+    direction: Annotated[
+        Literal["outbound", "inbound"] | None,
+        Query(description="Keep the edges that leave (`outbound`) or reach the node."),
+    ] = None,
+    status: Annotated[
+        str | None,
+        Query(description="Keep the edges of this status (`canoniek`, `voorgesteld`)."),
+    ] = None,
+) -> NeighborFilter:
+    """The edges the caller asks for; 422 for a relation, type or status that does not exist."""
+    statuses = (EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD)
+    if status is not None and status not in statuses:
+        raise HTTPException(
+            status_code=422,
+            detail=f"unknown status: {status}; allowed: {', '.join(statuses)}",
+        )
+    return NeighborFilter(
+        relations=parse_choices(relations, RELATION_NAMES, "relations"),
+        node_types=parse_choices(node_types, [t.value for t in NodeType], "node_types"),
+        direction=direction,
+        status=status,
+    )
+
+
+NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
+
+
 @router.get(
     "/{collection}/{key}",
     response_model=NodeGraphResponse,
     summary="Explore a node and its neighbors",
     description=(
-        "Fetches a node from the given collection and returns all its "
-        "neighbors from the unified edge collection, with direction and "
-        "confidence."
+        "Fetches a node from the given collection and returns its neighbors from "
+        "the unified edge collection in buckets, one per relation, direction and "
+        "neighbor collection. Each neighbor carries the edge that leads to it: "
+        "`edge_id`, `status`, `confidence` and `meta`. A bucket holds one page "
+        "(`limit` neighbors from `offset`, in the same order on every request), "
+        "its `total`, and the `next_offset` of the following page (null on the "
+        "last). `relations`, `node_types`, `direction` and `status` narrow the "
+        "edges; the totals count what remains."
     ),
     tags=["nodes"],
 )
@@ -130,24 +184,24 @@ def get_node_graph(
     collection: str,
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
-    neighbor_limit: Annotated[
+    filters: NeighborFilterParams,
+    limit: Annotated[
         int,
         Query(
             ge=1,
-            le=5000,
-            description=(
-                "Overall cap on neighbors returned. Per-(relation, neighbor "
-                "collection) caps are applied first (e.g. factions cap VOTED "
-                "at 20 per destination collection); the result is then capped "
-                "to this overall limit."
-            ),
+            le=200,
+            description="Neighbors per bucket, not per response.",
         ),
-    ] = 100,
+    ] = DEFAULT_BUCKET_LIMIT,
+    offset: Annotated[
+        int,
+        Query(ge=0, description="Neighbors to skip in every bucket."),
+    ] = 0,
 ) -> NodeGraphResponse:
-    """Return a node together with all incoming/outgoing neighbors."""
+    """Return a node together with a page of its incoming/outgoing neighbors per bucket."""
     try:
         data = get_node_with_neighbors(
-            store, collection, key, neighbor_limit=neighbor_limit
+            store, collection, key, filters=filters, limit=limit, offset=offset
         )
     except UnsupportedCollectionError as err:
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
@@ -156,22 +210,74 @@ def get_node_graph(
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
         raise HTTPException(status_code=404, detail=str(err)) from err
 
-    all_neighbors = [
-        NeighborDTO.from_entry(
-            doc=entry.doc,
-            relation=entry.relation,
-            direction=entry.direction,
-            confidence=entry.confidence,
+    buckets = [
+        NeighborBucketDTO(
+            relation=bucket.facet.relation,
+            direction=bucket.facet.direction,
+            collection=bucket.facet.collection,
+            type=node_type_of(bucket.facet.collection),
+            total=bucket.facet.count,
+            next_offset=bucket.next_offset,
+            items=[
+                NeighborDTO.from_entry(
+                    doc=entry.doc,
+                    edge=entry.edge,
+                    direction=entry.direction,
+                    confidence=entry.confidence,
+                )
+                for entry in bucket.entries
+            ],
         )
-        for entry in data.neighbors
+        for bucket in data.buckets
     ]
-
-    neighbors = NodeNeighborsDTO(all=all_neighbors)
     return NodeGraphResponse(
         node=BaseNodeDTO.from_document(
             data.node, drop_props_keys=DROP_PROPS_KEYS_GRAPH
         ),
-        neighbors=neighbors,
+        neighbors=NodeNeighborsDTO(
+            total=sum(bucket.total for bucket in buckets), buckets=buckets
+        ),
+    )
+
+
+@router.get(
+    "/{collection}/{key}/facets",
+    response_model=NodeFacetsResponse,
+    summary="Count a node's neighbors per relation, direction and collection",
+    description=(
+        "How many edges the node has per relation, direction and neighbor "
+        "collection (with the node type of that collection), counted in the "
+        "database without reading the neighbors. `total` is the number of edges "
+        "over all facets. `relations`, `node_types`, `direction` and `status` "
+        "narrow the edges."
+    ),
+    tags=["nodes"],
+)
+def get_node_facets_route(
+    collection: str,
+    key: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    filters: NeighborFilterParams,
+) -> NodeFacetsResponse:
+    try:
+        facets = get_node_facets(store, collection, key, filters=filters)
+    except UnsupportedCollectionError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    except NodeNotFoundError as err:
+        raise HTTPException(status_code=404, detail=str(err)) from err
+
+    return NodeFacetsResponse(
+        items=[
+            NodeFacetDTO(
+                relation=facet.relation,
+                direction=facet.direction,
+                collection=facet.collection,
+                type=node_type_of(facet.collection),
+                count=facet.count,
+            )
+            for facet in facets
+        ],
+        total=sum(facet.count for facet in facets),
     )
 
 
@@ -181,7 +287,11 @@ def get_node_graph(
     summary="BFS neighborhood around a node",
     description=(
         "Returns every node and edge within `depth` hops of the focal node in "
-        "a single traversal query."
+        "a single traversal query. `relations` and `status` restrict the edges "
+        "the traversal follows, `direction` restricts it to edges leaving "
+        "(`outbound`) or reaching (`inbound`) each node on the way, and "
+        "`node_types` to paths through nodes of those types (the focal node is "
+        "always included)."
     ),
     tags=["nodes"],
 )
@@ -189,11 +299,14 @@ def get_node_neighborhood_route(
     collection: str,
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
+    filters: NeighborFilterParams,
     depth: Annotated[int, Query(ge=1, le=4)] = 3,
     cap: Annotated[int, Query(ge=1, le=1000)] = 200,
 ) -> NodeNeighborhoodResponse:
     try:
-        data = get_node_neighborhood(store, collection, key, depth=depth, cap=cap)
+        data = get_node_neighborhood(
+            store, collection, key, depth=depth, cap=cap, filters=filters
+        )
     except UnsupportedCollectionError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
     except NodeNotFoundError as err:

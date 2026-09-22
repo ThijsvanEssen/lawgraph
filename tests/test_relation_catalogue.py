@@ -63,6 +63,17 @@ def test_endpoints_are_known_collections() -> None:
         assert set(r.targets) <= known, r.name
 
 
+def test_every_node_type_has_one_collection_and_every_collection_one_type() -> None:
+    from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION, NodeType
+
+    assert set(COLLECTION_OF_TYPE) == set(NodeType)
+    assert len(TYPE_OF_COLLECTION) == len(NodeType)  # no two types share a collection
+    # The catalogue's concepts are the node types in CamelCase.
+    for concept, collection in CONCEPTS.items():
+        snake = re.sub(r"(?<!^)(?=[A-Z])", "_", concept).lower()
+        assert TYPE_OF_COLLECTION[collection].value == snake, concept
+
+
 def test_only_instruments_and_bills_change_law() -> None:
     changers = {CONCEPTS["Instrument"], CONCEPTS["Document"]}
     for name in ("AMENDS", "INTRODUCES", "REPEALS"):
