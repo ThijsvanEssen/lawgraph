@@ -1,0 +1,486 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/schema/op-xsd-2012-2">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-35470-XIV-4/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <kamerstukkop>
+      <tekstregel inhoud="vergaderjaar">Vergaderjaar 2019–2020</tekstregel>
+      <tekstregel inhoud="kameraanduiding">Tweede Kamer der Staten-Generaal</tekstregel>
+      <tekstregel inhoud="kamernummer">2</tekstregel>
+      <tekstregel inhoud="documenttype">Kamerstukken</tekstregel>
+    </kamerstukkop>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>35 470</dossiernr>
+        <begrotingshoofdstuk>XIV</begrotingshoofdstuk>
+      </dossiernummer>
+      <titel>Jaarverslag en slotwet Ministerie van Landbouw, Natuur en Voedselkwaliteit en Diergezondheidsfonds 2019</titel>
+    </dossier>
+    <stuk>
+      <stuknr>Nr. <ondernummer kamer="2">4</ondernummer></stuknr>
+      <titel>MEMORIE VAN TOELICHTING</titel>
+      <datumtekst>Ontvangen <datum isodatum="2020-05-20">20 mei 2020</datum></datumtekst>
+      <algemeen>
+        <vrije-tekst>
+          <divisie opmaak="default">
+            <kop font-kleur="6" kopopmaak="vet">
+              <nr status="officieel">A</nr>
+              <titel>ARTIKELGEWIJZE TOELICHTING BIJ HET WETSVOORSTEL</titel>
+            </kop>
+            <divisie opmaak="default">
+              <kop font-kleur="6" kopopmaak="vet">
+                <titel>Wetsartikelen 1 tot en met 3 </titel>
+              </kop>
+              <tussenkop kopopmaak="rom" witregel="ja">De begrotingsstaten die onderdeel zijn van de rijksbegroting, worden op grond van artikel 2.3, eerste lid, van de Comptabiliteitswet 2016 afzonderlijk bij wet vastgesteld en ook gewijzigd. Het onderhavige wetsvoorstel strekt ertoe om voor het jaar 2019 wijzigingen aan te brengen in:</tussenkop>
+              <lijst type="1" level="single" nr-sluiting=".">
+                <li>
+                  <li.nr>1.</li.nr>
+                  <al>de departementale begrotingsstaat van het Ministerie van Landbouw, Natuur en Voedselkwaliteit;</al>
+                </li>
+                <li>
+                  <li.nr>2.</li.nr>
+                  <al>de begrotingsstaat inzake het agentschap van dit ministerie;</al>
+                </li>
+                <li>
+                  <li.nr>3.</li.nr>
+                  <al>de begrotingsstaat van het Diergezondheidsfonds (F).</al>
+                </li>
+              </lijst>
+              <al>De in de begrotingsstaten opgenomen begrotingsartikelen worden in onderdeel B van deze memorie van toelichting toegelicht.</al>
+            </divisie>
+          </divisie>
+        </vrije-tekst>
+        <tekst-sluiting>
+          <ondertekening>
+            <functie>De Minister van Landbouw, Natuur en Voedselkwaliteit,</functie>
+            <deze>C.J. Schouten</deze>
+          </ondertekening>
+        </tekst-sluiting>
+      </algemeen>
+      <algemeen>
+        <vrije-tekst>
+          <divisie opmaak="default">
+            <kop font-kleur="6" kopopmaak="vet">
+              <nr status="officieel">B</nr>
+              <titel>ARTIKELGEWIJZE TOELICHTING BIJ DE BEGROTINGSARTIKELEN (SLOTVERSCHILLEN)</titel>
+            </kop>
+            <divisie opmaak="default">
+              <kop font-kleur="6" kopopmaak="vet">
+                <nr status="officieel">1</nr>
+                <titel>Leeswijzer</titel>
+              </kop>
+              <al>De beleidsmatige mutaties en technische mutaties groter of gelijk aan de ondergrenzen in onderstaande staffel worden op het niveau van de financiële instrumenten (en eventueel artikelonderdeel) toegelicht. </al>
+              <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="1" pdf-table-positioning="normaal" tablebreak="yes">
+                <tgroup tgroupstyle="kio2" cols="3">
+                  <colspec colnum="1" colname="col1" colwidth="34*" />
+                  <colspec colnum="2" colname="col2" colwidth="33*" />
+                  <colspec colnum="3" colname="col3" colwidth="33*" />
+                  <thead>
+                    <row rowsep="1">
+                      <entry colsep="0" rotate="0" thscope="row" colname="col1" align="left" valign="top">
+                        <al>Omvang begrotingsartikel (stand ontwerp-begroting) in € miljoen</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" thscope="row" colname="col2" align="left" valign="top">
+                        <al>Beleidsmatige mutaties (ondergrens in € miljoen)</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" colname="col3" align="left" valign="top">
+                        <al>Technische mutaties (ondergrens in € miljoen)</al>
+                      </entry>
+                    </row>
+                  </thead>
+                  <tbody>
+                    <row rowsep="1">
+                      <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                        <al>&lt; 50</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" thscope="row" colname="col2" align="left" valign="top">
+                        <al>1</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" colname="col3" align="left" valign="top">
+                        <al>2</al>
+                      </entry>
+                    </row>
+                    <row rowsep="1">
+                      <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                        <al>=&gt; 50 en &lt; 200</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" thscope="row" colname="col2" align="left" valign="top">
+                        <al>2</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" colname="col3" align="left" valign="top">
+                        <al>4</al>
+                      </entry>
+                    </row>
+                    <row rowsep="1">
+                      <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                        <al>=&gt; 200 &lt; 1000</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" thscope="row" colname="col2" align="left" valign="top">
+                        <al>5</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" colname="col3" align="left" valign="top">
+                        <al>10</al>
+                      </entry>
+                    </row>
+                    <row rowsep="1">
+                      <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                        <al>=&gt; 1000</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" thscope="row" colname="col2" align="left" valign="top">
+                        <al>10</al>
+                      </entry>
+                      <entry colsep="0" rotate="0" colname="col3" align="left" valign="top">
+                        <al>20</al>
+                      </entry>
+                    </row>
+                  </tbody>
+                </tgroup>
+              </table>
+            </divisie>
+            <divisie opmaak="default">
+              <kop font-kleur="6" kopopmaak="vet">
+                <nr status="officieel">2</nr>
+                <titel>Beleidsartikelen</titel>
+              </kop>
+              <tussenkop kopopmaak="vet">Algemeen</tussenkop>
+              <al>In de begrotingsstaat zijn de realisatiestanden van uitgaven, verplichtingen en ontvangsten en de resulterende slotverschillen ten opzichte van de tweede suppletoire begroting opgenomen op artikelniveau. Hieronder worden per artikel de slotverschillen op het niveau van de financiele instrumenten weergeven en waar nodig toegelicht. </al>
+              <divisie opmaak="default">
+                <kop font-kleur="6" kopopmaak="vet">
+                  <titel>Artikel 11: Concurrerende, duurzame, veilige agro-, visserij- en voedselketens </titel>
+                </kop>
+                <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="1" pdf-table-positioning="normaal" tablebreak="yes">
+                  <title>Slotverschillen Artikel 11 per instrument (Bedragen x € 1 mln).</title>
+                  <tgroup tgroupstyle="kio2" cols="4">
+                    <colspec colnum="1" colname="col1" colwidth="25*" />
+                    <colspec colnum="2" colname="col2" colwidth="25*" />
+                    <colspec colnum="3" colname="col3" colwidth="25*" />
+                    <colspec colnum="4" colname="col4" colwidth="25*" />
+                    <tbody>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" />
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center">
+                          <al>
+                            <nadruk type="vet">Verplichtingen</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="center">
+                          <al>
+                            <nadruk type="vet">Uitgaven</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="center">
+                          <al>
+                            <nadruk type="vet">Ontvangsten</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>
+                            <nadruk type="vet">Totaal Art. 11</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center">
+                          <al>
+                            <nadruk type="vet">‒ 9,9</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="center">
+                          <al>
+                            <nadruk type="vet">‒ 9,5</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="center">
+                          <al>
+                            <nadruk type="vet">0,4</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>
+                            <nadruk type="cur">Uitgesplitst per instrument:</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center" />
+                        <entry colsep="0" rotate="0" colname="col3" align="center" />
+                        <entry colsep="0" rotate="0" colname="col4" align="center" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Subsidies</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center">
+                          <al>23,9</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="center">
+                          <al>6,6</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="center" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Opdrachten</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center">
+                          <al>7</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="center">
+                          <al>‒ 9,3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="center" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Garanties</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center">
+                          <al>‒ 33,7</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="center">
+                          <al>‒ 0,3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="center" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Bijdrage aan internationale organisaties</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center">
+                          <al>0,2</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="center">
+                          <al>‒ 0,3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="center" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Bijdrage baten-lastendiensten</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center">
+                          <al>‒ 6,8</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="center">
+                          <al>‒ 6,8</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="center" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Bijdrage aan ZBO/RWT</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center">
+                          <al>‒ 1,3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="center">
+                          <al>‒ 0,1</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="center" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Storting begrotingsreserve</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" align="center">
+                          <al>0,7</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="center">
+                          <al>0,7</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="center" />
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+                <tussenkop kopopmaak="vet" witregel="ja">Toelichting verplichtingen</tussenkop>
+                <tussenkop kopopmaak="cur">Subsidies</tussenkop>
+                <al>Op het instrument subsidies zijn € 23,9 mln meer aan verplichtingen aangegaan ten opzichte van de tweede suppletoire begroting 2019. De belangrijkste oorzaken betreffen het verhogen van het verplichtingenbudget bij plantaardige productie met € 6,3 mln. Dit hangt samen met het vastleggen van verplichtingen in het kader van de regeling Energie-efficiëntie en hernieuwbare energie glastuinbouw (EHG). Daarnaast is er voor € 6 mln. meer aan verplichtingen aangegaan voor de toekenning van diverse onderzoeksprojecten die uitgevoerd worden in 2020 door Wageningen Research. Hiertoe wordt verplichtingenruimte uit 2020 naar voren gehaald. De kasuitgaven volgen in 2020. Ook is het verplichtingenbudget voor visserij verhoogd met verband met het vastleggen van de opdracht 2020 aan de NWO (€ 3,9). Het NWO stelt de middelen ter beschikking aan onderzoeksprojecten die passen binnen drie innovatiedomeinen (selectief vissen, verkleinen footprint van de visserijsector en alternatieve vismethoden) en waarvoor door de onderzoeksorganisaties onafhankelijk onderzoek wordt verricht dat bredere toepasbare kennis oplevert ten behoeve van innovatie in de visserijsector. Over bovenstaande beleidsmatige mutaties in de verplichtingen bent u reeds geinformeerd in de veegbrief (<extref doc="https://zoek.officielebekendmakingen.nl/kst-35300-XIV-67.html" soort="URL" status="actief">Kamerstuk 35300, XIV, nr. 67)</extref>. </al>
+                <tussenkop kopopmaak="cur">Opdrachten</tussenkop>
+                <al>Op dit instrument zijn per saldo € 7 mln. meer aan verplichtingen aangegaan. Dit wordt met name veroorzaakt door een verhoging van het verplichtingenbudget van € 5,6 mln voor het Deltaplan Agrarisch Waterbeheer. </al>
+                <tussenkop kopopmaak="cur">Garanties</tussenkop>
+                <al>Op dit instrument zijn per saldo € 33,7 mln. minder aan verplichtingen aangegaan. Dit wordt veroorzaakt doordat de verplichtingen voor de verliesdeclaraties van het borgstellingsfonds naar beneden zijn bijgesteld. </al>
+                <tussenkop kopopmaak="cur">Bijdrage baten-lastendiensten</tussenkop>
+                <al>Er is per saldo € 6,8 mln. minder aan verplichtingen aangegaan ten opzichte van de tweede suppletoire begroting 2019. Dit is met name veroorzaakt (€ 6 mln.) door een opdrachtverlaging bij RVO.nl omdat de uitvoering van de werkzaamheden uiteindelijk tot minder kosten leidde. </al>
+                <tussenkop kopopmaak="vet" witregel="ja">Toelichting Uitgaven</tussenkop>
+                <tussenkop kopopmaak="cur">Subsidies</tussenkop>
+                <al>De uitgaven op het instrument subsidies vallen € 6,6 mln hoger uit ten opzichte van de 2e suppletoire begroting 2019. Dit wordt veroorzaakt door een technisch slotverschil van € 6,7 mln. in het kader van uitgaven aan apurement. </al>
+                <tussenkop kopopmaak="cur">Opdrachten</tussenkop>
+                <al>Op dit instrument vallen de uitgaven per saldo € 9,3 mln. lager uit als gevolg van lagere uitgaven op diverse posten.</al>
+                <tussenkop kopopmaak="cur">Bijdrage baten-lastendiensten</tussenkop>
+                <al>De uitgaven vallen €6,8 mln. lager uit. Dit wordt met name (€4,5 mln.) veroorzaakt doordat de uitvoering van de werkzaamheden door RVO.nl uiteindelijk tot minder kosten leidde.</al>
+              </divisie>
+              <divisie opmaak="default">
+                <kop font-kleur="6" kopopmaak="vet">
+                  <titel>Artikel 12: Natuur en biodiversiteit</titel>
+                </kop>
+                <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="1" pdf-table-positioning="normaal" tablebreak="yes">
+                  <title>Slotverschillen Artikel 12 per instrument (Bedragen x € 1 mln).</title>
+                  <tgroup tgroupstyle="kio2" cols="4">
+                    <colspec colnum="1" colname="col1" colwidth="25*" />
+                    <colspec colnum="2" colname="col2" colwidth="25*" />
+                    <colspec colnum="3" colname="col3" colwidth="25*" />
+                    <colspec colnum="4" colname="col4" colwidth="25*" />
+                    <tbody>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" />
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2">
+                          <al>
+                            <nadruk type="vet">Verplichtingen</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3">
+                          <al>
+                            <nadruk type="vet">Uitgaven</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4">
+                          <al>
+                            <nadruk type="vet">Ontvangsten</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>
+                            <nadruk type="vet">Totaal Art. 12</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2">
+                          <al>
+                            <nadruk type="vet">60,2</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3">
+                          <al>
+                            <nadruk type="vet">‒ 0,3</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4">
+                          <al>
+                            <nadruk type="vet">1,7</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>
+                            <nadruk type="cur">Uitgesplitst per instrument:</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2" />
+                        <entry colsep="0" rotate="0" colname="col3" />
+                        <entry colsep="0" rotate="0" colname="col4" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Subsidies</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2">
+                          <al>72,9</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3">
+                          <al>0,4</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Opdrachten</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2">
+                          <al>17,3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3">
+                          <al>2,3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Leningen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2">
+                          <al>‒ 1</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3">
+                          <al>‒ 1</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Bijdrage aan internationale organisaties</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2">
+                          <al>0,5</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3">
+                          <al>0</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Bijdrage baten-lastendiensten</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2">
+                          <al>‒ 1</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3">
+                          <al>‒ 1</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Bijdrage aan ZBO/RWT</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2">
+                          <al>‒ 26,8</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3">
+                          <al>‒ 0,1</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1">
+                          <al>Bijdrage aan mede-overheden</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" thscope="row" colname="col2">
+                          <al>‒ 1,6</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3">
+                          <al>‒ 0,7</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" />
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+                <tussenkop kopopmaak="vet" witregel="ja">Toelichting verplichtingen</tussenkop>
+                <tussenkop kopopmaak="cur">Subsidies</tussenkop>
+                <al>De verplichtingen zijn € 72,9 mln hoger uitgevallen in verband met het vastleggen van de meerjarige verplichting met betrekking tot de regiodeal Rotterdam -Zuid. Hierover bent u eerder geinformeerd in de veegbrief (<extref doc="https://zoek.officielebekendmakingen.nl/kst-35300-XIV-67.html" soort="URL" status="actief">Kamerstuk 35300, XIV, nr. 67)</extref>. </al>
+                <tussenkop kopopmaak="cur">Opdrachten</tussenkop>
+                <al>De verplichtingen zijn € 17,3 mln hoger uitgevallen door met name (€ 11,3 mln. ) het aangaan van een meerjarige verplichting met betrekking tot het Netwerk Ecologische Monitoring (NEM). Hiertoe wordt verplichtingenruimte uit volgende jaren naar voren gehaald. </al>
+                <tussenkop kopopmaak="cur">Bijdrage aan ZBO/RWT</tussenkop>
+                <al>De verplichtingen zijn € 26,8 mln lager uitgevallen. Dit heeft ermee te maken de verplichting voor 2019 aan Staatsbosbeheer al in 2018 was aangegaan. </al>
+              </divisie>
+            </divisie>
+            <divisie opmaak="default">
+              <kop font-kleur="6" kopopmaak="vet">
+                <nr status="officieel">3</nr>
+                <titel>Niet-beleidsartikelen</titel>
+              </kop>
+              <tussenkop kopopmaak="vet">Artikel 50: Apparaat</tussenkop>
+              <tussenkop kopopmaak="vet">Toelichting</tussenkop>
+              <al>Op dit artikel zijn ten opzichte van de 2e suppletoire begroting 2019 € 5 mln. minder aan verplichtingen aangegaan en is er € 5 mln. minder uitgegeven. Enerzijds doordat er na de 2<sup>e</sup> suppletoire begroting € 2,7 mln. is overgeheveld naar de begroting van EZK ter compensatie voor gemeenschappelijke bedrijfsvoeringskosten. Anderzijds vallen de uitgaven lager uit (€ 2,3 mln.) door enerzijds lagere personele uitgaven in verband met de opbouw van de LNV-organisatie in 2019 en anderzijds vanwege hogere inhuuruitgaven die plaats heeft gevonden binnen EZK. Afgesproken is dat kosten voor onder andere inhuur worden verdeeld over de begrotingen van EZK en LNV. Op het ontvangstenbudget is ten opzichte van de 2e suppletoire begroting 2019 € 1 mln. minder gerealiseerd.</al>
+            </divisie>
+          </divisie>
+        </vrije-tekst>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

@@ -230,13 +230,50 @@ Dossier contains Case contains Document. TK data is the source.
 |---------|-----------|-------|
 | Dossier | `dossiers` | `number`, `suffix`, `title`, `title_source`, `closed`, `opened_on`, `closed_on`; derived: `current_stage`, `stages_present` (of `wetsvoorstel`, `mvt`, `advies_rvs`, `nota`, `verslag`, `amendementen`, `stemming`, `afgehandeld`), `case_kinds`, `track_kind` (`wetsvoorstel`, `initiatiefwetsvoorstel`, `begroting`, `motie`, `overig`), `outcome` (`aangenomen`, `verworpen`, `ingetrokken` for closed dossiers) |
 | Case | `cases` | every TK Zaak, no filter on kind; `title`, `citation_title`, `number`, `dossier_numbers` (the payload stays in `raw_sources`) |
-| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `dossier_numbers`, `case_ids`, `actors`, `text`); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`); the chamber is in `labels` (`TK`; `EersteKamer` and `EK`), and a `kind` containing `toelichting` makes a document explanatory |
+| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `dossier_numbers`, `case_ids`, `actors`, `text`; the structure of the text of a Kamerstuk XML: see below); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`); the chamber is in `labels` (`TK`; `EersteKamer` and `EK`), and a `kind` containing `toelichting` makes a document explanatory |
 | Activity | `activities` | debate or hearing; `date`, `agenda_title`, `kind`, `committee_id`, `case_ids`, `dossier_numbers` |
 | Decision | `decisions` | one node per TK `Besluit` |
 | Commitment | `commitments` | `status` mapped to `open`, `gedaan`, `vervallen`, `unknown`; `activity_number` |
 | Member | `members` | every TK `Persoon` (members and ministers); `name`, `party`, `faction_memberships` (dated timeline) |
 | Faction | `factions` | `name`, `abbreviation`, `aliases`, `seats`, `active` |
 | Committee | `committees` | `name`, `abbreviation`, `slug` |
+
+### Text and sections of a Kamerstuk
+
+`normalize tk-content` reads the Kamerstuk XML that `retrieve tk-content` stored and writes,
+on the Document of the paper (`meta.document` of the raw record):
+
+| Prop | Meaning |
+|------|---------|
+| `text` | one line per heading, paragraph, list item or table row (cells tab-separated), whitespace collapsed; footnotes, header and signature are not in it. Cut at a whole line at 2,000,000 characters (`MAX_TEXT_CHARS`; the longest paper seen has 1.1 million) |
+| `text_truncated` | `true` when it was cut |
+| `text_source` | `kst-xml` |
+| `xml_dialect` | `kamerwrk` (1995-2009) or `officiele-publicatie` (2010 on) |
+| `structure_quality` | `explicit`: an artikelsgewijs opener and article headings after it; `implicit`: article headings, no opener; `none`: no article headings |
+| `budget` | a budget or annual report (a dossier chapter such as `XV`, or a title that says so): its numbered articles are policy articles, not law articles, so a consumer that links articles skips it |
+| `footnotes` | `[{number, text}]` in document order |
+| `sections` | the headings of the paper, in document order, as below |
+
+The XML has no element for an article: the artikelsgewijs part of a memorandum is a run of
+headings with the paragraphs after them. Every heading is a section, so `sections` covers the
+whole paper; a section spans its heading, its body and everything nested under it:
+`text[char_start:char_end]`. A child lies inside its parent.
+
+| Field | Meaning |
+|-------|---------|
+| `id` | `s-<ordinal>` in document order; the same XML always gives the same ids |
+| `heading` | the heading as printed (`ARTIKEL II (Huisvestingswet 2014)`) |
+| `level` | 1 for a section without parent, else the level of the parent plus 1 |
+| `parent` | id of the enclosing section, or `null` |
+| `kind` | `algemeen` (the general part: every heading before the opener); `artikelsgewijs` (the heading that opens the article-by-article part: "Artikelsgewijs", "Artikelsgewijze toelichting", "Artikelen"); `article` ("Artikel 3", "Artikelen 3 en 4", "Artikel I, onderdeel B (artikel 1a)"); `onderdeel` ("Onderdeel B", "Ad a.", "A, B en D"); `lid` ("Eerste lid", "Ad 1"); `chapter` ("Hoofdstuk 2", "Afdeling 3"); `other`. `onderdeel` and `lid` only inside an article; an article heading is one wherever it stands |
+| `number` | the number as printed in the heading (`3`, `II`, `3:159n`, `1.6.20`, `B`); of the first article for a heading with several; `lid` numbers are digits (`Eerste lid` is `1`); `null` when the heading has none |
+| `number_scheme` | `arabic`, `roman`, `book_article` (`3:159n`, `1.6.20`), `letter` (`B`), or `null` |
+| `article_refs` | `[{number, of}]`: every article number the heading names (`Artikelen 3 en 4` gives two; `1 tot en met 3` gives 1, 2, 3), empty for other kinds. `of`: `self` (an article of the bill the memorandum accompanies), `named_law` (of the law `law` names: `Artikel 1a van de Woningwet`), `unknown` (of a law that is implied and not named: the `(artikel 1a)` of `Artikel I, onderdeel B (artikel 1a)`, or the parenthesis of `Onderdeel A (artikel 1)`) |
+| `law` | another law the heading names, in parentheses or after `van de` (`Huisvestingswet 2014`, `Boek 7 van het Burgerlijk Wetboek`), else `null`; on an `article` whose number is the bill's own it is the law that bill article changes |
+| `char_start`, `char_end` | offsets into `text` |
+
+A paper that cannot be read gives no text and the record is skipped; a paper whose structure
+cannot be read gives its text, no sections and `structure_quality` `none`.
 
 Votes: TK returns one row per voter per `Besluit`. A roll-call (`Hoofdelijk`) names every
 member, so its `VOTED` edges start at the member; any other vote is cast per faction and the
@@ -262,7 +299,7 @@ JSON sources use `payload_json`; XML and HTML sources use `payload_text`.
 
 | Source | Kinds |
 |--------|-------|
-| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon` |
+| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document) |
 | `rechtspraak` | `rs-content` |
 | `eurlex` | `eu-celex-html` |
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
@@ -274,8 +311,8 @@ JSON sources use `payload_json`; XML and HTML sources use `payload_text`.
 
 A document the source answered HTTP 404 for is remembered as a record without payload of
 kind `<kind>-missing` (`eu-celex-html-missing`, `rs-content-missing`, ...); the retrieve
-pipelines do not ask for it again for 30 days and no other phase reads it. A Kamerstuk without
-XML is remembered on the document itself (`props.text_missing_at`).
+pipelines do not ask for it again for 30 days (3 days for a Kamerstuk of the last week, whose
+XML is still to be published) and no other phase reads it.
 
 ## Indexes and search views
 

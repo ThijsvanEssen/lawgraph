@@ -1,9 +1,10 @@
-"""The text of Tweede Kamer papers from their XML (KOOP repository), not from the PDF."""
+"""The XML of Tweede Kamer papers (KOOP repository) as raw records: identifiers, the client and
+``retrieve tk-content``."""
 
 from __future__ import annotations
 
+import datetime as dt
 import pathlib
-import xml.etree.ElementTree as ET
 from types import SimpleNamespace
 from typing import Any
 
@@ -11,10 +12,15 @@ import pytest
 import requests
 
 from lawgraph.clients.kamerstuk import KamerstukClient
+from lawgraph.config.constants import (
+    RAW_KIND_MISSING_SUFFIX,
+    RAW_KIND_TK_KAMERSTUK_XML,
+    SOURCE_TK,
+)
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
-from lawgraph.pipelines.retrieve import tk_content
-from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline, xml_text
-from tests.fakes import FakeResponse
+from lawgraph.db import raw_key
+from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from tests.fakes import FakeResponse, RawSourcesFake
 
 FIXTURE = (
     pathlib.Path(__file__).parent / "fixtures" / "kst_37020_x_1.xml"
@@ -42,28 +48,6 @@ def test_the_dossier_and_number_come_out_of_an_identifier() -> None:
     assert KST_ID_PATTERN.fullmatch("kst-37020-X-2").groups() == ("37020-X", "2")
     assert KST_ID_PATTERN.fullmatch("kst-37020-2").groups() == ("37020", "2")
     assert KST_ID_PATTERN.fullmatch("kst-1259252") is None  # an Eerste Kamer paper
-
-
-# ── the XML ──────────────────────────────────────────────────────────────────
-
-
-def test_the_text_of_a_real_kamerstuk_xml() -> None:
-    text = xml_text(FIXTURE)
-    assert text is not None and len(text) > 1000
-    assert (
-        "Vaststelling van de begrotingsstaten van het ministerie van Defensie" in text
-    )
-    assert "<" not in text  # markup is gone
-
-
-def test_a_byte_order_mark_does_not_matter() -> None:
-    assert xml_text("﻿" + FIXTURE) == xml_text(FIXTURE)
-
-
-def test_xml_without_text_is_none_and_broken_xml_raises() -> None:
-    assert xml_text("<root><a/></root>") is None
-    with pytest.raises(ET.ParseError):
-        xml_text("<html>Bad gateway")
 
 
 # ── the client ───────────────────────────────────────────────────────────────
@@ -116,21 +100,24 @@ def test_an_identifier_that_is_not_a_kamerstuk_is_not_requested() -> None:
 # ── the pipeline ─────────────────────────────────────────────────────────────
 
 
-class _Store:
-    def __init__(self, papers: list[dict]) -> None:
+class _Store(RawSourcesFake):
+    """What the pipeline asks of the store: the papers of the graph, the raw keys it has."""
+
+    def __init__(self, papers: list[dict], have: set[str] | None = None) -> None:
         self.papers = papers
-        self.updates: list[dict] = []
-        self.queries: list[str] = []
+        self.have = have or set()  # raw keys that exist (whatever their kind)
+        self.queries: list[tuple[str, dict]] = []
+        self.stored: list[dict[str, Any]] = []
 
     def query(self, aql: str, bind_vars: dict | None = None, **kw: Any):
-        self.queries.append(aql)
-        if "UPDATE" in aql:
-            bind = dict(bind_vars or {})
-            # ``_set_prop`` binds a name and a value; the tests read it as {key, <name>}.
-            self.updates.append({"key": bind["key"], bind["name"]: bind["value"]})
-            return iter([])
-        self.missing_before = (bind_vars or {}).get("missing_before")
-        return iter(self.papers)
+        bind = dict(bind_vars or {})
+        self.queries.append((aql, bind))
+        if "part_of" in bind:
+            return iter([dict(p) for p in self.papers])
+        return iter([key for key in bind["keys"] if key in self.have])
+
+    def insert_raw_source(self, **fields: Any) -> None:
+        self.stored.append(fields)
 
 
 class _Client:
@@ -147,7 +134,11 @@ class _Client:
 
 
 def _paper(
-    number: str, sequence: int, suffix: str | None = None, key: str = ""
+    number: str,
+    sequence: int,
+    suffix: str | None = None,
+    key: str = "",
+    date: str = "2020-01-02",
 ) -> dict:
     return {
         "key": key or f"doc-{number}-{sequence}",
@@ -155,43 +146,92 @@ def _paper(
         "number": number,
         "suffix": suffix,
         "sequence": sequence,
+        "date": date,
     }
 
 
-def _run(papers, xml=None, **kw):
-    store = _Store(papers)
+def _run(papers, xml=None, have=None, **kw):
+    store = _Store(papers, have)
     client = _Client(xml or {})
     result = TKContentRetrievePipeline(store=store, client=client).run(**kw)
     return result, store, client
 
 
-def test_each_paper_is_fetched_by_its_identifier_and_its_text_stored() -> None:
+def _xml_key(identifier: str) -> str:
+    return raw_key(SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, identifier)
+
+
+def test_each_paper_is_fetched_by_its_identifier_and_its_xml_stored_unchanged() -> None:
     result, store, client = _run([_paper("37020", 1, "X"), _paper("36867", 3)])
     assert client.fetched == ["kst-37020-X-1", "kst-36867-3"]
     assert result.created == 2 and result.errors == []
-    assert [u["key"] for u in store.updates] == ["doc-37020-1", "doc-36867-3"]
-    assert "Vaststelling van de begrotingsstaten" in store.updates[0]["text"]
+    assert [(r["source"], r["kind"], r["external_id"]) for r in store.stored] == [
+        (SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, "kst-37020-X-1"),
+        (SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, "kst-36867-3"),
+    ]
+    assert all(r["payload_text"] == FIXTURE for r in store.stored)
+    # The record says which document it is the text of: normalize needs no second lookup.
+    assert store.stored[0]["meta"] == {"document": "doc-37020-1"}
 
 
-def test_the_query_joins_the_dossier_and_asks_for_tk_papers_without_text() -> None:
-    _, store, _ = _run([_paper("36867", 3)])
-    aql = store.queries[0]
+def test_the_query_joins_the_dossier_and_asks_for_tk_papers_of_the_kind() -> None:
+    _, store, _ = _run([_paper("36867", 3)], kind_filter="Toelichting")
+    aql, bind = store.queries[0]
     assert '"TK" IN pub.labels' in aql and "@part_of" in aql
-    assert "pub.props.text == null" in aql and "dossier.props.suffix" in aql
+    assert "dossier.props.suffix" in aql and bind["kind"] == "toelichting"
     assert "kind || " in aql  # not the ``??`` AQL does not have
 
 
-def test_a_paper_the_repository_does_not_have_is_skipped() -> None:
+def test_a_paper_with_its_xml_stored_is_not_fetched_again() -> None:
+    result, _, client = _run(
+        [_paper("1", 1), _paper("2", 2)], have={_xml_key("kst-1-1")}
+    )
+    assert client.fetched == ["kst-2-2"] and result.created == 1
+
+
+def test_a_paper_that_answered_404_lately_waits_and_one_whose_wait_is_over_is_asked() -> (
+    None
+):
+    """The wait is the ``retry_after`` of the record: the query filters on it."""
+    missing = raw_key(
+        SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX, "kst-1-1"
+    )
+    result, store, client = _run([_paper("1", 1), _paper("2", 2)], have={missing})
+    assert client.fetched == ["kst-2-2"]
+    lookups = [aql for aql, bind in store.queries if "keys" in bind]
+    assert any("r.meta.retry_after > @now" in aql for aql in lookups)
+    assert any("retry_after" not in aql for aql in lookups)  # the XML itself: no filter
+
+
+def test_a_paper_the_repository_does_not_have_becomes_a_missing_record() -> None:
     not_found = _Client({})
     not_found.fetch_kamerstuk_xml = lambda identifier: None  # type: ignore[method-assign]
     store = _Store([_paper("36867", 3)])
     result = TKContentRetrievePipeline(store=store, client=not_found).run()
     assert (result.created, result.skipped, result.errors) == (0, 1, [])
-    # No text, but the paper remembers that it was asked for: not again for 30 days.
-    (update,) = store.updates
-    assert update["key"] == "doc-36867-3" and update["text_missing_at"].endswith("Z")
-    assert store.missing_before < update["text_missing_at"]
-    assert "text_missing_at < @missing_before" in store.queries[0]
+    (record,) = store.stored
+    assert record["kind"] == RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX
+    assert record["external_id"] == "kst-36867-3" and record["payload_text"] is None
+    assert record["meta"]["status"] == 404
+    retry = dt.datetime.fromisoformat(
+        record["meta"]["retry_after"].replace("Z", "+00:00")
+    )
+    long_wait = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=29)
+    assert retry > long_wait  # an old paper: a month, like every missing document
+
+
+def test_a_paper_of_this_week_that_has_no_xml_yet_is_asked_again_soon() -> None:
+    """A new paper is a PDF first ("Onopgemaakt"); its XML follows within two days."""
+    today = dt.datetime.now(dt.timezone.utc).date().isoformat()
+    not_found = _Client({})
+    not_found.fetch_kamerstuk_xml = lambda identifier: None  # type: ignore[method-assign]
+    store = _Store([_paper("36867", 3, date=today)])
+    TKContentRetrievePipeline(store=store, client=not_found).run()
+    (record,) = store.stored
+    retry = dt.datetime.fromisoformat(
+        record["meta"]["retry_after"].replace("Z", "+00:00")
+    )
+    assert retry < dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=4)
 
 
 def test_a_failing_fetch_is_an_error_and_the_rest_goes_on() -> None:
@@ -201,41 +241,26 @@ def test_a_failing_fetch_is_an_error_and_the_rest_goes_on() -> None:
     )
     assert result.created == 2
     assert len(result.errors) == 1 and "kst-2-2" in result.errors[0]
-    assert [u["key"] for u in store.updates] == ["doc-1-1", "doc-3-3"]
+    assert [r["external_id"] for r in store.stored] == ["kst-1-1", "kst-3-3"]
 
 
 def test_a_repository_that_is_down_fails_the_step() -> None:
     papers = [_paper(str(n), 1) for n in range(1, 61)]
     down = requests.ConnectionError("no route")
     result, store, client = _run(papers, {f"kst-{n}-1": down for n in range(1, 61)})
-    assert result.created == 0 and store.updates == []
-    assert "seems to be down" in result.errors[-1]
+    assert result.created == 0 and store.stored == []
+    assert any("seems to be down" in e for e in result.errors)
     assert len(client.fetched) == 25  # it stopped at the 25th failure in a row
 
 
-def test_xml_that_cannot_be_read_is_an_error_not_an_empty_paper() -> None:
+def test_an_error_page_that_answered_200_is_an_error_not_a_stored_paper() -> None:
     result, store, _ = _run([_paper("36867", 3)], {"kst-36867-3": "<html>Bad gateway"})
-    assert store.updates == [] and "cannot be read" in result.errors[0]
-
-
-def test_xml_without_text_is_skipped() -> None:
-    result, store, _ = _run([_paper("36867", 3)], {"kst-36867-3": "<root><a/></root>"})
-    assert result.skipped == 1 and store.updates == []
-
-
-def test_a_very_long_text_is_cut_and_says_so(monkeypatch, caplog) -> None:
-    monkeypatch.setattr(tk_content, "_STORE_TEXT_LIMIT", 100)
-    with caplog.at_level("WARNING"):
-        _, store, _ = _run([_paper("36867", 3)])
-    assert len(store.updates[0]["text"]) == 100
-    assert any(
-        "longer than 100 chars; storing the first part" in m for m in caplog.messages
-    )
+    assert store.stored == [] and "cannot be read" in result.errors[0]
 
 
 def test_a_dry_run_fetches_and_stores_nothing() -> None:
     result, store, client = _run([_paper("36867", 3)], dry_run=True)
-    assert client.fetched == [] and store.updates == [] and result.skipped == 1
+    assert client.fetched == [] and store.stored == [] and result.skipped == 1
 
 
 def test_without_papers_there_is_nothing_to_do() -> None:

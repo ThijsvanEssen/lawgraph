@@ -13,24 +13,34 @@ from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
     RAW_KIND_EU_CELEX,
     RAW_KIND_MISSING_SUFFIX,
     RAW_KIND_RS_CONTENT,
+    RAW_KIND_TK_KAMERSTUK_XML,
+    RELATION_PART_OF,
     SOURCE_BWB,
     SOURCE_EURLEX,
     SOURCE_RECHTSPRAAK,
+    SOURCE_TK,
 )
+from lawgraph.core.identifiers import kamerstuk_identifier
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import iso_timestamp
-from lawgraph.db import Store
+from lawgraph.db import Store, raw_key
 
 logger = get_logger(__name__)
 
 # The most gaps of one kind a run fetches; the rest is said out loud and comes next time.
 MAX_GAPS_PER_RUN = 50_000
+
+# Keys looked up in one query (as ``ArangoStore.existing_keys``).
+_KEY_CHUNK = 5000
 
 # A law is fetched when at least this many of its articles are referred to.
 DEFAULT_MIN_STUBS = 3
@@ -159,6 +169,89 @@ def eurlex_gaps(store: Store) -> list[str]:
     """
     bind = {"source": SOURCE_EURLEX, "kind": RAW_KIND_EU_CELEX}
     return cast(list[str], list(store.query(aql, bind)))
+
+
+def kamerstuk_gaps(store: Store, kind: str = "toelichting") -> list[dict[str, Any]]:
+    """The Tweede Kamer papers whose *kind* contains a word, and whose XML was not retrieved.
+
+    Each has the dossier it is part of (a paper without one or without a number in it has no
+    address in the repository and is left out) and its ``identifier``, ``kst-<dossier>-<n>``.
+    Those the repository answered HTTP 404 for not long ago are left out too, so the report
+    of ``lawgraph gaps`` names exactly what a run fetches.
+    """
+    aql = f"""
+    FOR pub IN {COLLECTION_DOCUMENTS}
+      FILTER "TK" IN pub.labels
+      FILTER CONTAINS(LOWER(pub.props.kind || ""), @kind)
+      FILTER pub.props.sequence != null
+      LET dossier = FIRST(
+        FOR e IN {COLLECTION_EDGES}
+          FILTER e._from == pub._id AND e.relation == @part_of
+          FILTER STARTS_WITH(e._to, "{COLLECTION_DOSSIERS}/")
+          FOR d IN {COLLECTION_DOSSIERS}
+            FILTER d._id == e._to
+            RETURN d
+      )
+      FILTER dossier != null AND dossier.props.number != null
+      RETURN {{
+        key: pub._key,
+        title: pub.props.title || pub.props.display_name || pub._key,
+        number: dossier.props.number,
+        suffix: dossier.props.suffix,
+        sequence: pub.props.sequence,
+        date: pub.props.date
+      }}
+    """
+    papers = list(store.query(aql, {"kind": kind.lower(), "part_of": RELATION_PART_OF}))
+    for paper in papers:
+        paper["identifier"] = kamerstuk_identifier(
+            paper["number"], paper.get("suffix"), paper["sequence"]
+        )
+    stored = _with_raw_record(store, papers, RAW_KIND_TK_KAMERSTUK_XML)
+    waiting = _with_raw_record(
+        store,
+        papers,
+        RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX,
+        retry_ahead=True,
+    )
+    return _capped(
+        [p for p in papers if p["identifier"] not in stored | waiting],
+        "Kamerstukken without XML",
+    )
+
+
+def _with_raw_record(
+    store: Store,
+    papers: list[dict[str, Any]],
+    kind: str,
+    *,
+    retry_ahead: bool = False,
+) -> set[str]:
+    """The identifiers of *papers* that have a raw record of *kind*, by primary key.
+
+    With *retry_ahead* only a record of a missing document counts that is not to be asked for
+    again yet.
+    """
+    by_key = {
+        raw_key(SOURCE_TK, kind, paper["identifier"]): paper["identifier"]
+        for paper in papers
+    }
+    retry = "FILTER r.meta.retry_after > @now" if retry_ahead else ""
+    aql = f"""
+    FOR r IN {COLLECTION_RAW_SOURCES}
+      FILTER r._key IN @keys
+      {retry}
+      RETURN r._key
+    """
+    bind: dict[str, Any] = {}
+    if retry_ahead:
+        bind["now"] = iso_timestamp(dt.datetime.now(dt.timezone.utc))
+    keys = list(by_key)
+    found: set[str] = set()
+    for start in range(0, len(keys), _KEY_CHUNK):
+        chunk = {**bind, "keys": keys[start : start + _KEY_CHUNK]}
+        found.update(by_key[key] for key in store.query(aql, chunk))
+    return found
 
 
 def echr_gaps(store: Store) -> list[str]:

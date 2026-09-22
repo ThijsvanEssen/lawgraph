@@ -94,7 +94,7 @@ gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 | `GET /api/factions`, `/{key}`, `/{key}/dossiers`, `/{key}/touched-instruments` | factions with member counts; the same two aggregates per faction (its dossiers are those its members signed documents in while they belonged to it) |
 | `GET /api/parliament/seats` | seated factions with seat counts in plenary-hall order |
 | `GET /api/parties/colors` | party abbreviation to hex colour |
-| `GET /api/documents`, `/{key}` | documents across sources, metadata only (`q`, `kind`, `chamber`, `source`, `dossier` number: documents linked directly or through a case; `limit` up to 1000, `offset`; `total` counts all matches); one with its extracted text (null when `tk-content` has not reached it), `dossier_numbers` (the dossiers it is `PART_OF`, in either chamber) and `explains` (the articles and instruments it `EXPLAINS`: `id`, `key`, `collection`, `bwb_id`, `article_number`; an article version resolves to its article, an instrument has no `article_number`) |
+| `GET /api/documents`, `/{key}` | documents across sources, metadata only (`q`, `kind`, `chamber`, `source`, `dossier` number: documents linked directly or through a case; `limit` up to 1000, `offset`; `total` counts all matches); one with its extracted text (null when `normalize tk-content` has not reached it), `dossier_numbers` (the dossiers it is `PART_OF`, in either chamber) and `explains` (the articles and instruments it `EXPLAINS`: `id`, `key`, `collection`, `bwb_id`, `article_number`; an article version resolves to its article, an instrument has no `article_number`) |
 
 ### Graph, search, nodes
 

@@ -207,12 +207,12 @@ _ART_ENUM_PAT = (
     rf"(?:\s+(?:en|of)\s+{_NUM_PAREN_PAT})?"
 )
 # Range takes priority over enum to avoid "2 tot" being parsed as just "2"
-_ART_NUMS_PAT = rf"(?:{_ART_RANGE_PAT}|{_ART_ENUM_PAT})"
+ARTICLE_NUMBERS_PATTERN = rf"(?:{_ART_RANGE_PAT}|{_ART_ENUM_PAT})"
 
 # The head of a citation: the keyword, the article numbers and their qualifiers. Which law
 # is meant follows in the text after it (``DutchCitationExtractor._resolve_law``).
 ARTICLE_HEAD_RE = re.compile(
-    rf"\b(?:artikel(?:en)?|art\.?)\s+(?P<nums>{_ART_NUMS_PAT})(?P<qual>{_QUALIFIER_PAT})",
+    rf"\b(?:artikel(?:en)?|art\.?)\s+(?P<nums>{ARTICLE_NUMBERS_PATTERN})(?P<qual>{_QUALIFIER_PAT})",
     re.IGNORECASE,
 )
 

@@ -104,8 +104,8 @@ class ExplainedTargetDTO(BaseModel):
 class DocumentTextResponse(DocumentOrigin):
     """One document with its text.
 
-    ``text`` is null until the hydration pipeline has run for it — a scanned
-    PDF without a text layer never gets one. ``dossier_numbers`` are the dossiers
+    ``text`` is null until ``normalize tk-content`` has run for it: a paper
+    from before December 1994 has no XML and never gets one. ``dossier_numbers`` are the dossiers
     the document is PART_OF, in either chamber; ``explains`` are the articles and
     instruments it explains, without duplicates.
     """

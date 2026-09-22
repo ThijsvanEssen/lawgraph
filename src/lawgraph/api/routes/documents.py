@@ -86,10 +86,10 @@ def list_documents(
     response_model=DocumentTextResponse,
     summary="Document text",
     description=(
-        "One document with the plain text extracted from its source PDF, the "
-        "dossiers it belongs to and, for an explanatory document, the articles "
-        "and laws it explains. ``text`` is null when the hydration pipeline has "
-        "not reached it."
+        "One document with its text, read from the XML of the paper, the dossiers "
+        "it belongs to and, for an explanatory document, the articles and laws it "
+        "explains. "
+        "``text`` is null when ``normalize tk-content`` has not reached it."
     ),
     tags=["documents"],
 )

@@ -206,9 +206,6 @@ class JudgmentProps(_CommonProps):
 
 class DocumentProps(_CommonProps):
     external_id: str | None = None
-    # When the repository last had no XML for this paper (retrieve tk-content asks again
-    # after 30 days).
-    text_missing_at: str | None = None
     raw: dict[str, Any] | None = None
     title: str | None = None
     subject: str | None = None
@@ -217,6 +214,16 @@ class DocumentProps(_CommonProps):
     # the document's own number: a Kamerstuk number, or a Stcrt/Stb one
     number: str | None = None
     text: str | None = None
+    # ``normalize tk-content``: the structure of a Kamerstuk's text (core/kamerstuk_xml.py)
+    text_source: str | None = None  # "kst-xml"
+    text_truncated: bool | None = None
+    xml_dialect: str | None = None  # "kamerwrk" | "officiele-publicatie"
+    structure_quality: str | None = None  # "explicit" | "implicit" | "none"
+    budget: bool | None = (
+        None  # a budget or annual report: policy articles, not law articles
+    )
+    sections: list[dict[str, Any]] | None = None
+    footnotes: list[dict[str, Any]] | None = None
     # TK-dossier documents
     dossier_number: str | None = None
     # the addition to the dossier number, e.g. the chapter "VII" of "35925 VII"
