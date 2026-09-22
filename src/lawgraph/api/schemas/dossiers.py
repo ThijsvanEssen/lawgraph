@@ -66,17 +66,24 @@ class TimelineSignatoryDTO(BaseModel):
     source_role: str = Field("", description="The role as the source wrote it.")
 
 
-class TimelineDocumentSummaryDTO(DocumentOrigin):
-    """The document a decision was taken on: what it says and who signed it."""
+class DocumentEntryDTO(DocumentOrigin):
+    """A document as it is named from another node: identity and paper number, never text."""
 
     id: str
     key: str
     kind: str | None = None
     title: str | None = None
-    sequence: int | None = None
-    session_year: str | None = None
+    sequence: int | None = Field(
+        None, description="Document number within the dossier."
+    )
+    session_year: str | None = Field(None, description="Parliamentary year.")
     date: str | None = None
     tk_url: str | None = None
+
+
+class TimelineDocumentSummaryDTO(DocumentEntryDTO):
+    """The document a decision was taken on: what it says and who signed it."""
+
     dictum_excerpt: str | None = Field(
         None, description="The first 280 characters of the document's text."
     )
@@ -229,19 +236,9 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
     return _TIMELINE_ENTRY.validate_python(common)
 
 
-class DossierDocumentDTO(DocumentOrigin):
+class DossierDocumentDTO(DocumentEntryDTO):
     """One document linked to a dossier."""
 
-    id: str
-    key: str
-    kind: str | None = None
-    title: str | None = None
-    sequence: int | None = Field(
-        None, description="Document number within the dossier."
-    )
-    session_year: str | None = Field(None, description="Parliamentary year.")
-    date: str | None = None
-    tk_url: str | None = None
     display_name: str | None = None
 
     @classmethod
