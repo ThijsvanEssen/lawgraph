@@ -66,7 +66,8 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_LOG_FILE` | unset | every log line is also written to this file (plain lines; the terminal keeps its live progress) |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
-| `ALLOW_DB_TESTS` | unset | `1` runs `tests/test_aql_validity.py`: every static AQL query is explained by the real ArangoDB in a scratch database (a query the server rejects, such as one with `??`, fails only there); shell only |
+| `ALLOW_DB_TESTS` | unset | `1` runs `tests/test_aql_validity.py` (every static AQL query explained by a real ArangoDB in a scratch database) and everything under `tests/integration/`; shell only |
+| `LAWGRAPH_TEST_ARANGO_URL` | `http://localhost:8530` | server `tests/integration/` talks to (`docker-compose.test.yml`); `tests/test_aql_validity.py` does not read this and uses `ARANGO_URL` instead (a scratch database of its own, so never real data either way); shell only |
 
 ## CLI
 
@@ -322,10 +323,13 @@ ruff format --check src tests
 mypy                                  # src, configured in pyproject.toml
 ```
 
-The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no unit
-test executes AQL, but `ALLOW_DB_TESTS=1` has the server validate every static query.
+The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no unit test
+executes AQL, but one file, `tests/test_aql_validity.py`, is different: `ALLOW_DB_TESTS=1` has a
+real ArangoDB validate every static query (a scratch database of its own; it defaults to
+`ARANGO_URL` from `.env`, so normally your local dev server, unless you export
+`LAWGRAPH_TEST_ARANGO_URL`).
 
-What only a server shows is in `tests/integration`: the real code and the real CLI against a
+What only a server shows under real load is in `tests/integration`: the real code and the real CLI against a
 second, deliberately small ArangoDB (`docker-compose.test.yml`, a compose project of its own: port 8530, 1 GB
 of memory, 256 MiB per query, a throw-away volume; never the database of `.env`).
 
@@ -340,10 +344,31 @@ result larger than the server may hold in memory streams; `normalize all` and `s
 produce every part of the model and a second run changes nothing; `lawgraph check` finds a
 source that was never normalized and an edge without its node; a database that restarts in
 the middle of a run, and a run that is killed, cost a re-run at most; a stub that is loaded
-stops being a stub; an incremental run links to what was loaded earlier. A problem found in
-a real run gets a test here first: small data on a small server fails the way the corpus
-does on the real one. Layout: `tests/api/` (routes), `tests/normalize/` and
-`tests/semantic/` (one file per source or detector), `tests/test_*.py` (clients, core helpers,
-bulk writers, registry, naming, conventions, relation catalogue, props). CI (`.github/workflows`) runs
-`mypy` and `pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format, end-of-file,
-trailing whitespace, private-key detection, YAML and merge-conflict checks.
+stops being a stub; an incremental run links to what was loaded earlier; an API route answers
+correctly and stays inside the server's memory limit against realistically large or
+heavily-cited data. A problem found in a real run gets a test here first: small data on a
+small server fails the way the corpus does on the real one.
+
+Each test creates its own database (`lawgraph_it_<uuid>`) on the test server and drops it
+afterwards, so tests stay independent of each other and safe to run in parallel; none of them
+touches the database of `.env`. `conftest.py` skips the whole directory (rather than erroring)
+when `ALLOW_DB_TESTS` is unset or the test server is unreachable, so `pytest tests` without it
+stays green.
+
+Layout: `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
+`test_large_results` and `test_command_line` exercise the pipeline chain itself and its failure
+modes; `test_api_articles`, `test_api_documents`, `test_api_queries`, `test_hub_queries`,
+`test_node_neighbors`, `test_resolve`, `test_article_parts`, `test_judgment_mentions`,
+`test_mvt_articles`, `test_instrument_links` and `test_cited_by_scale` run one API surface, or
+one query at a scale that would defeat an unindexed plan, against real data; `test_tk_content`
+covers the Kamerstuk XML pipeline specifically; `test_series_end_to_end` seeds one small, real
+chain (a law, an amendment, its memorandum, two judgments) and walks every route it touches,
+dossier to judgment, once.
+
+The unit suite outside `tests/integration/` is laid out as: `tests/api/` (routes, against a
+fake store), `tests/normalize/` and `tests/semantic/` (one file per source or detector),
+`tests/test_*.py` (clients, core helpers, bulk writers, registry, naming, conventions, relation
+catalogue, props). CI (`.github/workflows`) runs `mypy` and
+`pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format,
+end-of-file, trailing whitespace, private-key detection, YAML and merge-conflict checks; it does
+not run `tests/integration` (no server available there).
