@@ -111,7 +111,7 @@ they are out of date. Do not edit inside the markers.
 | `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
 | `confidence` | 0-1; absent on structural edges; 1.0 when read from source XML |
 | `created_at` | set on insert only |
-| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
+| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
 
 Semantic layer on article-to-article `REFERS_TO` edges, orthogonal to `relation`: `relation`
 says that two articles are linked, `semantic_type` says what the link means.
@@ -188,6 +188,39 @@ renumbering; each version has a `versie-id`.
   of a BWB link stops at the article, so `leden`, `onderdelen` (written as in the part ids)
   and `aanhef` are read from the text of the link (`core/qualifiers.py`); a link to a chapter
   or a title has none.
+
+## Judgment
+
+A Rechtspraak judgment carries its header (`court`, `date`, `case_number`, `judgment_metadata`,
+`related_eclis`, `subjects`; `court_code`, `tier` and `date_eff` derived), `summary`, `text` and
+`paragraphs`.
+
+`paragraphs` is the `<uitspraak>` in reading order, a list of `{id, number, kind, text}`. `kind` is
+`heading` (a section), `subheading` (a nested section, or an `<uitspraak.info>` block) or `body`.
+A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
+its own text: the text of `5.3` does not hold `5.3.1`. Where the XML has no such structure a
+`<para>` is a paragraph, and a number that its text opens with (`1.    Bij het besluit`) is its
+number. `number` is the number as printed without its closing dot (`5.3`), null when there is
+none, and is not part of `text`. `id` names the paragraph in deep links and mentions and is
+unique in the judgment: `rov-5.3` for a numbered `body` paragraph (a consideration, cited as
+"rov. 5.3"), `kop-5` for a numbered heading, `p-<n>` (its position) for a paragraph without a
+number; a number that repeats one before it gets `_<n>`, its occurrence (`rov-1_2`).
+
+A `REFERS_TO` edge from a judgment to an article (`semantic rechtspraak`) is one per judgment and
+article. Its `confidence` is that of the strongest mention, `meta.mention_count` the number of
+mentions, `meta.reason` the kind of target, and `meta.mentions` the first 100 mentions in
+reading order:
+
+| Field | Meaning |
+|-------|---------|
+| `paragraph_id`, `paragraph_number` | the paragraph that cites the article (`number` is absent when it has none) |
+| `start`, `end`, `raw_match` | the citation as written: `text[start:end]` of that paragraph |
+| `qualifier` | what the citation says of the article's parts, as written: `derde lid` |
+| `leden`, `onderdelen`, `aanhef` | what the qualifier names, as in the part ids of an article (`core/qualifiers.py`) |
+| `snippet`, `confidence` | the text around the citation; 0.95 for a law named by its code or its title, less for a law that is found by "die wet" |
+
+A Tweede Kamer document's edge to an article has `meta.raw_match`, `snippet`, `reason`, `qualifier`,
+`leden`, `onderdelen` and `aanhef` of the first citation of that article.
 
 ## Parliament
 

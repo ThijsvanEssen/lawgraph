@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries.articles import (
     get_article_citations,
+    get_article_cited_by,
     get_article_explanations,
     get_article_history,
     get_article_in_flux,
@@ -15,6 +16,8 @@ from lawgraph.api.queries.articles import (
 )
 from lawgraph.api.queries.relationships import get_article_relationship_data
 from lawgraph.api.schemas.articles import (
+    ArticleCitedByItem,
+    ArticleCitedByResponse,
     ArticleDetailResponse,
     ArticleExplanationDTO,
     ArticleExplanationsResponse,
@@ -152,6 +155,55 @@ def get_article_relationships(
         downstream_implications=downstream,
         scope_articles=scope,
     )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/cited-by",
+    response_model=ArticleCitedByResponse,
+    summary="Passages of judgments that cite an article",
+    description=(
+        "One row per passage: a judgment and the paragraph in it that cites the article, "
+        "with the lid, onderdeel or aanhef it names, a snippet and the confidence of the "
+        "detection. Newest judgment first. `court` (ECLI court code), `tier` and `lid` "
+        "(a lid number the passage names) filter; `total` counts all passages that match. "
+        "404 when the article is unknown."
+    ),
+    tags=["articles"],
+)
+def get_article_cited_by_passages(
+    bwb_id: str,
+    article_number: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    court: Annotated[
+        str | None, Query(description="ECLI court code, e.g. 'HR', 'RBAMS'")
+    ] = None,
+    tier: Annotated[
+        Literal["hoge_raad", "gerechtshof", "rechtbank", "bijzonder"] | None, Query()
+    ] = None,
+    lid: Annotated[
+        str | None,
+        Query(
+            pattern=r"^\d+[A-Za-z]{0,3}$",
+            description="A lid number the passage names: '3', '2a'",
+        ),
+    ] = None,
+) -> ArticleCitedByResponse:
+    article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
+    if not store.articles.has(parse_arango_id(article_id)[1]):
+        raise HTTPException(status_code=404, detail="Article not found")
+    rows, total = get_article_cited_by(
+        store,
+        article_id,
+        court=court,
+        tier=tier,
+        lid=lid,
+        limit=limit,
+        offset=offset,
+    )
+    items = [item for row in rows if (item := ArticleCitedByItem.from_row(row))]
+    return ArticleCitedByResponse(article_id=article_id, items=items, total=total)
 
 
 @router.get(

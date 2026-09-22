@@ -16,7 +16,7 @@ Rules for maintainers:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -162,6 +162,15 @@ class ArticleVersionProps(_CommonProps):
 # ---------------------------------------------------------------------------
 
 
+class JudgmentParagraphProps(_StrictBase):
+    """One paragraph of a judgment (``core.judgments.extract_sections``)."""
+
+    id: str  # ``rov-5.3``, ``kop-5``, ``p-12``: unique in the judgment, for deep links
+    number: str | None = None  # as printed, without its closing dot: "5.3"
+    kind: Literal["heading", "subheading", "body"]
+    text: str
+
+
 class JudgmentProps(_CommonProps):
     ecli: str | None = None
     source_kind: str | None = None
@@ -170,7 +179,7 @@ class JudgmentProps(_CommonProps):
     text: str | None = None
     judgment_metadata: dict[str, Any] | None = None
     subjects: list[str] | None = None
-    paragraphs: list[dict[str, Any]] | None = None
+    paragraphs: list[JudgmentParagraphProps] | None = None
     court: str | None = None
     case_number: str | None = None
     related_eclis: list[str] | None = None

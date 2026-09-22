@@ -22,8 +22,6 @@ coerce_text
     Safely coerce any value to a stripped non-empty string, or ``None``.
 strip_xml
     Strip XML/HTML tags and normalise whitespace for clean regex matching.
-detect_article_references
-    Convenience wrapper: coded citations plus low-confidence bare ``artikel X`` hits.
 """
 
 from __future__ import annotations
@@ -76,6 +74,10 @@ class CitationHit:
     raw_match: str | None = None
     snippet: str | None = None
     qualifier: str | None = None  # e.g. "derde lid", "eerste en tweede lid"
+    # Where the citation stands in the text it was found in: ``text[start:end]`` is the
+    # ``raw_match``. Unset for a hit that was not read from a text.
+    start: int | None = None
+    end: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -211,12 +213,6 @@ _ART_NUMS_PAT = rf"(?:{_ART_RANGE_PAT}|{_ART_ENUM_PAT})"
 # is meant follows in the text after it (``DutchCitationExtractor._resolve_law``).
 ARTICLE_HEAD_RE = re.compile(
     rf"\b(?:artikel(?:en)?|art\.?)\s+(?P<nums>{_ART_NUMS_PAT})(?P<qual>{_QUALIFIER_PAT})",
-    re.IGNORECASE,
-)
-
-# Bare "artikel X" pattern (no law code) — for low-confidence fallback detection
-_BARE_ARTIKEL_PAT = re.compile(
-    rf"\b(?:artikel(?:en)?|art\.?)\s+(?P<nums>{_ART_NUMS_PAT})\b",
     re.IGNORECASE,
 )
 
@@ -427,9 +423,11 @@ class DutchCitationExtractor:
         )
         for count in range(len(words), 0, -1):
             end = words[count - 1].end()
-            law_id = self._name_map.get(name_key(text[pos : pos + end]))
+            name = text[pos : pos + end]
+            law_id = self._name_map.get(name_key(name))
             if law_id:
-                return _Law(law_id, pos + end, CONFIDENCE_DIRECT)
+                # the punctuation that ends the sentence is not part of the citation
+                return _Law(law_id, pos + len(name.rstrip(".,;:")), CONFIDENCE_DIRECT)
         return None
 
     def _apply_family(self, law: _Law, article_number: str) -> tuple[str | None, str]:
@@ -447,8 +445,14 @@ class DutchCitationExtractor:
 
     # ── extraction ────────────────────────────────────────────────────────────
 
-    def extract(self, text: str) -> list[CitationHit]:
-        """Return all detected Dutch article citations in *text*."""
+    def extract(
+        self, text: str, *, every_occurrence: bool = False
+    ) -> list[CitationHit]:
+        """Return the detected Dutch article citations in *text*.
+
+        An article is reported once, at its first citation, unless *every_occurrence* asks
+        for a hit per citation.
+        """
         if not text or not (self._code_map or self._name_map or self._books):
             return []
 
@@ -463,7 +467,9 @@ class DutchCitationExtractor:
                 continue
             self._remember_alias(text, law, local)
             span = (match.start(), law.end)
-            for hit in self._hits(text, match, law, span, seen):
+            for hit in self._hits(
+                text, match, law, span, None if every_occurrence else seen
+            ):
                 hits.append(hit)
                 last = (law.end, hit.bwb_id or hit.celex or "")
         return hits
@@ -484,7 +490,7 @@ class DutchCitationExtractor:
         match: re.Match[str],
         law: _Law,
         span: tuple[int, int],
-        seen: set[tuple[str | None, str | None, str]],
+        seen: set[tuple[str | None, str | None, str]] | None,
     ) -> Iterator[CitationHit]:
         qualifier = (match.group("qual") or "").strip(", ") or None
         for raw_num in parse_article_numbers(match.group("nums") or ""):
@@ -493,9 +499,10 @@ class DutchCitationExtractor:
                 continue
             is_bwb = is_bwb_id(law_id)
             key = (law_id if is_bwb else None, None if is_bwb else law_id, art_num)
-            if key in seen:
-                continue
-            seen.add(key)
+            if seen is not None:
+                if key in seen:
+                    continue
+                seen.add(key)
             yield CitationHit(
                 kind="article",
                 bwb_id=law_id if is_bwb else None,
@@ -505,62 +512,6 @@ class DutchCitationExtractor:
                 confidence=law.confidence,
                 raw_match=text[span[0] : span[1]],
                 snippet=make_snippet(text, span),
+                start=span[0],
+                end=span[1],
             )
-
-    def extract_bare(
-        self,
-        text: str,
-        *,
-        exclude_spans: list[tuple[int, int]] | None = None,
-        confidence: float = 0.35,
-    ) -> list[CitationHit]:
-        """Return bare ``artikel X`` references not already covered by coded hits.
-
-        These carry no ``bwb_id`` / ``celex`` and a low confidence score.
-        They are useful for presence detection but should not be used to create
-        stub nodes or edges without additional resolution.
-        """
-        if not text:
-            return []
-        covered = set(exclude_spans or [])
-        hits: list[CitationHit] = []
-        seen_nums: set[str] = set()
-        for match in _BARE_ARTIKEL_PAT.finditer(text):
-            span = match.span()
-            if any(span[0] < e and span[1] > s for s, e in covered):
-                continue
-            nums_raw = (match.group("nums") or "").strip()
-            for art_num in parse_article_numbers(nums_raw):
-                if art_num in seen_nums:
-                    continue
-                seen_nums.add(art_num)
-                hits.append(
-                    CitationHit(
-                        kind="article",
-                        article_number=art_num,
-                        confidence=confidence,
-                        raw_match=match.group(0),
-                        snippet=make_snippet(text, span),
-                    )
-                )
-        return hits
-
-
-def detect_article_references(
-    text: str | None,
-    mapping: dict[str, str],
-) -> list[CitationHit]:
-    """Return article citations detected in *text*.
-
-    Wraps ``DutchCitationExtractor`` and also appends bare ``artikel X`` hits
-    (no law code, confidence 0.35) so callers that rely on low-confidence bare
-    detection still work.
-    """
-    if not text:
-        return []
-    extractor = DutchCitationExtractor(code_aliases=mapping)
-    hits = extractor.extract(text)
-    coded_nums = {h.article_number for h in hits if h.article_number}
-    bare = extractor.extract_bare(text, confidence=0.35)
-    hits.extend(b for b in bare if b.article_number not in coded_nums)
-    return hits

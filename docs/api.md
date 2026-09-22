@@ -33,6 +33,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `.../legislative-history` | dossiers and documents that introduced, amended or propose to amend the article, including `voorgesteld`, and what refers to it; the explanatory documents are at `explained-by`; empty list, never 404 |
 | `.../explained-by` | the documents that `EXPLAINS` the article: edges to the article, to any of its versions (same `stam_id`) or to its instrument. `items[]`: `document` (`id`, `key`, `kind`, `title`, `date`, `dossier_number`, `chamber`, `source`, `is_explanatory`), `target` (`article`, `article_version`, `instrument`), `target_id`, `article_version_key`, `confidence`, `scope`, `section_anchor`. `scope` is `dossier` when the memorandum explains all changes of its dossier (every edge written today), `article` when the edge names the passage in `section_anchor`. An `instrument` item exists only for a dossier whose law changed no articles: no evidence about this article, listed after the article-level ones. Newest first; one item per document, level and anchor (a version before the article, the newest version first); `limit` (1-500, default 100), `offset`, `total` counts all; empty list for an unknown article, never 404 |
 | `.../in-flux` | whether an open bill targets the article: `{in_flux, open_dossier_count}`; never 404 |
+| `.../cited-by` | the passages of judgments that cite the article, one row per mention (`judgment`, `paragraph_id`, `paragraph_number`, the `leden`, `onderdelen` and `aanhef` it names, `snippet`, `confidence`), newest judgment first; `court`, `tier`, `lid` (a lid number the passage names), `limit` (max 200), `offset`, exact `total`; 404 for an unknown article |
 | `.../relationships` | outgoing and incoming references with `semantic_type`, explanation, badge, community votes, the span of the reference (`start`, `end`, `text`, in the referring article) and the `leden`, `onderdelen` and `aanhef` it names, and annex scopes |
 
 ### Instruments and annexes
@@ -73,7 +74,7 @@ gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 | Path | Returns |
 |------|---------|
 | `GET /api/judgments` | paged list; `q`, `court` (ECLI code), `tier` (`hoge_raad`, `gerechtshof`, `rechtbank`, `bijzonder`), `source`, `from`, `to`, `cited_by_min`, `sort` (`date_desc`, `date_asc`, `citation_count`) |
-| `/api/judgments/{ecli}` | the judgment with the articles its `REFERS_TO` edges point at, each with its parent instrument |
+| `/api/judgments/{ecli}` | the judgment with its `paragraphs` (each with a `paragraph_id` for deep links, its printed `number` and the article `citations` in it, one per occurrence with `start` and `end`), the articles its `REFERS_TO` edges point at with their parent instrument (`articles`), and the same articles as `cited_articles` with the paragraphs that cite them, the lid or onderdeel named and a snippet. Citations are read from the stored edges; nothing is detected per request |
 
 ### Parliament
 

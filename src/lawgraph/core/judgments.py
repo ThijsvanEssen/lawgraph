@@ -8,7 +8,13 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.core.xml import first_named, iter_named, local_name, text_of
+from lawgraph.core.xml import (
+    collapse_ws,
+    first_named,
+    iter_named,
+    local_name,
+    text_of,
+)
 
 # ── ECLI-derived attributes ──────────────────────────────────────────────────
 
@@ -119,62 +125,148 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
 
 
 # ── <uitspraak> structure ────────────────────────────────────────────────────
+#
+# A judgment numbers its considerations (overwegingen): "5.3" is the third paragraph of the
+# fifth section, cited as "rov. 5.3". The XML writes the number as ``<nr>`` in a
+# ``<paragroup>`` (a numbered unit, nested as deep as the numbering goes) or in the
+# ``<title>`` of a ``<section>``; many courts put it in front of the text of a ``<para>``
+# instead ("1.    Bij het besluit ..."). Both are read as the printed number of a paragraph.
+
+KIND_HEADING = "heading"
+KIND_SUBHEADING = "subheading"
+KIND_BODY = "body"
+
+# "5.3 text", "12. text": digits, a dot or a dotted number, then a space. A number alone
+# ("1 februari 2013") is not one: a date opens a sentence too.
+_LEADING_NUMBER = re.compile(r"^(\d{1,3}(?:\.\d{1,2})+\.?|\d{1,3}\.)\s+(?=\S)")
+_NOT_TEXT = {"title", "footnote", "nr"}
+_BLOCKS = {"para", "parablock", "paragroup", "list", "li", "table", "al"}
 
 
-def _emit(paragraphs: list[dict[str, Any]], kind: str, text: str) -> None:
-    if text:
-        paragraphs.append({"number": None, "kind": kind, "text": text})
+def _slug(number: str) -> str:
+    """The printed number as written in an id: ``"5.3."`` is ``"5.3"``."""
+    return re.sub(r"[^0-9a-z.]", "", number.lower()).strip(".")
 
 
-def _process_section(
-    section: ET.Element, paragraphs: list[dict[str, Any]], depth: int = 0
-) -> None:
-    nr = section.attrib.get("nr", "").strip() or None
-    kind = "heading" if depth == 0 else "subheading"
-    title_text: str | None = None
-    for child in section:
-        if local_name(child.tag) == "title":
-            title_text = text_of(child, " ")
-            break
-    if not title_text:
-        title_text = (section.text or "").strip() or None
-    if title_text or nr:
-        paragraphs.append({"number": nr, "kind": kind, "text": title_text or ""})
-    for child in section:
-        local = local_name(child.tag)
-        if local in ("title", "footnote"):
-            continue
-        if local == "section":
-            _process_section(child, paragraphs, depth=depth + 1)
-        elif local == "uitspraak.info":
-            _emit(paragraphs, "subheading", text_of(child, " "))
-        elif local != "nr":  # para, al and any other element are body text
-            _emit(paragraphs, "body", text_of(child, " "))
+def _flat(element: ET.Element) -> str:
+    """The text of an element on one line; inline markup stays inside the word."""
+    blocks = any(local_name(child.tag) in _BLOCKS for child in element)
+    return collapse_ws(text_of(element, " " if blocks else ""))
 
 
-def _process_uitspraak(element: ET.Element, paragraphs: list[dict[str, Any]]) -> None:
-    for child in element:
-        local = local_name(child.tag)
-        if local == "section":
-            _process_section(child, paragraphs, depth=0)
-        elif local == "uitspraak.info":
-            _emit(paragraphs, "subheading", text_of(child, " "))
-        elif local in ("para", "al"):
-            _emit(paragraphs, "body", text_of(child, " "))
+def _unit_text(element: ET.Element) -> str:
+    """The text of a ``<para>`` or ``<parablock>``: its paragraphs, a blank line between."""
+    paras = [_flat(p) for p in iter_named(element, "para") if not len(p)] or [
+        _flat(element)
+    ]
+    return "\n\n".join(p for p in paras if p)
+
+
+def _split_number(text: str) -> tuple[str | None, str]:
+    """``("5.3", "text")`` for text that opens with a printed number, else ``(None, text)``."""
+    match = _LEADING_NUMBER.match(text)
+    if not match:
+        return None, text
+    return match[1].rstrip("."), text[match.end() :]
+
+
+class _Sections:
+    """The paragraphs of an ``<uitspraak>``, in reading order."""
+
+    def __init__(self) -> None:
+        self.entries: list[dict[str, Any]] = []
+        self._seen: dict[str, int] = {}
+
+    def add(self, kind: str, number: str | None, text: str) -> None:
+        if not text and not number:
+            return
+        slug = _slug(number) if number else ""
+        if slug:
+            base = f"{'rov' if kind == KIND_BODY else 'kop'}-{slug}"
+        else:
+            number, base = None, f"p-{len(self.entries) + 1}"
+        self._seen[base] = self._seen.get(base, 0) + 1
+        paragraph_id = base if self._seen[base] == 1 else f"{base}_{self._seen[base]}"
+        self.entries.append(
+            {"id": paragraph_id, "number": number, "kind": kind, "text": text}
+        )
+
+    def unnumbered(self, kind: str, text: str) -> None:
+        """A paragraph that may open with its number."""
+        number, rest = _split_number(text)
+        self.add(kind, number, rest)
+
+    def walk(self, container: ET.Element, depth: int = 0) -> None:
+        """Every child of an ``<uitspraak>``, a ``<section>`` or a ``<paragroup>``."""
+        for child in container:
+            name = local_name(child.tag)
+            if name == "section":
+                self.section(child, depth)
+            elif name == "paragroup":
+                self.paragroup(child, depth)
+            elif name == "uitspraak.info":
+                self.add(KIND_SUBHEADING, None, _unit_text(child))
+            elif name == "parablock":  # a run of paragraphs, each one of its own
+                self.walk(child, depth)
+            elif name not in _NOT_TEXT:  # para, al and any other body element
+                self.unnumbered(KIND_BODY, _flat(child))
+
+    def section(self, section: ET.Element, depth: int) -> None:
+        title = next((c for c in section if local_name(c.tag) == "title"), None)
+        number, text = None, ""
+        if title is not None:
+            number = collapse_ws(text_of(first_named(title, "nr"))) or None
+            text = collapse_ws(text_of(title, " "))
+            if number and text.startswith(number):
+                text = text[len(number) :].strip()
+        kind = KIND_HEADING if depth == 0 else KIND_SUBHEADING
+        self.add(kind, number, text)
+        self.walk(section, depth + 1)
+
+    def paragroup(self, group: ET.Element, depth: int) -> None:
+        """A numbered unit: its own paragraphs are one entry, nested units follow."""
+        nr = next((c for c in group if local_name(c.tag) == "nr"), None)
+        number = collapse_ws(text_of(nr)) or None
+        if number is None:
+            self.walk(group, depth)
+            return
+        own: list[str] = []
+        for child in group:
+            name = local_name(child.tag)
+            if name in ("paragroup", "section"):
+                self.flush(number, own)
+                (self.paragroup if name == "paragroup" else self.section)(child, depth)
+            elif name not in _NOT_TEXT and name != "uitspraak.info":
+                own.append(_unit_text(child))
+        self.flush(number, own)
+
+    def flush(self, number: str, own: list[str]) -> None:
+        text = "\n\n".join(t for t in own if t)
+        own.clear()
+        if text:
+            self.add(KIND_BODY, number, text)
 
 
 def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
-    """One entry per semantic unit (heading / subheading / body) in ``<uitspraak>``.
+    """The paragraphs of the first ``<uitspraak>``: ``{id, number, kind, text}`` each.
 
-    Each section becomes a heading entry, each ``<title>``/``<uitspraak.info>`` a
-    subheading, and each ``<para>``/``<al>`` a body entry. Only the first
-    ``<uitspraak>`` is read.
+    ``kind`` is ``heading`` (a section), ``subheading`` (a nested section or an
+    ``<uitspraak.info>`` block) or ``body``. A numbered unit (``<paragroup>``) is one
+    ``body`` paragraph however many ``<para>`` it holds, and each nested unit another: the
+    text of "5.3" does not contain "5.3.1". ``number`` is the printed number without its
+    closing dot (``"5.3"``), null when the paragraph has none, and is not part of ``text``.
+
+    ``id`` names a paragraph in a deep link and is unique in the judgment: ``rov-5.3`` for
+    a numbered ``body`` paragraph, ``kop-5`` for a numbered heading, ``p-<n>`` (its
+    position) for a paragraph without a number. A number that repeats one before it gets
+    ``_<n>``, its occurrence (``rov-1_2``: the judgments of some courts number their
+    procedure and their considerations from 1 each).
     """
-    paragraphs: list[dict[str, Any]] = []
     uitspraak = first_named(root, "uitspraak")
+    sections = _Sections()
     if uitspraak is not None:
-        _process_uitspraak(uitspraak, paragraphs)
-    return paragraphs
+        sections.walk(uitspraak)
+    return sections.entries
 
 
 # ── Atom index pages ─────────────────────────────────────────────────────────

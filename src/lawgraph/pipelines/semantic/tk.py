@@ -25,6 +25,7 @@ from lawgraph.core.citations import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 
@@ -142,6 +143,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
                         "snippet": hit.snippet,
                         "reason": hit_reason(hit),
                         "qualifier": hit.qualifier,
+                        **parse_qualifier(hit.qualifier).to_dict(),
                     }.items()
                     if v
                 }

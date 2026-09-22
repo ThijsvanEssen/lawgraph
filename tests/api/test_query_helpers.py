@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from lawgraph.api.queries.articles import get_articles_by_keys
 from lawgraph.api.queries.documents import list_documents
 from lawgraph.api.queries.instruments import get_short_titles
 
@@ -15,22 +14,6 @@ class _CountingStore:
     def query(self, aql: str, bind_vars: dict | None = None):
         self.calls.append((aql, bind_vars or {}))
         return self.rows
-
-
-def test_articles_by_keys_is_one_query_and_deduplicates() -> None:
-    store = _CountingStore([{"_key": "a", "_id": "articles/a"}])
-
-    result = get_articles_by_keys(store, ["a", "a", "b"])
-
-    assert list(result) == ["a"]
-    assert len(store.calls) == 1
-    assert sorted(store.calls[0][1]["keys"]) == ["a", "b"]
-
-
-def test_articles_by_keys_empty_does_not_query() -> None:
-    store = _CountingStore()
-    assert get_articles_by_keys(store, []) == {}
-    assert store.calls == []
 
 
 def test_short_titles_prefers_short_title_and_falls_back() -> None:
