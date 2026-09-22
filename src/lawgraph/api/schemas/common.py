@@ -10,6 +10,22 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.core.models import make_node_key
 
 
+class QualifierFields(BaseModel):
+    """Which parts of the cited article a reference names: "eerste lid, onder a"."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    leden: list[str] = Field(
+        default_factory=list,
+        description="Numbers of the leden named (`['1', '2']`), ranges written out.",
+    )
+    onderdelen: list[str] = Field(
+        default_factory=list,
+        description="Letters or numbers of the onderdelen named (`['a']`, `['2']`).",
+    )
+    aanhef: bool = Field(default=False, description="Whether the aanhef is named.")
+
+
 class InstrumentSummaryDTO(BaseModel):
     """Short representation of an instrument."""
 
@@ -60,16 +76,19 @@ class ArticleCitationTarget(BaseModel):
     display_name: str | None
 
 
-class ArticleCitationSpan(BaseModel):
+class ArticleCitationSpan(QualifierFields):
     """Character span for an internal citation inside the source article."""
-
-    model_config = ConfigDict(extra="forbid")
 
     start: int | None
     end: int | None
     text: str | None
     target: ArticleCitationTarget
     kind: str = "article"
+    reference_kind: str | None = Field(
+        default=None,
+        description="`intref` or `extref`: how the regulation's XML wrote a reference "
+        "from one article to another; null for other citations.",
+    )
     confidence: float | None = None
 
 

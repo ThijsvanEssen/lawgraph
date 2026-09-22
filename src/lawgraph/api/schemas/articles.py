@@ -14,6 +14,7 @@ from lawgraph.api.schemas.common import (
     InstrumentSummaryDTO,
     JudgmentSummaryDTO,
     PublicationDTO,
+    QualifierFields,
 )
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
 from lawgraph.config.constants import (
@@ -23,6 +24,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.models import parse_arango_id
+from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
 
 ExplanationTarget = Literal["article", "article_version", "instrument"]
@@ -33,6 +35,101 @@ _TARGET_OF_COLLECTION: dict[str, ExplanationTarget] = {
     COLLECTION_ARTICLE_VERSIONS: "article_version",
     COLLECTION_INSTRUMENTS: "instrument",
 }
+
+
+class ArticlePartDTO(BaseModel):
+    """A lid, an onderdeel or an aanhef of an article, as a span of its `text`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(
+        description="Where the part sits: `aanhef`, `lid-2`, `lid-2-aanhef`, `lid-2-onder-a`, "
+        "`onder-a` (an article without leden), `lid-2-onder-a-onder-1` (an onderdeel "
+        "inside an onderdeel). Unique within the article."
+    )
+    kind: str = Field(description="`aanhef`, `lid` or `onderdeel`.")
+    number: str | None = Field(
+        description="The number as printed: `2`, `2a`, `a`, `1°`; null for an aanhef "
+        "or an item without one."
+    )
+    text: str = Field(
+        description="The content without its number: `text[start:end]` of the article. "
+        "A part with onderdelen spans them too."
+    )
+    start: int = Field(description="Offset of the part in the `text` of the article.")
+    end: int
+
+
+def parts_from_props(props: dict[str, Any]) -> list[ArticlePartDTO]:
+    """The parts stored on an article or version, with their text cut from `props.text`.
+
+    Entries that do not fit the text are left out rather than failing the response.
+    """
+    text = props.get("text")
+    stored = props.get("parts")
+    if not isinstance(text, str) or not isinstance(stored, list):
+        return []
+    parts: list[ArticlePartDTO] = []
+    for part in stored:
+        if not isinstance(part, dict):
+            continue
+        start, end = part.get("start"), part.get("end")
+        if not (
+            isinstance(start, int)
+            and isinstance(end, int)
+            and 0 <= start < end <= len(text)
+        ):
+            continue
+        parts.append(
+            ArticlePartDTO(
+                id=str(part.get("id") or ""),
+                kind=str(part.get("kind") or ""),
+                number=part.get("number"),
+                text=text[start:end],
+                start=start,
+                end=end,
+            )
+        )
+    return parts
+
+
+class ArticleReferenceDTO(QualifierFields):
+    """A reference the text of an article makes to an article of a regulation."""
+
+    kind: str = Field(
+        description="`intref` (a link inside the regulation) or `extref` (to another)."
+    )
+    bwb_id: str | None
+    article: str | None = Field(
+        description="Number of the article referred to; null for a reference to a chapter "
+        "or a title."
+    )
+    doc: str = Field(description="The JCI string of the link, as the XML has it.")
+    text: str
+    start: int = Field(description="Offset of `text` in the text of the article.")
+    end: int
+
+
+def references_from_props(props: dict[str, Any]) -> list[ArticleReferenceDTO]:
+    """The references stored on an article, in text order, resolvable or not."""
+    stored = props.get("references")
+    if not isinstance(stored, list):
+        return []
+    references = [
+        ArticleReferenceDTO(
+            kind=str(ref.get("kind") or ""),
+            bwb_id=ref.get("bwb_id"),
+            article=ref.get("article"),
+            doc=str(ref.get("doc") or ""),
+            text=str(ref.get("text") or ""),
+            start=int(ref.get("start") or 0),
+            end=int(ref.get("end") or 0),
+            **Qualifier.from_dict(ref).to_dict(),
+        )
+        for ref in stored
+        if isinstance(ref, dict)
+    ]
+    return sorted(references, key=lambda ref: (ref.start, ref.end))
 
 
 class ArticleSummaryDTO(BaseModel):
@@ -46,6 +143,11 @@ class ArticleSummaryDTO(BaseModel):
     article_number: str | None
     display_name: str | None
     text: str | None
+    parts: list[ArticlePartDTO] = Field(
+        default_factory=list,
+        description="Aanhef, leden and onderdelen as spans of `text`; empty when the "
+        "article has no structure or was normalized before parts existed.",
+    )
 
     @classmethod
     def from_document(
@@ -60,10 +162,11 @@ class ArticleSummaryDTO(BaseModel):
             article_number=props.get("article_number"),
             display_name=props.get("display_name"),
             text=props.get("text"),
+            parts=parts_from_props(props),
         )
 
 
-class ArticleRelationshipWithType(BaseModel):
+class ArticleRelationshipWithType(QualifierFields):
     """An article-to-article relationship enriched with its semantic layer."""
 
     model_config = ConfigDict(extra="forbid")
@@ -77,11 +180,22 @@ class ArticleRelationshipWithType(BaseModel):
     semantic_source: str | None = None
     confidence: float | None = None
     community_votes: CommunityVotes = Field(default_factory=CommunityVotes)
+    start: int | None = Field(
+        None,
+        description="Offset of the reference in the text of the referring article.",
+    )
+    end: int | None = None
+    text: str | None = Field(None, description="The text of the reference.")
+    reference_kind: str | None = Field(
+        default=None, description="`intref` or `extref`, as on the reference itself."
+    )
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> ArticleRelationshipWithType:
         """Build from a {edge, target, instrument} query row."""
         edge = row.get("edge") or {}
+        meta: dict[str, Any] = edge.get("meta") or {}
+        start, end, text = meta.get("start"), meta.get("end"), meta.get("text")
         return cls(
             edge_id=edge.get("_key") or "",
             relation=edge.get("relation") or "",
@@ -97,6 +211,11 @@ class ArticleRelationshipWithType(BaseModel):
                 upvotes=int(edge.get("community_upvotes") or 0),
                 downvotes=int(edge.get("community_downvotes") or 0),
             ),
+            start=start if isinstance(start, int) else None,
+            end=end if isinstance(end, int) else None,
+            text=text if isinstance(text, str) else None,
+            reference_kind=meta.get("reference_kind"),
+            **Qualifier.from_dict(meta).to_dict(),
         )
 
 
@@ -160,6 +279,12 @@ class ArticleDetailResponse(BaseModel):
     instrument: InstrumentSummaryDTO | None
     judgments: list[JudgmentSummaryDTO]
     citations: list[ArticleCitationSpan] = Field(default_factory=list)
+    references: list[ArticleReferenceDTO] = Field(
+        default_factory=list,
+        description="Every reference the text of the article makes, as stored on it, "
+        "whether or not the target is in the graph. `citations` holds the resolved ones, "
+        "one per target.",
+    )
     metadata: dict[str, Any] | None
     upstream_dependencies: list[ArticleRelationshipWithType] = Field(
         default_factory=list
@@ -304,6 +429,9 @@ class ArticleVersionDTO(BaseModel):
     valid_until: str | None = None
     current: bool = False
     text: str | None = None
+    parts: list[ArticlePartDTO] = Field(
+        default_factory=list, description="As on the article: spans of `text`."
+    )
     effect: str | None = Field(None, description="Raw BWB effect of this version.")
     change: str | None = Field(
         None,
@@ -330,6 +458,7 @@ class ArticleVersionDTO(BaseModel):
             valid_until=props.get("valid_until"),
             current=bool(props.get("current", False)),
             text=props.get("text"),
+            parts=parts_from_props(props),
             effect=effect,
             change=effect_kind(effect),
             source_publication=props.get("source_publication"),

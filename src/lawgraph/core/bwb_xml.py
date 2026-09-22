@@ -14,15 +14,16 @@ The BWB XML already says most of what we need, so we read it instead of guessing
 * the preamble (``<aanhef>/<considerans>``) lists the legal basis in the
   paragraph that starts with "Gelet op", again as ``<extref>``.
 
-Text offsets of references refer to ``ArticleXml.text`` (same string).
+Text offsets of references and of the structure of the article (``ArticleXml.parts``: aanhef,
+leden, onderdelen) refer to ``ArticleXml.text`` (same string).
 """
 
 from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Iterator, Mapping
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from lawgraph.config.constants import SOURCE_BWB
@@ -34,6 +35,7 @@ from lawgraph.core.identifiers import (
     rebuilt_celex,
 )
 from lawgraph.core.models import make_node_key
+from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
 from lawgraph.core.xml import find_descendant, iter_named, local_name, text_of
 
 # ``effect`` values on an article version, mapped to what the version did.
@@ -87,6 +89,64 @@ class Reference:
     text: str
     start: int
     end: int
+    # Which parts of the article the link text names ("eerste lid, onder a"). The ``doc`` of
+    # a link never does: it stops at the article.
+    qualifier: Qualifier = Qualifier()
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-able form stored in ``props.references``."""
+        return {
+            "kind": self.kind,
+            "bwb_id": self.bwb_id,
+            "article": self.article,
+            "doc": self.doc,
+            "text": self.text,
+            "start": self.start,
+            "end": self.end,
+            **self.qualifier.to_dict(),
+        }
+
+
+PART_AANHEF = "aanhef"
+PART_LID = "lid"
+PART_ONDERDEEL = "onderdeel"
+
+
+@dataclass(frozen=True)
+class ArticlePart:
+    """A lid, an onderdeel or an aanhef of an article, as a span of ``ArticleXml.text``.
+
+    ``text[start:end]`` is the content without its printed number (``number``: ``"2"``,
+    ``"a"``, ``"1°"``, None for an aanhef or an unnumbered item). A lid or onderdeel with
+    onderdelen inside spans them too; the parts are listed by ``start``, an enclosing part
+    before the parts inside it. The ``id`` says where the part sits:
+
+    * ``aanhef``: the text before the onderdelen of an article without leden;
+    * ``lid-2``, ``lid-2a``; ``lid-2-aanhef``: the text of a lid before its onderdelen;
+    * ``lid-2-onder-a``, ``onder-a`` (an article without leden), ``lid-2-onder-a-onder-1`` (an
+      onderdeel of an onderdeel: the id of the part it sits in, then its own).
+
+    The number of a lid or onderdeel is written as ``qualifiers.part_slug`` does (``1°`` is
+    ``1``). An item without a letter or a digit is ``_<n>``, its position among its siblings;
+    one whose marker repeats one before it gets ``_<n>``, its occurrence (``lid-1_2``). Ids
+    are unique in an article.
+    """
+
+    id: str
+    kind: str  # PART_AANHEF | PART_LID | PART_ONDERDEEL
+    number: str | None
+    start: int
+    end: int
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-able form stored in ``props.parts`` (offsets only: the text is in the article)."""
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "number": self.number,
+            "start": self.start,
+            "end": self.end,
+        }
 
 
 @dataclass(frozen=True)
@@ -129,6 +189,7 @@ class ArticleXml:
     origin: Publication | None = None
     commencement: Publication | None = None
     references: tuple[Reference, ...] = ()
+    parts: tuple[ArticlePart, ...] = ()
 
     @property
     def is_repealed(self) -> bool:
@@ -269,13 +330,25 @@ def _brondata(container: ET.Element) -> tuple[Publication | None, Publication | 
 # ── article text with reference offsets ──────────────────────────────────────
 
 
+@dataclass
+class _OpenPart:
+    id: str
+    kind: str
+    number: str | None
+    start: int
+    depth: int  # 0 for a lid, 1 + the nesting for an onderdeel
+
+
 class _TextBuilder:
-    """Accumulate text and remember where references start and end."""
+    """Accumulate text and remember where references and the parts of the article sit."""
 
     def __init__(self) -> None:
         self.parts: list[str] = []
         self.length = 0
         self.refs: list[Reference] = []
+        self.structure: list[ArticlePart] = []
+        self._open: list[_OpenPart] = []
+        self._siblings: dict[tuple[str, str], list[str]] = {}
 
     def add(self, text: str) -> None:
         self.parts.append(text)
@@ -291,21 +364,39 @@ class _TextBuilder:
             start, end = ref.start - lead, ref.end - lead
             if start < 0 or end > len(text):
                 continue  # reference fell into stripped whitespace
-            self.refs.append(
-                Reference(
-                    ref.kind,
-                    ref.bwb_id,
-                    ref.article,
-                    ref.doc,
-                    ref.text,
-                    base + start,
-                    base + end,
-                )
-            )
+            self.refs.append(replace(ref, start=base + start, end=base + end))
         self.add(text)
 
     def value(self) -> str:
         return "".join(self.parts)
+
+    def open_part(self, kind: str, label: str, number: str | None, depth: int) -> None:
+        """Start a lid or onderdeel at the current position, inside the part it sits in."""
+        self.close_from(depth)
+        parent = self._open[-1].id if self._open else ""
+        slug = part_slug(number)
+        seen = self._siblings.setdefault((parent, label), [])
+        seen.append(slug)
+        if not slug:
+            slug = f"_{len(seen)}"
+        elif seen.count(slug) > 1:
+            slug = f"{slug}_{seen.count(slug)}"
+        ident = "-".join(part for part in (parent, label, slug) if part)
+        self._open.append(_OpenPart(ident, kind, number, self.length, depth))
+
+    def close_from(self, depth: int) -> None:
+        """End the open parts at *depth* and deeper, here."""
+        while self._open and self._open[-1].depth >= depth:
+            part = self._open.pop()
+            self.structure.append(
+                ArticlePart(part.id, part.kind, part.number, part.start, self.length)
+            )
+
+    def add_aanhef(self, start: int, end: int) -> None:
+        """An aanhef: the lid it belongs to is the part that is open, else the article."""
+        parent = self._open[-1].id if self._open else ""
+        ident = "-".join(part for part in (parent, PART_AANHEF) if part)
+        self.structure.append(ArticlePart(ident, PART_AANHEF, None, start, end))
 
 
 @dataclass
@@ -338,15 +429,18 @@ def _flatten(element: ET.Element) -> _Flat:
             doc = node.get("doc") or ""
             jci = parse_jci(doc)
             bwb_id = node.get("bwb-id") or jci.bwb_id
+            text = "".join(out)[start:length]
             refs.append(
                 Reference(
                     kind=name,
                     bwb_id=bwb_id,
                     article=jci.article,
                     doc=doc,
-                    text="".join(out)[start:length],
+                    text=text,
                     start=start,
                     end=length,
+                    # A link to a chapter or a title names no lid: only a link to an article does.
+                    qualifier=parse_qualifier(text if jci.article else None),
                 )
             )
 
@@ -376,10 +470,36 @@ def _add_paragraphs(builder: _TextBuilder, paragraphs: list[ET.Element]) -> None
         builder.inline(al)
 
 
+def _list_items(
+    element: ET.Element, depth: int = 1
+) -> Iterator[tuple[ET.Element, int]]:
+    """Every ``li`` under *element* in document order, with how deep the lists nest."""
+    for child in element:
+        if local_name(child.tag) == "li":
+            yield child, depth
+            yield from _list_items(child, depth + 1)
+        else:
+            yield from _list_items(child, depth)
+
+
+def _add_item(
+    builder: _TextBuilder, li: ET.Element, body: list[ET.Element], depth: int
+) -> None:
+    """Add one list item on a new line: its marker (``a.``, ``1°.``) and its paragraphs."""
+    # The item before it ends here, not after the marker of this one.
+    builder.close_from(depth)
+    builder.add("\n")
+    marker = text_of(find_descendant(li, "li.nr"))
+    if marker:
+        builder.add(f"{marker} ")
+    builder.open_part(PART_ONDERDEEL, "onder", marker.rstrip(".") or None, depth)
+    _add_paragraphs(builder, body)
+
+
 def _add_lid(builder: _TextBuilder, lid: ET.Element) -> None:
     """Add one ``lid``: ``1. paragraph`` followed by its list items on new lines."""
     paragraphs = [c for c in lid if local_name(c.tag) == "al"]
-    items = [n for n in lid.iter() if local_name(n.tag) == "li"]
+    items = list(_list_items(lid))
     if not paragraphs and not items:
         return
     if builder.parts:
@@ -387,19 +507,23 @@ def _add_lid(builder: _TextBuilder, lid: ET.Element) -> None:
     number = text_of(find_descendant(lid, "lidnr"))
     if number:
         builder.add(f"{number}. ")
+    builder.open_part(PART_LID, "lid", number.rstrip(".") or None, 0)
+    aanhef_start = builder.length
     _add_paragraphs(builder, paragraphs)
-    for li in items:
+    aanhef_end = builder.length
+    has_onderdelen = False
+    for li, depth in items:
         body = [c for c in li if local_name(c.tag) == "al"]
         if not body:
             continue
-        builder.add("\n")
-        marker = text_of(find_descendant(li, "li.nr"))
-        if marker:
-            builder.add(f"{marker} ")
-        _add_paragraphs(builder, body)
+        if paragraphs and not has_onderdelen:  # the paragraphs lead up to the list
+            builder.add_aanhef(aanhef_start, aanhef_end)
+        has_onderdelen = True
+        _add_item(builder, li, body, depth)
+    builder.close_from(0)
 
 
-def _add_block(builder: _TextBuilder, element: ET.Element) -> None:
+def _add_block(builder: _TextBuilder, element: ET.Element, depth: int = 1) -> None:
     """Add the law text under *element* (paragraphs and list items) on new lines."""
     name = local_name(element.tag)
     if name == "meta-data":
@@ -412,37 +536,80 @@ def _add_block(builder: _TextBuilder, element: ET.Element) -> None:
     if name == "li":
         body = [c for c in element if local_name(c.tag) == "al"]
         if body:
-            builder.add("\n")
-            marker = text_of(find_descendant(element, "li.nr"))
-            if marker:
-                builder.add(f"{marker} ")
-            _add_paragraphs(builder, body)
+            _add_item(builder, element, body, depth)
         for child in element:  # nested lists
             if local_name(child.tag) != "al":
-                _add_block(builder, child)
+                _add_block(builder, child, depth + 1)
+        builder.close_from(depth)
         return
     for child in element:
-        _add_block(builder, child)
+        _add_block(builder, child, depth)
 
 
-def _article_text(article: ET.Element) -> tuple[str, list[Reference]]:
+def _shift_part(
+    part: ArticlePart, raw: str, lead: int, length: int
+) -> ArticlePart | None:
+    """*part* within the stripped text: its whitespace trimmed, None when nothing is left."""
+    start, end = part.start, min(part.end, lead + length)
+    while start < end and raw[start].isspace():
+        start += 1
+    while end > start and raw[end - 1].isspace():
+        end -= 1
+    if start >= end:
+        return None
+    return replace(part, start=start - lead, end=end - lead)
+
+
+def _article_text(
+    article: ET.Element,
+) -> tuple[str, list[Reference], list[ArticlePart]]:
     """Article text in document order: leden as ``1. text``, other paragraphs and
     list items on their own lines. A paragraph next to the leden (for example
-    "Dit artikel is nog niet in werking getreden") is part of the article."""
+    "Dit artikel is nog niet in werking getreden") is part of the article.
+
+    Also the offsets of the leden, onderdelen and aanhef in that text, and of the references.
+    An article without leden but with a list has the paragraphs before it as its aanhef."""
     builder = _TextBuilder()
-    for child in article:
-        name = local_name(child.tag)
-        if name in ("kop", "meta-data"):
-            continue
-        if name == "lid":
+    children = [c for c in article if local_name(c.tag) not in ("kop", "meta-data")]
+    first_list = next(
+        (i for i, c in enumerate(children) if local_name(c.tag) == "lijst"), None
+    )
+    has_leden = any(local_name(c.tag) == "lid" for c in children)
+    intro: list[tuple[int, int]] = []  # spans of the paragraphs before the list
+    for index, child in enumerate(children):
+        start = builder.length
+        if local_name(child.tag) == "lid":
             _add_lid(builder, child)
         else:
             _add_block(builder, child)
-    return builder.value().strip(), builder.refs
+            if (
+                not has_leden
+                and first_list is not None
+                and index < first_list
+                and local_name(child.tag) == "al"
+            ):
+                intro.append((start, builder.length))
+    if intro and any(part.kind == PART_ONDERDEEL for part in builder.structure):
+        builder.add_aanhef(intro[0][0], intro[-1][1])
+    builder.close_from(0)
+    raw = builder.value()
+    text = raw.strip()
+    lead = len(raw) - len(raw.lstrip())
+    refs = [
+        replace(ref, start=ref.start - lead, end=ref.end - lead)
+        for ref in builder.refs
+        if ref.start >= lead and ref.end - lead <= len(text)
+    ]
+    shifted = (_shift_part(part, raw, lead, len(text)) for part in builder.structure)
+    parts = sorted(
+        (part for part in shifted if part is not None),
+        key=lambda part: (part.start, -part.end),
+    )
+    return text, refs, parts
 
 
 def _parse_article(article: ET.Element) -> ArticleXml:
-    text, refs = _article_text(article)
+    text, refs, parts = _article_text(article)
     origin, commencement = _brondata(article)
     return ArticleXml(
         number=_article_number(article),
@@ -456,6 +623,7 @@ def _parse_article(article: ET.Element) -> ArticleXml:
         origin=origin,
         commencement=commencement,
         references=tuple(refs),
+        parts=tuple(parts),
     )
 
 
@@ -596,19 +764,7 @@ def article_props(
     article: ArticleXml, bwb_id: str, citation_title: str | None
 ) -> dict[str, Any]:
     """Props of the (current) Article node."""
-    references = [
-        {
-            "kind": r.kind,
-            "bwb_id": r.bwb_id,
-            "article": r.article,
-            "doc": r.doc,
-            "text": r.text,
-            "start": r.start,
-            "end": r.end,
-        }
-        for r in article.references
-        if r.bwb_id
-    ]
+    references = [r.to_dict() for r in article.references if r.bwb_id]
     return _drop_none(
         {
             "bwb_id": bwb_id,
@@ -621,6 +777,7 @@ def article_props(
             "valid_from": article.valid_from,
             "source_publication": article.source,
             "repealed": True if article.is_repealed else None,
+            "parts": [part.to_dict() for part in article.parts],
             "references": references,
         }
     )
@@ -635,6 +792,7 @@ def article_version_props(
             "bwb_id": bwb_id,
             "article_number": article.number,
             "text": article.text,
+            "parts": [part.to_dict() for part in article.parts],
             "instrument_citation_title": citation_title,
             "display_name": _display_name(article.number, citation_title),
             "stam_id": article.stam_id,

@@ -185,3 +185,25 @@ def test_the_graph_routes_that_can_be_narrowed_say_so() -> None:
     }
     assert _parameters("/api/graph/instruments") == {"relations"}
     assert _parameters("/api/graph/judgments") == {"max_judgments", "include_stubs"}
+
+
+def _properties(name: str) -> set[str]:
+    return set(SPEC["components"]["schemas"][name]["properties"])
+
+
+def test_an_article_says_where_its_parts_and_references_are() -> None:
+    assert "parts" in _properties("ArticleSummaryDTO")
+    assert "parts" in _properties("ArticleVersionDTO")
+    assert {"id", "kind", "number", "text", "start", "end"} == _properties(
+        "ArticlePartDTO"
+    )
+    assert "references" in _properties("ArticleDetailResponse")
+    qualifier = {"leden", "onderdelen", "aanhef"}
+    reference = {"kind", "bwb_id", "article", "doc", "text", "start", "end"}
+    assert reference | qualifier == _properties("ArticleReferenceDTO")
+    assert qualifier | {"reference_kind", "start", "end", "text"} <= _properties(
+        "ArticleCitationSpan"
+    )
+    assert qualifier | {"reference_kind", "start", "end", "text"} <= _properties(
+        "ArticleRelationshipWithType"
+    )

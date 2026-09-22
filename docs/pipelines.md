@@ -267,7 +267,9 @@ without a WTI location or element gets no WTI record.
 `date_in_force`, `dossier_numbers` of the originating publication. One Article per
 `(bwb_id, article number)` with the article text (leden as `1. text`, list items on their
 own lines, a paragraph next to the leden is included), the structured `references` with text
-offsets, and `stam_id`, `versie_id`, `valid_from`, `source_publication`, `repealed`. Two
+offsets, the `parts` of the article (aanhef, leden, onderdelen as offsets into that text, see
+`docs/data-model.md`), and `stam_id`, `versie_id`, `valid_from`, `source_publication`,
+`repealed`. Two
 articles of one regulation with the same number share a key. `PART_OF` (article to
 instrument).
 
@@ -290,7 +292,7 @@ record is loaded.
 **Normalize `bwb-history`.** Reads every stored toestand once and writes:
 
 - an InstrumentVersion per toestand and an ArticleVersion per `(stam_id, versie_id)` (a
-  toestand only repeats versions still valid), with `origin_publication` and
+  toestand only repeats versions still valid), with `parts`, `origin_publication` and
   `commencement_publication`;
 - `valid_until` and `current`, recomputed from the database in chunks of 200 regulations, so
   incremental runs stay correct;
@@ -303,8 +305,10 @@ Run `normalize bwb` first.
 
 **Semantic `bwb`.** `REFERS_TO` between articles, read from the XML rather than from the text:
 only articles that carry `props.references` are scanned, and each reference naming a regulation
-and an article becomes one edge with confidence 1.0, `meta` = `start`, `end`, `text` and
-`reason = bwb_xml_ref`. Self references are dropped and targets must exist — nothing is stubbed.
+and an article becomes one edge with confidence 1.0, `meta` = `start`, `end`, `text`,
+`reason = bwb_xml_ref`, `reference_kind` (`intref` or `extref`) and the `leden`, `onderdelen` and
+`aanhef` the reference names. An edge is keyed by its two articles, so an article that refers
+to another twice keeps the span of one; `props.references` keeps both. Self references are dropped and targets must exist — nothing is stubbed.
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
 `--store-citations` also writes the references onto the article as `props.citations`.
 

@@ -28,12 +28,12 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 
 | Path | Returns |
 |------|---------|
-| `/api/articles/{bwb_id}/{article_number}` | the article, its instrument, citing judgments and citations |
-| `.../history` | every version of the article, oldest first: validity period, text, `effect`, normalized `change` (`introduces`, `amends`, `repeals`), amending publication (`amended_by`) and commencement publication, each with its dossiers. The article is identified by `stam_id`, so renumbering does not break history; 404 for an unknown article |
+| `/api/articles/{bwb_id}/{article_number}` | the article with its `parts` (aanhef, leden and onderdelen as spans of `text`), its instrument, citing judgments, `citations` (the resolved references, one per target) and `references` (every reference in the text, with the `leden`, `onderdelen` and `aanhef` it names, also when the target is not in the graph) |
+| `.../history` | every version of the article, oldest first: validity period, text, `effect`, normalized `change` (`introduces`, `amends`, `repeals`), amending publication (`amended_by`) and commencement publication, each with its dossiers and its `parts`. The article is identified by `stam_id`, so renumbering does not break history; 404 for an unknown article |
 | `.../legislative-history` | dossiers and documents that introduced, amended or propose to amend the article, including `voorgesteld`, and what refers to it; the explanatory documents are at `explained-by`; empty list, never 404 |
 | `.../explained-by` | the documents that `EXPLAINS` the article: edges to the article, to any of its versions (same `stam_id`) or to its instrument. `items[]`: `document` (`id`, `key`, `kind`, `title`, `date`, `dossier_number`, `chamber`, `source`, `is_explanatory`), `target` (`article`, `article_version`, `instrument`), `target_id`, `article_version_key`, `confidence`, `scope`, `section_anchor`. `scope` is `dossier` when the memorandum explains all changes of its dossier (every edge written today), `article` when the edge names the passage in `section_anchor`. An `instrument` item exists only for a dossier whose law changed no articles: no evidence about this article, listed after the article-level ones. Newest first; one item per document, level and anchor (a version before the article, the newest version first); `limit` (1-500, default 100), `offset`, `total` counts all; empty list for an unknown article, never 404 |
 | `.../in-flux` | whether an open bill targets the article: `{in_flux, open_dossier_count}`; never 404 |
-| `.../relationships` | outgoing and incoming references with `semantic_type`, explanation, badge, community votes, and annex scopes |
+| `.../relationships` | outgoing and incoming references with `semantic_type`, explanation, badge, community votes, the span of the reference (`start`, `end`, `text`, in the referring article) and the `leden`, `onderdelen` and `aanhef` it names, and annex scopes |
 
 ### Instruments and annexes
 

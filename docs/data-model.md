@@ -111,7 +111,7 @@ they are out of date. Do not edit inside the markers.
 | `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
 | `confidence` | 0-1; absent on structural edges; 1.0 when read from source XML |
 | `created_at` | set on insert only |
-| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
+| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
 
 Semantic layer on article-to-article `REFERS_TO` edges, orthogonal to `relation`: `relation`
 says that two articles are linked, `semantic_type` says what the link means.
@@ -160,8 +160,8 @@ renumbering; each version has a `versie-id`.
 
 | Node | Identity | Notes |
 |------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `references` (structured `extref`/`intref` with text offsets) |
-| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
+| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references` (see below) |
+| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
 | InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until`, `current`, `state_url` |
 
 - `ArticleVersion VERSION_OF Article` and `InstrumentVersion VERSION_OF Instrument`. There are
@@ -172,6 +172,22 @@ renumbering; each version has a `versie-id`.
   in `last_article_number`. They carry `repealed: true`.
 - `repealed` is also set on a current article whose latest `effect` is `vervallen`.
 - Articles of the current toestand without a number or without text are not written.
+- `parts` is the structure of the text: a list of `{id, kind, number, start, end}`, offsets into
+  the article's own `text` (the text of a part is `text[start:end]`, without its printed
+  number). `kind` is `lid`, `onderdeel` or `aanhef`; sentences (volzinnen) are not parts. A
+  part with onderdelen spans them too, and the list is ordered by `start`, an enclosing part
+  first. The `id` is stable and unique in the article: `lid-2`, `lid-2a`, `lid-2-aanhef` (the
+  text of a lid before its onderdelen), `lid-2-onder-a`, `lid-2-onder-a-onder-1` (an onderdeel
+  of an onderdeel), and for an article without leden `aanhef` and `onder-a`. Numbers are
+  written lower case without the degree sign (`1°` is `onder-1`; `number` keeps `1°`). An
+  item without a letter or digit (a dash, a definition) is `onder-_<n>`, its position among
+  its siblings; a marker that repeats one before it gets `_<n>`, its occurrence
+  (`onder-a_2`). A paragraph next to the leden is no part.
+- `references` holds every `extref`/`intref` of the text that names a regulation:
+  `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. The `doc` (JCI)
+  of a BWB link stops at the article, so `leden`, `onderdelen` (written as in the part ids)
+  and `aanhef` are read from the text of the link (`core/qualifiers.py`); a link to a chapter
+  or a title has none.
 
 ## Parliament
 

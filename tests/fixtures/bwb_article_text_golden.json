@@ -1,0 +1,115 @@
+{
+ "bwb_amvb_toestand.xml": [
+  {
+   "n": "1",
+   "text": "Ambtenaar in de zin van dit besluit is degene, die door het Rijk is aangesteld om in burgerlijke openbare dienst werkzaam te zijn.",
+   "refs": []
+  }
+ ],
+ "bwb_grondwet_toestand.xml": [
+  {
+   "n": "7",
+   "text": "1. Niemand heeft voorafgaand verlof nodig om door de drukpers gedachten of gevoelens te openbaren, behoudens ieders verantwoordelijkheid volgens de wet.\n2. De wet stelt regels omtrent radio en televisie. Er is geen voorafgaand toezicht op de inhoud van een radio- of televisieuitzending.\n3. Voor het openbaren van gedachten of gevoelens door andere dan in de voorgaande leden genoemde middelen heeft niemand voorafgaand verlof nodig wegens de inhoud daarvan, behoudens ieders verantwoordelijkheid volgens de wet. De wet kan het geven van vertoningen toegankelijk voor personen jonger dan zestien jaar regelen ter bescherming van de goede zeden.\n4. De voorgaande leden zijn niet van toepassing op het maken van handelsreclame.",
+   "refs": []
+  },
+  {
+   "n": "101",
+   "text": "Vervallen",
+   "refs": []
+  },
+  {
+   "n": "82",
+   "text": "1. Voorstellen van wet kunnen worden ingediend door of vanwege de Koning en door de Tweede Kamer der Staten-Generaal.\n2. Voorstellen van wet waarvoor behandeling door de Staten-Generaal in verenigde vergadering is voorgeschreven, kunnen worden ingediend door of vanwege de Koning en, voor zover de betreffende artikelen van hoofdstuk 2 dit toelaten, door de verenigde vergadering.\n3. Voorstellen van wet, in te dienen door de Tweede Kamer onderscheidenlijk de verenigde vergadering, worden bij haar door een of meer leden aanhangig gemaakt.",
+   "refs": [
+    [
+     "intref",
+     "BWBR0001840",
+     null,
+     "jci1.3:c:BWBR0001840&hoofdstuk=2&z=2023-02-22&g=2023-02-22",
+     "hoofdstuk 2",
+     324,
+     335
+    ]
+   ]
+  },
+  {
+   "n": "142",
+   "text": "De Grondwet kan bij de wet met het Statuut voor het Koninkrijk der Nederlanden in overeenstemming worden gebracht. De artikelen 139, 140 en 141 zijn van overeenkomstige toepassing.",
+   "refs": [
+    [
+     "extref",
+     "BWBR0002154",
+     null,
+     "jci1.3:c:BWBR0002154",
+     "Statuut voor het Koninkrijk der Nederlanden",
+     35,
+     78
+    ],
+    [
+     "intref",
+     "BWBR0001840",
+     "139",
+     "jci1.3:c:BWBR0001840&hoofdstuk=8&artikel=139&z=2023-02-22&g=2023-02-22",
+     "artikelen 139",
+     118,
+     131
+    ],
+    [
+     "intref",
+     "BWBR0001840",
+     "140",
+     "jci1.3:c:BWBR0001840&hoofdstuk=8&artikel=140&z=2023-02-22&g=2023-02-22",
+     "140",
+     133,
+     136
+    ],
+    [
+     "intref",
+     "BWBR0001840",
+     "141",
+     "jci1.3:c:BWBR0001840&hoofdstuk=8&artikel=141&z=2023-02-22&g=2023-02-22",
+     "141",
+     140,
+     143
+    ]
+   ]
+  },
+  {
+   "n": null,
+   "text": "De Grondwet waarborgt de grondrechten en de democratische rechtsstaat.",
+   "refs": []
+  },
+  {
+   "n": "92",
+   "text": "Met inachtneming, zo nodig, van het bepaalde in artikel 91, derde lid, kunnen bij of krachtens verdrag aan volkenrechtelijke organisaties bevoegdheden tot wetgeving, bestuur en rechtspraak worden opgedragen.",
+   "refs": [
+    [
+     "intref",
+     "BWBR0001840",
+     "91",
+     "jci1.3:c:BWBR0001840&hoofdstuk=5&paragraaf=2&artikel=91&z=2023-02-22&g=2023-02-22",
+     "artikel 91, derde lid",
+     48,
+     69
+    ]
+   ]
+  },
+  {
+   "n": "138",
+   "text": "1. Voordat de in tweede lezing aangenomen voorstellen tot verandering in de Grondwet door de Koning worden bekrachtigd, kunnen bij de wet: \na. de aangenomen voorstellen en de ongewijzigd gebleven bepalingen van de Grondwet voor zoveel nodig aan elkaar worden aangepast;\nb. de indeling in en de plaats van hoofdstukken, paragrafen en artikelen, alsmede de opschriften worden gewijzigd.\n2. Een voorstel van wet, houdende voorzieningen als bedoeld in het eerste lid onder a, kunnen de kamers alleen aannemen met ten minste twee derden van het aantal uitgebrachte stemmen.",
+   "refs": []
+  }
+ ],
+ "bwb_wet_not_in_force.xml": [
+  {
+   "n": "5",
+   "text": "Dit artikel is nog niet in werking getreden; ingeval buitengewone omstandigheden dit noodzakelijk maken kan bij koninklijk besluit, op voordracht van Onze Minister-President, dit artikel in werking treden.\n1. Onze Minister kan bepalen, dat distributiegoederen niet mogen worden gekocht, verkocht, te koop aangeboden, afgeleverd, of voorhanden of in voorraad gehouden dan met inachtneming van de door hem vastgestelde distributieregeling.\n2. Hij kan daarbij bepalen, dat de in lid 1 genoemde handelingen niet zullen mogen geschieden zonder schriftelijke vergunning, door of namens hem verleend; aan deze vergunning kunnen voorwaarden worden verbonden. In spoedeischende gevallen kan zij ook anders dan schriftelijk worden verleend.",
+   "refs": []
+  },
+  {
+   "n": "8",
+   "text": "Dit artikel is nog niet in werking getreden; ingeval buitengewone omstandigheden dit noodzakelijk maken kan bij koninklijk besluit, op voordracht van Onze Minister-President, dit artikel in werking treden.\n1. Onze Minister kan, hetzij voor het Rijk in Europa, hetzij voor door hem aan te wijzen gedeelten daarvan, bepalen, dat ieder, die distributiegoederen voorhanden of in voorraad heeft, verplicht is, van aard, hoeveelheid en plaats dier goederen opgave te doen, hetzij aan den Minister, hetzij aan de door dezen aangewezen instanties of personen.\n2. De opgave geschiedt op tijdstippen, te bepalen door Onzen Minister en overeenkomstig regelen door hem te stellen.\n3. De in lid 1 bedoelde verplichting kan door of namens den Minister ook aan bepaalde personen of lichamen worden opgelegd.",
+   "refs": []
+  }
+ ]
+}

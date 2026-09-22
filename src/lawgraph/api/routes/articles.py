@@ -27,6 +27,7 @@ from lawgraph.api.schemas.articles import (
     ArticleVersionDTO,
     LegislativeHistoryEntry,
     ScopeArticleReference,
+    references_from_props,
 )
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
@@ -80,7 +81,9 @@ def get_article_detail(
             end=entry.end,
             text=entry.text,
             target=_build_article_citation_target(entry.target),
+            reference_kind=entry.reference_kind,
             confidence=entry.confidence,
+            **entry.qualifier.to_dict(),
         )
         for entry in citation_entries
     ]
@@ -93,6 +96,7 @@ def get_article_detail(
         instrument=instrument,
         judgments=judgments,
         citations=citations,
+        references=references_from_props(data.article.get("props") or {}),
         metadata=data.metadata or None,
         upstream_dependencies=upstream,
         downstream_implications=downstream,

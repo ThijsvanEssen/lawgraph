@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.api.queries._helpers import (
@@ -12,6 +12,7 @@ from lawgraph.api.queries._helpers import (
     _coerce_text,
     _ensure_doc,
     _extract_confidence,
+    _extract_qualifier,
     _extract_span,
     _find_instrument_for_article,
     _find_judgments_for_article,
@@ -35,6 +36,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.models import make_node_key
+from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import ArangoStore
 
 
@@ -60,6 +62,8 @@ class ArticleCitationEntry:
     end: int | None
     text: str | None
     confidence: float | None
+    qualifier: Qualifier = field(default_factory=Qualifier)
+    reference_kind: str | None = None
 
 
 def _record_article_citation(
@@ -70,6 +74,8 @@ def _record_article_citation(
     end: int | None,
     text: str | None,
     confidence: float | None,
+    qualifier: Qualifier | None = None,
+    reference_kind: str | None = None,
 ) -> None:
     target_id = target_doc.get("_id")
     if not target_id:
@@ -80,7 +86,13 @@ def _record_article_citation(
     seen.add(key)
     citations.append(
         ArticleCitationEntry(
-            target=target_doc, start=start, end=end, text=text, confidence=confidence
+            target=target_doc,
+            start=start,
+            end=end,
+            text=text,
+            confidence=confidence,
+            qualifier=qualifier or Qualifier(),
+            reference_kind=reference_kind,
         )
     )
 
@@ -195,8 +207,17 @@ def get_article_citations(
             continue
         start, end, text = _extract_span(edge)
         confidence = _extract_confidence(edge)
+        qualifier, reference_kind = _extract_qualifier(edge)
         _record_article_citation(
-            citations, seen, target_doc, start, end, text, confidence
+            citations,
+            seen,
+            target_doc,
+            start,
+            end,
+            text,
+            confidence,
+            qualifier,
+            reference_kind,
         )
 
     props = doc.get("props") or {}
