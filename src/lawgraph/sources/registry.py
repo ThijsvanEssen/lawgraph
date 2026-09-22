@@ -84,6 +84,9 @@ from lawgraph.pipelines.semantic.tk_amendment_articles import (
 )
 from lawgraph.pipelines.semantic.tk_amends import TKAmendsSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
+from lawgraph.pipelines.semantic.tk_mvt_articles import (
+    TKMvtArticlesSemanticPipeline,
+)
 
 Phase = Literal["retrieve", "normalize", "semantic"]
 PHASES: tuple[Phase, ...] = get_args(Phase)
@@ -480,6 +483,10 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         TKMvtSemanticPipeline,
         "EXPLAINS: links explanatory memoranda to what they explain.",
+    ),
+    _pipeline(
+        TKMvtArticlesSemanticPipeline,
+        "EXPLAINS: the section of an explanatory memorandum that explains an article.",
     ),
     _pipeline(
         BWBRelationTypesSemanticPipeline,

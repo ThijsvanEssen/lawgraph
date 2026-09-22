@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles` |
 | Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
@@ -152,9 +152,46 @@ else its `AMENDS` edges to instruments). Targets must exist. Every edge is writt
 **Semantic `tk-mvt`.** No text matching: the link is read from the graph. For every
 document whose `kind` contains `toelichting`, one AQL pass walks
 `Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS-> Article`
-and writes `EXPLAINS` at confidence 1.0 to the `meta.article_version` of each change edge, to
-the article itself when the edge names no version, and to the instrument when it changed no
-articles at all.
+and writes `EXPLAINS` at confidence 0.5 (`DOSSIER_CONFIDENCE`: the memorandum explains the
+change as a whole, each article is a candidate) to the `meta.article_version` of each change
+edge, to the article itself when the edge names no version, and to the instrument when it
+changed no articles at all. An edge that `tk-mvt-articles` has written is left alone.
+
+**Semantic `tk-mvt-articles`.** The article-by-article part of a memorandum, per section
+(`props.sections`, from `normalize tk-content`). Which article of which law a section is about
+is read from its words (`core/mvt_articles.py`) and matched with what the dossier changed
+(`Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS-> Article`).
+`EXPLAINS` goes to the `meta.article_version` of the change edge, else to the article. Papers
+with `budget`, with `structure_quality` `none`, and dossiers that legislated nothing are left
+out; a section that names no article of a law the dossier changes has no edge of its own (the
+dossier-level edges of `tk-mvt` stay). Only sections of kind `article`, `onderdeel` and `lid`
+are read.
+
+| `meta.match_type` | Section says | Confidence |
+|-------------------|--------------|-----------|
+| `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.90 |
+| `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.85 |
+| `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`) and the dossier made the law: its instrument is `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it | 0.80 |
+| `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names, else of the only law the dossier changes; the dossier changed that article | 0.70 |
+
+The confidences are constants (`core/mvt_articles.py`) and a first estimate: there is no set of
+labelled sections to calibrate them against. A heading with several numbers (`Artikelen 3 en
+4`) gives a reference per number. An `Artikel I` / `Onderdeel B` that names no article gives
+nothing: attaching it to every article the dossier changed would only repeat the dossier-level
+edges. `heading_target` and `own_number` also point at the article of the law when the dossier
+has no change edge for it (an article of a law that is new, or whose history is not loaded);
+the other two only at articles the dossier changed. Not detected: a new law whose numbering a
+nota van wijziging shifted; articles of a treaty; a law the graph does not have or whose name
+two laws share.
+
+An edge is one per (document, target), so an article that several sections explain has one
+edge, and it is the edge `tk-mvt` writes at dossier level: the same key, upgraded in place.
+Its `confidence` is that of the surest section, `source` is `mvt-section-linker` and `meta`
+holds `section_anchor`, `char_start`, `char_end`, `match_type` and `heading` of that section
+and `sections`, every section that explains the article, in document order. The span of a
+section is `text[char_start:char_end]`: the whole section for a heading match, the text before
+its first subsection for a match in the body. The two pipelines can run in either order and any
+number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to.
 
 ## Rechtspraak
 
@@ -477,5 +514,6 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
 | semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `normalize tk-content` |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
+| semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

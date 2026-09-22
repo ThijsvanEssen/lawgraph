@@ -75,7 +75,8 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `GET /api/factions`, `/{key}`, `/{key}/touched-instruments` | factions with member counts; the same aggregate per faction |
 | `GET /api/parliament/seats` | seated factions with seat counts in plenary-hall order |
 | `GET /api/parties/colors` | party abbreviation to hex colour |
-| `GET /api/documents`, `/{key}` | documents across sources, metadata only (`q`, `kind`, `chamber`, `source`, `limit` up to 1000); one with its extracted text (null when `normalize tk-content` has not reached it) |
+| `GET /api/documents`, `/{key}` | documents across sources, metadata only (`q`, `kind`, `chamber`, `source`, `limit` up to 1000); one with its extracted text (null when `normalize tk-content` has not reached it); and its `sections`: the headings of the paper (`id`, `heading`, `level`, `parent`, `kind`, `number`, `number_scheme`, `article_refs`, `law`, `char_start`, `char_end`), offsets into `text`, empty without text |
+| `GET /api/documents/{key}/passages?bwb_id=&article=` | the sections of a memorandum that explain an article (or one of its versions), in document order: `section_id`, `heading`, `level`, `char_start`, `char_end`, `text`, `confidence` (uncalibrated), `match_type`; with `total`; empty list for an article without passages or a document without text, 404 for an unknown document |
 
 ### Graph, search, nodes
 

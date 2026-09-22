@@ -6,7 +6,10 @@ from typing import Any
 
 from lawgraph.config.constants import RELATION_EXPLAINS
 from lawgraph.core.relations import BY_NAME
-from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
+from lawgraph.pipelines.semantic.tk_mvt import (
+    DOSSIER_CONFIDENCE,
+    TKMvtSemanticPipeline,
+)
 from tests.conftest import _BaseFakeStore
 
 
@@ -42,6 +45,8 @@ def test_pipeline_explains_the_article_versions_the_instrument_changed() -> None
     spec = BY_NAME[RELATION_EXPLAINS]
     for edge in store.edges.values():
         assert edge["relation"] == RELATION_EXPLAINS
+        # the dossier says the memorandum explains its change, not which article
+        assert edge["confidence"] == DOSSIER_CONFIDENCE
         assert edge["_from"].split("/")[0] in spec.sources
         assert edge["_to"].split("/")[0] in spec.targets
 

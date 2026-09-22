@@ -154,7 +154,8 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_DOC,),
         (_AV, _A, _I),
         "A document (MvT, NvT) explains the article version or instrument it "
-        "introduced or changed.",
+        "introduced or changed; an MvT edge carries `meta.section_anchor` when one "
+        "of its sections is about that article.",
     ),
     RelationSpec(
         "APPEAL_OF",

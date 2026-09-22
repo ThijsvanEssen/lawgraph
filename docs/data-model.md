@@ -65,7 +65,7 @@ they are out of date. Do not edit inside the markers.
 | `IMPLEMENTS` | Instrument | Instrument | A national instrument transposes an EU directive. |
 | `LEGISLATED_IN` | Instrument | Dossier | The parliamentary dossier in which an instrument was legislated (BWB `dossierref`). |
 | `REFERS_TO` | Article / Document / Judgment | Article / Instrument / Judgment | A text refers to an article, instrument or judgment. The source node says who refers; article → article edges also carry a `semantic_type`. |
-| `EXPLAINS` | Document | ArticleVersion / Article / Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed. |
+| `EXPLAINS` | Document | ArticleVersion / Article / Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed; an MvT edge carries `meta.section_anchor` when one of its sections is about that article. |
 | `APPEAL_OF` | Judgment | Judgment | An appeal or cassation judgment → the judgment it appeals. |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
@@ -110,6 +110,20 @@ they are out of date. Do not edit inside the markers.
 | `confidence` | 0-1; absent on structural edges; 1.0 when read from source XML |
 | `created_at` | set on insert only |
 | `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
+
+An edge is one per (`_from`, `relation`, `_to`); a second write replaces `source`, `status` and
+`confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
+key: `semantic tk-mvt` (a change of the dossier, `confidence` 0.5, no section) and `semantic
+tk-mvt-articles` (a section that is about the article; `source` `mvt-section-linker`, the
+`confidence` of the surest section). The second wins whichever ran first. Its `meta`:
+
+| Field | Meaning |
+|-------|---------|
+| `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end` and `match_type` are that section's |
+| `match_type` | `heading_target`, `body_named_law`, `own_number` or `inferred_law` (`docs/pipelines.md`) |
+| `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `confidence` |
+
+`char_start`/`char_end` are offsets into `props.text` of the Document.
 
 Semantic layer on article-to-article `REFERS_TO` edges, orthogonal to `relation`: `relation`
 says that two articles are linked, `semantic_type` says what the link means.

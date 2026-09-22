@@ -5,11 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_EDGES,
     RELATION_EXPLAINS,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 
 
@@ -78,3 +81,52 @@ FOR document IN {COLLECTION_DOCUMENTS}
     }}
 """
     return list(store.query(aql, bind_vars=bind))
+
+
+def get_document_passages(
+    store: ArangoStore, document_id: str, bwb_id: str, article_number: str
+) -> list[dict[str, Any]]:
+    """The sections of a document that explain an article, one row per section.
+
+    The edges are ``EXPLAINS`` from the document to the article or to one of its versions
+    (the same ``bwb_id`` and ``stam_id``), each with the sections in ``meta.sections``. A
+    section that several of those edges name is one row, with the highest confidence.
+    Unsorted; an unknown article has none.
+    """
+    article = store.collection(COLLECTION_ARTICLES).get(
+        make_node_key(bwb_id, article_number)
+    )
+    if not isinstance(article, dict):
+        return []
+    props = article.get("props") or {}
+    targets = [article["_id"]]
+    if props.get("stam_id"):
+        targets += store.query(
+            f"""
+            FOR v IN {COLLECTION_ARTICLE_VERSIONS}
+                FILTER v.props.bwb_id == @bwb_id AND v.props.stam_id == @stam_id
+                RETURN v._id
+            """,
+            bind_vars={"bwb_id": props.get("bwb_id"), "stam_id": props["stam_id"]},
+        )
+    edges = store.query(
+        f"""
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._from == @document_id AND e.relation == @explains
+            FILTER e._to IN @targets
+            FILTER IS_ARRAY(e.meta.sections)
+            RETURN e.meta.sections
+        """,
+        bind_vars={
+            "document_id": document_id,
+            "explains": RELATION_EXPLAINS,
+            "targets": targets,
+        },
+    )
+    best: dict[str, dict[str, Any]] = {}
+    for sections in edges:
+        for section in sections:
+            known = best.get(section["section_anchor"])
+            if known is None or section["confidence"] > known["confidence"]:
+                best[section["section_anchor"]] = section
+    return list(best.values())
