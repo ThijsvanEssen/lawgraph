@@ -24,6 +24,7 @@ from lawgraph.api.routes import (
     nodes,
     parliament,
     relationships,
+    resolve,
     search,
     stats,
     watches,
@@ -183,7 +184,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.4.0",
+    version="0.5.0",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -205,6 +206,7 @@ for _name, _router in (
     ("relationships", relationships.router),
     ("annexes", annexes.router),
     ("documents", documents.router),
+    ("resolve", resolve.router),
     ("search", search.router),
     ("stats", stats.router),
     ("watches", watches.router),

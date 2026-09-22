@@ -86,7 +86,7 @@ and exits 1 when any of them failed.
 | `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 6). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode to `bwb` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`) are always read in full. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn. `staatsblad` reads the stored BWB toestanden, so it starts when `bwb` has ended (and last on its server, so the others do not wait with it) |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` |
-| `retrieve tk-content` | `--mode gaps` (the only mode), `--kind` (default `toelichting`), `--dry-run` |
+| `retrieve tk-content` | `--mode gaps` (the only mode: the papers of `--kind` of which no XML is stored), `--kind` (default `toelichting`), `--dry-run` |
 | `retrieve rechtspraak` | `--court` (repeatable; default `hr`, `rvs`, `hoven`), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
 | `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
 | `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
@@ -100,7 +100,7 @@ and exits 1 when any of them failed.
 ### normalize
 
 `normalize all [--since DATE]` runs every source in registry order (`tk`, `tk-dossiers`,
-`rechtspraak`, `eurlex`, `bwb`, `bwb-history`, `staatsblad`, `staatscourant`,
+`tk-content`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`, `staatsblad`, `staatscourant`,
 `eerstekamer`, `echr`, `verdragenbank`). Every `normalize <source>` accepts `--since DATE`: only raw records
 fetched since then.
 
@@ -119,13 +119,13 @@ passed to the pipelines that accept it and the others run in full.
 | `rechtspraak-appeal` | none |
 | `tk-amends` | `--since`: documents dated since then |
 | `bwb-implements` | none (reads the regulations that name an EU act) |
-| `tk-amendment-articles`, `tk-mvt`, `bwb-relation-types` | none |
+| `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `bwb-relation-types` | none |
 | `graph-list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 
 The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
 `bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-citations`,
 `rechtspraak-appeal`, `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-mvt`,
-`bwb-relation-types`, `graph-list-stats`.
+`tk-mvt-articles`, `bwb-relation-types`, `graph-list-stats`.
 
 ### Other commands
 
@@ -135,7 +135,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, EU acts, treaties, memoranda without text) |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
@@ -147,8 +147,8 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 | Phase | Pipelines |
 |-------|-----------|
 | `RETRIEVE` | `TK`, `TK_DOSSIERS`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK` |
-| `NORMALIZE` | the same plus `BWB_HISTORY` |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `BWB_RELATION_TYPES`, `GRAPH_LIST_STATS` |
+| `NORMALIZE` | the same plus `BWB_HISTORY` and `TK_CONTENT` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `GRAPH_LIST_STATS` |
 
 ## Runs
 
@@ -157,7 +157,7 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 ```bash
 lawgraph retrieve all --mode full --window 730d
 lawgraph retrieve bwb-history            # optional: every BWB toestand
-lawgraph retrieve tk-content             # optional: MvT text, needed by tk-amendment-articles
+lawgraph retrieve tk-content             # optional: the XML of MvTs; normalize tk-content reads it
 lawgraph retrieve rechtspraak --ecli ECLI:NL:HR:2023:1234 ...   # judgment content
 lawgraph normalize all
 lawgraph semantic all

@@ -8,7 +8,21 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.annexes import AnnexListItem
-from lawgraph.api.schemas.common import ArticleRelationDTO, DossierRefDTO
+from lawgraph.api.schemas.common import (
+    ArticleRelationDTO,
+    DossierRefDTO,
+    JudgmentSummaryDTO,
+)
+from lawgraph.config.constants import (
+    EDGE_SOURCE_BWB_IMPLEMENTS,
+    RELATION_IMPLEMENTS,
+    RELATION_REFERS_TO,
+)
+
+# What `bwb_id` holds in the answer of an instrument route: the identifier of the request.
+_REQUESTED = (
+    "The instrument as requested: its BWB id, or its CELEX number for an EU act."
+)
 
 
 class InstrumentArticleBreadcrumbDTO(BaseModel):
@@ -34,6 +48,7 @@ class InstrumentArticleNodeDTO(BaseModel):
     id: str
     key: str
     bwb_id: str | None
+    celex: str | None = None
     article_number: str | None
     display_name: str | None
     breadcrumb: list[InstrumentArticleBreadcrumbDTO] = []
@@ -56,6 +71,7 @@ class InstrumentArticleNodeDTO(BaseModel):
             id=doc["_id"],
             key=doc["_key"],
             bwb_id=props.get("bwb_id"),
+            celex=props.get("celex"),
             article_number=props.get("article_number"),
             display_name=props.get("display_name"),
             breadcrumb=crumbs,
@@ -69,7 +85,7 @@ class InstrumentArticlesResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    bwb_id: str
+    bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
         ...,
         description=(
@@ -118,7 +134,7 @@ class InstrumentCitationsResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    bwb_id: str
+    bwb_id: str = Field(..., description=_REQUESTED)
     article_count: int = Field(
         ..., description="Number of articles in the focal instrument."
     )
@@ -175,7 +191,7 @@ class InstrumentJudgmentsResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    bwb_id: str
+    bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
         ...,
         description=(
@@ -224,7 +240,7 @@ class InstrumentDossiersResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    bwb_id: str
+    bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
         ...,
         description=(
@@ -302,7 +318,7 @@ class AmendedByResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    bwb_id: str
+    bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
         ...,
         description=(
@@ -324,6 +340,7 @@ class InstrumentRelatedItem(BaseModel):
     id: str
     key: str
     bwb_id: str | None = None
+    celex: str | None = None
     display_name: str | None = None
     citation_title: str | None = None
     outbound_count: int = Field(
@@ -344,7 +361,7 @@ class InstrumentRelatedResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    bwb_id: str
+    bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
         ...,
         description=(
@@ -484,5 +501,230 @@ class CrossLawDependenciesResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    bwb_id: str
+    bwb_id: str = Field(..., description=_REQUESTED)
     dependencies: list[CrossLawDependencyItem] = Field(default_factory=list)
+
+
+# ── /api/instruments/{identifier} and /eu-links ───────────────────────────
+
+
+class InstrumentDetailDTO(BaseModel):
+    """One instrument: its identifiers, names, classification and dates."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    collection: str = "instruments"
+    bwb_id: str | None = Field(
+        None,
+        description=(
+            "BWB id of a Dutch regulation or treaty; `ECHR-CONVENTION` for the "
+            "Convention of the ECHR."
+        ),
+    )
+    celex: str | None = Field(None, description="CELEX number of an EU act.")
+    title: str | None
+    official_title: str | None
+    citation_title: str | None
+    short_title: str | None
+    display_name: str | None
+    jurisdiction: str | None = Field(
+        None, description="`nl`, `eu` or `int` (Verdragenbank treaties)."
+    )
+    kind: str | None = Field(
+        None,
+        description=(
+            "BWB type (`wet`, `AMvB`, `verdrag`, ...), treaty kind or publication kind."
+        ),
+    )
+    source: str | None = Field(
+        None, description="The source that created the node (`bwb`, `eurlex`, ...)."
+    )
+    labels: list[str] = Field(default_factory=list)
+    lang: str | None = None
+    stub: bool = False
+    article_count: int = 0
+    inbound_citation_count: int = 0
+    date_signed: str | None = None
+    date_published: str | None = None
+    date_in_force: str | None = None
+    treaty_number: str | None = None
+    in_force: bool | None = None
+    dossier_numbers: list[str] = Field(default_factory=list)
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> InstrumentDetailDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            bwb_id=props.get("bwb_id"),
+            celex=props.get("celex"),
+            title=props.get("title"),
+            official_title=props.get("official_title"),
+            citation_title=props.get("citation_title"),
+            short_title=props.get("short_title"),
+            display_name=props.get("display_name"),
+            jurisdiction=props.get("jurisdiction") or None,
+            kind=props.get("kind"),
+            source=props.get("source"),
+            labels=list(doc.get("labels") or []),
+            lang=props.get("lang"),
+            stub=bool(props.get("stub")),
+            article_count=int(props.get("article_count") or 0),
+            inbound_citation_count=int(props.get("inbound_citation_count") or 0),
+            date_signed=props.get("date_signed"),
+            date_published=props.get("date_published"),
+            date_in_force=props.get("date_in_force"),
+            treaty_number=props.get("treaty_number") or None,
+            in_force=props.get("in_force"),
+            dossier_numbers=[str(n) for n in props.get("dossier_numbers") or []],
+        )
+
+
+class LinkedInstrumentDTO(BaseModel):
+    """The instrument at the other end of a link."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    bwb_id: str | None
+    celex: str | None
+    title: str | None
+    citation_title: str | None
+    kind: str | None
+    jurisdiction: str | None
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> LinkedInstrumentDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            bwb_id=props.get("bwb_id"),
+            celex=props.get("celex"),
+            title=props.get("title") or props.get("display_name"),
+            citation_title=props.get("citation_title"),
+            kind=props.get("kind"),
+            jurisdiction=props.get("jurisdiction") or None,
+        )
+
+
+# What an IMPLEMENTS edge rests on, by the pipeline that wrote it.
+IMPLEMENTS_BASES: dict[str, Literal["celex_named_in_text"]] = {
+    EDGE_SOURCE_BWB_IMPLEMENTS: "celex_named_in_text"
+}
+
+
+class EuLinkDTO(BaseModel):
+    """An `IMPLEMENTS` edge between a national regulation and an EU act.
+
+    The edge means that the text of the regulation names the CELEX number of the EU act
+    (`basis`). It does not say that the regulation transposes the act, nor which articles
+    do: it links instruments, not articles, and its `confidence` is that of a text match.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    instrument: LinkedInstrumentDTO = Field(
+        ...,
+        description=(
+            "The other end: the EU act for `implements`, the national regulation for "
+            "`implemented_by`."
+        ),
+    )
+    relation: str = RELATION_IMPLEMENTS
+    confidence: float | None = None
+    basis: Literal["celex_named_in_text"] | None = Field(
+        None,
+        description=(
+            "What the edge rests on: `celex_named_in_text`, the text of the regulation "
+            "names the CELEX number of the act. Not a transposition signal."
+        ),
+    )
+    source: str | None = Field(
+        None,
+        description="The pipeline that wrote the edge (`bwb-implements-directive`).",
+    )
+    meta: dict[str, Any] = Field(
+        default_factory=dict, description="Edge evidence as stored (`celex`)."
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> EuLinkDTO:
+        """Build from an ``{instrument, edge}`` query row."""
+        edge = row.get("edge") or {}
+        return cls(
+            instrument=LinkedInstrumentDTO.from_document(row["instrument"]),
+            confidence=edge.get("confidence"),
+            basis=IMPLEMENTS_BASES.get(edge.get("source") or ""),
+            source=edge.get("source"),
+            meta=edge.get("meta") or {},
+        )
+
+
+class InternationalLinkDTO(BaseModel):
+    """A `REFERS_TO` edge between this instrument and an international counterpart.
+
+    `treaty`: an article of this instrument (`own_article`) refers to a treaty
+    (`instrument`), and to a treaty article (`counterpart_article`) when the reference names
+    one. `echr_judgment`: an ECHR judgment (`judgment`) refers to an article of this
+    instrument (`own_article`) or, without an article, to the instrument as a whole.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["treaty", "echr_judgment"]
+    instrument: LinkedInstrumentDTO | None = Field(
+        None, description="The treaty; set for `treaty`."
+    )
+    judgment: JudgmentSummaryDTO | None = Field(
+        None, description="The ECHR judgment; set for `echr_judgment`."
+    )
+    own_article: CitedArticleRef | None = Field(
+        None, description="The article of this instrument at the edge, when it has one."
+    )
+    counterpart_article: CitedArticleRef | None = Field(
+        None, description="The article of the treaty the reference names."
+    )
+    relation: str = RELATION_REFERS_TO
+    confidence: float | None = None
+    source: str | None = Field(None, description="The pipeline that wrote the edge.")
+    meta: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Edge evidence as stored (`raw_match`, `snippet`, `qualifier`, ...).",
+    )
+
+
+class InstrumentEuLinksResponse(BaseModel):
+    """Response for GET /api/instruments/{identifier}/eu-links."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instrument: LinkedInstrumentDTO
+    implements: list[EuLinkDTO] = Field(
+        default_factory=list,
+        description="EU acts whose CELEX number the text of this instrument names.",
+    )
+    implements_total: int = Field(
+        ..., description="Absolute number of `implements`, independent of `limit`."
+    )
+    implemented_by: list[EuLinkDTO] = Field(
+        default_factory=list,
+        description="National regulations whose text names the CELEX number of this act.",
+    )
+    implemented_by_total: int = Field(
+        ..., description="Absolute number of `implemented_by`, independent of `limit`."
+    )
+    international: list[InternationalLinkDTO] = Field(
+        default_factory=list,
+        description=(
+            "Treaties that articles of this instrument refer to and ECHR judgments that "
+            "refer to it, at most `limit`, treaties first."
+        ),
+    )
+    international_total: int = Field(
+        ..., description="Absolute number of `international`, independent of `limit`."
+    )

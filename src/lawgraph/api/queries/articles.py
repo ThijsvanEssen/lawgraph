@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.api.queries._helpers import (
@@ -12,6 +11,7 @@ from lawgraph.api.queries._helpers import (
     _coerce_text,
     _ensure_doc,
     _extract_confidence,
+    _extract_qualifier,
     _extract_span,
     _find_instrument_for_article,
     _find_judgments_for_article,
@@ -22,8 +22,11 @@ from lawgraph.api.queries.dossiers import collect_dossier_numbers, get_dossier_t
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
@@ -33,6 +36,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.models import make_node_key
+from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import ArangoStore
 
 
@@ -58,6 +62,8 @@ class ArticleCitationEntry:
     end: int | None
     text: str | None
     confidence: float | None
+    qualifier: Qualifier = field(default_factory=Qualifier)
+    reference_kind: str | None = None
 
 
 def _record_article_citation(
@@ -68,6 +74,8 @@ def _record_article_citation(
     end: int | None,
     text: str | None,
     confidence: float | None,
+    qualifier: Qualifier | None = None,
+    reference_kind: str | None = None,
 ) -> None:
     target_id = target_doc.get("_id")
     if not target_id:
@@ -78,7 +86,13 @@ def _record_article_citation(
     seen.add(key)
     citations.append(
         ArticleCitationEntry(
-            target=target_doc, start=start, end=end, text=text, confidence=confidence
+            target=target_doc,
+            start=start,
+            end=end,
+            text=text,
+            confidence=confidence,
+            qualifier=qualifier or Qualifier(),
+            reference_kind=reference_kind,
         )
     )
 
@@ -108,6 +122,26 @@ def get_article_with_relations(
     )
 
 
+def _version_identity(
+    article: dict[str, Any], bwb_id: str, article_number: str
+) -> tuple[str, dict[str, Any]]:
+    """The AQL filter on ``v`` (an ArticleVersion) that selects the versions of *article*,
+    and its bind variables.
+
+    The identity of an article inside its regulation is ``(bwb_id, stam_id)``; an article
+    without a ``stam_id`` is matched on ``(bwb_id, article_number)``. Both filters are
+    served by an index on ``article_versions``.
+    """
+    props = article.get("props") or {}
+    bind: dict[str, Any] = {"bwb_id": props.get("bwb_id") or bwb_id.upper()}
+    stam_id = props.get("stam_id")
+    if stam_id:
+        bind["identity"] = stam_id
+        return "FILTER v.props.stam_id == @identity", bind
+    bind["identity"] = props.get("article_number") or article_number
+    return "FILTER v.props.article_number == @identity", bind
+
+
 def get_article_history(
     store: ArangoStore,
     bwb_id: str,
@@ -126,15 +160,7 @@ def get_article_history(
     if article is None:
         raise ValueError("article not found")
 
-    props = article.get("props") or {}
-    stam_id = props.get("stam_id")
-    doc_bwb_id = props.get("bwb_id") or bwb_id.upper()
-    if stam_id:
-        identity_filter = "FILTER v.props.stam_id == @identity"
-        identity = stam_id
-    else:
-        identity_filter = "FILTER v.props.article_number == @identity"
-        identity = props.get("article_number") or article_number
+    identity_filter, bind = _version_identity(article, bwb_id, article_number)
     aql = f"""
     FOR v IN {COLLECTION_ARTICLE_VERSIONS}
         FILTER v.props.bwb_id == @bwb_id
@@ -142,7 +168,7 @@ def get_article_history(
         SORT v.props.valid_from ASC, v._key ASC
         RETURN v
     """
-    versions = list(store.query(aql, {"bwb_id": doc_bwb_id, "identity": identity}))
+    versions = list(store.query(aql, bind))
 
     publications = [
         (v.get("props") or {}).get(field)
@@ -181,8 +207,17 @@ def get_article_citations(
             continue
         start, end, text = _extract_span(edge)
         confidence = _extract_confidence(edge)
+        qualifier, reference_kind = _extract_qualifier(edge)
         _record_article_citation(
-            citations, seen, target_doc, start, end, text, confidence
+            citations,
+            seen,
+            target_doc,
+            start,
+            end,
+            text,
+            confidence,
+            qualifier,
+            reference_kind,
         )
 
     props = doc.get("props") or {}
@@ -214,7 +249,9 @@ def get_article_legislative_history(
     """Return dossiers/documents that introduced, amended, or propose to amend an article.
 
     Each entry: {dossier_id, dossier_number, dossier_title, date, kind, status,
-    summary, document_id}.
+    summary, document_id}. The explanatory documents are not among them: they
+    explain a dossier's changes as a whole and are found by
+    ``get_article_explanations``.
     """
     if article_id is None:
         article_key = make_node_key(bwb_id, article_number)
@@ -225,7 +262,6 @@ def get_article_legislative_history(
         RELATION_AMENDS,
         RELATION_INTRODUCES,
         RELATION_REPEALS,
-        RELATION_EXPLAINS,
         RELATION_REFERS_TO,
     ]
     aql = f"""
@@ -265,6 +301,124 @@ def get_article_legislative_history(
     )
 
 
+def get_article_explanations(
+    store: ArangoStore,
+    bwb_id: str,
+    article_number: str,
+    *,
+    limit: int,
+    offset: int,
+) -> dict[str, Any]:
+    """A page of the documents that EXPLAIN an article, and how many there are in all.
+
+    An explanation is an EXPLAINS edge whose target is the article, one of its versions
+    (found as ``get_article_history`` finds them) or its instrument; the edge of an
+    explanatory memorandum usually points at a version. The rows say at which level
+    they matched: level 0 for the article and its versions, level 1 for the instrument
+    (an edge written only for a law that changed no articles, so no evidence about this
+    article), sorted after the first. Per document and level one edge is kept, the one
+    that says most (a version before the article, the newest version first); edges that
+    carry a ``meta.section_anchor`` are kept apart from those that do not.
+
+    An unknown article has no explanations: the answer is empty. Query budget: one
+    lookup of the article and one query, driven by the ``(_to, relation)`` index of
+    the edges, that reads the documents of the page only.
+    """
+    article = _ensure_doc(store.articles.get(make_node_key(bwb_id, article_number)))
+    if article is None:
+        return {"total": 0, "items": []}
+
+    identity_filter, bind = _version_identity(article, bwb_id, article_number)
+    aql = f"""
+    LET targets = UNION(
+        [{{ id: @article_id, level: 0, rank: 1, valid_from: null }}],
+        (
+            FOR v IN {COLLECTION_ARTICLE_VERSIONS}
+                FILTER v.props.bwb_id == @bwb_id
+                {identity_filter}
+                RETURN {{ id: v._id, level: 0, rank: 0, valid_from: v.props.valid_from }}
+        ),
+        (
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._from == @article_id AND e.relation == @part_of
+                FILTER STARTS_WITH(e._to, '{COLLECTION_INSTRUMENTS}/')
+                RETURN {{ id: e._to, level: 1, rank: 0, valid_from: null }}
+        )
+    )
+    LET found = (
+        FOR t IN targets
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._to == t.id AND e.relation == @explains
+                FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
+                LET document = DOCUMENT(e._from)
+                FILTER document != null
+                RETURN {{
+                    document_id: document._id,
+                    key: document._key,
+                    date: document.props.date,
+                    level: t.level,
+                    rank: t.rank,
+                    valid_from: t.valid_from,
+                    target_id: t.id,
+                    confidence: e.confidence,
+                    section_anchor: e.meta.section_anchor
+                }}
+    )
+    LET picked = (
+        FOR f IN found
+            COLLECT document_id = f.document_id, level = f.level,
+                    section_anchor = f.section_anchor INTO grouped = f
+            RETURN FIRST(
+                FOR g IN grouped
+                    SORT g.rank ASC, g.valid_from DESC, g.target_id ASC
+                    LIMIT 1
+                    RETURN g
+            )
+    )
+    LET items = (
+        FOR p IN picked
+            SORT p.level ASC, p.date DESC, p.key ASC, p.section_anchor ASC
+            LIMIT @offset, @limit
+            LET document = DOCUMENT(p.document_id)
+            LET dossier_number = FIRST(
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER e._from == p.document_id AND e.relation == @part_of
+                    FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+                    LET dossier = DOCUMENT(e._to)
+                    FILTER dossier != null AND dossier.props.number != null
+                    SORT dossier.props.number
+                    LIMIT 1
+                    RETURN dossier.props.number
+            )
+            RETURN {{
+                document_id: p.document_id,
+                key: p.key,
+                kind: document.props.kind,
+                title: document.props.title,
+                date: document.props.date,
+                source: document.props.source,
+                labels: document.labels,
+                dossier_number: dossier_number,
+                target_id: p.target_id,
+                confidence: p.confidence,
+                section_anchor: p.section_anchor
+            }}
+    )
+    RETURN {{ total: LENGTH(picked), items: items }}
+    """
+    bind.update(
+        {
+            "article_id": article["_id"],
+            "part_of": RELATION_PART_OF,
+            "explains": RELATION_EXPLAINS,
+            "limit": limit,
+            "offset": offset,
+        }
+    )
+    rows = list(store.query(aql, bind))
+    return rows[0] if rows else {"total": 0, "items": []}
+
+
 def get_article_in_flux(
     store: ArangoStore, bwb_id: str, article_number: str, article_id: str | None = None
 ) -> dict[str, Any]:
@@ -288,16 +442,90 @@ def get_article_in_flux(
     return {"in_flux": False, "open_dossier_count": 0}
 
 
-def get_articles_by_keys(
-    store: ArangoStore, keys: Iterable[str]
-) -> dict[str, dict[str, Any]]:
-    """Fetch article documents for many keys in one query, keyed by ``_key``."""
-    key_list = list(set(keys))
-    if not key_list:
-        return {}
-    aql = f"""
-    FOR doc IN {COLLECTION_ARTICLES}
-        FILTER doc._key IN @keys
-        RETURN doc
+def get_article_cited_by(
+    store: ArangoStore,
+    article_id: str,
+    *,
+    court: str | None = None,
+    tier: str | None = None,
+    lid: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    """The passages of judgments that cite an article: one row per mention, newest first.
+
+    ``(rows, total)`` with ``{judgment, mention}`` rows; ``total`` counts every mention that
+    passes the filters, whatever the page. Filters: the ``court`` (ECLI court code) and
+    ``tier`` of the judgment, and a ``lid`` number that the mention names.
+
+    A much cited article has thousands of judgments (Sr 287, Awb 6:2) and a judgment is
+    its text and its paragraphs. The first pass reads the edges of the article by
+    ``(_to, relation)`` and keeps only what filters and sorts a mention (the edge, its
+    position, the date and the ECLI); the mentions of the page, with their snippets, are
+    read after the ``LIMIT``, for ``limit`` rows and not for all of them.
+
+    The judgment is joined through its primary index, not ``DOCUMENT()``: the join reads
+    the few attributes used, where ``DOCUMENT()`` holds the whole judgment in the memory of
+    the query, for every judgment of the article at once.
     """
-    return {doc["_key"]: doc for doc in store.query(aql, {"keys": key_list})}
+    aql = f"""
+    LET hits = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == @article_id AND e.relation == @relation
+            FILTER STARTS_WITH(e._from, '{COLLECTION_JUDGMENTS}/')
+            FOR j IN {COLLECTION_JUDGMENTS}
+                FILTER j._id == e._from
+                FILTER @court == null OR j.props.court_code == @court
+                FILTER @tier == null OR j.props.tier == @tier
+                LET count = LENGTH(e.meta.mentions)
+                FILTER count > 0
+                FOR position IN 0..count - 1
+                    FILTER @lid == null OR @lid IN e.meta.mentions[position].leden
+                    RETURN {{
+                        edge: e._id,
+                        position: position,
+                        date: j.props.date_eff,
+                        ecli: j.props.ecli
+                    }}
+    )
+    LET page = (
+        FOR hit IN hits
+            SORT hit.date DESC, hit.ecli ASC, hit.edge ASC, hit.position ASC
+            LIMIT @offset, @limit
+            RETURN hit
+    )
+    RETURN {{
+        total: LENGTH(hits),
+        items: (
+            FOR hit IN page
+                LET e = DOCUMENT(hit.edge)
+                FOR j IN {COLLECTION_JUDGMENTS}
+                    FILTER j._id == e._from
+                    RETURN {{
+                        judgment: {{
+                            _id: j._id,
+                            _key: j._key,
+                            props: {{
+                                ecli: j.props.ecli,
+                                display_name: j.props.display_name,
+                                court_code: j.props.court_code,
+                                tier: j.props.tier,
+                                date_eff: j.props.date_eff
+                            }}
+                        }},
+                        mention: e.meta.mentions[hit.position]
+                    }}
+        )
+    }}
+    """
+    bind = {
+        "article_id": article_id,
+        "relation": RELATION_REFERS_TO,
+        "court": court.upper() if court else None,
+        "tier": tier,
+        "lid": lid.lower() if lid else None,
+        "limit": limit,
+        "offset": offset,
+    }
+    answer = next(iter(store.query(aql, bind)), None) or {"total": 0, "items": []}
+    return list(answer["items"]), int(answer["total"])

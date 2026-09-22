@@ -1,0 +1,911 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<kamerwrk kamer="2" publtype="meto">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-24138-3/metadata.xml" />
+  </metadata>
+  <kop>
+    <titel>Tweede Kamer der Staten-Generaal</titel>
+    <subtitel>2</subtitel>
+    <subtitel>Vergaderjaar 1994-1995</subtitel>
+  </kop>
+  <frontm>
+    <versie dtd="0.10" conv="OPmt1__2.1" markup="c11xa"></versie>
+    <ordernr>5K0977</ordernr>
+    <vergjaar>1994-1995</vergjaar>
+    <onderw>
+      <nummer>24 138</nummer>
+      <naam>Wijziging van de Wet op het basisonderwijs, de Interimwet op het speciaal
+onderwijs en het voortgezet speciaal onderwijs en de Wet op het voortgezet
+onderwijs inzake de bestuursvorm van het openbaar onderwijs</naam>
+    </onderw>
+  </frontm>
+  <body>
+    <stuk>
+      <ltrlabel>Nr. </ltrlabel>
+      <nummer>3</nummer>
+      <titel>MEMORIE VAN TOELICHTING </titel>
+      <tuskop letat="vet">Inhoudsopgave </tuskop>
+      <table orient="port" rowsep="0" colsep="0" frame="topbot" tabstyle="sdu1">
+        <tgroup align="left" charoff="75" cols="3" tgroupstyle="sdu1">
+          <colspec colname="c1" colnum="1" colwidth="10mm"></colspec>
+          <colspec colname="c2" colnum="2" colwidth="97.5mm"></colspec>
+          <colspec colname="c3" colnum="3" colwidth="5mm"></colspec>
+          <tbody valign="bottom">
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">
+                <nadruk type="vet">I.</nadruk>
+              </entry>
+              <entry morerows="0" rotate="0">
+                <nadruk type="vet">ALGEMEEN</nadruk>
+              </entry>
+              <entry align="right" morerows="0" rotate="0">
+                <nadruk type="vet">1</nadruk>
+              </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top"></entry>
+              <entry morerows="0" rotate="0"></entry>
+              <entry morerows="0" rotate="0"></entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">1.</entry>
+              <entry morerows="0" rotate="0">De bestuursvorm openbaar onderwijs</entry>
+              <entry align="right" morerows="0" rotate="0">1 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">1.1.</entry>
+              <entry morerows="0" rotate="0">Achtergrond</entry>
+              <entry align="right" morerows="0" rotate="0">1</entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">1.2.</entry>
+              <entry morerows="0" rotate="0">De taak van de gemeente</entry>
+              <entry align="right" morerows="0" rotate="0">4 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">1.3.</entry>
+              <entry morerows="0" rotate="0">Kenmerken bestuursvorm
+openbaar onderwijs</entry>
+              <entry align="right" morerows="0" rotate="0">4 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">1.4.</entry>
+              <entry morerows="0" rotate="0">Relatie met de Algemene wet bestuursrecht</entry>
+              <entry align="right" morerows="0" rotate="0">6</entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">1.5.</entry>
+              <entry morerows="0" rotate="0">Overeenkomsten en verschillen tussen de stichting en de openbare
+rechtspersoon</entry>
+              <entry align="right" morerows="0" rotate="0">6 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">1.6.</entry>
+              <entry morerows="0" rotate="0">Relatie met WCBO en WEB</entry>
+              <entry align="right" morerows="0" rotate="0">8 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top"></entry>
+              <entry morerows="0" rotate="0"></entry>
+              <entry morerows="0" rotate="0"></entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">2.</entry>
+              <entry morerows="0" rotate="0">Financiële
+gelijkstelling</entry>
+              <entry align="right" morerows="0" rotate="0">8 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top"></entry>
+              <entry morerows="0" rotate="0"></entry>
+              <entry morerows="0" rotate="0"></entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">3.</entry>
+              <entry morerows="0" rotate="0">De bestuursvorm en het constitutionele
+recht</entry>
+              <entry align="right" morerows="0" rotate="0">9 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top"></entry>
+              <entry morerows="0" rotate="0"></entry>
+              <entry morerows="0" rotate="0"></entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">4.</entry>
+              <entry morerows="0" rotate="0">Samenhang met het initiatief-wetsvoorstel
+en het wetsvoorstel samenwerkingsscholen</entry>
+              <entry align="right" morerows="0" rotate="0">9 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top"></entry>
+              <entry morerows="0" rotate="0"></entry>
+              <entry morerows="0" rotate="0"></entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">5.</entry>
+              <entry morerows="0" rotate="0">Deregulering</entry>
+              <entry align="right" morerows="0" rotate="0">10</entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top"></entry>
+              <entry morerows="0" rotate="0"></entry>
+              <entry morerows="0" rotate="0"></entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">6.</entry>
+              <entry morerows="0" rotate="0">Advies Onderwijsraad en overige adviezen</entry>
+              <entry align="right" morerows="0" rotate="0">11 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top"></entry>
+              <entry morerows="0" rotate="0"></entry>
+              <entry morerows="0" rotate="0"></entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">
+                <nadruk type="vet">II.</nadruk>
+              </entry>
+              <entry morerows="0" rotate="0">
+                <nadruk type="vet">ARTIKELSGEWIJZE
+TOELICHTING</nadruk>
+              </entry>
+              <entry align="right" morerows="0" rotate="0">
+                <nadruk type="vet">12</nadruk>
+              </entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+      <tuskop letat="vet">I. ALGEMEEN </tuskop>
+      <tuskop letat="vet">1. De bestuursvorm openbaar onderwijs </tuskop>
+      <tuskop letat="cur">1.1. Achtergrond</tuskop>
+      <al>Het voorliggende wetsvoorstel is een uitwerking van het regeerakkoord.
+Daarin werd gesteld dat het wenselijk is dat de gemeente meer op afstand haar
+specifieke taak als bevoegd gezag van de openbare scholen moet kunnen
+uitoefenen. De school wordt immers steeds zelfstandiger en de gemeente krijgt
+steeds meer taken ten aanzien van alle scholen. De gemeente moet daarom uit
+een aantal mogelijkheden, waaronder de overheidsstichting, zelf de meest wenselijke
+bestuursvorm voor het openbaar onderwijs kunnen kiezen.</al>
+      <witreg></witreg>
+      <al>Het onderhavige wetsvoorstel sluit ook aan bij de opvattingen die de Minister
+van Onderwijs, Cultuur en Wetenschappen en de vertegenwoordigers van de onderwijskoepelorganisaties
+hebben geformuleerd in de «Gezamenlijke richtinggevende uitspraken van
+de vertegenwoordigers van de onderwijskoepelorganisaties en de Minister van
+Onderwijs en Wetenschappen in het Schevenings beraad bestuurlijke vernieuwing
+met betrekking tot gewenste ontwikkelingen in de bestuurlijke verhoudingen
+in het primair en voortgezet onderwijs» van 6 juli 1993, verder «Uitspraken»
+genoemd.</al>
+      <al>Dit standpunt over de bestuursvorm van het openbaar onderwijs heeft een
+lange voorgeschiedenis.</al>
+      <al>De discussie die tot de onderhavige standpuntbepaling in het regeringsbeleid
+heeft geleid, vangt aan met het advies van de Commissie voor de Toetsing van
+Wetgevingsprojecten «Verantwoordelijkheid voor onderwijs», uitgebracht
+op 13 juli 1989 aan de toenmalige Minister van Onderwijs en Wetenschappen,
+en het kabinetsstandpunt daarover (Kamerstukken II 1990/91, 22 195).</al>
+      <witreg></witreg>
+      <al>De Commissie voor de Toetsing van Wetgevingsprojecten stelde dat artikel
+23 Grondwet in het midden laat in welke organisatorische kaders het openbaar
+onderwijs wordt geïnstitutionaliseerd. Zij legde een verband tussen de
+bestuursvorm en de verzelfstandiging van scholen in het algemeen.</al>
+      <al>De commissie noemde daarbij als mogelijkheden het instellen van een commissie
+ex artikel 61 van de voormalige gemeentewet (artikel 82 van de huidige Gemeentewet)
+en ook het onderbrengen in een stichting, met gebruikmaking van artikel 234
+van de voormalige gemeentewet (artikel 155 van de huidige Gemeentewet).</al>
+      <witreg></witreg>
+      <al>Ook in de literatuur bestaat al sinds geruime tijd aandacht voor de bestuursvorm
+van het openbaar onderwijs. Gesteld kan worden dat het standpunt van de Commissie
+voor de Toetsing van Wetgevingsprojecten in hoofdlijnen veelal wordt onderschreven.
+In dit verband kan gewezen worden op de volgende bijdragen:</al>
+      <al>– E. M. H. Hirsch Ballin: De andere helft van de wereld, De wederzijdse
+betekenis van openbaar en bijzonder binnen en buiten het onderwijs; opgenomen
+in: Bestuur en meesterschap, opstellen over samenleving, staat en sturing,
+Den Haag 1988,</al>
+      <al>– D. Mentink: Openbaar onderwijs en de privaatrechtelijke beheersvorm,
+NTOR 1991, 259.</al>
+      <witreg></witreg>
+      <al>Het kabinet onderschreef, dat de Grondwet de instandhouding van de openbare
+school door een stichting niet uitsluit, maar achtte nadere wettelijke voorzieningen
+nodig om dit ook werkelijk te effectueren.</al>
+      <al>De mogelijkheden die de voormalige gemeentewet en de Wet gemeenschappelijke
+regelingen bieden voor verzelfstandiging van de openbare school in de vorm
+van artikel 61-commissies en gemeenschappelijke organen, leken haar op het
+eerste gezicht voldoende om tegemoet te komen aan de wensen dienaangaande.
+Gezien het belang dat het kabinet hechtte aan het nader verkennen van de onderscheiden
+verantwoordelijkheden van de gemeente bij enerzijds het uitvoeren van bestuurlijke
+taken krachtens de onderwijswetgeving en anderzijds het optreden als bevoegd
+gezag van openbare scholen, werd nader onderzoek aangekondigd naar andere
+mogelijkheden van bestuur van openbare scholen, zoals de vorming
+van zelfstandige openbare bestuursorganen, al dan niet op basis van verkiezingen.</al>
+      <witreg></witreg>
+      <al>Daarna is door staatssecretaris Wallage bij enkele gelegenheden een beleidsnota
+aangekondigd over de ontwikkeling van de bestuurlijke verhoudingen in het
+onderwijsbestel.</al>
+      <al>Dit mondde uit in de brief van 9 november 1992 (Kamerstukken II 1992/93,
+22 827, nr. 2), waarin nader overleg met de onderwijsorganisaties werd
+aangekondigd over het totaal van de bestuurlijke verhoudingen. Daarin werd
+met betrekking tot het bestuur van het openbaar onderwijs als meest wezenlijke
+vraag gezien: is het wenselijk dat niet meer de gemeenteraad het schoolbestuur
+van het openbaar onderwijs vormt?</al>
+      <witreg></witreg>
+      <al>Teneinde een toezegging bij de behandeling van de begroting 1993 aan de
+Tweede Kamer gestand te doen, informeerde staatssecretaris Wallage bij brief
+van 21 april 1993 (Kamerstukken II 1992/93, 22 827, nr. 6) de Tweede
+Kamer aangaande overwegingen die aan de orde zijn bij de beleidsontwikkeling
+ten aanzien van de bestuursvorm voor het openbaar onderwijs. Als argumenten
+voor een nadere doordenking van de verantwoordelijkheid van de gemeente als
+bestuur van het openbaar onderwijs worden in deze brief genoemd:</al>
+      <al>– de remmende werking die de dubbelrol van de gemeente als lokaal
+bestuur en bevoegd gezag van de openbare school heeft op het aanpakken van
+bovenschoolse gezamenlijke vraagstukken,</al>
+      <al>– de behoefte aan een schoolbestuur voor de openbare school dat
+zich volledig op die taak kan concentreren,</al>
+      <al>– de nauwe band met de lokale politiek die door velen als belemmerend
+wordt ervaren voor het samenwerken met andere scholen,</al>
+      <al>– de wens om een sterkere ouderparticipatie te verenigen met het
+publieke karakter van de voorziening,</al>
+      <al>– de wens om ruimte te bieden om de publieke verantwoordelijkheid
+van de gemeente voor het onderwijs te revitaliseren, en</al>
+      <al>– de mogelijkheid om tot een doelmatiger beheer van de school te
+komen.</al>
+      <witreg></witreg>
+      <al>Vlak na de ontvangst van deze brief van staatssecretaris Wallage diende
+het Tweede-Kamerlid Nuis een initiatief-wetsvoorstel in waarin hij de stichtingsvorm
+als bestuursvorm voor het openbaar onderwijs introduceerde (Kamerstukken II
+1992/93, 23 134). Dit initiatief-wetsvoorstel beperkt zich in tegenstelling
+tot onderhavig voorstel echter tot een privaatrechtelijke bestuursvorm. De
+publiekrechtelijke variant en de (juridische) consequenties van de bestuursvorm
+zijn niet meegenomen in het initiatief-wetsvoorstel.</al>
+      <witreg></witreg>
+      <al>De discussies met de vaste commissie voor Onderwijs en Wetenschappen van
+de Tweede Kamer over dit onderwerp en het overleg met de vertegenwoordigers
+van de onderwijskoepelorganisaties in het zogenoemde Schevenings beraad hebben
+geleid tot een nadere standpuntbepaling van het kabinet over dit onderwerp,
+die overeenkomt met die welke in de gezamenlijke richtinggevende uitspraken
+van de toenmalige Minister van Onderwijs en Wetenschappen en de vertegenwoordigers
+van de onderwijskoepelorganisaties is vastgelegd.</al>
+      <al>In deze Uitspraken wordt gesteld, dat een ontwikkeling naar versterking
+van de zelfstandigheid van de school in het kader van nieuwe bestuurlijke
+verhoudingen in het onderwijs ook – zij het op eigen wijze – voor
+de openbare school geldt. De eigen wijze betreft de beperking aan de vrijheid
+die door de grondwettelijke eisen wordt gesteld: het openbaar onderwijs wordt
+met eerbiediging van ieders godsdienst of levensovertuiging bij de wet geregeld;
+in elke gemeente wordt van overheidswege voldoend openbaar onderwijs gegeven
+in een genoegzaam aantal scholen. </al>
+      <al>In de Uitspraken is opgenomen dat verzelfstandiging van het bestuur van
+de openbare school wordt gezien als een bijdrage tot het verzelfstandigen
+van de school zelf. Daarbij is opgemerkt dat verzelfstandiging van het bestuur
+kan gebeuren binnen en buiten de publiekrechtelijke structuur van de gemeente. </al>
+      <tuskop letat="cur">1.2. De taak van de gemeente</tuskop>
+      <al>Het onderhavige wetsvoorstel maakt het mogelijk om het bestuur te verzelfstandigen
+buiten die publiekrechtelijke structuur. In een gemeente kan daar behoefte
+aan bestaan.</al>
+      <al>Allereerst is waarneembaar dat de gemeente meer betrokken is bij het gehele
+onderwijs in die gemeente. In toenemende mate wordt de vraag gesteld of een
+gemeente beide rollen – algemeen lokaal bestuur en bevoegd gezag –
+niet beter kan scheiden. Naar de overtuiging van eerste ondergetekende is
+het niet aan de nationale wetgever om in dezen een exclusieve keuze in de
+wet vast te leggen. De gemeente moet in staat worden geacht op dit punt een
+afgewogen keuze te maken.</al>
+      <al>Ten tweede pleiten voorstanders van het openbaar onderwijs ervoor de afstand
+tot de lokale politiek te vergroten en de positie van de ouders bij het bestuur
+van de openbare school te versterken.</al>
+      <al>De gemeente houdt ook in de situatie dat het bestuur van de openbare school
+wordt verzelfstandigd volgens één van de in dit wetsvoorstel
+uitgewerkte alternatieven een bijzondere rol ten opzichte van het openbaar
+onderwijs:</al>
+      <al>1. De gemeente beslist welke bestuursvorm wordt gekozen, dus:</al>
+      <al>– of het bestuur binnen de integrale bestuurstaak van de gemeente
+blijft, dan wel verzelfstandiging plaatsvindt,</al>
+      <al>– vindt verzelfstandiging plaats, dan kan dat gebeuren met gebruikmaking
+van de bestaande middelen, binnen de eigen publiekrechtelijke structuur, met
+name door middel van de functionele commissie of, indien samengewerkt wordt
+met anderen, met gebruikmaking van een gemeenschappelijke regeling als bedoeld
+in de Wet gemeenschappelijke regelingen, dan wel door middel van een vermogensrechtelijk
+verzelfstandigd orgaan als is opgenomen in dit wetsvoorstel, en</al>
+      <al>– indien voor vermogensrechtelijke verzelfstandiging wordt gekozen
+(hetgeen geschiedt doordat de gemeente een rechtspersoon creëert), dan
+beslist de gemeente over de vorm waarin dat gebeurt: een publiekrechtelijke
+vorm (het openbaar lichaam op basis van de Wet gemeenschappelijke regelingen
+of de openbare rechtspersoon), of een privaatrechtelijke rechtspersoon (de
+stichting).</al>
+      <al>2. De gemeente beslist altijd zelf of een openbare school moet worden
+opgeheven.</al>
+      <al>3. De gemeente voorziet zelf in een regeling omtrent de wijze van benoeming,
+herbenoeming, schorsing en ontslag van de bestuursleden van het verzelfstandigde
+bestuur, met dien verstande dat in de regeling een overheersende invloed van
+de overheid in het bestuur is verzekerd.</al>
+      <al>4. De gemeente houdt een toezichtsfunctie, zoals die in het openbaar bestuur
+verwacht mag worden: bij ernstige taakverwaarlozing of functioneren in strijd
+met de wet kan de gemeente ingrijpen. Bovendien moet de gemeenteraad de begroting
+en de jaarrekening goedkeuren. </al>
+      <tuskop letat="cur">1.3. Kenmerken bestuursvorm openbaar onderwijs</tuskop>
+      <al>De in dit wetsvoorstel geïntroduceerde bestuursvormen bieden de gemeente
+de mogelijkheid het bestuur van de openbare school, met inachtneming van het
+bovenstaande, los te maken van het gemeentebestuur. Dat betekent, dat het
+nieuwe bestuur van de openbare school als bevoegd gezag optreedt en door het
+Rijk en door derden als zodanig kan worden aangesproken. Het is
+ook de rechthebbende voor de aanspraak op bekostiging.</al>
+      <witreg></witreg>
+      <al>Voor het geven van openbaar onderwijs is volgens de Grondwet essentieel,
+dat</al>
+      <al>a. het onderwijs van overheidswege wordt gegeven,</al>
+      <al>b. het algemeen toegankelijk is, zonder onderscheid naar godsdienst of
+levensovertuiging,</al>
+      <al>c. het wordt gegeven met eerbiediging van ieders godsdienst of levensovertuiging,
+en</al>
+      <al>d. het personeel op gelijke voet benoembaar is.</al>
+      <al>Aan de eis, dat het onderwijs van overheidswege wordt gegeven wordt voldaan,
+doordat de gemeente zorgt dat de school er komt, dat het bestuur wordt ingericht
+en geregeld met inachtneming van de wettelijke eisen en doordat zij voorziet
+in een regeling omtrent benoeming, herbenoeming, schorsing en ontslag van
+de bestuursleden met dien verstande dat in de regeling een overheersende invloed
+van de overheid in het bestuur is verzekerd. Bovendien houdt zij toezicht
+in die zin, dat aan het gemeentebestuur moet worden gerapporteerd over de
+werkzaamheden, waarbij in die rapportage aandacht wordt geschonken aan de
+onder b tot en met d genoemde punten, die essentieel zijn voor het openbaar
+onderwijs. De gemeenteraad moet de begroting en de jaarrekening goedkeuren.
+De gemeenteraad kan tevens ingrijpen bij ernstige taakverwaarlozing en functioneren
+van bestuur in strijd met de wet. Een dergelijke figuur komt ook voor bij
+de openbare universiteit (artikel 9.69 Wet op het hoger onderwijs en wetenschappelijk
+onderzoek).</al>
+      <al>De bestuursvorm is ondergebracht in het deel van de desbetreffende onderwijswetten
+dat de eisen aan het openbaar onderwijs regelt; deze blijven dan ook voluit
+van toepassing. Daardoor wordt voldaan aan de onder b en c geformuleerde essentialia
+van het openbaar onderwijs.</al>
+      <al>Uit artikel 3 van de Grondwet vloeit rechtstreeks de benoembaarheid op
+gelijke voet voort, zowel voor het personeel van de openbare school die in
+stand wordt gehouden door de stichting, als voor het personeel van de openbare
+school die in stand wordt gehouden door de openbare rechtspersoon. Ook wanneer
+de overheid zich begeeft op privaatrechtelijk terrein, is zij expliciet gebonden
+aan artikel 3 van de Grondwet. De gemeentelijke stichting kan immers worden
+aangemerkt als openbare dienst in de zin van artikel 3 van de Grondwet omdat
+de mate van overheidsinvloed zo groot is en de werkzaamheden van de gemeentelijke
+stichting strekken tot behartiging van de algemene belangen van de overheid,
+in casu het verzorgen van openbaar onderwijs. Het is dan ook overbodig om
+dit nogmaals in de wet te verwoorden.</al>
+      <witreg></witreg>
+      <al>De keuze tussen een publiekrechtelijke of privaatrechtelijke vorm is vrij
+gelaten. In beide gevallen wordt er openbaar onderwijs gegeven. De eisen van
+de wet zijn voor beide vormen van openbaar onderwijs gelijk. Ook ten aanzien
+van de rechtspositie van het personeel bestaat geen verschil. Zowel het personeel
+in dienst van de openbare rechtspersoon als het personeel in dienst van de
+stichting heeft een ambtelijke aanstelling. In beide gevallen is sprake van
+een overheersende overheidsinvloed op het beheer (en op het personeelsbeleid).
+Aan de materiële en formele eisen van openbaar onderwijs wordt voldaan,
+zodat sprake is van een openbare dienst. De in het oorspronkelijke aan de
+Onderwijsraad en de Raad van State voorgelegde wetsvoorstel opgenomen bepaling
+die er in voorzag dat het personeel dat in dienst komt van een gemeentelijke
+stichting in een privaatrechtelijke rechtsverhouding met die stichting kwam
+te staan, is dan ook geschrapt. </al>
+      <witreg></witreg>
+      <al>Het wetsvoorstel beperkt voor wat de privaatrechtelijke variant betreft
+de keuze tot de stichting. Deze rechtsvorm sluit aan bij essentiële vereisten tot het regelen van de bestuursvorm van een openbare school,
+in tegenstelling tot de vereniging. Zo verzet zich bijvoorbeeld het verenigingsrecht
+ertegen dat alle bestuursleden door de gemeente (als derde, niet zijnde de
+algemene ledenvergadering van de vereniging) worden benoemd, geschorst en
+ontslagen. </al>
+      <tuskop letat="cur">1.4. Relatie met de Algemene wet bestuursrecht</tuskop>
+      <al>Op grond van artikel 1:1 van de Algemene wet bestuursrecht (Awb) is bestuursorgaan
+in de zin van de Awb:</al>
+      <al>a. een orgaan van een rechtspersoon die krachtens publiekrecht is ingesteld,
+of</al>
+      <al>b. een ander persoon of college, met enig openbaar gezag bekleed.</al>
+      <al>De openbare rechtspersoon is een rechtspersoon die krachtens publiekrecht
+is ingesteld. Immers, de openbare rechtspersoon wordt ingesteld bij verordening
+en hij bezit rechtspersoonlijkheid omdat de onderwijswet deze expliciet toekent.
+Een orgaan van een openbare rechtspersoon is dan ook een bestuursorgaan in
+de zin van artikel 1:1 Awb, en wel een zogenaamd a-orgaan.</al>
+      <al>De gemeentelijke stichting is niet zonder meer aan te merken als een krachtens
+publiekrecht ingestelde rechtspersoon. De stichting wordt immers ingesteld
+volgens de regels die het stichtingsrecht (Boek 2 BW) op dat punt kent. Omdat
+in het voorliggende wetsvoorstel expliciet is geregeld dat de stichting met
+uitzondering van de besluitvorming over de opheffing van een openbare school,
+alle taken en bevoegdheden van het bevoegd gezag uitoefent, is de stichting,
+ondanks haar privaatrechtelijk rechtskarakter, echter wel met openbaar gezag
+bekleed. Daarom is ook een orgaan van een stichting bestuursorgaan in de zin
+van artikel 1:1 Awb; daarbij gaat het dan echter om een b-orgaan (dus een
+orgaan in de zin van artikel 1:1, onderdeel b, Awb).</al>
+      <witreg></witreg>
+      <al>Een en ander betekent het volgende. Alle handelingen van een a-orgaan
+(dus een orgaan in de zin van artikel 1:1, onderdeel a, Awb) vallen onder
+de werking van de Awb. Bij b-organen valt alleen het uitoefenen van de publiekrechtelijke
+bevoegdheden, dus handelen als overheid, onder de Awb (en dus niet het feitelijk
+handelen en het handelen krachtens privaatrecht). Ten aanzien van de stichting
+die een openbare school in stand houdt, is dit slechts van theoretische betekenis.
+In de eerste plaats is expliciet geregeld dat de stichting met uitzondering
+van de besluitvorming over de opheffing van een openbare school, álle
+taken en bevoegdheden van het bevoegd gezag uitoefent. Bovendien volgt uit
+artikel 14 van Boek 3 BW dat ten aanzien van die handelingen die niet door
+de Awb bestreken worden, toch kan worden getoetst aan geschreven en ongeschreven
+regels van publiekrecht. </al>
+      <al>Alle besluiten die door (een orgaan van) de stichting of de openbare rechtspersoon
+worden genomen, vallen onder de reikwijdte van de Awb. Dit geldt zowel ten
+aanzien van de algemene bepalingen (zoals omtrent zorgvuldigheid en belangenafweging)
+als ten aanzien van de bijzondere bepalingen (zoals omtrent de aanvraag en
+de beslistermijn van een beschikking), als ten aanzien van de bepalingen omtrent
+bezwaar en beroep. </al>
+      <tuskop letat="cur">1.5. Overeenkomsten en verschillen tussen de stichting
+en de openbare rechtspersoon</tuskop>
+      <al>De verschillen tussen de stichting en de openbare rechtspersoon zijn gering.
+Zoals reeds blijkt uit de voorgaande paragraaf zijn beide figuren als een
+bestuursorgaan in de zin van artikel 1:1 Awb aan te merken, met de daarbij
+geschetste gevolgen.</al>
+      <al>De regeling voor de stichting is ook nagenoeg gelijkluidend aan de regeling voor de openbare rechtspersoon; er zijn slechts enkele verschillen.
+Deze verschillen zijn de volgende:</al>
+      <al>a. Een openbare rechtspersoon wordt ingesteld bij verordening. Instelling
+van een stichting geschiedt overeenkomstig de daarvoor geldende privaatrechtelijke
+regels.</al>
+      <al>b. Een stichting kan worden opgericht door een of meer gemeenten, al dan
+niet tezamen met een of meer privaatrechtelijke rechtspersonen met volledige
+rechtsbevoegdheid. Bij een openbare rechtspersoon is dit laatste niet het
+geval. De reden hiervoor is dat een openbare rechtspersoon wordt ingesteld
+bij verordening en een verordening niet kan worden vastgesteld (mede) door
+privaatrechtelijke rechtspersonen.</al>
+      <al>Overigens is het geen bezwaar dat een besluit om een openbare school in
+stand te houden door een openbare rechtspersoon niet mede kan worden genomen
+door een of meer privaatrechtelijke rechtspersonen. Immers, in de eerste plaats
+biedt de Wet gemeenschappelijke regelingen de mogelijkheid om een openbaar
+lichaam in te stellen bij gemeenschappelijke regeling tussen een of meer gemeenten
+en een of meer privaatrechtelijke rechtspersonen.</al>
+      <al>In de tweede plaats is het mogelijk om in de verordening op te nemen dat
+in het bestuur van de openbare rechtspersoon ook vertegenwoordigers van een
+of meer privaatrechtelijke rechtspersonen zitting hebben (met dien verstande
+uiteraard dat de overheersende overheidsinvloed verzekerd moet blijven).</al>
+      <al>c. Ten aanzien van de stichting is in het wetsvoorstel bepaald dat artikel
+155 van de Gemeentewet niet van toepassing is (zie verder de artikelsgewijze
+toelichting).</al>
+      <al>Een voorschrift analoog aan artikel 155 Gemeentewet bestaat niet ten aanzien
+van de openbare rechtspersoon.</al>
+      <al>d. Een laatste verschil is dat het bij een orgaan van een stichting om
+een zogenaamd b-orgaan in de zin van artikel 1:1 Awb gaat, en bij een orgaan
+van een openbare rechtspersoon om een a-orgaan. Zoals in paragraaf 1.4. Relatie
+met de Awb is aangegeven, heeft dit verschil voor de toepassing van de Awb
+nauwelijks praktische betekenis.</al>
+      <witreg></witreg>
+      <al>Uit het voorgaande blijkt dat de verschillen tussen de keuze voor de stichting
+of voor de openbare rechtspersoon uit juridisch oogpunt gering zijn. Het verschil
+tussen de stichting en de openbare rechtspersoon betreft daarmee vooral een
+principiële en zeker ook een gevoelsmatige aangelegenheid. Daarmee is
+dan uiteraard niet gezegd dat dit minder belangrijk zou zijn. Het tegendeel
+is het geval.</al>
+      <al>Voorop staat dat een gemeente goede redenen kan hebben om te kiezen voor
+de openbare rechtspersoon dan wel de stichting. Het is in beginsel geheel
+aan de gemeente om te bepalen welke bestuursvorm – om haar moverende
+redenen – de meest geëigende is voor het openbaar onderwijs in
+de gemeente. Denkbaar is dat een gemeente kiest voor de openbare rechtsvorm
+om hiermee te benadrukken dat het openbaar onderwijs volledig ingebed moet
+blijven in de publiekrechtelijke sfeer. Een andere gemeente zal echter wellicht
+kiezen voor een stichting als bestuursvorm voor het openbaar onderwijs omdat
+alleen dan het bijzonder onderwijs wil samenwerken.</al>
+      <al>Wat hier ook van zij, juridisch mogen de verschillen klein zijn, de keuze
+voor de ene of de andere bestuursvorm kan zeer principieel zijn. Het is niet
+aan de wetgever om op voorhand de ene of de andere variant uit te sluiten.</al>
+      <al>Het initiatief-wetsvoorstel dat destijds door het kamerlid Nuis is ingediend,
+bevat alleen de privaatrechtelijke variant voor het verzelfstandigd openbaar
+onderwijs. Ondergetekenden menen dat de in het wetsvoorstel voorgestelde keuze
+tussen de privaatrechtelijke en de publiekrechtelijke variant meer aansluit
+bij de behoeften in de praktijk terwijl er geen redenen zijn aan te voeren
+dat de wetgever in dezen een exclusieve keuze in de wet dient
+vast te leggen. De Vereniging van Nederlandse Gemeenten heeft laten weten
+meer te zien in de publiekrechtelijke optie; er zijn signalen dat lokale bestuurders
+ook wel eens de privaatrechtelijke variant zijn toegedaan. </al>
+      <tuskop letat="cur">1.6. Relatie met WCBO en WEB</tuskop>
+      <al>De WCBO (Wet op het cursorisch beroepsonderwijs) is met dit wetsvoorstel
+niet gewijzigd. De reden daarvoor is dat inmiddels het voorstel voor een Wet
+educatie en beroepsonderwijs (WEB) bij de Tweede Kamer der Staten-Generaal
+is ingediend (Kamerstukken II 1993/94, 23 778). De beoogde datum van
+inwerkingtreding van die wet is 1 januari 1996. Het is nog onduidelijk of
+ook het onderhavige wetsvoorstel vóór die datum het Staatsblad
+zal bereiken.</al>
+      <al>Bovendien ligt het in de rede om – gelet op het tijdstip van inwerkingtreding
+van de WEB – eerst te bezinnen of aanpassing van de WEB in verband met
+de bestuursvorm openbaar onderwijs wel noodzakelijk is. De nadere gedachtenvorming
+daaromtrent kan plaatsvinden in het kader van de WEB. Wanneer dit ertoe zou
+leiden dat wijziging van de WEB op dit punt noodzakelijk is, zal dat alsnog
+bij nota van wijziging geschieden.</al>
+      <al>Tot slot zij opgemerkt dat zich in de praktijk vooruitlopend op de inwerkingtreding
+van de WEB reeds een proces van «ROC-vorming» (regionale opleidingencentra)
+voltrekt. Het is niet wenselijk dit proces thans te verstoren met mogelijke
+voorschriften omtrent de bestuursvorm voor het openbaar onderwijs. </al>
+      <tuskop letat="vet">2. Financiële gelijkstelling</tuskop>
+      <al>In het aan de Onderwijsraad en de Raad van State voorgelegde wetsvoorstel
+was een regeling opgenomen omtrent aanpassing van de overschrijdingsregeling.
+Achtergrond daarbij was onder meer dat de verhouding tussen de vermogensrechtelijk
+verzelfstandigde openbare school en de gemeente in de nieuwe situatie dezelfde
+is als die tussen de bijzondere school en de gemeente. Omdat er net zoveel
+reden is om bevoordeling van de bijzondere scholen boven de openbare scholen
+in de wet uit te sluiten als de bevoordeling van de openbare scholen boven
+de bijzondere scholen, was in het wetsvoorstel opgenomen dat de gemeente een
+subsidieregeling vaststelt.</al>
+      <witreg></witreg>
+      <al>Heroverweging heeft ondergetekenden echter doen besluiten om het wetsvoorstel
+niet te belasten met discussies over dit onderwerp. Zoals in het nader rapport
+naar aanleiding van het advies van de Raad van State is aangegeven, is het
+wetsvoorstel ingrijpend gedereguleerd. Uitgangspunt is een zo sober mogelijk
+wetsvoorstel waarin uitsluitend wordt geregeld datgene wat minimaal noodzakelijk
+is voor het realiseren van de nieuwe bestuursvormen voor het openbaar onderwijs.
+In het wetsvoorstel is daarom volstaan met de regeling dat scholen die in
+stand worden gehouden door een gemeentelijke stichting of een openbare rechtspersoon,
+voor de toepassing van de overschrijdingsregeling worden aangemerkt als door
+de gemeente in stand gehouden openbare scholen. Daarmee vallen de uitgaven
+aan álle openbare scholen onder de overschrijding.</al>
+      <al>Ondergetekenden streven er naar om het onderhavige wetsvoorstel gelijktijdig
+in werking te doen treden met het wetsvoorstel tot aanpassing van de overschrijdingsregeling.
+Daarmee wordt het wetsvoorstel niet belast met eventuele discussie over dit
+onderwerp. Het wetsvoorstel over aanpassing van de overschrijdingsregeling
+is in voorbereiding.  </al>
+      <tuskop letat="vet">3. De bestuursvorm en het constitutionele recht</tuskop>
+      <al>In zijn advies van 20 oktober 1993 bij het initiatief-wetsvoorstel inzake
+verruiming van bestuursvormen van openbaar onderwijs, waarnaar hij in het
+advies ten aanzien van het onderhavige wetsvoorstel verwijst, oordeelt de
+Raad van State dat de Grondwet zich er niet tegen verzet «dat in de
+wet de mogelijkheid wordt geschapen dat de gemeente in het kader van de uitvoering
+van haar grondwettelijke taak ten aanzien van het bestuur en beheer van het
+openbaar onderwijs gebruik maakt van de figuur van de stichting, mits daarbij
+is verzekerd – en dit is een essentiële voorwaarde dat deze stichting
+onder haar overheersende invloed staat». Volgens de Raad kunnen de woorden
+«van overheidswege» in het vierde lid van artikel 23 Grondwet,
+welke in 1848 in de Grondwet zijn gekomen, in tweeërlei zin worden gebruikt,
+namelijk als «door de overheid» en als «uit naam»
+of «op last van de overheid». De Raad stelt vast dat sinds 1848
+op grond van de ontwikkelingen in het publiekrecht «van overheidswege»
+ook in de tweede zin kan worden uitgelegd. Hij is van oordeel dat, nu de letterlijke
+tekst van de Grondwet daarvoor ruimte biedt en gezien de parlementaire geschiedenis
+van de grondwetsbepaling niet één bepaalde betekenis is voorop
+gesteld, deze ontwikkelingen mede in de beschouwing kunnen worden betrokken
+bij de interpretatie van artikel 23 Grondwet.</al>
+      <al>Ondergetekenden onderschrijven de visie van de Raad. Hiervoor is aangegeven
+op welke wijze de waarborg van overheersende overheidsinvloed in de stichting
+is vormgegeven. Ondergetekenden kunnen zich niet vinden in de conclusie van
+de Onderwijsraad die in zijn advies ten aanzien van het onderhavige wetsvoorstel
+opmerkt dat een privaatrechtelijke bestuursvorm van de openbare school niet
+bij de grondwetgever heeft voorgezeten en ook niet wenselijk en noodzakelijk
+is.</al>
+      <al>Wat betreft de verantwoordelijkheid van de wetgever kan worden opgemerkt
+dat de regeling omtrent de bestuursvorm tot niets verplicht. Zij biedt de
+mogelijkheid aan gemeentebesturen, om in samenspraak met andere participanten
+in de school, volgens eigen voorkeuren aan de wenselijke verzelfstandiging
+van de openbare school vorm te geven. </al>
+      <tuskop letat="vet">4. Samenhang met het initiatief-wetsvoorstel en het wetsvoorstel
+samenwerkingsscholen</tuskop>
+      <al>Het regeringsvoorstel vertoont veel gelijkenis met het door het toenmalige
+kamerlid Nuis ingediende initiatief-wetsvoorstel. Beide wetsvoorstellen bevatten
+een regeling voor de stichting als bestuursvorm voor het openbaar onderwijs.
+Die stichting oefent alle taken en bevoegdheden uit van het bevoegd gezag
+van een openbare school. Ten aanzien van de statuten worden in beide voorstellen
+diverse voorschriften gegeven.</al>
+      <witreg></witreg>
+      <al>In beide voorstellen is ook geregeld dat deze stichting moet voldoen aan
+een aantal essentiële eisen voor het openbaar onderwijs. Deze betreffen
+de algemene toegankelijkheid, de levensbeschouwelijke pluriformiteit en de
+non-discriminatie. Materieel zijn enkele essentialia van het openbaar onderwijs
+in beide voorstellen vastgelegd doordat de bestaande artikelen die het karakter
+van het openbaar onderwijs omschrijven, van overeenkomstige toepassing zijn
+verklaard. In het regeringsvoorstel is het aspect van openbaarheid bovendien
+expliciet vastgelegd. Het regeringsvoorstel komt materieel geheel tegemoet
+aan de bij het initiatief-wetsvoorstel geformuleerde uitgangspunten.</al>
+      <witreg></witreg>
+      <al>Wel kan worden gesteld dat het regeringsvoorstel meeromvattend is dan
+het initiatief-wetsvoorstel en dat het regeringsvoorstel het initiatief-wetsvoorstel
+daarom mede omvat. Het regeringsvoorstel is in de eerste plaats
+meeromvattend door de introductie van de openbare rechtspersoon. Ook bevat
+het regeringsvoorstel een uitgebreider regeling van de stichting als bestuursvorm
+voor het openbaar onderwijs, in die zin dat de consequenties van de introductie
+van de stichtingsvorm voor de toepasselijkheid van bestaande bepalingen in
+de onderwijswetgeving in het initiatief-wetsvoorstel onduidelijk blijven.</al>
+      <al>In het initiatief-wetsvoorstel lijken verder weliswaar de voorwaarden
+voor de totstandkoming van een samenwerkingsschool gecreëerd, maar een
+regeling omtrent de samenwerkingsschool wordt niet gegeven. Ondergetekenden
+hebben ervoor gekozen om bij afzonderlijk wetsvoorstel een regeling omtrent
+de samenwerkingsschool te treffen. Op de argumenten daarvoor is ingegaan in
+het nader rapport.</al>
+      <al>Er zijn daarnaast geen aspecten die wél in het initiatief-wetsvoorstel
+zijn meegenomen maar niet in het regeringsvoorstel.</al>
+      <witreg></witreg>
+      <al>Het wetsvoorstel betreffende samenwerkingsscholen veronderstelt de mogelijkheden
+tot verzelfstandigen die door het wetsvoorstel bestuursvorm openbaar onderwijs
+worden geboden. Daarom is de inwerkingtreding van het wetsvoorstel betreffende
+de samenwerkingsscholen gekoppeld aan de inwerkingtreding van het wetsvoorstel
+bestuursvorm openbaar onderwijs. </al>
+      <tuskop letat="vet">5. Deregulering</tuskop>
+      <al>Vooral naar aanleiding van het advies van de Raad van State, hebben ondergetekenden
+besloten het wetsvoorstel zoals dat was voorgelegd aan de Onderwijsraad en
+de Raad van State, aanzienlijk te versoberen. De strekking van het wetsvoorstel
+is echter dezelfde gebleven. Ook is besloten het aan de Raad van State voorgelegde
+wetsvoorstel te splitsen in twee wetsvoorstellen: een wetsvoorstel betreffende
+de bestuursvorm openbaar onderwijs en een wetsvoorstel betreffende samenwerkingsscholen.</al>
+      <al>Heroverweging heeft ondergetekenden doen besluiten om te volstaan met
+een zo summier mogelijke regeling van zowel de nieuwe bestuursvormen voor
+het openbaar onderwijs als van de samenwerkingsscholen. Daarom worden slechts
+de minimale voorwaarden geregeld. Deze voorwaarden zien met name op de waarborgen
+voor het aanbod en het karakter van het openbaar onderwijs.</al>
+      <al>De versobering van het wetsvoorstel heeft voor zover het de bestuursvorm
+van het openbaar onderwijs betreft geleid tot de volgende aanpassingen:</al>
+      <al>– De aanpassing van de overschrijdingsregeling is uit het wetsvoorstel
+geschrapt. Volstaan is met de bepaling dat scholen die in stand worden gehouden
+door een gemeentelijke stichting of een openbare rechtspersoon, voor de toepassing
+van de overschrijdingsregeling worden aangemerkt als door de gemeente in stand
+gehouden openbare scholen.</al>
+      <al>– Overwegingen rond decentralisatie en deregulering hebben ertoe
+geleid dat ook is geschrapt het voorschrift dat de keuze voor de stichting
+of de openbare rechtspersoon als bestuursvorm, geldt voor álle scholen
+van een gemeente in een sector (basisonderwijs, speciaal onderwijs, voortgezet
+onderwijs).</al>
+      <al>– Overwegingen rond decentralisatie en deregulering zijn ook de
+achtergrond bij het schrappen van het voorschrift dat de keuze voor een van
+de nieuwe bestuursvormen voor minimaal 5 jaar geldt.</al>
+      <al>– De Raad van State stelde in zijn advies bij het initiatief-wetsvoorstel
+dat in de statuten omtrent de overheidsvertegenwoordiging een zodanige regeling
+dient te worden opgenomen dat overheersende overheidsinvloed buiten twijfel
+is. In het aan de Raad van State voorgelegde regeringsvoorstel was dit aldus
+uitgewerkt dat verplicht is om in de statuten van de stichting op te nemen
+dat de leden van het bestuur worden benoemd, herbenoemd, geschorst
+en ontslagen door de gemeenteraad of gemeenteraden. Het voorliggende wetsvoorstel
+gaat ervan uit dat de statuten voorzien in een regeling omtrent benoeming,
+herbenoeming, schorsing en ontslag van de bestuursleden met dien verstande
+dat in de regeling een overheersende invloed van de overheid in het bestuur
+is verzekerd.</al>
+      <al>– Geschrapt is het voorschrift dat het personeel aan een school
+die in stand wordt gehouden door een gemeentelijke stichting of een openbare
+rechtspersoon op gelijke voet benoembaar is. Dit non-discriminatiebeginsel
+vloeit reeds rechtstreeks voort uit artikel 3 Grondwet.</al>
+      <al>– Ten aanzien van de doorwerking (het regelen in hoeverre de andere
+bepalingen van een wet ook van toepassing zijn op de stichting en de openbare
+rechtspersoon) was in het aan de Onderwijsraad en de Raad van State voorgelegde
+regeringsvoorstel overal expliciet aangegeven of een specifieke bepaling ook
+van toepassing is. Het wetsvoorstel is op dit punt drastisch afgeslankt.</al>
+      <al>Ten aanzien van openbare scholen die in stand worden gehouden door een
+stichting of een openbare rechtspersoon, is bepaald dat de voorschriften inzake
+de bekostiging van bijzondere scholen van overeenkomstige toepassing zijn.
+Voor het overige zijn geen voorschriften omtrent de doorwerking nodig omdat
+het immers gaat om openbare scholen die in stand worden gehouden door een
+stichting of een openbare rechtspersoon.</al>
+      <al>– Tot slot zijn als gevolg van de versobering ook een aantal wijzigingen
+in andere wetten uit het wetsvoorstel geschrapt. Doordat ten aanzien van de
+doorwerking is gekozen voor een andere systematiek, is aanpassing van andere
+wetten niet meer nodig. </al>
+      <tuskop letat="vet">6. Advies Onderwijsraad en overige adviezen<voetref refid="v11.1" nr="1"></voetref></tuskop>
+      <al>De Onderwijsraad heeft op 11 februari 1994 advies uitgebracht over het
+wetsvoorstel (nr. OR. 93000481/Alg). De Onderwijsraad steunt het voornemen
+het aantal mogelijke bestuursvormen voor het openbaar onderwijs uit te breiden
+met een nieuwe publiekrechtelijke vorm, de openbare rechtspersoon. De Raad
+geeft daarbij echter de voorkeur aan het gebruik van een andere terminologie.
+Overeenkomstig artikel 134 van de Grondwet is het – aldus de Onderwijsraad –
+juister om te spreken van een openbaar lichaam.</al>
+      <al>De ondergetekenden delen deze voorkeur van de Raad niet. Zoals de Onderwijsraad
+terecht in zijn advies opmerkt is er bij deze bestuursvorm van het openbaar
+onderwijs geen sprake van een bestuursorgaan met een algemene taak, maar van
+een bestuursorgaan met een zeer specifieke taak: te weten het besturen van
+een openbare school. Deze bestuursvorm vindt zijn basis in de onderwijswetten
+zelf, het is een rechtspersoon sui generis. In dit opzicht kan niet gesproken
+worden van een overheidslichaam in de zin van artikel 134 van de Grondwet.
+Wel is bij het formuleren van deze bepalingen mede gelet op de eisen, die
+in het algemeen gesteld worden voor een regeling van zelfstandige bestuursorganen.
+De term openbare rechtspersoon is gekozen om te benadrukken dat het hier handelt
+om een publiekrechtelijk orgaan. In dit verband merken ondergetekenden op
+dat de benaming openbare rechtspersoon in Koninkrijksverband veel vaker voorkomt.
+Zowel in de Nederlandse Antillen als in Aruba worden de publiekrechtelijke
+lichamen, zoals het Land en de eilandgebieden, en ook de bij landsverordening
+opgerichte universiteiten, aangeduid als openbare rechtspersonen.</al>
+      <witreg></witreg>
+      <al>De Onderwijsraad heeft ernstige bedenkingen ten aanzien van de stichting
+als mogelijke bestuursvorm voor het openbaar onderwijs. Hij staaft deze mening
+met een aantal constateringen en opmerkingen, die slechts ten dele of niet
+door ondergetekenden gedeeld kunnen worden. </al>
+      <al>Voor een reactie terzake verwijzen ondergetekenden naar paragraaf 3. De
+bestuursvorm en het constitutionele recht.</al>
+      <witreg></witreg>
+      <al>De meeste organisaties die het wetsvoorstel van commentaar hebben voorzien,
+verwijzen voor wat betreft het onderdeel over de bestuursvorm van het openbaar
+onderwijs naar de uitkomsten van het Schevenings beraad. Het Contactcentrum
+Bevordering Openbaar Onderwijs (CBOO), de Vereniging voor Openbaar Onderwijs
+(VOO) en het Nederlands Genootschap voor Leraren /AVMO (NGL/AVMO) kunnen zich
+in grote lijnen verenigen met het wetsvoorstel. Ook de Vereniging voor Nederlandse
+Gemeenten heeft geen overwegende bezwaren tegen de in het wetsvoorstel opgenomen
+bestuursvormen voor het openbaar onderwijs. Wel wordt door bovengenoemde organisaties
+een sterke voorkeur uitgesproken voor de publiekrechtelijke variant, die een
+publiekrechtelijke rechtspersoon sui generis en geen openbaar lichaam in de
+zin van artikel 134 van de Grondwet – zoals de VNG opmerkt – inhoudt.
+De Algemene Besturenbond (ABB) en de Verenigde Bijzondere Scholen voor onderwijs
+op algemene grondslag (VBS) vinden de voorstellen teveel omvattend en bepleiten
+een beperking tot een regeling van de privaatrechtelijke variant, zoals ook
+het initiatief-wetsvoorstel doet. Andere organisaties, zoals de Nederlandse
+Katholieke Schoolraad (NKSR), de Nederlandse Protestants Christelijke Schoolraad
+(NPCS), het Landelijk Verband van Gereformeerde Schoolverenigingen (LVGS),
+de Vereniging voor Gereformeerd Schoolonderwijs en de Gereformeerde Onderwijzers-
+en Lerarenvereniging (VGS/GOLV) en het Verband van Scholen van gereformeerde
+belijdenis (VSGB), geven in hun adviezen en ook voor wat betreft het NKSR
+en de NPCS reeds in de «Uitspraken» van het Schevenings beraad
+duidelijk te kennen dat huns inziens de privaatrechtelijke bestuursvorm niet
+passend is in ons onderwijsbestel.</al>
+      <al>Voor een reactie terzake verwijzen ondergetekenden naar paragraaf 3. De
+bestuursvorm en het constitutionele recht.</al>
+      <witreg></witreg>
+      <al>Tot slot merken ondergetekenden nog het volgende op. Een groot aantal
+opmerkingen van de Onderwijsraad en de andere organisaties betreft de concrete
+uitwerking van de bestuursvorm van het openbaar onderwijs, zoals die was opgenomen
+in de tekst van het aan de organisaties voorgelegde wetsvoorstel. Zoals eerder
+opgemerkt, is het wetsvoorstel drastisch gedereguleerd. Dit heeft geleid tot
+diverse wijzigingen in de memorie van toelichting, waarbij op diverse plaatsen
+de reactie op de ontvangen adviezen is verwerkt. </al>
+      <tuskop letat="vet">II. ARTIKELSGEWIJZE TOELICHTING </tuskop>
+      <tuskop letat="vet">Artikel I </tuskop>
+      <tuskop letat="cur">Onderdeel A (artikel 1)</tuskop>
+      <al>Tot nu toe wordt er bij de begripsomschrijvingen van openbare school en
+bevoegd gezag van een openbare school van uitgegaan dat de scholen hetzij
+binnen de gemeentelijke structuur, hetzij op grond van een regeling in de
+zin van de Wet gemeenschappelijke regelingen opereren. De volgende situaties
+kunnen zich daarbij voordoen:</al>
+      <al>1. een door een gemeente in stand gehouden school,</al>
+      <al>2. een door meer dan een gemeente in stand gehouden school,</al>
+      <al>3. een door een gemeente te zamen met een of meer privaatrechtelijke rechtspersonen
+met volledige rechtsbevoegdheid in stand gehouden school, en</al>
+      <al>4. een door meer dan een gemeente te zamen met een of meer privaatrechtelijke
+rechtspersonen met volledige rechtsbevoegdheid in stand gehouden school.</al>
+      <al>Het onderhavige wetsvoorstel maakt het mogelijk dat daarnaast ook de scholen
+die in stand worden gehouden door een openbare rechtspersoon of een stichting,
+die voldoen aan de eisen die de wet hieraan stelt, onder de categorie openbaar
+onderwijs vallen. </al>
+      <tuskop letat="cur">Onderdeel B (artikelen 29a en 29b) </tuskop>
+      <tuskop letat="rom">Algemeen</tuskop>
+      <al>De verzelfstandiging van de bestuursvorm voor de openbare scholen krijgt
+gestalte in zowel een publiekrechtelijke als een privaatrechtelijke variant,
+zonder dat daarbij geweld wordt gedaan aan de grondwettelijke eis van artikel
+23, vierde lid. Aan de materiële kenmerken van het openbaar onderwijs
+wordt in beide varianten immers volledig voldaan. Artikel 29a regelt de publiekrechtelijke
+variant: de openbare rechtspersoon, artikel 29b de privaatrechtelijke variant:
+de stichting. Voor beide varianten is zoveel mogelijk eenzelfde opzet gebruikt.
+Alleen daar waar eisen van publiekrecht of privaatrecht dat noodzakelijk maken
+zijn er afwijkingen. De in het wetsvoorstel gestelde eisen aan met name de
+privaatrechtelijke variant zijn ingegeven door de zorg dat in deze bestuursvorm
+het openbaar onderwijs gewaarborgd wordt.</al>
+      <witreg></witreg>
+      <al>Voor beide vormen gelden de volgende kenmerken:</al>
+      <al>1. De gemeente kan besluiten de bestuursvorm te verzelfstandigen.</al>
+      <al>2. Het nieuwe bestuur oefent alle taken en bevoegdheden van bevoegd gezag
+uit met uitzondering van de besluitvorming over de opheffing van een openbare
+school.</al>
+      <al>3. De gemeente voorziet in een regeling omtrent benoeming, herbenoeming,
+schorsing en ontslag van de bestuursleden met dien verstande dat in de regeling
+een overheersende invloed van de overheid in het bestuur is verzekerd.</al>
+      <al>4. Het nieuwe bestuur brengt jaarlijks verslag uit aan de gemeente. In
+dat verslag wordt in elk geval aandacht besteed aan de wijze waarop het bestuur
+gestalte heeft gegeven aan de wezenskenmerken van het openbaar onderwijs,
+te weten: de algemene toegankelijkheid, de levensbeschouwelijke pluriformiteit
+en de non-discriminatie voor wat betreft het personeel.</al>
+      <al>5. De begroting en de jaarrekening wordt door de gemeenteraad goedgekeurd.</al>
+      <al>6. De gemeente kan bij ernstige taakverwaarlozing en bij functioneren
+in strijd met de wet ingrijpen. De raad kan de bevoegdheid omtrent taakverwaarlozing
+op grond van de Gemeentewet delegeren aan het college van burgemeester en
+wethouders.</al>
+      <witreg></witreg>
+      <al>De keuze voor een verzelfstandigde bestuursvorm houdt voor de gemeente
+in dat zij niet langer directe invloed uitoefent op de dagelijkse gang van
+zaken. Het bestuur van de openbare rechtspersoon, respectievelijk van de stichting
+oefent, zonder enige restrictie, alle taken en bevoegdheden uit, die eigen
+zijn aan het zijn van bevoegd gezag met uitzondering van de besluitvorming
+over de opheffing van de school. De gemeente kan hierbij geen beperkingen
+aanbrengen.</al>
+      <witreg></witreg>
+      <al>Een openbare school is een zaak van de gemeenschap. Ook om aan de grondwettelijke
+eis van artikel 23, vierde lid, te voldoen, bepaalt de wet zowel voor de openbare
+rechtspersoon als voor de stichting, dat de gemeente voorziet in een regeling
+omtrent benoeming, herbenoeming, schorsing en ontslag van de bestuursleden
+met dien verstande dat in de regeling een overheersende invloed van de overheid
+in het bestuur is verzekerd. In het aan de Onderwijsraad en de
+Raad van State voorgelegde wetsvoorstel was opgenomen dat in de statuten van
+de stichting opgenomen moest worden dat de leden van het bestuur worden benoemd,
+herbenoemd, geschorst en ontslagen door de gemeenteraad of gemeenteraden.
+Zoals ook de Raad van State in zijn advies bij het initiatief-wetsvoorstel
+stelde, is bepalend dat in de statuten omtrent de overheidsvertegenwoordiging
+een zodanige regeling moet worden opgenomen dat overheersende overheidsinvloed
+buiten twijfel is. Het wetsvoorstel is in die zin aangepast.</al>
+      <al>Het is mogelijk dat de raad zelf de bestuursleden benoemt, maar ook bijvoorbeeld
+dat benoeming geschiedt door zittende bestuursleden met goedkeuring door de
+raad. Ook mogelijk is dat bepaalde bestuursleden worden benoemd op voordracht
+van andere maatschappelijke instanties of groeperingen. Ook de deelname van
+ouders aan het bestuur van een verzelfstandigde openbare school wordt overgelaten
+aan de gemeenteraad. Ondergetekenden gaan er van uit dat de gemeenten op dit
+punt ervoor zorgdragen dat ook de ouders zich op een herkenbare wijze vertegenwoordigd
+weten. Het ligt daarbij voor de hand dat de door een gemeenteraad benoemde
+bestuursleden de doelstellingen van het openbaar onderwijs onderschrijven
+en dus de nodige affiniteit met het openbaar onderwijs hebben. </al>
+      <tuskop letat="rom">Leden</tuskop>
+      <al>Het tweede lid van de artikelen 29a en 29b voorziet er in dat de gemeenteraad
+het voornemen tot een besluit als bedoeld in het eerste lid bekend maakt.
+Op dit voornemen is artikel 3:42 Awb van toepassing. Dit betekent dat een
+dergelijk besluit algemeen bekend moet worden gemaakt in een van overheidswege
+uitgegeven blad, in een dag- nieuws- of huis-aan-huisblad of op een andere
+geschikte wijze. Hiermee wordt voorkomen dat het bijzonder onderwijs plotseling
+geconfronteerd zou worden met het verzelfstandigen van het openbaar onderwijs
+in een gemeente. Vóór tot feitelijke verzelfstandiging wordt
+overgegaan, wordt het bijzonder onderwijs op de hoogte gebracht.</al>
+      <witreg></witreg>
+      <al>Met betrekking tot het derde lid van artikel 29b zij opgemerkt dat een
+stichting kan worden opgericht door een of meer gemeenten te zamen met een
+of meer privaatrechtelijke rechtspersonen met volledige rechtsbevoegdheid.
+Ook thans is het reeds mogelijk dat een gemeente een openbare school in stand
+houdt samen met een of meer privaatrechtelijke rechtspersonen (die het belang
+van het openbaar onderwijs behartigen).</al>
+      <witreg></witreg>
+      <al>Met betrekking tot het laatste lid van artikel 29b zij het volgende opgemerkt.
+Ten aanzien van de stichting als bestuursvorm van het openbaar onderwijs is
+bepaald dat artikel 155 van de Gemeentewet niet van toepassing is. De in dat
+artikel opgenomen goedkeuring door gedeputeerde staten kan achterwege blijven
+omdat met het wettelijk mogelijk maken van de stichting als bestuursvorm voor
+het openbaar onderwijs, door de wetgever al wordt aangegeven dat deze rechtsvorm
+in het bijzonder aangewezen kan worden geacht voor de behartiging van het
+daarmee te dienen openbaar belang, i.c. het voorzien in voldoende openbaar
+onderwijs. Nu de onderwijswetten zelf de criteria geven waaraan door de gemeenteraad
+voldaan moet worden, is de rol van gedeputeerde staten als toezichthoudende
+instantie van minder gewicht zodat afgezien kan worden van de verplichte goedkeuring. </al>
+      <tuskop letat="cur">Onderdeel B (Artikel 29c)</tuskop>
+      <al>De keuze van een gemeente voor verzelfstandiging van de bestuursvorm
+gaat gepaard met een overdracht aan de nieuwe rechtspersoon van de rechten
+ten aanzien van gebouwen en terreinen alsmede de roerende zaken. De WBO en
+de ISOVSO bevatten alleen een regeling voor de bestuursoverdracht van bijzondere
+scholen (artikelen 36 WBO en 45 ISOVSO). Die wetten bevatten geen regeling
+voor de bestuursoverdracht van openbare scholen. Daarom wordt e.e.a. geregeld
+in artikel 29c. Na het oprichten van een openbare rechtspersoon of een stichting
+dient bij notariële akte de bestuursoverdracht door de gemeente aan de
+rechtspersoon of de stichting plaats te vinden.</al>
+      <al>De WVO bevat reeds een regeling, zowel voor de bestuursoverdracht van
+bijzondere scholen (artikel 50 WVO) als voor de openbare scholen (artikel
+42a WVO).</al>
+      <al>Artikel 29c komt nagenoeg overeen met artikel 36 van de WBO en het huidige
+artikel 42a van de WVO.</al>
+      <al>De toevoeging in het vierde lid «die zijn rechtsvoorganger bezit
+in de hoedanigheid van bevoegd gezag» is opgenomen om duidelijk te maken
+dat rechten en verplichtingen die de gemeente uit anderen hoofde heeft (bijvoorbeeld
+bij de vaststelling van de overschrijdingsbedragen), uiteraard niet overgedragen
+worden. </al>
+      <tuskop letat="cur">Onderdeel C (artikel 52a)</tuskop>
+      <al>Ten aanzien van de doorwerking (het regelen in hoeverre de andere bepalingen
+van een wet ook van toepassing zijn op de stichting en de openbare rechtspersoon)
+was in de tekst van het aan de Onderwijsraad en de Raad van State voorgelegde
+regeringsvoorstel overal expliciet aangegeven of een bepaling ook van toepassing
+was. Het wetsvoorstel is op dit punt echter drastisch afgeslankt. Gestreefd
+is naar een zo eenvoudig mogelijk wetsvoorstel, waarbij de doorwerking via
+een beginsel is geregeld.</al>
+      <al>Uitgangspunt is dat ook een openbare school die in stand wordt gehouden
+door een stichting of een openbare rechtspersoon, een openbare school blijft,
+waarop de voorschriften die gelden voor het openbaar onderwijs van toepassing
+zijn.</al>
+      <al>Ten aanzien van de doorwerking naar andere artikelen is volstaan met het
+voorschrift dat de voorschriften inzake de bekostiging zoals die gelden voor
+bijzondere scholen, van overeenkomstige toepassing zijn op openbare scholen
+die in stand worden gehouden door een stichting of een openbare rechtspersoon
+tenzij het tegendeel blijkt. Zo is in artikel 52a, tweede lid, aangegeven
+dat een school die in stand wordt gehouden door een stichting of een openbare
+rechtspersoon, voor de aanvang van de bekostiging en voor het einde van de
+bekostiging als openbare school wordt aangemerkt. </al>
+      <tuskop letat="cur">Onderdeel D (artikel 79)</tuskop>
+      <al>Dit artikel behoeft wijziging omdat met het onderhavige wetsvoorstel ook
+de bestuursoverdracht van openbare scholen is geregeld. Het analoge artikel
+van de WVO (artikel 98) behoeft niet gewijzigd te worden omdat daarin reeds
+wordt verwezen naar de bepalingen omtrent bestuursoverdracht van openbare
+en bijzondere scholen (artikelen 42c en 50). </al>
+      <tuskop letat="vet">Artikelen II en III</tuskop>
+      <al>De artikelen II en III zijn op dezelfde wijze opgebouwd als artikel I
+en bevatten overeenkomstige bepalingen. Voor een toelichting verwijzen ondergetekenden
+naar de artikelsgewijze toelichting bij artikel I.</al>
+      <al>De verzelfstandigde bestuursvorm voor het openbaar onderwijs in het voortgezet
+onderwijs krijgt door de andere opbouw van de Wet op het voortgezet onderwijs,
+met name van de bekostigingstitel, op een iets andere wijze gestalte
+dan in het primair onderwijs. Een aparte bepaling voor de bestuursoverdracht
+is niet nodig. De WVO bevat reeds een regeling, zowel voor de bestuursoverdracht
+van bijzondere scholen (artikel 50 WVO) als voor de openbare scholen (artikel
+42c nieuw WVO). </al>
+      <ondtek>
+        <functie>De Staatssecretaris van Onderwijs, Cultuur en Wetenschappen,</functie>
+        <naam>T. Netelenbos</naam>
+        <functie>De Minister van Landbouw, Natuurbeheer en Visserij,</functie>
+        <naam>J. J. van Aartsen </naam>
+      </ondtek>
+    </stuk>
+  </body>
+  <voetnoot id="v11.1" nr="1">
+    <al>Ter inzage gelegd bij de afdeling Parlementaire Documentatie.</al>
+  </voetnoot>
+</kamerwrk>

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:HR:2021:1215</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2025-03-22T03:09:20</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2021-09-02</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Hoge_Raad_der_Nederlanden" scheme="overheid.RechterlijkeMacht">Hoge Raad</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2021-09-03</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">21/02578</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#wraking">Wraking</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#bestuursrecht_belastingrecht">Bestuursrecht; Belastingrecht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+          <rdf:li>NLF 2021/1769 met annotatie van Michiel Hennevelt</rdf:li>
+          <rdf:li>BNB 2021/145</rdf:li>
+          <rdf:li>USZ 2021/358</rdf:li>
+          <rdf:li>JB 2021/180 met annotatie van Keinemans, J.H.</rdf:li>
+          <rdf:li>JIN 2022/13 met annotatie van Keinemans, J.H.</rdf:li>
+          <rdf:li>NTFR 2021/2990 met annotatie van Mr. M.B. Weijers</rdf:li>
+          <rdf:li>Viditax (FutD) 2021090310</rdf:li>
+          <rdf:li>FutD 2021-2741</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:HR:2021:1215">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:HR:2021:1215</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2021-09-02T16:43:52</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2021-09-03</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:HR:2021:1215 Hoge Raad , 03-09-2021 / 21/02578</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:HR:2021:1215:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <para>Art. 8:15 Awb. Art. 8:16 Awb. Motivering wrakingsverzoek. De Hoge Raad stelt het verzoek tot wraking buiten behandeling.</para>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:HR:2021:1215:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <uitspraak.info>
+    <para />
+    <parablock>
+      <para>HOGE RAAD DER NEDERLANDEN</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>VIERDE KAMER</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">Nummer</emphasis>	21/02578</para>
+      <para>
+        <emphasis role="bold">Datum</emphasis>	3 september 2021</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>BESLISSING</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>in de zaak van</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        [verzoeker] te [plaats] (hierna: verzoeker)</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>betreffende het door verzoeker ingediende verzoek tot wraking van de hierna te noemen leden van de Hoge Raad.</para>
+    </parablock>
+    <para />
+  </uitspraak.info>
+  <section>
+    <title>
+      <nr>1</nr>De procedure</title>
+    <paragroup>
+      <nr>1.1</nr>
+      <para>Verzoeker heeft bij de Hoge Raad beroep in cassatie ingesteld in de zaak die bij de belastingkamer van de Hoge Raad is ingeschreven onder nummer 20/01396. Bij brief van 17 juni 2021 is aan verzoeker medegedeeld dat op 25 juni 2021 de beslissing in de hiervoor genoemde zaak in het openbaar zal worden uitgesproken. Tevens is daarin medegedeeld dat de arresten zullen worden gewezen door de raadsheren M.A. Fierstra, J. Wortel en A.F.M.Q. Beukers-van Dooren.	</para>
+    </paragroup>
+    <paragroup>
+      <nr>1.2</nr>
+      <para>Bij op 18 juni 2021 ter griffie van de Hoge Raad ingekomen faxbrief heeft verzoeker de wraking verzocht van de hiervoor in 1.1 vermelde leden van de Hoge Raad. Het wrakingsverzoek is bij de Hoge Raad ingeschreven onder nummer 21/02578. De drie raadsheren waartegen het wrakingsverzoek is gericht hebben medegedeeld dat zij niet in de wraking berusten.</para>
+    </paragroup>
+  </section>
+  <section role="overwegingen">
+    <title>
+      <nr>2</nr>Beoordeling van het wrakingsverzoek</title>
+    <paragroup>
+      <nr>2.1</nr>
+      <para>Ingevolge artikel 8:15 Awb kan elk van de rechters die een zaak behandelen, door een partij worden gewraakt op grond van feiten of omstandigheden waardoor de rechterlijke onpartijdigheid schade zou kunnen lijden. Ingevolge artikel 29 AWR is deze bepaling van overeenkomstige toepassing op de behandeling van het beroep in cassatie in belastingzaken.</para>
+    </paragroup>
+    <paragroup>
+      <nr>2.2</nr>
+      <para>Verzoeker heeft in zijn faxbrief van 18 juni 2021 het volgende aangevoerd:<?linebreak?>“Grondslag Wraking :<?linebreak?><emphasis role="italic">1. Schendingen Arrest Hoge Raad. Vrijstelling inkomsten belastingen . Alle slachtoffers van Letselschade zijn vrijgesteld van inkomsten belasting Werk-woning. </emphasis><?linebreak?><emphasis role="italic">2. Stelplicht Arrest is beperkt tot bewijs. dat eiser Cassatie [...] op 23 april 2001 Letselschade/beroepsziekte heeft opgelopen bij werkgever [...] </emphasis><?linebreak?><emphasis role="italic">3. Conform: Burgerlijk Wetboek 6 art:162 ook in bestuur recht van toepassing. { ECLI:NL:HR:2017:18 ] is conform  artikel 24 Rv jo en artikel 149 Rv eerste lid. Voldaan aan de stelplicht. Verwijs naar ingevoegde proces stukken . { melding 2 april 2002- P/V rechtbank 2007 [...] en brief 14 oktober 2019. causaal verband uitkeringen Letselschade&gt; </emphasis><emphasis role="underline italic">Arrest H/R. Recht op vrijstelling vanaf 22 april 2001.</emphasis><?linebreak?><emphasis role="italic">4. schending ;Recht op betaling onmacht griffie rechten in 7 Cassatie beroepen. Uit AOW uitkering en klein aanvullend pensioen. Met opgelegde Executie beslagen. Sinds 2019. </emphasis><?linebreak?><emphasis role="italic">5. schendingen artikel 6.1 EVRM recht op FaiR Trial.</emphasis><?linebreak?><emphasis role="italic">6. Schending Arrest Hoge Raad Der Nederlanden .ECLI:NL:HR;2017:18 / ECLI:NL;HR;1919:AG 1776 / ECLI:NL:HR;2020;717 door Belastingdienst Nederland </emphasis><?linebreak?><emphasis role="italic">7. Dood door schuld W/S artikel 307  door belastingdienst Nederland. Bestendigd door Hoge Raad sinds 2010 </emphasis><?linebreak?><emphasis role="italic">8. </emphasis><emphasis role="underline italic">Eiser cassatie heeft sinds 22 april 2001 recht op vrijstelling conform uw Arrest.</emphasis><emphasis role="italic"> Betaling onmacht met opzet door de Overheid diensten Belastingdienst en UWV veroorzaakt mede bestendigd door leden van de Hoge Raad Der Nederlanden. Conform Ongekend Onrecht toeslag ouders.</emphasis>”</para>
+    </paragroup>
+    <paragroup>
+      <nr>2.3</nr>
+      <para>Ingevolge artikel 8:16 lid 2 Awb moet een wrakingsverzoek worden gemotiveerd. Dit houdt in dat het verzoek de feiten of omstandigheden dient te vermelden waardoor volgens de verzoeker de rechterlijke onpartijdigheid schade zou kunnen lijden. Een verzoek dat niet voldoet aan deze motiveringseis, kan niet worden aangemerkt als een wrakingsverzoek in de zin van artikel 8:15 Awb (zie onder meer HR 6 november 2020, ECLI:NL:HR:2020:1868, rov. 2.1). Alle feiten en omstandigheden moeten tegelijk worden voorgedragen (artikel 8:16 lid 3 Awb). Artikel 2.3.2, aanhef en onder a, Protocol deelname aan behandeling en beraadslaging van de Hoge Raad der Nederlanden bepaalt dat de wrakingskamer zonder daartoe een zitting te houden kan beslissen een verzoek om wraking niet in behandeling te nemen indien het verzoek niet is gemotiveerd. Artikel 8:18 lid 1 Awb staat daaraan niet in de weg. Dat voorschrift is immers alleen van toepassing indien sprake is van een verzoek dat kan worden aangemerkt als een wrakingsverzoek in de zin van artikel 8:15 Awb. Die uitleg sluit ook aan bij de rechtspraak van het Europees Hof voor de Rechten van de Mens, inhoudende dat de hoofdregel dat de behandeling van een wrakingsverzoek niet achterwege mag worden gelaten, alleen geldt bij een verzoek dat “does not immediately appear to be manifestly devoid of merit” (vergelijk voor een strafrechtelijke procedure: HR 25 september 2018, ECLI:NL:HR:2018:1770, rov. 4.4, 4.5 en 4.7). </para>
+    </paragroup>
+    <paragroup>
+      <nr>2.4</nr>
+      <para>De faxbrief van 18 juni 2021 bevat weliswaar een uiteenzetting van feiten en omstandigheden, maar geen feiten of omstandigheden die een of meer van de gewraakte raadsheren kunnen betreffen. De faxbrief bevat evenmin feiten of omstandigheden die kunnen meebrengen dat de rechterlijke onpartijdigheid bij de behandeling van het beroep in cassatie schade zou kunnen lijden. Het onderhavige verzoek voldoet daarmee niet aan de eis dat het verzoek tot wraking is gemotiveerd en kan dus niet worden aangemerkt als een wrakingsverzoek in de zin van artikel 8:15 Awb. Om die reden zal de wrakingskamer het verzoek buiten behandeling laten.</para>
+    </paragroup>
+  </section>
+  <section role="beslissing">
+    <title>
+      <nr>3</nr>Beslissing</title>
+    <para>De Hoge Raad stelt het verzoek tot wraking buiten behandeling.</para>
+    <para />
+    <parablock>
+      <para>Deze beslissing is gewezen door de vicepresident V. van den Brink als voorzitter, en de raadsheren T.H. Tanja-van den Broek en F.J.P. Lock, in tegenwoordigheid van de waarnemend griffier A. Woller-van Welie, en in het openbaar uitgesproken op 3 september 2021.</para>
+    </parablock>
+    <para />
+  </section>
+</uitspraak>
+</open-rechtspraak>

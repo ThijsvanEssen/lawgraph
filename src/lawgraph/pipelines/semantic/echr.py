@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    ECHR_CONVENTION_ID,
     RELATION_REFERS_TO,
     SOURCE_ECHR,
 )
@@ -33,12 +34,10 @@ logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "echr-citation-linker"
 
-_ECHR_CONVENTION_BWB_STUB = "ECHR-CONVENTION"
-
 
 def _ensure_echr_convention_instrument(store: Any) -> Node:
     """Get or create a stub instrument node for the ECHR Convention."""
-    key = make_node_key(_ECHR_CONVENTION_BWB_STUB)
+    key = make_node_key(ECHR_CONVENTION_ID)
     existing = store.get_node(COLLECTION_INSTRUMENTS, key)
     if existing is not None:
         return existing
@@ -48,10 +47,11 @@ def _ensure_echr_convention_instrument(store: Any) -> Node:
         key=key,
         labels=["ECHR", "Convention"],
         props={
-            "bwb_id": _ECHR_CONVENTION_BWB_STUB,
+            "bwb_id": ECHR_CONVENTION_ID,
             "title": "Europees Verdrag voor de Rechten van de Mens (EVRM)",
             "citation_title": "EVRM",
             "jurisdiction": "eu",
+            "kind": "verdrag",
             "display_name": "EVRM",
             "stub": False,
         },
@@ -66,14 +66,14 @@ def _ensure_echr_article(
     """Get or create a stub article node for an ECHR Convention article."""
     if not article_label:
         return None
-    key = make_node_key(_ECHR_CONVENTION_BWB_STUB, article_label)
+    key = make_node_key(ECHR_CONVENTION_ID, article_label)
     node = Node(
         collection=COLLECTION_ARTICLES,
         type=NodeType.ARTICLE,
         key=key,
         labels=["ECHR"],
         props={
-            "bwb_id": _ECHR_CONVENTION_BWB_STUB,
+            "bwb_id": ECHR_CONVENTION_ID,
             "label": article_label,
             "article_number": article_label,
             "title": f"Artikel {article_label} EVRM",

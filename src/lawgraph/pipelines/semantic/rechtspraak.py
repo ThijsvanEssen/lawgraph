@@ -8,8 +8,9 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.citations import CitationHit, hit_reason, strip_xml
+from lawgraph.core.citations import CitationHit
 from lawgraph.core.logging import get_logger
+from lawgraph.core.mentions import ArticleMentions, find_mentions
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
@@ -29,7 +30,12 @@ SEMANTIC_SOURCE = "rechtspraak-article-linker"
 
 
 class RechtspraakSemanticPipeline(SemanticPipelineBase):
-    """Link Rechtspraak judgments to BWB articles via semantic edges."""
+    """Link Rechtspraak judgments to BWB articles via semantic edges.
+
+    One edge per judgment and article; ``meta.mentions`` has every place in the judgment that
+    cites the article (``core.mentions``): the paragraph, the span in its text, the lid or
+    onderdeel it names.
+    """
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
@@ -43,6 +49,10 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
 
         extractor = build_extractor(mapping, instrument_aliases)
 
+        def detect(text: str) -> list[CitationHit]:
+            hits = detect_in_text(text, extractor, every_occurrence=True)
+            return [hit for hit in hits if hit.kind == "article"]
+
         logger.info(
             "Processing Rechtspraak judgments for article references (since=%s).",
             describe_since(since),
@@ -50,82 +60,70 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
 
         edges = EdgeWriter(self.store, what=None)
 
-        # The XML of each judgment streams from raw_sources, where retrieve stored it.
-        for judgment, xml in self._judgment_texts(since_iso):
-            hits = detect_in_text(strip_xml(xml), extractor)
-            if not hits:
-                continue
-
-            for hit in hits:
-                if hit.kind != "article":
-                    continue
-
-                article = self._resolve_article(hit)
+        for judgment, paragraphs in self._judgment_paragraphs(since_iso):
+            for cited in find_mentions(paragraphs, detect).values():
+                article = self._resolve_article(cited)
                 if article is None:
                     continue
-
-                edge_doc = self._make_edge_doc(
-                    from_node=judgment,
-                    to_node=article,
-                    relation=RELATION_REFERS_TO,
-                    source=SEMANTIC_SOURCE,
-                    confidence=hit.confidence,
-                    meta={
-                        k: v
-                        for k, v in {
-                            "raw_match": hit.raw_match,
-                            "snippet": hit.snippet,
-                            "reason": hit_reason(hit),
-                            "qualifier": hit.qualifier,
-                        }.items()
-                        if v
-                    },
+                edges.add_doc(
+                    self._make_edge_doc(
+                        from_node=judgment,
+                        to_node=article,
+                        relation=RELATION_REFERS_TO,
+                        source=SEMANTIC_SOURCE,
+                        confidence=cited.confidence,
+                        meta=cited.meta(),
+                    )
                 )
-                if edge_doc:
-                    edges.add_doc(edge_doc)
 
         edges.flush_into(result)
 
         return result
 
-    def _resolve_article(self, hit: CitationHit) -> Node | None:
-        if hit.bwb_id and hit.article_number:
-            article_key = make_node_key(hit.bwb_id, hit.article_number)
+    def _resolve_article(self, cited: ArticleMentions) -> Node | None:
+        if cited.bwb_id and cited.article_number:
+            article_key = make_node_key(cited.bwb_id, cited.article_number)
             node = self._lookup_node(COLLECTION_ARTICLES, article_key)
-            if node is None and hit.confidence >= 0.9:
+            if node is None and cited.confidence >= 0.9:
                 node = self.store.ensure_stub_node(
                     COLLECTION_ARTICLES,
                     article_key,
                     NodeType.ARTICLE,
-                    props={"bwb_id": hit.bwb_id, "article_number": hit.article_number},
+                    props={
+                        "bwb_id": cited.bwb_id,
+                        "article_number": cited.article_number,
+                    },
                 )
                 self._remember_node(node)
             if node is None:
                 logger.debug(
                     "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",
-                    hit.bwb_id,
-                    hit.article_number,
-                    hit.confidence,
+                    cited.bwb_id,
+                    cited.article_number,
+                    cited.confidence,
                 )
             return node
 
-        if hit.celex and hit.article_number:
-            article_key = make_node_key(hit.celex, hit.article_number)
+        if cited.celex and cited.article_number:
+            article_key = make_node_key(cited.celex, cited.article_number)
             node = self._lookup_node(COLLECTION_ARTICLES, article_key)
-            if node is None and hit.confidence >= 0.9:
+            if node is None and cited.confidence >= 0.9:
                 node = self.store.ensure_stub_node(
                     COLLECTION_ARTICLES,
                     article_key,
                     NodeType.ARTICLE,
-                    props={"celex": hit.celex, "article_number": hit.article_number},
+                    props={
+                        "celex": cited.celex,
+                        "article_number": cited.article_number,
+                    },
                 )
                 self._remember_node(node)
             if node is None:
                 logger.debug(
                     "Rechtspraak semantic: no node for article %s %s (conf=%.2f)",
-                    hit.celex,
-                    hit.article_number,
-                    hit.confidence,
+                    cited.celex,
+                    cited.article_number,
+                    cited.confidence,
                 )
             return node
 

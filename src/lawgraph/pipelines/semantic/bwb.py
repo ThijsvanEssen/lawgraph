@@ -130,7 +130,13 @@ class BWBSemanticPipeline(SemanticPipelineBase):
 
     @staticmethod
     def _edge_meta(hit: ArticleReferenceHit) -> dict[str, Any]:
-        meta: dict[str, Any] = {"start": hit.start, "end": hit.end, "text": hit.text}
+        meta: dict[str, Any] = {
+            "start": hit.start,
+            "end": hit.end,
+            "text": hit.text,
+            "reference_kind": hit.kind,
+            **hit.qualifier.to_dict(),
+        }
         if hit.reason:
             meta["reason"] = hit.reason
         return meta

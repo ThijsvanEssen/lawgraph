@@ -10,6 +10,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries._helpers import props as _props
 from lawgraph.api.queries.annexes import get_shared_annexes_for_law
+from lawgraph.api.queries.instrument_links import (
+    get_eu_links,
+    get_international_links,
+)
+from lawgraph.api.queries.instrument_scope import resolve_instrument, scope_of_node
 from lawgraph.api.queries.instruments import (
     INSTRUMENT_SORTS,
     get_articles,
@@ -25,21 +30,24 @@ from lawgraph.api.queries.instruments import (
 )
 from lawgraph.api.queries.relationships import get_cross_law_dependencies
 from lawgraph.api.schemas.annexes import AnnexDTO, AnnexListItem
-from lawgraph.api.schemas.common import ArticleRelationDTO
+from lawgraph.api.schemas.common import ArticleRelationDTO, JudgmentSummaryDTO
 from lawgraph.api.schemas.instruments import (
     AmendedByResponse,
     AmendingInstrumentDTO,
     CitedArticleRef,
     CrossLawDependenciesResponse,
     CrossLawDependencyItem,
+    EuLinkDTO,
     InstrumentArticleNodeDTO,
     InstrumentArticlesAtResponse,
     InstrumentArticlesResponse,
     InstrumentArticleVersionDTO,
     InstrumentCitationEdge,
     InstrumentCitationsResponse,
+    InstrumentDetailDTO,
     InstrumentDossierItem,
     InstrumentDossiersResponse,
+    InstrumentEuLinksResponse,
     InstrumentJudgmentItem,
     InstrumentJudgmentsResponse,
     InstrumentListItemDTO,
@@ -48,6 +56,8 @@ from lawgraph.api.schemas.instruments import (
     InstrumentRelatedResponse,
     InstrumentVersionDTO,
     InstrumentVersionsResponse,
+    InternationalLinkDTO,
+    LinkedInstrumentDTO,
     SharedAnnexesResponse,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
@@ -100,6 +110,7 @@ _NODE_FIELD_WHITELIST: dict[str, tuple[str, ...]] = {
     ),
     "instruments": (
         "bwb_id",
+        "celex",
         "display_name",
         "citation_title",
         "short_title",
@@ -243,14 +254,110 @@ def list_instruments(
     return InstrumentListResponse(items=items, total=int(data.get("total", 0)))
 
 
+def _instrument_or_404(store: ArangoStore, identifier: str) -> dict:
+    doc = resolve_instrument(store, identifier)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Instrument not found")
+    return doc
+
+
+@router.get(
+    "/{identifier}",
+    response_model=InstrumentDetailDTO,
+    summary="One instrument",
+    description=(
+        "The instrument named by its BWB id (`BWBR0001854`), its CELEX number "
+        "(`32016L0680`) or its node key (`echr_convention`, `verdrag_012345`): "
+        "identifiers, names, jurisdiction, kind, dates and article count. 404 for an "
+        "unknown instrument."
+    ),
+    tags=["instruments"],
+)
+def get_instrument(
+    identifier: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+) -> InstrumentDetailDTO:
+    return InstrumentDetailDTO.from_document(_instrument_or_404(store, identifier))
+
+
+def _international_link(
+    row: dict, kind: Literal["treaty", "echr_judgment"]
+) -> InternationalLinkDTO:
+    """One `international` item from a treaty row or an ECHR judgment row."""
+    edge = row.get("edge") or {}
+    own = row.get("own_article")
+    counterpart = row.get("counterpart_article")
+    return InternationalLinkDTO(
+        kind=kind,
+        instrument=(
+            LinkedInstrumentDTO.from_document(row["instrument"])
+            if kind == "treaty"
+            else None
+        ),
+        judgment=(
+            JudgmentSummaryDTO.from_document(row["judgment"])
+            if kind == "echr_judgment"
+            else None
+        ),
+        own_article=CitedArticleRef(**own) if own else None,
+        counterpart_article=CitedArticleRef(**counterpart) if counterpart else None,
+        confidence=edge.get("confidence"),
+        source=edge.get("source"),
+        meta=edge.get("meta") or {},
+    )
+
+
+@router.get(
+    "/{identifier}/eu-links",
+    response_model=InstrumentEuLinksResponse,
+    summary="EU and international links of an instrument",
+    description=(
+        "`implements`: EU acts whose CELEX number the text of this instrument names. "
+        "`implemented_by`: national regulations that name the CELEX number of this EU "
+        "act. Both are `IMPLEMENTS` edges between instruments, written from a CELEX "
+        "number named in the text (`basis`): not a transposition relation, not per "
+        "article. `international`: treaties (BWB treaties) that articles of this "
+        "instrument refer to, and ECHR judgments that refer to it or to its articles, "
+        "each with the evidence of its edge; the graph holds no other links to treaties "
+        "or to the articles of the ECHR Convention from Dutch text. The instrument is "
+        "named by BWB id, CELEX number or node key; 404 when unknown. `limit` bounds "
+        "each list; the `*_total` fields are absolute."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_eu_links(
+    identifier: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+) -> InstrumentEuLinksResponse:
+    doc = _instrument_or_404(store, identifier)
+    eu = get_eu_links(store, doc["_id"], limit=limit)
+    international = get_international_links(
+        store, doc["_id"], scope_of_node(doc), limit=limit
+    )
+    links = [_international_link(r, "treaty") for r in international.treaties] + [
+        _international_link(r, "echr_judgment") for r in international.judgments
+    ]
+    return InstrumentEuLinksResponse(
+        instrument=LinkedInstrumentDTO.from_document(doc),
+        implements=[EuLinkDTO.from_row(r) for r in eu.implements],
+        implements_total=eu.implements_total,
+        implemented_by=[EuLinkDTO.from_row(r) for r in eu.implemented_by],
+        implemented_by_total=eu.implemented_by_total,
+        international=links[:limit],
+        international_total=international.treaties_total
+        + international.judgments_total,
+    )
+
+
 @router.get(
     "/{bwb_id}/articles",
     response_model=InstrumentArticlesResponse,
     summary="All articles of an instrument",
     description=(
-        "The articles belonging to this BWB instrument, in natural article "
-        "order (9 before 10, '24c' between '24' and '25'). Meant for graph "
-        "loaders: the text is a short preview, use "
+        "The articles belonging to this instrument (BWB id or CELEX number), in "
+        "natural article order (9 before 10, '24c' between '24' and '25'). Meant "
+        "for graph loaders: the text is a short preview, use "
         "/api/articles/{bwb_id}/{article_number} for the full content."
     ),
     tags=["instruments"],
@@ -295,7 +402,7 @@ def list_articles(
     response_model=InstrumentCitationsResponse,
     summary="Every edge incident to this instrument (bulk)",
     description=(
-        "One round-trip with every edge touching an article of this law: "
+        "One round-trip with every edge touching an article of this instrument: "
         "REFERS_TO (within and across laws), AMENDS / INTRODUCES / REPEALS and "
         "EXPLAINS (legislative history), and so on. PART_OF is excluded by "
         "default — it is the structural backbone, not a reference. Beside "
@@ -473,6 +580,7 @@ def get_instrument_related_route(
             id=(r.get("instrument") or {}).get("_id") or "",
             key=(r.get("instrument") or {}).get("_key") or "",
             bwb_id=((r.get("instrument") or {}).get("props") or {}).get("bwb_id"),
+            celex=((r.get("instrument") or {}).get("props") or {}).get("celex"),
             display_name=((r.get("instrument") or {}).get("props") or {}).get(
                 "display_name"
             ),

@@ -11,6 +11,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.models import make_node_key, parse_arango_id
+from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import ArangoStore
 
 
@@ -92,6 +93,14 @@ def _extract_span(edge: dict[str, Any]) -> tuple[int | None, int | None, str | N
             _coerce_text(meta.get("text")),
         )
     return None, None, None
+
+
+def _extract_qualifier(edge: dict[str, Any]) -> tuple[Qualifier, str | None]:
+    """The parts of the cited article the edge names, and how the XML wrote the reference."""
+    meta = edge.get("meta")
+    if not isinstance(meta, dict):
+        return Qualifier(), None
+    return Qualifier.from_dict(meta), _coerce_text(meta.get("reference_kind"))
 
 
 def _extract_confidence(edge: dict[str, Any]) -> float | None:

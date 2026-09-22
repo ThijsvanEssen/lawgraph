@@ -159,6 +159,33 @@ def test_tk_pipeline_links_to_article_node() -> None:
     assert isinstance(edge["confidence"], float)
 
 
+def test_tk_edge_names_the_parts_of_the_article_as_a_judgment_edge_does() -> None:
+    doc = _make_tk_document("tk-1", "Wijziging van artikel 287, derde lid, onder a, Sr")
+    article_key = make_node_key("BWBR0001854", "287")
+    store = _FakeStore(
+        documents=[doc],
+        instruments={
+            make_node_key("BWBR0001854"): _make_instrument(
+                make_node_key("BWBR0001854"),
+                {"bwb_id": "BWBR0001854", "short_title": "Sr"},
+            )
+        },
+        articles={
+            article_key: _make_article(
+                article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
+            )
+        },
+    )
+
+    TKSemanticPipeline(store=store).run()
+
+    (edge,) = store.edges.values()
+    assert edge["meta"]["qualifier"] == "derde lid, onder a"
+    assert edge["meta"]["leden"] == ["3"]
+    assert edge["meta"]["onderdelen"] == ["a"]
+    assert "aanhef" not in edge["meta"]  # nothing named: empty values are left out
+
+
 def test_tk_pipeline_links_to_celex_instrument() -> None:
     text = "Implementatie van CELEX:32019L1158"
     doc = _make_tk_document("tk-2", text)
@@ -224,3 +251,33 @@ def test_tk_pipeline_idempotent_edges() -> None:
     assert first.created == 1
     assert second.created == 0
     assert len(store.edges) == 1
+
+
+def test_tk_pipeline_reads_the_footnotes_of_a_kamerstuk_too() -> None:
+    """``normalize tk-content`` keeps a footnote out of ``text``; a citation in it counts."""
+    doc = _make_tk_document("tk-5", "Een memorie zonder verwijzing.")
+    doc["props"]["text"] = "Een memorie zonder verwijzing."
+    doc["props"]["footnotes"] = [
+        {"number": "1", "text": "Zie artikel 287 Sr."},
+        {"number": "2", "text": "Kamerstukken II 2019/20, 35 000, nr. 3."},
+    ]
+    article_key = make_node_key("BWBR0001854", "287")
+    store = _FakeStore(
+        documents=[doc],
+        instruments={
+            make_node_key("BWBR0001854"): _make_instrument(
+                make_node_key("BWBR0001854"),
+                {
+                    "bwb_id": "BWBR0001854",
+                    "short_title": "Sr",
+                    "title": "Wetboek van Strafrecht",
+                },
+            )
+        },
+        articles={
+            article_key: _make_article(
+                article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
+            )
+        },
+    )
+    assert TKSemanticPipeline(store=store).run().created == 1

@@ -33,6 +33,7 @@ _NOT_JUDGED = (
     "unexpected end of query string",
     "LIMIT offset/count values must be constant",
     "invalid traversal depth",
+    "collection or view not found: all_documents",  # the tail of the dossier document walk
     "must be a positive integer",
 )
 

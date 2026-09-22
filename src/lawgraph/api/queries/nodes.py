@@ -2,28 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
 from lawgraph.api.queries._helpers import _ensure_doc, _extract_confidence
-from lawgraph.config.constants import (
-    COLLECTION_ACTIVITIES,
-    COLLECTION_ARTICLES,
-    COLLECTION_CASES,
-    COLLECTION_COMMITMENTS,
-    COLLECTION_COMMITTEES,
-    COLLECTION_DECISIONS,
-    COLLECTION_DOCUMENTS,
-    COLLECTION_DOSSIERS,
-    COLLECTION_EDGES,
-    COLLECTION_FACTIONS,
-    COLLECTION_INSTRUMENTS,
-    COLLECTION_JUDGMENTS,
-    COLLECTION_MEMBERS,
-    COLLECTION_TOPICS,
-    RELATION_MEMBER_OF,
-    RELATION_VOTED,
-)
+from lawgraph.config.constants import COLLECTION_EDGES
+from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
 from lawgraph.db import ArangoStore
 
 
@@ -35,47 +20,127 @@ class UnsupportedCollectionError(ValueError):
     """Raised when a collection name is not in the allowed set."""
 
 
-_ALLOWED_NODE_COLLECTIONS = {
-    COLLECTION_INSTRUMENTS,
-    COLLECTION_ARTICLES,
-    COLLECTION_JUDGMENTS,
-    COLLECTION_CASES,
-    COLLECTION_DOCUMENTS,
-    COLLECTION_TOPICS,
-    COLLECTION_DOSSIERS,
-    COLLECTION_ACTIVITIES,
-    COLLECTION_DECISIONS,
-    COLLECTION_COMMITMENTS,
-    COLLECTION_COMMITTEES,
-    COLLECTION_MEMBERS,
-    COLLECTION_FACTIONS,
+Direction = Literal["outbound", "inbound"]
+DIRECTIONS: tuple[Direction, ...] = ("outbound", "inbound")
+
+# Every node collection can be explored: one per node type.
+_ALLOWED_NODE_COLLECTIONS = frozenset(TYPE_OF_COLLECTION)
+
+DEFAULT_BUCKET_LIMIT = 30
+
+# The edge field that holds the node itself and the one that holds its neighbour, per direction.
+_EDGE_SIDES: dict[Direction, tuple[str, str]] = {
+    "outbound": ("_from", "_to"),
+    "inbound": ("_to", "_from"),
 }
 
-_DEFAULT_NEIGHBOR_LIMIT = 100
-_DEFAULT_PER_RELATION_CAP = 30
-
-# Per-collection per-relation caps for edge sets that grow without bound on a
-# single node. Frontends that need more should call collection-specific
-# endpoints rather than the generic node graph.
-_PER_RELATION_CAPS_BY_COLLECTION: dict[str, dict[str, int]] = {
-    COLLECTION_FACTIONS: {RELATION_VOTED: 20, RELATION_MEMBER_OF: 50},
-    COLLECTION_MEMBERS: {RELATION_VOTED: 20, RELATION_MEMBER_OF: 5},
-    COLLECTION_DECISIONS: {RELATION_VOTED: 50},
+# Traversal keyword per direction filter (the node's edges in either direction by default).
+_TRAVERSAL_DIRECTION: dict[Direction | None, str] = {
+    None: "ANY",
+    "outbound": "OUTBOUND",
+    "inbound": "INBOUND",
 }
+
+
+@dataclass(frozen=True)
+class NeighborFilter:
+    """Which edges of a node count: every field left as None lets everything through.
+
+    ``node_types`` restricts the neighbours to these ``NodeType`` values, ``direction`` the
+    edges to those that leave (``outbound``) or reach (``inbound``) the node.
+    """
+
+    relations: tuple[str, ...] | None = None
+    node_types: tuple[str, ...] | None = None
+    direction: Direction | None = None
+    status: str | None = None
+
+    @property
+    def directions(self) -> tuple[Direction, ...]:
+        return (self.direction,) if self.direction else DIRECTIONS
+
+    @property
+    def collections(self) -> list[str] | None:
+        """The collections of ``node_types`` (one collection holds one type)."""
+        if self.node_types is None:
+            return None
+        return [
+            collection
+            for node_type, collection in COLLECTION_OF_TYPE.items()
+            if node_type.value in self.node_types
+        ]
+
+    def edge_aql(self, edge: str) -> str:
+        """FILTER lines for the relation and status of ``edge``; binds ``relations``, ``status``."""
+        lines = []
+        if self.relations is not None:
+            lines.append(f"FILTER {edge}.relation IN @relations")
+        if self.status is not None:
+            lines.append(f"FILTER {edge}.status == @status")
+        return "\n".join(lines)
+
+    def edge_bind_vars(self) -> dict[str, Any]:
+        bind_vars: dict[str, Any] = {}
+        if self.relations is not None:
+            bind_vars["relations"] = list(self.relations)
+        if self.status is not None:
+            bind_vars["status"] = self.status
+        return bind_vars
+
+
+NO_FILTER = NeighborFilter()
 
 
 @dataclass
 class NeighborEntry:
     doc: dict[str, Any]
+    edge: dict[str, Any]
+    direction: Direction
+
+    @property
+    def relation(self) -> str | None:
+        relation = self.edge.get("relation")
+        return relation if isinstance(relation, str) else None
+
+    @property
+    def confidence(self) -> float | None:
+        return _extract_confidence(self.edge)
+
+
+@dataclass
+class NeighborFacet:
+    """The edges of a node that share a relation, a direction and a neighbour collection."""
+
     relation: str | None
-    direction: Literal["outbound", "inbound"]
-    confidence: float | None
+    direction: Direction
+    collection: str
+    count: int
+
+
+@dataclass
+class NeighborBucket:
+    """One facet with the page of its neighbours that was asked for."""
+
+    facet: NeighborFacet
+    next_offset: int | None
+    entries: list[NeighborEntry]
 
 
 @dataclass
 class NodeGraphData:
     node: dict[str, Any]
-    neighbors: list[NeighborEntry]
+    buckets: list[NeighborBucket]
+
+
+def _load_node(store: ArangoStore, collection: str, key: str) -> dict[str, Any]:
+    if collection not in _ALLOWED_NODE_COLLECTIONS:
+        raise UnsupportedCollectionError("unsupported collection")
+    if not store.db.has_collection(collection):
+        raise NodeNotFoundError(f"collection {collection} not found")
+    node_doc = _ensure_doc(store.db.collection(collection).get(key))
+    if node_doc is None:
+        raise NodeNotFoundError("node not found")
+    return node_doc
 
 
 def get_node_with_neighbors(
@@ -83,31 +148,161 @@ def get_node_with_neighbors(
     collection: str,
     key: str,
     *,
-    neighbor_limit: int = _DEFAULT_NEIGHBOR_LIMIT,
+    filters: NeighborFilter = NO_FILTER,
+    limit: int = DEFAULT_BUCKET_LIMIT,
+    offset: int = 0,
 ) -> NodeGraphData:
-    """Retrieve a node together with its unified-edge neighbors."""
-    if collection not in _ALLOWED_NODE_COLLECTIONS:
-        raise UnsupportedCollectionError("unsupported collection")
-    if not store.db.has_collection(collection):
-        raise NodeNotFoundError(f"collection {collection} not found")
+    """A node with its neighbours, in buckets of one relation, direction and collection.
 
-    coll = store.db.collection(collection)
-    raw_node = coll.get(key)
-    if raw_node is None:
-        raise NodeNotFoundError("node not found")
-    node_doc = _ensure_doc(raw_node)
-    if node_doc is None:
-        raise NodeNotFoundError("node not found")
+    ``limit`` and ``offset`` page inside every bucket; a bucket says how many edges it has
+    and where its next page starts.
+    """
+    node_doc = _load_node(store, collection, key)
+    facets = _count_facets(store, node_doc["_id"], filters)
+    pages = _read_pages(store, node_doc["_id"], filters, facets, limit, offset)
+    end = offset + limit
+    buckets = [
+        NeighborBucket(
+            facet=facet,
+            next_offset=end if end < facet.count else None,
+            entries=pages.get((facet.relation, facet.direction, facet.collection), []),
+        )
+        for facet in facets
+    ]
+    return NodeGraphData(node=node_doc, buckets=buckets)
 
-    neighbors = _collect_neighbors(
-        store, node_doc["_id"], neighbor_limit=neighbor_limit
-    )
-    return NodeGraphData(node=node_doc, neighbors=neighbors)
+
+def get_node_facets(
+    store: ArangoStore,
+    collection: str,
+    key: str,
+    *,
+    filters: NeighborFilter = NO_FILTER,
+) -> list[NeighborFacet]:
+    """How many edges a node has per relation, direction and neighbour collection."""
+    node_doc = _load_node(store, collection, key)
+    return _count_facets(store, node_doc["_id"], filters)
 
 
-def _per_relation_caps(node_id: str) -> dict[str, int]:
-    collection = node_id.split("/", 1)[0] if "/" in node_id else ""
-    return _PER_RELATION_CAPS_BY_COLLECTION.get(collection, {})
+def _edge_scan_aql(direction: Direction, filters: NeighborFilter) -> str:
+    """The edges of ``@node_id`` in one direction that pass ``filters``, as ``e``."""
+    own, other = _EDGE_SIDES[direction]
+    lines = [f"FOR e IN {COLLECTION_EDGES}", f"FILTER e.{own} == @node_id"]
+    if filters.relations is not None or filters.status is not None:
+        lines.append(filters.edge_aql("e"))
+    if filters.collections is not None:
+        lines.append(f"FILTER SPLIT(e.{other}, '/')[0] IN @collections")
+    return "\n".join(lines)
+
+
+def _count_facets(
+    store: ArangoStore, node_id: str, filters: NeighborFilter
+) -> list[NeighborFacet]:
+    """Count the edges of a node per (relation, direction, neighbour collection).
+
+    The edges are grouped and counted inside ArangoDB in one pass over the edges of the
+    node, with no document held: a faction has a million ``VOTED`` edges. A collection holds
+    one node type, so the neighbours themselves are never read.
+    """
+    parts = []
+    for direction in filters.directions:
+        _, other = _EDGE_SIDES[direction]
+        parts.append(
+            f"""
+    LET {direction}_rows = (
+        {_edge_scan_aql(direction, filters)}
+        COLLECT relation = e.relation, collection = SPLIT(e.{other}, '/')[0]
+            WITH COUNT INTO count
+        RETURN {{ relation, direction: '{direction}', collection, count }}
+    )"""
+        )
+    names = ", ".join(f"{d}_rows" for d in filters.directions)
+    aql = f"""{"".join(parts)}
+    FOR facet IN UNION({names}, [])
+        SORT facet.relation, facet.direction, facet.collection
+        RETURN facet
+    """
+    bind_vars = {"node_id": node_id, **filters.edge_bind_vars()}
+    if filters.collections is not None:
+        bind_vars["collections"] = filters.collections
+    return [
+        NeighborFacet(
+            relation=row["relation"],
+            direction=row["direction"],
+            collection=row["collection"],
+            count=row["count"],
+        )
+        for row in store.query(aql, bind_vars)
+    ]
+
+
+def _read_pages(
+    store: ArangoStore,
+    node_id: str,
+    filters: NeighborFilter,
+    facets: Iterable[NeighborFacet],
+    limit: int,
+    offset: int,
+) -> dict[tuple[str | None, str, str], list[NeighborEntry]]:
+    """Read ``limit`` neighbours from ``offset`` on in every facet that reaches that far.
+
+    One query per request: each facet reads its own page from the edge index, in ``_key``
+    order so that a page is the same on every request. ``limit`` and ``offset`` count edges,
+    so an edge whose neighbour is gone leaves its page one short.
+    """
+    wanted: dict[Direction, list[dict[str, Any]]] = {}
+    for facet in facets:
+        if facet.count > offset:
+            wanted.setdefault(facet.direction, []).append(
+                {"relation": facet.relation, "collection": facet.collection}
+            )
+    if not wanted:
+        return {}
+
+    status_aql = "FILTER e.status == @status" if filters.status is not None else ""
+    bind_vars: dict[str, Any] = {"node_id": node_id, "offset": offset, "limit": limit}
+    if filters.status is not None:
+        bind_vars["status"] = filters.status
+    parts = []
+    for direction, buckets in wanted.items():
+        own, other = _EDGE_SIDES[direction]
+        bind_vars[f"{direction}_buckets"] = buckets
+        parts.append(
+            f"""
+    LET {direction}_rows = (
+        FOR b IN @{direction}_buckets
+            LET items = (
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER e.{own} == @node_id AND e.relation == b.relation
+                    FILTER SPLIT(e.{other}, '/')[0] == b.collection
+                    {status_aql}
+                    SORT e._key
+                    LIMIT @offset, @limit
+                    LET neighbor = DOCUMENT(e.{other})
+                    FILTER neighbor != null
+                    RETURN {{ edge: e, neighbor: neighbor }}
+            )
+            RETURN {{
+                relation: b.relation,
+                direction: '{direction}',
+                collection: b.collection,
+                items: items
+            }}
+    )"""
+        )
+    aql = f"""{"".join(parts)}
+    FOR bucket IN UNION({", ".join(f"{d}_rows" for d in wanted)}, [])
+        RETURN bucket
+    """
+    pages: dict[tuple[str | None, str, str], list[NeighborEntry]] = {}
+    for row in store.query(aql, bind_vars):
+        pages[(row["relation"], row["direction"], row["collection"])] = [
+            NeighborEntry(
+                doc=item["neighbor"], edge=item["edge"], direction=row["direction"]
+            )
+            for item in row["items"]
+        ]
+    return pages
 
 
 def get_node_neighborhood(
@@ -117,32 +312,39 @@ def get_node_neighborhood(
     *,
     depth: int = 3,
     cap: int = 200,
+    filters: NeighborFilter = NO_FILTER,
 ) -> dict[str, Any]:
     """Server-side BFS — returns all nodes + edges within ``depth`` hops.
 
-    ArangoDB's native ANY traversal walks the unified-edge collection in one
-    query; ``uniqueVertices: 'global'`` keeps the result deduplicated across
-    branches, and ``cap`` bounds the discovered vertex count so a hub node
-    cannot flood the response.
+    ArangoDB's native traversal walks the unified-edge collection in one query;
+    ``uniqueVertices: 'global'`` keeps the result deduplicated across branches, and ``cap``
+    bounds the discovered vertex count so a hub node cannot flood the response.
 
-    The result also carries every other edge that connects two vertices in the
-    kept set, so the frontend can render the full subgraph.
+    ``filters`` shape the walk itself: a path is followed only along edges of the given
+    relations and status, in the given direction, and through nodes of the given types (the
+    focal node is always kept). The result also carries every other edge of those relations
+    and that status that connects two vertices in the kept set, so the frontend can render
+    the full subgraph.
     """
-    if collection not in _ALLOWED_NODE_COLLECTIONS:
-        raise UnsupportedCollectionError("unsupported collection")
-    if not store.db.has_collection(collection):
-        raise NodeNotFoundError(f"collection {collection} not found")
-
-    coll = store.db.collection(collection)
-    raw_focal = coll.get(key)
-    if raw_focal is None:
-        raise NodeNotFoundError("node not found")
-    focal_doc = _ensure_doc(raw_focal)
-    if focal_doc is None:
-        raise NodeNotFoundError("node not found")
+    focal_doc = _load_node(store, collection, key)
 
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, 1000))
+
+    # Edge conditions on the whole path (``ALL``) are evaluated by the traversal, which then
+    # never leaves along an edge that fails them. Vertices that fail the type condition are
+    # emitted once (PRUNE ends the path there) and dropped by the filter behind it.
+    walk_filters = []
+    if filters.relations is not None:
+        walk_filters.append("FILTER p.edges[*].relation ALL IN @relations")
+    if filters.status is not None:
+        walk_filters.append("FILTER p.edges[*].status ALL == @status")
+    prune = ""
+    if filters.node_types is not None:
+        prune = "PRUNE v._id != @focal AND v.type NOT IN @node_types"
+        walk_filters.append("FILTER v.type IN @node_types")
+    walk_aql = "\n            ".join(walk_filters)
+    direction = _TRAVERSAL_DIRECTION[filters.direction]
 
     # Traverse + dedup vertices in AQL. ``LIMIT cap`` short-circuits when
     # the cap is reached; the focal node is added later so it always lands
@@ -150,8 +352,10 @@ def get_node_neighborhood(
     aql = f"""
     LET focal = DOCUMENT(@focal)
     LET visited = (
-        FOR v IN 1..@depth ANY focal {COLLECTION_EDGES}
+        FOR v, e, p IN 1..@depth {direction} focal {COLLECTION_EDGES}
+            {prune}
             OPTIONS {{ uniqueVertices: 'global', bfs: true }}
+            {walk_aql}
             LIMIT @cap
             RETURN DISTINCT v
     )
@@ -160,6 +364,7 @@ def get_node_neighborhood(
     LET edges_between = (
         FOR e IN {COLLECTION_EDGES}
             FILTER e._from IN node_id_set AND e._to IN node_id_set
+            {filters.edge_aql("e")}
             RETURN e
     )
     RETURN {{
@@ -168,73 +373,15 @@ def get_node_neighborhood(
         edges: edges_between
     }}
     """
-    rows = list(
-        store.query(
-            aql,
-            {"focal": focal_doc["_id"], "depth": depth, "cap": cap},
-        )
-    )
+    bind_vars: dict[str, Any] = {
+        "focal": focal_doc["_id"],
+        "depth": depth,
+        "cap": cap,
+        **filters.edge_bind_vars(),
+    }
+    if filters.node_types is not None:
+        bind_vars["node_types"] = list(filters.node_types)
+    rows = list(store.query(aql, bind_vars))
     if not rows:
         return {"focal": focal_doc, "nodes": [], "edges": []}
     return rows[0]
-
-
-def _collect_neighbors(
-    store: ArangoStore,
-    node_id: str,
-    *,
-    neighbor_limit: int = _DEFAULT_NEIGHBOR_LIMIT,
-    per_relation_default: int = _DEFAULT_PER_RELATION_CAP,
-) -> list[NeighborEntry]:
-    """Return neighbors with per-relation and overall caps applied in AQL.
-
-    Per-relation caps are picked from a collection-specific table; relations
-    without an explicit entry use ``per_relation_default``. Both caps run
-    inside ArangoDB so unbounded edge sets (e.g. faction → decision votes)
-    never materialise on the application side.
-    """
-    caps = _per_relation_caps(node_id)
-    # Bucket by (relation, neighbor_collection) so a single high-fanout
-    # relation that reaches several collections (e.g. PART_OF on a dossier →
-    # cases + documents) returns a sample from each, rather than the first N
-    # edges in storage order — which would otherwise drop whole collections.
-    aql = f"""
-    LET _out = (FOR e IN {COLLECTION_EDGES} FILTER e._from == @node_id RETURN e)
-    LET _in  = (FOR e IN {COLLECTION_EDGES} FILTER e._to   == @node_id RETURN e)
-    LET buckets = (
-        FOR edge IN UNION(_out, _in)
-            LET neighbor_id = (edge._from == @node_id ? edge._to : edge._from)
-            LET direction = (edge._from == @node_id ? 'outbound' : 'inbound')
-            LET neighbor_col = SPLIT(neighbor_id, '/')[0]
-            COLLECT relation = edge.relation, ncol = neighbor_col INTO group = {{
-                edge: edge,
-                neighbor_id: neighbor_id,
-                direction: direction
-            }}
-            LET cap = HAS(@caps, relation) ? @caps[relation] : @per_relation_default
-            RETURN {{ relation: relation, ncol: ncol, items: SLICE(group, 0, cap) }}
-    )
-    FOR b IN buckets
-        FOR item IN b.items
-            LET neighbor = DOCUMENT(item.neighbor_id)
-            FILTER neighbor != null
-            LIMIT @neighbor_limit
-            RETURN {{ edge: item.edge, neighbor: neighbor, direction: item.direction }}
-    """
-    bind_vars = {
-        "node_id": node_id,
-        "caps": caps,
-        "per_relation_default": per_relation_default,
-        "neighbor_limit": neighbor_limit,
-    }
-    neighbors: list[NeighborEntry] = []
-    for row in store.query(aql, bind_vars):
-        neighbors.append(
-            NeighborEntry(
-                doc=row["neighbor"],
-                relation=row["edge"].get("relation"),
-                direction=row["direction"],
-                confidence=_extract_confidence(row["edge"]),
-            )
-        )
-    return neighbors

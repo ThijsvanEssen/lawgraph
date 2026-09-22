@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.queries.articles import (
     get_article_citations,
+    get_article_cited_by,
+    get_article_explanations,
     get_article_history,
     get_article_in_flux,
     get_article_legislative_history,
@@ -14,7 +16,11 @@ from lawgraph.api.queries.articles import (
 )
 from lawgraph.api.queries.relationships import get_article_relationship_data
 from lawgraph.api.schemas.articles import (
+    ArticleCitedByItem,
+    ArticleCitedByResponse,
     ArticleDetailResponse,
+    ArticleExplanationDTO,
+    ArticleExplanationsResponse,
     ArticleHistoryResponse,
     ArticleInFluxResponse,
     ArticleLegislativeHistoryResponse,
@@ -24,6 +30,7 @@ from lawgraph.api.schemas.articles import (
     ArticleVersionDTO,
     LegislativeHistoryEntry,
     ScopeArticleReference,
+    references_from_props,
 )
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
@@ -77,7 +84,9 @@ def get_article_detail(
             end=entry.end,
             text=entry.text,
             target=_build_article_citation_target(entry.target),
+            reference_kind=entry.reference_kind,
             confidence=entry.confidence,
+            **entry.qualifier.to_dict(),
         )
         for entry in citation_entries
     ]
@@ -90,6 +99,7 @@ def get_article_detail(
         instrument=instrument,
         judgments=judgments,
         citations=citations,
+        references=references_from_props(data.article.get("props") or {}),
         metadata=data.metadata or None,
         upstream_dependencies=upstream,
         downstream_implications=downstream,
@@ -148,6 +158,55 @@ def get_article_relationships(
 
 
 @router.get(
+    "/{bwb_id}/{article_number}/cited-by",
+    response_model=ArticleCitedByResponse,
+    summary="Passages of judgments that cite an article",
+    description=(
+        "One row per passage: a judgment and the paragraph in it that cites the article, "
+        "with the lid, onderdeel or aanhef it names, a snippet and the confidence of the "
+        "detection. Newest judgment first. `court` (ECLI court code), `tier` and `lid` "
+        "(a lid number the passage names) filter; `total` counts all passages that match. "
+        "404 when the article is unknown."
+    ),
+    tags=["articles"],
+)
+def get_article_cited_by_passages(
+    bwb_id: str,
+    article_number: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    court: Annotated[
+        str | None, Query(description="ECLI court code, e.g. 'HR', 'RBAMS'")
+    ] = None,
+    tier: Annotated[
+        Literal["hoge_raad", "gerechtshof", "rechtbank", "bijzonder"] | None, Query()
+    ] = None,
+    lid: Annotated[
+        str | None,
+        Query(
+            pattern=r"^\d+[A-Za-z]{0,3}$",
+            description="A lid number the passage names: '3', '2a'",
+        ),
+    ] = None,
+) -> ArticleCitedByResponse:
+    article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
+    if not store.articles.has(parse_arango_id(article_id)[1]):
+        raise HTTPException(status_code=404, detail="Article not found")
+    rows, total = get_article_cited_by(
+        store,
+        article_id,
+        court=court,
+        tier=tier,
+        lid=lid,
+        limit=limit,
+        offset=offset,
+    )
+    items = [item for row in rows if (item := ArticleCitedByItem.from_row(row))]
+    return ArticleCitedByResponse(article_id=article_id, items=items, total=total)
+
+
+@router.get(
     "/{bwb_id}/{article_number}/history",
     response_model=ArticleHistoryResponse,
     summary="Version history of an article",
@@ -190,8 +249,9 @@ def get_article_version_history(
     description=(
         "Every dossier and document that introduced, changed or proposes to "
         "change this article, covering both enacted (`canoniek`) and proposed "
-        "(`voorgesteld`) changes. Returns an empty list when there is no "
-        "history — never a 404."
+        "(`voorgesteld`) changes, and what refers to it. The "
+        "explanatory documents are at `explained-by`. Returns an empty list when "
+        "there is no history — never a 404."
     ),
     tags=["articles"],
 )
@@ -210,6 +270,45 @@ def get_legislative_history(
         article_id=article_id,
         entries=entries,
         total=len(entries),
+    )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/explained-by",
+    response_model=ArticleExplanationsResponse,
+    summary="Explanatory documents of an article",
+    description=(
+        "The documents that explain this article: every EXPLAINS edge that points "
+        "at the article, at one of its versions or at its instrument. Newest "
+        "first, the article-level explanations (`target` `article` and "
+        "`article_version`) before those of the instrument. An explanation of "
+        "`scope` `dossier` is written per dossier: the memorandum explains all "
+        "the changes of the dossier; of `scope` `article` the memorandum names "
+        "the section about this article in `section_anchor` (the `id` of a "
+        "section of the document; `GET /api/documents/{key}/passages` gives its "
+        "text). An `instrument` explanation exists only for a dossier whose law "
+        "changed no articles, so it is no evidence about this article; filter on "
+        "`target`. One document appears once per level. `total` counts all "
+        "explanations, independent of `limit` and `offset`. Returns an empty list "
+        "for an unknown article — never a 404."
+    ),
+    tags=["articles"],
+)
+def get_explained_by(
+    bwb_id: str,
+    article_number: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ArticleExplanationsResponse:
+    article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
+    page = get_article_explanations(
+        store, bwb_id, article_number, limit=limit, offset=offset
+    )
+    return ArticleExplanationsResponse(
+        article_id=article_id,
+        total=page["total"],
+        items=[ArticleExplanationDTO.from_row(row) for row in page["items"]],
     )
 
 

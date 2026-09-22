@@ -16,7 +16,7 @@ Rules for maintainers:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -115,6 +115,9 @@ class ArticleProps(_CommonProps):
     source_publication: str | None = None  # e.g. "Stb.2019-33"
     repealed: bool | None = None
     last_article_number: str | None = None  # historical identities only
+    parts: list[dict[str, Any]] | None = (
+        None  # aanhef, leden, onderdelen: id, kind, number, start, end
+    )
     references: list[dict[str, Any]] | None = None  # structured refs from the XML
 
 
@@ -147,6 +150,7 @@ class ArticleVersionProps(_CommonProps):
     stam_id: str | None = None
     versie_id: str | None = None
     path: str | None = None
+    parts: list[dict[str, Any]] | None = None  # as on Article: offsets into ``text``
     effect: str | None = None  # BWB effect: nieuw / wijziging / vervallen …
     source_publication: str | None = None  # bron, e.g. "Stb.2019-33"
     origin_publication: dict[str, Any] | None = None  # Publication.to_dict()
@@ -158,6 +162,15 @@ class ArticleVersionProps(_CommonProps):
 # ---------------------------------------------------------------------------
 
 
+class JudgmentParagraphProps(_StrictBase):
+    """One paragraph of a judgment (``core.judgments.extract_sections``)."""
+
+    id: str  # ``rov-5.3``, ``kop-5``, ``p-12``: unique in the judgment, for deep links
+    number: str | None = None  # as printed, without its closing dot: "5.3"
+    kind: Literal["heading", "subheading", "body"]
+    text: str
+
+
 class JudgmentProps(_CommonProps):
     ecli: str | None = None
     source_kind: str | None = None
@@ -166,7 +179,7 @@ class JudgmentProps(_CommonProps):
     text: str | None = None
     judgment_metadata: dict[str, Any] | None = None
     subjects: list[str] | None = None
-    paragraphs: list[dict[str, Any]] | None = None
+    paragraphs: list[JudgmentParagraphProps] | None = None
     court: str | None = None
     case_number: str | None = None
     related_eclis: list[str] | None = None
@@ -193,9 +206,6 @@ class JudgmentProps(_CommonProps):
 
 class DocumentProps(_CommonProps):
     external_id: str | None = None
-    # When the repository last had no XML for this paper (retrieve tk-content asks again
-    # after 30 days).
-    text_missing_at: str | None = None
     raw: dict[str, Any] | None = None
     title: str | None = None
     subject: str | None = None
@@ -204,6 +214,16 @@ class DocumentProps(_CommonProps):
     # the document's own number: a Kamerstuk number, or a Stcrt/Stb one
     number: str | None = None
     text: str | None = None
+    # ``normalize tk-content``: the structure of a Kamerstuk's text (core/kamerstuk_xml.py)
+    text_source: str | None = None  # "kst-xml"
+    text_truncated: bool | None = None
+    xml_dialect: str | None = None  # "kamerwrk" | "officiele-publicatie"
+    structure_quality: str | None = None  # "explicit" | "implicit" | "none"
+    budget: bool | None = (
+        None  # a budget or annual report: policy articles, not law articles
+    )
+    sections: list[dict[str, Any]] | None = None
+    footnotes: list[dict[str, Any]] | None = None
     # TK-dossier documents
     dossier_number: str | None = None
     # the addition to the dossier number, e.g. the chapter "VII" of "35925 VII"

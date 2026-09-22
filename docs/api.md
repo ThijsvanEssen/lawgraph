@@ -11,7 +11,8 @@ the two `POST` endpoints under `/api/relationships`.
 
 ## Endpoints
 
-Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`); a dossier `number`
+Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`); an instrument
+route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A dossier `number`
 matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameters `limit` and
 `offset` have the bounds shown in `/docs`.
 
@@ -27,17 +28,21 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 
 | Path | Returns |
 |------|---------|
-| `/api/articles/{bwb_id}/{article_number}` | the article, its instrument, citing judgments and citations |
-| `.../history` | every version of the article, oldest first: validity period, text, `effect`, normalized `change` (`introduces`, `amends`, `repeals`), amending publication (`amended_by`) and commencement publication, each with its dossiers. The article is identified by `stam_id`, so renumbering does not break history; 404 for an unknown article |
-| `.../legislative-history` | dossiers and documents that introduced, amended or propose to amend the article, including `voorgesteld`; empty list, never 404 |
+| `/api/articles/{bwb_id}/{article_number}` | the article with its `parts` (aanhef, leden and onderdelen as spans of `text`), its instrument, citing judgments, `citations` (the resolved references, one per target) and `references` (every reference in the text, with the `leden`, `onderdelen` and `aanhef` it names, also when the target is not in the graph) |
+| `.../history` | every version of the article, oldest first: validity period, text, `effect`, normalized `change` (`introduces`, `amends`, `repeals`), amending publication (`amended_by`) and commencement publication, each with its dossiers and its `parts`. The article is identified by `stam_id`, so renumbering does not break history; 404 for an unknown article |
+| `.../legislative-history` | dossiers and documents that introduced, amended or propose to amend the article, including `voorgesteld`, and what refers to it; the explanatory documents are at `explained-by`; empty list, never 404 |
+| `.../explained-by` | the documents that `EXPLAINS` the article: edges to the article, to any of its versions (same `stam_id`) or to its instrument. `items[]`: `document` (`id`, `key`, `kind`, `title`, `date`, `dossier_number`, `chamber`, `source`, `is_explanatory`), `target` (`article`, `article_version`, `instrument`), `target_id`, `article_version_key`, `confidence`, `scope`, `section_anchor`. `scope` is `dossier` when the memorandum explains all changes of its dossier (`semantic tk-mvt`), `article` when the edge names the section about the article in `section_anchor` (`semantic tk-mvt-articles`; the `id` of a section of the document, whose text `GET /api/documents/{key}/passages` gives). An `instrument` item exists only for a dossier whose law changed no articles: no evidence about this article, listed after the article-level ones. Newest first; one item per document, level and anchor (a version before the article, the newest version first); `limit` (1-500, default 100), `offset`, `total` counts all; empty list for an unknown article, never 404 |
 | `.../in-flux` | whether an open bill targets the article: `{in_flux, open_dossier_count}`; never 404 |
-| `.../relationships` | outgoing and incoming references with `semantic_type`, explanation, badge, community votes, and annex scopes |
+| `.../cited-by` | the passages of judgments that cite the article, one row per mention (`judgment`, `paragraph_id`, `paragraph_number`, the `leden`, `onderdelen` and `aanhef` it names, `snippet`, `confidence`), newest judgment first; `court`, `tier`, `lid` (a lid number the passage names), `limit` (max 200), `offset`, exact `total`; 404 for an unknown article |
+| `.../relationships` | outgoing and incoming references with `semantic_type`, explanation, badge, community votes, the span of the reference (`start`, `end`, `text`, in the referring article) and the `leden`, `onderdelen` and `aanhef` it names, and annex scopes |
 
 ### Instruments and annexes
 
 | Path | Returns |
 |------|---------|
 | `GET /api/instruments` | paged list; `q`, `jurisdiction` (`nl`, `eu`), `kind`, `article_count_min`, `sort` (default `title`) |
+| `GET /api/instruments/{identifier}` | one instrument: identifiers, names, jurisdiction, kind, dates, article count. `identifier` is a BWB id, a CELEX number or a node key (`echr_convention`, `verdrag_012345`); 404 when unknown |
+| `.../eu-links` | `implements` (EU acts whose CELEX number the instrument's text names) and `implemented_by` (regulations that name this act), each with `instrument`, `relation`, `confidence`, `basis`, `source`, `meta`; `international`: treaties that articles refer to (with the treaty article) and ECHR judgments that refer to the instrument or its articles, with the edge `meta`; `*_total` fields are absolute, `limit` (max 2000) bounds each list |
 | `/api/instruments/{bwb_id}/articles` | articles in natural order (`24` before `24c` before `25`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
 | `.../articles/at/{at_date}` | article versions valid on `YYYY-MM-DD` (`valid_from <= date < valid_until`) |
 | `.../versions` | every toestand, newest first, `current` flagged |
@@ -51,12 +56,25 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `GET /api/annexes` | annexes; `bwb_id`, `shared_across_laws` |
 | `/api/annexes/{key}` and `.../referenced-by` | one annex with entries; the articles that scope by it |
 
+`IMPLEMENTS` says that the text of a national regulation names the CELEX number of an EU act
+(`basis: celex_named_in_text`, confidence 0.75). It is not a transposition relation and it
+is not per article, so `eu-links` has no article list for it. `international` holds what
+the graph links: `REFERS_TO` edges from articles to BWB treaties (`BWBV...`) and from ECHR
+judgments to instruments and to articles of the ECHR Convention. Verdragenbank treaties and
+Convention articles have no link from Dutch text, so nothing is returned for them.
+
+`articles`, `citations`, `judgments`, `dossiers`, `amended-by`, `related-instruments` and
+`cross-law-dependencies` answer for an EU act too; `bwb_id` in their response then holds the
+CELEX number as requested. `versions`, `articles/at` and `shared-annexes` are about BWB
+toestanden and annexes: for a CELEX number they are empty. An identifier that names nothing
+gives an empty list on these routes, and 404 on the detail and on `eu-links`.
+
 ### Judgments
 
 | Path | Returns |
 |------|---------|
 | `GET /api/judgments` | paged list; `q`, `court` (ECLI code), `tier` (`hoge_raad`, `gerechtshof`, `rechtbank`, `bijzonder`), `source`, `from`, `to`, `cited_by_min`, `sort` (`date_desc`, `date_asc`, `citation_count`) |
-| `/api/judgments/{ecli}` | the judgment with the articles its `REFERS_TO` edges point at, each with its parent instrument |
+| `/api/judgments/{ecli}` | the judgment with its `paragraphs` (each with a `paragraph_id` for deep links, its printed `number` and the article `citations` in it, one per occurrence with `start` and `end`), the articles its `REFERS_TO` edges point at with their parent instrument (`articles`), and the same articles as `cited_articles` with the paragraphs that cite them, the lid or onderdeel named and a snippet. Citations are read from the stored edges; nothing is detected per request |
 
 ### Parliament
 
@@ -64,30 +82,55 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 |------|---------|
 | `GET /api/dossiers/open` | dossiers not yet closed; `committee` (slug), `subject`, `stage`, `has_stage` (all listed stages), `limit`, `offset` |
 | `/api/dossiers/recent` | dossiers with activity in `days` (default 30) |
-| `/api/dossiers/{number}` | header, current stage, counts of documents, activities, decisions, commitments |
-| `.../timeline` | documents, activities, decisions and commitments; `order` (`desc`, `asc`), `kind` (comma-separated), `limit` |
-| `.../documents` | documents linked directly or through a case, newest first, with `total` |
+| `/api/dossiers/{number}` | header, current stage, counts of documents, activities, decisions, commitments, and the dossier hub: `instruments` (`id`, `key`, `bwb_id`, `celex`, `display_name`, `jurisdiction`, `relation` `legislated_in`/`amends`/`introduces`/`repeals`, `status` `canoniek`/`voorgesteld`; one item per instrument, relation and status), `committees` (leading an activity about the dossier, `role` `lead`), `documents_by_kind` (counts per document `kind`), `senate` (`document_count`, `first_date` of the Eerste Kamer papers) |
+| `.../timeline` | documents, activities, decisions and commitments; `order` (`desc`, `asc`), `kind` (comma-separated), `limit`. Each entry has `node_type` and a `body` typed by it: a document (`kind`, `title`, `sequence`, `session_year`, `tk_url`, `url`, `chamber`, `source`, `is_explanatory`; never its text), an activity (`kind`, `agenda_title`, `number`; the entry also has `committee` `{key, slug, name}`, null for plenary), a decision (`subject`, `passed`, `vote_kind`, `tally`, `voters`, `external_id`, and the decided `document` with `dictum_excerpt` and `signatories`) or a commitment (`text`, `minister_name`, `minister_role`, `status`, `expected_resolution`) |
+| `.../documents` | documents linked directly or through a case, newest first, with `total`; like every document in the API each has `chamber` (`TK`, `EK`, null for Staatsblad and Staatscourant), `source` and `is_explanatory` |
 | `.../mutations` | the subgraph of `voorgesteld` edges, in graph shape |
 | `/api/dossiers/documents/bulk?numbers=a,b` | top `per_dossier_limit` (default 8) documents per dossier |
-| `GET /api/decisions`, `/{key}`, `/{key}/document` | decisions (`passed`, `party`, `chamber` `TK`/`EK`; the Eerste Kamer has papers but no votes) with every vote cast — per member on a roll-call, per faction otherwise; the decided motion, amendment or bill with text |
-| `GET /api/committees`, `/with-members`, `/{slug}` | committees; detail lists current members (`current_only=true`, the default) and the dossiers it leads |
-| `GET /api/members`, `/{key}`, `/{key}/votes`, `/{key}/touched-instruments` | members (filter `party`, `active`, `q`; ministers only with `include_all`); a member's votes, a faction vote counted only for the period they belonged to it; laws the member proposed changes to |
-| `GET /api/factions`, `/{key}`, `/{key}/touched-instruments` | factions with member counts; the same aggregate per faction |
+| `GET /api/decisions`, `/{key}`, `/{key}/document` | decisions (`passed`, `party`, `chamber` `TK`/`EK`, `dossier` number; the Eerste Kamer has papers but no votes) with every vote cast — per member on a roll-call, per faction otherwise; the decided motion, amendment or bill with text |
+| `GET /api/committees`, `/with-members`, `/{slug}` | committees; detail lists current members (`current_only=true`, the default) and a page of the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, `offset`; `dossier_total` counts the matches, `active_dossier_count` the open dossiers) |
+| `/api/committees/{slug}/activities` | the activities the committee leads, newest first, each with `date`, `kind`, `agenda_title`, `dossier_numbers`; `limit`, `offset`, `total` |
+| `GET /api/members`, `/{key}`, `/{key}/votes`, `/{key}/dossiers`, `/{key}/touched-instruments` | members (filter `party`, `active`, `q`; ministers only with `include_all`); a member's votes, a faction vote counted only for the period they belonged to it; the dossiers the member authored documents in (`AUTHORED`), each a dossier summary plus `roles` (the source's role names) and `document_count`, paged with `total`; laws the member proposed changes to |
+| `GET /api/factions`, `/{key}`, `/{key}/dossiers`, `/{key}/touched-instruments` | factions with member counts; the same two aggregates per faction (its dossiers are those its members signed documents in while they belonged to it) |
 | `GET /api/parliament/seats` | seated factions with seat counts in plenary-hall order |
 | `GET /api/parties/colors` | party abbreviation to hex colour |
-| `GET /api/documents`, `/{key}` | documents across sources, metadata only (`q`, `kind`, `chamber`, `source`, `limit` up to 1000); one with its extracted text (null when `tk-content` has not reached it) |
+| `GET /api/documents`, `/{key}` | documents across sources, metadata only (`q`, `kind`, `chamber`, `source`, `dossier` number: documents linked directly or through a case; `limit` up to 1000, `offset`; `total` counts all matches); one with its extracted text (null when `normalize tk-content` has not reached it), its `sections` (the headings of the paper: `id`, `heading`, `level`, `parent`, `kind`, `number`, `number_scheme`, `article_refs`, `law`, `char_start`, `char_end`; offsets into `text`, empty without text), `dossier_numbers` (the dossiers it is `PART_OF`, in either chamber) and `explains` (the articles and instruments it `EXPLAINS`: `id`, `key`, `collection`, `bwb_id`, `article_number`; an article version resolves to its article, an instrument has no `article_number`) |
+| `GET /api/documents/{key}/passages?bwb_id=&article=` | the sections of a memorandum that explain an article (or one of its versions), in document order: `section_id`, `heading`, `level`, `char_start`, `char_end`, `text`, `confidence` (uncalibrated), `match_type`; with `total`; empty list for an article without passages or a document without text, 404 for an unknown document |
 
 ### Graph, search, nodes
 
 | Path | Returns |
 |------|---------|
-| `GET /api/graph/global` | instruments, articles, judgments and edges; `include_judgments`, `max_judgments` |
-| `/api/graph/instruments` | instruments as nodes, edges aggregated from article-level `REFERS_TO` plus the direct `IMPLEMENTS` and `AMENDS` edges |
-| `/api/graph/judgments` | judgments and their edges; `max_judgments`, `include_stubs` |
-| `/api/nodes/{collection}/{key}` | a node with all neighbours, direction and confidence; `neighbor_limit` |
-| `.../neighborhood` | nodes and edges within `depth` (1-4) hops, capped by `cap` |
+| `GET /api/graph/global` | instruments, articles, judgments and edges; `node_types` (`instrument`, `article`, `judgment`), `relations` (`REFERS_TO`, `EXPLAINS`, `PART_OF`, `IMPLEMENTS`, `AMENDS`), `max_judgments` |
+| `/api/graph/instruments` | instruments as nodes, edges aggregated from article-level `REFERS_TO` plus the direct `IMPLEMENTS` and `AMENDS` edges; `relations` (`REFERS_TO`, `IMPLEMENTS`, `AMENDS`) |
+| `/api/graph/judgments` | judgments and their edges; `max_judgments`, `include_stubs`. No relation or type filter: its edges are all aggregated `REFERS_TO`, its nodes judgments and the instruments they cite |
+| `/api/nodes/{collection}/{key}` | a node (any node collection) with its neighbours in buckets of one relation, direction and neighbour collection. Every neighbour carries its edge: `edge_id` (the edge `_key`, as in `/api/relationships/{edge_id}/vote`), `status`, `confidence`, `meta`. A bucket has `type`, `total` (its edges), `next_offset` (null on the last page) and `items`; `limit` (default 30, max 200) and `offset` page inside every bucket. Bucket and page order are the same on every request |
+| `.../facets` | `items` of `{relation, direction, collection, type, count}` and `total` (all edges), counted in the database without reading the neighbours |
+| `.../neighborhood` | nodes and edges within `depth` (1-4) hops, capped by `cap`; the filters below shape the traversal |
 | `/api/nodes/in-flux`, `/api/nodes/heat` | node id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6), `min_count`. Both answer a plain map (`{"articles/bwbr0001854_287": 3}`), not validated through a response model |
-| `GET /api/search?q=` | text search over `types` (`articles`, `committees`, `documents`, `dossiers`, `factions`, `instruments`, `judgments`, `members`; all by default), `kind`, `limit`; every hit has `score` 1.0 (no ranking) |
+| `GET /api/search?q=` | text search over `types` (`articles`, `committees`, `documents`, `dossiers`, `factions`, `instruments`, `judgments`, `members`; all by default), `kind`, `limit`. A citation in `q` (`art. 6:162 BW`, `artikel 287 Sr`, `Sr 287`, a full ECLI) puts its article or judgment first. Every hit has a `score`, its rank tier for `q`: an identifier of the hit (1), its whole name (0.75), the start of its name (0.5), every word of `q` in its name (0.25), a match on words only (0.1); a type lists its hits best first, ties in database order. `extra` of an article carries `instrument_title` (its law), of a document `dossier_number` |
+| `GET /api/resolve?q=` | the one node a citation, identifier or law name names: `kind` (`article`, `instrument`, `judgment`, `dossier`, `document`, or `none`), `match` (`id`, `key`, `collection`, `kind`, `display_name`, `confidence`), `confidence`, `alternatives` (up to five, same shape, best first) and `qualifier` (`derde lid` of `artikel 287, derde lid, Sr`). Nothing that fits is 200 with `kind` `none` and `match` null, so the caller searches the words instead; only an empty or over-long `q` is 422 |
+
+### Resolve notations
+
+`/api/resolve` reads `q` as, in this order:
+
+| Notation | Examples | Target | Confidence |
+|----------|----------|--------|------------|
+| ECLI, BWB id, CELEX id | `ECLI:NL:HR:2023:123`, `BWBR0001854`, `32016R0679` | the judgment or instrument with that key | 1 |
+| Article of a named law: keyword and number, or law and number | `art. 6:162 BW`, `artikel 287 Sr`, `artikel 3.26 van de Wet ruimtelijke ordening`, `Sr 287`, `Awb 3:4` | the article, by key; several articles (`artikelen 36e en 36f Sr`) give the first as match, the rest as alternatives | 0.95 |
+| Kamerstuk | `36327`, `Kamerstuk 36327`, `36 327`, `29684-I` | the dossier with that number and suffix; other suffixes of the number are alternatives (0.5) | 0.95 |
+| Paper of a Kamerstuk | `36327-3`, `Kamerstukken II 2020/21, 36327, nr. 3`, `kst-36327-3` | the document with that ondernummer in the dossier; the dossier (0.6) when the graph lacks the paper | 0.95 |
+| Law name or abbreviation | `Wetboek van Strafvordering`, `Grondwet`, `Sr` | the instrument | 0.9; the start of a name 0.6, part of a name 0.4 |
+| Article without a law | `artikel 6`, `art. 6:162` | the most cited article with that number; the others are alternatives | 0.5 for one law, 0.3 for several |
+
+The article number is read as the graph stores it: a law that numbers with a colon keeps it
+(`3:4` of the Awb), while every book of the Burgerlijk Wetboek is a regulation of its own and
+the book before the colon picks it (`BW6`); the article is then `162`, so `art. 6:162 BW` is
+never article `6`. A law is known by its `short_title`, its
+citation title or its title; a name two laws share names no article but lists both laws as
+alternatives, and several equally good nodes cap the confidence at 0.5. A bare number needs five
+digits (`36327`) unless it follows `Kamerstuk` or `dossier`.
 
 ### Semantic relationships and watches
 
@@ -99,13 +142,25 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | POST | `/api/relationships/{edge_id}/vote` | body `{"vote": "upvote" or "downvote"}`; increments the community counter |
 | GET, POST, DELETE | `/api/watches`, `/api/watches/{watch_id}` | saved node watches: list (newest first), create (201; 400 when `node_id` is malformed or the node does not exist), delete (204, 404) |
 
+### Neighbour filters
+
+`/api/nodes/{collection}/{key}`, `.../facets` and `.../neighborhood` take the same filters:
+`relations` and `node_types` (comma-separated relation names and `NodeType` values),
+`direction` (`outbound`, `inbound`) and `status` (`canoniek`, `voorgesteld`). A name that does
+not exist is 422. On the node and facets routes they narrow the edges, so totals count what
+remains. On `.../neighborhood` they shape the walk: it follows only edges of those relations
+and status, only in that direction (at every hop), and only through nodes of those types (the
+focal node is always kept); the edges returned between the kept nodes are those of the
+relations and status.
+
 ## Response conventions
 
 - Every DTO forbids unknown fields (`extra="forbid"`).
 - Node references use `id` (`collection/key`) and `key`; edges use `from` and `to`.
 - List responses carry `items` and `total`, the absolute number of matches independent of
   `limit`. Some carry a domain name instead of `items` (`entries` for timelines, `versions`,
-  `votes`, `relationships`).
+  `votes`, `relationships`). The neighbours of a node are grouped in `buckets`, each with its
+  own `items`, `total` and `next_offset`.
 - Errors: 401 missing or wrong key, 404 unknown resource, 422 invalid parameter, 429 rate
   limited, 503 database unreachable or writing not configured.
 - Responses of the route handlers carry an `X-Request-ID` header.
@@ -115,9 +170,10 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | Path | Contents |
 |------|----------|
 | `api/app.py` | app, middleware, router registration, `lawgraph-api` entry point |
-| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `search`, `stats`, `watches`, `relationships`, `annexes`, `parliament`) |
+| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `watches`, `relationships`, `annexes`, `parliament`) |
 | `api/queries/` | AQL per domain; user input only through bind variables |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
+| `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
 | `api/dependencies.py` | `get_store()`: one shared `ArangoStore`; the two keys and `refuse_open_writes` |
 | `api/cache.py` | `TTLCache`: in-process LRU with TTL (`LAWGRAPH_CACHE_TTL` 60 s, `LAWGRAPH_CACHE_MAXSIZE` 512) used by several routes |
 

@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.queries.articles import ArticleCitationEntry, ArticleDetailData
+from lawgraph.api.schemas.articles import ArticleExplanationDTO
 
 client = TestClient(app)
 
@@ -117,3 +118,115 @@ def test_get_article_detail_exposes_citations(monkeypatch):
     assert target["bwb_id"] == "BWBR0001854"
     assert target["article_number"] == "24c"
     assert target["display_name"] == "Artikel 24c"
+
+
+_EXPLANATION_ROW = {
+    "document_id": "documents/mvt_1",
+    "key": "mvt_1",
+    "kind": "Memorie van toelichting",
+    "title": "MvT",
+    "date": "2025-01-10T00:00:00",
+    "source": "tk",
+    "labels": ["TK"],
+    "dossier_number": "36000",
+    "target_id": "article_versions/av_5_new",
+    "confidence": 1.0,
+    "section_anchor": None,
+}
+
+
+def _explanation(**changes):
+    return ArticleExplanationDTO.from_row({**_EXPLANATION_ROW, **changes})
+
+
+def test_an_explanation_on_a_version_names_the_version_and_is_dossier_wide() -> None:
+    item = _explanation()
+
+    assert item.target == "article_version"
+    assert item.article_version_key == "av_5_new"
+    assert item.target_id == "article_versions/av_5_new"
+    assert item.scope == "dossier" and item.section_anchor is None
+    assert item.confidence == 1.0
+    assert item.document.model_dump() == {
+        "chamber": "TK",
+        "source": "tk",
+        "is_explanatory": True,
+        "id": "documents/mvt_1",
+        "key": "mvt_1",
+        "kind": "Memorie van toelichting",
+        "title": "MvT",
+        "date": "2025-01-10",
+        "dossier_number": "36000",
+    }
+
+
+def test_an_explanation_on_an_article_or_an_instrument_has_no_version_key() -> None:
+    article = _explanation(target_id="articles/bwbr0002_5")
+    instrument = _explanation(target_id="instruments/bwbr0002")
+
+    assert (article.target, article.article_version_key) == ("article", None)
+    assert (instrument.target, instrument.article_version_key) == ("instrument", None)
+
+
+def test_an_explanation_with_a_section_anchor_is_scoped_to_the_article() -> None:
+    item = _explanation(section_anchor="artikel-5")
+
+    assert item.scope == "article" and item.section_anchor == "artikel-5"
+
+
+def test_an_explanation_of_a_document_without_dates_or_dossier_is_still_one() -> None:
+    item = _explanation(
+        date=None, dossier_number=None, labels=["EersteKamer", "EK"], kind=None
+    )
+
+    assert item.document.date is None and item.document.dossier_number is None
+    assert item.document.chamber == "EK" and item.document.is_explanatory is False
+
+
+def test_explained_by_answers_a_page_with_its_total(monkeypatch) -> None:
+    asked: list[tuple] = []
+
+    def fake(store, bwb_id, article_number, *, limit, offset):
+        asked.append((bwb_id, article_number, limit, offset))
+        return {"total": 41, "items": [_EXPLANATION_ROW]}
+
+    monkeypatch.setattr("lawgraph.api.routes.articles.get_article_explanations", fake)
+
+    response = client.get(
+        "/api/articles/BWBR0002/5/explained-by", params={"limit": 5, "offset": 10}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert asked == [("BWBR0002", "5", 5, 10)]
+    assert body["article_id"] == "articles/bwbr0002_5"
+    assert body["total"] == 41 and len(body["items"]) == 1
+    assert body["items"][0]["target"] == "article_version"
+    assert body["items"][0]["document"]["dossier_number"] == "36000"
+
+
+def test_explained_by_of_an_unknown_article_is_an_empty_page_not_a_404(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "lawgraph.api.routes.articles.get_article_explanations",
+        lambda store, bwb_id, article_number, *, limit, offset: {
+            "total": 0,
+            "items": [],
+        },
+    )
+
+    response = client.get("/api/articles/BWBR9999/1/explained-by")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "article_id": "articles/bwbr9999_1",
+        "total": 0,
+        "items": [],
+    }
+
+
+def test_explained_by_bounds_its_page() -> None:
+    for params in ({"limit": 0}, {"limit": 501}, {"offset": -1}):
+        response = client.get("/api/articles/BWBR0002/5/explained-by", params=params)
+        assert response.status_code == 422, params

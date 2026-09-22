@@ -17,12 +17,14 @@ from lawgraph.api.queries.decisions import (
     get_decision_document,
     get_decisions,
 )
+from lawgraph.api.queries.documents import get_document_links
 from lawgraph.api.schemas.decisions import (
     DecisionDTO,
     DecisionListResponse,
     DecisionSummaryDTO,
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
+from lawgraph.api.schemas.dossiers import DOSSIER_NUMBER_PATTERN
 from lawgraph.db import ArangoStore
 
 router = APIRouter()
@@ -34,8 +36,8 @@ router = APIRouter()
     summary="Decision browser",
     description=(
         "A page of decisions — one per Besluit — newest first, optionally "
-        "filtered by outcome, party or chamber. ``total`` is the absolute "
-        "count, independent of ``limit``."
+        "filtered by outcome, party, chamber or dossier. ``total`` is the "
+        "absolute count, independent of ``limit``."
     ),
     tags=["decisions"],
 )
@@ -48,6 +50,13 @@ def list_decisions(
         str | None, Query(description="Only decisions this party voted on.")
     ] = None,
     chamber: Annotated[str | None, Query(description="'TK' or 'EK'.")] = None,
+    dossier: Annotated[
+        str | None,
+        Query(
+            description="Only decisions on this dossier number, e.g. 29684.",
+            pattern=DOSSIER_NUMBER_PATTERN,
+        ),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DecisionListResponse:
@@ -56,6 +65,7 @@ def list_decisions(
         passed=passed,
         party=party,
         chamber=chamber,
+        dossier=dossier,
         limit=limit,
         offset=offset,
     )
@@ -107,4 +117,6 @@ def get_decision_document_route(
             status_code=404,
             detail=f"No document resolvable for decision '{key}'.",
         )
-    return DocumentTextResponse.from_document(document)
+    return DocumentTextResponse.from_document(
+        document, get_document_links(store, document["_id"])
+    )

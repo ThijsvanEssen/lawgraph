@@ -13,7 +13,9 @@ A node is a document `{_key, type, labels, props}`:
   non-alphanumerics replaced by `_`), so every pipeline can be re-run.
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
   `annex`, `judgment`, `dossier`, `case`, `document`, `activity`, `decision`, `commitment`,
-  `member`, `faction`, `committee`, `topic`).
+  `member`, `faction`, `committee`, `topic`). Every type has its own collection and every
+  collection holds one type (`core.models.COLLECTION_OF_TYPE`), so the collection in an id
+  says the type.
 - `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` are validated against a strict Pydantic schema per collection (`core/props.py`);
@@ -62,10 +64,10 @@ they are out of date. Do not edit inside the markers.
 | `INTRODUCES` | Instrument / Document | Instrument / Article | An instrument adds a new article or instrument; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument / Document | Instrument / Article | An instrument withdraws an article or instrument; a bill proposing it is `voorgesteld`. |
 | `BASED_ON` | Instrument | Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble. |
-| `IMPLEMENTS` | Instrument | Instrument | A national instrument transposes an EU directive. |
+| `IMPLEMENTS` | Instrument | Instrument | A national instrument whose text names the CELEX number of an EU act; not a transposition claim, and not per article. |
 | `LEGISLATED_IN` | Instrument | Dossier | The parliamentary dossier in which an instrument was legislated (BWB `dossierref`). |
 | `REFERS_TO` | Article / Document / Judgment | Article / Instrument / Judgment | A text refers to an article, instrument or judgment. The source node says who refers; article → article edges also carry a `semantic_type`. |
-| `EXPLAINS` | Document | ArticleVersion / Article / Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed. |
+| `EXPLAINS` | Document | ArticleVersion / Article / Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed. Written per dossier: every MvT and NvT of a dossier explains everything its law changed; an MvT edge carries `meta.section_anchor` when one of its sections is about that article. |
 | `APPEAL_OF` | Judgment | Judgment | An appeal or cassation judgment → the judgment it appeals. |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
@@ -109,7 +111,21 @@ they are out of date. Do not edit inside the markers.
 | `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
 | `confidence` | 0-1; absent on structural edges; 1.0 when read from source XML |
 | `created_at` | set on insert only |
-| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
+| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
+
+An edge is one per (`_from`, `relation`, `_to`); a second write replaces `source`, `status` and
+`confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
+key: `semantic tk-mvt` (a change of the dossier, `confidence` 0.5, no section) and `semantic
+tk-mvt-articles` (a section that is about the article; `source` `mvt-section-linker`, the
+`confidence` of the surest section). The second wins whichever ran first. Its `meta`:
+
+| Field | Meaning |
+|-------|---------|
+| `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end` and `match_type` are that section's |
+| `match_type` | `heading_target`, `body_named_law`, `own_number` or `inferred_law` (`docs/pipelines.md`) |
+| `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `confidence` |
+
+`char_start`/`char_end` are offsets into `props.text` of the Document.
 
 Semantic layer on article-to-article `REFERS_TO` edges, orthogonal to `relation`: `relation`
 says that two articles are linked, `semantic_type` says what the link means.
@@ -140,6 +156,7 @@ statutes made by the legislator:
   link ("verordening (EU) 2021/784") or left out.
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records.
 - EU directives, regulations and decisions (`celex`).
+- The Convention of the ECHR (`echr_convention`): kind `verdrag`, `bwb_id` `ECHR-CONVENTION`, which its articles carry too.
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too
   (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
   `date_published`, `dossier_numbers`); they are the source of `AMENDS`, `INTRODUCES` and
@@ -157,8 +174,8 @@ renumbering; each version has a `versie-id`.
 
 | Node | Identity | Notes |
 |------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `references` (structured `extref`/`intref` with text offsets) |
-| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
+| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references` (see below) |
+| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
 | InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until`, `current`, `state_url` |
 
 - `ArticleVersion VERSION_OF Article` and `InstrumentVersion VERSION_OF Instrument`. There are
@@ -169,6 +186,55 @@ renumbering; each version has a `versie-id`.
   in `last_article_number`. They carry `repealed: true`.
 - `repealed` is also set on a current article whose latest `effect` is `vervallen`.
 - Articles of the current toestand without a number or without text are not written.
+- `parts` is the structure of the text: a list of `{id, kind, number, start, end}`, offsets into
+  the article's own `text` (the text of a part is `text[start:end]`, without its printed
+  number). `kind` is `lid`, `onderdeel` or `aanhef`; sentences (volzinnen) are not parts. A
+  part with onderdelen spans them too, and the list is ordered by `start`, an enclosing part
+  first. The `id` is stable and unique in the article: `lid-2`, `lid-2a`, `lid-2-aanhef` (the
+  text of a lid before its onderdelen), `lid-2-onder-a`, `lid-2-onder-a-onder-1` (an onderdeel
+  of an onderdeel), and for an article without leden `aanhef` and `onder-a`. Numbers are
+  written lower case without the degree sign (`1°` is `onder-1`; `number` keeps `1°`). An
+  item without a letter or digit (a dash, a definition) is `onder-_<n>`, its position among
+  its siblings; a marker that repeats one before it gets `_<n>`, its occurrence
+  (`onder-a_2`). A paragraph next to the leden is no part.
+- `references` holds every `extref`/`intref` of the text that names a regulation:
+  `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. The `doc` (JCI)
+  of a BWB link stops at the article, so `leden`, `onderdelen` (written as in the part ids)
+  and `aanhef` are read from the text of the link (`core/qualifiers.py`); a link to a chapter
+  or a title has none.
+
+## Judgment
+
+A Rechtspraak judgment carries its header (`court`, `date`, `case_number`, `judgment_metadata`,
+`related_eclis`, `subjects`; `court_code`, `tier` and `date_eff` derived), `summary`, `text` and
+`paragraphs`.
+
+`paragraphs` is the `<uitspraak>` in reading order, a list of `{id, number, kind, text}`. `kind` is
+`heading` (a section), `subheading` (a nested section, or an `<uitspraak.info>` block) or `body`.
+A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
+its own text: the text of `5.3` does not hold `5.3.1`. Where the XML has no such structure a
+`<para>` is a paragraph, and a number that its text opens with (`1.    Bij het besluit`) is its
+number. `number` is the number as printed without its closing dot (`5.3`), null when there is
+none, and is not part of `text`. `id` names the paragraph in deep links and mentions and is
+unique in the judgment: `rov-5.3` for a numbered `body` paragraph (a consideration, cited as
+"rov. 5.3"), `kop-5` for a numbered heading, `p-<n>` (its position) for a paragraph without a
+number; a number that repeats one before it gets `_<n>`, its occurrence (`rov-1_2`).
+
+A `REFERS_TO` edge from a judgment to an article (`semantic rechtspraak`) is one per judgment and
+article. Its `confidence` is that of the strongest mention, `meta.mention_count` the number of
+mentions, `meta.reason` the kind of target, and `meta.mentions` the first 100 mentions in
+reading order:
+
+| Field | Meaning |
+|-------|---------|
+| `paragraph_id`, `paragraph_number` | the paragraph that cites the article (`number` is absent when it has none) |
+| `start`, `end`, `raw_match` | the citation as written: `text[start:end]` of that paragraph |
+| `qualifier` | what the citation says of the article's parts, as written: `derde lid` |
+| `leden`, `onderdelen`, `aanhef` | what the qualifier names, as in the part ids of an article (`core/qualifiers.py`) |
+| `snippet`, `confidence` | the text around the citation; 0.95 for a law named by its code or its title, less for a law that is found by "die wet" |
+
+A Tweede Kamer document's edge to an article has `meta.raw_match`, `snippet`, `reason`, `qualifier`,
+`leden`, `onderdelen` and `aanhef` of the first citation of that article.
 
 ## Parliament
 
@@ -178,13 +244,50 @@ Dossier contains Case contains Document. TK data is the source.
 |---------|-----------|-------|
 | Dossier | `dossiers` | `number`, `suffix`, `title`, `title_source`, `closed`, `opened_on`, `closed_on`; derived: `current_stage`, `stages_present` (of `wetsvoorstel`, `mvt`, `advies_rvs`, `nota`, `verslag`, `amendementen`, `stemming`, `afgehandeld`), `case_kinds`, `track_kind` (`wetsvoorstel`, `initiatiefwetsvoorstel`, `begroting`, `motie`, `overig`), `outcome` (`aangenomen`, `verworpen`, `ingetrokken` for closed dossiers) |
 | Case | `cases` | every TK Zaak, no filter on kind; `title`, `citation_title`, `number`, `dossier_numbers` (the payload stays in `raw_sources`) |
-| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `dossier_numbers`, `case_ids`, `actors`, `text`); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`) |
+| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `dossier_numbers`, `case_ids`, `actors`, `text`; the structure of the text of a Kamerstuk XML: see below); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`); the chamber is in `labels` (`TK`; `EersteKamer` and `EK`), and a `kind` containing `toelichting` makes a document explanatory |
 | Activity | `activities` | debate or hearing; `date`, `agenda_title`, `kind`, `committee_id`, `case_ids`, `dossier_numbers` |
 | Decision | `decisions` | one node per TK `Besluit` |
 | Commitment | `commitments` | `status` mapped to `open`, `gedaan`, `vervallen`, `unknown`; `activity_number` |
 | Member | `members` | every TK `Persoon` (members and ministers); `name`, `party`, `faction_memberships` (dated timeline) |
 | Faction | `factions` | `name`, `abbreviation`, `aliases`, `seats`, `active` |
 | Committee | `committees` | `name`, `abbreviation`, `slug` |
+
+### Text and sections of a Kamerstuk
+
+`normalize tk-content` reads the Kamerstuk XML that `retrieve tk-content` stored and writes,
+on the Document of the paper (`meta.document` of the raw record):
+
+| Prop | Meaning |
+|------|---------|
+| `text` | one line per heading, paragraph, list item or table row (cells tab-separated), whitespace collapsed; footnotes, header and signature are not in it. Cut at a whole line at 2,000,000 characters (`MAX_TEXT_CHARS`; the longest paper seen has 1.1 million) |
+| `text_truncated` | `true` when it was cut |
+| `text_source` | `kst-xml` |
+| `xml_dialect` | `kamerwrk` (1995-2009) or `officiele-publicatie` (2010 on) |
+| `structure_quality` | `explicit`: an artikelsgewijs opener and article headings after it; `implicit`: article headings, no opener; `none`: no article headings |
+| `budget` | a budget or annual report (a dossier chapter such as `XV`, or a title that says so): its numbered articles are policy articles, not law articles, so a consumer that links articles skips it |
+| `footnotes` | `[{number, text}]` in document order |
+| `sections` | the headings of the paper, in document order, as below |
+
+The XML has no element for an article: the artikelsgewijs part of a memorandum is a run of
+headings with the paragraphs after them. Every heading is a section, so `sections` covers the
+whole paper; a section spans its heading, its body and everything nested under it:
+`text[char_start:char_end]`. A child lies inside its parent.
+
+| Field | Meaning |
+|-------|---------|
+| `id` | `s-<ordinal>` in document order; the same XML always gives the same ids |
+| `heading` | the heading as printed (`ARTIKEL II (Huisvestingswet 2014)`) |
+| `level` | 1 for a section without parent, else the level of the parent plus 1 |
+| `parent` | id of the enclosing section, or `null` |
+| `kind` | `algemeen` (the general part: every heading before the opener); `artikelsgewijs` (the heading that opens the article-by-article part: "Artikelsgewijs", "Artikelsgewijze toelichting", "Artikelen"); `article` ("Artikel 3", "Artikelen 3 en 4", "Artikel I, onderdeel B (artikel 1a)"); `onderdeel` ("Onderdeel B", "Ad a.", "A, B en D"); `lid` ("Eerste lid", "Ad 1"); `chapter` ("Hoofdstuk 2", "Afdeling 3"); `other`. `onderdeel` and `lid` only inside an article; an article heading is one wherever it stands |
+| `number` | the number as printed in the heading (`3`, `II`, `3:159n`, `1.6.20`, `B`); of the first article for a heading with several; `lid` numbers are digits (`Eerste lid` is `1`); `null` when the heading has none |
+| `number_scheme` | `arabic`, `roman`, `book_article` (`3:159n`, `1.6.20`), `letter` (`B`), or `null` |
+| `article_refs` | `[{number, of}]`: every article number the heading names (`Artikelen 3 en 4` gives two; `1 tot en met 3` gives 1, 2, 3), empty for other kinds. `of`: `self` (an article of the bill the memorandum accompanies), `named_law` (of the law `law` names: `Artikel 1a van de Woningwet`), `unknown` (of a law that is implied and not named: the `(artikel 1a)` of `Artikel I, onderdeel B (artikel 1a)`, or the parenthesis of `Onderdeel A (artikel 1)`) |
+| `law` | another law the heading names, in parentheses or after `van de` (`Huisvestingswet 2014`, `Boek 7 van het Burgerlijk Wetboek`), else `null`; on an `article` whose number is the bill's own it is the law that bill article changes |
+| `char_start`, `char_end` | offsets into `text` |
+
+A paper that cannot be read gives no text and the record is skipped; a paper whose structure
+cannot be read gives its text, no sections and `structure_quality` `none`.
 
 Votes: TK returns one row per voter per `Besluit`. A roll-call (`Hoofdelijk`) names every
 member, so its `VOTED` edges start at the member; any other vote is cast per faction and the
@@ -210,7 +313,7 @@ JSON sources use `payload_json`; XML and HTML sources use `payload_text`.
 
 | Source | Kinds |
 |--------|-------|
-| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon` |
+| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document) |
 | `rechtspraak` | `rs-content` |
 | `eurlex` | `eu-celex-html` |
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
@@ -222,8 +325,8 @@ JSON sources use `payload_json`; XML and HTML sources use `payload_text`.
 
 A document the source answered HTTP 404 for is remembered as a record without payload of
 kind `<kind>-missing` (`eu-celex-html-missing`, `rs-content-missing`, ...); the retrieve
-pipelines do not ask for it again for 30 days and no other phase reads it. A Kamerstuk without
-XML is remembered on the document itself (`props.text_missing_at`).
+pipelines do not ask for it again for 30 days (3 days for a Kamerstuk of the last week, whose
+XML is still to be published) and no other phase reads it.
 
 ## Indexes and search views
 
@@ -232,7 +335,7 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | Collection | Indexes |
 |------------|---------|
 | `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
-| `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
+| `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
 | `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `labels[*]` |
 | `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes`, `watches` | the fields the list endpoints filter and sort on |

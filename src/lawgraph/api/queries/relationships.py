@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
+from lawgraph.api.queries.instrument_scope import scope_of
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
@@ -290,31 +291,46 @@ def search_relationships(
 
 def get_cross_law_dependencies(
     store: ArangoStore,
-    bwb_id: str,
+    identifier: str,
     *,
     limit: int = 200,
 ) -> list[dict[str, Any]]:
-    """Return article references from *bwb_id* into articles of other laws.
+    """Return article references from a BWB id or CELEX number into articles of other laws.
 
     Each row: {edge, source_article, target}. Driven by the
-    (props.bwb_id, props.article_number) index on ``articles``.
+    (props.bwb_id, props.article_number) or (props.celex, props.article_number) index on
+    ``articles``. The other law of a BWB regulation is a BWB regulation; the other law of
+    an EU act is a BWB regulation or another EU act.
     """
+    scope = scope_of(identifier)
+    other_law = (
+        "target.props.bwb_id != null AND target.props.bwb_id != @bwb_id"
+        if scope.prop == "bwb_id"
+        else (
+            "(target.props.bwb_id != null OR target.props.celex != null)"
+            " AND target.props.celex != @bwb_id"
+        )
+    )
     aql = f"""
     FOR art IN {COLLECTION_ARTICLES}
-        FILTER art.props.bwb_id == @bwb_id
+        FILTER art.props.{scope.prop} == @bwb_id
         FOR edge IN {COLLECTION_EDGES}
             FILTER edge._from == art._id
             FILTER edge.relation IN @relations
             FILTER STARTS_WITH(edge._to, '{COLLECTION_ARTICLES}/')
             LET target = DOCUMENT(edge._to)
             FILTER target != null
-            FILTER target.props.bwb_id != null AND target.props.bwb_id != @bwb_id
+            FILTER {other_law}
             LIMIT @limit
             RETURN {{ edge: edge, source_article: art, target: target }}
     """
     return list(
         store.query(
             aql,
-            {"bwb_id": bwb_id, "relations": list(ARTICLE_RELATIONS), "limit": limit},
+            {
+                "bwb_id": scope.value,
+                "relations": list(ARTICLE_RELATIONS),
+                "limit": limit,
+            },
         )
     )
