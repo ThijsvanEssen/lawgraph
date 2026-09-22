@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, cast
 
 from lawgraph.config.constants import (
+    COLLECTION_CASES,
     COLLECTION_COMMITTEES,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
@@ -150,17 +151,26 @@ def get_committees_with_members(store: ArangoStore) -> list[dict[str, Any]]:
     return list(store.query(aql, {"member_of": RELATION_MEMBER_OF}))
 
 
+# A dossier is open until it is marked closed, by flag or by date (as ``/dossiers/open``).
+_DOSSIER_CLOSED = "dossier.props.closed == true OR dossier.props.closed_on != null"
+
+
 def get_committee_detail(
     store: ArangoStore,
     slug: str,
     *,
     current_only: bool = True,
-    dossier_limit: int = 100,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
 ) -> dict[str, Any] | None:
-    """One committee with its members and the dossiers it leads.
+    """One committee with its members and a page of the dossiers it leads.
 
     Accepts the committee's ``slug`` or its ``_key``. With *current_only* the
     members are those whose seat has no end date, or an end date still ahead.
+    *status* (``open`` or ``closed``) keeps the dossiers of that state, newest
+    first; ``dossier_total`` counts them all, ``open_dossier_count`` the open ones
+    whatever the filter.
     """
     aql = f"""
     FOR committee IN {COLLECTION_COMMITTEES}
@@ -180,24 +190,45 @@ def get_committee_detail(
                 }})
         )
 
-        LET dossiers = (
+        LET dossier_ids = UNIQUE(
             FOR led IN {COLLECTION_EDGES}
                 FILTER led._to == committee._id AND led.relation == @led_by
                 FOR subject IN {COLLECTION_EDGES}
                     FILTER subject._from == led._from
                         AND subject.relation == @about
                     FILTER STARTS_WITH(subject._to, "{COLLECTION_DOSSIERS}/")
-                    LET dossier = DOCUMENT(subject._to)
-                    FILTER dossier != null
-                    RETURN DISTINCT dossier
-            LIMIT @dossier_limit
+                    RETURN subject._to
+        )
+        LET led_dossiers = (
+            FOR dossier_id IN dossier_ids
+                LET dossier = DOCUMENT(dossier_id)
+                FILTER dossier != null
+                RETURN {{ dossier: dossier, closed: {_DOSSIER_CLOSED} }}
+        )
+        LET matching = (
+            FOR row IN led_dossiers
+                FILTER @status == null OR (@status == "closed") == row.closed
+                RETURN row.dossier
+        )
+        LET dossiers = (
+            FOR dossier IN matching
+                SORT dossier.props.opened_on DESC, dossier._key ASC
+                LIMIT @offset, @limit
+                RETURN dossier
         )
 
-        RETURN MERGE(committee, {{ members: members, dossiers: dossiers }})
+        RETURN MERGE(committee, {{
+            members: members,
+            dossiers: dossiers,
+            dossier_total: LENGTH(matching),
+            open_dossier_count: LENGTH(FOR row IN led_dossiers FILTER NOT row.closed RETURN 1)
+        }})
     """
     bind: dict[str, Any] = {
         "slug": slug.lower(),
-        "dossier_limit": dossier_limit,
+        "status": status,
+        "limit": limit,
+        "offset": offset,
         "member_of": RELATION_MEMBER_OF,
         "led_by": RELATION_LED_BY,
         "about": RELATION_ABOUT,
@@ -206,6 +237,52 @@ def get_committee_detail(
         bind["today"] = dt.date.today().isoformat()
     for doc in store.query(aql, bind):
         return doc
+    return None
+
+
+def get_committee_activities(
+    store: ArangoStore, slug: str, *, limit: int = 100, offset: int = 0
+) -> dict[str, Any] | None:
+    """A page of the activities a committee leads, newest first; None when unknown.
+
+    Accepts the committee's ``slug`` or its ``_key``. Returns ``{total, items}``.
+    """
+    aql = f"""
+    FOR committee IN {COLLECTION_COMMITTEES}
+        FILTER committee.props.slug == @slug OR LOWER(committee._key) == @slug
+        LIMIT 1
+        LET led_activities = (
+            FOR led IN {COLLECTION_EDGES}
+                FILTER led._to == committee._id AND led.relation == @led_by
+                LET activity = DOCUMENT(led._from)
+                FILTER activity != null
+                RETURN activity
+        )
+        RETURN {{
+            total: LENGTH(led_activities),
+            items: (
+                FOR activity IN led_activities
+                    SORT activity.props.date DESC, activity._key ASC
+                    LIMIT @offset, @limit
+                    RETURN {{
+                        id: activity._id,
+                        key: activity._key,
+                        date: activity.props.date,
+                        kind: activity.props.kind,
+                        agenda_title: activity.props.agenda_title,
+                        dossier_numbers: activity.props.dossier_numbers OR []
+                    }}
+            )
+        }}
+    """
+    bind = {
+        "slug": slug.lower(),
+        "limit": limit,
+        "offset": offset,
+        "led_by": RELATION_LED_BY,
+    }
+    for row in store.query(aql, bind):
+        return cast(dict[str, Any], row)
     return None
 
 
@@ -418,3 +495,117 @@ def get_actor_touched_instruments(
         "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
     }
     return list(store.query(aql, bind))
+
+
+def get_actor_dossiers(
+    store: ArangoStore,
+    actor_id: str,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """A page of the dossiers a member or a faction authored documents in.
+
+    Walks member -> ``AUTHORED`` -> document (or case) -> ``PART_OF`` -> dossier, directly
+    or through a case. A faction has no ``AUTHORED`` edges of its own: it counts the
+    documents its members signed while they belonged to it (``faction_memberships``, as
+    for their votes). Each dossier carries the distinct ``AUTHORED`` roles and the number
+    of documents; newest opened first. Returns ``{total, items}``.
+    """
+    is_faction = actor_id.startswith(f"{COLLECTION_FACTIONS}/")
+    if is_faction:
+        head = f"""
+        FOR seat IN {COLLECTION_EDGES}
+            FILTER seat._to == @actor_id AND seat.relation == @member_of
+            LET member = DOCUMENT(seat._from)
+            FILTER member != null
+            LET periods = (
+                FOR m IN (member.props.faction_memberships OR [])
+                    FILTER m.faction_id == @actor_id
+                    RETURN m
+            )
+            FOR authored IN {COLLECTION_EDGES}
+                FILTER authored._from == member._id AND authored.relation == @authored
+        """
+        in_period = """
+            FILTER LENGTH(
+                FOR m IN periods
+                    LET date = DOCUMENT(authored._to).props.date
+                    FILTER date != null
+                    FILTER (m.from_date == null OR m.from_date <= date)
+                        AND (m.to_date == null OR m.to_date >= date)
+                    LIMIT 1 RETURN 1
+            ) > 0
+        """
+    else:
+        head = f"""
+        FOR authored IN {COLLECTION_EDGES}
+            FILTER authored._from == @actor_id AND authored.relation == @authored
+        """
+        in_period = ""
+
+    aql = f"""
+    LET rows = (
+        {head}
+            LET direct = (
+                FOR p IN {COLLECTION_EDGES}
+                    FILTER p._from == authored._to AND p.relation == @part_of
+                    FILTER STARTS_WITH(p._to, "{COLLECTION_DOSSIERS}/")
+                    RETURN p._to
+            )
+            LET via_case = (
+                FOR p1 IN {COLLECTION_EDGES}
+                    FILTER p1._from == authored._to AND p1.relation == @part_of
+                    FILTER STARTS_WITH(p1._to, "{COLLECTION_CASES}/")
+                    FOR p2 IN {COLLECTION_EDGES}
+                        FILTER p2._from == p1._to AND p2.relation == @part_of
+                        FILTER STARTS_WITH(p2._to, "{COLLECTION_DOSSIERS}/")
+                        RETURN p2._to
+            )
+            LET dossier_ids = UNIQUE(APPEND(direct, via_case))
+            FILTER LENGTH(dossier_ids) > 0
+            {in_period}
+            FOR dossier_id IN dossier_ids
+                RETURN {{
+                    dossier_id: dossier_id,
+                    document_id: authored._to,
+                    role: authored.meta.role
+                }}
+    )
+    LET grouped = (
+        FOR row IN rows
+            COLLECT dossier_id = row.dossier_id INTO group = row
+            LET dossier = DOCUMENT(dossier_id)
+            FILTER dossier != null
+            RETURN {{
+                dossier: dossier,
+                roles: (
+                    FOR role IN UNIQUE(group[*].role)
+                        FILTER role != null AND role != ""
+                        SORT role
+                        RETURN role
+                ),
+                document_count: LENGTH(UNIQUE(group[*].document_id))
+            }}
+    )
+    RETURN {{
+        total: LENGTH(grouped),
+        items: (
+            FOR row IN grouped
+                SORT row.dossier.props.opened_on DESC, row.dossier._key ASC
+                LIMIT @offset, @limit
+                RETURN row
+        )
+    }}
+    """
+    bind: dict[str, Any] = {
+        "actor_id": actor_id,
+        "limit": limit,
+        "offset": offset,
+        "authored": RELATION_AUTHORED,
+        "part_of": RELATION_PART_OF,
+    }
+    if is_faction:
+        bind["member_of"] = RELATION_MEMBER_OF
+    rows = list(store.query(aql, bind))
+    return cast(dict[str, Any], rows[0]) if rows else {"total": 0, "items": []}

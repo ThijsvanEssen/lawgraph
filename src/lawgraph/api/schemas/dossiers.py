@@ -325,8 +325,59 @@ class DossierListResponse(BaseModel):
     items: list[DossierSummaryDTO]
 
 
+DossierInstrumentRelation = Literal["legislated_in", "amends", "introduces", "repeals"]
+DossierInstrumentStatus = Literal["canoniek", "voorgesteld"]
+
+
+class DossierInstrumentDTO(BaseModel):
+    """An instrument a dossier is tied to, and how.
+
+    ``relation`` is ``legislated_in`` (the instrument came out of this dossier) or
+    ``amends``, ``introduces``, ``repeals`` (the dossier changes it, resolved from the
+    article or instrument that is changed to the parent instrument). ``status`` is
+    ``canoniek`` for what an amending publication enacted and ``voorgesteld`` for what a
+    bill of the dossier proposes. An instrument with several relations or statuses
+    appears once per combination.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    bwb_id: str | None = None
+    celex: str | None = Field(None, description="Set on EU instruments.")
+    display_name: str | None = None
+    jurisdiction: str | None = Field(None, description="``nl`` or ``eu``.")
+    relation: DossierInstrumentRelation
+    status: DossierInstrumentStatus
+
+
+class DossierCommitteeDTO(BaseModel):
+    """A committee that leads an activity about a dossier."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    slug: str | None = None
+    name: str | None = None
+    abbreviation: str | None = None
+    role: Literal["lead"] = "lead"
+
+
+class DossierSenateDTO(BaseModel):
+    """The Eerste Kamer papers among a dossier's documents."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    document_count: int = 0
+    first_date: str | None = Field(
+        default=None, description="Date of the earliest paper (YYYY-MM-DD)."
+    )
+
+
 class DossierDetailResponse(DossierSummaryDTO):
-    """A dossier with the size of everything attached to it."""
+    """A dossier with the size of everything attached to it, and what it links to."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -334,6 +385,25 @@ class DossierDetailResponse(DossierSummaryDTO):
     activity_count: int = 0
     decision_count: int = 0
     commitment_count: int = 0
+    instruments: list[DossierInstrumentDTO] = Field(
+        default_factory=list,
+        description=(
+            "Instruments legislated in, amended, introduced or repealed by the "
+            "dossier, one item per instrument, relation and status."
+        ),
+    )
+    committees: list[DossierCommitteeDTO] = Field(
+        default_factory=list,
+        description="Committees leading an activity about the dossier.",
+    )
+    documents_by_kind: dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Documents per kind (``Motie``, ``Amendement``, ...); a document "
+            "without a kind is not counted."
+        ),
+    )
+    senate: DossierSenateDTO = Field(default_factory=lambda: DossierSenateDTO())
 
     @classmethod
     def from_document(
@@ -341,14 +411,22 @@ class DossierDetailResponse(DossierSummaryDTO):
         doc: dict[str, Any],
         *,
         counts: dict[str, int] | None = None,
+        hub: dict[str, Any] | None = None,
     ) -> DossierDetailResponse:
         counts = counts or {}
+        hub = hub or {}
         return cls(
             **_dossier_fields(doc),
             document_count=counts.get("documents", 0),
             activity_count=counts.get("activities", 0),
             decision_count=counts.get("decisions", 0),
             commitment_count=counts.get("commitments", 0),
+            instruments=[
+                DossierInstrumentDTO(**i) for i in hub.get("instruments") or []
+            ],
+            committees=[DossierCommitteeDTO(**c) for c in hub.get("committees") or []],
+            documents_by_kind=dict(hub.get("documents_by_kind") or {}),
+            senate=DossierSenateDTO(**(hub.get("senate") or {})),
         )
 
 
