@@ -24,7 +24,11 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     RELATION_INTRODUCES,
 )
-from lawgraph.core.citations import DutchCitationExtractor
+from lawgraph.core.citations import (
+    ARTICLE_HEAD_RE,
+    DutchCitationExtractor,
+    parse_article_numbers,
+)
 from lawgraph.core.kamerstuk_xml import (
     KIND_ARTICLE,
     KIND_PARAGRAPH,
@@ -294,9 +298,11 @@ def _body_targets(
             named.add(number_key(hit.article_number))
     law = outline.context_law(section, registry)
     if law:
-        for hit in registry.extractor.extract_bare(body[:_OPENING_CHARS]):
-            if hit.article_number and number_key(hit.article_number) not in named:
-                found.append((law, hit.article_number, MATCH_INFERRED_LAW))
+        for match in ARTICLE_HEAD_RE.finditer(body[:_OPENING_CHARS]):
+            for number in parse_article_numbers(match["nums"]):
+                if number_key(number) not in named:
+                    named.add(number_key(number))
+                    found.append((law, number, MATCH_INFERRED_LAW))
     return found
 
 

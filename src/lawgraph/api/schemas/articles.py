@@ -443,13 +443,14 @@ class ArticleExplanationDTO(BaseModel):
         description=(
             "'dossier': the document explains the changes of a whole dossier, not "
             "this article in particular (the memorandum is not tied to a passage). "
-            "'article': the edge names the passage that explains the article, "
+            "'article': the edge names the section that explains the article, "
             "in ``section_anchor``."
         ),
     )
     section_anchor: str | None = Field(
         None,
-        description="Anchor of the passage in the document; set when scope is 'article'.",
+        description="`id` of the section in `sections` of the document; set when scope "
+        "is 'article'.",
     )
 
     @classmethod

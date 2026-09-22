@@ -352,15 +352,10 @@ class DossierInstrumentDTO(BaseModel):
     status: DossierInstrumentStatus
 
 
-class DossierCommitteeDTO(BaseModel):
+class DossierCommitteeDTO(TimelineCommitteeDTO):
     """A committee that leads an activity about a dossier."""
 
-    model_config = ConfigDict(extra="forbid")
-
     id: str
-    key: str
-    slug: str | None = None
-    name: str | None = None
     abbreviation: str | None = None
     role: Literal["lead"] = "lead"
 

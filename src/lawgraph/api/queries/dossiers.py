@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLES,
     COLLECTION_CASES,
@@ -651,7 +652,7 @@ _DOSSIER_HUB_BODY = f"""
     )
     LET senate_dates = (
         FOR document IN all_documents
-            FILTER 'EK' IN document.labels
+            FILTER '{CHAMBER_EK}' IN document.labels
             RETURN document.props.date
     )
     RETURN {{

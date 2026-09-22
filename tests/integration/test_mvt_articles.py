@@ -156,7 +156,7 @@ def _graph(store: ArangoStore) -> dict[str, str]:
     ids: dict[str, str] = {}
 
     # 36750: a bill that changes the Tijdelijke wet Klimaatfonds (a real memorandum)
-    _node(store, "dossiers", "36750", "dossier", number=36750)
+    _node(store, "dossiers", "36750", "dossier", number="36750")
     _law(store, KLIMAATFONDS, "Tijdelijke wet Klimaatfonds")
     publication = _node(
         store, "instruments", "stb_2025_1", "instrument", display_name="Stb. 2025, 1"
@@ -172,7 +172,7 @@ def _graph(store: ArangoStore) -> dict[str, str]:
     )
 
     # 36100: a new law; the publication introduces articles 1 and 2, article 3 has no change edge
-    _node(store, "dossiers", "36100", "dossier", number=36100)
+    _node(store, "dossiers", "36100", "dossier", number="36100")
     law = _law(store, NEW_LAW, "Wet nieuw", dossier_numbers=[36100])
     _edge(store, law, "dossiers/36100", RELATION_LEGISLATED_IN)
     publication = _node(
@@ -192,7 +192,7 @@ def _graph(store: ArangoStore) -> dict[str, str]:
     )
 
     # 36200: a budget paper: its numbered articles are policy articles
-    _node(store, "dossiers", "36200", "dossier", number=36200)
+    _node(store, "dossiers", "36200", "dossier", number="36200")
     _law(store, BUDGET_LAW, "Begrotingswet")
     publication = _node(
         store, "instruments", "stb_2025_3", "instrument", display_name="Stb. 2025, 3"

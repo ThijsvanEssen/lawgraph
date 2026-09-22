@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
+    EXPLANATORY_KIND_MARKER,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
@@ -67,7 +68,7 @@ _BATCH_SIZE = 20
 # to read; a dossier that legislated nothing has nothing to link to.
 _PAPERS_AQL = f"""
 FOR doc IN {COLLECTION_DOCUMENTS}
-  FILTER CONTAINS(LOWER(doc.props.kind || ''), 'toelichting')
+  FILTER CONTAINS(LOWER(doc.props.kind || ''), '{EXPLANATORY_KIND_MARKER}')
   FILTER doc.props.budget != true
   FILTER doc.props.structure_quality IN @qualities
   FILTER doc.props.text != null

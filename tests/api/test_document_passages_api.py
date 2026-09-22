@@ -84,6 +84,8 @@ class _Store:
 
     def query(self, aql: str, bind_vars: dict[str, Any] | None = None) -> list[Any]:
         self.binds.append(bind_vars or {})
+        if "part_of" in (bind_vars or {}):  # get_document_links
+            return [{"dossier_numbers": [], "explains": []}]
         if "article_versions" in aql:
             return ["article_versions/v2"]
         return [
