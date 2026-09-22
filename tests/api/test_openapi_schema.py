@@ -68,6 +68,33 @@ def test_a_timeline_entry_is_typed_by_its_node_and_carries_no_free_body() -> Non
         assert "raw" not in schemas[body]["properties"]
 
 
+def test_an_explanation_says_what_it_points_at_and_how_far_it_reaches() -> None:
+    schemas = SPEC["components"]["schemas"]
+    operation = SPEC["paths"]["/api/articles/{bwb_id}/{article_number}/explained-by"]
+    parameters = {p["name"]: p["schema"] for p in operation["get"]["parameters"]}
+    assert (parameters["limit"]["minimum"], parameters["limit"]["maximum"]) == (1, 500)
+    assert parameters["offset"]["minimum"] == 0
+
+    explanation = schemas["ArticleExplanationDTO"]["properties"]
+    assert {
+        "document",
+        "target",
+        "target_id",
+        "article_version_key",
+        "confidence",
+    } <= set(explanation)
+    assert explanation["target"]["enum"] == ["article", "article_version", "instrument"]
+    assert explanation["scope"]["enum"] == ["dossier", "article"]
+    assert "section_anchor" in explanation
+    document = schemas["ExplainingDocumentDTO"]["properties"]
+    assert {"id", "key", "kind", "title", "date", "dossier_number", "chamber"} <= set(
+        document
+    )
+    assert {"total", "items"} <= set(
+        schemas["ArticleExplanationsResponse"]["properties"]
+    )
+
+
 def test_every_document_answer_says_its_chamber_source_and_kind() -> None:
     schemas = SPEC["components"]["schemas"]
     for name in (
@@ -75,6 +102,7 @@ def test_every_document_answer_says_its_chamber_source_and_kind() -> None:
         "DocumentTextResponse",
         "DossierDocumentDTO",
         "TimelineDocumentBody",
+        "ExplainingDocumentDTO",
     ):
         assert {"chamber", "source", "is_explanatory"} <= set(
             schemas[name]["properties"]

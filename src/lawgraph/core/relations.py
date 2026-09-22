@@ -154,7 +154,8 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_DOC,),
         (_AV, _A, _I),
         "A document (MvT, NvT) explains the article version or instrument it "
-        "introduced or changed.",
+        "introduced or changed. Written per dossier: every MvT and NvT of a "
+        "dossier explains everything its law changed.",
     ),
     RelationSpec(
         "APPEAL_OF",
