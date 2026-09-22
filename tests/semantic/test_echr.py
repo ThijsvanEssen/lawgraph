@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import RELATION_REFERS_TO
+from lawgraph.config.constants import ECHR_CONVENTION_ID, RELATION_REFERS_TO
 from lawgraph.core.models import Node, make_node_key
 from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline
 
@@ -102,3 +102,23 @@ def test_pipeline_returns_empty_when_no_judgments() -> None:
     pipeline = ECHRSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
+
+
+def test_the_convention_is_a_treaty_with_articles_that_carry_its_id() -> None:
+    store = _FakeStore(
+        judgment_rows=[
+            {
+                "j_id": "judgments/j1",
+                "j_key": "j1",
+                "articles": ["8"],
+                "conclusion": None,
+            }
+        ]
+    )
+    ECHRSemanticPipeline(store=store).run()
+
+    convention = store._nodes[f"instruments/{make_node_key(ECHR_CONVENTION_ID)}"]
+    assert convention.props["kind"] == "verdrag"
+    assert convention.props["bwb_id"] == ECHR_CONVENTION_ID
+    article = store._nodes[f"articles/{make_node_key(ECHR_CONVENTION_ID, '8')}"]
+    assert article.props["bwb_id"] == ECHR_CONVENTION_ID

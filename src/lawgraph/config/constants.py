@@ -169,6 +169,14 @@ CHAMBER_EK = "EK"
 # contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.
 EXPLANATORY_KIND_MARKER = "toelichting"
 
+# The edge `source` of IMPLEMENTS: the regulation's text names the EU act's CELEX number.
+EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements-directive"
+
+# International instruments the graph has a name for: BWB treaties carry a BWBV id, the
+# Convention of the ECHR a pseudo id of its own (its articles carry it as `props.bwb_id`).
+BWB_TREATY_ID_PREFIX = "BWBV"
+ECHR_CONVENTION_ID = "ECHR-CONVENTION"
+
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 
 RAW_KIND_TK_ZAAK = "tk-zaak"

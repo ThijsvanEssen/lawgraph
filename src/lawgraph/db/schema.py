@@ -279,6 +279,11 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_INSTRUMENTS, ["props.celex"], True),
         (COLLECTION_ARTICLES, ["props.bwb_id", "props.article_number"], True),
         (COLLECTION_ARTICLES, ["props.celex", "props.article_number"], True),
+        # the articles of one instrument: a sparse compound index holds only articles that
+        # have both fields, so the optimiser cannot use it for `bwb_id == x` alone (a
+        # historical article has no number) and read every article
+        (COLLECTION_ARTICLES, ["props.bwb_id"], False, True),
+        (COLLECTION_ARTICLES, ["props.celex"], False, True),
         # article identity across versions (BWB stam-id): the amendments pipeline
         # resolves (bwb_id, stam_id) pairs in bulk and streams versions sorted by them
         (COLLECTION_ARTICLES, ["props.bwb_id", "props.stam_id"], False, True),
