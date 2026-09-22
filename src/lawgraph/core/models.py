@@ -9,10 +9,22 @@ from typing import Any
 from pydantic import ValidationError
 
 from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
     COLLECTION_ANNEXES,
+    COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CASES,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
+    COLLECTION_TOPICS,
 )
 from lawgraph.core.logging import get_logger
 
@@ -87,6 +99,31 @@ class NodeType(str, Enum):
     INSTRUMENT_VERSION = "instrument_version"  # dated version of an instrument
     ARTICLE_VERSION = "article_version"  # dated version of an article
     ANNEX = "annex"  # annex (bijlage) of an instrument
+
+
+# The collection of every node type: one collection per type and one type per collection, so
+# the collection in an id says the type without reading the node.
+COLLECTION_OF_TYPE: dict[NodeType, str] = {
+    NodeType.INSTRUMENT: COLLECTION_INSTRUMENTS,
+    NodeType.ARTICLE: COLLECTION_ARTICLES,
+    NodeType.INSTRUMENT_VERSION: COLLECTION_INSTRUMENT_VERSIONS,
+    NodeType.ARTICLE_VERSION: COLLECTION_ARTICLE_VERSIONS,
+    NodeType.ANNEX: COLLECTION_ANNEXES,
+    NodeType.JUDGMENT: COLLECTION_JUDGMENTS,
+    NodeType.DOSSIER: COLLECTION_DOSSIERS,
+    NodeType.CASE: COLLECTION_CASES,
+    NodeType.DOCUMENT: COLLECTION_DOCUMENTS,
+    NodeType.ACTIVITY: COLLECTION_ACTIVITIES,
+    NodeType.DECISION: COLLECTION_DECISIONS,
+    NodeType.COMMITMENT: COLLECTION_COMMITMENTS,
+    NodeType.MEMBER: COLLECTION_MEMBERS,
+    NodeType.FACTION: COLLECTION_FACTIONS,
+    NodeType.COMMITTEE: COLLECTION_COMMITTEES,
+    NodeType.TOPIC: COLLECTION_TOPICS,
+}
+TYPE_OF_COLLECTION: dict[str, NodeType] = {
+    collection: node_type for node_type, collection in COLLECTION_OF_TYPE.items()
+}
 
 
 @dataclass

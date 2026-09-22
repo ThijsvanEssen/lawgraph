@@ -32,7 +32,11 @@ class SearchResultItem(BaseModel):
     type: str
     display_name: str | None
     snippet: str | None = None
-    score: float = 1.0
+    score: float = Field(
+        ge=0,
+        le=1,
+        description="Rank tier of the hit for the query: 1, 0.75, 0.5, 0.25 or 0.1",
+    )
     extra: dict[str, Any] = Field(default_factory=dict)
 
 

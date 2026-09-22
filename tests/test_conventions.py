@@ -297,7 +297,11 @@ def test_every_pipeline_reports_progress() -> None:
         # the one retrieve loop, through ``fetch`` or called by name; tk-content updates
         "retrieve": ("def fetch(", "_store_all(", "Progress("),
         "normalize": ("_iter_raw_sources(", "RawRecords("),  # the tracked raw readers
-        "semantic": ("self._track(", "self._judgment_texts("),
+        "semantic": (
+            "self._track(",
+            "self._judgment_texts(",
+            "self._judgment_paragraphs(",
+        ),
     }
     silent = []
     for phase, calls in ways.items():

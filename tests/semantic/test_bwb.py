@@ -159,7 +159,26 @@ def test_structured_references_create_exact_edges_across_laws() -> None:
         "end": 4 + len("artikel 7 van die wet"),
         "text": "artikel 7 van die wet",
         "reason": "bwb_xml_ref",
+        "reference_kind": "extref",
+        "leden": [],
+        "onderdelen": [],
+        "aanhef": False,
     }
+
+
+def test_the_edge_carries_the_lid_and_onderdeel_the_reference_names() -> None:
+    text = "artikel 24c, tweede lid, aanhef en onder b"
+    ref = {**_ref("BWBR0001854", "24c", text), "kind": "intref"}
+    ref.update(leden=["2"], onderdelen=["b"], aanhef=True)
+    store = _structured_store([ref])
+
+    _create_pipeline(store).run()
+
+    (edge,) = store.edges.values()
+    assert edge["meta"]["reference_kind"] == "intref"
+    assert edge["meta"]["leden"] == ["2"]
+    assert edge["meta"]["onderdelen"] == ["b"]
+    assert edge["meta"]["aanhef"] is True
 
 
 def test_article_text_alone_creates_no_edge() -> None:

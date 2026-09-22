@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
+    EXPLANATORY_KIND_MARKER,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
@@ -39,6 +40,13 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "mvt-article-linker"
+# The source of the edges ``semantic tk-mvt-articles`` writes, which this pipeline leaves alone.
+SEMANTIC_SOURCE_SECTIONS = "mvt-section-linker"
+
+# A dossier-level edge says that the memorandum explains the change of the dossier as a whole,
+# not which of its articles a passage is about: every article the dossier changed is a
+# candidate, not a finding. It claims no more than half.
+DOSSIER_CONFIDENCE = 0.5
 
 _CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 
@@ -48,7 +56,7 @@ _CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 # the instrument legislated in the document's dossier introduced or changed.
 _TARGETS_AQL = f"""
 FOR doc IN {COLLECTION_DOCUMENTS}
-  FILTER CONTAINS(LOWER(doc.props.kind || ''), 'toelichting')
+  FILTER CONTAINS(LOWER(doc.props.kind || ''), '{EXPLANATORY_KIND_MARKER}')
   LET dossiers = (
     FOR e IN {COLLECTION_EDGES}
       FILTER e._from == doc._id AND e.relation == @part_of
@@ -63,6 +71,11 @@ FOR doc IN {COLLECTION_DOCUMENTS}
         RETURN DISTINCT e._from
   )
   FILTER LENGTH(instruments) > 0
+  LET upgraded = (
+    FOR e IN {COLLECTION_EDGES}
+      FILTER e._from == doc._id AND e.relation == @explains AND e.source == @sections_source
+      RETURN e._to
+  )
   LET changed = (
     FOR instrument IN {COLLECTION_INSTRUMENTS}
       FOR e IN {COLLECTION_EDGES}
@@ -74,7 +87,7 @@ FOR doc IN {COLLECTION_DOCUMENTS}
   )
   RETURN {{
     document: doc._id,
-    targets: LENGTH(changed) > 0 ? changed : instruments
+    targets: MINUS(LENGTH(changed) > 0 ? changed : instruments, upgraded)
   }}
 """
 
@@ -87,6 +100,8 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
         bind_vars: dict[str, Any] = {
             "part_of": RELATION_PART_OF,
             "legislated_in": RELATION_LEGISLATED_IN,
+            "explains": RELATION_EXPLAINS,
+            "sections_source": SEMANTIC_SOURCE_SECTIONS,
             "change_relations": list(_CHANGE_RELATIONS),
         }
 
@@ -104,7 +119,7 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
                     target,
                     RELATION_EXPLAINS,
                     source=SEMANTIC_SOURCE,
-                    confidence=1.0,
+                    confidence=DOSSIER_CONFIDENCE,
                 )
         edges.flush_into(result)
         return result

@@ -91,6 +91,33 @@ def test_article_valid_props():
     assert node.props["article_number"] == "91"
 
 
+def test_article_and_version_props_take_parts_and_references():
+    part = {"id": "lid-1", "kind": "lid", "number": "1", "start": 3, "end": 9}
+    reference = {"kind": "intref", "leden": ["1"], "onderdelen": [], "aanhef": False}
+
+    article = Node(
+        collection="articles",
+        type=NodeType.ARTICLE,
+        props={"text": "1. Tekst.", "parts": [part], "references": [reference]},
+    )
+    version = Node(
+        collection="article_versions",
+        type=NodeType.ARTICLE_VERSION,
+        props={"text": "1. Tekst.", "parts": [part]},
+    )
+
+    assert article.props["parts"] == [part] == version.props["parts"]
+
+
+def test_a_misspelled_parts_field_raises():
+    with pytest.raises(ValueError, match="part"):
+        Node(
+            collection="article_versions",
+            type=NodeType.ARTICLE_VERSION,
+            props={"text": "x", "part": []},
+        )
+
+
 # ---------------------------------------------------------------------------
 # Failure-path: unknown field names must be rejected
 # ---------------------------------------------------------------------------

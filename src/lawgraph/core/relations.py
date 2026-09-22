@@ -132,7 +132,8 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "IMPLEMENTS",
         (_I,),
         (_I,),
-        "A national instrument transposes an EU directive.",
+        "A national instrument whose text names the CELEX number of an EU act; "
+        "not a transposition claim, and not per article.",
     ),
     RelationSpec(
         "LEGISLATED_IN",
@@ -154,7 +155,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_DOC,),
         (_AV, _A, _I),
         "A document (MvT, NvT) explains the article version or instrument it "
-        "introduced or changed.",
+        "introduced or changed. Written per dossier: every MvT and NvT of a "
+        "dossier explains everything its law changed; an MvT edge carries "
+        "`meta.section_anchor` when one of its sections is about that article.",
     ),
     RelationSpec(
         "APPEAL_OF",

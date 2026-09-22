@@ -63,13 +63,18 @@ def detect_in_text(
     extractor: DutchCitationExtractor,
     *,
     extra: Callable[[str, Callable[[CitationHit], None]], None] | None = None,
+    every_occurrence: bool = False,
 ) -> list[CitationHit]:
-    """Article hits of *extractor* plus the EU hits (and *extra* ones), once per citation."""
-    hits = extractor.extract(text)
+    """Article hits of *extractor* plus the EU hits (and *extra* ones).
+
+    Once per citation, or with *every_occurrence* once per place in the text that cites it
+    (each hit carries its ``start`` and ``end``).
+    """
+    hits = extractor.extract(text, every_occurrence=every_occurrence)
     seen = {hit_identity(h) for h in hits}
 
     def record(hit: CitationHit) -> None:
-        if hit_identity(hit) not in seen:
+        if every_occurrence or hit_identity(hit) not in seen:
             seen.add(hit_identity(hit))
             hits.append(hit)
 

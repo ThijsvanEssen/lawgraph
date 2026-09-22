@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.api.queries.dossiers import collect_dossier_numbers, get_dossier_titles
+from lawgraph.api.queries.instrument_scope import scope_of
 from lawgraph.api.queries.search import build_search_clause, tokenize_search_query
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
@@ -21,7 +22,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
-from lawgraph.core.models import make_node_key, parse_arango_id
+from lawgraph.core.models import parse_arango_id
 from lawgraph.db import ArangoStore
 
 # Edges from an amending instrument to the articles it changes.
@@ -52,24 +53,24 @@ INSTRUMENT_SORTS = ("title", "article_count")
 
 def get_articles(
     store: ArangoStore,
-    bwb_id: str,
+    identifier: str,
     *,
     include_stubs: bool = False,
     limit: int = 2000,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
-    """All articles belonging to an instrument, sorted by article_number.
+    """All articles belonging to an instrument (BWB id or CELEX), sorted by article_number.
 
     Sort is a natural numeric-aware order (so 'Artikel 9' precedes 'Artikel 10'
     and '24c' lands between '24' and '25') derived in AQL via a numeric/string
     split on the article_number. Returns ``(items, total)``.
     """
-    bwb_uc = bwb_id.upper()
+    scope = scope_of(identifier)
     stub_filter = "" if include_stubs else "FILTER doc.props.stub != true"
     aql = f"""
     LET filtered = (
         FOR doc IN {COLLECTION_ARTICLES}
-            FILTER doc.props.bwb_id == @bwb_id
+            FILTER doc.props.{scope.prop} == @bwb_id
             {stub_filter}
             RETURN doc
     )
@@ -87,7 +88,9 @@ def get_articles(
     )
     RETURN {{ total: total, items: items }}
     """
-    rows = list(store.query(aql, {"bwb_id": bwb_uc, "limit": limit, "offset": offset}))
+    rows = list(
+        store.query(aql, {"bwb_id": scope.value, "limit": limit, "offset": offset})
+    )
     if not rows:
         return [], 0
     row = rows[0]
@@ -96,7 +99,7 @@ def get_articles(
 
 def get_instrument_edges_bundle(
     store: ArangoStore,
-    bwb_id: str,
+    identifier: str,
     *,
     relations: list[str] | None = None,
     include_part_of: bool = False,
@@ -105,7 +108,8 @@ def get_instrument_edges_bundle(
     """Bulk: every edge incident to any article of this instrument.
 
     Returns a single payload the FE can use to render the legal-citation
-    graph without N+1 round-trips:
+    graph without N+1 round-trips (``bwb_id`` is the identifier as requested,
+    a BWB id or a CELEX number):
 
       {bwb_id, article_count, total_edges,
        edges:[{from,to,relation,direction,meta}],
@@ -117,7 +121,8 @@ def get_instrument_edges_bundle(
     ``relations`` is an explicit whitelist; when None, every relation except
     PART_OF is returned.
     """
-    bind: dict[str, Any] = {"bwb": bwb_id.upper(), "max_edges": max_edges}
+    scope = scope_of(identifier)
+    bind: dict[str, Any] = {"bwb": scope.value, "max_edges": max_edges}
 
     rel_filter = ""
     if relations:
@@ -133,7 +138,7 @@ def get_instrument_edges_bundle(
     aql = f"""
     LET focal_ids = (
         FOR a IN {COLLECTION_ARTICLES}
-            FILTER a.props.bwb_id == @bwb
+            FILTER a.props.{scope.prop} == @bwb
             RETURN a._id
     )
     LET out_edges = (
@@ -183,7 +188,7 @@ def get_instrument_edges_bundle(
     rows = list(store.query(aql, bind))
     if not rows:
         return {
-            "bwb_id": bwb_id,
+            "bwb_id": identifier,
             "article_count": 0,
             "total_edges": 0,
             "edges": [],
@@ -198,7 +203,7 @@ def get_instrument_edges_bundle(
             continue
         nodes_by_coll.setdefault(coll, []).append(doc)
     return {
-        "bwb_id": bwb_id,
+        "bwb_id": identifier,
         "article_count": int(row.get("article_count") or 0),
         "total_edges": len(edges),
         "edges": edges,
@@ -207,7 +212,7 @@ def get_instrument_edges_bundle(
 
 
 def get_instrument_judgments(
-    store: ArangoStore, bwb_id: str, *, limit: int = 500
+    store: ArangoStore, identifier: str, *, limit: int = 500
 ) -> tuple[list[dict[str, Any]], int]:
     """Judgments referring to any article of this instrument, grouped by judgment.
 
@@ -219,10 +224,11 @@ def get_instrument_judgments(
     naming used everywhere else in the API), not ``article_id``/
     ``article_key``.
     """
+    scope = scope_of(identifier)
     aql = f"""
     LET focal_ids = (
         FOR a IN {COLLECTION_ARTICLES}
-            FILTER a.props.bwb_id == @bwb
+            FILTER a.props.{scope.prop} == @bwb
             RETURN a._id
     )
     LET grouped = (
@@ -264,7 +270,7 @@ def get_instrument_judgments(
     )
     RETURN {{ total: total, items: items }}
     """
-    rows = list(store.query(aql, {"bwb": bwb_id.upper(), "limit": limit}))
+    rows = list(store.query(aql, {"bwb": scope.value, "limit": limit}))
     if not rows:
         return [], 0
     row = rows[0]
@@ -272,7 +278,7 @@ def get_instrument_judgments(
 
 
 def get_instrument_dossiers(
-    store: ArangoStore, bwb_id: str, *, limit: int = 500
+    store: ArangoStore, identifier: str, *, limit: int = 500
 ) -> tuple[list[dict[str, Any]], int]:
     """Parliamentary dossiers linked to this regulation, one query.
 
@@ -285,11 +291,12 @@ def get_instrument_dossiers(
 
     Returns ``(items, total)``; each item is ``{dossier, via, publication}``.
     """
-    instrument_id = f"{COLLECTION_INSTRUMENTS}/{make_node_key(bwb_id.upper())}"
+    scope = scope_of(identifier)
+    instrument_id = f"{COLLECTION_INSTRUMENTS}/{scope.node_key}"
     aql = f"""
     LET article_ids = (
         FOR a IN {COLLECTION_ARTICLES}
-            FILTER a.props.bwb_id == @bwb
+            FILTER a.props.{scope.prop} == @bwb
             RETURN a._id
     )
     LET publication_ids = UNIQUE(
@@ -336,7 +343,7 @@ def get_instrument_dossiers(
         store.query(
             aql,
             {
-                "bwb": bwb_id.upper(),
+                "bwb": scope.value,
                 "instrument_id": instrument_id,
                 "mutations": _MUTATION_RELATIONS,
                 "legislated_in": RELATION_LEGISLATED_IN,
@@ -372,7 +379,7 @@ def _dossier_link(group: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_instrument_amended_by(
-    store: ArangoStore, bwb_id: str, *, limit: int = 50, offset: int = 0
+    store: ArangoStore, identifier: str, *, limit: int = 50, offset: int = 0
 ) -> AmendedByData:
     """Amending instruments of a regulation, newest first (2 queries at most).
 
@@ -381,10 +388,11 @@ def get_instrument_amended_by(
     the collected article ids), grouped per amending instrument; a second bulk
     query resolves the titles of every dossier the page mentions.
     """
+    scope = scope_of(identifier)
     aql = f"""
     LET article_ids = (
         FOR a IN {COLLECTION_ARTICLES}
-            FILTER a.props.bwb_id == @bwb
+            FILTER a.props.{scope.prop} == @bwb
             RETURN a._id
     )
     LET grouped = (
@@ -424,7 +432,7 @@ def get_instrument_amended_by(
         store.query(
             aql,
             {
-                "bwb": bwb_id.upper(),
+                "bwb": scope.value,
                 "mutations": _MUTATION_RELATIONS,
                 "amends": RELATION_AMENDS,
                 "introduces": RELATION_INTRODUCES,
@@ -454,20 +462,41 @@ def get_instrument_amended_by(
 
 
 def get_instrument_related_instruments(
-    store: ArangoStore, bwb_id: str, *, limit: int = 100
+    store: ArangoStore, identifier: str, *, limit: int = 100
 ) -> tuple[list[dict[str, Any]], int]:
     """Other instruments related by cross-article REFERS_TO links.
 
     Returns ``{instrument, outbound_count, inbound_count}`` per related
-    instrument, sorted by total reference count descending.
+    instrument, sorted by total reference count descending. The counterpart of a
+    BWB regulation is a BWB regulation; the counterpart of an EU act is a BWB
+    regulation or another EU act.
     """
+    scope = scope_of(identifier)
+    # The identity of the counterpart of an edge, and how it is found again.
+    if scope.prop == "bwb_id":
+
+        def identity(var: str) -> str:
+            return f"{var}.props.bwb_id"
+
+        find = "FILTER i.props.bwb_id != null AND i.props.bwb_id == b"
+    else:
+
+        def identity(var: str) -> str:
+            return (
+                f"({var}.props.bwb_id != null ? {var}.props.bwb_id : {var}.props.celex)"
+            )
+
+        find = (
+            "FILTER (i.props.bwb_id != null AND i.props.bwb_id == b)"
+            " OR (i.props.celex != null AND i.props.celex == b)"
+        )
     # MERGE-based O(B) lookup replaces the previous O(B²) FIRST(FILTER) pattern.
-    # COLLECT uses the raw (uppercase) bwb_id so the instrument lookup can use
-    # the props.bwb_id B-tree index with a direct equality filter.
+    # COLLECT uses the raw (uppercase) identifier so the instrument lookup can use
+    # the props.bwb_id / props.celex B-tree index with a direct equality filter.
     aql = f"""
     LET focal_article_ids = (
         FOR a IN {COLLECTION_ARTICLES}
-            FILTER a.props.bwb_id == @bwb
+            FILTER a.props.{scope.prop} == @bwb
             RETURN a._id
     )
     LET out_buckets = (
@@ -476,7 +505,7 @@ def get_instrument_related_instruments(
             FILTER e._from IN focal_article_ids AND e._to NOT IN focal_article_ids
             LET target = DOCUMENT(e._to)
             FILTER target != null AND STARTS_WITH(target._id, 'articles/')
-            COLLECT bwb = target.props.bwb_id WITH COUNT INTO n
+            COLLECT bwb = {identity("target")} WITH COUNT INTO n
             FILTER bwb != null AND bwb != @bwb
             RETURN {{bwb: bwb, outbound_count: n}}
     )
@@ -486,7 +515,7 @@ def get_instrument_related_instruments(
             FILTER e._to IN focal_article_ids AND e._from NOT IN focal_article_ids
             LET src = DOCUMENT(e._from)
             FILTER src != null AND STARTS_WITH(src._id, 'articles/')
-            COLLECT bwb = src.props.bwb_id WITH COUNT INTO n
+            COLLECT bwb = {identity("src")} WITH COUNT INTO n
             FILTER bwb != null AND bwb != @bwb
             RETURN {{bwb: bwb, inbound_count: n}}
     )
@@ -499,7 +528,7 @@ def get_instrument_related_instruments(
             LET in_n  = in_map[b]  != null ? in_map[b]  : 0
             LET inst = FIRST(
                 FOR i IN {COLLECTION_INSTRUMENTS}
-                    FILTER i.props.bwb_id != null AND i.props.bwb_id == b
+                    {find}
                     LIMIT 1 RETURN i
             )
             FILTER inst != null
@@ -514,7 +543,7 @@ def get_instrument_related_instruments(
     )
     RETURN {{ total: total, items: items }}
     """
-    rows = list(store.query(aql, {"bwb": bwb_id.upper(), "limit": limit}))
+    rows = list(store.query(aql, {"bwb": scope.value, "limit": limit}))
     if not rows:
         return [], 0
     row = rows[0]

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import re
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, cast
 
 from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.config.constants import (
@@ -13,33 +13,51 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
 )
-from lawgraph.core.identifiers import is_ecli
+from lawgraph.core.models import make_node_key
+from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.db import ArangoStore
 
-_alias_map_cache: TTLCache[str, dict[str, str]] = TTLCache(maxsize=4, ttl=60.0)
+_law_cache: TTLCache[str, Any] = TTLCache(maxsize=4, ttl=60.0)
 
-# Shared LET block that pre-loads bwb→instrument metadata once per query.
-# Used by article search branches to annotate hits with parent law info.
-_INSTRUMENT_ENRICH_AQL = f"""
-LET bwb_to_inst = MERGE(
-    FOR i IN {COLLECTION_INSTRUMENTS}
-        FILTER i.props.bwb_id != null
-        RETURN {{
-            [i.props.bwb_id]: {{
+# The part of an article hit that names its parent instrument, looked up per hit after the
+# LIMIT: an index lookup on the instrument of each of the (at most ``limit``) hits, inside
+# the one query. Articles of EU acts carry a CELEX id instead of a BWB id.
+_ARTICLE_HIT = f"""
+    // the tail of a query over `doc`: the article with its instrument
+    LET instrument = FIRST(
+        FOR i IN {COLLECTION_INSTRUMENTS}
+            FILTER doc.props.bwb_id != null AND i.props.bwb_id == doc.props.bwb_id
+            LIMIT 1
+            RETURN {{
+                title: i.props.title,
                 citation_title: i.props.citation_title,
-                short_title: i.props.short_title,
-                title: i.props.title
+                short_title: i.props.short_title
             }}
+    ) OR FIRST(
+        FOR i IN {COLLECTION_INSTRUMENTS}
+            FILTER doc.props.celex != null AND i.props.celex == doc.props.celex
+            LIMIT 1
+            RETURN {{
+                title: i.props.title,
+                citation_title: i.props.citation_title,
+                short_title: i.props.short_title
+            }}
+    )
+    RETURN {{
+        id: doc._id, key: doc._key,
+        collection: 'articles', type: doc.type,
+        display_name: doc.props.display_name,
+        snippet: LEFT(doc.props.text, 200),
+        extra: {{
+            bwb_id: doc.props.bwb_id,
+            celex: doc.props.celex,
+            article_number: doc.props.article_number,
+            instrument_title: NOT_NULL(instrument.citation_title, instrument.title),
+            citation_title: instrument.citation_title,
+            short_title: instrument.short_title
         }}
-)
+    }}
 """
-
-_ARTICLE_RETURN = """{
-    bwb_id: doc.props.bwb_id,
-    article_number: doc.props.article_number,
-    citation_title: bwb_to_inst[doc.props.bwb_id].citation_title,
-    short_title: bwb_to_inst[doc.props.bwb_id].short_title
-}"""
 
 
 def build_search_clause(
@@ -109,55 +127,12 @@ def tokenize_search_query(q: str) -> list[str]:
 
 # ── Intent-aware search parser ────────────────────────────────────────────────
 
-_ARTICLE_PREFIX_RE = re.compile(
-    r"^(?:art\.?|artikel)\s+(\d+[a-z]*)\b\s*(.*)$",
-    re.IGNORECASE,
-)
-_ARTICLE_SUFFIX_RE = re.compile(
-    r"^(.+?)\s+(?:art\.?|artikel)?\s*(\d+[a-z]*)$",
-    re.IGNORECASE,
-)
-
-
-def load_instrument_alias_map(store: ArangoStore) -> dict[str, str]:
-    """Return a lowercased alias → bwb_id map for known instruments.
-
-    Aliases come from each instrument's ``short_title``, ``citation_title``,
-    and ``title`` props. Result is cached for 60 s so repeated searches within
-    the same minute share one round-trip instead of issuing one per request.
-    """
-    cached = _alias_map_cache.get("map")
-    if cached is not _MISSING:
-        return cached  # type: ignore[return-value]
-
-    aql = f"""
-    FOR i IN {COLLECTION_INSTRUMENTS}
-        FILTER i.props.bwb_id != null
-        RETURN {{
-            bwb_id: i.props.bwb_id,
-            short: i.props.short_title,
-            citation: i.props.citation_title,
-            title: i.props.title
-        }}
-    """
-    alias_map: dict[str, str] = {}
-    for row in store.query(aql):
-        bwb = str(row.get("bwb_id") or "").strip()
-        if not bwb:
-            continue
-        for key in ("short", "citation", "title"):
-            value = row.get(key)
-            if isinstance(value, str) and value.strip():
-                alias_map[value.strip().lower()] = bwb
-    _alias_map_cache.set("map", alias_map)
-    return alias_map
-
 
 def load_code_aliases(store: ArangoStore) -> dict[str, str]:
     """Law abbreviation (``short_title``, e.g. ``Sr``) → bwb_id, cached for 60 s."""
-    cached = _alias_map_cache.get("codes")
+    cached = _law_cache.get("codes")
     if cached is not _MISSING:
-        return cached  # type: ignore[return-value]
+        return cast(dict[str, str], cached)
 
     aql = f"""
     FOR i IN {COLLECTION_INSTRUMENTS}
@@ -165,67 +140,43 @@ def load_code_aliases(store: ArangoStore) -> dict[str, str]:
         RETURN [i.props.short_title, i.props.bwb_id]
     """
     codes = dict(store.query(aql))
-    _alias_map_cache.set("codes", codes)
+    _law_cache.set("codes", codes)
     return codes
 
 
-def parse_search_query(q: str, alias_map: dict[str, str]) -> dict[str, Any]:
-    """Inspect *q* for known reference patterns.
-
-    Returns one of:
-      * ``{"kind": "ecli", "ecli": "..."}`` — full ECLI string.
-      * ``{"kind": "article", "bwb_id": Optional[str], "article_number": str}``
-      * ``{"kind": "text"}`` — fall through to AND-token search.
-
-    The parser is best-effort. Anything not recognised falls back to text.
+def _load_law_names(store: ArangoStore) -> dict[str, list[str]]:
+    """Lower-case law name → the BWB or CELEX ids that carry it (a name may be shared)."""
+    aql = f"""
+    FOR i IN {COLLECTION_INSTRUMENTS}
+        LET law_id = NOT_NULL(i.props.bwb_id, i.props.celex)
+        FILTER law_id != null
+        RETURN {{
+            law_id: law_id,
+            names: [i.props.short_title, i.props.citation_title, i.props.title]
+        }}
     """
-    stripped = q.strip()
-    if not stripped:
-        return {"kind": "text"}
+    names: dict[str, list[str]] = {}
+    for row in store.query(aql):
+        for name in row["names"]:
+            if isinstance(name, str) and name.strip():
+                known = names.setdefault(name.strip().lower(), [])
+                if row["law_id"] not in known:
+                    known.append(row["law_id"])
+    return names
 
-    if is_ecli(stripped):
-        return {"kind": "ecli", "ecli": stripped.upper()}
 
-    def _resolve_law(raw: str) -> str | None:
-        cleaned = raw.strip().rstrip(",.;:").lower()
-        if not cleaned:
-            return None
-        if cleaned in alias_map:
-            return alias_map[cleaned]
-        # Suffix match: "het wetboek van strafrecht" → "wetboek van strafrecht"
-        for alias, bwb in alias_map.items():
-            if cleaned.endswith(alias) or cleaned.startswith(alias):
-                return bwb
-        return None
+def load_notation_parser(store: ArangoStore) -> NotationParser:
+    """The parser of typed citations over the laws in the graph, cached for 60 s.
 
-    # "Art. 1 Grondwet" / "artikel 287 Sr" / "art 1"
-    m = _ARTICLE_PREFIX_RE.match(stripped)
-    if m:
-        article_number = m.group(1).lower()
-        rest = m.group(2).strip()
-        bwb_id = _resolve_law(rest) if rest else None
-        return {
-            "kind": "article",
-            "bwb_id": bwb_id,
-            "article_number": article_number,
-        }
-
-    # "Sr 287" / "Wetboek van Strafrecht art 1" / "Grondwet 1"
-    m = _ARTICLE_SUFFIX_RE.match(stripped)
-    if m:
-        prefix = m.group(1).strip()
-        article_number = m.group(2).lower()
-        # Strip a trailing "art"/"artikel" from the prefix if present.
-        prefix = re.sub(r"\s*(?:art\.?|artikel)\s*$", "", prefix, flags=re.IGNORECASE)
-        bwb_id = _resolve_law(prefix)
-        if bwb_id is not None:
-            return {
-                "kind": "article",
-                "bwb_id": bwb_id,
-                "article_number": article_number,
-            }
-
-    return {"kind": "text"}
+    Every search and every resolve shares one read of the instruments per minute instead of
+    issuing one per request.
+    """
+    cached = _law_cache.get("parser")
+    if cached is not _MISSING:
+        return cast(NotationParser, cached)
+    parser = NotationParser(load_code_aliases(store), _load_law_names(store))
+    _law_cache.set("parser", parser)
+    return parser
 
 
 # ── Per-type search helpers ───────────────────────────────────────────────────
@@ -239,14 +190,17 @@ def _two_phase_search(
     text_vars: dict[str, Any],
     limit: int,
 ) -> list[dict[str, Any]]:
-    """Run a precise lookup then a full-text fallback, deduplicating by id."""
+    """Run a precise lookup then a full-text fallback, deduplicating by id.
+
+    What the precise lookup finds is what the query names, so it scores as an identifier.
+    """
     seen: set[str] = set()
     results: list[dict[str, Any]] = []
     for row in store.query(precise_aql, precise_vars):
         rid = row.get("id")
         if rid and rid not in seen:
             seen.add(rid)
-            results.append(row)
+            results.append({**row, "score": SCORE_IDENTIFIER})
     if len(results) < limit:
         for row in store.query(text_aql, text_vars):
             if row.get("id") not in seen:
@@ -258,59 +212,49 @@ def _two_phase_search(
 def _search_articles(
     store: ArangoStore,
     tokens: list[str],
-    intent: dict[str, Any],
+    notation: Notation | None,
     limit: int,
 ) -> list[dict[str, Any]]:
     clause, tok_bind = build_search_clause(
         tokens, ["display_name", "text", "article_number", "bwb_id"]
     )
     text_aql = f"""
-    {_INSTRUMENT_ENRICH_AQL}
     FOR doc IN search_articles
         SEARCH {clause}
         SORT BM25(doc) DESC
         LIMIT @limit
-        RETURN {{
-            id: doc._id, key: doc._key,
-            collection: 'articles', type: doc.type,
-            display_name: doc.props.display_name,
-            snippet: LEFT(doc.props.text, 200),
-            extra: {_ARTICLE_RETURN}
-        }}
+        {_ARTICLE_HIT}
     """
+    text_vars = {**tok_bind, "limit": limit}
 
-    if intent.get("kind") == "article" and intent.get("article_number"):
+    if notation is None or notation.kind != "article":
+        return list(store.query(text_aql, text_vars))[:limit]
+
+    # The law is named: the article is one key. It is not: every law with that number.
+    keys = [make_node_key(a.law_id, a.number) for a in notation.articles if a.law_id]
+    if keys:
         precise_aql = f"""
-        {_INSTRUMENT_ENRICH_AQL}
         FOR doc IN {COLLECTION_ARTICLES}
-            FILTER doc.props.article_number == @article_number
-            FILTER @bwb_id == null OR doc.props.bwb_id == @bwb_id
+            FILTER doc._key IN @keys
+            LIMIT @limit
+            {_ARTICLE_HIT}
+        """
+        precise_vars: dict[str, Any] = {"keys": keys, "limit": limit}
+    else:
+        precise_aql = f"""
+        FOR doc IN {COLLECTION_ARTICLES}
+            FILTER doc.props.article_number IN @numbers
             SORT doc.props.bwb_id ASC
             LIMIT @limit
-            RETURN {{
-                id: doc._id, key: doc._key,
-                collection: 'articles', type: doc.type,
-                display_name: doc.props.display_name,
-                snippet: LEFT(doc.props.text, 200),
-                extra: {_ARTICLE_RETURN}
-            }}
+            {_ARTICLE_HIT}
         """
-        precise_vars: dict[str, Any] = {
-            "article_number": intent["article_number"],
-            "bwb_id": intent.get("bwb_id"),
+        precise_vars = {
+            "numbers": [a.number for a in notation.articles],
             "limit": limit,
         }
-        results = _two_phase_search(
-            store,
-            precise_aql,
-            precise_vars,
-            text_aql,
-            {**tok_bind, "limit": limit},
-            limit,
-        )
-        return results
-
-    return list(store.query(text_aql, {**tok_bind, "limit": limit}))[:limit]
+    return _two_phase_search(
+        store, precise_aql, precise_vars, text_aql, text_vars, limit
+    )
 
 
 def _search_instruments(
@@ -349,7 +293,7 @@ def _search_instruments(
 def _search_judgments(
     store: ArangoStore,
     tokens: list[str],
-    intent: dict[str, Any],
+    notation: Notation | None,
     limit: int,
 ) -> list[dict[str, Any]]:
     clause, tok_bind = build_search_clause(
@@ -369,7 +313,7 @@ def _search_judgments(
         }}
     """
 
-    if intent.get("kind") == "ecli" and intent.get("ecli"):
+    if notation is not None and notation.kind == "ecli":
         ecli_aql = f"""
         FOR doc IN {COLLECTION_JUDGMENTS}
             FILTER doc.props.ecli == @ecli
@@ -385,7 +329,7 @@ def _search_judgments(
         return _two_phase_search(
             store,
             ecli_aql,
-            {"ecli": intent["ecli"].upper(), "limit": limit},
+            {"ecli": notation.identifier, "limit": limit},
             text_aql,
             {**tok_bind, "limit": limit},
             limit,
@@ -537,10 +481,82 @@ def _search_documents(
             collection: 'documents', type: doc.type,
             display_name: (doc.props.title != null ? doc.props.title : doc.props.display_name),
             snippet: doc.props.kind,
-            extra: {{ kind: doc.props.kind, external_id: doc.props.external_id }}
+            extra: {{
+                kind: doc.props.kind,
+                external_id: doc.props.external_id,
+                dossier_number: NOT_NULL(
+                    doc.props.dossier_number, FIRST(doc.props.dossier_numbers)
+                )
+            }}
         }}
     """
     return list(store.query(aql, bind_vars))
+
+
+# ── Ranking ───────────────────────────────────────────────────────────────────
+
+# The score of a hit is the tier of the best way it matches the query. Ties keep the order
+# of the database (BM25 within a type).
+SCORE_IDENTIFIER = 1.0  # the query is the hit's key or one of its identifiers
+SCORE_TITLE = 0.75  # the query is the whole of its name
+SCORE_PREFIX = 0.5  # its name starts with the query
+SCORE_CONTAINS = 0.25  # every word of the query is in its name
+SCORE_WORDS = 0.1  # it matched on stems or text only
+
+# What identifies a hit, besides its key: the fields of ``extra`` that are identifiers.
+_IDENTIFIER_FIELDS = (
+    "bwb_id",
+    "celex",
+    "ecli",
+    "appno",
+    "number",
+    "external_id",
+    "dossier_number",
+    "abbreviation",
+    "short_title",
+    "slug",
+)
+_NAME_FIELDS = ("citation_title", "instrument_title")
+
+
+def _folded(value: Any) -> str:
+    return " ".join(str(value).lower().split()) if value else ""
+
+
+def score_hit(query: str, hit: Mapping[str, Any]) -> float:
+    """The rank tier of *hit* for *query*: identifier, whole name, name prefix, name part.
+
+    Pure: compares the query with the key, the identifiers and the names the hit carries.
+    """
+    wanted = _folded(query)
+    if not wanted:
+        return SCORE_WORDS
+    extra = hit.get("extra") or {}
+    identifiers = {
+        _folded(hit.get("key")),
+        *(_folded(extra.get(field)) for field in _IDENTIFIER_FIELDS),
+    }
+    if wanted in identifiers or make_node_key(wanted) == hit.get("key"):
+        return SCORE_IDENTIFIER
+    names = [
+        _folded(hit.get("display_name")),
+        *(_folded(extra.get(field)) for field in _NAME_FIELDS),
+    ]
+    names = [n for n in names if n]
+    if wanted in names:
+        return SCORE_TITLE
+    if any(n.startswith(wanted) for n in names):
+        return SCORE_PREFIX
+    words = wanted.split()
+    if any(all(w in n for w in words) for n in names):
+        return SCORE_CONTAINS
+    return SCORE_WORDS
+
+
+def rank_hits(query: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """*hits* with a ``score`` each (a hit that has one keeps it), best first."""
+    scored = [{**h, "score": h.get("score", score_hit(query, h))} for h in hits]
+    return sorted(scored, key=lambda h: -h["score"])
 
 
 # ── Main search dispatcher ────────────────────────────────────────────────────
@@ -557,7 +573,7 @@ def search_all(
     """Full-text search across requested entity types.
 
     Returns a dict keyed by type name with a list of hit dicts each containing
-    {id, key, collection, type, display_name, snippet, extra}.
+    {id, key, collection, type, display_name, snippet, extra, score}, best score first.
 
     Uses ArangoSearch views for indexed types and CONTAINS for small
     collections (members, factions). Every token must appear — AND semantics.
@@ -566,17 +582,19 @@ def search_all(
     if not tokens:
         return {t: [] for t in types}
 
-    alias_map = load_instrument_alias_map(store) if "articles" in types else {}
-    intent = parse_search_query(q, alias_map)
+    parser = (
+        load_notation_parser(store) if {"articles", "judgments"} & set(types) else None
+    )
+    notation = parser.parse(q) if parser else None
 
     results: dict[str, list[dict[str, Any]]] = {}
     for t in types:
         if t == "articles":
-            results[t] = _search_articles(store, tokens, intent, limit)
+            results[t] = _search_articles(store, tokens, notation, limit)
         elif t == "instruments":
             results[t] = _search_instruments(store, tokens, limit)
         elif t == "judgments":
-            results[t] = _search_judgments(store, tokens, intent, limit)
+            results[t] = _search_judgments(store, tokens, notation, limit)
         elif t == "dossiers":
             results[t] = _search_dossiers(store, tokens, kinds, limit)
         elif t == "committees":
@@ -587,4 +605,4 @@ def search_all(
             results[t] = _search_factions(store, tokens, limit)
         elif t == "documents":
             results[t] = _search_documents(store, tokens, kinds, limit)
-    return results
+    return {t: rank_hits(q, hits) for t, hits in results.items()}

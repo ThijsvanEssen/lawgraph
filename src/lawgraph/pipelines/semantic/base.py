@@ -146,6 +146,58 @@ class SemanticPipelineBase(PipelineBase):
             )
             yield node, str(row["xml"])
 
+    def _judgment_paragraphs(
+        self, since_iso: str | None = None
+    ) -> Iterator[tuple[Node, list[dict[str, Any]]]]:
+        """``(judgment node, paragraphs)`` of every judgment ``normalize rechtspraak`` made.
+
+        The paragraphs are the ones the API serves (``{id, number, kind, text}``), so what a
+        pipeline records about a paragraph is found again by its id. With *since_iso* only
+        the judgments retrieved from that moment on.
+        """
+        bind: dict[str, Any] = {"source": SOURCE_RECHTSPRAAK}
+        recent = ""
+        if since_iso:
+            bind["eclis"] = self._recent_eclis(since_iso)
+            recent = "FILTER j.props.ecli IN @eclis"
+        aql = f"""
+        FOR j IN {COLLECTION_JUDGMENTS}
+            FILTER j.props.source == @source
+            {recent}
+            RETURN {slim("j", "ecli", "paragraphs")}
+        """
+        total = None
+        if not since_iso:  # from the index; with a date every judgment would be read
+            count_aql = f"""
+            FOR j IN {COLLECTION_JUDGMENTS}
+                FILTER j.props.source == @source
+                COLLECT WITH COUNT INTO n
+                RETURN n
+            """
+            count = next(iter(self.store.query(count_aql, bind)), None)
+            total = count if isinstance(count, int) else None
+        rows = self.store.query(aql, bind, batch_size=JUDGMENT_BATCH_SIZE)
+        for row in self._track(rows, "judgments", total=total):
+            node = Node.from_document(COLLECTION_JUDGMENTS, row)
+            paragraphs = node.props.get("paragraphs")
+            if paragraphs:
+                yield node, paragraphs
+
+    def _recent_eclis(self, since_iso: str) -> list[str]:
+        """The ECLIs of the judgments retrieved at or after *since_iso*."""
+        aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind
+            FILTER r.fetched_at >= @since
+            RETURN r.meta.ecli || r.external_id
+        """
+        bind = {
+            "source": SOURCE_RECHTSPRAAK,
+            "kind": RAW_KIND_RS_CONTENT,
+            "since": since_iso,
+        }
+        return sorted({str(e) for e in self.store.query(aql, bind) if e})
+
     # ------------------------------------------------------------ node lookup
 
     def _lookup_node(self, collection: str, key: str) -> Node | None:

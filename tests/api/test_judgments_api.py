@@ -73,3 +73,128 @@ def test_get_judgment_detail_returns_linked_articles(monkeypatch):
     assert article["id"].startswith("articles")
     assert article["display_name"] == "Artikel 287"
     assert article["instrument"] is not None
+
+
+# ── the passages of the judgment that cite an article ───────────────────────
+
+_MENTIONS = [
+    {
+        "paragraph_id": "rov-5.3",
+        "paragraph_number": "5.3",
+        "start": 4,
+        "end": 15,
+        "raw_match": "art. 287 Sr",
+        "leden": [],
+        "onderdelen": [],
+        "aanhef": False,
+        "snippet": "Zie art. 287 Sr en later.",
+        "confidence": 0.7,
+    },
+    {
+        "paragraph_id": "rov-5.3",
+        "paragraph_number": "5.3",
+        "start": 30,
+        "end": 53,
+        "raw_match": "art. 287, derde lid, Sr",
+        "qualifier": "derde lid",
+        "leden": ["3"],
+        "onderdelen": [],
+        "aanhef": False,
+        "snippet": "en later art. 287, derde lid, Sr.",
+        "confidence": 0.95,
+    },
+    {
+        "paragraph_id": "rov-6",
+        "paragraph_number": "6",
+        "start": 0,
+        "end": 11,
+        "raw_match": "art. 287 Sr",
+        "leden": [],
+        "onderdelen": [],
+        "aanhef": False,
+        "snippet": "art. 287 Sr.",
+        "confidence": 0.95,
+    },
+]
+
+_JUDGMENT_WITH_PARAGRAPHS = {
+    **_JUDGMENT_DOC,
+    "props": {
+        **_JUDGMENT_DOC["props"],
+        "paragraphs": [
+            {"id": "p-1", "number": None, "kind": "subheading", "text": "Arrest"},
+            {
+                "id": "rov-5.3",
+                "number": "5.3",
+                "kind": "body",
+                "text": "Zie art. 287 Sr en later art. 287, derde lid, Sr.",
+            },
+            {"id": "rov-6", "number": "6", "kind": "body", "text": "art. 287 Sr."},
+        ],
+    },
+}
+
+
+def _detail(monkeypatch, meta):
+    payload = JudgmentDetailData(
+        judgment=_JUDGMENT_WITH_PARAGRAPHS,
+        articles=[
+            JudgmentArticleRelation(
+                article=_ARTICLE_DOC,
+                instrument=_INSTRUMENT_DOC,
+                confidence=0.95,
+                meta=meta,
+            )
+        ],
+        metadata={"article_count": 1},
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.judgments.get_judgment_with_relations",
+        lambda store, ecli: payload,
+    )
+    return client.get("/api/judgments/ECLI:NL:HR:2020:123").json()
+
+
+def test_a_paragraph_has_an_id_and_the_citations_stored_for_it(monkeypatch):
+    body = _detail(monkeypatch, {"mention_count": 3, "mentions": _MENTIONS})
+
+    paragraphs = {p["paragraph_id"]: p for p in body["judgment"]["paragraphs"]}
+    assert list(paragraphs) == ["p-1", "rov-5.3", "rov-6"]
+    assert paragraphs["rov-5.3"]["number"] == "5.3"
+    assert paragraphs["p-1"]["number"] is None and paragraphs["p-1"]["citations"] == []
+
+    text = paragraphs["rov-5.3"]["text"]
+    first, second = paragraphs["rov-5.3"]["citations"]
+    assert (first["start"], first["end"]) == (4, 15)
+    assert text[first["start"] : first["end"]] == "art. 287 Sr"
+    assert second["leden"] == ["3"] and second["text"] == "art. 287, derde lid, Sr"
+    assert second["target"]["article_number"] == "287"
+    assert [c["start"] for c in paragraphs["rov-6"]["citations"]] == [0]
+
+
+def test_a_cited_article_says_where_and_what_it_names(monkeypatch):
+    body = _detail(monkeypatch, {"mention_count": 3, "mentions": _MENTIONS})
+
+    (cited,) = body["cited_articles"]
+    assert cited["article"]["display_name"] == "Artikel 287"
+    assert cited["article"]["instrument"] is not None
+    assert cited["paragraph_ids"] == ["rov-5.3", "rov-6"]
+    assert cited["paragraph_numbers"] == ["5.3", "6"]
+    assert cited["mention_count"] == 3
+    # the strongest mention (0.95, the first of them) speaks for the article
+    assert cited["qualifier"] == "derde lid" and cited["leden"] == ["3"]
+    assert cited["snippet"] == "en later art. 287, derde lid, Sr."
+    assert cited["confidence"] == 0.95
+    assert body["articles"][0]["key"] == cited["article"]["key"]
+
+
+def test_a_cited_article_without_mentions_keeps_the_confidence_of_its_edge(
+    monkeypatch,
+):
+    body = _detail(monkeypatch, {"raw_match": "art. 287 Sr"})
+
+    (cited,) = body["cited_articles"]
+    assert cited["paragraph_ids"] == [] and cited["mention_count"] == 0
+    assert cited["confidence"] == 0.95 and cited["snippet"] is None
+    assert cited["leden"] == []
+    assert all(p["citations"] == [] for p in body["judgment"]["paragraphs"])

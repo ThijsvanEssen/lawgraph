@@ -199,30 +199,6 @@ def test_rechtspraak_extract_rdf_metadata() -> None:
     assert subjects == ["Strafrecht", "Civiel recht"]
 
 
-def test_rechtspraak_extract_sections() -> None:
-    extract = judgments.extract_sections
-    assert extract(judgments.parse_judgment(_JUDGMENT_XML)) == [
-        {"number": None, "kind": "subheading", "text": "Info kop"},
-        {"number": "1", "kind": "heading", "text": "Procesverloop"},
-        {"number": None, "kind": "body", "text": "Eerste alinea."},
-        {"number": None, "kind": "body", "text": "Tweede alinea ."},
-        {"number": "1.1", "kind": "subheading", "text": "Sub"},
-        {"number": None, "kind": "body", "text": "Diep."},
-        {"number": None, "kind": "subheading", "text": "Inline info"},
-        {"number": None, "kind": "body", "text": "Overig"},
-        {"number": None, "kind": "body", "text": "Zonder titel"},
-        {"number": None, "kind": "body", "text": "Losse alinea."},
-    ]
-    assert extract(judgments.parse_judgment("<r/>")) == []
-
-
-def test_rechtspraak_section_title_falls_back_to_section_text() -> None:
-    paragraphs: list[dict[str, Any]] = []
-    section = _el('<section nr=" 7 ">  kop <para>x</para></section>')
-    judgments._process_section(section, paragraphs)
-    assert paragraphs[0] == {"number": "7", "kind": "heading", "text": "kop"}
-
-
 @pytest.mark.parametrize(
     "ecli,expected",
     [

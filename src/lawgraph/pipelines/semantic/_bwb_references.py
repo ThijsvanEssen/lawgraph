@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from lawgraph.core.qualifiers import Qualifier
+
 REASON_XML_REF = "bwb_xml_ref"
 
 
@@ -25,6 +27,8 @@ class ArticleReferenceHit:
     confidence: float
     cross_law: bool = field(default=False)
     reason: str | None = None
+    kind: str | None = None  # "intref" | "extref": how the XML wrote the link
+    qualifier: Qualifier = field(default_factory=Qualifier)
 
 
 def hits_from_references(
@@ -54,6 +58,8 @@ def hits_from_references(
                 confidence=1.0,
                 cross_law=bwb_id != own_bwb_id,
                 reason=REASON_XML_REF,
+                kind=ref.get("kind"),
+                qualifier=Qualifier.from_dict(ref),
             )
         )
     return hits

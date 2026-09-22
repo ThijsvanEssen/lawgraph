@@ -260,7 +260,7 @@ def retrieve_tk(argv: list[str] | None = None) -> PipelineResult:
 
 def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
-        description="Retrieve the PDF text of Tweede Kamer documents."
+        description="Retrieve the XML of Tweede Kamer documents."
     )
     parser.add_argument("--kind", default="toelichting")
     parser.add_argument("--dry-run", action="store_true")
@@ -268,7 +268,7 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
         "--mode",
         choices=[GAPS],
         default=GAPS,
-        help="The only mode: the papers of --kind that have no text yet.",
+        help="The only mode: the papers of --kind of which no XML is stored yet.",
     )
     args = parser.parse_args(argv)
 

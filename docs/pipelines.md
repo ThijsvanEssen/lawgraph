@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles` |
 | Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
@@ -23,8 +23,7 @@ slash enforced), one `requests.Session`, 30 s timeout, and retry with exponentia
 (5 tries, factor 2) on HTTP 429, 502, 503, 504 and connection errors. No source needs an API key.
 
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
-`instruments.props.short_title` and law names through instrument titles; the API judgment
-view uses the same lookup. `normalize bwb` writes `short_title` from the official
+`instruments.props.short_title` and law names through instrument titles; `normalize bwb` writes `short_title` from the official
 abbreviations in the BWB WTI files (see BWB below). A code split over books resolves through
 the book in the article number: `artikel 6:162 BW` cites article `162` of the regulation whose
 short title is `BW6` (`DutchCitationExtractor`); without a book (`artikel 162 BW`) or with an
@@ -41,7 +40,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 |---------|---------|--------------|
 | `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
-| `retrieve tk-content` | XML text of documents whose `kind` contains `--kind` (default `toelichting`) and that have no `props.text`; `--dry-run` | writes `documents.props.text` |
+| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`) of which none is stored; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 
 `tk-dossiers` options: `--since`, `--skip-members` (also skips Fractie and FractieZetelPersoon),
 `--skip-decisions`, `--decisions-since`, `--skip-documents`, `--documents-since`,
@@ -63,13 +62,35 @@ Client quirks:
   XML in the KOOP repository, filed under its dossier
   (`.../kst/<dossier>/kst-<dossier>-<number>/1/xml/kst-<dossier>-<number>.xml`, the dossier
   being the number with its addition, `37020-X` for a budget chapter). It builds the identifier
-  from the dossier the paper is `PART_OF` and its `sequence`, takes the plain text of the XML,
-  keeps at most 500,000 characters (and logs when it cuts), and stores each paper as it comes.
-  A paper the repository does not have (404) is skipped; 25 failures in a row fail the step.
+  from the dossier the paper is `PART_OF` and its `sequence`, and stores the XML unchanged as
+  `tk-kamerstuk-xml` under that identifier (`meta.document` is the key of the Document). The
+  papers it fetches are those without such a record and without a `-missing` record that is
+  still to wait (`lawgraph gaps` lists them). A paper the repository has no XML for (404)
+  becomes a `-missing` record: for 30 days, or for 3 when the paper is a week old or younger
+  (new papers are published as a PDF first and their XML follows within days). Error pages that
+  answer 200 are not stored; 25 failures in a row fail the step. XML exists for papers from
+  December 1994 on.
 
 **Normalize `tk`.** Zaak to Case (`cases`, key = Zaak GUID, whole payload in `props.raw`,
 `dossier_numbers` kept for the dossier pipeline). No edges: a case is linked once the dossiers
 exist.
+
+**Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
+`fetched_at`), turns each into text and sections with `core/kamerstuk_xml.py` and writes them
+on the Document named by `meta.document`. A record whose Document does not exist yet, whose
+XML cannot be read or that has no text is skipped and counted; run it after `normalize
+tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
+...) is described in `docs/data-model.md`.
+
+The parser handles both dialects of the XML (`kamerwrk`, 1995-2009, with flat `tuskop`
+headings; `officiele-publicatie`, 2010 on, with nested `divisie/kop` and flat `tussenkop`).
+The artikelsgewijs part is heading text only, so the parser reads it from the words of the
+headings: an opener ("Artikelsgewijs", "Artikelsgewijze toelichting", "Artikelen"), then
+article headings (`Artikel 3`, `Artikelen 3 en 4`, `Artikel II`, `Artikel 3:159n`,
+`Artikel I, onderdeel B (artikel 1a)`), `onderdeel` and `lid` headings under them, until a
+heading of the opener's level or a bijlage. Article numbers come from the grammar of
+`core/citations.py`. On a corpus of 147 real papers a structure with an opener and articles
+is found in about 70%, and article headings without an opener in another 5%.
 
 **Normalize `tk-dossiers`.** Order: committees, members, factions, dossiers, activities,
 commitments, documents, decisions; then edges; then a backfill of title and stages onto each
@@ -88,10 +109,12 @@ to Case and Dossier; Commitment to the dossiers of its activity), `LED_BY` (Acti
 Committee from `Voortouwcommissie_Id`), `MADE_IN` (Commitment to Activity), `MEMBER_OF`
 (dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`.
 
-**Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text and
-every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
+**Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
+footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
 `instruments.props.short_title` (codes such as `Sr`) and instrument titles (see `semantic
-rechtspraak` for the article forms).
+rechtspraak` for the article forms). The qualifier of an article edge is read into `meta.leden`,
+`meta.onderdelen` and `meta.aanhef` as on judgment edges; only the first citation of an article
+in a document is kept.
 
 | Pattern | Kind | Confidence |
 |---------|------|-----------|
@@ -112,10 +135,10 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
 | `AMENDS` (Document to Instrument, `voorgesteld`) | TK document title contains `wijziging van` and a known instrument title | 0.85 |
-| `IMPLEMENTS` (Instrument to Instrument) | CELEX `3YYYY[CLRDF]NNNN` in the BWB XML of an instrument (`props.celex_refs`, kept by `normalize bwb`); both instruments must exist | 0.75 |
+| `IMPLEMENTS` (Instrument to Instrument) | CELEX `3YYYY[CLRDF]NNNN` in the BWB XML of an instrument (`props.celex_refs`, kept by `normalize bwb`); both instruments must exist; naming the number is all the edge says (`meta.celex`), not that the regulation transposes the act | 0.75 |
 
 **Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by
-`tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
+`normalize tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
 else its `AMENDS` edges to instruments). Targets must exist. Every edge is written with status
 `voorgesteld`.
 
@@ -130,9 +153,46 @@ else its `AMENDS` edges to instruments). Targets must exist. Every edge is writt
 **Semantic `tk-mvt`.** No text matching: the link is read from the graph. For every
 document whose `kind` contains `toelichting`, one AQL pass walks
 `Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS-> Article`
-and writes `EXPLAINS` at confidence 1.0 to the `meta.article_version` of each change edge, to
-the article itself when the edge names no version, and to the instrument when it changed no
-articles at all.
+and writes `EXPLAINS` at confidence 0.5 (`DOSSIER_CONFIDENCE`: the memorandum explains the
+change as a whole, each article is a candidate) to the `meta.article_version` of each change
+edge, to the article itself when the edge names no version, and to the instrument when it
+changed no articles at all. An edge that `tk-mvt-articles` has written is left alone.
+
+**Semantic `tk-mvt-articles`.** The article-by-article part of a memorandum, per section
+(`props.sections`, from `normalize tk-content`). Which article of which law a section is about
+is read from its words (`core/mvt_articles.py`) and matched with what the dossier changed
+(`Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS-> Article`).
+`EXPLAINS` goes to the `meta.article_version` of the change edge, else to the article. Papers
+with `budget`, with `structure_quality` `none`, and dossiers that legislated nothing are left
+out; a section that names no article of a law the dossier changes has no edge of its own (the
+dossier-level edges of `tk-mvt` stay). Only sections of kind `article`, `onderdeel` and `lid`
+are read.
+
+| `meta.match_type` | Section says | Confidence |
+|-------------------|--------------|-----------|
+| `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.90 |
+| `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.85 |
+| `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`) and the dossier made the law: its instrument is `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it | 0.80 |
+| `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names, else of the only law the dossier changes; the dossier changed that article | 0.70 |
+
+The confidences are constants (`core/mvt_articles.py`) and a first estimate: there is no set of
+labelled sections to calibrate them against. A heading with several numbers (`Artikelen 3 en
+4`) gives a reference per number. An `Artikel I` / `Onderdeel B` that names no article gives
+nothing: attaching it to every article the dossier changed would only repeat the dossier-level
+edges. `heading_target` and `own_number` also point at the article of the law when the dossier
+has no change edge for it (an article of a law that is new, or whose history is not loaded);
+the other two only at articles the dossier changed. Not detected: a new law whose numbering a
+nota van wijziging shifted; articles of a treaty; a law the graph does not have or whose name
+two laws share.
+
+An edge is one per (document, target), so an article that several sections explain has one
+edge, and it is the edge `tk-mvt` writes at dossier level: the same key, upgraded in place.
+Its `confidence` is that of the surest section, `source` is `mvt-section-linker` and `meta`
+holds `section_anchor`, `char_start`, `char_end`, `match_type` and `heading` of that section
+and `sections`, every section that explains the article, in document order. The span of a
+section is `text[char_start:char_end]`: the whole section for a heading match, the text before
+its first subsection for a match in the body. The two pipelines can run in either order and any
+number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to.
 
 ## Rechtspraak
 
@@ -161,14 +221,18 @@ the rechtbanken (over 100,000 in two years), are chosen with `--court`.
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
 `case_number`, `procedure` as `judgment_metadata.type`, `subject`s, `relation` ECLIs as
 `related_eclis`), `inhoudsindicatie` as `summary`, `uitspraak` as `text` and as `paragraphs`
-(heading, subheading, body). The XML itself stays in `raw_sources`. `court_code` is the ECLI court
+(heading, subheading, body; see the paragraph props in the data model). The XML itself stays
+in `raw_sources`. `court_code` is the ECLI court
 segment; `tier` is `hoge_raad` (`HR`), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or
 `bijzonder`; `date_eff` is the judgment date.
 
-**Semantic `rechtspraak`.** Reads the XML of each judgment from `raw_sources`, strips the tags and
-extracts article citations with the detector of `tk`, without its instrument-level title
-patterns: the EU forms and `CELEX`/`BWBR` literals are kept. The detector reads the article
-first and resolves the law after it:
+**Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
+made and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
+over a paragraph break; a citation that runs over one is dropped), with the detector of `tk`,
+without its instrument-level title patterns: the EU forms and `CELEX`/`BWBR` literals are
+kept. Every citation counts, not only the first of an article: each becomes a mention with
+its paragraph and the span in that paragraph's text (`core/mentions.py`). The detector reads
+the article first and resolves the law after it:
 
 | Form | Confidence |
 |------|-----------|
@@ -180,6 +244,14 @@ first and resolves the law after it:
 Codes come from `instruments.props.short_title`, names from instrument titles; a title two
 instruments share is not a name. A missing target article is created as a stub from 0.9; an
 article cited only as `artikel N` with no law is not written.
+
+One `REFERS_TO` edge per judgment and article, its `confidence` the strongest mention and
+`meta.mentions` the mentions in reading order (`paragraph_id`, `paragraph_number`, `start`,
+`end`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `snippet`, `confidence`),
+`meta.mention_count` how many there are: an edge keeps the first 100 and counts the rest. The
+lid, onderdelen and aanhef are read from the qualifier with `core/qualifiers.py`, as `semantic
+bwb` and `semantic tk` do. Text of a judgment outside `uitspraak` (the `inhoudsindicatie`) is not
+read. `--since` takes the judgments retrieved from then on.
 
 **Semantic `rechtspraak-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the XML of each judgment (from `raw_sources`):
 `REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations, missing judgments become stubs.
@@ -267,7 +339,9 @@ without a WTI location or element gets no WTI record.
 `date_in_force`, `dossier_numbers` of the originating publication. One Article per
 `(bwb_id, article number)` with the article text (leden as `1. text`, list items on their
 own lines, a paragraph next to the leden is included), the structured `references` with text
-offsets, and `stam_id`, `versie_id`, `valid_from`, `source_publication`, `repealed`. Two
+offsets, the `parts` of the article (aanhef, leden, onderdelen as offsets into that text, see
+`docs/data-model.md`), and `stam_id`, `versie_id`, `valid_from`, `source_publication`,
+`repealed`. Two
 articles of one regulation with the same number share a key. `PART_OF` (article to
 instrument).
 
@@ -290,7 +364,7 @@ record is loaded.
 **Normalize `bwb-history`.** Reads every stored toestand once and writes:
 
 - an InstrumentVersion per toestand and an ArticleVersion per `(stam_id, versie_id)` (a
-  toestand only repeats versions still valid), with `origin_publication` and
+  toestand only repeats versions still valid), with `parts`, `origin_publication` and
   `commencement_publication`;
 - `valid_until` and `current`, recomputed from the database in chunks of 200 regulations, so
   incremental runs stay correct;
@@ -303,8 +377,10 @@ Run `normalize bwb` first.
 
 **Semantic `bwb`.** `REFERS_TO` between articles, read from the XML rather than from the text:
 only articles that carry `props.references` are scanned, and each reference naming a regulation
-and an article becomes one edge with confidence 1.0, `meta` = `start`, `end`, `text` and
-`reason = bwb_xml_ref`. Self references are dropped and targets must exist — nothing is stubbed.
+and an article becomes one edge with confidence 1.0, `meta` = `start`, `end`, `text`,
+`reason = bwb_xml_ref`, `reference_kind` (`intref` or `extref`) and the `leden`, `onderdelen` and
+`aanhef` the reference names. An edge is keyed by its two articles, so an article that refers
+to another twice keeps the span of one; `props.references` keeps both. Self references are dropped and targets must exist — nothing is stubbed.
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
 `--store-citations` also writes the references onto the article as `props.citations`.
 
@@ -450,9 +526,11 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
+| normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
-| semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `tk-content` |
+| semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `normalize tk-content` |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
+| semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

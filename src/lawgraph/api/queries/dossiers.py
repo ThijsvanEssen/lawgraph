@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLES,
     COLLECTION_CASES,
@@ -17,17 +18,21 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
+    EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
     RELATION_ABOUT,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_LED_BY,
+    RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
+from lawgraph.core.documents import chamber_of, is_explanatory
 from lawgraph.core.dossier_stages import (
     accumulate_stage_signals,
     classify_track_kind,
@@ -47,7 +52,47 @@ MUTATION_RELATIONS = (
 )
 EXPLANATION_RELATIONS = (RELATION_EXPLAINS,)
 
+# How an instrument is tied to a dossier, in the order the hub lists them: legislated in
+# it, then changed by it.
+HUB_INSTRUMENT_RELATIONS = (
+    RELATION_LEGISLATED_IN,
+    RELATION_AMENDS,
+    RELATION_INTRODUCES,
+    RELATION_REPEALS,
+)
+
 _DICTUM_EXCERPT_CHARS = 280
+
+# The props of a timeline node that its entry shows, per node type. A document's
+# ``text`` and ``raw`` are not among them: the timeline is not where a document is read.
+_TIMELINE_BODY_PROPS: dict[str, list[str]] = {
+    "document": [
+        "kind",
+        "title",
+        "sequence",
+        "session_year",
+        "tk_url",
+        "url",
+        "source",
+    ],
+    "activity": ["kind", "agenda_title", "number"],
+    "decision": [
+        "subject",
+        "passed",
+        "vote_kind",
+        "tally",
+        "voters",
+        "decision_id",
+        "primary_case_id",
+    ],
+    "commitment": [
+        "text",
+        "minister_name",
+        "minister_role",
+        "status",
+        "expected_resolution",
+    ],
+}
 
 # TK writes 'Eerste ondertekenaar' / 'Mede ondertekenaar'; the frontend shows
 # who submitted a document and who co-signed it.
@@ -236,14 +281,19 @@ def get_dossier_timeline(
     """Everything that happened in a dossier, in date order.
 
     Documents are PART_OF the dossier; activities, decisions and commitments
-    are ABOUT it. A decision entry also carries the motion or amendment it
-    decided on, with its dictum excerpt and signatories.
+    are ABOUT it. A row carries the props its entry shows (``body``, see
+    ``_TIMELINE_BODY_PROPS``) and the node's ``labels``; an activity row also its
+    lead committee (``committee``, null for plenary), looked up for the page only.
+    A decision entry carries the motion or amendment it decided on, with its
+    dictum excerpt and signatories.
     """
     bind: dict[str, Any] = {
         "dossier_id": dossier_id,
         "limit": limit,
         "part_of": RELATION_PART_OF,
         "about": RELATION_ABOUT,
+        "led_by": RELATION_LED_BY,
+        "body_props": _TIMELINE_BODY_PROPS,
     }
     kind_clause = ""
     if kind_filter:
@@ -274,7 +324,8 @@ def get_dossier_timeline(
                    : node.type == 'commitment' ? 'Toezegging' : 'Document'),
             title: node.props.display_name,
             tk_url: node.props.tk_url,
-            body: node.props,
+            body: KEEP(node.props, @body_props[node.type]),
+            labels: node.labels,
             node_id: node._id,
             node_type: node.type
         }}
@@ -282,7 +333,19 @@ def get_dossier_timeline(
         {kind_clause}
         SORT entry.date {"DESC" if order == "desc" else "ASC"}
         LIMIT @limit
-        RETURN entry
+        LET committee = node.type == 'activity' ? FIRST(
+            FOR led IN {COLLECTION_EDGES}
+                FILTER led._from == node._id AND led.relation == @led_by
+                LET lead = DOCUMENT(led._to)
+                FILTER lead != null
+                LIMIT 1
+                RETURN {{
+                    key: lead._key,
+                    slug: lead.props.slug,
+                    name: lead.props.name
+                }}
+        ) : null
+        RETURN MERGE(entry, {{ committee: committee }})
     """
     rows = list(store.query(aql, bind))
     _attach_decision_documents(store, dossier_id, rows)
@@ -368,6 +431,9 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "session_year": props.get("session_year"),
         "date": props.get("date"),
         "tk_url": props.get("tk_url"),
+        "source": props.get("source"),
+        "chamber": chamber_of(document.get("labels")),
+        "is_explanatory": is_explanatory(props.get("kind")),
         "dictum_excerpt": " ".join(text.split())[:_DICTUM_EXCERPT_CHARS] or None,
         "signatories": signatories,
     }
@@ -384,7 +450,9 @@ _DOSSIER_DOCUMENT_ROW = """
                 session_year: document.props.session_year,
                 date: document.props.date,
                 tk_url: document.props.tk_url,
-                display_name: document.props.display_name
+                display_name: document.props.display_name,
+                source: document.props.source,
+                labels: document.labels
             }"""
 
 
@@ -468,6 +536,158 @@ def get_documents_for_dossiers(
         "part_of": RELATION_PART_OF,
     }
     return {row["dossier_id"]: row["items"] for row in store.query(aql, bind)}
+
+
+_DOSSIER_HUB_BODY = f"""
+    LET legislated_by = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == dossier_id AND e.relation == @legislated_in
+            FILTER STARTS_WITH(e._from, '{COLLECTION_INSTRUMENTS}/')
+            LET source = DOCUMENT(e._from)
+            FILTER source != null
+            RETURN {{ id: source._id, publication: source.props.publication_kind != null }}
+    )
+    LET regulation_rows = (
+        FOR source IN legislated_by
+            FILTER NOT source.publication
+            RETURN {{
+                instrument_id: source.id,
+                relation: @legislated_in,
+                status: @canonical
+            }}
+    )
+    LET target_rows = APPEND(
+        (
+            FOR source IN legislated_by
+                FILTER source.publication
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER e._from == source.id AND e.relation IN @changes
+                    RETURN {{ target: e._to, relation: e.relation, status: e.status }}
+        ),
+        (
+            FOR document IN all_documents
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER e._from == document._id AND e.relation IN @changes
+                    RETURN {{ target: e._to, relation: e.relation, status: e.status }}
+        )
+    )
+    LET change_rows = (
+        FOR row IN target_rows
+            COLLECT target = row.target, relation = row.relation, status = row.status
+            LET instrument_ids = STARTS_WITH(target, '{COLLECTION_INSTRUMENTS}/')
+                ? [target]
+                : (
+                    FOR part IN {COLLECTION_EDGES}
+                        FILTER part._from == target AND part.relation == @part_of
+                        FILTER STARTS_WITH(part._to, '{COLLECTION_INSTRUMENTS}/')
+                        RETURN part._to
+                )
+            FOR instrument_id IN instrument_ids
+                RETURN {{
+                    instrument_id: instrument_id,
+                    relation: relation,
+                    status: status != null ? status : @canonical
+                }}
+    )
+    LET instruments = (
+        FOR row IN APPEND(regulation_rows, change_rows)
+            COLLECT instrument_id = row.instrument_id,
+                    relation = row.relation,
+                    status = row.status
+            LET instrument = DOCUMENT(instrument_id)
+            FILTER instrument != null
+            SORT POSITION(@relation_order, LOWER(relation), true), status,
+                 instrument.props.display_name, instrument._key
+            RETURN {{
+                id: instrument._id,
+                key: instrument._key,
+                bwb_id: instrument.props.bwb_id,
+                celex: instrument.props.celex,
+                display_name: instrument.props.display_name,
+                jurisdiction: instrument.props.jurisdiction,
+                relation: LOWER(relation),
+                status: status
+            }}
+    )
+
+    LET activity_ids = UNIQUE(APPEND(
+        (
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._to == dossier_id AND e.relation == @about
+                FILTER STARTS_WITH(e._from, '{COLLECTION_ACTIVITIES}/')
+                RETURN e._from
+        ),
+        (
+            FOR e1 IN {COLLECTION_EDGES}
+                FILTER e1._to == dossier_id AND e1.relation == @part_of
+                FILTER STARTS_WITH(e1._from, '{COLLECTION_CASES}/')
+                FOR e2 IN {COLLECTION_EDGES}
+                    FILTER e2._to == e1._from AND e2.relation == @about
+                    FILTER STARTS_WITH(e2._from, '{COLLECTION_ACTIVITIES}/')
+                    RETURN e2._from
+        )
+    ))
+    LET committees = (
+        FOR activity_id IN activity_ids
+            FOR led IN {COLLECTION_EDGES}
+                FILTER led._from == activity_id AND led.relation == @led_by
+                COLLECT committee_id = led._to
+                LET committee = DOCUMENT(committee_id)
+                FILTER committee != null
+                SORT committee.props.name, committee._key
+                RETURN {{
+                    id: committee._id,
+                    key: committee._key,
+                    slug: committee.props.slug,
+                    name: committee.props.name,
+                    abbreviation: committee.props.abbreviation
+                }}
+    )
+
+    LET kinds = MERGE(
+        FOR document IN all_documents
+            FILTER document.props.kind != null AND document.props.kind != ''
+            COLLECT kind = document.props.kind WITH COUNT INTO total
+            RETURN {{ [kind]: total }}
+    )
+    LET senate_dates = (
+        FOR document IN all_documents
+            FILTER '{CHAMBER_EK}' IN document.labels
+            RETURN document.props.date
+    )
+    RETURN {{
+        instruments: instruments,
+        committees: committees,
+        documents_by_kind: kinds,
+        senate: {{ document_count: LENGTH(senate_dates), first_date: MIN(senate_dates) }}
+    }}
+"""
+
+
+def get_dossier_hub(store: ArangoStore, dossier_id: str) -> dict[str, Any]:
+    """What a dossier is linked to, in one query: instruments, committees, documents.
+
+    *instruments* are the parent instruments the dossier is tied to, one row per
+    ``(instrument, relation, status)``: a regulation ``LEGISLATED_IN`` the dossier; an
+    instrument that an amending publication legislated in this dossier, or a bill of
+    the dossier, ``AMENDS`` / ``INTRODUCES`` / ``REPEALS`` (through its articles or
+    directly). *committees* lead an activity about the dossier, directly or through a
+    case. *documents_by_kind* counts the documents of ``GET /api/dossiers/{n}/documents``;
+    *senate* the Eerste Kamer papers among them.
+    """
+    aql = f"LET dossier_id = @dossier_id\n{_dossier_documents_aql(_DOSSIER_HUB_BODY)}"
+    bind = {
+        "dossier_id": dossier_id,
+        "part_of": RELATION_PART_OF,
+        "about": RELATION_ABOUT,
+        "led_by": RELATION_LED_BY,
+        "legislated_in": RELATION_LEGISLATED_IN,
+        "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
+        "canonical": EDGE_STATUS_CANONIEK,
+        "relation_order": [r.lower() for r in HUB_INSTRUMENT_RELATIONS],
+    }
+    rows = list(store.query(aql, bind))
+    return rows[0] if rows else {}
 
 
 def classify_relation(relation: str | None) -> str:

@@ -11,6 +11,7 @@ from typing import Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
+    EDGE_SOURCE_BWB_IMPLEMENTS,
     RELATION_IMPLEMENTS,
     SOURCE_BWB,
 )
@@ -21,8 +22,6 @@ from lawgraph.db import EdgeWriter
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
-
-SEMANTIC_SOURCE_IMPLEMENTS = "bwb-implements-directive"
 
 
 class BWBImplementsSemanticPipeline(SemanticPipelineBase):
@@ -50,7 +49,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                     from_node=instrument_node,
                     to_node=eu_node,
                     relation=RELATION_IMPLEMENTS,
-                    source=SEMANTIC_SOURCE_IMPLEMENTS,
+                    source=EDGE_SOURCE_BWB_IMPLEMENTS,
                     confidence=0.75,
                     meta={"celex": celex},
                 )

@@ -23,13 +23,15 @@ def get_decisions(
     passed: bool | None = None,
     party: str | None = None,
     chamber: str | None = None,
+    dossier: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
     """A page of decisions, newest first, with the seat tally per row.
 
     The tally is stored on the decision, so a list page costs no traversal.
-    Filtering by *party* does need one, over the VOTED edges of that party.
+    Filtering by *party* does need one, over the VOTED edges of that party;
+    *dossier* is a dossier number, matched against the numbers on the decision.
     """
     bind: dict[str, Any] = {"limit": limit, "offset": offset}
     filters: list[str] = []
@@ -41,6 +43,10 @@ def get_decisions(
         # TK decisions carry the label "TK", EK ones "EK".
         filters.append("FILTER @chamber IN decision.labels")
         bind["chamber"] = chamber.upper()
+    if dossier:
+        # Served by the array index on ``props.dossier_numbers``.
+        filters.append("FILTER @dossier IN decision.props.dossier_numbers")
+        bind["dossier"] = dossier
     party_pre = ""
     if party:
         filters.append("FILTER decision._id IN voted_on")

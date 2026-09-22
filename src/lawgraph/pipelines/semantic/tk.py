@@ -25,6 +25,7 @@ from lawgraph.core.citations import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 
@@ -142,6 +143,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
                         "snippet": hit.snippet,
                         "reason": hit_reason(hit),
                         "qualifier": hit.qualifier,
+                        **parse_qualifier(hit.qualifier).to_dict(),
                     }.items()
                     if v
                 }
@@ -278,6 +280,18 @@ class TKSemanticPipeline(SemanticPipelineBase):
                 continue
             fragments.append(text_value)
             total_length += len(text_value)
+        # A footnote is no part of ``text`` (``normalize tk-content`` moves it out), and cites
+        # laws as much as the text does.
+        notes = coerce_text(
+            "\n".join(
+                str(note.get("text") or "")
+                for note in document.props.get("footnotes") or []
+                if isinstance(note, dict)
+            )
+        )
+        if notes:
+            fragments.append(notes)
+            total_length += len(notes)
 
         total_length = self._collect_raw_text(
             document.props.get("raw"), fragments, total_length

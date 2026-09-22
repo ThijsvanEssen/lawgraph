@@ -161,6 +161,22 @@ SOURCE_ECHR = "echr"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
 
+# The chambers of the States General, as a document or decision carries them in its labels.
+CHAMBER_TK = "TK"
+CHAMBER_EK = "EK"
+
+# A document is explanatory (an MvT, NvT, nota van toelichting) when its ``props.kind``
+# contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.
+EXPLANATORY_KIND_MARKER = "toelichting"
+
+# The edge `source` of IMPLEMENTS: the regulation's text names the EU act's CELEX number.
+EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements-directive"
+
+# International instruments the graph has a name for: BWB treaties carry a BWBV id, the
+# Convention of the ECHR a pseudo id of its own (its articles carry it as `props.bwb_id`).
+BWB_TREATY_ID_PREFIX = "BWBV"
+ECHR_CONVENTION_ID = "ECHR-CONVENTION"
+
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 
 RAW_KIND_TK_ZAAK = "tk-zaak"
@@ -173,6 +189,8 @@ RAW_KIND_TK_PERSOON = "tk-persoon"
 RAW_KIND_TK_DOCUMENT = "tk-document"
 RAW_KIND_TK_FRACTIE = "tk-fractie"
 RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
+# The XML of a Kamerstuk in the KOOP repository (source ``tk``, external id ``kst-<dossier>-<n>``).
+RAW_KIND_TK_KAMERSTUK_XML = "tk-kamerstuk-xml"
 RAW_KIND_RS_CONTENT = "rs-content"
 RAW_KIND_EU_CELEX = "eu-celex-html"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
@@ -201,6 +219,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_DOCUMENT,
         RAW_KIND_TK_FRACTIE,
         RAW_KIND_TK_FRACTIEZETELPERSOON,
+        RAW_KIND_TK_KAMERSTUK_XML,
     ),
     SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT,),
     SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),

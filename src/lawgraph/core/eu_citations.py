@@ -120,6 +120,8 @@ def collect_article_hits(
                     confidence=confidence,
                     raw_match=match.group(0),
                     snippet=make_snippet(text, match.span()),
+                    start=match.start(),
+                    end=match.end(),
                 )
             )
 
@@ -136,6 +138,8 @@ def collect_celex_literal_hits(
                 confidence=confidence,
                 raw_match=match.group(0),
                 snippet=make_snippet(text, match.span()),
+                start=match.start(),
+                end=match.end(),
             )
         )
 
@@ -151,6 +155,8 @@ def collect_year_number_hits(text: str, confidence: float, record: HitRecorder) 
                     confidence=confidence,
                     raw_match=match.group(0),
                     snippet=make_snippet(text, match.span()),
+                    start=match.start(),
+                    end=match.end(),
                 )
             )
 
@@ -165,5 +171,7 @@ def collect_bwb_id_hits(text: str, confidence: float, record: HitRecorder) -> No
                 confidence=confidence,
                 raw_match=match.group(0),
                 snippet=make_snippet(text, match.span()),
+                start=match.start(),
+                end=match.end(),
             )
         )

@@ -138,7 +138,7 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
     names = {p.name for p in PIPELINES["retrieve"] if p.argv_for_all is not None}
     rows = {
         "retrieve": names,
-        "normalize": names | {"bwb-history"},  # "the same plus"
+        "normalize": names | {"bwb-history", "tk-content"},  # "the same plus"
         "semantic": {p.name for p in PIPELINES["semantic"]},
     }
     for phase in ("retrieve", "semantic"):
