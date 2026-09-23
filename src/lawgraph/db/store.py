@@ -18,12 +18,10 @@ from arango.exceptions import ArangoServerError, DocumentInsertError
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
-    COLLECTION_EDGE_STATUS_LOG,
     COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
     DOCUMENT_COLLECTIONS,
-    EDGE_STATUS_CANONIEK,
 )
 from lawgraph.config.settings import (
     ARANGO_DB_NAME,
@@ -233,7 +231,6 @@ class ArangoStore:
         self.articles = self._collections[COLLECTION_ARTICLES]
         self.judgments = self._collections[COLLECTION_JUDGMENTS]
         self.raw_sources = self._collections[COLLECTION_RAW_SOURCES]
-        self.edge_status_log = self._collections[COLLECTION_EDGE_STATUS_LOG]
         self.edges = self._collections[COLLECTION_EDGES]
 
         self.payloads: PayloadStore = open_payload_store(
@@ -603,56 +600,3 @@ class ArangoStore:
         HTTP round-trips from O(N) to 1.
         """
         return self._bulk_upsert(COLLECTION_EDGES, docs, _EDGE_UPSERT_UPDATE)
-
-    def flip_edge_status(
-        self,
-        *,
-        edge_key: str,
-        new_status: str,
-        triggering_decision_id: str,
-        source: str = "decision-propagation",
-    ) -> dict[str, Any] | None:
-        """Flip an edge's status and write an immutable audit log entry.
-
-        Every call is logged to `edge_status_log` so researchers can answer
-        'why did the graph change at this point in time'.
-        """
-        raw_existing = self.edges.get(edge_key)
-        if raw_existing is None:
-            raise ValueError(f"flip_edge_status: edge {edge_key!r} not found")
-
-        existing = cast(dict[str, Any], raw_existing)
-        old_status = existing.get("status", EDGE_STATUS_CANONIEK)
-        if old_status == new_status:
-            return existing
-
-        timestamp = iso_timestamp(
-            dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
-        )
-
-        self.edges.update(
-            {"_key": edge_key, "status": new_status, "updated_at": timestamp}
-        )
-
-        log_entry: dict[str, Any] = {
-            "_key": str(uuid4()),
-            "edge_key": edge_key,
-            "edge_from": existing.get("_from"),
-            "edge_to": existing.get("_to"),
-            "relation": existing.get("relation"),
-            "old_status": old_status,
-            "new_status": new_status,
-            "triggering_decision_id": triggering_decision_id,
-            "source": source,
-            "timestamp": timestamp,
-        }
-        self.edge_status_log.insert(log_entry)
-        logger.info(
-            "Edge %s: %s → %s (triggered by decision %s)",
-            edge_key,
-            old_status,
-            new_status,
-            triggering_decision_id,
-        )
-        updated_doc = {**existing, "status": new_status, "updated_at": timestamp}
-        return updated_doc

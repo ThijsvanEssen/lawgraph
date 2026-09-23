@@ -1,7 +1,7 @@
 """What the API asks the store about a node's existence, run for real on the test server.
 
-A watch is only made for a node that is there, `/cited-by` of an article that is not there is
-a 404, and `/api/health` says whether the database answers.
+`/cited-by` of an article that is not there is a 404, and `/api/health` says whether the
+database answers.
 """
 
 from __future__ import annotations
@@ -22,8 +22,7 @@ KEY = make_node_key(BW7, "7:231")
 
 
 @pytest.fixture()
-def client(database: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("LAWGRAPH_WRITE_API_KEY", "secret")
+def client(database: str) -> Iterator[TestClient]:
     store = ArangoStore()
     doc = {
         "_key": KEY,
@@ -37,31 +36,6 @@ def client(database: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClien
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_store, None)
-
-
-def _watch(client: TestClient, node_id: str) -> int:
-    answer = client.post(
-        "/api/watches", json={"node_id": node_id}, headers={"X-Write-Key": "secret"}
-    )
-    return answer.status_code
-
-
-def test_a_watch_is_made_for_a_node_that_is_there(client: TestClient) -> None:
-    assert _watch(client, f"{COLLECTION_ARTICLES}/{KEY}") == 201
-
-
-@pytest.mark.parametrize(
-    "node_id",
-    [
-        f"{COLLECTION_ARTICLES}/nothing",  # a collection of ours, no such key
-        f"_users/{KEY}",  # not a collection of ours
-        "no_such_collection/x",
-    ],
-)
-def test_a_watch_for_a_node_that_is_not_there_is_refused(
-    client: TestClient, node_id: str
-) -> None:
-    assert _watch(client, node_id) == 400
 
 
 def test_cited_by_of_an_article_that_is_not_there_is_a_404(client: TestClient) -> None:

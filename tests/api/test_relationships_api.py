@@ -2,19 +2,12 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.config.constants import RELATION_SCOPED_BY
 
 client = TestClient(app)
-WRITE_KEY = {"X-Write-Key": "secret"}
-
-
-@pytest.fixture(autouse=True)
-def _a_configured_write_key(monkeypatch) -> None:
-    monkeypatch.setenv("LAWGRAPH_WRITE_API_KEY", "secret")
 
 
 _SOURCE_ARTICLE = {
@@ -44,11 +37,7 @@ _EDGE = {
     "relation": "REFERS_TO_ARTICLE",
     "semantic_type": "definitional_reference",
     "explanation": "Patroon 'als bedoeld in' direct vóór de verwijzing",
-    "semantic_source": "structured",
-    "expert_badge": False,
     "confidence": 0.92,
-    "community_upvotes": 3,
-    "community_downvotes": 1,
 }
 
 _ANNEX = {
@@ -79,13 +68,8 @@ def test_relationship_types_endpoint():
     assert response.status_code == 200
     payload = response.json()
     assert "definitional_reference" in payload["semantic_types"]
+    assert payload == {"semantic_types": sorted(payload["semantic_types"])}
     assert len(payload["semantic_types"]) == 7
-    assert set(payload["semantic_sources"]) == {
-        "structured",
-        "expert",
-        "community",
-        "llm",
-    }
 
 
 def test_article_relationships_endpoint(monkeypatch):
@@ -109,8 +93,7 @@ def test_article_relationships_endpoint(monkeypatch):
     rel = upstream[0]
     assert rel["semantic_type"] == "definitional_reference"
     assert rel["target_article"]["article_number"] == "24c"
-    assert rel["community_votes"] == {"upvotes": 3, "downvotes": 1}
-    assert rel["semantic_source"] == "structured"
+    assert rel["explanation"].startswith("Patroon")
     assert payload["downstream_implications"] == []
 
     scope = payload["scope_articles"]
@@ -148,96 +131,4 @@ def test_relationships_search(monkeypatch):
 
 def test_relationships_search_rejects_unknown_type():
     response = client.get("/api/relationships/search?type=not_a_type")
-    assert response.status_code == 422
-
-
-def test_tag_requires_curation_key(monkeypatch):
-    monkeypatch.delenv("LAWGRAPH_CURATION_API_KEY", raising=False)
-    response = client.post(
-        "/api/relationships/tag",
-        json={
-            "source_article": "BWBR0001854/287",
-            "target_article": "BWBR0001854/24c",
-            "semantic_type": "definitional_reference",
-        },
-    )
-    assert response.status_code == 503
-
-
-def test_tag_rejects_wrong_key(monkeypatch):
-    monkeypatch.setenv("LAWGRAPH_CURATION_API_KEY", "secret")
-    response = client.post(
-        "/api/relationships/tag",
-        headers={"X-Curation-Key": "wrong"},
-        json={
-            "source_article": "BWBR0001854/287",
-            "target_article": "BWBR0001854/24c",
-            "semantic_type": "definitional_reference",
-        },
-    )
-    assert response.status_code == 401
-
-
-def test_tag_creates_relationship(monkeypatch):
-    monkeypatch.setenv("LAWGRAPH_CURATION_API_KEY", "secret")
-    monkeypatch.setattr(
-        "lawgraph.api.routes.relationships.resolve_article_id",
-        lambda store, ref: f"articles/{ref.replace('/', '_').lower()}",
-    )
-    captured: dict = {}
-
-    def _fake_tag(store, **kwargs):
-        captured.update(kwargs)
-        return {**_EDGE, "semantic_source": "expert", "expert_badge": True}
-
-    monkeypatch.setattr("lawgraph.api.routes.relationships.tag_relationship", _fake_tag)
-    response = client.post(
-        "/api/relationships/tag",
-        headers={"X-Curation-Key": "secret"},
-        json={
-            "source_article": "BWBR0001854/287",
-            "target_article": "BWBR0001854/24c",
-            "semantic_type": "conditional_requirement",
-            "explanation": "Voorwaarde voor toepassing",
-            "semantic_source": "expert",
-            "expert_badge": True,
-        },
-    )
-    assert response.status_code == 200
-    assert captured["semantic_type"] == "conditional_requirement"
-    assert captured["expert_badge"] is True
-    assert response.json()["expert_badge"] is True
-
-
-def test_vote_updates_counters(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.relationships.vote_relationship",
-        lambda store, edge_id, vote: {
-            **_EDGE,
-            "community_upvotes": 4,
-        },
-    )
-    response = client.post(
-        "/api/relationships/abc123/vote", json={"vote": "upvote"}, headers=WRITE_KEY
-    )
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["community_votes"] == {"upvotes": 4, "downvotes": 1}
-
-
-def test_vote_unknown_edge_404(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.relationships.vote_relationship",
-        lambda store, edge_id, vote: None,
-    )
-    response = client.post(
-        "/api/relationships/nope/vote", json={"vote": "upvote"}, headers=WRITE_KEY
-    )
-    assert response.status_code == 404
-
-
-def test_vote_invalid_value_422():
-    response = client.post(
-        "/api/relationships/abc123/vote", json={"vote": "sideways"}, headers=WRITE_KEY
-    )
     assert response.status_code == 422

@@ -105,8 +105,6 @@ Open:
 
 - Of the BWB WTI files only the official abbreviations are ingested (as
   `instruments.props.short_title`); the amendment log and `grondslag-voor` are not.
-- Writing needs a shared key (`X-Write-Key`, `X-Curation-Key`); there are no users or roles,
-  so a vote is not tied to a person and the watch list is one list for the deployment.
 - Rechtspraak is loaded for the chosen courts (default: Hoge Raad, Raad van State, the hoven)
   inside the window; a judgment of another court arrives only when a loaded record cites it
   (`expand-graph`). Citations between judgments are read from the text; of the structured

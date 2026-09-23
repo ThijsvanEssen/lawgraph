@@ -25,10 +25,8 @@ A node is a document `{_key, type, labels, props}`:
   source was ingested.
 
 Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
-store), `watches` (saved node watches, not scoped to a user), `edge_status_log` (audit rows
-written by `ArangoStore.flip_edge_status`, which no pipeline calls), `topics` (schema only;
-nothing writes it), `pipeline_state` (one document per phase: when its last complete
-`<phase> all` began, for `--since last`).
+store), `topics` (schema only; nothing writes it), `pipeline_state` (one document per phase:
+when its last complete `<phase> all` began, for `--since last`).
 
 ## Node types and relation catalogue
 
@@ -134,12 +132,9 @@ says that two articles are linked, `semantic_type` says what the link means.
 | Field | Values |
 |-------|--------|
 | `semantic_type` | `conditional_requirement`, `scope_limitation`, `prerequisite_procedure`, `definitional_reference`, `limiting_exception`, `cross_reference`, `delegated_discretion`; null for unclassified edges |
-| `semantic_source` | `structured` (pattern extraction), `expert`, `community`, `llm` |
-| `explanation`, `expert_badge`, `created_by`, `updated_at` | curation metadata |
-| `community_upvotes`, `community_downvotes` | counters |
+| `explanation` | the pattern that decided the type, in words |
+| `updated_at` | when the classification last changed |
 | `meta.semantic_pattern`, `meta.semantic_confidence` | audit trail of the extraction |
-
-Re-running the pipelines never overwrites `expert` or `community` classifications.
 
 ## Instrument
 
@@ -346,10 +341,9 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
 | `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `labels[*]` |
-| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes`, `watches` | the fields the list endpoints filter and sort on |
+| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on |
 | `raw_sources` | `(source, kind)` |
-| `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)`; `semantic_source` |
-| `edge_status_log` | `timestamp`, `edge_key` |
+| `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)` |
 
 An index that is sorted on (`SORT ... LIMIT`) or counted per value (`edges.relation`,
 `props.source`, `props.kind`, `props.jurisdiction`, `raw_sources (source, kind)`) is not

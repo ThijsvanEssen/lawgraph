@@ -24,7 +24,6 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
-    SEMANTIC_SOURCE_STRUCTURED,
     SOURCE_BWB,
     SOURCE_ECHR,
     SOURCE_EERSTEKAMER,
@@ -313,7 +312,6 @@ def articles_with_classifiable_edges(store: Store) -> Iterator[dict[str, Any]]:
     """Articles with their classifiable outgoing reference edges.
 
     Grouped per article so each article text crosses the wire once.
-    Excludes expert/community-curated edges.
     """
     aql = f"""
         FOR art IN {COLLECTION_ARTICLES}
@@ -322,20 +320,12 @@ def articles_with_classifiable_edges(store: Store) -> Iterator[dict[str, Any]]:
                 FOR e IN {COLLECTION_EDGES}
                     FILTER e._from == art._id
                     FILTER e.relation == @relation
-                    FILTER e.semantic_source == null
-                        OR e.semantic_source == @structured
                     RETURN {{ key: e._key, start: e.meta.start, end: e.meta.end }}
             )
             FILTER LENGTH(es) > 0
             RETURN {{ text: art.props.text, edges: es }}
         """
-    return store.query(
-        aql,
-        {
-            "relation": RELATION_REFERS_TO,
-            "structured": SEMANTIC_SOURCE_STRUCTURED,
-        },
-    )
+    return store.query(aql, {"relation": RELATION_REFERS_TO})
 
 
 def update_edge_classifications(
@@ -351,15 +341,12 @@ def update_edge_classifications(
             LET stored = DOCUMENT({COLLECTION_EDGES}, u.key)
             FILTER stored != null
             FILTER stored.semantic_type != u.semantic_type
-                OR stored.semantic_source != @structured
                 OR stored.explanation != u.explanation
                 OR stored.meta.semantic_pattern != u.pattern
                 OR stored.meta.semantic_confidence != u.semantic_confidence
             UPDATE u.key WITH {{
                 semantic_type: u.semantic_type,
-                semantic_source: @structured,
                 explanation: u.explanation,
-                expert_badge: false,
                 updated_at: @now,
                 meta: {{
                     semantic_pattern: u.pattern,
@@ -368,11 +355,7 @@ def update_edge_classifications(
             }} IN {COLLECTION_EDGES} OPTIONS {{ mergeObjects: true }}
             RETURN 1
         """
-    bind = {
-        "updates": batch,
-        "structured": SEMANTIC_SOURCE_STRUCTURED,
-        "now": now,
-    }
+    bind = {"updates": batch, "now": now}
     return len(list(store.query(aql, bind)))
 
 

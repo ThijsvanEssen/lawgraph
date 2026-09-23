@@ -18,13 +18,11 @@ from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
-    COLLECTION_EDGE_STATUS_LOG,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
-    COLLECTION_WATCHES,
     DOCUMENT_COLLECTIONS,
     TEXT_ANALYZER,
 )
@@ -361,7 +359,6 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_DECISIONS, ["props.dossier_numbers[*]"], False),
         (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
         (COLLECTION_COMMITMENTS, ["props.status"], False),
-        (COLLECTION_WATCHES, ["node_id"], False),
         # raw_sources: the normalize pipelines read by source and kind. Not sparse, so a
         # count per kind walks the index and reads no document (an EU act is up to 1 MB).
         (COLLECTION_RAW_SOURCES, ["source", "kind"], False, False),
@@ -371,16 +368,12 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_EDGES, ["_to", "relation"], False),
         (COLLECTION_EDGES, ["status"], False),
         (COLLECTION_EDGES, ["status", "relation"], False),
-        # edge_status_log indexes — for audit log time-range and key lookups
-        (COLLECTION_EDGE_STATUS_LOG, ["timestamp"], False),
-        (COLLECTION_EDGE_STATUS_LOG, ["edge_key"], False),
         # edges confidence — for semantic filtering by confidence threshold
         (COLLECTION_EDGES, ["confidence"], False),
         # Semantic relationship type layer — equality filters only, so sparse
         # is fine and skips the (large) majority of unclassified edges.
         (COLLECTION_EDGES, ["semantic_type"], False),
         (COLLECTION_EDGES, ["_from", "semantic_type"], False),
-        (COLLECTION_EDGES, ["semantic_source"], False),
         # annexes — lookups by parent law
         (COLLECTION_ANNEXES, ["props.bwb_id"], False),
         # NOTE: we deliberately *don't* index ``edges.created_at``. The planner

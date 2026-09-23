@@ -142,13 +142,3 @@ API_RATE_LIMIT_PERIOD = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
 API_TRUSTED_PROXIES = frozenset(_env_list("LAWGRAPH_TRUSTED_PROXIES"))
 API_CACHE_TTL = float(os.getenv("LAWGRAPH_CACHE_TTL", "60"))
 API_CACHE_MAXSIZE = int(os.getenv("LAWGRAPH_CACHE_MAXSIZE", "512"))
-
-
-def curation_api_key() -> str | None:
-    """Shared key for the curation endpoint; curation is disabled when unset."""
-    return os.getenv("LAWGRAPH_CURATION_API_KEY") or None
-
-
-def write_api_key() -> str | None:
-    """The shared key for watches and votes; unset closes those routes (HTTP 503)."""
-    return os.getenv("LAWGRAPH_WRITE_API_KEY") or None

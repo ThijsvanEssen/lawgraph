@@ -417,8 +417,8 @@ from the text around the reference (`meta.start`/`end`): a trigger phrase in the
 the reference scores 0.9, elsewhere within 120 characters either side 0.7, no trigger gives
 `cross_reference` at 0.5. Types and their patterns: `limiting_exception`,
 `definitional_reference`, `conditional_requirement`, `prerequisite_procedure`,
-`scope_limitation`, `delegated_discretion`, `cross_reference`. It writes `semantic_source =
-structured` and never touches edges classified by an `expert` or `community`. The
+`scope_limitation`, `delegated_discretion`, `cross_reference`, and writes only the
+classifications that changed. The
 confidence of one pattern can be overridden with `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>`, for
 example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` (patterns: the type names above and
 `cross_reference_explicit`, `cross_reference_fallback`).

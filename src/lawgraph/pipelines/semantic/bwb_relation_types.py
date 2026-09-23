@@ -2,12 +2,9 @@
 
 Runs after the citation-detection pipelines (bwb_articles etc.) and assigns a
 ``semantic_type`` to each article-to-article edge based on the Dutch legal
-drafting patterns surrounding the citation span (stored in edge.meta).
-
-Curation-aware: edges whose ``semantic_source`` is 'expert' or 'community'
-are never overwritten — only unclassified edges and earlier 'structured'
-classifications are (re)classified, so the extractor can be improved and
-re-run safely.
+drafting patterns surrounding the citation span (stored in edge.meta). A re-run
+classifies every edge again and writes only what changed, so the extractor can be improved
+and re-run safely.
 """
 
 from __future__ import annotations

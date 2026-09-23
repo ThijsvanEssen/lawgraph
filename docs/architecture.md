@@ -1,7 +1,7 @@
 # Architecture
 
 LawGraph is a batch system that fills an ArangoDB graph, plus an HTTP API on top of it that
-is read-only apart from watches and relationship curation. There is no other user interface.
+only reads. There is no other user interface.
 
 ## Pipeline model
 

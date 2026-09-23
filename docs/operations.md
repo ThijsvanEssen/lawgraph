@@ -68,8 +68,6 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
-| `LAWGRAPH_CURATION_API_KEY` | unset | enables `POST /api/relationships/tag` |
-| `LAWGRAPH_WRITE_API_KEY` | unset | enables the watch endpoints and the relationship vote (`X-Write-Key`); unset answers 503 |
 
 ### Logging and tests
 
@@ -305,9 +303,8 @@ largest collections, and fails from `LAWGRAPH_DB_SIZE_ALERT_GIB` (70 GiB) on, or
 server reports its license status as other than `good`. With the alert command set, that
 failure reaches you the same morning.
 
-**Backups.** Nearly everything in the database can be built again from the sources, but that
-takes a day or more, and what people added (watches, votes, expert classifications of
-relationships) cannot. `scripts/backup.sh` writes a compressed `arangodump` of the database to
+**Backups.** Everything in the database can be built again from the sources, but that takes a
+day or more; a backup is back in minutes to hours. `scripts/backup.sh` writes a compressed `arangodump` of the database to
 `LAWGRAPH_BACKUP_DIR` (`./backups`, mounted by `docker-compose.yml` at `/backups` in the
 container, where the dump runs), with a `counts` file of the documents per collection and the
 search views, and keeps the newest `LAWGRAPH_BACKUP_KEEP` (7). `LAWGRAPH_BACKUP_UPLOAD_COMMAND`
