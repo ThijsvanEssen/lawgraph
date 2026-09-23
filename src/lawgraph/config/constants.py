@@ -51,6 +51,12 @@ DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     COLLECTION_PIPELINE_STATE,
 )
 
+# ── Search ────────────────────────────────────────────────────────────────────
+
+# The analyzer of the words of a text in the search views, and of the words a query is
+# split into. The texts are Dutch: a Dutch stemmer makes "uitspraken" find "uitspraak".
+TEXT_ANALYZER = "text_nl"
+
 # ── Edge status values ────────────────────────────────────────────────────────
 
 EDGE_STATUS_CANONIEK = "canoniek"  # current law

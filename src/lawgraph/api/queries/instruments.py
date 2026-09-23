@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
+    TEXT_ANALYZER,
 )
 from lawgraph.core.models import parse_arango_id
 from lawgraph.db import ArangoStore
@@ -621,7 +622,7 @@ def get_instruments_list(
     # uses the inverted index), otherwise the raw collection. `build_search_clause`
     # hardcodes ``doc.props.<field>``, so the loop variable must be ``doc``.
     source = (
-        f'FOR doc IN search_instruments SEARCH ANALYZER({search_clause}, "text_en")'
+        f'FOR doc IN search_instruments SEARCH ANALYZER({search_clause}, "{TEXT_ANALYZER}")'
         if use_search
         else f"FOR doc IN {COLLECTION_INSTRUMENTS}"
     )
@@ -661,7 +662,7 @@ def get_instruments_list(
 
     if has_filter:
         count_source = (
-            f'FOR doc IN search_instruments SEARCH ANALYZER({search_clause}, "text_en")'
+            f'FOR doc IN search_instruments SEARCH ANALYZER({search_clause}, "{TEXT_ANALYZER}")'
             if use_search
             else f"FOR doc IN {COLLECTION_INSTRUMENTS}"
         )

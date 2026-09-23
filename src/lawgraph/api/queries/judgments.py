@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
+    TEXT_ANALYZER,
 )
 from lawgraph.db import ArangoStore
 
@@ -169,7 +170,7 @@ def get_judgments_list(
         bind_vars["cited_by_min"] = cited_by_min
 
     from_clause = (
-        f'FOR doc IN search_judgments SEARCH ANALYZER({search_clause}, "text_en")'
+        f'FOR doc IN search_judgments SEARCH ANALYZER({search_clause}, "{TEXT_ANALYZER}")'
         if use_search
         else f"FOR doc IN {COLLECTION_JUDGMENTS}"
     )

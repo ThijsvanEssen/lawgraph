@@ -352,6 +352,8 @@ deliberately not indexed.
 ArangoSearch views back `/api/search`: `search_articles`, `search_instruments`,
 `search_judgments`, `search_dossiers`, `search_documents`, `search_committees`, using the
 analyzers `lawgraph_ngram_v2` (lower-cased 3-12 character n-grams, so `vordering` finds
-`Strafvordering`) and `lawgraph_norm` (lower-cased identity for identifiers), plus `text_en`
-and `identity`. Views fill asynchronously; a fresh insert may be missing briefly. `members` and
-`factions` have no view: they are small enough to scan.
+`Strafvordering`) and `lawgraph_norm` (lower-cased identity for identifiers), plus `identity`
+and the Dutch `text_nl` (`TEXT_ANALYZER`: a word is stemmed, so `uitspraken` finds `uitspraak`;
+English texts such as ECHR summaries are stemmed as Dutch too). Views fill asynchronously; a
+fresh insert may be missing briefly. `members` and `factions` have no view: they are small
+enough to scan.
