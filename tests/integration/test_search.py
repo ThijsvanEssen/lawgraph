@@ -15,7 +15,6 @@ import pytest
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_JUDGMENTS
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries import search as search_module
 from lawgraph.db.queries.search import search_all
 
 BW7 = "BWBR0005290"
@@ -28,7 +27,6 @@ def _put(store: ArangoStore, collection: str, key: str, **props: Any) -> None:
 
 @pytest.fixture()
 def store(database: str) -> ArangoStore:
-    search_module._law_cache.clear()
     store = ArangoStore()
     _put(
         store,

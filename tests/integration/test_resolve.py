@@ -73,7 +73,6 @@ def _article(
 
 @pytest.fixture()
 def store(database: str) -> ArangoStore:
-    search_module._law_cache.clear()
     store = ArangoStore()
     _instrument(store, GW, "Grondwet")
     _instrument(store, SR, "Wetboek van Strafrecht", "Sr")

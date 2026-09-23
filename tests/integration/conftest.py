@@ -67,12 +67,15 @@ def database(monkeypatch: pytest.MonkeyPatch, payload_store: str) -> Iterator[st
     from arango.client import ArangoClient
 
     from lawgraph.config import settings
+    from lawgraph.core.cache import TTLCache
     from lawgraph.db import store as store_module
 
     name = f"lawgraph_it_{uuid.uuid4().hex[:10]}"
     monkeypatch.setattr(store_module, "ARANGO_URL", TEST_URL)
     monkeypatch.setattr(store_module, "ARANGO_DB_NAME", name)
     monkeypatch.setattr(store_module, "PAYLOAD_STORE", payload_store)
+    # What the caches of the API and the search hold was read from another test's database.
+    TTLCache.clear_all()
     system = ArangoClient(hosts=TEST_URL).db(
         "_system", username=settings.ARANGO_USER, password=settings.ARANGO_PASSWORD
     )
