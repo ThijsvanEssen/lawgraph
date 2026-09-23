@@ -12,7 +12,10 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_RAW_SOURCES,
+    RAW_KIND_ECHR_JUDGMENT,
     SOURCE_BWB,
+    SOURCE_ECHR,
     SOURCE_TK,
 )
 from lawgraph.db.counting import Store
@@ -27,6 +30,21 @@ def count_nodes_of_source(store: Store, collection: str, source: str) -> int:
             RETURN n
         """
     return next(iter(store.query(aql, {"source": source})), 0)
+
+
+def count_echr_judgments_in_raw(store: Store) -> int:
+    """How many judgments the HUDOC records hold: one per ECLI, whatever its languages, and
+    one per item without an ECLI, as ``normalize echr`` keys them."""
+    aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind
+            LET ecli = UPPER(TRIM(TO_STRING(r.payload_json.ecli || "")))
+            COLLECT judgment = ecli != "" ? ecli : r.external_id
+            COLLECT WITH COUNT INTO n
+            RETURN n
+        """
+    bind_vars = {"source": SOURCE_ECHR, "kind": RAW_KIND_ECHR_JUDGMENT}
+    return next(iter(store.query(aql, bind_vars)), 0)
 
 
 def dangling_edges(store: Store) -> Iterator[dict[str, Any]]:

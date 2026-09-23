@@ -85,8 +85,22 @@ def _explains(edges: EdgeWriter, document: str, target: str, **fields: Any) -> N
 
 def _build(store: ArangoStore) -> None:
     nodes = [
-        _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "36000", ["TK"], number="36000"),
-        _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "36001", ["TK"], number="36001"),
+        _node(
+            COLLECTION_DOSSIERS,
+            NodeType.DOSSIER,
+            "36000",
+            ["TK"],
+            number="36000",
+            label="36000",
+        ),
+        _node(
+            COLLECTION_DOSSIERS,
+            NodeType.DOSSIER,
+            "36001",
+            ["TK"],
+            number="36001",
+            label="36001",
+        ),
         _node(
             COLLECTION_INSTRUMENTS,
             NodeType.INSTRUMENT,
@@ -310,7 +324,14 @@ def _build_at_scale(store: ArangoStore) -> None:
     1/4 the instrument; every document carries a large text."""
     text = "x" * SIZE
     nodes = [
-        _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "36000", ["TK"], number="36000"),
+        _node(
+            COLLECTION_DOSSIERS,
+            NodeType.DOSSIER,
+            "36000",
+            ["TK"],
+            number="36000",
+            label="36000",
+        ),
         _node(
             COLLECTION_INSTRUMENTS, NodeType.INSTRUMENT, "bwbr0002", ["BWB"], bwb_id=BWB
         ),

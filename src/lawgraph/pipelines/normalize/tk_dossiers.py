@@ -39,10 +39,9 @@ from lawgraph.config.constants import (
 from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import (
-    accumulate_stage_signals,
     classify_track_kind,
     dossier_display_name,
-    pick_current_stage,
+    dossier_stages,
     select_title,
 )
 from lawgraph.core.logging import get_logger
@@ -263,9 +262,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """
         wanted: dict[str, set[str]] = {}
         for node in activity_nodes.values():
-            kinds = node.props.get("case_kinds") or []
-            for number in node.props.get("dossier_numbers") or []:
-                wanted.setdefault(make_node_key(str(number)), set()).update(kinds)
+            by_dossier = node.props.get("case_kinds_by_dossier") or {}
+            for number, kinds in by_dossier.items():
+                wanted.setdefault(make_node_key(number), set()).update(kinds)
         sorted_kinds = {key: sorted(kinds) for key, kinds in wanted.items()}
 
         stored: dict[str, Any] = {}
@@ -354,19 +353,19 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         docs = row.get("docs") or []
         activities = row.get("activities") or []
         decisions = row.get("decisions") or []
-        case_kinds = list(node.props.get("case_kinds") or [])
+        # Refreshed in the database by _refresh_case_kinds, not on this node.
+        case_kinds = list(row.get("case_kinds") or [])
         # Whether it is closed is the answer of ``semantic tk-dossier-outcomes``, as stored.
         closed = bool(row.get("closed"))
 
-        signals = accumulate_stage_signals(docs, activities, decisions, case_kinds)
-        current_stage, stages_present = pick_current_stage(signals, closed=closed)
-        if current_stage is None:
-            current_stage = (
-                "onbekend"
-                if docs or activities
-                else node.props.get("current_stage") or "onbekend"
-            )
-        track_kind = classify_track_kind(case_kinds, title=node.props.get("title"))
+        track_kind = classify_track_kind(
+            case_kinds,
+            title=node.props.get("title"),
+            document_kinds=[doc.get("kind") or "" for doc in docs],
+        )
+        current_stage, stages_present = dossier_stages(
+            track_kind, docs, activities, decisions, case_kinds, closed=closed
+        )
         dated = [d["date"] for d in docs + activities if d.get("date")]
         opened_on = min(dated) if dated else row.get("opened_on")
 

@@ -33,9 +33,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.documents import chamber_of, is_explanatory
 from lawgraph.core.dossier_stages import (
-    accumulate_stage_signals,
     classify_track_kind,
-    pick_current_stage,
+    dossier_stages,
     select_title,
 )
 from lawgraph.core.models import make_node_key
@@ -120,14 +119,13 @@ def enrich_dossier_docs(
 ) -> list[dict[str, Any]]:
     """Fill the title and stage props a dossier is missing from its documents.
 
-    The normalize pipeline writes all four on every dossier it touches, so
-    the expensive walk only fires for a dossier it has not reached yet.
+    The normalize pipeline writes ``stages_present`` (empty for a dossier that is no
+    bill) on every dossier it touches, so the expensive walk only fires for a dossier
+    it has not reached yet, or one without a title.
     """
     incomplete = any(
         not (props := doc.get("props") or {}).get("title")
-        or not props.get("stages_present")
-        or props.get("current_stage") in (None, "onbekend")
-        or not props.get("track_kind")
+        or props.get("stages_present") is None
         for doc in dossiers
     )
     if not incomplete:
@@ -148,7 +146,7 @@ def enrich_dossier_docs(
             props["title_source"] = enrichment.title_source
         elif props.get("title") and not props.get("title_source"):
             props["title_source"] = "dossier"
-        if not props.get("stages_present"):
+        if props.get("stages_present") is None:
             props["stages_present"] = enrichment.stages_present
         if props.get("current_stage") is None and enrichment.current_stage:
             props["current_stage"] = enrichment.current_stage
@@ -235,8 +233,17 @@ def _enrich_dossiers(
         case_kinds = list(props.get("case_kinds") or [])
 
         title, title_source = select_title(props, docs)
-        current_stage, stages_present = pick_current_stage(
-            accumulate_stage_signals(docs, activities, decisions, case_kinds),
+        track_kind = classify_track_kind(
+            case_kinds,
+            title=title or props.get("title"),
+            document_kinds=[doc.get("kind") or "" for doc in docs],
+        )
+        current_stage, stages_present = dossier_stages(
+            track_kind,
+            docs,
+            activities,
+            decisions,
+            case_kinds,
             closed=bool(props.get("closed")),
         )
         dated = [d["date"] for d in docs + activities if d.get("date")]
@@ -246,9 +253,7 @@ def _enrich_dossiers(
             title_source=title_source,
             current_stage=current_stage,
             stages_present=stages_present,
-            track_kind=classify_track_kind(
-                case_kinds, title=title or props.get("title")
-            ),
+            track_kind=track_kind,
             opened_on=min(dated) if dated else None,
         )
     return enriched
@@ -257,16 +262,11 @@ def _enrich_dossiers(
 def get_dossier_by_number(
     store: ArangoStore, dossier_number: str
 ) -> dict[str, Any] | None:
-    """One dossier by its kamerstuk number (e.g. ``36558``)."""
-    aql = f"""
-    FOR dossier IN {COLLECTION_DOSSIERS}
-        FILTER dossier.props.number == @number
-        LIMIT 1
-        RETURN dossier
-    """
-    for doc in store.query(aql, {"number": dossier_number}):
-        return doc
-    return None
+    """One dossier by its kamerstuk number (``36558``, or ``37020-XV`` for a chapter)."""
+    return cast(
+        dict[str, Any] | None,
+        store.collection(COLLECTION_DOSSIERS).get(make_node_key(dossier_number)),
+    )
 
 
 def get_dossier_timeline(
@@ -734,7 +734,7 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
         dict[str, Any] | None,
         store.collection(COLLECTION_DOSSIERS).get(dossier_id.split("/", 1)[-1]),
     )
-    number = str((dossier or {}).get("props", {}).get("number") or "")
+    number = str((dossier or {}).get("props", {}).get("label") or "")
     if not number:
         return {"nodes": [], "edges": []}
 
@@ -894,15 +894,14 @@ def get_recent_dossiers(
 def get_dossier_number_to_id_map(
     store: ArangoStore, numbers: list[str]
 ) -> dict[str, str]:
-    """Dossier number -> dossier ``_id`` for the given numbers."""
-    if not numbers:
-        return {}
-    aql = f"""
-    FOR dossier IN {COLLECTION_DOSSIERS}
-        FILTER dossier.props.number IN @numbers
-        RETURN {{ number: dossier.props.number, id: dossier._id }}
-    """
-    return {row["number"]: row["id"] for row in store.query(aql, {"numbers": numbers})}
+    """Dossier number (``36558``, ``37020-XV``) -> dossier ``_id``, for those that exist."""
+    by_key = {make_node_key(number): number for number in numbers}
+    existing = store.existing_keys(COLLECTION_DOSSIERS, set(by_key))
+    return {
+        number: f"{COLLECTION_DOSSIERS}/{key}"
+        for key, number in by_key.items()
+        if key in existing
+    }
 
 
 def count_dossier_members(store: ArangoStore, dossier_id: str) -> dict[str, int]:

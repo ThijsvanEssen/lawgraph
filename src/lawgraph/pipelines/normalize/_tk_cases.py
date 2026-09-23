@@ -231,7 +231,7 @@ LINK_PROPS = (
     "number",
     "activity_number",
     "actors",
-    "case_kinds",
+    "case_kinds_by_dossier",
     "vote_kind",
 )
 
