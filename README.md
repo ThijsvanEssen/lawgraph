@@ -26,10 +26,39 @@ Requires Python 3.11+ and ArangoDB 3.12 (a `docker-compose.yml` is included).
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env            # set ARANGO_PASSWORD and ARANGO_ROOT_PASSWORD
-docker compose up -d arangodb
+```
 
+### Database: development or test
+
+Either server works with the same `.venv`; `ArangoStore()` creates the database and its
+schema (collections, indexes, search views) on first use, so nothing more is needed to start
+the API against an empty one.
+
+**Development** (`docker-compose.yml`, port 8529): keeps its data in a named volume across
+restarts. This is the one `.env`'s `ARANGO_URL` points at by default, and the one `lawgraph
+bootstrap`/`retrieve`/`normalize`/`semantic` load real data into.
+
+```bash
+docker compose up -d arangodb
+lawgraph-api                              # http://localhost:8000/docs, ARANGO_URL from .env
+```
+
+**Test** (`docker-compose.test.yml`, port 8530): a second, deliberately small server (1 GB,
+256 MiB per query) in its own compose project, so it can never reach the volumes above; its
+data is thrown away with the container. It backs `tests/integration/` (see
+`docs/operations.md`, "Tests and CI"), and doubles as a fast way to click against a running
+API without waiting for a real retrieve:
+
+```bash
+docker compose -f docker-compose.test.yml up -d
+ARANGO_URL=http://localhost:8530 lawgraph-api    # same port 8000, empty database
+docker compose -f docker-compose.test.yml down   # discards it
+```
+
+### Loading data
+
+```bash
 lawgraph bootstrap              # retrieve (last 2 years of what keeps producing; --window all for history), normalize, semantic, expand-graph
-lawgraph-api                    # http://localhost:8000/docs
 ```
 
 Keeping it current afterwards:
