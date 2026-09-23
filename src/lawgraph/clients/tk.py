@@ -107,13 +107,18 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
+        number: int | None = None,
     ) -> Iterable[dict[str, Any]]:
-        """Fetch Kamerstukdossier records, optionally filtered by modification date.
+        """Fetch Kamerstukdossier records: modified since a date, or those with *number*
+        (one per addition: 36600 VII and 36600 VIII are two).
 
         Uses skip-based pagination because the TK API does not emit nextLink.
         """
         params: dict[str, Any] = {}
-        if since is not None:
+        if number is not None:
+            params["$filter"] = f"Nummer eq {int(number)}"
+            logger.info("Fetching Kamerstukdossier number=%d", number)
+        elif since is not None:
             since_string = odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
             logger.info("Fetching Kamerstukdossier modified since %s", since_string)
