@@ -86,6 +86,9 @@ RECORD_KIND = {
     SOURCE_EERSTEKAMER: RAW_KIND_EK_KAMERSTUK,
 }
 NORMALIZED_SHARE = 0.9
+# Sources of which several records make one node, and how many nodes their records make:
+# HUDOC holds a judgment once per language, and ``normalize echr`` keeps one of them.
+NODES_OF_RECORDS = {SOURCE_ECHR: checks.count_echr_judgments_in_raw}
 # Kinds that are only there after a manual command; their absence says nothing.
 OPTIONAL_KINDS = {RAW_KIND_BWB_TOESTAND_ALL, RAW_KIND_TK_KAMERSTUK_XML}
 
@@ -201,18 +204,26 @@ def _check_nodes(
             continue
         nodes = checks.count_nodes_of_source(store, collection, source)
         records = raw.get((source, RECORD_KIND[source]), 0)
+        counted = NODES_OF_RECORDS.get(source)
+        expected = counted(store) if counted else records
         command = f"`lawgraph normalize {source.replace('_', '-')}`"
         if not nodes:
             report.problem(
                 f"{source}: {stored:,} raw records and no node in {collection}. Run {command}."
             )
-        elif nodes < records * NORMALIZED_SHARE:
+        elif nodes < expected * NORMALIZED_SHARE:
+            stored_records = _records(records, expected, RECORD_KIND[source])
             report.problem(
-                f"{source}: {records:,} {RECORD_KIND[source]} records and {nodes:,} nodes in "
+                f"{source}: {stored_records} and {nodes:,} nodes in "
                 f"{collection}: normalize is behind. Run {command}."
             )
         else:
             report.note(f"nodes of {source} in {collection}: {nodes:,}")
+
+
+def _records(records: int, expected: int, kind: str) -> str:
+    stored = f"{records:,} {kind} records"
+    return stored if expected == records else f"{stored}, {expected:,} distinct,"
 
 
 def _check_edges(store: ArangoStore, report: Report) -> None:
