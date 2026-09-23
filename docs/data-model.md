@@ -170,7 +170,7 @@ renumbering; each version has a `versie-id`.
 
 | Node | Identity | Notes |
 |------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references` (see below) |
+| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
 | ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
 | InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until`, `current`, `state_url` |
 
@@ -193,6 +193,11 @@ renumbering; each version has a `versie-id`.
   item without a letter or digit (a dash, a definition) is `onder-_<n>`, its position among
   its siblings; a marker that repeats one before it gets `_<n>`, its occurrence
   (`onder-a_2`). A paragraph next to the leden is no part.
+- `breadcrumb` is where the article stands in its regulation, outermost first:
+  `{type, label, title}` per division that holds it, `type` the element of the toestand
+  (`boek`, `deel`, `titeldeel`, `hoofdstuk`, `afdeling`, `paragraaf`, `sub-paragraaf`,
+  `divisie`), `label` as printed (`Hoofdstuk 1`, `Titel 1.1`), `title` its heading. Absent for
+  an article outside every division.
 - `references` holds every `extref`/`intref` of the text that names a regulation:
   `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. The `doc` (JCI)
   of a BWB link stops at the article, so `leden`, `onderdelen` (written as in the part ids)

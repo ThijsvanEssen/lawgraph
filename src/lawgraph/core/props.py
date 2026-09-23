@@ -119,6 +119,7 @@ class ArticleProps(_CommonProps):
         None  # aanhef, leden, onderdelen: id, kind, number, start, end
     )
     references: list[dict[str, Any]] | None = None  # structured refs from the XML
+    breadcrumb: list[dict[str, Any]] | None = None  # divisions: type, label, title
 
 
 # ---------------------------------------------------------------------------

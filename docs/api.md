@@ -41,7 +41,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `GET /api/instruments` | paged list; `q`, `jurisdiction` (`nl`, `eu`), `kind`, `article_count_min`, `sort` (default `title`) |
 | `GET /api/instruments/{identifier}` | one instrument: identifiers, names, jurisdiction, kind, dates, article count. `identifier` is a BWB id, a CELEX number or a node key (`echr_convention`, `verdrag_012345`); 404 when unknown |
 | `.../eu-links` | `implements` (EU acts whose CELEX number the instrument's text names) and `implemented_by` (regulations that name this act), each with `instrument`, `relation`, `confidence`, `basis`, `source`, `meta`; `international`: treaties that articles refer to (with the treaty article) and ECHR judgments that refer to the instrument or its articles, with the edge `meta`; `*_total` fields are absolute, `limit` (max 2000) bounds each list |
-| `/api/instruments/{bwb_id}/articles` | articles in natural order (`24` before `24c` before `25`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
+| `/api/instruments/{bwb_id}/articles` | articles in natural order (`24` before `24c` before `25`), each with its `breadcrumb` (the divisions it stands in: `type`, `label`, `title`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
 | `.../articles/at/{at_date}` | article versions valid on `YYYY-MM-DD` (`valid_from <= date < valid_until`) |
 | `.../versions` | every toestand, newest first, `current` flagged |
 | `.../amended-by` | amending publications (Staatsblad, Tractatenblad, ...) with edge counts per kind, articles affected, first effective date and dossiers; `limit`, `offset` |
