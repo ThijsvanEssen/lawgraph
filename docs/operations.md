@@ -292,6 +292,27 @@ largest collections, and fails from `LAWGRAPH_DB_SIZE_ALERT_GIB` (70 GiB) on, or
 server reports its license status as other than `good`. With the alert command set, that
 failure reaches you the same morning.
 
+**Backups.** Nearly everything in the database can be built again from the sources, but that
+takes a day or more, and what people added (watches, votes, expert classifications of
+relationships) cannot. `scripts/backup.sh` writes a compressed `arangodump` of the database to
+`LAWGRAPH_BACKUP_DIR` (`./backups`, mounted by `docker-compose.yml` at `/backups` in the
+container, where the dump runs), with a `counts` file of the documents per collection and the
+search views, and keeps the newest `LAWGRAPH_BACKUP_KEEP` (7). `LAWGRAPH_BACKUP_UPLOAD_COMMAND`
+gets each new dump off the machine (`sh -c`, the path in `LAWGRAPH_BACKUP_PATH`), for example
+`rclone copy "$LAWGRAPH_BACKUP_PATH" leafcloud:lawgraph-backups/$(basename "$LAWGRAPH_BACKUP_PATH")`;
+let a lifecycle rule of the bucket remove old ones. `scripts/restore-test.sh` restores the
+newest dump into a scratch database on the test server (`docker-compose.test.yml`, which mounts
+the same directory read-only; `LAWGRAPH_RESTORE_CONTAINER` for another server, which a dump of
+the full database needs) and compares every collection and view with `counts`; `runs.log`
+says how long the restore took. Both run under the lock of the scheduled runs, so a dump never
+reads a database that a load is writing. Measured on a database of 1.2 GB: a dump of 333 MB in
+30 s, a restore in 38 s.
+
+```
+0  3 * * *   /path/to/lawgraph/scripts/backup.sh
+0  4 * * 6   /path/to/lawgraph/scripts/restore-test.sh
+```
+
 ## Observability
 
 - Logging: `lawgraph.core.logging`; format `time [LEVEL] [step] logger: message`, JSON (with a

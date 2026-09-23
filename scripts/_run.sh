@@ -1,4 +1,4 @@
-# Shared by daily.sh and weekly.sh: one run at a time, one log per run, one line per outcome.
+# Shared by the scheduled scripts (daily, weekly, backup, restore-test): one run at a time, one log per run, one line per outcome.
 # Sourced, not run.
 cd "$(dirname "$0")/.." || exit 1
 LOG_DIR="${LAWGRAPH_LOG_DIR:-$HOME/Library/Logs/lawgraph}"
@@ -20,12 +20,20 @@ command -v caffeinate >/dev/null 2>&1 && AWAKE="caffeinate -i"
 
 failed=0
 failures=""
-step() {  # run one command; a failure is remembered and the next one still runs
-  $AWAKE .venv/bin/lawgraph "$@" || {
+run() {  # run <label> <command...>: a failure is remembered and the next one still runs
+  label="$1"
+  shift
+  "$@" || {
     failed=1
-    failures="${failures:+$failures; }lawgraph $*"
-    echo "$(date '+%F %T') $(basename "$0"): lawgraph $* failed" >> "$LOG_DIR/runs.log"
+    failures="${failures:+$failures; }$label"
+    echo "$(date '+%F %T') $(basename "$0"): $label failed" >> "$LOG_DIR/runs.log"
   }
+}
+step() {  # one lawgraph command, kept awake
+  run "lawgraph $*" $AWAKE .venv/bin/lawgraph "$@"
+}
+note() {  # one line in runs.log
+  echo "$(date '+%F %T') $(basename "$0"): $*" >> "$LOG_DIR/runs.log"
 }
 # A failed run is told to whoever should know: LAWGRAPH_ALERT_COMMAND is run by `sh -c` with
 # the message in LAWGRAPH_ALERT_MESSAGE, e.g. `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" ntfy.sh/<topic>`

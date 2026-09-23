@@ -22,6 +22,8 @@ services:
     volumes:
       - arango_data:/var/lib/arangodb3
       - arango_apps:/var/lib/arangodb3-apps
+      # scripts/backup.sh writes its dumps here (arangodump runs in this container)
+      - ${LAWGRAPH_BACKUP_DIR:-./backups}:/backups
 
 # The data lives in volumes that compose does not own: `docker compose down -v` removes the
 # volumes of a project, and that is how this database was lost once. Create them once:

@@ -15,6 +15,9 @@ services:
     environment:
       - ARANGO_ROOT_PASSWORD=${ARANGO_ROOT_PASSWORD}
     mem_limit: 1g
+    volumes:
+      # scripts/restore-test.sh restores the newest dump of scripts/backup.sh here
+      - ${LAWGRAPH_BACKUP_DIR:-./backups}:/backups:ro
     command:
       - arangod
       - --rocksdb.block-cache-size=134217728            # 128 MiB

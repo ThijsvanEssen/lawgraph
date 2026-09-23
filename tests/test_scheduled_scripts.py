@@ -113,3 +113,36 @@ def test_a_failing_alert_command_does_not_change_the_outcome(checkout: Path) -> 
     done = _run(checkout, "daily.sh", fail_on="check", LAWGRAPH_ALERT_COMMAND="exit 3")
     assert done.returncode == 1
     assert "the alert command failed" in (checkout / "logs" / "runs.log").read_text()
+
+
+FAKE_DOCKER_WITHOUT_MOUNT = """#!/bin/sh
+echo "docker $*" >> "$CALLS"
+exit 0
+"""
+
+
+def _without_backup_mount(checkout: Path) -> dict[str, str]:
+    """A `docker` that knows no mount at /backups, and the python that names the database."""
+    bin_dir = checkout / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "docker").write_text(FAKE_DOCKER_WITHOUT_MOUNT)
+    (bin_dir / "docker").chmod(0o755)
+    python = checkout / ".venv" / "bin" / "python"
+    python.write_text("#!/bin/sh\necho lawgraph\n")
+    python.chmod(0o755)
+    return {"PATH": f"{bin_dir}:{os.environ['PATH']}"}
+
+
+def test_a_backup_without_its_mount_fails_and_says_how_to_mount_it(
+    checkout: Path,
+) -> None:
+    done = _run(checkout, "backup.sh", **_without_backup_mount(checkout))
+    assert done.returncode == 1
+    runs = (checkout / "logs" / "runs.log").read_text()
+    assert "mounts nothing at /backups" in runs and "dump lawgraph failed" in runs
+
+
+def test_a_restore_test_without_a_dump_fails(checkout: Path) -> None:
+    done = _run(checkout, "restore-test.sh", **_without_backup_mount(checkout))
+    assert done.returncode == 1
+    assert "no dump of lawgraph" in (checkout / "logs" / "runs.log").read_text()

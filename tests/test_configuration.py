@@ -62,7 +62,10 @@ def test_env_example_lists_only_variables_that_are_read() -> None:
             return "LAWGRAPH_CONFIDENCE_" in readers
         if re.fullmatch(r"LAWGRAPH_(RETRIEVE|NORMALIZE|SEMANTIC)_SKIP_\w+", variable):
             return "_SKIP_" in readers
-        return f'"{variable}"' in readers or f"${{{variable}}}" in readers
+        return (
+            f'"{variable}"' in readers
+            or re.search(rf"\${{{variable}(:-[^}}]*)?}}", readers) is not None
+        )
 
     assert [v for v in listed if not is_read(v)] == []
 
