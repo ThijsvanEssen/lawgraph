@@ -37,15 +37,19 @@ class JudgmentDTO(BaseNodeDTO):
         base = BaseNodeDTO.from_document(doc, drop_props_keys=drop_props_keys)
         props = doc.get("props") or {}
         raw_paragraphs = props.get("paragraphs") or []
+        kept = [p for p in raw_paragraphs if isinstance(p, dict) and p.get("text")]
         paragraphs = [
             JudgmentParagraph(
-                paragraph_id=p["id"],
+                # A paragraph normalized before `paragraph_id` existed has no "id"; fall
+                # back to its position rather than 500 the whole judgment on one stale
+                # record (`core.judgments.extract_sections` uses the same "p-<n>" shape
+                # for a paragraph without a printed number).
+                paragraph_id=p.get("id") or f"p-{position}",
                 number=p.get("number"),
                 kind=p.get("kind"),
                 text=p.get("text") or "",
             )
-            for p in raw_paragraphs
-            if isinstance(p, dict) and p.get("text")
+            for position, p in enumerate(kept, start=1)
         ]
         ecli = props.get("ecli")
         source = props.get("source") or ecli_source(ecli)

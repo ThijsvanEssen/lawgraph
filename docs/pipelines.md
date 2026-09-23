@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes` |
 | Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
@@ -93,16 +93,16 @@ heading of the opener's level or a bijlage. Article numbers come from the gramma
 is found in about 70%, and article headings without an opener in another 5%.
 
 **Normalize `tk-dossiers`.** Order: committees, members, factions, dossiers, activities,
-commitments, documents, decisions; then edges; then a backfill of title and stages onto each
-dossier (it needs the document edges).
+commitments, documents, decisions; then edges; then a backfill of title, stages and opening
+date onto each dossier (it needs the document edges).
 
 | Step | Detail |
 |------|--------|
-| decisions | vote rows grouped by `Besluit_Id`; rows without one are skipped; `passed` from the `BesluitSoort` text, else the tally; `subject` prefers the subject of the decided Zaak (`AgendapuntZaakBesluitVolgorde`) over the agenda item |
+| decisions | vote rows grouped by `Besluit_Id`; rows without one are skipped; `passed` from the `BesluitSoort` text, else the tally; the decided Zaak is the Besluit's own `Zaak` (`primary_case_id`, and its `Soort` as `primary_case_kind`; without it only an agenda item of one case names it: `AgendapuntZaakBesluitVolgorde` is the place of the Besluit on the agenda item, not of its Zaak), and `subject` prefers its subject over the agenda item; `date` is the day of the agenda item's Activiteit (the vote), else the `GewijzigdOp` of a row |
 | factions | from the Fractie endpoint; without `tk-fractie` records they are derived from the `ActorFractie` strings of the votes; `aliases` map the differing abbreviations (`Fractie.Afkorting` versus `Stemming.ActorFractie`); TK reuses abbreviations, so the active or most recent record wins |
 | members | every Persoon; `party` and `faction_memberships` come from FractieZetelPersoon (dated), so a member without those records has no party |
-| dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `current_stage`, `stages_present`, `track_kind`, `title` (from a voorstel-van-wet or MvT document when the dossier has none) and `outcome` (closed dossiers only) are derived from documents, activities and decisions by `core/dossier_stages.py` |
-| documents | dossier numbers via Zaak to Kamerstukdossier; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers` |
+| dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `current_stage`, `stages_present`, `track_kind` and `title` (from a voorstel-van-wet or MvT document when the dossier has none) are derived from documents, activities and decisions by `core/dossier_stages.py`, `opened_on` is the date of the first document or activity. The record has no end: `Afgesloten` is false on every dossier and there is no closing date, so `closed`, `outcome` and `closed_on` are `semantic tk-dossier-outcomes`; a closed dossier (as stored) is at stage `afgehandeld` |
+| documents | dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers` |
 
 Edges: `PART_OF` (Document to Case and Dossier, Case to Dossier), `ABOUT` (Activity, Decision
 to Case and Dossier; Commitment to the dossiers of its activity), `LED_BY` (Activity to
@@ -194,6 +194,24 @@ section is `text[char_start:char_end]`: the whole section for a heading match, t
 its first subsection for a match in the body. The two pipelines can run in either order and any
 number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to.
 
+**Semantic `tk-dossier-outcomes`.** Whether a dossier is closed, how it ended and on which day,
+read from the graph (`core/dossier_stages.derive_outcome`); the first rule that holds wins:
+
+| `outcome` | Evidence | `closed_on` |
+|-----------|----------|-------------|
+| `aangenomen` | an instrument is `LEGISLATED_IN` the dossier: the Staatsblad publication of its law, or a regulation whose BWB metadata names the dossier (`semantic bwb-amendments`) | the first `date_published` (else `date_signed`) of those publications; none when only a regulation names it |
+| `ingetrokken` | a document of the dossier whose kind is a letter (`Brief regering`, `Brief lid / fractie`; not a committee's), whose `case_kinds` hold the bill's case (`Wetgeving`, `Initiatiefwetgeving`) and whose subject withdraws the bill ("Brief houdende intrekking van het wetsvoorstel", "... overname en intrekking van het voorstel"); not a request, an intention, a recall or a report about one | the date of the letter |
+| `verworpen` | the last decision on the bill's own case (`primary_case_kind` `Wetgeving` or `Initiatiefwetgeving`, not an amendment or a motion) did not pass | the date of that vote |
+
+Anything else is open (`closed: false`): a bill the Tweede Kamer passed still waits for the Eerste
+Kamer and the Staatsblad, and a dossier without a bill (a budget chapter, a policy dossier) has no
+end the graph can see. The Eerste Kamer votes are not loaded, so a bill it rejected stays open.
+A closed dossier gets stage `afgehandeld` (`current_stage`, and last in `stages_present`).
+
+It walks every dossier on every run, since a law published today closes a dossier whose own
+record did not change, and writes only the dossiers whose answer changed. It runs after
+`bwb-amendments` and before `graph-list-stats`, which counts the open dossiers of a committee.
+
 ## Rechtspraak
 
 **Provides.** Judgments from data.rechtspraak.nl: an Atom index (`uitspraken/zoeken`) and the
@@ -219,10 +237,12 @@ State 11,000, the four courts of appeal about 18,000), a few hours at the paced 
 the rechtbanken (over 100,000 in two years), are chosen with `--court`.
 
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
-`case_number`, `procedure` as `judgment_metadata.type`, `subject`s, `relation` ECLIs as
-`related_eclis`), `inhoudsindicatie` as `summary`, `uitspraak` as `text` and as `paragraphs`
-(heading, subheading, body; see the paragraph props in the data model). The XML itself stays
-in `raw_sources`. `court_code` is the ECLI court
+`case_number`, `procedure` as `judgment_metadata.type`, `subject`s, and as `related_eclis`
+the judgments of the earlier instance it ruled on: the `ecli:resourceIdentifier` of every
+`dcterms:relation` that is neither the conclusion of the Advocate General (`psi:type`
+…/conclusie) nor a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
+`summary`, `uitspraak` as `text` and as `paragraphs` (heading, subheading, body; see the
+paragraph props in the data model). The XML itself stays in the payload store. `court_code` is the ECLI court
 segment; `tier` is `hoge_raad` (`HR`), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or
 `bijzonder`; `date_eff` is the judgment date.
 
@@ -417,8 +437,8 @@ from the text around the reference (`meta.start`/`end`): a trigger phrase in the
 the reference scores 0.9, elsewhere within 120 characters either side 0.7, no trigger gives
 `cross_reference` at 0.5. Types and their patterns: `limiting_exception`,
 `definitional_reference`, `conditional_requirement`, `prerequisite_procedure`,
-`scope_limitation`, `delegated_discretion`, `cross_reference`. It writes `semantic_source =
-structured` and never touches edges classified by an `expert` or `community`. The
+`scope_limitation`, `delegated_discretion`, `cross_reference`, and writes only the
+classifications that changed. The
 confidence of one pattern can be overridden with `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>`, for
 example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` (patterns: the type names above and
 `cross_reference_explicit`, `cross_reference_fallback`).
@@ -533,4 +553,5 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |
+| semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`) and `normalize tk-dossiers` (documents, decisions and their edges to the dossier) |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

@@ -7,12 +7,13 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_SUFFIX
+from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import RawSourceWriter, raw_source_doc
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.raw import Failure, StoreUnavailable
 from lawgraph.pipelines.base import STOP, PipelineBase
 
@@ -276,17 +277,15 @@ class RetrievePipelineBase(PipelineBase):
         its ``retry_after`` has passed a document is tried once more.
         """
         ids = list(ids)
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-            FILTER r.source == @source AND r.kind == @kind AND r.meta.retry_after > @now
-            RETURN r.external_id
-        """
-        bind = {
-            "source": source,
-            "kind": kind + RAW_KIND_MISSING_SUFFIX,
-            "now": iso_timestamp(dt.datetime.now(dt.timezone.utc)),
+        missing = {
+            str(external_id)
+            for external_id in raw_queries.ids_waiting_for_retry(
+                self.store,
+                source=source,
+                kind=kind + RAW_KIND_MISSING_SUFFIX,
+                now_iso=iso_timestamp(dt.datetime.now(dt.timezone.utc)),
+            )
         }
-        missing = {str(external_id) for external_id in self.store.query(aql, bind)}
         todo = [external_id for external_id in ids if external_id not in missing]
         if len(todo) < len(ids):
             logger.info(
@@ -342,12 +341,9 @@ class RetrievePipelineBase(PipelineBase):
         cutoff = iso_timestamp(
             dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)
         )
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-            FILTER r.source == @source AND r.kind == @kind AND r.fetched_at >= @cutoff
-            RETURN r.external_id
-        """
-        rows = self.store.query(aql, {"source": source, "kind": kind, "cutoff": cutoff})
+        rows = raw_queries.ids_stored_since(
+            self.store, source=source, kind=kind, cutoff_iso=cutoff
+        )
         return {str(external_id) for external_id in rows if external_id}
 
     def _stored_at(self, source: str, kind: str) -> dict[str, dt.datetime]:
@@ -356,13 +352,8 @@ class RetrievePipelineBase(PipelineBase):
         For sources that say when a record last changed: what is stored and newer than that
         does not have to be fetched again.
         """
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-            FILTER r.source == @source AND r.kind == @kind
-            RETURN {{id: r.external_id, at: r.fetched_at}}
-        """
         stored: dict[str, dt.datetime] = {}
-        for row in self.store.query(aql, {"source": source, "kind": kind}):
+        for row in raw_queries.fetch_times(self.store, source=source, kind=kind):
             try:
                 at = dt.datetime.fromisoformat(str(row["at"]).replace("Z", "+00:00"))
             except (KeyError, ValueError):

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from lawgraph.api.queries.documents import list_documents
-from lawgraph.api.queries.instruments import get_short_titles
+from lawgraph.db.queries.documents import list_documents
+from lawgraph.db.queries.instruments import get_short_titles
 
 
 class _CountingStore:

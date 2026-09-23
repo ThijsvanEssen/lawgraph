@@ -12,21 +12,21 @@ from typing import Any, Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
-    COLLECTION_RAW_SOURCES,
     RELATION_REFERS_TO,
-    SOURCE_BWB,
 )
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import semantic as semantic_queries
 from lawgraph.pipelines.semantic._bwb_references import (
     ArticleReferenceHit,
     hits_from_references,
 )
 
-from .base import SemanticPipelineBase, slim
+from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 SEMANTIC_SOURCE = "bwb-article-references"
@@ -143,12 +143,8 @@ class BWBSemanticPipeline(SemanticPipelineBase):
 
     def _load_bwb_ids_from_graph(self) -> list[str]:
         """Return all distinct BWB IDs that have article nodes in the graph."""
-        aql = f"""
-        FOR doc IN {COLLECTION_ARTICLES}
-            FILTER doc.props.bwb_id != null
-            RETURN DISTINCT doc.props.bwb_id
-        """
-        return [str(row) for row in self.store.query(aql) if row]
+        rows = semantic_queries.article_bwb_ids(self.store)
+        return [str(row) for row in rows if row]
 
     def _load_articles(
         self,
@@ -164,26 +160,11 @@ class BWBSemanticPipeline(SemanticPipelineBase):
             bwb_ids = [bid for bid in bwb_ids if bid in recent]
         if not bwb_ids:
             return []
-        aql = f"""
-        FOR doc IN {COLLECTION_ARTICLES}
-            FILTER doc.props.bwb_id IN @bwb_ids
-            FILTER doc.props.references != null
-        RETURN {slim("doc", "bwb_id", "article_number", "references")}
-        """
-        return self.store.query(aql, bind_vars={"bwb_ids": bwb_ids})
+        return semantic_queries.articles_with_references(self.store, bwb_ids)
 
     def _recent_bwb_ids(self, since_iso: str) -> set[str]:
         """BWB IDs whose raw record was fetched at or after *since_iso*."""
-        aql = f"""
-        FOR raw IN {COLLECTION_RAW_SOURCES}
-            FILTER raw.source == @source
-            FILTER raw.fetched_at >= @since
-            FILTER raw.meta.bwb_id != null
-        RETURN DISTINCT raw.meta.bwb_id
-        """
-        rows = self.store.query(
-            aql, bind_vars={"source": SOURCE_BWB, "since": since_iso}
-        )
+        rows = raw_queries.bwb_ids_fetched_since(self.store, since_iso)
         return {row for row in rows if isinstance(row, str)}
 
     def _resolve_article(self, hit: ArticleReferenceHit) -> Node | None:

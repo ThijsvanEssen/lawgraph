@@ -9,10 +9,8 @@ from typing import Callable, Iterable
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_RAW_SOURCES,
     MAX_SEMANTIC_TEXT_LENGTH,
     RELATION_REFERS_TO,
-    SOURCE_EURLEX,
 )
 from lawgraph.core.citations import (
     ArticleKind,
@@ -35,8 +33,10 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import semantic as semantic_queries
 
-from .base import CodeMapping, SemanticPipelineBase, slim
+from .base import CodeMapping, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -174,16 +174,7 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
         # directive body, which is where cross-references to other articles live.
         if since_iso is not None:
             recent_celex: set[str] = set()
-            aql = f"""
-            FOR raw IN {COLLECTION_RAW_SOURCES}
-                FILTER raw.source == @source
-                FILTER raw.fetched_at >= @since
-                FILTER raw.meta.celex != null
-            RETURN raw.meta.celex
-            """
-            for row in self.store.query(
-                aql, bind_vars={"source": SOURCE_EURLEX, "since": since_iso}
-            ):
+            for row in raw_queries.celex_fetched_since(self.store, since_iso):
                 if isinstance(row, str):
                     recent_celex.add(row)
                 elif isinstance(row, dict):
@@ -193,20 +184,10 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
             if not recent_celex:
                 return
             celex_list = list(recent_celex)
-            aql = f"""
-            FOR doc IN {COLLECTION_ARTICLES}
-                FILTER doc.props.celex IN @celex_list
-                RETURN {slim("doc", "celex", "article_number", "text", "display_name")}
-            """
-            for doc in self.store.query(aql, bind_vars={"celex_list": celex_list}):
+            for doc in semantic_queries.eu_articles_of(self.store, celex_list):
                 yield Node.from_document(COLLECTION_ARTICLES, doc)
         else:
-            aql = f"""
-            FOR doc IN {COLLECTION_ARTICLES}
-                FILTER doc.props.celex != null
-                RETURN {slim("doc", "celex", "article_number", "text", "display_name")}
-            """
-            for doc in self.store.query(aql):
+            for doc in semantic_queries.eu_articles(self.store):
                 yield Node.from_document(COLLECTION_ARTICLES, doc)
 
     def _extract_document_text(self, document: Node) -> str | None:

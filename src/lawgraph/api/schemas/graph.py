@@ -6,8 +6,6 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from lawgraph.api.schemas.common import CommunityVotes
-
 
 class InstrumentLayerInstrumentDTO(BaseModel):
     """Instrument node in the instrument-layer graph."""
@@ -112,10 +110,7 @@ class GraphEdgeDTO(BaseModel):
     text: str | None = None
     confidence: float | None = None
     semantic_type: str | None = None
-    expert_badge: bool | None = None
     explanation: str | None = None
-    semantic_source: str | None = None
-    community_votes: CommunityVotes | None = None
 
 
 class InstrumentEdgeDTO(BaseModel):

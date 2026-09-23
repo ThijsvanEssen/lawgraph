@@ -10,14 +10,13 @@ from __future__ import annotations
 from typing import Iterable
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENTS,
     EDGE_SOURCE_BWB_IMPLEMENTS,
     RELATION_IMPLEMENTS,
-    SOURCE_BWB,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
 
@@ -62,12 +61,6 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
 
     def _load_celex_references(self) -> Iterable[tuple[str, list[str]]]:
         """``(bwb_id, CELEX numbers)`` of the regulations that name an EU act."""
-        aql = f"""
-        FOR regulation IN {COLLECTION_INSTRUMENTS}
-            FILTER regulation.props.source == @source
-            FILTER LENGTH(regulation.props.celex_refs) > 0
-            RETURN [regulation.props.bwb_id, regulation.props.celex_refs]
-        """
-        for bwb_id, celex_refs in self.store.query(aql, {"source": SOURCE_BWB}):
+        for bwb_id, celex_refs in semantic_queries.celex_references(self.store):
             if bwb_id:
                 yield str(bwb_id), list(celex_refs)

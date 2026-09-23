@@ -7,6 +7,8 @@
    read a source's own field names are listed in ``SOURCE_FACING``.
 3. Stored property names are English. What a node carries is ours to name, so
    no props field may be spelled in Dutch.
+4. AQL is written in ``db/`` only. Pipelines, commands and the API call a
+   function of ``db/queries/`` and do not touch the driver handle.
 """
 
 from __future__ import annotations
@@ -266,24 +268,133 @@ def test_a_join_on_a_sparse_index_excludes_null() -> None:
 # ── semantic pipelines read the props they use ───────────────────────────────
 
 _WHOLE_DOCUMENT = re.compile(r"RETURN (doc|art|inst|j|pub)\b(?![._\[])")
+_SEMANTIC_QUERIES = (
+    SRC / "db" / "queries" / "semantic.py",
+    SRC / "db" / "queries" / "graph_stats.py",
+)
 # `semantic tk` scans every text prop of a paper and its API payload: it needs the document.
-_READS_WHOLE_DOCUMENTS = {"tk.py"}
+_READS_WHOLE_DOCUMENTS = {"tk_documents"}
+
+
+def _exempt_lines(tree: ast.AST) -> set[int]:
+    return {
+        number
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name in _READS_WHOLE_DOCUMENTS
+        for number in range(node.lineno, (node.end_lineno or node.lineno) + 1)
+    }
 
 
 def test_a_semantic_pipeline_does_not_have_whole_documents_sent_over() -> None:
     """A judgment is its XML, its text and its paragraphs; a loader asks for what it reads.
 
-    ``slim(var, *fields)`` and ``JUDGMENT_TEXT`` in ``pipelines/semantic/base.py`` project
-    the props in the query.
+    ``slim(var, *fields)`` in ``db/queries/semantic.py`` projects the props in the query.
     """
-    offenders = [
-        f"{path.name}:{number}"
-        for path in sorted((SRC / "pipelines" / "semantic").glob("*.py"))
-        if path.name not in _READS_WHOLE_DOCUMENTS
-        for number, line in enumerate(path.read_text().splitlines(), 1)
-        if _WHOLE_DOCUMENT.search(line)
-    ]
+    offenders = []
+    for path in _SEMANTIC_QUERIES:
+        text = path.read_text()
+        exempt = _exempt_lines(ast.parse(text))
+        offenders += [
+            f"{path.name}:{number}"
+            for number, line in enumerate(text.splitlines(), 1)
+            if number not in exempt and _WHOLE_DOCUMENT.search(line)
+        ]
     assert not offenders, offenders
+
+
+# ── AQL lives in db/ ─────────────────────────────────────────────────────────
+
+DB = SRC / "db"
+
+# A whole query (``FOR x IN`` and a clause of its body), a search, or a filter clause built
+# apart to be put into one. Keywords are upper case, as the code writes AQL; prose ("for
+# every record in the list") is not.
+_AQL = re.compile(
+    r"\bFOR\s+\w+(\s*,\s*\w+)*\s+IN\b[\s\S]*\b"
+    r"(RETURN|FILTER|COLLECT|SORT|LIMIT|UPDATE|UPSERT|REPLACE|REMOVE|INSERT)\b"
+    r"|\bSEARCH\s+ANALYZER\b"
+    r"|\bFILTER\s+[\w.@\[\]]+\s*(==|!=|>=|<=|<|>|IN|LIKE)\s"
+)
+
+# Access to the database handle itself: what ``db/`` wraps.
+_DRIVER_CALL = re.compile(
+    r"\bstore\.query\(|\.aql\.execute\(|\bstore\.collection\(|\bstore\.db\."
+)
+
+
+def _string_texts(tree: ast.AST) -> list[tuple[int, str]]:
+    """``(line, text)`` of every string literal; an f-string with ``{}`` for its fields."""
+    inside: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.JoinedStr):
+            for part in node.values:
+                inside.update(id(sub) for sub in ast.walk(part))
+    found = []
+    for node in ast.walk(tree):
+        if id(node) in inside:
+            continue
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            found.append((node.lineno, node.value))
+        elif isinstance(node, ast.JoinedStr):
+            text = "".join(
+                part.value if isinstance(part, ast.Constant) else "{}"
+                for part in node.values
+            )
+            found.append((node.lineno, text))
+    return found
+
+
+def _aql_in(source: str) -> list[int]:
+    return [
+        line for line, text in _string_texts(ast.parse(source)) if _AQL.search(text)
+    ]
+
+
+def test_the_aql_scan_tells_a_query_from_prose() -> None:
+    """The guards below are only worth having if they match queries and nothing else."""
+    assert _aql_in('A = f"FOR d IN {COLLECTION_X}\\n  FILTER d.x == @x\\n  RETURN d"')
+    assert _aql_in('A = "FOR a IN annexes RETURN a._key"')
+    assert _aql_in('A = "FILTER r.fetched_at >= @since"')
+    assert _aql_in("A = \"FOR d IN view SEARCH ANALYZER(d.text == @q, 'text_nl')\"")
+    assert not _aql_in('"""For every record in the list, return the key."""')
+    assert not _aql_in('"""FOR a IN the list: nothing more."""')
+    assert _DRIVER_CALL.search("rows = self.store.query(aql, bind)")
+    assert _DRIVER_CALL.search("store.collection(COLLECTION_X).get(key)")
+    assert not _DRIVER_CALL.search("raw_queries.iter_raw_records(self.store, source=s)")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [p for p in _python_files() if DB not in p.parents],
+    ids=lambda p: str(p.relative_to(SRC)),
+)
+def test_aql_is_only_written_in_db(path: pathlib.Path) -> None:
+    lines = _aql_in(path.read_text())
+    assert not lines, (
+        f"{path.relative_to(SRC)}:{lines} holds AQL; queries live in "
+        f"db/queries/, the code outside db/ calls a function there."
+    )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        p
+        for top in ("pipelines", "commands", "api")
+        for p in sorted((SRC / top).rglob("*.py"))
+    ],
+    ids=lambda p: str(p.relative_to(SRC)),
+)
+def test_pipelines_commands_and_api_do_not_use_the_driver(path: pathlib.Path) -> None:
+    calls = [
+        number
+        for number, line in enumerate(path.read_text().splitlines(), 1)
+        if _DRIVER_CALL.search(line)
+    ]
+    assert not calls, (
+        f"{path.relative_to(SRC)}:{calls} queries the database itself; the queries and "
+        f"collection access live in db/."
+    )
 
 
 # ── every pipeline reports its progress ──────────────────────────────────────

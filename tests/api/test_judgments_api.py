@@ -3,7 +3,8 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.queries.judgments import JudgmentArticleRelation, JudgmentDetailData
+from lawgraph.api.schemas.judgments import JudgmentDTO
+from lawgraph.db.queries.judgments import JudgmentArticleRelation, JudgmentDetailData
 
 client = TestClient(app)
 
@@ -170,6 +171,26 @@ def test_a_paragraph_has_an_id_and_the_citations_stored_for_it(monkeypatch):
     assert second["leden"] == ["3"] and second["text"] == "art. 287, derde lid, Sr"
     assert second["target"]["article_number"] == "287"
     assert [c["start"] for c in paragraphs["rov-6"]["citations"]] == [0]
+
+
+def test_a_paragraph_normalized_before_paragraph_id_existed_falls_back_to_its_position():
+    """A paragraph written before `paragraph_id` was part of the shape has no "id"; the
+    judgment must still answer rather than 500 on one stale record."""
+    doc = {
+        **_JUDGMENT_DOC,
+        "props": {
+            **_JUDGMENT_DOC["props"],
+            "paragraphs": [
+                {"number": None, "kind": "subheading", "text": "Arrest"},
+                {"id": "rov-1", "number": "1", "kind": "body", "text": "Overweging."},
+                {"number": None, "kind": "body", "text": "Nog een oude alinea."},
+            ],
+        },
+    }
+
+    paragraphs = JudgmentDTO.from_document(doc).paragraphs
+
+    assert [p.paragraph_id for p in paragraphs] == ["p-1", "rov-1", "p-3"]
 
 
 def test_a_cited_article_says_where_and_what_it_names(monkeypatch):

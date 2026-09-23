@@ -14,15 +14,14 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
     RELATION_EXPLAINS,
-    SOURCE_STAATSCOURANT,
 )
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
 
@@ -43,60 +42,10 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
-        since_filter = "FILTER pub.props.date >= @since_iso" if since else ""
-
-        # Strategy 1: explicit bwb_id stored during normalization
-        aql_bwb = f"""
-FOR pub IN {COLLECTION_DOCUMENTS}
-  FILTER pub.props.source == @source
-  FILTER pub.props.bwb_id != null
-  {since_filter}
-  LET inst = FIRST(
-    FOR i IN {COLLECTION_INSTRUMENTS}
-      // != null lets the sparse index on props.bwb_id serve the join (else: a full scan)
-      FILTER i.props.bwb_id != null AND i.props.bwb_id == pub.props.bwb_id
-      LIMIT 1
-      RETURN i
-  )
-  FILTER inst != null
-  RETURN {{
-    pub_id: pub._id, pub_key: pub._key,
-    inst_id: inst._id, inst_key: inst._key,
-    match_type: 'bwb_id'
-  }}
-"""
-
-        # Strategy 2: title match against citation_title
-        aql_title = f"""
-FOR pub IN {COLLECTION_DOCUMENTS}
-  FILTER pub.props.source == @source
-  FILTER pub.props.bwb_id == null
-  FILTER pub.props.title != null AND LENGTH(pub.props.title) > 5
-  {since_filter}
-  LET inst = FIRST(
-    FOR i IN {COLLECTION_INSTRUMENTS}
-      FILTER i.props.citation_title != null AND LENGTH(i.props.citation_title) > 5
-      FILTER CONTAINS(LOWER(pub.props.title), LOWER(i.props.citation_title))
-      LIMIT 1
-      RETURN i
-  )
-  FILTER inst != null
-  RETURN {{
-    pub_id: pub._id, pub_key: pub._key,
-    inst_id: inst._id, inst_key: inst._key,
-    match_type: 'title'
-  }}
-"""
-
-        bind: dict[str, Any] = {"source": SOURCE_STAATSCOURANT}
-        if since:
-            # props.date is a date: compared with a timestamp, "2026-09-19" sorts before
-            # "2026-09-19T06:00:00Z" and only the publications of today would match.
-            bind["since_iso"] = since.date().isoformat()
-        rows: list[dict[str, Any]] = []
-
-        for aql in (aql_bwb, aql_title):
-            rows.extend(self.store.query(aql, bind_vars=bind))
+        # props.date is a date: compared with a timestamp, "2026-09-19" sorts before
+        # "2026-09-19T06:00:00Z" and only the publications of today would match.
+        since_date = since.date().isoformat() if since else None
+        rows = semantic_queries.staatscourant_instrument_matches(self.store, since_date)
 
         # Strategy 3: BWBR pattern scan on full text (for publications not yet matched)
         already_matched_pubs = {r["pub_id"] for r in rows}
@@ -165,24 +114,15 @@ FOR pub IN {COLLECTION_DOCUMENTS}
         self, already_matched: set[str], *, since: dt.datetime | None = None
     ) -> list[dict[str, Any]]:
         """Find BWBR IDs in regeling text and match to instruments."""
-        since_filter = "FILTER pub.props.date >= @since_iso" if since else ""
-        aql = f"""
-FOR pub IN {COLLECTION_DOCUMENTS}
-  FILTER pub.props.source == @source
-  FILTER pub.props.text != null AND LENGTH(pub.props.text) > 100
-  {since_filter}
-  RETURN {{ pub_id: pub._id, pub_key: pub._key, text: pub.props.text }}
-"""
-        bind: dict[str, Any] = {"source": SOURCE_STAATSCOURANT}
-        if since:
-            bind["since_iso"] = since.date().isoformat()
+        since_date = since.date().isoformat() if since else None
         results: list[dict[str, Any]] = []
 
         # Collect all (pub, bwb_id) pairs first, then batch-resolve instruments. The texts
         # stream from the cursor; only the ids are kept.
         pub_bwb_pairs: list[tuple[str, str, str]] = []  # (pub_id, pub_key, bwb_id)
         all_bwb_ids: set[str] = set()
-        for pub in self._track(self.store.query(aql, bind), "publications"):
+        publications = semantic_queries.staatscourant_texts(self.store, since_date)
+        for pub in self._track(publications, "publications"):
             pub_id = pub.get("pub_id")
             if pub_id in already_matched:
                 continue
@@ -196,13 +136,10 @@ FOR pub IN {COLLECTION_DOCUMENTS}
             return results
 
         # Single batch query to resolve all bwb_ids to instruments.
-        inst_aql = f"""
-FOR inst IN {COLLECTION_INSTRUMENTS}
-  FILTER inst.props.bwb_id IN @bwb_ids
-  RETURN {{ bwb_id: inst.props.bwb_id, inst_id: inst._id, inst_key: inst._key }}
-"""
         bwb_to_inst: dict[str, dict[str, str]] = {}
-        for inst_row in self.store.query(inst_aql, {"bwb_ids": list(all_bwb_ids)}):
+        for inst_row in semantic_queries.instrument_ids_by_bwb_id(
+            self.store, list(all_bwb_ids)
+        ):
             bwb_key = inst_row.get("bwb_id") or ""
             if bwb_key and bwb_key not in bwb_to_inst:
                 bwb_to_inst[bwb_key] = inst_row

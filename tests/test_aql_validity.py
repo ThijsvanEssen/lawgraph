@@ -22,7 +22,7 @@ import re
 import pytest
 
 import lawgraph.config.constants as constants
-import lawgraph.pipelines.semantic.base as semantic_base
+import lawgraph.db.queries.semantic as semantic_queries
 
 SRC = pathlib.Path(__file__).resolve().parent.parent / "src" / "lawgraph"
 _NAMES = {k: v for k, v in vars(constants).items() if not k.startswith("_")}
@@ -72,7 +72,7 @@ def _text(node: ast.AST) -> str | None:
                 parts.append(str(_NAMES[part.value.id]))
             elif isinstance(part, ast.FormattedValue) and _is_slim(part.value):
                 call = part.value
-                parts.append(semantic_base.slim(*(arg.value for arg in call.args)))  # type: ignore[attr-defined]
+                parts.append(semantic_queries.slim(*(arg.value for arg in call.args)))  # type: ignore[attr-defined]
             else:
                 return None  # depends on something only known at run time
         return "".join(parts)

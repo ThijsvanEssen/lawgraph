@@ -80,10 +80,11 @@ def test_gaps_are_the_memoranda_without_xml_and_a_missing_record_waits(
     )
     raw = store.db.collection("raw_sources")
     stored = raw.get(xml_key)
-    assert stored["payload_text"] == _xml("kst_36750_3")
+    (read,) = store.with_payloads([stored])
+    assert read["payload_text"] == _xml("kst_36750_3")
     assert stored["meta"] == {"document": _mvt_documents(store)[1]["_key"]}
     waiting = raw.get(missing_key)
-    assert waiting["payload_text"] is None and waiting["meta"]["status"] == 404
+    assert "payload_ref" not in waiting and waiting["meta"]["status"] == 404
     # this paper is from March 2025: not a week old, so a month
     retry = dt.datetime.fromisoformat(
         waiting["meta"]["retry_after"].replace("Z", "+00:00")

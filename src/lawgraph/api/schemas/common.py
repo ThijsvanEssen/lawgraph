@@ -1,5 +1,5 @@
 """Building blocks shared by several API domains: instrument / article / judgment
-summaries, citation spans, article relations and community votes."""
+summaries, citation spans and article relations."""
 
 from __future__ import annotations
 
@@ -147,15 +147,6 @@ class ArticleRelationDTO(BaseModel):
             article_number=props.get("article_number"),
             instrument=instrument,
         )
-
-
-class CommunityVotes(BaseModel):
-    """Community vote counters on a semantic relationship."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    upvotes: int = 0
-    downvotes: int = 0
 
 
 class DossierRefDTO(BaseModel):

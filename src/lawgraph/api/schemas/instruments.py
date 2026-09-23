@@ -26,12 +26,15 @@ _REQUESTED = (
 
 
 class InstrumentArticleBreadcrumbDTO(BaseModel):
-    """One step in an article's chapter/section path."""
+    """One division an article stands in, outermost first: ``type`` is the element of the
+    BWB XML (``boek``, ``titeldeel``, ``hoofdstuk``, ``afdeling``, ``paragraaf``, ...),
+    ``label`` as printed ("Hoofdstuk 1"), ``title`` its heading."""
 
     model_config = ConfigDict(extra="forbid")
 
     type: str | None = None
     label: str | None = None
+    title: str | None = None
 
 
 class InstrumentArticleNodeDTO(BaseModel):
@@ -63,7 +66,9 @@ class InstrumentArticleNodeDTO(BaseModel):
         text = props.get("text") or ""
         raw_crumbs = props.get("breadcrumb") or []
         crumbs = [
-            InstrumentArticleBreadcrumbDTO(type=c.get("type"), label=c.get("label"))
+            InstrumentArticleBreadcrumbDTO(
+                type=c.get("type"), label=c.get("label"), title=c.get("title")
+            )
             for c in raw_crumbs
             if isinstance(c, dict)
         ]

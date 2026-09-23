@@ -14,12 +14,6 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.nodes import (
-    NeighborFilter,
-    get_node_facets,
-    get_node_neighborhood,
-    get_node_with_neighbors,
-)
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLE_VERSIONS,
@@ -38,6 +32,12 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
 from lawgraph.db import ArangoStore
 from lawgraph.db.edges import make_edge_doc
+from lawgraph.db.queries.nodes import (
+    NeighborFilter,
+    get_node_facets,
+    get_node_neighborhood,
+    get_node_with_neighbors,
+)
 
 FOCAL = f"{COLLECTION_INSTRUMENTS}/focal"
 ARTICLES = 45
@@ -577,7 +577,7 @@ def test_the_neighbourhood_response_follows_the_filters(
 def test_the_global_graph_keeps_the_node_types_and_relations_asked_for(
     small: ArangoStore,
 ) -> None:
-    from lawgraph.api.queries.graph import get_global_graph
+    from lawgraph.db.queries.graph import get_global_graph
 
     everything = get_global_graph(small)
     assert len(everything.instruments) == 5 and len(everything.articles) == ARTICLES
@@ -611,7 +611,7 @@ def test_the_global_graph_keeps_the_node_types_and_relations_asked_for(
 def test_the_instrument_layer_returns_only_the_relations_asked_for(
     small: ArangoStore,
 ) -> None:
-    from lawgraph.api.queries.graph import get_instrument_layer_graph
+    from lawgraph.db.queries.graph import get_instrument_layer_graph
 
     every = get_instrument_layer_graph(small)
     assert {e.relation_type for e in every.edges} == {

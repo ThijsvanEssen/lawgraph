@@ -529,3 +529,31 @@ def test_a_judgment_that_is_no_xml_raises_instead_of_reading_as_empty(payload) -
     no court, no date and no text, and nothing said so."""
     with pytest.raises(ValueError, match="not XML"):
         judgments.parse_judgment(payload)
+
+
+# The relations as the open data of the Rechtspraak writes them (ECLI:NL:HR:2026:1350): the
+# ECLI is an attribute, the text says what it is.
+_RELATIONS_XML = """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:dcterms="http://purl.org/dc/terms/" xmlns:ecli="https://e-justice.europa.eu/ecli"
+    xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+  <rdf:Description>
+    <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:PHR:2026:594"
+      psi:type="http://psi.rechtspraak.nl/conclusie"
+      psi:aanleg="http://psi.rechtspraak.nl/eerdereAanleg">
+      Conclusie: ECLI:NL:PHR:2026:594</dcterms:relation>
+    <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:GHAMS:2024:3036"
+      psi:type="http://psi.rechtspraak.nl/cassatie"
+      psi:aanleg="http://psi.rechtspraak.nl/eerdereAanleg">
+      In cassatie op : ECLI:NL:GHAMS:2024:3036</dcterms:relation>
+    <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:HR:2027:1"
+      psi:type="http://psi.rechtspraak.nl/verwijzing"
+      psi:aanleg="http://psi.rechtspraak.nl/latereAanleg">
+      Na verwijzing: ECLI:NL:HR:2027:1</dcterms:relation>
+  </rdf:Description>
+</rdf:RDF>"""
+
+
+def test_the_earlier_instance_is_read_from_the_attribute_and_nothing_else_is() -> None:
+    """The judgment that was appealed, not the conclusion of the A-G on it, nor the one after."""
+    meta, _ = judgments.extract_rdf_metadata(judgments.parse_judgment(_RELATIONS_XML))
+    assert meta["related_eclis"] == ["ECLI:NL:GHAMS:2024:3036"]

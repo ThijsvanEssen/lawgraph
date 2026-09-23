@@ -16,6 +16,20 @@ the same values; a variable already set in the process environment wins over `.e
 | `ARANGO_USER` | `root` | user |
 | `ARANGO_PASSWORD` | empty | password |
 | `ARANGO_ROOT_PASSWORD` | none | read by `docker-compose.yml` for the root password of the container; set it equal to `ARANGO_PASSWORD` |
+| `LAWGRAPH_DB_SIZE_ALERT_GIB` | `70` | `lawgraph check` fails from this database size on (see Database size) |
+
+### Payload store
+
+The XML and HTML of raw records are kept outside the database (`docs/data-model.md`,
+raw_sources): in a directory on this machine, or in an S3 bucket. On the server that is a
+bucket of LeafCloud's object storage (Amsterdam, S3-compatible).
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LAWGRAPH_PAYLOAD_STORE` | `file://~/.local/share/lawgraph/payloads` | `file:///path` or `s3://bucket[/prefix]` |
+| `LAWGRAPH_S3_ENDPOINT` | none (AWS) | `https://leafcloud.store` for LeafCloud |
+| `LAWGRAPH_S3_REGION` | none | `europe-nl-ams1` for LeafCloud |
+| `LAWGRAPH_S3_ACCESS_KEY`, `LAWGRAPH_S3_SECRET_KEY` | none | the EC2 credentials of the project (`openstack ec2 credentials create`) |
 
 ### External sources
 
@@ -54,8 +68,6 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
-| `LAWGRAPH_CURATION_API_KEY` | unset | enables `POST /api/relationships/tag` |
-| `LAWGRAPH_WRITE_API_KEY` | unset | enables the watch endpoints and the relationship vote (`X-Write-Key`); unset answers 503 |
 
 ### Logging and tests
 
@@ -66,7 +78,8 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_LOG_FILE` | unset | every log line is also written to this file (plain lines; the terminal keeps its live progress) |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
-| `ALLOW_DB_TESTS` | unset | `1` runs `tests/test_aql_validity.py`: every static AQL query is explained by the real ArangoDB in a scratch database (a query the server rejects, such as one with `??`, fails only there); shell only |
+| `ALLOW_DB_TESTS` | unset | `1` runs `tests/test_aql_validity.py` (every static AQL query explained by a real ArangoDB in a scratch database) and everything under `tests/integration/`; shell only |
+| `LAWGRAPH_TEST_ARANGO_URL` | `http://localhost:8530` | server `tests/integration/` talks to (`docker-compose.test.yml`); `tests/test_aql_validity.py` does not read this and uses `ARANGO_URL` instead (a scratch database of its own, so never real data either way); shell only |
 
 ## CLI
 
@@ -85,7 +98,7 @@ and exits 1 when any of them failed.
 |---------|---------|
 | `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 6). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode to `bwb` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`) are always read in full. `eurlex`, `staatsblad` and `verdragenbank` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn. `staatsblad` reads the stored BWB toestanden, so it starts when `bwb` has ended (and last on its server, so the others do not wait with it) |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
-| `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` |
+| `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` (only that dossier and its documents, whatever their date: the backfill of an old dossier) |
 | `retrieve tk-content` | `--mode gaps` (the only mode: the papers of `--kind` of which no XML is stored), `--kind` (default `toelichting`), `--dry-run` |
 | `retrieve rechtspraak` | `--court` (repeatable; default `hr`, `rvs`, `hoven`), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
 | `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
@@ -120,12 +133,13 @@ passed to the pipelines that accept it and the others run in full.
 | `tk-amends` | `--since`: documents dated since then |
 | `bwb-implements` | none (reads the regulations that name an EU act) |
 | `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `bwb-relation-types` | none |
+| `tk-dossier-outcomes` | none (every dossier on every run) |
 | `graph-list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 
 The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
 `bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-citations`,
 `rechtspraak-appeal`, `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-mvt`,
-`tk-mvt-articles`, `bwb-relation-types`, `graph-list-stats`.
+`tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-outcomes`, `graph-list-stats`.
 
 ### Other commands
 
@@ -135,7 +149,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, EU acts, treaties, memoranda without text) |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
@@ -148,7 +162,7 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 |-------|-----------|
 | `RETRIEVE` | `TK`, `TK_DOSSIERS`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK` |
 | `NORMALIZE` | the same plus `BWB_HISTORY` and `TK_CONTENT` |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `GRAPH_LIST_STATS` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `GRAPH_LIST_STATS` |
 
 ## Runs
 
@@ -266,7 +280,10 @@ is installed for you.
 One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so), a
 failing command fails the run and the next command still runs, one log per run in
 `~/Library/Logs/lawgraph/` (`LAWGRAPH_LOG_DIR`) and one line per run in `runs.log` there.
-With cron:
+A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
+`LAWGRAPH_ALERT_MESSAGE`) when it is set in the environment of the scheduler, for example
+`curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
+noted in `runs.log` and changes nothing else. With cron:
 
 ```
 30 5 * * *   /path/to/lawgraph/scripts/daily.sh
@@ -279,6 +296,37 @@ gaps of minutes. Keep it on power, or the lid open.
 
 Before the first scheduled run one complete run has to be on record (`bootstrap`, or each
 `<phase> all` once with a date), or `--since last` is refused.
+
+**Database size.** ArangoDB Community counts the size of the dataset against a limit of 100
+GiB: over it, the server warns for two days, is read-only for two more and then shuts down.
+`lawgraph check` (daily, in `daily.sh`) logs the size the server counts (`GET /_admin/license`,
+the compressed storage of the documents, about a third of their size as JSON), the three
+largest collections, and fails from `LAWGRAPH_DB_SIZE_ALERT_GIB` (70 GiB) on, or as soon as the
+server reports its license status as other than `good`. With the alert command set, that
+failure reaches you the same morning.
+
+**Backups.** Everything in the database can be built again from the sources, but that takes a
+day or more; a backup is back in minutes to hours. `scripts/backup.sh` writes a compressed `arangodump` of the database to
+`LAWGRAPH_BACKUP_DIR` (`./backups`, mounted by `docker-compose.yml` at `/backups` in the
+container, where the dump runs), with a `counts` file of the documents per collection and the
+search views, and keeps the newest `LAWGRAPH_BACKUP_KEEP` (7). `LAWGRAPH_BACKUP_UPLOAD_COMMAND`
+gets each new dump off the machine (`sh -c`, the path in `LAWGRAPH_BACKUP_PATH`), for example
+`rclone copy "$LAWGRAPH_BACKUP_PATH" leafcloud:lawgraph-backups/$(basename "$LAWGRAPH_BACKUP_PATH")`;
+let a lifecycle rule of the bucket remove old ones. `scripts/restore-test.sh` restores the
+newest dump into a scratch database on the test server (`docker-compose.test.yml`, which mounts
+the same directory read-only; `LAWGRAPH_RESTORE_CONTAINER` for another server, which a dump of
+the full database needs) and compares every collection and view with `counts`; `runs.log`
+says how long the restore took. Both run under the lock of the scheduled runs, so a dump never
+reads a database that a load is writing. Measured on a database of 1.2 GB: a dump of 333 MB in
+30 s, a restore in 38 s. The dump holds the metadata of the raw records, not their payloads:
+those are in the payload store, which is backed up on its own. A directory store goes with the
+backups of the machine; in a bucket, versioning (or a replica in a second bucket) protects
+against a deleted or overwritten object.
+
+```
+0  3 * * *   /path/to/lawgraph/scripts/backup.sh
+0  4 * * 6   /path/to/lawgraph/scripts/restore-test.sh
+```
 
 ## Observability
 
@@ -322,16 +370,21 @@ ruff format --check src tests
 mypy                                  # src, configured in pyproject.toml
 ```
 
-The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no unit
-test executes AQL, but `ALLOW_DB_TESTS=1` has the server validate every static query.
+The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no unit test
+executes AQL, but one file, `tests/test_aql_validity.py`, is different: `ALLOW_DB_TESTS=1` has a
+real ArangoDB validate every static query (a scratch database of its own; it defaults to
+`ARANGO_URL` from `.env`, so normally your local dev server, unless you export
+`LAWGRAPH_TEST_ARANGO_URL`).
 
-What only a server shows is in `tests/integration`: the real code and the real CLI against a
+What only a server shows under real load is in `tests/integration`: the real code and the real CLI against a
 second, deliberately small ArangoDB (`docker-compose.test.yml`, a compose project of its own: port 8530, 1 GB
-of memory, 256 MiB per query, a throw-away volume; never the database of `.env`).
+of memory, 256 MiB per query, a throw-away volume; never the database of `.env`), next to an
+S3 server for the payload store in a bucket (versitygw, port 8531, `LAWGRAPH_TEST_S3_URL`;
+without it those tests are skipped). Each test has a payload directory of its own.
 
 ```bash
 docker compose -f docker-compose.test.yml up -d
-ALLOW_DB_TESTS=1 pytest tests/integration     # two minutes
+ALLOW_DB_TESTS=1 pytest tests/integration     # about eight minutes
 docker compose -f docker-compose.test.yml down
 ```
 
@@ -340,10 +393,31 @@ result larger than the server may hold in memory streams; `normalize all` and `s
 produce every part of the model and a second run changes nothing; `lawgraph check` finds a
 source that was never normalized and an edge without its node; a database that restarts in
 the middle of a run, and a run that is killed, cost a re-run at most; a stub that is loaded
-stops being a stub; an incremental run links to what was loaded earlier. A problem found in
-a real run gets a test here first: small data on a small server fails the way the corpus
-does on the real one. Layout: `tests/api/` (routes), `tests/normalize/` and
-`tests/semantic/` (one file per source or detector), `tests/test_*.py` (clients, core helpers,
-bulk writers, registry, naming, conventions, relation catalogue, props). CI (`.github/workflows`) runs
-`mypy` and `pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format, end-of-file,
-trailing whitespace, private-key detection, YAML and merge-conflict checks.
+stops being a stub; an incremental run links to what was loaded earlier; an API route answers
+correctly and stays inside the server's memory limit against realistically large or
+heavily-cited data. A problem found in a real run gets a test here first: small data on a
+small server fails the way the corpus does on the real one.
+
+Each test creates its own database (`lawgraph_it_<uuid>`) on the test server and drops it
+afterwards, so tests stay independent of each other and safe to run in parallel; none of them
+touches the database of `.env`. `conftest.py` skips the whole directory (rather than erroring)
+when `ALLOW_DB_TESTS` is unset or the test server is unreachable, so `pytest tests` without it
+stays green.
+
+Layout: `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
+`test_large_results` and `test_command_line` exercise the pipeline chain itself and its failure
+modes; `test_api_articles`, `test_api_documents`, `test_api_queries`, `test_hub_queries`,
+`test_node_neighbors`, `test_resolve`, `test_article_parts`, `test_judgment_mentions`,
+`test_mvt_articles`, `test_instrument_links` and `test_cited_by_scale` run one API surface, or
+one query at a scale that would defeat an unindexed plan, against real data; `test_tk_content`
+covers the Kamerstuk XML pipeline specifically; `test_series_end_to_end` seeds one small, real
+chain (a law, an amendment, its memorandum, two judgments) and walks every route it touches,
+dossier to judgment, once.
+
+The unit suite outside `tests/integration/` is laid out as: `tests/api/` (routes, against a
+fake store), `tests/normalize/` and `tests/semantic/` (one file per source or detector),
+`tests/test_*.py` (clients, core helpers, bulk writers, registry, naming, conventions, relation
+catalogue, props). CI (`.github/workflows`) runs `mypy` and
+`pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format,
+end-of-file, trailing whitespace, private-key detection, YAML and merge-conflict checks; it does
+not run `tests/integration` (no server available there).

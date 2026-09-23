@@ -21,20 +21,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.committees import (
-    get_actor_dossiers,
-    get_actor_touched_instruments,
-    get_committee_activities,
-    get_committee_detail,
-    get_committees,
-    get_committees_with_members,
-    get_factions,
-    get_member_votes,
-    get_members,
-)
-from lawgraph.api.queries.dossiers import enrich_dossier_docs
 from lawgraph.api.schemas.committees import (
     ActorDossierDTO,
     ActorDossiersResponse,
@@ -52,7 +39,20 @@ from lawgraph.api.schemas.committees import (
     TouchedInstrumentsResponse,
 )
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
+from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.committees import (
+    get_actor_dossiers,
+    get_actor_touched_instruments,
+    get_committee_activities,
+    get_committee_detail,
+    get_committees,
+    get_committees_with_members,
+    get_factions,
+    get_member_votes,
+    get_members,
+)
+from lawgraph.db.queries.dossiers import enrich_dossier_docs
 
 router = APIRouter()
 members_router = APIRouter()

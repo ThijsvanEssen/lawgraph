@@ -156,7 +156,7 @@ def test_the_gap_queries_are_not_capped_in_aql() -> None:
 def test_the_rechtspraak_normalizer_streams_its_raw_records() -> None:
     calls: list[dict] = []
 
-    class Store:
+    class Store(RawSourcesFake):
         def query(self, aql, bind_vars=None, *, batch_size=1000, **kw):
             calls.append({"batch_size": batch_size})
             return iter([])
@@ -193,7 +193,7 @@ def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
     assert out == {"judgments": 3}
 
 
-class _JudgmentStore:
+class _JudgmentStore(RawSourcesFake):
     """Three judgments as ``normalize rechtspraak`` made them; the queries carry the filters."""
 
     def __init__(self) -> None:

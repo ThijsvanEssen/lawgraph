@@ -18,14 +18,13 @@ from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
-    COLLECTION_EDGE_STATUS_LOG,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
-    COLLECTION_WATCHES,
     DOCUMENT_COLLECTIONS,
+    TEXT_ANALYZER,
 )
 
 if TYPE_CHECKING:
@@ -156,48 +155,48 @@ def _indexed_fields(links: dict[str, Any]) -> dict[str, dict[str, frozenset[str]
 _VIEW_SPECS: dict[str, dict[str, dict[str, list[str]]]] = {
     "search_articles": {
         COLLECTION_ARTICLES: {
-            "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
-            "text": ["text_en"],
-            "article_number": ["text_en", "identity", "lawgraph_norm"],
-            "bwb_id": ["text_en", "identity", "lawgraph_norm"],
+            "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
+            "text": [TEXT_ANALYZER],
+            "article_number": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
+            "bwb_id": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
         },
     },
     "search_instruments": {
         COLLECTION_INSTRUMENTS: {
-            "title": ["text_en", "lawgraph_ngram_v2"],
-            "citation_title": ["text_en", "identity", "lawgraph_ngram_v2"],
-            "official_title": ["text_en", "lawgraph_ngram_v2"],
-            "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
+            "title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
+            "citation_title": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
+            "official_title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
+            "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
             "short_title": ["identity", "lawgraph_norm"],
             "bwb_id": ["identity", "lawgraph_norm"],
         },
     },
     "search_judgments": {
         COLLECTION_JUDGMENTS: {
-            "display_name": ["text_en", "identity", "lawgraph_ngram_v2"],
-            "summary": ["text_en"],
+            "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
+            "summary": [TEXT_ANALYZER],
             "ecli": ["identity", "lawgraph_norm"],
             "appno": ["identity", "lawgraph_norm"],
         },
     },
     "search_dossiers": {
         COLLECTION_DOSSIERS: {
-            "title": ["text_en", "lawgraph_ngram_v2"],
-            "display_name": ["text_en", "lawgraph_ngram_v2"],
+            "title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
+            "display_name": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
             "number": ["identity", "lawgraph_norm"],
         },
     },
     "search_documents": {
         COLLECTION_DOCUMENTS: {
-            "title": ["text_en", "lawgraph_ngram_v2"],
-            "display_name": ["text_en", "lawgraph_ngram_v2"],
+            "title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
+            "display_name": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
             "external_id": ["identity", "lawgraph_norm"],
         },
     },
     "search_committees": {
         COLLECTION_COMMITTEES: {
-            "name": ["text_en", "lawgraph_ngram_v2"],
-            "abbreviation": ["text_en", "identity", "lawgraph_norm"],
+            "name": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
+            "abbreviation": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
         },
     },
 }
@@ -213,7 +212,8 @@ def _ensure_search_views(db: StandardDatabase) -> None:
 
     Each searchable collection gets its own view linking the relevant
     nested ``props`` fields with the right analyzers:
-      * ``text_en`` — tokenises and lowercases display_name, title, text, summary.
+      * ``TEXT_ANALYZER`` (Dutch) — tokenises, lowercases and stems display_name,
+        title, text, summary.
       * ``identity`` — keeps identifiers intact for exact-match queries.
       * ``lawgraph_norm`` — lowercased identifier match (bwb_id, ecli).
       * ``lawgraph_ngram_v2`` — substring match within compound words.
@@ -359,7 +359,6 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_DECISIONS, ["props.dossier_numbers[*]"], False),
         (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
         (COLLECTION_COMMITMENTS, ["props.status"], False),
-        (COLLECTION_WATCHES, ["node_id"], False),
         # raw_sources: the normalize pipelines read by source and kind. Not sparse, so a
         # count per kind walks the index and reads no document (an EU act is up to 1 MB).
         (COLLECTION_RAW_SOURCES, ["source", "kind"], False, False),
@@ -369,16 +368,12 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_EDGES, ["_to", "relation"], False),
         (COLLECTION_EDGES, ["status"], False),
         (COLLECTION_EDGES, ["status", "relation"], False),
-        # edge_status_log indexes — for audit log time-range and key lookups
-        (COLLECTION_EDGE_STATUS_LOG, ["timestamp"], False),
-        (COLLECTION_EDGE_STATUS_LOG, ["edge_key"], False),
         # edges confidence — for semantic filtering by confidence threshold
         (COLLECTION_EDGES, ["confidence"], False),
         # Semantic relationship type layer — equality filters only, so sparse
         # is fine and skips the (large) majority of unclassified edges.
         (COLLECTION_EDGES, ["semantic_type"], False),
         (COLLECTION_EDGES, ["_from", "semantic_type"], False),
-        (COLLECTION_EDGES, ["semantic_source"], False),
         # annexes — lookups by parent law
         (COLLECTION_ANNEXES, ["props.bwb_id"], False),
         # NOTE: we deliberately *don't* index ``edges.created_at``. The planner

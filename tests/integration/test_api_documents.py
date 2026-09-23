@@ -10,9 +10,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.api.queries.decisions import get_decisions
-from lawgraph.api.queries.documents import get_document_links, list_documents
-from lawgraph.api.queries.dossiers import get_dossier_timeline
 from lawgraph.api.schemas.dossiers import timeline_entry
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
@@ -33,6 +30,9 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db.queries.decisions import get_decisions
+from lawgraph.db.queries.documents import get_document_links, list_documents
+from lawgraph.db.queries.dossiers import get_dossier_timeline
 
 DOSSIER = f"{COLLECTION_DOSSIERS}/36000"
 LONG_TEXT = "Artikel 5 wordt gewijzigd. " * 400

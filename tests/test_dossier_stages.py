@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import pytest
+
 from lawgraph.core.dossier_stages import (
+    OPEN,
+    DossierOutcome,
     accumulate_stage_signals,
+    derive_outcome,
     dossier_display_name,
+    is_withdrawal_letter,
     pick_current_stage,
     select_title,
 )
+from lawgraph.pipelines.semantic.tk_dossier_outcomes import outcome_props
 
 
 def _doc(kind: str, date: str | None = None, title: str | None = None) -> dict:
@@ -100,3 +107,130 @@ def test_title_preference_is_bill_then_mvt_then_any_document() -> None:
 def test_display_name_includes_the_toevoeging() -> None:
     assert dossier_display_name("36554", "I", "Wet") == "Kamerstukdossier 36554-I: Wet"
     assert dossier_display_name("36554", None, "Wet") == "Kamerstukdossier 36554: Wet"
+
+
+# ── how a dossier ended ──────────────────────────────────────────────────────
+
+
+def _letter(subject: str, kind: str = "Brief regering", case_kinds=None) -> dict:
+    return {
+        "kind": kind,
+        "subject": subject,
+        "date": "2025-06-02",
+        "case_kinds": ["Wetgeving", kind] if case_kinds is None else case_kinds,
+    }
+
+
+def _vote(date: str, passed: bool) -> dict:
+    return {"date": date, "passed": passed}
+
+
+def test_a_published_law_closes_its_dossier_on_the_first_publication() -> None:
+    outcome = derive_outcome(
+        [
+            {"date_published": "2018-05-16", "date_signed": "2018-05-16"},
+            {"date_published": None, "date_signed": "2018-05-09"},
+            {},  # a regulation that names the dossier, without publication dates
+        ],
+        [],
+        [_vote("2018-03-13", True)],
+    )
+    assert outcome == DossierOutcome(True, "aangenomen", "2018-05-09")
+
+
+def test_a_law_legislated_by_a_regulation_alone_has_no_closing_date() -> None:
+    assert derive_outcome([{}], [], []) == DossierOutcome(True, "aangenomen", None)
+
+
+@pytest.mark.parametrize(
+    ("subject", "kind"),
+    [
+        ("Brief houdende intrekking van het wetsvoorstel", "Brief regering"),
+        ("Brief houdende intrekking van het voorstel", "Brief lid / fractie"),
+        (
+            "Brief houdende overname en intrekking van het wetsvoorstel",
+            "Brief lid / fractie",
+        ),
+        (
+            "Brief van het lid Becker houdende overname van de verdediging en intrekking "
+            "van het initiatiefvoorstel",
+            "Brief lid / fractie",
+        ),
+        (
+            "Intrekking wetsvoorstel wijziging van de Algemene Ouderdomswet",
+            "Brief regering",
+        ),
+    ],
+)
+def test_a_letter_that_withdraws_the_bill_closes_the_dossier(
+    subject: str, kind: str
+) -> None:
+    outcome = derive_outcome([], [_letter(subject, kind)], [_vote("2025-01-01", True)])
+    assert outcome == DossierOutcome(True, "ingetrokken", "2025-06-02")
+
+
+@pytest.mark.parametrize(
+    "letter",
+    [
+        _letter("Voornemen tot intrekken van het wetsvoorstel"),
+        _letter("Herroeping aankondiging intrekking wetsvoorstel bevoorrechting"),
+        _letter("Brief houdende verzoek tot intrekking van het wetsvoorstel"),
+        _letter("Beweegredenen voor het niet intrekken van het wetsvoorstel"),
+        # a bill that repeals a law is not withdrawn
+        _letter(
+            "Brief over het voorstel tot intrekking van de Wet op de lijkbezorging"
+        ),
+        # a letter of a committee, and a letter on another case than the bill
+        _letter(
+            "Intrekking wetsvoorstel Wet ruimte",
+            kind="Brief commissie aan bewindspersoon",
+        ),
+        _letter("Intrekking wetsvoorstel 35722", case_kinds=["Brief regering"]),
+        # a motion that asks for it
+        _letter("Motie over het intrekken van het wetsvoorstel", kind="Motie"),
+    ],
+)
+def test_a_letter_about_a_withdrawal_does_not_withdraw(letter: dict) -> None:
+    assert not is_withdrawal_letter(letter)
+    assert derive_outcome([], [letter], []) == OPEN
+
+
+def test_the_last_vote_on_the_bill_decides_a_rejection() -> None:
+    rejected = derive_outcome(
+        [], [], [_vote("2024-01-10", True), _vote("2024-02-20", False)]
+    )
+    assert rejected == DossierOutcome(True, "verworpen", "2024-02-20")
+    # Passed by the Tweede Kamer: it waits for the Eerste Kamer and the Staatsblad.
+    assert derive_outcome([], [], [_vote("2024-02-20", True)]) == OPEN
+
+
+def test_a_dossier_without_evidence_is_open() -> None:
+    assert derive_outcome([], [], []) == OPEN
+
+
+def test_a_closed_dossier_is_afgehandeld_and_one_opened_again_falls_back() -> None:
+    stored = {
+        "current_stage": "stemming",
+        "stages_present": ["wetsvoorstel", "stemming"],
+    }
+    closed = outcome_props(stored, DossierOutcome(True, "aangenomen", "2022-08-30"))
+    assert closed == {
+        "closed": True,
+        "outcome": "aangenomen",
+        "closed_on": "2022-08-30",
+        "current_stage": "afgehandeld",
+        "stages_present": ["wetsvoorstel", "stemming", "afgehandeld"],
+    }
+    reopened = outcome_props({**stored, **closed}, OPEN)
+    assert reopened == {
+        "closed": False,
+        "outcome": None,
+        "closed_on": None,
+        "current_stage": "stemming",
+        "stages_present": ["wetsvoorstel", "stemming"],
+    }
+    assert outcome_props(stored, OPEN) == {
+        "closed": False,
+        "outcome": None,
+        "closed_on": None,
+    }

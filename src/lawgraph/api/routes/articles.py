@@ -5,16 +5,6 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.articles import (
-    get_article_citations,
-    get_article_cited_by,
-    get_article_explanations,
-    get_article_history,
-    get_article_in_flux,
-    get_article_legislative_history,
-    get_article_with_relations,
-)
-from lawgraph.api.queries.relationships import get_article_relationship_data
 from lawgraph.api.schemas.articles import (
     ArticleCitedByItem,
     ArticleCitedByResponse,
@@ -42,6 +32,16 @@ from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key, parse_arango_id
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.articles import (
+    get_article_citations,
+    get_article_cited_by,
+    get_article_explanations,
+    get_article_history,
+    get_article_in_flux,
+    get_article_legislative_history,
+    get_article_with_relations,
+)
+from lawgraph.db.queries.relationships import get_article_relationship_data
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -191,7 +191,7 @@ def get_article_cited_by_passages(
     ] = None,
 ) -> ArticleCitedByResponse:
     article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
-    if not store.articles.has(parse_arango_id(article_id)[1]):
+    if not store.has_node(COLLECTION_ARTICLES, parse_arango_id(article_id)[1]):
         raise HTTPException(status_code=404, detail="Article not found")
     rows, total = get_article_cited_by(
         store,

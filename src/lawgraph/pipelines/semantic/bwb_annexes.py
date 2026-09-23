@@ -20,8 +20,9 @@ from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 from lawgraph.pipelines.semantic._annex_detect import detect_annex_references
-from lawgraph.pipelines.semantic.base import SemanticPipelineBase, slim
+from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -38,7 +39,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
 
     def _annex_keys(self) -> set[str]:
         """The annexes ``normalize bwb`` made of the toestanden (and earlier stubs)."""
-        return set(self.store.query(f"FOR a IN {COLLECTION_ANNEXES} RETURN a._key"))
+        return set(semantic_queries.annex_keys(self.store))
 
     def _link_articles(self, result: PipelineResult, known_keys: set[str]) -> None:
         edges = EdgeWriter(self.store, what=None)
@@ -72,13 +73,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
         edges.flush_into(result)
 
     def _load_articles_mentioning_annex(self) -> Iterable[dict[str, Any]]:
-        aql = f"""
-        FOR doc IN {COLLECTION_ARTICLES}
-            FILTER doc.props.text != null
-            FILTER CONTAINS(LOWER(doc.props.text), 'bijlage')
-            RETURN {slim("doc", "bwb_id", "text")}
-        """
-        return self.store.query(aql)
+        return semantic_queries.articles_mentioning_annex(self.store)
 
     def _ensure_annex(
         self, bwb_id: str, label: str | None, known_keys: set[str]

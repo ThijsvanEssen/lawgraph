@@ -12,6 +12,7 @@ from lawgraph.db import CountingStore, EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from tests.conftest import _BaseFakeStore
+from tests.fakes import RawSourcesFake
 
 
 def _node(key: str, collection: str = "documents") -> Node:
@@ -143,7 +144,7 @@ def test_a_run_that_raises_says_what_it_wrote_before_and_lets_the_error_out(
 # ── a real pipeline, end to end ──────────────────────────────────────────────
 
 
-class _RawSourceStore(_BaseFakeStore):
+class _RawSourceStore(RawSourcesFake, _BaseFakeStore):
     def __init__(self, raw: list[dict[str, Any]]) -> None:
         super().__init__()
         self._raw = raw

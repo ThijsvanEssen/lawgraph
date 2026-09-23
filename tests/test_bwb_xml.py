@@ -222,3 +222,46 @@ def test_a_paragraph_next_to_the_leden_is_part_of_the_article() -> None:
     assert art5.text.index("Dit artikel is nog niet") < art5.text.index(
         "\n1. Onze Minister"
     )
+
+
+# The structure of the Algemene wet bestuursrecht, cut down: a chapter holds a title holds an
+# article; an article directly in a chapter; an article outside every division.
+_STRUCTURED = """<toestand bwb-id="BWBR0005537"><wetgeving soort="wet"><wet-besluit><wettekst>
+  <hoofdstuk label="Hoofdstuk 1">
+    <kop><label>Hoofdstuk</label><nr>1</nr>
+      <titel status="officieel">Inleidende bepalingen </titel></kop>
+    <titeldeel label="Titel 1.1">
+      <kop><label>Titel</label><nr>1.1</nr><titel>Definities en reikwijdte</titel></kop>
+      <artikel label="Artikel 1:1">
+      <kop><label>Artikel</label><nr>1:1</nr></kop><al>Tekst.</al></artikel>
+    </titeldeel>
+    <artikel label="Artikel 1:9">
+      <kop><label>Artikel</label><nr>1:9</nr></kop><al>Tekst.</al></artikel>
+  </hoofdstuk>
+  <artikel label="Artikel 11:1">
+      <kop><label>Artikel</label><nr>11:1</nr></kop><al>Slot.</al></artikel>
+</wettekst></wet-besluit></wetgeving></toestand>"""
+
+
+def test_an_article_knows_the_divisions_it_stands_in() -> None:
+    by_number = {a.number: a for a in parse_toestand(_STRUCTURED).articles}
+    assert [c.to_dict() for c in by_number["1:1"].breadcrumb] == [
+        {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Inleidende bepalingen"},
+        {
+            "type": "titeldeel",
+            "label": "Titel 1.1",
+            "title": "Definities en reikwijdte",
+        },
+    ]
+    assert [c.label for c in by_number["1:9"].breadcrumb] == ["Hoofdstuk 1"]
+    assert by_number["11:1"].breadcrumb == ()
+
+
+def test_the_breadcrumb_is_a_prop_of_the_article() -> None:
+    from lawgraph.core.bwb_xml import article_props
+
+    article = next(a for a in parse_toestand(_STRUCTURED).articles if a.number == "1:9")
+    props = article_props(article, "BWBR0005537", "Algemene wet bestuursrecht")
+    assert props["breadcrumb"] == [
+        {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Inleidende bepalingen"}
+    ]

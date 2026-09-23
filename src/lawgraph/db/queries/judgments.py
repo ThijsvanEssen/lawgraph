@@ -5,15 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from lawgraph.api.queries._helpers import _load_judgment
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
+    TEXT_ANALYZER,
 )
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries._helpers import _load_judgment
 
 
 @dataclass
@@ -116,7 +117,7 @@ def get_judgments_list(
       * ``total`` is exact when filtered, otherwise the collection
         cardinality. The frontend uses ``has_more`` for paging.
     """
-    from lawgraph.api.queries.search import build_search_clause, tokenize_search_query
+    from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 
     # The inbound count lives on the indexed ``props.inbound_citation_count``,
     # so SORT/FILTER on citation count are served by the persistent index —
@@ -169,7 +170,7 @@ def get_judgments_list(
         bind_vars["cited_by_min"] = cited_by_min
 
     from_clause = (
-        f'FOR doc IN search_judgments SEARCH ANALYZER({search_clause}, "text_en")'
+        f'FOR doc IN search_judgments SEARCH ANALYZER({search_clause}, "{TEXT_ANALYZER}")'
         if use_search
         else f"FOR doc IN {COLLECTION_JUDGMENTS}"
     )

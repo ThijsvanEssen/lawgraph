@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleRelationDTO,
-    CommunityVotes,
     InstrumentSummaryDTO,
     JudgmentSummaryDTO,
     PublicationDTO,
@@ -177,10 +176,7 @@ class ArticleRelationshipWithType(QualifierFields):
     target_article: ArticleRelationDTO
     semantic_type: str | None = None
     explanation: str | None = None
-    expert_badge: bool = False
-    semantic_source: str | None = None
     confidence: float | None = None
-    community_votes: CommunityVotes = Field(default_factory=CommunityVotes)
     start: int | None = Field(
         None,
         description="Offset of the reference in the text of the referring article.",
@@ -205,13 +201,7 @@ class ArticleRelationshipWithType(QualifierFields):
             ),
             semantic_type=edge.get("semantic_type"),
             explanation=edge.get("explanation"),
-            expert_badge=bool(edge.get("expert_badge") or False),
-            semantic_source=edge.get("semantic_source"),
             confidence=edge.get("confidence"),
-            community_votes=CommunityVotes(
-                upvotes=int(edge.get("community_upvotes") or 0),
-                downvotes=int(edge.get("community_downvotes") or 0),
-            ),
             start=start if isinstance(start, int) else None,
             end=end if isinstance(end, int) else None,
             text=text if isinstance(text, str) else None,

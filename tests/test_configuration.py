@@ -22,8 +22,6 @@ _AQL_COLLECTION_LITERAL = re.compile(
     r"\b(?:IN|INTO|OUTBOUND|INBOUND|ANY)\s+(%s)\b(?![_.\[(])"
     % "|".join(sorted((*DOCUMENT_COLLECTIONS, COLLECTION_EDGES), key=len, reverse=True))
 )
-# AQL variable names that happen to equal a collection name.
-_AQL_VARIABLES = {("api/queries/committees.py", "documents")}
 
 
 def _modules() -> list[pathlib.Path]:
@@ -45,7 +43,6 @@ def test_aql_names_collections_through_constants() -> None:
         for path in _modules()
         if path != CONSTANTS
         for match in _AQL_COLLECTION_LITERAL.finditer(path.read_text())
-        if (str(path.relative_to(SRC)), match.group(1)) not in _AQL_VARIABLES
     ]
     assert offenders == []
 
@@ -62,7 +59,10 @@ def test_env_example_lists_only_variables_that_are_read() -> None:
             return "LAWGRAPH_CONFIDENCE_" in readers
         if re.fullmatch(r"LAWGRAPH_(RETRIEVE|NORMALIZE|SEMANTIC)_SKIP_\w+", variable):
             return "_SKIP_" in readers
-        return f'"{variable}"' in readers or f"${{{variable}}}" in readers
+        return (
+            f'"{variable}"' in readers
+            or re.search(rf"\${{{variable}(:-[^}}]*)?}}", readers) is not None
+        )
 
     assert [v for v in listed if not is_read(v)] == []
 

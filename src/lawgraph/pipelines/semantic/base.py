@@ -7,16 +7,15 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    COLLECTION_RAW_SOURCES,
     EDGE_STATUS_CANONIEK,
-    RAW_KIND_RS_CONTENT,
-    SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.aliases import InstrumentAliasMap, normalize_instrument_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.db import make_edge_doc
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import semantic as semantic_queries
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
@@ -42,20 +41,6 @@ _TARGET_TYPES = {
     COLLECTION_INSTRUMENTS: NodeType.INSTRUMENT,
     COLLECTION_JUDGMENTS: NodeType.JUDGMENT,
 }
-
-
-def slim(var: str, *fields: str) -> str:
-    """AQL for the document *var* with only *fields* of its props.
-
-    A judgment carries its XML, its text and its paragraphs, a TK document the whole API
-    payload; a pipeline that reads one of them must not have the rest sent over. The result
-    has the shape of a document, so ``Node.from_document`` reads it.
-    """
-    names = ", ".join(f'"{field}"' for field in fields)
-    return (
-        f"{{_key: {var}._key, type: {var}.type, labels: {var}.labels, "
-        f"props: KEEP({var}.props, {names})}}"
-    )
 
 
 # Judgments are tens of KB each: fewer per cursor batch than the default 1000.
@@ -103,39 +88,22 @@ class SemanticPipelineBase(PipelineBase):
         """``(judgment node, XML)`` of every stored Rechtspraak judgment, from raw_sources.
 
         The XML is not kept on the judgment node (it holds the summary, the text and the
-        paragraphs already, and the XML is a third of the collection again): it is read where
-        retrieve stored it. The node is the one normalize makes of the same ECLI.
+        paragraphs already): it is read from the payload store, where retrieve put it. The
+        node is the one normalize makes of the same ECLI.
         """
-        since_filter = "FILTER r.fetched_at >= @since" if since_iso else ""
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-            FILTER r.source == @source AND r.kind == @kind
-            {since_filter}
-            FILTER r.payload_text != null
-            RETURN {{ecli: r.meta.ecli || r.external_id, xml: r.payload_text}}
-        """
-        bind: dict[str, Any] = {
-            "source": SOURCE_RECHTSPRAAK,
-            "kind": RAW_KIND_RS_CONTENT,
-        }
-        if since_iso:
-            bind["since"] = since_iso
         total = None
         if (
             not since_iso
         ):  # from the index; with a date every record would have to be read
-            count_aql = f"""
-            FOR r IN {COLLECTION_RAW_SOURCES}
-                FILTER r.source == @source AND r.kind == @kind
-                COLLECT WITH COUNT INTO n
-                RETURN n
-            """
-            count = next(iter(self.store.query(count_aql, bind)), None)
-            total = count if isinstance(count, int) else None
-        rows = self.store.query(aql, bind, batch_size=JUDGMENT_BATCH_SIZE)
-        for row in self._track(rows, "judgments", total=total):
+            total = raw_queries.count_judgment_records(self.store)
+        rows = raw_queries.judgment_payload_refs(
+            self.store, since_iso=since_iso, batch_size=JUDGMENT_BATCH_SIZE
+        )
+        for row in self._track(
+            self.store.with_payloads(rows), "judgments", total=total
+        ):
             ecli = str(row.get("ecli") or "").strip()
-            if not ecli:
+            if not ecli or row.get("payload_text") is None:
                 continue
             node = Node(
                 collection=COLLECTION_JUDGMENTS,
@@ -144,7 +112,7 @@ class SemanticPipelineBase(PipelineBase):
                 props={"ecli": ecli},
                 _skip_validation=True,
             )
-            yield node, str(row["xml"])
+            yield node, str(row["payload_text"])
 
     def _judgment_paragraphs(
         self, since_iso: str | None = None
@@ -155,28 +123,13 @@ class SemanticPipelineBase(PipelineBase):
         pipeline records about a paragraph is found again by its id. With *since_iso* only
         the judgments retrieved from that moment on.
         """
-        bind: dict[str, Any] = {"source": SOURCE_RECHTSPRAAK}
-        recent = ""
-        if since_iso:
-            bind["eclis"] = self._recent_eclis(since_iso)
-            recent = "FILTER j.props.ecli IN @eclis"
-        aql = f"""
-        FOR j IN {COLLECTION_JUDGMENTS}
-            FILTER j.props.source == @source
-            {recent}
-            RETURN {slim("j", "ecli", "paragraphs")}
-        """
+        eclis = self._recent_eclis(since_iso) if since_iso else None
         total = None
         if not since_iso:  # from the index; with a date every judgment would be read
-            count_aql = f"""
-            FOR j IN {COLLECTION_JUDGMENTS}
-                FILTER j.props.source == @source
-                COLLECT WITH COUNT INTO n
-                RETURN n
-            """
-            count = next(iter(self.store.query(count_aql, bind)), None)
-            total = count if isinstance(count, int) else None
-        rows = self.store.query(aql, bind, batch_size=JUDGMENT_BATCH_SIZE)
+            total = semantic_queries.count_rechtspraak_judgments(self.store)
+        rows = semantic_queries.judgment_paragraphs(
+            self.store, eclis=eclis, batch_size=JUDGMENT_BATCH_SIZE
+        )
         for row in self._track(rows, "judgments", total=total):
             node = Node.from_document(COLLECTION_JUDGMENTS, row)
             paragraphs = node.props.get("paragraphs")
@@ -185,18 +138,8 @@ class SemanticPipelineBase(PipelineBase):
 
     def _recent_eclis(self, since_iso: str) -> list[str]:
         """The ECLIs of the judgments retrieved at or after *since_iso*."""
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-            FILTER r.source == @source AND r.kind == @kind
-            FILTER r.fetched_at >= @since
-            RETURN r.meta.ecli || r.external_id
-        """
-        bind = {
-            "source": SOURCE_RECHTSPRAAK,
-            "kind": RAW_KIND_RS_CONTENT,
-            "since": since_iso,
-        }
-        return sorted({str(e) for e in self.store.query(aql, bind) if e})
+        rows = raw_queries.judgment_eclis_fetched_since(self.store, since_iso)
+        return sorted({str(e) for e in rows if e})
 
     # ------------------------------------------------------------ node lookup
 
@@ -243,13 +186,8 @@ class SemanticPipelineBase(PipelineBase):
         One lookup for the whole set; a judgment cited from outside the corpus
         gets a stub so the citation edge still has both endpoints.
         """
-        aql = f"""
-        FOR doc IN {COLLECTION_JUDGMENTS}
-            FILTER doc.props.ecli IN @eclis
-            RETURN {{ ecli: doc.props.ecli, id: doc._id }}
-        """
         by_ecli: dict[str, str] = {}
-        for row in self.store.query(aql, bind_vars={"eclis": sorted(eclis)}):
+        for row in semantic_queries.judgment_ids_by_ecli(self.store, sorted(eclis)):
             ecli, node_id = (row.get("ecli") or "").upper(), row.get("id") or ""
             if ecli and node_id:
                 by_ecli[ecli] = node_id
@@ -269,19 +207,20 @@ class SemanticPipelineBase(PipelineBase):
 
     # ------------------------------------------------------------------ config
 
+    @staticmethod
     def _load_alias_index(
-        self, aql: str, key_field: str, value_fields: tuple[str, ...]
+        rows: Iterable[dict[str, Any]], key_field: str, value_fields: tuple[str, ...]
     ) -> dict[str, str]:
-        """Build a normalised key → value alias mapping from an AQL query.
+        """Build a normalised key → value alias mapping from query rows.
 
-        For each row returned by *aql*, the value at *key_field* becomes the
+        For each row of *rows*, the value at *key_field* becomes the
         dict key. The first non-empty value found across *value_fields* (in
         order) becomes the dict value. First-write-wins — subsequent rows that
         produce the same key are ignored. Keys and values are stripped.
         A failing query fails the step: without the names every citation would be missed.
         """
         index: dict[str, str] = {}
-        for row in self.store.query(aql):
+        for row in rows:
             key = str(row.get(key_field) or "").strip()
             if not key:
                 continue
@@ -296,17 +235,11 @@ class SemanticPipelineBase(PipelineBase):
 
     def _load_code_aliases(self) -> CodeMapping:
         """Build short_title → bwb_id/celex map from instruments in the graph."""
-        aql = f"""
-        FOR inst IN {COLLECTION_INSTRUMENTS}
-            FILTER inst.props.short_title != null
-            FILTER inst.props.bwb_id != null OR inst.props.celex != null
-            RETURN {{
-                short_title: inst.props.short_title,
-                bwb_id: inst.props.bwb_id,
-                celex: inst.props.celex
-            }}
-        """
-        return self._load_alias_index(aql, "short_title", ("bwb_id", "celex"))
+        return self._load_alias_index(
+            semantic_queries.code_alias_rows(self.store),
+            "short_title",
+            ("bwb_id", "celex"),
+        )
 
     def _load_instrument_aliases(self) -> InstrumentAliasMap:
         """Query the instruments collection to build a name → (bwb_id, celex) map.
@@ -317,19 +250,9 @@ class SemanticPipelineBase(PipelineBase):
         A name that two instruments share is left out: it would link to whichever came
         first. A failing query fails the step.
         """
-        aql = f"""
-        FOR inst IN {COLLECTION_INSTRUMENTS}
-            FILTER inst.props.bwb_id != null OR inst.props.celex != null
-            RETURN {{
-                bwb_id: inst.props.bwb_id,
-                celex: inst.props.celex,
-                title: inst.props.title,
-                citation_title: inst.props.citation_title
-            }}
-        """
         index: InstrumentAliasMap = {}
         ambiguous: set[str] = set()
-        rows = list(self.store.query(aql))
+        rows = list(semantic_queries.instrument_alias_rows(self.store))
 
         for row in rows:
             bwb_id = row.get("bwb_id")

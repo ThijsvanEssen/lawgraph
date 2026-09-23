@@ -21,12 +21,12 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     ECHR_CONVENTION_ID,
     RELATION_REFERS_TO,
-    SOURCE_ECHR,
 )
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
 
@@ -185,18 +185,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
 
         # Fetch all ECHR judgment nodes
-        aql = f"""
-FOR j IN {COLLECTION_JUDGMENTS}
-  FILTER j.props.source == @source
-  FILTER j.props.articles != null OR j.props.conclusion != null
-  RETURN {{
-    j_id: j._id,
-    j_key: j._key,
-    articles: j.props.articles,
-    conclusion: j.props.conclusion
-  }}
-"""
-        judgments = self.store.query(aql, {"source": SOURCE_ECHR})
+        judgments = semantic_queries.echr_judgments(self.store)
         rows = list(self._track(judgments, "ECHR judgments"))
 
         if not rows:
@@ -218,13 +207,10 @@ FOR j IN {COLLECTION_JUDGMENTS}
 
         bwb_id_to_node: dict[str, Node] = {}
         if all_bwb_ids:
-            batch_aql = f"""
-FOR inst IN {COLLECTION_INSTRUMENTS}
-  FILTER inst.props.bwb_id IN @bwb_ids
-  RETURN {{_key: inst._key, props: {{bwb_id: inst.props.bwb_id}}}}
-"""
-            bind = {"bwb_ids": list(all_bwb_ids)}
-            for inst_doc in self.store.query(batch_aql, bind):
+            bwb_ids = list(all_bwb_ids)
+            for inst_doc in semantic_queries.instrument_keys_by_bwb_id(
+                self.store, bwb_ids
+            ):
                 key = inst_doc.get("props", {}).get("bwb_id", "").upper()
                 if key:
                     bwb_id_to_node[key] = Node(

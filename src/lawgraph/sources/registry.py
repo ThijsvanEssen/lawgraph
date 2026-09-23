@@ -83,6 +83,9 @@ from lawgraph.pipelines.semantic.tk_amendment_articles import (
     TKAmendmentArticlesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.tk_amends import TKAmendsSemanticPipeline
+from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
+    TKDossierOutcomesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
@@ -491,6 +494,13 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         BWBRelationTypesSemanticPipeline,
         "Classifies article-to-article REFERS_TO edges by what they mean.",
+    ),
+    _pipeline(
+        TKDossierOutcomesSemanticPipeline,
+        (
+            "Whether each dossier is closed and how it ended: the publication of its law, "
+            "the withdrawal of its bill or the vote that rejected it."
+        ),
     ),
     _pipeline(
         graph_list_stats.main,

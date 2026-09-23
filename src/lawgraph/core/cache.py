@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import time
+import weakref
 from collections import OrderedDict
-from typing import Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 from lawgraph.config.settings import API_CACHE_MAXSIZE, API_CACHE_TTL
 
@@ -32,6 +33,9 @@ class TTLCache(Generic[_K, _V]):
         ttl: Time-to-live in seconds for each entry.
     """
 
+    # Every cache of the process, for ``clear_all``.
+    _instances: ClassVar[weakref.WeakSet[Any]] = weakref.WeakSet()
+
     def __init__(
         self,
         maxsize: int = _DEFAULT_MAXSIZE,
@@ -40,6 +44,14 @@ class TTLCache(Generic[_K, _V]):
         self._maxsize = maxsize
         self._ttl = ttl
         self._store: OrderedDict[_K, tuple[float, _V]] = OrderedDict()
+        TTLCache._instances.add(self)
+
+    @classmethod
+    def clear_all(cls) -> None:
+        """Empty every cache: what they hold was read from a database that is not the one
+        in use any more (a test that starts on a fresh one)."""
+        for cache in list(cls._instances):
+            cache.clear()
 
     def get(self, key: _K) -> _V | object:
         entry = self._store.get(key)
