@@ -254,6 +254,7 @@ class DossierProps(_CommonProps):
     external_id: str | None = None
     number: str | None = None
     suffix: str | None = None
+    label: str | None = None
     title: str | None = None
     title_source: str | None = None
     closed: bool | None = None
@@ -279,7 +280,7 @@ class ActivityProps(_CommonProps):
     committee_id: str | None = None
     case_ids: list[str] | None = None
     dossier_numbers: list[str] | None = None
-    case_kinds: list[str] | None = None
+    case_kinds_by_dossier: dict[str, list[str]] | None = None
     tk_url: str | None = None
     number: str | None = None
 

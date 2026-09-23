@@ -16,9 +16,10 @@ DossierStage = Literal[
     "wetsvoorstel",
     "mvt",
     "advies_rvs",
-    "nota",
     "verslag",
+    "nota_naar_aanleiding_van_verslag",
     "amendementen",
+    "behandeling",
     "stemming",
     "afgehandeld",
 ]
@@ -31,6 +32,8 @@ DossierTrack = Literal[
     "wetsvoorstel",
     "initiatiefwetsvoorstel",
     "begroting",
+    "verdrag",
+    "initiatiefnota",
     "motie",
     "overig",
 ]
@@ -291,7 +294,9 @@ class DossierSummaryDTO(BaseModel):
     ``track`` is what kind of dossier this is — wetsvoorstel, begroting,
     motie — and does not change as it progresses. ``current_stage`` is the
     latest stage seen on its documents and activities; ``stages`` lists every
-    stage with at least one signal, in chronological order. A closed dossier has
+    stage with at least one signal, in chronological order. Only a bill (a
+    wetsvoorstel, initiatiefwetsvoorstel, begroting or verdrag) passes stages;
+    any other dossier has none until it is ``afgehandeld``. A closed dossier has
     an ``outcome``: ``aangenomen`` (its law was published), ``ingetrokken`` (its
     bill was withdrawn) or ``verworpen`` (the Tweede Kamer voted the bill down).
     """
@@ -300,7 +305,10 @@ class DossierSummaryDTO(BaseModel):
 
     id: str
     key: str
-    number: str = Field(..., description="Kamerstuknummer, e.g. 36558.")
+    number: str = Field(
+        ...,
+        description="Kamerstuknummer, e.g. 36558, or 37020-XV for a budget chapter.",
+    )
     title: str | None = None
     title_source: TitleSource | None = None
     track: DossierTrack | None = None
@@ -432,7 +440,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": doc["_id"],
         "key": doc["_key"],
-        "number": props.get("number") or "",
+        "number": props.get("label") or "",
         "title": props.get("title"),
         "title_source": props.get("title_source"),
         "track": props.get("track_kind") or "overig",

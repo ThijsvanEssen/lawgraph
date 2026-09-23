@@ -104,6 +104,7 @@ _NODE_FIELD_WHITELIST: dict[str, tuple[str, ...]] = {
     ),
     "dossiers": (
         "number",
+        "label",
         "title",
         "display_name",
         "current_stage",
@@ -518,7 +519,7 @@ def get_instrument_dossiers_route(
             InstrumentDossierItem(
                 id=d.get("_id") or "",
                 key=d.get("_key") or "",
-                dossier_number=_props(d).get("number"),
+                dossier_number=_props(d).get("label"),
                 title=_props(d).get("title"),
                 display_name=_props(d).get("display_name"),
                 stage=_props(d).get("current_stage"),

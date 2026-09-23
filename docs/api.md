@@ -11,8 +11,11 @@ can generate its types from it.
 
 Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`); an instrument
 route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A dossier `number`
-matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameters `limit` and
-`offset` have the bounds shown in `/docs`.
+matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. A budget chapter is a dossier
+of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
+dossier, `dossier_number`, `dossier_numbers`) is written this way, so it can be used in a path
+or a `dossier` filter as it is. List parameters `limit` and `offset` have the bounds shown in
+`/docs`.
 
 ### Service
 

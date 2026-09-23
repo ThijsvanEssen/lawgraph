@@ -104,6 +104,10 @@ date onto each dossier (it needs the document edges).
 | dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `current_stage`, `stages_present`, `track_kind` and `title` (from a voorstel-van-wet or MvT document when the dossier has none) are derived from documents, activities and decisions by `core/dossier_stages.py`, `opened_on` is the date of the first document or activity. The record has no end: `Afgesloten` is false on every dossier and there is no closing date, so `closed`, `outcome` and `closed_on` are `semantic tk-dossier-outcomes`; a closed dossier (as stored) is at stage `afgehandeld` |
 | documents | dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers` |
 
+`dossier_numbers` of a case, document, activity or decision (and the keys of
+`case_kinds_by_dossier`) are dossier labels: `37020-XV` for a budget chapter, `37020` for the
+Miljoenennota itself, so each record links to the dossier node with that key.
+
 Edges: `PART_OF` (Document to Case and Dossier, Case to Dossier), `ABOUT` (Activity, Decision
 to Case and Dossier; Commitment to the dossiers of its activity), `LED_BY` (Activity to
 Committee from `Voortouwcommissie_Id`), `MADE_IN` (Commitment to Activity), `MEMBER_OF`

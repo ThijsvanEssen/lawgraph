@@ -7,7 +7,6 @@ plurals as they are, and the search then finds only the form that was typed.
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import pytest
@@ -16,6 +15,7 @@ from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_JUDGMENTS
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.search import search_all
+from tests.integration.seed import wait_for_views
 
 BW7 = "BWBR0005290"
 
@@ -45,21 +45,8 @@ def store(database: str) -> ArangoStore:
         display_name="ECLI:NL:HR:2021:1",
         summary="Ontslag op staande voet; de rechten van de werknemer uit de wetten.",
     )
-    _wait_for_views(store, {"search_articles": 1, "search_judgments": 1})
+    wait_for_views(store, {"search_articles": 1, "search_judgments": 1})
     return store
-
-
-def _wait_for_views(store: ArangoStore, sizes: dict[str, int]) -> None:
-    """The search views fill asynchronously: wait until they hold what was written."""
-    deadline = time.monotonic() + 20
-    while time.monotonic() < deadline:
-        if all(
-            next(iter(store.query(f"RETURN LENGTH(FOR d IN {view} RETURN 1)"))) >= size
-            for view, size in sizes.items()
-        ):
-            return
-        time.sleep(0.2)
-    raise AssertionError(f"views not filled: {sizes}")
 
 
 def _keys(store: ArangoStore, q: str, kind: str) -> list[str]:

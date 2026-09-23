@@ -9,6 +9,7 @@ same ``RawSourceWriter`` the retrieve pipelines use.
 from __future__ import annotations
 
 import re
+import time
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
@@ -36,6 +37,19 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 DOSSIERS = 50
 FACTIONS = 12
 MEMBERS = 60
+
+
+def wait_for_views(store: ArangoStore, sizes: dict[str, int]) -> None:
+    """The search views fill asynchronously: wait until they hold what was written."""
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        if all(
+            next(iter(store.query(f"RETURN LENGTH(FOR d IN {view} RETURN 1)"))) >= size
+            for view, size in sizes.items()
+        ):
+            return
+        time.sleep(0.2)
+    raise AssertionError(f"views not filled: {sizes}")
 
 
 def uid(number: int, salt: int) -> str:
