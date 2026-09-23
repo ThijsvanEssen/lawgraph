@@ -82,6 +82,7 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "voters",
         "decision_id",
         "primary_case_id",
+        "primary_case_kind",
     ],
     "commitment": [
         "text",
@@ -872,22 +873,58 @@ def get_open_dossiers(
 def get_recent_dossiers(
     store: ArangoStore, *, days: int = 30, limit: int = 50
 ) -> list[dict[str, Any]]:
-    """Dossiers with an activity in the last *days* days."""
+    """Dossiers with an activity, a vote, a document or their closing in the last *days*
+    days, the most recent first.
+
+    A dossier can close without an activity: its law is published in the Staatsblad.
+    """
     cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).strftime(
         "%Y-%m-%d"
     )
     aql = f"""
-    FOR activity IN {COLLECTION_ACTIVITIES}
-        FILTER activity.props.date >= @cutoff
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from == activity._id AND e.relation == @about
-            FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
-            LET dossier = DOCUMENT(e._to)
-            FILTER dossier != null
-            LIMIT @limit
-            RETURN DISTINCT dossier
+    LET by_activity = (
+        FOR activity IN {COLLECTION_ACTIVITIES}
+            FILTER activity.props.date >= @cutoff
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._from == activity._id AND e.relation == @about
+                FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+                RETURN {{id: e._to, date: activity.props.date}}
+    )
+    LET by_decision = (
+        FOR decision IN {COLLECTION_DECISIONS}
+            FILTER decision.props.date >= @cutoff
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._from == decision._id AND e.relation == @about
+                FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+                RETURN {{id: e._to, date: decision.props.date}}
+    )
+    LET by_document = (
+        FOR document IN {COLLECTION_DOCUMENTS}
+            FILTER document.props.date >= @cutoff
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._from == document._id AND e.relation == @part_of
+                FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+                RETURN {{id: e._to, date: document.props.date}}
+    )
+    LET by_closing = (
+        FOR dossier IN {COLLECTION_DOSSIERS}
+            FILTER dossier.props.closed_on >= @cutoff
+            RETURN {{id: dossier._id, date: dossier.props.closed_on}}
+    )
+    FOR row IN UNION(by_activity, by_decision, by_document, by_closing)
+        COLLECT id = row.id AGGREGATE last = MAX(row.date)
+        SORT last DESC, id
+        LIMIT @limit
+        LET dossier = DOCUMENT(id)
+        FILTER dossier != null
+        RETURN dossier
     """
-    bind = {"cutoff": cutoff, "limit": limit, "about": RELATION_ABOUT}
+    bind = {
+        "cutoff": cutoff,
+        "limit": limit,
+        "about": RELATION_ABOUT,
+        "part_of": RELATION_PART_OF,
+    }
     return list(store.query(aql, bind))
 
 

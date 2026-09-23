@@ -114,6 +114,7 @@ def store(database: str) -> ArangoStore:
         source="eerstekamer",
         number="A",
         dossier_number="35925",
+        dossier_numbers=["35925"],
         display_name="EK 35925, nr. A",
     )
     store.bulk_insert_or_update_edges(

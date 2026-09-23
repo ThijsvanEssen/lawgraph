@@ -366,7 +366,8 @@ def _search_dossiers(
             extra: {{
                 number: doc.props.label,
                 current_stage: doc.props.current_stage,
-                closed: doc.props.closed
+                closed: doc.props.closed,
+                outcome: doc.props.outcome
             }}
         }}
     """
@@ -486,11 +487,7 @@ def _search_documents(
             extra: {{
                 kind: doc.props.kind,
                 external_id: doc.props.external_id,
-                dossier_number: doc.props.dossier_number == null
-                    ? FIRST(doc.props.dossier_numbers)
-                    : CONCAT_SEPARATOR(
-                        "-", doc.props.dossier_number, doc.props.dossier_suffix
-                    )
+                dossier_number: FIRST(doc.props.dossier_numbers)
             }}
         }}
     """

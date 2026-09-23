@@ -99,6 +99,7 @@ LET items = (
         kind: document.props.kind,
         date: document.props.date,
         external_id: document.props.external_id,
+        dossier_numbers: document.props.dossier_numbers,
         source: document.props.source,
         labels: document.labels,
         has_text: document.props.text != null,

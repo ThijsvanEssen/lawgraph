@@ -8,8 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
 
-# A dossier number as the API takes it: 29684, or with an addition, 29684-I.
-DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z]+)?$"
+# A dossier number as the API takes it: 29684, or its label with the addition of a
+# budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
+DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
 
 # Stage names are the Dutch legislative vocabulary the classifier speaks.
 DossierStage = Literal[
@@ -140,6 +141,11 @@ class TimelineDecisionBody(BaseModel):
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     external_id: str | None = Field(None, description="TK Besluit identifier.")
+    primary_case_kind: str | None = Field(
+        None,
+        description="The ``Zaak.Soort`` of the case it decided: ``Wetgeving`` on the vote on "
+        "a bill itself, ``Amendement`` or ``Motie`` on the others.",
+    )
     document: TimelineDocumentSummaryDTO | None = None
 
 
@@ -232,6 +238,7 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
             "tally": body.get("tally") or {},
             "voters": body.get("voters") or {},
             "external_id": body.get("decision_id"),
+            "primary_case_kind": body.get("primary_case_kind"),
             "document": body.get("document"),
         }
     else:

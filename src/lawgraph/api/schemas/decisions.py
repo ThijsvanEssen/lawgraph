@@ -38,6 +38,11 @@ class DecisionDTO(BaseModel):
     subject: str | None = None
     external_id: str | None = Field(None, description="TK Besluit identifier.")
     passed: bool
+    primary_case_kind: str | None = Field(
+        None,
+        description="The ``Zaak.Soort`` of the case it decided: ``Wetgeving`` on the vote on "
+        "a bill itself, ``Amendement`` or ``Motie`` on the others.",
+    )
     chamber: str | None = None
     vote_kind: str = "faction"
     tally: dict[str, int] = Field(default_factory=dict)
@@ -54,6 +59,7 @@ class DecisionDTO(BaseModel):
             subject=props.get("subject"),
             external_id=props.get("decision_id"),
             passed=bool(props.get("passed")),
+            primary_case_kind=props.get("primary_case_kind"),
             chamber=props.get("chamber"),
             vote_kind=props.get("vote_kind") or "faction",
             tally=props.get("tally") or {},
