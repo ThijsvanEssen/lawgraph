@@ -6,7 +6,6 @@ every AQL reader filters on it.
 
 from __future__ import annotations
 
-from lawgraph.api.queries.relationships import _INSTRUMENT_FOR
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
@@ -14,10 +13,11 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.relations import BY_NAME
+from lawgraph.db.queries.graph_stats import _INSTRUMENTS_BODY
+from lawgraph.db.queries.relationships import _INSTRUMENT_FOR
 from lawgraph.db.store import edge_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
-from lawgraph.pipelines.semantic.graph_list_stats import _INSTRUMENTS_BODY
 from tests.conftest import _BaseFakeStore
 
 INSTRUMENT = f"{COLLECTION_INSTRUMENTS}/BWBR0001854"

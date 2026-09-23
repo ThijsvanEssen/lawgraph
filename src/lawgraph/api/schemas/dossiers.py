@@ -16,19 +16,24 @@ DossierStage = Literal[
     "wetsvoorstel",
     "mvt",
     "advies_rvs",
-    "nota",
     "verslag",
+    "nota_naar_aanleiding_van_verslag",
     "amendementen",
+    "behandeling",
     "stemming",
     "afgehandeld",
 ]
 
 TitleSource = Literal["dossier", "document", "activiteit"]
 
+DossierOutcome = Literal["aangenomen", "verworpen", "ingetrokken"]
+
 DossierTrack = Literal[
     "wetsvoorstel",
     "initiatiefwetsvoorstel",
     "begroting",
+    "verdrag",
+    "initiatiefnota",
     "motie",
     "overig",
 ]
@@ -289,20 +294,28 @@ class DossierSummaryDTO(BaseModel):
     ``track`` is what kind of dossier this is — wetsvoorstel, begroting,
     motie — and does not change as it progresses. ``current_stage`` is the
     latest stage seen on its documents and activities; ``stages`` lists every
-    stage with at least one signal, in chronological order.
+    stage with at least one signal, in chronological order. Only a bill (a
+    wetsvoorstel, initiatiefwetsvoorstel, begroting or verdrag) passes stages;
+    any other dossier has none until it is ``afgehandeld``. A closed dossier has
+    an ``outcome``: ``aangenomen`` (its law was published), ``ingetrokken`` (its
+    bill was withdrawn) or ``verworpen`` (the Tweede Kamer voted the bill down).
     """
 
     model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
-    number: str = Field(..., description="Kamerstuknummer, e.g. 36558.")
+    number: str = Field(
+        ...,
+        description="Kamerstuknummer, e.g. 36558, or 37020-XV for a budget chapter.",
+    )
     title: str | None = None
     title_source: TitleSource | None = None
     track: DossierTrack | None = None
     current_stage: DossierStage | None = None
     stages: list[DossierStage] = Field(default_factory=list)
     closed: bool = False
+    outcome: DossierOutcome | None = None
     opened_on: str | None = None
     closed_on: str | None = None
 
@@ -427,13 +440,18 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": doc["_id"],
         "key": doc["_key"],
-        "number": props.get("number") or "",
+        "number": props.get("label") or "",
         "title": props.get("title"),
         "title_source": props.get("title_source"),
         "track": props.get("track_kind") or "overig",
         "current_stage": _stage(props.get("current_stage")),
         "stages": _stages(props.get("stages_present")),
         "closed": bool(props.get("closed")),
+        "outcome": (
+            props.get("outcome")
+            if props.get("outcome") in get_args(DossierOutcome)
+            else None
+        ),
         "opened_on": props.get("opened_on"),
         "closed_on": props.get("closed_on"),
     }

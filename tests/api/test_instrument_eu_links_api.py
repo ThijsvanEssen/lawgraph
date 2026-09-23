@@ -10,12 +10,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.queries.instrument_links import EuLinksData, InternationalLinksData
-from lawgraph.api.queries.instrument_scope import (
-    InstrumentScope,
-    scope_of,
-    scope_of_node,
-)
 from lawgraph.api.schemas.instruments import (
     IMPLEMENTS_BASES,
     EuLinkDTO,
@@ -23,6 +17,12 @@ from lawgraph.api.schemas.instruments import (
     InstrumentEuLinksResponse,
 )
 from lawgraph.config.constants import EDGE_SOURCE_BWB_IMPLEMENTS
+from lawgraph.db.queries.instrument_links import EuLinksData, InternationalLinksData
+from lawgraph.db.queries.instrument_scope import (
+    InstrumentScope,
+    scope_of,
+    scope_of_node,
+)
 
 client = TestClient(app)
 

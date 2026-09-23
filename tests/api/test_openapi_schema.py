@@ -39,14 +39,13 @@ def test_every_route_is_described_and_says_what_it_answers(
         assert described or a_typed_map, f"{method} {path}"
 
 
-def test_a_route_that_writes_names_its_key_in_the_schema() -> None:
-    schemes = SPEC["components"]["securitySchemes"]
-    assert {s["name"] for s in schemes.values()} == {"X-Write-Key", "X-Curation-Key"}
-    assert all(s["type"] == "apiKey" and s["in"] == "header" for s in schemes.values())
-    for method, path, operation in OPERATIONS:
-        assert bool(operation.get("security")) == (method in WRITING), (
-            f"{method} {path}"
-        )
+def test_the_api_only_reads() -> None:
+    """No route writes, so none asks for a key: a route that writes is a design change."""
+    writing = [
+        f"{method} {path}" for method, path, _ in OPERATIONS if method in WRITING
+    ]
+    assert writing == []
+    assert "securitySchemes" not in SPEC.get("components", {})
 
 
 def test_a_timeline_entry_is_typed_by_its_node_and_carries_no_free_body() -> None:

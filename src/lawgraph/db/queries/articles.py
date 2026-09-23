@@ -5,20 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from lawgraph.api.queries._helpers import (
-    _coerce_float,
-    _coerce_int,
-    _coerce_text,
-    _ensure_doc,
-    _extract_confidence,
-    _extract_qualifier,
-    _extract_span,
-    _find_instrument_for_article,
-    _find_judgments_for_article,
-    _load_document_by_ref,
-    _resolve_target_from_entry,
-)
-from lawgraph.api.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
@@ -38,6 +24,20 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries._helpers import (
+    _coerce_float,
+    _coerce_int,
+    _coerce_text,
+    _ensure_doc,
+    _extract_confidence,
+    _extract_qualifier,
+    _extract_span,
+    _find_instrument_for_article,
+    _find_judgments_for_article,
+    _load_document_by_ref,
+    _resolve_target_from_entry,
+)
+from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 
 
 @dataclass
@@ -281,7 +281,7 @@ def get_article_legislative_history(
         SORT edge.status == '{EDGE_STATUS_VOORGESTELD}' ? 0 : 1, doc.props.date DESC
         RETURN {{
             dossier_id: (dossier != null ? dossier._id : null),
-            dossier_number: (dossier != null ? dossier.props.number : null),
+            dossier_number: (dossier != null ? dossier.props.label : null),
             dossier_title: (dossier != null ? dossier.props.title : null),
             date: doc.props.date,
             kind: doc.props.kind,
@@ -385,10 +385,10 @@ def get_article_explanations(
                     FILTER e._from == p.document_id AND e.relation == @part_of
                     FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
                     LET dossier = DOCUMENT(e._to)
-                    FILTER dossier != null AND dossier.props.number != null
-                    SORT dossier.props.number
+                    FILTER dossier != null AND dossier.props.label != null
+                    SORT dossier.props.label
                     LIMIT 1
-                    RETURN dossier.props.number
+                    RETURN dossier.props.label
             )
             RETURN {{
                 document_id: p.document_id,

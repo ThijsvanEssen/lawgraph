@@ -25,17 +25,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
-    COLLECTION_DOCUMENTS,
-    COLLECTION_DOSSIERS,
-    COLLECTION_EDGES,
-    COLLECTION_INSTRUMENTS,
-    EXPLANATORY_KIND_MARKER,
-    RELATION_AMENDS,
     RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
-    RELATION_LEGISLATED_IN,
-    RELATION_PART_OF,
-    RELATION_REPEALS,
 )
 from lawgraph.core.kamerstuk_xml import QUALITY_EXPLICIT, QUALITY_IMPLICIT
 from lawgraph.core.logging import get_logger
@@ -49,6 +39,7 @@ from lawgraph.core.mvt_articles import (
     is_introduction,
 )
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
 from .tk_mvt import SEMANTIC_SOURCE_SECTIONS
@@ -57,75 +48,8 @@ logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = SEMANTIC_SOURCE_SECTIONS
 
-_CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
-
 # Rows carry the text of a paper: fewer per cursor batch than the default 1000.
 _BATCH_SIZE = 20
-
-# One pass: per memorandum with sections, what its dossier legislated and changed.
-#
-# A budget paper explains policy articles and a paper without article headings has no sections
-# to read; a dossier that legislated nothing has nothing to link to.
-_PAPERS_AQL = f"""
-FOR doc IN {COLLECTION_DOCUMENTS}
-  FILTER CONTAINS(LOWER(doc.props.kind || ''), '{EXPLANATORY_KIND_MARKER}')
-  FILTER doc.props.budget != true
-  FILTER doc.props.structure_quality IN @qualities
-  FILTER doc.props.text != null
-  LET paper_dossiers = (
-    FOR e IN {COLLECTION_EDGES}
-      FILTER e._from == doc._id AND e.relation == @part_of
-      FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
-      RETURN e._to
-  )
-  LET legislated = (
-    FOR dossier IN paper_dossiers
-      FOR e IN {COLLECTION_EDGES}
-        FILTER e._to == dossier AND e.relation == @legislated_in
-        FILTER STARTS_WITH(e._from, '{COLLECTION_INSTRUMENTS}/')
-        RETURN DISTINCT e._from
-  )
-  FILTER LENGTH(legislated) > 0
-  LET own = (
-    FOR instrument IN legislated
-      LET bwb_id = DOCUMENT(instrument).props.bwb_id
-      FILTER bwb_id != null
-      RETURN bwb_id
-  )
-  LET changes = (
-    FOR instrument IN legislated
-      FOR e IN {COLLECTION_EDGES}
-        FILTER e._from == instrument AND e.relation IN @change_relations
-        FILTER STARTS_WITH(e._to, '{COLLECTION_ARTICLES}/')
-        LET article = DOCUMENT(e._to)
-        FILTER article.props.bwb_id != null AND article.props.article_number != null
-        RETURN DISTINCT {{
-          bwb_id: article.props.bwb_id,
-          number: article.props.article_number,
-          article: e._to,
-          version: e.meta.article_version,
-          relation: e.relation
-        }}
-  )
-  LET wanted = UNIQUE(APPEND(own, changes[*].bwb_id))
-  LET laws = (
-    FOR law IN {COLLECTION_INSTRUMENTS}
-      FILTER law.props.bwb_id != null AND law.props.bwb_id IN wanted
-      RETURN {{
-        bwb_id: law.props.bwb_id,
-        names: [law.props.title, law.props.citation_title],
-        codes: [law.props.short_title]
-      }}
-  )
-  RETURN {{
-    document: doc._id,
-    text: doc.props.text,
-    sections: doc.props.sections,
-    own: own,
-    changes: changes,
-    laws: laws
-  }}
-"""
 
 
 def _laws(rows: list[dict[str, Any]], own_bwb_id: str | None) -> list[Law]:
@@ -192,14 +116,12 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
-        bind_vars: dict[str, Any] = {
-            "qualities": [QUALITY_EXPLICIT, QUALITY_IMPLICIT],
-            "part_of": RELATION_PART_OF,
-            "legislated_in": RELATION_LEGISLATED_IN,
-            "change_relations": list(_CHANGE_RELATIONS),
-        }
         edges = EdgeWriter(self.store, what=None)
-        papers = self.store.query(_PAPERS_AQL, bind_vars, batch_size=_BATCH_SIZE)
+        papers = semantic_queries.memoranda_with_sections(
+            self.store,
+            qualities=[QUALITY_EXPLICIT, QUALITY_IMPLICIT],
+            batch_size=_BATCH_SIZE,
+        )
         for row in self._track(papers, "explanatory memoranda"):
             try:
                 written = self._explain(row, edges)

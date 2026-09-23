@@ -12,11 +12,12 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.props import DocumentProps
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
+from tests.fakes import RawSourcesFake
 
 FIXTURES = pathlib.Path(__file__).parents[1] / "fixtures"
 
 
-class _Store:
+class _Store(RawSourcesFake):
     """The nodes that exist, and what is written to them."""
 
     def __init__(self, documents: set[str]) -> None:

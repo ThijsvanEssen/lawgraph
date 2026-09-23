@@ -107,13 +107,18 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
+        number: int | None = None,
     ) -> Iterable[dict[str, Any]]:
-        """Fetch Kamerstukdossier records, optionally filtered by modification date.
+        """Fetch Kamerstukdossier records: modified since a date, or those with *number*
+        (one per addition: 36600 VII and 36600 VIII are two).
 
         Uses skip-based pagination because the TK API does not emit nextLink.
         """
         params: dict[str, Any] = {}
-        if since is not None:
+        if number is not None:
+            params["$filter"] = f"Nummer eq {int(number)}"
+            logger.info("Fetching Kamerstukdossier number=%d", number)
+        elif since is not None:
             since_string = odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
             logger.info("Fetching Kamerstukdossier modified since %s", since_string)
@@ -161,13 +166,18 @@ class TKClient(BaseClient):
         Relevant fields: ActorFractie (party), Soort (Voor/Tegen/Onthouden),
         FractieGrootte (seats), Vergissing (mistaken vote).
         """
+        # The Besluit's own Zaak is the case it decided (a bill, one of its amendments);
+        # the Agendapunt holds every case voted on under it, and its Activiteit the day.
+        zaak = (
+            "Zaak("
+            "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
+            "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)"
+            ")"
+        )
         params: dict[str, Any] = {
             "$expand": (
-                "Besluit($expand=Agendapunt("
-                "$expand=Zaak("
-                "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
-                "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)"
-                ")))"
+                f"Besluit($expand={zaak},"
+                f"Agendapunt($expand=Activiteit($select=Id,Datum,Soort),{zaak}))"
             ),
         }
         if since is not None:

@@ -24,10 +24,9 @@ A node is a document `{_key, type, labels, props}`:
 - `stub: true` marks a placeholder created because something referred to it before its own
   source was ingested.
 
-Other collections: `raw_sources` (verbatim payloads), `watches` (saved node watches, not
-scoped to a user), `edge_status_log` (audit rows written by `ArangoStore.flip_edge_status`,
-which no pipeline calls), `topics` (schema only; nothing writes it), `pipeline_state` (one
-document per phase: when its last complete `<phase> all` began, for `--since last`).
+Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
+store), `topics` (schema only; nothing writes it), `pipeline_state` (one document per phase:
+when its last complete `<phase> all` began, for `--since last`).
 
 ## Node types and relation catalogue
 
@@ -133,12 +132,9 @@ says that two articles are linked, `semantic_type` says what the link means.
 | Field | Values |
 |-------|--------|
 | `semantic_type` | `conditional_requirement`, `scope_limitation`, `prerequisite_procedure`, `definitional_reference`, `limiting_exception`, `cross_reference`, `delegated_discretion`; null for unclassified edges |
-| `semantic_source` | `structured` (pattern extraction), `expert`, `community`, `llm` |
-| `explanation`, `expert_badge`, `created_by`, `updated_at` | curation metadata |
-| `community_upvotes`, `community_downvotes` | counters |
+| `explanation` | the pattern that decided the type, in words |
+| `updated_at` | when the classification last changed |
 | `meta.semantic_pattern`, `meta.semantic_confidence` | audit trail of the extraction |
-
-Re-running the pipelines never overwrites `expert` or `community` classifications.
 
 ## Instrument
 
@@ -174,7 +170,7 @@ renumbering; each version has a `versie-id`.
 
 | Node | Identity | Notes |
 |------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references` (see below) |
+| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
 | ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
 | InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until`, `current`, `state_url` |
 
@@ -197,6 +193,11 @@ renumbering; each version has a `versie-id`.
   item without a letter or digit (a dash, a definition) is `onder-_<n>`, its position among
   its siblings; a marker that repeats one before it gets `_<n>`, its occurrence
   (`onder-a_2`). A paragraph next to the leden is no part.
+- `breadcrumb` is where the article stands in its regulation, outermost first:
+  `{type, label, title}` per division that holds it, `type` the element of the toestand
+  (`boek`, `deel`, `titeldeel`, `hoofdstuk`, `afdeling`, `paragraaf`, `sub-paragraaf`,
+  `divisie`), `label` as printed (`Hoofdstuk 1`, `Titel 1.1`), `title` its heading. Absent for
+  an article outside every division.
 - `references` holds every `extref`/`intref` of the text that names a regulation:
   `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. The `doc` (JCI)
   of a BWB link stops at the article, so `leden`, `onderdelen` (written as in the part ids)
@@ -242,11 +243,11 @@ Dossier contains Case contains Document. TK data is the source.
 
 | Concept | Collection | Notes |
 |---------|-----------|-------|
-| Dossier | `dossiers` | `number`, `suffix`, `title`, `title_source`, `closed`, `opened_on`, `closed_on`; derived: `current_stage`, `stages_present` (of `wetsvoorstel`, `mvt`, `advies_rvs`, `nota`, `verslag`, `amendementen`, `stemming`, `afgehandeld`), `case_kinds`, `track_kind` (`wetsvoorstel`, `initiatiefwetsvoorstel`, `begroting`, `motie`, `overig`), `outcome` (`aangenomen`, `verworpen`, `ingetrokken` for closed dossiers) |
+| Dossier | `dossiers` | `number`, `suffix`, `label` (`37020-XV`; the key is made from it), `title`, `title_source`; derived: `opened_on` (first document or activity), `case_kinds` (the `Zaak.Soort` of the dossier's own cases), `track_kind` (`wetsvoorstel`, `initiatiefwetsvoorstel`, `begroting`, `verdrag`, `initiatiefnota`, `motie`, `overig`), `current_stage` and `stages_present` (of `wetsvoorstel`, `mvt`, `advies_rvs`, `verslag`, `nota_naar_aanleiding_van_verslag`, `amendementen`, `behandeling`, `stemming`, `afgehandeld`; the first eight for a bill only); `closed`, `outcome` (`aangenomen`: its law was published; `ingetrokken`: its bill was withdrawn by letter; `verworpen`: the Tweede Kamer voted the bill down) and `closed_on`, derived from the graph by `semantic tk-dossier-outcomes` (the TK record has no end of its own). An open dossier has `closed: false` and no outcome |
 | Case | `cases` | every TK Zaak, no filter on kind; `title`, `citation_title`, `number`, `dossier_numbers` (the payload stays in `raw_sources`) |
-| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `dossier_numbers`, `case_ids`, `actors`, `text`; the structure of the text of a Kamerstuk XML: see below); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`); the chamber is in `labels` (`TK`; `EersteKamer` and `EK`), and a `kind` containing `toelichting` makes a document explanatory |
-| Activity | `activities` | debate or hearing; `date`, `agenda_title`, `kind`, `committee_id`, `case_ids`, `dossier_numbers` |
-| Decision | `decisions` | one node per TK `Besluit` |
+| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `dossier_numbers`, `case_ids`, `case_kinds`, `actors`, `text`; the structure of the text of a Kamerstuk XML: see below); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`); the chamber is in `labels` (`TK`; `EersteKamer` and `EK`), and a `kind` containing `toelichting` makes a document explanatory |
+| Activity | `activities` | debate or hearing; `date`, `agenda_title`, `kind`, `committee_id`, `case_ids`, `dossier_numbers`, `case_kinds_by_dossier` |
+| Decision | `decisions` | one node per TK `Besluit`; `primary_case_id` and `primary_case_kind` name the Zaak it decided (`Wetgeving` on the vote on a bill itself) |
 | Commitment | `commitments` | `status` mapped to `open`, `gedaan`, `vervallen`, `unknown`; `activity_number` |
 | Member | `members` | every TK `Persoon` (members and ministers); `name`, `party`, `faction_memberships` (dated timeline) |
 | Faction | `factions` | `name`, `abbreviation`, `aliases`, `seats`, `active` |
@@ -308,8 +309,15 @@ member who leaves and rejoins keeps one edge with the latest period; the full ti
 
 ## raw_sources
 
-`{_key, source, kind, external_id, fetched_at, payload_json, payload_text, meta}`.
-JSON sources use `payload_json`; XML and HTML sources use `payload_text`.
+`{_key, source, kind, external_id, fetched_at, payload_json, payload_ref, payload_chars, meta}`.
+JSON sources keep their payload in `payload_json`, in the database, where queries filter on it.
+The XML or HTML of the other sources (most of what LawGraph stores; nothing queries inside it)
+is an object in the payload store (`db/payloads.py`, `LAWGRAPH_PAYLOAD_STORE`: a directory or an
+S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<_key>.gz`; the document keeps
+that name in `payload_ref` and the length of the text in `payload_chars`. The object is written
+before the document. `store.with_payloads(records)` reads the objects of a stream of records,
+side by side, and puts each text back in `payload_text`; a missing object is logged and the
+record is skipped like one without a payload.
 
 | Source | Kinds |
 |--------|-------|
@@ -338,10 +346,9 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
 | `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `labels[*]` |
-| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes`, `watches` | the fields the list endpoints filter and sort on |
+| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on |
 | `raw_sources` | `(source, kind)` |
-| `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)`; `semantic_source` |
-| `edge_status_log` | `timestamp`, `edge_key` |
+| `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)` |
 
 An index that is sorted on (`SORT ... LIMIT`) or counted per value (`edges.relation`,
 `props.source`, `props.kind`, `props.jurisdiction`, `raw_sources (source, kind)`) is not
@@ -352,6 +359,8 @@ deliberately not indexed.
 ArangoSearch views back `/api/search`: `search_articles`, `search_instruments`,
 `search_judgments`, `search_dossiers`, `search_documents`, `search_committees`, using the
 analyzers `lawgraph_ngram_v2` (lower-cased 3-12 character n-grams, so `vordering` finds
-`Strafvordering`) and `lawgraph_norm` (lower-cased identity for identifiers), plus `text_en`
-and `identity`. Views fill asynchronously; a fresh insert may be missing briefly. `members` and
-`factions` have no view: they are small enough to scan.
+`Strafvordering`) and `lawgraph_norm` (lower-cased identity for identifiers), plus `identity`
+and the Dutch `text_nl` (`TEXT_ANALYZER`: a word is stemmed, so `uitspraken` finds `uitspraak`;
+English texts such as ECHR summaries are stemmed as Dutch too). Views fill asynchronously; a
+fresh insert may be missing briefly. `members` and `factions` have no view: they are small
+enough to scan.

@@ -91,10 +91,23 @@ def case_ids(cases: Iterable[Payload]) -> list[str]:
     return _distinct(str(record.get("Id") or "") for record in cases)
 
 
+def dossier_label(number: Any, suffix: Any) -> str:
+    """``37020-XV`` for Nummer 37020 with Toevoeging XV, ``37020`` without one.
+
+    ``make_node_key`` of the label is the key of the dossier node.
+    """
+    number_str = str(number or "")
+    return f"{number_str}-{suffix}" if number_str and suffix else number_str
+
+
+def _dossier_label(dossier: Payload) -> str:
+    return dossier_label(dossier.get("Nummer"), dossier.get("Toevoeging"))
+
+
 def dossier_numbers(cases: Iterable[Payload]) -> list[str]:
-    """Kamerstukdossier numbers reachable through the given Zaak records."""
+    """Kamerstukdossier labels (``37020``, ``37020-XV``) of the given Zaak records."""
     return _distinct(
-        str(dossier.get("Nummer") or "")
+        _dossier_label(dossier)
         for record in cases
         for dossier in _dicts(record.get("Kamerstukdossier"))
     )
@@ -103,6 +116,24 @@ def dossier_numbers(cases: Iterable[Payload]) -> list[str]:
 def case_kinds(cases: Iterable[Payload]) -> list[str]:
     """Distinct ``Zaak.Soort`` values (Wetgeving, Motie, Amendement, …)."""
     return _distinct(str(record.get("Soort") or "") for record in cases)
+
+
+def case_kinds_by_dossier(cases: Iterable[Payload]) -> dict[str, list[str]]:
+    """Distinct ``Zaak.Soort`` values (Wetgeving, Motie, …) per Kamerstukdossier label.
+
+    Each dossier gets the kinds of its own cases only: one agenda (a day of votes) holds
+    the cases of many dossiers.
+    """
+    pairs = [
+        (_dossier_label(dossier), str(record.get("Soort") or ""))
+        for record in cases
+        for dossier in _dicts(record.get("Kamerstukdossier"))
+    ]
+    numbers = _distinct(number for number, _ in pairs)
+    return {
+        number: _distinct(kind for n, kind in pairs if n == number)
+        for number in numbers
+    }
 
 
 def agenda_cases(payload: Payload) -> list[Payload]:
@@ -290,33 +321,28 @@ def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
 
     number_str = str(number)
     suffix = payload.get("Toevoeging") or ""
-    label = f"{number_str}-{suffix}" if suffix else number_str
+    label = dossier_label(number_str, suffix)
     # A dossier with neither Titel nor Citeertitel keeps title None, so the
     # backfill can take one from a voorstel-van-wet document instead of
     # storing a title that only looks valid.
     title = payload.get("Titel") or payload.get("Citeertitel") or None
-    closed = bool(payload.get("Afgedaan"))
-    closed_on = iso_date(payload.get("DatumGesloten"))
 
+    # The record says nothing about how far the dossier got: ``Afgesloten`` is false on
+    # every dossier, also on those whose law was published years ago. When it was opened
+    # and whether and how it ended are derived from the graph (the stage backfill and
+    # ``semantic tk-dossier-outcomes``), so they are not written here, where a run would
+    # blank them.
     props: dict[str, Any] = {
         "external_id": external_id,
         "number": number_str,
         "suffix": suffix,
+        "label": label,
         "title": title,
         "title_source": "dossier" if title else None,
-        "closed": closed,
-        "opened_on": iso_date(payload.get("DatumRegistratie")),
-        "closed_on": closed_on,
         "display_name": dossier_display_name(number_str, suffix, title or ""),
     }
-    # current_stage is owned by the stage backfill. Setting it here for an open
-    # dossier would blank the classifier's answer on every run; for a closed
-    # one the answer is fixed, so it can be written straight away.
-    if closed or closed_on:
-        props["current_stage"] = "afgehandeld"
 
-    key_parts = [number_str, suffix] if suffix else [number_str]
-    return make_node_key(*key_parts), label, props
+    return make_node_key(label), label, props
 
 
 # ── Activiteit (Activity) ────────────────────────────────────────────────────
@@ -343,7 +369,7 @@ def activity(payload: Payload) -> Record | None:
         "committee_id": str(voortouw) if voortouw else None,
         "case_ids": case_ids(cases),
         "dossier_numbers": dossier_numbers(cases),
-        "case_kinds": case_kinds(cases),
+        "case_kinds_by_dossier": case_kinds_by_dossier(cases),
         "tk_url": TK_ACTIVITY_URL.format(id=external_id),
         "display_name": f"{date or '?'} — {description or kind}",
         "number": str(payload.get("Nummer") or ""),
@@ -428,6 +454,7 @@ def document(payload: Payload) -> Record | None:
         "raw": payload,
         "dossier_numbers": dossiers,
         "case_ids": case_ids(cases),
+        "case_kinds": case_kinds(cases),
         "sequence": sequence if (sequence or 0) > 0 else None,
         "kind": kind,
         "title": title,
@@ -508,15 +535,19 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     The tally is stored so a list row costs no edge traversal; who voted how
     is on the VOTED edges.
     """
-    cases = agenda_cases(decision)
+    own = list(_dicts(decision.get("Zaak")))
+    cases = own + agenda_cases(decision)
     agenda_item = next(_dicts(decision.get("Agendapunt")), {})
+    activity = next(_dicts(agenda_item.get("Activiteit")), {})
     decision_text = decision.get("BesluitTekst") or ""
 
-    # AgendapuntZaakBesluitVolgorde is the 1-based index of the Zaak this
-    # Besluit decided on — the one thing that tells eighteen moties on a
-    # single Agendapunt apart.
+    # The Besluit's own Zaak is the case it decided: what tells the vote on a bill from
+    # the votes on its amendments, and eighteen moties on one Agendapunt apart. Without
+    # it only an Agendapunt of one case says which. AgendapuntZaakBesluitVolgorde is the
+    # place of the Besluit on the Agendapunt, not of its Zaak in the list.
     order = _int_or_none(decision.get("AgendapuntZaakBesluitVolgorde"))
-    primary = cases[order - 1] if order and 1 <= order <= len(cases) else None
+    listed = agenda_cases(decision)
+    primary = own[0] if own else (listed[0] if len(listed) == 1 else None)
 
     # Prefer the per-motie subject over the agenda-item headline it shares with
     # its siblings. Zaak.Titel is deliberately not used: on a motie it carries
@@ -544,7 +575,9 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     return make_node_key("decision", decision_id), {
         "decision_id": decision_id,
         "agenda_item_id": str(decision.get("Agendapunt_Id") or ""),
-        "date": iso_date(votes[0].changed_at) if votes else None,
+        # The day of the vote; a row's GewijzigdOp is when it was last edited.
+        "date": iso_date(activity.get("Datum"))
+        or (iso_date(votes[0].changed_at) if votes else None),
         "subject": subject,
         "agenda_item_subject": agenda_item.get("Onderwerp") or "",
         "decision_text": decision_text,
@@ -552,12 +585,13 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "meeting_kind": agenda_item.get("Vergadering_Soort") or "",
         "case_ids": case_ids(cases),
         "primary_case_id": str(primary.get("Id") or "") if primary else None,
+        "primary_case_kind": (primary.get("Soort") or None) if primary else None,
         "dossier_numbers": dossier_numbers(cases),
         "vote_kind": VOTE_KIND_MEMBER if roll_call else VOTE_KIND_FACTION,
         "tally": tally,
         "voters": voters,
         "passed": decision_passed(decision, tally),
-        "display_name": decision_display_name(primary, order, len(cases), subject),
+        "display_name": decision_display_name(primary, order, len(listed), subject),
     }
 
 

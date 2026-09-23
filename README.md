@@ -11,7 +11,7 @@ Every source passes through the same three phases, each restartable and idempote
 
 | Phase | Reads | Writes |
 |-------|-------|--------|
-| `retrieve` | external APIs | `raw_sources` (payload stored verbatim) |
+| `retrieve` | external APIs | `raw_sources`, the XML and HTML verbatim in the payload store (a directory, or an S3 bucket) |
 | `normalize` | `raw_sources` | typed nodes and structural edges |
 | `semantic` | nodes and raw XML | edges inferred from structure or text, with `confidence` |
 
@@ -26,10 +26,52 @@ Requires Python 3.11+ and ArangoDB 3.12 (a `docker-compose.yml` is included).
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env            # set ARANGO_PASSWORD and ARANGO_ROOT_PASSWORD
-docker compose up -d arangodb
+```
 
+### Database: development or test
+
+Either server works with the same `.venv`; `ArangoStore()` creates the database and its
+schema (collections, indexes, search views) on first use, so nothing more is needed to start
+the API against an empty one.
+
+**Development** (`docker-compose.yml`, port 8529): keeps its data in a named volume across
+restarts. This is the one `.env`'s `ARANGO_URL` points at by default, and the one `lawgraph
+bootstrap`/`retrieve`/`normalize`/`semantic` load real data into.
+
+```bash
+docker compose up -d arangodb
+lawgraph-api                              # http://localhost:8000/docs, ARANGO_URL from .env
+```
+
+**Test** (`docker-compose.test.yml`, port 8530): a second, deliberately small server (1 GB,
+256 MiB per query) in its own compose project, so it can never reach the volumes above; its
+data is thrown away with the container. It backs `tests/integration/` (see
+`docs/operations.md`, "Tests and CI"), and doubles as a fast way to click against a running
+API without waiting for a real retrieve:
+
+```bash
+docker compose -f docker-compose.test.yml up -d
+ARANGO_URL=http://localhost:8530 lawgraph-api    # same port 8000, empty database
+docker compose -f docker-compose.test.yml down   # discards it
+```
+
+### A small database with every feature
+
+For the API and the front end on a laptop: `scripts/test-database.sh` builds `lawgraph_small` on
+the development server, next to the database of `.env`, from real sources (a few laws with their
+history and dossiers, two weeks of case law and parliament, a little of every other source), in
+about half an hour and a few hundred MB. Every relation of the model occurs in it.
+
+```bash
+docker compose up -d arangodb
+scripts/test-database.sh
+ARANGO_DB_NAME=lawgraph_small lawgraph-api
+```
+
+### Loading data
+
+```bash
 lawgraph bootstrap              # retrieve (last 2 years of what keeps producing; --window all for history), normalize, semantic, expand-graph
-lawgraph-api                    # http://localhost:8000/docs
 ```
 
 Keeping it current afterwards:
@@ -105,8 +147,6 @@ Open:
 
 - Of the BWB WTI files only the official abbreviations are ingested (as
   `instruments.props.short_title`); the amendment log and `grondslag-voor` are not.
-- Writing needs a shared key (`X-Write-Key`, `X-Curation-Key`); there are no users or roles,
-  so a vote is not tied to a person and the watch list is one list for the deployment.
 - Rechtspraak is loaded for the chosen courts (default: Hoge Raad, Raad van State, the hoven)
   inside the window; a judgment of another court arrives only when a loaded record cites it
   (`expand-graph`). Citations between judgments are read from the text; of the structured

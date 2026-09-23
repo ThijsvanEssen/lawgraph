@@ -20,10 +20,8 @@ COLLECTION_COMMITMENTS = "commitments"
 COLLECTION_COMMITTEES = "committees"
 COLLECTION_MEMBERS = "members"
 COLLECTION_FACTIONS = "factions"
-COLLECTION_EDGE_STATUS_LOG = "edge_status_log"
 COLLECTION_TOPICS = "topics"
 COLLECTION_RAW_SOURCES = "raw_sources"
-COLLECTION_WATCHES = "watches"
 COLLECTION_ANNEXES = "annexes"
 COLLECTION_PIPELINE_STATE = "pipeline_state"  # until when each phase is complete
 COLLECTION_EDGES = "edges"
@@ -45,11 +43,15 @@ DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     COLLECTION_COMMITTEES,
     COLLECTION_MEMBERS,
     COLLECTION_FACTIONS,
-    COLLECTION_EDGE_STATUS_LOG,
-    COLLECTION_WATCHES,
     COLLECTION_ANNEXES,
     COLLECTION_PIPELINE_STATE,
 )
+
+# ── Search ────────────────────────────────────────────────────────────────────
+
+# The analyzer of the words of a text in the search views, and of the words a query is
+# split into. The texts are Dutch: a Dutch stemmer makes "uitspraken" find "uitspraak".
+TEXT_ANALYZER = "text_nl"
 
 # ── Edge status values ────────────────────────────────────────────────────────
 
@@ -101,23 +103,6 @@ SEMANTIC_RELATIONSHIP_TYPES: frozenset[str] = frozenset(
         SEMANTIC_TYPE_LIMITING_EXCEPTION,
         SEMANTIC_TYPE_CROSS_REFERENCE,
         SEMANTIC_TYPE_DELEGATED_DISCRETION,
-    }
-)
-
-# Provenance of a semantic_type assignment, stored on edges as `semantic_source`.
-# (Distinct from the edge-level `source` field, which names the pipeline that
-# created the edge itself.)
-SEMANTIC_SOURCE_STRUCTURED = "structured"  # deterministic text-pattern extraction
-SEMANTIC_SOURCE_EXPERT = "expert"  # validated by a legal expert
-SEMANTIC_SOURCE_COMMUNITY = "community"  # community-proposed tag
-SEMANTIC_SOURCE_LLM = "llm"  # future: LLM-assisted classification
-
-SEMANTIC_SOURCES: frozenset[str] = frozenset(
-    {
-        SEMANTIC_SOURCE_STRUCTURED,
-        SEMANTIC_SOURCE_EXPERT,
-        SEMANTIC_SOURCE_COMMUNITY,
-        SEMANTIC_SOURCE_LLM,
     }
 )
 

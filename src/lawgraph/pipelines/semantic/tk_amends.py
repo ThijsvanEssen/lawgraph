@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Any, Iterable
+from typing import Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
@@ -20,8 +20,9 @@ from lawgraph.core.aliases import InstrumentAliasMap
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
-from .base import SemanticPipelineBase, slim
+from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -114,18 +115,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
 
     def _load_tk_documents(self, since: dt.datetime | None = None) -> Iterable[Node]:
         """TK documents — only a bill (Document) may propose a change to a law."""
-        since_filter = ""
-        bind_vars: dict[str, Any] | None = None
-        if since is not None:
-            since_filter = "FILTER doc.props.date >= @since"
-            # props.date is a date; a timestamp of the same day sorts after it.
-            bind_vars = {"since": since.date().isoformat()}
-
-        aql = (
-            f"FOR doc IN {COLLECTION_DOCUMENTS}\n"
-            '    FILTER "TK" IN doc.labels\n'
-            f"    {since_filter}\n"
-            f"    RETURN {slim('doc', 'title', 'display_name')}"
-        )
-        for doc in self.store.query(aql, bind_vars):
+        # props.date is a date; a timestamp of the same day sorts after it.
+        since_date = since.date().isoformat() if since is not None else None
+        for doc in semantic_queries.tk_document_titles(self.store, since_date):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)

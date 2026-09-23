@@ -1,20 +1,21 @@
 # API
 
-A FastAPI service over the graph (`lawgraph.api.app:app`), read-only except for watches and
-semantic-relationship curation. Start it with
+A FastAPI service over the graph (`lawgraph.api.app:app`); it only reads. Start it with
 `lawgraph-api` (uvicorn, `LAWGRAPH_API_HOST`:`LAWGRAPH_API_PORT`, default `127.0.0.1:8000`; set the host to `0.0.0.0` to serve other machines) or
 `uvicorn lawgraph.api.app:app --reload`. The interactive schema is at `/docs`, the machine
-schema at `/openapi.json`: every route has a summary, a tag and a typed answer, and a route
-that writes names its key (`tests/api/test_openapi_schema.py` holds the schema to that), so
-a client can generate its types from it. The write endpoints are `POST` and `DELETE` on `/api/watches` and
-the two `POST` endpoints under `/api/relationships`.
+schema at `/openapi.json`: every route has a summary, a tag and a typed answer, and every
+route is a `GET` (`tests/api/test_openapi_schema.py` holds the schema to that), so a client
+can generate its types from it.
 
 ## Endpoints
 
 Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`); an instrument
 route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A dossier `number`
-matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameters `limit` and
-`offset` have the bounds shown in `/docs`.
+matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. A budget chapter is a dossier
+of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
+dossier, `dossier_number`, `dossier_numbers`) is written this way, so it can be used in a path
+or a `dossier` filter as it is. List parameters `limit` and `offset` have the bounds shown in
+`/docs`.
 
 ### Service
 
@@ -34,7 +35,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `.../explained-by` | the documents that `EXPLAINS` the article: edges to the article, to any of its versions (same `stam_id`) or to its instrument. `items[]`: `document` (`id`, `key`, `kind`, `title`, `date`, `dossier_number`, `chamber`, `source`, `is_explanatory`), `target` (`article`, `article_version`, `instrument`), `target_id`, `article_version_key`, `confidence`, `scope`, `section_anchor`. `scope` is `dossier` when the memorandum explains all changes of its dossier (`semantic tk-mvt`), `article` when the edge names the section about the article in `section_anchor` (`semantic tk-mvt-articles`; the `id` of a section of the document, whose text `GET /api/documents/{key}/passages` gives). An `instrument` item exists only for a dossier whose law changed no articles: no evidence about this article, listed after the article-level ones. Newest first; one item per document, level and anchor (a version before the article, the newest version first); `limit` (1-500, default 100), `offset`, `total` counts all; empty list for an unknown article, never 404 |
 | `.../in-flux` | whether an open bill targets the article: `{in_flux, open_dossier_count}`; never 404 |
 | `.../cited-by` | the passages of judgments that cite the article, one row per mention (`judgment`, `paragraph_id`, `paragraph_number`, the `leden`, `onderdelen` and `aanhef` it names, `snippet`, `confidence`), newest judgment first; `court`, `tier`, `lid` (a lid number the passage names), `limit` (max 200), `offset`, exact `total`; 404 for an unknown article |
-| `.../relationships` | outgoing and incoming references with `semantic_type`, explanation, badge, community votes, the span of the reference (`start`, `end`, `text`, in the referring article) and the `leden`, `onderdelen` and `aanhef` it names, and annex scopes |
+| `.../relationships` | outgoing and incoming references with `semantic_type`, its explanation and confidence, the span of the reference (`start`, `end`, `text`, in the referring article) and the `leden`, `onderdelen` and `aanhef` it names, and annex scopes |
 
 ### Instruments and annexes
 
@@ -43,7 +44,7 @@ matches `^\d+(-[A-Za-z]+)?$` (`29684`, `29684-I`), otherwise 422. List parameter
 | `GET /api/instruments` | paged list; `q`, `jurisdiction` (`nl`, `eu`), `kind`, `article_count_min`, `sort` (default `title`) |
 | `GET /api/instruments/{identifier}` | one instrument: identifiers, names, jurisdiction, kind, dates, article count. `identifier` is a BWB id, a CELEX number or a node key (`echr_convention`, `verdrag_012345`); 404 when unknown |
 | `.../eu-links` | `implements` (EU acts whose CELEX number the instrument's text names) and `implemented_by` (regulations that name this act), each with `instrument`, `relation`, `confidence`, `basis`, `source`, `meta`; `international`: treaties that articles refer to (with the treaty article) and ECHR judgments that refer to the instrument or its articles, with the edge `meta`; `*_total` fields are absolute, `limit` (max 2000) bounds each list |
-| `/api/instruments/{bwb_id}/articles` | articles in natural order (`24` before `24c` before `25`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
+| `/api/instruments/{bwb_id}/articles` | articles in natural order (`24` before `24c` before `25`), each with its `breadcrumb` (the divisions it stands in: `type`, `label`, `title`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
 | `.../articles/at/{at_date}` | article versions valid on `YYYY-MM-DD` (`valid_from <= date < valid_until`) |
 | `.../versions` | every toestand, newest first, `current` flagged |
 | `.../amended-by` | amending publications (Staatsblad, Tractatenblad, ...) with edge counts per kind, articles affected, first effective date and dossiers; `limit`, `offset` |
@@ -80,9 +81,9 @@ gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 
 | Path | Returns |
 |------|---------|
-| `GET /api/dossiers/open` | dossiers not yet closed; `committee` (slug), `subject`, `stage`, `has_stage` (all listed stages), `limit`, `offset` |
+| `GET /api/dossiers/open` | dossiers not closed (`closed` and `outcome` as in [data-model](data-model.md#parliament)); `committee` (slug), `subject`, `stage`, `has_stage` (all listed stages), `limit`, `offset` |
 | `/api/dossiers/recent` | dossiers with activity in `days` (default 30) |
-| `/api/dossiers/{number}` | header, current stage, counts of documents, activities, decisions, commitments, and the dossier hub: `instruments` (`id`, `key`, `bwb_id`, `celex`, `display_name`, `jurisdiction`, `relation` `legislated_in`/`amends`/`introduces`/`repeals`, `status` `canoniek`/`voorgesteld`; one item per instrument, relation and status), `committees` (leading an activity about the dossier, `role` `lead`), `documents_by_kind` (counts per document `kind`), `senate` (`document_count`, `first_date` of the Eerste Kamer papers) |
+| `/api/dossiers/{number}` | header (with `closed`, `outcome` `aangenomen`/`ingetrokken`/`verworpen` or null, `opened_on`, `closed_on`), current stage, counts of documents, activities, decisions, commitments, and the dossier hub: `instruments` (`id`, `key`, `bwb_id`, `celex`, `display_name`, `jurisdiction`, `relation` `legislated_in`/`amends`/`introduces`/`repeals`, `status` `canoniek`/`voorgesteld`; one item per instrument, relation and status), `committees` (leading an activity about the dossier, `role` `lead`), `documents_by_kind` (counts per document `kind`), `senate` (`document_count`, `first_date` of the Eerste Kamer papers) |
 | `.../timeline` | documents, activities, decisions and commitments; `order` (`desc`, `asc`), `kind` (comma-separated), `limit`. Each entry has `node_type` and a `body` typed by it: a document (`kind`, `title`, `sequence`, `session_year`, `tk_url`, `url`, `chamber`, `source`, `is_explanatory`; never its text), an activity (`kind`, `agenda_title`, `number`; the entry also has `committee` `{key, slug, name}`, null for plenary), a decision (`subject`, `passed`, `vote_kind`, `tally`, `voters`, `external_id`, and the decided `document` with `dictum_excerpt` and `signatories`) or a commitment (`text`, `minister_name`, `minister_role`, `status`, `expected_resolution`) |
 | `.../documents` | documents linked directly or through a case, newest first, with `total`; like every document in the API each has `chamber` (`TK`, `EK`, null for Staatsblad and Staatscourant), `source` and `is_explanatory` |
 | `.../mutations` | the subgraph of `voorgesteld` edges, in graph shape |
@@ -104,7 +105,7 @@ gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 | `GET /api/graph/global` | instruments, articles, judgments and edges; `node_types` (`instrument`, `article`, `judgment`), `relations` (`REFERS_TO`, `EXPLAINS`, `PART_OF`, `IMPLEMENTS`, `AMENDS`), `max_judgments` |
 | `/api/graph/instruments` | instruments as nodes, edges aggregated from article-level `REFERS_TO` plus the direct `IMPLEMENTS` and `AMENDS` edges; `relations` (`REFERS_TO`, `IMPLEMENTS`, `AMENDS`) |
 | `/api/graph/judgments` | judgments and their edges; `max_judgments`, `include_stubs`. No relation or type filter: its edges are all aggregated `REFERS_TO`, its nodes judgments and the instruments they cite |
-| `/api/nodes/{collection}/{key}` | a node (any node collection) with its neighbours in buckets of one relation, direction and neighbour collection. Every neighbour carries its edge: `edge_id` (the edge `_key`, as in `/api/relationships/{edge_id}/vote`), `status`, `confidence`, `meta`. A bucket has `type`, `total` (its edges), `next_offset` (null on the last page) and `items`; `limit` (default 30, max 200) and `offset` page inside every bucket. Bucket and page order are the same on every request |
+| `/api/nodes/{collection}/{key}` | a node (any node collection) with its neighbours in buckets of one relation, direction and neighbour collection. Every neighbour carries its edge: `edge_id` (the edge `_key`), `status`, `confidence`, `meta`. A bucket has `type`, `total` (its edges), `next_offset` (null on the last page) and `items`; `limit` (default 30, max 200) and `offset` page inside every bucket. Bucket and page order are the same on every request |
 | `.../facets` | `items` of `{relation, direction, collection, type, count}` and `total` (all edges), counted in the database without reading the neighbours |
 | `.../neighborhood` | nodes and edges within `depth` (1-4) hops, capped by `cap`; the filters below shape the traversal |
 | `/api/nodes/in-flux`, `/api/nodes/heat` | node id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6), `min_count`. Both answer a plain map (`{"articles/bwbr0001854_287": 3}`), not validated through a response model |
@@ -132,15 +133,12 @@ citation title or its title; a name two laws share names no article but lists bo
 alternatives, and several equally good nodes cap the confidence at 0.5. A bare number needs five
 digits (`36327`) unless it follows `Kamerstuk` or `dossier`.
 
-### Semantic relationships and watches
+### Semantic relationships
 
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/api/relationships/types` | the seven semantic types and four sources |
+| GET | `/api/relationships/types` | the seven semantic types |
 | GET | `/api/relationships/search` | classified article relations; `type`, `law` (`bwb_id` of the source article) |
-| POST | `/api/relationships/tag` | creates or updates a `REFERS_TO` edge with `semantic_type`; body `source_article`, `target_article` (`BWBR0001854/287`), `semantic_type`, `explanation`, `semantic_source`, `expert_badge`, `created_by`; needs `X-Curation-Key` |
-| POST | `/api/relationships/{edge_id}/vote` | body `{"vote": "upvote" or "downvote"}`; increments the community counter |
-| GET, POST, DELETE | `/api/watches`, `/api/watches/{watch_id}` | saved node watches: list (newest first), create (201; 400 when `node_id` is malformed or the node does not exist), delete (204, 404) |
 
 ### Neighbour filters
 
@@ -171,11 +169,11 @@ relations and status.
 |------|----------|
 | `api/app.py` | app, middleware, router registration, `lawgraph-api` entry point |
 | `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `watches`, `relationships`, `annexes`, `parliament`) |
-| `api/queries/` | AQL per domain; user input only through bind variables |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
 | `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
-| `api/dependencies.py` | `get_store()`: one shared `ArangoStore`; the two keys and `refuse_open_writes` |
-| `api/cache.py` | `TTLCache`: in-process LRU with TTL (`LAWGRAPH_CACHE_TTL` 60 s, `LAWGRAPH_CACHE_MAXSIZE` 512) used by several routes |
+| `api/dependencies.py` | `get_store()`: one shared `ArangoStore` |
+| `core/cache.py` | `TTLCache`: in-process LRU with TTL (`LAWGRAPH_CACHE_TTL` 60 s, `LAWGRAPH_CACHE_MAXSIZE` 512) used by several routes and the search |
+| `db/queries/` | the queries of the routes, one module per domain (the API writes no AQL; see `docs/architecture.md`, Layering); user input only through bind variables |
 
 ## Middleware
 
@@ -186,20 +184,7 @@ relations and status.
 | Cache-Control | on 2xx GET: `/api/articles/` 30 min public, `/api/judgments/` 1 h public, `/api/stats` 5 min public, everything else `private, max-age=60` |
 | Request log | `[id] client METHOD path -> status size latency`; sets `X-Request-ID` |
 
-## Authentication
+## Access
 
-Reads are public. Every route that writes asks for a shared key, compared in constant time:
-
-| Header | Variable | Routes |
-|--------|----------|--------|
-| `X-Write-Key` | `LAWGRAPH_WRITE_API_KEY` | `POST` and `DELETE` on `/api/watches`, `POST /api/relationships/{edge_id}/vote` |
-| `X-Curation-Key` | `LAWGRAPH_CURATION_API_KEY` | `POST /api/relationships/tag` |
-
-The schema declares both as API keys, so `/docs` has an Authorize button. Without the
-variable the routes answer 503 (an API nobody configured writes nothing), with a
-missing or wrong key 401. `refuse_open_writes` (`api/dependencies.py`) runs when the app is
-built and stops it when a route that writes asks for neither key.
-
-The keys are for a server to send. A browser app cannot keep one: it calls a route of its own
-server, which holds the key and passes the request on. There are no users or roles, so a vote
-is not tied to a person and a watch list is one list for the deployment.
+Every route reads and is public; there are no users, keys or roles. CORS allows `GET`,
+`HEAD` and `OPTIONS` from `LAWGRAPH_ALLOWED_ORIGINS`.

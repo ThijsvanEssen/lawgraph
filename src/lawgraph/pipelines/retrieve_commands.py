@@ -6,7 +6,6 @@ import argparse
 import datetime as dt
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENTS,
     RECHTSPRAAK_COURT_GROUPS,
     RECHTSPRAAK_COURTS,
     RECHTSPRAAK_DEFAULT_COURTS,
@@ -16,6 +15,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import BWB_IDS
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.command import add_since_argument
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
@@ -31,10 +31,6 @@ from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
 
 _TK_EPOCH = dt.datetime(1995, 1, 1, tzinfo=dt.timezone.utc)
-_KNOWN_CELEX_AQL = (
-    f"FOR inst IN {COLLECTION_INSTRUMENTS} "
-    "FILTER inst.props.celex != null RETURN inst.props.celex"
-)
 
 
 GAPS = "gaps"  # fetch what the graph refers to and only holds a stub of (``_gaps.py``)
@@ -149,7 +145,7 @@ def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
     if args.mode == GAPS:  # the acts BWB regulations name
         return pipeline.run(celex_ids=_gaps.eurlex_gaps(store), lang=args.lang)
 
-    known_celex = args.celex or list(store.query(_KNOWN_CELEX_AQL))
+    known_celex = args.celex or list(gap_queries.known_celex_ids(store))
     if args.mode == "cjeu":
         return pipeline.run_cjeu(
             celex_ids=known_celex or None,

@@ -74,15 +74,22 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                 needed periodically).
             skip_decisions: Skip the Stemming fetch entirely.
             skip_documents: Skip the Document (Kamerstuk) fetch entirely.
-            dossier_number: Targeted backfill — fetch only Documents that link
-                to this Kamerstukdossier number, ignoring date filters and
-                skipping all other entity types. Used to fill gaps for
-                dormant dossiers whose stukken predate the documents-since
-                window.
+            dossier_number: Targeted backfill — fetch only the Kamerstukdossier
+                with this number and the Documents that link to it, ignoring
+                date filters and skipping all other entity types. Used to fill
+                gaps for dormant dossiers whose stukken predate the window:
+                without the dossier its documents are part of nothing and no
+                law is legislated in it.
         """
         result = PipelineResult()
 
         if dossier_number is not None:
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_DOSSIER,
+                "Id",
+                lambda: self.client.fetch_dossiers(since=None, number=dossier_number),
+            )
             self._fetch_and_store(
                 result,
                 RAW_KIND_TK_DOCUMENT,

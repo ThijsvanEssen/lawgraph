@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.api.queries.dossiers import _dossier_documents_aql
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
@@ -19,6 +18,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.dossiers import _dossier_documents_aql
 
 
 def get_document(store: ArangoStore, key: str) -> dict[str, Any] | None:
@@ -122,9 +122,10 @@ def get_document_links(store: ArangoStore, document_id: str) -> dict[str, Any]:
     ``dossier_numbers`` come from the PART_OF edges to dossier nodes, which both
     chambers write (an Eerste Kamer paper names its dossier in ``dossier_number``, a
     Tweede Kamer one in ``dossier_numbers``), so it is the number the ``dossier``
-    filters use. ``explains`` resolves each EXPLAINS target to what a reader
-    cites: an article version to its article (through VERSION_OF; a version without
-    an article is left out), an article as it is, an instrument as ``instruments``.
+    filters use, with its suffix for a chapter (``37020-XV``). ``explains`` resolves
+    each EXPLAINS target to what a reader cites: an article version to its article
+    (through VERSION_OF; a version without an article is left out), an article as it
+    is, an instrument as ``instruments``.
     """
     aql = f"""
     LET dossier_numbers = SORTED_UNIQUE((
@@ -132,8 +133,8 @@ def get_document_links(store: ArangoStore, document_id: str) -> dict[str, Any]:
             FILTER e._from == @document_id AND e.relation == @part_of
             FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
             LET dossier = DOCUMENT(e._to)
-            FILTER dossier != null AND dossier.props.number != null
-            RETURN dossier.props.number
+            FILTER dossier != null AND dossier.props.label != null
+            RETURN dossier.props.label
     ))
     LET targets = (
         FOR e IN {COLLECTION_EDGES}

@@ -5,9 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.stats import get_db_stats
 from lawgraph.api.schemas.stats import EdgeStatsDTO, InstrumentStatsDTO, StatsResponse
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.stats import get_db_stats
 
 router = APIRouter()
 

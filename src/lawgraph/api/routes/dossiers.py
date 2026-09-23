@@ -17,19 +17,6 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.dossiers import (
-    count_dossier_members,
-    enrich_dossier_docs,
-    get_documents_for_dossiers,
-    get_dossier_by_number,
-    get_dossier_documents,
-    get_dossier_hub,
-    get_dossier_mutations,
-    get_dossier_number_to_id_map,
-    get_dossier_timeline,
-    get_open_dossiers,
-    get_recent_dossiers,
-)
 from lawgraph.api.schemas.dossiers import (
     DOSSIER_NUMBER_PATTERN,
     DossierDetailResponse,
@@ -45,6 +32,19 @@ from lawgraph.api.schemas.dossiers import (
     timeline_entry,
 )
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.dossiers import (
+    count_dossier_members,
+    enrich_dossier_docs,
+    get_documents_for_dossiers,
+    get_dossier_by_number,
+    get_dossier_documents,
+    get_dossier_hub,
+    get_dossier_mutations,
+    get_dossier_number_to_id_map,
+    get_dossier_timeline,
+    get_open_dossiers,
+    get_recent_dossiers,
+)
 
 router = APIRouter()
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 
@@ -9,8 +10,14 @@ class RawSourcesFake:
     """``insert_raw_sources`` of the store, on top of the ``insert_raw_source`` of a fake.
 
     The fake sees one call per record, with the fields of the record; a call that raises is
-    a document the server refused.
+    a document the server refused. A fake keeps a record's text payload on the record, so
+    ``with_payloads`` passes the records on as they are.
     """
+
+    def with_payloads(
+        self, records: Iterable[dict[str, Any]], **_: Any
+    ) -> Iterator[dict[str, Any]]:
+        return iter(records)
 
     def insert_raw_sources(
         self, docs: list[dict[str, Any]]

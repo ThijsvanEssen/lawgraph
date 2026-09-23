@@ -345,6 +345,7 @@ def _dossier(number: str, opened: str) -> dict[str, Any]:
         "_key": number,
         "props": {
             "number": number,
+            "label": number,
             "title": f"Dossier {number}",
             "opened_on": opened,
         },

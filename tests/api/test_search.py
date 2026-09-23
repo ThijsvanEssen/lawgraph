@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries import search as search_module
-from lawgraph.api.queries.search import (
+from lawgraph.db.queries import search as search_module
+from lawgraph.db.queries.search import (
     SCORE_CONTAINS,
     SCORE_IDENTIFIER,
     SCORE_PREFIX,

@@ -6,10 +6,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from lawgraph.api.queries._helpers import _ensure_doc, _extract_confidence
 from lawgraph.config.constants import COLLECTION_EDGES
 from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries._helpers import _ensure_doc, _extract_confidence
 
 
 class NodeNotFoundError(ValueError):

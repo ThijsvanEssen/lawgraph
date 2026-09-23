@@ -5,14 +5,15 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, cast
 
-from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    TEXT_ANALYZER,
 )
+from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.db import ArangoStore
@@ -66,10 +67,10 @@ def build_search_clause(
     """Build an ArangoSearch clause: every token must appear in any of *fields*.
 
     Returns ``(clause, bind_vars)``. The clause is meant to be wrapped in
-    ``SEARCH ANALYZER(<clause>, "text_en")``. Bind vars are namespaced as
+    ``SEARCH ANALYZER(<clause>, TEXT_ANALYZER)``. Bind vars are namespaced as
     ``_tok_0``, ``_tok_1``, … so they don't collide with caller bindings.
 
-    Each token is fed through ``TOKENS(@val, 'text_en')`` at query time so the
+    Each token is fed through ``TOKENS(@val, TEXT_ANALYZER)`` at query time so the
     stemmer is applied symmetrically on both sides. Without this, bind values
     are compared as literals against the (stemmed) indexed tokens — e.g. a
     search for "Strafvordering" misses because the index stores ``strafvord``
@@ -88,10 +89,11 @@ def build_search_clause(
         bind_vars[f"_tok_{i}"] = t
         per_field: list[str] = []
         for f in fields:
-            # 1) Stem-aware token match via text_en — analyzer applied to
+            # 1) Stem-aware token match via TEXT_ANALYZER — analyzer applied to
             #    both indexed field and bind value.
             per_field.append(
-                f"ANALYZER(doc.props.{f} IN TOKENS(@_tok_{i}, 'text_en'), 'text_en')"
+                f"ANALYZER(doc.props.{f} IN TOKENS(@_tok_{i}, '{TEXT_ANALYZER}'), "
+                f"'{TEXT_ANALYZER}')"
             )
             # 2) Case-sensitive prefix on identity-indexed fields.
             per_field.append(
@@ -360,9 +362,9 @@ def _search_dossiers(
             id: doc._id, key: doc._key,
             collection: 'dossiers', type: doc.type,
             display_name: (doc.props.title != null ? doc.props.title : doc.props.display_name),
-            snippet: doc.props.number,
+            snippet: doc.props.label,
             extra: {{
-                number: doc.props.number,
+                number: doc.props.label,
                 current_stage: doc.props.current_stage,
                 closed: doc.props.closed
             }}
@@ -484,9 +486,11 @@ def _search_documents(
             extra: {{
                 kind: doc.props.kind,
                 external_id: doc.props.external_id,
-                dossier_number: NOT_NULL(
-                    doc.props.dossier_number, FIRST(doc.props.dossier_numbers)
-                )
+                dossier_number: doc.props.dossier_number == null
+                    ? FIRST(doc.props.dossier_numbers)
+                    : CONCAT_SEPARATOR(
+                        "-", doc.props.dossier_number, doc.props.dossier_suffix
+                    )
             }}
         }}
     """

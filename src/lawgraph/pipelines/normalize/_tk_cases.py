@@ -30,6 +30,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store
+from lawgraph.db.queries import normalize as normalize_queries
 
 logger = get_logger(__name__)
 
@@ -125,14 +126,9 @@ def link_cases_to_dossiers(store: Store, *, source: str) -> None:
     Cases are normalized by the TK pipeline before any dossier node exists,
     so the link is made here, once the dossiers are in place.
     """
-    aql = f"""
-    FOR case IN {COLLECTION_CASES}
-        FILTER case.props.dossier_numbers != null
-        RETURN {{id: case._id, dossier_numbers: case.props.dossier_numbers}}
-    """
     pairs = [
         (row["id"], COLLECTION_DOSSIERS, make_node_key(str(number)))
-        for row in store.query(aql)
+        for row in normalize_queries.case_dossier_numbers(store)
         for number in row["dossier_numbers"] or []
     ]
     writer = EdgeWriter(store, what="case to dossier edges")
@@ -235,7 +231,7 @@ LINK_PROPS = (
     "number",
     "activity_number",
     "actors",
-    "case_kinds",
+    "case_kinds_by_dossier",
     "vote_kind",
 )
 

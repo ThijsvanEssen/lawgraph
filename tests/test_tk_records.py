@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from lawgraph.core import tk_records
+from lawgraph.core.models import make_node_key
 
 
 def test_committee_reads_name_abbreviation_and_slug() -> None:
@@ -114,9 +115,31 @@ def test_dossier_keys_on_number_and_toevoeging() -> None:
         {"Id": "d-1", "Nummer": 35590, "Toevoeging": "I", "Titel": "Tijdelijke wet"}
     )
     assert (key, label) == ("35590_i", "35590-I")
-    assert props["number"] == "35590"
+    assert (props["number"], props["label"]) == ("35590", "35590-I")
     assert props["title_source"] == "dossier"
     assert props["display_name"] == "Kamerstukdossier 35590-I: Tijdelijke wet"
+
+
+def test_a_case_names_its_dossier_by_the_label_of_the_dossier_node() -> None:
+    """A budget chapter is its own dossier: the Toevoeging is part of what a record names."""
+    cases = [
+        {
+            "Soort": "Begroting",
+            "Kamerstukdossier": [
+                {"Nummer": 37020, "Toevoeging": "XV"},
+                {"Nummer": 37020, "Toevoeging": None},
+            ],
+        }
+    ]
+    assert tk_records.dossier_numbers(cases) == ["37020-XV", "37020"]
+    assert tk_records.case_kinds_by_dossier(cases) == {
+        "37020-XV": ["Begroting"],
+        "37020": ["Begroting"],
+    }
+    key, label, _ = tk_records.dossier(
+        {"Id": "d-1", "Nummer": 37020, "Toevoeging": "XV"}
+    )
+    assert (label, key) == ("37020-XV", make_node_key("37020-XV"))
 
 
 def test_dossier_without_a_title_leaves_it_open_for_the_backfill() -> None:
@@ -126,9 +149,31 @@ def test_dossier_without_a_title_leaves_it_open_for_the_backfill() -> None:
     assert "current_stage" not in props
 
 
-def test_a_closed_dossier_is_afgehandeld_straight_away() -> None:
-    _, _, props = tk_records.dossier({"Id": "d-1", "Nummer": 36000, "Afgedaan": True})
-    assert props["current_stage"] == "afgehandeld"
+def test_a_dossier_record_says_nothing_of_how_far_it_got() -> None:
+    """``Afgesloten`` is false on every dossier, also on one whose law was published, and the
+    record has no dates: closed and opened are derived from the graph, and a run of the record
+    must not blank what was derived."""
+    _, _, props = tk_records.dossier(
+        {
+            "Id": "d-1",
+            "Nummer": 34851,
+            "Titel": "Uitvoeringswet Algemene verordening gegevensbescherming",
+            "Afgesloten": False,
+            "HoogsteVolgnummer": 101,
+        }
+    )
+    for derived in ("closed", "closed_on", "opened_on", "outcome", "current_stage"):
+        assert derived not in props
+
+
+def test_a_document_and_a_decision_keep_the_kind_of_their_case() -> None:
+    bill = {"Id": "z-1", "Soort": "Wetgeving", "Kamerstukdossier": [{"Nummer": 36000}]}
+    _, document = tk_records.document(
+        {"Id": "doc-1", "Soort": "Brief regering", "Zaak": [bill]}
+    )
+    assert document["case_kinds"] == ["Wetgeving"]
+    _, decision = tk_records.decision("b-1", {"Zaak": [bill]}, [])
+    assert decision["primary_case_kind"] == "Wetgeving"
 
 
 def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:
@@ -155,7 +200,7 @@ def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:
     )
     assert props["case_ids"] == ["z-1", "z-2"]
     assert props["dossier_numbers"] == ["36000"]
-    assert props["case_kinds"] == ["Wetgeving", "Motie"]
+    assert props["case_kinds_by_dossier"] == {"36000": ["Wetgeving"]}
     assert props["committee_id"] == "c-1"
     assert props["date"] == "2024-01-02"
 
@@ -287,29 +332,53 @@ def test_the_outcome_falls_back_to_the_tally_when_the_source_is_silent() -> None
     assert props["passed"] is False
 
 
-def test_a_decision_names_the_case_it_singled_out() -> None:
-    decision = {
-        "AgendapuntZaakBesluitVolgorde": 2,
-        "Agendapunt": [
-            {
-                "Onderwerp": "Moties bij de Wet versterking regie volkshuisvesting",
-                "Zaak": [
-                    {"Id": "z-1", "Nummer": "2024Z01", "Soort": "Motie"},
-                    {
-                        "Id": "z-2",
-                        "Nummer": "2024Z02",
-                        "Soort": "Motie",
-                        "Onderwerp": "openbaar maken wachtlijsten",
-                    },
-                ],
-            }
-        ],
+def test_a_decision_names_the_case_it_decided() -> None:
+    """The Besluit's own Zaak, as TK sends it for the Visserijwet (36899) on 22 September
+    2026: an amendment, the bill and an amendment on one agenda item, and
+    AgendapuntZaakBesluitVolgorde 3 on the vote on the bill, which is second in the list."""
+    amendment = {"Id": "z-1", "Nummer": "2026Z18401", "Soort": "Amendement"}
+    bill = {
+        "Id": "z-2",
+        "Nummer": "2026Z03557",
+        "Soort": "Wetgeving",
+        "Onderwerp": "Wijziging van de Visserijwet 1963",
     }
+    other = {"Id": "z-3", "Nummer": "2026Z18274", "Soort": "Amendement"}
+    decision = {
+        "AgendapuntZaakBesluitVolgorde": 3,
+        "BesluitSoort": "Stemmen - aangenomen",
+        "Zaak": [bill],
+        "Agendapunt": {
+            "Onderwerp": "Wijziging van de Visserijwet 1963",
+            "Activiteit": {"Soort": "Stemmingen", "Datum": "2026-09-22T15:00:00+02:00"},
+            "Zaak": [amendment, bill, other],
+        },
+    }
+    vote = tk_records.vote(_vote(GewijzigdOp="2026-09-23T09:00:00+02:00"))
+    _, props = tk_records.decision("b-1", decision, [vote])
+    assert (props["primary_case_id"], props["primary_case_kind"]) == (
+        "z-2",
+        "Wetgeving",
+    )
+    assert props["case_ids"] == ["z-2", "z-1", "z-3"]
+    assert props["subject"] == "Wijziging van de Visserijwet 1963"
+    assert (
+        props["display_name"]
+        == "Wetgeving 2026Z03557 — Wijziging van de Visserijwet 1963"
+    )
+    # The day of the vote, not the day the row was last edited.
+    assert props["date"] == "2026-09-22"
+
+
+def test_without_its_own_case_only_an_agenda_item_of_one_case_names_it() -> None:
+    cases = [{"Id": "z-1", "Soort": "Motie"}, {"Id": "z-2", "Soort": "Motie"}]
+    decision = {"AgendapuntZaakBesluitVolgorde": 2, "Agendapunt": [{"Zaak": cases}]}
     _, props = tk_records.decision("b-1", decision, [tk_records.vote(_vote())])
-    assert props["primary_case_id"] == "z-2"
-    assert props["case_ids"] == ["z-1", "z-2"]
-    assert props["subject"] == "openbaar maken wachtlijsten"
-    assert props["display_name"] == "Motie 2024Z02 — openbaar maken wachtlijsten"
+    assert props["primary_case_id"] is None
+    _, props = tk_records.decision(
+        "b-1", {"Agendapunt": [{"Zaak": cases[:1]}]}, [tk_records.vote(_vote())]
+    )
+    assert props["primary_case_id"] == "z-1"
 
 
 def test_siblings_on_one_agenda_item_fall_back_to_its_subject() -> None:

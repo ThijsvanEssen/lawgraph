@@ -289,3 +289,13 @@ def test_a_case_is_asked_for_with_the_dossier_it_belongs_to() -> None:
     assert asked[0]["$expand"].startswith("Kamerstukdossier(")
     assert "Nummer" in asked[0]["$expand"]
     assert tk_records.dossier_numbers(cases) == ["36590"]
+
+
+def test_a_dossier_is_asked_for_by_its_number() -> None:
+    session = DummySession(DummyResponse(json_data={"value": []}))
+    client = TKClient(session=session)
+    client.base_url = "https://example.org/OData/v4/2.0/"
+    list(client.fetch_dossiers(number=35786))
+    assert session.last_url == "https://example.org/OData/v4/2.0/Kamerstukdossier"
+    assert session.last_params is not None
+    assert session.last_params["$filter"] == "Nummer eq 35786"

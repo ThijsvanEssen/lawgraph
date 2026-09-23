@@ -26,7 +26,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
@@ -47,6 +46,7 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, NodeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
 
@@ -59,38 +59,6 @@ _RELATION_OF_KIND = {
     EFFECT_AMENDS: RELATION_AMENDS,
     EFFECT_REPEALS: RELATION_REPEALS,
 }
-
-# Sorted by article identity so that all versions of one article end up in the
-# same chunk (needed to keep the earliest effective date per publication).
-_VERSIONS_AQL = f"""
-FOR v IN {COLLECTION_ARTICLE_VERSIONS}
-  FILTER v.props.origin_publication != null AND v.props.stam_id != null
-  SORT v.props.bwb_id, v.props.stam_id
-  RETURN {{
-    key: v._key,
-    bwb_id: v.props.bwb_id,
-    stam_id: v.props.stam_id,
-    effect: v.props.effect,
-    valid_from: v.props.valid_from,
-    source_publication: v.props.source_publication,
-    origin: v.props.origin_publication,
-    commencement: v.props.commencement_publication
-  }}
-"""
-
-# One row per stored article; matched to the wanted (bwb_id, stam_id) pairs in Python.
-_ARTICLES_AQL = f"""
-FOR a IN {COLLECTION_ARTICLES}
-  FILTER a.props.bwb_id IN @bwb_ids AND a.props.stam_id IN @stam_ids
-  RETURN {{key: a._key, bwb_id: a.props.bwb_id, stam_id: a.props.stam_id}}
-"""
-
-_REGULATIONS_AQL = f"""
-FOR i IN {COLLECTION_INSTRUMENTS}
-  FILTER i.props.bwb_id != null AND IS_ARRAY(i.props.dossier_numbers)
-  FILTER LENGTH(i.props.dossier_numbers) > 0
-  RETURN {{key: i._key, dossiers: i.props.dossier_numbers}}
-"""
 
 
 def _instrument_id(key: str) -> str:
@@ -155,7 +123,9 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store, what=None)
         self._known_dossiers = {}
 
-        rows = self._track(self.store.query(_VERSIONS_AQL), "article versions")
+        rows = self._track(
+            semantic_queries.amending_article_versions(self.store), "article versions"
+        )
         for rows_chunk in chunked_aligned(rows, self._CHUNK, _article_identity):
             self._process_versions(rows_chunk, nodes, edges, result)
         self._link_regulation_dossiers(edges)
@@ -229,12 +199,10 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         """Article key per ``(bwb_id, stam_id)``: one query for the whole chunk."""
         if not pairs:
             return {}
-        rows = self.store.query(
-            _ARTICLES_AQL,
-            {
-                "bwb_ids": sorted({bwb_id for bwb_id, _ in pairs}),
-                "stam_ids": sorted({stam_id for _, stam_id in pairs}),
-            },
+        rows = semantic_queries.articles_by_identity(
+            self.store,
+            sorted({bwb_id for bwb_id, _ in pairs}),
+            sorted({stam_id for _, stam_id in pairs}),
         )
         found: dict[tuple[str, str], str] = {}
         for row in rows:
@@ -306,7 +274,9 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
 
     def _link_regulation_dossiers(self, edges: EdgeWriter) -> None:
         """Regulation → dossier from ``props.dossier_numbers`` (streamed, in chunks)."""
-        rows: Iterable[dict[str, Any]] = self.store.query(_REGULATIONS_AQL)
+        rows: Iterable[dict[str, Any]] = semantic_queries.regulation_dossier_numbers(
+            self.store
+        )
         for chunk in chunked(rows, self._CHUNK):
             self._write_dossier_links(
                 {r["key"]: {str(d) for d in r["dossiers"] if d} for r in chunk}, edges

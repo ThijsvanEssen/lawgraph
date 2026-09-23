@@ -12,6 +12,9 @@ command does. Every check is one read-only query; a problem is an error of the c
   derived  what a normalize step keeps for a semantic step is there on every node it is read from
   papers   the XML of Tweede Kamer papers that was retrieved has been read into their documents
   cases    cases name the dossier they belong to
+  payloads the text payloads of raw records are in the payload store (a few of every kind)
+  size     the database stays below the alert size (``LAWGRAPH_DB_SIZE_ALERT_GIB``, 70 GiB)
+           and the server reports its license limit as not reached
 """
 
 from __future__ import annotations
@@ -22,10 +25,8 @@ from dataclasses import dataclass, field
 from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
-    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    COLLECTION_RAW_SOURCES,
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_ECHR_JUDGMENT,
@@ -48,10 +49,13 @@ from lawgraph.config.constants import (
     SOURCE_TK,
     SOURCE_VERDRAGENBANK,
 )
+from lawgraph.config.settings import DB_SIZE_ALERT_GIB
 from lawgraph.core.kamerstuk_xml import TEXT_SOURCE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import checks
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.schema import SEARCH_VIEWS
 
 logger = get_logger(__name__)
@@ -82,6 +86,9 @@ RECORD_KIND = {
     SOURCE_EERSTEKAMER: RAW_KIND_EK_KAMERSTUK,
 }
 NORMALIZED_SHARE = 0.9
+# Sources of which several records make one node, and how many nodes their records make:
+# HUDOC holds a judgment once per language, and ``normalize echr`` keeps one of them.
+NODES_OF_RECORDS = {SOURCE_ECHR: checks.count_echr_judgments_in_raw}
 # Kinds that are only there after a manual command; their absence says nothing.
 OPTIONAL_KINDS = {RAW_KIND_BWB_TOESTAND_ALL, RAW_KIND_TK_KAMERSTUK_XML}
 
@@ -101,8 +108,10 @@ class Report:
 
 def check(store: ArangoStore, *, edges: bool = True) -> Report:
     report = Report()
+    _check_size(store, report)
     raw = _raw_counts(store)
     _check_raw(raw, report)
+    _check_payloads(store, raw, report)
     _check_nodes(store, raw, report)
     if edges:
         _check_edges(store, report)
@@ -113,16 +122,37 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     return report
 
 
-# Grouped on the fields of the index, so the count walks the index and reads no document.
-_RAW_COUNTS_AQL = f"""
-FOR r IN {COLLECTION_RAW_SOURCES}
-    COLLECT source = r.source, kind = r.kind WITH COUNT INTO n
-    RETURN {{source, kind, n}}
-"""
+GIB = 1024**3
+
+
+def _check_size(store: ArangoStore, report: Report) -> None:
+    """The size the server counts against its license, against the alert threshold; the
+    largest collections say where it goes."""
+    usage = store.disk_usage()
+    used = int(usage.get("bytesUsed") or 0)
+    limit = usage.get("bytesLimit")
+    largest = sorted(store.collection_sizes().items(), key=lambda item: -item[1])[:3]
+    line = (
+        f"database size {used / GIB:.2f} GiB"
+        + (f" of the {int(limit) / GIB:.0f} GiB the license allows" if limit else "")
+        + f" (alert at {DB_SIZE_ALERT_GIB:g} GiB); largest: "
+        + ", ".join(f"{name} {size / GIB:.2f} GiB" for name, size in largest)
+    )
+    status = usage.get("status", "good")
+    if status != "good":
+        report.problem(
+            f"{line}. The server reports license status {status!r}: it turns read-only in "
+            f"{usage.get('secondsUntilReadOnly', 0) / 3600:.0f} h and shuts down in "
+            f"{usage.get('secondsUntilShutDown', 0) / 3600:.0f} h. Make it smaller now."
+        )
+    elif used >= DB_SIZE_ALERT_GIB * GIB:
+        report.problem(f"{line}. Make it smaller before it reaches the limit.")
+    else:
+        report.note(line)
 
 
 def _raw_counts(store: ArangoStore) -> dict[tuple[str, str], int]:
-    rows = store.query(_RAW_COUNTS_AQL)
+    rows = raw_queries.raw_counts(store)
     return {(row["source"], row["kind"]): row["n"] for row in rows}
 
 
@@ -139,6 +169,32 @@ def _check_raw(raw: dict[tuple[str, str], int], report: Report) -> None:
                 )
 
 
+# Records of each raw kind whose payload is looked for: a store that is not the one the
+# payloads were written to misses all of them, a lost object is found by the next run.
+PAYLOAD_SAMPLE = 3
+
+
+def _check_payloads(
+    store: ArangoStore, raw: dict[tuple[str, str], int], report: Report
+) -> None:
+    looked = missing = 0
+    for source, kind in sorted(raw):
+        for name in raw_queries.payload_refs_sample(
+            store, source=source, kind=kind, sample=PAYLOAD_SAMPLE
+        ):
+            looked += 1
+            if not store.payloads.exists(name):
+                missing += 1
+    where = store.payloads.location
+    if missing:
+        report.problem(
+            f"payloads: {missing} of {looked} text payloads looked for are not in {where}. "
+            "Is LAWGRAPH_PAYLOAD_STORE the store they were written to?"
+        )
+    elif looked:
+        report.note(f"payloads: the {looked} looked for are in {where}")
+
+
 def _check_nodes(
     store: ArangoStore, raw: dict[tuple[str, str], int], report: Report
 ) -> None:
@@ -146,36 +202,32 @@ def _check_nodes(
         stored = sum(n for (s, _), n in raw.items() if s == source)
         if not stored:
             continue
-        aql = f"""
-        FOR d IN {collection}
-            FILTER d.props.source == @source
-            COLLECT WITH COUNT INTO n
-            RETURN n
-        """
-        nodes = next(iter(store.query(aql, {"source": source})), 0)
+        nodes = checks.count_nodes_of_source(store, collection, source)
         records = raw.get((source, RECORD_KIND[source]), 0)
+        counted = NODES_OF_RECORDS.get(source)
+        expected = counted(store) if counted else records
         command = f"`lawgraph normalize {source.replace('_', '-')}`"
         if not nodes:
             report.problem(
                 f"{source}: {stored:,} raw records and no node in {collection}. Run {command}."
             )
-        elif nodes < records * NORMALIZED_SHARE:
+        elif nodes < expected * NORMALIZED_SHARE:
+            stored_records = _records(records, expected, RECORD_KIND[source])
             report.problem(
-                f"{source}: {records:,} {RECORD_KIND[source]} records and {nodes:,} nodes in "
+                f"{source}: {stored_records} and {nodes:,} nodes in "
                 f"{collection}: normalize is behind. Run {command}."
             )
         else:
             report.note(f"nodes of {source} in {collection}: {nodes:,}")
 
 
+def _records(records: int, expected: int, kind: str) -> str:
+    stored = f"{records:,} {kind} records"
+    return stored if expected == records else f"{stored}, {expected:,} distinct,"
+
+
 def _check_edges(store: ArangoStore, report: Report) -> None:
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER DOCUMENT(e._from) == null OR DOCUMENT(e._to) == null
-        COLLECT relation = e.relation WITH COUNT INTO n
-        RETURN {{relation, n}}
-    """
-    dangling = {row["relation"]: row["n"] for row in store.query(aql)}
+    dangling = {row["relation"]: row["n"] for row in checks.dangling_edges(store)}
     if dangling:
         detail = ", ".join(
             f"{relation}: {n:,}" for relation, n in sorted(dangling.items())
@@ -187,13 +239,8 @@ def _check_edges(store: ArangoStore, report: Report) -> None:
 
 def _check_views(store: ArangoStore, report: Report) -> None:
     for view, collection in SEARCH_VIEWS.items():
-        aql = f"""
-        LET indexed = FIRST(FOR d IN {view} COLLECT WITH COUNT INTO n RETURN n)
-        LET stored = LENGTH({collection})
-        RETURN {{indexed, stored}}
-        """
         try:
-            row = next(iter(store.query(aql)))
+            row = checks.view_and_collection_size(store, view, collection)
         except Exception as exc:
             report.problem(f"view {view}: cannot be read ({exc})")
             continue
@@ -211,15 +258,7 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
     """``normalize bwb`` keeps the basis and the EU acts of a regulation on its node, and
     ``semantic bwb-grondslagen`` and ``semantic bwb-implements`` read only that: a regulation
     normalized before it was kept would give them nothing, and nothing would say so."""
-    aql = f"""
-    FOR regulation IN {COLLECTION_INSTRUMENTS}
-        FILTER regulation.props.source == @source AND regulation.props.stub != true
-        FILTER "Publication" NOT IN regulation.labels
-        FILTER regulation.props.basis == null OR regulation.props.celex_refs == null
-        COLLECT WITH COUNT INTO n
-        RETURN n
-    """
-    behind = next(iter(store.query(aql, {"source": SOURCE_BWB})), 0)
+    behind = checks.count_regulations_without_derived_props(store)
     if behind:
         report.problem(
             f"{behind:,} BWB regulations carry no `basis` / `celex_refs`: BASED_ON and "
@@ -239,14 +278,7 @@ def _check_papers(
     stored = raw.get((SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML), 0)
     if not stored:
         return
-    aql = f"""
-    FOR d IN {COLLECTION_DOCUMENTS}
-        FILTER d.props.source == @source AND d.props.text_source == @text_source
-        COLLECT WITH COUNT INTO n
-        RETURN n
-    """
-    bind = {"source": SOURCE_TK, "text_source": TEXT_SOURCE}
-    read = next(iter(store.query(aql, bind)), 0)
+    read = checks.count_documents_read_from(store, TEXT_SOURCE)
     if read < stored * NORMALIZED_SHARE:
         report.problem(
             f"tk: {stored:,} {RAW_KIND_TK_KAMERSTUK_XML} records and {read:,} documents with "
@@ -260,12 +292,7 @@ def _check_papers(
 def _check_cases(store: ArangoStore, report: Report) -> None:
     """A case reaches its dossier through the number it carries; when none of them carries
     one, the request for the cases did not ask for the dossier."""
-    aql = f"""
-    FOR case IN {COLLECTION_CASES}
-        COLLECT named = LENGTH(case.props.dossier_numbers || []) > 0 WITH COUNT INTO n
-        RETURN [named, n]
-    """
-    counts = dict(store.query(aql))
+    counts = checks.cases_by_named_dossier(store)
     total = sum(counts.values())
     if total and not counts.get(True):
         report.problem(

@@ -5,11 +5,6 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.judgments import (
-    JudgmentArticleRelation,
-    get_judgment_with_relations,
-    get_judgments_list,
-)
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -27,6 +22,11 @@ from lawgraph.api.schemas.judgments import (
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.judgments import (
+    JudgmentArticleRelation,
+    get_judgment_with_relations,
+    get_judgments_list,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)

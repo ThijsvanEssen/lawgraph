@@ -1,7 +1,7 @@
 # Architecture
 
 LawGraph is a batch system that fills an ArangoDB graph, plus an HTTP API on top of it that
-is read-only apart from watches and relationship curation. There is no other user interface.
+only reads. There is no other user interface.
 
 ## Pipeline model
 
@@ -11,7 +11,7 @@ external source ──retrieve──▶ raw_sources ──normalize──▶ nod
 
 | Phase | Input | Output | Rule |
 |-------|-------|--------|------|
-| retrieve | external API | `raw_sources` documents keyed `SHA-1(source:kind:external_id)`; re-fetching replaces the document and refreshes `fetched_at` | stores the payload verbatim, does not interpret it |
+| retrieve | external API | `raw_sources` documents keyed `SHA-1(source:kind:external_id)`, their XML or HTML in the payload store; re-fetching replaces both and refreshes `fetched_at` | stores the payload verbatim, does not interpret it |
 | normalize | `raw_sources` filtered by `source`, `kind`, optional `fetched_at >= since` | nodes in domain collections, structural edges | deterministic keys, props merged on upsert |
 | semantic | nodes, raw XML | edges with `confidence`, `source`, `meta` | reads structured data where the source has it, text patterns otherwise |
 
@@ -119,15 +119,19 @@ the list of its phase. Adding a source: add it to `SOURCES` first.
 | Layer | Rule |
 |-------|------|
 | `config/` | `constants.py`: every name (collections, relations, source ids, raw kinds). `settings.py`: every value from the environment; importing it loads `.env`, and no other module reads the environment |
-| `core/` | pure logic and shared definitions, each defined exactly once: node and props models, relation catalogue, BWB XML parsing, citation extraction, dossier stage classification, identifiers, XML and time helpers, batching. Imports only `config` and other `core` modules; no I/O |
-| `db/` | `ArangoStore` (all database access), `NodeWriter`, `EdgeWriter`, `CountingStore`, schema |
+| `core/` | pure logic and shared definitions, each defined exactly once: node and props models, relation catalogue, BWB XML parsing, citation extraction, dossier stage classification, identifiers, XML and time helpers, batching, the TTL cache. Imports only `config` and other `core` modules; no I/O |
+| `db/` | all database access, and the only place that knows the database is ArangoDB: `ArangoStore`, `NodeWriter`, `EdgeWriter`, `CountingStore`, the schema, the payload store (`payloads.py`), and every query in `queries/`, as functions in the terms of their caller (`get_dossier_hub(store, number)`, `iter_raw_records(store, source=..., kinds=...)`) |
 | `clients/` | HTTP only; one class per source on `BaseClient` |
 | `pipelines/` | phases; depend on `config`, `core`, `db`, `clients` |
-| `api/` | routes, AQL in `queries/`, DTOs in `schemas/`; depends on `config`, `core`, `db` |
+| `api/` | routes and DTOs in `schemas/`; depends on `config`, `core`, `db` |
 | `commands/` | what is no pipeline: `bootstrap` and `expand-graph` (sequences of phases), `check` and `gaps` (reports that read only) |
 
 `api/` and `pipelines/` never import each other. Logic both need lives in `core/`. No test
 enforces this; it holds for the current code.
+
+No AQL and no driver handle outside `db/`: the routes, pipelines and commands call functions of
+`db/queries/` and methods of the store (`tests/test_conventions.py`). Moving to another
+database is then a change of `db/` and of the tests that run against a real server.
 
 Semantic pipelines separate pure detectors (text in, hits out, no store; unit-tested without
 fakes) from the pipeline that loops over nodes and writes edges (tested with a fake store).
@@ -147,7 +151,7 @@ pipeline writes in bulk and looks up by set.
 | does this node exist | `store.existing_keys(collection, keys)`: one primary-index query per 5,000 keys | `get_node` per item |
 | resolve targets in a semantic run | `SemanticPipelineBase._prefetch_nodes` (bulk) then `_lookup_node` (cached, hits and misses) | `get_node` per citation |
 | look up ids by another property | one `FILTER x IN @values` query per batch | one query per item |
-| read raw records | `_iter_raw_sources` streams them (20 at a time for XML, 1000 for small JSON); `RawRecords` for a kind that is walked more than once; write each node as it is read and keep at most the props the edges need (`tk_cases.link_node`) | a list of all records, a dict of all nodes |
+| read raw records | `_iter_raw_sources` streams them (20 at a time for XML, 1000 for small JSON), each with its text from the payload store (`store.with_payloads`, 16 objects side by side); `RawRecords` for a kind that is walked more than once; write each node as it is read and keep at most the props the edges need (`tk_cases.link_node`) | a list of all records, a dict of all nodes |
 
 Both writers de-duplicate by key inside the buffer (last wins), flush automatically at
 500 nodes / 1000 edges, and re-raise a failed batch. Bulk writes do not return the stored

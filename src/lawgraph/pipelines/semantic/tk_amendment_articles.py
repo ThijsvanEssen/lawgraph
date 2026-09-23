@@ -14,8 +14,6 @@ from typing import Iterable
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
-    COLLECTION_EDGES,
-    COLLECTION_INSTRUMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
     RELATION_INTRODUCES,
@@ -25,7 +23,8 @@ from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
-from lawgraph.pipelines.semantic.base import SemanticPipelineBase, slim
+from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -204,14 +203,10 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         """The TK documents that can hold an amendment: those with a text, and with a law to
         amend (their own ``bwb_id`` or an AMENDS edge). Every other document was read to be
         skipped: 10,085 of 10,085 in a three-week Tweede Kamer."""
-        aql = f"""
-        FOR doc IN {COLLECTION_DOCUMENTS}
-            FILTER "TK" IN doc.labels
-            FILTER doc.props.text != null AND doc.props.text != ""
-            FILTER doc.props.bwb_id != null OR doc._id IN @amending
-            RETURN {slim("doc", "bwb_id", "text")}
-        """
-        for doc in self.store.query(aql, {"amending": sorted(amends_index)}):
+        rows = semantic_queries.tk_documents_to_scan_for_amendments(
+            self.store, sorted(amends_index)
+        )
+        for doc in rows:
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)
 
     def _load_amends_instrument_index(self) -> dict[str, list[str]]:
@@ -222,17 +217,8 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         intent. Loading these once avoids an N-queries-per-document scan inside
         the run loop.
         """
-        aql = f"""
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == @relation
-            FILTER STARTS_WITH(e._from, "{COLLECTION_DOCUMENTS}/")
-            FILTER STARTS_WITH(e._to, "{COLLECTION_INSTRUMENTS}/")
-            LET inst = DOCUMENT(e._to)
-            FILTER inst != null AND inst.props.bwb_id != null
-            RETURN {{ document_id: e._from, bwb_id: inst.props.bwb_id }}
-        """
         index: dict[str, list[str]] = {}
-        for row in self.store.query(aql, {"relation": RELATION_AMENDS}):
+        for row in semantic_queries.amended_instruments(self.store):
             document_id = row.get("document_id")
             bwb_id = row.get("bwb_id")
             if not document_id or not bwb_id:

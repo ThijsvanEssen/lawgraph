@@ -177,6 +177,34 @@ class Publication:
 
 
 @dataclass(frozen=True)
+class Crumb:
+    """A division an article stands in: its element (``hoofdstuk``), its label
+    ("Hoofdstuk 1") and its title ("Inleidende bepalingen")."""
+
+    type: str
+    label: str | None
+    title: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return _drop_none({"type": self.type, "label": self.label, "title": self.title})
+
+
+# The divisions of a regulation that hold articles, as the toestand XML names them.
+DIVISIONS = frozenset(
+    {
+        "boek",
+        "deel",
+        "titeldeel",
+        "hoofdstuk",
+        "afdeling",
+        "paragraaf",
+        "sub-paragraaf",
+        "divisie",
+    }
+)
+
+
+@dataclass(frozen=True)
 class ArticleXml:
     number: str | None
     text: str
@@ -190,6 +218,7 @@ class ArticleXml:
     commencement: Publication | None = None
     references: tuple[Reference, ...] = ()
     parts: tuple[ArticlePart, ...] = ()
+    breadcrumb: tuple[Crumb, ...] = ()  # the divisions it stands in, outermost first
 
     @property
     def is_repealed(self) -> bool:
@@ -608,7 +637,33 @@ def _article_text(
     return text, refs, parts
 
 
-def _parse_article(article: ET.Element) -> ArticleXml:
+def _crumb(division: ET.Element, name: str) -> Crumb:
+    """The label and title of a division, from its ``label`` and its ``<kop>``."""
+    kop = _child(division, "kop")
+    label = division.get("label")
+    if not label and kop is not None:
+        label = " ".join(
+            filter(None, (text_of(_child(kop, "label")), text_of(_child(kop, "nr"))))
+        )
+    title = " ".join(text_of(_child(kop, "titel")).split()) if kop is not None else ""
+    return Crumb(type=name, label=label or None, title=title or None)
+
+
+def _articles(
+    element: ET.Element, breadcrumb: tuple[Crumb, ...] = ()
+) -> Iterator[ArticleXml]:
+    """The articles under *element* in document order, each with the divisions it is in."""
+    for child in element:
+        name = local_name(child.tag)
+        if name == "artikel":
+            yield _parse_article(child, breadcrumb)
+        elif name in DIVISIONS:
+            yield from _articles(child, (*breadcrumb, _crumb(child, name)))
+        else:
+            yield from _articles(child, breadcrumb)
+
+
+def _parse_article(article: ET.Element, breadcrumb: tuple[Crumb, ...]) -> ArticleXml:
     text, refs, parts = _article_text(article)
     origin, commencement = _brondata(article)
     return ArticleXml(
@@ -624,6 +679,7 @@ def _parse_article(article: ET.Element) -> ArticleXml:
         commencement=commencement,
         references=tuple(refs),
         parts=tuple(parts),
+        breadcrumb=breadcrumb,
     )
 
 
@@ -667,11 +723,7 @@ def parse_toestand(xml_text: str) -> ToestandXml:
     origin, commencement = (
         _brondata(wetgeving) if wetgeving is not None else (None, None)
     )
-    articles = tuple(
-        _parse_article(node)
-        for node in root.iter()
-        if local_name(node.tag) == "artikel"
-    )
+    articles = tuple(_articles(root))
     return ToestandXml(
         bwb_id=root.get("bwb-id"),
         kind=wetgeving.get("soort") if wetgeving is not None else None,
@@ -779,6 +831,7 @@ def article_props(
             "repealed": True if article.is_repealed else None,
             "parts": [part.to_dict() for part in article.parts],
             "references": references,
+            "breadcrumb": [crumb.to_dict() for crumb in article.breadcrumb] or None,
         }
     )
 

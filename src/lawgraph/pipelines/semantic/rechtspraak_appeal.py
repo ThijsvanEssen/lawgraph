@@ -17,6 +17,7 @@ from lawgraph.config.constants import COLLECTION_JUDGMENTS, RELATION_APPEAL_OF
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, parse_arango_id
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
 
@@ -33,17 +34,11 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
 
-        aql = f"""
-FOR j IN {COLLECTION_JUDGMENTS}
-  FILTER j.props.related_eclis != null
-  FILTER LENGTH(j.props.related_eclis) > 0
-  RETURN {{
-    j_id: j._id,
-    procedure_type: j.props.judgment_metadata.type,
-    related_eclis: j.props.related_eclis,
-  }}
-"""
-        rows = list(self._track(self.store.query(aql), "judgments"))
+        rows = list(
+            self._track(
+                semantic_queries.judgments_with_related_eclis(self.store), "judgments"
+            )
+        )
         if not rows:
             logger.debug("No judgments with related_eclis found.")
             return result

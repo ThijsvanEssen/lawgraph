@@ -11,8 +11,8 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.api.queries.articles import get_article_cited_by
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.articles import get_article_cited_by
 
 JUDGMENTS = 5_000
 MENTIONS = 3

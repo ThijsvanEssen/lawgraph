@@ -6,16 +6,14 @@ from collections.abc import Iterator
 
 from lawgraph.clients.staatsblad import StaatsbladClient
 from lawgraph.config.constants import (
-    COLLECTION_RAW_SOURCES,
-    RAW_KIND_BWB_TOESTAND,
     RAW_KIND_STB_AMVB,
-    SOURCE_BWB,
     SOURCE_STAATSBLAD,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
     FailureStreak,
@@ -112,20 +110,12 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         hold no publication and are not read. A publication several regulations refer to is
         listed once.
         """
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-          FILTER r.source == @source AND r.kind == @kind AND r.external_id != null
-          RETURN {{ bwb_id: r.external_id, xml: r.payload_text }}
-        """
         candidates: dict[str, str] = {}
         without = 0
-        rows = store.query(
-            aql,
-            bind_vars={"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
-            batch_size=50,
-        )
-        for row in rows:
-            ref = staatsblad_ref_from_bwb_xml(row["xml"]) if row.get("xml") else None
+        rows = raw_queries.toestand_payload_refs(store)
+        for row in store.with_payloads(rows):
+            xml = row.get("payload_text")
+            ref = staatsblad_ref_from_bwb_xml(xml) if xml else None
             if ref is None:
                 without += 1
                 continue
@@ -140,18 +130,8 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         """Which candidate Staatsblad identifiers are already in raw_sources."""
         if not candidates:
             return set()
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-          FILTER r.source == @source AND r.kind == @kind AND r.external_id IN @ext_ids
-          RETURN r.external_id
-        """
-        rows = store.query(
-            aql,
-            bind_vars={
-                "source": SOURCE_STAATSBLAD,
-                "kind": RAW_KIND_STB_AMVB,
-                "ext_ids": [identifier for _, identifier in candidates],
-            },
+        rows = raw_queries.stored_staatsblad_ids(
+            store, [identifier for _, identifier in candidates]
         )
         return {row for row in rows if isinstance(row, str)}
 

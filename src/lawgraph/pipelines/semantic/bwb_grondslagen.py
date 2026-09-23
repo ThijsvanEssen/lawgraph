@@ -22,12 +22,12 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     RELATION_BASED_ON,
-    SOURCE_BWB,
 )
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
 
@@ -36,17 +36,6 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "bwb-grondslagen-linker"
 
 _CHUNK = 500
-
-_BASIS_AQL = f"""
-FOR regulation IN {COLLECTION_INSTRUMENTS}
-  FILTER regulation.props.source == @source
-  FILTER LENGTH(regulation.props.basis) > 0
-  RETURN {{
-    key: regulation._key,
-    bwb_id: regulation.props.bwb_id,
-    basis: regulation.props.basis
-  }}
-"""
 
 # (regulation key, target article key, the "Gelet op" reference)
 _Link = tuple[str, str, dict[str, Any]]
@@ -58,7 +47,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         edges = EdgeWriter(self.store, what=None)
-        rows = self.store.query(_BASIS_AQL, {"source": SOURCE_BWB})
+        rows = semantic_queries.regulations_with_basis(self.store)
         for chunk in chunked(self._track(rows, "regulations with a basis"), _CHUNK):
             self._link_chunk(chunk, edges, result)
         edges.flush_into(result)

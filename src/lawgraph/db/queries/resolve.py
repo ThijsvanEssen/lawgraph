@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.api.queries.dossiers import _dossier_documents_aql
-from lawgraph.api.queries.search import load_notation_parser
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOSSIERS,
@@ -21,6 +19,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import collection_from_id, make_node_key
 from lawgraph.core.notation import LawMatch, Notation
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.dossiers import _dossier_documents_aql
+from lawgraph.db.queries.search import load_notation_parser
 
 # What a confidence means: how sure the resolver is that the match is what the query meant.
 CONFIDENCE_IDENTIFIER = 1.0  # an ECLI, BWB id or CELEX id that names one node
