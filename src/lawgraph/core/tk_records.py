@@ -504,15 +504,19 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     The tally is stored so a list row costs no edge traversal; who voted how
     is on the VOTED edges.
     """
-    cases = agenda_cases(decision)
+    own = list(_dicts(decision.get("Zaak")))
+    cases = own + agenda_cases(decision)
     agenda_item = next(_dicts(decision.get("Agendapunt")), {})
+    activity = next(_dicts(agenda_item.get("Activiteit")), {})
     decision_text = decision.get("BesluitTekst") or ""
 
-    # AgendapuntZaakBesluitVolgorde is the 1-based index of the Zaak this
-    # Besluit decided on — the one thing that tells eighteen moties on a
-    # single Agendapunt apart.
+    # The Besluit's own Zaak is the case it decided: what tells the vote on a bill from
+    # the votes on its amendments, and eighteen moties on one Agendapunt apart. Without
+    # it only an Agendapunt of one case says which. AgendapuntZaakBesluitVolgorde is the
+    # place of the Besluit on the Agendapunt, not of its Zaak in the list.
     order = _int_or_none(decision.get("AgendapuntZaakBesluitVolgorde"))
-    primary = cases[order - 1] if order and 1 <= order <= len(cases) else None
+    listed = agenda_cases(decision)
+    primary = own[0] if own else (listed[0] if len(listed) == 1 else None)
 
     # Prefer the per-motie subject over the agenda-item headline it shares with
     # its siblings. Zaak.Titel is deliberately not used: on a motie it carries
@@ -540,7 +544,9 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     return make_node_key("decision", decision_id), {
         "decision_id": decision_id,
         "agenda_item_id": str(decision.get("Agendapunt_Id") or ""),
-        "date": iso_date(votes[0].changed_at) if votes else None,
+        # The day of the vote; a row's GewijzigdOp is when it was last edited.
+        "date": iso_date(activity.get("Datum"))
+        or (iso_date(votes[0].changed_at) if votes else None),
         "subject": subject,
         "agenda_item_subject": agenda_item.get("Onderwerp") or "",
         "decision_text": decision_text,
@@ -554,7 +560,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "tally": tally,
         "voters": voters,
         "passed": decision_passed(decision, tally),
-        "display_name": decision_display_name(primary, order, len(cases), subject),
+        "display_name": decision_display_name(primary, order, len(listed), subject),
     }
 
 

@@ -166,13 +166,18 @@ class TKClient(BaseClient):
         Relevant fields: ActorFractie (party), Soort (Voor/Tegen/Onthouden),
         FractieGrootte (seats), Vergissing (mistaken vote).
         """
+        # The Besluit's own Zaak is the case it decided (a bill, one of its amendments);
+        # the Agendapunt holds every case voted on under it, and its Activiteit the day.
+        zaak = (
+            "Zaak("
+            "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
+            "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)"
+            ")"
+        )
         params: dict[str, Any] = {
             "$expand": (
-                "Besluit($expand=Agendapunt("
-                "$expand=Zaak("
-                "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
-                "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)"
-                ")))"
+                f"Besluit($expand={zaak},"
+                f"Agendapunt($expand=Activiteit($select=Id,Datum,Soort),{zaak}))"
             ),
         }
         if since is not None:

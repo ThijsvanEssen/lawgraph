@@ -149,11 +149,7 @@ def test_a_document_and_a_decision_keep_the_kind_of_their_case() -> None:
         {"Id": "doc-1", "Soort": "Brief regering", "Zaak": [bill]}
     )
     assert document["case_kinds"] == ["Wetgeving"]
-    _, decision = tk_records.decision(
-        "b-1",
-        {"Agendapunt": [{"Zaak": [bill]}], "AgendapuntZaakBesluitVolgorde": 1},
-        [],
-    )
+    _, decision = tk_records.decision("b-1", {"Zaak": [bill]}, [])
     assert decision["primary_case_kind"] == "Wetgeving"
 
 
@@ -313,29 +309,53 @@ def test_the_outcome_falls_back_to_the_tally_when_the_source_is_silent() -> None
     assert props["passed"] is False
 
 
-def test_a_decision_names_the_case_it_singled_out() -> None:
-    decision = {
-        "AgendapuntZaakBesluitVolgorde": 2,
-        "Agendapunt": [
-            {
-                "Onderwerp": "Moties bij de Wet versterking regie volkshuisvesting",
-                "Zaak": [
-                    {"Id": "z-1", "Nummer": "2024Z01", "Soort": "Motie"},
-                    {
-                        "Id": "z-2",
-                        "Nummer": "2024Z02",
-                        "Soort": "Motie",
-                        "Onderwerp": "openbaar maken wachtlijsten",
-                    },
-                ],
-            }
-        ],
+def test_a_decision_names_the_case_it_decided() -> None:
+    """The Besluit's own Zaak, as TK sends it for the Visserijwet (36899) on 22 September
+    2026: an amendment, the bill and an amendment on one agenda item, and
+    AgendapuntZaakBesluitVolgorde 3 on the vote on the bill, which is second in the list."""
+    amendment = {"Id": "z-1", "Nummer": "2026Z18401", "Soort": "Amendement"}
+    bill = {
+        "Id": "z-2",
+        "Nummer": "2026Z03557",
+        "Soort": "Wetgeving",
+        "Onderwerp": "Wijziging van de Visserijwet 1963",
     }
+    other = {"Id": "z-3", "Nummer": "2026Z18274", "Soort": "Amendement"}
+    decision = {
+        "AgendapuntZaakBesluitVolgorde": 3,
+        "BesluitSoort": "Stemmen - aangenomen",
+        "Zaak": [bill],
+        "Agendapunt": {
+            "Onderwerp": "Wijziging van de Visserijwet 1963",
+            "Activiteit": {"Soort": "Stemmingen", "Datum": "2026-09-22T15:00:00+02:00"},
+            "Zaak": [amendment, bill, other],
+        },
+    }
+    vote = tk_records.vote(_vote(GewijzigdOp="2026-09-23T09:00:00+02:00"))
+    _, props = tk_records.decision("b-1", decision, [vote])
+    assert (props["primary_case_id"], props["primary_case_kind"]) == (
+        "z-2",
+        "Wetgeving",
+    )
+    assert props["case_ids"] == ["z-2", "z-1", "z-3"]
+    assert props["subject"] == "Wijziging van de Visserijwet 1963"
+    assert (
+        props["display_name"]
+        == "Wetgeving 2026Z03557 — Wijziging van de Visserijwet 1963"
+    )
+    # The day of the vote, not the day the row was last edited.
+    assert props["date"] == "2026-09-22"
+
+
+def test_without_its_own_case_only_an_agenda_item_of_one_case_names_it() -> None:
+    cases = [{"Id": "z-1", "Soort": "Motie"}, {"Id": "z-2", "Soort": "Motie"}]
+    decision = {"AgendapuntZaakBesluitVolgorde": 2, "Agendapunt": [{"Zaak": cases}]}
     _, props = tk_records.decision("b-1", decision, [tk_records.vote(_vote())])
-    assert props["primary_case_id"] == "z-2"
-    assert props["case_ids"] == ["z-1", "z-2"]
-    assert props["subject"] == "openbaar maken wachtlijsten"
-    assert props["display_name"] == "Motie 2024Z02 — openbaar maken wachtlijsten"
+    assert props["primary_case_id"] is None
+    _, props = tk_records.decision(
+        "b-1", {"Agendapunt": [{"Zaak": cases[:1]}]}, [tk_records.vote(_vote())]
+    )
+    assert props["primary_case_id"] == "z-1"
 
 
 def test_siblings_on_one_agenda_item_fall_back_to_its_subject() -> None:

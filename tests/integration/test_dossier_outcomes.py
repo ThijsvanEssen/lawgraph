@@ -84,9 +84,17 @@ def _document(
 
 
 def _votes(
-    number: str, salt: int, case: dict[str, Any], verdict: str, date: str
+    number: str,
+    salt: int,
+    case: dict[str, Any],
+    verdict: str,
+    date: str,
+    *,
+    agenda: list[dict[str, Any]] | None = None,
+    order: int = 1,
 ) -> Iterator[dict[str, Any]]:
-    """The rows of one decision on *case*, one per faction."""
+    """The rows of one decision on *case*, one per faction, under an agenda item that holds
+    *agenda* (only *case* when it is not given) as the TK API sends it."""
     decision = uid(int(number), salt)
     for faction, choice in ((1, "Voor"), (2, "Tegen")):
         yield {
@@ -97,13 +105,18 @@ def _votes(
             "ActorFractie": f"F{faction}",
             "Fractie_Id": uid(faction, 8),
             "Persoon_Id": None,
-            "GewijzigdOp": f"{date}T15:00:00+02:00",
+            "GewijzigdOp": "2026-09-23T09:00:00+02:00",
             "Besluit": {
                 "Id": decision,
                 "BesluitSoort": f"Stemmen - {verdict}",
                 "BesluitTekst": f"{verdict.capitalize()}.",
-                "AgendapuntZaakBesluitVolgorde": 1,
-                "Agendapunt": {"Onderwerp": case["Onderwerp"], "Zaak": [case]},
+                "AgendapuntZaakBesluitVolgorde": order,
+                "Zaak": [case],
+                "Agendapunt": {
+                    "Onderwerp": case["Onderwerp"],
+                    "Activiteit": {"Soort": "Stemmingen", "Datum": f"{date}T15:00:00"},
+                    "Zaak": agenda or [case],
+                },
             },
         }
 
@@ -125,10 +138,20 @@ def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
             _document(number, 1, "Voorstel van wet", title, "2024-01-10", [bill]),
         )
         if number == PENDING:
+            # The amendment is second on the agenda item, after the bill: its place in
+            # that list is not what AgendapuntZaakBesluitVolgorde says.
             amendment = _zaak(number, 4, "Amendement")
             yield from (
                 (RAW_KIND_TK_STEMMING, row)
-                for row in _votes(number, 7, amendment, "verworpen", "2025-11-04")
+                for row in _votes(
+                    number,
+                    7,
+                    amendment,
+                    "verworpen",
+                    "2025-11-04",
+                    agenda=[bill, amendment],
+                    order=1,
+                )
             )
         if number == WITHDRAWN:
             letter = _zaak(number, 5, "Brief regering")
