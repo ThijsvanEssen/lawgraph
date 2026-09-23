@@ -26,3 +26,17 @@ services:
       - --cache.size=67108864                           # 64 MiB
       - --query.memory-limit=268435456                  # 256 MiB per query
       - --query.global-memory-limit=402653184           # 384 MiB for all queries together
+
+  # An S3 server for the payload store in an S3 bucket (tests/integration/test_payloads.py):
+  # what LeafCloud's object storage is to the real deployment. Its objects live in the
+  # container and go with it.
+  s3-test:
+    image: versity/versitygw:latest
+    container_name: lawgraph-s3-test
+    ports:
+      - "8531:7070"
+    environment:
+      - ROOT_ACCESS_KEY=lawgraph
+      - ROOT_SECRET_KEY=lawgraph-test-secret
+    entrypoint: ["sh", "-c", "mkdir -p /tmp/s3 && exec versitygw --quiet posix /tmp/s3"]
+    mem_limit: 256m

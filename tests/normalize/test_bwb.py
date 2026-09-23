@@ -12,6 +12,7 @@ from lawgraph.pipelines.normalize.bwb_history import (
     BWBHistoryNormalizePipeline,
     valid_until_by_key,
 )
+from tests.fakes import RawSourcesFake
 
 XML = (
     pathlib.Path(__file__).parent.parent / "fixtures" / "bwb_grondwet_toestand.xml"
@@ -19,7 +20,7 @@ XML = (
 GRONDWET = "BWBR0001840"
 
 
-class _Store:
+class _Store(RawSourcesFake):
     """In-memory store: upserts merge props like the real bulk upsert does."""
 
     def __init__(self, nodes: dict[str, dict[str, dict]] | None = None) -> None:

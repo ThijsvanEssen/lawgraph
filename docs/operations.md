@@ -18,6 +18,19 @@ the same values; a variable already set in the process environment wins over `.e
 | `ARANGO_ROOT_PASSWORD` | none | read by `docker-compose.yml` for the root password of the container; set it equal to `ARANGO_PASSWORD` |
 | `LAWGRAPH_DB_SIZE_ALERT_GIB` | `70` | `lawgraph check` fails from this database size on (see Database size) |
 
+### Payload store
+
+The XML and HTML of raw records are kept outside the database (`docs/data-model.md`,
+raw_sources): in a directory on this machine, or in an S3 bucket. On the server that is a
+bucket of LeafCloud's object storage (Amsterdam, S3-compatible).
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LAWGRAPH_PAYLOAD_STORE` | `file://~/.local/share/lawgraph/payloads` | `file:///path` or `s3://bucket[/prefix]` |
+| `LAWGRAPH_S3_ENDPOINT` | none (AWS) | `https://leafcloud.store` for LeafCloud |
+| `LAWGRAPH_S3_REGION` | none | `europe-nl-ams1` for LeafCloud |
+| `LAWGRAPH_S3_ACCESS_KEY`, `LAWGRAPH_S3_SECRET_KEY` | none | the EC2 credentials of the project (`openstack ec2 credentials create`) |
+
 ### External sources
 
 All default to the public endpoints; no key is required.
@@ -136,7 +149,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, EU acts, treaties, memoranda without text) |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
@@ -306,7 +319,10 @@ the same directory read-only; `LAWGRAPH_RESTORE_CONTAINER` for another server, w
 the full database needs) and compares every collection and view with `counts`; `runs.log`
 says how long the restore took. Both run under the lock of the scheduled runs, so a dump never
 reads a database that a load is writing. Measured on a database of 1.2 GB: a dump of 333 MB in
-30 s, a restore in 38 s.
+30 s, a restore in 38 s. The dump holds the metadata of the raw records, not their payloads:
+those are in the payload store, which is backed up on its own. A directory store goes with the
+backups of the machine; in a bucket, versioning (or a replica in a second bucket) protects
+against a deleted or overwritten object.
 
 ```
 0  3 * * *   /path/to/lawgraph/scripts/backup.sh

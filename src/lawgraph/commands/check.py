@@ -12,6 +12,7 @@ command does. Every check is one read-only query; a problem is an error of the c
   derived  what a normalize step keeps for a semantic step is there on every node it is read from
   papers   the XML of Tweede Kamer papers that was retrieved has been read into their documents
   cases    cases name the dossier they belong to
+  payloads the text payloads of raw records are in the payload store (a few of every kind)
   size     the database stays below the alert size (``LAWGRAPH_DB_SIZE_ALERT_GIB``, 70 GiB)
            and the server reports its license limit as not reached
 """
@@ -107,6 +108,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     _check_size(store, report)
     raw = _raw_counts(store)
     _check_raw(raw, report)
+    _check_payloads(store, raw, report)
     _check_nodes(store, raw, report)
     if edges:
         _check_edges(store, report)
@@ -170,6 +172,37 @@ def _check_raw(raw: dict[tuple[str, str], int], report: Report) -> None:
                     f"raw {source}/{kind}: no records. Was it retrieved, and did the source "
                     "answer what was asked?"
                 )
+
+
+# Records of each raw kind whose payload is looked for: a store that is not the one the
+# payloads were written to misses all of them, a lost object is found by the next run.
+PAYLOAD_SAMPLE = 3
+
+
+def _check_payloads(
+    store: ArangoStore, raw: dict[tuple[str, str], int], report: Report
+) -> None:
+    aql = f"""
+    FOR r IN {COLLECTION_RAW_SOURCES}
+        FILTER r.source == @source AND r.kind == @kind AND r.payload_ref != null
+        LIMIT @sample
+        RETURN r.payload_ref
+    """
+    looked = missing = 0
+    for source, kind in sorted(raw):
+        bind = {"source": source, "kind": kind, "sample": PAYLOAD_SAMPLE}
+        for name in store.query(aql, bind):
+            looked += 1
+            if not store.payloads.exists(name):
+                missing += 1
+    where = store.payloads.location
+    if missing:
+        report.problem(
+            f"payloads: {missing} of {looked} text payloads looked for are not in {where}. "
+            "Is LAWGRAPH_PAYLOAD_STORE the store they were written to?"
+        )
+    elif looked:
+        report.note(f"payloads: the {looked} looked for are in {where}")
 
 
 def _check_nodes(

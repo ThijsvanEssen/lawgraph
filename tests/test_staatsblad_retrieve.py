@@ -52,7 +52,7 @@ class _Client:
 
 
 def _row(bwb_id: str, xml: str, kind: str = "bwb-toestand-xml") -> dict:
-    return {"bwb_id": bwb_id, "xml": xml, "kind": kind}
+    return {"bwb_id": bwb_id, "payload_text": xml, "kind": kind}
 
 
 def _run(rows, existing=None, missing=None):
@@ -154,6 +154,6 @@ def test_a_failing_existence_query_is_not_swallowed() -> None:
 
 def test_a_toestand_without_xml_is_skipped_not_a_crash() -> None:
     result, _, client = _run(
-        [{"bwb_id": "BWBR0000001", "xml": None, "kind": "bwb-toestand-xml"}]
+        [{"bwb_id": "BWBR0000001", "payload_text": None, "kind": "bwb-toestand-xml"}]
     )
     assert client.fetched == [] and result.skipped == 1

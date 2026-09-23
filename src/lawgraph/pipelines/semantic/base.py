@@ -103,16 +103,16 @@ class SemanticPipelineBase(PipelineBase):
         """``(judgment node, XML)`` of every stored Rechtspraak judgment, from raw_sources.
 
         The XML is not kept on the judgment node (it holds the summary, the text and the
-        paragraphs already, and the XML is a third of the collection again): it is read where
-        retrieve stored it. The node is the one normalize makes of the same ECLI.
+        paragraphs already): it is read from the payload store, where retrieve put it. The
+        node is the one normalize makes of the same ECLI.
         """
         since_filter = "FILTER r.fetched_at >= @since" if since_iso else ""
         aql = f"""
         FOR r IN {COLLECTION_RAW_SOURCES}
             FILTER r.source == @source AND r.kind == @kind
             {since_filter}
-            FILTER r.payload_text != null
-            RETURN {{ecli: r.meta.ecli || r.external_id, xml: r.payload_text}}
+            FILTER r.payload_ref != null
+            RETURN {{ecli: r.meta.ecli || r.external_id, payload_ref: r.payload_ref}}
         """
         bind: dict[str, Any] = {
             "source": SOURCE_RECHTSPRAAK,
@@ -133,9 +133,11 @@ class SemanticPipelineBase(PipelineBase):
             count = next(iter(self.store.query(count_aql, bind)), None)
             total = count if isinstance(count, int) else None
         rows = self.store.query(aql, bind, batch_size=JUDGMENT_BATCH_SIZE)
-        for row in self._track(rows, "judgments", total=total):
+        for row in self._track(
+            self.store.with_payloads(rows), "judgments", total=total
+        ):
             ecli = str(row.get("ecli") or "").strip()
-            if not ecli:
+            if not ecli or row.get("payload_text") is None:
                 continue
             node = Node(
                 collection=COLLECTION_JUDGMENTS,
@@ -144,7 +146,7 @@ class SemanticPipelineBase(PipelineBase):
                 props={"ecli": ecli},
                 _skip_validation=True,
             )
-            yield node, str(row["xml"])
+            yield node, str(row["payload_text"])
 
     def _judgment_paragraphs(
         self, since_iso: str | None = None

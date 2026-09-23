@@ -10,13 +10,14 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from tests.fakes import RawSourcesFake
 
 # ---------------------------------------------------------------------------
 # Shared FakeStore — just enough surface to support normalize_nodes()
 # ---------------------------------------------------------------------------
 
 
-class _FakeStore:
+class _FakeStore(RawSourcesFake):
     def __init__(self) -> None:
         self.upserted: list[Node] = []
 

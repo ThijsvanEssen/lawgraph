@@ -24,10 +24,11 @@ A node is a document `{_key, type, labels, props}`:
 - `stub: true` marks a placeholder created because something referred to it before its own
   source was ingested.
 
-Other collections: `raw_sources` (verbatim payloads), `watches` (saved node watches, not
-scoped to a user), `edge_status_log` (audit rows written by `ArangoStore.flip_edge_status`,
-which no pipeline calls), `topics` (schema only; nothing writes it), `pipeline_state` (one
-document per phase: when its last complete `<phase> all` began, for `--since last`).
+Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
+store), `watches` (saved node watches, not scoped to a user), `edge_status_log` (audit rows
+written by `ArangoStore.flip_edge_status`, which no pipeline calls), `topics` (schema only;
+nothing writes it), `pipeline_state` (one document per phase: when its last complete
+`<phase> all` began, for `--since last`).
 
 ## Node types and relation catalogue
 
@@ -308,8 +309,15 @@ member who leaves and rejoins keeps one edge with the latest period; the full ti
 
 ## raw_sources
 
-`{_key, source, kind, external_id, fetched_at, payload_json, payload_text, meta}`.
-JSON sources use `payload_json`; XML and HTML sources use `payload_text`.
+`{_key, source, kind, external_id, fetched_at, payload_json, payload_ref, payload_chars, meta}`.
+JSON sources keep their payload in `payload_json`, in the database, where queries filter on it.
+The XML or HTML of the other sources (most of what LawGraph stores; nothing queries inside it)
+is an object in the payload store (`db/payloads.py`, `LAWGRAPH_PAYLOAD_STORE`: a directory or an
+S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<_key>.gz`; the document keeps
+that name in `payload_ref` and the length of the text in `payload_chars`. The object is written
+before the document. `store.with_payloads(records)` reads the objects of a stream of records,
+side by side, and puts each text back in `payload_text`; a missing object is logged and the
+record is skipped like one without a payload.
 
 | Source | Kinds |
 |--------|-------|

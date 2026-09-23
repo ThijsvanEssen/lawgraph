@@ -10,6 +10,7 @@ from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.pipelines.semantic.rechtspraak_citations import (
     RechtspraakCitationsSemanticPipeline,
 )
+from tests.fakes import RawSourcesFake
 
 # ---------------------------------------------------------------------------
 # Pure detection helper
@@ -43,7 +44,7 @@ def test_detect_ecli_references_empty() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeStore:
+class _FakeStore(RawSourcesFake):
     def __init__(
         self,
         *,
@@ -61,7 +62,7 @@ class _FakeStore:
         if "props.ecli" in aql:
             return []
         return [
-            {"ecli": d["props"]["ecli"], "xml": d["props"]["raw_xml"]}
+            {"ecli": d["props"]["ecli"], "payload_text": d["props"]["raw_xml"]}
             for d in self._judgment_docs
         ]
 

@@ -104,7 +104,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
         since: dt.datetime | None = None,
         batch_size: int = 20,
     ) -> Iterator[dict[str, Any]]:
-        """Stream raw_sources rows in small batches (for large XML payloads)."""
+        """Stream raw_sources rows in small batches, each with its text payload."""
         since_iso = iso_timestamp(since)
         since_filter = "FILTER r.fetched_at >= @since" if since_iso else ""
         aql = f"""
@@ -121,9 +121,8 @@ class NormalizePipelineBase(PipelineBase, ABC):
         # have to be read to count it, so an incremental run shows no total and no ETA.
         total = None if since_iso else self._count_raw_sources(source, kinds)
         progress = Progress(f"{'/'.join(kinds)} records", total=total)
-        yield from progress.track(
-            self.store.query(aql, bind_vars, batch_size=batch_size)
-        )
+        rows = self.store.query(aql, bind_vars, batch_size=batch_size)
+        yield from progress.track(self.store.with_payloads(rows))
 
     def _count_raw_sources(self, source: str, kinds: list[str]) -> int | None:
         aql = f"""

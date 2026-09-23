@@ -7,6 +7,8 @@ import hashlib
 import re
 import time
 from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor
+from itertools import islice
 from typing import Any, TypeVar, cast
 from uuid import uuid4
 
@@ -29,10 +31,22 @@ from lawgraph.config.settings import (
     ARANGO_REQUEST_TIMEOUT,
     ARANGO_URL,
     ARANGO_USER,
+    PAYLOAD_STORE,
+    S3_ACCESS_KEY,
+    S3_ENDPOINT,
+    S3_REGION,
+    S3_SECRET_KEY,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db.payloads import (
+    PayloadMissing,
+    PayloadStore,
+    decode,
+    encode,
+    open_payload_store,
+)
 from lawgraph.db.schema import ensure_schema
 
 logger = get_logger(__name__)
@@ -81,6 +95,20 @@ def _create_database_if_missing(client: ArangoClient) -> None:
 def raw_key(source: str, kind: str, external_id: str) -> str:
     """The ``_key`` of the raw_sources document of (source, kind, external_id)."""
     return hashlib.sha1(f"{source}:{kind}:{external_id}".encode()).hexdigest()
+
+
+# Payloads read or written at once (a thread and a connection each).
+PAYLOAD_THREADS = 16
+
+
+def payload_name(doc: dict[str, Any]) -> str:
+    """The name of the object of a raw record's text payload.
+
+    It starts with the database, so two databases (a test database next to the real one)
+    never share an object; ``raw_sources`` keeps the name, so a restored dump under another
+    name still finds its objects.
+    """
+    return f"{ARANGO_DB_NAME}/{doc['source']}/{doc['kind']}/{doc['_key']}.gz"
 
 
 def raw_source_doc(
@@ -208,6 +236,18 @@ class ArangoStore:
         self.edge_status_log = self._collections[COLLECTION_EDGE_STATUS_LOG]
         self.edges = self._collections[COLLECTION_EDGES]
 
+        self.payloads: PayloadStore = open_payload_store(
+            PAYLOAD_STORE,
+            s3_endpoint=S3_ENDPOINT,
+            s3_region=S3_REGION,
+            s3_access_key=S3_ACCESS_KEY,
+            s3_secret_key=S3_SECRET_KEY,
+        )
+        # Objects are written and read side by side: a request each, most of it waiting.
+        self._payload_io = ThreadPoolExecutor(
+            max_workers=PAYLOAD_THREADS, thread_name_prefix="payload"
+        )
+
     def collection(self, name: str) -> Any:
         """Return the collection handle for *name*. Raises KeyError if unknown."""
         return self._collections[name]
@@ -277,11 +317,14 @@ class ArangoStore:
     ) -> list[tuple[dict[str, Any], str]]:
         """Upsert raw source documents (see ``raw_source_doc``) in one request.
 
-        A stored document with the same key is replaced. Returns the documents the server
-        refused, each with the reason; a failure of the request itself raises.
+        A text payload is written to the payload store first (``_put_payloads``). A stored
+        document with the same key is replaced. Returns the documents the server refused,
+        each with the reason; a failure of the request itself, or of the payload store,
+        raises.
         """
         if not docs:
             return []
+        docs = self._put_payloads(docs)
         outcome = _retry_write(
             f"{len(docs)} raw records",
             lambda: self.raw_sources.insert_many(
@@ -297,6 +340,54 @@ class ArangoStore:
             for doc, answer in zip(docs, cast(list[Any], outcome), strict=True)
             if isinstance(answer, Exception)
         ]
+
+    def _put_payloads(self, docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Write the text payload of every document to the payload store, and return the
+        documents as ``raw_sources`` keeps them: ``payload_ref`` in place of ``payload_text``.
+
+        A payload that cannot be written raises: the store is full, gone or refuses our
+        keys, which is no fault of one record, and fetching on would store nothing.
+        """
+
+        def put(doc: dict[str, Any]) -> dict[str, Any]:
+            text = doc.get("payload_text")
+            if text is None:
+                return doc
+            name = payload_name(doc)
+            self.payloads.put(name, encode(text))
+            stored = {k: v for k, v in doc.items() if k != "payload_text"}
+            return {**stored, "payload_ref": name, "payload_chars": len(text)}
+
+        return list(self._payload_io.map(put, docs))
+
+    def with_payloads(
+        self, records: Iterable[dict[str, Any]], *, batch_size: int = PAYLOAD_THREADS
+    ) -> Iterator[dict[str, Any]]:
+        """*records* of ``raw_sources`` in the same order, each with its ``payload_text``
+        read from the payload store (``None`` when its object is missing, which is logged:
+        the record is then skipped like one without a payload)."""
+
+        def read(record: dict[str, Any]) -> dict[str, Any]:
+            name = record.get("payload_ref")
+            if not name:
+                return record
+            try:
+                text: str | None = decode(self.payloads.get(name))
+            except PayloadMissing:
+                logger.warning(
+                    "The payload of %s/%s/%s is missing in %s (%s).",
+                    record.get("source"),
+                    record.get("kind"),
+                    record.get("external_id"),
+                    self.payloads.location,
+                    name,
+                )
+                text = None
+            return {**record, "payload_text": text}
+
+        rows = iter(records)
+        while chunk := list(islice(rows, batch_size)):
+            yield from self._payload_io.map(read, chunk)
 
     # ── Nodes ──────────────────────────────────────────────────────────────────
 

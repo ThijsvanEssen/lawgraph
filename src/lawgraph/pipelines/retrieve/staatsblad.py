@@ -115,7 +115,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         aql = f"""
         FOR r IN {COLLECTION_RAW_SOURCES}
           FILTER r.source == @source AND r.kind == @kind AND r.external_id != null
-          RETURN {{ bwb_id: r.external_id, xml: r.payload_text }}
+          RETURN {{ bwb_id: r.external_id, payload_ref: r.payload_ref }}
         """
         candidates: dict[str, str] = {}
         without = 0
@@ -124,8 +124,9 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             bind_vars={"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
             batch_size=50,
         )
-        for row in rows:
-            ref = staatsblad_ref_from_bwb_xml(row["xml"]) if row.get("xml") else None
+        for row in store.with_payloads(rows):
+            xml = row.get("payload_text")
+            ref = staatsblad_ref_from_bwb_xml(xml) if xml else None
             if ref is None:
                 without += 1
                 continue

@@ -7,6 +7,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
+from tests.fakes import RawSourcesFake
 
 HTML = (
     "<html><body><p>Artikel 1</p><p>Deze richtlijn stelt regels vast voor de vertolking.</p>"
@@ -15,7 +16,7 @@ HTML = (
 )
 
 
-class _Store:
+class _Store(RawSourcesFake):
     def __init__(self) -> None:
         self.docs: dict[str, list[dict[str, Any]]] = {}
         self.batch_sizes: list[int | None] = []

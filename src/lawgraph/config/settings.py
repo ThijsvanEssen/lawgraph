@@ -46,6 +46,20 @@ ARANGO_REQUEST_TIMEOUT = 620
 # days read-only, then shut down). `lawgraph check` fails from this size on, well before that.
 DB_SIZE_ALERT_GIB = float(os.getenv("LAWGRAPH_DB_SIZE_ALERT_GIB", "70"))
 
+# ── Payload store ─────────────────────────────────────────────────────────────
+
+# Where the text payloads (XML, HTML) of raw records are kept (db/payloads.py): a directory
+# (file:///path) or an S3 bucket (s3://bucket/prefix). The S3 values are those of LeafCloud's
+# object storage when the bucket is there: endpoint https://leafcloud.store, region
+# europe-nl-ams1.
+PAYLOAD_STORE = os.getenv(
+    "LAWGRAPH_PAYLOAD_STORE", "file://~/.local/share/lawgraph/payloads"
+)
+S3_ENDPOINT = os.getenv("LAWGRAPH_S3_ENDPOINT") or None
+S3_REGION = os.getenv("LAWGRAPH_S3_REGION") or None
+S3_ACCESS_KEY = os.getenv("LAWGRAPH_S3_ACCESS_KEY") or None
+S3_SECRET_KEY = os.getenv("LAWGRAPH_S3_SECRET_KEY") or None
+
 # ── External sources ──────────────────────────────────────────────────────────
 
 BWB_BASE_URL = os.getenv("BWB_BASE", "https://wetten.overheid.nl/")

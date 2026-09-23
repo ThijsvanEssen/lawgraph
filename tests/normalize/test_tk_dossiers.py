@@ -34,11 +34,12 @@ from lawgraph.core.relations import BY_NAME
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
+from tests.fakes import RawSourcesFake
 
 SOURCE = "test"
 
 
-class _Store:
+class _Store(RawSourcesFake):
     """The slice of ArangoStore the normalizers use, recorded in memory."""
 
     def __init__(

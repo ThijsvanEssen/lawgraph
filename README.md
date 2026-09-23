@@ -11,7 +11,7 @@ Every source passes through the same three phases, each restartable and idempote
 
 | Phase | Reads | Writes |
 |-------|-------|--------|
-| `retrieve` | external APIs | `raw_sources` (payload stored verbatim) |
+| `retrieve` | external APIs | `raw_sources`, the XML and HTML verbatim in the payload store (a directory, or an S3 bucket) |
 | `normalize` | `raw_sources` | typed nodes and structural edges |
 | `semantic` | nodes and raw XML | edges inferred from structure or text, with `confidence` |
 

@@ -55,8 +55,15 @@ def pytest_collection_modifyitems(
 
 
 @pytest.fixture()
-def database(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    """A fresh database on the test server; ``ArangoStore()`` in this process uses it."""
+def payload_store(tmp_path: Path) -> str:
+    """The payload store of the test: a directory of its own."""
+    return f"file://{tmp_path / 'payloads'}"
+
+
+@pytest.fixture()
+def database(monkeypatch: pytest.MonkeyPatch, payload_store: str) -> Iterator[str]:
+    """A fresh database on the test server, and a payload store of its own; ``ArangoStore()``
+    in this process uses both."""
     from arango.client import ArangoClient
 
     from lawgraph.config import settings
@@ -65,6 +72,7 @@ def database(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     name = f"lawgraph_it_{uuid.uuid4().hex[:10]}"
     monkeypatch.setattr(store_module, "ARANGO_URL", TEST_URL)
     monkeypatch.setattr(store_module, "ARANGO_DB_NAME", name)
+    monkeypatch.setattr(store_module, "PAYLOAD_STORE", payload_store)
     system = ArangoClient(hosts=TEST_URL).db(
         "_system", username=settings.ARANGO_USER, password=settings.ARANGO_PASSWORD
     )
@@ -76,7 +84,9 @@ def database(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
 
 
 @pytest.fixture()
-def cli(database: str) -> Callable[..., subprocess.CompletedProcess[str]]:
+def cli(
+    database: str, payload_store: str
+) -> Callable[..., subprocess.CompletedProcess[str]]:
     """Run ``lawgraph <args>`` as a process of its own against the test database."""
 
     def run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -84,6 +94,7 @@ def cli(database: str) -> Callable[..., subprocess.CompletedProcess[str]]:
             **os.environ,
             "ARANGO_URL": TEST_URL,
             "ARANGO_DB_NAME": database,
+            "LAWGRAPH_PAYLOAD_STORE": payload_store,
             "LAWGRAPH_LOG_LEVEL": "INFO",
             # The code of this checkout, also when the installed package is another one.
             "PYTHONPATH": str(ROOT / "src"),
