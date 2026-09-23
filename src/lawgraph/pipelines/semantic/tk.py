@@ -9,11 +9,8 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_RAW_SOURCES,
     MAX_SEMANTIC_TEXT_LENGTH,
-    RAW_KIND_TK_DOCUMENT,
     RELATION_REFERS_TO,
-    SOURCE_TK,
 )
 from lawgraph.core.aliases import AliasMatcher, InstrumentAliasMap
 from lawgraph.core.citations import (
@@ -28,6 +25,8 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import semantic as semantic_queries
 
 from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
@@ -164,41 +163,18 @@ class TKSemanticPipeline(SemanticPipelineBase):
 
     def _load_tk_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
         """TK documents; only a Document may be the source of a REFERS_TO edge."""
-        bind_vars: dict[str, Any] | None = None
-        id_filter = ""
+        ids: list[str] | None = None
         if since_iso is not None:
             recent_ids = self._recent_external_ids(since_iso)
             if not recent_ids:
                 return
-            id_filter = "    FILTER doc.props.external_id IN @ids\n"
-            bind_vars = {"ids": sorted(recent_ids)}
-
-        aql = (
-            f"FOR doc IN {COLLECTION_DOCUMENTS}\n"
-            '    FILTER "TK" IN doc.labels\n'
-            f"{id_filter}"
-            "    RETURN doc"
-        )
-        for doc in self.store.query(aql, bind_vars=bind_vars):
+            ids = sorted(recent_ids)
+        for doc in semantic_queries.tk_documents(self.store, ids):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)
 
     def _recent_external_ids(self, since_iso: str) -> set[str]:
         """External ids of TK documents fetched at or after *since_iso*."""
-        aql = f"""
-        FOR raw IN {COLLECTION_RAW_SOURCES}
-            FILTER raw.source == @source AND raw.kind == @kind
-            FILTER raw.fetched_at >= @since
-            FILTER raw.external_id != null
-        RETURN raw.external_id
-        """
-        rows = self.store.query(
-            aql,
-            bind_vars={
-                "source": SOURCE_TK,
-                "kind": RAW_KIND_TK_DOCUMENT,
-                "since": since_iso,
-            },
-        )
+        rows = raw_queries.tk_document_ids_fetched_since(self.store, since_iso)
         return {str(row) for row in rows if isinstance(row, str)}
 
     def _resolve_target_node(self, hit: CitationHit) -> Node | None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.queries.judgments import JudgmentArticleRelation, JudgmentDetailData
+from lawgraph.db.queries.judgments import JudgmentArticleRelation, JudgmentDetailData
 
 client = TestClient(app)
 

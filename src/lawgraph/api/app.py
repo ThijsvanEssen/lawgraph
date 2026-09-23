@@ -266,7 +266,7 @@ async def health(
 ) -> dict[str, str]:
     """Health check — verifies database connectivity."""
     try:
-        store.db.version()
+        store.ping()
         return {"status": "ok", "database": "connected"}
     except Exception as exc:
         raise HTTPException(

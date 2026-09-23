@@ -12,13 +12,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.documents import (
-    get_document,
-    get_document_links,
-    get_document_passages,
-)
-from lawgraph.api.queries.documents import list_documents as query_documents
-from lawgraph.api.queries.dossiers import get_dossier_by_number
 from lawgraph.api.schemas.documents import (
     DocumentListResponse,
     DocumentPassagesResponse,
@@ -29,6 +22,13 @@ from lawgraph.api.schemas.documents import (
 )
 from lawgraph.api.schemas.dossiers import DOSSIER_NUMBER_PATTERN
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.documents import (
+    get_document,
+    get_document_links,
+    get_document_passages,
+)
+from lawgraph.db.queries.documents import list_documents as query_documents
+from lawgraph.db.queries.dossiers import get_dossier_by_number
 
 router = APIRouter()
 

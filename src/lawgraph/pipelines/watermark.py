@@ -12,9 +12,9 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_PIPELINE_STATE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import RELATIVE_SINCE_OVERLAP
+from lawgraph.db.queries import state as state_queries
 
 logger = get_logger(__name__)
 
@@ -26,8 +26,8 @@ class NothingOnRecord(RuntimeError):
 
 
 def covered_until(store: Any, phase: str) -> dt.datetime | None:
-    doc = store.collection(COLLECTION_PIPELINE_STATE).get(phase)
-    return dt.datetime.fromisoformat(doc["covered_until"]) if doc else None
+    mark = state_queries.covered_until(store, phase)
+    return dt.datetime.fromisoformat(mark) if mark else None
 
 
 def since_last(store: Any, phase: str) -> dt.datetime:
@@ -54,7 +54,5 @@ def advance(
             mark.isoformat(timespec="seconds"),
         )
         return False
-    store.collection(COLLECTION_PIPELINE_STATE).insert(
-        {"_key": phase, "covered_until": began.isoformat()}, overwrite=True
-    )
+    state_queries.set_covered_until(store, phase, began.isoformat())
     return True

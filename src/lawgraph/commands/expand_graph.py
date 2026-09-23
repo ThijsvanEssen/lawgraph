@@ -15,29 +15,21 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 
-from lawgraph.config.constants import COLLECTION_RAW_SOURCES, RAW_KIND_MISSING_SUFFIX
+from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.command import Outcome, combined_result, run_command
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
 from lawgraph.pipelines.retrieve_commands import GAPS
 
 logger = get_logger(__name__)
 
-# Grouped on the fields of the index, so the count walks the index: as a scan of the
-# collection it read every document, and an EU act is up to 1 MB.
-_RECORDS_AQL = f"""
-FOR r IN {COLLECTION_RAW_SOURCES}
-    COLLECT source = r.source, kind = r.kind WITH COUNT INTO n
-    FILTER NOT LIKE(kind, @missing)
-    RETURN n
-"""
-
 
 def _count_records(store: ArangoStore) -> int:
     """The raw records that hold a document (not those that remember a 404)."""
-    return sum(store.query(_RECORDS_AQL, {"missing": f"%{RAW_KIND_MISSING_SUFFIX}"}))
+    return sum(raw_queries.record_counts(store, RAW_KIND_MISSING_SUFFIX))
 
 
 def _expand(max_iterations: int) -> list[Outcome]:

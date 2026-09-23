@@ -7,11 +7,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.annexes import (
-    get_annex,
-    get_annex_referenced_by,
-    list_annexes,
-)
 from lawgraph.api.schemas.annexes import (
     AnnexDetailResponse,
     AnnexDTO,
@@ -22,6 +17,11 @@ from lawgraph.api.schemas.annexes import (
 from lawgraph.api.schemas.common import ArticleRelationDTO
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.annexes import (
+    get_annex,
+    get_annex_referenced_by,
+    list_annexes,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)

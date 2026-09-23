@@ -12,9 +12,6 @@ from typing import Any
 
 import pytest
 
-from lawgraph.api.queries import search as search_module
-from lawgraph.api.queries.resolve import ALTERNATIVES, resolve
-from lawgraph.api.queries.search import search_all
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
@@ -26,6 +23,9 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 from lawgraph.db.edges import make_edge_doc
+from lawgraph.db.queries import search as search_module
+from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
+from lawgraph.db.queries.search import search_all
 
 SR, GW, AWB, BW6 = "BWBR0001854", "BWBR0001840", "BWBR0005537", "BWBR0005289"
 GDPR = "32016R0679"

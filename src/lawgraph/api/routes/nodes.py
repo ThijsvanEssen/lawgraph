@@ -5,19 +5,8 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
-from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import parse_choices
-from lawgraph.api.queries.nodes import (
-    DEFAULT_BUCKET_LIMIT,
-    NeighborFilter,
-    NodeNotFoundError,
-    UnsupportedCollectionError,
-    get_node_facets,
-    get_node_neighborhood,
-    get_node_with_neighbors,
-)
-from lawgraph.api.queries.overlay import get_heat_counts, get_in_flux_counts
 from lawgraph.api.schemas.nodes import (
     DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
@@ -32,10 +21,21 @@ from lawgraph.api.schemas.nodes import (
     node_type_of,
 )
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD
+from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.nodes import (
+    DEFAULT_BUCKET_LIMIT,
+    NeighborFilter,
+    NodeNotFoundError,
+    UnsupportedCollectionError,
+    get_node_facets,
+    get_node_neighborhood,
+    get_node_with_neighbors,
+)
+from lawgraph.db.queries.overlay import get_heat_counts, get_in_flux_counts
 
 router = APIRouter()
 logger = get_logger(__name__)

@@ -16,11 +16,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from lawgraph.api.queries._helpers import _ensure_doc
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries._helpers import _ensure_doc
 
 
 @dataclass(frozen=True)

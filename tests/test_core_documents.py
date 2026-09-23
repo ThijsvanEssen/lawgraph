@@ -39,6 +39,6 @@ def test_an_explanatory_kind_contains_toelichting(kind, explanatory) -> None:
 
 
 def test_the_tk_mvt_pipeline_selects_with_the_same_marker() -> None:
-    from lawgraph.pipelines.semantic.tk_mvt import _TARGETS_AQL
+    from lawgraph.db.queries.semantic import MEMORANDUM_TARGETS_AQL
 
-    assert "'toelichting'" in _TARGETS_AQL
+    assert "'toelichting'" in MEMORANDUM_TARGETS_AQL

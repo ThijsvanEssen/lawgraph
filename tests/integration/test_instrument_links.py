@@ -11,13 +11,6 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.instrument_links import get_international_links
-from lawgraph.api.queries.instrument_scope import (
-    resolve_instrument,
-    scope_of,
-    scope_of_node,
-)
-from lawgraph.api.queries.instruments import get_articles
 from lawgraph.config.constants import (
     EDGE_SOURCE_BWB_IMPLEMENTS,
     RELATION_IMPLEMENTS,
@@ -25,6 +18,13 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.db import ArangoStore, make_edge_doc
+from lawgraph.db.queries.instrument_links import get_international_links
+from lawgraph.db.queries.instrument_scope import (
+    resolve_instrument,
+    scope_of,
+    scope_of_node,
+)
+from lawgraph.db.queries.instruments import get_articles
 
 REGULATION = "BWBR0009001"
 OTHER_REGULATION = "BWBR0009002"

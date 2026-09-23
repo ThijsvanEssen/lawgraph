@@ -12,11 +12,11 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     RELATION_PART_OF,
-    SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
 
@@ -31,26 +31,7 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
 
-        aql = f"""
-FOR document IN {COLLECTION_DOCUMENTS}
-  FILTER document.props.source == @source
-  FILTER document.props.dossier_number != null
-  LET dossier = FIRST(
-    FOR d IN {COLLECTION_DOSSIERS}
-      FILTER d.props.number == TO_STRING(document.props.dossier_number)
-      FILTER (d.props.suffix || "") == (document.props.dossier_suffix || "")
-      LIMIT 1
-      RETURN d
-  )
-  FILTER dossier != null
-  RETURN {{
-    document_key: document._key,
-    dossier_key: dossier._key,
-    dossier_number: document.props.dossier_number,
-    dossier_suffix: document.props.dossier_suffix
-  }}
-"""
-        papers = self.store.query(aql, {"source": SOURCE_EERSTEKAMER})
+        papers = semantic_queries.ek_papers_in_tk_dossiers(self.store)
         rows = list(self._track(papers, "Eerste Kamer papers"))
         if not rows:
             logger.info("EK dossier link: no EK stuk matches a TK dossier.")

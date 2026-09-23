@@ -19,7 +19,6 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_MEMBERS,
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
     RELATION_ABOUT,
@@ -301,7 +300,7 @@ def get_dossier_timeline(
         bind["kind_filter"] = [k.lower() for k in kind_filter]
 
     aql = f"""
-    LET members = (
+    LET dossier_nodes = (
         FOR e IN {COLLECTION_EDGES}
             FILTER e._to == @dossier_id
             FILTER e.relation IN [@part_of, @about]
@@ -314,7 +313,7 @@ def get_dossier_timeline(
             FILTER node != null
             RETURN node
     )
-    FOR node IN {COLLECTION_MEMBERS}
+    FOR node IN dossier_nodes
         LET entry = {{
             date: (node.props.date != null ? node.props.date
                    : node.props.made_on),

@@ -10,12 +10,6 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from lawgraph.api.queries.committees import (
-    get_actor_dossiers,
-    get_committee_activities,
-    get_committee_detail,
-)
-from lawgraph.api.queries.dossiers import get_dossier_hub
 from lawgraph.config.constants import (
     EDGE_STATUS_VOORGESTELD,
     RELATION_ABOUT,
@@ -29,6 +23,12 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.db import ArangoStore, make_edge_doc
+from lawgraph.db.queries.committees import (
+    get_actor_dossiers,
+    get_committee_activities,
+    get_committee_detail,
+)
+from lawgraph.db.queries.dossiers import get_dossier_hub
 
 
 class Graph:
@@ -317,7 +317,7 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
     assert hub["documents_by_kind"] == {"Motie": 600}
     assert elapsed < 2.0, elapsed
 
-    from lawgraph.api.queries import dossiers
+    from lawgraph.db.queries import dossiers
 
     body = dossiers._dossier_documents_aql(dossiers._DOSSIER_HUB_BODY)
     aql = f"LET dossier_id = @dossier_id\n{body}"

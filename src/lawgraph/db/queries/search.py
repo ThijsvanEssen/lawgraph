@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, cast
 
-from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_FACTIONS,
@@ -14,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     TEXT_ANALYZER,
 )
+from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.db import ArangoStore

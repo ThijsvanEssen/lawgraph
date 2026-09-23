@@ -67,7 +67,7 @@ max-line-length = 100
 "lawgraph.core.logging.setup_logging".msg = "Only an entry point (__main__, api/app.py) sets up logging."
 
 [tool.ruff.lint.per-file-ignores]
-"src/lawgraph/api/queries/*.py" = ["E501"]
+"src/lawgraph/db/queries/*.py" = ["E501"]
 "src/lawgraph/__main__.py" = ["TID251"]
 "src/lawgraph/api/app.py" = ["TID251"]
 "tests/*" = ["TID251"]

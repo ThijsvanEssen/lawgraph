@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from lawgraph.api.queries._helpers import _find_judgments_for_article, _load_judgment
-from lawgraph.api.queries.graph import get_global_graph, get_judgment_graph
-from lawgraph.api.queries.instruments import get_instrument_judgments
-from lawgraph.api.queries.relationships import search_relationships
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries._helpers import _find_judgments_for_article, _load_judgment
+from lawgraph.db.queries.graph import get_global_graph, get_judgment_graph
+from lawgraph.db.queries.instruments import get_instrument_judgments
+from lawgraph.db.queries.relationships import search_relationships
 from tests.integration.seed import seed
 
 GRONDWET = "BWBR0001840"
@@ -111,7 +111,7 @@ def test_the_counts_of_the_stats_walk_an_index(database: str) -> None:
     """`/api/stats` counts per relation, source, kind and jurisdiction. On sparse indexes
     each count read every document: 13.8 s on the full database, 10.8 s of it for the
     judgments (their text is in the document)."""
-    from lawgraph.api.queries import stats
+    from lawgraph.db.queries import stats
 
     store = ArangoStore()
     seed(store, documents=20, judgments=5, regulations=2)

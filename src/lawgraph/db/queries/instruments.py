@@ -5,9 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.api.queries.dossiers import collect_dossier_numbers, get_dossier_titles
-from lawgraph.api.queries.instrument_scope import scope_of
-from lawgraph.api.queries.search import build_search_clause, tokenize_search_query
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
@@ -25,6 +22,9 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import parse_arango_id
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
+from lawgraph.db.queries.instrument_scope import scope_of
+from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 
 # Edges from an amending instrument to the articles it changes.
 _MUTATION_RELATIONS = [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS]
@@ -167,9 +167,9 @@ def get_instrument_edges_bundle(
                 meta: e.meta
             }}
     )
-    LET edges = SLICE(APPEND(out_edges, in_edges), 0, @max_edges)
+    LET kept_edges = SLICE(APPEND(out_edges, in_edges), 0, @max_edges)
     LET foreign_ids = UNIQUE(
-        FOR e IN {COLLECTION_EDGES}
+        FOR e IN kept_edges
             FOR id IN [e.from, e.to]
                 FILTER id NOT IN focal_ids
                 RETURN id
@@ -182,7 +182,7 @@ def get_instrument_edges_bundle(
     )
     RETURN {{
         article_count: LENGTH(focal_ids),
-        edges: edges,
+        edges: kept_edges,
         foreign_docs: foreign_docs
     }}
     """

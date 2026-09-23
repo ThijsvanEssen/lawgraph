@@ -8,8 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.queries.graph import GlobalGraphData, InstrumentLayerData
 from lawgraph.api.routes import graph as graph_routes
+from lawgraph.db.queries.graph import GlobalGraphData, InstrumentLayerData
 
 client = TestClient(app)
 

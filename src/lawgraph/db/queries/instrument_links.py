@@ -14,7 +14,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.api.queries.instrument_scope import InstrumentScope
 from lawgraph.config.constants import (
     BWB_TREATY_ID_PREFIX,
     COLLECTION_ARTICLES,
@@ -28,6 +27,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.instrument_scope import InstrumentScope
 
 # The keys of the articles of a treaty: BWB treaties by their BWBV id, the ECHR Convention by
 # its pseudo id. The prefix keeps the edges of a large statute from being looked up one by

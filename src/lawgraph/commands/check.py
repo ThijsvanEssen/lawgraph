@@ -25,10 +25,8 @@ from dataclasses import dataclass, field
 from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
-    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    COLLECTION_RAW_SOURCES,
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_ECHR_JUDGMENT,
@@ -56,6 +54,8 @@ from lawgraph.core.kamerstuk_xml import TEXT_SOURCE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import checks
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.schema import SEARCH_VIEWS
 
 logger = get_logger(__name__)
@@ -148,16 +148,8 @@ def _check_size(store: ArangoStore, report: Report) -> None:
         report.note(line)
 
 
-# Grouped on the fields of the index, so the count walks the index and reads no document.
-_RAW_COUNTS_AQL = f"""
-FOR r IN {COLLECTION_RAW_SOURCES}
-    COLLECT source = r.source, kind = r.kind WITH COUNT INTO n
-    RETURN {{source, kind, n}}
-"""
-
-
 def _raw_counts(store: ArangoStore) -> dict[tuple[str, str], int]:
-    rows = store.query(_RAW_COUNTS_AQL)
+    rows = raw_queries.raw_counts(store)
     return {(row["source"], row["kind"]): row["n"] for row in rows}
 
 
@@ -182,16 +174,11 @@ PAYLOAD_SAMPLE = 3
 def _check_payloads(
     store: ArangoStore, raw: dict[tuple[str, str], int], report: Report
 ) -> None:
-    aql = f"""
-    FOR r IN {COLLECTION_RAW_SOURCES}
-        FILTER r.source == @source AND r.kind == @kind AND r.payload_ref != null
-        LIMIT @sample
-        RETURN r.payload_ref
-    """
     looked = missing = 0
     for source, kind in sorted(raw):
-        bind = {"source": source, "kind": kind, "sample": PAYLOAD_SAMPLE}
-        for name in store.query(aql, bind):
+        for name in raw_queries.payload_refs_sample(
+            store, source=source, kind=kind, sample=PAYLOAD_SAMPLE
+        ):
             looked += 1
             if not store.payloads.exists(name):
                 missing += 1
@@ -212,13 +199,7 @@ def _check_nodes(
         stored = sum(n for (s, _), n in raw.items() if s == source)
         if not stored:
             continue
-        aql = f"""
-        FOR d IN {collection}
-            FILTER d.props.source == @source
-            COLLECT WITH COUNT INTO n
-            RETURN n
-        """
-        nodes = next(iter(store.query(aql, {"source": source})), 0)
+        nodes = checks.count_nodes_of_source(store, collection, source)
         records = raw.get((source, RECORD_KIND[source]), 0)
         command = f"`lawgraph normalize {source.replace('_', '-')}`"
         if not nodes:
@@ -235,13 +216,7 @@ def _check_nodes(
 
 
 def _check_edges(store: ArangoStore, report: Report) -> None:
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER DOCUMENT(e._from) == null OR DOCUMENT(e._to) == null
-        COLLECT relation = e.relation WITH COUNT INTO n
-        RETURN {{relation, n}}
-    """
-    dangling = {row["relation"]: row["n"] for row in store.query(aql)}
+    dangling = {row["relation"]: row["n"] for row in checks.dangling_edges(store)}
     if dangling:
         detail = ", ".join(
             f"{relation}: {n:,}" for relation, n in sorted(dangling.items())
@@ -253,13 +228,8 @@ def _check_edges(store: ArangoStore, report: Report) -> None:
 
 def _check_views(store: ArangoStore, report: Report) -> None:
     for view, collection in SEARCH_VIEWS.items():
-        aql = f"""
-        LET indexed = FIRST(FOR d IN {view} COLLECT WITH COUNT INTO n RETURN n)
-        LET stored = LENGTH({collection})
-        RETURN {{indexed, stored}}
-        """
         try:
-            row = next(iter(store.query(aql)))
+            row = checks.view_and_collection_size(store, view, collection)
         except Exception as exc:
             report.problem(f"view {view}: cannot be read ({exc})")
             continue
@@ -277,15 +247,7 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
     """``normalize bwb`` keeps the basis and the EU acts of a regulation on its node, and
     ``semantic bwb-grondslagen`` and ``semantic bwb-implements`` read only that: a regulation
     normalized before it was kept would give them nothing, and nothing would say so."""
-    aql = f"""
-    FOR regulation IN {COLLECTION_INSTRUMENTS}
-        FILTER regulation.props.source == @source AND regulation.props.stub != true
-        FILTER "Publication" NOT IN regulation.labels
-        FILTER regulation.props.basis == null OR regulation.props.celex_refs == null
-        COLLECT WITH COUNT INTO n
-        RETURN n
-    """
-    behind = next(iter(store.query(aql, {"source": SOURCE_BWB})), 0)
+    behind = checks.count_regulations_without_derived_props(store)
     if behind:
         report.problem(
             f"{behind:,} BWB regulations carry no `basis` / `celex_refs`: BASED_ON and "
@@ -305,14 +267,7 @@ def _check_papers(
     stored = raw.get((SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML), 0)
     if not stored:
         return
-    aql = f"""
-    FOR d IN {COLLECTION_DOCUMENTS}
-        FILTER d.props.source == @source AND d.props.text_source == @text_source
-        COLLECT WITH COUNT INTO n
-        RETURN n
-    """
-    bind = {"source": SOURCE_TK, "text_source": TEXT_SOURCE}
-    read = next(iter(store.query(aql, bind)), 0)
+    read = checks.count_documents_read_from(store, TEXT_SOURCE)
     if read < stored * NORMALIZED_SHARE:
         report.problem(
             f"tk: {stored:,} {RAW_KIND_TK_KAMERSTUK_XML} records and {read:,} documents with "
@@ -326,12 +281,7 @@ def _check_papers(
 def _check_cases(store: ArangoStore, report: Report) -> None:
     """A case reaches its dossier through the number it carries; when none of them carries
     one, the request for the cases did not ask for the dossier."""
-    aql = f"""
-    FOR case IN {COLLECTION_CASES}
-        COLLECT named = LENGTH(case.props.dossier_numbers || []) > 0 WITH COUNT INTO n
-        RETURN [named, n]
-    """
-    counts = dict(store.query(aql))
+    counts = checks.cases_by_named_dossier(store)
     total = sum(counts.values())
     if total and not counts.get(True):
         report.problem(

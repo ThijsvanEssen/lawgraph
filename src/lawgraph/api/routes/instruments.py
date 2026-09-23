@@ -8,27 +8,6 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries._helpers import props as _props
-from lawgraph.api.queries.annexes import get_shared_annexes_for_law
-from lawgraph.api.queries.instrument_links import (
-    get_eu_links,
-    get_international_links,
-)
-from lawgraph.api.queries.instrument_scope import resolve_instrument, scope_of_node
-from lawgraph.api.queries.instruments import (
-    INSTRUMENT_SORTS,
-    get_articles,
-    get_articles_at,
-    get_instrument_amended_by,
-    get_instrument_dossiers,
-    get_instrument_edges_bundle,
-    get_instrument_judgments,
-    get_instrument_related_instruments,
-    get_instrument_versions,
-    get_instruments_list,
-    get_short_titles,
-)
-from lawgraph.api.queries.relationships import get_cross_law_dependencies
 from lawgraph.api.schemas.annexes import AnnexDTO, AnnexListItem
 from lawgraph.api.schemas.common import ArticleRelationDTO, JudgmentSummaryDTO
 from lawgraph.api.schemas.instruments import (
@@ -62,6 +41,27 @@ from lawgraph.api.schemas.instruments import (
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries._helpers import props as _props
+from lawgraph.db.queries.annexes import get_shared_annexes_for_law
+from lawgraph.db.queries.instrument_links import (
+    get_eu_links,
+    get_international_links,
+)
+from lawgraph.db.queries.instrument_scope import resolve_instrument, scope_of_node
+from lawgraph.db.queries.instruments import (
+    INSTRUMENT_SORTS,
+    get_articles,
+    get_articles_at,
+    get_instrument_amended_by,
+    get_instrument_dossiers,
+    get_instrument_edges_bundle,
+    get_instrument_judgments,
+    get_instrument_related_instruments,
+    get_instrument_versions,
+    get_instruments_list,
+    get_short_titles,
+)
+from lawgraph.db.queries.relationships import get_cross_law_dependencies
 
 
 def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:

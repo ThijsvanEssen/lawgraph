@@ -12,11 +12,11 @@ from typing import Any
 
 import pytest
 
-from lawgraph.api.queries import search as search_module
-from lawgraph.api.queries.search import search_all
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_JUDGMENTS
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import search as search_module
+from lawgraph.db.queries.search import search_all
 
 BW7 = "BWBR0005290"
 

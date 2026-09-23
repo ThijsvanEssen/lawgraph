@@ -469,8 +469,8 @@ def get_actor_touched_instruments(
             FOR part IN {COLLECTION_EDGES}
                 FILTER part._from == change._to AND part.relation == @part_of
                 FILTER STARTS_WITH(part._to, "{COLLECTION_INSTRUMENTS}/")
-                COLLECT instrument_id = part._to INTO documents = document_id
-                LET document_count = LENGTH(UNIQUE(documents))
+                COLLECT instrument_id = part._to INTO touching = document_id
+                LET document_count = LENGTH(UNIQUE(touching))
                 SORT document_count DESC
                 LIMIT @limit
                 LET instrument = DOCUMENT(instrument_id)

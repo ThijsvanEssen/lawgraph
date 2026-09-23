@@ -11,12 +11,6 @@ from lawgraph.api.dependencies import (
     require_curation_key,
     require_write_key,
 )
-from lawgraph.api.queries.relationships import (
-    resolve_article_id,
-    search_relationships,
-    tag_relationship,
-    vote_relationship,
-)
 from lawgraph.api.schemas.common import CommunityVotes
 from lawgraph.api.schemas.relationships import (
     RelationshipDTO,
@@ -28,6 +22,12 @@ from lawgraph.api.schemas.relationships import (
 from lawgraph.config.constants import SEMANTIC_RELATIONSHIP_TYPES, SEMANTIC_SOURCES
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.relationships import (
+    resolve_article_id,
+    search_relationships,
+    tag_relationship,
+    vote_relationship,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)

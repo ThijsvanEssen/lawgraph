@@ -26,6 +26,7 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db.queries import normalize as normalize_queries
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -206,18 +207,9 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             {"key": make_node_key(bwb_id), "short_title": short_title}
             for bwb_id, short_title in choose_short_titles(abbreviations_by_bwb).items()
         ]
-        aql = f"""
-        FOR row IN @rows
-            FOR inst IN {COLLECTION_INSTRUMENTS}
-                FILTER inst._key == row.key
-                FILTER inst.props.short_title != row.short_title
-                UPDATE inst WITH {{ props: {{ short_title: row.short_title }} }}
-                    IN {COLLECTION_INSTRUMENTS} OPTIONS {{ keepNull: false }}
-                RETURN 1
-        """
         changed = 0
         for batch in chunked(rows, SHORT_TITLE_BATCH_SIZE):
-            changed += len(list(self.store.query(aql, {"rows": batch})))
+            changed += normalize_queries.update_short_titles(self.store, batch)
         # The AQL update bypasses the counting store's upsert methods, so add it here.
         result.updated += changed
         logger.info(

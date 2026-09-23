@@ -171,11 +171,11 @@ relations and status.
 |------|----------|
 | `api/app.py` | app, middleware, router registration, `lawgraph-api` entry point |
 | `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `watches`, `relationships`, `annexes`, `parliament`) |
-| `api/queries/` | AQL per domain; user input only through bind variables |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
 | `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
 | `api/dependencies.py` | `get_store()`: one shared `ArangoStore`; the two keys and `refuse_open_writes` |
-| `api/cache.py` | `TTLCache`: in-process LRU with TTL (`LAWGRAPH_CACHE_TTL` 60 s, `LAWGRAPH_CACHE_MAXSIZE` 512) used by several routes |
+| `core/cache.py` | `TTLCache`: in-process LRU with TTL (`LAWGRAPH_CACHE_TTL` 60 s, `LAWGRAPH_CACHE_MAXSIZE` 512) used by several routes and the search |
+| `db/queries/` | the queries of the routes, one module per domain (the API writes no AQL; see `docs/architecture.md`, Layering); user input only through bind variables |
 
 ## Middleware
 

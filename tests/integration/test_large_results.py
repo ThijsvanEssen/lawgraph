@@ -63,15 +63,16 @@ def test_counting_raw_records_reads_the_index_not_the_documents(database: str) -
     stopped both with "Memory limit reached: Insert failed due to LRU cache being full"."""
     from lawgraph.commands import check, expand_graph
     from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
+    from lawgraph.db.queries import raw as raw_queries
 
     store = ArangoStore()
     seed(store, documents=20, judgments=5, regulations=2)
     queries = {
         "expand-graph": (
-            expand_graph._RECORDS_AQL,
+            raw_queries.RECORD_COUNTS_AQL,
             {"missing": f"%{RAW_KIND_MISSING_SUFFIX}"},
         ),
-        "check": (check._RAW_COUNTS_AQL, {}),
+        "check": (raw_queries.RAW_COUNTS_AQL, {}),
     }
     for name, (aql, bind) in queries.items():
         plan = store.db.aql.explain(aql, bind_vars=bind)

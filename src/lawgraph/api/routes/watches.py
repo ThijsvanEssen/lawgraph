@@ -7,10 +7,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from lawgraph.api.dependencies import get_store, require_write_key
-from lawgraph.api.queries.watches import create_watch, delete_watch, list_watches
 from lawgraph.api.schemas.watches import WatchIn, WatchOut
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.watches import create_watch, delete_watch, list_watches
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -50,10 +50,7 @@ def add_watch(
             detail=f"Node '{node_id}' not found.",
         )
     collection, key = node_id.split("/", 1)
-    if (
-        not store.db.has_collection(collection)
-        or store.db.collection(collection).get(key) is None
-    ):
+    if not store.has_node(collection, key):
         raise HTTPException(
             status_code=400,
             detail=f"Node '{node_id}' not found.",

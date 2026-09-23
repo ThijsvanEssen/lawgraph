@@ -6,7 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.queries.nodes import (
+from lawgraph.api.schemas.nodes import NeighborDTO, node_type_of
+from lawgraph.config.constants import RELATION_PART_OF, RELATION_REFERS_TO
+from lawgraph.db.queries.nodes import (
     NeighborBucket,
     NeighborEntry,
     NeighborFacet,
@@ -14,8 +16,6 @@ from lawgraph.api.queries.nodes import (
     NodeGraphData,
     NodeNotFoundError,
 )
-from lawgraph.api.schemas.nodes import NeighborDTO, node_type_of
-from lawgraph.config.constants import RELATION_PART_OF, RELATION_REFERS_TO
 
 client = TestClient(app)
 

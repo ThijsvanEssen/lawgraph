@@ -248,6 +248,15 @@ class ArangoStore:
             max_workers=PAYLOAD_THREADS, thread_name_prefix="payload"
         )
 
+    def ping(self) -> None:
+        """Raise when the database cannot be reached."""
+        self.db.version()
+
+    def has_node(self, collection: str, key: str) -> bool:
+        """Is *key* a document of *collection*, one of ours? A primary-index lookup."""
+        handle = self._collections.get(collection)
+        return handle is not None and bool(handle.has(key))
+
     def collection(self, name: str) -> Any:
         """Return the collection handle for *name*. Raises KeyError if unknown."""
         return self._collections[name]

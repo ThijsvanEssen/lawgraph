@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 
 from lawgraph.clients.bwb import BWBClient, ToestandMeta
 from lawgraph.config.constants import (
-    COLLECTION_RAW_SOURCES,
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_BWB_WTI_GENERAL,
@@ -15,6 +14,7 @@ from lawgraph.core.identifiers import clean_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
     RetrievePipelineBase,
@@ -175,14 +175,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
 
     def _stored_state_urls(self) -> dict[str, str]:
         """``{bwb_id: state_url}`` of the stored current toestanden."""
-        aql = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-            FILTER r.source == @source AND r.kind == @kind
-            RETURN {{id: r.external_id, url: r.meta.state_url}}
-        """
-        rows = self.store.query(
-            aql, {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND}
-        )
+        rows = raw_queries.toestand_state_urls(self.store)
         return {str(row["id"]): str(row["url"]) for row in rows if row.get("url")}
 
     def _add_wti_general_info(self, meta: ToestandMeta, got: _Download) -> None:

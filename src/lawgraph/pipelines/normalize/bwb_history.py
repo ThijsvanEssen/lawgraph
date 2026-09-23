@@ -45,6 +45,7 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db.queries import normalize as normalize_queries
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -52,26 +53,6 @@ logger = get_logger(__name__)
 _OPEN_ENDED_DATE = "9999-12-31"
 EDGE_SOURCE = "bwb-history-normalize"
 _INSTRUMENT_CHUNK = 200  # regulations per finalisation query
-
-_ARTICLES_AQL = f"""
-FOR a IN {COLLECTION_ARTICLES}
-    FILTER a.props.bwb_id IN @ids
-    RETURN {{key: a._key, bwb_id: a.props.bwb_id, stam_id: a.props.stam_id}}
-"""
-
-_VERSIONS_AQL = f"""
-FOR v IN {COLLECTION_ARTICLE_VERSIONS}
-    FILTER v.props.bwb_id IN @ids
-    RETURN {{
-        key: v._key,
-        bwb_id: v.props.bwb_id,
-        stam_id: v.props.stam_id,
-        number: v.props.article_number,
-        valid_from: v.props.valid_from,
-        valid_until: v.props.valid_until,
-        title: v.props.instrument_citation_title
-    }}
-"""
 
 WrittenVersions = dict[str, list[tuple[str, str | None]]]  # bwb_id -> [(key, stam_id)]
 
@@ -289,7 +270,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
     def _finalise_chunk(
         self, bwb_ids: list[str], written: WrittenVersions, writer: EdgeWriter
     ) -> None:
-        versions = list(self.store.query(_VERSIONS_AQL, {"ids": bwb_ids}))
+        versions = list(normalize_queries.article_versions(self.store, bwb_ids))
         expected = valid_until_by_key(versions)
         self._write_valid_until(
             [
@@ -302,7 +283,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
         article_by_identity = {
             (a["bwb_id"], a["stam_id"]): a["key"]
-            for a in self.store.query(_ARTICLES_AQL, {"ids": bwb_ids})
+            for a in normalize_queries.article_identities(self.store, bwb_ids)
             if a.get("stam_id")
         }
         newest = self._newest_per_identity(versions)

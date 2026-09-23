@@ -4,17 +4,8 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 
-from lawgraph.api.cache import _MISSING, TTLCache
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import parse_choices
-from lawgraph.api.queries.graph import (
-    GLOBAL_GRAPH_NODE_TYPES,
-    GLOBAL_GRAPH_RELATIONS,
-    INSTRUMENT_LAYER_RELATIONS,
-    get_global_graph,
-    get_instrument_layer_graph,
-    get_judgment_graph,
-)
 from lawgraph.api.schemas.graph import (
     ArticleGraphNodeDTO,
     GlobalGraphResponse,
@@ -25,8 +16,17 @@ from lawgraph.api.schemas.graph import (
     JudgmentGraphNodeDTO,
     JudgmentLayerGraphResponse,
 )
+from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.graph import (
+    GLOBAL_GRAPH_NODE_TYPES,
+    GLOBAL_GRAPH_RELATIONS,
+    INSTRUMENT_LAYER_RELATIONS,
+    get_global_graph,
+    get_instrument_layer_graph,
+    get_judgment_graph,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)

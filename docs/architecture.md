@@ -119,15 +119,19 @@ the list of its phase. Adding a source: add it to `SOURCES` first.
 | Layer | Rule |
 |-------|------|
 | `config/` | `constants.py`: every name (collections, relations, source ids, raw kinds). `settings.py`: every value from the environment; importing it loads `.env`, and no other module reads the environment |
-| `core/` | pure logic and shared definitions, each defined exactly once: node and props models, relation catalogue, BWB XML parsing, citation extraction, dossier stage classification, identifiers, XML and time helpers, batching. Imports only `config` and other `core` modules; no I/O |
-| `db/` | `ArangoStore` (all database access), `NodeWriter`, `EdgeWriter`, `CountingStore`, schema, the payload store (`payloads.py`) |
+| `core/` | pure logic and shared definitions, each defined exactly once: node and props models, relation catalogue, BWB XML parsing, citation extraction, dossier stage classification, identifiers, XML and time helpers, batching, the TTL cache. Imports only `config` and other `core` modules; no I/O |
+| `db/` | all database access, and the only place that knows the database is ArangoDB: `ArangoStore`, `NodeWriter`, `EdgeWriter`, `CountingStore`, the schema, the payload store (`payloads.py`), and every query in `queries/`, as functions in the terms of their caller (`get_dossier_hub(store, number)`, `iter_raw_records(store, source=..., kinds=...)`) |
 | `clients/` | HTTP only; one class per source on `BaseClient` |
 | `pipelines/` | phases; depend on `config`, `core`, `db`, `clients` |
-| `api/` | routes, AQL in `queries/`, DTOs in `schemas/`; depends on `config`, `core`, `db` |
+| `api/` | routes and DTOs in `schemas/`; depends on `config`, `core`, `db` |
 | `commands/` | what is no pipeline: `bootstrap` and `expand-graph` (sequences of phases), `check` and `gaps` (reports that read only) |
 
 `api/` and `pipelines/` never import each other. Logic both need lives in `core/`. No test
 enforces this; it holds for the current code.
+
+No AQL and no driver handle outside `db/`: the routes, pipelines and commands call functions of
+`db/queries/` and methods of the store (`tests/test_conventions.py`). Moving to another
+database is then a change of `db/` and of the tests that run against a real server.
 
 Semantic pipelines separate pure detectors (text in, hits out, no store; unit-tested without
 fakes) from the pipeline that loops over nodes and writes edges (tested with a fake store).

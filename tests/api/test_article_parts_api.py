@@ -5,7 +5,6 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.queries.articles import ArticleCitationEntry, ArticleDetailData
 from lawgraph.api.schemas.articles import (
     ArticleRelationshipWithType,
     ArticleSummaryDTO,
@@ -14,6 +13,7 @@ from lawgraph.api.schemas.articles import (
     references_from_props,
 )
 from lawgraph.core.qualifiers import Qualifier
+from lawgraph.db.queries.articles import ArticleCitationEntry, ArticleDetailData
 
 client = TestClient(app)
 

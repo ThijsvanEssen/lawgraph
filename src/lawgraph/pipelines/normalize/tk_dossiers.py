@@ -21,13 +21,8 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
-    COLLECTION_CASES,
-    COLLECTION_DECISIONS,
-    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
-    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
-    COLLECTION_RAW_SOURCES,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
@@ -54,6 +49,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
@@ -107,25 +104,10 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         A decision is its rows together (the tally, who voted): one corrected vote must
         not turn it into a decision of one.
         """
-        bind_vars = {"source": SOURCE_TK, "kind": RAW_KIND_TK_STEMMING}
-        touched = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-            FILTER r.source == @source AND r.kind == @kind AND r.fetched_at >= @since
-            FILTER r.payload_json.Besluit_Id != null
-            RETURN DISTINCT r.payload_json.Besluit_Id
-        """
-        decisions = list(
-            self.store.query(touched, {**bind_vars, "since": iso_timestamp(since)})
-        )
-        rows = f"""
-        FOR r IN {COLLECTION_RAW_SOURCES}
-            FILTER r.source == @source AND r.kind == @kind
-            FILTER r.payload_json.Besluit_Id IN @decisions
-            RETURN r
-        """
+        decisions = raw_queries.decisions_voted_since(self.store, iso_timestamp(since))
         progress = Progress(f"{RAW_KIND_TK_STEMMING} records")
         yield from progress.track(
-            self.store.query(rows, {**bind_vars, "decisions": decisions})
+            raw_queries.vote_rows_of_decisions(self.store, decisions)
             if decisions
             else ()
         )
@@ -226,24 +208,13 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         self._backfill_titles_and_stages(normalized["dossiers"])
 
     def _stored_faction_aliases(self) -> set[str]:
-        aql = f"""
-        FOR faction IN {COLLECTION_FACTIONS}
-            FOR alias IN faction.props.aliases || []
-                RETURN DISTINCT alias
-        """
-        return set(self.store.query(aql))
+        return set(normalize_queries.faction_aliases(self.store))
 
     def _stored(self, collection: str, node_type: NodeType) -> dict[str, Node]:
         """The stored nodes of *collection* by TK ``Id``, with the props the edges read."""
-        aql = f"""
-        FOR d IN {collection}
-            FILTER d.props.external_id != null
-            RETURN {{
-                key: d._key,
-                id: d.props.external_id,
-                props: KEEP(d.props, @names)
-            }}
-        """
+        rows = normalize_queries.nodes_by_external_id(
+            self.store, collection, list(tk_cases.LINK_PROPS)
+        )
         return {
             row["id"]: Node(
                 collection=collection,
@@ -252,7 +223,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 props=row["props"],
                 _skip_validation=True,
             )
-            for row in self.store.query(aql, {"names": list(tk_cases.LINK_PROPS)})
+            for row in rows
         }
 
     # ── Dossiers ──────────────────────────────────────────────────────────────
@@ -298,13 +269,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         sorted_kinds = {key: sorted(kinds) for key, kinds in wanted.items()}
 
         stored: dict[str, Any] = {}
-        lookup = f"""
-        FOR dossier IN {COLLECTION_DOSSIERS}
-            FILTER dossier._key IN @keys
-            RETURN {{key: dossier._key, case_kinds: dossier.props.case_kinds}}
-        """
         for keys in chunked(sorted_kinds, 5000):
-            for row in self.store.query(lookup, {"keys": keys}):
+            for row in normalize_queries.dossier_case_kinds(self.store, keys):
                 stored[row["key"]] = row["case_kinds"]
 
         if self._incremental:
@@ -357,73 +323,10 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
 
     def _dossier_signals(self, dossier_ids: list[str]) -> dict[str, dict[str, Any]]:
-        """Documents, activities and decisions per dossier, in chunked queries.
-
-        Every subquery returns the few fields that are used: a list of whole documents (their
-        text, their payload) is built in the memory of the server before it is projected.
-        """
-        signal = """{
-                            id: doc._id,
-                            kind: doc.props.kind,
-                            date: doc.props.date,
-                            title: (doc.props.title != null ? doc.props.title
-                                    : doc.props.display_name)
-                        }"""
-        aql = f"""
-        FOR dossier_id IN @dossier_ids
-            LET direct = (
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._to == dossier_id AND e.relation == @part_of
-                    FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
-                    LET doc = DOCUMENT(e._from)
-                    FILTER doc != null
-                    RETURN {signal}
-            )
-            LET via_case = (
-                FOR e1 IN {COLLECTION_EDGES}
-                    FILTER e1._to == dossier_id AND e1.relation == @part_of
-                    FILTER STARTS_WITH(e1._from, '{COLLECTION_CASES}/')
-                    FOR e2 IN {COLLECTION_EDGES}
-                        FILTER e2._to == e1._from AND e2.relation == @part_of
-                        FILTER STARTS_WITH(e2._from, '{COLLECTION_DOCUMENTS}/')
-                        LET doc = DOCUMENT(e2._from)
-                        FILTER doc != null
-                        RETURN {signal}
-            )
-            LET subjects = (
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._to == dossier_id AND e.relation == @about
-                    LET node = DOCUMENT(e._from)
-                    FILTER node != null
-                    RETURN {{
-                        id: node._id,
-                        kind: node.props.kind,
-                        date: node.props.date,
-                        passed: node.props.passed
-                    }}
-            )
-            RETURN {{
-                dossier_id: dossier_id,
-                docs: (
-                    FOR doc IN UNIQUE(APPEND(direct, via_case))
-                        RETURN UNSET(doc, "id")
-                ),
-                activities: (
-                    FOR node IN subjects
-                        FILTER STARTS_WITH(node.id, '{COLLECTION_ACTIVITIES}/')
-                        RETURN {{kind: node.kind, date: node.date}}
-                ),
-                decisions: (
-                    FOR node IN subjects
-                        FILTER STARTS_WITH(node.id, '{COLLECTION_DECISIONS}/')
-                        RETURN {{date: node.date, passed: node.passed}}
-                )
-            }}
-        """
+        """Documents, activities and decisions per dossier, in chunked queries."""
         rows: dict[str, dict[str, Any]] = {}
-        bind = {"part_of": RELATION_PART_OF, "about": RELATION_ABOUT}
         for chunk in chunked(dossier_ids, _BACKFILL_CHUNK):
-            for row in self.store.query(aql, {**bind, "dossier_ids": chunk}):
+            for row in normalize_queries.dossier_signals(self.store, chunk):
                 rows[row["dossier_id"]] = row
             logger.info(
                 "Collected signals for %d of %d dossiers.", len(rows), len(dossier_ids)

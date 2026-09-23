@@ -9,10 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.api.queries.articles import (
-    get_article_explanations,
-    get_article_legislative_history,
-)
 from lawgraph.api.schemas.articles import ArticleExplanationDTO
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
@@ -27,6 +23,10 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db.queries.articles import (
+    get_article_explanations,
+    get_article_legislative_history,
+)
 
 BWB = "BWBR0002"
 ARTICLE = f"{COLLECTION_ARTICLES}/bwbr0002_5"

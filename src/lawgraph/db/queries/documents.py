@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.api.queries.dossiers import _dossier_documents_aql
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
@@ -19,6 +18,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.dossiers import _dossier_documents_aql
 
 
 def get_document(store: ArangoStore, key: str) -> dict[str, Any] | None:

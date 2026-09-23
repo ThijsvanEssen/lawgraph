@@ -11,7 +11,6 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from lawgraph.api.queries.instrument_scope import scope_of
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
@@ -27,6 +26,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import ArangoStore
 from lawgraph.db import edge_key as _sha1_edge_key
+from lawgraph.db.queries.instrument_scope import scope_of
 
 # Relations that participate in the semantic relationship layer between articles.
 ARTICLE_RELATIONS: tuple[str, ...] = (RELATION_REFERS_TO,)

@@ -19,12 +19,10 @@ import argparse
 from typing import Any
 
 from lawgraph.clients.bwb import BWBClient
-from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENTS,
-)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.retrieve import _gaps
 
 logger = get_logger(__name__)
@@ -76,16 +74,8 @@ def _report(store: ArangoStore, min_stubs: int) -> None:
 
 def _build_name_cache(store: ArangoStore) -> dict[str, str]:
     """Map bwb_id → best available title from the instruments collection."""
-    aql = f"""
-    FOR inst IN {COLLECTION_INSTRUMENTS}
-      FILTER inst.props.bwb_id != null
-      RETURN {{
-        bwb_id: inst.props.bwb_id,
-        title: inst.props.citation_title OR inst.props.title OR inst.props.display_name
-      }}
-    """
     cache: dict[str, str] = {}
-    for row in store.query(aql):
+    for row in gap_queries.instrument_titles(store):
         bwb = row.get("bwb_id")
         title = row.get("title")
         if bwb and title:

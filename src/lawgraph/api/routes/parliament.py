@@ -8,7 +8,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.queries.committees import get_factions
 from lawgraph.api.schemas.parliament import (
     FactionSeatsDTO,
     ParliamentSeatsResponse,
@@ -16,6 +15,7 @@ from lawgraph.api.schemas.parliament import (
 )
 from lawgraph.config.constants import PARTY_COLORS
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.committees import get_factions
 
 router = APIRouter()
 
