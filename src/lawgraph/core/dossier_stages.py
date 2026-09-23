@@ -7,108 +7,139 @@ core rather than in either of those layers.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
+# The stages of a bill, in the order it passes them.
 DOSSIER_STAGES: tuple[str, ...] = (
     "wetsvoorstel",
     "mvt",
     "advies_rvs",
-    "nota",
     "verslag",
+    "nota_naar_aanleiding_van_verslag",
     "amendementen",
+    "behandeling",
     "stemming",
     "afgehandeld",
 )
 
+# The kinds of dossier that are a bill and so pass the stages above; the others (a policy
+# dossier of letters and motions, an initiatiefnota) only end.
+BILL_TRACKS = frozenset(
+    {"wetsvoorstel", "initiatiefwetsvoorstel", "begroting", "verdrag"}
+)
 
-def classify_document_kind(kind: str | None) -> str | None:
-    """Map a document.kind string to one of the canonical dossier stages.
+# Document.Soort by its beginning. "Verslag" is the stage on its own or for a bill only:
+# a "Verslag van een commissiedebat" reports on a meeting.
+_DOCUMENT_STAGES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("wetsvoorstel", ("voorstel van wet", "koninklijke boodschap")),
+    ("mvt", ("memorie van toelichting",)),
+    ("advies_rvs", ("advies afdeling advisering raad van state", "nader rapport")),
+    (
+        "verslag",
+        ("verslag (initiatief)wetsvoorstel", "verslag houdende een lijst van vragen"),
+    ),
+    ("nota_naar_aanleiding_van_verslag", ("nota n.a.v. het",)),
+    ("amendementen", ("amendement", "nota van wijziging")),
+    ("behandeling", ("motie", "verslag van een wetgevingsoverleg")),
+    ("stemming", ("stemmingslijst",)),
+)
 
-    Mirrors the frontend classifier (see brief). Returns None when no rule
-    fires; callers decide whether to bucket those as 'onbekend'.
-    """
+# Activiteit.Soort, whole.
+_ACTIVITY_STAGES: dict[str, str] = {
+    "inbreng verslag (wetsvoorstel)": "verslag",
+    "wetgevingsoverleg": "behandeling",
+    "plenair debat (wetgeving)": "behandeling",
+    "plenair debat (initiatiefwetgeving)": "behandeling",
+    "stemmingen": "stemming",
+    "hamerstukken": "stemming",
+}
+
+# Zaak.Soort by its beginning.
+_CASE_STAGES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("wetsvoorstel", ("wetgeving", "initiatiefwetgeving", "begroting")),
+    ("nota_naar_aanleiding_van_verslag", ("nota n.a.v. het",)),
+    ("amendementen", ("amendement", "nota van wijziging")),
+    ("behandeling", ("motie",)),
+)
+
+
+def _by_prefix(
+    kind: str | None, table: tuple[tuple[str, tuple[str, ...]], ...]
+) -> str | None:
     if not kind:
         return None
     s = kind.lower()
-    if "voorstel van wet" in s or s.startswith("wetsvoorstel"):
-        return "wetsvoorstel"
-    if "memorie van toelichting" in s or re.search(r"\bmvt\b", s):
-        return "mvt"
-    if "advies" in s and ("raad van state" in s or re.search(r"\brvs\b", s)):
-        return "advies_rvs"
-    if "nota" in s:
-        return "nota"
-    if "verslag" in s:
+    return next((stage for stage, prefixes in table if s.startswith(prefixes)), None)
+
+
+def classify_document_kind(kind: str | None) -> str | None:
+    """The bill stage a Document.Soort marks, or None when it marks none."""
+    if kind and kind.lower() == "verslag":
         return "verslag"
-    if "amendement" in s or "motie" in s:
-        return "amendementen"
-    if "stemming" in s or "besluit" in s:
-        return "stemming"
-    return None
+    return _by_prefix(kind, _DOCUMENT_STAGES)
+
+
+def classify_activity_kind(kind: str | None) -> str | None:
+    """The bill stage an Activiteit.Soort marks, or None when it marks none."""
+    return _ACTIVITY_STAGES.get((kind or "").lower())
 
 
 def classify_case_kind(kind: str | None) -> str | None:
-    """Map a Zaak.Soort value (from activiteiten) to a dossier stage.
+    """The bill stage a Zaak.Soort marks, or None when it marks none.
 
-    Coarser than ``classify_document_kind`` but available even for older
-    dossiers that have no documents linked. Examples of inputs:
-    'Wetgeving', 'Initiatiefwetgeving', 'Motie', 'Amendement',
-    'Brief regering', 'Schriftelijke vragen', 'Nota n.a.v. het verslag'.
+    Coarser than ``classify_document_kind`` and without a date, but available for a
+    dossier that has no documents linked.
     """
-    if not kind:
-        return None
-    s = kind.lower()
-    if "wetgeving" in s or "voorstel van wet" in s:
-        return "wetsvoorstel"
-    if "memorie van toelichting" in s:
-        return "mvt"
-    if "advies" in s and ("raad van state" in s or re.search(r"\brvs\b", s)):
-        return "advies_rvs"
-    if "nota" in s and "verslag" in s:
-        return "nota"
-    if "verslag" in s:
-        return "verslag"
-    if "amendement" in s or "motie" in s:
-        return "amendementen"
-    return None
+    return _by_prefix(kind, _CASE_STAGES)
 
 
 def classify_track_kind(
     case_kinds: list[str] | None,
     *,
     title: str | None = None,
+    document_kinds: list[str] | None = None,
 ) -> str | None:
     """Pick the canonical *kind* of a dossier (its legislative path).
 
     This answers "what kind of dossier is this?" — separate from
-    ``current_stage`` (the latest stage). A dossier whose Zaak chain contains
+    ``current_stage`` (the latest stage). A dossier whose own cases include
     'Initiatiefwetgeving' is an initiatiefwetsvoorstel for its entire life,
     regardless of whether the current stage is 'verslag' or 'stemming'.
 
     Returns ``None`` only when no signal at all is available.
     """
-    kinds = [s.lower() for s in (case_kinds or []) if s]
-    if any("initiatiefwetgeving" in s for s in kinds):
+    kinds = {s.lower() for s in (case_kinds or []) if s}
+    documents = [s.lower() for s in (document_kinds or []) if s]
+    if "initiatiefwetgeving" in kinds or any(
+        s.startswith("voorstel van wet (initiatiefvoorstel)") for s in documents
+    ):
         return "initiatiefwetsvoorstel"
-    if any("wetgeving" in s for s in kinds):
+    for track, case_kind in (
+        ("wetsvoorstel", "wetgeving"),
+        ("begroting", "begroting"),
+        ("verdrag", "verdrag"),
+        ("initiatiefnota", "initiatiefnota"),
+    ):
+        if case_kind in kinds:
+            return track
+    if "initiatiefnota" in documents:
+        return "initiatiefnota"
+    if any(s.startswith("voorstel van wet") for s in documents):
         return "wetsvoorstel"
-    if title:
-        t = title.lower()
-        if (
-            t.startswith("voorstel van wet van het lid")
-            or "initiatiefwetsvoorstel" in t
-        ):
-            return "initiatiefwetsvoorstel"
-        if t.startswith("voorstel van wet") or t.startswith("wetsvoorstel"):
-            return "wetsvoorstel"
-        if "begroting" in t or "begrotingsstaat" in t:
-            return "begroting"
-    if any("motie" in s for s in kinds) and not any("wetgeving" in s for s in kinds):
-        return "motie"
-    if kinds:
-        return "overig"
+    return _track_from_title(title) or (
+        ("motie" if "motie" in kinds else "overig") if kinds else None
+    )
+
+
+def _track_from_title(title: str | None) -> str | None:
+    t = (title or "").lower()
+    if t.startswith("voorstel van wet van het lid") or "initiatiefwetsvoorstel" in t:
+        return "initiatiefwetsvoorstel"
+    if t.startswith(("voorstel van wet", "wetsvoorstel")):
+        return "wetsvoorstel"
+    if "begroting" in t:
+        return "begroting"
     return None
 
 
@@ -132,9 +163,9 @@ def accumulate_stage_signals(
 ) -> StageSignals:
     """Combine every kind of evidence into per-stage first/last dates.
 
-    Documents are the richest signal, then activities (classified by document
-    kind or zaak kind), then the dossier-level ``Zaak.Soort`` roll-up (presence
-    only, no date), and finally votes (their presence implies ``stemming``).
+    Documents are the richest signal, then activities (by their own kind), then the
+    dossier-level ``Zaak.Soort`` roll-up (presence only, no date), and finally votes
+    (their presence implies ``stemming``).
     """
     first: dict[str, str] = {}
     last: dict[str, str] = {}
@@ -154,10 +185,7 @@ def accumulate_stage_signals(
     for doc in docs:
         record(classify_document_kind(doc.get("kind")), doc.get("date"))
     for act in activities:
-        stage = classify_document_kind(act.get("kind")) or classify_case_kind(
-            act.get("kind")
-        )
-        record(stage, act.get("date"))
+        record(classify_activity_kind(act.get("kind")), act.get("date"))
     for kind in case_kinds:
         stage = classify_case_kind(kind)
         if stage is not None and stage not in first:
@@ -172,13 +200,34 @@ def accumulate_stage_signals(
     return StageSignals(first, last, any_signal)
 
 
+def dossier_stages(
+    track: str | None,
+    docs: list[dict[str, Any]],
+    activities: list[dict[str, Any]],
+    decisions: list[dict[str, Any]],
+    case_kinds: list[str],
+    *,
+    closed: bool,
+) -> tuple[str | None, list[str]]:
+    """``(current stage or None, stages present in chronological order)``.
+
+    Only a bill passes stages; any other dossier is ``afgehandeld`` once closed and
+    has no stage before that.
+    """
+    if track in BILL_TRACKS:
+        signals = accumulate_stage_signals(docs, activities, decisions, case_kinds)
+    else:
+        signals = StageSignals({}, {}, any_signal=False)
+    return pick_current_stage(signals, closed=closed)
+
+
 def pick_current_stage(
     signals: StageSignals, *, closed: bool
 ) -> tuple[str | None, list[str]]:
     """``(current stage or None, stages present in chronological order)``.
 
-    A closed dossier is ``afgehandeld``; otherwise the stage with the latest date.
-    ``None`` means there was no evidence — the caller decides on a fallback.
+    A closed dossier is ``afgehandeld``; otherwise the stage with the latest date,
+    or ``None`` when there was no evidence.
     """
     stages = sorted(
         signals.first,

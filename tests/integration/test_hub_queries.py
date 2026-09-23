@@ -74,8 +74,8 @@ class Graph:
 
 def _hub_graph(store: ArangoStore) -> None:
     g = Graph(store)
-    dossier = g.node("dossiers", "36001", number="36001", closed=False)
-    other = g.node("dossiers", "36002", number="36002", closed=False)
+    dossier = g.node("dossiers", "36001", number="36001", label="36001", closed=False)
+    other = g.node("dossiers", "36002", number="36002", label="36002", closed=False)
     case = g.node("cases", "case1", title="Zaak")
 
     # A regulation that came out of the dossier, one that only an amending publication
@@ -269,7 +269,7 @@ def test_the_hub_gathers_instruments_committees_and_documents_in_one_query(
 def test_a_dossier_without_links_has_an_empty_hub(database: str) -> None:
     store = ArangoStore()
     g = Graph(store)
-    g.node("dossiers", "36003", number="36003")
+    g.node("dossiers", "36003", number="36003", label="36003")
     g.write()
 
     hub = get_dossier_hub(store, "dossiers/36003")
@@ -288,7 +288,7 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
     """One publication that amends 3,000 articles of 300 laws, and 600 documents."""
     store = ArangoStore()
     g = Graph(store)
-    dossier = g.node("dossiers", "36004", number="36004")
+    dossier = g.node("dossiers", "36004", number="36004", label="36004")
     publication = g.node("instruments", "stb_2021_9", publication_kind="Stb")
     g.edge(publication, RELATION_LEGISLATED_IN, dossier)
     for law in range(300):
@@ -351,6 +351,7 @@ def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(
             "dossiers",
             f"3700{number}",
             number=f"3700{number}",
+            label=f"3700{number}",
             closed=closed,
             opened_on=f"2024-0{number + 1}-01",
         )
@@ -433,9 +434,15 @@ def _authorship_graph(store: ArangoStore) -> None:
     g.edge(switcher, RELATION_MEMBER_OF, d66)
     g.edge(loyal, RELATION_MEMBER_OF, vvd)
 
-    direct = g.node("dossiers", "38001", number="38001", opened_on="2015-01-01")
-    through_case = g.node("dossiers", "38002", number="38002", opened_on="2021-01-01")
-    untouched = g.node("dossiers", "38003", number="38003", opened_on="2022-01-01")
+    direct = g.node(
+        "dossiers", "38001", number="38001", label="38001", opened_on="2015-01-01"
+    )
+    through_case = g.node(
+        "dossiers", "38002", number="38002", label="38002", opened_on="2021-01-01"
+    )
+    untouched = g.node(
+        "dossiers", "38003", number="38003", label="38003", opened_on="2022-01-01"
+    )
     case = g.node("cases", "zaak1")
     g.edge(case, RELATION_PART_OF, through_case)
     g.edge(g.node("documents", "unrelated"), RELATION_PART_OF, untouched)
@@ -499,7 +506,13 @@ def test_a_big_faction_and_a_busy_committee_answer_in_one_query_each(
     faction = g.node("factions", "vvd", abbreviation="VVD")
     committee = g.node("committees", "c_a", name="Commissie A", slug="a")
     dossiers = [
-        g.node("dossiers", f"39{n:03d}", number=f"39{n:03d}", opened_on="2024-01-01")
+        g.node(
+            "dossiers",
+            f"39{n:03d}",
+            number=f"39{n:03d}",
+            label=f"39{n:03d}",
+            opened_on="2024-01-01",
+        )
         for n in range(50)
     ]
     for member in range(60):

@@ -104,6 +104,10 @@ dossier (it needs the document edges).
 | dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `current_stage`, `stages_present`, `track_kind`, `title` (from a voorstel-van-wet or MvT document when the dossier has none) and `outcome` (closed dossiers only) are derived from documents, activities and decisions by `core/dossier_stages.py` |
 | documents | dossier numbers via Zaak to Kamerstukdossier; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers` |
 
+`dossier_numbers` of a case, document, activity or decision (and the keys of
+`case_kinds_by_dossier`) are dossier labels: `37020-XV` for a budget chapter, `37020` for the
+Miljoenennota itself, so each record links to the dossier node with that key.
+
 Edges: `PART_OF` (Document to Case and Dossier, Case to Dossier), `ABOUT` (Activity, Decision
 to Case and Dossier; Commitment to the dossiers of its activity), `LED_BY` (Activity to
 Committee from `Voortouwcommissie_Id`), `MADE_IN` (Commitment to Activity), `MEMBER_OF`

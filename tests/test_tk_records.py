@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from lawgraph.core import tk_records
+from lawgraph.core.models import make_node_key
 
 
 def test_committee_reads_name_abbreviation_and_slug() -> None:
@@ -114,9 +115,31 @@ def test_dossier_keys_on_number_and_toevoeging() -> None:
         {"Id": "d-1", "Nummer": 35590, "Toevoeging": "I", "Titel": "Tijdelijke wet"}
     )
     assert (key, label) == ("35590_i", "35590-I")
-    assert props["number"] == "35590"
+    assert (props["number"], props["label"]) == ("35590", "35590-I")
     assert props["title_source"] == "dossier"
     assert props["display_name"] == "Kamerstukdossier 35590-I: Tijdelijke wet"
+
+
+def test_a_case_names_its_dossier_by_the_label_of_the_dossier_node() -> None:
+    """A budget chapter is its own dossier: the Toevoeging is part of what a record names."""
+    cases = [
+        {
+            "Soort": "Begroting",
+            "Kamerstukdossier": [
+                {"Nummer": 37020, "Toevoeging": "XV"},
+                {"Nummer": 37020, "Toevoeging": None},
+            ],
+        }
+    ]
+    assert tk_records.dossier_numbers(cases) == ["37020-XV", "37020"]
+    assert tk_records.case_kinds_by_dossier(cases) == {
+        "37020-XV": ["Begroting"],
+        "37020": ["Begroting"],
+    }
+    key, label, _ = tk_records.dossier(
+        {"Id": "d-1", "Nummer": 37020, "Toevoeging": "XV"}
+    )
+    assert (label, key) == ("37020-XV", make_node_key("37020-XV"))
 
 
 def test_dossier_without_a_title_leaves_it_open_for_the_backfill() -> None:
@@ -155,7 +178,7 @@ def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:
     )
     assert props["case_ids"] == ["z-1", "z-2"]
     assert props["dossier_numbers"] == ["36000"]
-    assert props["case_kinds"] == ["Wetgeving", "Motie"]
+    assert props["case_kinds_by_dossier"] == {"36000": ["Wetgeving"]}
     assert props["committee_id"] == "c-1"
     assert props["date"] == "2024-01-02"
 

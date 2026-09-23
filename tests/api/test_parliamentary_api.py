@@ -16,6 +16,7 @@ _DOSSIER = {
     "labels": ["TK"],
     "props": {
         "number": "36000",
+        "label": "36000",
         "title": "Testwet",
         "title_source": "dossier",
         "current_stage": "wetsvoorstel",

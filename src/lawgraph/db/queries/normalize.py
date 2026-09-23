@@ -123,7 +123,7 @@ def dossier_case_kinds(store: Store, keys: list[str]) -> Iterator[dict[str, Any]
 
 
 def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, Any]]:
-    """Documents, activities and decisions per dossier of *dossier_ids*.
+    """Stored case kinds, documents, activities and decisions per dossier of *dossier_ids*.
 
     Every subquery returns the few fields that are used: a list of whole documents (their
     text, their payload) is built in the memory of the server before it is projected.
@@ -170,6 +170,7 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
             )
             RETURN {{
                 dossier_id: dossier_id,
+                case_kinds: DOCUMENT(dossier_id).props.case_kinds,
                 docs: (
                     FOR doc IN UNIQUE(APPEND(direct, via_case))
                         RETURN UNSET(doc, "id")

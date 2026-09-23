@@ -70,8 +70,22 @@ def _document(key: str, kind: str, date: str, **props: Any) -> Node:
 def _build(store: ArangoStore) -> None:
     """A dossier 36000; a second dossier 36001 that shares none of it."""
     nodes = [
-        _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "36000", ["TK"], number="36000"),
-        _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "36001", ["TK"], number="36001"),
+        _node(
+            COLLECTION_DOSSIERS,
+            NodeType.DOSSIER,
+            "36000",
+            ["TK"],
+            number="36000",
+            label="36000",
+        ),
+        _node(
+            COLLECTION_DOSSIERS,
+            NodeType.DOSSIER,
+            "36001",
+            ["TK"],
+            number="36001",
+            label="36001",
+        ),
         _node(COLLECTION_CASES, NodeType.CASE, "case_1", ["TK"], number="2025Z1"),
         # a memorandum PART_OF the dossier itself
         _document(

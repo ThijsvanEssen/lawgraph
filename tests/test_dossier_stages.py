@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import pytest
+
 from lawgraph.core.dossier_stages import (
     accumulate_stage_signals,
+    classify_activity_kind,
+    classify_document_kind,
+    classify_track_kind,
     dossier_display_name,
+    dossier_stages,
     pick_current_stage,
     select_title,
 )
@@ -100,3 +106,71 @@ def test_title_preference_is_bill_then_mvt_then_any_document() -> None:
 def test_display_name_includes_the_toevoeging() -> None:
     assert dossier_display_name("36554", "I", "Wet") == "Kamerstukdossier 36554-I: Wet"
     assert dossier_display_name("36554", None, "Wet") == "Kamerstukdossier 36554: Wet"
+
+
+@pytest.mark.parametrize(
+    ("kind", "stage"),
+    [
+        ("Verslag", "verslag"),
+        ("Verslag (initiatief)wetsvoorstel (nader)", "verslag"),
+        (
+            "Nota n.a.v. het (nader/tweede nader/enz.) verslag",
+            "nota_naar_aanleiding_van_verslag",
+        ),
+        ("Nota van wijziging", "amendementen"),
+        ("Motie (gewijzigd/nader)", "behandeling"),
+        ("Nader rapport", "advies_rvs"),
+        # Reports of a meeting, a policy memo and the minutes of a procedure meeting
+        # say nothing about where a bill stands.
+        ("Verslag van een commissiedebat", None),
+        ("Inbreng verslag schriftelijk overleg", None),
+        ("Jaarverslag", None),
+        ("Initiatiefnota", None),
+        ("Nota van toelichting", None),
+        ("Besluitenlijst procedurevergadering", None),
+    ],
+)
+def test_a_document_kind_marks_a_stage_of_a_bill_or_none(
+    kind: str, stage: str | None
+) -> None:
+    assert classify_document_kind(kind) == stage
+
+
+def test_a_debate_on_a_bill_is_its_treatment_not_its_start() -> None:
+    assert classify_activity_kind("Plenair debat (wetgeving)") == "behandeling"
+    assert classify_activity_kind("Notaoverleg") is None
+    assert classify_activity_kind("Stemmingen") == "stemming"
+
+
+@pytest.mark.parametrize(
+    ("case_kinds", "document_kinds", "track"),
+    [
+        (["Begroting", "Brief regering", "Motie"], [], "begroting"),
+        (["Initiatiefnota"], [], "initiatiefnota"),
+        (["Verdrag"], [], "verdrag"),
+        (["Wetgeving", "Motie"], [], "wetsvoorstel"),
+        ([], ["Voorstel van wet (initiatiefvoorstel)"], "initiatiefwetsvoorstel"),
+        ([], ["Voorstel van wet"], "wetsvoorstel"),
+        (["Brief regering", "Motie"], [], "motie"),
+        (["Brief regering"], [], "overig"),
+        ([], [], None),
+    ],
+)
+def test_the_track_follows_the_dossiers_own_cases_and_documents(
+    case_kinds: list[str], document_kinds: list[str], track: str | None
+) -> None:
+    assert classify_track_kind(case_kinds, document_kinds=document_kinds) == track
+
+
+def test_a_dossier_that_is_no_bill_has_no_stage_until_it_is_closed() -> None:
+    docs = [_doc("Motie", "2026-01-01"), _doc("Verslag", "2026-02-01")]
+
+    assert dossier_stages("motie", docs, [], [], ["Motie"], closed=False) == (None, [])
+    assert dossier_stages("initiatiefnota", docs, [], [], [], closed=True) == (
+        "afgehandeld",
+        ["afgehandeld"],
+    )
+    assert dossier_stages("begroting", docs, [], [], [], closed=False) == (
+        "verslag",
+        ["behandeling", "verslag"],
+    )

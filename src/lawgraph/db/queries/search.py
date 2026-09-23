@@ -362,9 +362,9 @@ def _search_dossiers(
             id: doc._id, key: doc._key,
             collection: 'dossiers', type: doc.type,
             display_name: (doc.props.title != null ? doc.props.title : doc.props.display_name),
-            snippet: doc.props.number,
+            snippet: doc.props.label,
             extra: {{
-                number: doc.props.number,
+                number: doc.props.label,
                 current_stage: doc.props.current_stage,
                 closed: doc.props.closed
             }}
@@ -486,9 +486,11 @@ def _search_documents(
             extra: {{
                 kind: doc.props.kind,
                 external_id: doc.props.external_id,
-                dossier_number: NOT_NULL(
-                    doc.props.dossier_number, FIRST(doc.props.dossier_numbers)
-                )
+                dossier_number: doc.props.dossier_number == null
+                    ? FIRST(doc.props.dossier_numbers)
+                    : CONCAT_SEPARATOR(
+                        "-", doc.props.dossier_number, doc.props.dossier_suffix
+                    )
             }}
         }}
     """

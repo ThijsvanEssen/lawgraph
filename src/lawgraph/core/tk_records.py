@@ -91,18 +91,44 @@ def case_ids(cases: Iterable[Payload]) -> list[str]:
     return _distinct(str(record.get("Id") or "") for record in cases)
 
 
+def dossier_label(number: Any, suffix: Any) -> str:
+    """``37020-XV`` for Nummer 37020 with Toevoeging XV, ``37020`` without one.
+
+    ``make_node_key`` of the label is the key of the dossier node.
+    """
+    number_str = str(number or "")
+    return f"{number_str}-{suffix}" if number_str and suffix else number_str
+
+
+def _dossier_label(dossier: Payload) -> str:
+    return dossier_label(dossier.get("Nummer"), dossier.get("Toevoeging"))
+
+
 def dossier_numbers(cases: Iterable[Payload]) -> list[str]:
-    """Kamerstukdossier numbers reachable through the given Zaak records."""
+    """Kamerstukdossier labels (``37020``, ``37020-XV``) of the given Zaak records."""
     return _distinct(
-        str(dossier.get("Nummer") or "")
+        _dossier_label(dossier)
         for record in cases
         for dossier in _dicts(record.get("Kamerstukdossier"))
     )
 
 
-def case_kinds(cases: Iterable[Payload]) -> list[str]:
-    """Distinct ``Zaak.Soort`` values (Wetgeving, Motie, Amendement, …)."""
-    return _distinct(str(record.get("Soort") or "") for record in cases)
+def case_kinds_by_dossier(cases: Iterable[Payload]) -> dict[str, list[str]]:
+    """Distinct ``Zaak.Soort`` values (Wetgeving, Motie, …) per Kamerstukdossier label.
+
+    Each dossier gets the kinds of its own cases only: one agenda (a day of votes) holds
+    the cases of many dossiers.
+    """
+    pairs = [
+        (_dossier_label(dossier), str(record.get("Soort") or ""))
+        for record in cases
+        for dossier in _dicts(record.get("Kamerstukdossier"))
+    ]
+    numbers = _distinct(number for number, _ in pairs)
+    return {
+        number: _distinct(kind for n, kind in pairs if n == number)
+        for number in numbers
+    }
 
 
 def agenda_cases(payload: Payload) -> list[Payload]:
@@ -290,7 +316,7 @@ def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
 
     number_str = str(number)
     suffix = payload.get("Toevoeging") or ""
-    label = f"{number_str}-{suffix}" if suffix else number_str
+    label = dossier_label(number_str, suffix)
     # A dossier with neither Titel nor Citeertitel keeps title None, so the
     # backfill can take one from a voorstel-van-wet document instead of
     # storing a title that only looks valid.
@@ -302,6 +328,7 @@ def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
         "external_id": external_id,
         "number": number_str,
         "suffix": suffix,
+        "label": label,
         "title": title,
         "title_source": "dossier" if title else None,
         "closed": closed,
@@ -315,8 +342,7 @@ def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
     if closed or closed_on:
         props["current_stage"] = "afgehandeld"
 
-    key_parts = [number_str, suffix] if suffix else [number_str]
-    return make_node_key(*key_parts), label, props
+    return make_node_key(label), label, props
 
 
 # ── Activiteit (Activity) ────────────────────────────────────────────────────
@@ -343,7 +369,7 @@ def activity(payload: Payload) -> Record | None:
         "committee_id": str(voortouw) if voortouw else None,
         "case_ids": case_ids(cases),
         "dossier_numbers": dossier_numbers(cases),
-        "case_kinds": case_kinds(cases),
+        "case_kinds_by_dossier": case_kinds_by_dossier(cases),
         "tk_url": TK_ACTIVITY_URL.format(id=external_id),
         "display_name": f"{date or '?'} — {description or kind}",
         "number": str(payload.get("Nummer") or ""),
