@@ -16,6 +16,7 @@ the same values; a variable already set in the process environment wins over `.e
 | `ARANGO_USER` | `root` | user |
 | `ARANGO_PASSWORD` | empty | password |
 | `ARANGO_ROOT_PASSWORD` | none | read by `docker-compose.yml` for the root password of the container; set it equal to `ARANGO_PASSWORD` |
+| `LAWGRAPH_DB_SIZE_ALERT_GIB` | `70` | `lawgraph check` fails from this database size on (see Database size) |
 
 ### External sources
 
@@ -135,7 +136,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, EU acts, treaties, memoranda without text) |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
@@ -266,7 +267,10 @@ is installed for you.
 One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so), a
 failing command fails the run and the next command still runs, one log per run in
 `~/Library/Logs/lawgraph/` (`LAWGRAPH_LOG_DIR`) and one line per run in `runs.log` there.
-With cron:
+A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
+`LAWGRAPH_ALERT_MESSAGE`) when it is set in the environment of the scheduler, for example
+`curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
+noted in `runs.log` and changes nothing else. With cron:
 
 ```
 30 5 * * *   /path/to/lawgraph/scripts/daily.sh
@@ -279,6 +283,14 @@ gaps of minutes. Keep it on power, or the lid open.
 
 Before the first scheduled run one complete run has to be on record (`bootstrap`, or each
 `<phase> all` once with a date), or `--since last` is refused.
+
+**Database size.** ArangoDB Community counts the size of the dataset against a limit of 100
+GiB: over it, the server warns for two days, is read-only for two more and then shuts down.
+`lawgraph check` (daily, in `daily.sh`) logs the size the server counts (`GET /_admin/license`,
+the compressed storage of the documents, about a third of their size as JSON), the three
+largest collections, and fails from `LAWGRAPH_DB_SIZE_ALERT_GIB` (70 GiB) on, or as soon as the
+server reports its license status as other than `good`. With the alert command set, that
+failure reaches you the same morning.
 
 ## Observability
 

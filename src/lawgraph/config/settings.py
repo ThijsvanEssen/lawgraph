@@ -42,6 +42,10 @@ ARANGO_PASSWORD = os.getenv("ARANGO_PASSWORD", "")
 # before the client.
 ARANGO_REQUEST_TIMEOUT = 620
 
+# ArangoDB Community stops a server whose dataset reaches 100 GiB (two days of warnings, two
+# days read-only, then shut down). `lawgraph check` fails from this size on, well before that.
+DB_SIZE_ALERT_GIB = float(os.getenv("LAWGRAPH_DB_SIZE_ALERT_GIB", "70"))
+
 # ── External sources ──────────────────────────────────────────────────────────
 
 BWB_BASE_URL = os.getenv("BWB_BASE", "https://wetten.overheid.nl/")

@@ -12,6 +12,8 @@ command does. Every check is one read-only query; a problem is an error of the c
   derived  what a normalize step keeps for a semantic step is there on every node it is read from
   papers   the XML of Tweede Kamer papers that was retrieved has been read into their documents
   cases    cases name the dossier they belong to
+  size     the database stays below the alert size (``LAWGRAPH_DB_SIZE_ALERT_GIB``, 70 GiB)
+           and the server reports its license limit as not reached
 """
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
     SOURCE_VERDRAGENBANK,
 )
+from lawgraph.config.settings import DB_SIZE_ALERT_GIB
 from lawgraph.core.kamerstuk_xml import TEXT_SOURCE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
@@ -101,6 +104,7 @@ class Report:
 
 def check(store: ArangoStore, *, edges: bool = True) -> Report:
     report = Report()
+    _check_size(store, report)
     raw = _raw_counts(store)
     _check_raw(raw, report)
     _check_nodes(store, raw, report)
@@ -111,6 +115,35 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     _check_papers(store, raw, report)
     _check_cases(store, report)
     return report
+
+
+GIB = 1024**3
+
+
+def _check_size(store: ArangoStore, report: Report) -> None:
+    """The size the server counts against its license, against the alert threshold; the
+    largest collections say where it goes."""
+    usage = store.disk_usage()
+    used = int(usage.get("bytesUsed") or 0)
+    limit = usage.get("bytesLimit")
+    largest = sorted(store.collection_sizes().items(), key=lambda item: -item[1])[:3]
+    line = (
+        f"database size {used / GIB:.2f} GiB"
+        + (f" of the {int(limit) / GIB:.0f} GiB the license allows" if limit else "")
+        + f" (alert at {DB_SIZE_ALERT_GIB:g} GiB); largest: "
+        + ", ".join(f"{name} {size / GIB:.2f} GiB" for name, size in largest)
+    )
+    status = usage.get("status", "good")
+    if status != "good":
+        report.problem(
+            f"{line}. The server reports license status {status!r}: it turns read-only in "
+            f"{usage.get('secondsUntilReadOnly', 0) / 3600:.0f} h and shuts down in "
+            f"{usage.get('secondsUntilShutDown', 0) / 3600:.0f} h. Make it smaller now."
+        )
+    elif used >= DB_SIZE_ALERT_GIB * GIB:
+        report.problem(f"{line}. Make it smaller before it reaches the limit.")
+    else:
+        report.note(line)
 
 
 # Grouped on the fields of the index, so the count walks the index and reads no document.

@@ -212,6 +212,26 @@ class ArangoStore:
         """Return the collection handle for *name*. Raises KeyError if unknown."""
         return self._collections[name]
 
+    # ── Size ───────────────────────────────────────────────────────────────────
+
+    def disk_usage(self) -> dict[str, Any]:
+        """What the server counts against its license: ``bytesUsed``, ``bytesLimit`` (absent
+        without a limit), ``status`` (``good`` until the limit is reached) and the seconds
+        until it turns read-only and shuts down."""
+        return cast(dict[str, Any], self.db.license()).get("diskUsage") or {}
+
+    def collection_sizes(self) -> dict[str, int]:
+        """Bytes on disk per collection: its documents and its indexes (estimates of the
+        storage engine, compressed)."""
+        sizes = {}
+        for name, collection in self._collections.items():
+            figures = cast(dict[str, Any], collection.statistics())
+            indexes = figures.get("indexes") or {}
+            sizes[name] = int(figures.get("documents_size") or 0) + int(
+                indexes.get("size") or 0
+            )
+        return sizes
+
     # ── Query ──────────────────────────────────────────────────────────────────
 
     def query(
