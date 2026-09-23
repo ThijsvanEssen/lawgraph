@@ -77,14 +77,27 @@ def extract_judgment_text(root: ET.Element) -> tuple[str | None, str | None]:
 
 
 def relation_ecli(element: ET.Element) -> str | None:
-    """ECLI from a ``dc:relation`` element (text or ``rdf:resource``), else ``None``."""
-    ecli = (element.text or "").strip()
-    if not ecli:
-        for attr_name, attr_val in element.attrib.items():
-            if local_name(attr_name) == "resource" and "id=" in attr_val:
-                ecli = attr_val.split("id=")[-1].strip()
-                break
-    return ecli.upper() if ecli and ecli.upper().startswith("ECLI:") else None
+    """ECLI from a ``dcterms:relation`` element, else ``None``: its
+    ``ecli:resourceIdentifier`` (the text then says what it is, "In cassatie op : ECLI:..."),
+    else its text or the ``id=`` of its ``rdf:resource``."""
+    attributes = {local_name(name): value for name, value in element.attrib.items()}
+    ecli = (attributes.get("resourceIdentifier") or element.text or "").strip()
+    if not ecli.upper().startswith("ECLI:"):
+        resource = attributes.get("resource", "")
+        ecli = resource.split("id=")[-1].strip() if "id=" in resource else ""
+    return ecli.upper() if ecli.upper().startswith("ECLI:") else None
+
+
+def is_earlier_instance(element: ET.Element) -> bool:
+    """Is the judgment a relation names one this judgment ruled on appeal of?
+
+    Not the conclusion of the Advocate General (``psi:type`` .../conclusie), and not a later
+    instance (``psi:aanleg`` .../latereAanleg); a relation that says neither counts.
+    """
+    attributes = {local_name(name): value for name, value in element.attrib.items()}
+    return not attributes.get("type", "").endswith("/conclusie") and not attributes.get(
+        "aanleg", ""
+    ).endswith("/latereAanleg")
 
 
 # dc:/psi: element -> judgment_metadata field; the first non-empty one wins.
@@ -106,7 +119,7 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
         tag = local_name(el.tag)
         if tag == "relation":
             ecli = relation_ecli(el)
-            if ecli:
+            if ecli and is_earlier_instance(el):
                 related_eclis.append(ecli)
             continue
 

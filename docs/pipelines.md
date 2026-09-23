@@ -219,10 +219,12 @@ State 11,000, the four courts of appeal about 18,000), a few hours at the paced 
 the rechtbanken (over 100,000 in two years), are chosen with `--court`.
 
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
-`case_number`, `procedure` as `judgment_metadata.type`, `subject`s, `relation` ECLIs as
-`related_eclis`), `inhoudsindicatie` as `summary`, `uitspraak` as `text` and as `paragraphs`
-(heading, subheading, body; see the paragraph props in the data model). The XML itself stays
-in `raw_sources`. `court_code` is the ECLI court
+`case_number`, `procedure` as `judgment_metadata.type`, `subject`s, and as `related_eclis`
+the judgments of the earlier instance it ruled on: the `ecli:resourceIdentifier` of every
+`dcterms:relation` that is neither the conclusion of the Advocate General (`psi:type`
+…/conclusie) nor a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
+`summary`, `uitspraak` as `text` and as `paragraphs` (heading, subheading, body; see the
+paragraph props in the data model). The XML itself stays in the payload store. `court_code` is the ECLI court
 segment; `tier` is `hoge_raad` (`HR`), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or
 `bijzonder`; `date_eff` is the judgment date.
 
