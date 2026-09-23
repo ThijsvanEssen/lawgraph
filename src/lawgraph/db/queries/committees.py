@@ -74,7 +74,7 @@ def _open_dossier_counts(
     aql = f"""
     LET open_dossiers = MERGE(
         FOR dossier IN {COLLECTION_DOSSIERS}
-            FILTER dossier.props.closed == false
+            FILTER dossier.props.closed != true
             RETURN {{ [dossier._id]: true }}
     )
     LET open_activities = MERGE(
@@ -151,8 +151,8 @@ def get_committees_with_members(store: ArangoStore) -> list[dict[str, Any]]:
     return list(store.query(aql, {"member_of": RELATION_MEMBER_OF}))
 
 
-# A dossier is open until it is marked closed, by flag or by date (as ``/dossiers/open``).
-_DOSSIER_CLOSED = "dossier.props.closed == true OR dossier.props.closed_on != null"
+# A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as ``/dossiers/open``).
+_DOSSIER_CLOSED = "dossier.props.closed == true"
 
 
 def get_committee_detail(

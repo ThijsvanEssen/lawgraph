@@ -126,9 +126,35 @@ def test_dossier_without_a_title_leaves_it_open_for_the_backfill() -> None:
     assert "current_stage" not in props
 
 
-def test_a_closed_dossier_is_afgehandeld_straight_away() -> None:
-    _, _, props = tk_records.dossier({"Id": "d-1", "Nummer": 36000, "Afgedaan": True})
-    assert props["current_stage"] == "afgehandeld"
+def test_a_dossier_record_says_nothing_of_how_far_it_got() -> None:
+    """``Afgesloten`` is false on every dossier, also on one whose law was published, and the
+    record has no dates: closed and opened are derived from the graph, and a run of the record
+    must not blank what was derived."""
+    _, _, props = tk_records.dossier(
+        {
+            "Id": "d-1",
+            "Nummer": 34851,
+            "Titel": "Uitvoeringswet Algemene verordening gegevensbescherming",
+            "Afgesloten": False,
+            "HoogsteVolgnummer": 101,
+        }
+    )
+    for derived in ("closed", "closed_on", "opened_on", "outcome", "current_stage"):
+        assert derived not in props
+
+
+def test_a_document_and_a_decision_keep_the_kind_of_their_case() -> None:
+    bill = {"Id": "z-1", "Soort": "Wetgeving", "Kamerstukdossier": [{"Nummer": 36000}]}
+    _, document = tk_records.document(
+        {"Id": "doc-1", "Soort": "Brief regering", "Zaak": [bill]}
+    )
+    assert document["case_kinds"] == ["Wetgeving"]
+    _, decision = tk_records.decision(
+        "b-1",
+        {"Agendapunt": [{"Zaak": [bill]}], "AgendapuntZaakBesluitVolgorde": 1},
+        [],
+    )
+    assert decision["primary_case_kind"] == "Wetgeving"
 
 
 def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:

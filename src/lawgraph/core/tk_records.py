@@ -295,25 +295,20 @@ def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
     # backfill can take one from a voorstel-van-wet document instead of
     # storing a title that only looks valid.
     title = payload.get("Titel") or payload.get("Citeertitel") or None
-    closed = bool(payload.get("Afgedaan"))
-    closed_on = iso_date(payload.get("DatumGesloten"))
 
+    # The record says nothing about how far the dossier got: ``Afgesloten`` is false on
+    # every dossier, also on those whose law was published years ago. When it was opened
+    # and whether and how it ended are derived from the graph (the stage backfill and
+    # ``semantic tk-dossier-outcomes``), so they are not written here, where a run would
+    # blank them.
     props: dict[str, Any] = {
         "external_id": external_id,
         "number": number_str,
         "suffix": suffix,
         "title": title,
         "title_source": "dossier" if title else None,
-        "closed": closed,
-        "opened_on": iso_date(payload.get("DatumRegistratie")),
-        "closed_on": closed_on,
         "display_name": dossier_display_name(number_str, suffix, title or ""),
     }
-    # current_stage is owned by the stage backfill. Setting it here for an open
-    # dossier would blank the classifier's answer on every run; for a closed
-    # one the answer is fixed, so it can be written straight away.
-    if closed or closed_on:
-        props["current_stage"] = "afgehandeld"
 
     key_parts = [number_str, suffix] if suffix else [number_str]
     return make_node_key(*key_parts), label, props
@@ -428,6 +423,7 @@ def document(payload: Payload) -> Record | None:
         "raw": payload,
         "dossier_numbers": dossiers,
         "case_ids": case_ids(cases),
+        "case_kinds": case_kinds(cases),
         "sequence": sequence if (sequence or 0) > 0 else None,
         "kind": kind,
         "title": title,
@@ -552,6 +548,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "meeting_kind": agenda_item.get("Vergadering_Soort") or "",
         "case_ids": case_ids(cases),
         "primary_case_id": str(primary.get("Id") or "") if primary else None,
+        "primary_case_kind": (primary.get("Soort") or None) if primary else None,
         "dossier_numbers": dossier_numbers(cases),
         "vote_kind": VOTE_KIND_MEMBER if roll_call else VOTE_KIND_FACTION,
         "tally": tally,

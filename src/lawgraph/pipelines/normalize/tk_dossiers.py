@@ -9,8 +9,8 @@ The pipeline is the order in which the nodes must exist:
 Node building lives next door, one module per part of the model:
 ``tk_members`` (committees, members, factions), ``tk_votes`` (decisions and
 the votes on them) and ``tk_cases`` (activities, commitments, documents and
-what they are about). The dossier itself — its title, its stage, its outcome —
-is what this module keeps.
+what they are about). The dossier itself — its title, its stage, when it opened —
+is what this module keeps; whether and how it ended is ``semantic tk-dossier-outcomes``.
 """
 
 from __future__ import annotations
@@ -297,12 +297,14 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
 
     def _backfill_titles_and_stages(self, dossier_nodes: dict[str, Node]) -> None:
-        """Persist title, stages and outcome on each dossier from what it links to.
+        """Persist title, stages and opening date on each dossier from what it links to.
 
         A dossier with no title of its own takes the first voorstel-van-wet or
         MvT title it links to, recording the provenance in ``title_source``.
         ``stages_present`` is every recognised stage with at least one signal,
-        in chronological order, and ``current_stage`` is the last of them.
+        in chronological order, and ``current_stage`` is the last of them
+        (``afgehandeld`` once ``semantic tk-dossier-outcomes`` closed it).
+        ``opened_on`` is the date of its first document or activity.
         """
         nodes = _unique(dossier_nodes)
         if not nodes:
@@ -353,7 +355,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         activities = row.get("activities") or []
         decisions = row.get("decisions") or []
         case_kinds = list(node.props.get("case_kinds") or [])
-        closed = bool(node.props.get("closed") or node.props.get("closed_on"))
+        # Whether it is closed is the answer of ``semantic tk-dossier-outcomes``, as stored.
+        closed = bool(row.get("closed"))
 
         signals = accumulate_stage_signals(docs, activities, decisions, case_kinds)
         current_stage, stages_present = pick_current_stage(signals, closed=closed)
@@ -364,11 +367,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 else node.props.get("current_stage") or "onbekend"
             )
         track_kind = classify_track_kind(case_kinds, title=node.props.get("title"))
-
-        if closed and not node.props.get("outcome"):
-            outcome = dossier_outcome(docs, decisions)
-            if outcome:
-                node.props["outcome"] = outcome
+        dated = [d["date"] for d in docs + activities if d.get("date")]
+        opened_on = min(dated) if dated else row.get("opened_on")
 
         unchanged = (
             list(node.props.get("stages_present") or []) == stages_present
@@ -378,24 +378,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         node.props["stages_present"] = stages_present
         node.props["current_stage"] = current_stage
         node.props["track_kind"] = track_kind
+        node.props["opened_on"] = opened_on
         return 0 if unchanged else 1
-
-
-def dossier_outcome(
-    docs: list[dict[str, Any]], decisions: list[dict[str, Any]]
-) -> str | None:
-    """How a closed dossier ended: aangenomen, verworpen or ingetrokken."""
-    for doc in docs:
-        kind = (doc.get("kind") or "").lower()
-        if "intrekking" in kind or "ingetrokken" in kind:
-            return "ingetrokken"
-    for decision in decisions:
-        passed = decision.get("passed")
-        if passed is True:
-            return "aangenomen"
-        if passed is False:
-            return "verworpen"
-    return None
 
 
 def _unique(nodes: dict[str, Node]) -> list[Node]:

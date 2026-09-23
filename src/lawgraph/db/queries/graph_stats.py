@@ -96,7 +96,7 @@ FOR art IN {COLLECTION_ARTICLES}
 _COMMITTEES_BODY = f"""
 LET open_dossier_map = MERGE(
     FOR d IN {COLLECTION_DOSSIERS}
-        FILTER d.props.closed == false
+        FILTER d.props.closed != true
         RETURN {{ [d._id]: true }}
 )
 LET open_activity_map = MERGE(

@@ -133,12 +133,13 @@ passed to the pipelines that accept it and the others run in full.
 | `tk-amends` | `--since`: documents dated since then |
 | `bwb-implements` | none (reads the regulations that name an EU act) |
 | `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `bwb-relation-types` | none |
+| `tk-dossier-outcomes` | none (every dossier on every run) |
 | `graph-list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 
 The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
 `bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-citations`,
 `rechtspraak-appeal`, `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-mvt`,
-`tk-mvt-articles`, `bwb-relation-types`, `graph-list-stats`.
+`tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-outcomes`, `graph-list-stats`.
 
 ### Other commands
 
@@ -161,7 +162,7 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 |-------|-----------|
 | `RETRIEVE` | `TK`, `TK_DOSSIERS`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK` |
 | `NORMALIZE` | the same plus `BWB_HISTORY` and `TK_CONTENT` |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `GRAPH_LIST_STATS` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `GRAPH_LIST_STATS` |
 
 ## Runs
 

@@ -237,7 +237,7 @@ def _enrich_dossiers(
         title, title_source = select_title(props, docs)
         current_stage, stages_present = pick_current_stage(
             accumulate_stage_signals(docs, activities, decisions, case_kinds),
-            closed=bool(props.get("closed") or props.get("closed_on")),
+            closed=bool(props.get("closed")),
         )
         dated = [d["date"] for d in docs + activities if d.get("date")]
 
@@ -811,10 +811,7 @@ def get_open_dossiers(
     stage listed. The committee filter resolves that committee's dossiers once
     as a set, rather than traversing per dossier row.
     """
-    filters = [
-        "dossier.props.closed == false OR dossier.props.closed == null",
-        "dossier.props.closed_on == null",
-    ]
+    filters = ["dossier.props.closed != true"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset}
 
     if stage:

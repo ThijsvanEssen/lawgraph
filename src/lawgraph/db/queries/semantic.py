@@ -11,12 +11,15 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CASES,
+    COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     EXPLANATORY_KIND_MARKER,
+    RELATION_ABOUT,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
@@ -738,3 +741,97 @@ def memoranda_with_sections(
         "change_relations": list(_CHANGE_RELATIONS),
     }
     return store.query(_MEMORANDA_WITH_SECTIONS_AQL, bind_vars, batch_size=batch_size)
+
+
+# ── how a dossier ended ─────────────────────────────────────────────────────
+
+
+def dossier_ids(store: Store) -> Iterator[str]:
+    """The ``_id`` of every dossier."""
+    return store.query(f"FOR dossier IN {COLLECTION_DOSSIERS} RETURN dossier._id")
+
+
+# Per dossier what says how it ended: the instruments legislated in it, the letters on it
+# that may withdraw its bill, and the votes on the bill itself; and what it holds now. A
+# letter is a document of the dossier, directly or through a case, whose kind is a letter
+# and whose subject names a withdrawal; which of them withdraw is decided by the caller.
+_DOSSIER_OUTCOME_SIGNALS_AQL = f"""
+FOR dossier_id IN @dossier_ids
+  LET dossier = DOCUMENT(dossier_id)
+  FILTER dossier != null
+  LET publications = (
+    FOR e IN {COLLECTION_EDGES}
+      FILTER e._to == dossier_id AND e.relation == @legislated_in
+      FILTER STARTS_WITH(e._from, '{COLLECTION_INSTRUMENTS}/')
+      LET instrument = DOCUMENT(e._from)
+      FILTER instrument != null
+      RETURN {{
+        date_published: instrument.props.date_published,
+        date_signed: instrument.props.date_signed
+      }}
+  )
+  LET papers = UNION_DISTINCT(
+    (
+      FOR e IN {COLLECTION_EDGES}
+        FILTER e._to == dossier_id AND e.relation == @part_of
+        FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
+        RETURN e._from
+    ),
+    (
+      FOR e1 IN {COLLECTION_EDGES}
+        FILTER e1._to == dossier_id AND e1.relation == @part_of
+        FILTER STARTS_WITH(e1._from, '{COLLECTION_CASES}/')
+        FOR e2 IN {COLLECTION_EDGES}
+          FILTER e2._to == e1._from AND e2.relation == @part_of
+          FILTER STARTS_WITH(e2._from, '{COLLECTION_DOCUMENTS}/')
+          RETURN e2._from
+    )
+  )
+  LET letters = (
+    FOR id IN papers
+      LET paper = DOCUMENT(id)
+      FILTER paper != null
+      FILTER LIKE(paper.props.kind, "brief%", true)
+      FILTER CONTAINS(LOWER(paper.props.subject), "intrekking")
+      RETURN {{
+        kind: paper.props.kind,
+        subject: paper.props.subject,
+        date: paper.props.date,
+        case_kinds: paper.props.case_kinds
+      }}
+  )
+  LET bill_votes = (
+    FOR e IN {COLLECTION_EDGES}
+      FILTER e._to == dossier_id AND e.relation == @about
+      FILTER STARTS_WITH(e._from, '{COLLECTION_DECISIONS}/')
+      LET decision = DOCUMENT(e._from)
+      FILTER decision != null
+      FILTER decision.props.primary_case_kind IN @bill_case_kinds
+      RETURN {{ date: decision.props.date, passed: decision.props.passed }}
+  )
+  RETURN {{
+    key: dossier._key,
+    props: KEEP(
+      dossier.props, "closed", "closed_on", "outcome", "current_stage", "stages_present"
+    ),
+    publications: publications,
+    letters: letters,
+    bill_votes: bill_votes
+  }}
+"""
+
+
+def dossier_outcome_signals(
+    store: Store, dossier_ids: list[str], *, bill_case_kinds: list[str]
+) -> Iterator[dict[str, Any]]:
+    """``{key, props, publications, letters, bill_votes}`` per dossier of *dossier_ids*: the
+    instruments ``LEGISLATED_IN`` it, the letters on it that name a withdrawal, the votes on
+    a case of one of *bill_case_kinds*, and the outcome props it holds now."""
+    bind_vars: dict[str, Any] = {
+        "dossier_ids": dossier_ids,
+        "legislated_in": RELATION_LEGISLATED_IN,
+        "part_of": RELATION_PART_OF,
+        "about": RELATION_ABOUT,
+        "bill_case_kinds": bill_case_kinds,
+    }
+    return store.query(_DOSSIER_OUTCOME_SIGNALS_AQL, bind_vars)

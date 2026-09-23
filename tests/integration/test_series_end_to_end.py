@@ -262,7 +262,9 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
 
     committee = _get(client, "/api/committees/kgg")
     assert [d["number"] for d in committee["dossiers"]] == [DOSSIER]
-    assert (committee["dossier_total"], committee["active_dossier_count"]) == (1, 1)
+    # The publication that amended the law was legislated in the dossier: it is closed.
+    assert (committee["dossier_total"], committee["active_dossier_count"]) == (1, 0)
+    assert (hub["closed"], hub["outcome"]) == (True, "aangenomen")
 
     # every document carries its chamber, source and whether it explains, wherever it is listed
     listed = {

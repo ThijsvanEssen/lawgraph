@@ -231,6 +231,8 @@ class DocumentProps(_CommonProps):
     dossier_suffix: str | None = None
     dossier_numbers: list[str] | None = None
     case_ids: list[str] | None = None
+    # the Zaak.Soort of those cases (Wetgeving, Motie, Brief regering, ...)
+    case_kinds: list[str] | None = None
     sequence: int | None = None
     session_year: str | None = None
     tk_url: str | None = None
@@ -299,6 +301,8 @@ class DecisionProps(_CommonProps):
     meeting_kind: str | None = None
     case_ids: list[str] | None = None
     primary_case_id: str | None = None
+    # the Zaak.Soort of the primary case: Wetgeving on the vote on a bill itself
+    primary_case_kind: str | None = None
     dossier_numbers: list[str] | None = None
     # "member" on a roll-call, "faction" otherwise; the tally is seats per
     # vote choice (members per choice on a roll-call) and voters is how many

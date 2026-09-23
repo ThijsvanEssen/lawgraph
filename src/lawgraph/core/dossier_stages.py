@@ -222,3 +222,93 @@ def dossier_display_name(number: str, suffix: str | None, title: str) -> str:
     """``Kamerstukdossier 36554-I: <title>``."""
     suffix = f"-{suffix}" if suffix else ""
     return f"Kamerstukdossier {number}{suffix}: {title}"
+
+
+# ── how a dossier ended ───────────────────────────────────────────────────────
+
+OUTCOME_ENACTED = "aangenomen"
+OUTCOME_REJECTED = "verworpen"
+OUTCOME_WITHDRAWN = "ingetrokken"
+
+# The Zaak.Soort of the case of a bill itself, next to the cases of its amendments and
+# motions in the same dossier.
+BILL_CASE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving")
+
+# "Brief houdende intrekking van het wetsvoorstel", "... houdende overname en intrekking
+# van het voorstel", "... overname van de verdediging en intrekking van het
+# initiatiefvoorstel", "Intrekking wetsvoorstel ...".
+_WITHDRAWAL = re.compile(
+    r"\bintrekking\s+(?:van\s+het\s+)?(?:initiatief|wets)?(?:wets)?voorstel", re.I
+)
+# A letter about a withdrawal that does not withdraw: asked for, announced, taken back,
+# a report on the letter or a letter from a committee.
+_NOT_A_WITHDRAWAL = re.compile(
+    r"verzoek\s+tot|voornemen|aankondiging|herroeping|\bniet\b|verslag|vragen", re.I
+)
+
+
+@dataclass(frozen=True)
+class DossierOutcome:
+    """Whether a dossier is closed, how it ended and on which date."""
+
+    closed: bool
+    outcome: str | None = None
+    closed_on: str | None = None
+
+
+OPEN = DossierOutcome(closed=False)
+
+
+def is_withdrawal_letter(letter: dict[str, Any]) -> bool:
+    """Whether a document is the letter that withdraws the bill of its dossier.
+
+    A letter of the government or of the members who proposed it, on the case of the bill
+    itself, whose subject says it withdraws the bill.
+    """
+    kind = (letter.get("kind") or "").lower()
+    if not kind.startswith("brief") or "commissie" in kind:
+        return False
+    if not set(letter.get("case_kinds") or []) & set(BILL_CASE_KINDS):
+        return False
+    subject = letter.get("subject") or ""
+    return bool(_WITHDRAWAL.search(subject)) and not _NOT_A_WITHDRAWAL.search(subject)
+
+
+def derive_outcome(
+    publications: list[dict[str, Any]],
+    letters: list[dict[str, Any]],
+    bill_votes: list[dict[str, Any]],
+) -> DossierOutcome:
+    """How a dossier ended, from what the graph holds about it.
+
+    * ``aangenomen``: an instrument is ``LEGISLATED_IN`` the dossier — the Staatsblad
+      publication of the law, or a regulation whose metadata names the dossier. Closed on
+      the first publication date (``date_published``, else ``date_signed``).
+    * ``ingetrokken``: the bill was withdrawn by letter (:func:`is_withdrawal_letter`).
+      Closed on the date of the letter.
+    * ``verworpen``: the last vote of the Tweede Kamer on the bill itself (a decision on
+      its ``Wetgeving`` case, not on an amendment or a motion) did not pass. Closed on the
+      date of that vote.
+
+    Otherwise the dossier is open: a bill the Tweede Kamer passed still waits for the
+    Eerste Kamer and the Staatsblad, and a dossier without a bill has no end in the graph.
+    """
+    if publications:
+        dates = [
+            date
+            for publication in publications
+            if (
+                date := publication.get("date_published")
+                or publication.get("date_signed")
+            )
+        ]
+        return DossierOutcome(True, OUTCOME_ENACTED, min(dates) if dates else None)
+    withdrawals = [letter for letter in letters if is_withdrawal_letter(letter)]
+    if withdrawals:
+        dates = [letter["date"] for letter in withdrawals if letter.get("date")]
+        return DossierOutcome(True, OUTCOME_WITHDRAWN, min(dates) if dates else None)
+    if bill_votes:
+        last = max(bill_votes, key=lambda vote: vote.get("date") or "")
+        if last.get("passed") is False:
+            return DossierOutcome(True, OUTCOME_REJECTED, last.get("date"))
+    return OPEN
