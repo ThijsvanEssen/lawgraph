@@ -48,13 +48,15 @@ def origin_fields(
 
 
 class DocumentSummaryDTO(DocumentOrigin):
-    """One row in the document index."""
+    """One row in the document index. ``dossier_numbers`` are the labels of the dossiers
+    it names (``37020-XV``), in either chamber."""
 
     key: str
     title: str | None = None
     kind: str | None = None
     date: str | None = None
     external_id: str | None = None
+    dossier_numbers: list[str] = Field(default_factory=list)
     has_text: bool = False
     linked_articles: int = 0
 
@@ -68,6 +70,7 @@ class DocumentSummaryDTO(DocumentOrigin):
             kind=row.get("kind") or None,
             date=strip_time_component(row.get("date")),
             external_id=row.get("external_id") or None,
+            dossier_numbers=list(row.get("dossier_numbers") or []),
             has_text=bool(row.get("has_text")),
             linked_articles=int(row.get("linked_articles") or 0),
             **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
@@ -154,7 +157,8 @@ class DocumentTextResponse(DocumentOrigin):
     the headings of the paper in document order, empty when there is no text or
     the structure of the paper could not be read; their offsets are into
     ``text``. ``dossier_numbers`` are the dossiers the document is PART_OF, in
-    either chamber; ``explains`` are the articles and instruments it explains,
+    either chamber; ``case_kinds`` the ``Zaak.Soort`` of the cases it belongs to
+    (Tweede Kamer only); ``explains`` are the articles and instruments it explains,
     without duplicates.
     """
 
@@ -167,6 +171,7 @@ class DocumentTextResponse(DocumentOrigin):
     tk_url: str | None = Field(None, description="The document on tweedekamer.nl.")
     text: str | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
+    case_kinds: list[str] = Field(default_factory=list)
     explains: list[ExplainedTargetDTO] = Field(default_factory=list)
     sections: list[SectionDTO] = Field(default_factory=list)
 
@@ -199,6 +204,7 @@ class DocumentTextResponse(DocumentOrigin):
             text=text,
             sections=readable_sections(text, props.get("sections")),
             dossier_numbers=list(links.get("dossier_numbers") or []),
+            case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],
             **origin_fields(doc.get("labels"), props.get("source"), props.get("kind")),
         )

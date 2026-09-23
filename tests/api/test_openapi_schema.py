@@ -3,6 +3,7 @@ writes, marked with the key it asks for."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -46,6 +47,11 @@ def test_the_api_only_reads() -> None:
     ]
     assert writing == []
     assert "securitySchemes" not in SPEC.get("components", {})
+    # Nor does a description promise what the writes made: badges, votes, watches.
+    text = json.dumps(SPEC).lower()
+    assert [
+        word for word in ("expert badge", "community", "watch") if word in text
+    ] == []
 
 
 def test_a_timeline_entry_is_typed_by_its_node_and_carries_no_free_body() -> None:

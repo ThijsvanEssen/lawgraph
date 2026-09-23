@@ -217,7 +217,7 @@ class InstrumentDossierItem(BaseModel):
 
     id: str
     key: str
-    dossier_number: str | None = None
+    dossier_number: str = Field(..., description="The dossier's label, e.g. 37020-XV.")
     title: str | None = None
     display_name: str | None = None
     stage: str | None = None

@@ -135,8 +135,8 @@ def _build_relationship_dtos(
     summary="Semantic relationships of an article",
     description=(
         "Upstream dependencies (outgoing references), downstream implications "
-        "(incoming references) and annex scopes, each with its semantic type, "
-        "explanation, expert badge and community votes."
+        "(incoming references) and annex scopes, each with its semantic type "
+        "and explanation."
     ),
     tags=["articles"],
 )

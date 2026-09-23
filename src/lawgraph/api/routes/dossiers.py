@@ -51,7 +51,7 @@ router = APIRouter()
 DossierNumber = Annotated[
     str,
     Path(
-        description="Dossier number, e.g. 29684 or 29684-I.",
+        description="Dossier number, e.g. 29684, 29684-I, 21501-31 or 36956-(R2220).",
         pattern=DOSSIER_NUMBER_PATTERN,
     ),
 ]
@@ -128,7 +128,10 @@ def list_open_dossiers(
     "/recent",
     response_model=list[DossierSummaryDTO],
     summary="Recently active dossiers",
-    description="Dossiers with an activity in the given period.",
+    description=(
+        "Dossiers with an activity, a vote, a document or their closing in the given "
+        "period, the most recent first."
+    ),
     tags=["dossiers"],
 )
 def list_recent_dossiers(
