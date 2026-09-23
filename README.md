@@ -55,6 +55,19 @@ ARANGO_URL=http://localhost:8530 lawgraph-api    # same port 8000, empty databas
 docker compose -f docker-compose.test.yml down   # discards it
 ```
 
+### A small database with every feature
+
+For the API and the front end on a laptop: `scripts/test-database.sh` builds `lawgraph_small` on
+the development server, next to the database of `.env`, from real sources (a few laws with their
+history and dossiers, two weeks of case law and parliament, a little of every other source), in
+about half an hour and a few hundred MB. Every relation of the model occurs in it.
+
+```bash
+docker compose up -d arangodb
+scripts/test-database.sh
+ARANGO_DB_NAME=lawgraph_small lawgraph-api
+```
+
 ### Loading data
 
 ```bash
