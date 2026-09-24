@@ -184,14 +184,39 @@ def case_number_keys(case_number: str | None) -> list[str]:
 
 # ── the referral of a preliminary ruling ─────────────────────────────────────
 
+# The paragraphs a ruling tells its referral in: the start ("1 De prejudiciële procedure"),
+# after the parties and, when two courts asked, the procedure of each.
+REFERRAL_PARAGRAPHS = 40
 _ECLI_IN_TEXT = re.compile(r"\bECLI:NL:[A-Z]{2,8}:\d{4}:[A-Z0-9]{1,8}\b", re.IGNORECASE)
+_DATE = r"\d{1,2}\s+[a-z]+\s+\d{4}"
 # "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de
 # rechtbank ... prejudiciële vragen aan de Hoge Raad gesteld"; "in de zaken 8674876/EJ VERZ
-# 20-213 en 8675941 EJ VERZ 20-214 van 8 februari 2021".
-_REFERRAL_CASES = re.compile(
-    r"\bin\s+de\s+za(?:ak|ken)\s+(?P<numbers>.{3,120}?)\s+van\s+(?P<date>\d{1,2}\s+\w+\s+\d{4})",
+# 20-213 en 8675941 EJ VERZ 20-214 van 8 februari 2021"; "verwijst de Hoge Raad naar de
+# beschikkingen in de zaak 4986381\EJ VERZ 16-142 en 5026511\EJ VERZ 16-163 van de
+# kantonrechter te Enschede van 26 april 2016 en 20 mei 2016".
+_CASE_THEN_DATE = re.compile(
+    rf"\bin\s+de\s+za(?:ak|ken)\s+(?P<numbers>.{{3,160}}?)\s+van\s+(?P<date>{_DATE})"
+    rf"(?:\s+en\s+(?P<last>{_DATE}))?",
     re.IGNORECASE,
 )
+# "Bij tussenvonnis van 14 november 2024 met zaaknummer C/15/351661 / KG ZA 24-199 heeft";
+# "Bij tussenuitspraak van 28 april 2023, in zaak nr. 22/2463T, heeft".
+_DATE_THEN_CASE = re.compile(
+    rf"\bvan\s+(?P<date>{_DATE}),?\s+(?:met\s+zaaknummers?|in\s+(?:de\s+)?zaak\s+nr\.?)"
+    r"\s+(?P<numbers>.{3,120}?)\s*(?:,|\bheeft\b)",
+    re.IGNORECASE,
+)
+# The criminal chamber, in its heading: "op de door de rechtbank Noord-Nederland bij
+# beslissing van 19 december 2022, nummers 18-018510-21, 18-298097-21 en 18-298079-21,
+# gestelde rechtsvragen".
+_DECISION_NUMBERS = re.compile(
+    rf"\bbij\s+beslissing\s+van\s+(?P<date>{_DATE}),\s+(?:parket)?nummers?\s+"
+    r"(?P<numbers>.{3,160}?),\s+gestelde\b",
+    re.IGNORECASE,
+)
+_REFERRAL_FORMS = (_CASE_THEN_DATE, _DATE_THEN_CASE, _DECISION_NUMBERS)
+# Where the case numbers of "in de zaak X van de rechtbank Y van <date>" end.
+_COURT_AFTER_NUMBERS = re.compile(r"\s+van\s+(?:de|het)\s", re.IGNORECASE)
 _MONTHS = {
     month: number
     for number, month in enumerate(
@@ -216,11 +241,15 @@ _MONTHS = {
 
 @dataclass(frozen=True)
 class Referral:
-    """What a preliminary ruling says of the decision that asked its questions."""
+    """What a preliminary ruling says of a decision that asked its questions."""
 
     eclis: tuple[str, ...] = ()
-    case_keys: tuple[str, ...] = ()  # as ``case_number_keys`` writes them
+    case_numbers: tuple[str, ...] = ()  # as the text writes them
     date: str | None = None  # of the referring decision, ISO
+
+    def names(self, case_number: str | None) -> bool:
+        """Whether *case_number* (of a judgment, one or more) is one this referral names."""
+        return any(same_case_number(own, case_number) for own in self.case_numbers)
 
 
 def _dutch_date(text: str) -> str | None:
@@ -234,26 +263,99 @@ def _dutch_date(text: str) -> str | None:
         return None
 
 
-def read_referral(paragraphs: list[dict[str, Any]]) -> Referral | None:
-    """The referring decision a preliminary ruling names, from the first paragraph that
-    says questions were asked ("prejudiciële vragen ... gesteld"): the ECLIs it names, or
-    the case numbers and the date of the decision. ``None`` when no paragraph does.
+def _cases_and_date(text: str) -> tuple[re.Match[str] | None, tuple[str, ...]]:
+    """The first referral form *text* has, and the case numbers it names."""
+    for form in _REFERRAL_FORMS:
+        if match := form.search(text):
+            numbers = _COURT_AFTER_NUMBERS.split(match["numbers"])[0]
+            parts = (collapse_ws(p) for p in _CASE_NUMBER_SPLIT.split(numbers))
+            return match, tuple(p for p in parts if p)
+    return None, ()
+
+
+def _referral_of(text: str, referred: Referral | None) -> Referral | None:
+    """The referral one paragraph states, if it says questions were asked ("prejudiciële
+    vragen ... gesteld", "prejudiciële beslissing op de ... gestelde rechtsvragen").
+    *referred* is what an earlier paragraph pointed to ("verwijst ... naar het vonnis in de
+    zaak ..."), which "bij laatstgenoemd vonnis" takes up."""
+    lowered = text.lower()
+    if "prejudici" not in lowered or "gesteld" not in lowered:
+        return None
+    eclis = tuple(dict.fromkeys(e.upper() for e in _ECLI_IN_TEXT.findall(text)))
+    if eclis:
+        return Referral(eclis=eclis)
+    match, numbers = _cases_and_date(text)
+    if match and numbers:
+        return Referral(case_numbers=numbers, date=_dutch_date(match["date"]))
+    if "laatstgenoemd" in lowered:
+        return referred
+    return None
+
+
+def _referred_to(text: str) -> Referral | None:
+    """The decision of the lower court a paragraph points to, at the last of its dates."""
+    match, numbers = _cases_and_date(text)
+    if match is None or not numbers:
+        return None
+    last = match.groupdict().get("last") or match["date"]
+    return Referral(case_numbers=numbers, date=_dutch_date(last))
+
+
+def read_referrals(paragraphs: list[dict[str, Any]]) -> list[Referral]:
+    """The referring decisions a preliminary ruling names, from the paragraphs that say
+    questions were asked: the ECLIs they name, or the case numbers and the date of the
+    decision. A ruling that answers two courts names two.
     """
+    referrals: list[Referral] = []
+    referred: Referral | None = None
     for paragraph in paragraphs:
         text = paragraph.get("text") or ""
-        lowered = text.lower()
-        if "prejudiciële vra" not in lowered or "gesteld" not in lowered:
-            continue
-        eclis = tuple(dict.fromkeys(e.upper() for e in _ECLI_IN_TEXT.findall(text)))
-        match = _REFERRAL_CASES.search(text)
-        if not eclis and not match:
-            continue
-        return Referral(
-            eclis=eclis,
-            case_keys=tuple(case_number_keys(match["numbers"])) if match else (),
-            date=_dutch_date(match["date"]) if match else None,
-        )
-    return None
+        referral = _referral_of(text, referred)
+        if referral is None and "verwijst" in text.lower():
+            referred = _referred_to(text) or referred
+        elif referral is not None and referral not in referrals:
+            referrals.append(referral)
+    return referrals
+
+
+# What keeps a case number recognisable once punctuation, spaces, a "/01" suffix or the
+# initials of a clerk ("MvW/JE") are left out: a number of five digits or more
+# ("C/09/610280", "200.273.775", the "018510" of parketnummer 18-018510-21), else a roll
+# number of a year and four digits or more ("22/2463T", "20-9656").
+_STRONG_DIGITS = 5
+_DIGITS = re.compile(r"\d+")
+_DOTTED_NUMBER = re.compile(r"\d+(?:\.\d+)+")
+_ROLL_NUMBER = re.compile(r"(?<![0-9a-z])(\d{2})\s*[/-]\s*(\d{4,6}[a-z]?)(?![0-9a-z])")
+_NOT_ALNUM = re.compile(r"[^0-9a-z]")
+
+
+def _case_number_tokens(case_number: str) -> tuple[set[str], set[str]]:
+    lowered = case_number.lower()
+    runs = _DIGITS.findall(lowered) + [
+        number.replace(".", "") for number in _DOTTED_NUMBER.findall(lowered)
+    ]
+    strong = {run for run in runs if len(run) >= _STRONG_DIGITS}
+    rolls = {f"{year}/{number}" for year, number in _ROLL_NUMBER.findall(lowered)}
+    return strong, rolls
+
+
+def same_case_number(named: str, other: str | None) -> bool:
+    """Whether the case number *named* in a text is among *other* (the case numbers of a
+    judgment, as its metadata or the index writes them).
+
+    They are the same when they share a number of five digits or more; when *named* has
+    none, a roll number (``22/2463T``); when it has neither, all its letters and digits.
+    """
+    if not other:
+        return False
+    strong, rolls = _case_number_tokens(named)
+    other_strong, other_rolls = _case_number_tokens(other)
+    if strong:
+        return bool(strong & other_strong)
+    if rolls:
+        return bool(rolls & other_rolls)
+    own = _NOT_ALNUM.sub("", named.lower())
+    return any(c.isdigit() for c in own) and own == _NOT_ALNUM.sub("", other.lower())
 
 
 # ── <uitspraak> structure ────────────────────────────────────────────────────
@@ -410,7 +512,19 @@ class IndexEntry:
 
     ecli: str
     updated: dt.datetime | None  # when the judgment was published or last changed
-    title: str
+    title: (
+        str  # "ECLI:NL:RBROT:2021:207, Rechtbank Rotterdam, 15-01-2021, 8527084 VZ ..."
+    )
+
+    @property
+    def case_numbers(self) -> str:
+        """The case numbers at the end of the title, after the date; empty without."""
+        match = _TITLE_CASE_NUMBERS.search(self.title)
+        return match["numbers"].strip() if match else ""
+
+
+# A court name can hold commas ("Gemeenschappelijk Hof van Justitie van Aruba, Curaçao, ...").
+_TITLE_CASE_NUMBERS = re.compile(r",\s*\d{2}-\d{2}-\d{4},\s*(?P<numbers>.+)$")
 
 
 def parse_index(xml_text: str) -> tuple[int | None, list[IndexEntry]]:

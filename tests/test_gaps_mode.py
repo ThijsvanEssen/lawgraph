@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.core.judgments import Referral
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.retrieve import _gaps
@@ -38,11 +39,17 @@ def test_bwb_fetches_the_laws_with_enough_referred_articles(monkeypatch, ran) ->
 
 
 def test_rechtspraak_fetches_the_cited_judgments_of_any_court(monkeypatch, ran) -> None:
+    referral = Referral(case_numbers=("8527084 VZ VERZ 20-9656",), date="2021-01-15")
     monkeypatch.setattr(
         _gaps, "rechtspraak_gaps", lambda store: ["ECLI:NL:RBAMS:2020:1"]
     )
+    monkeypatch.setattr(_gaps, "unanswered_referrals", lambda store: [referral])
     retrieve_commands.retrieve_rechtspraak(["--mode", "gaps"])
-    assert ran["Rechtspraak"] == {"courts": [], "eclis": ["ECLI:NL:RBAMS:2020:1"]}
+    assert ran["Rechtspraak"] == {
+        "courts": [],
+        "eclis": ["ECLI:NL:RBAMS:2020:1"],
+        "referrals": [referral],
+    }
 
 
 def test_eurlex_and_echr_fetch_what_is_named(monkeypatch, ran) -> None:

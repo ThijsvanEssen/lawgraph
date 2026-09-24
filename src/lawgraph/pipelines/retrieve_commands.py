@@ -192,9 +192,12 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
 
     store = ArangoStore()
-    if args.mode == GAPS:  # the cited judgments, of whatever court
-        eclis = _gaps.rechtspraak_gaps(store)
-        return RechtspraakRetrievePipeline(store).run(courts=[], eclis=eclis)
+    if args.mode == GAPS:  # the cited and the referring judgments, of whatever court
+        return RechtspraakRetrievePipeline(store).run(
+            courts=[],
+            eclis=_gaps.rechtspraak_gaps(store),
+            referrals=_gaps.unanswered_referrals(store),
+        )
 
     courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
     date_from = modified_from = None

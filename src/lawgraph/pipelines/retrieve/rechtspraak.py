@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     RECHTSPRAAK_COURTS,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.judgments import Referral
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
 
@@ -52,6 +53,30 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.rs = rs_client or RechtspraakClient()
 
+    def _referring_decisions(
+        self, referrals: Sequence[Referral]
+    ) -> dict[str, dt.datetime | None]:
+        """The decisions *referrals* name, from the index of each referral date (every
+        court: the text names the court in words), by case number; one request per date."""
+        found: dict[str, dt.datetime | None] = {}
+        for date in sorted({r.date for r in referrals if r.date}):
+            day = dt.date.fromisoformat(date)
+            entries = list(self.rs.iter_index(date_from=day, date_to=day))
+            for referral in (r for r in referrals if r.date == date):
+                found.update(
+                    (entry.ecli, entry.updated)
+                    for entry in entries
+                    if referral.names(entry.case_numbers)
+                )
+        if referrals:
+            logger.info(
+                "Rechtspraak: %d referrals of preliminary rulings, %d decisions found in "
+                "the index of their dates.",
+                len(referrals),
+                len(found),
+            )
+        return found
+
     def fetch(  # type: ignore[override]
         self,
         *,
@@ -60,6 +85,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         date_to: dt.date | None = None,
         modified_from: dt.datetime | None = None,
         eclis: Sequence[str] | None = None,
+        referrals: Sequence[Referral] | None = None,
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
         """Yield the content of each judgment as it is downloaded.
@@ -67,9 +93,14 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         *courts* (names as in ``resolve_courts``) selects judgments through the index, by
         decision date when *date_from* is given; a judgment already stored and not changed
         since is skipped. *eclis* are fetched as they are, unless stored in the last 24 hours.
+        *referrals* (by case number and date) are looked up in the index of their date.
         """
         stored = self._stored_at(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT)
         todo: dict[str, dt.datetime | None] = {}
+        for ecli, updated in self._referring_decisions(referrals or []).items():
+            have = stored.get(ecli)
+            if not (have and updated and have >= updated):
+                todo[ecli] = updated
 
         if courts:
             skipped = 0
