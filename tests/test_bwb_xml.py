@@ -261,7 +261,7 @@ def test_the_breadcrumb_is_a_prop_of_the_article() -> None:
     from lawgraph.core.bwb_xml import article_props
 
     article = next(a for a in parse_toestand(_STRUCTURED).articles if a.number == "1:9")
-    props = article_props(article, "BWBR0005537", "Algemene wet bestuursrecht")
+    props = article_props(article, "BWBR0005537", "Algemene wet bestuursrecht", 0)
     assert props["breadcrumb"] == [
         {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Inleidende bepalingen"}
     ]
@@ -303,24 +303,24 @@ def test_an_article_of_an_annex_names_its_annex() -> None:
     assert article_label("287") == "Artikel 287"
 
 
-def test_articles_sort_as_a_reader_reads_them() -> None:
-    from lawgraph.core.bwb_xml import article_sort_key
+def test_an_article_without_a_number_is_named_by_its_heading() -> None:
+    from lawgraph.core.bwb_xml import parse_toestand
 
-    numbers = [
-        "bijlage 2 artikel 10",
-        "25",
-        "1:10",
-        "24c",
-        "bijlage 2 artikel 2",
-        "1:2",
-        "24",
+    xml = """<toestand bwb-id="BWBR0001840"><wetgeving soort="wet"><wet-besluit><wettekst>
+    <artikel stam-id="16464063" versie-id="28844682" inwerking="2022-08-30" effect="nieuw">
+      <kop><titel status="officieel">Algemene bepaling</titel></kop>
+      <al>De Grondwet waarborgt de grondrechten en de democratische rechtsstaat.</al>
+    </artikel>
+    <artikel stam-id="1" label="Artikel 1"><kop><label>Artikel</label><nr>1</nr></kop>
+      <al>Allen die zich in Nederland bevinden.</al></artikel>
+    <artikel stam-id="2988423" label="Slotartikel"><kop><label>Slotartikel</label></kop>
+      <al>Deze wet kan worden aangehaald als: Overgangswet nieuw Burgerlijk Wetboek.</al>
+    </artikel></wettekst></wet-besluit></wetgeving></toestand>"""
+    articles = parse_toestand(xml).articles
+
+    assert [(a.number, a.label) for a in articles] == [
+        (None, "Algemene bepaling"),
+        ("1", "Artikel 1"),
+        (None, "Slotartikel"),
     ]
-    assert sorted(numbers, key=article_sort_key) == [
-        "1:2",
-        "1:10",
-        "24",
-        "24c",
-        "25",
-        "bijlage 2 artikel 2",
-        "bijlage 2 artikel 10",
-    ]
+    assert articles[0].text.startswith("De Grondwet waarborgt")

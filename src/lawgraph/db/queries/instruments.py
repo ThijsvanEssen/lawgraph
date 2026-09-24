@@ -57,16 +57,21 @@ def get_articles(
     identifier: str,
     *,
     include_stubs: bool = False,
+    include_repealed: bool = False,
     limit: int = 2000,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
-    """All articles belonging to an instrument (BWB id or CELEX), sorted by article_number.
+    """The articles of an instrument (BWB id or CELEX) and how many there are.
 
-    Sorted as a reader does (``props.sort_key``: 'Artikel 9' before 'Artikel 10',
-    '24c' between '24' and '25', '1:2' before '1:10', an annex after the regulation). Returns ``(items, total)``.
+    In the order of the document (``props.position``): an article with only a heading
+    where it stands, an annex after the regulation; historical articles and stubs last.
+    Without *include_repealed* only the articles in force: no historical identity and no
+    article whose current version repeals it.
     """
     scope = scope_of(identifier)
     stub_filter = "" if include_stubs else "FILTER doc.props.stub != true"
+    if not include_repealed:
+        stub_filter += " FILTER doc.props.repealed != true"
     aql = f"""
     LET filtered = (
         FOR doc IN {COLLECTION_ARTICLES}
@@ -77,8 +82,8 @@ def get_articles(
     LET total = LENGTH(filtered)
     LET items = (
         FOR doc IN filtered
-            // the order of a reader (``article_sort_key``); a stub has none: last
-            SORT doc.props.sort_key == null, doc.props.sort_key, doc._key
+            // the order of the document; a historical article or a stub has none: last
+            SORT doc.props.position == null, doc.props.position, doc._key
             LIMIT @offset, @limit
             RETURN doc
     )
@@ -710,7 +715,7 @@ def get_articles_at(
             RETURN doc
     )
     FOR doc IN filtered
-        SORT doc.props.sort_key == null, doc.props.sort_key, doc._key
+        SORT doc.props.position == null, doc.props.position, doc._key
         RETURN doc
     """
     return list(store.query(aql, {"bwb_id": bwb_id.upper(), "at_date": at_date}))

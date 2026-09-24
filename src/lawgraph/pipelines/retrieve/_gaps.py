@@ -15,10 +15,12 @@ from typing import Any, cast
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
     RAW_KIND_RS_CONTENT,
+    RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
+from lawgraph.core.dossier_numbers import first_reading_dossiers
 from lawgraph.core.identifiers import kamerstuk_identifier
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import iso_timestamp
@@ -174,3 +176,27 @@ def echr_gaps(store: Store) -> list[str]:
 def verdragenbank_gaps(store: Store) -> list[str]:
     """Return external IDs of stub verdrag instrument nodes."""
     return [e for e in gap_queries.stub_treaty_ids(store) if e]
+
+
+def tk_dossier_gaps(store: Store) -> list[str]:
+    """The dossier numbers the graph names and has no dossier of: those of the publications
+    that amended or brought into force a version of an article, and the first readings a
+    change in the Grondwet refers to in its second. A number the Tweede Kamer did not have
+    not long ago is left out."""
+    named = gap_queries.dossiers_named_by_publications(store)
+    cited = {
+        number
+        for text in gap_queries.second_reading_memoranda(store)
+        for number in first_reading_dossiers(text)
+    }
+    cited -= gap_queries.dossiers_with_numbers(store, sorted(cited))
+    numbers = sorted(set(named) | cited)
+    waiting = _with_raw_record(
+        store,
+        [{"identifier": number} for number in numbers],
+        RAW_KIND_TK_DOSSIER + RAW_KIND_MISSING_SUFFIX,
+        retry_ahead=True,
+    )
+    return _capped(
+        [n for n in numbers if n not in waiting], "dossiers named, not loaded"
+    )

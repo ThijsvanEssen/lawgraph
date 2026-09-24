@@ -56,7 +56,8 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 |---------|---------|--------------|
 | `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
-| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`) of which none is stored; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`; `""` every paper) of which none is stored; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), and the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`) | `tk-dossier`, `tk-document`, `tk-dossier-missing` |
 
 `tk-dossiers` options: `--since`, `--skip-members` (also skips Fractie and FractieZetelPersoon),
 `--skip-decisions`, `--decisions-since`, `--skip-documents`, `--documents-since`,
@@ -429,7 +430,8 @@ without a WTI location or element gets no WTI record.
 **Normalize `bwb`.** `core/bwb_xml.parse_toestand` is the single parser. Instrument props: title
 (citeertitel, else intitule), `kind` (`wetgeving@soort`), `date_signed`, `date_published`,
 `date_in_force`, `dossier_numbers` of the originating publication. One Article per
-`(bwb_id, article number)` with the article text (leden as `1. text`, list items on their
+`(bwb_id, article number)`, or per `stam-id` for an article with a heading and no number (its
+`label` is the heading), at its `position` in the toestand, with the article text (leden as `1. text`, list items on their
 own lines, a paragraph next to the leden is included), the structured `references` with text
 offsets, the `parts` of the article (aanhef, leden, onderdelen as offsets into that text, see
 `docs/data-model.md`), and `stam_id`, `versie_id`, `valid_from`, `source_publication`,

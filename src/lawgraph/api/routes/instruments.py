@@ -361,10 +361,11 @@ def get_instrument_eu_links(
     response_model=InstrumentArticlesResponse,
     summary="All articles of an instrument",
     description=(
-        "The articles belonging to this instrument (BWB id or CELEX number), in "
-        "natural article order (9 before 10, '24c' between '24' and '25'). Meant "
-        "for graph loaders: the text is a short preview, use "
-        "/api/articles/{bwb_id}/{article_number} for the full content."
+        "The articles in force of this instrument (BWB id or CELEX number), in the order "
+        "of the document: an article with only a heading (the Algemene bepaling of the "
+        "Grondwet) where it stands, an annex after the regulation. `include_repealed` "
+        "adds the repealed identities (last). The text is a short preview; "
+        "/api/articles/{bwb_id}/{address} has the full content."
     ),
     tags=["instruments"],
 )
@@ -374,6 +375,13 @@ def list_articles(
     include_stubs: Annotated[
         bool,
         Query(description="Include placeholder/stub articles (default: false)"),
+    ] = False,
+    include_repealed: Annotated[
+        bool,
+        Query(
+            description="Include the articles no longer in force: identities whose "
+            "number another article has now, and articles their current version repeals."
+        ),
     ] = False,
     text_preview_chars: Annotated[
         int, Query(ge=0, le=600, description="Chars of text to inline as preview")
@@ -385,6 +393,7 @@ def list_articles(
         store,
         bwb_id,
         include_stubs=include_stubs,
+        include_repealed=include_repealed,
         limit=limit,
         offset=offset,
     )

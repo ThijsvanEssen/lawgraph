@@ -10,8 +10,10 @@ can generate its types from it.
 ## Endpoints
 
 Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`) and `article_number` the
-number as the graph stores it (`287`, `6:162` of the Awb, `bijlage 2 artikel 9` for an article of
-an annex, URL-encoded); an instrument
+address of an article (its `address`): the number as the graph stores it (`287`, `8:54` of the
+Awb, `bijlage 2 artikel 9` for an article of an annex, URL-encoded), or, for an article without a
+number, the rest of its key (`stam_16464063`, the Algemene bepaling of the Grondwet; a repealed
+identity `2_10_stam_2866303`), which stays across versions; an instrument
 route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A dossier `number`
 matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220)`), otherwise 422. A budget chapter is a dossier
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
@@ -32,7 +34,7 @@ or a `dossier` filter as it is. List parameters `limit` and `offset` have the bo
 
 | Path | Returns |
 |------|---------|
-| `/api/articles/{bwb_id}/{article_number}` | the article with its `parts` (aanhef, leden and onderdelen as spans of `text`), its instrument, citing judgments, `citations` (the resolved references, one per target) and `references` (every reference in the text, with the `leden`, `onderdelen` and `aanhef` it names, also when the target is not in the graph) |
+| `/api/articles/{bwb_id}/{article_number}` | the article (with `label`, `address`, `repealed`) with its `parts` (aanhef, leden and onderdelen as spans of `text`), its instrument, citing judgments, `citations` (the resolved references, one per target) and `references` (every reference in the text, with the `leden`, `onderdelen` and `aanhef` it names, also when the target is not in the graph) |
 | `.../history` | every version of the article, oldest first (only the last is `current`; empty for a law whose toestanden `retrieve bwb-history` has not loaded): validity period, text, `effect`, normalized `change` (`introduces`, `amends`, `repeals`), amending publication (`amended_by`) and commencement publication, each with its dossiers and its `parts`. The article is identified by `stam_id`, so renumbering does not break history; 404 for an unknown article |
 | `.../legislative-history` | the dossiers that introduced, amended or repealed the article, or propose to: one entry per change and dossier (`dossier_id`, null for a dossier a publication names that is not in the graph, `dossier_number`, `dossier_title`, `change` `introduces`/`amends`/`repeals`, `status` `canoniek` for an amending publication, `voorgesteld` for a bill, `document_id`, `kind`, `date`, `summary` of that publication or bill), proposed first, then newest first. What only cites the article (a judgment, another article) is no history; the explanatory documents are at `explained-by`; empty list, never 404 |
 | `.../explained-by` | the documents that `EXPLAINS` the article: edges to the article, to any of its versions (same `stam_id`) or to its instrument. `items[]`: `document` (`id`, `key`, `kind`, `title`, `date`, `dossier_number`, `chamber`, `source`, `is_explanatory`), `target` (`article`, `article_version`, `instrument`), `target_id`, `article_version_key`, `confidence`, `scope`, `section_anchor`. `scope` is `dossier` when the memorandum explains all changes of its dossier (`semantic tk-mvt`), `article` when the edge names the section about the article in `section_anchor` (`semantic tk-mvt-articles`; the `id` of a section of the document, whose text `GET /api/documents/{key}/passages` gives). An `instrument` item exists only for a dossier whose law changed no articles: no evidence about this article, listed after the article-level ones. Newest first; one item per document, level and anchor (a version before the article, the newest version first); `limit` (1-500, default 100), `offset`, `total` counts all; empty list for an unknown article, never 404 |
@@ -47,7 +49,7 @@ or a `dossier` filter as it is. List parameters `limit` and `offset` have the bo
 | `GET /api/instruments` | paged list; `q`, `jurisdiction` (`nl`, `eu`), `kind`, `article_count_min`, `sort` (default `title`) |
 | `GET /api/instruments/{identifier}` | one instrument: identifiers, names, jurisdiction, kind, dates, article count. `identifier` is a BWB id, a CELEX number or a node key (`echr_convention`, `verdrag_012345`); 404 when unknown |
 | `.../eu-links` | `implements` (EU acts whose CELEX number the instrument's text names) and `implemented_by` (regulations that name this act), each with `instrument`, `relation`, `confidence`, `basis`, `source`, `meta`; `international`: treaties that articles refer to (with the treaty article) and ECHR judgments that refer to the instrument or its articles, with the edge `meta`; `*_total` fields are absolute, `limit` (max 2000) bounds each list |
-| `/api/instruments/{bwb_id}/articles` | articles in the order of a reader (`24` before `24c` before `25`, `1:2` before `1:10`, the articles of an annex after those of the regulation; `props.sort_key`), each with its `breadcrumb` (the divisions it stands in: `type`, `label`, `title`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
+| `/api/instruments/{bwb_id}/articles` | the articles in force in the order of the document (`props.position`: the Algemene bepaling of the Grondwet where it stands, an annex after the regulation), each with `label`, `address`, `repealed`, `last_article_number`, each with its `breadcrumb` (the divisions it stands in: `type`, `label`, `title`); `include_stubs`, `include_repealed` (also the identities no longer in force: a number another article has now, or a current version that repeals; listed last), `text_preview_chars`, `limit` (max 2000), `offset` |
 | `.../articles/at/{at_date}` | article versions valid on `YYYY-MM-DD` (`valid_from <= date < valid_until`) |
 | `.../versions` | every toestand, newest first, `current` flagged |
 | `.../amended-by` | amending publications (Staatsblad, Tractatenblad, ...) with edge counts per kind, articles affected, first effective date and dossiers; `limit`, `offset` |
@@ -152,6 +154,7 @@ has no such number, as an Eerste Kamer paper, whose page is its `url`.
 | Kamerstuk | `36327`, `Kamerstuk 36327`, `36 327`, `29684-I` | the dossier with that number and suffix; other suffixes of the number are alternatives (0.5) | 0.95 |
 | Paper of a Kamerstuk | `36327-3`, `Kamerstukken II 2020/21, 36327, nr. 3`, `kst-36327-3` | the document with that ondernummer in the dossier; the dossier (0.6) when the graph lacks the paper | 0.95 |
 | Law name or abbreviation | `Wetboek van Strafvordering`, `Grondwet`, `Sr` | the instrument | 0.9; the start of a name 0.6, part of a name 0.4 |
+| Heading of an article without a number, and its law | `Algemene bepaling Grondwet` | the article | 0.95 |
 | Article without a law | `artikel 6`, `art. 6:162` | the most cited article with that number; the others are alternatives | 0.5 for one law, 0.3 for several |
 
 The article number is read as the graph stores it: a law that numbers with a colon keeps it

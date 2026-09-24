@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
@@ -15,6 +16,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
+    EXPLANATORY_KIND_MARKER,
     RAW_KIND_EU_CELEX,
     RELATION_PART_OF,
     SOURCE_BWB,
@@ -191,3 +193,55 @@ def existing_raw_keys(
     if retry_after_iso:
         bind["now"] = retry_after_iso
     return store.query(aql, {**bind, "keys": keys})
+
+
+def dossiers_named_by_publications(store: Store) -> list[str]:
+    """The dossier numbers that an amending or commencing publication names (on an article
+    version, or on the publication or regulation itself) and that no dossier has."""
+    aql = f"""
+    LET named = UNIQUE(UNION(
+        (FOR v IN {COLLECTION_ARTICLE_VERSIONS}
+            FOR n IN APPEND(
+                v.props.origin_publication.dossiers || [],
+                v.props.commencement_publication.dossiers || []
+            )
+            RETURN n),
+        (FOR i IN {COLLECTION_INSTRUMENTS}
+            FILTER i.props.dossier_numbers != null
+            FOR n IN i.props.dossier_numbers
+                RETURN n)
+    ))
+    FOR number IN named
+        FILTER REGEX_TEST(number, "^[0-9]+$")
+        FILTER LENGTH(
+            FOR d IN {COLLECTION_DOSSIERS} FILTER d.props.number == number LIMIT 1 RETURN 1
+        ) == 0
+        SORT number
+        RETURN number
+    """
+    return list(store.query(aql))
+
+
+def second_reading_memoranda(store: Store) -> Iterator[str]:
+    """The texts of the explanatory memoranda that speak of a first reading: a change in
+    the Grondwet in its second reading refers to the papers of the first."""
+    aql = f"""
+    FOR doc IN {COLLECTION_DOCUMENTS}
+        FILTER "TK" IN doc.labels AND doc.props.text != null
+        FILTER CONTAINS(LOWER(doc.props.kind || ""), @explanatory)
+        FILTER CONTAINS(LOWER(doc.props.text), "eerste lezing")
+        RETURN doc.props.text
+    """
+    return store.query(aql, {"explanatory": EXPLANATORY_KIND_MARKER})
+
+
+def dossiers_with_numbers(store: Store, numbers: list[str]) -> set[str]:
+    """Those of *numbers* that a dossier has."""
+    aql = f"""
+    FOR number IN @numbers
+        FILTER LENGTH(
+            FOR d IN {COLLECTION_DOSSIERS} FILTER d.props.number == number LIMIT 1 RETURN 1
+        ) > 0
+        RETURN number
+    """
+    return set(store.query(aql, {"numbers": numbers}))

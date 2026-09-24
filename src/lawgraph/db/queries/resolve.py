@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.core.models import collection_from_id, make_node_key
-from lawgraph.core.notation import LawMatch, Notation
+from lawgraph.core.notation import LawMatch, Notation, NotationParser
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.dossiers import _dossier_documents_aql
 from lawgraph.db.queries.search import load_notation_parser
@@ -170,6 +170,37 @@ def _articles_without_law(
     return [_target(row, "article", confidence) for row in rows]
 
 
+def _headed_article(
+    store: ArangoStore, q: str, parser: NotationParser
+) -> list[dict[str, Any]]:
+    """An article without a number, named by its heading and its law ("Algemene bepaling
+    Grondwet"): the end of *q* names a law by its abbreviation or its name, the start is
+    the heading of one of its articles, in any case."""
+    words = q.split()
+    for split in range(1, len(words)):
+        heading, law = " ".join(words[:split]), " ".join(words[split:])
+        law_ids = [
+            m.law_id for m in parser.law_matches(law) if m.tier in ("code", "title")
+        ]
+        if not law_ids:
+            continue
+        aql = f"""
+        FOR law_id IN @law_ids
+            FOR doc IN {COLLECTION_ARTICLES}
+                FILTER law_id != null AND (doc.props.bwb_id == law_id OR doc.props.celex == law_id)
+                FILTER doc.props.article_number == null AND doc.props.label != null
+                FILTER LOWER(doc.props.label) == @heading
+                RETURN {{
+                    id: doc._id, key: doc._key,
+                    display_name: {_DEFAULT_NAME}
+                }}
+        """
+        rows = list(store.query(aql, {"law_ids": law_ids, "heading": heading.lower()}))
+        if rows:
+            return _capped([_target(r, "article", CONFIDENCE_CITATION) for r in rows])
+    return []
+
+
 # ── dossiers and papers ───────────────────────────────────────────────────────
 
 
@@ -249,7 +280,8 @@ def _candidates(store: ArangoStore, q: str) -> tuple[list[dict[str, Any]], str |
     parser = load_notation_parser(store)
     notation = parser.parse(q)
     if notation is None:
-        return _laws_named(store, parser.law_matches(q)), None
+        headed = _headed_article(store, q, parser)
+        return headed or _laws_named(store, parser.law_matches(q)), None
     if notation.kind == "article":
         return _articles(store, notation), notation.qualifier
     if notation.kind == "dossier":

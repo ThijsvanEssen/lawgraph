@@ -289,6 +289,7 @@ RETRIEVE: list[Pipeline] = [
         ),
         argv_for_all=_tk_dossiers_argv,
         lane=LANE_TWEEDE_KAMER,
+        fills_gaps=True,
     ),
     _pipeline(
         retrieve_tk_content,

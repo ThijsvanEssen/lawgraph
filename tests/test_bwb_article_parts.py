@@ -259,8 +259,8 @@ def test_props_carry_the_parts_as_offsets_and_the_references_with_their_qualifie
 ):
     article = _article(_LEDEN_AND_LISTS)
 
-    props = article_props(article, "BWBR0000001", "Wet")
-    version = article_version_props(article, "BWBR0000001", "Wet")
+    props = article_props(article, "BWBR0000001", "Wet", 0)
+    version = article_version_props(article, "BWBR0000001", "Wet", 0)
 
     assert props["parts"][0] == {
         "id": "lid-1",
@@ -291,4 +291,4 @@ def test_an_article_without_structure_writes_an_empty_list_so_a_stale_one_is_rep
 ):
     article = _article("<artikel><kop><nr>5</nr></kop><al>Tekst.</al></artikel>")
 
-    assert article_props(article, "BWBR0000001", None)["parts"] == []
+    assert article_props(article, "BWBR0000001", None, 0)["parts"] == []

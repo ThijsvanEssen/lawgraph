@@ -18,6 +18,7 @@ from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key, annex_pro
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_wti import choose_short_titles, parse_abbreviations
 from lawgraph.core.bwb_xml import (
+    article_key,
     article_props,
     celex_refs,
     instrument_props,
@@ -111,16 +112,21 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     )
                     annexes_by_bwb.setdefault(bwb_id, []).append(key)
 
-                for article in toestand.articles:
-                    if not article.number or not article.text:
+                for position, article in enumerate(toestand.articles):
+                    found_key = article_key(bwb_id, article.number, article.stam_id)
+                    if found_key is None or not article.text:
                         logger.debug(
-                            "Skipping article without number or text in %s.", bwb_id
+                            "Skipping article without number, stam-id or text in %s.",
+                            bwb_id,
                         )
                         continue
                     props = article_props(
-                        article, bwb_id, instrument.props.get("citation_title")
+                        article,
+                        bwb_id,
+                        instrument.props.get("citation_title"),
+                        position,
                     )
-                    key = make_node_key(bwb_id, article.number)
+                    key = found_key
                     writer.add(
                         Node(
                             collection=COLLECTION_ARTICLES,

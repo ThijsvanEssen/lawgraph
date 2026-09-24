@@ -7,7 +7,24 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.core.bwb_xml import article_address
 from lawgraph.core.models import make_node_key
+
+ARTICLE_ADDRESS = (
+    "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or "
+    "for an article without one the rest of its key (`stam_16464063` of the Algemene "
+    "bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the "
+    "same across versions."
+)
+
+
+def address_of(doc: dict[str, Any]) -> str:
+    """``ARTICLE_ADDRESS`` of an article document."""
+    props = doc.get("props") or {}
+    law_id = props.get("bwb_id") or props.get("celex")
+    if not law_id:
+        return str(props.get("article_number") or doc["_key"])
+    return article_address(law_id, doc["_key"], props.get("article_number"))
 
 
 class QualifierFields(BaseModel):
