@@ -193,6 +193,10 @@ class JudgmentProps(_CommonProps):
     tier: str | None = None
     date_eff: str | None = None
     inbound_citation_count: int | None = None
+    # parallel cases of one court and day (``semantic rechtspraak-series``): the lowest
+    # ECLI of the series and how many judgments it has
+    series_id: str | None = None
+    series_size: int | None = None
     # ECHR-specific fields
     external_id: str | None = None
     appno: str | None = None

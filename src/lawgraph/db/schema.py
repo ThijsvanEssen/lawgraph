@@ -329,6 +329,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         # A conclusion and its judgment share a case number; a preliminary ruling names
         # the case number of the decision that asked its questions.
         (COLLECTION_JUDGMENTS, ["props.case_number_keys[*]"], False, True),
+        # the judgments of one series (``semantic rechtspraak-series``)
+        (COLLECTION_JUDGMENTS, ["props.series_id"], False, True),
         # What `/api/stats` counts per value is not sparse, so the count walks the index
         # and sees the documents without a value too; sparse, each count read every document.
         (COLLECTION_JUDGMENTS, ["props.source"], False, False),
