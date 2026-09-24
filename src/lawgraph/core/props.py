@@ -270,6 +270,7 @@ class DossierProps(_CommonProps):
     case_kinds: list[str] | None = None
     stages_present: list[str] | None = None
     stages_complete: bool | None = None
+    stages_missing: list[str] | None = None
     track_kind: str | None = None
     outcome: str | None = None
     # the other dossiers with the same number (the chapters of one budget)
