@@ -209,6 +209,7 @@ def test_rechtspraak_extract_rdf_metadata() -> None:
         ("ECLI:NL:GHAMS:2020:1", ("GHAMS", "gerechtshof")),
         ("ECLI:NL:RBAMS:2020:1", ("RBAMS", "rechtbank")),
         ("ECLI:NL:CRVB:2020:1", ("CRVB", "bijzonder")),
+        ("ECLI:NL:PHR:2019:496", ("PHR", "parket")),
         ("ECLI:NL", (None, None)),
         ("garbage", (None, None)),
     ],
@@ -557,3 +558,17 @@ def test_the_earlier_instance_is_read_from_the_attribute_and_nothing_else_is() -
     """The judgment that was appealed, not the conclusion of the A-G on it, nor the one after."""
     meta, _ = judgments.extract_rdf_metadata(judgments.parse_judgment(_RELATIONS_XML))
     assert meta["related_eclis"] == ["ECLI:NL:GHAMS:2024:3036"]
+
+
+def test_the_tier_filters_of_the_api_are_the_tiers() -> None:
+    import typing
+
+    from lawgraph.api.routes import articles, judgments
+    from lawgraph.core.judgments import TIERS
+
+    for route in (articles.get_article_cited_by_passages, judgments.list_judgments):
+        hint = typing.get_type_hints(route, include_extras=True)["tier"]
+        literal = next(
+            a for a in typing.get_args(typing.get_args(hint)[0]) if a is not None
+        )
+        assert set(typing.get_args(literal)) == set(TIERS), route.__name__

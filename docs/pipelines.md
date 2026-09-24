@@ -34,6 +34,17 @@ a book (`artikel 162 BW`) or with an unknown one there is no hit. The code of th
 (`BW`) is never a short title. A law that numbers `Hoofdstuk:artikel` in one regulation (the
 Awb: `8:54`) is no family; its articles keep the colon.
 
+A number with a leading zero (`047`) is no article number, and the letters of a number are
+lower case (`36e`, `420bis`): in `artikel 82Sr` the `Sr` is the law. The linkers of running
+text (`semantic tk`, `semantic rechtspraak`) resolve a cited article in one way
+(`SemanticPipelineBase._cited_article`): the article with that number; else, of a law whose
+articles are loaded, the historical article that last had the number (a repealed or
+renumbered article cited by an older text: `bwbr0001854_248e_stam_…`), and no edge for a
+number of a shape none of the law's articles has (`core.citations.number_shape`: digits as
+`9`, letters as `a`; `140.1 Sr` is `9.9` while Sr has `9`, `9a` and `9a.9`: article 140, first
+lid, written short), also when a stub of it exists; else a stub, when the
+citation is sure enough (`tk` 0.85, `rechtspraak` 0.9).
+
 ## Tweede Kamer
 
 **Provides.** OData v4 JSON API of the Gegevensmagazijn (`TK_API_BASE`): cases (Zaak),
@@ -138,8 +149,8 @@ in a document is kept.
 | `Richtlijn` or `Verordening YYYY/N` (CELEX derived) | instrument | 0.65 |
 | an instrument's title or citation title appears | instrument | 0.60 |
 
-Every hit becomes a `REFERS_TO` edge to the article or instrument. A missing article target is
-created as a stub when the confidence is at least 0.85; instruments are never created. Edges
+Every hit becomes a `REFERS_TO` edge to the article or instrument; a missing article is resolved
+as the Overview says (a stub from 0.85); instruments are never created. Edges
 hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_instrument`,
 `celex_instrument`) and `qualifier`.
 
@@ -286,8 +297,10 @@ instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:rela
 a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
 `summary`, `uitspraak` as `text` and as `paragraphs` (heading, subheading, body; see the
 paragraph props in the data model). The XML itself stays in the payload store. `court_code` is the ECLI court
-segment; `tier` is `hoge_raad` (`HR`), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or
-`bijzonder`; `date_eff` is the judgment date.
+segment; `tier` is `hoge_raad` (`HR`), `parket` (`PHR`, the conclusions of the Parket bij de
+Hoge Raad), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or `bijzonder` (every other court:
+Raad van State, CRvB, CBB, the courts of the Caribbean parts); `core/judgments.court_tier`,
+whose tables `graph-list-stats` reads too; `date_eff` is the judgment date.
 
 **Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
 made and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
@@ -305,8 +318,8 @@ the article first and resolves the law after it:
 | `artikel 3a van die wet` (also `deze`, `genoemde`, `voornoemde`), the law named last within 3,000 characters | 0.70 |
 
 Codes come from `instruments.props.short_title`, names from instrument titles; a title two
-instruments share is not a name. A missing target article is created as a stub from 0.9; an
-article cited only as `artikel N` with no law is not written.
+instruments share is not a name. A missing target article is resolved as the Overview says (a
+stub from 0.9); an article cited only as `artikel N` with no law is not written.
 
 One `REFERS_TO` edge per judgment and article, its `confidence` the strongest mention and
 `meta.mentions` the mentions in reading order (`paragraph_id`, `paragraph_number`, `start`,

@@ -36,6 +36,7 @@ from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_xml import (
     ArticleXml,
     ToestandXml,
+    article_label,
     article_version_key,
     article_version_props,
     historical_article_key,
@@ -343,7 +344,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 # number may have been reused by a current article
                 "last_article_number": number,
                 "stam_id": row["stam_id"],
-                "display_name": f"Artikel {number} {title or ''}".strip(),
+                "display_name": f"{article_label(number)} {title or ''}".strip(),
                 "instrument_citation_title": title,
                 "repealed": True,
                 "source": SOURCE_BWB,

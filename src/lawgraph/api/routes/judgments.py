@@ -38,7 +38,7 @@ logger = get_logger(__name__)
     summary="Paginated list of judgments",
     description=(
         "A paginated list of judgments with filters on court (the ECLI court "
-        "code), tier (hoge_raad / gerechtshof / rechtbank / bijzonder), date "
+        "code), tier (hoge_raad / parket / gerechtshof / rechtbank / bijzonder), date "
         "range and a minimum citation count."
     ),
     tags=["judgments"],
@@ -55,7 +55,7 @@ def list_judgments(
         Query(description="ECLI court code, e.g. 'HR', 'RBAMS', 'GHARL'"),
     ] = None,
     tier: Annotated[
-        Literal["hoge_raad", "gerechtshof", "rechtbank", "bijzonder"] | None,
+        Literal["hoge_raad", "parket", "gerechtshof", "rechtbank", "bijzonder"] | None,
         Query(),
     ] = None,
     source: Annotated[

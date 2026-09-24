@@ -62,9 +62,8 @@ def get_articles(
 ) -> tuple[list[dict[str, Any]], int]:
     """All articles belonging to an instrument (BWB id or CELEX), sorted by article_number.
 
-    Sort is a natural numeric-aware order (so 'Artikel 9' precedes 'Artikel 10'
-    and '24c' lands between '24' and '25') derived in AQL via a numeric/string
-    split on the article_number. Returns ``(items, total)``.
+    Sorted as a reader does (``props.sort_key``: 'Artikel 9' before 'Artikel 10',
+    '24c' between '24' and '25', '1:2' before '1:10', an annex after the regulation). Returns ``(items, total)``.
     """
     scope = scope_of(identifier)
     stub_filter = "" if include_stubs else "FILTER doc.props.stub != true"
@@ -78,12 +77,8 @@ def get_articles(
     LET total = LENGTH(filtered)
     LET items = (
         FOR doc IN filtered
-            // Natural sort: split article_number into leading int + suffix
-            LET num_str = doc.props.article_number != null ? doc.props.article_number : ""
-            LET digits = REGEX_MATCHES(num_str, "^([0-9]+)")
-            LET num_int = LENGTH(digits) > 0 ? TO_NUMBER(digits[0]) : 999999
-            LET suffix = LENGTH(digits) > 0 ? SUBSTRING(num_str, LENGTH(digits[0])) : num_str
-            SORT num_int ASC, suffix ASC
+            // the order of a reader (``article_sort_key``); a stub has none: last
+            SORT doc.props.sort_key == null, doc.props.sort_key, doc._key
             LIMIT @offset, @limit
             RETURN doc
     )
@@ -715,11 +710,7 @@ def get_articles_at(
             RETURN doc
     )
     FOR doc IN filtered
-        LET num_str = doc.props.article_number != null ? doc.props.article_number : ""
-        LET digits = REGEX_MATCHES(num_str, "^([0-9]+)")
-        LET num_int = LENGTH(digits) > 0 ? TO_NUMBER(digits[0]) : 999999
-        LET suffix  = LENGTH(digits) > 0 ? SUBSTRING(num_str, LENGTH(digits[0])) : num_str
-        SORT num_int ASC, suffix ASC
+        SORT doc.props.sort_key == null, doc.props.sort_key, doc._key
         RETURN doc
     """
     return list(store.query(aql, {"bwb_id": bwb_id.upper(), "at_date": at_date}))

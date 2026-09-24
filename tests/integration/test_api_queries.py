@@ -108,8 +108,8 @@ def test_a_judgment_is_found_by_key_or_index_never_by_reading_them_all(
 
 
 def test_the_counts_of_the_stats_walk_an_index(database: str) -> None:
-    """`/api/stats` counts per relation, source, kind and jurisdiction. On sparse indexes
-    each count read every document: 13.8 s on the full database, 10.8 s of it for the
+    """`/api/stats` counts per relation, source, kind and jurisdiction, and the stubs. On
+    sparse indexes each count read every document: 13.8 s on the full database, 10.8 s of it for the
     judgments (their text is in the document)."""
     from lawgraph.db.queries import stats
 
@@ -125,10 +125,13 @@ def test_the_counts_of_the_stats_walk_an_index(database: str) -> None:
     store.query = recording  # type: ignore[method-assign]
     stats.get_db_stats(store)
 
-    assert len(asked) == 5
+    assert len(asked) == 8  # five counts per value, three counts of stubs
     for aql in asked:
         nodes = store.db.aql.explain(aql)["nodes"]
         kinds = [node["type"] for node in nodes]
         assert "EnumerateCollectionNode" not in kinds, (aql, kinds)
         index = next(node for node in nodes if node["type"] == "IndexNode")
-        assert index.get("indexCoversProjections"), aql
+        # the index has what is read, or nothing is read (a count of an index range)
+        assert (
+            index.get("indexCoversProjections") or index["producesResult"] is False
+        ), aql

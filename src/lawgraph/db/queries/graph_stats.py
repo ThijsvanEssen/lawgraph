@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.judgments import TIER_BIJZONDER, TIER_OF_COURT, TIER_OF_PREFIX
 from lawgraph.db.counting import Store
 
 # Each entry below is one query body that selects the stale documents, plus a
@@ -59,11 +60,8 @@ FOR doc IN {COLLECTION_JUDGMENTS}
     LET ecli = doc.props.ecli != null ? doc.props.ecli : doc._key
     LET ecli_parts = SPLIT(ecli, ':')
     LET court_code = LENGTH(ecli_parts) >= 3 ? UPPER(ecli_parts[2]) : null
-    LET tier = (
-        court_code == 'HR' ? 'hoge_raad' :
-        (court_code != null AND STARTS_WITH(court_code, 'GH') ? 'gerechtshof' :
-         (court_code != null AND STARTS_WITH(court_code, 'RB') ? 'rechtbank' :
-          (court_code == null ? null : 'bijzonder')))
+    LET tier = court_code == null ? null : NOT_NULL(
+        @tier_of_court[court_code], @tier_of_prefix[LEFT(court_code, 2)], @other_tier
     )
     LET date_eff = (
         doc.props.judgment_metadata != null AND doc.props.judgment_metadata.date != null
@@ -158,7 +156,12 @@ def refresh_judgments(store: Store, *, dry_run: bool) -> int:
             "court_code: court_code, tier: tier, date_eff: date_eff,"
             " inbound_citation_count: inbound_cnt",
         ),
-        {"inbound_rels": [RELATION_REFERS_TO]},
+        {
+            "inbound_rels": [RELATION_REFERS_TO],
+            "tier_of_court": TIER_OF_COURT,
+            "tier_of_prefix": TIER_OF_PREFIX,
+            "other_tier": TIER_BIJZONDER,
+        },
         dry_run=dry_run,
     )
 

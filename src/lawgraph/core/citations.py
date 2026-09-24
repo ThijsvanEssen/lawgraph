@@ -161,8 +161,9 @@ def strip_xml(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 # Article number: plain (140), with letters (36e, 189a, 126aa, 420bis), with colon or dot parts
-# (6:162, 7a:1576h, 3.26, 6.2.8, 1.1a)
-ARTICLE_NUMBER_PATTERN = r"\d+[a-z]?(?:[.:]\d+)*[a-z]{0,3}"
+# (6:162, 7a:1576h, 3.26, 6.2.8, 1.1a). The letters are lower case also where the rest of a
+# citation is matched without regard to case: in "artikel 82Sr" the "Sr" is the law.
+ARTICLE_NUMBER_PATTERN = r"\d+(?-i:[a-z])?(?:[.:]\d+)*(?-i:[a-z]{0,3})"
 
 # A code made of a family and a book, like ``BW6`` or ``BW7A``: the family (``BW``) is what
 # a citation names, the book comes from the article number (``artikel 6:162 BW``).
@@ -263,7 +264,23 @@ def parse_article_numbers(raw: str) -> list[str]:
         for p in parts
         if p.strip() and re.fullmatch(ARTICLE_NUMBER_PATTERN, p.strip(), re.IGNORECASE)
     ]
-    return result or [raw]
+    # No article is numbered with a leading zero: "047" is a typing error.
+    return [n for n in result or [raw] if not n.startswith("0")]
+
+
+def number_shape(number: str) -> str:
+    """How an article number is built: every run of digits is ``9``, every run of letters
+    ``a`` (``6:162`` is ``9:9``, ``36e`` is ``9a``, ``420bis.1`` is ``9a.9``); an article of
+    an annex (``bijlage 2 artikel 9``) is ``annex``.
+
+    A law numbers its articles in a few ways (the Awb ``9:9`` and ``9:9a``, the Omgevingswet
+    ``9.9``, the Wetboek van Strafrecht ``9``, ``9a`` and ``9a.9``), so a number of a shape
+    none of its articles has does not cite one of them: ``140.1 Sr`` (``9.9``) is article
+    140, first lid, written short.
+    """
+    if number.startswith("bijlage "):
+        return "annex"
+    return re.sub(r"[a-z]+", "a", re.sub(r"\d+", "9", number.lower()))
 
 
 def name_key(text: str) -> str:

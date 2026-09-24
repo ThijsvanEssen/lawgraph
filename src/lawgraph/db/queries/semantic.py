@@ -118,6 +118,22 @@ FOR j IN {COLLECTION_JUDGMENTS}
     return store.query(aql)
 
 
+def law_articles(store: Store, field: str, law_id: str) -> Iterator[dict[str, Any]]:
+    """``{key, number, last_number, stub}`` of every article of one law; *field* is
+    ``bwb_id`` or ``celex``. A historical article has only ``last_number``."""
+    aql = f"""
+FOR a IN {COLLECTION_ARTICLES}
+  FILTER a.props.@field == @law_id
+  RETURN {{
+    key: a._key,
+    number: a.props.article_number,
+    last_number: a.props.last_article_number,
+    stub: a.props.stub == true
+  }}
+"""
+    return store.query(aql, {"field": field, "law_id": law_id})
+
+
 def conclusion_rows(store: Store) -> Iterator[dict[str, Any]]:
     """``{ecli, court_code, is_conclusion, conclusion_eclis, case_number_keys}`` of every
     conclusion and of every judgment that names its conclusion."""

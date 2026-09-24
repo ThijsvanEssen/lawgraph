@@ -13,12 +13,7 @@ from lawgraph.api.schemas.stats import (
     JudgmentCoverageResponse,
     StatsResponse,
 )
-from lawgraph.core.judgments import (
-    TIER_BIJZONDER,
-    TIER_GERECHTSHOF,
-    TIER_HOGE_RAAD,
-    TIER_RECHTBANK,
-)
+from lawgraph.core.judgments import TIERS
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.stats import get_db_stats, get_judgment_coverage
 
@@ -29,20 +24,21 @@ router = APIRouter()
     "",
     response_model=StatsResponse,
     summary="Database statistics",
-    description="Document counts per collection and edge counts per relation type.",
+    description=(
+        "Document counts per collection without stubs, the stubs per collection (nodes "
+        "known only because something refers to them) and edge counts per relation type."
+    ),
     tags=["stats"],
 )
 def get_stats(store: Annotated[ArangoStore, Depends(get_store)]) -> StatsResponse:
     data = get_db_stats(store)
     return StatsResponse(
         nodes=data["nodes"],
+        stubs=data.get("stubs", {}),
         edges=EdgeStatsDTO(**data["edges"]),
         by_source=data.get("by_source", {}),
         instruments=InstrumentStatsDTO(**data.get("instruments", {})),
     )
-
-
-_TIER_ORDER = (TIER_HOGE_RAAD, TIER_GERECHTSHOF, TIER_RECHTBANK, TIER_BIJZONDER)
 
 
 def _span(rows: list[CoverageCourtDTO]) -> tuple[str | None, str | None]:
@@ -75,7 +71,7 @@ def get_coverage(
     tiers = []
     for tier in sorted(
         {c.tier for c in courts},
-        key=lambda t: _TIER_ORDER.index(t) if t in _TIER_ORDER else len(_TIER_ORDER),
+        key=lambda t: TIERS.index(t) if t in TIERS else len(TIERS),
     ):
         of_tier = [c for c in courts if c.tier == tier]
         first, last = _span(of_tier)

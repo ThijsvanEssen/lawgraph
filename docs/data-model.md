@@ -92,7 +92,7 @@ they are out of date. Do not edit inside the markers.
 | `instruments` (Verdragenbank treaty) | `verdrag_<id>` |
 | `instruments` (amending publication) | `stb_2019_33` (publication identifier) |
 | `instruments` (ECHR Convention) | `echr_convention` |
-| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW); EU `<celex>_<article_number>`; historical `<bwb_id>_<number>_stam_<stam_id>`; ECHR `echr_convention_<n>` |
+| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`); EU `<celex>_<article_number>`; historical `<bwb_id>_<number>_stam_<stam_id>`; ECHR `echr_convention_<n>` |
 | `instrument_versions` | `<bwb_id>_<valid_from>` |
 | `article_versions` | `<bwb_id>_av_<stam_id>_<versie_id>` |
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
@@ -175,13 +175,17 @@ renumbering; each version has a `versie-id`.
 
 | Node | Identity | Notes |
 |------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
+| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `sort_key` (the number with every run of digits padded to six, an annex's articles after the regulation's: the order of the lists), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
 | ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
 | InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until`, `current`, `state_url` |
 
 - `ArticleVersion VERSION_OF Article` and `InstrumentVersion VERSION_OF Instrument`. There are
   no membership or succession edges: "the article on date X" is the version with
   `valid_from <= X` and (`valid_until > X` or null).
+- An annex (`<bijlage>`) numbers its articles on its own: Bijlage 2 and Bijlage 3 of the Awb
+  each have an article 1. The number of an article of an annex names the annex as the JCI does
+  (`bijlage=2&artikel=9`): `article_number` is `bijlage 2 artikel 9`, its display name
+  `Artikel 9 van bijlage 2 …`, and a reference to it (`props.references`) has that number.
 - Historical articles are identities that are not in the current toestand. They have no
   `article_number` (`(bwb_id, article_number)` is a unique index); the last known number is
   in `last_article_number`. They carry `repealed: true`.
@@ -200,7 +204,7 @@ renumbering; each version has a `versie-id`.
   (`onder-a_2`). A paragraph next to the leden is no part.
 - `breadcrumb` is where the article stands in its regulation, outermost first:
   `{type, label, title}` per division that holds it, `type` the element of the toestand
-  (`boek`, `deel`, `titeldeel`, `hoofdstuk`, `afdeling`, `paragraaf`, `sub-paragraaf`,
+  (`bijlage`, `boek`, `deel`, `titeldeel`, `hoofdstuk`, `afdeling`, `paragraaf`, `sub-paragraaf`,
   `divisie`), `label` as printed (`Hoofdstuk 1`, `Titel 1.1`), `title` its heading. Absent for
   an article outside every division.
 - `references` holds every `extref`/`intref` of the text that names a regulation:
