@@ -247,11 +247,13 @@ def get_article_version_history(
     response_model=ArticleLegislativeHistoryResponse,
     summary="Legislative history of an article",
     description=(
-        "Every dossier and document that introduced, changed or proposes to "
-        "change this article, covering both enacted (`canoniek`) and proposed "
-        "(`voorgesteld`) changes, and what refers to it. The "
-        "explanatory documents are at `explained-by`. Returns an empty list when "
-        "there is no history — never a 404."
+        "The dossiers that introduced, amended or repealed this article, or propose "
+        "to: one entry per change and dossier, with the amending publication "
+        "(enacted, `canoniek`) or the bill (proposed, `voorgesteld`) that carries "
+        "it; proposed first, then newest first. What only cites the article "
+        "(a judgment, another article) is not history. The explanatory documents "
+        "are at `explained-by`. Returns an empty list when there is no history — "
+        "never a 404."
     ),
     tags=["articles"],
 )

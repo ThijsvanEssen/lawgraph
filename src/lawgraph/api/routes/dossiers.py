@@ -1,5 +1,6 @@
 """Dossier endpoints.
 
+GET /api/dossiers?number=              — every dossier of one number, in the Kamer's order
 GET /api/dossiers/open                 — open dossiers, with filters
 GET /api/dossiers/recent               — recently active dossiers
 GET /api/dossiers/documents/bulk       — documents for several dossiers at once
@@ -41,7 +42,9 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_hub,
     get_dossier_mutations,
     get_dossier_number_to_id_map,
+    get_dossier_relations,
     get_dossier_timeline,
+    get_dossiers_of_number,
     get_open_dossiers,
     get_recent_dossiers,
 )
@@ -57,11 +60,53 @@ DossierNumber = Annotated[
 ]
 
 
+# What the dossier lists filter on: a number, a dossier, or words of the title.
+Subject = Annotated[
+    str | None,
+    Query(
+        description=(
+            "A number (``37035``: every dossier of that number), a dossier (``37035-XXII``) "
+            "or a substring of the title."
+        )
+    ),
+]
+
+
 def _dossier_or_404(store: ArangoStore, number: str) -> dict[str, Any]:
     dossier = get_dossier_by_number(store, number)
     if dossier is None:
         raise HTTPException(status_code=404, detail=f"Dossier {number} not found.")
     return dossier
+
+
+@router.get(
+    "",
+    response_model=DossierListResponse,
+    summary="The dossiers of one number",
+    description=(
+        "Every dossier with this number: the one without a suffix and all those with one "
+        "(the chapters and funds of a budget, the meetings of an EU Council series), in "
+        "the order of the Kamer: no suffix, numeric suffixes by value, budget chapters by "
+        "value with their letter (``I``, ``IIA``, ``IIB``, ``III``), then the rest (the "
+        "funds ``A``, ``B``, ...). An unknown number answers an empty list."
+    ),
+    tags=["dossiers"],
+)
+def list_dossiers_of_number(
+    store: Annotated[ArangoStore, Depends(get_store)],
+    number: Annotated[
+        str,
+        Query(
+            description="The number without a suffix, e.g. 37035 or 21501.",
+            pattern=r"^\d+$",
+        ),
+    ],
+) -> DossierListResponse:
+    docs = get_dossiers_of_number(store, number)
+    enrich_dossier_docs(store, docs)
+    return DossierListResponse(
+        total=len(docs), items=[DossierSummaryDTO.from_document(d) for d in docs]
+    )
 
 
 @router.get(
@@ -71,16 +116,14 @@ def _dossier_or_404(store: ArangoStore, number: str) -> dict[str, Any]:
     description=(
         "Every dossier that is not closed yet. ``total`` is the absolute "
         "count, independent of ``limit``. Filters on committee slug, subject "
-        "text and legislative stage."
+        "(a number, a dossier or title text) and legislative stage."
     ),
     tags=["dossiers"],
 )
 def list_open_dossiers(
     store: Annotated[ArangoStore, Depends(get_store)],
     committee: Annotated[str | None, Query(description="Committee slug.")] = None,
-    subject: Annotated[
-        str | None, Query(description="Substring of the dossier title.")
-    ] = None,
+    subject: Subject = None,
     stage: Annotated[
         str | None,
         Query(
@@ -130,7 +173,8 @@ def list_open_dossiers(
     summary="Recently active dossiers",
     description=(
         "Dossiers with an activity, a vote, a document or their closing in the given "
-        "period, the most recent first."
+        "period, the most recent first. ``subject`` narrows them to a number, a dossier "
+        "or title text."
     ),
     tags=["dossiers"],
 )
@@ -138,8 +182,9 @@ def list_recent_dossiers(
     store: Annotated[ArangoStore, Depends(get_store)],
     days: Annotated[int, Query(ge=1, le=365, description="Look-back in days.")] = 30,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    subject: Subject = None,
 ) -> list[DossierSummaryDTO]:
-    docs = get_recent_dossiers(store, days=days, limit=limit)
+    docs = get_recent_dossiers(store, days=days, limit=limit, subject=subject)
     enrich_dossier_docs(store, docs)
     return [DossierSummaryDTO.from_document(d) for d in docs]
 
@@ -189,7 +234,9 @@ def list_documents_for_dossiers(
         "decisions and commitments it holds, and what it links to: the "
         "instruments it legislated, amends, introduces or repeals (one item per "
         "instrument, relation and status), the committees that lead its "
-        "activities, its documents per kind and its Eerste Kamer papers."
+        "activities, its documents per kind, its Eerste Kamer papers, and the dossiers it "
+        "revises, accompanies or is related to (and those that revise, accompany or "
+        "relate to it)."
     ),
     tags=["dossiers"],
 )
@@ -199,10 +246,13 @@ def get_dossier(
 ) -> DossierDetailResponse:
     dossier = _dossier_or_404(store, number)
     enrich_dossier_docs(store, [dossier])
+    relations = get_dossier_relations(store, dossier["_id"])
+    enrich_dossier_docs(store, [row["dossier"] for row in relations])
     return DossierDetailResponse.from_document(
         dossier,
         counts=count_dossier_members(store, dossier["_id"]),
         hub=get_dossier_hub(store, dossier["_id"]),
+        relations=relations,
     )
 
 

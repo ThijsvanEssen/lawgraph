@@ -76,9 +76,12 @@ class TKNormalizePipeline(NormalizePipelineBase):
                 "source": SOURCE_TK,
                 "external_id": external_id,
                 "number": str(payload.get("Nummer") or payload.get("ZaakNummer") or ""),
+                "kind": payload.get("Soort") or None,
                 # The dossiers this case belongs to; the dossier pipeline turns
                 # them into PART_OF edges once the dossier nodes exist.
                 "dossier_numbers": tk_records.dossier_numbers([payload]),
+                # What `semantic tk-dossier-relations` lifts to RELATED_TO edges between dossiers.
+                "related_cases": tk_records.related_cases(payload),
             }
             if title:
                 props["title"] = title

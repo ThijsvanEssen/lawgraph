@@ -10,6 +10,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.judgments import (
+    case_number_keys,
     compose_display_name,
     derive_court_tier,
     extract_judgment_text,
@@ -93,8 +94,11 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
             for field in ("court", "date", "case_number"):
                 if field in judgment_meta:
                     props[field] = judgment_meta[field]
-            if judgment_meta.get("related_eclis"):
-                props["related_eclis"] = judgment_meta["related_eclis"]
+            for field in ("related_eclis", "conclusion_eclis"):
+                if judgment_meta.get(field):
+                    props[field] = judgment_meta[field]
+            if keys := case_number_keys(judgment_meta.get("case_number")):
+                props["case_number_keys"] = keys
         if subjects:
             props["subjects"] = subjects
 

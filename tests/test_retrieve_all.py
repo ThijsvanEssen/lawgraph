@@ -304,7 +304,7 @@ def test_bootstrap_loads_a_two_year_window(monkeypatch) -> None:
         "--window",
         "730d",
         "--jobs",
-        "6",  # one job per server
+        "7",  # one job per server
     ]
 
 
@@ -376,7 +376,7 @@ def test_by_default_every_server_has_its_own_job() -> None:
     from lawgraph.pipelines.orchestration import DEFAULT_RETRIEVE_JOBS
 
     lanes = {p.lane_id for p in registry.PIPELINES["retrieve"] if p.argv_for_all}
-    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 6
+    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 7
 
 
 def test_an_interrupt_stops_the_other_lanes_too() -> None:

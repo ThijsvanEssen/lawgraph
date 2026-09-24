@@ -88,6 +88,15 @@ def relation_ecli(element: ET.Element) -> str | None:
     return ecli.upper() if ecli.upper().startswith("ECLI:") else None
 
 
+def is_conclusion_relation(element: ET.Element) -> bool:
+    """Does the relation tie a conclusion to its judgment (``psi:type`` .../conclusie)?
+
+    A judgment names its conclusion so, and a conclusion the judgment it advised on.
+    """
+    attributes = {local_name(name): value for name, value in element.attrib.items()}
+    return attributes.get("type", "").endswith("/conclusie")
+
+
 def is_earlier_instance(element: ET.Element) -> bool:
     """Is the judgment a relation names one this judgment ruled on appeal of?
 
@@ -106,7 +115,18 @@ _METADATA_FIELDS = {
     "date": "date",
     "zaaknummer": "case_number",
     "procedure": "type",
+    "type": "document_type",  # dcterms:type: "Uitspraak" or "Conclusie"
 }
+
+DOCUMENT_TYPE_CONCLUSION = "Conclusie"
+PROCEDURE_PRELIMINARY_RULING = "Prejudiciële beslissing"
+
+# The court code of a conclusion -> that of the judgment it advises on, where they differ:
+# the Parket bij de Hoge Raad advises the Hoge Raad. Any other court (the Raad van State,
+# the Centrale Raad van Beroep) publishes the conclusions of its own advocates-general.
+CONCLUSION_BENCH = {"PHR": "HR"}
+# Courts that publish nothing but conclusions.
+CONCLUSION_ONLY_COURTS = frozenset(CONCLUSION_BENCH)
 
 
 def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
@@ -114,12 +134,15 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
     meta: dict[str, Any] = {}
     subjects: list[str] = []
     related_eclis: list[str] = []
+    conclusion_eclis: list[str] = []
 
     for el in root.iter():
         tag = local_name(el.tag)
         if tag == "relation":
             ecli = relation_ecli(el)
-            if ecli and is_earlier_instance(el):
+            if ecli and is_conclusion_relation(el):
+                conclusion_eclis.append(ecli)
+            elif ecli and is_earlier_instance(el):
                 related_eclis.append(ecli)
             continue
 
@@ -134,7 +157,103 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
 
     if related_eclis:
         meta["related_eclis"] = related_eclis
+    if conclusion_eclis:
+        meta["conclusion_eclis"] = conclusion_eclis
     return meta, subjects
+
+
+# ── case numbers ─────────────────────────────────────────────────────────────
+
+# Between the case numbers of one judgment: "18/04298 en 18/04299", "200.1, 200.2".
+_CASE_NUMBER_SPLIT = re.compile(r"\s*(?:,|;|\ben\b)\s*", re.IGNORECASE)
+
+
+def case_number_keys(case_number: str | None) -> list[str]:
+    """The case numbers of a judgment as compared: lower case, without spaces.
+
+    The same number is written ``C/19/117301 / HA ZA 16-256`` in the metadata of one
+    judgment and ``C/19/117301/HA ZA 16-256`` in the text of another.
+    """
+    keys: list[str] = []
+    for part in _CASE_NUMBER_SPLIT.split(case_number or ""):
+        key = re.sub(r"\s+", "", part).lower()
+        if key and any(c.isdigit() for c in key) and key not in keys:
+            keys.append(key)
+    return keys
+
+
+# ── the referral of a preliminary ruling ─────────────────────────────────────
+
+_ECLI_IN_TEXT = re.compile(r"\bECLI:NL:[A-Z]{2,8}:\d{4}:[A-Z0-9]{1,8}\b", re.IGNORECASE)
+# "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de
+# rechtbank ... prejudiciële vragen aan de Hoge Raad gesteld"; "in de zaken 8674876/EJ VERZ
+# 20-213 en 8675941 EJ VERZ 20-214 van 8 februari 2021".
+_REFERRAL_CASES = re.compile(
+    r"\bin\s+de\s+za(?:ak|ken)\s+(?P<numbers>.{3,120}?)\s+van\s+(?P<date>\d{1,2}\s+\w+\s+\d{4})",
+    re.IGNORECASE,
+)
+_MONTHS = {
+    month: number
+    for number, month in enumerate(
+        (
+            "januari",
+            "februari",
+            "maart",
+            "april",
+            "mei",
+            "juni",
+            "juli",
+            "augustus",
+            "september",
+            "oktober",
+            "november",
+            "december",
+        ),
+        start=1,
+    )
+}
+
+
+@dataclass(frozen=True)
+class Referral:
+    """What a preliminary ruling says of the decision that asked its questions."""
+
+    eclis: tuple[str, ...] = ()
+    case_keys: tuple[str, ...] = ()  # as ``case_number_keys`` writes them
+    date: str | None = None  # of the referring decision, ISO
+
+
+def _dutch_date(text: str) -> str | None:
+    day, month, year = text.split()
+    number = _MONTHS.get(month.lower())
+    if number is None:
+        return None
+    try:
+        return dt.date(int(year), number, int(day)).isoformat()
+    except ValueError:
+        return None
+
+
+def read_referral(paragraphs: list[dict[str, Any]]) -> Referral | None:
+    """The referring decision a preliminary ruling names, from the first paragraph that
+    says questions were asked ("prejudiciële vragen ... gesteld"): the ECLIs it names, or
+    the case numbers and the date of the decision. ``None`` when no paragraph does.
+    """
+    for paragraph in paragraphs:
+        text = paragraph.get("text") or ""
+        lowered = text.lower()
+        if "prejudiciële vra" not in lowered or "gesteld" not in lowered:
+            continue
+        eclis = tuple(dict.fromkeys(e.upper() for e in _ECLI_IN_TEXT.findall(text)))
+        match = _REFERRAL_CASES.search(text)
+        if not eclis and not match:
+            continue
+        return Referral(
+            eclis=eclis,
+            case_keys=tuple(case_number_keys(match["numbers"])) if match else (),
+            date=_dutch_date(match["date"]) if match else None,
+        )
+    return None
 
 
 # ── <uitspraak> structure ────────────────────────────────────────────────────

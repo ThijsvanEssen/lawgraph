@@ -37,6 +37,7 @@ from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
+from lawgraph.pipelines.normalize.wikidata import WikidataNormalizePipeline
 from lawgraph.pipelines.retrieve_commands import (
     retrieve_bwb,
     retrieve_bwb_history,
@@ -50,6 +51,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_tk_content,
     retrieve_tk_dossiers,
     retrieve_verdragenbank,
+    retrieve_wikidata,
 )
 from lawgraph.pipelines.semantic import graph_list_stats
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
@@ -74,6 +76,12 @@ from lawgraph.pipelines.semantic.rechtspraak_appeal import (
 from lawgraph.pipelines.semantic.rechtspraak_citations import (
     RechtspraakCitationsSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
+    RechtspraakConclusionsSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.rechtspraak_referrals import (
+    RechtspraakReferralsSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.staatsblad import StaatsbladSemanticPipeline
 from lawgraph.pipelines.semantic.staatscourant import (
     StaatscourantSemanticPipeline,
@@ -85,6 +93,9 @@ from lawgraph.pipelines.semantic.tk_amendment_articles import (
 from lawgraph.pipelines.semantic.tk_amends import TKAmendsSemanticPipeline
 from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
     TKDossierOutcomesSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.tk_dossier_relations import (
+    TKDossierRelationsSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
@@ -105,6 +116,7 @@ SOURCES: dict[str, str] = {
     "eerstekamer": "Eerste Kamer",
     "echr": "ECHR (HUDOC)",
     "verdragenbank": "Verdragenbank",
+    "wikidata": "Wikidata",
     "graph": "The whole graph",
 }
 # How a source is spelled in a class name, where capitalising it is not enough.
@@ -353,6 +365,11 @@ RETRIEVE: list[Pipeline] = [
         lane=LANE_KOOP_REPOSITORY,
         fills_gaps=True,
     ),
+    _pipeline(
+        retrieve_wikidata,
+        "The posts people held in Dutch cabinets, from Wikidata (one SPARQL query).",
+        argv_for_all=_no_argv,
+    ),
 ]
 
 NORMALIZE: list[Pipeline] = [
@@ -405,6 +422,10 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         ECHRNormalizePipeline,
         "Judgments as nodes.",
+    ),
+    _pipeline(
+        WikidataNormalizePipeline,
+        "Cabinet posts onto the members they belong to (date of birth and surname).",
     ),
     _pipeline(
         VerdragenbankNormalizePipeline,
@@ -472,6 +493,14 @@ SEMANTIC: list[Pipeline] = [
         "APPEAL_OF from appeal and cassation judgments to the earlier proceedings.",
     ),
     _pipeline(
+        RechtspraakConclusionsSemanticPipeline,
+        "ADVISES_ON from the conclusion of an advocate-general to the judgment in its case.",
+    ),
+    _pipeline(
+        RechtspraakReferralsSemanticPipeline,
+        "ANSWERS from a preliminary ruling to the decision that asked its questions.",
+    ),
+    _pipeline(
         TKAmendsSemanticPipeline,
         "AMENDS from a Tweede Kamer document to the law its title says it changes.",
     ),
@@ -500,6 +529,13 @@ SEMANTIC: list[Pipeline] = [
         (
             "Whether each dossier is closed and how it ended: the publication of its law, "
             "the withdrawal of its bill or the vote that rejected it."
+        ),
+    ),
+    _pipeline(
+        TKDossierRelationsSemanticPipeline,
+        (
+            "RELATED_TO, REVISES and ACCOMPANIES between dossiers: the cases the Kamer relates, "
+            "and the budget a budget change revises and the nota it comes with."
         ),
     ),
     _pipeline(

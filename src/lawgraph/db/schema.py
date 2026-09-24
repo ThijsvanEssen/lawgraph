@@ -326,9 +326,27 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         ),
         (COLLECTION_JUDGMENTS, ["props.ecli"], True),
         (COLLECTION_JUDGMENTS, ["props.appno"], False),
+        # A conclusion and its judgment share a case number; a preliminary ruling names
+        # the case number of the decision that asked its questions.
+        (COLLECTION_JUDGMENTS, ["props.case_number_keys[*]"], False, True),
         # What `/api/stats` counts per value is not sparse, so the count walks the index
         # and sees the documents without a value too; sparse, each count read every document.
         (COLLECTION_JUDGMENTS, ["props.source"], False, False),
+        # ``/api/stats/coverage`` counts per court from this index alone
+        # (``queries/stats.py``): every field it reads is in it.
+        (
+            COLLECTION_JUDGMENTS,
+            [
+                "props.stub",
+                "props.source",
+                "props.tier",
+                "props.court_code",
+                "props.court",
+                "props.date_eff",
+            ],
+            False,
+            False,
+        ),
         (COLLECTION_DOCUMENTS, ["props.source"], False, False),
         # Precomputed list-endpoint keys, written by ``graph-list-stats`` and the
         # normalize pipelines. Required for index-served filters and sorts on

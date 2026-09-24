@@ -32,6 +32,7 @@ from lawgraph.api.schemas.committees import (
     CommitteeWithMembersDTO,
     FactionDetailDTO,
     FactionDTO,
+    MemberDetailDTO,
     MemberDTO,
     MemberVoteDTO,
     MemberVotesResponse,
@@ -215,17 +216,20 @@ def list_members(
 
 @members_router.get(
     "/{key}",
-    response_model=MemberDTO,
+    response_model=MemberDetailDTO,
     summary="Member detail",
-    description="One member of parliament or minister.",
+    description=(
+        "One member of parliament or minister, with the posts they held in a cabinet "
+        "(`government_functions`, from Wikidata)."
+    ),
     tags=["members"],
 )
 def get_member(
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
-) -> MemberDTO:
+) -> MemberDetailDTO:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    return MemberDTO.from_document(_as_document(node))
+    return MemberDetailDTO.from_document(_as_document(node))
 
 
 @members_router.get(
@@ -262,8 +266,9 @@ def list_member_votes(
     description=(
         "The dossiers in which this member signed or submitted documents "
         "(``AUTHORED``), newest opened first. Each dossier carries the roles "
-        "the member had there and the number of documents. ``total`` is the "
-        "absolute count."
+        "the member had there, the functions and capacities they signed in "
+        "(``kamerlid``, ``bewindspersoon``, ``overig``) and the number of documents. "
+        "``total`` is the absolute count."
     ),
     tags=["members"],
 )

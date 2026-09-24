@@ -213,6 +213,7 @@ def test_committee_activities_are_paged_with_a_total(
         "date": None,
         "kind": None,
         "agenda_title": None,
+        "status": None,
         "dossier_numbers": [],
     }
 

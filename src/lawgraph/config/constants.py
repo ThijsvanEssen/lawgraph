@@ -73,6 +73,8 @@ RELATION_LEGISLATED_IN = "LEGISLATED_IN"
 RELATION_REFERS_TO = "REFERS_TO"
 RELATION_EXPLAINS = "EXPLAINS"
 RELATION_APPEAL_OF = "APPEAL_OF"
+RELATION_ADVISES_ON = "ADVISES_ON"
+RELATION_ANSWERS = "ANSWERS"
 RELATION_SCOPED_BY = "SCOPED_BY"
 RELATION_ABOUT = "ABOUT"
 RELATION_LED_BY = "LED_BY"
@@ -80,6 +82,9 @@ RELATION_MADE_IN = "MADE_IN"
 RELATION_MEMBER_OF = "MEMBER_OF"
 RELATION_AUTHORED = "AUTHORED"
 RELATION_VOTED = "VOTED"
+RELATION_RELATED_TO = "RELATED_TO"
+RELATION_REVISES = "REVISES"
+RELATION_ACCOMPANIES = "ACCOMPANIES"
 
 # ── Semantic relationship types ───────────────────────────────────────────────
 # Curated semantic layer stored on edges as `semantic_type`. Orthogonal to
@@ -145,6 +150,7 @@ SOURCE_STAATSCOURANT = "staatscourant"
 SOURCE_ECHR = "echr"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
+SOURCE_WIKIDATA = "wikidata"
 
 # The chambers of the States General, as a document or decision carries them in its labels.
 CHAMBER_TK = "TK"
@@ -161,6 +167,24 @@ EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements-directive"
 # Convention of the ECHR a pseudo id of its own (its articles carry it as `props.bwb_id`).
 BWB_TREATY_ID_PREFIX = "BWBV"
 ECHR_CONVENTION_ID = "ECHR-CONVENTION"
+
+# A code whose books are regulations of their own: code -> book -> BWB id. A citation of
+# the code names the book in front of the colon (``art. 6:162 BW`` is article 162 of
+# book 6), so the code itself never stands for one regulation, whichever books are loaded.
+CODE_FAMILIES: dict[str, dict[str, str]] = {
+    "BW": {
+        "1": "BWBR0002656",
+        "2": "BWBR0003045",
+        "3": "BWBR0005291",
+        "4": "BWBR0002761",
+        "5": "BWBR0005288",
+        "6": "BWBR0005289",
+        "7": "BWBR0005290",
+        "7A": "BWBR0006000",
+        "8": "BWBR0005034",
+        "10": "BWBR0030068",
+    },
+}
 
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 
@@ -187,6 +211,8 @@ RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_VERDRAG = "verdrag-json"
+# Every post a person held in a Dutch cabinet, one record per person (external id: the Q-id).
+RAW_KIND_WIKIDATA_CABINET_POSTS = "wikidata-cabinet-posts-json"
 
 # A document the source answered HTTP 404 for is remembered as a record of the kind it would
 # have had plus this suffix (no payload), so it is not asked for again on every run.
@@ -218,6 +244,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
     SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
+    SOURCE_WIKIDATA: (RAW_KIND_WIKIDATA_CABINET_POSTS,),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────
@@ -228,7 +255,7 @@ MAX_SEMANTIC_TEXT_LENGTH = 200_000
 # ── Party colors ──────────────────────────────────────────────────────────────
 # Canonical brand colors for Dutch parliamentary parties.
 # Keyed by the party abbreviation as it appears in fractie.abbreviation.
-# GL-PvdA, GroenLinks, and GroenLinks-PvdA are all intentional duplicates:
+# GL-PvdA, GroenLinks, GroenLinks-PvdA and PRO are all intentional duplicates:
 # different API versions use different abbreviations for the same merged party.
 
 PARTY_COLORS: MappingProxyType[str, str] = MappingProxyType(
@@ -242,6 +269,7 @@ PARTY_COLORS: MappingProxyType[str, str] = MappingProxyType(
         "GroenLinks": "#46962B",
         "GL-PvdA": "#46962B",
         "GroenLinks-PvdA": "#46962B",
+        "PRO": "#46962B",
         "ChristenUnie": "#4F95D4",
         "Volt": "#592D82",
         "NSC": "#1B4F72",

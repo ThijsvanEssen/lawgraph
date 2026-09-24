@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_PART_OF,
 )
@@ -57,6 +58,7 @@ FOR v IN {COLLECTION_ARTICLE_VERSIONS}
         number: v.props.article_number,
         valid_from: v.props.valid_from,
         valid_until: v.props.valid_until,
+        current: v.props.current,
         title: v.props.instrument_citation_title
     }}
 """
@@ -166,6 +168,7 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                         id: node._id,
                         kind: node.props.kind,
                         date: node.props.date,
+                        status: node.props.status,
                         passed: node.props.passed
                     }}
             )
@@ -173,6 +176,7 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
             RETURN {{
                 dossier_id: dossier_id,
                 closed: stored.closed,
+                outcome: stored.outcome,
                 opened_on: stored.opened_on,
                 case_kinds: stored.case_kinds,
                 docs: (
@@ -182,7 +186,7 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                 activities: (
                     FOR node IN subjects
                         FILTER STARTS_WITH(node.id, '{COLLECTION_ACTIVITIES}/')
-                        RETURN {{kind: node.kind, date: node.date}}
+                        RETURN {{kind: node.kind, date: node.date, status: node.status}}
                 ),
                 decisions: (
                     FOR node IN subjects
@@ -193,3 +197,33 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
         """
     bind = {"part_of": RELATION_PART_OF, "about": RELATION_ABOUT}
     return store.query(aql, {**bind, "dossier_ids": dossier_ids})
+
+
+def dossiers_of_numbers(store: Store, numbers: list[str]) -> Iterator[dict[str, Any]]:
+    """``{key, number, same_number_count}`` of every dossier with one of these *numbers*."""
+    aql = f"""
+        FOR dossier IN {COLLECTION_DOSSIERS}
+            FILTER dossier.props.number IN @numbers
+            RETURN {{
+                key: dossier._key,
+                number: dossier.props.number,
+                same_number_count: dossier.props.same_number_count
+            }}
+        """
+    return store.query(aql, {"numbers": numbers})
+
+
+def member_identities(store: Store) -> Iterator[dict[str, Any]]:
+    """``{key, family_name, birth_date, wikidata_id}`` of every member with a birth date or
+    a Wikidata id (``normalize wikidata`` matches the first, and clears the second)."""
+    aql = f"""
+    FOR m IN {COLLECTION_MEMBERS}
+        FILTER m.props.birth_date != null OR m.props.wikidata_id != null
+        RETURN {{
+            key: m._key,
+            family_name: m.props.family_name,
+            birth_date: m.props.birth_date,
+            wikidata_id: m.props.wikidata_id
+        }}
+    """
+    return store.query(aql)

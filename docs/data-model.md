@@ -68,12 +68,17 @@ they are out of date. Do not edit inside the markers.
 | `REFERS_TO` | Article / Document / Judgment | Article / Instrument / Judgment | A text refers to an article, instrument or judgment. The source node says who refers; article → article edges also carry a `semantic_type`. |
 | `EXPLAINS` | Document | ArticleVersion / Article / Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed. Written per dossier: every MvT and NvT of a dossier explains everything its law changed; an MvT edge carries `meta.section_anchor` when one of its sections is about that article. |
 | `APPEAL_OF` | Judgment | Judgment | An appeal or cassation judgment → the judgment it appeals. |
+| `ADVISES_ON` | Judgment | Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case: the formal relation of either (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
+| `ANSWERS` | Judgment | Judgment | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
 | `LED_BY` | Activity | Committee | The lead committee (`voortouwcommissie`) of an activity; absent for plenary. |
 | `MADE_IN` | Commitment | Activity | The activity in which a commitment (toezegging) was made. |
 | `MEMBER_OF` | Member | Committee / Faction | Membership of a committee or faction, with from/to dates and role. |
-| `AUTHORED` | Member | Document / Case | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, minister, …). |
+| `AUTHORED` | Member | Document / Case | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, …), `function` as what (`Functie`) and `capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). |
+| `RELATED_TO` | Dossier | Dossier | The Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. |
+| `REVISES` | Dossier | Dossier | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`). |
+| `ACCOMPANIES` | Dossier | Dossier | A budget change is submitted with the Voorjaarsnota, Najaarsnota or Miljoenennota (`meta.nota`) that its title names. |
 | `VOTED` | Member / Faction | Decision | A vote on a decision: per member for roll-call votes, per faction otherwise (`choice`, `seats`). |
 
 <!-- relations:end -->
@@ -87,7 +92,7 @@ they are out of date. Do not edit inside the markers.
 | `instruments` (Verdragenbank treaty) | `verdrag_<id>` |
 | `instruments` (amending publication) | `stb_2019_33` (publication identifier) |
 | `instruments` (ECHR Convention) | `echr_convention` |
-| `articles` | `<bwb_id>_<article_number>`; EU `<celex>_<article_number>`; historical `<bwb_id>_<number>_stam_<stam_id>`; ECHR `echr_convention_<n>` |
+| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW); EU `<celex>_<article_number>`; historical `<bwb_id>_<number>_stam_<stam_id>`; ECHR `echr_convention_<n>` |
 | `instrument_versions` | `<bwb_id>_<valid_from>` |
 | `article_versions` | `<bwb_id>_av_<stam_id>_<versie_id>` |
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
@@ -206,9 +211,15 @@ renumbering; each version has a `versie-id`.
 
 ## Judgment
 
-A Rechtspraak judgment carries its header (`court`, `date`, `case_number`, `judgment_metadata`,
-`related_eclis`, `subjects`; `court_code`, `tier` and `date_eff` derived), `summary`, `text` and
-`paragraphs`.
+A Rechtspraak judgment carries its header (`court`, `date`, `case_number`, `judgment_metadata`
+with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `related_eclis`
+(earlier instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion),
+`subjects`; `court_code`, `tier`, `date_eff` and `case_number_keys`, the case numbers as compared,
+derived), `summary`, `text` and `paragraphs`.
+
+The judgments of one case are tied by `APPEAL_OF` (an appeal to the judgment it appeals),
+`ADVISES_ON` (a conclusion to its judgment) and `ANSWERS` (a preliminary ruling to the decision
+that asked its questions); `docs/pipelines.md`, Rechtspraak, says how each is found.
 
 `paragraphs` is the `<uitspraak>` in reading order, a list of `{id, number, kind, text}`. `kind` is
 `heading` (a section), `subheading` (a nested section, or an `<uitspraak.info>` block) or `body`.
@@ -243,15 +254,28 @@ Dossier contains Case contains Document. TK data is the source.
 
 | Concept | Collection | Notes |
 |---------|-----------|-------|
-| Dossier | `dossiers` | `number`, `suffix`, `label` (`37020-XV`; the key is made from it), `title`, `title_source`; derived: `opened_on` (first document or activity), `case_kinds` (the `Zaak.Soort` of the dossier's own cases), `track_kind` (`wetsvoorstel`, `initiatiefwetsvoorstel`, `begroting`, `verdrag`, `initiatiefnota`, `motie`, `overig`), `current_stage` and `stages_present` (of `wetsvoorstel`, `mvt`, `advies_rvs`, `verslag`, `nota_naar_aanleiding_van_verslag`, `amendementen`, `behandeling`, `stemming`, `afgehandeld`; the first eight for a bill only); `closed`, `outcome` (`aangenomen`: its law was published; `ingetrokken`: its bill was withdrawn by letter; `verworpen`: the Tweede Kamer voted the bill down) and `closed_on`, derived from the graph by `semantic tk-dossier-outcomes` (the TK record has no end of its own). An open dossier has `closed: false` and no outcome |
-| Case | `cases` | every TK Zaak, no filter on kind; `title`, `citation_title`, `number`, `dossier_numbers` (the payload stays in `raw_sources`) |
-| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `dossier_numbers`, `case_ids`, `case_kinds`, `actors`, `text`; the structure of the text of a Kamerstuk XML: see below); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`, and the label in `dossier_numbers` as on a TK document); the chamber is in `labels` (`TK`; `EersteKamer` and `EK`), and a `kind` containing `toelichting` makes a document explanatory |
-| Activity | `activities` | debate or hearing; `date`, `agenda_title`, `kind`, `committee_id`, `case_ids`, `dossier_numbers`, `case_kinds_by_dossier` |
+| Dossier | `dossiers` | `number`, `suffix`, `label` (`37020-XV`; the key is made from it), `title`, `title_source`; derived: `opened_on` (first document or activity), `case_kinds` (the `Zaak.Soort` of the dossier's own cases), `track_kind` (what the dossier is, never what is filed under it: a bill `wetsvoorstel`, `initiatiefwetsvoorstel`, `begroting` (also a slotwet) or `verdrag` by its own case or bill; `initiatiefnota`; `nota`, a paper of the government that is itself the subject, named so in the title: the Miljoenennota "Nota over de toestand van ’s Rijks Financiën", the Voorjaars- and Najaarsnota, the Financieel Jaarverslag van het Rijk, a Defensienota, the HGIS-nota; otherwise `overig`, the letters and motions on a subject such as an EU Council series), `same_number_count` (the other dossiers with the same number, written by `normalize tk-dossiers`), `current_stage`, `stages_present` and `stages_complete` (whether each stage passed on the way to the current one has a dated document, activity or vote; of `wetsvoorstel`, `mvt`, `advies_rvs`, `verslag`, `nota_naar_aanleiding_van_verslag`, `amendementen`, `behandeling`, `stemming`, `afgehandeld`; the first eight for a bill only); `closed`, `outcome` (`aangenomen`: its law was published; `ingetrokken`: its bill was withdrawn by letter; `verworpen`: the Tweede Kamer voted the bill down) and `closed_on`, derived from the graph by `semantic tk-dossier-outcomes` (the TK record has no end of its own). An open dossier has `closed: false` and no outcome |
+| Case | `cases` | every TK Zaak, no filter on kind; `title`, `citation_title`, `number`, `kind` (`Zaak.Soort`), `dossier_numbers`, `related_cases` (`Zaak.GerelateerdNaar`: `id`, `kind`, `dossier_numbers` of each case the Kamer relates it to; read by `semantic tk-dossier-relations`) (the payload stays in `raw_sources`) |
+| Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `document_number` (`DocumentNummer`), `dossier_numbers`, `case_ids`, `case_kinds`, `actors`, `text`; the structure of the text of a Kamerstuk XML: see below); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`, and the label in `dossier_numbers` as on a TK document); the chamber is in `labels` (`TK`; `EersteKamer` and `EK`), and a `kind` containing `toelichting` makes a document explanatory |
+| Activity | `activities` | debate or hearing; `number` (`Activiteit.Nummer`), `date`, `agenda_title` (`Onderwerp`), `kind`, `status` (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`), `committee_id` (null for a plenary activity), `case_ids`, `dossier_numbers`, `case_kinds_by_dossier` |
 | Decision | `decisions` | one node per TK `Besluit`; `primary_case_id` and `primary_case_kind` name the Zaak it decided (`Wetgeving` on the vote on a bill itself) |
 | Commitment | `commitments` | `status` mapped to `open`, `gedaan`, `vervallen`, `unknown`; `activity_number` |
-| Member | `members` | every TK `Persoon` (members and ministers); `name`, `party`, `faction_memberships` (dated timeline) |
+| Member | `members` | every TK `Persoon` (members and ministers); `name`, `family_name`, `birth_date`, `party`, `faction_memberships` (dated timeline); from Wikidata `wikidata_id` and `government_functions` (`function`, `cabinet`, `from_date`, `to_date`, and the Q-ids `position_id`, `cabinet_id`: every post in a Dutch cabinet) |
 | Faction | `factions` | `name`, `abbreviation`, `aliases`, `seats`, `active` |
-| Committee | `committees` | `name`, `abbreviation`, `slug` |
+| Committee | `committees` | `name`, `abbreviation`, `slug`; only a Commissie with a name (the plenary is no committee) |
+
+No link to tweedekamer.nl is stored. The site finds a document by its `document_number` and an
+activity by its `number`, never by the GUID of the record (`external_id`), so the API derives
+`tk_url` from those when it answers (`core/tk_links.py`): a template that turns out wrong is
+fixed by a release, not by a migration. The Eerste Kamer papers keep the `url` of their page on
+officielebekendmakingen.nl as the source gives it.
+
+Dossiers of different numbers are tied by three edges, written by `semantic
+tk-dossier-relations` (the rules: [pipelines](pipelines.md#semantic-tk-dossier-relations)):
+`REVISES` (a supplementary budget or slotwet → the budget of its chapter and year), `ACCOMPANIES`
+(a budget change → the Voorjaarsnota, Najaarsnota or Miljoenennota it is submitted with) and
+`RELATED_TO` (the Kamer relates a case of the one to a case of the other). The dossiers of one
+number are found by the number itself (`GET /api/dossiers?number=`), not by an edge.
 
 ### Text and sections of a Kamerstuk
 
@@ -299,8 +323,24 @@ non-roll-call votes from the faction they belonged to at the time, using
 `members.props.faction_memberships`.
 
 Authorship is stored on the document (`props.actors` with `person_id`, `faction_id`, `name`,
-`faction`, `role`) and as `AUTHORED` edges from the signatory, with `meta.role`. Only people
-get an edge; which faction signed follows from the signatory's faction membership.
+`faction`, `role`, `function`, `capacity`) and as `AUTHORED` edges from the signatory, with
+`meta.role`, `meta.function` and `meta.capacity`. Only people get an edge; which faction signed
+follows from the signatory's faction membership.
+
+A person's role changes over time: R.A.A. Jetten signed as Tweede Kamerlid until 2025 and as
+minister-president in 2026, S. van Haersma Buma, once a Kamerlid, signs the advices of the Raad
+van State as its vice-president. So each signature keeps what it was signed as:
+
+- `function` is `DocumentActor.Functie` as the source writes it (`Tweede Kamerlid`,
+  `minister-president`, `staatssecretaris van Financiën`, `griffier`, `vicepresident van de Raad
+  van State`, `voorzitter van de vaste commissie voor …`);
+- `capacity` is derived from it (`tk_records.signing_capacity`), the first that holds:
+  `bewindspersoon` when the function begins with `minister`, `minister-president`,
+  `viceminister-president` or `staatssecretaris` (not `gevolmachtigde minister van Aruba`, who
+  speaks for Aruba); `kamerlid` when the signature is for a faction (`Fractie_Id` or
+  `ActorFractie`: a member, also as the chair of a committee, a formateur or verkenner); `overig`
+  otherwise (the griffier, the Raad van State, the Algemene Rekenkamer, the Nationale
+  ombudsman). No minister or staatssecretaris signs for a faction in the source.
 
 `MEMBER_OF` edges run from a member to a committee (`meta` = the seat's period) and to a
 faction (`meta.from_date`, `meta.to_date`, `meta.role`). Edge keys are one per pair, so a
@@ -330,6 +370,7 @@ record is skipped like one without a payload.
 | `eerstekamer` | `ek-kamerstuk-json` |
 | `echr` | `echr-judgment-json` |
 | `verdragenbank` | `verdrag-json` |
+| `wikidata` | `wikidata-cabinet-posts-json` (one person and every post they held in a Dutch cabinet, external id the Q-id) |
 
 A document the source answered HTTP 404 for is remembered as a record without payload of
 kind `<kind>-missing` (`eu-celex-html-missing`, `rs-content-missing`, ...); the retrieve
@@ -345,7 +386,7 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
-| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `labels[*]` |
+| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; sparse `props.case_number_keys[*]`; `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
 | `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on |
 | `raw_sources` | `(source, kind)` |
 | `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)` |

@@ -10,6 +10,7 @@ against a single recorded payload.
 
 from __future__ import annotations
 
+import re
 import sys
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -22,9 +23,6 @@ from lawgraph.core.time import iso_date
 
 Payload = dict[str, Any]
 Record = tuple[str, dict[str, Any]]
-
-TK_ACTIVITY_URL = "https://www.tweedekamer.nl/vergaderingen/details?id={id}"
-TK_DOCUMENT_URL = "https://www.tweedekamer.nl/kamerstukken/detail?id={id}"
 
 # Toezegging.Status -> the status we store. The source distinguishes a
 # commitment that was settled from one that was explicitly not kept.
@@ -45,6 +43,11 @@ VOTE_AGAINST = "Tegen"
 
 VOTE_KIND_MEMBER = "member"
 VOTE_KIND_FACTION = "faction"
+
+# Activiteit.Voortouwafkorting of an activity of the Kamer as a whole: a plenary debate, the
+# votes, the regeling van werkzaamheden. Its Voortouwcommissie_Id names a Commissie record
+# that has no name, because the plenary is no committee.
+PLENARY_VOORTOUW = "TK"
 
 _COMMITMENT_TEXT_FIELDS = ("Tekst", "TekstAlgemeen", "TekstBrief")
 
@@ -136,6 +139,24 @@ def case_kinds_by_dossier(cases: Iterable[Payload]) -> dict[str, list[str]]:
     }
 
 
+def related_cases(payload: Payload) -> list[dict[str, Any]]:
+    """The cases the Kamer relates a Zaak to (``GerelateerdNaar``): id, kind and dossiers.
+
+    Mostly a letter of the government and the motion it answers, or an amendment and its
+    bill. The dossiers of the other case come with it, so the relation holds also when that
+    case itself was not retrieved.
+    """
+    return [
+        {
+            "id": str(other["Id"]),
+            "kind": str(other.get("Soort") or "") or None,
+            "dossier_numbers": dossier_numbers([other]),
+        }
+        for other in _dicts(payload.get("GerelateerdNaar"))
+        if other.get("Id") and not other.get("Verwijderd")
+    ]
+
+
 def agenda_cases(payload: Payload) -> list[Payload]:
     """The Zaak records on every Agendapunt of an Activiteit or Besluit."""
     return [
@@ -149,11 +170,16 @@ def agenda_cases(payload: Payload) -> list[Payload]:
 
 
 def committee(payload: Payload) -> Record | None:
-    """Node key and props for a Commissie record."""
+    """Node key and props for a Commissie record; ``None`` without an id or a name.
+
+    The source has records with nothing but an id (the voortouw of every plenary
+    activity is one). A record without a name is not written, so no id stands in for a
+    name; once the source fills it in, the next run writes it.
+    """
     external_id = _external_id(payload)
-    if not external_id:
+    name = _text(payload, "NaamNL", "Naam")
+    if not external_id or not name:
         return None
-    name = _text(payload, "NaamNL", "Naam") or external_id
     abbreviation = _text(payload, "Afkorting")
     return make_node_key(external_id), {
         "external_id": external_id,
@@ -223,6 +249,9 @@ def member(payload: Payload) -> Record | None:
         "external_id": external_id,
         "name": name,
         "display_name": name,
+        # what another source knows a person by (``core.government.match_member``)
+        "family_name": _text(payload, "Achternaam") or None,
+        "birth_date": iso_date(payload.get("Geboortedatum")),
     }
 
 
@@ -356,21 +385,22 @@ def activity(payload: Payload) -> Record | None:
 
     cases = agenda_cases(payload)
     date = iso_date(payload.get("Datum"))
-    description = payload.get("Omschrijving") or ""
+    description = _text(payload, "Onderwerp")
     kind = payload.get("Soort") or ""
     voortouw = payload.get("Voortouwcommissie_Id")
+    # A plenary activity has the Kamer itself as voortouw, not a committee.
+    plenary = payload.get("Voortouwafkorting") == PLENARY_VOORTOUW
 
     return make_node_key(external_id), {
         "external_id": external_id,
         "date": date,
         "agenda_title": description,
         "kind": kind,
-        # Absent for a plenary activity, which has no lead committee.
-        "committee_id": str(voortouw) if voortouw else None,
+        "status": _text(payload, "Status") or None,
+        "committee_id": str(voortouw) if voortouw and not plenary else None,
         "case_ids": case_ids(cases),
         "dossier_numbers": dossier_numbers(cases),
         "case_kinds_by_dossier": case_kinds_by_dossier(cases),
-        "tk_url": TK_ACTIVITY_URL.format(id=external_id),
         "display_name": f"{date or '?'} — {description or kind}",
         "number": str(payload.get("Nummer") or ""),
     }
@@ -412,21 +442,62 @@ def unknown_commitment_statuses(payloads: Iterable[Payload]) -> set[str]:
 # ── Document (Kamerstuk) ─────────────────────────────────────────────────────
 
 
+# The capacity a document is signed in (see ``signing_capacity``).
+CAPACITY_MEMBER = "kamerlid"
+CAPACITY_GOVERNMENT = "bewindspersoon"
+CAPACITY_OTHER = "overig"
+
+# DocumentActor.Functie of a member of the government: "minister van Financiën", "minister voor
+# Klimaat en Energie", "minister-president", "viceminister-president", "staatssecretaris van
+# Defensie". Not "gevolmachtigde minister van Aruba", who speaks for Aruba.
+_GOVERNMENT_FUNCTION = re.compile(
+    r"^(?:(?:vice)?minister(?:-president)?|staatssecretaris)\b", re.IGNORECASE
+)
+
+
+def signing_capacity(function: str | None, faction: str | None) -> str:
+    """In which capacity a person signed a document: ``bewindspersoon``, ``kamerlid`` or
+    ``overig``.
+
+    A person's role changes over time (R.A.A. Jetten signed as Tweede Kamerlid until 2025
+    and as minister-president in 2026), so the capacity is read from each signature, not
+    from the person. ``bewindspersoon`` when the function (``DocumentActor.Functie``) names a
+    minister, the minister-president or a staatssecretaris; ``kamerlid`` when the signature
+    is for a faction (a member, also as chair of a committee); ``overig`` otherwise: the
+    griffier, the vice-president of the Raad van State, the Algemene Rekenkamer. No minister
+    or staatssecretaris signs for a faction in the source.
+    """
+    if _GOVERNMENT_FUNCTION.match((function or "").strip()):
+        return CAPACITY_GOVERNMENT
+    if faction:
+        return CAPACITY_MEMBER
+    return CAPACITY_OTHER
+
+
 def document_actors(payload: Payload) -> list[dict[str, Any]]:
-    """Signatories of a Document, from the DocumentActor expansion."""
+    """Signatories of a Document, from the DocumentActor expansion.
+
+    ``function`` is the function they signed in (``Functie``, as the source writes it) and
+    ``capacity`` what that makes the signature (``signing_capacity``).
+    """
     actors: list[dict[str, Any]] = []
     for actor in _dicts(payload.get("DocumentActor")):
         person_id = str(actor.get("Persoon_Id") or "") or None
         name = actor.get("ActorNaam") or ""
         if not (person_id or name):
             continue
+        faction_id = str(actor.get("Fractie_Id") or "") or None
+        faction = actor.get("ActorFractie") or ""
+        function = (actor.get("Functie") or "").strip() or None
         actors.append(
             {
                 "person_id": person_id,
-                "faction_id": str(actor.get("Fractie_Id") or "") or None,
+                "faction_id": faction_id,
                 "name": name,
-                "faction": actor.get("ActorFractie") or "",
+                "faction": faction,
                 "role": actor.get("Relatie") or "",
+                "function": function,
+                "capacity": signing_capacity(function, faction_id or faction),
             }
         )
     return actors
@@ -461,7 +532,8 @@ def document(payload: Payload) -> Record | None:
         "subject": payload.get("Onderwerp") or "",
         "date": iso_date(payload.get("Datum") or payload.get("DatumRegistratie")),
         "session_year": payload.get("Vergaderjaar") or "",
-        "tk_url": TK_DOCUMENT_URL.format(id=external_id),
+        # What tweedekamer.nl finds the document by (``2026D44984``); see ``core.tk_links``.
+        "document_number": payload.get("DocumentNummer") or None,
         "display_name": document_display_name(
             dossiers[0] if dossiers else None, sequence, kind, title
         ),

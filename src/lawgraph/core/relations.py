@@ -166,6 +166,23 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "An appeal or cassation judgment → the judgment it appeals.",
     ),
     RelationSpec(
+        "ADVISES_ON",
+        (_J,),
+        (_J,),
+        "The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court "
+        "itself) → the judgment in its case: the formal relation of either (`meta.basis` "
+        "`formal_relation`), else a case number the two share (`case_number`).",
+    ),
+    RelationSpec(
+        "ANSWERS",
+        (_J,),
+        (_J,),
+        "A preliminary ruling (prejudiciële beslissing) → the decision that asked its "
+        "questions: the earlier instance its metadata names (`meta.basis` "
+        "`formal_relation`), else the ECLI or the case number and date its text names "
+        "(`referral_text`).",
+    ),
+    RelationSpec(
         "SCOPED_BY",
         (_A,),
         (_ANNEX,),
@@ -202,7 +219,30 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_MEMBER,),
         (_DOC, _CASE),
         "A person signed or submitted a document or case; `role` says how "
-        "(first signatory, co-signatory, minister, …).",
+        "(first signatory, co-signatory, …), `function` as what (`Functie`) and "
+        "`capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`).",
+    ),
+    RelationSpec(
+        "RELATED_TO",
+        (_DOSSIER,),
+        (_DOSSIER,),
+        "The Kamer relates a case of this dossier to a case of the other "
+        "(`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it "
+        "answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them.",
+    ),
+    RelationSpec(
+        "REVISES",
+        (_DOSSIER,),
+        (_DOSSIER,),
+        "A supplementary budget or a slotwet revises the budget of its chapter and year "
+        "(`meta.rule`: `begrotingswijziging` or `slotwet`).",
+    ),
+    RelationSpec(
+        "ACCOMPANIES",
+        (_DOSSIER,),
+        (_DOSSIER,),
+        "A budget change is submitted with the Voorjaarsnota, Najaarsnota or "
+        "Miljoenennota (`meta.nota`) that its title names.",
     ),
     RelationSpec(
         "VOTED",

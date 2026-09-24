@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, get_args
+from typing import Annotated, Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.core.tk_links import tk_url
 
 # A dossier number as the API takes it: 29684, or its label with the addition of a
 # budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
@@ -27,6 +28,8 @@ DossierStage = Literal[
 
 TitleSource = Literal["dossier", "document", "activiteit"]
 
+SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
+
 DossierOutcome = Literal["aangenomen", "verworpen", "ingetrokken"]
 
 DossierTrack = Literal[
@@ -35,7 +38,7 @@ DossierTrack = Literal[
     "begroting",
     "verdrag",
     "initiatiefnota",
-    "motie",
+    "nota",
     "overig",
 ]
 
@@ -70,6 +73,16 @@ class TimelineSignatoryDTO(BaseModel):
     party: str | None = None
     role: str = Field(..., description="'indiener' or 'mede-indiener'.")
     source_role: str = Field("", description="The role as the source wrote it.")
+    function: str | None = Field(
+        None,
+        description="The function they signed in, as the source writes it: 'Tweede "
+        "Kamerlid', 'minister-president', 'vicepresident van de Raad van State'.",
+    )
+    capacity: SigningCapacity | None = Field(
+        None,
+        description="'bewindspersoon' (a minister or staatssecretaris), 'kamerlid' (signed "
+        "for a faction) or 'overig' (the griffier, the Raad van State, ...).",
+    )
 
 
 class DocumentEntryDTO(DocumentOrigin):
@@ -120,9 +133,15 @@ class TimelineActivityBody(BaseModel):
 
     kind: str | None = Field(None, description="E.g. 'Commissiedebat'.")
     agenda_title: str | None = Field(
-        None, description="The agenda item; starts with the date."
+        None, description="The subject of the activity (``Activiteit.Onderwerp``)."
     )
     number: str | None = Field(None, description="The activity number.")
+    status: str | None = Field(
+        None,
+        description="``Activiteit.Status`` as the source writes it: ``Gepland`` (still to "
+        "come, also when its date has passed), ``Uitgevoerd``, ``Geannuleerd``, "
+        "``Verplaatst``, ``Vervallen``; null when the source gives none.",
+    )
 
 
 class TimelineDecisionBody(BaseModel):
@@ -215,19 +234,21 @@ _TIMELINE_ENTRY: TypeAdapter[TimelineEntryDTO] = TypeAdapter(TimelineEntryDTO)
 def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
     """The typed entry for one timeline row of ``get_dossier_timeline``."""
     body = row.get("body") or {}
+    node_type = row.get("node_type")
+    link = tk_url(node_type, body)
     common = {
         "date": row.get("date"),
         "kind": row.get("kind") or "",
         "title": row.get("title"),
         "node_id": row.get("node_id") or "",
-        "tk_url": row.get("tk_url"),
-        "node_type": row.get("node_type"),
+        "tk_url": link,
+        "node_type": node_type,
     }
-    node_type = row.get("node_type")
     if node_type == "document":
         common["body"] = {
             **{f: body.get(f) for f in ("kind", "title", "sequence", "session_year")},
-            **{f: body.get(f) for f in ("tk_url", "url")},
+            "tk_url": link,
+            "url": body.get("url"),
             **origin_fields(row.get("labels"), body.get("source"), body.get("kind")),
         }
     elif node_type == "decision":
@@ -264,7 +285,7 @@ class DossierDocumentDTO(DocumentEntryDTO):
             sequence=row.get("sequence"),
             session_year=row.get("session_year"),
             date=row.get("date"),
-            tk_url=row.get("tk_url"),
+            tk_url=tk_url("document", row),
             display_name=row.get("display_name"),
             **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
         )
@@ -298,8 +319,12 @@ class DossierDocumentsBulkResponse(BaseModel):
 class DossierSummaryDTO(BaseModel):
     """A dossier in a list.
 
-    ``track`` is what kind of dossier this is — wetsvoorstel, begroting,
-    motie — and does not change as it progresses. ``current_stage`` is the
+    ``track`` is what kind of dossier this is — a bill (wetsvoorstel,
+    initiatiefwetsvoorstel, begroting, verdrag), an initiatiefnota, a ``nota`` of the
+    government (the Miljoenennota, the Voorjaars- and Najaarsnota, the Financieel
+    Jaarverslag van het Rijk) or ``overig`` (the letters and motions on a subject) — and
+    does not change as it progresses. It comes from what the dossier is, never from what
+    is filed under it. ``current_stage`` is the
     latest stage seen on its documents and activities; ``stages`` lists every
     stage with at least one signal, in chronological order. Only a bill (a
     wetsvoorstel, initiatiefwetsvoorstel, begroting or verdrag) passes stages;
@@ -316,11 +341,31 @@ class DossierSummaryDTO(BaseModel):
         ...,
         description="Kamerstuknummer, e.g. 36558, or 37020-XV for a budget chapter.",
     )
+    suffix: str | None = Field(
+        None,
+        description="The addition to the number (``Toevoeging``): ``XV`` of 37020-XV, "
+        "``31`` of 21501-31; null for a dossier without one.",
+    )
+    same_number_count: int = Field(
+        0,
+        description="How many other dossiers share the number: 24 for each dossier of a "
+        "budget of 25. ``GET /api/dossiers?number=`` lists them.",
+    )
     title: str | None = None
     title_source: TitleSource | None = None
     track: DossierTrack | None = None
     current_stage: DossierStage | None = None
     stages: list[DossierStage] = Field(default_factory=list)
+    stages_complete: bool = Field(
+        True,
+        description="Whether every stage the bill passed on its way to "
+        "``current_stage`` has a document, an activity or a vote in the graph: the stages "
+        "in ``stages`` before it and ``current_stage`` itself, and those every bill passes "
+        "(``wetsvoorstel``, ``mvt``, ``advies_rvs``; ``stemming`` once it was aangenomen or "
+        "verworpen). False means the graph lacks papers of the dossier: a stage between "
+        "two listed ones was passed but is not in the data. True for a dossier that is no "
+        "bill.",
+    )
     closed: bool = False
     outcome: DossierOutcome | None = None
     opened_on: str | None = None
@@ -388,6 +433,49 @@ class DossierSenateDTO(BaseModel):
     )
 
 
+DossierRelationName = Literal["revises", "accompanies", "related_to"]
+
+
+class DossierRelationDTO(BaseModel):
+    """A relation between this dossier and another, and which way it points.
+
+    * ``revises``: a supplementary budget or a slotwet revises the budget of its chapter
+      and year; ``rule`` says which (``begrotingswijziging`` or ``slotwet``).
+    * ``accompanies``: a budget change is submitted with the ``nota`` its title names
+      (``voorjaarsnota``, ``najaarsnota``, ``miljoenennota``).
+    * ``related_to``: the Kamer relates a case of the one dossier to a case of the other
+      (``Zaak.GerelateerdNaar``), mostly a letter of the government to the motion it
+      answers. ``cases`` counts the pairs of cases, ``case_kinds`` names their kinds
+      (``Brief regering → Motie``).
+
+    ``outgoing`` means this dossier is the subject: 37035-XXII revises 36800-XXII and
+    accompanies 37020. On 36800-XXII the same ``revises`` is ``incoming``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    relation: DossierRelationName
+    direction: Literal["outgoing", "incoming"]
+    dossier: DossierSummaryDTO
+    cases: int | None = None
+    case_kinds: list[str] = Field(default_factory=list)
+    rule: Literal["begrotingswijziging", "slotwet"] | None = None
+    nota: Literal["voorjaarsnota", "najaarsnota", "miljoenennota"] | None = None
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> DossierRelationDTO:
+        meta = row.get("meta") or {}
+        return cls(
+            relation=cast(DossierRelationName, str(row["relation"]).lower()),
+            direction=row["direction"],
+            dossier=DossierSummaryDTO.from_document(row["dossier"]),
+            cases=meta.get("cases"),
+            case_kinds=list(meta.get("case_kinds") or []),
+            rule=meta.get("rule"),
+            nota=meta.get("nota"),
+        )
+
+
 class DossierDetailResponse(DossierSummaryDTO):
     """A dossier with the size of everything attached to it, and what it links to."""
 
@@ -416,6 +504,15 @@ class DossierDetailResponse(DossierSummaryDTO):
         ),
     )
     senate: DossierSenateDTO = Field(default_factory=lambda: DossierSenateDTO())
+    relations: list[DossierRelationDTO] = Field(
+        default_factory=list,
+        description=(
+            "The dossiers this one revises, accompanies or is related to, and those that "
+            "revise, accompany or relate to it: by relation, then outgoing before incoming, "
+            "then in the order of their numbers. All dossiers of its own number are "
+            "``GET /api/dossiers?number=``."
+        ),
+    )
 
     @classmethod
     def from_document(
@@ -424,6 +521,7 @@ class DossierDetailResponse(DossierSummaryDTO):
         *,
         counts: dict[str, int] | None = None,
         hub: dict[str, Any] | None = None,
+        relations: list[dict[str, Any]] | None = None,
     ) -> DossierDetailResponse:
         counts = counts or {}
         hub = hub or {}
@@ -439,6 +537,7 @@ class DossierDetailResponse(DossierSummaryDTO):
             committees=[DossierCommitteeDTO(**c) for c in hub.get("committees") or []],
             documents_by_kind=dict(hub.get("documents_by_kind") or {}),
             senate=DossierSenateDTO(**(hub.get("senate") or {})),
+            relations=[DossierRelationDTO.from_row(r) for r in relations or []],
         )
 
 
@@ -448,11 +547,14 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "id": doc["_id"],
         "key": doc["_key"],
         "number": props.get("label") or "",
+        "suffix": props.get("suffix") or None,
+        "same_number_count": int(props.get("same_number_count") or 0),
         "title": props.get("title"),
         "title_source": props.get("title_source"),
         "track": props.get("track_kind") or "overig",
         "current_stage": _stage(props.get("current_stage")),
         "stages": _stages(props.get("stages_present")),
+        "stages_complete": props.get("stages_complete") is not False,
         "closed": bool(props.get("closed")),
         "outcome": (
             props.get("outcome")

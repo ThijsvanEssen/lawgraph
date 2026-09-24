@@ -1,0 +1,166 @@
+"""Conclusions and preliminary rulings: the real ``normalize rechtspraak`` and the two semantic
+steps that tie judgments of one case, and the node responses on their edges.
+
+The headers are those of ECLI:NL:HR:2019:1278 (a preliminary ruling that names its conclusion
+and, in its text, the case number of the referring decision) and ECLI:NL:PHR:2019:496 (its
+conclusion); the rest is made up around them.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi.testclient import TestClient
+
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
+from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+
+NS = (
+    'xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
+    'xmlns:dcterms="http://purl.org/dc/terms/" xmlns:psi="http://psi.rechtspraak.nl/" '
+    'xmlns:ecli="https://e-justice.europa.eu/ecli"'
+)
+
+
+def _relation(ecli: str, kind: str, instance: str) -> str:
+    return (
+        f'<dcterms:relation ecli:resourceIdentifier="{ecli}" '
+        f'psi:type="http://psi.rechtspraak.nl/{kind}" '
+        f'psi:aanleg="http://psi.rechtspraak.nl/{instance}">{ecli}</dcterms:relation>'
+    )
+
+
+def _xml(
+    ecli: str,
+    court: str,
+    date: str,
+    case_number: str,
+    *,
+    document_type: str = "Uitspraak",
+    procedure: str | None = None,
+    relations: str = "",
+    text: str = "De rechter beslist.",
+) -> str:
+    procedure_xml = f"<psi:procedure>{procedure}</psi:procedure>" if procedure else ""
+    return (
+        f"<open-rechtspraak {NS}><rdf:RDF><rdf:Description>"
+        f"<dcterms:identifier>{ecli}</dcterms:identifier>"
+        f"<dcterms:creator>{court}</dcterms:creator><dcterms:date>{date}</dcterms:date>"
+        f"<psi:zaaknummer>{case_number}</psi:zaaknummer>"
+        f"<dcterms:type>{document_type}</dcterms:type>{procedure_xml}{relations}"
+        "</rdf:Description></rdf:RDF><uitspraak><section>"
+        f"<title><nr>1</nr>De procedure</title><paragroup><nr>1.1</nr><para>{text}</para>"
+        "</paragroup></section></uitspraak></open-rechtspraak>"
+    )
+
+
+REFERRAL = (
+    "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de "
+    "rechtbank Assen op de voet van art. 392 Rv prejudiciële vragen aan de Hoge Raad gesteld."
+)
+JUDGMENTS = {
+    "ECLI:NL:HR:2019:1278": _xml(
+        "ECLI:NL:HR:2019:1278",
+        "Hoge Raad",
+        "2019-07-19",
+        "18/04298",
+        procedure="Prejudiciële beslissing",
+        relations=_relation("ECLI:NL:PHR:2019:496", "conclusie", "eerdereAanleg"),
+        text=REFERRAL,
+    ),
+    "ECLI:NL:PHR:2019:496": _xml(
+        "ECLI:NL:PHR:2019:496",
+        "Parket bij de Hoge Raad",
+        "2019-05-10",
+        "18/04298",
+        document_type="Conclusie",
+        relations=_relation("ECLI:NL:HR:2019:1278", "conclusie", "latereAanleg"),
+    ),
+    # the referring decision, its case number spaced as the metadata spaces it
+    "ECLI:NL:RBNNE:2018:4308": _xml(
+        "ECLI:NL:RBNNE:2018:4308",
+        "Rechtbank Noord-Nederland",
+        "2018-10-10",
+        "C/19/117301 / HA ZA 16-256",
+    ),
+    # a conclusion that no relation ties, and the judgment of its case
+    "ECLI:NL:PHR:2020:1": _xml(
+        "ECLI:NL:PHR:2020:1",
+        "Parket bij de Hoge Raad",
+        "2020-01-10",
+        "19/00001",
+        document_type="Conclusie",
+    ),
+    "ECLI:NL:HR:2020:2": _xml(
+        "ECLI:NL:HR:2020:2", "Hoge Raad", "2020-03-06", "19/00001", procedure="Cassatie"
+    ),
+    # a preliminary ruling whose metadata names the referring decision
+    "ECLI:NL:HR:2026:1265": _xml(
+        "ECLI:NL:HR:2026:1265",
+        "Hoge Raad",
+        "2026-06-01",
+        "S 26/01234",
+        procedure="Prejudiciële beslissing",
+        relations=_relation("ECLI:NL:GHSHE:2026:724", "uitspraak", "eerdereAanleg"),
+    ),
+}
+
+
+def _edges(store: ArangoStore, relation: str) -> set[tuple[str, str, str]]:
+    aql = """
+    FOR e IN edges FILTER e.relation == @relation
+        RETURN [DOCUMENT(e._from).props.ecli, DOCUMENT(e._to).props.ecli, e.meta.basis]
+    """
+    return {tuple(row) for row in store.query(aql, {"relation": relation})}
+
+
+def test_conclusions_and_referrals_tie_the_judgments_of_a_case(
+    database: str, cli: Any
+) -> None:
+    store = ArangoStore()
+    with RawSourceWriter(store) as writer:
+        for ecli, xml in JUDGMENTS.items():
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_RECHTSPRAAK,
+                    kind=RAW_KIND_RS_CONTENT,
+                    external_id=ecli,
+                    payload_text=xml,
+                    meta={"ecli": ecli},
+                )
+            )
+    cli("normalize", "rechtspraak")
+    cli("semantic", "rechtspraak-appeal")
+    cli("semantic", "rechtspraak-conclusions")
+    cli("semantic", "rechtspraak-referrals")
+
+    assert _edges(store, "ADVISES_ON") == {
+        ("ECLI:NL:PHR:2019:496", "ECLI:NL:HR:2019:1278", "formal_relation"),
+        ("ECLI:NL:PHR:2020:1", "ECLI:NL:HR:2020:2", "case_number"),
+    }
+    assert _edges(store, "ANSWERS") == {
+        ("ECLI:NL:HR:2019:1278", "ECLI:NL:RBNNE:2018:4308", "referral_text"),
+        # not loaded: a stub, which `retrieve rechtspraak --mode gaps` fetches
+        ("ECLI:NL:HR:2026:1265", "ECLI:NL:GHSHE:2026:724", "formal_relation"),
+    }
+    # a preliminary ruling appeals nothing
+    assert _edges(store, "APPEAL_OF") == set()
+
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        ruling = client.get("/api/nodes/judgments/ecli_nl_hr_2019_1278").json()
+        conclusion = client.get("/api/nodes/judgments/ecli_nl_phr_2019_496").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    buckets = {
+        (b["relation"], b["direction"]): [i["key"] for i in b["items"]]
+        for b in ruling["neighbors"]["buckets"]
+    }
+    assert buckets[("ADVISES_ON", "inbound")] == ["ecli_nl_phr_2019_496"]
+    assert buckets[("ANSWERS", "outbound")] == ["ecli_nl_rbnne_2018_4308"]
+    assert [
+        (b["relation"], b["direction"]) for b in conclusion["neighbors"]["buckets"]
+    ] == [("ADVISES_ON", "outbound")]

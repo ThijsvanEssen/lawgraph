@@ -93,8 +93,13 @@ class TKClient(BaseClient):
             odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
         params: dict[str, Any] = {
             "$filter": odata_filter,
-            # What `normalize tk` reads the dossier numbers of a case from.
-            "$expand": "Kamerstukdossier($select=Id,Nummer,Toevoeging)",
+            # What `normalize tk` reads the dossier numbers of a case from, and the cases
+            # the Kamer relates it to with their dossiers.
+            "$expand": (
+                "Kamerstukdossier($select=Id,Nummer,Toevoeging),"
+                "GerelateerdNaar($select=Id,Soort,Verwijderd;"
+                "$expand=Kamerstukdossier($select=Nummer,Toevoeging))"
+            ),
         }
         if top is not None:
             params["$top"] = top
@@ -235,7 +240,7 @@ class TKClient(BaseClient):
             "$expand": (
                 "Zaak($select=Id,Soort,Titel,Nummer;"
                 "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)),"
-                "DocumentActor($select=Id,ActorNaam,ActorFractie,Relatie,Persoon_Id,Fractie_Id)"
+                "DocumentActor($select=Id,ActorNaam,ActorFractie,Functie,Relatie,Persoon_Id,Fractie_Id)"
             ),
         }
         filters: list[str] = []

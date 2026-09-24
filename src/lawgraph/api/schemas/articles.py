@@ -367,18 +367,33 @@ class ArticleCitedByResponse(BaseModel):
 
 
 class LegislativeHistoryEntry(BaseModel):
-    """One entry in the legislative history of an article."""
+    """One change of an article in one dossier: the dossier, and the amending publication
+    (enacted) or the bill (proposed) that made or proposes the change."""
 
     model_config = ConfigDict(extra="forbid")
 
-    dossier_id: str | None = None
-    dossier_number: str | None = None
+    dossier_id: str | None = Field(
+        None,
+        description="Arango _id of the dossier; null when the publication names a dossier "
+        "that is not in the graph.",
+    )
+    dossier_number: str
     dossier_title: str | None = None
-    date: str | None = None
-    kind: str | None = None
-    status: str | None = None
+    date: str | None = Field(
+        None, description="Of the bill, or the publication date of the publication."
+    )
+    kind: str | None = Field(
+        None,
+        description="Document kind of a bill, publication kind (`Stb`) of a publication.",
+    )
+    change: Literal["amends", "introduces", "repeals"]
+    status: str | None = Field(
+        None, description="`canoniek` (enacted) or `voorgesteld` (proposed)."
+    )
     summary: str | None = None
-    document_id: str | None = None
+    document_id: str = Field(
+        ..., description="Arango _id of the publication or the bill."
+    )
 
 
 class ArticleLegislativeHistoryResponse(BaseModel):

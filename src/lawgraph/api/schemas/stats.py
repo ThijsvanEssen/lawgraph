@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EdgeStatsDTO(BaseModel):
@@ -30,3 +30,49 @@ class StatsResponse(BaseModel):
     edges: EdgeStatsDTO
     by_source: dict[str, dict[str, int]] = {}
     instruments: InstrumentStatsDTO = InstrumentStatsDTO()
+
+
+class CoverageCourtDTO(BaseModel):
+    """The judgments of one court in the graph."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str | None = Field(None, description="`rechtspraak` or `echr`.")
+    tier: str | None = Field(
+        None, description="`hoge_raad`, `gerechtshof`, `rechtbank` or `bijzonder`."
+    )
+    court_code: str | None = Field(None, description="The court in the ECLI: `GHAMS`.")
+    court: str | None = Field(None, description="Its name: Gerechtshof Amsterdam.")
+    count: int
+    first_date: str | None = Field(None, description="Date of its oldest judgment.")
+    last_date: str | None = Field(None, description="Date of its newest judgment.")
+
+
+class CoverageTierDTO(BaseModel):
+    """The judgments of one court tier in the graph."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tier: str | None = None
+    count: int
+    first_date: str | None = None
+    last_date: str | None = None
+
+
+class JudgmentCoverageResponse(BaseModel):
+    """Which judgments the graph holds: a count of case law is a count of this selection.
+
+    ``total`` counts the judgments whose text is loaded; ``stubs`` the judgments known only
+    because a loaded text cites them (they cite nothing themselves).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    first_date: str | None = None
+    last_date: str | None = None
+    stubs: int = Field(..., description="Cited judgments whose text is not loaded.")
+    tiers: list[CoverageTierDTO] = Field(
+        ..., description="Per tier, from the Hoge Raad down; `bijzonder` last."
+    )
+    courts: list[CoverageCourtDTO] = Field(..., description="Per court, most first.")

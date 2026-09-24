@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.core.models import TYPE_OF_COLLECTION
+from lawgraph.core.tk_links import tk_url
 
 # Props a node response leaves out by default: none (the graph views drop the large ones).
 _DROP_PROPS_KEYS: tuple[str, ...] = ()
@@ -43,6 +44,9 @@ def _build_node_payload(
     sanitized = {
         key: value for key, value in props.items() if key not in (drop_props_keys or ())
     }
+    link = tk_url(doc.get("type"), props)
+    if link:
+        sanitized["tk_url"] = link
     return {
         "id": doc["_id"],
         "key": doc["_key"],

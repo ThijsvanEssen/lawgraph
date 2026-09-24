@@ -97,3 +97,10 @@ def test_an_abbreviation_claimed_by_several_regulations_never_wins() -> None:
 
 def test_case_variants_of_one_regulation_are_one_claim() -> None:
     assert choose_short_titles({"BWBR0001840": ["GW", "Gw"]}) == {"BWBR0001840": "GW"}
+
+
+def test_a_code_of_books_never_wins_even_when_one_book_is_loaded() -> None:
+    # Only Boek 7 loaded: "BW" is claimed once, but it names every book.
+    assert choose_short_titles({"BWBR0005290": ["BW", "BW Boek 7", "BW7"]}) == {
+        "BWBR0005290": "BW7"
+    }

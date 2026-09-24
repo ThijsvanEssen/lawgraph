@@ -16,6 +16,7 @@ is what this module keeps; whether and how it ended is ``semantic tk-dossier-out
 from __future__ import annotations
 
 import datetime as dt
+from collections import Counter
 from collections.abc import Iterable, Iterator
 from typing import Any
 
@@ -250,7 +251,34 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         unique = _unique(nodes)
         self._upsert_nodes(unique)
         logger.info("Normalized %d dossiers.", len(unique))
+        self._refresh_same_number_counts({str(node.props["number"]) for node in unique})
         return nodes
+
+    def _refresh_same_number_counts(self, numbers: set[str]) -> None:
+        """Write on every dossier of these *numbers* how many other dossiers share it.
+
+        This pipeline is the one writer of dossiers, so a new chapter of a budget reaches the
+        count of all its siblings here, also in an incremental run.
+        """
+        rows = [
+            row
+            for chunk in chunked(sorted(numbers), 5000)
+            for row in normalize_queries.dossiers_of_numbers(self.store, chunk)
+        ]
+        per_number = Counter(row["number"] for row in rows)
+        changed = [
+            {
+                "_key": row["key"],
+                "type": NodeType.DOSSIER.value,
+                "labels": [],
+                "props": {"same_number_count": per_number[row["number"]] - 1},
+            }
+            for row in rows
+            if row.get("same_number_count") != per_number[row["number"]] - 1
+        ]
+        if changed:
+            self.store.bulk_insert_or_update_nodes(COLLECTION_DOSSIERS, changed)
+        logger.info("Refreshed the same-number count on %d dossiers.", len(changed))
 
     def _refresh_case_kinds(self, activity_nodes: dict[str, Node]) -> None:
         """Roll the ``Zaak.Soort`` values reachable per dossier onto the dossier.
@@ -363,19 +391,27 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             title=node.props.get("title"),
             document_kinds=[doc.get("kind") or "" for doc in docs],
         )
-        current_stage, stages_present = dossier_stages(
-            track_kind, docs, activities, decisions, case_kinds, closed=closed
+        stages = dossier_stages(
+            track_kind,
+            docs,
+            activities,
+            decisions,
+            case_kinds,
+            closed=closed,
+            outcome=row.get("outcome"),
         )
         dated = [d["date"] for d in docs + activities if d.get("date")]
         opened_on = min(dated) if dated else row.get("opened_on")
 
         unchanged = (
-            list(node.props.get("stages_present") or []) == stages_present
-            and node.props.get("current_stage") == current_stage
+            list(node.props.get("stages_present") or []) == stages.present
+            and node.props.get("current_stage") == stages.current
+            and node.props.get("stages_complete") == stages.complete
             and node.props.get("track_kind") == track_kind
         )
-        node.props["stages_present"] = stages_present
-        node.props["current_stage"] = current_stage
+        node.props["stages_present"] = stages.present
+        node.props["current_stage"] = stages.current
+        node.props["stages_complete"] = stages.complete
         node.props["track_kind"] = track_kind
         node.props["opened_on"] = opened_on
         return 0 if unchanged else 1
