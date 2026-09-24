@@ -350,8 +350,11 @@ _LAW_OF_RE = re.compile(
 # A heading is short; the words after its numbers that name a law are at its start.
 _LAW_OF_REACH = 400
 _PAREN_RE = re.compile(r"\(([^()]*)\)")
+# "(artikel 1a)", "(nieuw artikel 13)", "(gewijzigd artikel 23)": the article a part of the
+# bill makes, changes or repeals.
 _PAREN_ARTICLE_RE = re.compile(
-    rf"^\s*artikel(?:en)?\s+(?P<nums>{ARTICLE_NUMBERS_PATTERN})(?![\w])(?P<tail>.*)$",
+    r"^\s*(?:(?:nieuwe?|gewijzigde?|vervallen|vervalt)\s+)?"
+    rf"artikel(?:en)?\s+(?P<nums>{ARTICLE_NUMBERS_PATTERN})(?![\w])(?P<tail>.*)$",
     re.IGNORECASE | re.DOTALL,
 )
 _ROMAN_ONLY_RE = re.compile(rf"^{_ROMAN_NUM}$")

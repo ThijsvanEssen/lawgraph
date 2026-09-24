@@ -48,7 +48,8 @@ class CoverageCourtDTO(BaseModel):
     tier: str | None = Field(
         None,
         description="`hoge_raad`, `parket` (the conclusions of the Parket bij de Hoge Raad), "
-        "`gerechtshof`, `rechtbank` or `bijzonder`.",
+        "`raad_van_state`, `centrale_raad_van_beroep`, `gerechtshof`, `rechtbank`, … one per "
+        "college (``core.judgments.TIERS``).",
     )
     court_code: str | None = Field(None, description="The court in the ECLI: `GHAMS`.")
     court: str | None = Field(None, description="Its name: Gerechtshof Amsterdam.")
@@ -83,6 +84,7 @@ class JudgmentCoverageResponse(BaseModel):
     stubs: int = Field(..., description="Cited judgments whose text is not loaded.")
     tiers: list[CoverageTierDTO] = Field(
         ...,
-        description="Per tier: Hoge Raad, parket, gerechtshof, rechtbank, `bijzonder` last.",
+        description="Per tier: the highest courts first, the parket, the courts of first "
+        "instance and appeal, the other colleges, the EHRM last.",
     )
     courts: list[CoverageCourtDTO] = Field(..., description="Per court, most first.")

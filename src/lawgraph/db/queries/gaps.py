@@ -16,7 +16,6 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
-    EXPLANATORY_KIND_MARKER,
     RAW_KIND_EU_CELEX,
     RELATION_PART_OF,
     SOURCE_BWB,
@@ -220,19 +219,6 @@ def dossiers_named_by_publications(store: Store) -> list[str]:
         RETURN number
     """
     return list(store.query(aql))
-
-
-def second_reading_memoranda(store: Store) -> Iterator[str]:
-    """The texts of the explanatory memoranda that speak of a first reading: a change in
-    the Grondwet in its second reading refers to the papers of the first."""
-    aql = f"""
-    FOR doc IN {COLLECTION_DOCUMENTS}
-        FILTER "TK" IN doc.labels AND doc.props.text != null
-        FILTER CONTAINS(LOWER(doc.props.kind || ""), @explanatory)
-        FILTER CONTAINS(LOWER(doc.props.text), "eerste lezing")
-        RETURN doc.props.text
-    """
-    return store.query(aql, {"explanatory": EXPLANATORY_KIND_MARKER})
 
 
 def dossiers_with_numbers(store: Store, numbers: list[str]) -> set[str]:

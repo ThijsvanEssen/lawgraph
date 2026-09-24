@@ -311,7 +311,9 @@ class CitedByJudgment(BaseModel):
     ecli: str | None
     court: str | None = Field(description="ECLI court code, `HR`, `RBAMS`.")
     tier: str | None = Field(
-        description="`hoge_raad`, `parket`, `gerechtshof`, `rechtbank` or `bijzonder`."
+        description="The college: `hoge_raad`, `raad_van_state`, `centrale_raad_van_beroep`, "
+        "`college_van_beroep_bedrijfsleven`, `parket`, `gerechtshof`, `rechtbank`, … "
+        "(`/api/stats/coverage` lists those present).",
     )
     date: str | None = Field(description="Date of the judgment, YYYY-MM-DD.")
     display_name: str | None

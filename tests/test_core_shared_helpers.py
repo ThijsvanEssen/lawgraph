@@ -208,7 +208,10 @@ def test_rechtspraak_extract_rdf_metadata() -> None:
         ("ecli:nl:hr:2020:1", ("HR", "hoge_raad")),
         ("ECLI:NL:GHAMS:2020:1", ("GHAMS", "gerechtshof")),
         ("ECLI:NL:RBAMS:2020:1", ("RBAMS", "rechtbank")),
-        ("ECLI:NL:CRVB:2020:1", ("CRVB", "bijzonder")),
+        ("ECLI:NL:CRVB:2020:1", ("CRVB", "centrale_raad_van_beroep")),
+        ("ECLI:NL:RVS:2020:1", ("RVS", "raad_van_state")),
+        ("ECLI:NL:TGZRAMS:2020:1", ("TGZRAMS", "tuchtcollege")),
+        ("ECLI:NL:OGHACMB:2020:1", ("OGHACMB", "gemeenschappelijk_hof")),
         ("ECLI:NL:PHR:2019:496", ("PHR", "parket")),
         ("ECLI:NL", (None, None)),
         ("garbage", (None, None)),
@@ -568,7 +571,36 @@ def test_the_tier_filters_of_the_api_are_the_tiers() -> None:
 
     for route in (articles.get_article_cited_by_passages, judgments.list_judgments):
         hint = typing.get_type_hints(route, include_extras=True)["tier"]
-        literal = next(
-            a for a in typing.get_args(typing.get_args(hint)[0]) if a is not None
+        enum = next(
+            a for a in typing.get_args(typing.get_args(hint)[0]) if a is not type(None)
         )
-        assert set(typing.get_args(literal)) == set(TIERS), route.__name__
+        assert [member.value for member in enum] == list(TIERS), route.__name__
+
+
+def test_every_court_of_the_rechtspraak_has_a_named_tier() -> None:
+    """The waardelijst of the Rechtspraak (``/Waardelijst/Instanties``) names every court an
+    ECLI can have; each has a tier of its own kind, and none is a catch-all."""
+    import xml.etree.ElementTree as ET
+    from pathlib import Path
+
+    from lawgraph.core.judgments import court_tier
+
+    root = ET.parse(Path(__file__).parent / "fixtures" / "rechtspraak_instanties.xml")
+    codes = {
+        (instance.findtext("Afkorting") or "").strip(): instance.findtext("Type") or ""
+        for instance in root.getroot()
+    }
+    codes.pop("", None)  # the military and colonial courts without an ECLI code
+    assert len(codes) > 150
+    missing = sorted(code for code in codes if court_tier(code) is None)
+    assert missing == []
+    by_type: dict[str, set[str]] = {}
+    for code, kind in codes.items():
+        by_type.setdefault(kind, set()).add(str(court_tier(code)))
+    assert by_type["Rechtbank"] == {"rechtbank"}
+    assert by_type["Gerechtshof"] == {"gerechtshof"}
+    assert by_type["Kantongerecht"] == {"kantongerecht"}
+    assert by_type["TuchtrechtelijkeInstantie"] == {"tuchtcollege"}
+    assert court_tier("XX", "KB") == "kroon"
+    assert court_tier("XX", "Europees Hof voor de Rechten van de Mens") == "ehrm"
+    assert court_tier("XX", "Hof van Justitie van de Europese Unie") == "hvj_eu"

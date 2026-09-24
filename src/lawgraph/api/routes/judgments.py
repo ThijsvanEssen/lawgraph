@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import Tier
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -38,7 +39,8 @@ logger = get_logger(__name__)
     summary="Paginated list of judgments",
     description=(
         "A paginated list of judgments with filters on court (the ECLI court "
-        "code), tier (hoge_raad / parket / gerechtshof / rechtbank / bijzonder), date "
+        "code), tier (the college: hoge_raad, raad_van_state, "
+        "centrale_raad_van_beroep, parket, gerechtshof, rechtbank, tuchtcollege, …), date "
         "range and a minimum citation count."
     ),
     tags=["judgments"],
@@ -55,8 +57,10 @@ def list_judgments(
         Query(description="ECLI court code, e.g. 'HR', 'RBAMS', 'GHARL'"),
     ] = None,
     tier: Annotated[
-        Literal["hoge_raad", "parket", "gerechtshof", "rechtbank", "bijzonder"] | None,
-        Query(),
+        Tier | None,
+        Query(
+            description="The college: `hoge_raad`, `raad_van_state`, `gerechtshof`, …"
+        ),
     ] = None,
     source: Annotated[
         str | None,
@@ -79,7 +83,7 @@ def list_judgments(
         store,
         q=q,
         court=court,
-        tier=tier,
+        tier=tier.value if tier else None,
         source=source,
         date_from=date_from,
         date_to=date_to,

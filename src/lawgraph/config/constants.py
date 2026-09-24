@@ -85,6 +85,7 @@ RELATION_VOTED = "VOTED"
 RELATION_RELATED_TO = "RELATED_TO"
 RELATION_REVISES = "REVISES"
 RELATION_ACCOMPANIES = "ACCOMPANIES"
+RELATION_SECOND_READING_OF = "SECOND_READING_OF"
 
 # ── Semantic relationship types ───────────────────────────────────────────────
 # Curated semantic layer stored on edges as `semantic_type`. Orthogonal to

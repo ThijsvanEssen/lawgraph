@@ -460,3 +460,14 @@ def test_a_long_heading_is_read_in_linear_time() -> None:
     assert law is None and refs == [{"number": "1", "of": "self"}]
     named = _law_and_refs(", eerste lid, van de Huisvestingswet 2014", ["9"])[1]
     assert named == "Huisvestingswet 2014"
+
+
+def test_the_article_a_part_of_a_bill_makes_is_read_from_its_parenthesis() -> None:
+    from lawgraph.core.kamerstuk_xml import _law_and_refs
+
+    refs, _ = _law_and_refs(" (nieuw artikel 13)", ["II"])
+    assert refs == [{"number": "II", "of": "self"}, {"number": "13", "of": "unknown"}]
+    assert _law_and_refs(" (gewijzigd artikel 23, vierde lid)", ["I"])[0][-1] == {
+        "number": "23",
+        "of": "unknown",
+    }

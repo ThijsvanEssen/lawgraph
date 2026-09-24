@@ -514,6 +514,14 @@ SEMANTIC: list[Pipeline] = [
         "Amendment language in Tweede Kamer documents, linked to the articles it changes.",
     ),
     _pipeline(
+        TKDossierRelationsSemanticPipeline,
+        (
+            "RELATED_TO, REVISES, ACCOMPANIES and SECOND_READING_OF between dossiers: the cases "
+            "the Kamer relates, the budget a budget change revises and the nota it comes with, "
+            "and the first reading of a change in the Grondwet."
+        ),
+    ),
+    _pipeline(
         TKMvtSemanticPipeline,
         "EXPLAINS: links explanatory memoranda to what they explain.",
     ),
@@ -530,13 +538,6 @@ SEMANTIC: list[Pipeline] = [
         (
             "Whether each dossier is closed and how it ended: the publication of its law, "
             "the withdrawal of its bill or the vote that rejected it."
-        ),
-    ),
-    _pipeline(
-        TKDossierRelationsSemanticPipeline,
-        (
-            "RELATED_TO, REVISES and ACCOMPANIES between dossiers: the cases the Kamer relates, "
-            "and the budget a budget change revises and the nota it comes with."
         ),
     ),
     _pipeline(

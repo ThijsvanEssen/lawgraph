@@ -245,6 +245,13 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "Miljoenennota (`meta.nota`) that its title names.",
     ),
     RelationSpec(
+        "SECOND_READING_OF",
+        (_DOSSIER,),
+        (_DOSSIER,),
+        "A change in the Grondwet in its second reading → the dossier of its first reading, "
+        "to whose papers its memorandum refers for the explanation (Kamerstukken 35 418).",
+    ),
+    RelationSpec(
         "VOTED",
         (_MEMBER, _FACTION),
         (_DEC,),

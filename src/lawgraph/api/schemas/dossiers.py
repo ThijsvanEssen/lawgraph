@@ -433,7 +433,9 @@ class DossierSenateDTO(BaseModel):
     )
 
 
-DossierRelationName = Literal["revises", "accompanies", "related_to"]
+DossierRelationName = Literal[
+    "revises", "accompanies", "related_to", "second_reading_of"
+]
 
 
 class DossierRelationDTO(BaseModel):
@@ -447,6 +449,9 @@ class DossierRelationDTO(BaseModel):
       (``Zaak.GerelateerdNaar``), mostly a letter of the government to the motion it
       answers. ``cases`` counts the pairs of cases, ``case_kinds`` names their kinds
       (``Brief regering → Motie``).
+    * ``second_reading_of``: a change in the Grondwet in its second reading and the dossier of
+      its first reading, whose papers explain it: the memorandum of 35785 only refers to those
+      of 35418 and 35419.
 
     ``outgoing`` means this dossier is the subject: 37035-XXII revises 36800-XXII and
     accompanies 37020. On 36800-XXII the same ``revises`` is ``incoming``.

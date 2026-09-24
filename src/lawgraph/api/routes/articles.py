@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import Tier
 from lawgraph.api.schemas.articles import (
     ArticleCitedByItem,
     ArticleCitedByResponse,
@@ -180,8 +181,10 @@ def get_article_cited_by_passages(
         str | None, Query(description="ECLI court code, e.g. 'HR', 'RBAMS'")
     ] = None,
     tier: Annotated[
-        Literal["hoge_raad", "parket", "gerechtshof", "rechtbank", "bijzonder"] | None,
-        Query(),
+        Tier | None,
+        Query(
+            description="The college: `hoge_raad`, `raad_van_state`, `gerechtshof`, …"
+        ),
     ] = None,
     lid: Annotated[
         str | None,
@@ -198,7 +201,7 @@ def get_article_cited_by_passages(
         store,
         article_id,
         court=court,
-        tier=tier,
+        tier=tier.value if tier else None,
         lid=lid,
         limit=limit,
         offset=offset,

@@ -79,6 +79,7 @@ they are out of date. Do not edit inside the markers.
 | `RELATED_TO` | Dossier | Dossier | The Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. |
 | `REVISES` | Dossier | Dossier | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`). |
 | `ACCOMPANIES` | Dossier | Dossier | A budget change is submitted with the Voorjaarsnota, Najaarsnota or Miljoenennota (`meta.nota`) that its title names. |
+| `SECOND_READING_OF` | Dossier | Dossier | A change in the Grondwet in its second reading → the dossier of its first reading, to whose papers its memorandum refers for the explanation (Kamerstukken 35 418). |
 | `VOTED` | Member / Faction | Decision | A vote on a decision: per member for roll-call votes, per faction otherwise (`choice`, `seats`). |
 
 <!-- relations:end -->
@@ -282,11 +283,13 @@ activity by its `number`, never by the GUID of the record (`external_id`), so th
 fixed by a release, not by a migration. The Eerste Kamer papers keep the `url` of their page on
 officielebekendmakingen.nl as the source gives it.
 
-Dossiers of different numbers are tied by three edges, written by `semantic
+Dossiers of different numbers are tied by four edges, written by `semantic
 tk-dossier-relations` (the rules: [pipelines](pipelines.md#semantic-tk-dossier-relations)):
 `REVISES` (a supplementary budget or slotwet → the budget of its chapter and year), `ACCOMPANIES`
-(a budget change → the Voorjaarsnota, Najaarsnota or Miljoenennota it is submitted with) and
-`RELATED_TO` (the Kamer relates a case of the one to a case of the other). The dossiers of one
+(a budget change → the Voorjaarsnota, Najaarsnota or Miljoenennota it is submitted with),
+`RELATED_TO` (the Kamer relates a case of the one to a case of the other) and `SECOND_READING_OF`
+(a change in the Grondwet in its second reading → its first reading, whose memorandum explains
+it). The dossiers of one
 number are found by the number itself (`GET /api/dossiers?number=`), not by an edge.
 
 ### Text and sections of a Kamerstuk

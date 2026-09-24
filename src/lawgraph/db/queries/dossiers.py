@@ -33,6 +33,7 @@ from lawgraph.config.constants import (
     RELATION_RELATED_TO,
     RELATION_REPEALS,
     RELATION_REVISES,
+    RELATION_SECOND_READING_OF,
 )
 from lawgraph.core.documents import chamber_of, is_explanatory
 from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
@@ -65,7 +66,12 @@ HUB_INSTRUMENT_RELATIONS = (
 )
 
 # The relations between two dossiers, in the order the detail lists them.
-DOSSIER_RELATIONS = (RELATION_REVISES, RELATION_ACCOMPANIES, RELATION_RELATED_TO)
+DOSSIER_RELATIONS = (
+    RELATION_REVISES,
+    RELATION_ACCOMPANIES,
+    RELATION_RELATED_TO,
+    RELATION_SECOND_READING_OF,
+)
 
 _DICTUM_EXCERPT_CHARS = 280
 

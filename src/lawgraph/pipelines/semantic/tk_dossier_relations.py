@@ -2,7 +2,8 @@
 
 ``RELATED_TO`` is the Kamer's own relation between two cases (``Zaak.GerelateerdNaar``,
 stored on the case by ``normalize tk``) lifted to their dossiers; ``REVISES`` and
-``ACCOMPANIES`` follow from the titles of the budget laws. The rules are
+``ACCOMPANIES`` follow from the titles of the budget laws; ``SECOND_READING_OF`` from the
+memorandum of a second reading of a change in the Grondwet, which refers to the first. The rules are
 :mod:`lawgraph.core.dossier_relations`.
 
 Runs over every dossier and every related case, since a dossier loaded today can be the other
@@ -18,11 +19,13 @@ from lawgraph.config.constants import (
     RELATION_ACCOMPANIES,
     RELATION_RELATED_TO,
     RELATION_REVISES,
+    RELATION_SECOND_READING_OF,
 )
 from lawgraph.core.dossier_relations import (
     DossierRef,
     accompanied_notas,
     budget_amendments,
+    first_readings,
     related_dossiers,
 )
 from lawgraph.core.logging import get_logger
@@ -38,7 +41,7 @@ SEMANTIC_SOURCE = "tk-dossier-relations"
 
 
 class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
-    """Write ``RELATED_TO``, ``REVISES`` and ``ACCOMPANIES`` between dossiers."""
+    """Write ``RELATED_TO``, ``REVISES``, ``ACCOMPANIES`` and ``SECOND_READING_OF``."""
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
@@ -54,6 +57,10 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
             (RELATION_RELATED_TO, related_dossiers(cases)),
             (RELATION_REVISES, budget_amendments(dossiers)),
             (RELATION_ACCOMPANIES, accompanied_notas(dossiers)),
+            (
+                RELATION_SECOND_READING_OF,
+                first_readings(semantic_queries.second_reading_memoranda(self.store)),
+            ),
         )
 
         written: Counter[str] = Counter()
