@@ -221,6 +221,10 @@ The judgments of one case are tied by `APPEAL_OF` (an appeal to the judgment it 
 `ADVISES_ON` (a conclusion to its judgment) and `ANSWERS` (a preliminary ruling to the decision
 that asked its questions); `docs/pipelines.md`, Rechtspraak, says how each is found.
 
+Parallel cases a court decided on one day in (nearly) the same words form a series: each
+judgment of it has `series_id`, the lowest ECLI in the series, and `series_size`; outside a
+series both are null (`semantic rechtspraak-series`). A series has no edges.
+
 `paragraphs` is the `<uitspraak>` in reading order, a list of `{id, number, kind, text}`. `kind` is
 `heading` (a section), `subheading` (a nested section, or an `<uitspraak.info>` block) or `body`.
 A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
@@ -386,7 +390,7 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
-| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; sparse `props.case_number_keys[*]`; `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
+| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; sparse `props.case_number_keys[*]`; sparse `props.series_id`; `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
 | `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on |
 | `raw_sources` | `(source, kind)` |
 | `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)` |

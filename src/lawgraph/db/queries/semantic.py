@@ -188,6 +188,99 @@ FOR j IN {COLLECTION_JUDGMENTS}
     )
 
 
+def generic_summaries(store: Store, *, min_dates: int) -> Iterator[str]:
+    """The MD5 (``core.judgment_series.summary_fingerprint``) of every Rechtspraak summary
+    written on at least *min_dates* distinct dates: templates, not summaries."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.source == @source AND j.props.summary != null
+  COLLECT fingerprint = MD5(j.props.summary)
+  AGGREGATE dates = COUNT_DISTINCT(j.props.date_eff)
+  FILTER dates >= @min_dates
+  RETURN fingerprint
+"""
+    return store.query(aql, {"source": SOURCE_RECHTSPRAAK, "min_dates": min_dates})
+
+
+# The judgments of one court on one day, read through the index that `/api/stats/coverage`
+# counts from (``db/schema.py``): every field of its prefix is fixed.
+_COURT_DAY_FILTER = """
+  FILTER j.props.stub == false AND j.props.source == @source
+"""
+
+
+def judgment_court_days(
+    store: Store, *, eclis: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
+    """``{court_code, date, tier, courts}`` of every day on which a court gave two or more
+    Rechtspraak judgments, or, with *eclis*, of the days of those judgments."""
+    bind: dict[str, Any] = {"source": SOURCE_RECHTSPRAAK}
+    of_eclis = ""
+    if eclis is not None:
+        bind["eclis"] = eclis
+        of_eclis = "FILTER j.props.ecli IN @eclis"
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  {_COURT_DAY_FILTER}
+  {of_eclis}
+  FILTER j.props.court_code != null AND j.props.date_eff != null
+  COLLECT court_code = j.props.court_code, date = j.props.date_eff
+  AGGREGATE tier = MAX(j.props.tier), courts = UNIQUE(j.props.court),
+            count = COUNT(1)
+  FILTER @eclis_given OR count > 1
+  RETURN {{court_code, date, tier, courts}}
+"""
+    bind["eclis_given"] = eclis is not None
+    return store.query(aql, bind)
+
+
+def judgments_in_series(store: Store) -> Iterator[str]:
+    """The ECLIs of the judgments that carry a ``series_id``."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.series_id != null
+  RETURN j.props.ecli
+"""
+    return store.query(aql)
+
+
+def judgments_of_court_day(
+    store: Store,
+    *,
+    court_code: str,
+    date: str,
+    tier: str | None,
+    courts: list[str | None],
+    batch_size: int,
+) -> Iterator[dict[str, Any]]:
+    """``{key, ecli, text, summary, document_type, case_number_keys, series_id,
+    series_size}`` of the Rechtspraak judgments of one court on one day."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  {_COURT_DAY_FILTER}
+  FILTER j.props.tier == @tier AND j.props.court_code == @court_code
+  FILTER j.props.court IN @courts AND j.props.date_eff == @date
+  RETURN {{
+    key: j._key,
+    ecli: j.props.ecli,
+    text: j.props.text,
+    summary: j.props.summary,
+    document_type: j.props.judgment_metadata.document_type,
+    case_number_keys: j.props.case_number_keys OR [],
+    series_id: j.props.series_id,
+    series_size: j.props.series_size
+  }}
+"""
+    bind = {
+        "source": SOURCE_RECHTSPRAAK,
+        "court_code": court_code,
+        "date": date,
+        "tier": tier,
+        "courts": courts,
+    }
+    return store.query(aql, bind, batch_size=batch_size)
+
+
 def echr_judgments(store: Store) -> Iterator[dict[str, Any]]:
     """``{j_id, j_key, articles, conclusion}`` of the ECHR judgments that cite an article
     or have a conclusion."""

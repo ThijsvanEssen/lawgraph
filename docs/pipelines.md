@@ -8,7 +8,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
-| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals` |
+| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
@@ -338,6 +338,17 @@ paragraphs that says questions were asked (`prejudiciële vragen … gesteld`,
 `core/judgments.read_referral`): the ECLIs it names, else the judgment of the date it names
 with one of the case numbers after `in de zaak` (`referral_text`, 0.9). The referring decision
 is found only when it is loaded: the Rechtspraak cannot be asked for a case number.
+
+**Semantic `rechtspraak-series`.** Parallel cases: judgments of one court (`court_code`) on one
+day (`date_eff`) with the same `document_type`, compared per court and day, one day in memory.
+A text is its lower-case word 8-shingles, one in eight kept by CRC-32; two judgments are a pair
+when they share no case number key, neither summary says `gerectificeerd` or `rectificatie`,
+and the Jaccard of their shingles is at least 0.85, or 0.7 when both texts have 600 words or
+more, or 0.5 (0.3 for two such long texts) when their summaries share at least 97% of their
+words and the summary is not a template (the same summary on three dates or more: `kopje
+volgt`, `HR: 81.1 RO.`). A series is the judgments that pairs connect: `series_id` (its lowest
+ECLI) and `series_size` on each; a judgment in no series has both null. `--since` groups
+only the days of the judgments retrieved from then on.
 
 ## EUR-Lex
 
