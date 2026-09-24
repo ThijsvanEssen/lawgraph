@@ -382,6 +382,7 @@ class MemberProps(_CommonProps):
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
     birth_date: str | None = None
     wikidata_id: str | None = None
+    wikidata_name: str | None = None  # the name of the Wikidata person
     government_functions: list[GovernmentFunctionProps] | None = None
 
 

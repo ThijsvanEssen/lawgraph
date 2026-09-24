@@ -35,7 +35,7 @@ SELECT ?person ?personLabel ?birth ?birthPrecision ?position ?positionLabel
     ?person p:P569/psv:P569 ?birthValue .
     ?birthValue wikibase:timeValue ?birth ; wikibase:timePrecision ?birthPrecision .
   }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "nl,en". }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "nl,mul,en". }}
 }}
 """
 

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from lawgraph.clients.wikidata import group_by_person
 from lawgraph.core import tk_records
-from lawgraph.core.government import government_functions, match_member
+from lawgraph.core.government import (
+    government_functions,
+    match_member,
+    match_signatory,
+)
 
 E = "http://www.wikidata.org/entity/"
 
@@ -111,3 +115,152 @@ def test_a_person_record_keeps_the_birth_date_and_the_surname() -> None:
         }
     )
     assert (props["family_name"], props["birth_date"]) == ("Jetten", "1987-03-25")
+
+
+def test_a_particle_is_no_surname_word() -> None:
+    # born the same day; only "de" is shared
+    members = [
+        {
+            "key": "kappeyne",
+            "family_name": "Kappeyne van de Coppello",
+            "birth_date": "1936-10-24",
+        },
+    ]
+    assert (
+        match_member(_person("Gerard Wallis de Vries", "1936-10-24"), members) is None
+    )
+    assert (
+        match_member(
+            _person("Annelien Kappeyne van de Coppello", "1936-10-24"), members
+        )
+        == "kappeyne"
+    )
+
+
+def test_ij_and_y_agree_only_when_the_spelling_finds_nobody() -> None:
+    gruyters = [{"key": "g", "family_name": "Gruyters", "birth_date": "1931-10-18"}]
+    assert match_member(_person("Hans Gruijters", "1931-10-18"), gruyters) == "g"
+    twice = [
+        {"key": "ij", "family_name": "Peijnenburg", "birth_date": "1928-04-08"},
+        {"key": "y", "family_name": "Peynenburg", "birth_date": "1928-04-08"},
+    ]
+    assert match_member(_person("Marcel Peijnenburg", "1928-04-08"), twice) == "ij"
+
+
+def test_a_date_with_one_slip_needs_the_first_name_and_one_member() -> None:
+    bolkestein = {
+        "key": "b",
+        "family_name": "Bolkestein",
+        "first_names": "Frederik Bolkestein",
+        "birth_date": "1931-04-04",
+    }
+    assert match_member(_person("Frits Bolkestein", "1933-04-04"), [bolkestein]) == "b"
+    # a member with only a surname has no first name to disagree
+    stee = {
+        "key": "s",
+        "family_name": "Stee",
+        "first_names": "van der Stee",
+        "birth_date": "1928-06-30",
+    }
+    assert match_member(_person("Fons van der Stee", "1928-07-30"), [stee]) == "s"
+    # the spouse: same surname word, another first name
+    spouse = {
+        "key": "o",
+        "family_name": "Scheltema-de Nie",
+        "first_names": "Olga Scheltema-de Nie",
+        "birth_date": "1947-06-29",
+    }
+    assert match_member(_person("Michiel Scheltema", "1947-06-28"), [spouse]) is None
+    # two parts differ, or the year by more than two
+    assert match_member(_person("Frits Bolkestein", "1933-05-04"), [bolkestein]) is None
+    assert match_member(_person("Frits Bolkestein", "1941-04-04"), [bolkestein]) is None
+
+
+def _minister(qid: str, name: str, function: str, start: str, end: str | None) -> dict:
+    return {
+        "id": qid,
+        "name": name,
+        "posts": [{"function": function, "from_date": start, "to_date": end}],
+    }
+
+
+PEOPLE = [
+    _minister(
+        "Q1", "Ivo Opstelten", "minister van Justitie", "2010-10-14", "2015-03-10"
+    ),
+    _minister(
+        "Q2", "Fred Teeven", "staatssecretaris van Justitie", "2010-10-14", "2015-03-10"
+    ),
+    _minister(
+        "Q3",
+        "Hugo de Jonge",
+        "minister van Volksgezondheid",
+        "2017-10-26",
+        "2022-01-10",
+    ),
+    _minister(
+        "Q4", "Henk de Jonge", "minister van Financiën", "1950-01-01", "1952-01-01"
+    ),
+]
+
+
+def _signed(name: str, function: str, first: str, last: str | None = None) -> dict:
+    return {"name": name, "function": function, "first": first, "last": last or first}
+
+
+def test_a_signatory_is_the_person_with_the_surname_and_a_post_of_that_kind() -> None:
+    assert (
+        match_signatory(
+            [
+                _signed(
+                    "I.W. Opstelten",
+                    "minister van Veiligheid en Justitie",
+                    "2012-05-01",
+                )
+            ],
+            PEOPLE,
+        )
+        == "Q1"
+    )
+    # the other De Jonge held no post then
+    assert (
+        match_signatory(
+            [_signed("H.M. de Jonge", "minister van VWS", "2018-02-15", "2021-06-01")],
+            PEOPLE,
+        )
+        == "Q3"
+    )
+    # a minister's name on a state secretary's signature is nobody
+    assert (
+        match_signatory(
+            [_signed("I.W. Opstelten", "staatssecretaris van Justitie", "2012-05-01")],
+            PEOPLE,
+        )
+        is None
+    )
+    # a letter signed shortly after the post ended still belongs to it; a year later not
+    assert (
+        match_signatory(
+            [_signed("I.W. Opstelten", "minister van Justitie", "2015-03-20")], PEOPLE
+        )
+        == "Q1"
+    )
+    assert (
+        match_signatory(
+            [_signed("I.W. Opstelten", "minister van Justitie", "2016-03-20")], PEOPLE
+        )
+        is None
+    )
+
+
+def test_the_signatures_of_one_person_must_point_at_one_person() -> None:
+    both = [
+        _signed("I.W. Opstelten", "minister van Justitie", "2012-05-01"),
+        _signed("F. Teeven", "staatssecretaris van Justitie", "2012-05-01"),
+    ]
+    assert match_signatory(both, PEOPLE) is None
+    misspelt = [
+        _signed("I.W. Opstelten", "minister van Justitie", "2012-05-01"),
+        _signed("I.W. Opstelen", "minister van Justitie", "2013-05-01"),
+    ]
+    assert match_signatory(misspelt, PEOPLE) == "Q1"

@@ -217,7 +217,8 @@ class MemberDTO(BaseModel):
         return cls(
             id=doc["_id"],
             key=doc["_key"],
-            name=props.get("name"),
+            # a minister who never sat in parliament has a TK person without a name
+            name=props.get("name") or props.get("wikidata_name"),
             party=party or props.get("party"),
             active=bool(open_memberships),
             faction_memberships=memberships,
@@ -244,8 +245,10 @@ class MemberDetailDTO(MemberDTO):
     """A member with the posts they held in government.
 
     ``government_functions`` come from Wikidata (every post in a Dutch cabinet, complete
-    from the 1970s), oldest first; empty for a person Wikidata does not tie to this member
-    by date of birth and surname. ``wikidata_id`` names that person.
+    from the 1970s), oldest first; empty for a member Wikidata has no person for.
+    ``wikidata_id`` names that person: a member of parliament by date of birth and surname,
+    a minister who never sat in parliament by the papers they signed. A cabinet member the
+    Tweede Kamer has no person for is a member of their own (key ``wikidata_q<number>``).
     """
 
     birth_date: str | None = None

@@ -613,13 +613,28 @@ of the 1970s (30 to 60 posts each); older cabinets have a few. About 400 people.
 `id`, `name`, `birth_date`, `birth_precision`, `posts` with `function`, `cabinet`, `from_date`,
 `to_date` and their Q-ids), in full on every run. An empty answer raises.
 
-**Normalize.** Matches each person to one Tweede Kamer person (`core/government.py`): the same
-date of birth (`members.props.birth_date`, from `Persoon.Geboortedatum`; by year when
-Wikidata knows only the year) and a part of the surname (`family_name`, `Persoon.Achternaam`)
-among the words of the name; a person who matches no member or several is left out. The member
-gets `wikidata_id` and `government_functions` (the posts, oldest first); a member no person
-matches any more loses both. Every record is read on every run. Needs `normalize tk-dossiers`
-(the members).
+**Normalize.** Matches each person to one Tweede Kamer person (`core/government.py`):
+
+- a member of parliament: the same date of birth (`members.props.birth_date`, from
+  `Persoon.Geboortedatum`; by year when Wikidata knows only the year) and a word of the surname
+  (`family_name`, `Persoon.Achternaam`; particles such as `van`, `de` do not count) among the
+  words of the name. When the exact spelling finds nobody, `ij` and `y` agree (`Gruijters`,
+  `Gruyters`); when the date finds nobody, a date that differs in one of year, month or day
+  (the year by two at most) agrees if the first names start alike too.
+- a minister or state secretary who never sat in parliament: the Tweede Kamer holds such a
+  person without name or date of birth, known only by what they signed (`AUTHORED` with
+  capacity `bewindspersoon`, the signed name in the document's `actors`). The person is the
+  one whose surname is in the signed name and who held a post of the same kind (minister or
+  state secretary) on a date they signed, or up to two weeks after it ended.
+
+A person who matches no member or several, or a member two people match, is left out (and
+logged). The member gets `wikidata_id`, `wikidata_name` and `government_functions` (the posts,
+oldest first); a member no person matches any more loses them. A person no Tweede Kamer person
+matches becomes a member of their own, key `wikidata_q<number>`, label `Wikidata`, with `name`,
+`birth_date` (known to the day only) and the same three props; when a later run matches that
+person to a Tweede Kamer person, the member of their own is removed, so one person is never
+two members. Every record is read on every run. Needs `normalize tk-dossiers` (the members and
+their signatures).
 
 ## Ordering
 

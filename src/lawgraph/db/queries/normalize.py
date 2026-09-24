@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
@@ -19,9 +20,12 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
+    LABEL_WIKIDATA,
     RELATION_ABOUT,
+    RELATION_AUTHORED,
     RELATION_PART_OF,
 )
+from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
 from lawgraph.db.counting import Store
 
 # ── BWB ──────────────────────────────────────────────────────────────────────
@@ -214,16 +218,76 @@ def dossiers_of_numbers(store: Store, numbers: list[str]) -> Iterator[dict[str, 
 
 
 def member_identities(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, family_name, birth_date, wikidata_id}`` of every member with a birth date or
-    a Wikidata id (``normalize wikidata`` matches the first, and clears the second)."""
+    """``{key, family_name, first_names, birth_date, wikidata_id}`` of every Tweede Kamer
+    person (``normalize wikidata`` matches them, and clears a Wikidata id no person claims)."""
     aql = f"""
     FOR m IN {COLLECTION_MEMBERS}
+        FILTER @tk IN m.labels
         FILTER m.props.birth_date != null OR m.props.wikidata_id != null
+            OR m.props.family_name == null
         RETURN {{
             key: m._key,
             family_name: m.props.family_name,
+            first_names: m.props.name,
             birth_date: m.props.birth_date,
             wikidata_id: m.props.wikidata_id
         }}
     """
-    return store.query(aql)
+    return store.query(aql, {"tk": CHAMBER_TK})
+
+
+def government_signatures(store: Store) -> Iterator[dict[str, Any]]:
+    """The signatures as a minister or state secretary of the Tweede Kamer persons without a
+    name of their own (a minister who never sat in parliament): ``{key, name, function,
+    first, last}`` per person, signed name and function, with the first and last date."""
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == @authored AND e.meta.capacity == @government
+        LET m = DOCUMENT(e._from)
+        FILTER m.props.family_name == null AND @tk IN m.labels
+        LET d = DOCUMENT(e._to)
+        FILTER d.props.date != null
+        FOR a IN (d.props.actors OR [])
+            FILTER a.person_id == m.props.external_id AND a.name != null
+            COLLECT key = m._key, name = a.name, function = e.meta.function
+                AGGREGATE first = MIN(d.props.date), last = MAX(d.props.date)
+            RETURN {{key, name, function, first, last}}
+    """
+    return store.query(
+        aql,
+        {
+            "authored": RELATION_AUTHORED,
+            "government": CAPACITY_GOVERNMENT,
+            "tk": CHAMBER_TK,
+        },
+    )
+
+
+def wikidata_members(store: Store) -> Iterator[str]:
+    """The keys of the members only Wikidata knows (label ``Wikidata``)."""
+    aql = f"""
+    FOR m IN {COLLECTION_MEMBERS}
+        FILTER @label IN m.labels
+        RETURN m._key
+    """
+    return store.query(aql, {"label": LABEL_WIKIDATA})
+
+
+def remove_members(store: Store, keys: list[str]) -> int:
+    """Remove the members *keys* with every edge at them; how many members went."""
+    ids = [f"{COLLECTION_MEMBERS}/{key}" for key in keys]
+    edges = f"""
+    FOR id IN @ids
+        FOR key IN UNION_DISTINCT(
+            (FOR e IN {COLLECTION_EDGES} FILTER e._from == id RETURN e._key),
+            (FOR e IN {COLLECTION_EDGES} FILTER e._to == id RETURN e._key)
+        )
+            REMOVE key IN {COLLECTION_EDGES}
+    """
+    list(store.query(edges, {"ids": ids}))
+    members = f"""
+    FOR key IN @keys
+        REMOVE key IN {COLLECTION_MEMBERS} OPTIONS {{ ignoreErrors: true }}
+        RETURN 1
+    """
+    return sum(store.query(members, {"keys": keys}))

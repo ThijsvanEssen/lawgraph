@@ -98,7 +98,7 @@ they are out of date. Do not edit inside the markers.
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
 | `judgments` | `ecli_nl_hr_2023_1234`; ECHR `echr_<itemid>` |
 | `dossiers` | `<number>` or `<number>_<suffix>` |
-| `cases`, `documents` (TK), `activities`, `commitments`, `committees`, `members` | TK GUID (`Id`) |
+| `cases`, `documents` (TK), `activities`, `commitments`, `committees`, `members` | TK GUID (`Id`); a member only Wikidata knows `wikidata_q<number>` |
 | `documents` (other) | `stb_<identifier>`, `stcrt_<identifier>`, `ek_<id>` |
 | `decisions` | `stemming_<Besluit_Id>` |
 | `factions` | abbreviation, else name (`vvd`, `d66`) |
@@ -260,7 +260,7 @@ Dossier contains Case contains Document. TK data is the source.
 | Activity | `activities` | debate or hearing; `number` (`Activiteit.Nummer`), `date`, `agenda_title` (`Onderwerp`), `kind`, `status` (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`), `committee_id` (null for a plenary activity), `case_ids`, `dossier_numbers`, `case_kinds_by_dossier` |
 | Decision | `decisions` | one node per TK `Besluit`; `primary_case_id` and `primary_case_kind` name the Zaak it decided (`Wetgeving` on the vote on a bill itself) |
 | Commitment | `commitments` | `status` mapped to `open`, `gedaan`, `vervallen`, `unknown`; `activity_number` |
-| Member | `members` | every TK `Persoon` (members and ministers); `name`, `family_name`, `birth_date`, `party`, `faction_memberships` (dated timeline); from Wikidata `wikidata_id` and `government_functions` (`function`, `cabinet`, `from_date`, `to_date`, and the Q-ids `position_id`, `cabinet_id`: every post in a Dutch cabinet) |
+| Member | `members` | every TK `Persoon` (members and ministers; a minister who never sat in parliament has no name or date of birth there); `name`, `family_name`, `birth_date`, `party`, `faction_memberships` (dated timeline); from Wikidata `wikidata_id`, `wikidata_name` and `government_functions` (`function`, `cabinet`, `from_date`, `to_date`, and the Q-ids `position_id`, `cabinet_id`: every post in a Dutch cabinet). A cabinet member without a TK `Persoon` is a member of its own, label `Wikidata`, key from the Q-id |
 | Faction | `factions` | `name`, `abbreviation`, `aliases`, `seats`, `active` |
 | Committee | `committees` | `name`, `abbreviation`, `slug`; only a Commissie with a name (the plenary is no committee) |
 

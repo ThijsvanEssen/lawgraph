@@ -425,7 +425,8 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         WikidataNormalizePipeline,
-        "Cabinet posts onto the members they belong to (date of birth and surname).",
+        "Cabinet posts onto the members they belong to (date of birth and surname, or "
+        "signatures); a person without a Tweede Kamer person becomes a member of their own.",
     ),
     _pipeline(
         VerdragenbankNormalizePipeline,
