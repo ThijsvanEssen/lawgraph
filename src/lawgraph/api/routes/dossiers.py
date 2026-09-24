@@ -297,6 +297,10 @@ def get_timeline(
     kind: Annotated[
         str | None, Query(description="Comma-separated document kinds.")
     ] = None,
+    include_planned: Annotated[
+        bool,
+        Query(description="False leaves out the activities with status ``Gepland``."),
+    ] = True,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> DossierTimelineResponse:
     dossier = _dossier_or_404(store, number)
@@ -305,6 +309,7 @@ def get_timeline(
         dossier["_id"],
         order=order,
         kind_filter=[k.strip() for k in kind.split(",")] if kind else None,
+        include_planned=include_planned,
         limit=limit,
     )
     entries = [timeline_entry(row) for row in rows]

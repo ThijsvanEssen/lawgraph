@@ -980,7 +980,7 @@ FOR dossier_id IN @dossier_ids
   RETURN {{
     key: dossier._key,
     props: KEEP(
-      dossier.props, "closed", "closed_on", "outcome", "current_stage", "stages_present"
+      dossier.props, "closed", "closed_on", "outcome", "track_kind"
     ),
     publications: publications,
     letters: letters,
@@ -994,7 +994,7 @@ def dossier_outcome_signals(
 ) -> Iterator[dict[str, Any]]:
     """``{key, props, publications, letters, bill_votes}`` per dossier of *dossier_ids*: the
     instruments ``LEGISLATED_IN`` it, the letters on it that name a withdrawal, the votes on
-    a case of one of *bill_case_kinds*, and the outcome props it holds now."""
+    a case of one of *bill_case_kinds*, and the outcome props and ``track_kind`` it holds now."""
     bind_vars: dict[str, Any] = {
         "dossier_ids": dossier_ids,
         "legislated_in": RELATION_LEGISLATED_IN,
