@@ -15,7 +15,9 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.core.judgments import Referral
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.pipelines.retrieve import _gaps
 
 NS = (
     'xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
@@ -96,6 +98,35 @@ JUDGMENTS = {
     "ECLI:NL:HR:2020:2": _xml(
         "ECLI:NL:HR:2020:2", "Hoge Raad", "2020-03-06", "19/00001", procedure="Cassatie"
     ),
+    # a preliminary ruling (ECLI:NL:HR:2022:824) whose text writes the case number of the
+    # referring decision otherwise than its metadata
+    "ECLI:NL:HR:2022:824": _xml(
+        "ECLI:NL:HR:2022:824",
+        "Hoge Raad",
+        "2022-06-03",
+        "21/02242",
+        procedure="Prejudiciële beslissing",
+        text="Bij tussenvonnis in de zaak C/09/610280/ KG ZA 21/346 van 11 juni 2021 heeft "
+        "voorzieningenrechter in de rechtbank te Den Haag op de voet van art. 392 Rv "
+        "prejudiciële vragen aan de Hoge Raad gesteld.",
+    ),
+    "ECLI:NL:RBDHA:2021:5927": _xml(
+        "ECLI:NL:RBDHA:2021:5927",
+        "Rechtbank Den Haag",
+        "2021-06-11",
+        "C-09-610280-KG ZA 21-346",
+    ),
+    # a preliminary ruling (ECLI:NL:HR:2024:1366) whose referring decision is not loaded
+    "ECLI:NL:HR:2024:1366": _xml(
+        "ECLI:NL:HR:2024:1366",
+        "Hoge Raad",
+        "2024-10-04",
+        "23/01968",
+        procedure="Prejudiciële beslissing",
+        text="Bij tussenvonnis in de zaak 8963920 CV EXPL 21-1168 van 12 mei 2023 heeft de "
+        "rechtbank Rotterdam op de voet van art. 392 Rv een prejudiciële vraag aan de Hoge "
+        "Raad gesteld.",
+    ),
     # a preliminary ruling whose metadata names the referring decision
     "ECLI:NL:HR:2026:1265": _xml(
         "ECLI:NL:HR:2026:1265",
@@ -142,11 +173,16 @@ def test_conclusions_and_referrals_tie_the_judgments_of_a_case(
     }
     assert _edges(store, "ANSWERS") == {
         ("ECLI:NL:HR:2019:1278", "ECLI:NL:RBNNE:2018:4308", "referral_text"),
+        ("ECLI:NL:HR:2022:824", "ECLI:NL:RBDHA:2021:5927", "referral_text"),
         # not loaded: a stub, which `retrieve rechtspraak --mode gaps` fetches
         ("ECLI:NL:HR:2026:1265", "ECLI:NL:GHSHE:2026:724", "formal_relation"),
     }
     # a preliminary ruling appeals nothing
     assert _edges(store, "APPEAL_OF") == set()
+    # what `retrieve rechtspraak --mode gaps` looks up in the index of the referral date
+    assert _gaps.unanswered_referrals(store) == [
+        Referral(case_numbers=("8963920 CV EXPL 21-1168",), date="2023-05-12")
+    ]
 
     app.dependency_overrides[get_store] = lambda: store
     try:

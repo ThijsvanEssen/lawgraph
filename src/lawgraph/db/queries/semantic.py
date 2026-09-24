@@ -171,6 +171,25 @@ FOR key IN @keys
     )
 
 
+def decisions_on_dates(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
+    """``{ecli, date, case_number}`` of the decisions (not conclusions) of these *dates*."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.date_eff IN @dates AND j.props.ecli != null
+  FILTER j.props.judgment_metadata.document_type != @conclusion
+    AND j.props.court_code NOT IN @conclusion_courts
+  RETURN {{ecli: j.props.ecli, date: j.props.date_eff, case_number: j.props.case_number}}
+"""
+    return store.query(
+        aql,
+        {
+            "dates": dates,
+            "conclusion": DOCUMENT_TYPE_CONCLUSION,
+            "conclusion_courts": sorted(CONCLUSION_ONLY_COURTS),
+        },
+    )
+
+
 def preliminary_rulings(store: Store, *, paragraphs: int) -> Iterator[dict[str, Any]]:
     """``{ecli, related_eclis, paragraphs}`` of every preliminary ruling, with its first
     *paragraphs* paragraphs (where it says who asked its questions)."""

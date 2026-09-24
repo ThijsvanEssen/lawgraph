@@ -16,10 +16,12 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
     RAW_KIND_EU_CELEX,
+    RELATION_ANSWERS,
     RELATION_PART_OF,
     SOURCE_BWB,
     SOURCE_EURLEX,
 )
+from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
 from lawgraph.db.counting import Store
 
 # ── laws ─────────────────────────────────────────────────────────────────────
@@ -88,6 +90,33 @@ def stub_dutch_eclis(store: Store) -> Iterator[Any]:
       RETURN j.props.ecli
     """
     return store.query(aql)
+
+
+def unanswered_preliminary_rulings(
+    store: Store, *, paragraphs: int
+) -> Iterator[dict[str, Any]]:
+    """``{ecli, paragraphs}`` of the preliminary rulings without an ANSWERS edge, with their
+    first *paragraphs* paragraphs (where they say who asked their questions)."""
+    aql = f"""
+    FOR j IN {COLLECTION_JUDGMENTS}
+      FILTER j.props.judgment_metadata.type == @procedure AND j.props.ecli != null
+      FILTER LENGTH(
+        FOR e IN {COLLECTION_EDGES}
+          FILTER e._from == j._id AND e.relation == @answers
+          LIMIT 1
+          RETURN 1
+      ) == 0
+      SORT j.props.ecli
+      RETURN {{ecli: j.props.ecli, paragraphs: SLICE(j.props.paragraphs OR [], 0, @paragraphs)}}
+    """
+    return store.query(
+        aql,
+        {
+            "procedure": PROCEDURE_PRELIMINARY_RULING,
+            "answers": RELATION_ANSWERS,
+            "paragraphs": paragraphs,
+        },
+    )
 
 
 def unretrieved_celex_refs(store: Store) -> Iterator[Any]:

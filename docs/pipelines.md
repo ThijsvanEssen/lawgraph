@@ -272,6 +272,7 @@ index) is skipped, so a re-run or a resumed run only downloads the rest.
 | `--mode incremental` (default) | judgments decided from `--since` (default `1d`) minus 30 days, because judgments are published up to weeks after the decision |
 | `--mode full` | no date filter: every judgment of the courts (the Raad van State alone is far over 100,000) |
 | `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
+| `--mode gaps` | the cited judgments that are stubs, and the decisions that asked the questions of a preliminary ruling without an `ANSWERS` edge: the index of the date the ruling names, of every court (60 to 450 judgments a day), is read once per date, and an entry whose title (`ECLI, court, dd-mm-yyyy, case numbers`) has a case number the ruling names is fetched |
 
 Over the last two years the default courts hold about 33,000 judgments (Hoge Raad 4,100, Raad van
 State 11,000, the four courts of appeal about 18,000), a few hours at the paced rate.
@@ -335,11 +336,20 @@ loaded becomes a stub.
 
 **Semantic `rechtspraak-referrals`.** `ANSWERS` from a preliminary ruling
 (`judgment_metadata.type` `Prejudiciële beslissing`) to the decision that asked its questions:
-its `related_eclis` (`formal_relation`, 1.0); without them, the first of its opening 20
-paragraphs that says questions were asked (`prejudiciële vragen … gesteld`,
-`core/judgments.read_referral`): the ECLIs it names, else the judgment of the date it names
-with one of the case numbers after `in de zaak` (`referral_text`, 0.9). The referring decision
-is found only when it is loaded: the Rechtspraak cannot be asked for a case number.
+its `related_eclis` (`formal_relation`, 1.0); without them, every one of its opening 40
+paragraphs that says questions were asked (`prejudiciële vragen … gesteld`, `gestelde
+rechtsvragen`; `core/judgments.read_referrals`), so a ruling that answers two courts names
+two: the ECLIs it names, else the decision (not a conclusion) of the date it names with one
+of its case numbers (`referral_text`, 0.9). The case numbers are read in the forms `in de
+zaak <numbers> van <date>`, `van <date> met zaaknummer <number>`, `van <date>, in zaak nr.
+<number>`, `bij beslissing van <date>, nummers <numbers>, gestelde` and, in older rulings,
+`verwijst … naar het vonnis in de zaak <number> … van <date>` followed by `bij laatstgenoemd
+vonnis`. Two case numbers are the same when they share a number of five digits or more,
+else a roll number (`22/2463T`), else all their letters and digits
+(`core/judgments.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
+21-346`, `200.273.775/01` is `200.273.775`. A ruling that names no case number (the Gerecht
+in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
+decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it.
 
 **Semantic `rechtspraak-series`.** Parallel cases: judgments of one court (`court_code`) on one
 day (`date_eff`) with the same `document_type`, compared per court and day, one day in memory.
