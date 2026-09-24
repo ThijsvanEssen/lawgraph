@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from collections.abc import Mapping, Sequence
 
+from lawgraph.config.constants import CODE_FAMILIES
 from lawgraph.core.xml import collapse_ws, iter_named
 
 GENERAL_INFO_START = "<algemene-informatie"
@@ -54,9 +55,11 @@ def choose_short_titles(
     """Pick the one abbreviation per regulation that becomes its ``short_title``.
 
     A short title has to lead back to one regulation, so an abbreviation that several
-    regulations claim (every book of the Burgerlijk Wetboek lists ``BW``) never wins. Of
-    the remaining ones the shortest wins (``Sr`` over ``WvS`` and ``WvSr``, ``WVW`` over
-    ``WVW 1994``, ``BW1`` over ``BW Boek 1``); equal lengths keep the source order.
+    regulations claim never wins, and neither does a code whose books are regulations of
+    their own (``CODE_FAMILIES``: every book of the Burgerlijk Wetboek lists ``BW``, also
+    when only one book is loaded). Of the remaining ones the shortest wins (``Sr`` over
+    ``WvS`` and ``WvSr``, ``WVW`` over ``WVW 1994``, ``BW1`` over ``BW Boek 1``); equal
+    lengths keep the source order.
     A regulation left with nothing gets ``None``. Comparison ignores case.
     """
     claims = Counter(
@@ -66,6 +69,10 @@ def choose_short_titles(
     )
     chosen: dict[str, str | None] = {}
     for regulation_id, abbreviations in abbreviations_by_id.items():
-        own = [a for a in abbreviations if claims[a.upper()] == 1]
+        own = [
+            a
+            for a in abbreviations
+            if claims[a.upper()] == 1 and a.upper() not in CODE_FAMILIES
+        ]
         chosen[regulation_id] = min(own, key=len) if own else None
     return chosen

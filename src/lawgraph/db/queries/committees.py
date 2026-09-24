@@ -270,6 +270,7 @@ def get_committee_activities(
                         date: activity.props.date,
                         kind: activity.props.kind,
                         agenda_title: activity.props.agenda_title,
+                        status: activity.props.status,
                         dossier_numbers: activity.props.dossier_numbers OR []
                     }}
             )
@@ -569,7 +570,9 @@ def get_actor_dossiers(
                 RETURN {{
                     dossier_id: dossier_id,
                     document_id: authored._to,
-                    role: authored.meta.role
+                    role: authored.meta.role,
+                    function: authored.meta.function,
+                    capacity: authored.meta.capacity
                 }}
     )
     LET grouped = (
@@ -584,6 +587,18 @@ def get_actor_dossiers(
                         FILTER role != null AND role != ""
                         SORT role
                         RETURN role
+                ),
+                functions: (
+                    FOR function IN UNIQUE(group[*].function)
+                        FILTER function != null AND function != ""
+                        SORT function
+                        RETURN function
+                ),
+                capacities: (
+                    FOR capacity IN UNIQUE(group[*].capacity)
+                        FILTER capacity != null
+                        SORT capacity
+                        RETURN capacity
                 ),
                 document_count: LENGTH(UNIQUE(group[*].document_id))
             }}

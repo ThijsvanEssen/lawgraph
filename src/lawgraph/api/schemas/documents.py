@@ -7,6 +7,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.core.documents import chamber_of, is_explanatory
+from lawgraph.core.models import NodeType
+from lawgraph.core.tk_links import tk_url
 
 Chamber = Literal["TK", "EK"]
 ExplainedCollection = Literal["articles", "instruments"]
@@ -169,6 +171,11 @@ class DocumentTextResponse(DocumentOrigin):
     date: str | None = None
     external_id: str | None = None
     tk_url: str | None = Field(None, description="The document on tweedekamer.nl.")
+    file_url: str | None = Field(
+        None,
+        description="The original file of a Tweede Kamer document (Word or PDF), from the "
+        "Gegevensmagazijn.",
+    )
     text: str | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
     case_kinds: list[str] = Field(default_factory=list)
@@ -196,7 +203,8 @@ class DocumentTextResponse(DocumentOrigin):
             kind=props.get("kind"),
             date=strip_time_component(date),
             external_id=external_id,
-            tk_url=(
+            tk_url=tk_url(NodeType.DOCUMENT.value, props),
+            file_url=(
                 TK_DOCUMENT_RESOURCE_URL_TEMPLATE.format(external_id=external_id)
                 if external_id and props.get("source") == SOURCE_TK
                 else None

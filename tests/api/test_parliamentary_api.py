@@ -138,7 +138,7 @@ _DOCUMENT_ROW = {
     "sequence": 3,
     "session_year": "2024-2025",
     "date": "2025-01-10",
-    "tk_url": "https://tk.example/mvt",
+    "document_number": "2025D00003",
     "display_name": "MvT",
     "source": "tk",
     "labels": ["TK"],
@@ -175,18 +175,21 @@ def test_the_documents_of_a_dossier_say_their_chamber_and_kind(monkeypatch) -> N
     assert bulk["items"]["36000"][0] == listed[0]  # every list of documents agrees
 
 
+_MVT_PAGE = (
+    "https://www.tweedekamer.nl/kamerstukken/detail?id=2025D00003&did=2025D00003"
+)
+
 _TIMELINE_ROWS = [
     {
         "date": "2025-01-10",
         "kind": "Memorie van toelichting",
         "title": "MvT",
-        "tk_url": "https://tk.example/mvt",
         "body": {
             "kind": "Memorie van toelichting",
             "title": "MvT",
             "sequence": 3,
             "session_year": "2024-2025",
-            "tk_url": "https://tk.example/mvt",
+            "document_number": "2025D00003",
             "source": "tk",
         },
         "labels": ["TK"],
@@ -198,8 +201,11 @@ _TIMELINE_ROWS = [
         "date": "2025-03-06",
         "kind": "Commissiedebat",
         "title": "Debat",
-        "tk_url": None,
-        "body": {"kind": "Commissiedebat", "agenda_title": "2025-03-06 - Debat"},
+        "body": {
+            "kind": "Commissiedebat",
+            "agenda_title": "2025-03-06 - Debat",
+            "number": "2025A00001",
+        },
         "labels": ["TK"],
         "node_id": "activities/a1",
         "node_type": "activity",
@@ -209,7 +215,6 @@ _TIMELINE_ROWS = [
         "date": "2025-03-08",
         "kind": "Stemming",
         "title": "Stemming",
-        "tk_url": None,
         "body": {
             "subject": "Motie",
             "passed": True,
@@ -238,7 +243,6 @@ _TIMELINE_ROWS = [
         "date": "2025-03-11",
         "kind": "Toezegging",
         "title": "Toezegging",
-        "tk_url": None,
         "body": {"text": "De minister zegt toe.", "status": "open"},
         "labels": ["TK"],
         "node_id": "commitments/t1",
@@ -268,9 +272,16 @@ def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
         "title": "MvT",
         "sequence": 3,
         "session_year": "2024-2025",
-        "tk_url": "https://tk.example/mvt",
+        "tk_url": _MVT_PAGE,
         "url": None,
     }
+    # The pages on tweedekamer.nl follow from the numbers, never from a stored link.
+    assert document["tk_url"] == _MVT_PAGE
+    assert activity["tk_url"] == (
+        "https://www.tweedekamer.nl/debat_en_vergadering/commissievergaderingen/"
+        "details?id=2025A00001"
+    )
+    assert decision["tk_url"] is None and commitment["tk_url"] is None
     assert "committee" not in document
     assert activity["committee"] == {
         "key": "ienw",

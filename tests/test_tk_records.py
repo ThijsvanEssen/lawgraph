@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from lawgraph.core import tk_records
 from lawgraph.core.models import make_node_key
 
@@ -18,6 +20,12 @@ def test_committee_reads_name_abbreviation_and_slug() -> None:
 
 def test_committee_without_an_id_is_skipped() -> None:
     assert tk_records.committee({"NaamNL": "Naamloos"}) is None
+
+
+def test_committee_without_a_name_is_not_named_by_its_id() -> None:
+    # the record the voortouw of every plenary activity names: nothing but an id
+    record = {"Id": "38aacfcd-2cfa-4727-949d-e4270237dbbe", "NaamNL": None}
+    assert tk_records.committee(record) is None
 
 
 def test_committee_seats_collect_every_period_per_person() -> None:
@@ -210,6 +218,34 @@ def test_a_plenary_activity_has_no_lead_committee() -> None:
     assert props["committee_id"] is None
 
 
+def test_the_kamer_as_voortouw_is_no_lead_committee() -> None:
+    _, props = tk_records.activity(
+        {
+            "Id": "a-1",
+            "Soort": "Plenair debat (wetgeving)",
+            "Voortouwcommissie_Id": "38aacfcd-2cfa-4727-949d-e4270237dbbe",
+            "Voortouwafkorting": "TK",
+            "Voortouwnaam": "TK",
+        }
+    )
+    assert props["committee_id"] is None
+
+
+def test_activity_reads_its_subject_and_status() -> None:
+    _, props = tk_records.activity(
+        {
+            "Id": "a-1",
+            "Soort": "Commissiedebat",
+            "Onderwerp": "Digitale grondrechten en data-ethiek",
+            "Status": "Gepland",
+            "Datum": "2027-02-11T10:00:00+01:00",
+        }
+    )
+    assert props["agenda_title"] == "Digitale grondrechten en data-ethiek"
+    assert props["status"] == "Gepland"
+    assert props["display_name"] == "2027-02-11 — Digitale grondrechten en data-ethiek"
+
+
 def test_commitment_reads_the_minister_and_maps_the_status() -> None:
     _, props = tk_records.commitment(
         {
@@ -276,6 +312,98 @@ def test_document_reads_its_cases_dossiers_and_signatories() -> None:
     assert props["sequence"] == 7
     assert [a["person_id"] for a in props["actors"]] == ["p-1"]
     assert props["display_name"].startswith("Kamerstuk 29684, nr. 7 — Amendement")
+
+
+def test_a_document_keeps_the_number_tweedekamer_nl_knows_it_by_and_no_link() -> None:
+    _, props = tk_records.document(
+        {"Id": "a0ec76e1-44ff-49d3-924b-2a4a8af4698c", "DocumentNummer": "2026D44984"}
+    )
+    assert props["document_number"] == "2026D44984"
+    # the link is derived when a response is built (core.tk_links), never stored
+    assert "tk_url" not in props
+    _, activity = tk_records.activity({"Id": "a-1", "Nummer": "2026A02571"})
+    assert activity["number"] == "2026A02571" and "tk_url" not in activity
+
+
+def test_a_case_keeps_the_cases_the_kamer_relates_it_to_with_their_dossiers() -> None:
+    related = tk_records.related_cases(
+        {
+            "Id": "z-brief",
+            "Soort": "Brief regering",
+            "GerelateerdNaar": [
+                {
+                    "Id": "z-motie",
+                    "Soort": "Motie",
+                    "Verwijderd": False,
+                    "Kamerstukdossier": [{"Nummer": 36800, "Toevoeging": "V"}],
+                },
+                {"Id": "z-weg", "Soort": "Motie", "Verwijderd": True},
+                {"Id": "z-los", "Soort": "Brief commissie", "Kamerstukdossier": []},
+            ],
+        }
+    )
+    assert related == [
+        {"id": "z-motie", "kind": "Motie", "dossier_numbers": ["36800-V"]},
+        {"id": "z-los", "kind": "Brief commissie", "dossier_numbers": []},
+    ]
+    assert tk_records.related_cases({"Id": "z-1"}) == []
+
+
+@pytest.mark.parametrize(
+    ("function", "faction", "capacity"),
+    [
+        # R.A.A. Jetten, 2026: no faction, the government
+        ("minister-president", None, "bewindspersoon"),
+        ("minister van Algemene Zaken", None, "bewindspersoon"),
+        # and before, as a member of the Kamer and as a minister
+        ("Tweede Kamerlid", "f-d66", "kamerlid"),
+        ("minister voor Klimaat en Energie", None, "bewindspersoon"),
+        ("staatssecretaris van Financiën", None, "bewindspersoon"),
+        ("viceminister-president", None, "bewindspersoon"),
+        # S. van Haersma Buma, 2026: a former member, now for the Raad van State
+        ("vicepresident van de Raad van State", None, "overig"),
+        # Aruba's minister is no member of the Dutch government
+        ("gevolmachtigde minister van Aruba", None, "overig"),
+        ("griffier", None, "overig"),
+        ("president van de Algemene Rekenkamer", None, "overig"),
+        # a member who chairs a committee still signs for a faction
+        ("voorzitter van de vaste commissie voor Financiën", "f-vvd", "kamerlid"),
+        (None, None, "overig"),
+    ],
+)
+def test_the_capacity_of_a_signature_follows_its_function_and_faction(
+    function: str | None, faction: str | None, capacity: str
+) -> None:
+    assert tk_records.signing_capacity(function, faction) == capacity
+
+
+def test_a_signatory_keeps_the_function_they_signed_in() -> None:
+    _, props = tk_records.document(
+        {
+            "Id": "doc-1",
+            "Soort": "Brief regering",
+            "DocumentActor": [
+                {
+                    "Persoon_Id": "p-jetten",
+                    "ActorNaam": "R.A.A. Jetten",
+                    "Functie": "minister-president",
+                    "Relatie": "Eerste ondertekenaar",
+                },
+                {
+                    "Persoon_Id": "p-lid",
+                    "ActorNaam": "Lid",
+                    "ActorFractie": "VVD",
+                    "Fractie_Id": "f-vvd",
+                    "Functie": "Tweede Kamerlid",
+                    "Relatie": "Mede ondertekenaar",
+                },
+            ],
+        }
+    )
+    assert [(a["function"], a["capacity"]) for a in props["actors"]] == [
+        ("minister-president", "bewindspersoon"),
+        ("Tweede Kamerlid", "kamerlid"),
+    ]
 
 
 def test_a_non_kamerstuk_document_has_no_volgnummer() -> None:

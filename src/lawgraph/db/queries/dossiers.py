@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
     RELATION_ABOUT,
+    RELATION_ACCOMPANIES,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
@@ -29,15 +30,19 @@ from lawgraph.config.constants import (
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
+    RELATION_RELATED_TO,
     RELATION_REPEALS,
+    RELATION_REVISES,
 )
 from lawgraph.core.documents import chamber_of, is_explanatory
+from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
 from lawgraph.core.dossier_stages import (
     classify_track_kind,
     dossier_stages,
     select_title,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import NodeType, make_node_key
+from lawgraph.core.tk_links import tk_url
 from lawgraph.db import ArangoStore
 
 # Edges that put an article in flux, and the one that only explains it. The
@@ -59,6 +64,9 @@ HUB_INSTRUMENT_RELATIONS = (
     RELATION_REPEALS,
 )
 
+# The relations between two dossiers, in the order the detail lists them.
+DOSSIER_RELATIONS = (RELATION_REVISES, RELATION_ACCOMPANIES, RELATION_RELATED_TO)
+
 _DICTUM_EXCERPT_CHARS = 280
 
 # The props of a timeline node that its entry shows, per node type. A document's
@@ -69,11 +77,11 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "title",
         "sequence",
         "session_year",
-        "tk_url",
+        "document_number",
         "url",
         "source",
     ],
-    "activity": ["kind", "agenda_title", "number"],
+    "activity": ["kind", "agenda_title", "number", "status"],
     "decision": [
         "subject",
         "passed",
@@ -111,6 +119,7 @@ class DossierEnrichment:
     title_source: str | None = None
     current_stage: str | None = None
     stages_present: list[str] = field(default_factory=list)
+    stages_complete: bool = True
     track_kind: str | None = None
     opened_on: str | None = None
 
@@ -149,6 +158,7 @@ def enrich_dossier_docs(
             props["title_source"] = "dossier"
         if props.get("stages_present") is None:
             props["stages_present"] = enrichment.stages_present
+            props["stages_complete"] = enrichment.stages_complete
         if props.get("current_stage") is None and enrichment.current_stage:
             props["current_stage"] = enrichment.current_stage
         if not props.get("track_kind") and enrichment.track_kind:
@@ -208,7 +218,11 @@ def _enrich_dossiers(
             activities: (
                 FOR node IN subjects
                     FILTER STARTS_WITH(node._id, '{COLLECTION_ACTIVITIES}/')
-                    RETURN {{kind: node.props.kind, date: node.props.date}}
+                    RETURN {{
+                        kind: node.props.kind,
+                        date: node.props.date,
+                        status: node.props.status
+                    }}
             ),
             decisions: (
                 FOR node IN subjects
@@ -239,21 +253,23 @@ def _enrich_dossiers(
             title=title or props.get("title"),
             document_kinds=[doc.get("kind") or "" for doc in docs],
         )
-        current_stage, stages_present = dossier_stages(
+        stages = dossier_stages(
             track_kind,
             docs,
             activities,
             decisions,
             case_kinds,
             closed=bool(props.get("closed")),
+            outcome=props.get("outcome"),
         )
         dated = [d["date"] for d in docs + activities if d.get("date")]
 
         enriched[dossier["_id"]] = DossierEnrichment(
             title=title,
             title_source=title_source,
-            current_stage=current_stage,
-            stages_present=stages_present,
+            current_stage=stages.current,
+            stages_present=stages.present,
+            stages_complete=stages.complete,
             track_kind=track_kind,
             opened_on=min(dated) if dated else None,
         )
@@ -323,7 +339,6 @@ def get_dossier_timeline(
                    : node.type == 'decision' ? 'Stemming'
                    : node.type == 'commitment' ? 'Toezegging' : 'Document'),
             title: node.props.display_name,
-            tk_url: node.props.tk_url,
             body: KEEP(node.props, @body_props[node.type]),
             labels: node.labels,
             node_id: node._id,
@@ -420,6 +435,8 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
                 "party": actor.get("faction"),
                 "role": role,
                 "source_role": actor.get("role") or "",
+                "function": actor.get("function"),
+                "capacity": actor.get("capacity"),
             }
         )
     return {
@@ -430,7 +447,7 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "sequence": props.get("sequence"),
         "session_year": props.get("session_year"),
         "date": props.get("date"),
-        "tk_url": props.get("tk_url"),
+        "tk_url": tk_url(NodeType.DOCUMENT.value, props),
         "source": props.get("source"),
         "chamber": chamber_of(document.get("labels")),
         "is_explanatory": is_explanatory(props.get("kind")),
@@ -449,7 +466,7 @@ _DOSSIER_DOCUMENT_ROW = """
                 sequence: document.props.sequence,
                 session_year: document.props.session_year,
                 date: document.props.date,
-                tk_url: document.props.tk_url,
+                document_number: document.props.document_number,
                 display_name: document.props.display_name,
                 source: document.props.source,
                 labels: document.labels
@@ -796,6 +813,86 @@ class _MutationGraph:
         }
 
 
+def _subject_filter(subject: str, bind: dict[str, Any]) -> str:
+    """The AQL condition on ``dossier`` for a subject: a number, a label or title text.
+
+    ``37035`` matches every dossier of that number, ``37035-XXII`` that one dossier, any other
+    text the titles that contain it.
+    """
+    parsed = parse_dossier_query(subject)
+    if parsed is None:
+        bind["subject"] = subject
+        return "CONTAINS(LOWER(dossier.props.title), LOWER(@subject))"
+    number, suffix = parsed
+    bind["subject_number"] = number
+    if suffix is None:
+        return "dossier.props.number == @subject_number"
+    bind["subject_suffix"] = suffix
+    return (
+        "dossier.props.number == @subject_number"
+        " AND UPPER(dossier.props.suffix) == @subject_suffix"
+    )
+
+
+def get_dossiers_of_number(store: ArangoStore, number: str) -> list[dict[str, Any]]:
+    """Every dossier with this *number*, in the order of the Kamer (``suffix_sort_key``)."""
+    aql = f"""
+    FOR dossier IN {COLLECTION_DOSSIERS}
+        FILTER dossier.props.number == @number
+        RETURN dossier
+    """
+    dossiers = list(store.query(aql, {"number": number}))
+    return sorted(
+        dossiers, key=lambda d: suffix_sort_key((d.get("props") or {}).get("suffix"))
+    )
+
+
+def get_dossier_relations(store: ArangoStore, dossier_id: str) -> list[dict[str, Any]]:
+    """The ``REVISES``, ``ACCOMPANIES`` and ``RELATED_TO`` edges between this dossier and
+    others, with the other dossier and the direction.
+
+    Ordered by relation (``DOSSIER_RELATIONS``), outgoing before incoming, and then by the
+    other dossier's number and suffix.
+    """
+    aql = f"""
+    LET outgoing = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._from == @dossier_id AND e.relation IN @relations
+            FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+            RETURN {{ edge: e, other: e._to, direction: "outgoing" }}
+    )
+    LET incoming = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == @dossier_id AND e.relation IN @relations
+            FILTER STARTS_WITH(e._from, '{COLLECTION_DOSSIERS}/')
+            RETURN {{ edge: e, other: e._from, direction: "incoming" }}
+    )
+    FOR row IN APPEND(outgoing, incoming)
+        LET dossier = DOCUMENT(row.other)
+        FILTER dossier != null
+        RETURN {{
+            relation: row.edge.relation,
+            direction: row.direction,
+            meta: row.edge.meta,
+            dossier: dossier
+        }}
+    """
+    bind = {"dossier_id": dossier_id, "relations": list(DOSSIER_RELATIONS)}
+    rows = list(store.query(aql, bind))
+    return sorted(rows, key=_relation_order)
+
+
+def _relation_order(row: dict[str, Any]) -> tuple[Any, ...]:
+    props = row["dossier"].get("props") or {}
+    number = str(props.get("number") or "")
+    return (
+        DOSSIER_RELATIONS.index(row["relation"]),
+        row["direction"] != "outgoing",
+        int(number) if number.isdigit() else 0,
+        suffix_sort_key(props.get("suffix")),
+    )
+
+
 def get_open_dossiers(
     store: ArangoStore,
     *,
@@ -819,8 +916,7 @@ def get_open_dossiers(
         filters.append("dossier.props.current_stage == @stage")
         bind["stage"] = stage
     if subject:
-        filters.append("CONTAINS(LOWER(dossier.props.title), LOWER(@subject))")
-        bind["subject"] = subject
+        filters.append(_subject_filter(subject, bind))
     if has_stage:
         filters.append("@has_stage ALL IN (dossier.props.stages_present OR [])")
         bind["has_stage"] = has_stage
@@ -871,7 +967,7 @@ def get_open_dossiers(
 
 
 def get_recent_dossiers(
-    store: ArangoStore, *, days: int = 30, limit: int = 50
+    store: ArangoStore, *, days: int = 30, limit: int = 50, subject: str | None = None
 ) -> list[dict[str, Any]]:
     """Dossiers with an activity, a vote, a document or their closing in the last *days*
     days, the most recent first.
@@ -881,6 +977,13 @@ def get_recent_dossiers(
     cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).strftime(
         "%Y-%m-%d"
     )
+    bind: dict[str, Any] = {
+        "cutoff": cutoff,
+        "limit": limit,
+        "about": RELATION_ABOUT,
+        "part_of": RELATION_PART_OF,
+    }
+    subject_filter = f"FILTER {_subject_filter(subject, bind)}" if subject else ""
     aql = f"""
     LET by_activity = (
         FOR activity IN {COLLECTION_ACTIVITIES}
@@ -913,18 +1016,13 @@ def get_recent_dossiers(
     )
     FOR row IN UNION(by_activity, by_decision, by_document, by_closing)
         COLLECT id = row.id AGGREGATE last = MAX(row.date)
-        SORT last DESC, id
-        LIMIT @limit
         LET dossier = DOCUMENT(id)
         FILTER dossier != null
+        {subject_filter}
+        SORT last DESC, id
+        LIMIT @limit
         RETURN dossier
     """
-    bind = {
-        "cutoff": cutoff,
-        "limit": limit,
-        "about": RELATION_ABOUT,
-        "part_of": RELATION_PART_OF,
-    }
     return list(store.query(aql, bind))
 
 

@@ -226,14 +226,12 @@ def test_normalize_writes_the_short_title_and_keeps_the_other_props() -> None:
     assert _normalize(store).updated == 0  # a second run changes nothing
 
 
-def test_a_shared_abbreviation_is_replaced_once_the_other_regulation_is_loaded() -> (
-    None
-):
+def test_a_book_has_its_own_code_whether_or_not_the_other_books_are_loaded() -> None:
     bw5_general = BW1_GENERAL.replace("BW Boek 1", "BW Boek 5").replace("BW1", "BW5")
     store = _WtiStore({BW1: BW1_GENERAL}, {BW1: {}, BW5: {}})
 
     _normalize(store)
-    assert store.short_title(BW1) == "BW"  # alone, BW is its shortest abbreviation
+    assert store.short_title(BW1) == "BW1"  # never "BW", which names every book
 
     store.wti[BW5] = bw5_general
     _normalize(store)

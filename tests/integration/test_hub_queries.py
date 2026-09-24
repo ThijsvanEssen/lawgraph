@@ -402,6 +402,7 @@ def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(
         "date": "2024-05-10",
         "kind": "Commissiedebat",
         "agenda_title": "Debat 4",
+        "status": None,
         "dossier_numbers": ["37004"],
     }
     rest = get_committee_activities(store, "a", limit=2, offset=4)

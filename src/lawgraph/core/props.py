@@ -183,7 +183,12 @@ class JudgmentProps(_CommonProps):
     paragraphs: list[JudgmentParagraphProps] | None = None
     court: str | None = None
     case_number: str | None = None
+    # ``case_number`` split and written as compared (``core.judgments.case_number_keys``)
+    case_number_keys: list[str] | None = None
+    # the earlier instances the metadata names (``dcterms:relation``)
     related_eclis: list[str] | None = None
+    # the conclusion of a judgment, or the judgment of a conclusion (``psi:type`` conclusie)
+    conclusion_eclis: list[str] | None = None
     court_code: str | None = None
     tier: str | None = None
     date_eff: str | None = None
@@ -235,7 +240,8 @@ class DocumentProps(_CommonProps):
     case_kinds: list[str] | None = None
     sequence: int | None = None
     session_year: str | None = None
-    tk_url: str | None = None
+    # Document.DocumentNummer (2026D44984): what tweedekamer.nl finds it by
+    document_number: str | None = None
     actors: list | None = None
     # Eerste Kamer: the page of the paper on zoek.officielebekendmakingen.nl
     url: str | None = None
@@ -263,8 +269,11 @@ class DossierProps(_CommonProps):
     current_stage: str | None = None
     case_kinds: list[str] | None = None
     stages_present: list[str] | None = None
+    stages_complete: bool | None = None
     track_kind: str | None = None
     outcome: str | None = None
+    # the other dossiers with the same number (the chapters of one budget)
+    same_number_count: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -277,11 +286,12 @@ class ActivityProps(_CommonProps):
     date: str | None = None
     agenda_title: str | None = None
     kind: str | None = None
+    # Activiteit.Status as the source writes it: Gepland, Uitgevoerd, Geannuleerd, ...
+    status: str | None = None
     committee_id: str | None = None
     case_ids: list[str] | None = None
     dossier_numbers: list[str] | None = None
     case_kinds_by_dossier: dict[str, list[str]] | None = None
-    tk_url: str | None = None
     number: str | None = None
 
 
@@ -351,11 +361,28 @@ class CommitteeProps(_CommonProps):
 # ---------------------------------------------------------------------------
 
 
+class GovernmentFunctionProps(_StrictBase):
+    """A post held in a cabinet (``normalize wikidata``)."""
+
+    function: str | None = (
+        None  # "Minister voor Klimaat en Energie", as Wikidata names it
+    )
+    cabinet: str | None = None  # "kabinet-Rutte IV"
+    from_date: str | None = None
+    to_date: str | None = None  # null while held
+    position_id: str | None = None  # the Wikidata item of the post and of the cabinet
+    cabinet_id: str | None = None
+
+
 class MemberProps(_CommonProps):
     external_id: str | None = None
     name: str | None = None
     party: str | None = None
     faction_memberships: list | None = None
+    family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
+    birth_date: str | None = None
+    wikidata_id: str | None = None
+    government_functions: list[GovernmentFunctionProps] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -392,12 +419,22 @@ class TopicProps(_CommonProps):
 # ---------------------------------------------------------------------------
 
 
+class RelatedCase(_StrictBase):
+    id: str
+    kind: str | None = None
+    dossier_numbers: list[str] = []
+
+
 class CaseProps(_CommonProps):
     external_id: str | None = None
     title: str | None = None
     citation_title: str | None = None
     number: str | None = None
+    # Zaak.Soort: Wetgeving, Motie, Brief regering, ...
+    kind: str | None = None
     dossier_numbers: list[str] | None = None
+    # Zaak.GerelateerdNaar: the cases the Kamer relates this one to
+    related_cases: list[RelatedCase] | None = None
 
 
 # ---------------------------------------------------------------------------

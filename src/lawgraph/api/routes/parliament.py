@@ -26,12 +26,13 @@ TOTAL_PARLIAMENT_SEATS: int = 150
 # machine-readable source for political ideology.
 _LEFT_TO_RIGHT: tuple[str, ...] = (
     "sp",
+    "pro",
     "groenlinks_pvda",
     "pvdd",
-    "volt",
     "denk",
-    "50plus",
+    "volt",
     "d66",
+    "50plus",
     "cda",
     "christenunie",
     "lid_keijzer",

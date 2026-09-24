@@ -16,9 +16,13 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    RELATION_AMENDS,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
+    RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
+    RELATION_REFERS_TO,
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import Node, NodeType
@@ -282,16 +286,106 @@ def test_an_article_of_another_identity_is_not_explained_by_the_versions_of_this
     ]
 
 
-def test_the_legislative_history_no_longer_lists_the_explanations(
+def test_the_legislative_history_is_the_dossiers_that_changed_the_article(
     database: str,
 ) -> None:
     store = ArangoStore()
     _build(store)
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                _node(
+                    COLLECTION_INSTRUMENTS,
+                    NodeType.INSTRUMENT,
+                    "stb_2024_7",
+                    ["BWB"],
+                    publication_kind="Stb",
+                    date_published="2024-02-01",
+                    display_name="Stb. 2024, 7",
+                    dossier_numbers=["36001"],  # the same dossier as its edge
+                ),
+                # a publication whose dossier is not known
+                _node(
+                    COLLECTION_INSTRUMENTS,
+                    NodeType.INSTRUMENT,
+                    "stb_1990_1",
+                    ["BWB"],
+                    publication_kind="Stb",
+                    date_published="1990-01-01",
+                ),
+                # a publication that names a dossier the graph does not hold
+                _node(
+                    COLLECTION_INSTRUMENTS,
+                    NodeType.INSTRUMENT,
+                    "stb_1984_91",
+                    ["BWB"],
+                    publication_kind="Stb",
+                    date_signed="1984-03-10",
+                    dossier_numbers=["17524"],
+                ),
+                _node(
+                    COLLECTION_JUDGMENTS,
+                    NodeType.JUDGMENT,
+                    "ecli_nl_hr_2025_1",
+                    ["Rechtspraak"],
+                    ecli="ECLI:NL:HR:2025:1",
+                    date="2025-01-01",
+                ),
+            ]
+        )
+    edges = EdgeWriter(store, what=None)
+    stb = f"{COLLECTION_INSTRUMENTS}/stb_2024_7"
+    edges.add(stb, ARTICLE, RELATION_AMENDS, source="test")
+    edges.add(stb, DOSSIER_36001, RELATION_LEGISLATED_IN, source="test")
+    for publication in ("stb_1990_1", "stb_1984_91"):
+        edges.add(
+            f"{COLLECTION_INSTRUMENTS}/{publication}",
+            ARTICLE,
+            RELATION_AMENDS,
+            source="test",
+        )
+    # what only cites the article is not its history
+    edges.add(
+        f"{COLLECTION_JUDGMENTS}/ecli_nl_hr_2025_1",
+        ARTICLE,
+        RELATION_REFERS_TO,
+        source="test",
+    )
+    edges.add(
+        f"{COLLECTION_ARTICLES}/bwbr0002_6", ARTICLE, RELATION_REFERS_TO, source="test"
+    )
+    edges.flush()
 
     entries = get_article_legislative_history(store, BWB, "5")
 
-    assert [e["document_id"] for e in entries] == [f"{COLLECTION_DOCUMENTS}/mvt_2024"]
-    assert entries[0]["dossier_number"] == "36000"
+    assert [
+        (e["dossier_number"], e["document_id"], e["change"], e["kind"], e["date"])
+        for e in entries
+    ] == [
+        # the bill that introduces it (the explanations of its dossier are no entries)
+        (
+            "36000",
+            f"{COLLECTION_DOCUMENTS}/mvt_2024",
+            "introduces",
+            "Memorie van toelichting",
+            "2024-05-01",
+        ),
+        # the publication that amended it, in the dossier it was legislated in
+        ("36001", stb, "amends", "Stb", "2024-02-01"),
+        # one that names a dossier the graph does not hold (the one without is none)
+        (
+            "17524",
+            f"{COLLECTION_INSTRUMENTS}/stb_1984_91",
+            "amends",
+            "Stb",
+            "1984-03-10",
+        ),
+    ]
+    assert [e["dossier_id"] for e in entries] == [
+        f"{COLLECTION_DOSSIERS}/36000",
+        DOSSIER_36001,
+        None,
+    ]
 
 
 # 2,400 explanatory documents of 120 KB: 288 MB, more than the 256 MiB a query may use on

@@ -32,6 +32,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from lawgraph.config.constants import CODE_FAMILIES
 from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, is_bwb_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.xml import XML_TAG_RE
@@ -306,10 +307,11 @@ class DutchCitationExtractor:
     that is a known name, so any number of names costs nothing per citation), by a family
     code, or by a word that points back at the law named last.
 
-    A family code is not registered itself: ``BW`` is claimed by every book of the
-    Burgerlijk Wetboek, so only ``BW1``, ``BW2``, ... are. A citation of the family
-    resolves through the book in front of the colon (``6`` → ``BW6``) and cites the
-    article number after it (``162``).
+    A family code (``CODE_FAMILIES``: ``BW``) never stands for one regulation: a citation
+    of the family resolves through the book in front of the colon (``6`` → the BWB id of
+    book 6) and cites the article number after it (``162``), whichever books are loaded
+    and whatever the registry maps the family code to. Other codes made of a family and
+    a book (``BW7A``) add their book to the family.
 
     The law registry is injected at construction time.  Adding a code alias
     to the domain config automatically makes it detectable without touching
@@ -322,7 +324,9 @@ class DutchCitationExtractor:
         name_aliases: Mapping[str, str | None] | None = None,
     ) -> None:
         self._code_map: dict[str, str] = {
-            k.strip().upper(): v.strip() for k, v in code_aliases.items() if k and v
+            k.strip().upper(): v.strip()
+            for k, v in code_aliases.items()
+            if k and v and k.strip().upper() not in CODE_FAMILIES
         }
         self._name_map: dict[str, str] = {
             name_key(k): v.strip()
@@ -348,15 +352,19 @@ class DutchCitationExtractor:
         return re.compile(rf"{prefix}(?P<key>{alternatives})(?![\w])", re.IGNORECASE)
 
     def _group_books(self) -> dict[str, dict[str, str]]:
-        """``{"BW": {"6": <BW6 id>, ...}}`` for the codes that split into family and book.
+        """``{"BW": {"6": <BW6 id>, ...}}``: the known families, and the codes that split
+        into family and book.
 
-        A family that is a registered code itself is left alone: the code wins.
+        A family that is a registered code itself is left alone (the code wins), unless it
+        is a known family; a known book keeps the id ``CODE_FAMILIES`` gives it.
         """
         books: dict[str, dict[str, str]] = {}
         for code, law_id in self._code_map.items():
             match = _BOOK_CODE_RE.match(code)
             if match and match["family"] not in self._code_map:
                 books.setdefault(match["family"], {})[match["book"]] = law_id
+        for family, known in CODE_FAMILIES.items():
+            books.setdefault(family, {}).update(known)
         return books
 
     # ── which law ─────────────────────────────────────────────────────────────

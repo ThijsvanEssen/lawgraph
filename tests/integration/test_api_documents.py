@@ -94,7 +94,7 @@ def _build(store: ArangoStore) -> None:
             "2025-01-10",
             sequence=3,
             session_year="2024-2025",
-            tk_url="https://tk.example/mvt",
+            document_number="2025D00003",
             dossier_numbers=["36000"],
         ),
         # a motion PART_OF the case only, and the case PART_OF the dossier
@@ -467,7 +467,9 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "title": "Memorie van toelichting mvt",
         "sequence": 3,
         "session_year": "2024-2025",
-        "tk_url": "https://tk.example/mvt",
+        # made from the document number, never stored
+        "tk_url": "https://www.tweedekamer.nl/kamerstukken/detail"
+        "?id=2025D00003&did=2025D00003",
         "url": None,
     }
     ek = entries["ek_1"].model_dump()["body"]
@@ -484,6 +486,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "kind": "Commissiedebat",
         "agenda_title": "2025-03-06 - Debat",
         "number": "2025A1",
+        "status": None,
     }
     assert entries["act_plenary"].committee is None  # type: ignore[union-attr]
 

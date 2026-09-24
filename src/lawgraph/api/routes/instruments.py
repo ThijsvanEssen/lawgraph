@@ -40,6 +40,7 @@ from lawgraph.api.schemas.instruments import (
     SharedAnnexesResponse,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
+from lawgraph.core.tk_links import tk_url
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries._helpers import props as _props
 from lawgraph.db.queries.annexes import get_shared_annexes_for_law
@@ -99,7 +100,6 @@ _NODE_FIELD_WHITELIST: dict[str, tuple[str, ...]] = {
         "date",
         "sequence",
         "dossier_number",
-        "tk_url",
         "display_name",
     ),
     "dossiers": (
@@ -148,11 +148,15 @@ def _minimise_node(doc: dict, collection: str) -> dict:
     """Project one side-payload node down to its whitelisted props."""
     props = _props(doc)
     whitelist = _NODE_FIELD_WHITELIST.get(collection, ())
+    kept = {k: props.get(k) for k in whitelist if k in props}
+    link = tk_url(doc.get("type"), props)
+    if link:
+        kept["tk_url"] = link
     return {
         "id": doc.get("_id"),
         "key": doc.get("_key"),
         "collection": collection,
-        "props": {k: props.get(k) for k in whitelist if k in props},
+        "props": kept,
     }
 
 

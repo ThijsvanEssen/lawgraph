@@ -156,7 +156,8 @@ def test_a_debate_on_a_bill_is_its_treatment_not_its_start() -> None:
         (["Wetgeving", "Motie"], [], "wetsvoorstel"),
         ([], ["Voorstel van wet (initiatiefvoorstel)"], "initiatiefwetsvoorstel"),
         ([], ["Voorstel van wet"], "wetsvoorstel"),
-        (["Brief regering", "Motie"], [], "motie"),
+        # What is filed under a dossier does not make it a motion or a letter.
+        (["Brief regering", "Motie"], [], "overig"),
         (["Brief regering"], [], "overig"),
         ([], [], None),
     ],
@@ -167,18 +168,149 @@ def test_the_track_follows_the_dossiers_own_cases_and_documents(
     assert classify_track_kind(case_kinds, document_kinds=document_kinds) == track
 
 
+@pytest.mark.parametrize(
+    ("title", "track"),
+    [
+        # 37020: the motions of the Algemene Politieke Beschouwingen are filed under it
+        ("Nota over de toestand van ’s Rijks Financiën", "nota"),
+        ("Voorjaarsnota 2026", "nota"),
+        ("Najaarsnota 2025", "nota"),
+        ("Financieel Jaarverslag van het Rijk 2025", "nota"),
+        ("Defensienota 2024 - Sterk, slim en samen", "nota"),
+        ("Homogene Groep Internationale samenwerking 2027 (HGIS-nota 2027)", "nota"),
+        # a bill or a budget whose title names a nota is a bill or a budget
+        (
+            "Wijziging van de begrotingsstaten van het Ministerie van Financiën (IXB) voor "
+            "het jaar 2026 (wijziging samenhangende met de Voorjaarsnota)",
+            "begroting",
+        ),
+        ("Jaarverslag en slotwet Ministerie van Defensie 2007", "begroting"),
+        ("Initiatiefnota van het lid Omtzigt over goed bestuur", "initiatiefnota"),
+        # the letters and motions of a policy area or an EU Council series
+        ("Raad Algemene Zaken en Raad Buitenlandse Zaken", "overig"),
+        ("Jeugdzorg", "overig"),
+        ("Planologische Kernbeslissing Nota Mobiliteit", "overig"),
+        ("Jaarverslag van de Nationale ombudsman over 2015", "overig"),
+    ],
+)
+def test_the_track_of_a_dossier_that_is_no_bill_comes_from_its_title(
+    title: str, track: str
+) -> None:
+    assert classify_track_kind(["Brief regering", "Motie"], title=title) == track
+
+
+def _stages(track: str, docs, case_kinds, closed: bool) -> tuple:
+    found = dossier_stages(track, docs, [], [], case_kinds, closed=closed)
+    return found.current, found.present
+
+
 def test_a_dossier_that_is_no_bill_has_no_stage_until_it_is_closed() -> None:
     docs = [_doc("Motie", "2026-01-01"), _doc("Verslag", "2026-02-01")]
 
-    assert dossier_stages("motie", docs, [], [], ["Motie"], closed=False) == (None, [])
-    assert dossier_stages("initiatiefnota", docs, [], [], [], closed=True) == (
+    assert _stages("overig", docs, ["Motie"], closed=False) == (None, [])
+    assert _stages("nota", docs, ["Motie"], closed=False) == (None, [])
+    assert _stages("initiatiefnota", docs, [], closed=True) == (
         "afgehandeld",
         ["afgehandeld"],
     )
-    assert dossier_stages("begroting", docs, [], [], [], closed=False) == (
+    assert _stages("begroting", docs, [], closed=False) == (
         "verslag",
         ["behandeling", "verslag"],
     )
+
+
+def _passed_bill() -> list[dict]:
+    return [
+        _doc("Voorstel van wet", "2024-01-01"),
+        _doc("Memorie van toelichting", "2024-01-01"),
+        _doc("Advies Afdeling advisering Raad van State", "2024-01-01"),
+        _doc("Verslag", "2024-03-01"),
+    ]
+
+
+def test_a_bill_with_a_paper_for_every_stage_it_passed_is_complete() -> None:
+    found = dossier_stages(
+        "wetsvoorstel",
+        _passed_bill(),
+        [],
+        [{"date": "2024-06-01", "passed": True}],
+        ["Wetgeving"],
+        closed=True,
+        outcome="aangenomen",
+    )
+    assert found.current == "afgehandeld"
+    assert found.complete is True
+
+
+def test_an_adopted_bill_without_its_memorandum_or_vote_is_incomplete() -> None:
+    # 36264 in a test database: the bill, a nota and amendments known only from the kinds
+    # of its cases, and its law published.
+    docs = [_doc("Voorstel van wet", "2022-12-21")]
+    cases = ["Wetgeving", "Nota n.a.v. het verslag", "Amendement"]
+    found = dossier_stages(
+        "wetsvoorstel", docs, [], [], cases, closed=True, outcome="aangenomen"
+    )
+    assert found.present == [
+        "nota_naar_aanleiding_van_verslag",
+        "amendementen",
+        "wetsvoorstel",
+        "afgehandeld",
+    ]
+    assert found.complete is False
+
+    everything = dossier_stages(
+        "wetsvoorstel",
+        [
+            *_passed_bill(),
+            _doc("Nota n.a.v. het verslag", "2024-04-01"),
+            _doc("Amendement", "2024-05-01"),
+        ],
+        [],
+        [{"date": "2024-06-01", "passed": True}],
+        cases,
+        closed=True,
+        outcome="aangenomen",
+    )
+    assert everything.complete is True
+
+
+def test_a_withdrawn_bill_needs_no_vote() -> None:
+    found = dossier_stages(
+        "wetsvoorstel", _passed_bill(), [], [], [], closed=True, outcome="ingetrokken"
+    )
+    assert found.complete is True
+
+
+def test_a_bill_under_way_needs_the_stages_up_to_its_current_one() -> None:
+    docs = [_doc("Voorstel van wet", "2024-01-01"), _doc("Verslag", "2024-03-01")]
+    found = dossier_stages("wetsvoorstel", docs, [], [], [], closed=False)
+    assert found.current == "verslag"
+    assert found.complete is False  # no memorandum, no advice
+    assert dossier_stages(
+        "wetsvoorstel", _passed_bill(), [], [], [], closed=False
+    ).complete
+
+
+def test_an_activity_that_did_not_take_place_marks_no_stage() -> None:
+    docs = _passed_bill()
+    held = {
+        "kind": "Plenair debat (wetgeving)",
+        "date": "2024-05-01",
+        "status": "Uitgevoerd",
+    }
+    for status in ("Gepland", "Geannuleerd", "Verplaatst", "Vervallen"):
+        found = dossier_stages(
+            "wetsvoorstel", docs, [{**held, "status": status}], [], [], closed=False
+        )
+        assert "behandeling" not in found.present, status
+    assert (
+        "behandeling"
+        in dossier_stages("wetsvoorstel", docs, [held], [], [], closed=False).present
+    )
+
+
+def test_a_dossier_that_is_no_bill_is_complete() -> None:
+    assert dossier_stages("overig", [], [], [], ["Motie"], closed=True).complete
 
 
 # ── how a dossier ended ──────────────────────────────────────────────────────

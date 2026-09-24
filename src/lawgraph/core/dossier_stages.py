@@ -56,6 +56,14 @@ _ACTIVITY_STAGES: dict[str, str] = {
     "hamerstukken": "stemming",
 }
 
+# Activiteit.Status of an activity that did not take place, or not then: it marks no stage.
+# A ``Gepland`` activity has not taken place either.
+ACTIVITY_NOT_HELD = frozenset({"Gepland", "Geannuleerd", "Verplaatst", "Vervallen"})
+
+# The stages every bill passes, whatever else it meets: it is submitted with a memorandum,
+# after the advice of the Raad van State. A bill that was voted on passed ``stemming`` too.
+_ALWAYS_PASSED = ("wetsvoorstel", "mvt", "advies_rvs")
+
 # Zaak.Soort by its beginning.
 _CASE_STAGES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("wetsvoorstel", ("wetgeving", "initiatiefwetgeving", "begroting")),
@@ -108,6 +116,11 @@ def classify_track_kind(
     'Initiatiefwetgeving' is an initiatiefwetsvoorstel for its entire life,
     regardless of whether the current stage is 'verslag' or 'stemming'.
 
+    The kind is what the dossier is: its bill, its initiatiefnota, the nota its title names.
+    What is filed under it says nothing: the motions of the Algemene Politieke Beschouwingen
+    are submitted under the number of the Miljoenennota, and letters and motions fill every
+    dossier. A dossier that is none of these is ``overig``.
+
     Returns ``None`` only when no signal at all is available.
     """
     kinds = {s.lower() for s in (case_kinds or []) if s}
@@ -128,19 +141,31 @@ def classify_track_kind(
         return "initiatiefnota"
     if any(s.startswith("voorstel van wet") for s in documents):
         return "wetsvoorstel"
-    return _track_from_title(title) or (
-        ("motie" if "motie" in kinds else "overig") if kinds else None
-    )
+    return _track_from_title(title) or ("overig" if kinds else None)
+
+
+# A government paper that is itself the subject of its dossier: the Miljoenennota ("Nota over
+# de toestand van 's Rijks Financiën"), the Voorjaars- and Najaarsnota, a Defensienota, the
+# HGIS-nota, and the Financieel Jaarverslag van het Rijk that accounts for the year. A bill
+# whose title names a nota ("… ter realisering van de doelstelling uit de nota …") is a bill.
+_NOTA_TITLE = re.compile(
+    r"^(?:nota\b|\S*nota\b|financieel jaarverslag\b)|\(\S+-nota\b", re.IGNORECASE
+)
 
 
 def _track_from_title(title: str | None) -> str | None:
-    t = (title or "").lower()
+    t = " ".join((title or "").lower().split())
     if t.startswith("voorstel van wet van het lid") or "initiatiefwetsvoorstel" in t:
         return "initiatiefwetsvoorstel"
     if t.startswith(("voorstel van wet", "wetsvoorstel")):
         return "wetsvoorstel"
-    if "begroting" in t:
+    # A slotwet is the law that settles a year's budget: "Jaarverslag en slotwet …".
+    if "begroting" in t or "slotwet" in t:
         return "begroting"
+    if t.startswith("initiatiefnota"):
+        return "initiatiefnota"
+    if _NOTA_TITLE.search(t):
+        return "nota"
     return None
 
 
@@ -164,9 +189,9 @@ def accumulate_stage_signals(
 ) -> StageSignals:
     """Combine every kind of evidence into per-stage first/last dates.
 
-    Documents are the richest signal, then activities (by their own kind), then the
-    dossier-level ``Zaak.Soort`` roll-up (presence only, no date), and finally votes
-    (their presence implies ``stemming``).
+    Documents are the richest signal, then activities (by their own kind; one that did not
+    take place is none), then the dossier-level ``Zaak.Soort`` roll-up (presence only, no
+    date: an empty string), and finally votes (their presence implies ``stemming``).
     """
     first: dict[str, str] = {}
     last: dict[str, str] = {}
@@ -186,7 +211,8 @@ def accumulate_stage_signals(
     for doc in docs:
         record(classify_document_kind(doc.get("kind")), doc.get("date"))
     for act in activities:
-        record(classify_activity_kind(act.get("kind")), act.get("date"))
+        if act.get("status") not in ACTIVITY_NOT_HELD:
+            record(classify_activity_kind(act.get("kind")), act.get("date"))
     for kind in case_kinds:
         stage = classify_case_kind(kind)
         if stage is not None and stage not in first:
@@ -201,6 +227,16 @@ def accumulate_stage_signals(
     return StageSignals(first, last, any_signal)
 
 
+@dataclass(frozen=True)
+class DossierStages:
+    """Where a dossier is: its current stage, the stages it shows, and whether every stage
+    it must have passed to get there shows a document, an activity or a vote."""
+
+    current: str | None
+    present: list[str]
+    complete: bool
+
+
 def dossier_stages(
     track: str | None,
     docs: list[dict[str, Any]],
@@ -209,17 +245,45 @@ def dossier_stages(
     case_kinds: list[str],
     *,
     closed: bool,
-) -> tuple[str | None, list[str]]:
-    """``(current stage or None, stages present in chronological order)``.
+    outcome: str | None = None,
+) -> DossierStages:
+    """The stages of a dossier from what the graph holds about it.
 
     Only a bill passes stages; any other dossier is ``afgehandeld`` once closed and
-    has no stage before that.
+    has no stage before that, and its stages are complete.
     """
-    if track in BILL_TRACKS:
-        signals = accumulate_stage_signals(docs, activities, decisions, case_kinds)
-    else:
-        signals = StageSignals({}, {}, any_signal=False)
-    return pick_current_stage(signals, closed=closed)
+    if track not in BILL_TRACKS:
+        current, present = pick_current_stage(
+            StageSignals({}, {}, any_signal=False), closed=closed
+        )
+        return DossierStages(current, present, complete=True)
+    signals = accumulate_stage_signals(docs, activities, decisions, case_kinds)
+    current, present = pick_current_stage(signals, closed=closed)
+    return DossierStages(
+        current, present, stages_complete(signals, current, outcome=outcome)
+    )
+
+
+def stages_complete(
+    signals: StageSignals, current: str | None, *, outcome: str | None
+) -> bool:
+    """Whether every stage a bill passed on its way to *current* has evidence with a date.
+
+    The stages it passed are those it shows before *current* and *current* itself, and the
+    ones every bill passes before them (``wetsvoorstel``, ``mvt``, ``advies_rvs``; and
+    ``stemming`` for a bill that was ``aangenomen`` or ``verworpen``). A stage known only
+    from the kind of a case has no date and is no evidence. ``afgehandeld`` needs none: the
+    outcome is its evidence. A bill without any stage has passed none.
+    """
+    if current is None:
+        return True
+    order = DOSSIER_STAGES.index
+    passed = {st for st in signals.first if order(st) <= order(current)}
+    passed.update(st for st in _ALWAYS_PASSED if order(st) <= order(current))
+    if outcome in (OUTCOME_ENACTED, OUTCOME_REJECTED):
+        passed.add("stemming")
+    passed.discard("afgehandeld")
+    return all(signals.first.get(stage) for stage in passed)
 
 
 def pick_current_stage(

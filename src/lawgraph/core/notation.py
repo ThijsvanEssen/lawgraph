@@ -14,6 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
+from lawgraph.config.constants import CODE_FAMILIES
 from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
     ARTICLE_NUMBER_PATTERN,
@@ -128,7 +129,9 @@ class NotationParser:
         self, code_aliases: Mapping[str, str], names: Mapping[str, Sequence[str]]
     ) -> None:
         self._codes = {
-            code.strip().upper(): law_id for code, law_id in code_aliases.items()
+            code.strip().upper(): law_id
+            for code, law_id in code_aliases.items()
+            if code.strip().upper() not in CODE_FAMILIES
         }
         self._names: dict[str, list[str]] = {}
         for name, ids in names.items():

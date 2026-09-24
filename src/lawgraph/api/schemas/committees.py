@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.api.schemas.dossiers import DossierSummaryDTO
+from lawgraph.api.schemas.dossiers import DossierSummaryDTO, SigningCapacity
 
 
 class MemberVoteDTO(BaseModel):
@@ -226,6 +226,51 @@ class MemberDTO(BaseModel):
         )
 
 
+class GovernmentFunctionDTO(BaseModel):
+    """A post held in a cabinet, as Wikidata records it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    function: str | None = Field(
+        None,
+        description="The post as Wikidata names it: Minister voor Klimaat en Energie.",
+    )
+    cabinet: str | None = Field(None, description="The cabinet: kabinet-Rutte IV.")
+    from_date: str | None = None
+    to_date: str | None = Field(None, description="Null while the post is held.")
+
+
+class MemberDetailDTO(MemberDTO):
+    """A member with the posts they held in government.
+
+    ``government_functions`` come from Wikidata (every post in a Dutch cabinet, complete
+    from the 1970s), oldest first; empty for a person Wikidata does not tie to this member
+    by date of birth and surname. ``wikidata_id`` names that person.
+    """
+
+    birth_date: str | None = None
+    wikidata_id: str | None = None
+    government_functions: list[GovernmentFunctionDTO] = []
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> MemberDetailDTO:
+        props = doc.get("props") or {}
+        return cls(
+            **MemberDTO.from_document(doc).model_dump(),
+            birth_date=props.get("birth_date"),
+            wikidata_id=props.get("wikidata_id"),
+            government_functions=[
+                GovernmentFunctionDTO(
+                    function=f.get("function"),
+                    cabinet=f.get("cabinet"),
+                    from_date=f.get("from_date"),
+                    to_date=f.get("to_date"),
+                )
+                for f in props.get("government_functions") or []
+            ],
+        )
+
+
 class CommitteeWithMembersDTO(CommitteeDTO):
     """A committee and its members, without the dossiers payload."""
 
@@ -299,7 +344,14 @@ class CommitteeActivityDTO(BaseModel):
     kind: str | None = Field(
         None, description="The source's ``Soort``, e.g. Commissiedebat."
     )
-    agenda_title: str | None = None
+    agenda_title: str | None = Field(
+        None, description="The subject of the activity (``Activiteit.Onderwerp``)."
+    )
+    status: str | None = Field(
+        None,
+        description="``Activiteit.Status``: ``Gepland``, ``Uitgevoerd``, ``Geannuleerd``, "
+        "``Verplaatst``, ``Vervallen``.",
+    )
     dossier_numbers: list[str] = Field(
         default_factory=list, description="Dossiers on the agenda of the activity."
     )
@@ -320,13 +372,24 @@ class ActorDossierDTO(DossierSummaryDTO):
     """A dossier a member or faction authored documents in.
 
     ``roles`` are the distinct ``AUTHORED`` roles as the source wrote them
-    (``Eerste ondertekenaar``, ``Mede ondertekenaar``, ...); ``document_count`` the distinct
-    documents authored in the dossier.
+    (``Eerste ondertekenaar``, ``Mede ondertekenaar``, ...); ``functions`` and ``capacities``
+    what they signed as, which changes over time (a Kamerlid who became minister-president);
+    ``document_count`` the distinct documents authored in the dossier.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     roles: list[str] = Field(default_factory=list)
+    functions: list[str] = Field(
+        default_factory=list,
+        description="The distinct functions signed in, as the source writes them "
+        "('Tweede Kamerlid', 'minister-president').",
+    )
+    capacities: list[SigningCapacity] = Field(
+        default_factory=list,
+        description="The distinct capacities signed in: 'kamerlid', 'bewindspersoon', "
+        "'overig'.",
+    )
     document_count: int = 0
 
     @classmethod
@@ -334,6 +397,8 @@ class ActorDossierDTO(DossierSummaryDTO):
         return cls(
             **DossierSummaryDTO.from_document(row["dossier"]).model_dump(),
             roles=list(row.get("roles") or []),
+            functions=list(row.get("functions") or []),
+            capacities=list(row.get("capacities") or []),
             document_count=int(row.get("document_count") or 0),
         )
 

@@ -256,13 +256,19 @@ def test_a_commitment_is_made_in_an_activity_and_about_its_dossiers() -> None:
 # ── authorship ───────────────────────────────────────────────────────────────
 
 
-def test_only_people_author_a_document_and_the_role_is_kept() -> None:
+def test_only_people_author_a_document_and_their_role_and_capacity_are_kept() -> None:
     store = _Store(existing={COLLECTION_MEMBERS: {"p1"}})
     documents = {
         "d1": _document(
             "d1",
             actors=[
-                {"role": "Eerste ondertekenaar", "person_id": "p1", "faction": "VVD"},
+                {
+                    "role": "Eerste ondertekenaar",
+                    "person_id": "p1",
+                    "faction": "VVD",
+                    "function": "Tweede Kamerlid",
+                    "capacity": "kamerlid",
+                },
                 {"role": "Mede ondertekenaar", "person_id": "p-missing"},
                 # A faction-only signatory writes nothing: who signed for a
                 # party follows from that person's faction membership.
@@ -278,7 +284,11 @@ def test_only_people_author_a_document_and_the_role_is_kept() -> None:
             f"{COLLECTION_MEMBERS}/p1",
             RELATION_AUTHORED,
             f"{COLLECTION_DOCUMENTS}/d1",
-        ): {"role": "Eerste ondertekenaar"}
+        ): {
+            "role": "Eerste ondertekenaar",
+            "function": "Tweede Kamerlid",
+            "capacity": "kamerlid",
+        }
     }
 
 

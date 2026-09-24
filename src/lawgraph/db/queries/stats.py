@@ -69,3 +69,29 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
             ),
         },
     }
+
+
+def get_judgment_coverage(store: ArangoStore) -> dict[str, Any]:
+    """The judgments the graph holds (not the stubs of judgments it only knows as cited),
+    per source, court tier and court, with the first and last date of each; and how many
+    stubs there are. Every field it reads is in one index of ``db/schema.py``, so it
+    counts without reading a judgment."""
+    aql = f"""
+    FOR j IN {COLLECTION_JUDGMENTS}
+        FILTER j.props.stub == false
+        COLLECT source = j.props.source, tier = j.props.tier,
+                court_code = j.props.court_code
+        AGGREGATE count = COUNT(1), first_date = MIN(j.props.date_eff),
+                  last_date = MAX(j.props.date_eff), court = MAX(j.props.court)
+        RETURN {{source, tier, court_code, court, count, first_date, last_date}}
+    """
+    stubs = f"""
+    FOR j IN {COLLECTION_JUDGMENTS}
+        FILTER j.props.stub == true
+        COLLECT WITH COUNT INTO n
+        RETURN n
+    """
+    return {
+        "courts": list(store.query(aql)),
+        "stubs": next(iter(store.query(stubs)), 0),
+    }

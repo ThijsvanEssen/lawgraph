@@ -29,6 +29,7 @@ _DOCUMENT = {
         "kind": "Memorie van toelichting",
         "date": "2024-03-01",
         "external_id": "some-uuid",
+        "document_number": "2024D01234",
         "source": "tk",
         "text": "De inhoud van het stuk...",
     },
@@ -130,13 +131,17 @@ def test_an_unknown_document_is_a_404() -> None:
     assert response.status_code == 404
 
 
-def test_a_known_document_carries_its_text_and_tk_url() -> None:
+def test_a_known_document_carries_its_text_its_page_and_its_file() -> None:
     body = _client(_Store(_DOCUMENT)).get("/api/documents/abc123").json()
     assert body["key"] == "abc123"
     assert body["title"] == "Memorie van Toelichting"
     assert body["kind"] == "Memorie van toelichting"
     assert body["text"].startswith("De inhoud")
-    assert "some-uuid" in body["tk_url"]
+    # tweedekamer.nl knows the document number, the Gegevensmagazijn the GUID
+    assert body["tk_url"] == (
+        "https://www.tweedekamer.nl/kamerstukken/detail?id=2024D01234&did=2024D01234"
+    )
+    assert body["file_url"].endswith("/Document(some-uuid)/resource")
 
 
 def test_a_document_says_its_chamber_source_dossiers_and_what_it_explains() -> None:
@@ -164,3 +169,4 @@ def test_an_eerste_kamer_document_is_not_explanatory_and_has_no_tk_url() -> None
     body = _client(_Store(ek)).get("/api/documents/ek_1").json()
     assert body["chamber"] == "EK" and body["source"] == "eerstekamer"
     assert body["is_explanatory"] is False and body["tk_url"] is None
+    assert body["file_url"] is None

@@ -34,6 +34,11 @@ from lawgraph.config.constants import (
     SOURCE_STAATSBLAD,
     SOURCE_STAATSCOURANT,
 )
+from lawgraph.core.judgments import (
+    CONCLUSION_ONLY_COURTS,
+    DOCUMENT_TYPE_CONCLUSION,
+    PROCEDURE_PRELIMINARY_RULING,
+)
 from lawgraph.db.counting import Store
 
 
@@ -111,6 +116,76 @@ FOR j IN {COLLECTION_JUDGMENTS}
   }}
 """
     return store.query(aql)
+
+
+def conclusion_rows(store: Store) -> Iterator[dict[str, Any]]:
+    """``{ecli, court_code, is_conclusion, conclusion_eclis, case_number_keys}`` of every
+    conclusion and of every judgment that names its conclusion."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.source == @source
+  LET is_conclusion = j.props.judgment_metadata.document_type == @conclusion
+    OR j.props.court_code IN @conclusion_courts
+  FILTER is_conclusion OR LENGTH(j.props.conclusion_eclis) > 0
+  RETURN {{
+    ecli: j.props.ecli,
+    court_code: j.props.court_code,
+    is_conclusion: is_conclusion,
+    conclusion_eclis: j.props.conclusion_eclis OR [],
+    case_number_keys: j.props.case_number_keys OR []
+  }}
+"""
+    return store.query(
+        aql,
+        {
+            "source": SOURCE_RECHTSPRAAK,
+            "conclusion": DOCUMENT_TYPE_CONCLUSION,
+            "conclusion_courts": sorted(CONCLUSION_ONLY_COURTS),
+        },
+    )
+
+
+def judgments_by_case_keys(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
+    """``{key, ecli, court_code, date, is_conclusion}`` of the judgments with one of these
+    case number *keys* (``core.judgments.case_number_keys``), one row per key they carry."""
+    aql = f"""
+FOR key IN @keys
+  FOR j IN {COLLECTION_JUDGMENTS}
+    FILTER key IN j.props.case_number_keys[*]
+    RETURN {{
+      key: key,
+      ecli: j.props.ecli,
+      court_code: j.props.court_code,
+      date: j.props.date_eff,
+      is_conclusion: j.props.judgment_metadata.document_type == @conclusion
+        OR j.props.court_code IN @conclusion_courts
+    }}
+"""
+    return store.query(
+        aql,
+        {
+            "keys": keys,
+            "conclusion": DOCUMENT_TYPE_CONCLUSION,
+            "conclusion_courts": sorted(CONCLUSION_ONLY_COURTS),
+        },
+    )
+
+
+def preliminary_rulings(store: Store, *, paragraphs: int) -> Iterator[dict[str, Any]]:
+    """``{ecli, related_eclis, paragraphs}`` of every preliminary ruling, with its first
+    *paragraphs* paragraphs (where it says who asked its questions)."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.judgment_metadata.type == @procedure
+  RETURN {{
+    ecli: j.props.ecli,
+    related_eclis: j.props.related_eclis OR [],
+    paragraphs: SLICE(j.props.paragraphs OR [], 0, @paragraphs)
+  }}
+"""
+    return store.query(
+        aql, {"procedure": PROCEDURE_PRELIMINARY_RULING, "paragraphs": paragraphs}
+    )
 
 
 def echr_judgments(store: Store) -> Iterator[dict[str, Any]]:
@@ -835,3 +910,30 @@ def dossier_outcome_signals(
         "bill_case_kinds": bill_case_kinds,
     }
     return store.query(_DOSSIER_OUTCOME_SIGNALS_AQL, bind_vars)
+
+
+def dossier_refs(store: Store) -> Iterator[dict[str, Any]]:
+    """``{label, number, suffix, title}`` of every dossier: what the relation rules read."""
+    return store.query(
+        f"""
+        FOR dossier IN {COLLECTION_DOSSIERS}
+            RETURN KEEP(dossier.props, "label", "number", "suffix", "title")
+        """
+    )
+
+
+def related_cases(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, kind, dossier_numbers, related_cases}`` of every case the Kamer relates to
+    another."""
+    return store.query(
+        f"""
+        FOR case IN {COLLECTION_CASES}
+            FILTER LENGTH(case.props.related_cases) > 0
+            RETURN {{
+                id: case.props.external_id,
+                kind: case.props.kind,
+                dossier_numbers: case.props.dossier_numbers,
+                related_cases: case.props.related_cases
+            }}
+        """
+    )

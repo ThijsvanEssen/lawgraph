@@ -276,7 +276,11 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             [
                 v
                 for v in versions
-                if v["key"] in expected and v.get("valid_until") != expected[v["key"]]
+                if v["key"] in expected
+                and (
+                    v.get("valid_until") != expected[v["key"]]
+                    or v.get("current") is not (expected[v["key"]] is None)
+                )
             ],
             expected,
         )
@@ -349,7 +353,11 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
     def _write_valid_until(
         self, stale: list[dict[str, Any]], expected: dict[str, str | None]
     ) -> None:
-        """Write only ``valid_until``/``current`` for versions whose value changed."""
+        """Write ``valid_until`` and ``current`` of the versions where either differs.
+
+        Phase 1 writes every version it reads as current, also one that a later version
+        already ended, so ``current`` is checked on its own.
+        """
         docs = [
             {
                 "_key": v["key"],

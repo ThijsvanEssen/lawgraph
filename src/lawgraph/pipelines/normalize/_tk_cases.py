@@ -216,7 +216,11 @@ def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) 
                 node.arango_id,
                 RELATION_AUTHORED,
                 source=source,
-                meta={"role": actor.get("role") or ""},
+                meta={
+                    "role": actor.get("role") or "",
+                    "function": actor.get("function"),
+                    "capacity": actor.get("capacity"),
+                },
             )
     writer.flush()
     logger.info("Wrote %d AUTHORED edges.", writer.added)

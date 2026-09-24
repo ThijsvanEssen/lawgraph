@@ -7,8 +7,8 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes` |
-| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
+| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
@@ -16,6 +16,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
+| Wikidata | `wikidata` | `wikidata` | none |
 | The graph itself (`graph`) | none | none | `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: base URL from `config/settings.py` (trailing
@@ -24,10 +25,14 @@ slash enforced), one `requests.Session`, 30 s timeout, and retry with exponentia
 
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
 `instruments.props.short_title` and law names through instrument titles; `normalize bwb` writes `short_title` from the official
-abbreviations in the BWB WTI files (see BWB below). A code split over books resolves through
-the book in the article number: `artikel 6:162 BW` cites article `162` of the regulation whose
-short title is `BW6` (`DutchCitationExtractor`); without a book (`artikel 162 BW`) or with an
-unknown one there is no hit.
+abbreviations in the BWB WTI files (see BWB below). A code split over books
+(`CODE_FAMILIES` in `config/constants.py`: the Burgerlijk Wetboek, book 1 to 10 and 7A, each
+its own BWB id) resolves through the book in the article number: `artikel 6:162 BW` cites
+article `162` of book 6 (`BWBR0005289`, key `bwbr0005289_162`), whichever books are loaded, so a
+citation of a book that is not loaded becomes a stub of that book, which its load fills; without
+a book (`artikel 162 BW`) or with an unknown one there is no hit. The code of the family itself
+(`BW`) is never a short title. A law that numbers `Hoofdstuk:artikel` in one regulation (the
+Awb: `8:54`) is no family; its articles keep the colon.
 
 ## Tweede Kamer
 
@@ -71,9 +76,11 @@ Client quirks:
   answer 200 are not stored; 25 failures in a row fail the step. XML exists for papers from
   December 1994 on.
 
-**Normalize `tk`.** Zaak to Case (`cases`, key = Zaak GUID, whole payload in `props.raw`,
-`dossier_numbers` kept for the dossier pipeline). No edges: a case is linked once the dossiers
-exist.
+**Normalize `tk`.** Zaak to Case (`cases`, key = Zaak GUID; its `kind` is the `Soort`;
+`dossier_numbers` kept for the dossier pipeline; `related_cases` the cases of
+`GerelateerdNaar`, each with its `Soort` and dossiers, which `retrieve tk` expands with it so the
+relation holds also when the other case was not retrieved). No edges: a case is linked once the
+dossiers exist.
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `fetched_at`), turns each into text and sections with `core/kamerstuk_xml.py` and writes them
@@ -100,9 +107,11 @@ date onto each dossier (it needs the document edges).
 |------|--------|
 | decisions | vote rows grouped by `Besluit_Id`; rows without one are skipped; `passed` from the `BesluitSoort` text, else the tally; the decided Zaak is the Besluit's own `Zaak` (`primary_case_id`, and its `Soort` as `primary_case_kind`; without it only an agenda item of one case names it: `AgendapuntZaakBesluitVolgorde` is the place of the Besluit on the agenda item, not of its Zaak), and `subject` prefers its subject over the agenda item; `date` is the day of the agenda item's Activiteit (the vote), else the `GewijzigdOp` of a row |
 | factions | from the Fractie endpoint; without `tk-fractie` records they are derived from the `ActorFractie` strings of the votes; `aliases` map the differing abbreviations (`Fractie.Afkorting` versus `Stemming.ActorFractie`); TK reuses abbreviations, so the active or most recent record wins |
-| members | every Persoon; `party` and `faction_memberships` come from FractieZetelPersoon (dated), so a member without those records has no party |
-| dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `current_stage`, `stages_present`, `track_kind` and `title` (from a voorstel-van-wet or MvT document when the dossier has none) are derived from documents, activities and decisions by `core/dossier_stages.py`, `opened_on` is the date of the first document or activity. The record has no end: `Afgesloten` is false on every dossier and there is no closing date, so `closed`, `outcome` and `closed_on` are `semantic tk-dossier-outcomes`; a closed dossier (as stored) is at stage `afgehandeld` |
-| documents | dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers` |
+| committees | every Commissie with a name (`NaamNL`); a record without one is not written, so no id stands in for a name, and is written by the run after the source fills it in. The voortouw of every plenary activity is such a record: the Kamer itself |
+| members | every Persoon, with `family_name` (`Achternaam`) and `birth_date` (`Geboortedatum`), by which `normalize wikidata` finds them; `party` and `faction_memberships` come from FractieZetelPersoon (dated), so a member without those records has no party |
+| activities | `agenda_title` from `Onderwerp`, `status` as the source writes it (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`; a planned activity may lie beyond the end of its dossier), `committee_id` from `Voortouwcommissie_Id` unless `Voortouwafkorting` is `TK`: a plenary activity has the Kamer as voortouw, not a committee |
+| dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `same_number_count` is recounted for every number the run writes (this pipeline is the only one that makes dossiers); `current_stage`, `stages_present`, `track_kind` and `title` (from a voorstel-van-wet or MvT document when the dossier has none) are derived from documents, activities and decisions by `core/dossier_stages.py` (an activity that did not take place, `Gepland`, `Geannuleerd`, `Verplaatst` or `Vervallen`, marks no stage), and `stages_complete`: whether every stage the bill passed to reach its current one has a dated document, activity or vote (the listed stages up to the current one, and `wetsvoorstel`, `mvt`, `advies_rvs`, and `stemming` for a bill aangenomen or verworpen; a stage known only from the kind of a case has no date); `opened_on` is the date of the first document or activity. The record has no end: `Afgesloten` is false on every dossier and there is no closing date, so `closed`, `outcome` and `closed_on` are `semantic tk-dossier-outcomes`; a closed dossier (as stored) is at stage `afgehandeld` |
+| documents | dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers`; `DocumentNummer` as `document_number`, from which the API makes the link to tweedekamer.nl (no link is stored) |
 
 `dossier_numbers` of a case, document, activity or decision (and the keys of
 `case_kinds_by_dossier`) are dossier labels: `37020-XV` for a budget chapter, `37020` for the
@@ -110,7 +119,7 @@ Miljoenennota itself, so each record links to the dossier node with that key.
 
 Edges: `PART_OF` (Document to Case and Dossier, Case to Dossier), `ABOUT` (Activity, Decision
 to Case and Dossier; Commitment to the dossiers of its activity), `LED_BY` (Activity to
-Committee from `Voortouwcommissie_Id`), `MADE_IN` (Commitment to Activity), `MEMBER_OF`
+Committee from `committee_id`; none for a plenary activity), `MADE_IN` (Commitment to Activity), `MEMBER_OF`
 (dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`.
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
@@ -216,6 +225,33 @@ It walks every dossier on every run, since a law published today closes a dossie
 record did not change, and writes only the dossiers whose answer changed. It runs after
 `bwb-amendments` and before `graph-list-stats`, which counts the open dossiers of a committee.
 
+<a id="semantic-tk-dossier-relations"></a>
+**Semantic `tk-dossier-relations`.** Edges between dossiers, which the Kamerstukdossier record
+itself never names (`core/dossier_relations.py`). An edge is written only when both dossiers are
+in the graph; the dossiers of one number need no edge (`GET /api/dossiers?number=`).
+
+| Edge | Rule | In the source (24 Sep 2026) |
+|------|------|-----------------------------|
+| `RELATED_TO` | the Kamer's own statement: a case of dossier A relates to a case of dossier B (`Zaak.GerelateerdNaar`, read by `normalize tk`). `meta.cases` counts the pairs of cases, `meta.case_kinds` names their kinds. Cases within one dossier relate no dossiers | 80,544 related pairs of cases, of which 24,241 between dossiers of different numbers and 894 between two dossiers of one number: 10,571 pairs of dossiers. Mostly `Brief regering → Motie` (a letter that answers a motion filed elsewhere), then `→ Begroting` and `→ Wetgeving` |
+| `REVISES` | a budget is "Vaststelling van de begrotingsstaten … voor het jaar Y" under a chapter or fund (`36800-XXII`). "Wijziging van de begrotingsstaten … voor het jaar Y" revises the budget of year Y with its own suffix; one with a number of its own (an incidental supplementary budget) names its chapter in its title ("(XIII)"; `IXB` falls back to `IX`), or else the budget by name, which must fit exactly one budget of the year. "Jaarverslag en slotwet … Y" revises the budget of year Y with its suffix. `meta.rule` is `begrotingswijziging` or `slotwet` | 1,529: 1,123 of 1,131 budget changes and 406 of 419 slotwetten; the rest (2007-2009) have no budget of their year in the source |
+| `ACCOMPANIES` | "(wijziging samenhangende met de Voorjaarsnota)" of year Y goes with the dossier "Voorjaarsnota Y", likewise the Najaarsnota. The Miljoenennota of Prinsjesdag in year Y presents the budgets of Y + 1, so a change of year Y "samenhangende met de Miljoenennota" goes with the dossier "Nota over de toestand van ’s Rijks Financiën" whose number holds the budgets of Y + 1. `meta.nota` names it | 912: 412 Voorjaarsnota, 404 Najaarsnota, 96 Miljoenennota; 15 changes "samenhangende met" something else (an incidental supplementary budget, the refinancing of covid loans) get none |
+
+So the route from Prinsjesdag 2026: the Miljoenennota `37020` and its budgets `37020-*` share a
+number; each `37035-*` `ACCOMPANIES` `37020` and `REVISES` the budget of 2026 of its chapter
+(`37035-XXII` → `36800-XXII`); the policy dossiers the Kamer relates to a budget (letters on its
+motions) are `RELATED_TO` it. The Kamer relates none of the cases of `37035`; `37020` is
+`RELATED_TO` from the dossiers whose letters answer the motions of the Algemene Politieke
+Beschouwingen, which are filed under it (16 on 24 Sep 2026).
+
+Checked by hand: `37035-XXII`, `-III`, `-IX`, `-M` → `36800` of the same suffix; `36038`
+(incidental, IenW, no chapter in the title) → `35925-XII` by name; `35830-B` (slotwet
+Gemeentefonds 2020) → `35300-B`; `36945-IX` (slotwet Financiën 2025) → `36600-IX`; `35975-XIV`
+→ `Najaarsnota 2021`, `33280-IIB` → `Voorjaarsnota 2012`, `37035-*` → `37020`.
+
+It reads every dossier and every related case on every run, since a dossier loaded today can be
+the other end of a relation stated earlier. Like every semantic pipeline it only adds and updates
+edges: an edge whose evidence is gone stays until the database is built again.
+
 ## Rechtspraak
 
 **Provides.** Judgments from data.rechtspraak.nl: an Atom index (`uitspraken/zoeken`) and the
@@ -241,10 +277,13 @@ State 11,000, the four courts of appeal about 18,000), a few hours at the paced 
 the rechtbanken (over 100,000 in two years), are chosen with `--court`.
 
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
-`case_number`, `procedure` as `judgment_metadata.type`, `subject`s, and as `related_eclis`
-the judgments of the earlier instance it ruled on: the `ecli:resourceIdentifier` of every
-`dcterms:relation` that is neither the conclusion of the Advocate General (`psi:type`
-…/conclusie) nor a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
+`case_number` (and split, lower case and without spaces, as `case_number_keys`: `C/19/117301 /
+HA ZA 16-256` is `c/19/117301/haza16-256`), `procedure` as `judgment_metadata.type`, `type`
+(`Uitspraak` or `Conclusie`) as `judgment_metadata.document_type`, `subject`s, as
+`conclusion_eclis` every `dcterms:relation` of `psi:type` …/conclusie (the conclusion of a
+judgment, or the judgment of a conclusion), and as `related_eclis` the judgments of the earlier
+instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:relation` that is not
+a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
 `summary`, `uitspraak` as `text` and as `paragraphs` (heading, subheading, body; see the
 paragraph props in the data model). The XML itself stays in the payload store. `court_code` is the ECLI court
 segment; `tier` is `hoge_raad` (`HR`), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or
@@ -283,6 +322,22 @@ read. `--since` takes the judgments retrieved from then on.
 **Semantic `rechtspraak-appeal`.** Judgments with `related_eclis` whose `judgment_metadata.type`
 contains `hoger beroep` or `cassatie`: `APPEAL_OF` from the appeal judgment to each related
 ECLI, 0.95, `meta.procedure_type`; missing judgments become stubs.
+
+**Semantic `rechtspraak-conclusions`.** `ADVISES_ON` from the conclusion of an
+advocate-general to the judgment of its case. A judgment is a conclusion by its
+`document_type` or its court (`PHR`). Pairs come from `conclusion_eclis` on either side
+(`meta.basis` `formal_relation`, 1.0); a conclusion that no relation ties is paired with the
+judgments of the court it advises (the Parket bij de Hoge Raad the Hoge Raad, any other court
+itself) that share one of its `case_number_keys` (`case_number`, 0.9). A judgment named but not
+loaded becomes a stub.
+
+**Semantic `rechtspraak-referrals`.** `ANSWERS` from a preliminary ruling
+(`judgment_metadata.type` `Prejudiciële beslissing`) to the decision that asked its questions:
+its `related_eclis` (`formal_relation`, 1.0); without them, the first of its opening 20
+paragraphs that says questions were asked (`prejudiciële vragen … gesteld`,
+`core/judgments.read_referral`): the ECLIs it names, else the judgment of the date it names
+with one of the case numbers after `in de zaak` (`referral_text`, 0.9). The referring decision
+is found only when it is loaded: the Rechtspraak cannot be asked for a case number.
 
 ## EUR-Lex
 
@@ -344,7 +399,7 @@ first element `<algemene-informatie>` lists the official abbreviations (`<afkort
 | Command | Behaviour |
 |---------|-----------|
 | `retrieve bwb` | `--bwb-id` (repeatable) or `BWB_IDS` (comma-separated): the current toestand of each id (in force means end date `9999-12-31`, else the newest), plus the `<algemene-informatie>` element of its WTI file (kind `bwb-wti-algemene-informatie-xml`). Without ids in incremental mode nothing is fetched. `--mode full` enumerates every id first |
-| `retrieve bwb-history [ids...]` | every toestand of each id, or of all ids when none are given; stored `<bwb_id>@<start_date>` |
+| `retrieve bwb-history [ids...]` | every toestand of each id, or of all ids when none are given; stored `<bwb_id>@<start_date>`. Without it a law has no versions: `history`, `versions` and `articles/at` of the API are empty for it (the Wetboek van Strafrecht has 126 toestanden since 2002, the Awb 236) |
 
 Enumeration queries `dcterms.type=="<type>"` for each type in `BWB_INSTRUMENT_TYPES`
 (case-sensitive: `AMvB`, `ministeriele-regeling`), 1,000 records a page (the service silently
@@ -391,7 +446,8 @@ record is loaded.
   toestand only repeats versions still valid), with `parts`, `origin_publication` and
   `commencement_publication`;
 - `valid_until` and `current`, recomputed from the database in chunks of 200 regulations, so
-  incremental runs stay correct;
+  incremental runs stay correct: a version is `current` exactly when nothing follows it, also
+  after a re-run has written it again;
 - `VERSION_OF` from each ArticleVersion to its Article and from each InstrumentVersion to its
   Instrument;
 - an Instrument if `normalize bwb` has not created it, and a historical Article for an identity
@@ -542,6 +598,29 @@ not read. An empty result raises: the endpoint or its data model has changed.
 instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Trb references
 (`dcterms:isPartOf`), the parties and the place of signing.
 
+## Wikidata
+
+**Provides.** Every post a person held in a Dutch cabinet: the statements `position held`
+(P39) with the qualifier `parliamentary group / cabinet` (P5054) whose cabinet is an instance of
+`Cabinet of the Netherlands` (Q2479200), with start (P580), end (P582), the name of the person
+and their date of birth (P569, with its precision), in one SPARQL query to
+`WIKIDATA_SPARQL`. The Tweede Kamer has no record of cabinet posts: `PersoonLoopbaan` is a
+career the person reports, empty for most ministers, and a signed paper (`AUTHORED
+meta.function`) names a function only on its own date. Wikidata is complete from the cabinets
+of the 1970s (30 to 60 posts each); older cabinets have a few. About 400 people.
+
+**Retrieve.** One `wikidata-cabinet-posts-json` record per person (external id the Q-id:
+`id`, `name`, `birth_date`, `birth_precision`, `posts` with `function`, `cabinet`, `from_date`,
+`to_date` and their Q-ids), in full on every run. An empty answer raises.
+
+**Normalize.** Matches each person to one Tweede Kamer person (`core/government.py`): the same
+date of birth (`members.props.birth_date`, from `Persoon.Geboortedatum`; by year when
+Wikidata knows only the year) and a part of the surname (`family_name`, `Persoon.Achternaam`)
+among the words of the name; a person who matches no member or several is left out. The member
+gets `wikidata_id` and `government_functions` (the posts, oldest first); a member no person
+matches any more loses both. Every record is read on every run. Needs `normalize tk-dossiers`
+(the members).
+
 ## Ordering
 
 `normalize all` and `semantic all` run in registry order; each row needs what is above it.
@@ -550,6 +629,7 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
+| normalize `wikidata` | `normalize tk-dossiers` (the members, with their date of birth) |
 | normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
@@ -558,4 +638,5 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`) and `normalize tk-dossiers` (documents, decisions and their edges to the dossier) |
+| semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases) and `normalize tk-dossiers` (the dossiers and their titles) |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

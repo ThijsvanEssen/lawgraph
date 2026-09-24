@@ -12,7 +12,8 @@
 #     of its memorandum, votes, commitments
 #   Uitvoeringswet AVG (dossier 34851): the EU act it implements
 #   Besluit proceskosten bestuursrecht: an instrument based on an article of the Awb
-#   Awb, Wetboek van Strafrecht, Burgerlijk Wetboek Boek 7: what recent case law cites
+#   Awb, Wetboek van Strafrecht and every book of the Burgerlijk Wetboek: what recent case
+#     law cites, with the history of each, so what an article said on a date is answerable
 # and a little of every other source: two weeks of the Tweede Kamer, of the three highest
 # courts and of the Staatscourant, ECHR judgments against the Netherlands, papers of the
 # Eerste Kamer and treaties.
@@ -21,7 +22,8 @@ cd "$(dirname "$0")/.." || exit 1
 export ARANGO_DB_NAME="${1:-lawgraph_small}"
 L=.venv/bin/lawgraph
 
-GRONDWET=BWBR0001840 AWB=BWBR0005537 SR=BWBR0001854 BW7=BWBR0005290
+GRONDWET=BWBR0001840 AWB=BWBR0005537 SR=BWBR0001854
+BW="BWBR0002656 BWBR0003045 BWBR0005291 BWBR0002761 BWBR0005288 BWBR0005289 BWBR0005290 BWBR0006000 BWBR0005034 BWBR0030068"
 WOM=BWBR0004318 UAVG=BWBR0040940 PROCESKOSTEN=BWBR0006160
 DOSSIERS="35786 35785 37014 34851 32450"
 
@@ -29,9 +31,9 @@ failed=0
 step() { "$L" "$@" || { failed=1; echo "test-database: lawgraph $* failed" >&2; }; }
 
 set --
-for id in $GRONDWET $AWB $SR $BW7 $WOM $UAVG $PROCESKOSTEN; do set -- "$@" --bwb-id "$id"; done
+for id in $GRONDWET $AWB $SR $BW $WOM $UAVG $PROCESKOSTEN; do set -- "$@" --bwb-id "$id"; done
 step retrieve bwb "$@"
-step retrieve bwb-history $GRONDWET $WOM $UAVG $PROCESKOSTEN
+step retrieve bwb-history $GRONDWET $AWB $SR $BW $WOM $UAVG $PROCESKOSTEN
 step retrieve tk --since 14d
 step retrieve tk-dossiers --since 14d
 for number in $DOSSIERS; do step retrieve tk-dossiers --dossier-number "$number"; done
