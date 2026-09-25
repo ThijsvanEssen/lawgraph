@@ -161,10 +161,13 @@ statutes made by the legislator:
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records.
 - EU directives, regulations and decisions (`celex`).
 - The Convention of the ECHR (`echr_convention`): kind `verdrag`, `bwb_id` `ECHR-CONVENTION`, which its articles carry too.
-- Amending publications (Staatsblad, Tractatenblad, ...) are instruments too
-  (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
-  `date_published`, `dossier_numbers`); they are the source of `AMENDS`, `INTRODUCES` and
-  `REPEALS`.
+- Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`
+  `publicatie` (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
+  `date_published`, `dossier_numbers`; `citation_title` is their name, `Stb. 2019, 33`); they
+  are the source of `AMENDS`, `INTRODUCES` and `REPEALS`, and no regulation: the instrument
+  lists and `/api/stats` keep them apart.
+- `inbound_citation_count` of an instrument (`semantic graph-list-stats`): the `REFERS_TO`
+  edges to it and to its articles.
 
 An instrument that amends, introduces or repeals has enacted the change (`status: canoniek`).
 A bill (Document) carries the same three relations with `status: voorgesteld` — a change it

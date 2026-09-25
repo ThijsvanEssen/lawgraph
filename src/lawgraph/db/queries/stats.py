@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     COLLECTION_TOPICS,
 )
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.db import ArangoStore
 
 _NODE_COLLECTIONS = (
@@ -64,15 +65,31 @@ def _stub_count(store: ArangoStore, collection: str) -> int:
     return cast(int, next(iter(store.query(aql)), 0))
 
 
+def _publication_count(store: ArangoStore) -> int:
+    aql = f"""
+    FOR doc IN {COLLECTION_INSTRUMENTS}
+        FILTER doc.props.kind == @publication
+        COLLECT WITH COUNT INTO n
+        RETURN n
+    """
+    rows = store.query(aql, {"publication": KIND_PUBLICATION})
+    return cast(int, next(iter(rows), 0))
+
+
 def get_db_stats(store: ArangoStore) -> dict[str, Any]:
     """Document counts per collection (without stubs), stub counts, edge counts per
     relation, and source breakdowns."""
     stubs = {name: _stub_count(store, name) for name in _STUB_COLLECTIONS}
+    publications = _publication_count(store)
+    nodes = {
+        name: cast(int, store.collection(name).count()) - stubs.get(name, 0)
+        for name in _NODE_COLLECTIONS
+    }
+    # an instrument node of a publication (Stb. 2019, 33) is no regulation: counted apart
+    nodes[COLLECTION_INSTRUMENTS] -= publications
+    nodes["publications"] = publications
     return {
-        "nodes": {
-            name: cast(int, store.collection(name).count()) - stubs.get(name, 0)
-            for name in _NODE_COLLECTIONS
-        },
+        "nodes": nodes,
         "stubs": stubs,
         "edges": {
             "total": store.edges.count(),

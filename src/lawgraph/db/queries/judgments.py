@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -13,6 +14,8 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     TEXT_ANALYZER,
 )
+from lawgraph.core.identifiers import find_eclis
+from lawgraph.core.judgments import case_number_keys
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries._helpers import _load_judgment
 
@@ -134,6 +137,10 @@ class JudgmentFilters:
     date_from: str | None = None
     date_to: str | None = None
     cited_by_min: int | None = None
+    include_stubs: bool = False
+    # an exact match of the whole of ``q``: its ECLI, or a key of its case number
+    ecli: str | None = None
+    case_number_key: str | None = None
 
 
 # The filter a facet leaves out: each facet counts what choosing another value would give.
@@ -144,6 +151,17 @@ _YEAR_FILTERS = frozenset({"from", "to"})
 def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> dict[str, str]:
     """The FILTER per filter set, on ``doc``; each served by an index on its prop."""
     clauses: dict[str, str] = {}
+    if not filters.include_stubs:
+        # a judgment known only because something cites it: no date, court or text
+        clauses["stubs"] = "FILTER doc.props.stub != true"
+    if filters.ecli:
+        clauses["ecli"] = "FILTER doc.props.ecli == @ecli"
+        bind["ecli"] = filters.ecli
+    if filters.case_number_key:
+        clauses["case_number"] = (
+            "FILTER @case_number_key IN doc.props.case_number_keys[*]"
+        )
+        bind["case_number_key"] = filters.case_number_key
     if filters.court:
         clauses["court"] = "FILTER doc.props.court_code == @court"
         bind["court"] = filters.court.upper()
@@ -199,6 +217,11 @@ def get_judgments_list(
     from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 
     filters = filters or JudgmentFilters()
+    exact = _exact_filters(filters)
+    if exact is not None:
+        found = get_judgments_list(store, exact, sort=sort, limit=limit, offset=offset)
+        if found["total"]:
+            return found
     tokens = tokenize_search_query(filters.q) if filters.q else []
     search_clause, tok_bind = (
         build_search_clause(tokens, ["display_name", "names", "summary", "ecli"])
@@ -279,9 +302,15 @@ def get_judgments_list(
     )
     """
 
-    # Total: cheap when unfiltered (collection count); otherwise a separate
-    # count-only pass that never materialises documents.
-    if tokens or clauses:
+    # Total: cheap when unfiltered (the collection count, less the stubs by their sparse
+    # index); otherwise a separate count-only pass that never materialises documents.
+    if not tokens and set(clauses) == {"stubs"}:
+        aql += f"""
+    LET total = COLLECTION_COUNT('{COLLECTION_JUDGMENTS}') - LENGTH(
+        FOR doc IN {COLLECTION_JUDGMENTS} FILTER doc.props.stub == true RETURN 1
+    )
+    """
+    elif tokens or clauses:
         aql += f"""
     LET total = LENGTH(
         {from_clause}
@@ -299,3 +328,23 @@ def get_judgments_list(
 
     rows = list(store.query(aql, bind_vars))
     return rows[0] if rows else {"total": 0, "items": [], "facets": {}}
+
+
+# A case number as a query: a token with a digit and a slash or dash, as courts write them
+# ("18/04298", "C/19/117301 / HA ZA 16-256", "200.335.407/01").
+_CASE_NUMBER_QUERY = re.compile(r"^(?=.*\d)(?=.*[/-])[\w./ -]{3,60}$")
+
+
+def _exact_filters(filters: JudgmentFilters) -> JudgmentFilters | None:
+    """*filters* with ``q`` read as the whole of an ECLI or a case number, or None when
+    ``q`` is neither. An exact match is the answer; words are searched when none is."""
+    q = (filters.q or "").strip()
+    if not q:
+        return None
+    eclis = find_eclis(q)
+    if len(eclis) == 1 and eclis[0] == q.upper():
+        return replace(filters, q=None, ecli=eclis[0])
+    keys = case_number_keys(q)
+    if len(keys) == 1 and _CASE_NUMBER_QUERY.match(q):
+        return replace(filters, q=None, case_number_key=keys[0])
+    return None
