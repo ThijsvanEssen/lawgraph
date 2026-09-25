@@ -1,5 +1,5 @@
-"""Cabinet posts on members: the real ``normalize wikidata`` on stored Wikidata records, and
-the member detail on its answer."""
+"""Cabinet posts on members: the real ``normalize rijksoverheid`` on stored pages, and the
+member detail on its answer."""
 
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_MEMBERS,
-    RAW_KIND_WIKIDATA_CABINET_POSTS,
+    RAW_KIND_RIJKSOVERHEID_CABINET,
     RELATION_AUTHORED,
-    SOURCE_WIKIDATA,
+    SOURCE_RIJKSOVERHEID,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import (
     ArangoStore,
     EdgeWriter,
@@ -25,53 +25,53 @@ from lawgraph.db import (
     raw_source_doc,
 )
 
-JETTEN = "49be3576_cea3_46c0_87eb_89beb108248d"
-POSTS = [
-    {
-        "position_id": "Q110497984",
-        "function": "Minister voor Klimaat en Energie",
-        "cabinet_id": "Q110111120",
-        "cabinet": "kabinet-Rutte IV",
-        "from_date": "2022-01-10",
-        "to_date": "2024-07-02",
-    },
-    {
-        "position_id": "Q3058109",
-        "function": "minister-president van Nederland",
-        "cabinet_id": "Q137926983",
-        "cabinet": "kabinet-Jetten",
-        "from_date": "2026-02-23",
-        "to_date": None,
-    },
-]
+
+def page(name: str, sworn_in: str, *seats: tuple[str, list[str]]) -> str:
+    """A cabinet page as Rijksoverheid writes one: title, introduction, ministers and the
+    formatie block with the day of the beëdiging."""
+    items = "".join(f"<li>{h}<br/>{'<br/>'.join(lines)}</li>" for h, lines in seats)
+    return (
+        f"<h1>Kabinet-{name}</h1>"
+        f'<div class="rich-text larger-text"><p>Op {sworn_in} was de beëdiging van het '
+        f"kabinet-{name}.</p></div>"
+        f'<div class="rich-text"><h2>Ministers</h2><ul>{items}</ul></div>'
+        f'<div class="rich-text"><h2>Kabinetsformatie</h2><ul>'
+        f"<li>Beëdiging kabinet: {sworn_in}</li></ul></div>"
+    )
 
 
-def _member(key: str, family_name: str, birth_date: str, **props: Any) -> Node:
+def store_pages(store: ArangoStore, pages: dict[str, str]) -> None:
+    with RawSourceWriter(store) as writer:
+        for slug, html in pages.items():
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_RIJKSOVERHEID,
+                    kind=RAW_KIND_RIJKSOVERHEID_CABINET,
+                    external_id=slug,
+                    payload_text=html,
+                    meta={
+                        "url": f"https://example.org/{slug}",
+                        "read_on": "2026-09-25",
+                    },
+                )
+            )
+
+
+def _member(
+    key: str, name: str, family_name: str, birth_date: str, **props: Any
+) -> Node:
     return Node(
         collection=COLLECTION_MEMBERS,
         type=NodeType.MEMBER,
         key=key,
         labels=["TK"],
         props={
-            "name": key,
+            "name": name,
             "family_name": family_name,
             "birth_date": birth_date,
             **props,
         },
     )
-
-
-def _store_people(store: ArangoStore, people: list[dict[str, Any]]) -> None:
-    with RawSourceWriter(store) as writer:
-        for person in people:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_WIKIDATA,
-                    kind=RAW_KIND_WIKIDATA_CABINET_POSTS,
-                    external_id=person["id"],
-                    payload_json=person,
-                )
-            )
 
 
 def _get(store: ArangoStore, path: str) -> Any:
@@ -82,103 +82,105 @@ def _get(store: ArangoStore, path: str) -> Any:
         app.dependency_overrides.pop(get_store, None)
 
 
-def test_a_member_gets_the_posts_of_the_person_wikidata_ties_to_them(
+JETTEN = "49be3576_cea3_46c0_87eb_89beb108248d"
+PAGES = {
+    "kabinet-rutte-iv": page(
+        "Rutte IV",
+        "10 januari 2022",
+        ("Minister voor Klimaat en Energie", ["R.A.A. (Rob) Jetten (D66)"]),
+    ),
+    "kabinet-jetten": page(
+        "Jetten",
+        "23 februari 2026",
+        (
+            "Minister-president, minister van Algemene Zaken",
+            ["R.A.A. (Rob) Jetten MSc (D66)"],
+        ),
+        ("Minister van Financiën", ["P. (Piet) Lieftinck (VVD)"]),
+    ),
+}
+D66 = {"short": "D66", "faction": None}
+
+
+def test_a_member_gets_the_posts_of_the_holder_with_their_surname_and_initials(
     database: str, cli: Any
 ) -> None:
     store = ArangoStore()
     with NodeWriter(store) as writer:
         writer.add_all(
             [
-                _member(JETTEN, "Jetten", "1987-03-25"),
-                # born the same day, another name: not him
-                _member("jansen", "Jansen", "1987-03-25"),
-                # tied before, tied to nobody now: loses the posts
+                _member(JETTEN, "Rob Arnoldus Adrianus Jetten", "Jetten", "1987-03-25"),
+                # the same surname, other initials: not him
+                _member("other", "Karel Jetten", "Jetten", "1960-01-01"),
+                # held a post before, holds none now: loses it
                 _member(
                     "former",
                     "Oud",
+                    "Oud",
                     "1950-01-01",
-                    wikidata_id="Q1",
                     government_functions=[{"function": "minister"}],
                 ),
             ]
         )
-    person = {
-        "id": "Q28860866",
-        "name": "Rob Jetten",
-        "birth_date": "1987-03-25",
-        "birth_precision": 11,
-        "posts": POSTS,
-    }
-    _store_people(store, [person])
+    store_pages(store, PAGES)
 
-    cli("normalize", "wikidata")
+    cli("normalize", "rijksoverheid")
 
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        client = TestClient(app)
-        jetten = client.get(f"/api/members/{JETTEN}").json()
-        jansen = client.get("/api/members/jansen").json()
-        former = client.get("/api/members/former").json()
-    finally:
-        app.dependency_overrides.pop(get_store, None)
-
-    assert jetten["wikidata_id"] == "Q28860866"
-    assert jetten["birth_date"] == "1987-03-25"
+    jetten = _get(store, f"/api/members/{JETTEN}")
+    assert jetten["government_name"] == "R.A.A. Jetten"
     assert [
-        (f["function"], f["cabinet"], f["from_date"], f["to_date"])
+        (f["cabinet_key"], f["seat"], f["from_date"], f["to_date"], f["party"])
         for f in jetten["government_functions"]
     ] == [
         (
-            "Minister voor Klimaat en Energie",
-            "kabinet-Rutte IV",
+            "rutte_iv",
+            "ezk/minister_zonder_portefeuille/klimaat-en-energie",
             "2022-01-10",
-            "2024-07-02",
+            "2026-02-23",
+            D66,
         ),
-        ("minister-president van Nederland", "kabinet-Jetten", "2026-02-23", None),
+        ("jetten", "az/minister-president", "2026-02-23", None, D66),
     ]
-    assert jetten["name"] == JETTEN  # the rest of the member is untouched
-    assert jansen["government_functions"] == [] and jansen["wikidata_id"] is None
-    assert former["government_functions"] == [] and former["wikidata_id"] is None
+    assert jetten["name"] == "Rob Arnoldus Adrianus Jetten"  # the rest is untouched
+    assert _get(store, "/api/members/other")["government_functions"] == []
+    assert _get(store, "/api/members/former")["government_functions"] == []
+
+    # A holder no Tweede Kamer person fits is a member of their own ...
+    own = make_node_key(SOURCE_RIJKSOVERHEID, "p lieftinck")
+    alone = _get(store, f"/api/members/{own}")
+    assert (alone["name"], alone["government_functions"][0]["cabinet_key"]) == (
+        "P. Lieftinck",
+        "jetten",
+    )
+    # ... until later data holds their Tweede Kamer person: then only that one.
+    with NodeWriter(store) as writer:
+        writer.add(_member("lieftinck", "Pieter Lieftinck", "Lieftinck", "1972-09-30"))
+    cli("normalize", "rijksoverheid")
+    assert _get(store, "/api/members/lieftinck")["government_functions"][0]["seat"] == (
+        "fin/minister"
+    )
+    assert not store.has_node(COLLECTION_MEMBERS, own)
 
 
 # A minister who never sat in parliament: the TK person has neither name nor date of birth.
-OPSTELTEN = "9d0a1c34_0000_4000_8000_000000000001"
-OPSTELTEN_ID = OPSTELTEN.replace("_", "-")
-OPSTELTEN_POSTS = [
-    {
-        "position_id": "Q1",
-        "function": "minister van Veiligheid en Justitie",
-        "cabinet_id": "Q2",
-        "cabinet": "kabinet-Rutte II",
-        "from_date": "2012-11-05",
-        "to_date": "2015-03-10",
-    }
-]
-OLD_POSTS = [
-    {
-        "position_id": "Q3",
-        "function": "minister van Financiën",
-        "cabinet_id": "Q4",
-        "cabinet": "kabinet-Drees I",
-        "from_date": "1948-08-07",
-        "to_date": "1951-03-15",
-    }
-]
+VAN_WEEL = "9d0a1c34_0000_4000_8000_000000000001"
+VAN_WEEL_ID = VAN_WEEL.replace("_", "-")
 
 
-def test_a_minister_is_found_by_signatures_and_a_person_without_one_stands_alone(
+def test_a_minister_outside_parliament_is_found_by_signatures(
     database: str, cli: Any
 ) -> None:
     store = ArangoStore()
+    function = "minister van Justitie en Veiligheid"
     with NodeWriter(store) as writer:
         writer.add_all(
             [
                 Node(
                     collection=COLLECTION_MEMBERS,
                     type=NodeType.MEMBER,
-                    key=OPSTELTEN,
+                    key=VAN_WEEL,
                     labels=["TK"],
-                    props={"external_id": OPSTELTEN_ID, "name": "", "display_name": ""},
+                    props={"external_id": VAN_WEEL_ID, "name": "", "display_name": ""},
                 ),
                 Node(
                     collection=COLLECTION_DOCUMENTS,
@@ -186,12 +188,12 @@ def test_a_minister_is_found_by_signatures_and_a_person_without_one_stands_alone
                     key="letter",
                     labels=["TK"],
                     props={
-                        "date": "2013-05-01",
+                        "date": "2024-10-01",
                         "actors": [
                             {
-                                "person_id": OPSTELTEN_ID,
-                                "name": "I.W. Opstelten",
-                                "function": "minister van Veiligheid en Justitie",
+                                "person_id": VAN_WEEL_ID,
+                                "name": "D.M. van Weel",
+                                "function": function,
                                 "capacity": "bewindspersoon",
                             }
                         ],
@@ -201,55 +203,32 @@ def test_a_minister_is_found_by_signatures_and_a_person_without_one_stands_alone
         )
     with EdgeWriter(store, what=None) as edges:
         edges.add(
-            f"{COLLECTION_MEMBERS}/{OPSTELTEN}",
+            f"{COLLECTION_MEMBERS}/{VAN_WEEL}",
             f"{COLLECTION_DOCUMENTS}/letter",
             RELATION_AUTHORED,
             source="test",
             meta={
                 "role": "Eerste ondertekenaar",
-                "function": "minister van Veiligheid en Justitie",
+                "function": function,
                 "capacity": "bewindspersoon",
             },
         )
-    old = {
-        "id": "Q5",
-        "name": "Piet Lieftinck",
-        "birth_date": "1902-09-30",
-        "birth_precision": 11,
-        "posts": OLD_POSTS,
-    }
-    _store_people(
+    store_pages(
         store,
-        [
-            {
-                "id": "Q6",
-                "name": "Ivo Opstelten",
-                "birth_date": "1944-08-31",
-                "birth_precision": 11,
-                "posts": OPSTELTEN_POSTS,
-            },
-            old,
-        ],
+        {
+            "kabinet-schoof": page(
+                "Schoof",
+                "2 juli 2024",
+                (
+                    "Minister van Justitie en Veiligheid",
+                    ["D.M. (David) van Weel (VVD)"],
+                ),
+            )
+        },
     )
 
-    cli("normalize", "wikidata")
+    cli("normalize", "rijksoverheid")
 
-    opstelten = _get(store, f"/api/members/{OPSTELTEN}")
-    assert (opstelten["name"], opstelten["wikidata_id"]) == ("Ivo Opstelten", "Q6")
-    assert opstelten["government_functions"][0]["cabinet"] == "kabinet-Rutte II"
-    alone = _get(store, "/api/members/wikidata_q5")
-    assert (alone["name"], alone["birth_date"], alone["wikidata_id"]) == (
-        "Piet Lieftinck",
-        "1902-09-30",
-        "Q5",
-    )
-    assert alone["government_functions"][0]["cabinet"] == "kabinet-Drees I"
-
-    # Later data holds his Tweede Kamer person: he is that member, and only that one.
-    with NodeWriter(store) as writer:
-        writer.add(_member("lieftinck", "Lieftinck", "1902-09-30"))
-    cli("normalize", "wikidata")
-
-    assert _get(store, "/api/members/lieftinck")["wikidata_id"] == "Q5"
-    assert not store.has_node(COLLECTION_MEMBERS, "wikidata_q5")
-    assert _get(store, f"/api/members/{OPSTELTEN}")["wikidata_id"] == "Q6"
+    van_weel = _get(store, f"/api/members/{VAN_WEEL}")
+    assert van_weel["name"] == "D.M. van Weel"
+    assert van_weel["government_functions"][0]["seat"] == "jenv/minister"

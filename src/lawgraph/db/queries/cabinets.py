@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_MEMBERS,
+    LABEL_RIJKSOVERHEID,
     RELATION_ABOUT,
     RELATION_AUTHORED,
     RELATION_MADE_IN,
@@ -27,7 +28,9 @@ TRACK_BILL = "wetsvoorstel"
 COMMITMENT_OPEN = "open"
 
 # The member of a SERVED_IN edge as a list and detail item name it.
-_PERSON = "{ key: member._key, name: member.props.name OR member.props.wikidata_name }"
+_PERSON = (
+    "{ key: member._key, name: member.props.name OR member.props.government_name }"
+)
 
 
 def get_cabinets(store: ArangoStore) -> list[dict[str, Any]]:
@@ -134,7 +137,7 @@ def get_cabinet(store: ArangoStore, key: str) -> dict[str, Any] | None:
     RETURN {{
         cabinet: cabinet,
         prime_minister: prime != null ? {{
-            key: prime._key, name: prime.props.name OR prime.props.wikidata_name
+            key: prime._key, name: prime.props.name OR prime.props.government_name
         }} : null,
         members: posts,
         bills: bill_count,
@@ -162,7 +165,7 @@ _COMMITMENT_ITEM = f"""{{
     member: c.props.member_key != null ? FIRST(
         FOR m IN {COLLECTION_MEMBERS}
             FILTER m._key == c.props.member_key
-            RETURN {{ key: m._key, name: m.props.name OR m.props.wikidata_name }}
+            RETURN {{ key: m._key, name: m.props.name OR m.props.government_name }}
     ) : null,
     dossiers: (
         FOR e IN {COLLECTION_EDGES}
@@ -291,3 +294,30 @@ def get_commitment(store: ArangoStore, key: str) -> dict[str, Any] | None:
         )
     )
     return cast(dict[str, Any], rows[0]) if rows else None
+
+
+def cabinets_with_posts(store: ArangoStore) -> list[dict[str, Any]]:
+    """Every cabinet, oldest first, with every post held in it (``lawgraph verify
+    cabinets``): ``{key, props, posts}``, each post with ``member`` (its key) and ``own``
+    (a member only Rijksoverheid knows)."""
+    aql = f"""
+    FOR cabinet IN {COLLECTION_CABINETS}
+        SORT cabinet.props.from_date, cabinet._key
+        RETURN {{
+            key: cabinet._key,
+            props: cabinet.props,
+            posts: (
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER e._to == cabinet._id AND e.relation == @served_in
+                    LET member = DOCUMENT(e._from)
+                    FOR post IN e.meta.posts OR []
+                        RETURN MERGE(post, {{
+                            member: PARSE_IDENTIFIER(e._from).key,
+                            own: @own IN (member.labels OR [])
+                        }})
+            )
+        }}
+    """
+    return list(
+        store.query(aql, {"served_in": RELATION_SERVED_IN, "own": LABEL_RIJKSOVERHEID})
+    )

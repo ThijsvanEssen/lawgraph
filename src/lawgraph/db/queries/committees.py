@@ -308,7 +308,7 @@ def get_members(
     any abbreviation, name or alias in the member's faction timeline.
     """
     filters: list[str] = [
-        "(member.props.name OR member.props.wikidata_name) NOT IN [null, '']"
+        "(member.props.name OR member.props.government_name) NOT IN [null, '']"
     ]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
 
@@ -331,7 +331,7 @@ def get_members(
         bind["party"] = party.strip().lower()
     if q:
         filters.append(
-            "CONTAINS(LOWER(member.props.name OR member.props.wikidata_name), @q)"
+            "CONTAINS(LOWER(member.props.name OR member.props.government_name), @q)"
         )
         bind["q"] = q.strip().lower()
 
@@ -345,7 +345,7 @@ def get_members(
                 LIMIT 1 RETURN 1
         ) > 0
         FILTER @active == null OR seated == @active
-        SORT member.props.name OR member.props.wikidata_name ASC, member._key
+        SORT member.props.name OR member.props.government_name ASC, member._key
         LIMIT @offset, @limit
         RETURN member
     """

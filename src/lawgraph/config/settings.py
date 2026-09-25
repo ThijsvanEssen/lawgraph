@@ -102,6 +102,7 @@ VERDRAGENBANK_SRU_ENDPOINT = os.getenv(
 WIKIDATA_SPARQL_ENDPOINT = os.getenv(
     "WIKIDATA_SPARQL", "https://query.wikidata.org/sparql"
 )
+RIJKSOVERHEID_BASE = os.getenv("RIJKSOVERHEID_BASE", "https://www.rijksoverheid.nl")
 
 # ── Pipelines ─────────────────────────────────────────────────────────────────
 

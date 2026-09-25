@@ -235,7 +235,7 @@ def list_members(
     summary="Member detail",
     description=(
         "One member of parliament or minister, with the posts they held in a cabinet "
-        "(`government_functions`, from Wikidata)."
+        "(`government_functions`, from Rijksoverheid)."
     ),
     tags=["members"],
 )
