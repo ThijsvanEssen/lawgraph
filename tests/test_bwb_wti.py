@@ -10,6 +10,7 @@ import pytest
 from lawgraph.core.bwb_wti import (
     choose_short_titles,
     extract_general_info,
+    instrument_aliases,
     parse_abbreviations,
 )
 
@@ -104,3 +105,33 @@ def test_a_code_of_books_never_wins_even_when_one_book_is_loaded() -> None:
     assert choose_short_titles({"BWBR0005290": ["BW", "BW Boek 7", "BW7"]}) == {
         "BWBR0005290": "BW7"
     }
+
+
+def test_every_book_of_a_code_is_named_by_the_code_and_every_form_of_its_number() -> (
+    None
+):
+    aliases = instrument_aliases(
+        {"BWBR0005289": ["BW", "BW Boek 6", "BW6"], "BWBR0001854": ["Sr", "WvS"]}
+    )
+    assert aliases["BWBR0005289"] == [
+        "BW",
+        "BW Boek 6",
+        "BW6",
+        "Boek 6 BW",
+        "6 BW",
+        "BW 6",
+    ]
+    assert aliases["BWBR0001854"] == ["Sr", "WvS"]
+    # a book without a WTI record still has the forms of its code
+    assert aliases["BWBR0002656"] == [
+        "Boek 1 BW",
+        "1 BW",
+        "BW 1",
+        "BW1",
+        "BW Boek 1",
+        "BW",
+    ]
+
+
+def test_aliases_that_differ_in_case_only_are_one() -> None:
+    assert instrument_aliases({"BWBR0001840": ["GW", "Gw"]})["BWBR0001840"] == ["GW"]

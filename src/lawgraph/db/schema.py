@@ -138,18 +138,40 @@ def _ensure_analyzers(db: StandardDatabase) -> None:
             logger.warning("Failed to create analyzer %s: %s", spec["name"], exc)
 
 
+def _flat_fields(fields: dict[str, Any], prefix: str = "") -> dict[str, frozenset[str]]:
+    """Dotted field path (``breadcrumb.title``) -> analyzers, from nested link fields."""
+    flat: dict[str, frozenset[str]] = {}
+    for name, spec in fields.items():
+        if spec.get("fields"):
+            flat.update(_flat_fields(spec["fields"], f"{prefix}{name}."))
+        else:
+            flat[f"{prefix}{name}"] = frozenset(spec.get("analyzers", ()))
+    return flat
+
+
 def _indexed_fields(links: dict[str, Any]) -> dict[str, dict[str, frozenset[str]]]:
     """collection -> field -> analyzers: the part of a view definition that we specify.
 
     The server returns links with its own defaults added and analyzers in its own order.
     """
     return {
-        collection: {
-            field: frozenset(spec.get("analyzers", ()))
-            for field, spec in link["fields"]["props"]["fields"].items()
-        }
+        collection: _flat_fields(link["fields"]["props"]["fields"])
         for collection, link in links.items()
     }
+
+
+def _nested_fields(fields: dict[str, list[str]]) -> dict[str, Any]:
+    """Link fields from dotted paths: ``breadcrumb.title`` indexes the ``title`` of every
+    element of the ``breadcrumb`` array (list positions are not tracked)."""
+    nested: dict[str, Any] = {}
+    for path, analyzers in fields.items():
+        head, _, rest = path.partition(".")
+        if rest:
+            inner = nested.setdefault(head, {"fields": {}})["fields"]
+            inner.update(_nested_fields({rest: analyzers}))
+        else:
+            nested[head] = {"analyzers": list(analyzers)}
+    return nested
 
 
 # view -> {collection: {field: analyzers}}; each view indexes one collection.
@@ -160,6 +182,13 @@ _VIEW_SPECS: dict[str, dict[str, dict[str, list[str]]]] = {
             "text": [TEXT_ANALYZER],
             "article_number": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
             "bwb_id": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
+            "heading": [
+                TEXT_ANALYZER,
+                "identity",
+                "lawgraph_norm",
+                "lawgraph_ngram_v2",
+            ],
+            "breadcrumb.title": [TEXT_ANALYZER],
         },
     },
     "search_instruments": {
@@ -169,6 +198,7 @@ _VIEW_SPECS: dict[str, dict[str, dict[str, list[str]]]] = {
             "official_title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
             "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
             "short_title": ["identity", "lawgraph_norm"],
+            "aliases": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
             "bwb_id": ["identity", "lawgraph_norm"],
         },
     },
@@ -231,14 +261,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
                 "includeAllFields": False,
                 "storeValues": "id",
                 "analyzers": ["identity"],
-                "fields": {
-                    "props": {
-                        "fields": {
-                            fname: {"analyzers": list(analyzers)}
-                            for fname, analyzers in fields.items()
-                        }
-                    }
-                },
+                "fields": {"props": {"fields": _nested_fields(fields)}},
             }
         properties = {"links": view_links}
         try:

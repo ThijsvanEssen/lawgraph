@@ -178,8 +178,8 @@ renumbering; each version has a `versie-id`.
 
 | Node | Identity | Notes |
 |------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text, per `stam_id` for an article without a number; historical identities per `stam_id` | props: `label` (`Artikel 287`, or the heading of an article without a number: `Algemene bepaling`), `position` (its place in the current toestand: the order of the lists), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
-| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `label`, `position` (in the toestand it was read from); `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
+| Article | one per `(bwb_id, article_number)` for the current text, per `stam_id` for an article without a number; historical identities per `stam_id` | props: `label` (`Artikel 287`, or the heading of an article without a number: `Algemene bepaling`), `heading` (the `<titel>` of its `<kop>`, numbered or not: `Definities`; absent when the BWB prints none, as for every article of the Wetboek van Strafrecht and the Burgerlijk Wetboek), `position` (its place in the current toestand: the order of the lists), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
+| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `label`, `heading`, `position` (in the toestand it was read from); `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
 | InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until`, `current`, `state_url` |
 
 - `ArticleVersion VERSION_OF Article` and `InstrumentVersion VERSION_OF Instrument`. There are
@@ -447,3 +447,11 @@ and the Dutch `text_nl` (`TEXT_ANALYZER`: a word is stemmed, so `uitspraken` fin
 English texts such as ECHR summaries are stemmed as Dutch too). Views fill asynchronously; a
 fresh insert may be missing briefly. `members` and `factions` have no view: they are small
 enough to scan.
+`search_articles` indexes the `display_name`, `heading`, the `title` of every division in the
+`breadcrumb` (`breadcrumb.title`), `text`, `article_number` and `bwb_id` of an article;
+`search_instruments` the titles, `short_title`, `aliases` and `bwb_id` of an instrument.
+
+An instrument's `aliases` are every name it is cited by: the official WTI abbreviations
+(`Sr`, `WvS`, `WvSr`) and, for a book of a code in `CODE_FAMILIES`, `Boek 6 BW`, `6 BW`,
+`BW 6`, `BW6`, `BW Boek 6` and `BW`. Unlike `short_title` an alias may be shared: `BW` is one
+of every book. Written by `normalize bwb`.

@@ -31,16 +31,20 @@ from lawgraph.db.counting import Store
 # ── BWB ──────────────────────────────────────────────────────────────────────
 
 
-def update_short_titles(store: Store, rows: list[dict[str, Any]]) -> int:
-    """Set ``short_title`` on the instruments of *rows* (``{key, short_title}``) whose
-    short title differs; how many changed."""
+def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
+    """Set ``short_title`` and ``aliases`` on the instruments of *rows* (``{key,
+    short_title, aliases}``) where either differs; how many changed. A null or empty
+    value removes the prop."""
     aql = f"""
         FOR row IN @rows
             FOR inst IN {COLLECTION_INSTRUMENTS}
                 FILTER inst._key == row.key
+                LET aliases = LENGTH(row.aliases) > 0 ? row.aliases : null
                 FILTER inst.props.short_title != row.short_title
-                UPDATE inst WITH {{ props: {{ short_title: row.short_title }} }}
-                    IN {COLLECTION_INSTRUMENTS} OPTIONS {{ keepNull: false }}
+                    OR inst.props.aliases != aliases
+                UPDATE inst WITH {{
+                    props: {{ short_title: row.short_title, aliases: aliases }}
+                }} IN {COLLECTION_INSTRUMENTS} OPTIONS {{ keepNull: false }}
                 RETURN 1
         """
     return len(list(store.query(aql, {"rows": rows})))

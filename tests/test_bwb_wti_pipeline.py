@@ -191,11 +191,18 @@ class _WtiStore(_Store):
             changed = []
             for row in bind["rows"]:
                 doc = self.nodes["instruments"].get(row["key"])
-                if doc is None or doc["props"].get("short_title") == row["short_title"]:
+                wanted = {
+                    "short_title": row["short_title"],
+                    "aliases": row["aliases"] or None,
+                }
+                if doc is None or all(
+                    doc["props"].get(k) == v for k, v in wanted.items()
+                ):
                     continue
-                doc["props"].pop("short_title", None)  # keepNull: false
-                if row["short_title"] is not None:
-                    doc["props"]["short_title"] = row["short_title"]
+                for k, v in wanted.items():
+                    doc["props"].pop(k, None)  # keepNull: false
+                    if v is not None:
+                        doc["props"][k] = v
                 changed.append(1)
             return changed
         return super().query(aql, bind_vars, **kw)
@@ -221,6 +228,7 @@ def test_normalize_writes_the_short_title_and_keeps_the_other_props() -> None:
     assert store.nodes["instruments"][key]["props"] == {
         "title": "Wetboek van Strafrecht",
         "short_title": "Sr",
+        "aliases": ["Sr", "WvS", "WvSr"],
     }
     assert result.updated == 1
     assert _normalize(store).updated == 0  # a second run changes nothing
@@ -248,6 +256,20 @@ def test_no_instrument_is_created_and_a_lost_short_title_is_removed() -> None:
 
     assert set(store.nodes["instruments"]) == {make_node_key(BW1)}
     assert store.short_title(BW1) is None
+
+
+def test_every_book_is_named_by_its_code_also_without_a_wti_record() -> None:
+    store = _WtiStore({BW1: BW1_GENERAL}, {BW1: {}, BW5: {}})
+
+    _normalize(store)
+
+    aliases = {
+        b: store.nodes["instruments"][make_node_key(b)]["props"]["aliases"]
+        for b in (BW1, BW5)
+    }
+    assert aliases[BW1] == ["BW", "BW Boek 1", "BW1", "Boek 1 BW", "1 BW", "BW 1"]
+    assert aliases[BW5] == ["Boek 5 BW", "5 BW", "BW 5", "BW5", "BW Boek 5", "BW"]
+    assert store.short_title(BW5) is None  # a short title comes from the WTI only
 
 
 def test_the_toestand_stream_does_not_read_wti_records() -> None:

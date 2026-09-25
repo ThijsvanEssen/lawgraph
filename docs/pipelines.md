@@ -473,7 +473,8 @@ without a WTI location or element gets no WTI record.
 (citeertitel, else intitule), `kind` (`wetgeving@soort`), `date_signed`, `date_published`,
 `date_in_force`, `dossier_numbers` of the originating publication. One Article per
 `(bwb_id, article number)`, or per `stam-id` for an article with a heading and no number (its
-`label` is the heading), at its `position` in the toestand, with the article text (leden as `1. text`, list items on their
+`label` is the heading), with its `heading` (the `<titel>` of its `<kop>`, numbered or not) and
+its `breadcrumb`, at its `position` in the toestand, with the article text (leden as `1. text`, list items on their
 own lines, a paragraph next to the leden is included), the structured `references` with text
 offsets, the `parts` of the article (aanhef, leden, onderdelen as offsets into that text, see
 `docs/data-model.md`), and `stam_id`, `versie_id`, `valid_from`, `source_publication`,
@@ -496,6 +497,12 @@ Rule 2 depends on the other regulations, so every WTI record is read on every ru
 `--since` is, and a short title can change when more regulations are loaded. `BW` itself is
 nobody's short title; the books are `BW1`, `BW2`, ... and a book is only citable once its WTI
 record is loaded.
+
+In the same pass it sets `aliases`, the names the search finds an instrument by
+(`core/bwb_wti.py` `instrument_aliases`): every WTI abbreviation, shared ones included, and
+for each book of a code in `CODE_FAMILIES` the forms `Boek 6 BW`, `6 BW`, `BW 6`, `BW6`,
+`BW Boek 6` and `BW`, also when its WTI record is missing. Instruments that do not exist are
+not created.
 
 **Normalize `bwb-history`.** Reads every stored toestand once and writes:
 

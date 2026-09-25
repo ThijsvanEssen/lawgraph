@@ -16,7 +16,11 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key, annex_props
 from lawgraph.core.batching import chunked
-from lawgraph.core.bwb_wti import choose_short_titles, parse_abbreviations
+from lawgraph.core.bwb_wti import (
+    choose_short_titles,
+    instrument_aliases,
+    parse_abbreviations,
+)
 from lawgraph.core.bwb_xml import (
     article_key,
     article_props,
@@ -153,7 +157,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             article_count,
             len(instruments_by_bwb),
         )
-        self._write_short_titles(result)
+        self._write_abbreviations(result)
         return {
             "instruments_by_bwb": instruments_by_bwb,
             "articles_by_bwb": articles_by_bwb,
@@ -187,8 +191,9 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 )
         writer.flush()
 
-    def _write_short_titles(self, result: PipelineResult) -> None:
-        """Set ``short_title`` on the instruments from the official WTI abbreviations.
+    def _write_abbreviations(self, result: PipelineResult) -> None:
+        """Set ``short_title`` and ``aliases`` on the instruments from the official WTI
+        abbreviations (``aliases`` also for the books of a code, ``instrument_aliases``).
 
         Which abbreviation wins depends on what the other regulations claim
         (``choose_short_titles``), so every stored WTI record is read on every run,
@@ -209,17 +214,22 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             except ET.ParseError as exc:
                 logger.warning("XML parsing failed for BWB WTI %s: %s", bwb_id, exc)
 
+        short_titles = choose_short_titles(abbreviations_by_bwb)
         rows = [
-            {"key": make_node_key(bwb_id), "short_title": short_title}
-            for bwb_id, short_title in choose_short_titles(abbreviations_by_bwb).items()
+            {
+                "key": make_node_key(bwb_id),
+                "short_title": short_titles.get(bwb_id),
+                "aliases": aliases,
+            }
+            for bwb_id, aliases in instrument_aliases(abbreviations_by_bwb).items()
         ]
         changed = 0
         for batch in chunked(rows, SHORT_TITLE_BATCH_SIZE):
-            changed += normalize_queries.update_short_titles(self.store, batch)
+            changed += normalize_queries.update_abbreviations(self.store, batch)
         # The AQL update bypasses the counting store's upsert methods, so add it here.
         result.updated += changed
         logger.info(
-            "BWB short titles: %d regulations with WTI, %d with an abbreviation, "
+            "BWB short titles and aliases: %d regulations, %d with a short title, "
             "%d instruments changed.",
             len(rows),
             sum(1 for row in rows if row["short_title"]),
