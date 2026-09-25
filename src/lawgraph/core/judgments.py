@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -74,7 +75,7 @@ def parse_judgment(payload_text: str | None) -> ET.Element:
     be read must not become a judgment without court, date and text.
     """
     try:
-        return ET.fromstring(payload_text or "")
+        return ET.fromstring((payload_text or "").replace("<?linebreak?>", LINE_BREAK))
     except ET.ParseError as exc:
         raise ValueError(f"not XML: {exc}") from exc
 
@@ -82,7 +83,12 @@ def parse_judgment(payload_text: str | None) -> ET.Element:
 def extract_judgment_text(root: ET.Element) -> tuple[str | None, str | None]:
     """Return ``(summary, full_text)`` of a parsed judgment."""
     summary = text_of(first_named(root, "inhoudsindicatie"), " ") or None
-    parts = [text_of(el, " ") for el in iter_named(root, "uitspraak")]
+    if summary:
+        summary = summary.replace(LINE_BREAK, "\n")
+    parts = [
+        text_of(el, " ").replace(LINE_BREAK, "\n")
+        for el in iter_named(root, "uitspraak")
+    ]
     full_text = "\n\n".join(p for p in parts if p) or None
     return summary, full_text
 
@@ -274,6 +280,11 @@ def read_referral(paragraphs: list[dict[str, Any]]) -> Referral | None:
 # ``<paragroup>`` (a numbered unit, nested as deep as the numbering goes) or in the
 # ``<title>`` of a ``<section>``; many courts put it in front of the text of a ``<para>``
 # instead ("1.    Bij het besluit ..."). Both are read as the printed number of a paragraph.
+#
+# Before the first section heading stands the kop: the court, the case number, the date and
+# the parties. Courts write it in an ``<uitspraak.info>``, in loose paragraphs, in
+# bridgeheads or in sections whose titles are party names; it is read line by line, whatever
+# holds the lines.
 
 KIND_HEADING = "heading"
 KIND_SUBHEADING = "subheading"
@@ -284,6 +295,40 @@ KIND_BODY = "body"
 _LEADING_NUMBER = re.compile(r"^(\d{1,3}(?:\.\d{1,2})+\.?|\d{1,3}\.)\s+(?=\S)")
 _NOT_TEXT = {"title", "footnote", "nr"}
 _BLOCKS = {"para", "parablock", "paragroup", "list", "li", "table", "al"}
+# The elements that print a line of their own: paragraphs, bridgeheads (a bold line), the
+# titles of sections and the rows of a table.
+_LINE_ELEMENTS = {"para", "bridgehead", "title", "row"}
+
+# The line that ends the kop: the heading of the first section, numbered or not ("1 Het
+# verloop van de procedure", "Procesverloop", "Onderzoek van de zaak", "SAMENVATTING").
+_SECTION_HEADING = re.compile(
+    r"^(?:\d{1,2}(?:\.\d{1,2})*\.?\s*|[IVX]{1,4}[.)]?\s+|[A-Z][.)]\s*)?(?:"
+    r"(?:het\s+)?proces-?verloop|procesgang|(?:de\s+)?(?:\w+\s+)?procedure\b|"
+    r"(?:het\s+)?(?:verdere?\s+)?verloop\s+van\s+(?:de|het)\b|(?:de\s+)?loop\s+van\s+het\s+geding|"
+    r"(?:het\s+)?ontstaan\s+en\s+(?:de\s+)?loop\b|"
+    r"(?:het\s+)?onderzoek\s+(?:van\s+de\s+zaak|ter\s+(?:terecht)?zitting|op\s+de\s+)|"
+    r"(?:de\s+)?samenvatting|inleiding|overwegingen|(?:de\s+)?beoordeling|"
+    r"(?:de\s+)?tenlastelegging|(?:het\s+)?geding\s+in\b|(?:het\s+)?hoger\s+beroep$|"
+    r"(?:de\s+)?(?:vaststaande\s+)?feiten\b|(?:het\s+)?geschil\b|"
+    r"waar\s+gaat\s+(?:de(?:ze)?\s+zaak|het)\s+over|(?:de\s+)?zaak\s+in\s+het\s+kort|"
+    r"verzoek\s+en\s+verweer|(?:de\s+)?uitgangspunten|(?:de\s+)?zitting$|"
+    r"(?:het\s+)?vonnis\s+waarvan\s+beroep|(?:de\s+)?beslissing\s+van\s+de\s+kantonrechter|"
+    r"(?:het\s+|de\s+)?(?:bestreden|aangevallen)\s+(?:vonnis|arrest|uitspra(?:ak|ken)|"
+    r"beschikking|besluit)|(?:het\s+)?geding$|inhoudsopgave|"
+    r"(?:de\s+)?inhoud\s+van\s+het\s+(?:verzoek|klaagschrift|beroep)|"
+    r"(?:het\s+|de\s+)?(?:eerdere\s+)?tussen(?:arrest|vonnis|uitspraak|beschikking)$"
+    r")",
+    re.IGNORECASE,
+)
+# The kop names parties, a hundred in a mass claim, but tells no story: text before the
+# first heading with more lines of prose than this is no kop (old judgments put their
+# first heading late, or not at all).
+KOP_MAX_PROSE_LINES = 4
+PROSE_LINE_CHARS = 200
+
+# A <?linebreak?> in the XML: a line break inside a paragraph. ``parse_judgment`` keeps it
+# as this character (whitespace to ``collapse_ws``), which the kop splits its lines at.
+LINE_BREAK = "\u2028"
 
 
 def _slug(number: str) -> str:
@@ -297,12 +342,18 @@ def _flat(element: ET.Element) -> str:
     return collapse_ws(text_of(element, " " if blocks else ""))
 
 
-def _unit_text(element: ET.Element) -> str:
-    """The text of a ``<para>`` or ``<parablock>``: its paragraphs, a blank line between."""
-    paras = [_flat(p) for p in iter_named(element, "para") if not len(p)] or [
-        _flat(element)
-    ]
-    return "\n\n".join(p for p in paras if p)
+def _unit_text(
+    element: ET.Element, skip: set[int] | frozenset[int] = frozenset()
+) -> str:
+    """The text of a ``<para>`` or ``<parablock>``: its paragraphs, a blank line between.
+
+    A ``<para>`` holds no other blocks, only inline markup (emphasis, footnote references,
+    links); the paragraphs in *skip* were read into the kop.
+    """
+    paras = list(iter_named(element, "para", "bridgehead"))
+    if not paras:
+        return _flat(element)
+    return "\n\n".join(t for p in paras if id(p) not in skip and (t := _flat(p)))
 
 
 def _split_number(text: str) -> tuple[str | None, str]:
@@ -313,12 +364,64 @@ def _split_number(text: str) -> tuple[str | None, str]:
     return match[1].rstrip("."), text[match.end() :]
 
 
+def _line_elements(element: ET.Element) -> Iterator[ET.Element]:
+    """The elements of *element* that print a line (``_LINE_ELEMENTS``), in reading order;
+    footnotes left out."""
+    for child in element:
+        name = local_name(child.tag)
+        if name in _LINE_ELEMENTS:
+            yield child
+        elif name != "footnote":
+            yield from _line_elements(child)
+
+
+def _printed_lines(element: ET.Element) -> list[str]:
+    """The lines a line element prints: split at its line breaks; a title or a table row
+    is one line, its parts a space apart."""
+    sep = " " if local_name(element.tag) in ("title", "row") else ""
+    parts = (collapse_ws(part) for part in text_of(element, sep).split(LINE_BREAK))
+    return [part for part in parts if part]
+
+
+def is_section_heading(line: str) -> bool:
+    """Does *line* open the first section of a judgment, and so end its kop?"""
+    return len(line) <= 90 and bool(_SECTION_HEADING.match(line))
+
+
+def _read_kop(uitspraak: ET.Element) -> tuple[list[str], set[int]]:
+    """``(lines, elements)`` of the kop: every line before the first section heading, and
+    the ids of the elements that print them. Nothing when no heading ends it, or only
+    after more than ``KOP_MAX_PROSE_LINES`` lines of prose: a judgment without headings has
+    no kop to tell apart.
+    """
+    lines: list[str] = []
+    elements: set[int] = set()
+    prose = 0
+    for element in _line_elements(uitspraak):
+        printed = _printed_lines(element)
+        if printed and is_section_heading(printed[0]):
+            return lines, elements
+        prose += sum(len(line) > PROSE_LINE_CHARS for line in printed)
+        if prose > KOP_MAX_PROSE_LINES:
+            break
+        lines.extend(printed)
+        elements.add(id(element))
+    return [], set()
+
+
+def kop_lines(root: ET.Element) -> list[str]:
+    """The lines of the kop of the first ``<uitspraak>`` (see ``_read_kop``)."""
+    uitspraak = first_named(root, "uitspraak")
+    return _read_kop(uitspraak)[0] if uitspraak is not None else []
+
+
 class _Sections:
     """The paragraphs of an ``<uitspraak>``, in reading order."""
 
-    def __init__(self) -> None:
+    def __init__(self, kop: set[int]) -> None:
         self.entries: list[dict[str, Any]] = []
         self._seen: dict[str, int] = {}
+        self._kop = kop  # the elements read into the kop
 
     def add(self, kind: str, number: str | None, text: str) -> None:
         if not text and not number:
@@ -343,27 +446,30 @@ class _Sections:
         """Every child of an ``<uitspraak>``, a ``<section>`` or a ``<paragroup>``."""
         for child in container:
             name = local_name(child.tag)
+            if id(child) in self._kop:
+                continue
             if name == "section":
                 self.section(child, depth)
             elif name == "paragroup":
                 self.paragroup(child, depth)
-            elif name == "uitspraak.info":
-                self.add(KIND_SUBHEADING, None, _unit_text(child))
-            elif name == "parablock":  # a run of paragraphs, each one of its own
+            elif name in ("uitspraak.info", "parablock"):
+                # the kop, when a court writes the judgment in it, or a run of paragraphs
                 self.walk(child, depth)
+            elif name == "bridgehead":
+                self.add(
+                    KIND_HEADING if depth == 0 else KIND_SUBHEADING, None, _flat(child)
+                )
             elif name not in _NOT_TEXT:  # para, al and any other body element
-                self.unnumbered(KIND_BODY, _flat(child))
+                self.unnumbered(KIND_BODY, _unit_text(child, self._kop))
 
     def section(self, section: ET.Element, depth: int) -> None:
         title = next((c for c in section if local_name(c.tag) == "title"), None)
-        number, text = None, ""
-        if title is not None:
+        if title is not None and id(title) not in self._kop:
             number = collapse_ws(text_of(first_named(title, "nr"))) or None
             text = collapse_ws(text_of(title, " "))
             if number and text.startswith(number):
                 text = text[len(number) :].strip()
-        kind = KIND_HEADING if depth == 0 else KIND_SUBHEADING
-        self.add(kind, number, text)
+            self.add(KIND_HEADING if depth == 0 else KIND_SUBHEADING, number, text)
         self.walk(section, depth + 1)
 
     def paragroup(self, group: ET.Element, depth: int) -> None:
@@ -379,8 +485,8 @@ class _Sections:
             if name in ("paragroup", "section"):
                 self.flush(number, own)
                 (self.paragroup if name == "paragroup" else self.section)(child, depth)
-            elif name not in _NOT_TEXT and name != "uitspraak.info":
-                own.append(_unit_text(child))
+            elif name not in _NOT_TEXT and id(child) not in self._kop:
+                own.append(_unit_text(child, self._kop))
         self.flush(number, own)
 
     def flush(self, number: str, own: list[str]) -> None:
@@ -393,11 +499,13 @@ class _Sections:
 def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     """The paragraphs of the first ``<uitspraak>``: ``{id, number, kind, text}`` each.
 
-    ``kind`` is ``heading`` (a section), ``subheading`` (a nested section or an
-    ``<uitspraak.info>`` block) or ``body``. A numbered unit (``<paragroup>``) is one
-    ``body`` paragraph however many ``<para>`` it holds, and each nested unit another: the
-    text of "5.3" does not contain "5.3.1". ``number`` is the printed number without its
-    closing dot (``"5.3"``), null when the paragraph has none, and is not part of ``text``.
+    ``kind`` is ``heading`` (a section or a bridgehead), ``subheading`` (a nested one, or
+    the kop) or ``body``. The kop (``_read_kop``), when the judgment has one, is the first
+    paragraph: a ``subheading`` of its lines, a blank line between. A numbered unit
+    (``<paragroup>``) is one ``body`` paragraph however many ``<para>`` it holds, and each
+    nested unit another: the text of "5.3" does not contain "5.3.1". ``number`` is the
+    printed number without its closing dot (``"5.3"``), null when the paragraph has none,
+    and is not part of ``text``.
 
     ``id`` names a paragraph in a deep link and is unique in the judgment: ``rov-5.3`` for
     a numbered ``body`` paragraph, ``kop-5`` for a numbered heading, ``p-<n>`` (its
@@ -406,9 +514,12 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     procedure and their considerations from 1 each).
     """
     uitspraak = first_named(root, "uitspraak")
-    sections = _Sections()
-    if uitspraak is not None:
-        sections.walk(uitspraak)
+    if uitspraak is None:
+        return []
+    lines, kop = _read_kop(uitspraak)
+    sections = _Sections(kop)
+    sections.add(KIND_SUBHEADING, None, "\n\n".join(lines))
+    sections.walk(uitspraak)
     return sections.entries
 
 

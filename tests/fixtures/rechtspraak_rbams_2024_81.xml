@@ -1,0 +1,706 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+  <rdf:RDF>
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:RBAMS:2024:81</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-08-25T10:58:02</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2024-01-10</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Rechtbank_Amsterdam" scheme="overheid.RechterlijkeMacht">Rechtbank Amsterdam</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2024-01-11</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">10071067 CV EXPL 22-11107 en 10071195 CV EXPL 22-11108</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#eersteAanlegEnkelvoudig">Eerste aanleg - enkelvoudig</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:spatial rdfs:label="Zittingsplaats">Amsterdam</dcterms:spatial>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#civielRecht">Civiel recht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+          <rdf:li>AR-Updates.nl 2024-0087</rdf:li>
+          <rdf:li>JAR 2024/39</rdf:li>
+          <rdf:li>PR-Updates.nl PR-2024-0033</rdf:li>
+          <rdf:li>PJ 2024/40</rdf:li>
+          <rdf:li>VAAN-AR-Updates.nl 2024-0087</rdf:li>
+          <rdf:li>PR-Updates.nl 2024-0033</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBAMS:2024:81">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBAMS:2024:81</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2024-01-10T12:52:59</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2024-01-11</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:RBAMS:2024:81 Rechtbank Amsterdam , 11-01-2024 / 10071067 CV EXPL 22-11107 en 10071195 CV EXPL 22-11108</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:RBAMS:2024:81:INH" lang="nl" xml:space="preserve">(ingekort)</inhoudsindicatie>
+  <uitspraak id="ECLI:NL:RBAMS:2024:81:DOC" lang="nl" xml:space="preserve">
+  <uitspraak.info>
+    <para>
+      <?linebreak?>
+      <inlinemediaobject>
+        <imageobject>
+          <imagedata align="center" scale="100" fileref="1ac844a6-3a3b-49d5-9446-9996ad08a867" depth="2" width="13" format="image/png" />
+        </imageobject>
+      </inlinemediaobject>
+      <inlinemediaobject>
+        <imageobject>
+          <imagedata align="center" scale="100" fileref="88bb441e-4c97-4e2b-89bd-3f9130048cc3" depth="2" width="523" format="image/png" />
+        </imageobject>
+      </inlinemediaobject>
+      <emphasis role="bold">Rechtbank AMSTERDAM </emphasis>
+    </para>
+    <para />
+    <bridgehead role="bold">Afdeling privaatrecht </bridgehead>
+    <para>Zaaknummers: 10071067 CV EXPL 22-11107 en 10071195 CV EXPL 22-11108 <?linebreak?>vonnis van: 11 januari 2024 		 <?linebreak?></para>
+    <para />
+    <parablock>
+      <para>i n z a k e  10071067 CV EXPL 22-11107<?linebreak?></para>
+    </parablock>
+    <bridgehead role="bold">
+      [eiser in conventie 1]
+    </bridgehead>
+    <parablock>
+      <para>
+        <emphasis role="bold">
+          [eiser in conventie 2]
+        </emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">
+          [eiser in conventie 3]
+        </emphasis>
+      </para>
+      <para>eisers in conventie/verweerders in voorwaardelijke reconventie<?linebreak?>gezamenlijk nader ook te noemen: [eiser in conventie 1] c.s. </para>
+      <para>gemachtigde: mr. M.A. de Jager en mr. J.H. Even. </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>t e g e n</para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">de naamloze vennootschap Koninklijke Luchtvaart Maatschappij N.V.</bridgehead>
+    <parablock>
+      <para>gevestigd te Amstelveen</para>
+      <para>gedaagde in conventie/eiseres in voorwaardelijke reconventie</para>
+      <para>gemachtigde: mr. J.M. van Slooten en mr. J. Boer</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>e n </para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">de vereniging Vereniging Nederlandse Verkeersvliegers (VNV)</bridgehead>
+    <parablock>
+      <para>gevestigd te Badhoevedorp</para>
+      <para>gedaagde (betreffende een deel van de eisers)</para>
+      <para>gemachtigde: mr. W.P. Wijers, mr. A. Stege en mr. M. Hijnen</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>gezamenlijk ook te noemen: gedaagden, dan wel (afzonderlijk) KLM en VNV </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>e n   i  n  z a k e  10071195 CV EXPL 22-11108</para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">1. [eiser 1]</bridgehead>
+    <bridgehead role="bold">2. [eiser 2]</bridgehead>
+    <bridgehead role="bold">3. [eiser 3]</bridgehead>
+    <bridgehead role="bold">4. [eiser 4]</bridgehead>
+    <bridgehead role="bold">5. [eiser 5] </bridgehead>
+    <bridgehead role="bold">6. [eiser 6]</bridgehead>
+    <bridgehead role="bold">7. [eiser 7]</bridgehead>
+    <bridgehead role="bold">8. [eiser 8]</bridgehead>
+    <bridgehead role="bold">9. [eiser 9] </bridgehead>
+    <bridgehead role="bold">10. [eiser 10]</bridgehead>
+    <bridgehead role="bold">11. [eiser 11]</bridgehead>
+    <bridgehead role="bold">12. [eiser 12]</bridgehead>
+    <bridgehead role="bold">13. [eiser 13]</bridgehead>
+    <bridgehead role="bold">14. [eiser 14]</bridgehead>
+    <bridgehead role="bold">15. [eiser 15] </bridgehead>
+    <bridgehead role="bold">16. [eiser 16]</bridgehead>
+    <bridgehead role="bold">17. [eiser 17]</bridgehead>
+    <bridgehead role="bold">18. [eiser 18]</bridgehead>
+    <bridgehead role="bold">19. [eiser 19]</bridgehead>
+    <bridgehead role="bold">20. [eiser 20]</bridgehead>
+    <bridgehead role="bold">21. [eiser 21]</bridgehead>
+    <bridgehead role="bold">22. [eiser 22]</bridgehead>
+    <bridgehead role="bold">23. [eiser 23]</bridgehead>
+    <bridgehead role="bold">24. [eiser 24]</bridgehead>
+    <bridgehead role="bold">25. [eiser 25]</bridgehead>
+    <bridgehead role="bold">26. [eiser 26]</bridgehead>
+    <bridgehead role="bold">27. [eiser 27]</bridgehead>
+    <bridgehead role="bold">28. [eiser 28]</bridgehead>
+    <bridgehead role="bold">29. [eiser 29]</bridgehead>
+    <bridgehead role="bold">30. [eiser 30]</bridgehead>
+    <bridgehead role="bold">31. [eiser 31]</bridgehead>
+    <bridgehead role="bold">32. [eiser 32]</bridgehead>
+    <bridgehead role="bold">33. [eiser 33]</bridgehead>
+    <bridgehead role="bold">34. [eiser 34]</bridgehead>
+    <bridgehead role="bold">35. [eiser 35]</bridgehead>
+    <bridgehead role="bold">36. [eiser 36]</bridgehead>
+    <bridgehead role="bold">37. [eiser 37]</bridgehead>
+    <bridgehead role="bold">38. [eiser 38]</bridgehead>
+    <bridgehead role="bold">39. [eiser 39]</bridgehead>
+    <bridgehead role="bold">40. [eiser 40]</bridgehead>
+    <bridgehead role="bold">41. [eiser 41]</bridgehead>
+    <bridgehead role="bold">42. [eiser 42]</bridgehead>
+    <bridgehead role="bold">43. [eiser 43]</bridgehead>
+    <bridgehead role="bold">44. [eiser 44]</bridgehead>
+    <bridgehead role="bold">45. [eiser 45]</bridgehead>
+    <bridgehead role="bold">46. [eiser 46]</bridgehead>
+    <bridgehead role="bold">47. [eiser 47]</bridgehead>
+    <bridgehead role="bold">48. [eiser 48]</bridgehead>
+    <bridgehead role="bold">49. [eiser 49]</bridgehead>
+    <bridgehead role="bold">50. [eiser 50]</bridgehead>
+    <bridgehead role="bold">51. [eiser 51]</bridgehead>
+    <bridgehead role="bold">52. [eiser 52]</bridgehead>
+    <bridgehead role="bold">53. [eiser 53]</bridgehead>
+    <bridgehead role="bold">54. [eiser 54]</bridgehead>
+    <bridgehead role="bold">55. [eiser 55]</bridgehead>
+    <bridgehead role="bold">56. [eiser 56]</bridgehead>
+    <bridgehead role="bold">57. [eiser 57]</bridgehead>
+    <bridgehead role="bold">58. [eiser 58]</bridgehead>
+    <bridgehead role="bold">59. [eiser 59]</bridgehead>
+    <bridgehead role="bold">60. [eiser 60]</bridgehead>
+    <bridgehead role="bold">61. [eiser 61]</bridgehead>
+    <bridgehead role="bold">62. [eiser 62]</bridgehead>
+    <bridgehead role="bold">63. [eiser 63]</bridgehead>
+    <bridgehead role="bold">64. [eiser 64]</bridgehead>
+    <bridgehead role="bold">65. [eiser 65]</bridgehead>
+    <bridgehead role="bold">66. [eiser 66]</bridgehead>
+    <bridgehead role="bold">67. [eiser 67]</bridgehead>
+    <bridgehead role="bold">68. [eiser 68]</bridgehead>
+    <bridgehead role="bold">69. [eiser 69]</bridgehead>
+    <bridgehead role="bold">70. [eiser 70]</bridgehead>
+    <bridgehead role="bold">71. [eiser 71]</bridgehead>
+    <bridgehead role="bold">72. [eiser 72]</bridgehead>
+    <bridgehead role="bold">73. [eiser 73]</bridgehead>
+    <bridgehead role="bold">74. [eiser 74]</bridgehead>
+    <bridgehead role="bold">75. [eiser 75]</bridgehead>
+    <bridgehead role="bold">76. [eiser 76]</bridgehead>
+    <bridgehead role="bold">77. [eiser 77]</bridgehead>
+    <bridgehead role="bold">78. [eiser 78]</bridgehead>
+    <bridgehead role="bold">79. [eiser 79]</bridgehead>
+    <bridgehead role="bold">80. [eiser 80]</bridgehead>
+    <bridgehead role="bold">81. [eiser 81]</bridgehead>
+    <bridgehead role="bold">82. [eiser 82]</bridgehead>
+    <bridgehead role="bold">83. [eiser 83]</bridgehead>
+    <bridgehead role="bold">84. [eiser 84]</bridgehead>
+    <bridgehead role="bold">85. [eiser 85]</bridgehead>
+    <bridgehead role="bold">86. [eiser 86]</bridgehead>
+    <bridgehead role="bold">87. [eiser 87]</bridgehead>
+    <bridgehead role="bold">88. [eiser 88]</bridgehead>
+    <bridgehead role="bold">89. [eiser 89]</bridgehead>
+    <bridgehead role="bold">90. [eiser 90]</bridgehead>
+    <bridgehead role="bold">91. [eiser 91]</bridgehead>
+    <bridgehead role="bold">92. [eiser 92]</bridgehead>
+    <bridgehead role="bold">93. [eiser 93]</bridgehead>
+    <bridgehead role="bold">94. [eiser 94]</bridgehead>
+    <bridgehead role="bold">95. [eiser 95]</bridgehead>
+    <bridgehead role="bold">96. [eiser 96]</bridgehead>
+    <bridgehead role="bold">97. [eiser 97]</bridgehead>
+    <bridgehead role="bold">98. [eiser 98]</bridgehead>
+    <bridgehead role="bold">99. [eiser 99]</bridgehead>
+    <parablock>
+      <para>
+        <emphasis role="bold">100. [eiser 100]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">101. [eiser 101]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">102. [eiser 102]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">103. [eiser 103]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">104. [eiser 104]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">105. [eiser 105]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">106. [eiser 106]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">107. [eiser 107]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">108. [eiser 108]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">109. [eiser 109]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">110. [eiser 110]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">111. [eiser 111]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">112. [eiser 112]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">113. [eiser 113] </emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">114. [eiser 114]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">115. [eiser 115]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">116. [eiser 116]</emphasis>
+      </para>
+      <para>eisers<?linebreak?>gezamenlijk nader ook te noemen: Stichting Mac Vliegers, kortweg ‘SMV’. <?linebreak?>gemachtigden: mr. M.A. de Jager en mr. J.H. Even <?linebreak?></para>
+      <para>alsmede</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>de in het geding opgeroepen vrachtvliegers, bestaande uit de volgende groepen: </para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">117 [eiser 117]</bridgehead>
+    <parablock>
+      <para>
+        <emphasis role="bold">118. [eiser 118]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">119. [eiser 119]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">120. [eiser 120]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">121. [eiser 121]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">122. [eiser 122]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">123. [eiser 123]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">124. [eiser 124]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">125. [eiser 125]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">126. [eiser 126]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">127. [eiser 127]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">128. [eiser 128] </emphasis>(zonder bekende woon- of verblijfplaats)</para>
+      <para>
+        <emphasis role="bold">129. [eiser 129] </emphasis>(zonder bekende woon- of verblijfplaats)</para>
+      <para>
+        <emphasis role="bold">130. [eiser 130]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">131. [eiser 131]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">132. [eiser 132]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">133. [eiser 133]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">134. [eiser 134]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">135. [eiser 135]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">136. [eiser 136]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">137. [eiser 137]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">138. [eiser 138]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">139. [eiser 139]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">140. [eiser 140]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">141. [eiser 141]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">142. [eiser 142]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">143. [eiser 143]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">144. [eiser 144]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">145. [eiser 145]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">146. [eiser 146]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">147. [eiser 147]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">148. [eiser 148]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">149. [eiser 149]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">150. [eiser 150]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">151. [eiser 151]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">152. [eiser 152]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">153. [eiser 153]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">154. [eiser 154]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">155. [eiser 155]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">156. [eiser 156]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">157. [eiser 157]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">158. [eiser 158]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">159. [eiser 159]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">160. [eiser 160]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">161. [eiser 161]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">162. [eiser 162]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">163. [eiser 163]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">164. [eiser 164]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">165. [eiser 165]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">166. [eiser 166]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">167. [eiser 167]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">168. [eiser 168]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">169. [eiser 169]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">170. [eiser 170]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">171. [eiser 171]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">172. J [eiser 172]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">173. [eiser 173]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">174. [eiser 174]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">175. [eiser 175]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">176. [eiser 176]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">177. [eiser 177]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">178. [eiser 178]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">179. [eiser 179]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">180. [eiser 180]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">181. [eiser 181]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">182. [eiser 182]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">183. [eiser 183]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">184. [eiser 184]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">185. [eiser 185]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">186. [eiser 186]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">187. [eiser 187]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">188. [eiser 188]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">189. [eiser 189]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">190. [eiser 190]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">191. [eiser 191]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">192. [eiser 192]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">193. [eiser 193]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">194. [eiser 194]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">195. [eiser 195]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">196. [eiser 196]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">197. [eiser 197]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">198. [eiser 198]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">199. [eiser 199]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">200. [eiser 200]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">201. [eiser 201]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">202. [eiser 202]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">203. [eiser 203]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">204. [eiser 204]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">205. [eiser 205]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">206. [eiser 206]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">207. [eiser 207]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">208. [eiser 208]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">209. [eiser 209]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">210. [eiser 210]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">212. [eiser 212]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">215. [eiser 215] </emphasis>
+        <?linebreak?>
+        <emphasis role="bold">217. [eiser 217] </emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">219. [eiser 219] </emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">221. [eiser 221] </emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">223. [eiser 223]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">224. [eiser 224]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">225. [eiser 225]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">226. [eiser 226]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">227. [eiser 227]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">228. [eiser 228]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">229. [eiser 229]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">235. [eiser 235]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">237. [eiser 237]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">241. [eiser 241]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">247. [eiser 247]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">248. [eiser 248]</emphasis>
+      </para>
+      <para>gezamenlijk nader te noemen: de MacUnited vliegers </para>
+      <para>gemachtigden: mr. S.J. Sterk, mr. M.L. Top en mr. E.C.A. Pronk</para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">211 [eiser 211]</bridgehead>
+    <para>
+      <emphasis role="bold">242. [eiser 242]</emphasis>
+      <?linebreak?>gemachtigden: mr. M.A. de Jager en mr. J.H. Even</para>
+    <para />
+    <bridgehead role="bold">213 [eiser 213]</bridgehead>
+    <para>nader te noemen: [eiser 213] <?linebreak?>gemachtigde: mr. drs. A.M. Feringa</para>
+    <para />
+    <bridgehead role="bold">238 [eiser 238]</bridgehead>
+    <parablock>
+      <para>
+        <emphasis role="bold">239. [eiser 239]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">246. [eiser 246]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">249. [eiser 249]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">250. [eiser 250]</emphasis> – ingetrokken <?linebreak?>gemachtigde: mr. P. de Ruiter </para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">230 [eiser 230]</bridgehead>
+    <parablock>
+      <para>
+        <emphasis role="bold">233. [eiser 233]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">234. [eiser 234]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">236. [eiser 236]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">
+          [eiser 240] . [eiser 240]</emphasis>
+      </para>
+      <para>in persoon verschenen </para>
+    </parablock>
+    <para />
+    <para />
+    <bridgehead role="bold">216 [eiser 216]</bridgehead>
+    <parablock>
+      <para>
+        <emphasis role="bold">218. [eiser 218]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">222. [eiser 222]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">244. [eiser 244]</emphasis>
+      </para>
+      <para>
+        <emphasis role="bold">245. [eiser 245]</emphasis>
+      </para>
+      <para>niet verschenen <?linebreak?></para>
+      <para>e n </para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">
+      [erven 1] <?linebreak?>[erven 2]<?linebreak?>[erven 3] <?linebreak?>hierna gezamenlijk te noemen: “ [erven naam 1] ”<?linebreak?></bridgehead>
+    <bridgehead role="bold">
+      [naam erven 1] [naam erven 3] [naam erven 4] [naam erven 5] hierna gezamenlijk te noemen “erven [erven naam 2] ” gemachtigde: mr. S.J. Sterk, mr. E.C.A. Pronk en mr. M.L. Top </bridgehead>
+    <para />
+    <parablock>
+      <para>t e g e n</para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">de naamloze vennootschap Koninklijke Luchtvaart Maatschappij N.V.</bridgehead>
+    <parablock>
+      <para>gevestigd te Amstelveen</para>
+      <para>gemachtigde: mr. J.M. van Slooten en mr. J. Boer<?linebreak?></para>
+      <para>e n</para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">de vereniging Vereniging Nederlandse Verkeersvliegers (VNV)</bridgehead>
+    <parablock>
+      <para>gevestigd te Badhoevedorp</para>
+      <para>gemachtigde: mr. W.P. [naam 4] , mr. A. Stege en mr. M. Hijnen </para>
+      <para>gezamenlijk ook te noemen: gedaagden, dan wel (afzonderlijk) KLM en VNV. </para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">De zaak in het kort</bridgehead>
+    <para>
+      <?linebreak?>Het geschil in deze zaak gaat tussen circa 250 vrachtvliegers (hierna ook: de vrachtvliegers) en KLM en VNV. De vrachtvliegers stellen dat op hen de KLM cao en pensioenregeling van toepassing zijn, zodat zij onder meer recht hebben op beloning conform deze cao. Daarnaast stellen de vrachtvliegers kort gezegd dat zij wat betreft senioriteit/anciënniteit hetzelfde behandeld moeten worden als KLM vliegers. VNV heeft volgens de vrachtvliegers onrechtmatig jegens hen gehandeld door hen onvoldoende en onjuist te informeren over hun rechten en plichten, wat VNV schadeplichtig maakt jegens hen. De beoordeling van de vorderingen begint op pagina 43 van dit vonnis.</para>
+    <bridgehead role="bold">VERDER VERLOOP VAN DE PROCEDURE</bridgehead>
+    <para />
+    <para>- Op 6 juli 2023 is een tussenvonnis gewezen, waarvan de inhoud geldt als hier herhaald en ingelast. </para>
+    <para />
+    <para>- Op de rolzitting van 20 juli 2023 heeft [eiser 242] (242) een conclusie van eis na tussenkomst genomen, gericht tegen KLM en VNV. De vorderingen van [eiser 242] komen overeen met die van [eiser in conventie 1] c.s. Bepaald is dat de conclusie van antwoord van VNV van 25 mei 2023 ook in de procedure tegen [eiser 242] heeft te gelden. KLM is (op haar verzoek) in de gelegenheid gesteld om op uiterlijk 17 augustus 2023 te antwoorden op de eis van [eiser 242] . </para>
+    <para />
+    <para>- Ter uitvoering van het tussenvonnis van 6 juli 2023 heeft KLM op 3 augustus 2023 een conclusie van antwoord, tevens houdende een voorwaardelijke eis in reconventie, met producties genomen tegen de MacUnited vliegers. </para>
+    <para />
+    <para>- Op 10 augustus 2023 is een vonnis in incident gewezen waarbij de [erven naam 1] en [erven naam 2] is toegestaan om in de procedure tussen te komen. Bepaald is dat de stukken die zijn gewisseld in het geding tussen KLM en de in het geding opgeroepen derden vertegenwoordigd door mr. Sterk, ook hebben te gelden tussen KLM en de [erven naam 1] en [erven naam 2] . </para>
+    <para />
+    </uitspraak.info>
+  </uitspraak>
+</open-rechtspraak>

@@ -174,6 +174,24 @@ class JudgmentParagraphProps(_StrictBase):
     text: str
 
 
+class JudgmentRepresentativeProps(_StrictBase):
+    """Who acts for a party of a judgment, as its kop names them."""
+
+    name: str  # "mr. H.J.W. Alt"
+    role: Literal["advocaat", "gemachtigde"]
+
+
+class JudgmentPartyProps(_StrictBase):
+    """One party of a judgment (``core.judgment_parties.read_parties``)."""
+
+    name: str  # as the judgment writes it, anonymised where the source is: "[eiser]"
+    role: str  # "Eiser", "Verdachte", ...; "Partij" when none applies
+    role_stated: bool  # the judgment names the role; false when derived
+    side: Literal["first", "second", "other"]
+    alias: str | None = None  # what the judgment calls it: "EBN"
+    representatives: list[JudgmentRepresentativeProps] = []
+
+
 class JudgmentProps(_CommonProps):
     ecli: str | None = None
     source_kind: str | None = None
@@ -183,6 +201,8 @@ class JudgmentProps(_CommonProps):
     judgment_metadata: dict[str, Any] | None = None
     subjects: list[str] | None = None
     paragraphs: list[JudgmentParagraphProps] | None = None
+    # read from the kop; [] when it names none, absent when not read yet
+    parties: list[JudgmentPartyProps] | None = None
     court: str | None = None
     case_number: str | None = None
     # ``case_number`` split and written as compared (``core.judgments.case_number_keys``)

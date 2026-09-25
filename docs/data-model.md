@@ -219,14 +219,20 @@ A Rechtspraak judgment carries its header (`court`, `date`, `case_number`, `judg
 with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `related_eclis`
 (earlier instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion),
 `subjects`; `court_code`, `tier`, `date_eff` and `case_number_keys`, the case numbers as compared,
-derived), `summary`, `text` and `paragraphs`.
+derived), `summary`, `text`, `paragraphs` and `parties`.
 
 The judgments of one case are tied by `APPEAL_OF` (an appeal to the judgment it appeals),
 `ADVISES_ON` (a conclusion to its judgment) and `ANSWERS` (a preliminary ruling to the decision
 that asked its questions); `docs/pipelines.md`, Rechtspraak, says how each is found.
 
 `paragraphs` is the `<uitspraak>` in reading order, a list of `{id, number, kind, text}`. `kind` is
-`heading` (a section), `subheading` (a nested section, or an `<uitspraak.info>` block) or `body`.
+`heading` (a section or a bridgehead), `subheading` (a nested section, or the kop) or `body`.
+The kop is every line before the first section heading (`Procesverloop`, `De procedure`,
+`Onderzoek van de zaak`, `1 Het verloop van het geding`, ...): court, case number, date and
+parties, whether the court writes them in an `<uitspraak.info>`, in bridgeheads, in loose
+paragraphs or in sections titled with a party name. It is the first paragraph, a `subheading` of
+its lines with a blank line between (a `<?linebreak?>` starts a line too); a judgment without a
+heading, or with more than four lines of prose before it, has none.
 A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
 its own text: the text of `5.3` does not hold `5.3.1`. Where the XML has no such structure a
 `<para>` is a paragraph, and a number that its text opens with (`1.    Bij het besluit`) is its
@@ -235,6 +241,19 @@ none, and is not part of `text`. `id` names the paragraph in deep links and ment
 unique in the judgment: `rov-5.3` for a numbered `body` paragraph (a consideration, cited as
 "rov. 5.3"), `kop-5` for a numbered heading, `p-<n>` (its position) for a paragraph without a
 number; a number that repeats one before it gets `_<n>`, its occurrence (`rov-1_2`).
+
+`parties` is what the kop names, in its order (`core/judgment_parties.py`), a list of `{name,
+role, role_stated, side, alias, representatives}`; empty when the kop names none, absent on a
+judgment normalized before parties were read:
+
+| Field | Meaning |
+|-------|---------|
+| `name` | as the judgment writes it, anonymised where the source is (`[eiser]`, `MAATSCHAP GRONINGEN`), without its legal form ("de stichting"), place or role |
+| `role` | `Verdachte`, `Betrokkene`, `Klager`, `Veroordeelde` (also a terbeschikkinggestelde), `Eiser`, `Gedaagde`, `Verzoeker`, `Verweerder`, `Appellant`, `Geïntimeerde`, `Belanghebbende`, `Opposant`, `Wederpartij`; `Partij` when none applies |
+| `role_stated` | the judgment names the role: a role line ("EISERS in eerste aanleg,", which holds for every party above it since the one before), a role behind the name (", eiser", "(appellante)", "hierna: de verdachte"), the opener ("Uitspraak op het hoger beroep van:"), a list of designations ("verzoekster 1 als: [X]") or an anonymised name that is a role (`[verdachte]`, `[klager 1]`). Otherwise the role is derived from the area of law (the first `subjects`) and the side: Strafrecht `Verdachte`; Civiel recht `Eiser` (`Verzoeker` in a beschikking) against `Verweerder` (`Geïntimeerde` against a stated `Appellant`); Bestuursrecht `Appellant` against `Verweerder`; `Belanghebbende` on no side |
+| `side` | `first` before "tegen" or "en", `second` after it (the verdachte of "in de strafzaak tegen" too), `other` for a belanghebbende that is not the first party. A party of the case an appeal was against ("tegen de uitspraak ... in het geding tussen:") that is not an appellant is on the `second` side; one named again, there or in a joined case, is one party |
+| `alias` | what the judgment calls it: `EBN` for "hierna: EBN", distributed over "hierna respectievelijk: de Maatschap en NAM", or a short name in parentheses whose letters are in the name (`(Uwv)`) |
+| `representatives` | `{name, role}`, `role` `advocaat` or `gemachtigde`: "advocaat: mr. X", "(gemachtigde: mr. Y)", for the parties named since the last one |
 
 A `REFERS_TO` edge from a judgment to an article (`semantic rechtspraak`) is one per judgment and
 article. Its `confidence` is that of the strongest mention, `meta.mention_count` the number of
