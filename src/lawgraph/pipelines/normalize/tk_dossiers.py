@@ -391,6 +391,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             case_kinds,
             title=node.props.get("title"),
             document_kinds=[doc.get("kind") or "" for doc in docs],
+            number=node.props.get("number"),
         )
         stages = dossier_stages(
             track_kind,

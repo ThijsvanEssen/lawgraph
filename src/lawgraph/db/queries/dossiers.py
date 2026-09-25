@@ -261,6 +261,7 @@ def _enrich_dossiers(
             case_kinds,
             title=title or props.get("title"),
             document_kinds=[doc.get("kind") or "" for doc in docs],
+            number=props.get("number"),
         )
         stages = dossier_stages(
             track_kind,
@@ -907,7 +908,7 @@ def _relation_order(row: dict[str, Any]) -> tuple[Any, ...]:
 _DOSSIER_FACETS = {
     "status": 'dossier.props.closed == true ? "closed" : "open"',
     "outcome": "dossier.props.outcome",
-    "track": 'dossier.props.track_kind OR "overig"',
+    "track": 'dossier.props.track_kind OR "beleid"',
     "stage": "dossier.props.current_stage",
     "ministry": "dossier.props.ministry",
 }
