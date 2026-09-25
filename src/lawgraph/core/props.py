@@ -423,20 +423,49 @@ class CommitteeProps(_CommonProps):
 # ---------------------------------------------------------------------------
 
 
-class GovernmentFunctionProps(_StrictBase):
-    """A post held in a cabinet (``normalize wikidata``)."""
+class SourceRefProps(_StrictBase):
+    """Where a cabinet or a post was read: ``rijksoverheid`` (with the page and the day)
+    or ``wikidata``."""
 
-    function: str | None = (
-        None  # "Minister voor Klimaat en Energie", as Wikidata names it
-    )
-    cabinet: str | None = None  # "kabinet-Rutte IV"
-    from_date: str | None = None
-    to_date: str | None = None  # null while held
-    position_id: str | None = None  # the Wikidata item of the post and of the cabinet
-    cabinet_id: str | None = None
+    name: str | None = None
+    url: str | None = None
+    read_on: str | None = None
+
+
+class PartyRefProps(_StrictBase):
+    """A party as the source writes it (``VVD``, ``partijloos``), and its faction key."""
+
+    short: str | None = None
+    faction: str | None = None
+
+
+class GovernmentFunctionProps(_StrictBase):
+    """A post held in a cabinet (``normalize rijksoverheid``, ``core.cabinet_posts``)."""
+
     cabinet_key: str | None = None  # the cabinet node
+    cabinet: str | None = None  # "kabinet-Rutte IV"
+    function: str | None = (
+        None  # "Minister van Infrastructuur en Waterstaat", as the source
+    )
+    also_named: list[str] | None = None  # the same post under another name
     post: str | None = None  # core.ministries.POSTS
     ministry: str | None = None  # a key of core.ministries.MINISTRIES
+    seat: str | None = None  # "ienw/minister"
+    portfolio: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None  # null while held
+    from_date_source: str | None = None  # the day the source gives, null when none
+    to_date_source: str | None = None
+    corrected: list[str] | None = None  # which dates the rules of a seat set
+    acting: bool | None = None  # a stand-in (ad interim)
+    acting_basis: str | None = None
+    party: PartyRefProps | None = None
+    overlaps_with: list[str] | None = (
+        None  # member keys holding the seat at the same time
+    )
+    absent: list[str] | None = None  # (from, to) of a "tijdelijk afwezig"
+    name: str | None = None  # the holder as the source writes them
+    source: SourceRefProps | None = None
 
 
 class MemberProps(_CommonProps):
@@ -446,8 +475,7 @@ class MemberProps(_CommonProps):
     faction_memberships: list | None = None
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
     birth_date: str | None = None
-    wikidata_id: str | None = None
-    wikidata_name: str | None = None  # the name of the Wikidata person
+    government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
     government_functions: list[GovernmentFunctionProps] | None = None
 
 
@@ -456,18 +484,19 @@ class MemberProps(_CommonProps):
 # ---------------------------------------------------------------------------
 
 
-class CabinetPartyProps(_StrictBase):
-    """A party a member of the cabinet belonged to during their post."""
+class CabinetPhaseProps(_StrictBase):
+    """A phase of a cabinet (``core.cabinet_phases``)."""
 
-    name: str | None = None
-    short: str | None = None
-    wikidata_id: str | None = None
-    faction: str | None = None  # the faction key, when a faction has its name
+    kind: str | None = None  # formatie, in_functie, demissionair, ... ; null: unknown
+    from_date: str | None = None
+    to_date: str | None = None
+    label: str | None = None  # the source's own words
+    source: SourceRefProps | None = None
 
 
 class CabinetProps(_CommonProps):
     name: str | None = None  # "kabinet-Rutte IV"
-    wikidata_id: str | None = None
+    wikidata_id: str | None = None  # a cabinet from before 1945
     from_date: str | None = None
     to_date: str | None = None  # null while in office
     # how precisely the dates are known: day, month or year (the old cabinets)
@@ -475,8 +504,11 @@ class CabinetProps(_CommonProps):
     to_date_precision: str | None = None
     prime_minister: str | None = None  # member key
     previous: str | None = None  # the cabinet key before it
-    parties: list[CabinetPartyProps] | None = None
+    parties: list[PartyRefProps] | None = None
     factions: list[str] | None = None  # the faction keys of its parties
+    phases: list[CabinetPhaseProps] | None = None
+    demissionary_from: str | None = None
+    origin: SourceRefProps | None = None  # the page or the record it was read from
 
 
 # ---------------------------------------------------------------------------

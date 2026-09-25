@@ -176,14 +176,26 @@ class FactionMembershipDTO(BaseModel):
     role: str | None = None
 
 
+class PartyRefDTO(BaseModel):
+    """A party as the source writes it (``VVD``, ``partijloos``), and its faction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    short: str | None = None
+    faction: str | None = Field(
+        None,
+        description="The faction key; null for a party the TK data has no faction of.",
+    )
+
+
 class GovernmentFunctionDTO(BaseModel):
-    """A post held in a cabinet: as Wikidata names it, and normalised."""
+    """A post held in a cabinet, as Rijksoverheid names it, and normalised."""
 
     model_config = ConfigDict(extra="forbid")
 
     function: str | None = Field(
         None,
-        description="The post as Wikidata names it: Minister voor Klimaat en Energie.",
+        description="The post as Rijksoverheid names it: Minister voor Klimaat en Energie.",
     )
     cabinet: str | None = Field(None, description="The cabinet: kabinet-Rutte IV.")
     cabinet_key: str | None = Field(
@@ -195,6 +207,14 @@ class GovernmentFunctionDTO(BaseModel):
         description="The ministry the post falls under (``GET /api/ministries``); a "
         "minister without portfolio under the ministry the post is placed under.",
     )
+    seat: str | None = Field(
+        None,
+        description="The seat the post is held in: ministry, post and the portfolio the "
+        "source names (``ienw/minister``, ``jenv/staatssecretaris/rechtsbescherming``); "
+        "``#2`` for a second seat the source does not name.",
+    )
+    acting: bool = Field(False, description="A stand-in (ad interim).")
+    party: PartyRefDTO | None = Field(None, description="The party during this post.")
     from_date: str | None = None
     to_date: str | None = Field(None, description="Null while the post is held.")
 
@@ -207,6 +227,9 @@ def government_functions_of(props: dict[str, Any]) -> list[GovernmentFunctionDTO
             cabinet_key=f.get("cabinet_key"),
             post=f.get("post"),
             ministry=f.get("ministry"),
+            seat=f.get("seat"),
+            acting=bool(f.get("acting")),
+            party=f.get("party"),
             from_date=f.get("from_date"),
             to_date=f.get("to_date"),
         )
@@ -234,7 +257,7 @@ class MemberDTO(BaseModel):
     faction_memberships: list[FactionMembershipDTO] = []
     government_functions: list[GovernmentFunctionDTO] = Field(
         default_factory=list,
-        description="The posts held in a cabinet (from Wikidata), oldest first.",
+        description="The posts held in a cabinet (from Rijksoverheid), oldest first.",
     )
     from_date: str | None = None
     to_date: str | None = None
@@ -261,7 +284,7 @@ class MemberDTO(BaseModel):
             id=doc["_id"],
             key=doc["_key"],
             # a minister who never sat in parliament has a TK person without a name
-            name=props.get("name") or props.get("wikidata_name"),
+            name=props.get("name") or props.get("government_name"),
             party=party or props.get("party"),
             active=bool(open_memberships),
             faction_memberships=memberships,
@@ -274,15 +297,17 @@ class MemberDTO(BaseModel):
 class MemberDetailDTO(MemberDTO):
     """A member with the posts they held in government.
 
-    ``government_functions`` come from Wikidata (every post in a Dutch cabinet, complete
-    from the 1970s), oldest first; empty for a member Wikidata has no person for.
-    ``wikidata_id`` names that person: a member of parliament by date of birth and surname,
-    a minister who never sat in parliament by the papers they signed. A cabinet member the
-    Tweede Kamer has no person for is a member of their own (key ``wikidata_q<number>``).
+    ``government_functions`` come from Rijksoverheid (every post in a cabinet since 1945),
+    oldest first; empty for a member who held none. A bewindspersoon is matched to a member
+    of parliament by surname, initials and age, a minister who never sat in parliament by
+    the papers they signed; one the Tweede Kamer has no person for is a member of their own
+    (key ``rijksoverheid_<initials>_<surname>``).
     """
 
     birth_date: str | None = None
-    wikidata_id: str | None = None
+    government_name: str | None = Field(
+        None, description="The name as Rijksoverheid writes it: S.Th.M. Hermans."
+    )
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> MemberDetailDTO:
@@ -290,7 +315,7 @@ class MemberDetailDTO(MemberDTO):
         return cls(
             **MemberDTO.from_document(doc).model_dump(),
             birth_date=props.get("birth_date"),
-            wikidata_id=props.get("wikidata_id"),
+            government_name=props.get("government_name"),
         )
 
 

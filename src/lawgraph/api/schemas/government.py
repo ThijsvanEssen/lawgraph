@@ -7,12 +7,17 @@ from typing import Any, Literal, get_args
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
+from lawgraph.api.schemas.committees import PartyRefDTO
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
 # The statuses of ``core.tk_records.COMMITMENT_STATUS``.
 DatePrecision = Literal["day", "month", "year"]
 CommitmentStatus = Literal["open", "done", "partly_done", "unfulfilled", "lapsed"]
+# The kinds of ``core.cabinet_phases.PHASE_KINDS``.
+PhaseKind = Literal[
+    "formatie", "in_functie", "demissionair", "dubbel_demissionair", "missionair"
+]
 
 
 class MinistryDTO(BaseModel):
@@ -36,16 +41,31 @@ class PersonRefDTO(BaseModel):
     name: str | None = None
 
 
-class CabinetPartyDTO(BaseModel):
-    """A party at least two members of the cabinet belonged to when their post began."""
+class SourceRefDTO(BaseModel):
+    """Where it was read: ``rijksoverheid`` with the page and the day, or ``wikidata``."""
 
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
-    short: str | None = None
-    faction: str | None = Field(
-        None, description="The faction key; null for a party from before the TK data."
+    url: str | None = None
+    read_on: str | None = None
+
+
+class CabinetPhaseDTO(BaseModel):
+    """A phase of a cabinet; it ends where the next begins, the last with the cabinet
+    (null while it is in office)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: PhaseKind | None = Field(
+        None,
+        description="Null for the stretch after elections held while the cabinet was in "
+        "office, when the source gives no day of its resignation.",
     )
+    from_date: str | None = None
+    to_date: str | None = None
+    label: str | None = Field(None, description="The source's own words.")
+    source: SourceRefDTO | None = None
 
 
 class CabinetSummaryDTO(BaseModel):
@@ -55,7 +75,7 @@ class CabinetSummaryDTO(BaseModel):
 
     key: str = Field(..., description="``rutte_iv``, ``den_uyl``.")
     name: str = Field(..., description="``kabinet-Rutte IV``.")
-    from_date: str | None = None
+    from_date: str | None = Field(None, description="The day of its beëdiging.")
     to_date: str | None = Field(None, description="Null while in office.")
     from_date_precision: DatePrecision | None = Field(
         None,
@@ -65,11 +85,26 @@ class CabinetSummaryDTO(BaseModel):
     to_date_precision: DatePrecision | None = None
     previous: str | None = Field(None, description="The key of the cabinet before it.")
     prime_minister: PersonRefDTO | None = None
-    parties: list[CabinetPartyDTO] = Field(default_factory=list)
+    parties: list[PartyRefDTO] = Field(
+        default_factory=list,
+        description="The parties of the bewindspersonen sworn in on its first day, the "
+        "party with the most first; empty before 1945.",
+    )
     factions: list[str] = Field(
         default_factory=list, description="The faction keys of its parties."
     )
-    wikidata_id: str | None = None
+    demissionary_from: str | None = Field(
+        None, description="The start of its first ``demissionair`` phase."
+    )
+    phases: list[CabinetPhaseDTO] = Field(
+        default_factory=list,
+        description="Formatie, in functie, demissionair, dubbel demissionair, missionair, "
+        "in order; empty before 1945 (no official source gives them).",
+    )
+    source: SourceRefDTO | None = Field(
+        None, description="Rijksoverheid since 1945; Wikidata before (name and period)."
+    )
+    wikidata_id: str | None = Field(None, description="For a cabinet from Wikidata.")
     members: int = Field(0, description="The people who held a post in it.")
     bills: int = Field(
         0,
@@ -91,13 +126,11 @@ class CabinetSummaryDTO(BaseModel):
             to_date_precision=props.get("to_date_precision"),
             previous=props.get("previous"),
             prime_minister=row.get("prime_minister"),
-            parties=[
-                CabinetPartyDTO(
-                    name=p.get("name"), short=p.get("short"), faction=p.get("faction")
-                )
-                for p in props.get("parties") or []
-            ],
+            parties=[PartyRefDTO(**p) for p in props.get("parties") or []],
             factions=props.get("factions") or [],
+            demissionary_from=props.get("demissionary_from"),
+            phases=[CabinetPhaseDTO(**p) for p in props.get("phases") or []],
+            source=props.get("origin"),
             wikidata_id=props.get("wikidata_id"),
             members=int(row.get("members") or 0),
             bills=int(row.get("bills") or 0),
@@ -112,9 +145,44 @@ class CabinetPostDTO(BaseModel):
 
     member: PersonRefDTO
     post: Post | None = None
-    function: str | None = Field(None, description="As Wikidata names the post.")
+    function: str | None = Field(None, description="As Rijksoverheid names the post.")
+    also_named: list[str] = Field(
+        default_factory=list,
+        description="The same post under another name (``minister van Algemene Zaken`` "
+        "beside ``Minister-president``).",
+    )
+    seat: str | None = None
+    portfolio: str | None = None
     from_date: str | None = None
     to_date: str | None = None
+    from_date_source: str | None = Field(
+        None, description="The start the source gives; null when it gives none."
+    )
+    to_date_source: str | None = Field(
+        None,
+        description="The end the source gives; null when it gives none (the post then "
+        "ends with the cabinet, or where the next holder of the seat begins).",
+    )
+    corrected: list[str] = Field(
+        default_factory=list,
+        description="Which dates the rules of a seat set, and why.",
+    )
+    acting: bool = Field(False, description="A stand-in (ad interim).")
+    acting_basis: str | None = Field(
+        None,
+        description="Why: ``rijksoverheid: a.i.``, a temporary arrangement, or the rule "
+        "(held another seat throughout and ended where the next holder began).",
+    )
+    party: PartyRefDTO | None = None
+    overlaps_with: list[str] = Field(
+        default_factory=list,
+        description="The members who held the same seat at the same time, after the "
+        "rules: a conflict in the source, not hidden.",
+    )
+    absent: list[str] | None = Field(
+        None, description="``[from, to]`` of a ``tijdelijk afwezig`` in the post."
+    )
+    source: SourceRefDTO | None = None
     dossiers: int = Field(
         0,
         description="Dossiers with a paper the person signed as bewindspersoon within the "
@@ -126,22 +194,89 @@ class CabinetPostDTO(BaseModel):
     )
 
 
+class CabinetSeatDTO(BaseModel):
+    """One seat and its holders in order of start: a successor is the next post, a
+    stand-in a post with ``acting``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    seat: str = Field(..., description="``ienw/minister``, ``viceminister-president``.")
+    post: Post | None = None
+    portfolio: str | None = None
+    function: str | None = Field(None, description="The name of its first post.")
+    posts: list[CabinetPostDTO]
+
+
 class CabinetMinistryDTO(BaseModel):
-    """The posts under one ministry; ``ministry`` null for a post that names none (the
+    """The seats under one ministry; ``ministry`` null for a seat that names none (the
     viceminister-president, a minister without a named portfolio)."""
 
     model_config = ConfigDict(extra="forbid")
 
     ministry: MinistryKey | None = None
     name: str | None = None
-    posts: list[CabinetPostDTO]
+    seats: list[CabinetSeatDTO]
+
+
+def _post_dto(item: dict[str, Any], post: dict[str, Any]) -> CabinetPostDTO:
+    return CabinetPostDTO(
+        member=item["member"],
+        post=post.get("post"),
+        function=post.get("function"),
+        also_named=post.get("also_named") or [],
+        seat=post.get("seat"),
+        portfolio=post.get("portfolio"),
+        from_date=post.get("from_date"),
+        to_date=post.get("to_date"),
+        from_date_source=post.get("from_date_source"),
+        to_date_source=post.get("to_date_source"),
+        corrected=post.get("corrected") or [],
+        acting=bool(post.get("acting")),
+        acting_basis=post.get("acting_basis"),
+        party=post.get("party"),
+        overlaps_with=post.get("overlaps_with") or [],
+        absent=post.get("absent"),
+        source=post.get("source"),
+        dossiers=int(item.get("dossiers") or 0),
+        bills=int(item.get("bills") or 0),
+        open_commitments=int(item.get("open_commitments") or 0),
+    )
+
+
+def _seats(posts: list[CabinetPostDTO]) -> list[CabinetSeatDTO]:
+    """The posts grouped by seat: the seats in protocol order (minister-president,
+    viceminister-president, minister, minister without portfolio, staatssecretaris),
+    the posts in order of start."""
+    by_seat: dict[str, list[CabinetPostDTO]] = {}
+    for post in posts:
+        by_seat.setdefault(post.seat or "", []).append(post)
+    post_rank = {post: i for i, post in enumerate(POSTS)}
+    seats = []
+    for seat, held in by_seat.items():
+        held.sort(key=lambda p: (p.from_date or "", p.member.name or ""))
+        seats.append(
+            CabinetSeatDTO(
+                seat=seat,
+                post=held[0].post,
+                portfolio=held[0].portfolio,
+                function=held[0].function,
+                posts=held,
+            )
+        )
+    return sorted(
+        seats,
+        key=lambda s: (
+            post_rank.get(s.post or "", len(POSTS)),
+            s.posts[0].from_date or "",
+            s.seat,
+        ),
+    )
 
 
 class CabinetDetailDTO(CabinetSummaryDTO):
-    """A cabinet with its bewindspersonen grouped by ministry: ministries in protocol
-    order (Algemene Zaken, with the minister-president, first), within a ministry the
-    posts in order (minister-president, minister, minister without portfolio,
-    staatssecretaris), then by start. A person with two posts is listed under each."""
+    """A cabinet with its bewindspersonen: ministries in protocol order (Algemene Zaken,
+    with the minister-president, first), within a ministry the seats (``_seats``). A
+    person with two posts is listed under each."""
 
     ministries: list[CabinetMinistryDTO] = Field(default_factory=list)
 
@@ -153,30 +288,13 @@ class CabinetDetailDTO(CabinetSummaryDTO):
         for item in members:
             for post in item.get("posts") or []:
                 groups.setdefault(post.get("ministry"), []).append(
-                    CabinetPostDTO(
-                        member=item["member"],
-                        post=post.get("post"),
-                        function=post.get("function"),
-                        from_date=post.get("from_date"),
-                        to_date=post.get("to_date"),
-                        dossiers=int(item.get("dossiers") or 0),
-                        bills=int(item.get("bills") or 0),
-                        open_commitments=int(item.get("open_commitments") or 0),
-                    )
+                    _post_dto(item, post)
                 )
-        post_rank = {post: i for i, post in enumerate(POSTS)}
         ministries = [
             CabinetMinistryDTO(
                 ministry=MinistryKey(key) if key else None,
                 name=MINISTRY_BY_KEY[key].name if key in MINISTRY_BY_KEY else None,
-                posts=sorted(
-                    posts,
-                    key=lambda p: (
-                        post_rank.get(p.post or "", len(POSTS)),
-                        p.from_date or "",
-                        p.member.name or "",
-                    ),
-                ),
+                seats=_seats(posts),
             )
             for key, posts in sorted(groups.items(), key=lambda g: protocol_rank(g[0]))
         ]

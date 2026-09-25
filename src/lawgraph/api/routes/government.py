@@ -65,9 +65,11 @@ def list_ministries() -> list[MinistryDTO]:
     response_model=list[CabinetSummaryDTO],
     summary="Cabinets",
     description=(
-        "Every Dutch cabinet Wikidata knows, newest first, with its prime minister, "
-        "parties and counts: ``members`` (bewindspersonen), ``bills`` (government bills "
-        "brought in while it was in office) and ``commitments``."
+        "Every Dutch cabinet, newest first: those since 1945 from Rijksoverheid, with "
+        "their prime minister, parties, ``phases`` and ``demissionary_from``; those "
+        "before from Wikidata (name and period only). Counts: ``members`` "
+        "(bewindspersonen), ``bills`` (government bills brought in while it was in "
+        "office) and ``commitments``."
     ),
     tags=["government"],
 )
@@ -83,9 +85,11 @@ def list_cabinets(
     summary="Cabinet detail",
     description=(
         "One cabinet with its bewindspersonen grouped by ministry (protocol order, the "
-        "minister-president first), each post with the person's counts within the "
-        "cabinet: ``dossiers`` and ``bills`` they signed as bewindspersoon, and "
-        "``open_commitments``."
+        "minister-president first) and within it by seat (minister, ministers without "
+        "portfolio, staatssecretarissen), the posts of a seat in order of start: a "
+        "successor is the next post, a stand-in has ``acting``. Each post with the "
+        "person's counts within the cabinet: ``dossiers`` and ``bills`` they signed as "
+        "bewindspersoon, and ``open_commitments``."
     ),
     tags=["government"],
 )

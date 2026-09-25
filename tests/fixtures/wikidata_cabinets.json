@@ -1,0 +1,553 @@
+[
+ {
+  "id": "Q1720287",
+  "name": "Kabinet-Schimmelpenninck",
+  "from_date": "1848-03-25",
+  "from_date_precision": 11,
+  "to_date": "1848-11-21",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1720399",
+  "name": "Kabinet-Thorbecke II",
+  "from_date": "1862-02-01",
+  "from_date_precision": 11,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q378651",
+  "name": "Kabinet-Heemskerk-Van Lynden van Sandenburg",
+  "from_date": "1873-08-27",
+  "from_date_precision": 11,
+  "to_date": "1877-11-03",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1720040",
+  "name": "Kabinet-Kappeyne van de Coppello",
+  "from_date": "1877-11-03",
+  "from_date_precision": 11,
+  "to_date": "1879-08-20",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1626821",
+  "name": "Kabinet-Van Lynden van Sandenburg",
+  "from_date": "1879-08-20",
+  "from_date_precision": 11,
+  "to_date": "1883-04-23",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1720040"
+  ]
+ },
+ {
+  "id": "Q1720122",
+  "name": "Kabinet-Mackay",
+  "from_date": "1888-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q1720441",
+  "name": "Kabinet-Van Tienhoven",
+  "from_date": "1891-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q383068",
+  "name": "Kabinet-Röell",
+  "from_date": "1894-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q1720214",
+  "name": "Kabinet-Pierson",
+  "from_date": "1897-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2278895",
+  "name": "Kabinet-Kuyper",
+  "from_date": "1901-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2059973",
+  "name": "Kabinet-De Meester",
+  "from_date": "1905-08-17",
+  "from_date_precision": 11,
+  "to_date": "1908-02-12",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1894943",
+  "name": "kabinet-Heemskerk",
+  "from_date": "1908-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q3313016",
+  "name": "Kabinet-Cort van der Linden",
+  "from_date": "1913-01-01",
+  "from_date_precision": 9,
+  "to_date": "1918-09-09",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q2029490",
+  "name": "Kabinet-Ruijs de Beerenbrouck I",
+  "from_date": "1918-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q1840666",
+  "name": "Kabinet-Ruijs de Beerenbrouck II",
+  "from_date": "1922-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2143580",
+  "name": "Kabinet-Colijn I",
+  "from_date": "1925-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2634437",
+  "name": "Kabinet-De Geer I",
+  "from_date": "1926-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2642865",
+  "name": "Kabinet-Ruijs de Beerenbrouck III",
+  "from_date": "1929-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2252636",
+  "name": "Kabinet-Colijn II",
+  "from_date": "1933-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2284281",
+  "name": "Kabinet-Colijn III",
+  "from_date": "1935-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2187701",
+  "name": "Kabinet-Colijn IV",
+  "from_date": "1937-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2525754",
+  "name": "Kabinet-De Geer II",
+  "from_date": "1939-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q2691143",
+  "name": "Kabinet-Colijn V",
+  "from_date": "1939-01-01",
+  "from_date_precision": 9,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": []
+ },
+ {
+  "id": "Q785092",
+  "name": "Kabinet-Gerbrandy III",
+  "from_date": "1945-02-23",
+  "from_date_precision": 11,
+  "to_date": "1945-06-25",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1323229",
+  "name": "Kabinet-Schermerhorn-Drees (1945-1946)",
+  "from_date": "1945-06-25",
+  "from_date_precision": 11,
+  "to_date": "1946-07-03",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1719737",
+  "name": "Kabinet-Beel I",
+  "from_date": "1946-07-03",
+  "from_date_precision": 11,
+  "to_date": "1948-08-07",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1323229"
+  ]
+ },
+ {
+  "id": "Q1719852",
+  "name": "Kabinet-Drees-Van Schaik",
+  "from_date": "1948-08-07",
+  "from_date_precision": 11,
+  "to_date": "1951-03-15",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q971839",
+  "name": "Kabinet-Drees I",
+  "from_date": "1951-03-15",
+  "from_date_precision": 11,
+  "to_date": "1952-09-02",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1719855",
+  "name": "Kabinet-Drees II",
+  "from_date": "1952-09-02",
+  "from_date_precision": 11,
+  "to_date": "1956-10-13",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1719857",
+  "name": "Kabinet-Drees III",
+  "from_date": "1956-10-13",
+  "from_date_precision": 11,
+  "to_date": "1958-12-22",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1719738",
+  "name": "Kabinet-Beel II",
+  "from_date": "1958-12-22",
+  "from_date_precision": 11,
+  "to_date": "1959-05-19",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1332969",
+  "name": "Kabinet-De Quay",
+  "from_date": "1959-05-16",
+  "from_date_precision": 11,
+  "to_date": "1963-07-24",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1670105",
+  "name": "Kabinet-Marijnen",
+  "from_date": "1963-07-24",
+  "from_date_precision": 11,
+  "to_date": "1965-04-14",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1324553",
+  "name": "Kabinet-Cals",
+  "from_date": "1965-04-14",
+  "from_date_precision": 11,
+  "to_date": "1966-11-22",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1720809",
+  "name": "Kabinet-Zijlstra",
+  "from_date": "1966-11-22",
+  "from_date_precision": 11,
+  "to_date": "1967-04-05",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1719820",
+  "name": "Kabinet-De Jong",
+  "from_date": "1967-04-05",
+  "from_date_precision": 11,
+  "to_date": "1971-07-06",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1552873",
+  "name": "Kabinet-Biesheuvel I",
+  "from_date": "1971-07-06",
+  "from_date_precision": 11,
+  "to_date": "1972-08-09",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q2191762",
+  "name": "Kabinet-Biesheuvel II",
+  "from_date": "1972-08-09",
+  "from_date_precision": 11,
+  "to_date": "1973-05-11",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1719834",
+  "name": "Kabinet-Den Uyl",
+  "from_date": "1973-05-11",
+  "from_date_precision": 11,
+  "to_date": "1977-12-19",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1720433",
+  "name": "Kabinet-Van Agt I",
+  "from_date": "1977-12-19",
+  "from_date_precision": 11,
+  "to_date": "1981-09-11",
+  "to_date_precision": 11,
+  "previous": []
+ },
+ {
+  "id": "Q1143299",
+  "name": "Kabinet-Van Agt II",
+  "from_date": "1981-09-11",
+  "from_date_precision": 11,
+  "to_date": "1982-05-29",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1720433"
+  ]
+ },
+ {
+  "id": "Q1142894",
+  "name": "Kabinet-Van Agt III",
+  "from_date": "1982-05-29",
+  "from_date_precision": 11,
+  "to_date": "1982-11-04",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1143299"
+  ]
+ },
+ {
+  "id": "Q267810",
+  "name": "kabinet-Lubbers I",
+  "from_date": "1982-11-04",
+  "from_date_precision": 11,
+  "to_date": "1986-07-14",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1142894"
+  ]
+ },
+ {
+  "id": "Q1142884",
+  "name": "kabinet-Lubbers II",
+  "from_date": "1986-07-14",
+  "from_date_precision": 11,
+  "to_date": "1989-11-07",
+  "to_date_precision": 11,
+  "previous": [
+   "Q267810"
+  ]
+ },
+ {
+  "id": "Q1143050",
+  "name": "kabinet-Lubbers III",
+  "from_date": "1989-11-07",
+  "from_date_precision": 11,
+  "to_date": "1994-08-22",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1142884"
+  ]
+ },
+ {
+  "id": "Q1143143",
+  "name": "Kabinet-Kok I",
+  "from_date": "1994-08-22",
+  "from_date_precision": 11,
+  "to_date": "1998-08-03",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1143050"
+  ]
+ },
+ {
+  "id": "Q1143058",
+  "name": "Kabinet-Kok II",
+  "from_date": "1998-08-03",
+  "from_date_precision": 11,
+  "to_date": "2002-07-22",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1143143"
+  ]
+ },
+ {
+  "id": "Q1549819",
+  "name": "Kabinet Balkenende I (2002-2003)",
+  "from_date": "2002-07-22",
+  "from_date_precision": 11,
+  "to_date": "2003-05-27",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1143058"
+  ]
+ },
+ {
+  "id": "Q975221",
+  "name": "Kabinet-Balkenende II (2003-2006)",
+  "from_date": "2003-05-27",
+  "from_date_precision": 11,
+  "to_date": "2006-07-07",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1549819"
+  ]
+ },
+ {
+  "id": "Q1473297",
+  "name": "Kabinet-Balkenende III (2006-2007)",
+  "from_date": "2006-07-07",
+  "from_date_precision": 11,
+  "to_date": "2007-02-22",
+  "to_date_precision": 11,
+  "previous": [
+   "Q975221"
+  ]
+ },
+ {
+  "id": "Q1719725",
+  "name": "Kabinet-Balkenende IV (2007-2010)",
+  "from_date": "2007-02-22",
+  "from_date_precision": 11,
+  "to_date": "2010-10-14",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1473297"
+  ]
+ },
+ {
+  "id": "Q168828",
+  "name": "Kabinet-Rutte I",
+  "from_date": "2010-10-14",
+  "from_date_precision": 11,
+  "to_date": "2012-11-05",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1719725"
+  ]
+ },
+ {
+  "id": "Q1638648",
+  "name": "Kabinet-Rutte II",
+  "from_date": "2012-11-05",
+  "from_date_precision": 11,
+  "to_date": "2017-10-26",
+  "to_date_precision": 11,
+  "previous": [
+   "Q168828"
+  ]
+ },
+ {
+  "id": "Q42293409",
+  "name": "kabinet-Rutte III",
+  "from_date": "2017-10-26",
+  "from_date_precision": 11,
+  "to_date": "2022-01-10",
+  "to_date_precision": 11,
+  "previous": [
+   "Q1638648"
+  ]
+ },
+ {
+  "id": "Q110111120",
+  "name": "kabinet-Rutte IV",
+  "from_date": "2022-01-10",
+  "from_date_precision": 11,
+  "to_date": "2024-07-02",
+  "to_date_precision": 11,
+  "previous": [
+   "Q42293409"
+  ]
+ },
+ {
+  "id": "Q126527270",
+  "name": "kabinet-Schoof",
+  "from_date": "2024-07-02",
+  "from_date_precision": 11,
+  "to_date": "2026-02-23",
+  "to_date_precision": 11,
+  "previous": [
+   "Q110111120"
+  ]
+ },
+ {
+  "id": "Q137926983",
+  "name": "kabinet-Jetten",
+  "from_date": "2026-02-23",
+  "from_date_precision": 11,
+  "to_date": null,
+  "to_date_precision": null,
+  "previous": [
+   "Q126527270"
+  ]
+ }
+]

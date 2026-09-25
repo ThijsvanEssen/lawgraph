@@ -268,7 +268,7 @@ def member(payload: Payload) -> Record | None:
         "external_id": external_id,
         "name": name,
         "display_name": name,
-        # what another source knows a person by (``core.government.match_member``)
+        # what another source knows a person by (``core.government.match_holder``)
         "family_name": _text(payload, "Achternaam") or None,
         "birth_date": iso_date(payload.get("Geboortedatum")),
     }

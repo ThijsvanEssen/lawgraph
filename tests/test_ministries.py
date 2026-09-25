@@ -37,7 +37,7 @@ FUNCTIONS = [
     ("minister van Langdurige Zorg, Jeugd en Sport", "minister", "vws"),
     ("Minister van Asiel en Migratie", "minister", "aenm"),
     ("minister van Klimaat en Groene Groei", "minister", "kgg"),
-    ("Minister van Algemene Oorlogvoering", "minister", "oorlog"),
+    ("Minister van Algemene Oorlogvoering", "minister", "aok"),
     ("minister van openbare werken", "minister", "opw"),
     # a minister without portfolio: the ministry the post is placed under
     ("Minister voor Klimaat en Energie", "minister_zonder_portefeuille", "ezk"),
