@@ -75,7 +75,7 @@ def group_cabinets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     from_date_precision, to_date, to_date_precision, previous}``. The start is the
     most precise of the start of its term (P580) and its inception (P571), the end of the
     end of its term (P582) and its dissolution (P576); a precision is Wikidata's
-    (``PRECISION_DAY`` 11, a month 10, a year 9)."""
+    (a day 11, a month 10, a year 9)."""
     cabinets: dict[str, dict[str, Any]] = {}
     for row in rows:
         cabinet = _qid(_value(row, "cabinet"))

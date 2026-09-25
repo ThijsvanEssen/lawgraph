@@ -324,6 +324,10 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     assert "nameless" not in {m["key"] for m in everyone}
 
     assert commitments["total"] == 2
+    # counted without their own filter; only values that have commitments
+    assert commitments["facets"]["ministry"] == [{"value": "fin", "count": 2}]
+    assert commitments["facets"]["cabinet"] == [{"value": "jetten", "count": 2}]
+    assert commitments["facets"]["status"] == [{"value": "open", "count": 2}]
     first = commitments["items"][0]
     assert first["key"] == "toezegging"  # due first; the undated one last
     assert first["member"] == {

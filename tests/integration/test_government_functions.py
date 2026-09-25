@@ -230,5 +230,9 @@ def test_a_minister_outside_parliament_is_found_by_signatures(
     cli("normalize", "rijksoverheid")
 
     van_weel = _get(store, f"/api/members/{VAN_WEEL}")
-    assert van_weel["name"] == "D.M. van Weel"
+    # no name of his own in the TK: the name Rijksoverheid gives, with the first name
+    assert (van_weel["name"], van_weel["government_name"]) == (
+        "David van Weel",
+        "D.M. van Weel",
+    )
     assert van_weel["government_functions"][0]["seat"] == "jenv/minister"

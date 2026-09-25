@@ -470,12 +470,15 @@ class GovernmentFunctionProps(_StrictBase):
 
 class MemberProps(_CommonProps):
     external_id: str | None = None
-    name: str | None = None
+    name: str | None = None  # the name they go by: Persoon.Roepnaam and the surname
+    full_name: str | None = None  # Persoon.Voornamen and the surname
+    initials: str | None = None  # Persoon.Initialen: "S.Th.M."
     party: str | None = None
     faction_memberships: list | None = None
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
     birth_date: str | None = None
     government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
+    known_as: str | None = None  # "Sophie Hermans": the first name Rijksoverheid gives
     government_functions: list[GovernmentFunctionProps] | None = None
 
 

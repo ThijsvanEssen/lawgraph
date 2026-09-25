@@ -20,6 +20,7 @@ from lawgraph.api.schemas.government import (
     CabinetDetailDTO,
     CabinetSummaryDTO,
     CommitmentDTO,
+    CommitmentFacetsDTO,
     CommitmentListResponse,
     CommitmentStatus,
     MinistryDTO,
@@ -109,7 +110,9 @@ def get_cabinet_detail(
     summary="Commitments",
     description=(
         "Commitments (toezeggingen) of bewindspersonen, paged; ``total`` counts every "
-        "match. ``overdue`` keeps the open ones whose expected date has passed."
+        "match. ``overdue`` keeps the open ones whose expected date has passed. "
+        "``facets`` counts per ``status``, ``cabinet`` and ``ministry`` the commitments "
+        "under the other filters."
     ),
     tags=["government"],
 )
@@ -151,6 +154,7 @@ def list_commitments(
     return CommitmentListResponse(
         total=int(raw.get("total") or 0),
         items=[CommitmentDTO.from_row(row) for row in raw.get("items") or []],
+        facets=CommitmentFacetsDTO(**(raw.get("facets") or {})),
     )
 
 

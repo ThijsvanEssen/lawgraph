@@ -787,7 +787,9 @@ Each holder (initials, surname and party as written) is matched to one Tweede Ka
 
 A holder who matches no member or several, or a member two people match, is left out (and
 logged). The member gets `government_functions` (the posts, oldest first) and
-`government_name` (`S.Th.M. Hermans`); a member who holds no post any more loses both. A holder
+`government_name` (`S.Th.M. Hermans`) and `known_as` (the first name the pages give in
+brackets with the surname, `Sophie Hermans`; null when no page gives one); a member who holds
+no post any more loses them. A holder
 no Tweede Kamer person matches becomes a member of their own, key
 `rijksoverheid_<initials>_<surname>`, label `Rijksoverheid`; once a later run matches them,
 that member is removed. Every page is read on every run. Needs `normalize tk-dossiers` (the
@@ -833,13 +835,12 @@ cabinet before it (P155), in one SPARQL query to `WIKIDATA_SPARQL`. 57 cabinets;
 
 **Retrieve.** One `wikidata-cabinet-json` record per cabinet (`id`, `name`, `from_date`,
 `to_date`, their precision, `previous`), in full on every run. An empty answer raises.
-`normalize rijksoverheid` reads the cabinets that began before the first Rijksoverheid page
-(name and period, no posts or phases), completed where Wikidata leaves them open
-(`core/cabinets.complete_periods`): `previous` is the cabinet that started before it when
-Wikidata names none; a cabinet without an end ended when the next one started; a date known to
-the year only becomes the day the neighbouring cabinet began or ended when that falls in the
-same year (a year between them means a cabinet Wikidata lacks, such as Heemskerk 1883-1888,
-and the year stays). The last of them ends where the first page begins.
+`normalize rijksoverheid` reads the cabinets that began before the first Rijksoverheid page:
+name and period only, no posts or phases, the period as Wikidata gives it
+(`core/cabinets.wikidata_period`): a date known to the year stays a year (the first of
+January, precision `year`), a date Wikidata lacks stays null. Nothing is taken from the
+cabinets around it, since Wikidata lacks some (Thorbecke II ends in 1866, not when Heemskerk
+began in 1873).
 
 **Semantic `tk-government`.** Who in government made each commitment and brought each dossier
 in (`pipelines/semantic/tk_government.py`). A commitment names its maker as the Tweede Kamer

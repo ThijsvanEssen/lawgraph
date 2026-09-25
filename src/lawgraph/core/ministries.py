@@ -45,7 +45,9 @@ class Ministry:
 
 
 # The ministries in protocol order (the order of the Rijksoverheid), each followed by the
-# ministries it succeeded; a former ministry takes the place of its successor.
+# ministries it succeeded; a former ministry takes the place of its successor. ``until`` is
+# the day before the successor's first post on the Rijksoverheid cabinet pages where the last
+# post under the old name ends that day; ``None`` where the pages show no such handover.
 MINISTRIES: tuple[Ministry, ...] = (
     Ministry("az", "Algemene Zaken"),
     Ministry("aok", "Algemene Oorlogvoering van het Koninkrijk", "az"),
@@ -65,8 +67,8 @@ MINISTRIES: tuple[Ministry, ...] = (
     Ministry("okw", "Onderwijs, Kunsten en Wetenschappen", "ow", "1965-04-13"),
     Ministry("fin", "Financiën"),
     Ministry("def", "Defensie"),
-    Ministry("oorlog", "Oorlog", "def"),
-    Ministry("marine", "Marine", "def"),
+    Ministry("oorlog", "Oorlog", "def", "1959-05-18"),
+    Ministry("marine", "Marine", "def", "1959-05-18"),
     Ministry("ienw", "Infrastructuur en Waterstaat"),
     Ministry("ienm", "Infrastructuur en Milieu", "ienw", "2017-10-25"),
     Ministry("venw", "Verkeer en Waterstaat", "ienm", "2010-10-13"),
@@ -76,14 +78,14 @@ MINISTRIES: tuple[Ministry, ...] = (
     Ministry("ez", "Economische Zaken"),
     Ministry("ezk", "Economische Zaken en Klimaat", "ez", "2024-07-01"),
     Ministry("eli", "Economische Zaken, Landbouw en Innovatie", "ez", "2012-11-04"),
-    Ministry("hn", "Handel en Nijverheid", "ez"),
+    Ministry("hn", "Handel en Nijverheid", "ez", "1946-07-02"),
     Ministry("ahn", "Arbeid, Handel en Nijverheid", "hn"),
     Ministry("kgg", "Klimaat en Groene Groei"),
     Ministry("lvvn", "Landbouw, Visserij, Voedselzekerheid en Natuur"),
     Ministry("lnv", "Landbouw, Natuur en Voedselkwaliteit", "lvvn", "2024-07-01"),
     Ministry("lnbv", "Landbouw, Natuurbeheer en Visserij", "lnv", "2003-05-26"),
     Ministry("lenv", "Landbouw en Visserij", "lnbv", "1989-11-06"),
-    Ministry("lvv", "Landbouw, Visserij en Voedselvoorziening", "lenv"),
+    Ministry("lvv", "Landbouw, Visserij en Voedselvoorziening", "lenv", "1959-05-18"),
     Ministry("szw", "Sociale Zaken en Werkgelegenheid"),
     Ministry("sz", "Sociale Zaken", "szw", "1981-09-10"),
     Ministry("szv", "Sociale Zaken en Volksgezondheid", "sz"),
@@ -92,10 +94,10 @@ MINISTRIES: tuple[Ministry, ...] = (
     Ministry("wvc", "Welzijn, Volksgezondheid en Cultuur", "vws", "1994-08-21"),
     Ministry("vm", "Volksgezondheid en Milieuhygiëne", "wvc", "1982-11-03"),
     Ministry("crm", "Cultuur, Recreatie en Maatschappelijk Werk", "wvc", "1982-11-03"),
-    Ministry("mw", "Maatschappelijk Werk", "crm"),
+    Ministry("mw", "Maatschappelijk Werk", "crm", "1965-04-13"),
     Ministry("vro", "Volkshuisvesting en Ruimtelijke Ordening"),
-    Ministry("vb", "Volkshuisvesting en Bouwnijverheid", "vro"),
-    Ministry("wv", "Wederopbouw en Volkshuisvesting", "vb"),
+    Ministry("vb", "Volkshuisvesting en Bouwnijverheid", "vro", "1965-04-13"),
+    Ministry("wv", "Wederopbouw en Volkshuisvesting", "vb", "1956-10-12"),
     Ministry(
         "vrom",
         "Volkshuisvesting, Ruimtelijke Ordening en Milieubeheer",

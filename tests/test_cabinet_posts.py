@@ -76,7 +76,18 @@ def test_every_cabinet_is_there_once_and_follows_the_one_before() -> None:
     official = [c for c in cabinets if c["source"]["name"] == "rijksoverheid"]
     for before, after in zip(official, official[1:], strict=False):
         assert before["to_date"] == after["from_date"], after["key"]
-    assert [c["key"] for c in cabinets if c["to_date"] is None] == ["jetten"]
+    # since 1945 only the cabinet in office has no end; before, an end Wikidata lacks is null
+    assert [
+        c["key"]
+        for c in cabinets
+        if c["to_date"] is None and c["source"]["name"] == "rijksoverheid"
+    ] == ["jetten"]
+    by_key = {c["key"]: c for c in cabinets}
+    assert (by_key["thorbecke_ii"]["to_date"], by_key["de_geer_ii"]["to_date"]) != (
+        "1873-08-27",
+        "1939-01-01",
+    )
+    assert by_key["colijn_v"]["to_date"] != "1945-02-23"
 
 
 @pytest.mark.parametrize("cabinet", _cabinets(), ids=lambda c: c["key"])
@@ -378,3 +389,11 @@ def test_a_holder_who_held_another_seat_throughout_stood_in() -> None:
     assert standing["acting"] and standing["acting_basis"].startswith(BASIS_RULE)
     # whoever follows no one, or leaves no one to follow, did not stand in
     assert not any(p["acting"] for p in posts if p["person"] != "ab vast")
+
+
+def test_without_pages_every_cabinet_comes_from_wikidata() -> None:
+    wikidata = json.loads((FIXTURES / "wikidata_cabinets.json").read_text())
+    cabinets = build_cabinets([], wikidata, lambda text: None)
+    assert len(cabinets) == len(wikidata)
+    assert not any(c["posts"] or c["phases"] for c in cabinets)
+    assert build_cabinets([], [], lambda text: None) == []

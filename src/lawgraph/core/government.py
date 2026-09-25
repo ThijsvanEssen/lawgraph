@@ -4,11 +4,11 @@ Rijksoverheid names a bewindspersoon by initials and surname (``Drs. S.Th.M. (So
 Hermans``, ``dr. W. Drees``), with the party. The Tweede Kamer has two kinds of ``Persoon``:
 
 - a member of parliament, with ``Achternaam`` (``Hermans``, ``Yeşilgöz-Zegerius``, ``Weel``
-  for Van Weel), the full first names and ``Geboortedatum``. A holder is that member when the
-  surname words agree, the initials are those of the first names, and the member was of an
-  age to hold the post (``match_holder``). Two members that fit (a father and a son of one
-  name) are told apart by the faction of the holder's party; if that leaves more than one,
-  the holder matches nobody.
+  for Van Weel), ``Initialen``, the first names and ``Geboortedatum``. A holder is that member
+  when the surname words agree, the initials agree (``Initialen``, else those of the first
+  names), and the member was of an age to hold the post (``match_holder``). Two members
+  that fit (a father and a son of one name) are told apart by the faction of the holder's
+  party; if that leaves more than one, the holder matches nobody.
 - a minister or state secretary who never sat in parliament: a record without name or date,
   known only by the papers they signed (``DocumentActor``: ``J. van Essen``, ``minister van
   …``, on a date). Such a signatory is the holder whose surname is in the signed name and who
@@ -90,11 +90,19 @@ def _surnames_agree(holder: str, member: str | None, *, ij: bool, loose: bool) -
     return ours == theirs or (loose and (ours <= theirs or theirs <= ours))
 
 
+def _member_letters(member: dict[str, Any]) -> str:
+    """The initial letters of a member: of ``Persoon.Initialen`` (``S.Th.M.``: ``stm``),
+    else of the first names in their full name."""
+    initials = [p for p in re.split(r"[.\s]+", _plain(member.get("initials"))) if p]
+    if initials:
+        return "".join("ij" if p.startswith("ij") else p[0] for p in initials)
+    return initial_letters(_first_names(member))
+
+
 def _initials_agree(letters: str, member: dict[str, Any], *, loose: bool) -> bool:
-    first = _first_names(member)
-    if not first or not letters:
+    theirs = _member_letters(member)
+    if not theirs or not letters:
         return True
-    theirs = initial_letters(first)
     if loose:
         return theirs.startswith(letters) or letters.startswith(theirs)
     return theirs == letters
@@ -123,7 +131,8 @@ def match_holder(
 
     *holder* is ``{surname, letters, days, factions}``: the surname and initial letters as
     Rijksoverheid writes them, the first days of their posts, the faction keys of their
-    parties. *members* are ``{key, family_name, name, birth_date, factions}``.
+    parties. *members* are ``{key, family_name, name, initials, birth_date, factions}``,
+    ``name`` the full name.
 
     First strictly: the same surname words, the initials of all first names. When that finds
     nobody, loosely: a surname that is part of the other (``Bijleveld``,
