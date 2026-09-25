@@ -655,7 +655,11 @@ def get_instruments_list(
                 kind: props.kind,
                 citation_title: citation_title,
                 jurisdiction: props.jurisdiction,
-                article_count: props.article_count
+                article_count: props.article_count,
+                uri: props.uri,
+                publication_kind: props.publication_kind,
+                publication_year: props.publication_year,
+                publication_number: props.publication_number
             }}
     )
     """

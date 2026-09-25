@@ -9,6 +9,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.core.bwb_xml import article_address
 from lawgraph.core.models import make_node_key
+from lawgraph.core.official_urls import instrument_url, publication_url
+
+# The description of every ``official_url`` of an instrument.
+OFFICIAL_URL = (
+    "The official text: wetten.overheid.nl for a BWB regulation, EUR-Lex for an EU act, "
+    "the Verdragenbank for a treaty, zoek.officielebekendmakingen.nl for a publication "
+    "from 1995; null for none."
+)
 
 ARTICLE_ADDRESS = (
     "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or "
@@ -51,6 +59,7 @@ class InstrumentSummaryDTO(BaseModel):
     id: str
     key: str
     display_name: str | None
+    official_url: str | None = Field(None, description=OFFICIAL_URL)
     article_count: int = 0
     judgment_count: int = 0
     inbound_citation_count: int = 0
@@ -69,6 +78,7 @@ class InstrumentSummaryDTO(BaseModel):
             id=doc["_id"],
             key=doc["_key"],
             display_name=props.get("display_name"),
+            official_url=instrument_url(props),
             article_count=int(getattr(stats, "article_count", 0) or 0),
             judgment_count=int(getattr(stats, "judgment_count", 0) or 0),
             inbound_citation_count=int(
@@ -196,6 +206,10 @@ class PublicationDTO(BaseModel):
     number: str | None = None
     signed: str | None = None
     published: str | None = None
+    official_url: str | None = Field(
+        None,
+        description="The publication on zoek.officielebekendmakingen.nl; null before 1995.",
+    )
     dossiers: list[DossierRefDTO] = Field(default_factory=list)
 
     @classmethod
@@ -216,6 +230,7 @@ class PublicationDTO(BaseModel):
             number=str(number) if number is not None else None,
             signed=data.get("signed"),
             published=data.get("published"),
+            official_url=publication_url(data),
             dossiers=[
                 DossierRefDTO.from_number(n, titles)
                 for n in (data.get("dossiers") or [])

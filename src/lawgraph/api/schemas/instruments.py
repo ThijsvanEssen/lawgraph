@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.schemas.annexes import AnnexListItem
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    OFFICIAL_URL,
     ArticleRelationDTO,
     DossierRefDTO,
     JudgmentSummaryDTO,
@@ -20,6 +21,7 @@ from lawgraph.config.constants import (
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.official_urls import article_url, instrument_url
 
 # What `bwb_id` holds in the answer of an instrument route: the identifier of the request.
 _REQUESTED = (
@@ -65,6 +67,9 @@ class InstrumentArticleNodeDTO(BaseModel):
     )
     address: str = Field(..., description=ARTICLE_ADDRESS)
     display_name: str | None
+    official_url: str | None = Field(
+        None, description="The article in force on wetten.overheid.nl (its JCI)."
+    )
     breadcrumb: list[InstrumentArticleBreadcrumbDTO] = []
     stub: bool = False
     repealed: bool = Field(
@@ -100,6 +105,7 @@ class InstrumentArticleNodeDTO(BaseModel):
             label=props.get("label"),
             address=address_of(doc),
             display_name=props.get("display_name"),
+            official_url=article_url(props.get("bwb_id"), props.get("article_number")),
             breadcrumb=crumbs,
             stub=bool(props.get("stub", False)),
             repealed=bool(props.get("repealed")),
@@ -296,6 +302,7 @@ class AmendingInstrumentDTO(BaseModel):
     number: str | None = None
     date_signed: str | None = None
     date_published: str | None = None
+    official_url: str | None = Field(None, description=OFFICIAL_URL)
     dossiers: list[DossierRefDTO] = Field(default_factory=list)
     amends: int = Field(0, description="Number of AMENDS edges into the regulation.")
     introduces: int = Field(
@@ -328,6 +335,7 @@ class AmendingInstrumentDTO(BaseModel):
             number=str(number) if number is not None else None,
             date_signed=props.get("date_signed"),
             date_published=props.get("date_published"),
+            official_url=instrument_url(props),
             dossiers=[
                 DossierRefDTO.from_number(n, titles)
                 for n in props.get("dossier_numbers") or []
@@ -415,6 +423,7 @@ class InstrumentListItemDTO(BaseModel):
     jurisdiction: str | None
     kind: str | None
     article_count: int
+    official_url: str | None = Field(None, description=OFFICIAL_URL)
 
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
@@ -429,6 +438,7 @@ class InstrumentListItemDTO(BaseModel):
             jurisdiction=row.get("jurisdiction") or None,
             kind=row.get("kind"),
             article_count=int(row.get("article_count") or 0),
+            official_url=instrument_url(row),
         )
 
 
@@ -452,6 +462,10 @@ class InstrumentVersionDTO(BaseModel):
     valid_until: str | None = None
     current: bool = False
     state_url: str | None = None
+    official_url: str | None = Field(
+        None,
+        description="This version on wetten.overheid.nl (``/{BWB}/{valid_from}``).",
+    )
     article_count: int | None = None
 
     @classmethod
@@ -464,6 +478,9 @@ class InstrumentVersionDTO(BaseModel):
             valid_until=props.get("valid_until"),
             current=bool(props.get("current", False)),
             state_url=props.get("state_url"),
+            official_url=instrument_url(
+                {"bwb_id": props.get("bwb_id")}, on=props.get("valid_from")
+            ),
             article_count=props.get("article_count"),
         )
 
@@ -489,6 +506,9 @@ class InstrumentArticleVersionDTO(BaseModel):
     valid_from: str | None = None
     valid_until: str | None = None
     current: bool = False
+    official_url: str | None = Field(
+        None, description="This version on wetten.overheid.nl (JCI with ``g``)."
+    )
     text: str | None = None
 
 
@@ -580,6 +600,7 @@ class InstrumentDetailDTO(BaseModel):
     treaty_number: str | None = None
     in_force: bool | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
+    official_url: str | None = Field(None, description=OFFICIAL_URL)
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> InstrumentDetailDTO:
@@ -608,6 +629,7 @@ class InstrumentDetailDTO(BaseModel):
             treaty_number=props.get("treaty_number") or None,
             in_force=props.get("in_force"),
             dossier_numbers=[str(n) for n in props.get("dossier_numbers") or []],
+            official_url=instrument_url(props),
         )
 
 
