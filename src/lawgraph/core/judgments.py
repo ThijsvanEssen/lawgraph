@@ -181,6 +181,18 @@ def extract_judgment_text(root: ET.Element) -> tuple[str | None, str | None]:
     return summary, full_text
 
 
+def body_text(root: ET.Element) -> str:
+    """The text a court or advocate-general wrote: the ``<uitspraak>`` and ``<conclusie>``,
+    without the metadata. What a judgment names there it cites; the ECLIs of the metadata
+    (``dcterms:relation``: the earlier instance, the conclusion) are procedure, not citation."""
+    parts = [
+        text_of(el, " ")
+        for name in ("uitspraak", "conclusie")
+        for el in iter_named(root, name)
+    ]
+    return "\n\n".join(p for p in parts if p)
+
+
 def relation_ecli(element: ET.Element) -> str | None:
     """ECLI from a ``dcterms:relation`` element, else ``None``: its
     ``ecli:resourceIdentifier`` (the text then says what it is, "In cassatie op : ECLI:..."),
