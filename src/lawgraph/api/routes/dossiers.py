@@ -13,23 +13,27 @@ GET /api/parties/colors                — party colours for the frontend
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+import datetime as dt
+from typing import Annotated, Any, Literal, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import MinistryKey, parse_choices
 from lawgraph.api.schemas.dossiers import (
     DOSSIER_NUMBER_PATTERN,
     DossierDetailResponse,
     DossierDocumentDTO,
     DossierDocumentsBulkResponse,
     DossierDocumentsResponse,
+    DossierFacetsDTO,
     DossierListResponse,
     DossierMutationEdge,
     DossierMutationNode,
     DossierMutationsResponse,
     DossierSummaryDTO,
     DossierTimelineResponse,
+    DossierTrack,
     timeline_entry,
 )
 from lawgraph.db import ArangoStore
@@ -116,7 +120,10 @@ def list_dossiers_of_number(
     description=(
         "Every dossier that is not closed yet. ``total`` is the absolute "
         "count, independent of ``limit``. Filters on committee slug, subject "
-        "(a number, a dossier or title text) and legislative stage."
+        "(a number, a dossier or title text), legislative stage, track, the ministry "
+        "that brought it in or whether it is an initiative, and the day it opened. "
+        "``facets`` counts the dossiers per track, current stage and ministry under the "
+        "other filters, each dimension without its own filter."
     ),
     tags=["dossiers"],
 )
@@ -143,9 +150,27 @@ def list_open_dossiers(
             )
         ),
     ] = None,
+    track: Annotated[
+        str | None,
+        Query(description="Comma-separated tracks, e.g. ``wetsvoorstel,begroting``."),
+    ] = None,
+    ministry: Annotated[
+        MinistryKey | None, Query(description="The ministry that brought it in.")
+    ] = None,
+    initiative: Annotated[
+        bool | None,
+        Query(description="True: brought in by a Kamerlid; false: by the government."),
+    ] = None,
+    opened_from: Annotated[
+        dt.date | None, Query(description="Opened on or after this day.")
+    ] = None,
+    opened_to: Annotated[
+        dt.date | None, Query(description="Opened on or before this day.")
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DossierListResponse:
+    tracks = parse_choices(track, get_args(DossierTrack), "track")
     raw = get_open_dossiers(
         store,
         committee_slug=committee,
@@ -156,6 +181,11 @@ def list_open_dossiers(
             if has_stage
             else None
         ),
+        tracks=list(tracks) if tracks else None,
+        ministry=ministry.value if ministry else None,
+        initiative=initiative,
+        opened_from=opened_from.isoformat() if opened_from else None,
+        opened_to=opened_to.isoformat() if opened_to else None,
         limit=limit,
         offset=offset,
     )
@@ -164,6 +194,7 @@ def list_open_dossiers(
     return DossierListResponse(
         total=int(raw.get("total") or 0),
         items=[DossierSummaryDTO.from_document(d) for d in docs],
+        facets=DossierFacetsDTO(**raw.get("facets") or {}),
     )
 
 

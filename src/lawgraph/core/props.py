@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
     COLLECTION_COMMITTEES,
@@ -300,6 +301,12 @@ class DossierProps(_CommonProps):
     stages_missing: list[str] | None = None
     track_kind: str | None = None
     outcome: str | None = None
+    # who brought the dossier in (``semantic government``): the ministry (``core.ministries``)
+    # of the first bewindspersoon to sign its earliest document, or ``initiative`` when a
+    # Kamerlid signed first; the cabinet in office on that day
+    ministry: str | None = None
+    initiative: bool | None = None
+    cabinet: str | None = None
     # the other dossiers with the same number (the chapters of one budget)
     same_number_count: int | None = None
 
@@ -370,6 +377,12 @@ class CommitmentProps(_CommonProps):
     expected_resolution: str | None = None
     status: str | None = None
     activity_number: str | None = None
+    # who made it (``semantic government``): the member, the post and ministry of their
+    # role, and the cabinet in office on the day
+    member_key: str | None = None
+    post: str | None = None
+    ministry: str | None = None
+    cabinet: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -400,6 +413,9 @@ class GovernmentFunctionProps(_StrictBase):
     to_date: str | None = None  # null while held
     position_id: str | None = None  # the Wikidata item of the post and of the cabinet
     cabinet_id: str | None = None
+    cabinet_key: str | None = None  # the cabinet node
+    post: str | None = None  # core.ministries.POSTS
+    ministry: str | None = None  # a key of core.ministries.MINISTRIES
 
 
 class MemberProps(_CommonProps):
@@ -412,6 +428,31 @@ class MemberProps(_CommonProps):
     wikidata_id: str | None = None
     wikidata_name: str | None = None  # the name of the Wikidata person
     government_functions: list[GovernmentFunctionProps] | None = None
+
+
+# ---------------------------------------------------------------------------
+# cabinets
+# ---------------------------------------------------------------------------
+
+
+class CabinetPartyProps(_StrictBase):
+    """A party a member of the cabinet belonged to during their post."""
+
+    name: str | None = None
+    short: str | None = None
+    wikidata_id: str | None = None
+    faction: str | None = None  # the faction key, when a faction has its name
+
+
+class CabinetProps(_CommonProps):
+    name: str | None = None  # "kabinet-Rutte IV"
+    wikidata_id: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None  # null while in office
+    prime_minister: str | None = None  # member key
+    previous: str | None = None  # the cabinet key before it
+    parties: list[CabinetPartyProps] | None = None
+    factions: list[str] | None = None  # the faction keys of its parties
 
 
 # ---------------------------------------------------------------------------
@@ -504,6 +545,7 @@ COLLECTION_SCHEMAS: dict[str, type[_StrictBase]] = {
     COLLECTION_COMMITTEES: CommitteeProps,
     COLLECTION_MEMBERS: MemberProps,
     COLLECTION_FACTIONS: FactionProps,
+    COLLECTION_CABINETS: CabinetProps,
     COLLECTION_TOPICS: TopicProps,
     COLLECTION_CASES: CaseProps,
     COLLECTION_ANNEXES: AnnexProps,

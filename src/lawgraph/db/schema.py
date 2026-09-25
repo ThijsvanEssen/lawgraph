@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
     COLLECTION_RAW_SOURCES,
     DOCUMENT_COLLECTIONS,
     TEXT_ANALYZER,
@@ -384,6 +385,14 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_DECISIONS, ["props.dossier_numbers[*]"], False),
         (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
         (COLLECTION_COMMITMENTS, ["props.status"], False),
+        # who made it and under which cabinet (``semantic tk-government``)
+        (COLLECTION_COMMITMENTS, ["props.member_key"], False),
+        (COLLECTION_COMMITMENTS, ["props.cabinet"], False),
+        (COLLECTION_COMMITMENTS, ["props.ministry"], False),
+        (COLLECTION_DOSSIERS, ["props.cabinet"], False),
+        (COLLECTION_DOSSIERS, ["props.ministry"], False),
+        # `GET /api/members?cabinet=`: `@cabinet IN ...government_functions[*].cabinet_key`
+        (COLLECTION_MEMBERS, ["props.government_functions[*].cabinet_key"], False),
         # raw_sources: the normalize pipelines read by source and kind. Not sparse, so a
         # count per kind walks the index and reads no document (an EU act is up to 1 MB).
         (COLLECTION_RAW_SOURCES, ["source", "kind"], False, False),

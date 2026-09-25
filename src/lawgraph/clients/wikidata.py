@@ -5,7 +5,11 @@ empty for most ministers), and a signed paper names the function only on its dat
 Wikidata has every post a person held in a cabinet of the Netherlands as a statement
 ``position held`` (P39) with the qualifier ``parliamentary group / cabinet`` (P5054), a start
 (P580) and an end (P582). One SPARQL query reads them all, with the name and the date of
-birth of each person, by which ``normalize wikidata`` finds the member.
+birth of each person, by which ``normalize wikidata`` finds the member. A second query
+reads the parties of those people (``member of political party``, P102, with its dates),
+by which ``normalize wikidata`` finds the parties of a cabinet. A third reads the cabinets
+themselves: every item that is a ``Cabinet of the Netherlands``, with its dates (P580 or
+P571, P582 or P576), its head (P6) and the cabinet before it (P155).
 """
 
 from __future__ import annotations
@@ -35,6 +39,36 @@ SELECT ?person ?personLabel ?birth ?birthPrecision ?position ?positionLabel
     ?person p:P569/psv:P569 ?birthValue .
     ?birthValue wikibase:timeValue ?birth ; wikibase:timePrecision ?birthPrecision .
   }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "nl,mul,en". }}
+}}
+"""
+
+
+PARTIES_QUERY = f"""
+SELECT DISTINCT ?person ?party ?partyLabel ?short ?from ?until ?founded ?dissolved WHERE {{
+  ?person p:P39 ?held .
+  ?held pq:P5054 ?cabinet .
+  ?cabinet wdt:P31 wd:{CABINET_OF_THE_NETHERLANDS} .
+  ?person p:P102 ?membership .
+  ?membership ps:P102 ?party .
+  OPTIONAL {{ ?membership pq:P580 ?from }}
+  OPTIONAL {{ ?membership pq:P582 ?until }}
+  OPTIONAL {{ ?party wdt:P571 ?founded }}
+  OPTIONAL {{ ?party wdt:P576 ?dissolved }}
+  OPTIONAL {{ ?party wdt:P1813 ?short . FILTER(LANG(?short) IN ("nl", "mul")) }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "nl,mul,en". }}
+}}
+"""
+
+CABINETS_QUERY = f"""
+SELECT ?cabinet ?cabinetLabel ?start ?inception ?end ?dissolved ?head ?previous WHERE {{
+  ?cabinet wdt:P31 wd:{CABINET_OF_THE_NETHERLANDS} .
+  OPTIONAL {{ ?cabinet wdt:P580 ?start }}
+  OPTIONAL {{ ?cabinet wdt:P571 ?inception }}
+  OPTIONAL {{ ?cabinet wdt:P582 ?end }}
+  OPTIONAL {{ ?cabinet wdt:P576 ?dissolved }}
+  OPTIONAL {{ ?cabinet wdt:P6 ?head }}
+  OPTIONAL {{ ?cabinet wdt:P155 ?previous }}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "nl,mul,en". }}
 }}
 """
@@ -93,6 +127,65 @@ def group_by_person(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(people.values())
 
 
+def _first(*values: str | None) -> str | None:
+    return next((v for v in values if v), None)
+
+
+def _add(items: list[Any], item: Any) -> None:
+    if item and item not in items:
+        items.append(item)
+
+
+def party_memberships(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """The rows of ``PARTIES_QUERY`` as the parties of each person (Q-id -> parties):
+    ``{id, name, short, from_date, to_date, founded, dissolved}``, one per membership."""
+    parties: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        person, party = _qid(_value(row, "person")), _qid(_value(row, "party"))
+        if not person or not party:
+            continue
+        _add(
+            parties.setdefault(person, []),
+            {
+                "id": party,
+                "name": _value(row, "partyLabel"),
+                "short": _value(row, "short"),
+                "from_date": _date(_value(row, "from")),
+                "to_date": _date(_value(row, "until")),
+                "founded": _date(_value(row, "founded")),
+                "dissolved": _date(_value(row, "dissolved")),
+            },
+        )
+    return parties
+
+
+def group_cabinets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The rows of ``CABINETS_QUERY`` as one record per cabinet: ``{id, name, from_date,
+    to_date, heads, previous}``, the start of its term (P580) before its inception (P571),
+    the end of its term (P582) before its dissolution (P576)."""
+    cabinets: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        cabinet = _qid(_value(row, "cabinet"))
+        if not cabinet:
+            continue
+        record = cabinets.setdefault(
+            cabinet,
+            {
+                "id": cabinet,
+                "name": _value(row, "cabinetLabel"),
+                "from_date": _date(
+                    _first(_value(row, "start"), _value(row, "inception"))
+                ),
+                "to_date": _date(_first(_value(row, "end"), _value(row, "dissolved"))),
+                "heads": [],
+                "previous": [],
+            },
+        )
+        _add(record["heads"], _qid(_value(row, "head")))
+        _add(record["previous"], _qid(_value(row, "previous")))
+    return sorted(cabinets.values(), key=lambda c: (c["from_date"] or "", c["id"]))
+
+
 class WikidataClient(BaseClient):
     """Client for the Wikidata SPARQL endpoint."""
 
@@ -105,17 +198,10 @@ class WikidataClient(BaseClient):
         Raises when the request fails, and when the answer holds nobody: the endpoint or
         the way Wikidata records cabinets has then changed.
         """
-        response = self._get_raw_absolute_with_retry(
-            WIKIDATA_SPARQL_ENDPOINT,
-            params={"query": QUERY},
-            timeout=120,
-            headers={
-                "User-Agent": _USER_AGENT,
-                "Accept": "application/sparql-results+json",
-            },
-        )
-        rows = response.json().get("results", {}).get("bindings", [])
-        people = group_by_person(rows)
+        people = group_by_person(self._select(QUERY))
+        parties = party_memberships(self._select(PARTIES_QUERY))
+        for person in people:
+            person["parties"] = parties.get(person["id"], [])
         if not people:
             raise RuntimeError(
                 f"Wikidata returned no cabinet posts at all: the endpoint {self.base_url} "
@@ -127,3 +213,27 @@ class WikidataClient(BaseClient):
             len(people),
         )
         return people
+
+    def cabinets(self) -> list[dict[str, Any]]:
+        """Every Dutch cabinet, oldest first. Raises when the answer holds none."""
+        cabinets = group_cabinets(self._select(CABINETS_QUERY))
+        if not cabinets:
+            raise RuntimeError(
+                f"Wikidata returned no cabinets at all: the endpoint {self.base_url} "
+                "or the way it records cabinets has changed."
+            )
+        logger.info("Wikidata: %d Dutch cabinets.", len(cabinets))
+        return cabinets
+
+    def _select(self, query: str) -> list[dict[str, Any]]:
+        """The bindings a SPARQL query answers."""
+        response = self._get_raw_absolute_with_retry(
+            WIKIDATA_SPARQL_ENDPOINT,
+            params={"query": query},
+            timeout=120,
+            headers={
+                "User-Agent": _USER_AGENT,
+                "Accept": "application/sparql-results+json",
+            },
+        )
+        return list(response.json().get("results", {}).get("bindings", []))

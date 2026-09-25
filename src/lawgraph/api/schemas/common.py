@@ -222,3 +222,12 @@ class PublicationDTO(BaseModel):
                 if n is not None and str(n).strip()
             ],
         )
+
+
+class FacetCountDTO(BaseModel):
+    """One value of a facet and how many items have it under the current filters."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str | None = Field(None, description="Null counts the items without one.")
+    count: int

@@ -292,3 +292,30 @@ def remove_members(store: Store, keys: list[str]) -> int:
         RETURN 1
     """
     return sum(store.query(members, {"keys": keys}))
+
+
+def faction_names(store: Store) -> Iterator[dict[str, Any]]:
+    """``{key, name, abbreviation, aliases}`` of every faction (``normalize wikidata`` finds
+    the faction of a party of a cabinet by them)."""
+    aql = f"""
+    FOR f IN {COLLECTION_FACTIONS}
+        RETURN {{
+            key: f._key,
+            name: f.props.name,
+            abbreviation: f.props.abbreviation,
+            aliases: f.props.aliases
+        }}
+    """
+    return store.query(aql)
+
+
+def remove_edges_except(store: Store, relation: str, keep: list[str]) -> int:
+    """Remove the edges of *relation* whose key is not in *keep*; how many went. For edges
+    one pipeline derives in full on every run, so an edge it no longer derives goes."""
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == @relation AND e._key NOT IN @keep
+        REMOVE e IN {COLLECTION_EDGES}
+        RETURN 1
+    """
+    return sum(store.query(aql, {"relation": relation, "keep": keep}))

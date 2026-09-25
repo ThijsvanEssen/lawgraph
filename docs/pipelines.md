@@ -16,7 +16,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
-| Wikidata | `wikidata` | `wikidata` | none |
+| Wikidata | `wikidata` | `wikidata` | `tk-government` |
 | The graph itself (`graph`) | none | none | `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: base URL from `config/settings.py` (trailing
@@ -657,18 +657,24 @@ instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Tr
 
 ## Wikidata
 
-**Provides.** Every post a person held in a Dutch cabinet: the statements `position held`
+**Provides.** Every Dutch cabinet, and every post a person held in one: the statements `position held`
 (P39) with the qualifier `parliamentary group / cabinet` (P5054) whose cabinet is an instance of
 `Cabinet of the Netherlands` (Q2479200), with start (P580), end (P582), the name of the person
 and their date of birth (P569, with its precision), in one SPARQL query to
 `WIKIDATA_SPARQL`. The Tweede Kamer has no record of cabinet posts: `PersoonLoopbaan` is a
 career the person reports, empty for most ministers, and a signed paper (`AUTHORED
 meta.function`) names a function only on its own date. Wikidata is complete from the cabinets
-of the 1970s (30 to 60 posts each); older cabinets have a few. About 400 people.
+of the 1970s (30 to 60 posts each); older cabinets have a few. About 400 people. A second query
+reads the parties of those people (`member of political party`, P102, with its start and end
+where Wikidata has them, and the party's founding and dissolution), a third every item that is a
+`Cabinet of the Netherlands`: its name, start (P580, else P571), end (P582, else P576), head of
+government (P6) and the cabinet before it (P155). 57 cabinets.
 
 **Retrieve.** One `wikidata-cabinet-posts-json` record per person (external id the Q-id:
 `id`, `name`, `birth_date`, `birth_precision`, `posts` with `function`, `cabinet`, `from_date`,
-`to_date` and their Q-ids), in full on every run. An empty answer raises.
+`to_date` and their Q-ids, `parties` with `id`, `name`, `short`, `from_date`, `to_date`,
+`founded`, `dissolved`), and one `wikidata-cabinet-json` record per cabinet (`id`, `name`,
+`from_date`, `to_date`, `heads`, `previous`), in full on every run. An empty answer raises.
 
 **Normalize.** Matches each person to one Tweede Kamer person (`core/government.py`):
 
@@ -693,6 +699,45 @@ person to a Tweede Kamer person, the member of their own is removed, so one pers
 two members. Every record is read on every run. Needs `normalize tk-dossiers` (the members and
 their signatures).
 
+Every post also gets its normalised `post` (`minister-president`, `viceminister-president`,
+`minister`, `minister_zonder_portefeuille`, `staatssecretaris`) and `ministry`, read from the
+function by `core/ministries.classify_function`, and `cabinet_key`. The ministries are one
+controlled list in `core/ministries.py` (`GET /api/ministries`), in protocol order: `az`, `bz`,
+`jenv`, `bzk`, `ocw`, `fin`, `def`, `ienw`, `ez`, `kgg`, `lvvn`, `szw`, `vws`, `vro`, `aenm`;
+a ministry that no longer exists under its name (`venw` Verkeer en Waterstaat, `vrom`, `justitie`,
+`ezk`, ...) has its own key, a `successor` and the last day it had the name, and a later source
+that writes the old name ("Binnenlandse Zaken" for BZK) is read as the successor. A minister
+without portfolio ("minister voor …") and a state secretary belong to the ministry their post is
+placed under, by the words of the portfolio (Klimaat en Energie `ezk`, Basis- en Voortgezet
+Onderwijs `ocw`, Rechtsbescherming `jenv`, Herstel Groningen `bzk`); a name that names no
+portfolio ("Nederlandse minister", the viceminister-president) has none.
+
+Every cabinet becomes a node of `cabinets` (`core/cabinets.py`), key from its name
+(`kabinet-Balkenende II (2003-2006)` is `kabinet-Balkenende II`, key `balkenende_ii`), with
+`from_date`, `to_date` (null in office), `previous`, `prime_minister` (the member who held the
+post of minister-president in it, else its head of government) and `parties`: the parties at
+least two of its members belonged to when their post began (a dated membership that holds that
+day, or an undated one of a party that existed then; a member with several counts only for those
+another member counts for; an independent is no party). Wikidata records no coalition, so a
+member whose old party it records without dates can still bring that party in. Each party names
+the `faction` with its name or abbreviation (`factions` lists their keys); a party from before the
+Tweede Kamer data (KVP, ARP, CHU) has none. Each member gets an edge `SERVED_IN` to each cabinet
+they held a post in, `meta.posts` the posts; the edges are derived in full on every run and one
+no post supports any more is removed.
+
+**Semantic `tk-government`.** Who in government made each commitment and brought each dossier
+in (`pipelines/semantic/tk_government.py`). A commitment names its maker as the Tweede Kamer
+writes it (`Herbert, H.G.`, `Minister van Economische Zaken`) on its date: the member is the one
+who held a post of that kind that day and whose surname is in the name
+(`core/government.match_signatory`), else none (`member_key` null); `post` and `ministry` come
+from the role, `cabinet` is the cabinet in office that day (on a handover day the new one). A
+dossier is brought in by whoever signed its earliest signed document first (`AUTHORED` role
+`Eerste ondertekenaar`, capacity `bewindspersoon` or `kamerlid`, the document `PART_OF` the
+dossier directly or through a case): a bewindspersoon gives it the `ministry` of their function
+that day and `initiative: false`, a Kamerlid `initiative: true`; `cabinet` is the cabinet in
+office then. Every commitment and dossier on every run; writes what changed. On lawgraph_small
+192 of 195 commitments find their member.
+
 ## Ordering
 
 `normalize all` and `semantic all` run in registry order; each row needs what is above it.
@@ -701,7 +746,7 @@ their signatures).
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
-| normalize `wikidata` | `normalize tk-dossiers` (the members, with their date of birth) |
+| normalize `wikidata` | `normalize tk-dossiers` (the members, with their date of birth) and `normalize tk` (the factions a party of a cabinet is matched to) |
 | normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
@@ -710,5 +755,6 @@ their signatures).
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`) and `normalize tk-dossiers` (documents, decisions and their edges to the dossier) |
+| semantic `tk-government` | `normalize wikidata` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

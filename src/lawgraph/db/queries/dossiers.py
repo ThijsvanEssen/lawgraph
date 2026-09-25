@@ -915,6 +915,15 @@ def _relation_order(row: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+# The dimensions ``/dossiers/open`` counts as facets: the prop each counts, without a value
+# counted as its default.
+_DOSSIER_FACETS = {
+    "track": 'dossier.props.track_kind OR "overig"',
+    "stage": "dossier.props.current_stage",
+    "ministry": "dossier.props.ministry",
+}
+
+
 def get_open_dossiers(
     store: ArangoStore,
     *,
@@ -922,29 +931,52 @@ def get_open_dossiers(
     subject: str | None = None,
     stage: str | None = None,
     has_stage: list[str] | None = None,
+    tracks: list[str] | None = None,
+    ministry: str | None = None,
+    initiative: bool | None = None,
+    opened_from: str | None = None,
+    opened_to: str | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> dict[str, Any]:
-    """A page of the dossiers that are still open.
+    """A page of the dossiers that are still open, with ``facets``: per ``track``,
+    ``stage`` (the current one) and ``ministry`` the number of dossiers per value under
+    the other filters, each dimension counted without its own filter.
 
     ``has_stage`` keeps only dossiers whose ``stages_present`` contains every
     stage listed. The committee filter resolves that committee's dossiers once
     as a set, rather than traversing per dossier row.
     """
+    # the filters of a facet dimension, by its name; the others hold for every facet
+    own: dict[str, str] = {}
     filters = ["dossier.props.closed != true"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset}
 
     if stage:
-        filters.append("dossier.props.current_stage == @stage")
+        own["stage"] = "dossier.props.current_stage == @stage"
         bind["stage"] = stage
+    if tracks:
+        own["track"] = f"({_DOSSIER_FACETS['track']}) IN @tracks"
+        bind["tracks"] = tracks
+    if ministry:
+        own["ministry"] = "dossier.props.ministry == @ministry"
+        bind["ministry"] = ministry
     if subject:
         filters.append(_subject_filter(subject, bind))
     if has_stage:
         filters.append("@has_stage ALL IN (dossier.props.stages_present OR [])")
         bind["has_stage"] = has_stage
+    if initiative is not None:
+        filters.append("dossier.props.initiative == @initiative")
+        bind["initiative"] = initiative
+    if opened_from:
+        filters.append("dossier.props.opened_on >= @opened_from")
+        bind["opened_from"] = opened_from
+    if opened_to:
+        filters.append("dossier.props.opened_on <= @opened_to")
+        bind["opened_to"] = opened_to
 
     committee_pre = ""
-    committee_filter = ""
     if committee_slug:
         bind["committee_slug"] = committee_slug
         bind["led_by"] = RELATION_LED_BY
@@ -963,29 +995,42 @@ def get_open_dossiers(
                 RETURN subject._to
     ) : []
         """
-        committee_filter = "FILTER dossier._id IN committee_dossier_ids"
+        filters.append("dossier._id IN committee_dossier_ids")
 
-    where = "\n            ".join(f"FILTER {f}" for f in filters)
+    def where(*clauses: str) -> str:
+        return "\n            ".join(f"FILTER {c}" for c in clauses)
+
+    every = where(*filters, *own.values())
+    facets = ",\n        ".join(
+        f"""{name}: (
+            FOR dossier IN {COLLECTION_DOSSIERS}
+                {where(*filters, *(c for n, c in own.items() if n != name))}
+                COLLECT value = {expression} WITH COUNT INTO n
+                SORT n DESC, value
+                RETURN {{ value, count: n }}
+        )"""
+        for name, expression in _DOSSIER_FACETS.items()
+    )
     aql = f"""
     {committee_pre}
     LET total = LENGTH(
         FOR dossier IN {COLLECTION_DOSSIERS}
-            {where}
-            {committee_filter}
+            {every}
             RETURN 1
     )
     LET items = (
         FOR dossier IN {COLLECTION_DOSSIERS}
-            {where}
-            {committee_filter}
+            {every}
             SORT dossier.props.opened_on DESC
             LIMIT @offset, @limit
             RETURN dossier
     )
-    RETURN {{ total: total, items: items }}
+    RETURN {{ total: total, items: items, facets: {{
+        {facets}
+    }} }}
     """
     rows = list(store.query(aql, bind))
-    return rows[0] if rows else {"total": 0, "items": []}
+    return rows[0] if rows else {"total": 0, "items": [], "facets": {}}
 
 
 def get_recent_dossiers(

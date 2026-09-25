@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
     COLLECTION_COMMITTEES,
@@ -55,6 +56,7 @@ CONCEPTS: dict[str, str] = {
     "Commitment": COLLECTION_COMMITMENTS,
     "Member": COLLECTION_MEMBERS,
     "Faction": COLLECTION_FACTIONS,
+    "Cabinet": COLLECTION_CABINETS,
     "Committee": COLLECTION_COMMITTEES,
 }
 _CONCEPT_OF = {collection: concept for concept, collection in CONCEPTS.items()}
@@ -82,6 +84,7 @@ _DEC = COLLECTION_DECISIONS
 _COMMIT = COLLECTION_COMMITMENTS
 _MEMBER = COLLECTION_MEMBERS
 _FACTION = COLLECTION_FACTIONS
+_CABINET = COLLECTION_CABINETS
 _COMMITTEE = COLLECTION_COMMITTEES
 
 RELATIONS: tuple[RelationSpec, ...] = (
@@ -213,6 +216,13 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_MEMBER,),
         (_COMMITTEE, _FACTION),
         "Membership of a committee or faction, with from/to dates and role.",
+    ),
+    RelationSpec(
+        "SERVED_IN",
+        (_MEMBER,),
+        (_CABINET,),
+        "A post held in a cabinet, one edge per post: `function` as the source writes "
+        "it, the normalised `post` and `ministry`, `from_date`, `to_date`.",
     ),
     RelationSpec(
         "AUTHORED",

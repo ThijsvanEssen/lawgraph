@@ -294,20 +294,30 @@ def get_members(
     active: bool | None = None,
     q: str | None = None,
     include_all: bool = False,
+    government: bool = False,
+    cabinet: str | None = None,
     limit: int = 500,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
-    """Members of parliament, newest name order.
+    """Members of parliament, in name order; never a record without a name.
 
     Restricted to people who ever held a seat; *include_all* also returns the
-    ministers and other people the TK Persoon endpoint exposes. *party*
-    matches the current party or any abbreviation, name or alias in the
-    member's faction timeline.
+    ministers and other people the TK Persoon endpoint exposes. *government* keeps
+    those who held a post in a cabinet, *cabinet* those who held one in that cabinet
+    (both whether they sat in parliament or not). *party* matches the current party or
+    any abbreviation, name or alias in the member's faction timeline.
     """
-    filters: list[str] = []
+    filters: list[str] = [
+        "(member.props.name OR member.props.wikidata_name) NOT IN [null, '']"
+    ]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
 
-    if not include_all:
+    if government:
+        filters.append("LENGTH(member.props.government_functions) > 0")
+    if cabinet:
+        filters.append("@cabinet IN member.props.government_functions[*].cabinet_key")
+        bind["cabinet"] = cabinet
+    if not (include_all or government or cabinet):
         filters.append("LENGTH(member.props.faction_memberships) > 0")
     if party:
         filters.append(
@@ -335,7 +345,7 @@ def get_members(
                 LIMIT 1 RETURN 1
         ) > 0
         FILTER @active == null OR seated == @active
-        SORT member.props.name ASC
+        SORT member.props.name OR member.props.wikidata_name ASC
         LIMIT @offset, @limit
         RETURN member
     """

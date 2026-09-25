@@ -100,6 +100,7 @@ from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
 from lawgraph.pipelines.semantic.tk_dossier_relations import (
     TKDossierRelationsSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_government import TKGovernmentSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
@@ -371,7 +372,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _pipeline(
         retrieve_wikidata,
-        "The posts people held in Dutch cabinets, from Wikidata (one SPARQL query).",
+        "The Dutch cabinets and the posts people held in them, from Wikidata (SPARQL).",
         argv_for_all=_no_argv,
     ),
 ]
@@ -546,6 +547,13 @@ SEMANTIC: list[Pipeline] = [
         (
             "Whether each dossier is closed and how it ended: the publication of its law, "
             "the withdrawal of its bill or the vote that rejected it."
+        ),
+    ),
+    _pipeline(
+        TKGovernmentSemanticPipeline,
+        (
+            "Who in government made each commitment and brought each dossier in (ministry "
+            "or initiative), and the cabinet in office then."
         ),
     ),
     _pipeline(

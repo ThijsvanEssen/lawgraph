@@ -447,6 +447,9 @@ CAPACITY_MEMBER = "kamerlid"
 CAPACITY_GOVERNMENT = "bewindspersoon"
 CAPACITY_OTHER = "overig"
 
+# What a Toezegging holds as ``DatumNakoming`` when the Kamer names no date it is due.
+NO_DUE_DATE = "0001-01-01"
+
 # DocumentActor.Functie of a member of the government: "minister van Financiën", "minister voor
 # Klimaat en Energie", "minister-president", "viceminister-president", "staatssecretaris van
 # Defensie". Not "gevolmachtigde minister van Aruba", who speaks for Aruba.

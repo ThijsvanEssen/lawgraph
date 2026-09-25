@@ -6,6 +6,8 @@ from typing import Annotated, Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+from lawgraph.api.params import MinistryKey
+from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
 from lawgraph.core.tk_links import tk_url
 
@@ -389,6 +391,21 @@ class DossierSummaryDTO(BaseModel):
     outcome: DossierOutcome | None = None
     opened_on: str | None = None
     closed_on: str | None = None
+    ministry: MinistryKey | None = Field(
+        None,
+        description="The ministry (``GET /api/ministries``) of the bewindspersoon who "
+        "signed the earliest signed document of the dossier first; null for an initiative "
+        "or when nobody in government or parliament signed first.",
+    )
+    initiative: bool | None = Field(
+        None,
+        description="True when a Kamerlid signed the earliest signed document first, false "
+        "when a bewindspersoon did, null when neither did.",
+    )
+    cabinet: str | None = Field(
+        None,
+        description="The key of the cabinet in office when that document was signed.",
+    )
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> DossierSummaryDTO:
@@ -404,6 +421,21 @@ class DossierListResponse(BaseModel):
         ..., description="Matching dossiers, independent of limit and offset."
     )
     items: list[DossierSummaryDTO]
+    facets: DossierFacetsDTO | None = Field(
+        default=None, description="Only on ``/api/dossiers/open``."
+    )
+
+
+class DossierFacetsDTO(BaseModel):
+    """Per dimension the number of dossiers per value under the current filters, each
+    dimension counted without its own filter (so the other values of a chosen dimension
+    keep their counts), the largest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    track: list[FacetCountDTO] = Field(default_factory=list)
+    stage: list[FacetCountDTO] = Field(default_factory=list)
+    ministry: list[FacetCountDTO] = Field(default_factory=list)
 
 
 DossierInstrumentRelation = Literal["legislated_in", "amends", "introduces", "repeals"]
@@ -588,6 +620,9 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         ),
         "opened_on": props.get("opened_on"),
         "closed_on": props.get("closed_on"),
+        "ministry": props.get("ministry"),
+        "initiative": props.get("initiative"),
+        "cabinet": props.get("cabinet"),
     }
 
 
