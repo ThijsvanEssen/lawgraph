@@ -106,6 +106,7 @@ def link_votes(
     )
 
     writer = EdgeWriter(store, what="VOTED edges")
+    lost: dict[str, list[str]] = {}  # decision -> the voters no node was found for
     for decision_id, votes in votes_by_decision.items():
         decision_node = decision_nodes.get(decision_id)
         if decision_node is None:
@@ -113,6 +114,8 @@ def link_votes(
         roll_call = decision_node.props.get("vote_kind") == tk_records.VOTE_KIND_MEMBER
         for cast in votes:
             voter = _voter_id(cast, faction_nodes, known_members, roll_call=roll_call)
+            if voter is None and not roll_call and cast.seats:
+                lost.setdefault(decision_id, []).append(cast.faction_label)
             writer.add(
                 voter,
                 decision_node.arango_id,
@@ -122,6 +125,21 @@ def link_votes(
             )
     writer.flush()
     logger.info("Wrote %d VOTED edges.", writer.added)
+    _report_lost_votes(lost)
+
+
+def _report_lost_votes(lost: dict[str, list[str]]) -> None:
+    """Warn when the votes of a decision do not add up to its tally: a faction vote whose
+    Fractie the graph does not hold is left out of ``votes[]``, not of the tally."""
+    if not lost:
+        return
+    labels = sorted({label or "?" for voters in lost.values() for label in voters})
+    logger.warning(
+        "%d decisions have faction votes without a faction node, so their votes do not "
+        "add up to the tally; the factions: %s.",
+        len(lost),
+        ", ".join(labels),
+    )
 
 
 def _voter_id(

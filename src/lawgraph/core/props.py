@@ -485,7 +485,8 @@ class CabinetProps(_CommonProps):
 
 
 class FactionProps(_CommonProps):
-    external_id: str | None = None
+    external_id: str | None = None  # the current Fractie record
+    external_ids: list[str] | None = None  # every Fractie record of the faction
     name: str | None = None
     abbreviation: str | None = None
     aliases: list[str] | None = None

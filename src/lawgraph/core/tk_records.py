@@ -324,23 +324,33 @@ def faction_aliases(payload: Payload, vote_labels: Iterable[str]) -> list[str]:
     return sorted(aliases)
 
 
-def faction(payload: Payload, aliases: list[str]) -> Record | None:
-    """Node key and props for a Fractie record."""
+def faction(
+    payload: Payload, aliases: list[str], records: list[Payload] | None = None
+) -> Record | None:
+    """Node key and props for a faction: *payload* is its current Fractie record,
+    *records* every record of it (the Kamer gives a faction that returns a new record, and
+    still names the old one: 50PLUS 2012-2021 and again from 2025). The faction is active
+    from the first record's start until the last one ends, and knows every record's id."""
     external_id = _external_id(payload)
     label = faction_label(payload)
     if not external_id or not label:
         return None
+    records = records or [payload]
     abbreviation = _text(payload, "Afkorting")
     name = _text(payload, "NaamNL")
+    starts = [d for d in (iso_date(r.get("DatumActief")) for r in records) if d]
+    ends = [iso_date(r.get("DatumInactief")) for r in records]
+    active = any(end is None for end in ends)
     return make_node_key(label), {
         "external_id": external_id,
+        "external_ids": sorted({_external_id(r) for r in records} - {""}),
         "name": name or abbreviation,
         "abbreviation": abbreviation or None,
         "aliases": aliases,
-        "active_from": iso_date(payload.get("DatumActief")),
-        "active_until": iso_date(payload.get("DatumInactief")),
+        "active_from": min(starts) if starts else None,
+        "active_until": None if active else max(e for e in ends if e),
         "seats": payload.get("AantalZetels"),
-        "active": payload.get("DatumInactief") is None,
+        "active": active,
         "display_name": abbreviation or name,
     }
 
