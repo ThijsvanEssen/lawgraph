@@ -74,43 +74,45 @@ def normalize_factions(
     faction_raws: Iterable[dict[str, Any]],
     vote_labels: set[str],
 ) -> dict[str, Node]:
-    """Fractie nodes, keyed by TK ``Id``.
+    """Faction nodes, by the TK ``Id`` of every Fractie record.
 
-    Several records can share one abbreviation — a party that dissolves and
-    reforms gets a fresh record — so they are deduplicated per node key before
-    anything is written, with the seated record winning. *vote_labels* are the spellings
-    votes use for a faction (``Stemming.ActorFractie``).
+    Several records can share one abbreviation: a faction that returns gets a fresh record
+    (50PLUS 2012-2021 and from 2025, Krol, Van Kooten-Arissen), and the Kamer names either
+    one on votes and seats, the old one also on a vote of today. They are one faction: one
+    node, whose props come from the seated (else the latest changed) record and whose
+    period spans them all, reached by the id of each of them. *vote_labels* are the
+    spellings votes use for a faction (``Stemming.ActorFractie``).
     """
-    newest: dict[str, dict[str, Any]] = {}
+    by_key: dict[str, list[dict[str, Any]]] = {}
     for raw in faction_raws:
         payload = payload_json(raw)
         label = tk_records.faction_label(payload)
-        if not label:
-            continue
-        key = make_node_key(label)
-        current = newest.get(key)
-        if current is None or tk_records.faction_is_current(
-            payload
-        ) > tk_records.faction_is_current(current):
-            newest[key] = payload
+        if label:
+            by_key.setdefault(make_node_key(label), []).append(payload)
 
     nodes: dict[str, Node] = {}
-    for payload in newest.values():
+    for records in by_key.values():
+        current = max(records, key=tk_records.faction_is_current)
         parsed = tk_records.faction(
-            payload, tk_records.faction_aliases(payload, vote_labels)
+            current, tk_records.faction_aliases(current, vote_labels), records
         )
         if parsed is None:
             continue
         key, props = parsed
-        nodes[props["external_id"]] = Node(
+        node = Node(
             collection=COLLECTION_FACTIONS,
             type=NodeType.FACTION,
             key=key,
             labels=["TK"],
             props=props,
         )
-    _write(store, nodes.values())
-    logger.info("Normalized %d factions.", len(nodes))
+        for external_id in props["external_ids"]:
+            nodes[external_id] = node
+    written = {node.key: node for node in nodes.values()}
+    _write(store, written.values())
+    logger.info(
+        "Normalized %d factions (%d Fractie records).", len(written), len(nodes)
+    )
     return nodes
 
 
