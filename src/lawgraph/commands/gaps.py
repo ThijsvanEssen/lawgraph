@@ -19,6 +19,7 @@ import argparse
 from typing import Any
 
 from lawgraph.clients.bwb import BWBClient
+from lawgraph.core.judgments import Referral
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
@@ -62,7 +63,9 @@ def _report(store: ArangoStore, min_stubs: int) -> None:
         name_cache = _resolve_names_from_bwb(unknown_ids, name_cache)
     _print_stub_report(missing, known, name_cache, min_stubs)
 
-    _print_judgment_stub_report(_gaps.rechtspraak_gaps(store))
+    _print_judgment_stub_report(
+        _gaps.rechtspraak_gaps(store), _gaps.unanswered_referrals(store)
+    )
     _print_mvt_report(_gaps.kamerstuk_gaps(store, "toelichting"))
     _print_celex_stub_report(_gaps.eurlex_gaps(store))
     _print_echr_stub_report(_gaps.echr_gaps(store))
@@ -208,12 +211,19 @@ def _print_stub_table(rows: list[dict[str, Any]], name_cache: dict[str, str]) ->
         print(f"    {count:>4}×  {bwb_id}{name_str}")
 
 
-def _print_judgment_stub_report(eclis: list[str]) -> None:
+def _print_judgment_stub_report(eclis: list[str], referrals: list[Referral]) -> None:
     print()
     print("═" * 60)
     print("  STUB JUDGMENT GAPS")
     print("═" * 60)
 
+    if referrals:
+        print(
+            f"\n  {len(referrals)} referral(s) of preliminary rulings to look up in the "
+            "index of their date:\n"
+        )
+        for referral in referrals[:30]:
+            print(f"    {referral.date}  {', '.join(referral.case_numbers)}")
     if not eclis:
         print("\n  No stub judgments found — case law is complete!")
         return

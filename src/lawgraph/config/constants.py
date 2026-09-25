@@ -152,6 +152,8 @@ SOURCE_ECHR = "echr"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
 SOURCE_WIKIDATA = "wikidata"
+# The label of a member only Wikidata knows: a cabinet member without a Tweede Kamer person.
+LABEL_WIKIDATA = "Wikidata"
 
 # The chambers of the States General, as a document or decision carries them in its labels.
 CHAMBER_TK = "TK"

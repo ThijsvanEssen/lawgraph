@@ -148,6 +148,7 @@ def get_judgment_detail(
         articles=articles,
         cited_articles=cited_articles,
         cited_judgments=cited_judgments,
+        series=[JudgmentSummaryDTO.from_document(doc) for doc in data.series],
         metadata=data.metadata or None,
     )
 

@@ -32,6 +32,8 @@ class JudgmentDetailData:
     articles: list[JudgmentArticleRelation]
     cited_judgments: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    # the other judgments of its series (``props.series_id``), as slim documents
+    series: list[dict[str, Any]] = field(default_factory=list)
 
 
 def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetailData:
@@ -84,9 +86,36 @@ def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetail
     ]
 
     metadata = {"article_count": len(article_relations)}
+    series_id = (judgment_doc.get("props") or {}).get("series_id")
     return JudgmentDetailData(
-        judgment=judgment_doc, articles=article_relations, metadata=metadata
+        judgment=judgment_doc,
+        articles=article_relations,
+        metadata=metadata,
+        series=[
+            doc
+            for doc in get_series_members(store, series_id)
+            if doc["_id"] != judgment_doc["_id"]
+        ]
+        if series_id
+        else [],
     )
+
+
+def get_series_members(store: ArangoStore, series_id: str) -> list[dict[str, Any]]:
+    """The judgments of a series (``semantic rechtspraak-series``), each with its ``_id``,
+    ``_key`` and the ``display_name`` and ``ecli`` of its props, in the order of their ECLI
+    numbers (one court, one year: a shorter ECLI is a lower number)."""
+    aql = f"""
+    FOR j IN {COLLECTION_JUDGMENTS}
+        FILTER j.props.series_id == @series_id
+        SORT LENGTH(j.props.ecli), j.props.ecli
+        RETURN {{
+            _id: j._id,
+            _key: j._key,
+            props: KEEP(j.props, "display_name", "ecli")
+        }}
+    """
+    return list(store.query(aql, {"series_id": series_id}))
 
 
 def get_judgments_list(
@@ -205,7 +234,9 @@ def get_judgments_list(
                 tier: props.tier,
                 date: props.date_eff,
                 source: props.source,
-                inbound_citation_count: props.inbound_citation_count
+                inbound_citation_count: props.inbound_citation_count,
+                series_id: props.series_id,
+                series_size: props.series_size
             }}
     )
     """

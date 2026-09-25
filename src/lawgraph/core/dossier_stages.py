@@ -43,7 +43,9 @@ _DOCUMENT_STAGES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("nota_naar_aanleiding_van_verslag", ("nota n.a.v. het",)),
     ("amendementen", ("amendement", "nota van wijziging")),
     ("behandeling", ("motie", "verslag van een wetgevingsoverleg")),
-    ("stemming", ("stemmingslijst",)),
+    # The text of the bill as the Tweede Kamer adopted it: a vote took place, also on a
+    # hamerstuk, which has no vote of its own on record.
+    ("stemming", ("stemmingslijst", "eindtekst")),
 )
 
 # Activiteit.Soort, whole.
@@ -56,13 +58,29 @@ _ACTIVITY_STAGES: dict[str, str] = {
     "hamerstukken": "stemming",
 }
 
+# Activiteit.Status of an activity announced and not (yet) held, also when its date passed.
+ACTIVITY_PLANNED = "Gepland"
+
 # Activiteit.Status of an activity that did not take place, or not then: it marks no stage.
 # A ``Gepland`` activity has not taken place either.
-ACTIVITY_NOT_HELD = frozenset({"Gepland", "Geannuleerd", "Verplaatst", "Vervallen"})
+ACTIVITY_NOT_HELD = frozenset(
+    {ACTIVITY_PLANNED, "Geannuleerd", "Verplaatst", "Vervallen"}
+)
 
-# The stages every bill passes, whatever else it meets: it is submitted with a memorandum,
-# after the advice of the Raad van State. A bill that was voted on passed ``stemming`` too.
-_ALWAYS_PASSED = ("wetsvoorstel", "mvt", "advies_rvs")
+# The stages every bill of a track passes, whatever else it meets. A bill is submitted with
+# a memorandum, after the advice of the Raad van State; a budget too, but a supplementary
+# budget often without advice. A treaty (submitted for tacit approval; one approved by law
+# has a bill, of track ``wetsvoorstel``) comes with a letter and the advice, never a bill.
+_ALWAYS_PASSED: dict[str, tuple[str, ...]] = {
+    "wetsvoorstel": ("wetsvoorstel", "mvt", "advies_rvs"),
+    "initiatiefwetsvoorstel": ("wetsvoorstel", "mvt", "advies_rvs"),
+    "begroting": ("wetsvoorstel", "mvt"),
+    "verdrag": ("advies_rvs",),
+}
+
+# The tracks whose bill, once aangenomen or verworpen, passed ``stemming``; a treaty is
+# approved tacitly.
+_VOTED_TRACKS = frozenset({"wetsvoorstel", "initiatiefwetsvoorstel", "begroting"})
 
 # Zaak.Soort by its beginning.
 _CASE_STAGES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -229,12 +247,17 @@ def accumulate_stage_signals(
 
 @dataclass(frozen=True)
 class DossierStages:
-    """Where a dossier is: its current stage, the stages it shows, and whether every stage
-    it must have passed to get there shows a document, an activity or a vote."""
+    """Where a dossier is: its current stage, the stages it shows, and the stages it must
+    have passed to get there that show no dated document, activity or vote."""
 
     current: str | None
     present: list[str]
-    complete: bool
+    missing: list[str]
+
+    @property
+    def complete(self) -> bool:
+        """Whether every stage it passed shows dated evidence."""
+        return not self.missing
 
 
 def dossier_stages(
@@ -250,40 +273,58 @@ def dossier_stages(
     """The stages of a dossier from what the graph holds about it.
 
     Only a bill passes stages; any other dossier is ``afgehandeld`` once closed and
-    has no stage before that, and its stages are complete.
+    has no stage before that, and misses none.
     """
     if track not in BILL_TRACKS:
         current, present = pick_current_stage(
             StageSignals({}, {}, any_signal=False), closed=closed
         )
-        return DossierStages(current, present, complete=True)
+        return DossierStages(current, present, missing=[])
     signals = accumulate_stage_signals(docs, activities, decisions, case_kinds)
     current, present = pick_current_stage(signals, closed=closed)
     return DossierStages(
-        current, present, stages_complete(signals, current, outcome=outcome)
+        current, present, stages_missing(track, signals, current, outcome=outcome)
     )
 
 
-def stages_complete(
-    signals: StageSignals, current: str | None, *, outcome: str | None
-) -> bool:
-    """Whether every stage a bill passed on its way to *current* has evidence with a date.
+def stages_missing(
+    track: str | None,
+    signals: StageSignals,
+    current: str | None,
+    *,
+    outcome: str | None,
+) -> list[str]:
+    """The stages a bill passed on its way to *current* that have no evidence with a date,
+    in the order of ``DOSSIER_STAGES``.
 
     The stages it passed are those it shows before *current* and *current* itself, and the
-    ones every bill passes before them (``wetsvoorstel``, ``mvt``, ``advies_rvs``; and
-    ``stemming`` for a bill that was ``aangenomen`` or ``verworpen``). A stage known only
-    from the kind of a case has no date and is no evidence. ``afgehandeld`` needs none: the
-    outcome is its evidence. A bill without any stage has passed none.
+    ones every bill of its *track* passes before them (``_ALWAYS_PASSED``); and
+    ``stemming`` for a bill that was ``aangenomen`` or ``verworpen``, a treaty excepted. A
+    stage known only from the kind of a case has no date and is no evidence.
+    ``afgehandeld`` needs none: the outcome is its evidence. A bill without any stage has
+    passed none.
     """
     if current is None:
-        return True
+        return []
     order = DOSSIER_STAGES.index
     passed = {st for st in signals.first if order(st) <= order(current)}
-    passed.update(st for st in _ALWAYS_PASSED if order(st) <= order(current))
-    if outcome in (OUTCOME_ENACTED, OUTCOME_REJECTED):
+    passed.update(
+        st for st in _ALWAYS_PASSED.get(track or "", ()) if order(st) <= order(current)
+    )
+    if track in _VOTED_TRACKS and outcome in (OUTCOME_ENACTED, OUTCOME_REJECTED):
         passed.add("stemming")
     passed.discard("afgehandeld")
-    return all(signals.first.get(stage) for stage in passed)
+    return sorted((st for st in passed if not signals.first.get(st)), key=order)
+
+
+def stage_props(stages: DossierStages) -> dict[str, Any]:
+    """The props that record *stages* on a dossier node."""
+    return {
+        "current_stage": stages.current,
+        "stages_present": stages.present,
+        "stages_complete": stages.complete,
+        "stages_missing": stages.missing,
+    }
 
 
 def pick_current_stage(
@@ -426,3 +467,20 @@ def derive_outcome(
         if last.get("passed") is False:
             return DossierOutcome(True, OUTCOME_REJECTED, last.get("date"))
     return OPEN
+
+
+def outcome_props(outcome: DossierOutcome, stages: DossierStages) -> dict[str, Any]:
+    """The props that record *outcome* on a dossier, with its *stages* recomputed for it.
+
+    Closing a dossier moves it to ``afgehandeld``, which it passed every stage it shows
+    to reach, and an outcome ``aangenomen`` or ``verworpen`` adds ``stemming``: *stages*
+    must be computed with the ``closed`` and ``outcome`` of *outcome*
+    (:func:`dossier_stages`), so that ``stages_complete`` and ``stages_missing`` hold for
+    the dossier as it is now, not as it was while open.
+    """
+    return {
+        "closed": outcome.closed,
+        "outcome": outcome.outcome,
+        "closed_on": outcome.closed_on,
+        **stage_props(stages),
+    }

@@ -44,6 +44,7 @@ from lawgraph.core.dossier_stages import (
     dossier_display_name,
     dossier_stages,
     select_title,
+    stage_props,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -403,16 +404,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         dated = [d["date"] for d in docs + activities if d.get("date")]
         opened_on = min(dated) if dated else row.get("opened_on")
 
-        unchanged = (
-            list(node.props.get("stages_present") or []) == stages.present
-            and node.props.get("current_stage") == stages.current
-            and node.props.get("stages_complete") == stages.complete
-            and node.props.get("track_kind") == track_kind
-        )
-        node.props["stages_present"] = stages.present
-        node.props["current_stage"] = stages.current
-        node.props["stages_complete"] = stages.complete
-        node.props["track_kind"] = track_kind
+        props = {**stage_props(stages), "track_kind": track_kind}
+        unchanged = all(node.props.get(name) == value for name, value in props.items())
+        node.props.update(props)
         node.props["opened_on"] = opened_on
         return 0 if unchanged else 1
 

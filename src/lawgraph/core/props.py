@@ -196,6 +196,10 @@ class JudgmentProps(_CommonProps):
     tier: str | None = None
     date_eff: str | None = None
     inbound_citation_count: int | None = None
+    # parallel cases of one court and day (``semantic rechtspraak-series``): the lowest
+    # ECLI of the series and how many judgments it has
+    series_id: str | None = None
+    series_size: int | None = None
     # ECHR-specific fields
     external_id: str | None = None
     appno: str | None = None
@@ -273,6 +277,7 @@ class DossierProps(_CommonProps):
     case_kinds: list[str] | None = None
     stages_present: list[str] | None = None
     stages_complete: bool | None = None
+    stages_missing: list[str] | None = None
     track_kind: str | None = None
     outcome: str | None = None
     # the other dossiers with the same number (the chapters of one budget)
@@ -385,6 +390,7 @@ class MemberProps(_CommonProps):
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
     birth_date: str | None = None
     wikidata_id: str | None = None
+    wikidata_name: str | None = None  # the name of the Wikidata person
     government_functions: list[GovernmentFunctionProps] | None = None
 
 

@@ -25,6 +25,14 @@ class JudgmentDTO(BaseNodeDTO):
     ecli: str | None
     source: str | None = None
     summary: str | None
+    series_id: str | None = Field(
+        default=None,
+        description="The series of parallel cases the judgment is one of (the same court, "
+        "day and, nearly, text): the lowest ECLI in it. Null outside a series.",
+    )
+    series_size: int | None = Field(
+        default=None, description="How many judgments the series has."
+    )
     paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
 
     @classmethod
@@ -58,6 +66,8 @@ class JudgmentDTO(BaseNodeDTO):
             ecli=ecli,
             source=source,
             summary=props.get("summary"),
+            series_id=props.get("series_id"),
+            series_size=props.get("series_size"),
             paragraphs=paragraphs,
         )
 
@@ -166,6 +176,11 @@ class JudgmentDetailResponse(BaseModel):
         "it: paragraphs, the lid or onderdeel named, a snippet.",
     )
     cited_judgments: list[JudgmentSummaryDTO] = Field(default_factory=list)
+    series: list[JudgmentSummaryDTO] = Field(
+        default_factory=list,
+        description="The other judgments of its series (`judgment.series_id`), in the "
+        "order of their ECLI numbers; empty outside a series.",
+    )
     metadata: dict[str, Any] | None
 
 
@@ -186,6 +201,8 @@ class JudgmentListItemDTO(BaseModel):
     source: str | None = None
     inbound_citation_count: int | None
     outbound_citation_count: int | None = None
+    series_id: str | None = None
+    series_size: int | None = None
 
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> JudgmentListItemDTO:
@@ -203,6 +220,8 @@ class JudgmentListItemDTO(BaseModel):
             summary=row.get("summary"),
             source=source,
             inbound_citation_count=int(inbound) if inbound is not None else None,
+            series_id=row.get("series_id"),
+            series_size=row.get("series_size"),
         )
 
 

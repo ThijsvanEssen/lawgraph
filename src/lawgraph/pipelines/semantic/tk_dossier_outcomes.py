@@ -7,9 +7,10 @@ publication of the law (``LEGISLATED_IN``, written by ``semantic bwb-amendments`
 letter that withdraws the bill, and the vote on the bill itself.
 
 Runs over every dossier, since a law published today closes a dossier whose own record did
-not change, and writes only the dossiers whose answer changed: ``closed``, ``outcome``,
-``closed_on`` and, as a closed dossier is ``afgehandeld``, ``current_stage`` and
-``stages_present``.
+not change, and writes only the dossiers whose outcome changed: ``closed``, ``outcome``,
+``closed_on`` and their stages recomputed for it (``current_stage``, ``stages_present``,
+``stages_complete``, ``stages_missing``; a closed dossier is ``afgehandeld``), from the same
+signals and rules as ``normalize tk-dossiers``.
 """
 
 from __future__ import annotations
@@ -22,40 +23,27 @@ from lawgraph.core.dossier_stages import (
     BILL_CASE_KINDS,
     DossierOutcome,
     derive_outcome,
+    dossier_stages,
+    outcome_props,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType, PipelineResult
+from lawgraph.db.queries import normalize as normalize_queries
 from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-CLOSED_STAGE = "afgehandeld"
-
 # Dossiers whose signals are read in one query (three edge walks each).
 _CHUNK = 500
 
+_OUTCOME_PROPS = ("closed", "outcome", "closed_on")
 
-def outcome_props(stored: dict[str, Any], outcome: DossierOutcome) -> dict[str, Any]:
-    """The props that record *outcome* on a dossier that holds *stored* now.
 
-    A closed dossier is at stage ``afgehandeld``; a dossier that is open again (the
-    evidence that closed it is gone) falls back to the last stage before it.
-    """
-    stages = [s for s in stored.get("stages_present") or [] if s != CLOSED_STAGE]
-    props: dict[str, Any] = {
-        "closed": outcome.closed,
-        "outcome": outcome.outcome,
-        "closed_on": outcome.closed_on,
-    }
-    if outcome.closed:
-        props["current_stage"] = CLOSED_STAGE
-        props["stages_present"] = [*stages, CLOSED_STAGE]
-    elif stored.get("current_stage") == CLOSED_STAGE:
-        props["current_stage"] = stages[-1] if stages else "onbekend"
-        props["stages_present"] = stages
-    return props
+def _outcome_changed(stored: dict[str, Any], outcome: DossierOutcome) -> bool:
+    found = (outcome.closed, outcome.outcome, outcome.closed_on)
+    return tuple(stored.get(name) for name in _OUTCOME_PROPS) != found
 
 
 class TKDossierOutcomesSemanticPipeline(SemanticPipelineBase):
@@ -66,10 +54,10 @@ class TKDossierOutcomesSemanticPipeline(SemanticPipelineBase):
         ids = list(semantic_queries.dossier_ids(self.store))
         closed = 0
         for chunk in self._track(chunked(ids, _CHUNK), "dossier chunks"):
-            changed = []
             rows = semantic_queries.dossier_outcome_signals(
                 self.store, chunk, bill_case_kinds=list(BILL_CASE_KINDS)
             )
+            pending: dict[str, tuple[dict[str, Any], DossierOutcome]] = {}
             for row in rows:
                 outcome = derive_outcome(
                     row.get("publications") or [],
@@ -78,16 +66,9 @@ class TKDossierOutcomesSemanticPipeline(SemanticPipelineBase):
                 )
                 closed += outcome.closed
                 stored = row.get("props") or {}
-                props = outcome_props(stored, outcome)
-                if any(stored.get(name) != value for name, value in props.items()):
-                    changed.append(
-                        {
-                            "_key": row["key"],
-                            "type": NodeType.DOSSIER.value,
-                            "labels": [],
-                            "props": props,
-                        }
-                    )
+                if _outcome_changed(stored, outcome):
+                    pending[f"{COLLECTION_DOSSIERS}/{row['key']}"] = (stored, outcome)
+            changed = self._with_stages(pending)
             if changed:
                 self.store.bulk_insert_or_update_nodes(COLLECTION_DOSSIERS, changed)
             result.updated += len(changed)
@@ -99,3 +80,33 @@ class TKDossierOutcomesSemanticPipeline(SemanticPipelineBase):
             result.updated,
         )
         return result
+
+    def _with_stages(
+        self, pending: dict[str, tuple[dict[str, Any], DossierOutcome]]
+    ) -> list[dict[str, Any]]:
+        """The node updates for the dossiers whose outcome changed, their stages
+        recomputed for the new outcome."""
+        if not pending:
+            return []
+        changed = []
+        for row in normalize_queries.dossier_signals(self.store, list(pending)):
+            dossier_id = row["dossier_id"]
+            stored, outcome = pending[dossier_id]
+            stages = dossier_stages(
+                stored.get("track_kind"),
+                row.get("docs") or [],
+                row.get("activities") or [],
+                row.get("decisions") or [],
+                list(row.get("case_kinds") or []),
+                closed=outcome.closed,
+                outcome=outcome.outcome,
+            )
+            changed.append(
+                {
+                    "_key": dossier_id.split("/", 1)[1],
+                    "type": NodeType.DOSSIER.value,
+                    "labels": [],
+                    "props": outcome_props(outcome, stages),
+                }
+            )
+        return changed

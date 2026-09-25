@@ -320,7 +320,9 @@ def get_members(
         )
         bind["party"] = party.strip().lower()
     if q:
-        filters.append("CONTAINS(LOWER(member.props.name), @q)")
+        filters.append(
+            "CONTAINS(LOWER(member.props.name OR member.props.wikidata_name), @q)"
+        )
         bind["q"] = q.strip().lower()
 
     where = ("FILTER " + " AND ".join(filters)) if filters else ""

@@ -82,6 +82,9 @@ from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
 from lawgraph.pipelines.semantic.rechtspraak_referrals import (
     RechtspraakReferralsSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.rechtspraak_series import (
+    RechtspraakSeriesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.staatsblad import StaatsbladSemanticPipeline
 from lawgraph.pipelines.semantic.staatscourant import (
     StaatscourantSemanticPipeline,
@@ -426,7 +429,8 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         WikidataNormalizePipeline,
-        "Cabinet posts onto the members they belong to (date of birth and surname).",
+        "Cabinet posts onto the members they belong to (date of birth and surname, or "
+        "signatures); a person without a Tweede Kamer person becomes a member of their own.",
     ),
     _pipeline(
         VerdragenbankNormalizePipeline,
@@ -500,6 +504,10 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         RechtspraakReferralsSemanticPipeline,
         "ANSWERS from a preliminary ruling to the decision that asked its questions.",
+    ),
+    _pipeline(
+        RechtspraakSeriesSemanticPipeline,
+        "Series of parallel judgments: one court, one day, (nearly) the same text.",
     ),
     _pipeline(
         TKAmendsSemanticPipeline,
