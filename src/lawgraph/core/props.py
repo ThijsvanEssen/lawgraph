@@ -150,6 +150,8 @@ class InstrumentVersionProps(_CommonProps):
 
 class ArticleVersionProps(_CommonProps):
     bwb_id: str | None = None
+    # the start of the latest toestand that holds this version (normalize bwb-history)
+    last_seen: str | None = None
     article_number: str | None = None
     label: str | None = None
     heading: str | None = None
