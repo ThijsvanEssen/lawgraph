@@ -189,7 +189,12 @@ def test_the_wikidata_rows_become_cabinets_and_party_memberships() -> None:
             "cabinet": {"value": E + RUTTE_IV},
             "cabinetLabel": {"value": "kabinet-Rutte IV"},
             "inception": {"value": "2022-01-10T00:00:00Z"},
+            "inceptionPrecision": {"value": "11"},
+            # the end of the term, known to the year only, and the dissolution to the day
+            "end": {"value": "2024-01-01T00:00:00Z"},
+            "endPrecision": {"value": "9"},
             "dissolved": {"value": "2024-07-02T00:00:00Z"},
+            "dissolvedPrecision": {"value": "11"},
             "head": {"value": E + "Q57792"},
             "previous": {"value": E + "Q42293409"},
         }
@@ -199,7 +204,9 @@ def test_the_wikidata_rows_become_cabinets_and_party_memberships() -> None:
             "id": RUTTE_IV,
             "name": "kabinet-Rutte IV",
             "from_date": "2022-01-10",
+            "from_date_precision": 11,
             "to_date": "2024-07-02",
+            "to_date_precision": 11,
             "heads": ["Q57792"],
             "previous": ["Q42293409"],
         }
@@ -226,3 +233,51 @@ def test_the_api_knows_every_status_a_commitment_can_have() -> None:
     from lawgraph.core.tk_records import COMMITMENT_STATUS
 
     assert set(get_args(CommitmentStatus)) == set(COMMITMENT_STATUS.values())
+
+
+def _cabinet(qid, start, start_p, end=None, end_p=None, previous=()):
+    return {
+        "id": qid,
+        "from_date": start,
+        "from_date_precision": start_p,
+        "to_date": end,
+        "to_date_precision": end_p,
+        "previous": list(previous),
+    }
+
+
+def test_a_cabinet_without_an_end_ends_when_the_next_one_starts() -> None:
+    from lawgraph.core.cabinets import complete_periods
+
+    periods = complete_periods(
+        [
+            _cabinet("A", "1879-08-20", 11, "1883-04-23", 11),
+            # Wikidata lacks the cabinet of 1883-1888: the year stays a year
+            _cabinet("B", "1888-01-01", 9),
+            _cabinet("C", "1891-01-01", 9),
+            # an end in the year the next one starts, known to the day
+            _cabinet("D", "1901-01-01", 9, "1905-01-01", 9),
+            _cabinet("E", "1905-08-17", 11, "1908-02-12", 11),
+            _cabinet("F", "1908-01-01", 9, previous=["E"]),
+            _cabinet("G", "2026-02-23", 11),
+        ]
+    )
+    assert periods["B"] == {
+        "from_date": "1888-01-01",
+        "from_date_precision": "year",
+        "to_date": "1891-01-01",
+        "to_date_precision": "year",
+        "previous": "A",
+    }
+    assert (periods["D"]["to_date"], periods["D"]["to_date_precision"]) == (
+        "1905-08-17",
+        "day",
+    )
+    assert (periods["F"]["from_date"], periods["F"]["from_date_precision"]) == (
+        "1908-02-12",
+        "day",
+    )
+    assert periods["F"]["previous"] == "E"
+    assert periods["A"]["previous"] is None
+    # only the cabinet in office has no end
+    assert [q for q, p in periods.items() if p["to_date"] is None] == ["G"]

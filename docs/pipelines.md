@@ -667,8 +667,9 @@ meta.function`) names a function only on its own date. Wikidata is complete from
 of the 1970s (30 to 60 posts each); older cabinets have a few. About 400 people. A second query
 reads the parties of those people (`member of political party`, P102, with its start and end
 where Wikidata has them, and the party's founding and dissolution), a third every item that is a
-`Cabinet of the Netherlands`: its name, start (P580, else P571), end (P582, else P576), head of
-government (P6) and the cabinet before it (P155). 57 cabinets.
+`Cabinet of the Netherlands`: its name, start (the most precise of P580 and P571), end (of P582
+and P576), each with its precision, head of government (P6) and the cabinet before it (P155).
+57 cabinets; most before 1945 are dated to the year only, often without an end or predecessor.
 
 **Retrieve.** One `wikidata-cabinet-posts-json` record per person (external id the Q-id:
 `id`, `name`, `birth_date`, `birth_precision`, `posts` with `function`, `cabinet`, `from_date`,
@@ -714,7 +715,13 @@ portfolio ("Nederlandse minister", the viceminister-president) has none.
 
 Every cabinet becomes a node of `cabinets` (`core/cabinets.py`), key from its name
 (`kabinet-Balkenende II (2003-2006)` is `kabinet-Balkenende II`, key `balkenende_ii`), with
-`from_date`, `to_date` (null in office), `previous`, `prime_minister` (the member who held the
+`from_date`, `to_date`, their precision (`day`, `month`, `year`), `previous`, completed where
+Wikidata leaves them open (`core/cabinets.complete_periods`): `previous` is the cabinet that
+started before it when Wikidata names none; a cabinet without an end ended when the next one
+started, so only the cabinet in office has none; a date known to the year only becomes the day
+the neighbouring cabinet began or ended when that falls in the same year (a year between them
+means a cabinet Wikidata lacks, such as Heemskerk 1883-1888, and the year stays).
+`prime_minister` (the member who held the
 post of minister-president in it, else its head of government) and `parties`: the parties at
 least two of its members belonged to when their post began (a dated membership that holds that
 day, or an undated one of a party that existed then; a member with several counts only for those

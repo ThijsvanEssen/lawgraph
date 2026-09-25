@@ -345,7 +345,7 @@ def get_members(
                 LIMIT 1 RETURN 1
         ) > 0
         FILTER @active == null OR seated == @active
-        SORT member.props.name OR member.props.wikidata_name ASC
+        SORT member.props.name OR member.props.wikidata_name ASC, member._key
         LIMIT @offset, @limit
         RETURN member
     """

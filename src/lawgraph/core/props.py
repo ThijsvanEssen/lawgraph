@@ -451,6 +451,9 @@ class CabinetProps(_CommonProps):
     wikidata_id: str | None = None
     from_date: str | None = None
     to_date: str | None = None  # null while in office
+    # how precisely the dates are known: day, month or year (the old cabinets)
+    from_date_precision: str | None = None
+    to_date_precision: str | None = None
     prime_minister: str | None = None  # member key
     previous: str | None = None  # the cabinet key before it
     parties: list[CabinetPartyProps] | None = None

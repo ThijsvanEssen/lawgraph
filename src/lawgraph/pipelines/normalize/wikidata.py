@@ -38,6 +38,7 @@ from lawgraph.core.cabinets import (
     cabinet_key,
     cabinet_name,
     cabinet_parties,
+    complete_periods,
     faction_of,
     prime_minister,
 )
@@ -170,6 +171,7 @@ class WikidataNormalizePipeline(NormalizePipelineBase):
         member_of: dict[str, str],
     ) -> list[Node]:
         factions = list(normalize_queries.faction_names(self.store))
+        periods = complete_periods(list(cabinets.values()))
         nodes = []
         unmatched: set[str] = set()
         for qid, cabinet in cabinets.items():
@@ -184,7 +186,7 @@ class WikidataNormalizePipeline(NormalizePipelineBase):
             ]
             unmatched.update(p["name"] or "" for p in parties if not p["faction"])
             head = prime_minister(cabinet, people.values())
-            previous = [keys[q] for q in cabinet.get("previous") or [] if q in keys]
+            period = periods[qid]
             name = cabinet_name(cabinet.get("name")) or qid
             nodes.append(
                 Node(
@@ -196,10 +198,12 @@ class WikidataNormalizePipeline(NormalizePipelineBase):
                         "name": name,
                         "display_name": name,
                         "wikidata_id": qid,
-                        "from_date": cabinet.get("from_date"),
-                        "to_date": cabinet.get("to_date"),
+                        "from_date": period["from_date"],
+                        "from_date_precision": period["from_date_precision"],
+                        "to_date": period["to_date"],
+                        "to_date_precision": period["to_date_precision"],
                         "prime_minister": member_of.get(head or ""),
-                        "previous": previous[0] if previous else None,
+                        "previous": keys.get(period["previous"] or ""),
                         "parties": parties,
                         "factions": [p["faction"] for p in parties if p["faction"]],
                     },

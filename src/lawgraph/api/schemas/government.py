@@ -11,6 +11,7 @@ from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
 # The statuses of ``core.tk_records.COMMITMENT_STATUS``.
+DatePrecision = Literal["day", "month", "year"]
 CommitmentStatus = Literal["open", "done", "partly_done", "unfulfilled", "lapsed"]
 
 
@@ -56,6 +57,12 @@ class CabinetSummaryDTO(BaseModel):
     name: str = Field(..., description="``kabinet-Rutte IV``.")
     from_date: str | None = None
     to_date: str | None = Field(None, description="Null while in office.")
+    from_date_precision: DatePrecision | None = Field(
+        None,
+        description="How precisely ``from_date`` is known: ``year`` for most cabinets "
+        "before 1945, whose date is then the first of January.",
+    )
+    to_date_precision: DatePrecision | None = None
     previous: str | None = Field(None, description="The key of the cabinet before it.")
     prime_minister: PersonRefDTO | None = None
     parties: list[CabinetPartyDTO] = Field(default_factory=list)
@@ -80,6 +87,8 @@ class CabinetSummaryDTO(BaseModel):
             name=props.get("name") or cabinet["_key"],
             from_date=props.get("from_date"),
             to_date=props.get("to_date"),
+            from_date_precision=props.get("from_date_precision"),
+            to_date_precision=props.get("to_date_precision"),
             previous=props.get("previous"),
             prime_minister=row.get("prime_minister"),
             parties=[

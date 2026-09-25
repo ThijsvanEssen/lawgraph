@@ -169,7 +169,7 @@ def get_decisions(
             {where}
             {kind_on_decision}
             {passed_on_decision}
-            SORT decision.props.date DESC
+            SORT decision.props.date DESC, decision._key
             LIMIT @offset, @limit
             LET tally = decision.props.tally != null ? decision.props.tally : {{}}
             LET voters = decision.props.voters != null ? decision.props.voters : {{}}

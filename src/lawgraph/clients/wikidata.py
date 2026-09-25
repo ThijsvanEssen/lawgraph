@@ -61,12 +61,17 @@ SELECT DISTINCT ?person ?party ?partyLabel ?short ?from ?until ?founded ?dissolv
 """
 
 CABINETS_QUERY = f"""
-SELECT ?cabinet ?cabinetLabel ?start ?inception ?end ?dissolved ?head ?previous WHERE {{
+SELECT ?cabinet ?cabinetLabel ?start ?startPrecision ?inception ?inceptionPrecision
+       ?end ?endPrecision ?dissolved ?dissolvedPrecision ?head ?previous WHERE {{
   ?cabinet wdt:P31 wd:{CABINET_OF_THE_NETHERLANDS} .
-  OPTIONAL {{ ?cabinet wdt:P580 ?start }}
-  OPTIONAL {{ ?cabinet wdt:P571 ?inception }}
-  OPTIONAL {{ ?cabinet wdt:P582 ?end }}
-  OPTIONAL {{ ?cabinet wdt:P576 ?dissolved }}
+  OPTIONAL {{ ?cabinet p:P580/psv:P580 ?s .
+             ?s wikibase:timeValue ?start ; wikibase:timePrecision ?startPrecision }}
+  OPTIONAL {{ ?cabinet p:P571/psv:P571 ?i .
+             ?i wikibase:timeValue ?inception ; wikibase:timePrecision ?inceptionPrecision }}
+  OPTIONAL {{ ?cabinet p:P582/psv:P582 ?e .
+             ?e wikibase:timeValue ?end ; wikibase:timePrecision ?endPrecision }}
+  OPTIONAL {{ ?cabinet p:P576/psv:P576 ?d .
+             ?d wikibase:timeValue ?dissolved ; wikibase:timePrecision ?dissolvedPrecision }}
   OPTIONAL {{ ?cabinet wdt:P6 ?head }}
   OPTIONAL {{ ?cabinet wdt:P155 ?previous }}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "nl,mul,en". }}
@@ -127,10 +132,6 @@ def group_by_person(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(people.values())
 
 
-def _first(*values: str | None) -> str | None:
-    return next((v for v in values if v), None)
-
-
 def _add(items: list[Any], item: Any) -> None:
     if item and item not in items:
         items.append(item)
@@ -159,10 +160,25 @@ def party_memberships(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, An
     return parties
 
 
+def _keep_precise(
+    record: dict[str, Any], field: str, row: dict[str, Any], names: tuple[str, ...]
+) -> None:
+    """Keep in *record* the most precise of the dates *names* of *row* (the first of them
+    on a tie), and its precision in ``<field>_precision``."""
+    for name in names:
+        value = _date(_value(row, name))
+        precision = int(_value(row, f"{name}Precision") or 0)
+        if value and precision > (record[f"{field}_precision"] or 0):
+            record[field] = value
+            record[f"{field}_precision"] = precision
+
+
 def group_cabinets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The rows of ``CABINETS_QUERY`` as one record per cabinet: ``{id, name, from_date,
-    to_date, heads, previous}``, the start of its term (P580) before its inception (P571),
-    the end of its term (P582) before its dissolution (P576)."""
+    from_date_precision, to_date, to_date_precision, heads, previous}``. The start is the
+    most precise of the start of its term (P580) and its inception (P571), the end of the
+    end of its term (P582) and its dissolution (P576); a precision is Wikidata's
+    (``PRECISION_DAY`` 11, a month 10, a year 9)."""
     cabinets: dict[str, dict[str, Any]] = {}
     for row in rows:
         cabinet = _qid(_value(row, "cabinet"))
@@ -173,14 +189,16 @@ def group_cabinets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "id": cabinet,
                 "name": _value(row, "cabinetLabel"),
-                "from_date": _date(
-                    _first(_value(row, "start"), _value(row, "inception"))
-                ),
-                "to_date": _date(_first(_value(row, "end"), _value(row, "dissolved"))),
+                "from_date": None,
+                "from_date_precision": None,
+                "to_date": None,
+                "to_date_precision": None,
                 "heads": [],
                 "previous": [],
             },
         )
+        _keep_precise(record, "from_date", row, ("start", "inception"))
+        _keep_precise(record, "to_date", row, ("end", "dissolved"))
         _add(record["heads"], _qid(_value(row, "head")))
         _add(record["previous"], _qid(_value(row, "previous")))
     return sorted(cabinets.values(), key=lambda c: (c["from_date"] or "", c["id"]))

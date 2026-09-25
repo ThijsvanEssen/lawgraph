@@ -21,6 +21,7 @@ from collections import Counter
 from collections.abc import Iterable
 from typing import Any
 
+from lawgraph.core.government import PRECISION_DAY
 from lawgraph.core.ministries import POST_PRIME_MINISTER, classify_function
 
 # The Wikidata item "independent politician": a person without a party.
@@ -158,3 +159,75 @@ def cabinet_on(day: str | None, cabinets: Iterable[dict[str, Any]]) -> str | Non
         and (not c.get("to_date") or day <= c["to_date"])
     ]
     return max(held)[1] if held else None
+
+
+# Wikidata's wikibase:timePrecision, as a cabinet node names it.
+PRECISION_NAMES = {11: "day", 10: "month", 9: "year"}
+
+
+def _precise(precision: int | None) -> bool:
+    return (precision or 0) >= PRECISION_DAY
+
+
+def _same_year(a: str | None, b: str | None) -> bool:
+    return bool(a and b and a[:4] == b[:4])
+
+
+def _meet(end: dict[str, Any], start: dict[str, Any]) -> None:
+    """Let the period *end* of one cabinet and *start* of the next meet: an end that is
+    missing is the next start; a date known only to the year becomes the other's day when
+    that falls in the same year (a year between them means a cabinet Wikidata lacks)."""
+    if start["from_date"] and (
+        not end["to_date"]
+        or (
+            not _precise(end["to_date_precision"])
+            and _precise(start["from_date_precision"])
+            and _same_year(end["to_date"], start["from_date"])
+        )
+    ):
+        end["to_date"] = start["from_date"]
+        end["to_date_precision"] = start["from_date_precision"]
+    if (
+        not _precise(start["from_date_precision"])
+        and _precise(end["to_date_precision"])
+        and _same_year(start["from_date"], end["to_date"])
+    ):
+        start["from_date"] = end["to_date"]
+        start["from_date_precision"] = end["to_date_precision"]
+
+
+def complete_periods(cabinets: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Q-id -> ``{from_date, from_date_precision, to_date, to_date_precision, previous}``
+    of every cabinet (records of ``WikidataClient.cabinets``), completed where Wikidata
+    leaves them open. Wikidata knows the old cabinets (before 1945) only by a year and
+    often without an end or a predecessor; a cabinet follows the one before it in time:
+
+    - ``previous`` is the cabinet Wikidata names (P155), else the one that started before it;
+    - a cabinet without an end ended when the next one started, and an end known only to
+      the year is the day the next one started in that year;
+    - a start known only to the year is the day the one before ended in that year.
+
+    Only the last cabinet (the one in office) can stay without an end. The precision is
+    ``day``, ``month`` or ``year``."""
+    ordered = sorted(cabinets, key=lambda c: (c.get("from_date") or "", c["id"]))
+    known = {c["id"] for c in ordered}
+    periods: dict[str, dict[str, Any]] = {}
+    for i, cabinet in enumerate(ordered):
+        named = [q for q in cabinet.get("previous") or [] if q in known]
+        periods[cabinet["id"]] = {
+            "from_date": cabinet.get("from_date"),
+            "from_date_precision": cabinet.get("from_date_precision"),
+            "to_date": cabinet.get("to_date"),
+            "to_date_precision": cabinet.get("to_date_precision"),
+            "previous": named[0] if named else (ordered[i - 1]["id"] if i else None),
+        }
+    for before, after in zip(ordered, ordered[1:], strict=False):
+        _meet(periods[before["id"]], periods[after["id"]])
+    for period in periods.values():
+        for field in ("from_date_precision", "to_date_precision"):
+            period[field] = (
+                PRECISION_NAMES.get(period[field] or 0)
+                if period[field.removesuffix("_precision")]
+                else None
+            )
+    return periods

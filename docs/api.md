@@ -19,7 +19,8 @@ matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
 dossier, `dossier_number`, `dossier_numbers`, in either chamber) is written this way, so it can be used in a path
 or a `dossier` filter as it is. List parameters `limit` and `offset` have the bounds shown in
-`/docs`.
+`/docs`. Every paged list has a total order (its sort ends in a unique key, or reads an index
+that orders ties by key), so walking its pages gives each row once.
 
 ### Service
 
@@ -120,7 +121,7 @@ has no such number, as an Eerste Kamer paper, whose page is its `url`.
 | `.../mutations` | the subgraph of `voorgesteld` edges, in graph shape |
 | `/api/dossiers/documents/bulk?numbers=a,b` | top `per_dossier_limit` (default 8) documents per dossier |
 | `GET /api/ministries` | every ministry of `core/ministries.py` in protocol order: `key`, `name`, and for a former one `successor` and `until` (the last day it had its name) |
-| `GET /api/cabinets` | every Dutch cabinet, newest first: `key`, `name`, `from_date`, `to_date` (null in office), `previous`, `prime_minister` (`key`, `name`), `parties` (`name`, `short`, `faction`; the parties at least two of its members belonged to), `factions`, `wikidata_id`, and the counts `members` (who held a post in it), `bills` (dossiers of track `wetsvoorstel` a bewindspersoon brought in while it was in office) and `commitments` (made while it was in office) |
+| `GET /api/cabinets` | every Dutch cabinet, newest first: `key`, `name`, `from_date`, `to_date` (null only for the cabinet in office), `from_date_precision` and `to_date_precision` (`day`, `month` or `year`: most cabinets before 1945 are known by the year only, dated the first of January), `previous` (for every cabinet but the first), `prime_minister` (`key`, `name`), `parties` (`name`, `short`, `faction`; the parties at least two of its members belonged to), `factions`, `wikidata_id`, and the counts `members` (who held a post in it), `bills` (dossiers of track `wetsvoorstel` a bewindspersoon brought in while it was in office) and `commitments` (made while it was in office) |
 | `GET /api/cabinets/{key}` | the cabinet as in the list, with `ministries`: per ministry (protocol order; Algemene Zaken with the minister-president first, a group with `ministry` null last for a post that names none, such as the viceminister-president) its `posts`: `member` (`key`, `name`), `post`, `function`, `from_date`, `to_date` and the person's counts within the cabinet's period: `dossiers` (with a paper they signed as bewindspersoon), `bills` (of those, track `wetsvoorstel`), `open_commitments`; within a ministry the minister before the state secretaries. A person with two posts is listed under each. 404 for an unknown key. `/api/nodes/cabinets/{key}` gives the node and its `SERVED_IN` neighbours |
 | `GET /api/commitments` | commitments (toezeggingen), paged, `total` absolute; `status` (`open`, `done`, `partly_done`, `unfulfilled`, `lapsed`), `member` (key), `cabinet` (key), `ministry`, `dossier` (a number or label), `due_before` (date), `overdue` (open with `expected_resolution` passed), `q` (words of the text), `sort` (`date`: newest made first; `expected_resolution`: soonest due first, those without one last), `limit`, `offset`. Each item: `key`, `text`, `status`, `date` (made on), `expected_resolution` (null when the Kamer names none), `minister_name` as the source writes it, `member` (`key`, `name`, `function`: the role it was made in; null when no member fits), `post`, `ministry`, `cabinet`, `dossiers` (`key`, `number`, `title`), `activity` (`key`, `date`, `number`) |
 | `GET /api/commitments/{key}` | one commitment as in the list; 404 when unknown |

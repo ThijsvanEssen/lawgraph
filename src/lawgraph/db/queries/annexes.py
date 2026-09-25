@@ -82,7 +82,7 @@ def list_annexes(
             RETURN row
     )
     LET total = LENGTH(matches)
-    LET page = (FOR m IN matches LIMIT @offset, @limit RETURN m)
+    LET page = (FOR m IN matches SORT m.annex._key LIMIT @offset, @limit RETURN m)
     RETURN {{ rows: page, total: total }}
     """
     result = list(store.query(aql, bind))

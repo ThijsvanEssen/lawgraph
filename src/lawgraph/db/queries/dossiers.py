@@ -533,7 +533,7 @@ def get_dossier_documents(
     body = f"""
         LET items = (
             FOR document IN all_documents
-                SORT document.props.date DESC
+                SORT document.props.date DESC, document._key
                 LIMIT @offset, @limit
                 {_DOSSIER_DOCUMENT_ROW}
         )
@@ -1021,7 +1021,7 @@ def get_open_dossiers(
     LET items = (
         FOR dossier IN {COLLECTION_DOSSIERS}
             {every}
-            SORT dossier.props.opened_on DESC
+            SORT dossier.props.opened_on DESC, dossier._key
             LIMIT @offset, @limit
             RETURN dossier
     )
