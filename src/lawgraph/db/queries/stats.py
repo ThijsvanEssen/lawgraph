@@ -47,13 +47,31 @@ def _count_by(store: ArangoStore, collection: str, field: str) -> dict[str, int]
     return {value or "unknown": n for value, n in store.query(aql)}
 
 
+# The collections a citation can make a stub in: a node known only because something
+# refers to it (``props.stub``), without a text of its own.
+_STUB_COLLECTIONS = (COLLECTION_INSTRUMENTS, COLLECTION_ARTICLES, COLLECTION_JUDGMENTS)
+
+
+def _stub_count(store: ArangoStore, collection: str) -> int:
+    aql = f"""
+    FOR doc IN {collection}
+        FILTER doc.props.stub == true
+        COLLECT WITH COUNT INTO n
+        RETURN n
+    """
+    return cast(int, next(iter(store.query(aql)), 0))
+
+
 def get_db_stats(store: ArangoStore) -> dict[str, Any]:
-    """Document counts per collection, edge counts per relation, and source breakdowns."""
+    """Document counts per collection (without stubs), stub counts, edge counts per
+    relation, and source breakdowns."""
+    stubs = {name: _stub_count(store, name) for name in _STUB_COLLECTIONS}
     return {
         "nodes": {
-            name: cast(int, store.collection(name).count())
+            name: cast(int, store.collection(name).count()) - stubs.get(name, 0)
             for name in _NODE_COLLECTIONS
         },
+        "stubs": stubs,
         "edges": {
             "total": store.edges.count(),
             "by_relation": _count_by(store, COLLECTION_EDGES, "relation"),

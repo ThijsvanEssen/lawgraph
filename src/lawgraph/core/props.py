@@ -103,6 +103,7 @@ class ArticleProps(_CommonProps):
     bwb_id: str | None = None
     celex: str | None = None
     article_number: str | None = None
+    sort_key: str | None = None  # ``core.bwb_xml.article_sort_key``
     label: str | None = None
     title: str | None = None
     text: str | None = None
@@ -143,6 +144,7 @@ class InstrumentVersionProps(_CommonProps):
 class ArticleVersionProps(_CommonProps):
     bwb_id: str | None = None
     article_number: str | None = None
+    sort_key: str | None = None
     valid_from: str | None = None
     valid_until: str | None = None
     current: bool | None = None

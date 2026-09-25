@@ -65,7 +65,43 @@ class Jci:
 
     @property
     def article(self) -> str | None:
-        return self.params.get("artikel")
+        """The article as the graph numbers it: an article of an annex names its annex."""
+        article = self.params.get("artikel")
+        annex = self.params.get("bijlage")
+        return annex_article_number(annex, article) if annex and article else article
+
+
+def annex_article_number(annex: str, number: str) -> str:
+    """The number of an article of an annex: ``bijlage 2 artikel 9``.
+
+    An annex numbers its articles on its own (Bijlage 2 and Bijlage 3 of the Awb each have
+    an article 1), as the JCI does (``bijlage=2&artikel=9``), so the annex is part of the
+    number: it keeps the article apart from an article of the regulation or of another
+    annex with the same number.
+    """
+    return f"bijlage {annex} artikel {number}"
+
+
+_ANNEX_ARTICLE = re.compile(r"^bijlage (?P<annex>\S+) artikel (?P<number>.+)$")
+
+
+def article_sort_key(number: str | None) -> str | None:
+    """A key that sorts article numbers as a reader does: ``9`` before ``10``, ``24`` before
+    ``24c`` before ``25``, ``1:2`` before ``1:10``, and the articles of an annex after those
+    of the regulation. Every run of digits is padded to six."""
+    if not number:
+        return None
+    padded = re.sub(r"\d+", lambda m: m.group().zfill(6), number)
+    # "zz": after digits and letters, also in the ICU order of ArangoDB (where "~" is not)
+    return f"zz{padded}" if number.startswith("bijlage ") else padded
+
+
+def article_label(number: str | None) -> str:
+    """``Artikel 287``; ``Artikel 9 van bijlage 2`` for an article of an annex."""
+    match = _ANNEX_ARTICLE.match(number or "")
+    if match:
+        return f"Artikel {match['number']} van bijlage {match['annex']}"
+    return f"Artikel {number}"
 
 
 def parse_jci(doc: str | None) -> Jci:
@@ -649,25 +685,47 @@ def _crumb(division: ET.Element, name: str) -> Crumb:
     return Crumb(type=name, label=label or None, title=title or None)
 
 
+def _annex_number(annex: ET.Element) -> str | None:
+    """The number of a ``<bijlage>`` as the JCI writes it: ``2`` of ``Bijlage 2``."""
+    kop = _child(annex, "kop")
+    nr = text_of(_child(kop, "nr")) if kop is not None else ""
+    if nr:
+        return nr
+    label = (annex.get("label") or "").strip()
+    rest = (
+        label[len("bijlage") :].strip() if label.lower().startswith("bijlage") else ""
+    )
+    return rest or None
+
+
 def _articles(
-    element: ET.Element, breadcrumb: tuple[Crumb, ...] = ()
+    element: ET.Element,
+    breadcrumb: tuple[Crumb, ...] = (),
+    annex: str | None = None,
 ) -> Iterator[ArticleXml]:
-    """The articles under *element* in document order, each with the divisions it is in."""
+    """The articles under *element* in document order, each with the divisions it is in
+    and, in an annex, the number of that annex."""
     for child in element:
         name = local_name(child.tag)
         if name == "artikel":
-            yield _parse_article(child, breadcrumb)
+            yield _parse_article(child, breadcrumb, annex)
+        elif name == "bijlage":
+            crumb = _crumb(child, name)
+            yield from _articles(child, (*breadcrumb, crumb), _annex_number(child))
         elif name in DIVISIONS:
-            yield from _articles(child, (*breadcrumb, _crumb(child, name)))
+            yield from _articles(child, (*breadcrumb, _crumb(child, name)), annex)
         else:
-            yield from _articles(child, breadcrumb)
+            yield from _articles(child, breadcrumb, annex)
 
 
-def _parse_article(article: ET.Element, breadcrumb: tuple[Crumb, ...]) -> ArticleXml:
+def _parse_article(
+    article: ET.Element, breadcrumb: tuple[Crumb, ...], annex: str | None
+) -> ArticleXml:
     text, refs, parts = _article_text(article)
     origin, commencement = _brondata(article)
+    number = _article_number(article)
     return ArticleXml(
-        number=_article_number(article),
+        number=annex_article_number(annex, number) if annex and number else number,
         text=text,
         stam_id=article.get("stam-id"),
         versie_id=article.get("versie-id"),
@@ -809,7 +867,7 @@ def instrument_props(
 
 
 def _display_name(number: str | None, citation_title: str | None) -> str:
-    return f"Artikel {number} {citation_title or ''}".strip()
+    return f"{article_label(number)} {citation_title or ''}".strip()
 
 
 def article_props(
@@ -821,6 +879,7 @@ def article_props(
         {
             "bwb_id": bwb_id,
             "article_number": article.number,
+            "sort_key": article_sort_key(article.number),
             "text": article.text,
             "instrument_citation_title": citation_title,
             "display_name": _display_name(article.number, citation_title),
@@ -844,6 +903,7 @@ def article_version_props(
         {
             "bwb_id": bwb_id,
             "article_number": article.number,
+            "sort_key": article_sort_key(article.number),
             "text": article.text,
             "parts": [part.to_dict() for part in article.parts],
             "instrument_citation_title": citation_title,

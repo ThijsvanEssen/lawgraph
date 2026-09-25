@@ -19,9 +19,28 @@ from lawgraph.core.xml import (
 # ── ECLI-derived attributes ──────────────────────────────────────────────────
 
 TIER_HOGE_RAAD = "hoge_raad"
+# The Parket bij de Hoge Raad: the conclusions of its advocates-general, no judgments.
+TIER_PARKET = "parket"
 TIER_GERECHTSHOF = "gerechtshof"
 TIER_RECHTBANK = "rechtbank"
+# Any other court: the Raad van State, the Centrale Raad van Beroep, the CBB, the courts of
+# the Caribbean parts, disciplinary courts.
 TIER_BIJZONDER = "bijzonder"
+TIERS = (TIER_HOGE_RAAD, TIER_PARKET, TIER_GERECHTSHOF, TIER_RECHTBANK, TIER_BIJZONDER)
+
+# The tier of a court code: the code itself, else its first two letters, else bijzonder.
+# ``graph-list-stats`` writes the same in AQL from these tables.
+TIER_OF_COURT = {"HR": TIER_HOGE_RAAD, "PHR": TIER_PARKET}
+TIER_OF_PREFIX = {"GH": TIER_GERECHTSHOF, "RB": TIER_RECHTBANK}
+
+
+def court_tier(court_code: str | None) -> str | None:
+    """The tier of a court (``TIER_OF_COURT``, ``TIER_OF_PREFIX``); ``None`` without one."""
+    if not court_code:
+        return None
+    return TIER_OF_COURT.get(court_code) or TIER_OF_PREFIX.get(
+        court_code[:2], TIER_BIJZONDER
+    )
 
 
 def derive_court_tier(ecli: str | None) -> tuple[str | None, str | None]:
@@ -30,15 +49,7 @@ def derive_court_tier(ecli: str | None) -> tuple[str | None, str | None]:
         return None, None
     parts = ecli.split(":")
     court_code = parts[2].upper() if len(parts) >= 3 else None
-    if court_code == "HR":
-        tier: str | None = TIER_HOGE_RAAD
-    elif court_code and court_code.startswith("GH"):
-        tier = TIER_GERECHTSHOF
-    elif court_code and court_code.startswith("RB"):
-        tier = TIER_RECHTBANK
-    else:
-        tier = TIER_BIJZONDER if court_code else None
-    return court_code, tier
+    return court_code, court_tier(court_code)
 
 
 def compose_display_name(props: dict[str, Any]) -> str | None:

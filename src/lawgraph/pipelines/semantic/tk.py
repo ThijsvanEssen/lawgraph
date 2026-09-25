@@ -6,7 +6,6 @@ import datetime as dt
 from typing import Any, Callable, Iterable
 
 from lawgraph.config.constants import (
-    COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
     MAX_SEMANTIC_TEXT_LENGTH,
@@ -21,7 +20,7 @@ from lawgraph.core.citations import (
     make_snippet,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
@@ -34,6 +33,8 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "tk-article-linker"
+# A citation surer than this may make a stub of an article that is not loaded.
+STUB_CONFIDENCE = 0.85
 
 # ---------------------------------------------------------------------------
 # Instrument-level hit collectors
@@ -178,54 +179,20 @@ class TKSemanticPipeline(SemanticPipelineBase):
         return {str(row) for row in rows if isinstance(row, str)}
 
     def _resolve_target_node(self, hit: CitationHit) -> Node | None:
-        if hit.kind == "article" and hit.bwb_id and hit.article_number:
-            key = make_node_key(hit.bwb_id, hit.article_number)
-            node = self._lookup_node(COLLECTION_ARTICLES, key)
-            if node is None and hit.confidence >= 0.85:
-                stub = Node(
-                    collection=COLLECTION_ARTICLES,
-                    key=key,
-                    type=NodeType.ARTICLE,
-                    props={
-                        "bwb_id": hit.bwb_id,
-                        "article_number": hit.article_number,
-                        "stub": True,
-                        "display_name": f"Artikel {hit.article_number} ({hit.bwb_id})",
-                    },
-                )
-                node, _ = self.store.insert_or_update(stub)
-                self._remember_node(node)
+        law_id = hit.bwb_id or hit.celex
+        if hit.kind == "article" and law_id and hit.article_number:
+            node = self._cited_article(
+                law_id,
+                hit.article_number,
+                celex=hit.bwb_id is None,
+                confidence=hit.confidence,
+                min_confidence=STUB_CONFIDENCE,
+            )
             if node is None:
                 logger.debug(
                     "TK semantic: no node found for %s %s (confidence=%.2f)",
-                    hit.kind,
-                    hit.bwb_id or hit.celex,
-                    hit.confidence,
-                )
-            return node
-
-        if hit.kind == "article" and hit.celex and hit.article_number:
-            key = make_node_key(hit.celex, hit.article_number)
-            node = self._lookup_node(COLLECTION_ARTICLES, key)
-            if node is None and hit.confidence >= 0.85:
-                stub = Node(
-                    collection=COLLECTION_ARTICLES,
-                    key=key,
-                    type=NodeType.ARTICLE,
-                    props={
-                        "celex": hit.celex,
-                        "article_number": hit.article_number,
-                        "stub": True,
-                        "display_name": f"Artikel {hit.article_number} ({hit.celex})",
-                    },
-                )
-                node, _ = self.store.insert_or_update(stub)
-                self._remember_node(node)
-            if node is None:
-                logger.debug(
-                    "TK semantic: no node found for %s %s (confidence=%.2f)",
-                    hit.kind,
-                    hit.bwb_id or hit.celex,
+                    law_id,
+                    hit.article_number,
                     hit.confidence,
                 )
             return node

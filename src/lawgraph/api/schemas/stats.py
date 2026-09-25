@@ -26,7 +26,14 @@ class StatsResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    nodes: dict[str, int]
+    nodes: dict[str, int] = Field(
+        ..., description="Documents per collection, without stubs."
+    )
+    stubs: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per collection that has them (instruments, articles, judgments): the "
+        "nodes known only because something refers to them, without a text of their own.",
+    )
     edges: EdgeStatsDTO
     by_source: dict[str, dict[str, int]] = {}
     instruments: InstrumentStatsDTO = InstrumentStatsDTO()
@@ -39,7 +46,9 @@ class CoverageCourtDTO(BaseModel):
 
     source: str | None = Field(None, description="`rechtspraak` or `echr`.")
     tier: str | None = Field(
-        None, description="`hoge_raad`, `gerechtshof`, `rechtbank` or `bijzonder`."
+        None,
+        description="`hoge_raad`, `parket` (the conclusions of the Parket bij de Hoge Raad), "
+        "`gerechtshof`, `rechtbank` or `bijzonder`.",
     )
     court_code: str | None = Field(None, description="The court in the ECLI: `GHAMS`.")
     court: str | None = Field(None, description="Its name: Gerechtshof Amsterdam.")
@@ -73,6 +82,7 @@ class JudgmentCoverageResponse(BaseModel):
     last_date: str | None = None
     stubs: int = Field(..., description="Cited judgments whose text is not loaded.")
     tiers: list[CoverageTierDTO] = Field(
-        ..., description="Per tier, from the Hoge Raad down; `bijzonder` last."
+        ...,
+        description="Per tier: Hoge Raad, parket, gerechtshof, rechtbank, `bijzonder` last.",
     )
     courts: list[CoverageCourtDTO] = Field(..., description="Per court, most first.")

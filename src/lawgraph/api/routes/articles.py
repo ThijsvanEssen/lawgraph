@@ -180,7 +180,8 @@ def get_article_cited_by_passages(
         str | None, Query(description="ECLI court code, e.g. 'HR', 'RBAMS'")
     ] = None,
     tier: Annotated[
-        Literal["hoge_raad", "gerechtshof", "rechtbank", "bijzonder"] | None, Query()
+        Literal["hoge_raad", "parket", "gerechtshof", "rechtbank", "bijzonder"] | None,
+        Query(),
     ] = None,
     lid: Annotated[
         str | None,

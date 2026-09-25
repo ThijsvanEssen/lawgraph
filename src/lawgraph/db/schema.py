@@ -362,6 +362,9 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_JUDGMENTS, ["props.date_eff"], False, False),
         (COLLECTION_JUDGMENTS, ["props.inbound_citation_count"], False, False),
         (COLLECTION_ARTICLES, ["props.inbound_citation_count"], False, False),
+        # `/api/stats` counts the stubs (the judgments count them from the coverage index)
+        (COLLECTION_ARTICLES, ["props.stub"], False, True),
+        (COLLECTION_INSTRUMENTS, ["props.stub"], False, True),
         # Title-sort key for /api/instruments default list.
         (COLLECTION_INSTRUMENTS, ["props.citation_title"], False, False),
         (COLLECTION_DOCUMENTS, ["props.kind"], False),

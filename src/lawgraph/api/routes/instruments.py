@@ -40,6 +40,7 @@ from lawgraph.api.schemas.instruments import (
     SharedAnnexesResponse,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
+from lawgraph.core.bwb_xml import article_label
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries._helpers import props as _props
@@ -138,7 +139,7 @@ def _clean_article_display_name(
     # the canonical "Artikel <num>" shape — the frontend rebuilds the
     # instrument part itself from short_title.
     if article_number:
-        prefix = f"Artikel {article_number}"
+        prefix = article_label(article_number)
         if name.lower().startswith(prefix.lower()):
             return prefix
     return name

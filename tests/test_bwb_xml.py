@@ -265,3 +265,62 @@ def test_the_breadcrumb_is_a_prop_of_the_article() -> None:
     assert props["breadcrumb"] == [
         {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Inleidende bepalingen"}
     ]
+
+
+_ANNEXES = """<toestand bwb-id="BWBR0005537"><wetgeving soort="wet"><wet-besluit><wettekst>
+<artikel label="Artikel 1"><kop><label>Artikel</label><nr>1</nr></kop><al>Van de wet.</al></artikel>
+</wettekst>
+<bijlage bwb-ng-variabel-deel="/Bijlage2" label="Bijlage 2"><kop><label>Bijlage</label><nr>2</nr>
+<titel>Bevoegdheidsregeling bestuursrechtspraak</titel></kop>
+<divisie label="Hoofdstuk 4"><kop><titel>Hoger beroep</titel></kop>
+<artikel label="Artikel 1"><kop><nr>1</nr></kop><al>Van bijlage 2, zie
+<extref doc="jci1.3:c:BWBR0005537&amp;bijlage=3&amp;artikel=1">artikel 1 van bijlage 3</extref>.
+</al></artikel>
+</divisie></bijlage>
+<bijlage label="Bijlage 3"><artikel label="Artikel 1"><kop><nr>1</nr></kop>
+<al>Van bijlage 3.</al></artikel></bijlage>
+</wet-besluit></wetgeving></toestand>"""
+
+
+def test_an_article_of_an_annex_names_its_annex() -> None:
+    from lawgraph.core.bwb_xml import article_label, parse_jci, parse_toestand
+
+    articles = parse_toestand(_ANNEXES).articles
+
+    assert [a.number for a in articles] == [
+        "1",
+        "bijlage 2 artikel 1",
+        "bijlage 3 artikel 1",
+    ]
+    in_annex = articles[1]
+    assert [(c.type, c.label) for c in in_annex.breadcrumb] == [
+        ("bijlage", "Bijlage 2"),
+        ("divisie", "Hoofdstuk 4"),
+    ]
+    assert in_annex.references[0].article == "bijlage 3 artikel 1"
+    assert parse_jci("jci1.3:c:BWBR0005537&bijlage=2&z=2026-08-15").article is None
+    assert article_label("bijlage 2 artikel 9") == "Artikel 9 van bijlage 2"
+    assert article_label("287") == "Artikel 287"
+
+
+def test_articles_sort_as_a_reader_reads_them() -> None:
+    from lawgraph.core.bwb_xml import article_sort_key
+
+    numbers = [
+        "bijlage 2 artikel 10",
+        "25",
+        "1:10",
+        "24c",
+        "bijlage 2 artikel 2",
+        "1:2",
+        "24",
+    ]
+    assert sorted(numbers, key=article_sort_key) == [
+        "1:2",
+        "1:10",
+        "24",
+        "24c",
+        "25",
+        "bijlage 2 artikel 2",
+        "bijlage 2 artikel 10",
+    ]

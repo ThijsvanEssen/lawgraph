@@ -9,7 +9,9 @@ can generate its types from it.
 
 ## Endpoints
 
-Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`); an instrument
+Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`) and `article_number` the
+number as the graph stores it (`287`, `6:162` of the Awb, `bijlage 2 artikel 9` for an article of
+an annex, URL-encoded); an instrument
 route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A dossier `number`
 matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220)`), otherwise 422. A budget chapter is a dossier
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
@@ -23,8 +25,8 @@ or a `dossier` filter as it is. List parameters `limit` and `offset` have the bo
 |--------|------|----------|
 | GET | `/` | `{"name": "lawgraph-api", "version": ...}` |
 | GET | `/api/health` | `{"status": "ok", "database": "connected"}`, 503 when the database is unreachable |
-| GET | `/api/stats` | document count per collection and edge count per relation |
-| GET | `/api/stats/coverage` | the judgments whose text is loaded: `total`, `first_date`, `last_date`, per tier (`tiers`: `tier`, `count`, `first_date`, `last_date`, Hoge Raad first, `bijzonder` last) and per court (`courts`: `source`, `tier`, `court_code`, `court`, `count`, `first_date`, `last_date`, most first), and `stubs`, the judgments known only because a loaded one cites them. Every count of judgments in the API counts this selection, not the case law |
+| GET | `/api/stats` | `nodes`: document count per collection without stubs; `stubs`: per collection that has them (`instruments`, `articles`, `judgments`) the nodes known only because something refers to them; `edges`: count per relation |
+| GET | `/api/stats/coverage` | the judgments whose text is loaded: `total`, `first_date`, `last_date`, per tier (`tiers`: `tier`, `count`, `first_date`, `last_date`, in the order `hoge_raad`, `parket`, `gerechtshof`, `rechtbank`, `bijzonder`) and per court (`courts`: `source`, `tier`, `court_code`, `court`, `count`, `first_date`, `last_date`, most first), and `stubs`, the judgments known only because a loaded one cites them. Every count of judgments in the API counts this selection, not the case law |
 
 ### Articles
 
@@ -45,7 +47,7 @@ or a `dossier` filter as it is. List parameters `limit` and `offset` have the bo
 | `GET /api/instruments` | paged list; `q`, `jurisdiction` (`nl`, `eu`), `kind`, `article_count_min`, `sort` (default `title`) |
 | `GET /api/instruments/{identifier}` | one instrument: identifiers, names, jurisdiction, kind, dates, article count. `identifier` is a BWB id, a CELEX number or a node key (`echr_convention`, `verdrag_012345`); 404 when unknown |
 | `.../eu-links` | `implements` (EU acts whose CELEX number the instrument's text names) and `implemented_by` (regulations that name this act), each with `instrument`, `relation`, `confidence`, `basis`, `source`, `meta`; `international`: treaties that articles refer to (with the treaty article) and ECHR judgments that refer to the instrument or its articles, with the edge `meta`; `*_total` fields are absolute, `limit` (max 2000) bounds each list |
-| `/api/instruments/{bwb_id}/articles` | articles in natural order (`24` before `24c` before `25`), each with its `breadcrumb` (the divisions it stands in: `type`, `label`, `title`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
+| `/api/instruments/{bwb_id}/articles` | articles in the order of a reader (`24` before `24c` before `25`, `1:2` before `1:10`, the articles of an annex after those of the regulation; `props.sort_key`), each with its `breadcrumb` (the divisions it stands in: `type`, `label`, `title`); `include_stubs`, `text_preview_chars`, `limit` (max 2000), `offset` |
 | `.../articles/at/{at_date}` | article versions valid on `YYYY-MM-DD` (`valid_from <= date < valid_until`) |
 | `.../versions` | every toestand, newest first, `current` flagged |
 | `.../amended-by` | amending publications (Staatsblad, Tractatenblad, ...) with edge counts per kind, articles affected, first effective date and dossiers; `limit`, `offset` |
@@ -75,7 +77,7 @@ gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 
 | Path | Returns |
 |------|---------|
-| `GET /api/judgments` | paged list; `q`, `court` (ECLI code), `tier` (`hoge_raad`, `gerechtshof`, `rechtbank`, `bijzonder`), `source`, `from`, `to`, `cited_by_min`, `sort` (`date_desc`, `date_asc`, `citation_count`) |
+| `GET /api/judgments` | paged list; `q`, `court` (ECLI code), `tier` (`hoge_raad`, `parket` (the conclusions of the Parket bij de Hoge Raad), `gerechtshof`, `rechtbank`, `bijzonder`), `source`, `from`, `to`, `cited_by_min`, `sort` (`date_desc`, `date_asc`, `citation_count`) |
 | `/api/judgments/{ecli}` | the judgment with its `paragraphs` (each with a `paragraph_id` for deep links, its printed `number` and the article `citations` in it, one per occurrence with `start` and `end`), the articles its `REFERS_TO` edges point at with their parent instrument (`articles`), and the same articles as `cited_articles` with the paragraphs that cite them, the lid or onderdeel named and a snippet. Citations are read from the stored edges; nothing is detected per request |
 
 The judgments of one case are neighbours in `/api/nodes/judgments/{key}`: `APPEAL_OF` (appeal →
