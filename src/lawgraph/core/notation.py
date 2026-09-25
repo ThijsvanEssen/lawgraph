@@ -56,6 +56,10 @@ _LAW_THEN_NUMBER_RE = re.compile(
     rf"^(?P<law>.+?)\s+(?:(?:art\.?|artikel)\s+)?(?P<number>{ARTICLE_NUMBER_PATTERN})$",
     re.IGNORECASE,
 )
+# "6:162 BW", "287 Sr": a number, then the law, as lawyers write it in running text
+_NUMBER_THEN_LAW_RE = re.compile(
+    rf"^(?P<number>{ARTICLE_NUMBER_PATTERN})\s+(?P<law>\D.*)$", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -200,9 +204,12 @@ class NotationParser:
     def _article(self, text: str) -> Notation | None:
         if ARTICLE_HEAD_RE.match(text):
             return self._cited(text)
-        match = _LAW_THEN_NUMBER_RE.match(text)
-        if match:
-            return self._cited(f"artikel {match['number']} {match['law']}")
+        for pattern in (_LAW_THEN_NUMBER_RE, _NUMBER_THEN_LAW_RE):
+            match = pattern.match(text)
+            if match:
+                cited = self._cited(f"artikel {match['number']} {match['law']}")
+                if cited is not None:
+                    return cited
         return None
 
     def _cited(self, text: str) -> Notation | None:
@@ -237,3 +244,15 @@ class NotationParser:
             ArticleRef(hit.bwb_id or hit.celex, (hit.article_number or "").lower())
             for hit in cited
         )
+
+
+def native_article_number(bwb_id: str, number: str) -> str:
+    """The number an article has in its own book of a code: ``162`` for ``6:162`` under
+    BW Boek 6 (BWBR0005289). A number of another book, or of a law that is no book of a
+    code (the Awb's ``8:69`` is its own), is left as it is."""
+    for books in CODE_FAMILIES.values():
+        for book, law_id in books.items():
+            prefix = f"{book}:"
+            if law_id.upper() == bwb_id.upper() and number.upper().startswith(prefix):
+                return number[len(prefix) :]
+    return number
