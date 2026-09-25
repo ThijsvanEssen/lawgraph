@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from typing import get_args
+
 import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.schemas.decisions import DecisionKind
+from lawgraph.core.tk_records import DECISION_KINDS
+from lawgraph.db.queries.decisions import DecisionFilters
 
 client = TestClient(app)
 
@@ -60,6 +65,7 @@ _DECISION = {
     "subject": "Motie over wachtlijsten",
     "external_id": "b-1",
     "dossier_numbers": ["36000"],
+    "kind": "motie",
     "passed": True,
     "chamber": None,
     "vote_kind": "faction",
@@ -379,25 +385,93 @@ def test_factions_are_listed_with_seats_and_member_count(monkeypatch) -> None:
 def test_decisions_are_listed_with_their_tally(monkeypatch) -> None:
     monkeypatch.setattr(
         "lawgraph.api.routes.decisions.get_decisions",
-        lambda store, **kwargs: {"total": 1, "items": [_DECISION]},
+        lambda store, filters, **kwargs: {"total": 1, "items": [_DECISION]},
     )
     body = client.get("/api/decisions").json()
     assert body["total"] == 1
     assert body["items"][0]["tally"] == {"Voor": 76, "Tegen": 74}
     assert body["items"][0]["vote_kind"] == "faction"
+    assert body["items"][0]["kind"] == "motie"
+    assert body["facets"] == {"kind": [], "passed": [], "days": []}
 
 
-def test_decisions_are_filtered_by_dossier(monkeypatch) -> None:
-    asked: list[dict] = []
+def _asking(monkeypatch) -> list[DecisionFilters]:
+    asked: list[DecisionFilters] = []
 
-    def fake(store, **kwargs):
-        asked.append(kwargs)
+    def fake(store, filters, **kwargs):
+        asked.append(filters)
         return {"total": 1, "items": [_DECISION]}
 
     monkeypatch.setattr("lawgraph.api.routes.decisions.get_decisions", fake)
+    return asked
+
+
+def test_decisions_are_filtered_by_dossier(monkeypatch) -> None:
+    asked = _asking(monkeypatch)
     assert client.get("/api/decisions?dossier=36000").json()["total"] == 1
-    assert asked[0]["dossier"] == "36000"
+    assert asked[0].dossier == "36000"
     assert client.get("/api/decisions?dossier=x").status_code == 422
+
+
+def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
+    monkeypatch,
+) -> None:
+    asked = _asking(monkeypatch)
+    response = client.get(
+        "/api/decisions",
+        params={
+            "kind": "motie, amendement",
+            "from": "2024-01-01",
+            "to": "2024-12-31",
+            "q": "  Wachtlijsten ",
+            "party": "VVD",
+            "vote": "tegen",
+        },
+    )
+    assert response.status_code == 200
+    assert asked[0] == DecisionFilters(
+        kinds=("motie", "amendement"),
+        party="VVD",
+        choice="Tegen",
+        date_from="2024-01-01",
+        date_to="2024-12-31",
+        q="Wachtlijsten",
+    )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"kind": "motion"},
+        {"vote": "voor"},  # how, without whom
+        {"party": "VVD", "vote": "onthouden"},
+        {"from": "2024-13-01"},
+    ],
+)
+def test_a_decision_filter_it_cannot_read_is_a_422(monkeypatch, params) -> None:
+    _asking(monkeypatch)
+    assert client.get("/api/decisions", params=params).status_code == 422
+
+
+def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
+    facets = {
+        "kind": [{"value": "motie", "count": 3}, {"value": None, "count": 1}],
+        "passed": [{"value": True, "count": 3}, {"value": None, "count": 1}],
+        "days": [{"date": "2024-10-16", "count": 4, "passed": 3}],
+    }
+    monkeypatch.setattr(
+        "lawgraph.api.routes.decisions.get_decisions",
+        lambda store, filters, **kwargs: {
+            "total": 4,
+            "items": [_DECISION],
+            "facets": facets,
+        },
+    )
+    assert client.get("/api/decisions").json()["facets"] == facets
+
+
+def test_the_decision_kinds_of_the_api_are_those_normalize_stores() -> None:
+    assert get_args(DecisionKind) == DECISION_KINDS
 
 
 def test_a_decisions_document_carries_its_links(monkeypatch) -> None:

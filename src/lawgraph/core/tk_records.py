@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import SOURCE_TK
-from lawgraph.core.dossier_stages import dossier_display_name
+from lawgraph.core.dossier_stages import classify_case_kind, dossier_display_name
 from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_date
 
@@ -43,6 +43,24 @@ VOTE_AGAINST = "Tegen"
 
 VOTE_KIND_MEMBER = "member"
 VOTE_KIND_FACTION = "faction"
+
+# What a decision decided on, from the Zaak.Soort of its case: the stage
+# ``classify_case_kind`` gives that Soort, named for the thing voted on.
+DECISION_KIND_MOTION = "motie"
+DECISION_KIND_AMENDMENT = "amendement"
+DECISION_KIND_BILL = "wetsvoorstel"
+DECISION_KIND_OTHER = "overig"
+DECISION_KINDS: tuple[str, ...] = (
+    DECISION_KIND_MOTION,
+    DECISION_KIND_AMENDMENT,
+    DECISION_KIND_BILL,
+    DECISION_KIND_OTHER,
+)
+_DECISION_KIND_BY_STAGE = {
+    "behandeling": DECISION_KIND_MOTION,
+    "amendementen": DECISION_KIND_AMENDMENT,
+    "wetsvoorstel": DECISION_KIND_BILL,
+}
 
 # Activiteit.Voortouwafkorting of an activity of the Kamer as a whole: a plenary debate, the
 # votes, the regeling van werkzaamheden. Its Voortouwcommissie_Id names a Commissie record
@@ -661,6 +679,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "case_ids": case_ids(cases),
         "primary_case_id": str(primary.get("Id") or "") if primary else None,
         "primary_case_kind": (primary.get("Soort") or None) if primary else None,
+        "kind": decision_kind(primary, listed),
         "dossier_numbers": dossier_numbers(cases),
         "vote_kind": VOTE_KIND_MEMBER if roll_call else VOTE_KIND_FACTION,
         "tally": tally,
@@ -668,6 +687,21 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "passed": decision_passed(decision, tally),
         "display_name": decision_display_name(primary, order, len(listed), subject),
     }
+
+
+def decision_kind(primary: Payload | None, listed: list[Payload]) -> str:
+    """``motie``, ``amendement``, ``wetsvoorstel`` or ``overig``: the Soort of the case decided.
+
+    Without a primary case, the cases on the Agendapunt answer when they are all of one
+    kind: an Agendapunt of moties alone decides a motie, whichever it is.
+    """
+    cases = [primary] if primary else listed
+    kinds = {
+        _DECISION_KIND_BY_STAGE.get(classify_case_kind(case.get("Soort")) or "")
+        for case in cases
+    }
+    kind = kinds.pop() if len(kinds) == 1 else None
+    return kind or DECISION_KIND_OTHER
 
 
 def decision_passed(decision: Payload, tally: dict[str, int]) -> bool:
