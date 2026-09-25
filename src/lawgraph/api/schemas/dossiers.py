@@ -421,9 +421,12 @@ class DossierListResponse(BaseModel):
         ..., description="Matching dossiers, independent of limit and offset."
     )
     items: list[DossierSummaryDTO]
-    facets: DossierFacetsDTO | None = Field(
-        default=None, description="Only on ``/api/dossiers/open``."
-    )
+
+
+class OpenDossierListResponse(DossierListResponse):
+    """A page of open dossiers, with the facets of every open dossier the filters keep."""
+
+    facets: DossierFacetsDTO
 
 
 class DossierFacetsDTO(BaseModel):

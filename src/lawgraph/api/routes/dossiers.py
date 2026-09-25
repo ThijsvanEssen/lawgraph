@@ -34,6 +34,7 @@ from lawgraph.api.schemas.dossiers import (
     DossierSummaryDTO,
     DossierTimelineResponse,
     DossierTrack,
+    OpenDossierListResponse,
     timeline_entry,
 )
 from lawgraph.db import ArangoStore
@@ -115,7 +116,7 @@ def list_dossiers_of_number(
 
 @router.get(
     "/open",
-    response_model=DossierListResponse,
+    response_model=OpenDossierListResponse,
     summary="Open dossiers",
     description=(
         "Every dossier that is not closed yet. ``total`` is the absolute "
@@ -169,7 +170,7 @@ def list_open_dossiers(
     ] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> DossierListResponse:
+) -> OpenDossierListResponse:
     tracks = parse_choices(track, get_args(DossierTrack), "track")
     raw = get_open_dossiers(
         store,
@@ -191,7 +192,7 @@ def list_open_dossiers(
     )
     docs = raw.get("items") or []
     enrich_dossier_docs(store, docs)
-    return DossierListResponse(
+    return OpenDossierListResponse(
         total=int(raw.get("total") or 0),
         items=[DossierSummaryDTO.from_document(d) for d in docs],
         facets=DossierFacetsDTO(**raw.get("facets") or {}),
