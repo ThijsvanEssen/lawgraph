@@ -856,19 +856,6 @@ def _subject_filter(subject: str, bind: dict[str, Any]) -> str:
     )
 
 
-def get_dossiers_of_number(store: ArangoStore, number: str) -> list[dict[str, Any]]:
-    """Every dossier with this *number*, in the order of the Kamer (``suffix_sort_key``)."""
-    aql = f"""
-    FOR dossier IN {COLLECTION_DOSSIERS}
-        FILTER dossier.props.number == @number
-        RETURN dossier
-    """
-    dossiers = list(store.query(aql, {"number": number}))
-    return sorted(
-        dossiers, key=lambda d: suffix_sort_key((d.get("props") or {}).get("suffix"))
-    )
-
-
 def get_dossier_relations(store: ArangoStore, dossier_id: str) -> list[dict[str, Any]]:
     """The ``REVISES``, ``ACCOMPANIES`` and ``RELATED_TO`` edges between this dossier and
     others, with the other dossier and the direction.
@@ -915,73 +902,90 @@ def _relation_order(row: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
-# The dimensions ``/dossiers/open`` counts as facets: the prop each counts, without a value
-# counted as its default.
+# The dimensions the dossier lists count as facets: the prop each counts, without a value
+# counted as its default. ``status`` is ``open`` or ``closed``.
 _DOSSIER_FACETS = {
+    "status": 'dossier.props.closed == true ? "closed" : "open"',
+    "outcome": "dossier.props.outcome",
     "track": 'dossier.props.track_kind OR "overig"',
     "stage": "dossier.props.current_stage",
     "ministry": "dossier.props.ministry",
 }
 
+# The orders of a dossier list; each ends in the key, so a page never repeats a row.
+DOSSIER_SORTS = {
+    "number": "dossier.props.order ASC",
+    "opened_on": "dossier.props.opened_on DESC",
+    "closed_on": "dossier.props.closed_on DESC",
+    "title": "LOWER(dossier.props.title) ASC",
+}
 
-def get_open_dossiers(
-    store: ArangoStore,
-    *,
-    committee_slug: str | None = None,
-    subject: str | None = None,
-    stage: str | None = None,
-    has_stage: list[str] | None = None,
-    tracks: list[str] | None = None,
-    ministry: str | None = None,
-    initiative: bool | None = None,
-    opened_from: str | None = None,
-    opened_to: str | None = None,
-    limit: int = 100,
-    offset: int = 0,
-) -> dict[str, Any]:
-    """A page of the dossiers that are still open, with ``facets``: per ``track``,
-    ``stage`` (the current one) and ``ministry`` the number of dossiers per value under
-    the other filters, each dimension counted without its own filter.
 
-    ``has_stage`` keeps only dossiers whose ``stages_present`` contains every
-    stage listed. The committee filter resolves that committee's dossiers once
-    as a set, rather than traversing per dossier row.
-    """
-    # the filters of a facet dimension, by its name; the others hold for every facet
+@dataclass(frozen=True)
+class DossierFilters:
+    """What a dossier list keeps; None keeps everything."""
+
+    status: str | None = None  # open, closed
+    outcome: str | None = None
+    tracks: tuple[str, ...] | None = None
+    stage: str | None = None
+    has_stage: tuple[str, ...] | None = None
+    ministry: str | None = None
+    initiative: bool | None = None
+    number: str | None = None  # a prefix of the label: 36264, 37020-
+    subject: str | None = None
+    committee_slug: str | None = None
+    opened_from: str | None = None
+    opened_to: str | None = None
+
+
+def _dossier_filters(
+    filters: DossierFilters, bind: dict[str, Any]
+) -> tuple[list[str], dict[str, str]]:
+    """The AQL conditions on ``dossier``: those that hold for every facet, and those of a
+    facet dimension by its name (a facet is counted without its own)."""
     own: dict[str, str] = {}
-    filters = ["dossier.props.closed != true"]
-    bind: dict[str, Any] = {"limit": limit, "offset": offset}
-
-    if stage:
-        own["stage"] = "dossier.props.current_stage == @stage"
-        bind["stage"] = stage
-    if tracks:
-        own["track"] = f"({_DOSSIER_FACETS['track']}) IN @tracks"
-        bind["tracks"] = tracks
-    if ministry:
-        own["ministry"] = "dossier.props.ministry == @ministry"
-        bind["ministry"] = ministry
-    if subject:
-        filters.append(_subject_filter(subject, bind))
-    if has_stage:
-        filters.append("@has_stage ALL IN (dossier.props.stages_present OR [])")
-        bind["has_stage"] = has_stage
-    if initiative is not None:
-        filters.append("dossier.props.initiative == @initiative")
-        bind["initiative"] = initiative
-    if opened_from:
-        filters.append("dossier.props.opened_on >= @opened_from")
-        bind["opened_from"] = opened_from
-    if opened_to:
-        filters.append("dossier.props.opened_on <= @opened_to")
-        bind["opened_to"] = opened_to
-
-    committee_pre = ""
-    if committee_slug:
-        bind["committee_slug"] = committee_slug
+    shared: list[str] = []
+    for name, value, clause in (
+        ("status", filters.status, f"({_DOSSIER_FACETS['status']}) == @status"),
+        ("outcome", filters.outcome, "dossier.props.outcome == @outcome"),
+        ("track", filters.tracks, f"({_DOSSIER_FACETS['track']}) IN @track"),
+        ("stage", filters.stage, "dossier.props.current_stage == @stage"),
+        ("ministry", filters.ministry, "dossier.props.ministry == @ministry"),
+    ):
+        if value:
+            own[name] = clause
+            bind[name] = list(value) if isinstance(value, tuple) else value
+    if filters.number:
+        # a prefix as a range, so the index on the label answers it
+        shared.append(
+            "dossier.props.label >= @number AND dossier.props.label < @number_end"
+        )
+        bind["number"] = filters.number
+        bind["number_end"] = filters.number + "\uffff"
+    if filters.subject:
+        shared.append(_subject_filter(filters.subject, bind))
+    if filters.has_stage:
+        shared.append("@has_stage ALL IN (dossier.props.stages_present OR [])")
+        bind["has_stage"] = list(filters.has_stage)
+    if filters.initiative is not None:
+        shared.append("dossier.props.initiative == @initiative")
+        bind["initiative"] = filters.initiative
+    if filters.opened_from:
+        shared.append("dossier.props.opened_on >= @opened_from")
+        bind["opened_from"] = filters.opened_from
+    if filters.opened_to:
+        shared.append("dossier.props.opened_on <= @opened_to")
+        bind["opened_to"] = filters.opened_to
+    if filters.committee_slug:
+        shared.append("dossier._id IN committee_dossier_ids")
+        bind["committee_slug"] = filters.committee_slug
         bind["led_by"] = RELATION_LED_BY
         bind["about"] = RELATION_ABOUT
-        committee_pre = f"""
+    return shared, own
+
+
+_COMMITTEE_DOSSIERS = f"""
     LET committee = FIRST(
         FOR c IN {COLLECTION_COMMITTEES}
             FILTER c.props.slug == @committee_slug LIMIT 1 RETURN c
@@ -994,17 +998,36 @@ def get_open_dossiers(
                 FILTER STARTS_WITH(subject._to, '{COLLECTION_DOSSIERS}/')
                 RETURN subject._to
     ) : []
-        """
-        filters.append("dossier._id IN committee_dossier_ids")
+"""
+
+
+def get_dossiers(
+    store: ArangoStore,
+    filters: DossierFilters,
+    *,
+    sort: str = "opened_on",
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """A page of the dossiers *filters* keeps, in the order *sort* (``DOSSIER_SORTS``),
+    with ``total`` and ``facets``: per ``status``, ``outcome``, ``track``, ``stage`` (the
+    current one) and ``ministry`` the number of dossiers per value under the other filters,
+    each dimension counted without its own filter.
+
+    The committee filter resolves that committee's dossiers once as a set, rather than
+    traversing per dossier row.
+    """
+    bind: dict[str, Any] = {"limit": limit, "offset": offset}
+    shared, own = _dossier_filters(filters, bind)
 
     def where(*clauses: str) -> str:
         return "\n            ".join(f"FILTER {c}" for c in clauses)
 
-    every = where(*filters, *own.values())
+    every = where(*shared, *own.values())
     facets = ",\n        ".join(
         f"""{name}: (
             FOR dossier IN {COLLECTION_DOSSIERS}
-                {where(*filters, *(c for n, c in own.items() if n != name))}
+                {where(*shared, *(c for n, c in own.items() if n != name))}
                 COLLECT value = {expression} WITH COUNT INTO n
                 SORT n DESC, value
                 RETURN {{ value, count: n }}
@@ -1012,7 +1035,7 @@ def get_open_dossiers(
         for name, expression in _DOSSIER_FACETS.items()
     )
     aql = f"""
-    {committee_pre}
+    {_COMMITTEE_DOSSIERS if filters.committee_slug else ""}
     LET total = LENGTH(
         FOR dossier IN {COLLECTION_DOSSIERS}
             {every}
@@ -1021,7 +1044,7 @@ def get_open_dossiers(
     LET items = (
         FOR dossier IN {COLLECTION_DOSSIERS}
             {every}
-            SORT dossier.props.opened_on DESC, dossier._key
+            SORT {DOSSIER_SORTS[sort]}, dossier._key
             LIMIT @offset, @limit
             RETURN dossier
     )

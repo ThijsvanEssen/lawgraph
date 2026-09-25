@@ -95,11 +95,16 @@ def _mock_store():
 
 
 def test_open_dossiers_are_wrapped_in_a_total_and_items(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_open_dossiers",
-        lambda store, **kwargs: {"total": 1, "items": [_DOSSIER]},
-    )
+    asked = []
+
+    def get_dossiers(store, filters, **kwargs):
+        asked.append(filters.status)
+        return {"total": 1, "items": [_DOSSIER]}
+
+    monkeypatch.setattr("lawgraph.api.routes.dossiers.get_dossiers", get_dossiers)
     body = client.get("/api/dossiers/open").json()
+    assert client.get("/api/dossiers").status_code == 200
+    assert asked == ["open", None]  # /open is the list with status=open; all by default
     assert body["total"] == 1
     assert body["items"][0]["number"] == "36000"
     assert body["items"][0]["title"] == "Testwet"

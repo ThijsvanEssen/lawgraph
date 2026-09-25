@@ -74,3 +74,22 @@ def first_reading_dossiers(text: str | None) -> list[str]:
     if not text or "eerste lezing" not in text.lower():
         return []
     return list(dict.fromkeys(a + b for a, b in _CITED_DOSSIER.findall(text)))
+
+
+def dossier_order(number: str | None, suffix: str | None) -> str:
+    """A text that sorts the dossiers as the Kamer lists them: by number, then the dossiers
+    of one number by ``suffix_sort_key`` (``36264`` < ``36264-I`` < ``37020`` < ``37020-XV``).
+    Stored as ``props.order``, so a list sorts on an index."""
+    group, value, text = suffix_sort_key(suffix)
+    digits = number if number and number.isdigit() else "0"
+    return f"{int(digits):08d}.{group}.{value:04d}.{text}"
+
+
+# "Wijziging van ... (Verzamelwet gegevensbescherming)": the name a bill goes by.
+_SHORT_TITLE = re.compile(r"\(([^()]{3,120})\)\s*$")
+
+
+def short_title(title: str | None) -> str | None:
+    """The short title in parentheses that ends the title of a bill, or None."""
+    match = _SHORT_TITLE.search(title or "")
+    return match.group(1).strip() if match else None

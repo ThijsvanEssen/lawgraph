@@ -185,10 +185,14 @@ def _the_api_lists_the_dossiers_of_a_number(client: TestClient) -> None:
     ]
     change = _get(client, "/api/dossiers", number="37035")["items"]
     assert [d["number"] for d in change] == ["37035-IIA", "37035-III", "37035-XXII"]
-    assert _get(client, "/api/dossiers", number="99999") == {"total": 0, "items": []}
-    assert (
-        client.get("/api/dossiers", params={"number": "37035-XXII"}).status_code == 422
-    )
+    unknown = _get(client, "/api/dossiers", number="99999")
+    assert (unknown["total"], unknown["items"]) == (0, [])
+    # a prefix: the chapters of a number, or one chapter
+    chapters = _get(client, "/api/dossiers", number="37035-")["items"]
+    assert [d["number"] for d in chapters] == ["37035-IIA", "37035-III", "37035-XXII"]
+    one = _get(client, "/api/dossiers", number="37035-XXII")["items"]
+    assert [d["number"] for d in one] == ["37035-XXII"]
+    assert client.get("/api/dossiers", params={"number": "x"}).status_code == 422
 
 
 def _relations(dossier: dict[str, Any]) -> list[tuple[str, str, str]]:

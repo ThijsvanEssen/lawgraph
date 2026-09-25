@@ -289,6 +289,7 @@ class DossierProps(_CommonProps):
     number: str | None = None
     suffix: str | None = None
     label: str | None = None
+    order: str | None = None  # core.dossier_numbers.dossier_order: the Kamer's order
     title: str | None = None
     title_source: str | None = None
     closed: bool | None = None

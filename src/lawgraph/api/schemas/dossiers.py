@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_links import tk_url
 
 # A dossier number as the API takes it: 29684, or its label with the addition of a
@@ -365,6 +366,11 @@ class DossierSummaryDTO(BaseModel):
         "budget of 25. ``GET /api/dossiers?number=`` lists them.",
     )
     title: str | None = None
+    short_title: str | None = Field(
+        None,
+        description="The name a bill goes by, from the parentheses that end its title: "
+        "``Verzamelwet gegevensbescherming``; null when the title has none.",
+    )
     title_source: TitleSource | None = None
     track: DossierTrack | None = None
     current_stage: DossierStage | None = None
@@ -421,11 +427,6 @@ class DossierListResponse(BaseModel):
         ..., description="Matching dossiers, independent of limit and offset."
     )
     items: list[DossierSummaryDTO]
-
-
-class OpenDossierListResponse(DossierListResponse):
-    """A page of open dossiers, with the facets of every open dossier the filters keep."""
-
     facets: DossierFacetsDTO
 
 
@@ -436,6 +437,8 @@ class DossierFacetsDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    status: list[FacetCountDTO] = Field(default_factory=list)
+    outcome: list[FacetCountDTO] = Field(default_factory=list)
     track: list[FacetCountDTO] = Field(default_factory=list)
     stage: list[FacetCountDTO] = Field(default_factory=list)
     ministry: list[FacetCountDTO] = Field(default_factory=list)
@@ -609,6 +612,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "suffix": props.get("suffix") or None,
         "same_number_count": int(props.get("same_number_count") or 0),
         "title": props.get("title"),
+        "short_title": short_title(props.get("title")),
         "title_source": props.get("title_source"),
         "track": props.get("track_kind") or "overig",
         "current_stage": _stage(props.get("current_stage")),

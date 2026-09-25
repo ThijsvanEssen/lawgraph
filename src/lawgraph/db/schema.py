@@ -392,6 +392,10 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_DOCUMENTS, ["props.date"], False),
         (COLLECTION_DOCUMENTS, ["props.dossier_number"], False),
         (COLLECTION_DOSSIERS, ["props.number"], False),
+        # the orders and the number prefix of `GET /api/dossiers`
+        (COLLECTION_DOSSIERS, ["props.order"], False),
+        (COLLECTION_DOSSIERS, ["props.label"], False),
+        (COLLECTION_DOSSIERS, ["props.opened_on"], False),
         (COLLECTION_DOSSIERS, ["props.closed"], False),
         (COLLECTION_DOSSIERS, ["props.closed_on"], False),
         (COLLECTION_ACTIVITIES, ["props.date"], False),

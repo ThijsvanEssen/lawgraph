@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import SOURCE_TK
+from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.dossier_stages import classify_case_kind, dossier_display_name
 from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_date
@@ -384,6 +385,7 @@ def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
         "number": number_str,
         "suffix": suffix,
         "label": label,
+        "order": dossier_order(number_str, suffix),
         "title": title,
         "title_source": "dossier" if title else None,
         "display_name": dossier_display_name(number_str, suffix, title or ""),
