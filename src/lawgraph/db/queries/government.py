@@ -25,14 +25,14 @@ ROLE_FIRST_SIGNATORY = "Eerste ondertekenaar"
 
 def government_people(store: Store) -> Iterator[dict[str, Any]]:
     """Every member who held a post in a cabinet: ``{id, name, posts}``, ``id`` the member
-    key, ``name`` the name Wikidata gives (else their own), ``posts`` their
-    ``government_functions``."""
+    key, ``name`` the name Rijksoverheid gives (``H.G. Herbert``; a minister who never
+    sat in parliament has no other), ``posts`` their ``government_functions``."""
     aql = f"""
     FOR m IN {COLLECTION_MEMBERS}
         FILTER LENGTH(m.props.government_functions) > 0
         RETURN {{
             id: m._key,
-            name: m.props.wikidata_name OR m.props.name,
+            name: m.props.government_name OR m.props.name,
             posts: m.props.government_functions
         }}
     """

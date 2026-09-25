@@ -155,8 +155,9 @@ SOURCE_ECHR = "echr"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
 SOURCE_WIKIDATA = "wikidata"
-# The label of a member only Wikidata knows: a cabinet member without a Tweede Kamer person.
-LABEL_WIKIDATA = "Wikidata"
+SOURCE_RIJKSOVERHEID = "rijksoverheid"
+# The label of a member only Rijksoverheid knows: a bewindspersoon without a Tweede Kamer person.
+LABEL_RIJKSOVERHEID = "Rijksoverheid"
 
 # The chambers of the States General, as a document or decision carries them in its labels.
 CHAMBER_TK = "TK"
@@ -217,10 +218,10 @@ RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_VERDRAG = "verdrag-json"
-# Every post a person held in a Dutch cabinet, one record per person (external id: the Q-id).
-RAW_KIND_WIKIDATA_CABINET_POSTS = "wikidata-cabinet-posts-json"
 # Every Dutch cabinet, one record per cabinet (external id: the Q-id).
 RAW_KIND_WIKIDATA_CABINET = "wikidata-cabinet-json"
+# The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
+RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
 
 # A document the source answered HTTP 404 for is remembered as a record of the kind it would
 # have had plus this suffix (no payload), so it is not asked for again on every run.
@@ -252,7 +253,8 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
     SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
-    SOURCE_WIKIDATA: (RAW_KIND_WIKIDATA_CABINET_POSTS, RAW_KIND_WIKIDATA_CABINET),
+    SOURCE_WIKIDATA: (RAW_KIND_WIKIDATA_CABINET,),
+    SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────
@@ -314,6 +316,8 @@ HOST_MIN_INTERVAL: dict[str, float] = {
     "gegevensmagazijn.tweedekamer.nl": 0.1,
     "zoekservice.overheid.nl": 0.1,
     "repository.officiele-overheidspublicaties.nl": 0.1,
+    # a page at a time with a pause: 33 pages, read seldom
+    "www.rijksoverheid.nl": 2.0,
 }
 
 # ── Rechtspraak courts ────────────────────────────────────────────────────────

@@ -76,7 +76,7 @@ they are out of date. Do not edit inside the markers.
 | `LED_BY` | Activity | Committee | The lead committee (`voortouwcommissie`) of an activity; absent for plenary. |
 | `MADE_IN` | Commitment | Activity | The activity in which a commitment (toezegging) was made. |
 | `MEMBER_OF` | Member | Committee / Faction | Membership of a committee or faction, with from/to dates and role. |
-| `SERVED_IN` | Member | Cabinet | A post held in a cabinet, one edge per post: `function` as the source writes it, the normalised `post` and `ministry`, `from_date`, `to_date`. |
+| `SERVED_IN` | Member | Cabinet | The posts a member held in a cabinet, one edge per member and cabinet, `meta.posts` as in the member's `government_functions`. |
 | `AUTHORED` | Member | Document / Case | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, …), `function` as what (`Functie`) and `capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). |
 | `RELATED_TO` | Dossier | Dossier | The Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. |
 | `REVISES` | Dossier | Dossier | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`). |
@@ -101,7 +101,7 @@ they are out of date. Do not edit inside the markers.
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
 | `judgments` | `ecli_nl_hr_2023_1234`; ECHR `echr_<itemid>` |
 | `dossiers` | `<number>` or `<number>_<suffix>` |
-| `cases`, `documents` (TK), `activities`, `commitments`, `committees`, `members` | TK GUID (`Id`); a member only Wikidata knows `wikidata_q<number>` |
+| `cases`, `documents` (TK), `activities`, `commitments`, `committees`, `members` | TK GUID (`Id`); a bewindspersoon only Rijksoverheid knows `rijksoverheid_<initials>_<surname>` |
 | `documents` (other) | `stb_<identifier>`, `stcrt_<identifier>`, `ek_<id>` |
 | `decisions` | `stemming_<Besluit_Id>` |
 | `factions` | abbreviation, else name (`vvd`, `d66`) |
@@ -315,9 +315,9 @@ Dossier contains Case contains Document. TK data is the source.
 | Activity | `activities` | debate or hearing; `number` (`Activiteit.Nummer`), `date`, `agenda_title` (`Onderwerp`), `kind`, `status` (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`), `committee_id` (null for a plenary activity), `case_ids`, `dossier_numbers`, `case_kinds_by_dossier` |
 | Decision | `decisions` | one node per TK `Besluit`; `primary_case_id` and `primary_case_kind` name the Zaak it decided (`Wetgeving` on the vote on a bill itself); `kind`, what was voted on, from that `Zaak.Soort` (the stage `classify_case_kind` gives it): `motie`, `amendement`, `wetsvoorstel` (also an initiative bill or a budget) or `overig`; without a primary case the kind of the cases on its Agendapunt when they are all of one kind; never read from the subject |
 | Commitment | `commitments` | `text`, `minister_name`, `minister_role` (as the source writes them), `made_on`, `expected_resolution` (`0001-01-01` when the Kamer names none), `status` (`open`, `done`, `partly_done`, `unfulfilled`, `lapsed`), `activity_number`; from `semantic tk-government`: `member_key` (who made it), `post`, `ministry` and `cabinet` (in office that day) |
-| Member | `members` | every TK `Persoon` (members and ministers; a minister who never sat in parliament has no name or date of birth there); `name`, `family_name`, `birth_date`, `party`, `faction_memberships` (dated timeline); from Wikidata `wikidata_id`, `wikidata_name` and `government_functions` (`function`, `cabinet`, `from_date`, `to_date`, the Q-ids `position_id`, `cabinet_id`, and normalised `post`, `ministry` (`core/ministries.py`) and `cabinet_key`: every post in a Dutch cabinet). A cabinet member without a TK `Persoon` is a member of its own, label `Wikidata`, key from the Q-id |
+| Member | `members` | every TK `Persoon` (members and ministers; a minister who never sat in parliament has no name or date of birth there); `name`, `family_name`, `birth_date`, `party`, `faction_memberships` (dated timeline); from Rijksoverheid `government_name` (`S.Th.M. Hermans`), `known_as` (`Sophie Hermans`, the first name the page gives; null when none) and `government_functions`: every post in a cabinet since 1945, oldest first, each with `cabinet_key`, `cabinet`, `function` as the source writes it, `also_named`, the normalised `post` and `ministry` (`core/ministries.py`), `seat` (`ienw/minister`, `jenv/staatssecretaris/rechtsbescherming`, `viceminister-president`), `portfolio`, `from_date`, `to_date`, `from_date_source` and `to_date_source` (what the page gave), `corrected` (the dates the rules of a seat set), `acting` and `acting_basis`, `party` (`short`, `faction`), `overlaps_with` (member keys), `absent`, `name` (as the page writes the holder) and `source` (`name`, `url`, `read_on`); see [pipelines](pipelines.md#rijksoverheid). A bewindspersoon without a TK `Persoon` is a member of their own, label `Rijksoverheid` |
 | Faction | `factions` | `name`, `abbreviation`, `aliases`, `seats`, `active`, `active_from`, `active_until`; `external_id` (the current Fractie record) and `external_ids` (every Fractie record of the faction: a faction that returns gets a new record, 50PLUS 2012-2021 and from 2025, and votes and seats name either) |
-| Cabinet | `cabinets` | a Dutch cabinet, from Wikidata; key from its name (`rutte_iv`, `den_uyl`); `name` (`kabinet-Rutte IV`), `wikidata_id`, `from_date`, `to_date` (null in office), `from_date_precision`, `to_date_precision` (`day`, `month`, `year`), `prime_minister` (member key), `previous` (cabinet key), `parties` (`name`, `short`, `wikidata_id`, `faction`) and `factions` (their faction keys); see [pipelines](pipelines.md#wikidata) |
+| Cabinet | `cabinets` | a Dutch cabinet: since 1945 from its Rijksoverheid page, before from Wikidata (name and period only); key from its name (`rutte_asscher`, `den_uyl`); `name` (`kabinet-Rutte-Asscher`), `from_date` (the beëdiging), `to_date` (null in office, or before 1945 when Wikidata gives no end), `from_date_precision`, `to_date_precision` (`day`, `month`, `year`), `previous` (cabinet key), `prime_minister` (member key), `parties` (`short`, `faction`: of the bewindspersonen sworn in on the first day) and `factions`, `phases` (`kind`: `formatie`, `in_functie`, `demissionair`, `dubbel_demissionair`, `missionair` or null; `from_date`, `to_date`, `label` in the source's words, `source`), `demissionary_from`, `origin` (`name`, `url`, `read_on`), `wikidata_id` for a cabinet from Wikidata |
 | Committee | `committees` | `name`, `abbreviation`, `slug`; only a Commissie with a name (the plenary is no committee) |
 
 No link to tweedekamer.nl is stored. The site finds a document by its `document_number` and an
@@ -428,7 +428,8 @@ record is skipped like one without a payload.
 | `eerstekamer` | `ek-kamerstuk-json` |
 | `echr` | `echr-judgment-json` |
 | `verdragenbank` | `verdrag-json` |
-| `wikidata` | `wikidata-cabinet-posts-json` (one person, every post they held in a Dutch cabinet and their parties, external id the Q-id), `wikidata-cabinet-json` (one cabinet, external id the Q-id) |
+| `wikidata` | `wikidata-cabinet-json` (one cabinet, external id the Q-id) |
+| `rijksoverheid` | `rijksoverheid-cabinet-html` (the page of one cabinet since 1945, external id its slug, `meta.url` and `meta.read_on`) |
 
 A document the source answered HTTP 404 for is remembered as a record without payload of
 kind `<kind>-missing` (`eu-celex-html-missing`, `rs-content-missing`, ...); the retrieve

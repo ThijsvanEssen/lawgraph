@@ -260,16 +260,19 @@ def member(payload: Payload) -> Record | None:
     external_id = _external_id(payload)
     if not external_id:
         return None
-    name = " ".join(
-        f"{payload.get('Voornamen') or ''} {payload.get('Tussenvoegsel') or ''} "
-        f"{payload.get('Achternaam') or ''}".split()
-    )
+    surname = f"{payload.get('Tussenvoegsel') or ''} {payload.get('Achternaam') or ''}"
+    full_name = " ".join(f"{payload.get('Voornamen') or ''} {surname}".split())
+    # the name a person goes by: ``Ard van der Steur``, not ``Gerard Adriaan van der Steur``
+    called = payload.get("Roepnaam") or payload.get("Voornamen") or ""
+    name = " ".join(f"{called} {surname}".split())
     return make_node_key(external_id), {
         "external_id": external_id,
         "name": name,
+        "full_name": full_name or None,
         "display_name": name,
-        # what another source knows a person by (``core.government.match_member``)
+        # what another source knows a person by (``core.government.match_holder``)
         "family_name": _text(payload, "Achternaam") or None,
+        "initials": _text(payload, "Initialen") or None,
         "birth_date": iso_date(payload.get("Geboortedatum")),
     }
 
