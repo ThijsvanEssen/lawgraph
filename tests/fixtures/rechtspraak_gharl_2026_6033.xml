@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+  <rdf:RDF>
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:GHARL:2026:6033</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-09-22T13:00:56</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-09-19</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Gerechtshof_Arnhem-Leeuwarden" scheme="overheid.RechterlijkeMacht">Gerechtshof Arnhem-Leeuwarden</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2026-09-22</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">200.359.042</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#hogerBeroep">Hoger beroep</psi:procedure>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#beslissingRC">Beslissing RC</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:spatial rdfs:label="Zittingsplaats">Arnhem</dcterms:spatial>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#civielRecht">Civiel recht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:GHARL:2026:6033">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:GHARL:2026:6033</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-09-21T08:05:32</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-09-22</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:GHARL:2026:6033 Gerechtshof Arnhem-Leeuwarden , 22-09-2026 / 200.359.042</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:GHARL:2026:6033:INH" lang="nl" xml:space="preserve">(ingekort)</inhoudsindicatie>
+  <uitspraak id="ECLI:NL:GHARL:2026:6033:DOC" lang="nl" xml:space="preserve">
+  <uitspraak.info>
+    <bridgehead role="bold">GERECHTSHOF ARNHEM-LEEUWARDEN</bridgehead>
+    <para />
+    <parablock>
+      <para>locatie Arnhem, afdeling civiel recht</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>zaaknummer gerechtshof: 200.359.042</para>
+      <para>zaaknummer rechtbank Gelderland, zittingsplaats Zutphen: 11446778</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">arrest van 22 september 2026</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>in de zaak van</para>
+    </parablock>
+    <para />
+  </uitspraak.info>
+  <section>
+    <title>
+      <nr>1</nr> [appellant1]</title>
+    <para>die woont in [woonplaats1] </para>
+    <bridgehead role="bold">2. [appellant2]</bridgehead>
+    <para>die woont in [woonplaats1] </para>
+    <bridgehead role="bold">3. [appellant3]</bridgehead>
+    <para>die woont in [woonplaats1] </para>
+    <bridgehead role="bold">4. [appellant4] </bridgehead>
+    <para>die woont in [woonplaats2] ( [land] )</para>
+    <bridgehead role="bold">5. [appellant5]</bridgehead>
+    <parablock>
+      <para>die woont in [woonplaats2] ( [land] ) </para>
+      <para>hierna samen: de huurders</para>
+      <para>advocaat: mr. D.F. Briedé</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>en</para>
+    </parablock>
+    <para />
+  </section>
+  <section>
+    <title>
+      <nr>1</nr> De Fontein B.V.</title>
+    <parablock>
+      <para>die is gevestigd in Lelystad</para>
+      <para>
+        <emphasis role="bold">2. HUB de Fontein Exploitatie B.V.</emphasis>, voorheen handelend onder de naam <emphasis role="bold">De Fontein II B.V.</emphasis></para>
+      <para>die is gevestigd in Veenendaal</para>
+      <para>hierna samen: De Fontein</para>
+      <para>advocaat: mr. S.J. van Susante</para>
+    </parablock>
+    <para />
+    <para />
+  </section>
+  <section>
+    <title>
+      <nr>1</nr>Het verloop van de procedure in hoger beroep</title>
+    <para />
+    <paragroup>
+      <para>Het hof heeft op 28 oktober 2025 een arrest gewezen in het incident dat door de huurders was ingesteld op grond van artikel 351 Rv. Het hof heeft bij dat arrest de incidentele vordering van de huurders tot schorsing van de tenuitvoerlegging van het bestreden vonnis afgewezen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <para>Het verloop van de procedure in hoger beroep na het arrest blijkt uit: <?linebreak?></para>
+      <itemizedlist mark="-">
+        <listitem>
+          <para>de memorie van grieven</para>
+        </listitem>
+        <listitem>
+          <para>de memorie van antwoord </para>
+        </listitem>
+        <listitem>
+          <para>een akte van de huurders met producties</para>
+        </listitem>
+        <listitem>
+          <para>een akte van De Fontein met producties</para>
+        </listitem>
+        <listitem>
+          <para>het verslag (proces-verbaal) van de mondelinge behandeling die op 26 augustus  2026 is gehouden. </para>
+        </listitem>
+      </itemizedlist>
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>2</nr>De kern van de zaak</title>
+    </section>
+  </uitspraak>
+</open-rechtspraak>

@@ -8,7 +8,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
-| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals` |
+| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
@@ -122,7 +122,7 @@ date onto each dossier (it needs the document edges).
 | committees | every Commissie with a name (`NaamNL`); a record without one is not written, so no id stands in for a name, and is written by the run after the source fills it in. The voortouw of every plenary activity is such a record: the Kamer itself |
 | members | every Persoon, with `family_name` (`Achternaam`) and `birth_date` (`Geboortedatum`), by which `normalize wikidata` finds them; `party` and `faction_memberships` come from FractieZetelPersoon (dated), so a member without those records has no party |
 | activities | `agenda_title` from `Onderwerp`, `status` as the source writes it (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`; a planned activity may lie beyond the end of its dossier), `committee_id` from `Voortouwcommissie_Id` unless `Voortouwafkorting` is `TK`: a plenary activity has the Kamer as voortouw, not a committee |
-| dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `same_number_count` is recounted for every number the run writes (this pipeline is the only one that makes dossiers); `current_stage`, `stages_present`, `track_kind` and `title` (from a voorstel-van-wet or MvT document when the dossier has none) are derived from documents, activities and decisions by `core/dossier_stages.py` (an activity that did not take place, `Gepland`, `Geannuleerd`, `Verplaatst` or `Vervallen`, marks no stage), and `stages_complete`: whether every stage the bill passed to reach its current one has a dated document, activity or vote (the listed stages up to the current one, and `wetsvoorstel`, `mvt`, `advies_rvs`, and `stemming` for a bill aangenomen or verworpen; a stage known only from the kind of a case has no date); `opened_on` is the date of the first document or activity. The record has no end: `Afgesloten` is false on every dossier and there is no closing date, so `closed`, `outcome` and `closed_on` are `semantic tk-dossier-outcomes`; a closed dossier (as stored) is at stage `afgehandeld` |
+| dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `same_number_count` is recounted for every number the run writes (this pipeline is the only one that makes dossiers); `current_stage`, `stages_present`, `track_kind` and `title` (from a voorstel-van-wet or MvT document when the dossier has none) are derived from documents, activities and decisions by `core/dossier_stages.py` (an activity that did not take place, `Gepland`, `Geannuleerd`, `Verplaatst` or `Vervallen`, marks no stage), and `stages_missing`: the stages the bill passed to reach its current one without a dated document, activity or vote (the listed stages up to the current one, and those its track always passes: `wetsvoorstel`, `mvt`, `advies_rvs` of a bill, `wetsvoorstel` and `mvt` of a budget, `advies_rvs` of a treaty; and `stemming` for a bill or budget aangenomen or verworpen, of which an `Eindtekst` is evidence too; a stage known only from the kind of a case has no date), and `stages_complete` when there are none; `opened_on` is the date of the first document or activity. The record has no end: `Afgesloten` is false on every dossier and there is no closing date, so `closed`, `outcome` and `closed_on` are `semantic tk-dossier-outcomes`; a closed dossier (as stored) is at stage `afgehandeld` |
 | documents | dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers`; `DocumentNummer` as `document_number`, from which the API makes the link to tweedekamer.nl (no link is stored) |
 
 `dossier_numbers` of a case, document, activity or decision (and the keys of
@@ -231,7 +231,9 @@ read from the graph (`core/dossier_stages.derive_outcome`); the first rule that 
 Anything else is open (`closed: false`): a bill the Tweede Kamer passed still waits for the Eerste
 Kamer and the Staatsblad, and a dossier without a bill (a budget chapter, a policy dossier) has no
 end the graph can see. The Eerste Kamer votes are not loaded, so a bill it rejected stays open.
-A closed dossier gets stage `afgehandeld` (`current_stage`, and last in `stages_present`).
+A closed dossier gets stage `afgehandeld` (`current_stage`, and last in `stages_present`); for a
+dossier whose outcome changed the step recomputes its stages with the same rules as
+`normalize tk-dossiers`, so `stages_complete` and `stages_missing` hold for it closed.
 
 It walks every dossier on every run, since a law published today closes a dossier whose own
 record did not change, and writes only the dossiers whose answer changed. It runs after
@@ -283,6 +285,7 @@ index) is skipped, so a re-run or a resumed run only downloads the rest.
 | `--mode incremental` (default) | judgments decided from `--since` (default `1d`) minus 30 days, because judgments are published up to weeks after the decision |
 | `--mode full` | no date filter: every judgment of the courts (the Raad van State alone is far over 100,000) |
 | `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
+| `--mode gaps` | the cited judgments that are stubs, and the decisions that asked the questions of a preliminary ruling without an `ANSWERS` edge: the index of the date the ruling names, of every court (60 to 450 judgments a day), is read once per date, and an entry whose title (`ECLI, court, dd-mm-yyyy, case numbers`) has a case number the ruling names is fetched |
 
 Over the last two years the default courts hold about 33,000 judgments (Hoge Raad 4,100, Raad van
 State 11,000, the four courts of appeal about 18,000), a few hours at the paced rate.
@@ -297,8 +300,11 @@ HA ZA 16-256` is `c/19/117301/haza16-256`), `procedure` as `judgment_metadata.ty
 judgment, or the judgment of a conclusion), and as `related_eclis` the judgments of the earlier
 instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:relation` that is not
 a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
-`summary`, `uitspraak` as `text` and as `paragraphs` (heading, subheading, body; see the
-paragraph props in the data model). The XML itself stays in the payload store. `court_code` is the ECLI court
+`summary`, `uitspraak` as `text` and as `paragraphs` (the kop, heading, subheading, body; see the
+paragraph props in the data model), and the parties its kop names as `parties` (data model,
+Judgment). Every judgment normalized before `parties` existed gets them from a run of
+`normalize rechtspraak` without `--since`; run `semantic rechtspraak` after it, since the kop is
+one paragraph now and the `p-<n>` ids after it moved. The XML itself stays in the payload store. `court_code` is the ECLI court
 segment; `tier` is the college that gave the judgment (`core/judgments.court_tier`, whose
 tables `graph-list-stats` reads too), as the Rechtspraak sorts its instanties (the `Type` in its
 waardelijst `/Waardelijst/Instanties`, kept as `tests/fixtures/rechtspraak_instanties.xml`):
@@ -363,11 +369,31 @@ loaded becomes a stub.
 
 **Semantic `rechtspraak-referrals`.** `ANSWERS` from a preliminary ruling
 (`judgment_metadata.type` `Prejudiciële beslissing`) to the decision that asked its questions:
-its `related_eclis` (`formal_relation`, 1.0); without them, the first of its opening 20
-paragraphs that says questions were asked (`prejudiciële vragen … gesteld`,
-`core/judgments.read_referral`): the ECLIs it names, else the judgment of the date it names
-with one of the case numbers after `in de zaak` (`referral_text`, 0.9). The referring decision
-is found only when it is loaded: the Rechtspraak cannot be asked for a case number.
+its `related_eclis` (`formal_relation`, 1.0); without them, every one of its opening 40
+paragraphs that says questions were asked (`prejudiciële vragen … gesteld`, `gestelde
+rechtsvragen`; `core/judgments.read_referrals`), so a ruling that answers two courts names
+two: the ECLIs it names, else the decision (not a conclusion) of the date it names with one
+of its case numbers (`referral_text`, 0.9). The case numbers are read in the forms `in de
+zaak <numbers> van <date>`, `van <date> met zaaknummer <number>`, `van <date>, in zaak nr.
+<number>`, `bij beslissing van <date>, nummers <numbers>, gestelde` and, in older rulings,
+`verwijst … naar het vonnis in de zaak <number> … van <date>` followed by `bij laatstgenoemd
+vonnis`. Two case numbers are the same when they share a number of five digits or more,
+else a roll number (`22/2463T`), else all their letters and digits
+(`core/judgments.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
+21-346`, `200.273.775/01` is `200.273.775`. A ruling that names no case number (the Gerecht
+in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
+decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it.
+
+**Semantic `rechtspraak-series`.** Parallel cases: judgments of one court (`court_code`) on one
+day (`date_eff`) with the same `document_type`, compared per court and day, one day in memory.
+A text is its lower-case word 8-shingles, one in eight kept by CRC-32; two judgments are a pair
+when they share no case number key, neither summary says `gerectificeerd` or `rectificatie`,
+and the Jaccard of their shingles is at least 0.85, or 0.7 when both texts have 600 words or
+more, or 0.5 (0.3 for two such long texts) when their summaries share at least 97% of their
+words and the summary is not a template (the same summary on three dates or more: `kopje
+volgt`, `HR: 81.1 RO.`). A series is the judgments that pairs connect: `series_id` (its lowest
+ECLI) and `series_size` on each; a judgment in no series has both null. `--since` groups
+only the days of the judgments retrieved from then on.
 
 ## EUR-Lex
 
@@ -644,13 +670,28 @@ of the 1970s (30 to 60 posts each); older cabinets have a few. About 400 people.
 `id`, `name`, `birth_date`, `birth_precision`, `posts` with `function`, `cabinet`, `from_date`,
 `to_date` and their Q-ids), in full on every run. An empty answer raises.
 
-**Normalize.** Matches each person to one Tweede Kamer person (`core/government.py`): the same
-date of birth (`members.props.birth_date`, from `Persoon.Geboortedatum`; by year when
-Wikidata knows only the year) and a part of the surname (`family_name`, `Persoon.Achternaam`)
-among the words of the name; a person who matches no member or several is left out. The member
-gets `wikidata_id` and `government_functions` (the posts, oldest first); a member no person
-matches any more loses both. Every record is read on every run. Needs `normalize tk-dossiers`
-(the members).
+**Normalize.** Matches each person to one Tweede Kamer person (`core/government.py`):
+
+- a member of parliament: the same date of birth (`members.props.birth_date`, from
+  `Persoon.Geboortedatum`; by year when Wikidata knows only the year) and a word of the surname
+  (`family_name`, `Persoon.Achternaam`; particles such as `van`, `de` do not count) among the
+  words of the name. When the exact spelling finds nobody, `ij` and `y` agree (`Gruijters`,
+  `Gruyters`); when the date finds nobody, a date that differs in one of year, month or day
+  (the year by two at most) agrees if the first names start alike too.
+- a minister or state secretary who never sat in parliament: the Tweede Kamer holds such a
+  person without name or date of birth, known only by what they signed (`AUTHORED` with
+  capacity `bewindspersoon`, the signed name in the document's `actors`). The person is the
+  one whose surname is in the signed name and who held a post of the same kind (minister or
+  state secretary) on a date they signed, or up to two weeks after it ended.
+
+A person who matches no member or several, or a member two people match, is left out (and
+logged). The member gets `wikidata_id`, `wikidata_name` and `government_functions` (the posts,
+oldest first); a member no person matches any more loses them. A person no Tweede Kamer person
+matches becomes a member of their own, key `wikidata_q<number>`, label `Wikidata`, with `name`,
+`birth_date` (known to the day only) and the same three props; when a later run matches that
+person to a Tweede Kamer person, the member of their own is removed, so one person is never
+two members. Every record is read on every run. Needs `normalize tk-dossiers` (the members and
+their signatures).
 
 ## Ordering
 

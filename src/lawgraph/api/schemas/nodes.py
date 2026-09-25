@@ -21,6 +21,7 @@ _DROP_PROPS_KEYS: tuple[str, ...] = ()
 DROP_PROPS_KEYS_GRAPH = (
     "text",
     "paragraphs",
+    "parties",
     "subjects",
     "judgment_metadata",
     "raw_data",

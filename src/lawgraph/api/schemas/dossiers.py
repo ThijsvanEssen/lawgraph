@@ -190,6 +190,15 @@ class _TimelineEntry(BaseModel):
     title: str | None
     node_id: str
     tk_url: str | None = None
+    after_closure: bool = Field(
+        False,
+        description="Dated after the dossier's ``closed_on``: a follow-up letter, a debate "
+        "or procedure meeting after the law was published. False for an open dossier.",
+    )
+    planned: bool = Field(
+        False,
+        description="An activity with ``status`` ``Gepland``: announced, not (yet) held.",
+    )
 
 
 class TimelineDocumentEntry(_TimelineEntry):
@@ -243,6 +252,8 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
         "node_id": row.get("node_id") or "",
         "tk_url": link,
         "node_type": node_type,
+        "after_closure": bool(row.get("after_closure")),
+        "planned": bool(row.get("planned")),
     }
     if node_type == "document":
         common["body"] = {
@@ -360,11 +371,19 @@ class DossierSummaryDTO(BaseModel):
         True,
         description="Whether every stage the bill passed on its way to "
         "``current_stage`` has a document, an activity or a vote in the graph: the stages "
-        "in ``stages`` before it and ``current_stage`` itself, and those every bill passes "
-        "(``wetsvoorstel``, ``mvt``, ``advies_rvs``; ``stemming`` once it was aangenomen or "
-        "verworpen). False means the graph lacks papers of the dossier: a stage between "
+        "in ``stages`` before it and ``current_stage`` itself, and those every bill of its "
+        "track passes (``wetsvoorstel``, ``mvt`` and ``advies_rvs`` of a bill; "
+        "``wetsvoorstel`` and ``mvt`` of a budget; ``advies_rvs`` of a treaty; and "
+        "``stemming`` once a bill or budget was aangenomen or verworpen; an ``Eindtekst`` "
+        "counts as the vote). False means the graph lacks papers of the dossier: a stage between "
         "two listed ones was passed but is not in the data. True for a dossier that is no "
-        "bill.",
+        "bill. ``stages_missing`` names the stages.",
+    )
+    stages_missing: list[DossierStage] = Field(
+        default_factory=list,
+        description="The stages the bill passed without a dated document, activity or vote "
+        "in the graph, in stage order: ``stemming`` on a law published without a vote on "
+        "record. Empty when ``stages_complete``.",
     )
     closed: bool = False
     outcome: DossierOutcome | None = None
@@ -560,6 +579,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "current_stage": _stage(props.get("current_stage")),
         "stages": _stages(props.get("stages_present")),
         "stages_complete": props.get("stages_complete") is not False,
+        "stages_missing": _stages(props.get("stages_missing")),
         "closed": bool(props.get("closed")),
         "outcome": (
             props.get("outcome")

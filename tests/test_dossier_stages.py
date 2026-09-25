@@ -15,10 +15,10 @@ from lawgraph.core.dossier_stages import (
     dossier_display_name,
     dossier_stages,
     is_withdrawal_letter,
+    outcome_props,
     pick_current_stage,
     select_title,
 )
-from lawgraph.pipelines.semantic.tk_dossier_outcomes import outcome_props
 
 
 def _doc(kind: str, date: str | None = None, title: str | None = None) -> dict:
@@ -412,29 +412,108 @@ def test_a_dossier_without_evidence_is_open() -> None:
     assert derive_outcome([], [], []) == OPEN
 
 
-def test_a_closed_dossier_is_afgehandeld_and_one_opened_again_falls_back() -> None:
-    stored = {
-        "current_stage": "stemming",
-        "stages_present": ["wetsvoorstel", "stemming"],
-    }
-    closed = outcome_props(stored, DossierOutcome(True, "aangenomen", "2022-08-30"))
-    assert closed == {
+def test_closing_a_dossier_recomputes_its_stages() -> None:
+    # 35786 in a test database: open, the stages up to ``behandeling`` complete; closed as
+    # aangenomen, it passed ``stemming`` too, and no vote is on record.
+    docs = [*_passed_bill(), _doc("Motie", "2024-05-01")]
+    open_ = dossier_stages("wetsvoorstel", docs, [], [], [], closed=False)
+    assert (open_.current, open_.complete) == ("behandeling", True)
+
+    enacted = DossierOutcome(True, "aangenomen", "2022-08-30")
+    stages = dossier_stages(
+        "wetsvoorstel", docs, [], [], [], closed=True, outcome=enacted.outcome
+    )
+    assert outcome_props(enacted, stages) == {
         "closed": True,
         "outcome": "aangenomen",
         "closed_on": "2022-08-30",
         "current_stage": "afgehandeld",
-        "stages_present": ["wetsvoorstel", "stemming", "afgehandeld"],
+        "stages_present": [
+            "wetsvoorstel",
+            "mvt",
+            "advies_rvs",
+            "verslag",
+            "behandeling",
+            "afgehandeld",
+        ],
+        "stages_complete": False,
+        "stages_missing": ["stemming"],
     }
-    reopened = outcome_props({**stored, **closed}, OPEN)
-    assert reopened == {
+
+    reopened = dossier_stages("wetsvoorstel", docs, [], [], [], closed=False)
+    assert outcome_props(OPEN, reopened) == {
         "closed": False,
         "outcome": None,
         "closed_on": None,
-        "current_stage": "stemming",
-        "stages_present": ["wetsvoorstel", "stemming"],
+        "current_stage": "behandeling",
+        "stages_present": [
+            "wetsvoorstel",
+            "mvt",
+            "advies_rvs",
+            "verslag",
+            "behandeling",
+        ],
+        "stages_complete": True,
+        "stages_missing": [],
     }
-    assert outcome_props(stored, OPEN) == {
-        "closed": False,
-        "outcome": None,
-        "closed_on": None,
-    }
+
+
+# ── the stages a track requires ──────────────────────────────────────────────
+
+
+def test_a_treaty_needs_the_advice_but_no_bill_memorandum_or_vote() -> None:
+    # 37013 in a test database: submitted for tacit approval with a letter and the advice.
+    docs = [
+        _doc("Brief regering", "2026-08-25"),
+        _doc(
+            "Advies Afdeling advisering Raad van State en Nader rapport", "2026-08-25"
+        ),
+    ]
+    found = dossier_stages("verdrag", docs, [], [], ["Verdrag"], closed=False)
+    assert (found.current, found.missing) == ("advies_rvs", [])
+    approved = dossier_stages(
+        "verdrag", docs, [], [], ["Verdrag"], closed=True, outcome="aangenomen"
+    )
+    assert approved.complete
+    without_advice = [_doc("Motie", "2026-09-01"), docs[0]]
+    assert dossier_stages(
+        "verdrag", without_advice, [], [], [], closed=False
+    ).missing == ["advies_rvs"]
+
+
+def test_a_budget_needs_no_advice_of_the_raad_van_state() -> None:
+    docs = [
+        _doc("Voorstel van wet", "2026-06-01"),
+        _doc("Memorie van toelichting", "2026-06-01"),
+        _doc("Verslag", "2026-06-20"),
+    ]
+    assert dossier_stages("begroting", docs, [], [], [], closed=False).complete
+    found = dossier_stages("wetsvoorstel", docs, [], [], [], closed=False)
+    assert found.missing == ["advies_rvs"]
+    assert dossier_stages("begroting", docs[:1], [], [], [], closed=False).missing == []
+    assert dossier_stages(
+        "begroting", [docs[0], docs[2]], [], [], [], closed=False
+    ).missing == ["mvt"]
+
+
+def test_the_text_as_adopted_counts_as_the_vote() -> None:
+    assert classify_document_kind("Eindtekst") == "stemming"
+    # 34851 in a test database: a hamerstuk, no vote on record, its adopted text is.
+    docs = [*_passed_bill(), _doc("Eindtekst", "2018-03-13")]
+    found = dossier_stages(
+        "wetsvoorstel", docs, [], [], [], closed=True, outcome="aangenomen"
+    )
+    assert found.missing == []
+    found = dossier_stages(
+        "wetsvoorstel", _passed_bill(), [], [], [], closed=True, outcome="aangenomen"
+    )
+    assert found.missing == ["stemming"]
+
+
+def test_the_missing_stages_are_in_stage_order() -> None:
+    docs = [_doc("Amendement", "2024-05-01")]
+    found = dossier_stages(
+        "wetsvoorstel", docs, [], [], ["Wetgeving"], closed=True, outcome="verworpen"
+    )
+    assert found.missing == ["wetsvoorstel", "mvt", "advies_rvs", "stemming"]
+    assert not found.complete

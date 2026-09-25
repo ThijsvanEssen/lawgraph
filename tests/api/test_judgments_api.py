@@ -76,6 +76,35 @@ def test_get_judgment_detail_returns_linked_articles(monkeypatch):
     assert article["instrument"] is not None
 
 
+def test_get_judgment_detail_names_its_series(monkeypatch):
+    """A judgment of a series carries its id and size, and the other judgments in it."""
+    judgment = {
+        **_JUDGMENT_DOC,
+        "props": {
+            **_JUDGMENT_DOC["props"],
+            "series_id": "ECLI:NL:HR:2020:122",
+            "series_size": 2,
+        },
+    }
+    other = {
+        "_id": "judgments/ecli_nl_hr_2020_122",
+        "_key": "ecli_nl_hr_2020_122",
+        "props": {"display_name": "HR 2020/122", "ecli": "ECLI:NL:HR:2020:122"},
+    }
+    monkeypatch.setattr(
+        "lawgraph.api.routes.judgments.get_judgment_with_relations",
+        lambda store, ecli: JudgmentDetailData(
+            judgment=judgment, articles=[], series=[other]
+        ),
+    )
+
+    payload = client.get("/api/judgments/ECLI:NL:HR:2020:123").json()
+
+    assert payload["judgment"]["series_id"] == "ECLI:NL:HR:2020:122"
+    assert payload["judgment"]["series_size"] == 2
+    assert [j["ecli"] for j in payload["series"]] == ["ECLI:NL:HR:2020:122"]
+
+
 # ── the passages of the judgment that cite an article ───────────────────────
 
 _MENTIONS = [

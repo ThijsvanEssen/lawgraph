@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+  <rdf:RDF>
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:CRVB:2025:1295</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2025-10-31T10:06:44</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2025-08-29</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Centrale_Raad_van_Beroep" scheme="overheid.RechterlijkeMacht">Centrale Raad van Beroep</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2025-08-20</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">23/3411 WAJONG</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#hogerBeroep">Hoger beroep</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#bestuursrecht_socialezekerheidsrecht">Bestuursrecht; Socialezekerheidsrecht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+          <rdf:li>ABkort 2025/168</rdf:li>
+          <rdf:li>USZ 2025/269</rdf:li>
+          <rdf:li>AB 2025/276 met annotatie van R. Ortlep</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:CRVB:2025:1295">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:CRVB:2025:1295</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2025-09-01T11:12:07</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2025-09-01</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:CRVB:2025:1295 Centrale Raad van Beroep , 20-08-2025 / 23/3411 WAJONG</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:CRVB:2025:1295:INH" lang="nl" xml:space="preserve">(ingekort)</inhoudsindicatie>
+  <uitspraak id="ECLI:NL:CRVB:2025:1295:DOC" lang="nl" xml:space="preserve">
+  <uitspraak.info>
+    <para />
+    <parablock>
+      <para>23/3411 WAJONG, 24/1227 WAJONG	 </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Datum uitspraak: 20 augustus 2025</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Centrale Raad van Beroep</para>
+      <para>Enkelvoudige kamer</para>
+    </parablock>
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <parablock>
+      <para>Uitspraak op de hoger beroepen tegen de uitspraak van de rechtbank Limburg van </para>
+      <para>16 november 2023, 22/1378 (aangevallen uitspraak) en het verzoek tot vergoeding van schade</para>
+    </parablock>
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <parablock>
+      <para>Partijen:</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        [Appellante] te [woonplaats] (appellante)</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>de Raad van bestuur van het Uitvoeringsinstituut werknemersverzekeringen (Uwv)</para>
+    </parablock>
+    <para />
+    <para />
+    <para />
+    <bridgehead role="bold">SAMENVATTING</bridgehead>
+    <para />
+    <parablock>
+      <para>Het gaat in deze zaak over de vraag of het Uwv terecht heeft geweigerd appellante een uitkering op grond van de Wajong toe te kennen. Volgens appellante beschikte zij op haar achttiende duurzaam niet over arbeidsvermogen en had zij om die reden als jonggehandicapte moeten worden aangemerkt. De Raad volgt het standpunt van appellante niet en komt tot het oordeel dat het Uwv terecht heeft geweigerd appellante een Wajong-uitkering toe te kennen. </para>
+    </parablock>
+    <para />
+    <para />
+  </uitspraak.info>
+  <section role="procesverloop">
+    <title>PROCESVERLOOP </title>
+    <para />
+    <parablock>
+      <para>Namens appellante heeft mr. P.H.A. Brauer, advocaat, hoger beroep ingesteld en daarbij tevens verzocht om schadevergoeding.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Het Uwv heeft een verweerschrift ingediend en incidenteel hoger beroep ingesteld. Appellante heeft een zienswijze op het incidenteel hoger beroep ingediend.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>De Raad heeft de zaak behandeld op een zitting van 18 december 2024. Het Uwv heeft zich laten vertegenwoordigen door mr. P.C.P. Heijnen-Veldman. Appellante en mr. Brauer zijn niet verschenen.</para>
+    </parablock>
+    </section>
+  </uitspraak>
+</open-rechtspraak>

@@ -9,6 +9,10 @@ AVG, law since Stb. 2018, 144, says false). The records below have the fields th
 * 37014 (Wet weerbare waarden) is pending: an amendment on it was voted down, which does not
   end the bill.
 * 36680 was withdrawn by letter; 36999 was voted down by the Tweede Kamer.
+
+Closing a dossier recomputes its stages: while open, 35786 showed only its bill and missed
+nothing; closed, it passed every stage a bill passes, and only its adopted text (``Eindtekst``)
+shows the vote. Its timeline marks what came after the closing, and a meeting still planned.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_STEMMING,
@@ -123,6 +128,19 @@ def _votes(
         }
 
 
+def _planned_meeting(number: str, case: dict[str, Any]) -> dict[str, Any]:
+    """A procedure meeting on the dossier, announced after it closed and never held."""
+    return {
+        "Id": uid(int(number), 9),
+        "Nummer": f"2025A{number}",
+        "Soort": "Procedurevergadering",
+        "Status": "Gepland",
+        "Onderwerp": f"Procedurevergadering over {number}",
+        "Datum": "2025-01-15T10:00:00+01:00",
+        "Agendapunt": [{"Zaak": [case]}],
+    }
+
+
 def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
     titles = {
         ENACTED: "Wijziging van de Grondwet (algemene bepaling)",
@@ -155,6 +173,12 @@ def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
                     order=1,
                 )
             )
+        if number == ENACTED:
+            yield (
+                RAW_KIND_TK_DOCUMENT,
+                _document(number, 5, "Eindtekst", title, "2022-06-01", [bill]),
+            )
+            yield RAW_KIND_TK_ACTIVITEIT, _planned_meeting(number, bill)
         if number == WITHDRAWN:
             letter = _zaak(number, 5, "Brief regering")
             yield (
@@ -212,7 +236,8 @@ def _dossier_props(store: ArangoStore) -> dict[str, dict[str, Any]]:
         row["number"]: row
         for row in store.query(
             "FOR d IN dossiers RETURN MERGE(KEEP(d.props, 'number', 'closed', 'outcome', "
-            "'closed_on', 'opened_on', 'current_stage', 'stages_present'), {})"
+            "'closed_on', 'opened_on', 'current_stage', 'stages_present', "
+            "'stages_complete', 'stages_missing'), {})"
         )
     }
 
@@ -230,6 +255,15 @@ def test_a_dossier_is_closed_by_what_the_graph_holds(
     assert _outcome(dossiers[ENACTED]) == (True, "aangenomen", "2022-08-30")
     assert dossiers[ENACTED]["current_stage"] == "afgehandeld"
     assert dossiers[ENACTED]["stages_present"][-1] == "afgehandeld"
+    # Closed, it passed the memorandum and the advice, which the graph lacks; its
+    # adopted text shows the vote. Open, it missed nothing: the step recomputed it.
+    assert dossiers[ENACTED]["stages_complete"] is False
+    assert dossiers[ENACTED]["stages_missing"] == ["mvt", "advies_rvs"]
+    assert dossiers[REJECTED]["stages_missing"] == ["mvt", "advies_rvs"]
+    assert dossiers[WITHDRAWN]["stages_missing"] == ["mvt", "advies_rvs"]
+    # Open, at the vote on its amendment.
+    assert dossiers[PENDING]["current_stage"] == "stemming"
+    assert dossiers[PENDING]["stages_missing"] == ["mvt", "advies_rvs"]
     assert _outcome(dossiers[WITHDRAWN]) == (True, "ingetrokken", "2025-06-02")
     assert _outcome(dossiers[REJECTED]) == (True, "verworpen", "2025-03-11")
     # A rejected amendment is not the end of the bill.
@@ -323,3 +357,36 @@ def test_recent_dossiers_include_one_that_closed_without_an_activity(
         WITHDRAWN,  # the letter, 2025-06-02
         REJECTED,  # the vote, 2025-03-11
     ]
+
+
+def test_the_timeline_marks_what_came_after_the_closing(store: ArangoStore) -> None:
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        url = f"/api/dossiers/{ENACTED}/timeline"
+        entries = client.get(url, params={"order": "asc"}).json()["entries"]
+        marks = [
+            (e["kind"], e["date"][:10], e["after_closure"], e["planned"])
+            for e in entries
+        ]
+        # Closed on 2022-08-30, the day Stb. 2022, 332 was published.
+        assert marks == [
+            ("Eindtekst", "2022-06-01", False, False),
+            ("Voorstel van wet", "2024-01-10", True, False),
+            ("Procedurevergadering", "2025-01-15", True, True),
+        ]
+        held = client.get(url, params={"include_planned": "false"}).json()
+        assert [e["kind"] for e in held["entries"]] == [
+            "Voorstel van wet",
+            "Eindtekst",
+        ]
+        detail = client.get(f"/api/dossiers/{ENACTED}").json()
+        assert (detail["stages_complete"], detail["stages_missing"]) == (
+            False,
+            ["mvt", "advies_rvs"],
+        )
+
+        pending = client.get(f"/api/dossiers/{PENDING}/timeline").json()["entries"]
+        assert pending and not any(e["after_closure"] for e in pending)
+    finally:
+        app.dependency_overrides.pop(get_store, None)

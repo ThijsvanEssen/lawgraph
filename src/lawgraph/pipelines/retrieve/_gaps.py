@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.dossier_numbers import first_reading_dossiers
 from lawgraph.core.identifiers import kamerstuk_identifier
+from lawgraph.core.judgments import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import Store, raw_key
@@ -106,6 +107,22 @@ def rechtspraak_gaps(store: Store) -> list[str]:
         ecli for ecli in gap_queries.stub_dutch_eclis(store) if ecli not in missing
     ]
     return _capped(eclis, "stub judgments")
+
+
+def unanswered_referrals(store: Store) -> list[Referral]:
+    """The referrals, by case number and date, of the preliminary rulings that answer no
+    decision in the graph: the referring decision is not loaded, and the Rechtspraak can
+    only be asked for it through the index of its date."""
+    referrals: list[Referral] = []
+    for row in gap_queries.unanswered_preliminary_rulings(
+        store, paragraphs=REFERRAL_PARAGRAPHS
+    ):
+        referrals += [
+            referral
+            for referral in read_referrals(row["paragraphs"])
+            if referral.case_numbers and referral.date and referral not in referrals
+        ]
+    return referrals
 
 
 def eurlex_gaps(store: Store) -> list[str]:

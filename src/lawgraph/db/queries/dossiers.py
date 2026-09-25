@@ -38,6 +38,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.documents import chamber_of, is_explanatory
 from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
 from lawgraph.core.dossier_stages import (
+    ACTIVITY_PLANNED,
     classify_track_kind,
     dossier_stages,
     select_title,
@@ -126,6 +127,7 @@ class DossierEnrichment:
     current_stage: str | None = None
     stages_present: list[str] = field(default_factory=list)
     stages_complete: bool = True
+    stages_missing: list[str] = field(default_factory=list)
     track_kind: str | None = None
     opened_on: str | None = None
 
@@ -165,6 +167,7 @@ def enrich_dossier_docs(
         if props.get("stages_present") is None:
             props["stages_present"] = enrichment.stages_present
             props["stages_complete"] = enrichment.stages_complete
+            props["stages_missing"] = enrichment.stages_missing
         if props.get("current_stage") is None and enrichment.current_stage:
             props["current_stage"] = enrichment.current_stage
         if not props.get("track_kind") and enrichment.track_kind:
@@ -276,6 +279,7 @@ def _enrich_dossiers(
             current_stage=stages.current,
             stages_present=stages.present,
             stages_complete=stages.complete,
+            stages_missing=stages.missing,
             track_kind=track_kind,
             opened_on=min(dated) if dated else None,
         )
@@ -298,6 +302,7 @@ def get_dossier_timeline(
     *,
     order: Literal["desc", "asc"] = "desc",
     kind_filter: list[str] | None = None,
+    include_planned: bool = True,
     limit: int = 200,
 ) -> list[dict[str, Any]]:
     """Everything that happened in a dossier, in date order.
@@ -307,7 +312,9 @@ def get_dossier_timeline(
     ``_TIMELINE_BODY_PROPS``) and the node's ``labels``; an activity row also its
     lead committee (``committee``, null for plenary), looked up for the page only.
     A decision entry carries the motion or amendment it decided on, with its
-    dictum excerpt and signatories.
+    dictum excerpt and signatories. ``after_closure`` marks a row dated after the day
+    the dossier closed (``closed_on``), ``planned`` an activity still ``Gepland``; without
+    *include_planned* those are left out.
     """
     bind: dict[str, Any] = {
         "dossier_id": dossier_id,
@@ -316,6 +323,8 @@ def get_dossier_timeline(
         "about": RELATION_ABOUT,
         "led_by": RELATION_LED_BY,
         "body_props": _TIMELINE_BODY_PROPS,
+        "planned_status": ACTIVITY_PLANNED,
+        "include_planned": include_planned,
     }
     kind_clause = ""
     if kind_filter:
@@ -336,6 +345,7 @@ def get_dossier_timeline(
             FILTER node != null
             RETURN node
     )
+    LET closed_on = DOCUMENT(@dossier_id).props.closed_on
     FOR node IN dossier_nodes
         LET entry = {{
             date: (node.props.date != null ? node.props.date
@@ -348,9 +358,11 @@ def get_dossier_timeline(
             body: KEEP(node.props, @body_props[node.type]),
             labels: node.labels,
             node_id: node._id,
-            node_type: node.type
+            node_type: node.type,
+            planned: node.type == 'activity' AND node.props.status == @planned_status
         }}
         FILTER entry.date != null
+        FILTER @include_planned OR NOT entry.planned
         {kind_clause}
         SORT entry.date {"DESC" if order == "desc" else "ASC"}
         LIMIT @limit
@@ -366,7 +378,11 @@ def get_dossier_timeline(
                     name: lead.props.name
                 }}
         ) : null
-        RETURN MERGE(entry, {{ committee: committee }})
+        RETURN MERGE(entry, {{
+            committee: committee,
+            after_closure: closed_on != null
+                AND LEFT(entry.date, 10) > LEFT(closed_on, 10)
+        }})
     """
     rows = list(store.query(aql, bind))
     _attach_decision_documents(store, dossier_id, rows)

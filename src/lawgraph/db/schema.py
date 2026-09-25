@@ -331,6 +331,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         # Not sparse: a sparse index is not used for a value that is a loop variable (`FOR
         # key IN @keys ... FILTER key IN j.props.case_number_keys[*]`), only for a constant.
         (COLLECTION_JUDGMENTS, ["props.case_number_keys[*]"], False, False),
+        # the judgments of one series (``semantic rechtspraak-series``)
+        (COLLECTION_JUDGMENTS, ["props.series_id"], False, True),
         # What `/api/stats` counts per value is not sparse, so the count walks the index
         # and sees the documents without a value too; sparse, each count read every document.
         (COLLECTION_JUDGMENTS, ["props.source"], False, False),

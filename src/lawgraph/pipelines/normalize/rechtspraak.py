@@ -9,6 +9,7 @@ from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.judgments import (
     case_number_keys,
     compose_display_name,
@@ -16,6 +17,7 @@ from lawgraph.core.judgments import (
     extract_judgment_text,
     extract_rdf_metadata,
     extract_sections,
+    kop_lines,
     parse_judgment,
 )
 from lawgraph.core.logging import get_logger
@@ -68,7 +70,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
             return None, None
 
         try:
-            root = parse_judgment(payload_text)  # once, for the three extractors below
+            root = parse_judgment(payload_text)  # once, for the extractors below
         except ValueError as exc:
             self._unreadable.append(f"{ecli} ({exc})")
             return None, None
@@ -105,6 +107,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         sections = extract_sections(root)
         if sections:
             props["paragraphs"] = sections
+        props["parties"] = read_parties(kop_lines(root), subjects)
 
         court_code, tier = derive_court_tier(ecli, props.get("court"))
         props["court_code"] = court_code

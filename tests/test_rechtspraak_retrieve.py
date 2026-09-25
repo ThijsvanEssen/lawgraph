@@ -12,7 +12,7 @@ import requests
 
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
 from lawgraph.config.constants import RECHTSPRAAK_COURT_GROUPS
-from lawgraph.core.judgments import IndexEntry, parse_index
+from lawgraph.core.judgments import IndexEntry, Referral, parse_index
 from lawgraph.pipelines.retrieve.rechtspraak import (
     RechtspraakRetrievePipeline,
     resolve_courts,
@@ -112,6 +112,14 @@ def test_without_dates_the_whole_history_is_asked_for() -> None:
     assert "date" not in calls[0]["params"]
 
 
+def test_without_courts_every_court_is_asked_for() -> None:
+    calls: list[dict] = []
+    day = dt.date(2021, 1, 15)
+    list(_client([_page(0)], calls).iter_index(date_from=day, date_to=day))
+    assert "creator" not in calls[0]["params"]
+    assert calls[0]["params"]["date"] == ["2021-01-15", "2021-01-15"]
+
+
 def test_every_page_is_read_until_a_short_one() -> None:
     calls: list[dict] = []
     client = _client(
@@ -178,7 +186,9 @@ class _Rs:
         self.fetched: list[str] = []
         self.late: list[IndexEntry] = []  # what only the modified listing names
 
-    def iter_index(self, *, courts, date_from=None, date_to=None, modified_from=None):
+    def iter_index(
+        self, *, courts=(), date_from=None, date_to=None, modified_from=None
+    ):
         call = {"courts": courts, "from": date_from, "to": date_to}
         if modified_from is not None:
             call["modified_from"] = modified_from
@@ -290,6 +300,32 @@ def test_a_failing_index_is_an_error_and_stores_nothing() -> None:
     pipeline, store = _pipeline(Down([]))
     result = pipeline.run(courts=["hr"])
     assert store.records == [] and "no route" in result.errors[0]
+
+
+def test_a_referral_is_found_in_the_index_of_its_date_by_case_number() -> None:
+    """ECLI:NL:HR:2021:1725 names "8527084 VZ VERZ 20-9656 van 15 januari 2021"; the
+    titles are those of the index of that day."""
+    listed = [
+        IndexEntry(
+            ecli=ecli,
+            updated=dt.datetime(2021, 2, 1, tzinfo=UTC),
+            title=f"{ecli}, Rechtbank Rotterdam, 15-01-2021, {numbers}",
+        )
+        for ecli, numbers in (
+            ("ECLI:NL:RBROT:2021:207", "8527084 VZ VERZ 20-9656"),
+            ("ECLI:NL:RBROT:2021:197", "8398405 CV EXPL 20-9220"),
+        )
+    ]
+    rs = _Rs(listed)
+    referrals = [
+        Referral(case_numbers=("8527084 VZ VERZ 20-9656",), date="2021-01-15"),
+        Referral(case_numbers=("9999999 CV EXPL 20-1",), date="2021-01-15"),
+    ]
+    pipeline, store = _pipeline(rs)
+    pipeline.run(referrals=referrals)
+    day = dt.date(2021, 1, 15)
+    assert rs.index_calls == [{"courts": (), "from": day, "to": day}]  # once per date
+    assert rs.fetched == ["ECLI:NL:RBROT:2021:207"]
 
 
 def test_an_unknown_court_is_an_error_of_the_step() -> None:
