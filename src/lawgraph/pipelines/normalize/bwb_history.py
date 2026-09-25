@@ -9,6 +9,18 @@ Model:
 * ``valid_from`` is the article's own ``inwerking`` date and ``valid_until`` is
   the ``valid_from`` of the next version of the same article (null = current),
   so "the instrument on date X" is a date query and needs no membership edges.
+  Every period is half-open: ``valid_until`` is the first day the version no longer
+  holds; a toestand's inclusive end date becomes the day after it;
+* an identity without a ``stam-id`` (an article of a bijlage) is followed by its number;
+* at most one version of an article holds on a date (``valid_until_by_key``):
+  - a version that says the article lapsed ("Vervallen") holds on no date: it ends the
+    article on its ``valid_from``;
+  - the last version of an article that is absent from a later toestand (it left the law:
+    the old inheritance law of BW Boek 4 in 2003) ends when the first toestand without it
+    starts; ``last_seen`` on a version is the start of the latest toestand holding it;
+  - a toestand from before an article's commencement shows it as "Dit onderdeel is nog
+    niet inwerking getreden", under the versie-id its text will have: that placeholder is
+    written only while no toestand gave the text, and never replaces it.
 
 Phase 1 streams the raw XML and writes nodes in blocks; phase 2 (``build_edges``)
 finalises ``valid_until`` from the database (so incremental runs stay correct),
@@ -18,6 +30,7 @@ links each new version to its Article and each toestand to its Instrument.
 from __future__ import annotations
 
 import datetime as dt
+import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
@@ -53,32 +66,78 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 logger = get_logger(__name__)
 
 _OPEN_ENDED_DATE = "9999-12-31"
+# What a toestand shows for an article before its commencement.
+_PLACEHOLDER = re.compile(r"^\s*Dit onderdeel is nog niet in\s*werking getreden", re.I)
+_LAPSED = re.compile(r"^\s*Vervallen\b", re.I)
 EDGE_SOURCE = "bwb-history-normalize"
 _INSTRUMENT_CHUNK = 200  # regulations per finalisation query
 
 WrittenVersions = dict[str, list[tuple[str, str | None]]]  # bwb_id -> [(key, stam_id)]
 
 
-def valid_until_by_key(versions: Iterable[dict[str, Any]]) -> dict[str, str | None]:
-    """Expected ``valid_until`` per version key: the next version's ``valid_from``.
+def is_placeholder(text: str | None) -> bool:
+    """Whether an article's text only announces it: "nog niet inwerking getreden"."""
+    return bool(_PLACEHOLDER.match(text or ""))
 
-    Versions are grouped per article identity ``(bwb_id, stam_id)`` and ordered by
-    ``valid_from``; the last one of each identity is current (``None``). Versions
-    without a ``stam_id`` have no known successor.
+
+def is_lapsed(effect: str | None, text: str | None) -> bool:
+    """Whether a version says its article lapsed: effect ``vervallen`` or the text
+    "Vervallen"."""
+    return (effect or "").lower() == "vervallen" or bool(_LAPSED.match(text or ""))
+
+
+def _identity(version: dict[str, Any]) -> tuple[str, str]:
+    """The article a version belongs to: its ``stam-id``, else its number."""
+    if version.get("stam_id"):
+        return version["bwb_id"], version["stam_id"]
+    return version["bwb_id"], f"n{version.get('number') or version['key']}"
+
+
+def valid_until_by_key(
+    versions: Iterable[dict[str, Any]],
+    starts: dict[str, list[str]] | None = None,
+) -> dict[str, str | None]:
+    """Expected ``valid_until`` per version key (see the module docstring).
+
+    *versions* are ``{key, bwb_id, stam_id, number, valid_from, last_seen, lapsed}``;
+    *starts* the sorted start dates of the toestanden of each law. Within one article
+    a version ends where the next begins; a lapsed version ends where it begins; the last
+    one ends at the first toestand after its ``last_seen``, else it is current (None).
     """
     chains: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
-    result: dict[str, str | None] = {}
     for version in versions:
-        if version.get("stam_id"):
-            chains[(version["bwb_id"], version["stam_id"])].append(version)
-        else:
-            result[version["key"]] = None
-    for chain in chains.values():
+        chains[_identity(version)].append(version)
+    result: dict[str, str | None] = {}
+    for (bwb_id, _), chain in chains.items():
         chain.sort(key=lambda v: (v.get("valid_from") or "", v["key"]))
-        for current, following in zip(chain, chain[1:], strict=False):
-            result[current["key"]] = following.get("valid_from") or None
-        result[chain[-1]["key"]] = None
+        for version, following in zip(chain, [*chain[1:], None], strict=True):
+            if version.get("lapsed"):
+                result[version["key"]] = version.get("valid_from")
+            elif following is not None:
+                result[version["key"]] = following.get("valid_from") or None
+            else:
+                result[version["key"]] = _first_start_after(
+                    (starts or {}).get(bwb_id, []), version.get("last_seen")
+                )
     return result
+
+
+def _first_start_after(starts: list[str], day: str | None) -> str | None:
+    """The first toestand start after *day*: when a law went on without the article."""
+    if not day:
+        return None
+    return next((start for start in starts if start > day), None)
+
+
+def exclusive_end(end_date: str | None) -> str | None:
+    """A toestand's inclusive end date as the first day it no longer holds; null for an
+    open one."""
+    if not end_date or end_date == _OPEN_ENDED_DATE:
+        return None
+    try:
+        return (dt.date.fromisoformat(end_date) + dt.timedelta(days=1)).isoformat()
+    except ValueError:
+        return None
 
 
 class BWBHistoryNormalizePipeline(NormalizePipelineBase):
@@ -107,7 +166,9 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         """Write instrument versions and article versions; remember what was written."""
         instrument_seed: dict[str, dict[str, Any]] = {}  # bwb_id -> instrument props
         instrument_versions: list[tuple[str, str]] = []  # (bwb_id, version key)
-        seen: set[str] = set()
+        seen: set[str] = set()  # versions written with their text
+        announced: set[str] = set()  # versions written as a placeholder only
+        last_seen: dict[str, str] = {}  # version -> the latest toestand holding it
         written: WrittenVersions = defaultdict(list)
 
         with NodeWriter(self.store) as writer:
@@ -128,15 +189,20 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
                 for position, article in enumerate(toestand.articles):
                     key = self._version_key(article, bwb_id, start_date)
-                    if key is None or key in seen:
+                    if key is None:
                         continue
-                    seen.add(key)
+                    last_seen[key] = max(last_seen.get(key, ""), start_date)
+                    placeholder = is_placeholder(article.text)
+                    if key in seen or (placeholder and key in announced):
+                        continue
+                    if key not in announced:
+                        written[bwb_id].append((key, article.stam_id))
+                    (announced if placeholder else seen).add(key)
                     writer.add(
                         self._article_version(
                             key, article, bwb_id, start_date, toestand, position
                         )
                     )
-                    written[bwb_id].append((key, article.stam_id))
 
         logger.info(
             "Normalized %d toestanden and %d article versions for %d instruments.",
@@ -148,6 +214,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             "instrument_seed": instrument_seed,
             "instrument_versions": instrument_versions,
             "written": written,
+            "last_seen": last_seen,
         }
 
     def _parse_record(
@@ -189,7 +256,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             props={
                 "bwb_id": bwb_id,
                 "valid_from": start_date,
-                "valid_until": end_date,
+                "valid_until": exclusive_end(end_date),
                 "current": end_date == _OPEN_ENDED_DATE,
                 "state_url": meta.get("state_url"),
             },
@@ -211,6 +278,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         props["current"] = (
             True  # until a later version is found (finalised in build_edges)
         )
+        props["last_seen"] = start_date  # raised in build_edges
         return Node(
             collection=COLLECTION_ARTICLE_VERSIONS,
             type=NodeType.ARTICLE_VERSION,
@@ -248,7 +316,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
         for bwb_ids in chunked(sorted(seed), _INSTRUMENT_CHUNK):
             self._ensure_instruments(bwb_ids, seed)
-            self._finalise_chunk(bwb_ids, written, writer)
+            self._finalise_chunk(bwb_ids, written, normalized["last_seen"], writer)
 
         writer.flush()
         logger.info(
@@ -273,19 +341,25 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         )
 
     def _finalise_chunk(
-        self, bwb_ids: list[str], written: WrittenVersions, writer: EdgeWriter
+        self,
+        bwb_ids: list[str],
+        written: WrittenVersions,
+        last_seen: dict[str, str],
+        writer: EdgeWriter,
     ) -> None:
         versions = list(normalize_queries.article_versions(self.store, bwb_ids))
-        expected = valid_until_by_key(versions)
+        for v in versions:
+            v["last_seen"] = max(v.get("last_seen") or "", last_seen.get(v["key"], ""))
+            v["lapsed"] = is_lapsed(v.get("effect"), v.get("text_start"))
+        starts = normalize_queries.toestand_starts(self.store, bwb_ids)
+        expected = valid_until_by_key(versions, starts)
         self._write_valid_until(
             [
                 v
                 for v in versions
-                if v["key"] in expected
-                and (
-                    v.get("valid_until") != expected[v["key"]]
-                    or v.get("current") is not (expected[v["key"]] is None)
-                )
+                if v.get("valid_until") != expected[v["key"]]
+                or v.get("current") is not (expected[v["key"]] is None)
+                or v["key"] in last_seen
             ],
             expected,
         )
@@ -374,6 +448,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 "props": {
                     "valid_until": expected[v["key"]],
                     "current": expected[v["key"]] is None,
+                    "last_seen": v["last_seen"] or None,
                 },
             }
             for v in stale
