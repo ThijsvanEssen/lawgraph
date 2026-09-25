@@ -544,7 +544,19 @@ not created.
   `commencement_publication`;
 - `valid_until` and `current`, recomputed from the database in chunks of 200 regulations, so
   incremental runs stay correct: a version is `current` exactly when nothing follows it, also
-  after a re-run has written it again;
+  after a re-run has written it again. Every period is half-open (`valid_until` is the first day
+  it no longer holds, null when open; a toestand's inclusive end date becomes the day after), and
+  at most one version of an article holds on a date:
+  - a version ends where the next version of the same article (its `stam-id`; an article of a
+    bijlage, which has none, by its number) begins;
+  - a version that says the article lapsed (effect `vervallen`, or the text "Vervallen") holds on
+    no date: its `valid_until` is its `valid_from`;
+  - the last version of an article that a later toestand no longer holds (it left the law, as the
+    old inheritance law of BW Boek 4 in 2003) ends when the first toestand without it starts;
+    `last_seen` on the version is the start of the latest toestand that holds it;
+  - a toestand from before an article's commencement shows it as "Dit onderdeel is nog niet
+    inwerking getreden", under the versie-id its text will have; that placeholder is written only
+    while no toestand gave the text, and never replaces it;
 - `VERSION_OF` from each ArticleVersion to its Article and from each InstrumentVersion to its
   Instrument;
 - an Instrument if `normalize bwb` has not created it, and a historical Article for an identity

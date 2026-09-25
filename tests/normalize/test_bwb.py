@@ -285,7 +285,8 @@ def test_database_calls_do_not_grow_with_the_number_of_versions() -> None:
 
     _run_history(store, records)
 
-    assert len(store.queries) == 2  # versions + articles, once for the single chunk
+    # versions, toestand starts and articles, once for the single chunk
+    assert len(store.queries) == 3
 
 
 def test_valid_until_chain_handles_open_ends_and_missing_stam_ids() -> None:
@@ -304,6 +305,74 @@ def test_valid_until_chain_handles_open_ends_and_missing_stam_ids() -> None:
         "b1": None,
         "c1": None,
     }
+
+
+def test_a_version_ends_when_it_lapses_or_its_article_leaves_the_law() -> None:
+    rows = [
+        # lapsed: holds on no date, and ends the version before it
+        {"key": "a1", "bwb_id": "B", "stam_id": "1", "valid_from": "2000-01-01"},
+        {
+            "key": "a2",
+            "bwb_id": "B",
+            "stam_id": "1",
+            "valid_from": "2006-02-01",
+            "lapsed": True,
+        },
+        # last seen in the toestand of 2002, gone from the one of 2003
+        {
+            "key": "b1",
+            "bwb_id": "B",
+            "stam_id": "2",
+            "valid_from": "1971-10-01",
+            "last_seen": "2002-01-01",
+        },
+        # in the latest toestand: current
+        {
+            "key": "c1",
+            "bwb_id": "B",
+            "stam_id": "3",
+            "valid_from": "2003-01-01",
+            "last_seen": "2026-01-01",
+        },
+        # a bijlage article without stam-id: followed by its number
+        {
+            "key": "d1",
+            "bwb_id": "B",
+            "number": "bijlage 2 artikel 1",
+            "valid_from": "2013-01-01",
+        },
+        {
+            "key": "d2",
+            "bwb_id": "B",
+            "number": "bijlage 2 artikel 1",
+            "valid_from": "2014-01-01",
+        },
+    ]
+    starts = {"B": ["2002-01-01", "2003-01-01", "2026-01-01"]}
+    assert valid_until_by_key(rows, starts) == {
+        "a1": "2006-02-01",
+        "a2": "2006-02-01",
+        "b1": "2003-01-01",
+        "c1": None,
+        "d1": "2014-01-01",
+        "d2": None,
+    }
+
+
+def test_placeholders_lapses_and_inclusive_ends_are_recognised() -> None:
+    from lawgraph.pipelines.normalize.bwb_history import (
+        exclusive_end,
+        is_lapsed,
+        is_placeholder,
+    )
+
+    assert is_placeholder("Dit onderdeel is nog niet inwerking getreden")
+    assert is_placeholder("Dit onderdeel is nog niet in werking getreden.")
+    assert not is_placeholder("1. Degene die een dienst ...")
+    assert is_lapsed("vervallen", None) and is_lapsed(None, "Vervallen.")
+    assert not is_lapsed("wijziging", "Met gevangenisstraf ...")
+    assert exclusive_end("2024-12-31") == "2025-01-01"
+    assert exclusive_end("9999-12-31") is None and exclusive_end(None) is None
 
 
 def test_only_the_current_toestand_is_normalized_not_the_history() -> None:

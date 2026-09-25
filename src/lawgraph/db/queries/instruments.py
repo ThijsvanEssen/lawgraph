@@ -709,13 +709,16 @@ def get_articles_at(
     bwb_id: str,
     at_date: str,
 ) -> list[dict[str, Any]]:
-    """Return all article versions valid at the given date (YYYY-MM-DD), sorted naturally."""
+    """The articles of the law in force on *at_date* (YYYY-MM-DD): the article versions
+    whose half-open period holds it, in the order of the document. A bijlage is part of the
+    law, not an article of it: the articles of a bijlage are left out."""
     aql = f"""
     LET filtered = (
         FOR doc IN {COLLECTION_ARTICLE_VERSIONS}
             FILTER doc.props.bwb_id == @bwb_id
             FILTER doc.props.valid_from <= @at_date
             FILTER doc.props.valid_until > @at_date OR doc.props.valid_until == null
+            FILTER NOT LIKE(doc.props.article_number OR "", "bijlage %")
             RETURN doc
     )
     FOR doc IN filtered

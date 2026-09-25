@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
@@ -69,6 +70,9 @@ FOR v IN {COLLECTION_ARTICLE_VERSIONS}
         valid_from: v.props.valid_from,
         valid_until: v.props.valid_until,
         current: v.props.current,
+        last_seen: v.props.last_seen,
+        effect: v.props.effect,
+        text_start: SUBSTRING(v.props.text, 0, 60),
         title: v.props.instrument_citation_title
     }}
 """
@@ -82,6 +86,21 @@ def article_identities(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, A
 def article_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
     """The article versions of *bwb_ids*, with their validity and article number."""
     return store.query(_VERSIONS_AQL, {"ids": bwb_ids})
+
+
+def toestand_starts(store: Store, bwb_ids: list[str]) -> dict[str, list[str]]:
+    """The start dates of the toestanden of each of *bwb_ids*, oldest first."""
+    aql = f"""
+    FOR v IN {COLLECTION_INSTRUMENT_VERSIONS}
+        FILTER v.props.bwb_id IN @ids
+        SORT v.props.valid_from
+        COLLECT bwb_id = v.props.bwb_id INTO starts = v.props.valid_from
+        RETURN {{ bwb_id, starts }}
+    """
+    return {
+        row["bwb_id"]: [s for s in row["starts"] if s]
+        for row in store.query(aql, {"ids": bwb_ids})
+    }
 
 
 # ── Tweede Kamer ─────────────────────────────────────────────────────────────
