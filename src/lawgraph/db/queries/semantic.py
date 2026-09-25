@@ -1108,3 +1108,41 @@ def related_cases(store: Store) -> Iterator[dict[str, Any]]:
             }}
         """
     )
+
+
+def remove_edges_from(
+    store: Store,
+    relation: str,
+    source: str,
+    from_ids: list[str],
+    keep: dict[str, set[str]],
+    *,
+    chunk: int = 5000,
+) -> int:
+    """Remove the edges of *relation* made by *source* from any of *from_ids* whose key is
+    not in *keep* (per node id): a pipeline that derives the edges of a node in full removes
+    those it no longer derives. How many went."""
+    aql = f"""
+    FOR id IN @ids
+        LET kept = @keep[id] OR []
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._from == id AND e.relation == @relation AND e.source == @source
+            FILTER e._key NOT IN kept
+            REMOVE e IN {COLLECTION_EDGES}
+            RETURN 1
+    """
+    removed = 0
+    for start in range(0, len(from_ids), chunk):
+        ids = from_ids[start : start + chunk]
+        removed += sum(
+            store.query(
+                aql,
+                {
+                    "ids": ids,
+                    "relation": relation,
+                    "source": source,
+                    "keep": {i: sorted(keep[i]) for i in ids if i in keep},
+                },
+            )
+        )
+    return removed

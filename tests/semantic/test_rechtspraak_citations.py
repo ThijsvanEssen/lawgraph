@@ -59,7 +59,7 @@ class _FakeStore(RawSourcesFake):
         self, aql: str, bind_vars: dict | None = None, **_kw: Any
     ) -> list[dict[str, Any]]:
         # Secondary ECLI lookup — return nothing (we populate via get_node).
-        if "props.ecli" in aql:
+        if "props.ecli" in aql or "REMOVE" in aql:
             return []
         return [
             {"ecli": d["props"]["ecli"], "payload_text": d["props"]["raw_xml"]}
@@ -108,13 +108,19 @@ class _FakeStore(RawSourcesFake):
         return node
 
 
-def _make_judgment(key: str, ecli: str, text: str) -> dict[str, Any]:
+def _make_judgment(key: str, ecli: str, text: str, related: str = "") -> dict[str, Any]:
+    """A judgment whose XML holds *text* in its uitspraak and *related* in its metadata."""
+    xml = (
+        '<open-rechtspraak xmlns:dcterms="http://purl.org/dc/terms/"><rdf>'
+        f"<dcterms:relation>{related}</dcterms:relation></rdf>"
+        f"<uitspraak><para>{text}</para></uitspraak></open-rechtspraak>"
+    )
     return {
         "_key": key,
         "_id": f"judgments/{key}",
         "type": NodeType.JUDGMENT.value,
         "labels": [],
-        "props": {"ecli": ecli, "raw_xml": text},
+        "props": {"ecli": ecli, "raw_xml": xml},
     }
 
 
@@ -125,6 +131,8 @@ def test_pipeline_creates_cites_judgment_edge() -> None:
         make_node_key(source_ecli),
         source_ecli,
         f"Zie het arrest {target_ecli} voor de onderbouwing.",
+        # the metadata names the conclusion: procedure, not a citation
+        related="ECLI:NL:PHR:2020:1",
     )
     target_key = make_node_key(target_ecli)
     target_node = Node(
