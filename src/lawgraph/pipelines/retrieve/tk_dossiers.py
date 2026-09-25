@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Callable, Iterable, Iterator
+from functools import partial
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
@@ -34,7 +35,11 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
+from lawgraph.pipelines.retrieve.base import (
+    RetrievePipelineBase,
+    RetrieveRecord,
+    missing_record,
+)
 
 logger = get_logger(__name__)
 
@@ -172,6 +177,33 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
             len(result.errors),
         )
         return result
+
+    def run_gaps(self, numbers: list[str]) -> PipelineResult:
+        """Fetch the dossiers with these *numbers* (every suffix of each) and their
+        documents. A number the Tweede Kamer has no dossier of is remembered
+        (``tk-dossier-missing``), so it is not asked for again for a while."""
+        return self._store_all(self._gap_records(numbers), what="dossiers named")
+
+    def _gap_records(self, numbers: list[str]) -> Iterator[RetrieveRecord]:
+        for number in numbers:
+            dossiers = list(
+                self._records(
+                    RAW_KIND_TK_DOSSIER,
+                    "Id",
+                    partial(self.client.fetch_dossiers, since=None, number=int(number)),
+                )
+            )
+            if not dossiers:
+                yield missing_record(SOURCE_TK, RAW_KIND_TK_DOSSIER, number, status=200)
+                continue
+            yield from dossiers
+            yield from self._records(
+                RAW_KIND_TK_DOCUMENT,
+                "Id",
+                partial(
+                    self.client.fetch_documents, since=None, dossier_number=int(number)
+                ),
+            )
 
     def _fetch_and_store(
         self,

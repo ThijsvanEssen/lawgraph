@@ -106,7 +106,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         if sections:
             props["paragraphs"] = sections
 
-        court_code, tier = derive_court_tier(ecli)
+        court_code, tier = derive_court_tier(ecli, props.get("court"))
         props["court_code"] = court_code
         props["tier"] = tier
         jm_date = judgment_meta.get("date") if isinstance(judgment_meta, dict) else None

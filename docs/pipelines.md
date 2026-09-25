@@ -56,7 +56,8 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 |---------|---------|--------------|
 | `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
-| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`) of which none is stored; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`; `""` every paper) of which none is stored; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), and the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`) | `tk-dossier`, `tk-document`, `tk-dossier-missing` |
 
 `tk-dossiers` options: `--since`, `--skip-members` (also skips Fractie and FractieZetelPersoon),
 `--skip-decisions`, `--decisions-since`, `--skip-documents`, `--documents-since`,
@@ -246,6 +247,7 @@ in the graph; the dossiers of one number need no edge (`GET /api/dossiers?number
 | `RELATED_TO` | the Kamer's own statement: a case of dossier A relates to a case of dossier B (`Zaak.GerelateerdNaar`, read by `normalize tk`). `meta.cases` counts the pairs of cases, `meta.case_kinds` names their kinds. Cases within one dossier relate no dossiers | 80,544 related pairs of cases, of which 24,241 between dossiers of different numbers and 894 between two dossiers of one number: 10,571 pairs of dossiers. Mostly `Brief regering → Motie` (a letter that answers a motion filed elsewhere), then `→ Begroting` and `→ Wetgeving` |
 | `REVISES` | a budget is "Vaststelling van de begrotingsstaten … voor het jaar Y" under a chapter or fund (`36800-XXII`). "Wijziging van de begrotingsstaten … voor het jaar Y" revises the budget of year Y with its own suffix; one with a number of its own (an incidental supplementary budget) names its chapter in its title ("(XIII)"; `IXB` falls back to `IX`), or else the budget by name, which must fit exactly one budget of the year. "Jaarverslag en slotwet … Y" revises the budget of year Y with its suffix. `meta.rule` is `begrotingswijziging` or `slotwet` | 1,529: 1,123 of 1,131 budget changes and 406 of 419 slotwetten; the rest (2007-2009) have no budget of their year in the source |
 | `ACCOMPANIES` | "(wijziging samenhangende met de Voorjaarsnota)" of year Y goes with the dossier "Voorjaarsnota Y", likewise the Najaarsnota. The Miljoenennota of Prinsjesdag in year Y presents the budgets of Y + 1, so a change of year Y "samenhangende met de Miljoenennota" goes with the dossier "Nota over de toestand van ’s Rijks Financiën" whose number holds the budgets of Y + 1. `meta.nota` names it | 912: 412 Voorjaarsnota, 404 Najaarsnota, 96 Miljoenennota; 15 changes "samenhangende met" something else (an incidental supplementary budget, the refinancing of covid loans) get none |
+| `SECOND_READING_OF` | a change in the Grondwet is made law in its second reading; the memorandum of the second reading speaks of the first reading and only refers to its papers ("Voor de toelichting verwijzen wij naar … (Kamerstukken 35 418, Kamerstukken II 2019/20, 35 419, nr. 9 …)"). Every dossier such a memorandum cites (`core/dossier_numbers.first_reading_dossiers`) is its first reading. `semantic tk-mvt` and `tk-mvt-articles` count the memoranda of the first reading with the second, so the first reading explains what the second made law | 35785 → 35418, 35419 |
 
 So the route from Prinsjesdag 2026: the Miljoenennota `37020` and its budgets `37020-*` share a
 number; each `37035-*` `ACCOMPANIES` `37020` and `REVISES` the budget of 2026 of its chapter
@@ -297,10 +299,25 @@ instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:rela
 a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
 `summary`, `uitspraak` as `text` and as `paragraphs` (heading, subheading, body; see the
 paragraph props in the data model). The XML itself stays in the payload store. `court_code` is the ECLI court
-segment; `tier` is `hoge_raad` (`HR`), `parket` (`PHR`, the conclusions of the Parket bij de
-Hoge Raad), `gerechtshof` (`GH*`), `rechtbank` (`RB*`) or `bijzonder` (every other court:
-Raad van State, CRvB, CBB, the courts of the Caribbean parts); `core/judgments.court_tier`,
-whose tables `graph-list-stats` reads too; `date_eff` is the judgment date.
+segment; `tier` is the college that gave the judgment (`core/judgments.court_tier`, whose
+tables `graph-list-stats` reads too), as the Rechtspraak sorts its instanties (the `Type` in its
+waardelijst `/Waardelijst/Instanties`, kept as `tests/fixtures/rechtspraak_instanties.xml`):
+`hoge_raad` (`HR`), `raad_van_state` (`RVS`), `centrale_raad_van_beroep` (`CRVB`),
+`college_van_beroep_bedrijfsleven` (`CBB`), `parket` (`PHR`, the conclusions of the Parket bij de
+Hoge Raad), `gerechtshof` (`GH*`), `rechtbank` (`RB*`), `kantongerecht` (`KTG*`, until 2002),
+`tuchtcollege` (every disciplinary tribunal: `T*`, `IAR`), `ambtenarengerecht` (`AG*`),
+`raad_van_beroep` (`RVB*`, until 1992), every other college under its own name
+(`college_van_beroep_hoger_onderwijs`, `college_van_beroep_studiefinanciering`,
+`tariefcommissie`, `raad_voor_strafrechtstoepassing_en_jeugdbescherming`,
+`raad_van_arbitrage_in_bouwgeschillen`), the Caribbean part of the Kingdom
+(`gemeenschappelijk_hof`, `gerecht_in_eerste_aanleg`, `gerecht_in_ambtenarenzaken`,
+`raad_van_beroep_in_ambtenarenzaken`, `raad_van_beroep_voor_belastingzaken`,
+`constitutioneel_hof`), and for the code `XX` (the courts outside the Rechtspraak) the court it names: `kroon` (`KB`, a
+decision of the Crown on an appeal), `ehrm` (the European Court of Human Rights, also every ECHR
+judgment of HUDOC), `hvj_eu` (the Court of Justice of the EU), `buitenlandse_instantie` for any
+other. A code
+no table knows has no tier: there is no catch-all, and a test holds every code of the waardelijst
+to a named tier; `date_eff` is the judgment date.
 
 **Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
 made and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
@@ -429,7 +446,8 @@ without a WTI location or element gets no WTI record.
 **Normalize `bwb`.** `core/bwb_xml.parse_toestand` is the single parser. Instrument props: title
 (citeertitel, else intitule), `kind` (`wetgeving@soort`), `date_signed`, `date_published`,
 `date_in_force`, `dossier_numbers` of the originating publication. One Article per
-`(bwb_id, article number)` with the article text (leden as `1. text`, list items on their
+`(bwb_id, article number)`, or per `stam-id` for an article with a heading and no number (its
+`label` is the heading), at its `position` in the toestand, with the article text (leden as `1. text`, list items on their
 own lines, a paragraph next to the leden is included), the structured `references` with text
 offsets, the `parts` of the article (aanhef, leden, onderdelen as offsets into that text, see
 `docs/data-model.md`), and `stam_id`, `versie_id`, `valid_from`, `source_publication`,
@@ -647,9 +665,9 @@ matches any more loses both. Every record is read on every run. Needs `normalize
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
 | semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `normalize tk-content` |
-| semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks) and `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) |
+| semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`) and `normalize tk-dossiers` (documents, decisions and their edges to the dossier) |
-| semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases) and `normalize tk-dossiers` (the dossiers and their titles) |
+| semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

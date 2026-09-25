@@ -432,6 +432,7 @@ def test_gaps_mode_runs_the_sources_that_can_fetch_what_the_graph_lacks(
             "eurlex",
             "rechtspraak",
             "tk-content",  # a manual command otherwise: the text of papers is a gap by nature
+            "tk-dossiers",  # the dossiers the publications name
             "verdragenbank",
         }
     )

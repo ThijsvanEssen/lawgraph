@@ -79,6 +79,7 @@ they are out of date. Do not edit inside the markers.
 | `RELATED_TO` | Dossier | Dossier | The Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. |
 | `REVISES` | Dossier | Dossier | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`). |
 | `ACCOMPANIES` | Dossier | Dossier | A budget change is submitted with the Voorjaarsnota, Najaarsnota or Miljoenennota (`meta.nota`) that its title names. |
+| `SECOND_READING_OF` | Dossier | Dossier | A change in the Grondwet in its second reading → the dossier of its first reading, to whose papers its memorandum refers for the explanation (Kamerstukken 35 418). |
 | `VOTED` | Member / Faction | Decision | A vote on a decision: per member for roll-call votes, per faction otherwise (`choice`, `seats`). |
 
 <!-- relations:end -->
@@ -92,7 +93,7 @@ they are out of date. Do not edit inside the markers.
 | `instruments` (Verdragenbank treaty) | `verdrag_<id>` |
 | `instruments` (amending publication) | `stb_2019_33` (publication identifier) |
 | `instruments` (ECHR Convention) | `echr_convention` |
-| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`); EU `<celex>_<article_number>`; historical `<bwb_id>_<number>_stam_<stam_id>`; ECHR `echr_convention_<n>` |
+| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`; an article without a number `<bwb_id>_stam_<stam_id>`: `bwbr0001840_stam_16464063`); EU `<celex>_<article_number>`; historical `<bwb_id>_<number>_stam_<stam_id>`; ECHR `echr_convention_<n>` |
 | `instrument_versions` | `<bwb_id>_<valid_from>` |
 | `article_versions` | `<bwb_id>_av_<stam_id>_<versie_id>` |
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
@@ -175,8 +176,8 @@ renumbering; each version has a `versie-id`.
 
 | Node | Identity | Notes |
 |------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text; historical identities per `stam_id` | props: `sort_key` (the number with every run of digits padded to six, an annex's articles after the regulation's: the order of the lists), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
-| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
+| Article | one per `(bwb_id, article_number)` for the current text, per `stam_id` for an article without a number; historical identities per `stam_id` | props: `label` (`Artikel 287`, or the heading of an article without a number: `Algemene bepaling`), `position` (its place in the current toestand: the order of the lists), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
+| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `label`, `position` (in the toestand it was read from); `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
 | InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until`, `current`, `state_url` |
 
 - `ArticleVersion VERSION_OF Article` and `InstrumentVersion VERSION_OF Instrument`. There are
@@ -186,11 +187,19 @@ renumbering; each version has a `versie-id`.
   each have an article 1. The number of an article of an annex names the annex as the JCI does
   (`bijlage=2&artikel=9`): `article_number` is `bijlage 2 artikel 9`, its display name
   `Artikel 9 van bijlage 2 …`, and a reference to it (`props.references`) has that number.
+- An article may have a heading and no number (`<kop><titel>Algemene bepaling</titel></kop>`,
+  the first article of the Grondwet; the Slotbepaling of BW Boek 8). It is an article like any
+  other, with its text and parts, keyed and addressed by its `stam-id`, which stays across
+  versions: `article_number` is null, `label` its heading, `display_name` `Algemene bepaling
+  Grondwet`. No prop ever holds the text `None`.
 - Historical articles are identities that are not in the current toestand. They have no
   `article_number` (`(bwb_id, article_number)` is a unique index); the last known number is
-  in `last_article_number`. They carry `repealed: true`.
-- `repealed` is also set on a current article whose latest `effect` is `vervallen`.
-- Articles of the current toestand without a number or without text are not written.
+  in `last_article_number` and their `label` is that of their newest version. They carry
+  `repealed: true`.
+- `repealed` is also set on a current article whose latest `effect` is `vervallen`, and is
+  `false` on every other current article: it is never read from the number.
+- Articles of the current toestand without text, or without a number and a `stam-id`, are not
+  written.
 - `parts` is the structure of the text: a list of `{id, kind, number, start, end}`, offsets into
   the article's own `text` (the text of a part is `text[start:end]`, without its printed
   number). `kind` is `lid`, `onderdeel` or `aanhef`; sentences (volzinnen) are not parts. A
@@ -274,11 +283,13 @@ activity by its `number`, never by the GUID of the record (`external_id`), so th
 fixed by a release, not by a migration. The Eerste Kamer papers keep the `url` of their page on
 officielebekendmakingen.nl as the source gives it.
 
-Dossiers of different numbers are tied by three edges, written by `semantic
+Dossiers of different numbers are tied by four edges, written by `semantic
 tk-dossier-relations` (the rules: [pipelines](pipelines.md#semantic-tk-dossier-relations)):
 `REVISES` (a supplementary budget or slotwet → the budget of its chapter and year), `ACCOMPANIES`
-(a budget change → the Voorjaarsnota, Najaarsnota or Miljoenennota it is submitted with) and
-`RELATED_TO` (the Kamer relates a case of the one to a case of the other). The dossiers of one
+(a budget change → the Voorjaarsnota, Najaarsnota or Miljoenennota it is submitted with),
+`RELATED_TO` (the Kamer relates a case of the one to a case of the other) and `SECOND_READING_OF`
+(a change in the Grondwet in its second reading → its first reading, whose memorandum explains
+it). The dossiers of one
 number are found by the number itself (`GET /api/dossiers?number=`), not by an edge.
 
 ### Text and sections of a Kamerstuk
@@ -390,7 +401,7 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
-| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; sparse `props.case_number_keys[*]`; `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
+| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
 | `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on |
 | `raw_sources` | `(source, kind)` |
 | `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)` |

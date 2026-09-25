@@ -85,23 +85,31 @@ def annex_article_number(annex: str, number: str) -> str:
 _ANNEX_ARTICLE = re.compile(r"^bijlage (?P<annex>\S+) artikel (?P<number>.+)$")
 
 
-def article_sort_key(number: str | None) -> str | None:
-    """A key that sorts article numbers as a reader does: ``9`` before ``10``, ``24`` before
-    ``24c`` before ``25``, ``1:2`` before ``1:10``, and the articles of an annex after those
-    of the regulation. Every run of digits is padded to six."""
-    if not number:
-        return None
-    padded = re.sub(r"\d+", lambda m: m.group().zfill(6), number)
-    # "zz": after digits and letters, also in the ICU order of ArangoDB (where "~" is not)
-    return f"zz{padded}" if number.startswith("bijlage ") else padded
-
-
-def article_label(number: str | None) -> str:
+def article_label(number: str) -> str:
     """``Artikel 287``; ``Artikel 9 van bijlage 2`` for an article of an annex."""
-    match = _ANNEX_ARTICLE.match(number or "")
+    match = _ANNEX_ARTICLE.match(number)
     if match:
         return f"Artikel {match['number']} van bijlage {match['annex']}"
     return f"Artikel {number}"
+
+
+def article_key(bwb_id: str, number: str | None, stam_id: str | None) -> str | None:
+    """The key of a current article: its number (``bwbr0001854_287``), or, for an article
+    without one (a heading only: "Algemene bepaling"), its ``stam-id``
+    (``bwbr0001840_stam_16464063``), which it keeps across versions. ``None`` without
+    either."""
+    if number:
+        return make_node_key(bwb_id, number)
+    if stam_id:
+        return historical_article_key(bwb_id, None, stam_id)
+    return None
+
+
+def article_address(bwb_id: str, key: str, number: str | None) -> str:
+    """The ``{article_number}`` segment of the article routes: the number, or for an
+    article without one the rest of its key (``stam-16464063`` works as well as
+    ``stam_16464063``), which the routes turn back into the key."""
+    return number or key.removeprefix(f"{make_node_key(bwb_id)}_")
 
 
 def parse_jci(doc: str | None) -> Jci:
@@ -243,6 +251,8 @@ DIVISIONS = frozenset(
 @dataclass(frozen=True)
 class ArticleXml:
     number: str | None
+    # "Artikel 287"; for an article without a number its heading ("Algemene bepaling")
+    label: str | None
     text: str
     stam_id: str | None
     versie_id: str | None
@@ -527,6 +537,22 @@ def _article_number(article: ET.Element) -> str | None:
     return None
 
 
+def _article_heading(article: ET.Element) -> str | None:
+    """The heading of an article without a number: the ``<titel>`` of its ``<kop>``
+    ("Algemene bepaling"), else the ``<label>`` of its ``<kop>`` or its ``label`` attribute
+    ("Slotartikel" of the Overgangswet nieuw Burgerlijk Wetboek); whitespace collapsed."""
+    kop = _child(article, "kop")
+    for text in (
+        text_of(_child(kop, "titel")) if kop is not None else "",
+        text_of(_child(kop, "label")) if kop is not None else "",
+        article.get("label") or "",
+    ):
+        heading = " ".join(text.split())
+        if heading:
+            return heading
+    return None
+
+
 def _add_paragraphs(builder: _TextBuilder, paragraphs: list[ET.Element]) -> None:
     """Add *paragraphs* separated by a space."""
     for index, al in enumerate(paragraphs):
@@ -724,8 +750,11 @@ def _parse_article(
     text, refs, parts = _article_text(article)
     origin, commencement = _brondata(article)
     number = _article_number(article)
+    if annex and number:
+        number = annex_article_number(annex, number)
     return ArticleXml(
-        number=annex_article_number(annex, number) if annex and number else number,
+        number=number,
+        label=article_label(number) if number else _article_heading(article),
         text=text,
         stam_id=article.get("stam-id"),
         versie_id=article.get("versie-id"),
@@ -866,28 +895,31 @@ def instrument_props(
     )
 
 
-def _display_name(number: str | None, citation_title: str | None) -> str:
-    return f"{article_label(number)} {citation_title or ''}".strip()
+def article_display_name(label: str | None, citation_title: str | None) -> str | None:
+    """``Artikel 287 Wetboek van Strafrecht``, ``Algemene bepaling Grondwet``."""
+    return " ".join(filter(None, (label, citation_title))) or None
 
 
 def article_props(
-    article: ArticleXml, bwb_id: str, citation_title: str | None
+    article: ArticleXml, bwb_id: str, citation_title: str | None, position: int
 ) -> dict[str, Any]:
-    """Props of the (current) Article node."""
+    """Props of the (current) Article node; *position* is its place in the toestand."""
     references = [r.to_dict() for r in article.references if r.bwb_id]
     return _drop_none(
         {
             "bwb_id": bwb_id,
             "article_number": article.number,
-            "sort_key": article_sort_key(article.number),
+            "label": article.label,
+            "position": position,
             "text": article.text,
             "instrument_citation_title": citation_title,
-            "display_name": _display_name(article.number, citation_title),
+            "display_name": article_display_name(article.label, citation_title),
             "stam_id": article.stam_id,
             "versie_id": article.versie_id,
             "valid_from": article.valid_from,
             "source_publication": article.source,
-            "repealed": True if article.is_repealed else None,
+            # always written: an upsert merges props, so a stale true must be overwritten
+            "repealed": article.is_repealed,
             "parts": [part.to_dict() for part in article.parts],
             "references": references,
             "breadcrumb": [crumb.to_dict() for crumb in article.breadcrumb] or None,
@@ -896,18 +928,20 @@ def article_props(
 
 
 def article_version_props(
-    article: ArticleXml, bwb_id: str, citation_title: str | None
+    article: ArticleXml, bwb_id: str, citation_title: str | None, position: int
 ) -> dict[str, Any]:
-    """Props of one ArticleVersion node (``valid_until`` is filled in afterwards)."""
+    """Props of one ArticleVersion node (``valid_until`` is filled in afterwards);
+    *position* is its place in the toestand it was read from."""
     return _drop_none(
         {
             "bwb_id": bwb_id,
             "article_number": article.number,
-            "sort_key": article_sort_key(article.number),
+            "label": article.label,
+            "position": position,
             "text": article.text,
             "parts": [part.to_dict() for part in article.parts],
             "instrument_citation_title": citation_title,
-            "display_name": _display_name(article.number, citation_title),
+            "display_name": article_display_name(article.label, citation_title),
             "stam_id": article.stam_id,
             "versie_id": article.versie_id,
             "path": article.path,

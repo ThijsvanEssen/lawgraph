@@ -47,7 +47,7 @@ def test_coverage_counts_per_court_and_per_tier(monkeypatch) -> None:
         "lawgraph.api.routes.stats.get_judgment_coverage",
         lambda store: {
             "courts": [
-                _court("bijzonder", "RVS", 40, "1984-02-24", "2026-09-23"),
+                _court("raad_van_state", "RVS", 40, "1984-02-24", "2026-09-23"),
                 _court("gerechtshof", "GHAMS", 7, "2013-01-01", "2026-09-22"),
                 _court("hoge_raad", "HR", 30, "1916-02-14", "2026-09-22"),
                 _court("gerechtshof", "GHARL", 9, "2013-01-10", "2026-06-01"),
@@ -61,10 +61,10 @@ def test_coverage_counts_per_court_and_per_tier(monkeypatch) -> None:
     assert (body["first_date"], body["last_date"]) == ("1916-02-14", "2026-09-23")
     assert [(t["tier"], t["count"]) for t in body["tiers"]] == [
         ("hoge_raad", 30),
+        ("raad_van_state", 40),
         ("gerechtshof", 16),
-        ("bijzonder", 40),
     ]
-    gerechtshof = body["tiers"][1]
+    gerechtshof = body["tiers"][2]
     assert (gerechtshof["first_date"], gerechtshof["last_date"]) == (
         "2013-01-01",
         "2026-09-22",

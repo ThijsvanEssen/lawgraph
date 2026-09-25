@@ -13,8 +13,8 @@ instruments
 
 judgments
     props.court_code     — uppercase ECLI court segment (e.g. 'HR', 'GHARN')
-    props.tier           — coarse tier label (``core.judgments.court_tier``: 'hoge_raad',
-                           'parket', 'gerechtshof', 'rechtbank', 'bijzonder')
+    props.tier           — the college (``core.judgments.court_tier``: 'hoge_raad',
+                           'raad_van_state', 'gerechtshof', 'rechtbank', ...)
     props.date_eff       — effective judgment date
     props.inbound_citation_count — count of inbound REFERS_TO edges
 

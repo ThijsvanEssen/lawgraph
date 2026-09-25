@@ -56,6 +56,7 @@ FOR v IN {COLLECTION_ARTICLE_VERSIONS}
         bwb_id: v.props.bwb_id,
         stam_id: v.props.stam_id,
         number: v.props.article_number,
+        label: v.props.label,
         valid_from: v.props.valid_from,
         valid_until: v.props.valid_until,
         current: v.props.current,

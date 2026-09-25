@@ -290,9 +290,22 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument("--skip-decisions", action="store_true")
     parser.add_argument("--skip-documents", action="store_true")
     parser.add_argument("--dossier-number", type=int, default=None, metavar="N")
+    parser.add_argument(
+        "--mode",
+        choices=["window", GAPS],
+        default="window",
+        help="gaps: the dossiers the graph names and lacks (those of the publications that "
+        "changed an article, and the first reading of a change in the Grondwet), with "
+        "their documents; the other options are then not used.",
+    )
     args = parser.parse_args(argv)
 
-    return TKDossiersRetrievePipeline(store=ArangoStore()).run(
+    store = ArangoStore()
+    if args.mode == GAPS:
+        return TKDossiersRetrievePipeline(store=store).run_gaps(
+            _gaps.tk_dossier_gaps(store)
+        )
+    return TKDossiersRetrievePipeline(store=store).run(
         since=args.since,
         decisions_since=args.decisions_since,
         documents_since=args.documents_since,

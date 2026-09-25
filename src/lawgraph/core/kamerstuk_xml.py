@@ -340,13 +340,21 @@ _LAW_WORD_RE = re.compile(
     r"|\b(?:Awb|BW|Sr|Sv|Rv)\b",
     re.IGNORECASE,
 )
+# One way through a run of ", …" parts: each part is a comma and what follows up to the next
+# one, so no two parts can share a character (a `\s*` next to a class that holds spaces too
+# made the number of ways to split a long line explode: minutes on one paper).
 _LAW_OF_RE = re.compile(
-    r"^\s*(?:,\s*[^,()]{1,40}?)*\s*van\s+(?:de|het)\s+(?P<law>[^,.;()]{3,80})",
+    r"^\s*(?:,[^,()]{1,40})*\s*van\s+(?:de|het)\s+(?P<law>[^,.;()]{3,80})",
     re.IGNORECASE,
 )
+# A heading is short; the words after its numbers that name a law are at its start.
+_LAW_OF_REACH = 400
 _PAREN_RE = re.compile(r"\(([^()]*)\)")
+# "(artikel 1a)", "(nieuw artikel 13)", "(gewijzigd artikel 23)": the article a part of the
+# bill makes, changes or repeals.
 _PAREN_ARTICLE_RE = re.compile(
-    rf"^\s*artikel(?:en)?\s+(?P<nums>{ARTICLE_NUMBERS_PATTERN})(?![\w])(?P<tail>.*)$",
+    r"^\s*(?:(?:nieuwe?|gewijzigde?|vervallen|vervalt)\s+)?"
+    rf"artikel(?:en)?\s+(?P<nums>{ARTICLE_NUMBERS_PATTERN})(?![\w])(?P<tail>.*)$",
     re.IGNORECASE | re.DOTALL,
 )
 _ROMAN_ONLY_RE = re.compile(rf"^{_ROMAN_NUM}$")
@@ -408,7 +416,7 @@ def _law_and_refs(rest: str, own: list[str]) -> tuple[list[dict[str, str]], str 
     """The references and the law another law that the words after the numbers name."""
     refs = [{"number": n, "of": OF_SELF} for n in own]
     law: str | None = None
-    direct = _LAW_OF_RE.match(rest)
+    direct = _LAW_OF_RE.match(rest[:_LAW_OF_REACH])
     if direct and _law_name(direct["law"]):
         law = _law_name(direct["law"])
         refs = [{"number": n, "of": OF_NAMED_LAW} for n in own]

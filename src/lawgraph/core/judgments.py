@@ -18,38 +18,126 @@ from lawgraph.core.xml import (
 
 # ── ECLI-derived attributes ──────────────────────────────────────────────────
 
+# The tier of a judgment is the college that gave it, as the Rechtspraak itself sorts its
+# instanties (the ``Type`` of each in its waardelijst ``/Waardelijst/Instanties``): a highest
+# court on its own, the courts of one kind together, every other college under its own name.
+# ``tests/fixtures/rechtspraak_instanties.xml`` holds that list; a test fails when one of its
+# codes has no tier here. ``graph-list-stats`` writes the same in AQL from these tables.
 TIER_HOGE_RAAD = "hoge_raad"
+TIER_RAAD_VAN_STATE = "raad_van_state"
+TIER_CENTRALE_RAAD = "centrale_raad_van_beroep"
+TIER_CBB = "college_van_beroep_bedrijfsleven"
 # The Parket bij de Hoge Raad: the conclusions of its advocates-general, no judgments.
 TIER_PARKET = "parket"
 TIER_GERECHTSHOF = "gerechtshof"
 TIER_RECHTBANK = "rechtbank"
-# Any other court: the Raad van State, the Centrale Raad van Beroep, the CBB, the courts of
-# the Caribbean parts, disciplinary courts.
-TIER_BIJZONDER = "bijzonder"
-TIERS = (TIER_HOGE_RAAD, TIER_PARKET, TIER_GERECHTSHOF, TIER_RECHTBANK, TIER_BIJZONDER)
+TIER_KANTONGERECHT = "kantongerecht"  # until 2002
+TIER_TUCHTCOLLEGE = (
+    "tuchtcollege"  # every disciplinary tribunal (tuchtrechtelijke instantie)
+)
+TIER_EHRM = (
+    "ehrm"  # the European Court of Human Rights (source ``echr``); no Dutch court
+)
+TIER_KROON = "kroon"  # a decision of the Crown on an appeal (Kroonberoep, court "KB")
+TIER_HVJ_EU = "hvj_eu"  # the Court of Justice of the European Union
 
-# The tier of a court code: the code itself, else its first two letters, else bijzonder.
-# ``graph-list-stats`` writes the same in AQL from these tables.
-TIER_OF_COURT = {"HR": TIER_HOGE_RAAD, "PHR": TIER_PARKET}
-TIER_OF_PREFIX = {"GH": TIER_GERECHTSHOF, "RB": TIER_RECHTBANK}
+TIER_OF_COURT = {
+    "HR": TIER_HOGE_RAAD,
+    "RVS": TIER_RAAD_VAN_STATE,
+    "CRVB": TIER_CENTRALE_RAAD,
+    "CBB": TIER_CBB,
+    "PHR": TIER_PARKET,
+    "CBHO": "college_van_beroep_hoger_onderwijs",
+    "CVBSTUF": "college_van_beroep_studiefinanciering",
+    "DETARCO": "tariefcommissie",
+    "RSJ": "raad_voor_strafrechtstoepassing_en_jeugdbescherming",
+    "RVAB": "raad_van_arbitrage_in_bouwgeschillen",
+    "OCHM": "constitutioneel_hof",
+    "OHJNA": "gemeenschappelijk_hof",  # the Hof van Justitie before the Gemeenschappelijk Hof
+    "IAR": TIER_TUCHTCOLLEGE,
+    "XX": "buitenlandse_instantie",  # the waardelijst: a court outside the Netherlands
+    "ECHR": TIER_EHRM,
+}
+# The kind of court a code starts with; the longest prefix wins.
+TIER_OF_PREFIX = {
+    "GH": TIER_GERECHTSHOF,
+    "RB": TIER_RECHTBANK,
+    "KTG": TIER_KANTONGERECHT,
+    "T": TIER_TUCHTCOLLEGE,
+    "AG": "ambtenarengerecht",
+    "RVB": "raad_van_beroep",  # the raden van beroep in social security, until 1992
+    "OGH": "gemeenschappelijk_hof",
+    "OGEA": "gerecht_in_eerste_aanleg",
+    "OGA": "gerecht_in_ambtenarenzaken",
+    "ORBA": "raad_van_beroep_in_ambtenarenzaken",
+    "ORBB": "raad_van_beroep_voor_belastingzaken",
+}
+PREFIX_LENGTHS = sorted({len(p) for p in TIER_OF_PREFIX}, reverse=True)
+# An ECLI of the code XX ("another issuer": the waardelijst calls it the foreign courts) is
+# published by the Rechtspraak for courts outside it; the court names which.
+TIER_OF_OTHER_COURT = {
+    "KB": TIER_KROON,
+    "Europees Hof voor de Rechten van de Mens": TIER_EHRM,
+    "Hof van Justitie van de Europese Unie": TIER_HVJ_EU,
+    "Hof van Justitie van de Europese Gemeenschappen": TIER_HVJ_EU,
+}
+
+# In the order lists show them: the highest courts, the parket, the courts of first instance
+# and appeal, then the other colleges, the Caribbean part, the EHRM last.
+TIERS: tuple[str, ...] = tuple(
+    dict.fromkeys(
+        [
+            TIER_HOGE_RAAD,
+            TIER_RAAD_VAN_STATE,
+            TIER_CENTRALE_RAAD,
+            TIER_CBB,
+            TIER_PARKET,
+            TIER_GERECHTSHOF,
+            TIER_RECHTBANK,
+            TIER_KANTONGERECHT,
+            TIER_TUCHTCOLLEGE,
+            *sorted(
+                {*TIER_OF_COURT.values(), *TIER_OF_PREFIX.values()}
+                - {TIER_EHRM, "buitenlandse_instantie"}
+            ),
+            TIER_KROON,
+            "buitenlandse_instantie",
+            TIER_HVJ_EU,
+            TIER_EHRM,
+        ]
+    )
+)
 
 
-def court_tier(court_code: str | None) -> str | None:
-    """The tier of a court (``TIER_OF_COURT``, ``TIER_OF_PREFIX``); ``None`` without one."""
+def court_tier(court_code: str | None, court: str | None = None) -> str | None:
+    """The tier of a court: its code (``TIER_OF_COURT``), else the longest prefix of the code
+    (``TIER_OF_PREFIX``); for code ``XX`` the court it names (``TIER_OF_OTHER_COURT``). ``None``
+    for no code, or a code no table knows: never a catch-all."""
     if not court_code:
         return None
-    return TIER_OF_COURT.get(court_code) or TIER_OF_PREFIX.get(
-        court_code[:2], TIER_BIJZONDER
+    if court_code == "XX" and (court or "").strip() in TIER_OF_OTHER_COURT:
+        return TIER_OF_OTHER_COURT[(court or "").strip()]
+    if court_code in TIER_OF_COURT:
+        return TIER_OF_COURT[court_code]
+    return next(
+        (
+            TIER_OF_PREFIX[court_code[:length]]
+            for length in PREFIX_LENGTHS
+            if court_code[:length] in TIER_OF_PREFIX
+        ),
+        None,
     )
 
 
-def derive_court_tier(ecli: str | None) -> tuple[str | None, str | None]:
-    """Return ``(court_code, tier)`` derived from the ECLI identifier."""
+def derive_court_tier(
+    ecli: str | None, court: str | None = None
+) -> tuple[str | None, str | None]:
+    """Return ``(court_code, tier)`` derived from the ECLI identifier and the court."""
     if not ecli:
         return None, None
     parts = ecli.split(":")
     court_code = parts[2].upper() if len(parts) >= 3 else None
-    return court_code, court_tier(court_code)
+    return court_code, court_tier(court_code, court)
 
 
 def compose_display_name(props: dict[str, Any]) -> str | None:

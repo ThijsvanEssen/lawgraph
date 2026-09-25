@@ -8,12 +8,14 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import (
+    ARTICLE_ADDRESS,
     ArticleCitationSpan,
     ArticleRelationDTO,
     InstrumentSummaryDTO,
     JudgmentSummaryDTO,
     PublicationDTO,
     QualifierFields,
+    address_of,
 )
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
 from lawgraph.config.constants import (
@@ -140,7 +142,17 @@ class ArticleSummaryDTO(BaseModel):
     id: str
     key: str
     bwb_id: str | None
-    article_number: str | None
+    article_number: str | None = Field(
+        None,
+        description="Null for an article with only a heading, and for a repealed one.",
+    )
+    label: str | None = Field(
+        None,
+        description="`Artikel 287`, or the heading of an article without a number "
+        "(`Algemene bepaling`).",
+    )
+    address: str = Field(..., description=ARTICLE_ADDRESS)
+    repealed: bool = False
     display_name: str | None
     text: str | None
     parts: list[ArticlePartDTO] = Field(
@@ -160,6 +172,9 @@ class ArticleSummaryDTO(BaseModel):
             key=doc["_key"],
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
+            label=props.get("label"),
+            address=address_of(doc),
+            repealed=bool(props.get("repealed")),
             display_name=props.get("display_name"),
             text=props.get("text"),
             parts=parts_from_props(props),
@@ -296,7 +311,9 @@ class CitedByJudgment(BaseModel):
     ecli: str | None
     court: str | None = Field(description="ECLI court code, `HR`, `RBAMS`.")
     tier: str | None = Field(
-        description="`hoge_raad`, `parket`, `gerechtshof`, `rechtbank` or `bijzonder`."
+        description="The college: `hoge_raad`, `raad_van_state`, `centrale_raad_van_beroep`, "
+        "`college_van_beroep_bedrijfsleven`, `parket`, `gerechtshof`, `rechtbank`, … "
+        "(`/api/stats/coverage` lists those present).",
     )
     date: str | None = Field(description="Date of the judgment, YYYY-MM-DD.")
     display_name: str | None
@@ -512,6 +529,10 @@ class ArticleVersionDTO(BaseModel):
 
     key: str
     article_number: str | None = None
+    label: str | None = Field(
+        None,
+        description="`Artikel 287`, or the heading of an article without a number.",
+    )
     valid_from: str | None = None
     valid_until: str | None = None
     current: bool = False
@@ -541,6 +562,7 @@ class ArticleVersionDTO(BaseModel):
         return cls(
             key=doc["_key"],
             article_number=props.get("article_number"),
+            label=props.get("label"),
             valid_from=props.get("valid_from"),
             valid_until=props.get("valid_until"),
             current=bool(props.get("current", False)),

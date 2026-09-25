@@ -19,7 +19,12 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.judgments import TIER_BIJZONDER, TIER_OF_COURT, TIER_OF_PREFIX
+from lawgraph.core.judgments import (
+    PREFIX_LENGTHS,
+    TIER_OF_COURT,
+    TIER_OF_OTHER_COURT,
+    TIER_OF_PREFIX,
+)
 from lawgraph.db.counting import Store
 
 # Each entry below is one query body that selects the stale documents, plus a
@@ -60,8 +65,13 @@ FOR doc IN {COLLECTION_JUDGMENTS}
     LET ecli = doc.props.ecli != null ? doc.props.ecli : doc._key
     LET ecli_parts = SPLIT(ecli, ':')
     LET court_code = LENGTH(ecli_parts) >= 3 ? UPPER(ecli_parts[2]) : null
-    LET tier = court_code == null ? null : NOT_NULL(
-        @tier_of_court[court_code], @tier_of_prefix[LEFT(court_code, 2)], @other_tier
+    // ``core.judgments.court_tier``: the code, else its longest known prefix
+    LET tier = court_code == null ? null : (
+        court_code == 'XX' AND HAS(@tier_of_other_court, doc.props.court || '')
+            ? @tier_of_other_court[doc.props.court] : NOT_NULL(
+            @tier_of_court[court_code],
+            {", ".join(f"@tier_of_prefix[LEFT(court_code, {n})]" for n in PREFIX_LENGTHS)}
+        )
     )
     LET date_eff = (
         doc.props.judgment_metadata != null AND doc.props.judgment_metadata.date != null
@@ -160,7 +170,7 @@ def refresh_judgments(store: Store, *, dry_run: bool) -> int:
             "inbound_rels": [RELATION_REFERS_TO],
             "tier_of_court": TIER_OF_COURT,
             "tier_of_prefix": TIER_OF_PREFIX,
-            "other_tier": TIER_BIJZONDER,
+            "tier_of_other_court": TIER_OF_OTHER_COURT,
         },
         dry_run=dry_run,
     )

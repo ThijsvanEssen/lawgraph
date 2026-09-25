@@ -1,6 +1,6 @@
 """Relations between dossiers of different numbers (pure functions, no I/O).
 
-The Kamerstukdossier record names no other dossier. Two things do:
+The Kamerstukdossier record names no other dossier. Three things do:
 
 * the Kamer's own relation between two cases (``Zaak.GerelateerdNaar``), mostly a letter of
   the government and the motion it answers: :func:`related_dossiers` lifts it to the
@@ -8,9 +8,11 @@ The Kamerstukdossier record names no other dossier. Two things do:
 * the titles of the budget laws, which follow a fixed form: :func:`budget_amendments` finds
   the budget a supplementary budget or a slotwet revises (``REVISES``), and
   :func:`accompanied_notas` the Voorjaarsnota, Najaarsnota or Miljoenennota a budget change
-  is submitted with (``ACCOMPANIES``).
+  is submitted with (``ACCOMPANIES``);
+* the memorandum of a change in the Grondwet in its second reading, which refers to the papers
+  of the first reading: :func:`first_readings` (``SECOND_READING_OF``).
 
-``semantic tk-dossier-relations`` writes the three as edges; the rules are described in
+``semantic tk-dossier-relations`` writes them as edges; the rules are described in
 ``docs/pipelines.md``.
 """
 
@@ -21,6 +23,8 @@ from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
+
+from lawgraph.core.dossier_numbers import first_reading_dossiers
 
 # "Wijziging van de begrotingsstaten van het Ministerie van … (XXII) voor het jaar 2026 …":
 # a supplementary budget, whether it comes with the Voorjaarsnota, the Najaarsnota, the
@@ -211,6 +215,17 @@ def _miljoenennotas(
         ):
             year = years[dossier.number].most_common(1)[0][0]
             yield dossier, year
+
+
+def first_readings(memoranda: Iterable[Mapping[str, Any]]) -> Iterator[DossierLink]:
+    """``SECOND_READING_OF`` links: from the dossier of a memorandum that refers to the
+    papers of a first reading (``core.dossier_numbers.first_reading_dossiers``) to the
+    dossiers of that first reading. *memoranda* are ``{labels, text}``."""
+    for memorandum in memoranda:
+        for number in first_reading_dossiers(memorandum.get("text")):
+            for label in memorandum.get("labels") or []:
+                if label.split("-")[0] != number:
+                    yield DossierLink(label, number)
 
 
 def related_dossiers(cases: Iterable[Mapping[str, Any]]) -> Iterator[DossierLink]:

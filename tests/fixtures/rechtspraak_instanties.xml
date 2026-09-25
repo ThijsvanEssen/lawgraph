@@ -1,0 +1,1988 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Instanties xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/AG DH</Identifier>
+    <Naam>Ambtenarengerecht 's-Gravenhage</Naam>
+    <Afkorting>AGSGR</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/agdb</Identifier>
+    <Naam>Ambtenarengerecht 's-Hertogenbosch</Naam>
+    <Afkorting>AGSHE</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/agam</Identifier>
+    <Naam>Ambtenarengerecht Amsterdam</Naam>
+    <Afkorting>AGAMS</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/agah</Identifier>
+    <Naam>Ambtenarengerecht Arnhem</Naam>
+    <Afkorting>AGARN</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/aggr</Identifier>
+    <Naam>Ambtenarengerecht Groningen</Naam>
+    <Afkorting>AGGRO</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/aghl</Identifier>
+    <Naam>Ambtenarengerecht Haarlem</Naam>
+    <Afkorting>AGHAA</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/agrm</Identifier>
+    <Naam>Ambtenarengerecht Roermond</Naam>
+    <Afkorting>AGROE</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/agrd</Identifier>
+    <Naam>Ambtenarengerecht Rotterdam</Naam>
+    <Afkorting>AGROT</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/agut</Identifier>
+    <Naam>Ambtenarengerecht Utrecht</Naam>
+    <Afkorting>AGUTR</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/agzw</Identifier>
+    <Naam>Ambtenarengerecht Zwolle</Naam>
+    <Afkorting>AGZWO</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/ArrKR Arn</Identifier>
+    <Naam>Arrondissementskrijgsraad Arnhem</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/AndereGerechtelijkeInstantie/#BijzonderHofsGravenhage</Identifier>
+    <Naam>Bijzonder Hof 's-Gravenhage</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/AndereGerechtelijkeInstantie/#BijzonderHofAmsterdam</Identifier>
+    <Naam>Bijzonder Hof Amsterdam</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/AndereGerechtelijkeInstantie/#BijzonderHofArnhem</Identifier>
+    <Naam>Bijzonder Hof Arnhem</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/AndereGerechtelijkeInstantie/#BijzondereRaadvanCassatie</Identifier>
+    <Naam>Bijzondere Raad van Cassatie</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/CvBStuf</Identifier>
+    <Naam>College van Beroep Studiefinanciering</Naam>
+    <Afkorting>CVBSTUF</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2000-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/cvbhb</Identifier>
+    <Naam>College van Beroep voor het hoger onderwijs</Naam>
+    <Afkorting>CBHO</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2022-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/AndereGerechtelijkeInstantie/#HMGNederlandsIndië</Identifier>
+    <Naam>HMG Nederlands-Indië</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/HMG</Identifier>
+    <Naam>Hoog Militair Gerechtshof</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1991-01-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/AndereGerechtelijkeInstantie/#HooggerechtshofBatavia</Identifier>
+    <Naam>Hooggerechtshof Batavia</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/AndereGerechtelijkeInstantie/#Krijgsraad</Identifier>
+    <Naam>Krijgsraad</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/AndereGerechtelijkeInstantie/#KrijgsraadArnhem</Identifier>
+    <Naam>Krijgsraad Arnhem</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/PKvdZSgr</Identifier>
+    <Naam>Permanente Krijgsraad voor de zeemacht 's-Gravenhage</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1971-01-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/PKvdZmAA</Identifier>
+    <Naam>Permanente Krijgsraad voor de zeemacht N.A. en Aruba</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1971-01-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvAvdB</Identifier>
+    <Naam>Raad van Arbitrage in Bouwgeschillen</Naam>
+    <Afkorting>RVAB</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBSgr</Identifier>
+    <Naam>Raad van beroep 's-Gravenhage</Naam>
+    <Afkorting>RVBSGR</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBShe</Identifier>
+    <Naam>Raad van beroep 's-Hertogenbosch</Naam>
+    <Afkorting>RVBSHE</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBAm</Identifier>
+    <Naam>Raad van beroep Alkmaar</Naam>
+    <Afkorting>RVBALK</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBAms</Identifier>
+    <Naam>Raad van beroep Amsterdam</Naam>
+    <Afkorting>RVBAMS</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBArn</Identifier>
+    <Naam>Raad van beroep Arnhem</Naam>
+    <Afkorting>RVBARN</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBb</Identifier>
+    <Naam>Raad van beroep Breda</Naam>
+    <Afkorting>RVBBRE</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBGro</Identifier>
+    <Naam>Raad van beroep Groningen</Naam>
+    <Afkorting>RVBGRO</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBHaa</Identifier>
+    <Naam>Raad van beroep Haarlem</Naam>
+    <Afkorting>RVBHAA</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBLe</Identifier>
+    <Naam>Raad van beroep Leeuwarden</Naam>
+    <Afkorting>RVBLEE</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/rvbl</Identifier>
+    <Naam>Raad van beroep Leiden</Naam>
+    <Afkorting>RVBLDN</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBM</Identifier>
+    <Naam>Raad van beroep Middelburg</Naam>
+    <Afkorting>RVBMID</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBRoe</Identifier>
+    <Naam>Raad van beroep Roermond</Naam>
+    <Afkorting>RVBROE</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBRot</Identifier>
+    <Naam>Raad van beroep Rotterdam</Naam>
+    <Afkorting>RVBROT</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBT</Identifier>
+    <Naam>Raad van beroep Tilburg</Naam>
+    <Afkorting>RVBTIL</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBUtr</Identifier>
+    <Naam>Raad van beroep Utrecht</Naam>
+    <Afkorting>RVBUTR</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBZwo</Identifier>
+    <Naam>Raad van beroep Zwolle</Naam>
+    <Afkorting>RVBZWO</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1992-07-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/BCRSTJ</Identifier>
+    <Naam>Raad voor Strafrechtstoepassing en Jeugdbescherming </Naam>
+    <Afkorting>RSJ</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/AndereGerechtelijkeInstantie/#RbHollandia</Identifier>
+    <Naam>Rb. Hollandia</Naam>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/TariefCommissie</Identifier>
+    <Naam>Tariefcommissie</Naam>
+    <Afkorting>DETARCO</Afkorting>
+    <Type>AndereGerechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Gerechtshof_'s-Gravenhage</Identifier>
+    <Naam>Gerechtshof 's-Gravenhage</Naam>
+    <Afkorting>GHSGR</Afkorting>
+    <Type>Gerechtshof</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Gerechtshof_'s-Hertogenbosch</Identifier>
+    <Naam>Gerechtshof 's-Hertogenbosch</Naam>
+    <Afkorting>GHSHE</Afkorting>
+    <Type>Gerechtshof</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Gerechtshof_Amsterdam</Identifier>
+    <Naam>Gerechtshof Amsterdam</Naam>
+    <Afkorting>GHAMS</Afkorting>
+    <Type>Gerechtshof</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Gerechtshof_Arnhem</Identifier>
+    <Naam>Gerechtshof Arnhem</Naam>
+    <Afkorting>GHARN</Afkorting>
+    <Type>Gerechtshof</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Gerechtshof_Arnhem-Leeuwarden</Identifier>
+    <Naam>Gerechtshof Arnhem-Leeuwarden</Naam>
+    <Afkorting>GHARL</Afkorting>
+    <Type>Gerechtshof</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Gerechtshof_Den_Haag</Identifier>
+    <Naam>Gerechtshof Den Haag</Naam>
+    <Afkorting>GHDHA</Afkorting>
+    <Type>Gerechtshof</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Gerechtshof_Leeuwarden</Identifier>
+    <Naam>Gerechtshof Leeuwarden</Naam>
+    <Afkorting>GHLEE</Afkorting>
+    <Type>Gerechtshof</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_'s-Gravenhage</Identifier>
+    <Naam>Kantongerecht 's-Gravenhage</Naam>
+    <Afkorting>KTGSGR</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_'s-Hertogenbosch</Identifier>
+    <Naam>Kantongerecht 's-Hertogenbosch</Naam>
+    <Afkorting>KTGSHE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Alkmaar</Identifier>
+    <Naam>Kantongerecht Alkmaar</Naam>
+    <Afkorting>KTGALK</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Almelo</Identifier>
+    <Naam>Kantongerecht Almelo</Naam>
+    <Afkorting>KTGALM</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Alphen_aan_den_Rijn</Identifier>
+    <Naam>Kantongerecht Alphen aan den Rijn</Naam>
+    <Afkorting>KTGAAR</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Amersfoort</Identifier>
+    <Naam>Kantongerecht Amersfoort</Naam>
+    <Afkorting>KTGAMF</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Amsterdam</Identifier>
+    <Naam>Kantongerecht Amsterdam</Naam>
+    <Afkorting>KTGAMS</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Apeldoorn</Identifier>
+    <Naam>Kantongerecht Apeldoorn</Naam>
+    <Afkorting>KTGAPD</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtAppingedam</Identifier>
+    <Naam>Kantongerecht Appingedam</Naam>
+    <Afkorting>KTGAPP</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Arnhem</Identifier>
+    <Naam>Kantongerecht Arnhem</Naam>
+    <Afkorting>KTGARN</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Assen</Identifier>
+    <Naam>Kantongerecht Assen</Naam>
+    <Afkorting>KTGASS</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Beetsterzwaag</Identifier>
+    <Naam>Kantongerecht Beetsterzwaag</Naam>
+    <Afkorting>KTGBEE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Bergen_op_Zoom</Identifier>
+    <Naam>Kantongerecht Bergen op Zoom</Naam>
+    <Afkorting>KTGBOZ</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtBergum</Identifier>
+    <Naam>Kantongerecht Bergum</Naam>
+    <Afkorting>KTGBER</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtBolsward</Identifier>
+    <Naam>Kantongerecht Bolsward</Naam>
+    <Afkorting>KTGBOL</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Boxmeer</Identifier>
+    <Naam>Kantongerecht Boxmeer</Naam>
+    <Afkorting>KTGBOX</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Breda</Identifier>
+    <Naam>Kantongerecht Breda</Naam>
+    <Afkorting>KTGBRE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtBreukelenNijenrode</Identifier>
+    <Naam>Kantongerecht Breukelen-Nijenrode</Naam>
+    <Afkorting>KTGBRN</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Brielle</Identifier>
+    <Naam>Kantongerecht Brielle</Naam>
+    <Afkorting>KTGBRI</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Delft</Identifier>
+    <Naam>Kantongerecht Delft</Naam>
+    <Afkorting>KTGDEL</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Den_Helder</Identifier>
+    <Naam>Kantongerecht Den Helder</Naam>
+    <Afkorting>KTGDHD</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Deventer</Identifier>
+    <Naam>Kantongerecht Deventer</Naam>
+    <Afkorting>KTGDEV</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Dordrecht</Identifier>
+    <Naam>Kantongerecht Dordrecht</Naam>
+    <Afkorting>KTGDOR</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Eindhoven</Identifier>
+    <Naam>Kantongerecht Eindhoven</Naam>
+    <Afkorting>KTGEIN</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtElst</Identifier>
+    <Naam>Kantongerecht Elst</Naam>
+    <Afkorting>KTGELS</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Emmen</Identifier>
+    <Naam>Kantongerecht Emmen</Naam>
+    <Afkorting>KTGEMM</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Enschede</Identifier>
+    <Naam>Kantongerecht Enschede</Naam>
+    <Afkorting>KTGENS</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtGeldermalsen</Identifier>
+    <Naam>Kantongerecht Geldermalsen</Naam>
+    <Afkorting>KTGGEL</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtGoes</Identifier>
+    <Naam>Kantongerecht Goes</Naam>
+    <Afkorting>KTGGOE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtGoor</Identifier>
+    <Naam>Kantongerecht Goor</Naam>
+    <Afkorting>KTGGOO</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Gorinchem</Identifier>
+    <Naam>Kantongerecht Gorinchem</Naam>
+    <Afkorting>KTGGRC</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Gouda</Identifier>
+    <Naam>Kantongerecht Gouda</Naam>
+    <Afkorting>KTGGOU</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Groenlo</Identifier>
+    <Naam>Kantongerecht Groenlo</Naam>
+    <Afkorting>KTGGNL</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Groningen</Identifier>
+    <Naam>Kantongerecht Groningen</Naam>
+    <Afkorting>KTGGRO</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtGulpen</Identifier>
+    <Naam>Kantongerecht Gulpen</Naam>
+    <Afkorting>KTGGUL</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Haarlem</Identifier>
+    <Naam>Kantongerecht Haarlem</Naam>
+    <Afkorting>KTGHAA</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtHaarlemmermeer</Identifier>
+    <Naam>Kantongerecht Haarlemmermeer</Naam>
+    <Afkorting>KTGHMM</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Harderwijk</Identifier>
+    <Naam>Kantongerecht Harderwijk</Naam>
+    <Afkorting>KTGHAR</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Heerenveen</Identifier>
+    <Naam>Kantongerecht Heerenveen</Naam>
+    <Afkorting>KTGHRV</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Heerlen</Identifier>
+    <Naam>Kantongerecht Heerlen</Naam>
+    <Afkorting>KTGHRL</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Helmond</Identifier>
+    <Naam>Kantongerecht Helmond</Naam>
+    <Afkorting>KTGHMD</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Hilversum</Identifier>
+    <Naam>Kantongerecht Hilversum</Naam>
+    <Afkorting>KTGHIL</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Hoofddorp</Identifier>
+    <Naam>Kantongerecht Hoofddorp</Naam>
+    <Afkorting>KTGHFD</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtHoogeveen</Identifier>
+    <Naam>Kantongerecht Hoogeveen</Naam>
+    <Afkorting>KTGHOO</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Hoorn</Identifier>
+    <Naam>Kantongerecht Hoorn</Naam>
+    <Afkorting>KTGHRN</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtKampen</Identifier>
+    <Naam>Kantongerecht Kampen</Naam>
+    <Afkorting>KTGKAM</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Leeuwarden</Identifier>
+    <Naam>Kantongerecht Leeuwarden</Naam>
+    <Afkorting>KTGLEE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Leiden</Identifier>
+    <Naam>Kantongerecht Leiden</Naam>
+    <Afkorting>KTGLDN</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Lelystad</Identifier>
+    <Naam>Kantongerecht Lelystad</Naam>
+    <Afkorting>KTGLLY</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtLemmer</Identifier>
+    <Naam>Kantongerecht Lemmer</Naam>
+    <Afkorting>KTGLMM</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Maastricht</Identifier>
+    <Naam>Kantongerecht Maastricht</Naam>
+    <Afkorting>KTGMAA</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtMedemblik</Identifier>
+    <Naam>Kantongerecht Medemblik</Naam>
+    <Afkorting>KTGMED</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Meppel</Identifier>
+    <Naam>Kantongerecht Meppel</Naam>
+    <Afkorting>KTGMEP</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Middelburg</Identifier>
+    <Naam>Kantongerecht Middelburg</Naam>
+    <Afkorting>KTGMID</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Nijmegen</Identifier>
+    <Naam>Kantongerecht Nijmegen</Naam>
+    <Afkorting>KTGNMG</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtOmmen</Identifier>
+    <Naam>Kantongerecht Ommen</Naam>
+    <Afkorting>KTGOMM</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtOnderdendam</Identifier>
+    <Naam>Kantongerecht Onderdendam</Naam>
+    <Afkorting>KTGOND</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Oostburg</Identifier>
+    <Naam>Kantongerecht Oostburg</Naam>
+    <Afkorting>KTGOOS</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Oud-Beijerland</Identifier>
+    <Naam>Kantongerecht Oud-Beijerland</Naam>
+    <Afkorting>KTGOBL</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Paramaribo</Identifier>
+    <Naam>Kantongerecht Paramaribo</Naam>
+    <Afkorting>KTGPAR</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1965-01-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtPurmerend</Identifier>
+    <Naam>Kantongerecht Purmerend</Naam>
+    <Afkorting>KTGPUR</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtRidderkerk</Identifier>
+    <Naam>Kantongerecht Ridderkerk</Naam>
+    <Afkorting>KTGRID</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Roermond</Identifier>
+    <Naam>Kantongerecht Roermond</Naam>
+    <Afkorting>KTGROE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Rotterdam</Identifier>
+    <Naam>Kantongerecht Rotterdam</Naam>
+    <Afkorting>KTGROT</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Schiedam</Identifier>
+    <Naam>Kantongerecht Schiedam</Naam>
+    <Afkorting>KTGSCH</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtSchoonhoven</Identifier>
+    <Naam>Kantongerecht Schoonhoven</Naam>
+    <Afkorting>KTGSOO</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Sittard</Identifier>
+    <Naam>Kantongerecht Sittard</Naam>
+    <Afkorting>KTGSIT</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtSliedrecht</Identifier>
+    <Naam>Kantongerecht Sliedrecht</Naam>
+    <Afkorting>KTGSLI</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Sneek</Identifier>
+    <Naam>Kantongerecht Sneek</Naam>
+    <Afkorting>KTGSNK</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Sommelsdijk</Identifier>
+    <Naam>Kantongerecht Sommelsdijk</Naam>
+    <Afkorting>KTGSOM</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Steenwijk</Identifier>
+    <Naam>Kantongerecht Steenwijk</Naam>
+    <Afkorting>KTGSTW</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Terborg</Identifier>
+    <Naam>Kantongerecht Terborg</Naam>
+    <Afkorting>KTGTRB</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Terneuzen</Identifier>
+    <Naam>Kantongerecht Terneuzen</Naam>
+    <Afkorting>KTGTRN</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtTholen</Identifier>
+    <Naam>Kantongerecht Tholen</Naam>
+    <Afkorting>KTGTHO</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Tiel</Identifier>
+    <Naam>Kantongerecht Tiel</Naam>
+    <Afkorting>KTGTIE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Tilburg</Identifier>
+    <Naam>Kantongerecht Tilburg</Naam>
+    <Afkorting>KTGTIL</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Utrecht</Identifier>
+    <Naam>Kantongerecht Utrecht</Naam>
+    <Afkorting>KTGUTR</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Veendam</Identifier>
+    <Naam>Kantongerecht Veendam</Naam>
+    <Afkorting>KTGVEE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Venlo</Identifier>
+    <Naam>Kantongerecht Venlo</Naam>
+    <Afkorting>KTGVEN</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Wageningen</Identifier>
+    <Naam>Kantongerecht Wageningen</Naam>
+    <Afkorting>KTGWAG</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtWeert</Identifier>
+    <Naam>Kantongerecht Weert</Naam>
+    <Afkorting>KTGWRT</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Winschoten</Identifier>
+    <Naam>Kantongerecht Winschoten</Naam>
+    <Afkorting>KTGWIN</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#KantongerechtWoerden</Identifier>
+    <Naam>Kantongerecht Woerden</Naam>
+    <Afkorting>KTGWOE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1933-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Zaandam</Identifier>
+    <Naam>Kantongerecht Zaandam</Naam>
+    <Afkorting>KTGZAA</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Zevenbergen</Identifier>
+    <Naam>Kantongerecht Zevenbergen</Naam>
+    <Afkorting>KTGZEV</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Zierikzee</Identifier>
+    <Naam>Kantongerecht Zierikzee</Naam>
+    <Afkorting>KTGZIE</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Zuidbroek</Identifier>
+    <Naam>Kantongerecht Zuidbroek</Naam>
+    <Afkorting>KTGZUI</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Zutphen</Identifier>
+    <Naam>Kantongerecht Zutphen</Naam>
+    <Afkorting>KTGZUT</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie#Kantongerecht_Zwolle</Identifier>
+    <Naam>Kantongerecht Zwolle</Naam>
+    <Afkorting>KTGZWO</Afkorting>
+    <Type>Kantongerecht</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2001-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/OCHM</Identifier>
+    <Naam>Constitutioneel Hof Sint Maarten</Naam>
+    <Afkorting>OCHM</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>2010-10-10</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/GHACSMBES</Identifier>
+    <Naam>Gemeenschappelijk Hof van Justitie van Aruba, Curaçao, Sint Maarten en van Bonaire, Sint Eustatius en Saba</Naam>
+    <Afkorting>OGHACMB</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>2010-10-10</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/GHvJAntil</Identifier>
+    <Naam>Gemeenschappelijk Hof van Justitie van de Nederlandse Antillen en Aruba</Naam>
+    <Afkorting>OGHNAA</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2010-10-09</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Gerecht_in_Ambtenarenzaken_van_Aruba_Curacao_Sint_Maarten_en_van_Bonaire_Sint_Eustatius_en_Saba</Identifier>
+    <Naam>Gerecht in Ambtenarenzaken van Aruba, Curaçao, Sint Maarten en van Bonaire, Sint Eustatius en Saba</Naam>
+    <Afkorting>OGAACMB</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>2010-10-10</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/giazna</Identifier>
+    <Naam>Gerecht in Ambtenarenzaken van de Nederlandse Antillen</Naam>
+    <Afkorting>OGANA</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2010-10-09</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/GiEAB</Identifier>
+    <Naam>Gerecht in Eerste Aanleg Bonaire</Naam>
+    <Afkorting>OGEAB</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2010-10-09</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/GEA Aruba</Identifier>
+    <Naam>Gerecht in Eerste Aanleg van Aruba</Naam>
+    <Afkorting>OGEAA</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/GEABES</Identifier>
+    <Naam>Gerecht in eerste aanleg van Bonaire, Sint Eustatius en Saba</Naam>
+    <Afkorting>OGEABES</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>2010-10-10</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/GEAC</Identifier>
+    <Naam>Gerecht in eerste aanleg van Curaçao</Naam>
+    <Afkorting>OGEAC</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/GEAAntil</Identifier>
+    <Naam>Gerecht in Eerste Aanleg van de Nederlandse Antillen</Naam>
+    <Afkorting>OGEANA</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-10-09</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/GEASM</Identifier>
+    <Naam>Gerecht in eerste aanleg van Sint Maarten</Naam>
+    <Afkorting>OGEAM</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/HvJAntil</Identifier>
+    <Naam>Hof van Justitie van de Nederlandse Antillen</Naam>
+    <Afkorting>OHJNA</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2000-01-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBAAntil</Identifier>
+    <Naam>Raad van Beroep in Ambtenarenzaken (Nederlandse Antillen en Aruba)</Naam>
+    <Afkorting>ORBANAA</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2010-10-09</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Raad_van_Beroep_in_Ambtenarenzaken_van_Aruba_Curacao_Sint_Maarten_en_van_Bonaire_Sint_Eustatius_en_Saba</Identifier>
+    <Naam>Raad van Beroep in Ambtenarenzaken van Aruba, Curaçao, Sint Maarten en van Bonaire, Sint Eustatius en Saba</Naam>
+    <Afkorting>ORBAACM</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>2010-10-10</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/RvBbel</Identifier>
+    <Naam>Raad van Beroep voor Belastingzaken (Nederlandse Antillen en Aruba)</Naam>
+    <Afkorting>ORBBNAA</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2010-10-09</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Raad_van_Beroep_voor_Belastingzaken_van_Aruba_Curacao_Sint_Maarten_en_van_Bonaire_Sint_Eustatius_en_Saba</Identifier>
+    <Naam>Raad van Beroep voor Belastingzaken van Aruba, Curaçao, Sint Maarten en van Bonaire, Sint Eustatius en Saba</Naam>
+    <Afkorting>ORBBACM</Afkorting>
+    <Type>Koninkrijksinstantie</Type>
+    <BeginDate>2010-10-10</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Parket_bij_de_Hoge_Raad</Identifier>
+    <Naam>Parket bij de Hoge Raad</Naam>
+    <Afkorting>PHR</Afkorting>
+    <Type>Parket</Type>
+    <BeginDate>1838-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_s-Gravenhage</Identifier>
+    <Naam>Rechtbank 's-Gravenhage</Naam>
+    <Afkorting>RBSGR</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_'s-Hertogenbosch</Identifier>
+    <Naam>Rechtbank 's-Hertogenbosch</Naam>
+    <Afkorting>RBSHE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Alkmaar</Identifier>
+    <Naam>Rechtbank Alkmaar</Naam>
+    <Afkorting>RBALK</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Almelo</Identifier>
+    <Naam>Rechtbank Almelo</Naam>
+    <Afkorting>RBALM</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Amsterdam</Identifier>
+    <Naam>Rechtbank Amsterdam</Naam>
+    <Afkorting>RBAMS</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Arnhem</Identifier>
+    <Naam>Rechtbank Arnhem</Naam>
+    <Afkorting>RBARN</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Assen</Identifier>
+    <Naam>Rechtbank Assen</Naam>
+    <Afkorting>RBASS</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Breda</Identifier>
+    <Naam>Rechtbank Breda</Naam>
+    <Afkorting>RBBRE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Den_Haag</Identifier>
+    <Naam>Rechtbank Den Haag</Naam>
+    <Afkorting>RBDHA</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Dordrecht</Identifier>
+    <Naam>Rechtbank Dordrecht</Naam>
+    <Afkorting>RBDOR</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Gelderland</Identifier>
+    <Naam>Rechtbank Gelderland</Naam>
+    <Afkorting>RBGEL</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-04-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Groningen</Identifier>
+    <Naam>Rechtbank Groningen</Naam>
+    <Afkorting>RBGRO</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Haarlem</Identifier>
+    <Naam>Rechtbank Haarlem</Naam>
+    <Afkorting>RBHAA</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#RechtbankHeerenveen</Identifier>
+    <Naam>Rechtbank Heerenveen</Naam>
+    <Afkorting>RBHRV</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1966-01-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Leeuwarden</Identifier>
+    <Naam>Rechtbank Leeuwarden</Naam>
+    <Afkorting>RBLEE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Limburg</Identifier>
+    <Naam>Rechtbank Limburg</Naam>
+    <Afkorting>RBLIM</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Maastricht</Identifier>
+    <Naam>Rechtbank Maastricht</Naam>
+    <Afkorting>RBMAA</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Middelburg</Identifier>
+    <Naam>Rechtbank Middelburg</Naam>
+    <Afkorting>RBMID</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Midden-Nederland</Identifier>
+    <Naam>Rechtbank Midden-Nederland</Naam>
+    <Afkorting>RBMNE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Noord-Holland</Identifier>
+    <Naam>Rechtbank Noord-Holland</Naam>
+    <Afkorting>RBNHO</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Noord-Nederland</Identifier>
+    <Naam>Rechtbank Noord-Nederland</Naam>
+    <Afkorting>RBNNE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Oost-Brabant</Identifier>
+    <Naam>Rechtbank Oost-Brabant</Naam>
+    <Afkorting>RBOBR</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Oost-Nederland</Identifier>
+    <Naam>Rechtbank Oost-Nederland</Naam>
+    <Afkorting>RBONE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-01-01</BeginDate>
+    <EndDate>2013-03-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Overijssel</Identifier>
+    <Naam>Rechtbank Overijssel</Naam>
+    <Afkorting>RBOVE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-04-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Roermond</Identifier>
+    <Naam>Rechtbank Roermond</Naam>
+    <Afkorting>RBROE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Rotterdam</Identifier>
+    <Naam>Rechtbank Rotterdam</Naam>
+    <Afkorting>RBROT</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#RechtbankTiel</Identifier>
+    <Naam>Rechtbank Tiel</Naam>
+    <Afkorting>RBTIE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1966-01-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Utrecht</Identifier>
+    <Naam>Rechtbank Utrecht</Naam>
+    <Afkorting>RBUTR</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#RechtbankWinschoten</Identifier>
+    <Naam>Rechtbank Winschoten</Naam>
+    <Afkorting>RBWIN</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1966-01-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Zeeland-West-Brabant</Identifier>
+    <Naam>Rechtbank Zeeland-West-Brabant</Naam>
+    <Afkorting>RBZWB</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/Kantongerecht/#RechtbankZierikzee</Identifier>
+    <Naam>Rechtbank Zierikzee</Naam>
+    <Afkorting>RBZIE</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1966-01-01</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Zutphen</Identifier>
+    <Naam>Rechtbank Zutphen</Naam>
+    <Afkorting>RBZUT</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Zwolle</Identifier>
+    <Naam>Rechtbank Zwolle</Naam>
+    <Afkorting>RBZWO</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>2004-06-30</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Rechtbank_Zwolle-Lelystad</Identifier>
+    <Naam>Rechtbank Zwolle-Lelystad</Naam>
+    <Afkorting>RBZLY</Afkorting>
+    <Type>Rechtbank</Type>
+    <BeginDate>2004-07-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tacakn</Identifier>
+    <Naam>Accountantskamer NIVRA</Naam>
+    <Afkorting>TACAKN</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#CentraalCollegeTuchtrechtspraak</Identifier>
+    <Naam>Centraal College Tuchtrechtspraak</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tcmt</Identifier>
+    <Naam>Centraal Medisch Tuchtcollege</Naam>
+    <Afkorting>TCMT</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1913-01-01</BeginDate>
+    <EndDate>1997-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tgzctg</Identifier>
+    <Naam>Centraal Tuchtcollege voor de Gezondheidszorg</Naam>
+    <Afkorting>TGZCTG</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1997-12-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#CollegemedischtuchtrechtsGravenhage</Identifier>
+    <Naam>College medisch tuchtrecht 's-Gravenhage</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2022-03-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#CollegemedischtuchtrechtAmsterdam</Identifier>
+    <Naam>College medisch tuchtrecht Amsterdam</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2022-03-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#CollegemedischtuchtrechtEindhoven</Identifier>
+    <Naam>College medisch tuchtrecht Eindhoven</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2022-03-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#CollegemedischtuchtrechtZwolle</Identifier>
+    <Naam>College medisch tuchtrecht Zwolle</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2022-03-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tahvd</Identifier>
+    <Naam>Hof van Discipline</Naam>
+    <Afkorting>TAHVD</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/iar</Identifier>
+    <Naam>Instituut voor Agrarisch Recht </Naam>
+    <Afkorting>IAR</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>2016-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnoksgr</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen 's-Gravenhage</Naam>
+    <Afkorting>TNOKSGR</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokshe</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen 's-Hertogenbosch</Naam>
+    <Afkorting>TNOKSHE</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokalk</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Alkmaar</Naam>
+    <Afkorting>TNOKALK</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokalm</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Almelo</Naam>
+    <Afkorting>TNOKALM</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokams</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Amsterdam</Naam>
+    <Afkorting>TNOKAMS</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokarn</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Arnhem</Naam>
+    <Afkorting>TNOKARN</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokass</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Assen</Naam>
+    <Afkorting>TNOKASS</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokbre</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Breda</Naam>
+    <Afkorting>TNOKBRE</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokdor</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Dordrecht</Naam>
+    <Afkorting>TNOKDOR</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokgro</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Groningen</Naam>
+    <Afkorting>TNOKGRO</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokhaa</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Haarlem</Naam>
+    <Afkorting>TNOKHAA</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnoklee</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Leeuwarden</Naam>
+    <Afkorting>TNOKLEE</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokmaa</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Maastricht</Naam>
+    <Afkorting>TNOKMAA</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokmid</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Middelburg</Naam>
+    <Afkorting>TNOKMID</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokroe</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Roermond</Naam>
+    <Afkorting>TNOKROE</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokrot</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Rotterdam</Naam>
+    <Afkorting>TNOKROT</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokutr</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Utrecht</Naam>
+    <Afkorting>TNOKUTR</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokzut</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Zutphen</Naam>
+    <Afkorting>TNOKZUT</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnokzly</Identifier>
+    <Naam>Kamer van Toezicht over de notarissen en kandidaat-notarissen Zwolle-Lelystad</Naam>
+    <Afkorting>TNOKZLY</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tgdkg</Identifier>
+    <Naam>Kamer voor Gerechtsdeurwaarders</Naam>
+    <Afkorting>TGDKG</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnorshe</Identifier>
+    <Naam>Kamer voor het notariaat in het ressort 's-Hertogenbosch</Naam>
+    <Afkorting>TNORSHE</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnorams</Identifier>
+    <Naam>Kamer voor het notariaat in het ressort Amsterdam</Naam>
+    <Afkorting>TNORAMS</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnorarl</Identifier>
+    <Naam>Kamer voor het notariaat in het ressort Arnhem-Leeuwarden</Naam>
+    <Afkorting>TNORARL</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tnordha</Identifier>
+    <Naam>Kamer voor het notariaat in het ressort Den Haag</Naam>
+    <Afkorting>TNORDHA</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#MedischTuchtcollegeEindhoven</Identifier>
+    <Naam>Medisch Tuchtcollege Eindhoven</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>1956-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#MedischTuchtcollegeGroningen</Identifier>
+    <Naam>Medisch Tuchtcollege Groningen</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>1956-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#MedischTuchtcollegeZwolle</Identifier>
+    <Naam>Medisch Tuchtcollege Zwolle</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>1956-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tadrsgr</Identifier>
+    <Naam>Raad van Discipline 's-Gravenhage</Naam>
+    <Afkorting>TADRSGR</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tadrshe</Identifier>
+    <Naam>Raad van Discipline 's-Hertogenbosch</Naam>
+    <Afkorting>TADRSHE</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tadrams</Identifier>
+    <Naam>Raad van Discipline Amsterdam</Naam>
+    <Afkorting>TADRAMS</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tadrarn</Identifier>
+    <Naam>Raad van Discipline Arnhem</Naam>
+    <Afkorting>TADRARN</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tadrarl</Identifier>
+    <Naam>Raad van Discipline Arnhem-Leeuwarden</Naam>
+    <Afkorting>TADRARL</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>2013-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tadrlee</Identifier>
+    <Naam>Raad van Discipline Leeuwarden</Naam>
+    <Afkorting>TADRLEE</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2012-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/trmtsgr</Identifier>
+    <Naam>Regionaal Medisch Tuchtcollege 's Gravenhage</Naam>
+    <Afkorting>TRMTSGR</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1930-07-01</BeginDate>
+    <EndDate>1997-11-30</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/trmtams</Identifier>
+    <Naam>Regionaal Medisch Tuchtcollege Amsterdam (v/h Medisch tuchtcollege Amsterdam)</Naam>
+    <Afkorting>TRMTAMS</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1930-07-01</BeginDate>
+    <EndDate>1997-11-30</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tgzrsgr</Identifier>
+    <Naam>Regionaal Tuchtcollege voor de Gezondheidszorg 's-Gravenhage</Naam>
+    <Afkorting>TGZRSGR</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1997-12-01</BeginDate>
+    <EndDate>2022-03-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tgzrshe</Identifier>
+    <Naam>Regionaal Tuchtcollege voor de Gezondheidszorg 's-Hertogenbosch</Naam>
+    <Afkorting>TGZRSHE</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>2022-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tgzrams</Identifier>
+    <Naam>Regionaal Tuchtcollege voor de Gezondheidszorg Amsterdam</Naam>
+    <Afkorting>TGZRAMS</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1997-12-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tgzrein</Identifier>
+    <Naam>Regionaal Tuchtcollege voor de Gezondheidszorg Eindhoven</Naam>
+    <Afkorting>TGZREIN</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1997-12-01</BeginDate>
+    <EndDate>2021-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tgzrgro</Identifier>
+    <Naam>Regionaal Tuchtcollege voor de Gezondheidszorg Groningen</Naam>
+    <Afkorting>TGZRGRO</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1997-12-01</BeginDate>
+    <EndDate>2022-03-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tgzrzwo</Identifier>
+    <Naam>Regionaal Tuchtcollege voor de Gezondheidszorg Zwolle</Naam>
+    <Afkorting>TGZRZWO</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1997-12-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tbpskal</Identifier>
+    <Naam>Skal-Tuchtgerecht</Naam>
+    <Afkorting>TBPSKAL</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tlotl</Identifier>
+    <Naam>Tuchtcollege loodsen</Naam>
+    <Afkorting>TLOTL</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tscts</Identifier>
+    <Naam>Tuchtcollege voor de Scheepvaart</Naam>
+    <Afkorting>TSCTS</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tbbbkd</Identifier>
+    <Naam>Tuchtgerecht Bloembollenkeuringsdienst</Naam>
+    <Afkorting>TBBBKD</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tgfkcb</Identifier>
+    <Naam>Tuchtgerecht Kwaliteits-Controle-Bureau</Naam>
+    <Afkorting>TGFKCB</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/taktpa</Identifier>
+    <Naam>Tuchtgerecht Productschap Akkerbouw</Naam>
+    <Afkorting>TAKTPA</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2015-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tpetpve</Identifier>
+    <Naam>Tuchtgerecht Productschap Pluimvee en Eieren</Naam>
+    <Afkorting>TPETPVE</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2015-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tvvtpvv</Identifier>
+    <Naam>Tuchtgerecht Productschap Vee en Vlees</Naam>
+    <Afkorting>TVVTPVV</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2015-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tvstpv</Identifier>
+    <Naam>Tuchtgerecht Productschap Vis</Naam>
+    <Afkorting>TVSTPV</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>2015-12-31</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#TuchtrechterPrijzenRotterdam</Identifier>
+    <Naam>Tuchtrechter Prijzen Rotterdam</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>1951-04-30</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#TuchtrechterVoedselvoorzieningLeeuwarden</Identifier>
+    <Naam>Tuchtrechter Voedselvoorziening Leeuwarden</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>1951-04-30</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/instantie/TuchtrechtelijkeInstantie/#TuchtrechterVoedselvoorzieningRotterdam</Identifier>
+    <Naam>Tuchtrechter Voedselvoorziening Rotterdam</Naam>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+    <EndDate>1951-04-30</EndDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tdivbc</Identifier>
+    <Naam>Veterinair Beroepscollege</Naam>
+    <Afkorting>TDIVBC</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/tdivtc</Identifier>
+    <Naam>Veterinair Tuchtcollege</Naam>
+    <Afkorting>TDIVTC</Afkorting>
+    <Type>TuchtrechtelijkeInstantie</Type>
+    <BeginDate>1950-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/College_van_Beroep_voor_het_bedrijfsleven</Identifier>
+    <Naam>College van Beroep voor het bedrijfsleven</Naam>
+    <Afkorting>CBB</Afkorting>
+    <Type>TypeCBb</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Centrale_Raad_van_Beroep</Identifier>
+    <Naam>Centrale Raad van Beroep</Naam>
+    <Afkorting>CRVB</Afkorting>
+    <Type>TypeCRvB</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Hoge_Raad_der_Nederlanden</Identifier>
+    <Naam>Hoge Raad</Naam>
+    <Afkorting>HR</Afkorting>
+    <Type>TypeHr</Type>
+    <BeginDate>1838-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://standaarden.overheid.nl/owms/terms/Raad_van_State</Identifier>
+    <Naam>Raad van State</Naam>
+    <Afkorting>RVS</Afkorting>
+    <Type>TypeRvS</Type>
+    <BeginDate>1913-01-01</BeginDate>
+  </Instantie>
+  <Instantie>
+    <Identifier>http://psi.rechtspraak.nl/buitenlandseInstantie</Identifier>
+    <Naam>Buitenlandse instanties</Naam>
+    <Afkorting>XX</Afkorting>
+    <Type>http://psi.rechtspraak.nl/buitenlandseInstantie</Type>
+  </Instantie>
+</Instanties>

@@ -27,6 +27,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
+    RELATION_SECOND_READING_OF,
     SOURCE_BWB,
     SOURCE_ECHR,
     SOURCE_EERSTEKAMER,
@@ -116,6 +117,30 @@ FOR j IN {COLLECTION_JUDGMENTS}
   }}
 """
     return store.query(aql)
+
+
+def second_reading_memoranda(store: Store) -> Iterator[dict[str, Any]]:
+    """``{labels, text}`` of the explanatory memoranda that speak of a first reading, with
+    the labels of their dossiers: a change in the Grondwet in its second reading refers to
+    the papers of the first (``core.dossier_numbers.first_reading_dossiers``)."""
+    aql = f"""
+    FOR doc IN {COLLECTION_DOCUMENTS}
+        FILTER "TK" IN doc.labels AND doc.props.text != null
+        FILTER CONTAINS(LOWER(doc.props.kind || ""), @explanatory)
+        FILTER CONTAINS(LOWER(doc.props.text), "eerste lezing")
+        RETURN {{
+            labels: (
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER e._from == doc._id AND e.relation == @part_of
+                    FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+                    RETURN DOCUMENT(e._to).props.label
+            ),
+            text: doc.props.text
+        }}
+    """
+    return store.query(
+        aql, {"explanatory": EXPLANATORY_KIND_MARKER, "part_of": RELATION_PART_OF}
+    )
 
 
 def law_articles(store: Store, field: str, law_id: str) -> Iterator[dict[str, Any]]:
@@ -705,12 +730,19 @@ FOR document IN {COLLECTION_DOCUMENTS}
 MEMORANDUM_TARGETS_AQL = f"""
 FOR doc IN {COLLECTION_DOCUMENTS}
   FILTER CONTAINS(LOWER(doc.props.kind || ''), '{EXPLANATORY_KIND_MARKER}')
-  LET paper_dossiers = (
+  LET own_dossiers = (
     FOR e IN {COLLECTION_EDGES}
       FILTER e._from == doc._id AND e.relation == @part_of
       FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
       RETURN e._to
   )
+  // a first reading explains what its second reading made law
+  LET paper_dossiers = UNION_DISTINCT(own_dossiers, (
+    FOR dossier IN own_dossiers
+      FOR e IN {COLLECTION_EDGES}
+        FILTER e._to == dossier AND e.relation == @second_reading_of
+        RETURN e._from
+  ))
   LET legislated = (
     FOR dossier IN paper_dossiers
       FOR e IN {COLLECTION_EDGES}
@@ -742,10 +774,12 @@ FOR doc IN {COLLECTION_DOCUMENTS}
 
 def memorandum_targets(store: Store, *, sections_source: str) -> Iterator[Any]:
     """``{document, targets}`` per explanatory memorandum: what the instrument legislated in
-    its dossier changed, less what an edge of *sections_source* already explains."""
+    its dossier (or in the second reading of its dossier) changed, less what an edge of
+    *sections_source* already explains."""
     bind_vars: dict[str, Any] = {
         "part_of": RELATION_PART_OF,
         "legislated_in": RELATION_LEGISLATED_IN,
+        "second_reading_of": RELATION_SECOND_READING_OF,
         "explains": RELATION_EXPLAINS,
         "sections_source": sections_source,
         "change_relations": list(_CHANGE_RELATIONS),
@@ -763,12 +797,19 @@ FOR doc IN {COLLECTION_DOCUMENTS}
   FILTER doc.props.budget != true
   FILTER doc.props.structure_quality IN @qualities
   FILTER doc.props.text != null
-  LET paper_dossiers = (
+  LET own_dossiers = (
     FOR e IN {COLLECTION_EDGES}
       FILTER e._from == doc._id AND e.relation == @part_of
       FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
       RETURN e._to
   )
+  // a first reading explains what its second reading made law
+  LET paper_dossiers = UNION_DISTINCT(own_dossiers, (
+    FOR dossier IN own_dossiers
+      FOR e IN {COLLECTION_EDGES}
+        FILTER e._to == dossier AND e.relation == @second_reading_of
+        RETURN e._from
+  ))
   LET legislated = (
     FOR dossier IN paper_dossiers
       FOR e IN {COLLECTION_EDGES}
@@ -824,11 +865,13 @@ def memoranda_with_sections(
 ) -> Iterator[dict[str, Any]]:
     """Per memorandum of a structure quality in *qualities*: its text and sections, the
     laws its dossier legislated (``own``), the articles they changed and the names of the
-    laws involved."""
+    laws involved. The dossier of a first reading of a change in the Grondwet counts with
+    the dossier of its second reading, in which the change was made law."""
     bind_vars: dict[str, Any] = {
         "qualities": qualities,
         "part_of": RELATION_PART_OF,
         "legislated_in": RELATION_LEGISLATED_IN,
+        "second_reading_of": RELATION_SECOND_READING_OF,
         "change_relations": list(_CHANGE_RELATIONS),
     }
     return store.query(_MEMORANDA_WITH_SECTIONS_AQL, bind_vars, batch_size=batch_size)

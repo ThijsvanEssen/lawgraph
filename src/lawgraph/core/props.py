@@ -102,9 +102,9 @@ class InstrumentProps(_CommonProps):
 class ArticleProps(_CommonProps):
     bwb_id: str | None = None
     celex: str | None = None
-    article_number: str | None = None
-    sort_key: str | None = None  # ``core.bwb_xml.article_sort_key``
-    label: str | None = None
+    article_number: str | None = None  # null for an article with only a heading
+    label: str | None = None  # "Artikel 287", or the heading: "Algemene bepaling"
+    position: int | None = None  # its place in the current toestand: the order of lists
     title: str | None = None
     text: str | None = None
     instrument_citation_title: str | None = None
@@ -144,7 +144,8 @@ class InstrumentVersionProps(_CommonProps):
 class ArticleVersionProps(_CommonProps):
     bwb_id: str | None = None
     article_number: str | None = None
-    sort_key: str | None = None
+    label: str | None = None
+    position: int | None = None  # its place in the toestand it was read from
     valid_from: str | None = None
     valid_until: str | None = None
     current: bool | None = None

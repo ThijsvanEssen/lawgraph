@@ -36,6 +36,7 @@ from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_xml import (
     ArticleXml,
     ToestandXml,
+    article_display_name,
     article_label,
     article_version_key,
     article_version_props,
@@ -125,14 +126,14 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 )
                 instrument_versions.append((bwb_id, version_key))
 
-                for article in toestand.articles:
+                for position, article in enumerate(toestand.articles):
                     key = self._version_key(article, bwb_id, start_date)
                     if key is None or key in seen:
                         continue
                     seen.add(key)
                     writer.add(
                         self._article_version(
-                            key, article, bwb_id, start_date, toestand
+                            key, article, bwb_id, start_date, toestand, position
                         )
                     )
                     written[bwb_id].append((key, article.stam_id))
@@ -201,8 +202,11 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         bwb_id: str,
         start_date: str,
         toestand: ToestandXml,
+        position: int,
     ) -> Node:
-        props = article_version_props(article, bwb_id, toestand.citation_title)
+        props = article_version_props(
+            article, bwb_id, toestand.citation_title, position
+        )
         props.setdefault("valid_from", start_date)
         props["current"] = (
             True  # until a later version is found (finalised in build_edges)
@@ -331,8 +335,10 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
     @staticmethod
     def _historical_article(key: str, row: dict[str, Any]) -> Node:
-        """An article identity that is no longer in the current toestand."""
+        """An article identity that is no longer in the current toestand, named by its
+        newest version."""
         number, title = row.get("number"), row.get("title")
+        label = row.get("label") or (article_label(number) if number else None)
         return Node(
             collection=COLLECTION_ARTICLES,
             type=NodeType.ARTICLE,
@@ -343,8 +349,9 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 # not `article_number`: (bwb_id, article_number) is a unique index and the
                 # number may have been reused by a current article
                 "last_article_number": number,
+                "label": label,
                 "stam_id": row["stam_id"],
-                "display_name": f"{article_label(number)} {title or ''}".strip(),
+                "display_name": article_display_name(label, title),
                 "instrument_citation_title": title,
                 "repealed": True,
                 "source": SOURCE_BWB,

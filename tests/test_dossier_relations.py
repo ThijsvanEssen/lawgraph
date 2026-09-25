@@ -185,3 +185,22 @@ def test_the_cases_the_kamer_relates_relate_their_dossiers() -> None:
         "cases": 3,
         "case_kinds": ["Brief regering → Begroting", "Brief regering → Motie"],
     }
+
+
+def test_a_second_reading_is_tied_to_the_dossiers_of_its_first() -> None:
+    from lawgraph.core.dossier_relations import first_readings
+
+    memoranda = [
+        {
+            "labels": ["35785"],
+            "text": "Voor de toelichting verwijzen wij naar de met betrekking tot de eerste "
+            "lezing gewisselde stukken (Kamerstukken 35 418, Kamerstukken II 2019/20, "
+            "35 419, nr. 9).",
+        },
+        # a paper that cites its own number is no second reading of itself
+        {"labels": ["35418"], "text": "De eerste lezing (Kamerstukken 35 418, nr. 3)."},
+    ]
+    assert [(link.from_label, link.to_label) for link in first_readings(memoranda)] == [
+        ("35785", "35418"),
+        ("35785", "35419"),
+    ]

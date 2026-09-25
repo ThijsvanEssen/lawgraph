@@ -9,9 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.annexes import AnnexListItem
 from lawgraph.api.schemas.common import (
+    ARTICLE_ADDRESS,
     ArticleRelationDTO,
     DossierRefDTO,
     JudgmentSummaryDTO,
+    address_of,
 )
 from lawgraph.config.constants import (
     EDGE_SOURCE_BWB_IMPLEMENTS,
@@ -52,10 +54,27 @@ class InstrumentArticleNodeDTO(BaseModel):
     key: str
     bwb_id: str | None
     celex: str | None = None
-    article_number: str | None
+    article_number: str | None = Field(
+        None,
+        description="Null for an article with only a heading, and for a repealed one.",
+    )
+    label: str | None = Field(
+        None,
+        description="`Artikel 287`, or the heading of an article without a number "
+        "(`Algemene bepaling`).",
+    )
+    address: str = Field(..., description=ARTICLE_ADDRESS)
     display_name: str | None
     breadcrumb: list[InstrumentArticleBreadcrumbDTO] = []
     stub: bool = False
+    repealed: bool = Field(
+        False,
+        description="The article is no longer in force: an identity whose number another "
+        "article has now, or one its current version repeals.",
+    )
+    last_article_number: str | None = Field(
+        None, description="The number a repealed identity last had."
+    )
     text_preview: str | None = None
 
     @classmethod
@@ -78,9 +97,13 @@ class InstrumentArticleNodeDTO(BaseModel):
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),
             article_number=props.get("article_number"),
+            label=props.get("label"),
+            address=address_of(doc),
             display_name=props.get("display_name"),
             breadcrumb=crumbs,
             stub=bool(props.get("stub", False)),
+            repealed=bool(props.get("repealed")),
+            last_article_number=props.get("last_article_number"),
             text_preview=(text[:text_preview_chars] if text else None),
         )
 

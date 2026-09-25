@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from enum import StrEnum
 
 from fastapi import HTTPException
+
+from lawgraph.core.judgments import TIERS
+
+# The tier of a judgment, as a query parameter: one value per college
+# (``core.judgments.TIERS``), so the schema lists them and a value that is none is 422.
+Tier = StrEnum("Tier", {tier: tier for tier in TIERS})  # type: ignore[misc]
 
 
 def parse_choices(

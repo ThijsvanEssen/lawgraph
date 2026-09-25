@@ -68,3 +68,16 @@ def test_a_number_or_a_dossier_is_told_from_title_text(
     text: str | None, parsed: tuple[str, str | None] | None
 ) -> None:
     assert parse_dossier_query(text) == parsed
+
+
+def test_a_second_reading_names_the_dossiers_of_its_first() -> None:
+    from lawgraph.core.dossier_numbers import first_reading_dossiers
+
+    memorandum = (
+        "Met de bekendmaking van de wet van 14 oktober 2020 (Stb. 2020, 429) is de eerste "
+        "lezing van dit grondwetsvoorstel afgerond. Voor de toelichting verwijzen wij naar "
+        "de met betrekking tot de eerste lezing gewisselde stukken (Kamerstukken 35 418, "
+        "Kamerstukken II 2019/20, 35 419, nr. 9, alsmede Handelingen II 2019/20, nr. 77)."
+    )
+    assert first_reading_dossiers(memorandum) == ["35418", "35419"]
+    assert first_reading_dossiers("Zie Kamerstukken II 2019/20, 35 419, nr. 9.") == []

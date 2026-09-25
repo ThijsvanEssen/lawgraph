@@ -57,3 +57,20 @@ def parse_dossier_query(text: str | None) -> tuple[str, str | None] | None:
         return None
     suffix = match.group(2)
     return match.group(1), suffix.upper() if suffix else None
+
+
+# "Kamerstukken 35 418", "Kamerstukken II 2019/20, 35 419, nr. 9": the dossier a paper cites.
+_CITED_DOSSIER = re.compile(
+    r"\bKamerstukken(?:\s+I{1,2})?(?:\s+\d{4}/\d{2,4})?,?\s+(\d{2})\s?(\d{3})\b"
+)
+
+
+def first_reading_dossiers(text: str | None) -> list[str]:
+    """The dossiers of the first reading that the memorandum of a second reading of a
+    change in the Grondwet refers to for its explanation ("Voor de toelichting verwijzen
+    wij naar de met betrekking tot de eerste lezing ... gewisselde stukken (Kamerstukken
+    35 418, Kamerstukken II 2019/20, 35 419, nr. 9 ...)"): every dossier a text cites that
+    speaks of a first reading, in order; none for another text."""
+    if not text or "eerste lezing" not in text.lower():
+        return []
+    return list(dict.fromkeys(a + b for a, b in _CITED_DOSSIER.findall(text)))
