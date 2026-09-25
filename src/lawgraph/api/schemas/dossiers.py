@@ -42,7 +42,12 @@ DossierTrack = Literal[
     "verdrag",
     "initiatiefnota",
     "nota",
-    "overig",
+    "structuurvisie",
+    "verantwoording",
+    "eu",
+    "interparlementair",
+    "kamer",
+    "beleid",
 ]
 
 
@@ -336,9 +341,12 @@ class DossierSummaryDTO(BaseModel):
     ``track`` is what kind of dossier this is — a bill (wetsvoorstel,
     initiatiefwetsvoorstel, begroting, verdrag), an initiatiefnota, a ``nota`` of the
     government (the Miljoenennota, the Voorjaars- and Najaarsnota, the Financieel
-    Jaarverslag van het Rijk) or ``overig`` (the letters and motions on a subject) — and
-    does not change as it progresses. It comes from what the dossier is, never from what
-    is filed under it. ``current_stage`` is the
+    Jaarverslag van het Rijk), a ``structuurvisie``, ``verantwoording`` (a
+    beleidsdoorlichting, the reports on a big project), ``eu`` (an EU Council, the fiches on
+    Commission proposals), ``interparlementair`` (an assembly the Kamer sends a delegation
+    to), ``kamer`` (the Kamer's own: a committee report, its code of conduct) or ``beleid``
+    (the letters and motions on a subject) — and does not change as it progresses. It
+    comes from what the dossier is, never from what is filed under it. ``current_stage`` is the
     latest stage seen on its documents and activities; ``stages`` lists every
     stage with at least one signal, in chronological order. Only a bill (a
     wetsvoorstel, initiatiefwetsvoorstel, begroting or verdrag) passes stages;
@@ -614,7 +622,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "title": props.get("title"),
         "short_title": short_title(props.get("title")),
         "title_source": props.get("title_source"),
-        "track": props.get("track_kind") or "overig",
+        "track": props.get("track_kind") or "beleid",
         "current_stage": _stage(props.get("current_stage")),
         "stages": _stages(props.get("stages_present")),
         "stages_complete": props.get("stages_complete") is not False,

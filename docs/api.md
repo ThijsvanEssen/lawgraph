@@ -94,7 +94,8 @@ inbound bucket, its conclusion or its referring decision the outbound one.
 Every dossier in a list or a detail has `number` (its label), `suffix` (`XV` of `37020-XV`, null
 without one), `same_number_count` (the other dossiers of its number: 24 for each dossier of a
 budget of 25), `title`, `track` (what kind of dossier it is: `wetsvoorstel`,
-`initiatiefwetsvoorstel`, `begroting`, `verdrag`, `initiatiefnota`, `nota` or `overig`; see
+`initiatiefwetsvoorstel`, `begroting`, `verdrag`, `initiatiefnota`, `nota`, `structuurvisie`,
+`verantwoording`, `eu`, `interparlementair`, `kamer` or `beleid`; see
 [data-model](data-model.md#parliament)), `current_stage`, `stages`, `closed`, `outcome`,
 `opened_on`, `closed_on`, `stages_missing` (the stages the bill passed on its way to
 `current_stage`, one of `stages` before it or one its track always passes, that have no dated

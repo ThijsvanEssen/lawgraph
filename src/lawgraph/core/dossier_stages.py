@@ -126,6 +126,7 @@ def classify_track_kind(
     *,
     title: str | None = None,
     document_kinds: list[str] | None = None,
+    number: str | None = None,
 ) -> str | None:
     """Pick the canonical *kind* of a dossier (its legislative path).
 
@@ -137,7 +138,9 @@ def classify_track_kind(
     The kind is what the dossier is: its bill, its initiatiefnota, the nota its title names.
     What is filed under it says nothing: the motions of the Algemene Politieke Beschouwingen
     are submitted under the number of the Miljoenennota, and letters and motions fill every
-    dossier. A dossier that is none of these is ``overig``.
+    dossier, also a bill's once its law is in force. The dossiers that are no bill are told
+    apart by their number or title (``_TITLE_TRACKS``); one that is none of those is
+    ``beleid``, the letters and motions on a subject.
 
     Returns ``None`` only when no signal at all is available.
     """
@@ -152,6 +155,7 @@ def classify_track_kind(
         ("begroting", "begroting"),
         ("verdrag", "verdrag"),
         ("initiatiefnota", "initiatiefnota"),
+        ("structuurvisie", "pkb/structuurvisie"),
     ):
         if case_kind in kinds:
             return track
@@ -159,32 +163,94 @@ def classify_track_kind(
         return "initiatiefnota"
     if any(s.startswith("voorstel van wet") for s in documents):
         return "wetsvoorstel"
-    return _track_from_title(title) or ("overig" if kinds else None)
+    if number in _EU_NUMBERS:
+        return "eu"
+    return _track_from_title(title) or ("beleid" if kinds else None)
 
+
+# The series the Kamer keeps under one number: the EU Councils (21501-02 Raad Algemene Zaken
+# en Raad Buitenlandse Zaken, one addition per formation) and the fiches on new proposals of
+# the European Commission (22112).
+_EU_NUMBERS = frozenset({"21501", "22112"})
 
 # A government paper that is itself the subject of its dossier: the Miljoenennota ("Nota over
 # de toestand van 's Rijks Financiën"), the Voorjaars- and Najaarsnota, a Defensienota, the
 # HGIS-nota, and the Financieel Jaarverslag van het Rijk that accounts for the year. A bill
 # whose title names a nota ("… ter realisering van de doelstelling uit de nota …") is a bill.
-_NOTA_TITLE = re.compile(
-    r"^(?:nota\b|\S*nota\b|financieel jaarverslag\b)|\(\S+-nota\b", re.IGNORECASE
+_NOTA_TITLE = r"^(?:nota\b|\S*nota\b|financieel jaarverslag\b)|\(\S+-nota\b"
+
+# The track of a dossier by its title, the first that matches; the title is lower case, its
+# white space single.
+_TITLE_TRACKS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (track, re.compile(pattern))
+    for track, pattern in (
+        (
+            "initiatiefwetsvoorstel",
+            r"^voorstel van wet van het lid|initiatiefwetsvoorstel",
+        ),
+        ("wetsvoorstel", r"^(?:voorstel van wet|wetsvoorstel)"),
+        # A slotwet is the law that settles a year's budget: "Jaarverslag en slotwet …".
+        ("begroting", r"begroting|slotwet"),
+        ("initiatiefnota", r"^initiatiefnota"),
+        # A treaty submitted for tacit approval, or changes to one: "Verdrag tussen …",
+        # "Protocol tot wijziging …", "Wijzigingen van de Bijlage bij het … Verdrag". One
+        # approved by law is a bill: "Goedkeuring van het … Verdrag".
+        (
+            "verdrag",
+            r"^(?:verdrag|protocol(?:len)?|overeenkomst)\b"
+            r"|^(?:wijzigingen|amendementen) (?:van|op|in|bij)\b.*\bverdrag",
+        ),
+        # The title of a bill says what the law does: "Regels …", "Wijziging van de …",
+        # "Goedkeuring van …", "Verklaring dat er grond bestaat een voorstel in overweging
+        # te nemen tot verandering in de Grondwet …".
+        (
+            "wetsvoorstel",
+            r"^(?:(?:nieuwe |tijdelijke )?regels|wijziging|enige wijzigingen|goedkeuring"
+            r"|intrekking|vaststelling|aanpassing|(?:rijks|tijdelijke )?wet(?= )"
+            r"|(?:uitvoering|implementatie) van|verklaring dat er grond bestaat)\b",
+        ),
+        # The Kamer's own: a report of a committee or a working visit, its rules of conduct,
+        # an inquiry, the estimate of its own expenses.
+        (
+            "kamer",
+            r"^(?:verslag van (?:een|de|het)\b|gedragscode\b|reglement van orde\b"
+            r"|raming der\b|parlementaire? (?:enqu[eê]te|ondervraging|onderzoek)\b)",
+        ),
+        (
+            "eu",
+            r"^(?:eu-|jbz-raad\b|europese raad\b|lidmaatschap van de europese unie\b)"
+            r"|\beu-voorzitterschap\b",
+        ),
+        # The assemblies the Kamer sends a delegation to.
+        (
+            "interparlementair",
+            r"parlementaire (?:assembl|vergadering)|interparlementair"
+            r"|^conferentie van (?:de )?voorzitters\b|^benelux-?parlement",
+        ),
+        # The government accounting for its policy outside the budget: a periodic review of
+        # the policy of a ministry, the reports on a project the Kamer named a big one.
+        (
+            "verantwoording",
+            r"^beleidsdoorlichting|\bgrote projecten\b|^materieelprojecten\b",
+        ),
+        # A spatial plan the Kamer is consulted on, a PKB before the Wro of 2008.
+        (
+            "structuurvisie",
+            r"^(?:ontwerp-)?structuurvisie\b|^planologische kernbeslissing\b"
+            r"|^nationale omgevingsvisie\b",
+        ),
+        ("nota", _NOTA_TITLE),
+    )
 )
 
 
 def _track_from_title(title: str | None) -> str | None:
     t = " ".join((title or "").lower().split())
-    if t.startswith("voorstel van wet van het lid") or "initiatiefwetsvoorstel" in t:
-        return "initiatiefwetsvoorstel"
-    if t.startswith(("voorstel van wet", "wetsvoorstel")):
-        return "wetsvoorstel"
-    # A slotwet is the law that settles a year's budget: "Jaarverslag en slotwet …".
-    if "begroting" in t or "slotwet" in t:
-        return "begroting"
-    if t.startswith("initiatiefnota"):
-        return "initiatiefnota"
-    if _NOTA_TITLE.search(t):
-        return "nota"
-    return None
+    return (
+        next((track for track, rx in _TITLE_TRACKS if rx.search(t)), None)
+        if t
+        else None
+    )
 
 
 # ── deriving a dossier's stage and title from its documents / activities / votes ──
