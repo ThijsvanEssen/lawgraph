@@ -152,6 +152,10 @@ class ArticleSummaryDTO(BaseModel):
         description="`Artikel 287`, or the heading of an article without a number "
         "(`Algemene bepaling`).",
     )
+    heading: str | None = Field(
+        None,
+        description="The title of its kop (`Definities`); most articles have none.",
+    )
     address: str = Field(..., description=ARTICLE_ADDRESS)
     repealed: bool = False
     display_name: str | None
@@ -179,6 +183,7 @@ class ArticleSummaryDTO(BaseModel):
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
             label=props.get("label"),
+            heading=props.get("heading"),
             address=address_of(doc),
             repealed=bool(props.get("repealed")),
             display_name=props.get("display_name"),

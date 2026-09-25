@@ -406,7 +406,7 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         BWBNormalizePipeline,
-        "Instruments and articles; short titles from the WTI abbreviations.",
+        "Instruments and articles; short titles and aliases from the WTI abbreviations.",
     ),
     _pipeline(
         BWBHistoryNormalizePipeline,

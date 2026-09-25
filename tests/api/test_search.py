@@ -16,6 +16,7 @@ from lawgraph.db.queries.search import (
     SCORE_PREFIX,
     SCORE_TITLE,
     SCORE_WORDS,
+    build_search_clause,
     rank_hits,
     score_hit,
     tokenize_search_query,
@@ -65,6 +66,20 @@ def hit(**fields: Any) -> dict[str, Any]:
         ),
         ("moord", hit(display_name="Wetboek van Strafrecht"), SCORE_WORDS),
         ("moord", hit(), SCORE_WORDS),
+        # The heading of an article and the aliases of a law are names of the hit.
+        ("definities", hit(extra={"heading": "Definities"}), SCORE_TITLE),
+        ("Boek 6 BW", hit(extra={"aliases": ["BW", "Boek 6 BW"]}), SCORE_TITLE),
+        ("bw", hit(extra={"aliases": ["BW", "Boek 6 BW"]}), SCORE_TITLE),
+        # The title of a division places an article without naming it.
+        (
+            "verhoging van strafbaarheid",
+            hit(
+                extra={
+                    "division_titles": ["Uitsluiting en verhoging van strafbaarheid"]
+                }
+            ),
+            SCORE_CONTAINS,
+        ),
         ("", hit(display_name="Grondwet"), SCORE_WORDS),
     ],
 )
@@ -72,6 +87,17 @@ def test_score_is_the_rank_tier_of_the_best_match(
     query: str, the_hit: dict[str, Any], score: float
 ) -> None:
     assert score_hit(query, the_hit) == score
+
+
+def test_a_boosted_field_weighs_every_way_it_matches() -> None:
+    clause, bind = build_search_clause(
+        ["noodweer"], ["heading", "text"], {"heading": 4.0}
+    )
+    assert bind == {"_tok_0": "noodweer"}
+    assert (
+        clause.count("BOOST(") == 4
+    )  # stems, prefix, identifier, ngrams of the heading
+    assert "BOOST(ANALYZER(doc.props.text" not in clause
 
 
 def test_the_tiers_are_ordered() -> None:

@@ -265,6 +265,8 @@ class ArticleXml:
     references: tuple[Reference, ...] = ()
     parts: tuple[ArticlePart, ...] = ()
     breadcrumb: tuple[Crumb, ...] = ()  # the divisions it stands in, outermost first
+    # the ``<titel>`` of its ``<kop>`` ("Definities"), numbered or not; most articles have none
+    heading: str | None = None
 
     @property
     def is_repealed(self) -> bool:
@@ -537,13 +539,20 @@ def _article_number(article: ET.Element) -> str | None:
     return None
 
 
+def _article_title(article: ET.Element) -> str | None:
+    """The ``<titel>`` of the ``<kop>`` of an article ("Definities"), whitespace collapsed."""
+    kop = _child(article, "kop")
+    title = " ".join(text_of(_child(kop, "titel")).split()) if kop is not None else ""
+    return title or None
+
+
 def _article_heading(article: ET.Element) -> str | None:
     """The heading of an article without a number: the ``<titel>`` of its ``<kop>``
     ("Algemene bepaling"), else the ``<label>`` of its ``<kop>`` or its ``label`` attribute
     ("Slotartikel" of the Overgangswet nieuw Burgerlijk Wetboek); whitespace collapsed."""
     kop = _child(article, "kop")
     for text in (
-        text_of(_child(kop, "titel")) if kop is not None else "",
+        _article_title(article) or "",
         text_of(_child(kop, "label")) if kop is not None else "",
         article.get("label") or "",
     ):
@@ -767,6 +776,7 @@ def _parse_article(
         references=tuple(refs),
         parts=tuple(parts),
         breadcrumb=breadcrumb,
+        heading=_article_title(article),
     )
 
 
@@ -910,6 +920,7 @@ def article_props(
             "bwb_id": bwb_id,
             "article_number": article.number,
             "label": article.label,
+            "heading": article.heading,
             "position": position,
             "text": article.text,
             "instrument_citation_title": citation_title,
@@ -937,6 +948,7 @@ def article_version_props(
             "bwb_id": bwb_id,
             "article_number": article.number,
             "label": article.label,
+            "heading": article.heading,
             "position": position,
             "text": article.text,
             "parts": [part.to_dict() for part in article.parts],

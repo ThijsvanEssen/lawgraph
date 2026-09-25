@@ -65,6 +65,9 @@ class InstrumentProps(_CommonProps):
     official_title: str | None = None
     citation_title: str | None = None
     short_title: str | None = None
+    # every name it is cited by: the WTI abbreviations and, for a book of a code, the forms
+    # "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW"
+    aliases: list[str] | None = None
     jurisdiction: str | None = None
     kind: str | None = None
     lang: str | None = None
@@ -105,6 +108,9 @@ class ArticleProps(_CommonProps):
     celex: str | None = None
     article_number: str | None = None  # null for an article with only a heading
     label: str | None = None  # "Artikel 287", or the heading: "Algemene bepaling"
+    heading: str | None = (
+        None  # the title of its kop ("Definities"), when the BWB has one
+    )
     position: int | None = None  # its place in the current toestand: the order of lists
     title: str | None = None
     text: str | None = None
@@ -146,6 +152,7 @@ class ArticleVersionProps(_CommonProps):
     bwb_id: str | None = None
     article_number: str | None = None
     label: str | None = None
+    heading: str | None = None
     position: int | None = None  # its place in the toestand it was read from
     valid_from: str | None = None
     valid_until: str | None = None

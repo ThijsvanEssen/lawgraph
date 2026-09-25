@@ -20,6 +20,14 @@ from lawgraph.db import ArangoStore
 
 _law_cache: TTLCache[str, Any] = TTLCache(maxsize=4, ttl=60.0)
 
+# The score of a hit is the tier of the best way it matches the query. Ties keep the order
+# of the database (BM25 within a type).
+SCORE_IDENTIFIER = 1.0  # the query is the hit's key or one of its identifiers
+SCORE_TITLE = 0.75  # the query is the whole of its name
+SCORE_PREFIX = 0.5  # its name starts with the query
+SCORE_CONTAINS = 0.25  # every word of the query is in its name
+SCORE_WORDS = 0.1  # it matched on stems or text only
+
 # The part of an article hit that names its parent instrument, looked up per hit after the
 # LIMIT: an index lookup on the instrument of each of the (at most ``limit``) hits, inside
 # the one query. Articles of EU acts carry a CELEX id instead of a BWB id.
@@ -53,6 +61,8 @@ _ARTICLE_HIT = f"""
             bwb_id: doc.props.bwb_id,
             celex: doc.props.celex,
             article_number: doc.props.article_number,
+            heading: doc.props.heading,
+            division_titles: doc.props.breadcrumb[* FILTER CURRENT.title != null RETURN CURRENT.title],
             instrument_title: NOT_NULL(instrument.citation_title, instrument.title),
             citation_title: instrument.citation_title,
             short_title: instrument.short_title
@@ -61,8 +71,16 @@ _ARTICLE_HIT = f"""
 """
 
 
+# Follows ``SEARCH <clause>``. The clause is an AND of one OR per word; the optimizer turns it
+# into an OR of ANDs, which for five words over seven fields is millions of terms, and gives
+# up with "ArangoSearch noncompliant expression". Left as written it runs as it reads.
+SEARCH_OPTIONS = 'OPTIONS { conditionOptimization: "none" }'
+
+
 def build_search_clause(
-    tokens: list[str], fields: list[str]
+    tokens: list[str],
+    fields: list[str],
+    boosts: Mapping[str, float] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Build an ArangoSearch clause: every token must appear in any of *fields*.
 
@@ -80,6 +98,10 @@ def build_search_clause(
     working when the stemmer doesn't help (e.g. abbreviations and codes like
     ``BWBR``). AQL doesn't allow dynamic FOR loops inside SEARCH, so we
     materialise the AND-of-OR expression at Python side.
+
+    *boosts* weighs a field in the BM25 score (``BOOST``): a heading or an alias that holds
+    the words ranks above a long text that does, before the ``LIMIT`` cuts.
+    A field may be a path into an array of objects (``breadcrumb.title``).
     """
     if not tokens:
         return "true", {}
@@ -89,19 +111,21 @@ def build_search_clause(
         bind_vars[f"_tok_{i}"] = t
         per_field: list[str] = []
         for f in fields:
+            boost = (boosts or {}).get(f)
+            field_parts: list[str] = []
             # 1) Stem-aware token match via TEXT_ANALYZER — analyzer applied to
             #    both indexed field and bind value.
-            per_field.append(
+            field_parts.append(
                 f"ANALYZER(doc.props.{f} IN TOKENS(@_tok_{i}, '{TEXT_ANALYZER}'), "
                 f"'{TEXT_ANALYZER}')"
             )
             # 2) Case-sensitive prefix on identity-indexed fields.
-            per_field.append(
+            field_parts.append(
                 f"ANALYZER(STARTS_WITH(doc.props.{f}, @_tok_{i}), 'identity')"
             )
             # 3) Case-insensitive identifier match via lawgraph_norm —
             #    bwb_id/ecli/number typed in any case.
-            per_field.append(f"ANALYZER(doc.props.{f} == @_tok_{i}, 'lawgraph_norm')")
+            field_parts.append(f"ANALYZER(doc.props.{f} == @_tok_{i}, 'lawgraph_norm')")
             # 4) Substring match via 3..12-gram analyzer for compound words
             #    (Vordering → Strafvordering, etc.). Using `==` under the
             #    pipeline ngram analyzer reduces to "any indexed ngram of
@@ -110,9 +134,12 @@ def build_search_clause(
             #    query length. NGRAM_MATCH would be canonical but doesn't
             #    use the inverted index for pipeline analyzers in this
             #    Arango version, so it returns 0 hits from the view.
-            per_field.append(
+            field_parts.append(
                 f"ANALYZER(doc.props.{f} == @_tok_{i}, 'lawgraph_ngram_v2')"
             )
+            if boost:
+                field_parts = [f"BOOST({part}, {boost})" for part in field_parts]
+            per_field.extend(field_parts)
         parts.append("(" + " OR ".join(per_field) + ")")
     return " AND ".join(parts), bind_vars
 
@@ -191,10 +218,12 @@ def _two_phase_search(
     text_aql: str,
     text_vars: dict[str, Any],
     limit: int,
+    precise_score: float | None = SCORE_IDENTIFIER,
 ) -> list[dict[str, Any]]:
     """Run a precise lookup then a full-text fallback, deduplicating by id.
 
-    What the precise lookup finds is what the query names, so it scores as an identifier.
+    What the precise lookup finds is what the query names, so it scores as an identifier
+    unless *precise_score* is None: then ``score_hit`` scores it like any hit.
     """
     seen: set[str] = set()
     results: list[dict[str, Any]] = []
@@ -202,13 +231,41 @@ def _two_phase_search(
         rid = row.get("id")
         if rid and rid not in seen:
             seen.add(rid)
-            results.append({**row, "score": SCORE_IDENTIFIER})
+            results.append(
+                row if precise_score is None else {**row, "score": precise_score}
+            )
     if len(results) < limit:
         for row in store.query(text_aql, text_vars):
             if row.get("id") not in seen:
                 seen.add(row["id"])
                 results.append(row)
     return results[:limit]
+
+
+# A word in the heading of an article weighs most, one in the title of a division it stands
+# in (titel, afdeling) more than one in its text.
+_ARTICLE_BOOSTS = {"heading": 4.0, "display_name": 2.0, "breadcrumb.title": 1.5}
+# A word in a name a law is cited by weighs more than one in its long title.
+_INSTRUMENT_BOOSTS = {"aliases": 3.0, "short_title": 3.0, "citation_title": 2.0}
+
+# The instrument hit, from ``doc``.
+_INSTRUMENT_HIT = """
+    RETURN {
+        id: doc._id, key: doc._key,
+        collection: 'instruments', type: doc.type,
+        display_name: (
+            doc.props.citation_title != null ? doc.props.citation_title :
+            (doc.props.display_name != null ? doc.props.display_name : doc.props.title)
+        ),
+        snippet: LEFT(doc.props.title, 200),
+        extra: {
+            bwb_id: doc.props.bwb_id,
+            citation_title: doc.props.citation_title,
+            short_title: doc.props.short_title,
+            aliases: doc.props.aliases
+        }
+    }
+"""
 
 
 def _search_articles(
@@ -218,11 +275,20 @@ def _search_articles(
     limit: int,
 ) -> list[dict[str, Any]]:
     clause, tok_bind = build_search_clause(
-        tokens, ["display_name", "text", "article_number", "bwb_id"]
+        tokens,
+        [
+            "display_name",
+            "heading",
+            "breadcrumb.title",
+            "text",
+            "article_number",
+            "bwb_id",
+        ],
+        _ARTICLE_BOOSTS,
     )
     text_aql = f"""
     FOR doc IN search_articles
-        SEARCH {clause}
+        SEARCH {clause} {SEARCH_OPTIONS}
         SORT BM25(doc) DESC
         LIMIT @limit
         {_ARTICLE_HIT}
@@ -260,8 +326,10 @@ def _search_articles(
 
 
 def _search_instruments(
-    store: ArangoStore, tokens: list[str], limit: int
+    store: ArangoStore, q: str, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
+    """Instruments whose alias or short title is the whole query first (``Boek 6 BW``,
+    ``BW``), then those that hold its words."""
     clause, tok_bind = build_search_clause(
         tokens,
         [
@@ -270,26 +338,35 @@ def _search_instruments(
             "official_title",
             "display_name",
             "short_title",
+            "aliases",
             "bwb_id",
         ],
+        _INSTRUMENT_BOOSTS,
     )
-    aql = f"""
+    precise_aql = f"""
     FOR doc IN search_instruments
-        SEARCH {clause}
+        SEARCH ANALYZER(doc.props.aliases == @name OR doc.props.short_title == @name,
+                        'lawgraph_norm')
+        SORT doc.props.citation_title ASC
+        LIMIT @limit
+        {_INSTRUMENT_HIT}
+    """
+    text_aql = f"""
+    FOR doc IN search_instruments
+        SEARCH {clause} {SEARCH_OPTIONS}
         SORT BM25(doc) DESC
         LIMIT @limit
-        RETURN {{
-            id: doc._id, key: doc._key,
-            collection: 'instruments', type: doc.type,
-            display_name: (
-                doc.props.citation_title != null ? doc.props.citation_title :
-                (doc.props.display_name != null ? doc.props.display_name : doc.props.title)
-            ),
-            snippet: LEFT(doc.props.title, 200),
-            extra: {{ bwb_id: doc.props.bwb_id, citation_title: doc.props.citation_title }}
-        }}
+        {_INSTRUMENT_HIT}
     """
-    return list(store.query(aql, {**tok_bind, "limit": limit}))
+    return _two_phase_search(
+        store,
+        precise_aql,
+        {"name": _folded(q), "limit": limit},
+        text_aql,
+        {**tok_bind, "limit": limit},
+        limit,
+        precise_score=None,
+    )
 
 
 def _search_judgments(
@@ -303,7 +380,7 @@ def _search_judgments(
     )
     text_aql = f"""
     FOR doc IN search_judgments
-        SEARCH {clause}
+        SEARCH {clause} {SEARCH_OPTIONS}
         SORT BM25(doc) DESC
         LIMIT @limit
         RETURN {{
@@ -354,7 +431,7 @@ def _search_dossiers(
         bind_vars["kind_filter"] = [k.lower() for k in kinds]
     aql = f"""
     FOR doc IN search_dossiers
-        SEARCH {clause}
+        SEARCH {clause} {SEARCH_OPTIONS}
         {kind_clause}
         SORT BM25(doc) DESC
         LIMIT @limit
@@ -380,7 +457,7 @@ def _search_committees(
     clause, tok_bind = build_search_clause(tokens, ["name", "abbreviation"])
     aql = f"""
     FOR doc IN search_committees
-        SEARCH {clause}
+        SEARCH {clause} {SEARCH_OPTIONS}
         SORT BM25(doc) DESC
         LIMIT @limit
         RETURN {{
@@ -475,7 +552,7 @@ def _search_documents(
     # the UI use cases. A dedicated full-text endpoint can opt-in.
     aql = f"""
     FOR doc IN search_documents
-        SEARCH {clause}
+        SEARCH {clause} {SEARCH_OPTIONS}
         {kind_clause}
         SORT BM25(doc) DESC
         LIMIT @limit
@@ -496,14 +573,6 @@ def _search_documents(
 
 # ── Ranking ───────────────────────────────────────────────────────────────────
 
-# The score of a hit is the tier of the best way it matches the query. Ties keep the order
-# of the database (BM25 within a type).
-SCORE_IDENTIFIER = 1.0  # the query is the hit's key or one of its identifiers
-SCORE_TITLE = 0.75  # the query is the whole of its name
-SCORE_PREFIX = 0.5  # its name starts with the query
-SCORE_CONTAINS = 0.25  # every word of the query is in its name
-SCORE_WORDS = 0.1  # it matched on stems or text only
-
 # What identifies a hit, besides its key: the fields of ``extra`` that are identifiers.
 _IDENTIFIER_FIELDS = (
     "bwb_id",
@@ -517,17 +586,32 @@ _IDENTIFIER_FIELDS = (
     "short_title",
     "slug",
 )
-_NAME_FIELDS = ("citation_title", "instrument_title")
+_NAME_FIELDS = ("citation_title", "instrument_title", "heading")
+# The names of a hit that are lists: the aliases of an instrument.
+_NAME_LIST_FIELDS = ("aliases",)
+# What places a hit without naming it: the titles of the divisions an article stands in.
+_CONTEXT_LIST_FIELDS = ("division_titles",)
 
 
 def _folded(value: Any) -> str:
     return " ".join(str(value).lower().split()) if value else ""
 
 
+def _folded_list(extra: Mapping[str, Any], fields: tuple[str, ...]) -> list[str]:
+    return [
+        _folded(value)
+        for field in fields
+        for value in extra.get(field) or ()
+        if isinstance(value, str) and value.strip()
+    ]
+
+
 def score_hit(query: str, hit: Mapping[str, Any]) -> float:
     """The rank tier of *hit* for *query*: identifier, whole name, name prefix, name part.
 
-    Pure: compares the query with the key, the identifiers and the names the hit carries.
+    Pure: compares the query with the key, the identifiers and the names the hit carries
+    (its display name, citation title, heading and aliases). A query that is part of the
+    title of a division an article stands in counts as part of its name.
     """
     wanted = _folded(query)
     if not wanted:
@@ -543,13 +627,14 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
         _folded(hit.get("display_name")),
         *(_folded(extra.get(field)) for field in _NAME_FIELDS),
     ]
-    names = [n for n in names if n]
+    names = [n for n in names if n] + _folded_list(extra, _NAME_LIST_FIELDS)
     if wanted in names:
         return SCORE_TITLE
     if any(n.startswith(wanted) for n in names):
         return SCORE_PREFIX
     words = wanted.split()
-    if any(all(w in n for w in words) for n in names):
+    context = _folded_list(extra, _CONTEXT_LIST_FIELDS)
+    if any(all(w in n for w in words) for n in names + context):
         return SCORE_CONTAINS
     return SCORE_WORDS
 
@@ -593,7 +678,7 @@ def search_all(
         if t == "articles":
             results[t] = _search_articles(store, tokens, notation, limit)
         elif t == "instruments":
-            results[t] = _search_instruments(store, tokens, limit)
+            results[t] = _search_instruments(store, q, tokens, limit)
         elif t == "judgments":
             results[t] = _search_judgments(store, tokens, notation, limit)
         elif t == "dossiers":

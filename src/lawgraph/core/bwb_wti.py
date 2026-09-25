@@ -76,3 +76,46 @@ def choose_short_titles(
         ]
         chosen[regulation_id] = min(own, key=len) if own else None
     return chosen
+
+
+def _book_aliases(family: str, book: str) -> list[str]:
+    """The ways a book of a code is cited: ``Boek 6 BW``, ``6 BW``, ``BW 6``, ``BW6``,
+    ``BW Boek 6`` and the code itself (``BW``)."""
+    return [
+        f"Boek {book} {family}",
+        f"{book} {family}",
+        f"{family} {book}",
+        f"{family}{book}",
+        f"{family} Boek {book}",
+        family,
+    ]
+
+
+def instrument_aliases(
+    abbreviations_by_id: Mapping[str, Sequence[str]],
+) -> dict[str, list[str]]:
+    """Every name a regulation is cited by, for the search: its WTI abbreviations and, for a
+    book of a code (``CODE_FAMILIES``), the usual forms of book and code.
+
+    Unlike a short title an alias may be shared: ``BW`` is an alias of every book. A book
+    gets the forms of its code also when no WTI record was stored for it. Repeats that
+    differ in case only are dropped; the order is the source order, then the book forms.
+    """
+    books = {
+        regulation_id: _book_aliases(family, book)
+        for family, known in CODE_FAMILIES.items()
+        for book, regulation_id in known.items()
+    }
+    aliases: dict[str, list[str]] = {}
+    for regulation_id in sorted({*abbreviations_by_id, *books}):
+        seen: set[str] = set()
+        names: list[str] = []
+        for name in (
+            *abbreviations_by_id.get(regulation_id, ()),
+            *books.get(regulation_id, ()),
+        ):
+            if name.upper() not in seen:
+                seen.add(name.upper())
+                names.append(name)
+        aliases[regulation_id] = names
+    return aliases
