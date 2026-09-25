@@ -8,10 +8,15 @@ from enum import StrEnum
 from fastapi import HTTPException
 
 from lawgraph.core.judgments import TIERS
+from lawgraph.core.ministries import MINISTRIES, POSTS
 
 # The tier of a judgment, as a query parameter: one value per college
 # (``core.judgments.TIERS``), so the schema lists them and a value that is none is 422.
 Tier = StrEnum("Tier", {tier: tier for tier in TIERS})  # type: ignore[misc]
+
+# A ministry (``core.ministries.MINISTRIES``) and a post in a cabinet (``POSTS``).
+MinistryKey = StrEnum("MinistryKey", {m.key: m.key for m in MINISTRIES})  # type: ignore[misc]
+Post = StrEnum("Post", {post: post for post in POSTS})  # type: ignore[misc]
 
 
 def parse_choices(

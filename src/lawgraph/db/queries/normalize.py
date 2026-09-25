@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
     LABEL_WIKIDATA,
     RELATION_ABOUT,
@@ -31,16 +32,20 @@ from lawgraph.db.counting import Store
 # ── BWB ──────────────────────────────────────────────────────────────────────
 
 
-def update_short_titles(store: Store, rows: list[dict[str, Any]]) -> int:
-    """Set ``short_title`` on the instruments of *rows* (``{key, short_title}``) whose
-    short title differs; how many changed."""
+def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
+    """Set ``short_title`` and ``aliases`` on the instruments of *rows* (``{key,
+    short_title, aliases}``) where either differs; how many changed. A null or empty
+    value removes the prop."""
     aql = f"""
         FOR row IN @rows
             FOR inst IN {COLLECTION_INSTRUMENTS}
                 FILTER inst._key == row.key
+                LET aliases = LENGTH(row.aliases) > 0 ? row.aliases : null
                 FILTER inst.props.short_title != row.short_title
-                UPDATE inst WITH {{ props: {{ short_title: row.short_title }} }}
-                    IN {COLLECTION_INSTRUMENTS} OPTIONS {{ keepNull: false }}
+                    OR inst.props.aliases != aliases
+                UPDATE inst WITH {{
+                    props: {{ short_title: row.short_title, aliases: aliases }}
+                }} IN {COLLECTION_INSTRUMENTS} OPTIONS {{ keepNull: false }}
                 RETURN 1
         """
     return len(list(store.query(aql, {"rows": rows})))
@@ -292,3 +297,71 @@ def remove_members(store: Store, keys: list[str]) -> int:
         RETURN 1
     """
     return sum(store.query(members, {"keys": keys}))
+
+
+def faction_names(store: Store) -> Iterator[dict[str, Any]]:
+    """``{key, name, abbreviation, aliases}`` of every faction (``normalize wikidata`` finds
+    the faction of a party of a cabinet by them)."""
+    aql = f"""
+    FOR f IN {COLLECTION_FACTIONS}
+        RETURN {{
+            key: f._key,
+            name: f.props.name,
+            abbreviation: f.props.abbreviation,
+            aliases: f.props.aliases
+        }}
+    """
+    return store.query(aql)
+
+
+def remove_edges_except(store: Store, relation: str, keep: list[str]) -> int:
+    """Remove the edges of *relation* whose key is not in *keep*; how many went. For edges
+    one pipeline derives in full on every run, so an edge it no longer derives goes."""
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == @relation AND e._key NOT IN @keep
+        REMOVE e IN {COLLECTION_EDGES}
+        RETURN 1
+    """
+    return sum(store.query(aql, {"relation": relation, "keep": keep}))
+
+
+# ── Rechtspraak ──────────────────────────────────────────────────────────────
+
+
+def translated_judgments(
+    store: Store, rows: list[dict[str, Any]]
+) -> Iterator[dict[str, Any]]:
+    """The judgment each translation of *rows* translates: ``{key, original: {key, ecli,
+    summary}}`` for every row (``{key, court_code, date, case_key}``) whose court gave, on
+    that day and under that case number, a judgment with a Dutch summary."""
+    aql = f"""
+    FOR row IN @rows
+        LET original = FIRST(
+            FOR j IN {COLLECTION_JUDGMENTS}
+                FILTER row.case_key IN j.props.case_number_keys[*]
+                FILTER j.props.court_code == row.court_code
+                FILTER j.props.date_eff == row.date
+                FILTER j._key != row.key AND j.props.summary != null
+                SORT j._key
+                LIMIT 1
+                RETURN {{key: j._key, ecli: j.props.ecli, summary: j.props.summary}}
+        )
+        FILTER original != null
+        RETURN {{key: row.key, original: original}}
+    """
+    return store.query(aql, {"rows": rows})
+
+
+def update_judgment_props(store: Store, rows: list[dict[str, Any]]) -> int:
+    """Merge ``props`` into the judgment ``key`` of each of *rows*; how many changed."""
+    aql = f"""
+    FOR row IN @rows
+        FOR j IN {COLLECTION_JUDGMENTS}
+            FILTER j._key == row.key
+            FILTER NOT MATCHES(j.props, row.props)
+            UPDATE j WITH {{ props: row.props }} IN {COLLECTION_JUDGMENTS}
+                OPTIONS {{ mergeObjects: true }}
+            RETURN 1
+    """
+    return sum(store.query(aql, {"rows": rows}))

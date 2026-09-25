@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
     COLLECTION_COMMITTEES,
@@ -96,6 +97,7 @@ class NodeType(str, Enum):
     COMMITTEE = "committee"  # parliamentary committee
     MEMBER = "member"  # member of parliament or minister
     FACTION = "faction"  # parliamentary party / political group
+    CABINET = "cabinet"  # a Dutch cabinet (kabinet), from Wikidata
     INSTRUMENT_VERSION = "instrument_version"  # dated version of an instrument
     ARTICLE_VERSION = "article_version"  # dated version of an article
     ANNEX = "annex"  # annex (bijlage) of an instrument
@@ -118,6 +120,7 @@ COLLECTION_OF_TYPE: dict[NodeType, str] = {
     NodeType.COMMITMENT: COLLECTION_COMMITMENTS,
     NodeType.MEMBER: COLLECTION_MEMBERS,
     NodeType.FACTION: COLLECTION_FACTIONS,
+    NodeType.CABINET: COLLECTION_CABINETS,
     NodeType.COMMITTEE: COLLECTION_COMMITTEES,
     NodeType.TOPIC: COLLECTION_TOPICS,
 }

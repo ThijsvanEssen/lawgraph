@@ -157,8 +157,9 @@ def test_a_debate_on_a_bill_is_its_treatment_not_its_start() -> None:
         ([], ["Voorstel van wet (initiatiefvoorstel)"], "initiatiefwetsvoorstel"),
         ([], ["Voorstel van wet"], "wetsvoorstel"),
         # What is filed under a dossier does not make it a motion or a letter.
-        (["Brief regering", "Motie"], [], "overig"),
-        (["Brief regering"], [], "overig"),
+        (["Brief regering", "Motie"], [], "beleid"),
+        (["Brief regering"], [], "beleid"),
+        (["Brief regering", "PKB/Structuurvisie"], [], "structuurvisie"),
         ([], [], None),
     ],
 )
@@ -186,17 +187,74 @@ def test_the_track_follows_the_dossiers_own_cases_and_documents(
         ),
         ("Jaarverslag en slotwet Ministerie van Defensie 2007", "begroting"),
         ("Initiatiefnota van het lid Omtzigt over goed bestuur", "initiatiefnota"),
-        # the letters and motions of a policy area or an EU Council series
-        ("Raad Algemene Zaken en Raad Buitenlandse Zaken", "overig"),
-        ("Jeugdzorg", "overig"),
-        ("Planologische Kernbeslissing Nota Mobiliteit", "overig"),
-        ("Jaarverslag van de Nationale ombudsman over 2015", "overig"),
+        # a bill or a treaty with no case or document of its own on record
+        (
+            "Regels voor de financiële dienstverlening (Wet financiële dienstverlening)",
+            "wetsvoorstel",
+        ),
+        ("Wijziging Omgevingswet en enige andere wetten", "wetsvoorstel"),
+        (
+            "Goedkeuring van het op 26 mei 2023 te Belle Plaine tot stand gekomen Verdrag",
+            "wetsvoorstel",
+        ),
+        ("Enige wijzigingen in de Pensioenwet", "wetsvoorstel"),
+        (
+            "Verklaring dat er grond bestaat een voorstel in overweging te nemen tot "
+            "verandering in de Grondwet",
+            "wetsvoorstel",
+        ),
+        (
+            "Verdrag tussen de regering van het Koninkrijk der Nederlanden en de regering van "
+            "het Hasjemitisch Koninkrijk Jordanië",
+            "verdrag",
+        ),
+        (
+            "Protocollen en Verdragen van de Wereldpostunie; Dubai, 19 sept 2025",
+            "verdrag",
+        ),
+        (
+            "Wijzigingen van de Bijlage bij het Internationaal Verdrag ter voorkoming van "
+            "verontreiniging door schepen",
+            "verdrag",
+        ),
+        ("Structuurvisie Windenergie op Zee (SV WoZ)", "structuurvisie"),
+        ("Planologische Kernbeslissing Nota Mobiliteit", "structuurvisie"),
+        ("Beleidsdoorlichting Defensie", "verantwoording"),
+        ("Jaarrapportage procedureregeling Grote Projecten", "verantwoording"),
+        ("EU-voorstellen: Omnibus I (CSRD & CSDDD) COM (2025) 80", "eu"),
+        ("JBZ-Raad", "eu"),
+        ("Nederlands EU-voorzitterschap", "eu"),
+        ("Parlementaire Assemblée van de NAVO", "interparlementair"),
+        ("Interparlementair Koninkrijksoverleg", "interparlementair"),
+        ("Verslag van een werkbezoek aan Brussel door een delegatie", "kamer"),
+        ("Gedragscode Leden van de Tweede Kamer der Staten-Generaal", "kamer"),
+        # the letters and motions of a policy area, also on laws or treaties
+        ("Jeugdzorg", "beleid"),
+        ("Jaarverslag van de Nationale ombudsman over 2015", "beleid"),
+        ("Wet- en regelgeving financiële markten", "beleid"),
+        ("ILO-verdragen", "beleid"),
+        ("Herziening Zorgstelsel", "beleid"),
     ],
 )
 def test_the_track_of_a_dossier_that_is_no_bill_comes_from_its_title(
     title: str, track: str
 ) -> None:
     assert classify_track_kind(["Brief regering", "Motie"], title=title) == track
+
+
+def test_the_eu_series_are_known_by_their_number() -> None:
+    council = "Raad Algemene Zaken en Raad Buitenlandse Zaken"
+    assert (
+        classify_track_kind(["Brief regering"], title=council, number="21501") == "eu"
+    )
+    assert classify_track_kind(["Brief regering"], title=council) == "beleid"
+
+
+def test_a_dossier_known_only_by_its_title_has_a_track() -> None:
+    assert (
+        classify_track_kind([], title="Regels omtrent meeteenheden") == "wetsvoorstel"
+    )
+    assert classify_track_kind([], title="Jeugdzorg") is None
 
 
 def _stages(track: str, docs, case_kinds, closed: bool) -> tuple:
@@ -207,7 +265,7 @@ def _stages(track: str, docs, case_kinds, closed: bool) -> tuple:
 def test_a_dossier_that_is_no_bill_has_no_stage_until_it_is_closed() -> None:
     docs = [_doc("Motie", "2026-01-01"), _doc("Verslag", "2026-02-01")]
 
-    assert _stages("overig", docs, ["Motie"], closed=False) == (None, [])
+    assert _stages("beleid", docs, ["Motie"], closed=False) == (None, [])
     assert _stages("nota", docs, ["Motie"], closed=False) == (None, [])
     assert _stages("initiatiefnota", docs, [], closed=True) == (
         "afgehandeld",
@@ -310,7 +368,7 @@ def test_an_activity_that_did_not_take_place_marks_no_stage() -> None:
 
 
 def test_a_dossier_that_is_no_bill_is_complete() -> None:
-    assert dossier_stages("overig", [], [], [], ["Motie"], closed=True).complete
+    assert dossier_stages("beleid", [], [], [], ["Motie"], closed=True).complete
 
 
 # ── how a dossier ended ──────────────────────────────────────────────────────

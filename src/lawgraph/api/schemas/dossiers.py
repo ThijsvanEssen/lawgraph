@@ -6,7 +6,10 @@ from typing import Annotated, Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+from lawgraph.api.params import MinistryKey
+from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_links import tk_url
 
 # A dossier number as the API takes it: 29684, or its label with the addition of a
@@ -39,7 +42,12 @@ DossierTrack = Literal[
     "verdrag",
     "initiatiefnota",
     "nota",
-    "overig",
+    "structuurvisie",
+    "verantwoording",
+    "eu",
+    "interparlementair",
+    "kamer",
+    "beleid",
 ]
 
 
@@ -333,9 +341,12 @@ class DossierSummaryDTO(BaseModel):
     ``track`` is what kind of dossier this is — a bill (wetsvoorstel,
     initiatiefwetsvoorstel, begroting, verdrag), an initiatiefnota, a ``nota`` of the
     government (the Miljoenennota, the Voorjaars- and Najaarsnota, the Financieel
-    Jaarverslag van het Rijk) or ``overig`` (the letters and motions on a subject) — and
-    does not change as it progresses. It comes from what the dossier is, never from what
-    is filed under it. ``current_stage`` is the
+    Jaarverslag van het Rijk), a ``structuurvisie``, ``verantwoording`` (a
+    beleidsdoorlichting, the reports on a big project), ``eu`` (an EU Council, the fiches on
+    Commission proposals), ``interparlementair`` (an assembly the Kamer sends a delegation
+    to), ``kamer`` (the Kamer's own: a committee report, its code of conduct) or ``beleid``
+    (the letters and motions on a subject) — and does not change as it progresses. It
+    comes from what the dossier is, never from what is filed under it. ``current_stage`` is the
     latest stage seen on its documents and activities; ``stages`` lists every
     stage with at least one signal, in chronological order. Only a bill (a
     wetsvoorstel, initiatiefwetsvoorstel, begroting or verdrag) passes stages;
@@ -363,6 +374,11 @@ class DossierSummaryDTO(BaseModel):
         "budget of 25. ``GET /api/dossiers?number=`` lists them.",
     )
     title: str | None = None
+    short_title: str | None = Field(
+        None,
+        description="The name a bill goes by, from the parentheses that end its title: "
+        "``Verzamelwet gegevensbescherming``; null when the title has none.",
+    )
     title_source: TitleSource | None = None
     track: DossierTrack | None = None
     current_stage: DossierStage | None = None
@@ -389,6 +405,21 @@ class DossierSummaryDTO(BaseModel):
     outcome: DossierOutcome | None = None
     opened_on: str | None = None
     closed_on: str | None = None
+    ministry: MinistryKey | None = Field(
+        None,
+        description="The ministry (``GET /api/ministries``) of the bewindspersoon who "
+        "signed the earliest signed document of the dossier first; null for an initiative "
+        "or when nobody in government or parliament signed first.",
+    )
+    initiative: bool | None = Field(
+        None,
+        description="True when a Kamerlid signed the earliest signed document first, false "
+        "when a bewindspersoon did, null when neither did.",
+    )
+    cabinet: str | None = Field(
+        None,
+        description="The key of the cabinet in office when that document was signed.",
+    )
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> DossierSummaryDTO:
@@ -404,6 +435,21 @@ class DossierListResponse(BaseModel):
         ..., description="Matching dossiers, independent of limit and offset."
     )
     items: list[DossierSummaryDTO]
+    facets: DossierFacetsDTO
+
+
+class DossierFacetsDTO(BaseModel):
+    """Per dimension the number of dossiers per value under the current filters, each
+    dimension counted without its own filter (so the other values of a chosen dimension
+    keep their counts), the largest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: list[FacetCountDTO] = Field(default_factory=list)
+    outcome: list[FacetCountDTO] = Field(default_factory=list)
+    track: list[FacetCountDTO] = Field(default_factory=list)
+    stage: list[FacetCountDTO] = Field(default_factory=list)
+    ministry: list[FacetCountDTO] = Field(default_factory=list)
 
 
 DossierInstrumentRelation = Literal["legislated_in", "amends", "introduces", "repeals"]
@@ -574,8 +620,9 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "suffix": props.get("suffix") or None,
         "same_number_count": int(props.get("same_number_count") or 0),
         "title": props.get("title"),
+        "short_title": short_title(props.get("title")),
         "title_source": props.get("title_source"),
-        "track": props.get("track_kind") or "overig",
+        "track": props.get("track_kind") or "beleid",
         "current_stage": _stage(props.get("current_stage")),
         "stages": _stages(props.get("stages_present")),
         "stages_complete": props.get("stages_complete") is not False,
@@ -588,6 +635,9 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         ),
         "opened_on": props.get("opened_on"),
         "closed_on": props.get("closed_on"),
+        "ministry": props.get("ministry"),
+        "initiative": props.get("initiative"),
+        "cabinet": props.get("cabinet"),
     }
 
 

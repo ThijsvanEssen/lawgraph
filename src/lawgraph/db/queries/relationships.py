@@ -128,6 +128,7 @@ def search_relationships(
         LET total = LENGTH(matches)
         LET page = (
             FOR edge_id IN matches
+                SORT edge_id
                 LIMIT @offset, @limit
                 LET edge = DOCUMENT(edge_id)
                 LET source_article = DOCUMENT(edge._from)
@@ -147,6 +148,7 @@ def search_relationships(
         LET total = LENGTH(matches)
         LET page = (
             FOR edge_id IN matches
+                SORT edge_id
                 LIMIT @offset, @limit
                 LET edge = DOCUMENT(edge_id)
                 LET source_article = DOCUMENT(edge._from)

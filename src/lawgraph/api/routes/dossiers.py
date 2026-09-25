@@ -1,7 +1,7 @@
 """Dossier endpoints.
 
-GET /api/dossiers?number=              — every dossier of one number, in the Kamer's order
-GET /api/dossiers/open                 — open dossiers, with filters
+GET /api/dossiers                      — every dossier, with filters, order and facets
+GET /api/dossiers/open                 — the same with status=open
 GET /api/dossiers/recent               — recently active dossiers
 GET /api/dossiers/documents/bulk       — documents for several dossiers at once
 GET /api/dossiers/{number}             — one dossier with its counts
@@ -13,27 +13,35 @@ GET /api/parties/colors                — party colours for the frontend
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+import datetime as dt
+from dataclasses import replace
+from typing import Annotated, Any, Literal, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import MinistryKey, parse_choices
 from lawgraph.api.schemas.dossiers import (
     DOSSIER_NUMBER_PATTERN,
     DossierDetailResponse,
     DossierDocumentDTO,
     DossierDocumentsBulkResponse,
     DossierDocumentsResponse,
+    DossierFacetsDTO,
     DossierListResponse,
     DossierMutationEdge,
     DossierMutationNode,
     DossierMutationsResponse,
+    DossierOutcome,
+    DossierStage,
     DossierSummaryDTO,
     DossierTimelineResponse,
+    DossierTrack,
     timeline_entry,
 )
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.dossiers import (
+    DossierFilters,
     count_dossier_members,
     enrich_dossier_docs,
     get_documents_for_dossiers,
@@ -44,8 +52,7 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_number_to_id_map,
     get_dossier_relations,
     get_dossier_timeline,
-    get_dossiers_of_number,
-    get_open_dossiers,
+    get_dossiers,
     get_recent_dossiers,
 )
 
@@ -79,34 +86,132 @@ def _dossier_or_404(store: ArangoStore, number: str) -> dict[str, Any]:
     return dossier
 
 
+class _ListParams:
+    """The filters, order and page of a dossier list, as query parameters."""
+
+    def __init__(
+        self,
+        status: Annotated[
+            Literal["open", "closed", "all"],
+            Query(description="Open dossiers, closed ones (with an outcome) or both."),
+        ] = "all",
+        outcome: Annotated[DossierOutcome | None, Query()] = None,
+        track: Annotated[
+            str | None,
+            Query(
+                description="Comma-separated tracks, e.g. ``wetsvoorstel,begroting``."
+            ),
+        ] = None,
+        number: Annotated[
+            str | None,
+            Query(
+                description="The start of the number: ``36264`` (that number and its "
+                "chapters), ``37020-`` (the chapters of 37020).",
+                pattern=r"^\d+(-[A-Za-z0-9()]*)?$",
+            ),
+        ] = None,
+        committee: Annotated[str | None, Query(description="Committee slug.")] = None,
+        subject: Subject = None,
+        stage: Annotated[
+            DossierStage | None,
+            Query(
+                description="The dossier's latest recognised stage. To filter on a stage "
+                "being present at all, use ``has_stage``."
+            ),
+        ] = None,
+        has_stage: Annotated[
+            str | None,
+            Query(
+                description="Comma-separated stages; only dossiers that have all of them, "
+                "e.g. ``mvt,advies_rvs``."
+            ),
+        ] = None,
+        ministry: Annotated[
+            MinistryKey | None, Query(description="The ministry that brought it in.")
+        ] = None,
+        initiative: Annotated[
+            bool | None,
+            Query(
+                description="True: brought in by a Kamerlid; false: by the government."
+            ),
+        ] = None,
+        opened_from: Annotated[
+            dt.date | None, Query(description="Opened on or after this day.")
+        ] = None,
+        opened_to: Annotated[
+            dt.date | None, Query(description="Opened on or before this day.")
+        ] = None,
+        sort: Annotated[
+            Literal["number", "opened_on", "closed_on", "title"] | None,
+            Query(
+                description="``number`` in the order of the Kamer, ``opened_on`` and "
+                "``closed_on`` newest first, ``title`` alphabetically; ties by key. "
+                "Default ``number`` with a ``number`` filter, else ``opened_on``."
+            ),
+        ] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> None:
+        self.filters = DossierFilters(
+            status=None if status == "all" else status,
+            outcome=outcome,
+            tracks=parse_choices(track, get_args(DossierTrack), "track"),
+            stage=stage,
+            has_stage=parse_choices(has_stage, get_args(DossierStage), "has_stage"),
+            ministry=ministry.value if ministry else None,
+            initiative=initiative,
+            number=number,
+            subject=subject,
+            committee_slug=committee,
+            opened_from=opened_from.isoformat() if opened_from else None,
+            opened_to=opened_to.isoformat() if opened_to else None,
+        )
+        self.sort = sort or ("number" if number else "opened_on")
+        self.limit = limit
+        self.offset = offset
+
+
+def _list(store: ArangoStore, params: _ListParams) -> DossierListResponse:
+    raw = get_dossiers(
+        store,
+        params.filters,
+        sort=params.sort,
+        limit=params.limit,
+        offset=params.offset,
+    )
+    docs = raw.get("items") or []
+    enrich_dossier_docs(store, docs)
+    return DossierListResponse(
+        total=int(raw.get("total") or 0),
+        items=[DossierSummaryDTO.from_document(d) for d in docs],
+        facets=DossierFacetsDTO(**raw.get("facets") or {}),
+    )
+
+
+_LIST_DESCRIPTION = (
+    "``total`` is the absolute count, independent of ``limit``. ``facets`` counts the "
+    "dossiers per status, outcome, track, current stage and ministry under the other "
+    "filters, each dimension without its own filter."
+)
+
+
 @router.get(
     "",
     response_model=DossierListResponse,
-    summary="The dossiers of one number",
+    summary="Dossiers",
     description=(
-        "Every dossier with this number: the one without a suffix and all those with one "
-        "(the chapters and funds of a budget, the meetings of an EU Council series), in "
-        "the order of the Kamer: no suffix, numeric suffixes by value, budget chapters by "
-        "value with their letter (``I``, ``IIA``, ``IIB``, ``III``), then the rest (the "
-        "funds ``A``, ``B``, ...). An unknown number answers an empty list."
+        "Every dossier, open and closed, filtered by status, outcome, track, the start of "
+        "its number, committee, subject (a number, a dossier, or words of the title, such "
+        "as its short title), stage, ministry, initiative and the day it opened. "
+        + _LIST_DESCRIPTION
     ),
     tags=["dossiers"],
 )
-def list_dossiers_of_number(
+def list_dossiers(
     store: Annotated[ArangoStore, Depends(get_store)],
-    number: Annotated[
-        str,
-        Query(
-            description="The number without a suffix, e.g. 37035 or 21501.",
-            pattern=r"^\d+$",
-        ),
-    ],
+    params: Annotated[_ListParams, Depends()],
 ) -> DossierListResponse:
-    docs = get_dossiers_of_number(store, number)
-    enrich_dossier_docs(store, docs)
-    return DossierListResponse(
-        total=len(docs), items=[DossierSummaryDTO.from_document(d) for d in docs]
-    )
+    return _list(store, params)
 
 
 @router.get(
@@ -114,57 +219,17 @@ def list_dossiers_of_number(
     response_model=DossierListResponse,
     summary="Open dossiers",
     description=(
-        "Every dossier that is not closed yet. ``total`` is the absolute "
-        "count, independent of ``limit``. Filters on committee slug, subject "
-        "(a number, a dossier or title text) and legislative stage."
+        "``GET /api/dossiers`` with ``status=open``: the dossiers not closed yet. "
+        + _LIST_DESCRIPTION
     ),
     tags=["dossiers"],
 )
 def list_open_dossiers(
     store: Annotated[ArangoStore, Depends(get_store)],
-    committee: Annotated[str | None, Query(description="Committee slug.")] = None,
-    subject: Subject = None,
-    stage: Annotated[
-        str | None,
-        Query(
-            description=(
-                "The dossier's latest recognised stage, e.g. 'wetsvoorstel' or "
-                "'amendementen'. To filter on a stage being present at all, "
-                "use ``has_stage``."
-            )
-        ),
-    ] = None,
-    has_stage: Annotated[
-        str | None,
-        Query(
-            description=(
-                "Comma-separated stages; returns only dossiers that have all "
-                "of them, e.g. ``mvt,advies_rvs``."
-            )
-        ),
-    ] = None,
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    params: Annotated[_ListParams, Depends()],
 ) -> DossierListResponse:
-    raw = get_open_dossiers(
-        store,
-        committee_slug=committee,
-        subject=subject,
-        stage=stage,
-        has_stage=(
-            [s.strip() for s in has_stage.split(",") if s.strip()]
-            if has_stage
-            else None
-        ),
-        limit=limit,
-        offset=offset,
-    )
-    docs = raw.get("items") or []
-    enrich_dossier_docs(store, docs)
-    return DossierListResponse(
-        total=int(raw.get("total") or 0),
-        items=[DossierSummaryDTO.from_document(d) for d in docs],
-    )
+    params.filters = replace(params.filters, status="open")
+    return _list(store, params)
 
 
 @router.get(

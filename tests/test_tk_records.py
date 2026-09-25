@@ -184,6 +184,43 @@ def test_a_document_and_a_decision_keep_the_kind_of_their_case() -> None:
     assert decision["primary_case_kind"] == "Wetgeving"
 
 
+@pytest.mark.parametrize(
+    ("soort", "kind"),
+    [
+        ("Motie", "motie"),
+        ("Amendement", "amendement"),
+        ("Wetgeving", "wetsvoorstel"),
+        ("Initiatiefwetgeving", "wetsvoorstel"),
+        ("Begroting", "wetsvoorstel"),
+        ("Brief regering", "overig"),
+        (None, "overig"),
+    ],
+)
+def test_a_decision_takes_its_kind_from_the_soort_of_its_case(
+    soort: str | None, kind: str
+) -> None:
+    decision = {"Zaak": [{"Id": "z-1", "Soort": soort}], "Agendapunt": []}
+    _, props = tk_records.decision("b-1", decision, [])
+    assert props["kind"] == kind
+
+
+def test_a_decision_kind_ignores_the_subject() -> None:
+    motion = {"Id": "z-1", "Soort": "Motie", "Onderwerp": "Wijziging van de Wet"}
+    _, props = tk_records.decision("b-1", {"Zaak": [motion]}, [])
+    assert props["kind"] == "motie"
+
+
+def test_without_its_own_case_the_kind_is_that_of_an_agenda_item_of_one_kind() -> None:
+    motions = [{"Id": "z-1", "Soort": "Motie"}, {"Id": "z-2", "Soort": "Motie"}]
+    _, props = tk_records.decision("b-1", {"Agendapunt": [{"Zaak": motions}]}, [])
+    assert (props["primary_case_id"], props["kind"]) == (None, "motie")
+    mixed = [*motions, {"Id": "z-3", "Soort": "Amendement"}]
+    _, props = tk_records.decision("b-1", {"Agendapunt": [{"Zaak": mixed}]}, [])
+    assert props["kind"] == "overig"
+    _, props = tk_records.decision("b-1", {}, [])
+    assert props["kind"] == "overig"
+
+
 def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:
     _, props = tk_records.activity(
         {

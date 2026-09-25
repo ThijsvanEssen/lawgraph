@@ -81,3 +81,33 @@ def test_a_second_reading_names_the_dossiers_of_its_first() -> None:
     )
     assert first_reading_dossiers(memorandum) == ["35418", "35419"]
     assert first_reading_dossiers("Zie Kamerstukken II 2019/20, 35 419, nr. 9.") == []
+
+
+def test_the_order_of_a_dossier_is_the_order_of_the_kamer() -> None:
+    from lawgraph.core.dossier_numbers import dossier_order
+
+    labels = [
+        ("37020", "XV"),
+        ("36264", ""),
+        ("37020", "IIA"),
+        ("37020", ""),
+        ("9999", ""),
+    ]
+    ordered = sorted(labels, key=lambda label: dossier_order(*label))
+    assert ordered == [
+        ("9999", ""),
+        ("36264", ""),
+        ("37020", ""),
+        ("37020", "IIA"),
+        ("37020", "XV"),
+    ]
+
+
+def test_the_short_title_is_what_the_title_ends_in_parentheses() -> None:
+    from lawgraph.core.dossier_numbers import short_title
+
+    assert short_title("Wijziging van de wet (Verzamelwet gegevensbescherming) ") == (
+        "Verzamelwet gegevensbescherming"
+    )
+    assert short_title("Begroting (2027) van SZW") is None
+    assert short_title(None) is None

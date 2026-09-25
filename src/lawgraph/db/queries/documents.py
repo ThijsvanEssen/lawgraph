@@ -85,7 +85,7 @@ LET total = {total}
 LET items = (
     FOR document IN {documents}
     {where}
-    SORT document.props.date DESC, document.props.title ASC
+    SORT document.props.date DESC, document.props.title ASC, document._key
     LIMIT @offset, @limit
     LET linked = LENGTH(
         FOR e IN {COLLECTION_EDGES}

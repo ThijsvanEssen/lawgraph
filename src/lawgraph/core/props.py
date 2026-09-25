@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
     COLLECTION_COMMITTEES,
@@ -64,6 +65,9 @@ class InstrumentProps(_CommonProps):
     official_title: str | None = None
     citation_title: str | None = None
     short_title: str | None = None
+    # every name it is cited by: the WTI abbreviations and, for a book of a code, the forms
+    # "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW"
+    aliases: list[str] | None = None
     jurisdiction: str | None = None
     kind: str | None = None
     lang: str | None = None
@@ -104,6 +108,9 @@ class ArticleProps(_CommonProps):
     celex: str | None = None
     article_number: str | None = None  # null for an article with only a heading
     label: str | None = None  # "Artikel 287", or the heading: "Algemene bepaling"
+    heading: str | None = (
+        None  # the title of its kop ("Definities"), when the BWB has one
+    )
     position: int | None = None  # its place in the current toestand: the order of lists
     title: str | None = None
     text: str | None = None
@@ -145,6 +152,7 @@ class ArticleVersionProps(_CommonProps):
     bwb_id: str | None = None
     article_number: str | None = None
     label: str | None = None
+    heading: str | None = None
     position: int | None = None  # its place in the toestand it was read from
     valid_from: str | None = None
     valid_until: str | None = None
@@ -197,7 +205,16 @@ class JudgmentProps(_CommonProps):
     ecli: str | None = None
     source_kind: str | None = None
     meta: dict[str, Any] | None = None
+    # the Dutch inhoudsindicatie; an English one (a translation) is ``summary_en``
     summary: str | None = None
+    summary_en: str | None = None
+    # an English translation: the ECLI of the judgment it translates
+    translation_of: str | None = None
+    # what lawyers call it ("Haviltex"; ``core.judgment_names``)
+    names: list[str] | None = None
+    # arrest, vonnis, beschikking, uitspraak, conclusie, prejudiciële beslissing
+    # (``core.judgments.decision_kind``)
+    decision_kind: str | None = None
     text: str | None = None
     judgment_metadata: dict[str, Any] | None = None
     subjects: list[str] | None = None
@@ -288,6 +305,7 @@ class DossierProps(_CommonProps):
     number: str | None = None
     suffix: str | None = None
     label: str | None = None
+    order: str | None = None  # core.dossier_numbers.dossier_order: the Kamer's order
     title: str | None = None
     title_source: str | None = None
     closed: bool | None = None
@@ -300,6 +318,12 @@ class DossierProps(_CommonProps):
     stages_missing: list[str] | None = None
     track_kind: str | None = None
     outcome: str | None = None
+    # who brought the dossier in (``semantic government``): the ministry (``core.ministries``)
+    # of the first bewindspersoon to sign its earliest document, or ``initiative`` when a
+    # Kamerlid signed first; the cabinet in office on that day
+    ministry: str | None = None
+    initiative: bool | None = None
+    cabinet: str | None = None
     # the other dossiers with the same number (the chapters of one budget)
     same_number_count: int | None = None
 
@@ -351,6 +375,8 @@ class DecisionProps(_CommonProps):
     voters: dict[str, int] | None = None
     passed: bool | None = None
     external_id: str | None = None
+    # motie, amendement, wetsvoorstel or overig: from primary_case_kind
+    # (``tk_records.decision_kind``)
     kind: str | None = None
     # no source sets it: the Eerste Kamer has no votes here; the API still returns it
     chamber: str | None = None
@@ -370,6 +396,12 @@ class CommitmentProps(_CommonProps):
     expected_resolution: str | None = None
     status: str | None = None
     activity_number: str | None = None
+    # who made it (``semantic government``): the member, the post and ministry of their
+    # role, and the cabinet in office on the day
+    member_key: str | None = None
+    post: str | None = None
+    ministry: str | None = None
+    cabinet: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -400,6 +432,9 @@ class GovernmentFunctionProps(_StrictBase):
     to_date: str | None = None  # null while held
     position_id: str | None = None  # the Wikidata item of the post and of the cabinet
     cabinet_id: str | None = None
+    cabinet_key: str | None = None  # the cabinet node
+    post: str | None = None  # core.ministries.POSTS
+    ministry: str | None = None  # a key of core.ministries.MINISTRIES
 
 
 class MemberProps(_CommonProps):
@@ -412,6 +447,34 @@ class MemberProps(_CommonProps):
     wikidata_id: str | None = None
     wikidata_name: str | None = None  # the name of the Wikidata person
     government_functions: list[GovernmentFunctionProps] | None = None
+
+
+# ---------------------------------------------------------------------------
+# cabinets
+# ---------------------------------------------------------------------------
+
+
+class CabinetPartyProps(_StrictBase):
+    """A party a member of the cabinet belonged to during their post."""
+
+    name: str | None = None
+    short: str | None = None
+    wikidata_id: str | None = None
+    faction: str | None = None  # the faction key, when a faction has its name
+
+
+class CabinetProps(_CommonProps):
+    name: str | None = None  # "kabinet-Rutte IV"
+    wikidata_id: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None  # null while in office
+    # how precisely the dates are known: day, month or year (the old cabinets)
+    from_date_precision: str | None = None
+    to_date_precision: str | None = None
+    prime_minister: str | None = None  # member key
+    previous: str | None = None  # the cabinet key before it
+    parties: list[CabinetPartyProps] | None = None
+    factions: list[str] | None = None  # the faction keys of its parties
 
 
 # ---------------------------------------------------------------------------
@@ -504,6 +567,7 @@ COLLECTION_SCHEMAS: dict[str, type[_StrictBase]] = {
     COLLECTION_COMMITTEES: CommitteeProps,
     COLLECTION_MEMBERS: MemberProps,
     COLLECTION_FACTIONS: FactionProps,
+    COLLECTION_CABINETS: CabinetProps,
     COLLECTION_TOPICS: TopicProps,
     COLLECTION_CASES: CaseProps,
     COLLECTION_ANNEXES: AnnexProps,

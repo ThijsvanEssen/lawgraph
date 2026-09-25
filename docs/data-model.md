@@ -53,6 +53,7 @@ they are out of date. Do not edit inside the markers.
 | Commitment | `commitments` |
 | Member | `members` |
 | Faction | `factions` |
+| Cabinet | `cabinets` |
 | Committee | `committees` |
 
 | Relation | From | To | Meaning |
@@ -75,6 +76,7 @@ they are out of date. Do not edit inside the markers.
 | `LED_BY` | Activity | Committee | The lead committee (`voortouwcommissie`) of an activity; absent for plenary. |
 | `MADE_IN` | Commitment | Activity | The activity in which a commitment (toezegging) was made. |
 | `MEMBER_OF` | Member | Committee / Faction | Membership of a committee or faction, with from/to dates and role. |
+| `SERVED_IN` | Member | Cabinet | A post held in a cabinet, one edge per post: `function` as the source writes it, the normalised `post` and `ministry`, `from_date`, `to_date`. |
 | `AUTHORED` | Member | Document / Case | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, …), `function` as what (`Functie`) and `capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). |
 | `RELATED_TO` | Dossier | Dossier | The Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. |
 | `REVISES` | Dossier | Dossier | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`). |
@@ -176,8 +178,8 @@ renumbering; each version has a `versie-id`.
 
 | Node | Identity | Notes |
 |------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text, per `stam_id` for an article without a number; historical identities per `stam_id` | props: `label` (`Artikel 287`, or the heading of an article without a number: `Algemene bepaling`), `position` (its place in the current toestand: the order of the lists), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
-| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `label`, `position` (in the toestand it was read from); `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
+| Article | one per `(bwb_id, article_number)` for the current text, per `stam_id` for an article without a number; historical identities per `stam_id` | props: `label` (`Artikel 287`, or the heading of an article without a number: `Algemene bepaling`), `heading` (the `<titel>` of its `<kop>`, numbered or not: `Definities`; absent when the BWB prints none, as for every article of the Wetboek van Strafrecht and the Burgerlijk Wetboek), `position` (its place in the current toestand: the order of the lists), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
+| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand | `label`, `heading`, `position` (in the toestand it was read from); `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article, null when current; `current`; `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
 | InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until`, `current`, `state_url` |
 
 - `ArticleVersion VERSION_OF Article` and `InstrumentVersion VERSION_OF Instrument`. There are
@@ -228,7 +230,24 @@ A Rechtspraak judgment carries its header (`court`, `date`, `case_number`, `judg
 with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `related_eclis`
 (earlier instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion),
 `subjects`; `court_code`, `tier`, `date_eff` and `case_number_keys`, the case numbers as compared,
-derived), `summary`, `text`, `paragraphs` and `parties`.
+derived), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`.
+
+`summary` is the inhoudsindicatie, in Dutch. The Rechtspraak publishes a few judgments in an
+English translation too, under an ECLI of their own (ECLI:NL:HR:2019:2007 beside
+ECLI:NL:HR:2019:2006, case number `19/00135 (Engels)`); their inhoudsindicatie is English. An
+English inhoudsindicatie is kept as `summary_en`; the translation has `translation_of`, the ECLI
+of the judgment it translates, and that judgment's Dutch `summary`, and the judgment its
+`summary_en`. `summary` of a translation stays null while the judgment it translates is not
+loaded.
+
+`decision_kind` is what the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`,
+`conclusie` or `prejudiciële beslissing` (`core.judgments.decision_kind`; the rule is in
+[pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
+A stub has the kind its tier gives.
+
+`names` is what lawyers call the judgment (`Haviltex`, `Urgenda`, `Lindenbaum/Cohen`), from the
+curated list of landmark cases in `core/judgment_names.py`; empty for most judgments, null on a
+stub without one. The open data carries no names: see [pipelines](pipelines.md#rechtspraak).
 
 The judgments of one case are tied by `APPEAL_OF` (an appeal to the judgment it appeals),
 `ADVISES_ON` (a conclusion to its judgment) and `ANSWERS` (a preliminary ruling to the decision
@@ -290,14 +309,15 @@ Dossier contains Case contains Document. TK data is the source.
 
 | Concept | Collection | Notes |
 |---------|-----------|-------|
-| Dossier | `dossiers` | `number`, `suffix`, `label` (`37020-XV`; the key is made from it), `title`, `title_source`; derived: `opened_on` (first document or activity), `case_kinds` (the `Zaak.Soort` of the dossier's own cases), `track_kind` (what the dossier is, never what is filed under it: a bill `wetsvoorstel`, `initiatiefwetsvoorstel`, `begroting` (also a slotwet) or `verdrag` by its own case or bill; `initiatiefnota`; `nota`, a paper of the government that is itself the subject, named so in the title: the Miljoenennota "Nota over de toestand van ’s Rijks Financiën", the Voorjaars- and Najaarsnota, the Financieel Jaarverslag van het Rijk, a Defensienota, the HGIS-nota; otherwise `overig`, the letters and motions on a subject such as an EU Council series), `same_number_count` (the other dossiers with the same number, written by `normalize tk-dossiers`), `current_stage`, `stages_present`, `stages_missing` (the stages passed on the way to the current one, those the track always passes included, without a dated document, activity or vote; see [pipelines](pipelines.md)) and `stages_complete` (none missing); of `wetsvoorstel`, `mvt`, `advies_rvs`, `verslag`, `nota_naar_aanleiding_van_verslag`, `amendementen`, `behandeling`, `stemming`, `afgehandeld`; the first eight for a bill only); `closed`, `outcome` (`aangenomen`: its law was published; `ingetrokken`: its bill was withdrawn by letter; `verworpen`: the Tweede Kamer voted the bill down) and `closed_on`, derived from the graph by `semantic tk-dossier-outcomes` (the TK record has no end of its own). An open dossier has `closed: false` and no outcome |
+| Dossier | `dossiers` | `number`, `suffix`, `label` (`37020-XV`; the key is made from it), `order` (a text that sorts dossiers in the order of the Kamer: by number, then no suffix, numeric suffixes, budget chapters, the rest; `core/dossier_numbers.dossier_order`), `title`, `title_source`; derived: `opened_on` (first document or activity), `case_kinds` (the `Zaak.Soort` of the dossier's own cases), `track_kind` (what the dossier is, never what is filed under it: a bill `wetsvoorstel`, `initiatiefwetsvoorstel`, `begroting` (also a slotwet) or `verdrag` by its own case or bill; `initiatiefnota`; `nota`, a paper of the government that is itself the subject, named so in the title: the Miljoenennota "Nota over de toestand van ’s Rijks Financiën", the Voorjaars- and Najaarsnota, the Financieel Jaarverslag van het Rijk, a Defensienota, the HGIS-nota; `structuurvisie` (its case `PKB/Structuurvisie` or its title: a structuurvisie, a PKB, the Nationale Omgevingsvisie); `verantwoording` (a beleidsdoorlichting, the reports on a big project); `eu` (21501, the EU Councils, and 22112, the fiches on Commission proposals, by number; an EU proposal, the JBZ-Raad, the EU presidency by title); `interparlementair` (an assembly the Kamer sends a delegation to); `kamer` (the Kamer's own: a committee or working-visit report, its code of conduct, an inquiry); otherwise `beleid`, the letters and motions on a subject. A bill with no case or document of its own on record is known by its title: "Regels …", "Wijziging van …", "Goedkeuring van …"; a treaty for tacit approval by "Verdrag …", "Protocol …"; a bill's dossier stays a bill after its law is in force), `same_number_count` (the other dossiers with the same number, written by `normalize tk-dossiers`), `current_stage`, `stages_present`, `stages_missing` (the stages passed on the way to the current one, those the track always passes included, without a dated document, activity or vote; see [pipelines](pipelines.md)) and `stages_complete` (none missing); of `wetsvoorstel`, `mvt`, `advies_rvs`, `verslag`, `nota_naar_aanleiding_van_verslag`, `amendementen`, `behandeling`, `stemming`, `afgehandeld`; the first eight for a bill only); `closed`, `outcome` (`aangenomen`: its law was published; `ingetrokken`: its bill was withdrawn by letter; `verworpen`: the Tweede Kamer voted the bill down) and `closed_on`, derived from the graph by `semantic tk-dossier-outcomes` (the TK record has no end of its own). An open dossier has `closed: false` and no outcome; `ministry`, `initiative` and `cabinet` (who brought it in: the ministry of the bewindspersoon who signed its earliest signed document first, or `initiative: true` for a Kamerlid; the cabinet in office then), written by `semantic tk-government` |
 | Case | `cases` | every TK Zaak, no filter on kind; `title`, `citation_title`, `number`, `kind` (`Zaak.Soort`), `dossier_numbers`, `related_cases` (`Zaak.GerelateerdNaar`: `id`, `kind`, `dossier_numbers` of each case the Kamer relates it to; read by `semantic tk-dossier-relations`) (the payload stays in `raw_sources`) |
 | Document | `documents` | TK Document (`kind`, `title`, `subject`, `date`, `sequence`, `session_year`, `document_number` (`DocumentNummer`), `dossier_numbers`, `case_ids`, `case_kinds`, `actors`, `text`; the structure of the text of a Kamerstuk XML: see below); also Staatsblad, Staatscourant and Eerste Kamer documents (`ek_<identifier>`, `dossier_number`, `dossier_suffix`, and the label in `dossier_numbers` as on a TK document); the chamber is in `labels` (`TK`; `EersteKamer` and `EK`), and a `kind` containing `toelichting` makes a document explanatory |
 | Activity | `activities` | debate or hearing; `number` (`Activiteit.Nummer`), `date`, `agenda_title` (`Onderwerp`), `kind`, `status` (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`), `committee_id` (null for a plenary activity), `case_ids`, `dossier_numbers`, `case_kinds_by_dossier` |
-| Decision | `decisions` | one node per TK `Besluit`; `primary_case_id` and `primary_case_kind` name the Zaak it decided (`Wetgeving` on the vote on a bill itself) |
-| Commitment | `commitments` | `status` mapped to `open`, `gedaan`, `vervallen`, `unknown`; `activity_number` |
-| Member | `members` | every TK `Persoon` (members and ministers; a minister who never sat in parliament has no name or date of birth there); `name`, `family_name`, `birth_date`, `party`, `faction_memberships` (dated timeline); from Wikidata `wikidata_id`, `wikidata_name` and `government_functions` (`function`, `cabinet`, `from_date`, `to_date`, and the Q-ids `position_id`, `cabinet_id`: every post in a Dutch cabinet). A cabinet member without a TK `Persoon` is a member of its own, label `Wikidata`, key from the Q-id |
+| Decision | `decisions` | one node per TK `Besluit`; `primary_case_id` and `primary_case_kind` name the Zaak it decided (`Wetgeving` on the vote on a bill itself); `kind`, what was voted on, from that `Zaak.Soort` (the stage `classify_case_kind` gives it): `motie`, `amendement`, `wetsvoorstel` (also an initiative bill or a budget) or `overig`; without a primary case the kind of the cases on its Agendapunt when they are all of one kind; never read from the subject |
+| Commitment | `commitments` | `text`, `minister_name`, `minister_role` (as the source writes them), `made_on`, `expected_resolution` (`0001-01-01` when the Kamer names none), `status` (`open`, `done`, `partly_done`, `unfulfilled`, `lapsed`), `activity_number`; from `semantic tk-government`: `member_key` (who made it), `post`, `ministry` and `cabinet` (in office that day) |
+| Member | `members` | every TK `Persoon` (members and ministers; a minister who never sat in parliament has no name or date of birth there); `name`, `family_name`, `birth_date`, `party`, `faction_memberships` (dated timeline); from Wikidata `wikidata_id`, `wikidata_name` and `government_functions` (`function`, `cabinet`, `from_date`, `to_date`, the Q-ids `position_id`, `cabinet_id`, and normalised `post`, `ministry` (`core/ministries.py`) and `cabinet_key`: every post in a Dutch cabinet). A cabinet member without a TK `Persoon` is a member of its own, label `Wikidata`, key from the Q-id |
 | Faction | `factions` | `name`, `abbreviation`, `aliases`, `seats`, `active` |
+| Cabinet | `cabinets` | a Dutch cabinet, from Wikidata; key from its name (`rutte_iv`, `den_uyl`); `name` (`kabinet-Rutte IV`), `wikidata_id`, `from_date`, `to_date` (null in office), `from_date_precision`, `to_date_precision` (`day`, `month`, `year`), `prime_minister` (member key), `previous` (cabinet key), `parties` (`name`, `short`, `wikidata_id`, `faction`) and `factions` (their faction keys); see [pipelines](pipelines.md#wikidata) |
 | Committee | `committees` | `name`, `abbreviation`, `slug`; only a Commissie with a name (the plenary is no committee) |
 
 No link to tweedekamer.nl is stored. The site finds a document by its `document_number` and an
@@ -408,7 +428,7 @@ record is skipped like one without a payload.
 | `eerstekamer` | `ek-kamerstuk-json` |
 | `echr` | `echr-judgment-json` |
 | `verdragenbank` | `verdrag-json` |
-| `wikidata` | `wikidata-cabinet-posts-json` (one person and every post they held in a Dutch cabinet, external id the Q-id) |
+| `wikidata` | `wikidata-cabinet-posts-json` (one person, every post they held in a Dutch cabinet and their parties, external id the Q-id), `wikidata-cabinet-json` (one cabinet, external id the Q-id) |
 
 A document the source answered HTTP 404 for is remembered as a record without payload of
 kind `<kind>-missing` (`eu-celex-html-missing`, `rs-content-missing`, ...); the retrieve
@@ -424,8 +444,9 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
-| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; `props.source`, `court_code`, `tier`, `date_eff`, `inbound_citation_count`; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
-| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on |
+| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier)`, `(court_code, date_eff, tier)`, `(tier, date_eff)` and `(date_eff, tier)`: each filter of `/api/judgments` ends in the tier and the date, so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
+| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on (`dossiers` `props.order`, `props.label` (a number prefix as a range), `props.opened_on`; `dossiers` and `commitments` also `props.cabinet`, `props.ministry`; `commitments` `props.member_key`) |
+| `members` | `props.government_functions[*].cabinet_key` (`GET /api/members?cabinet=`) |
 | `raw_sources` | `(source, kind)` |
 | `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)` |
 
@@ -440,6 +461,16 @@ ArangoSearch views back `/api/search`: `search_articles`, `search_instruments`,
 analyzers `lawgraph_ngram_v2` (lower-cased 3-12 character n-grams, so `vordering` finds
 `Strafvordering`) and `lawgraph_norm` (lower-cased identity for identifiers), plus `identity`
 and the Dutch `text_nl` (`TEXT_ANALYZER`: a word is stemmed, so `uitspraken` finds `uitspraak`;
-English texts such as ECHR summaries are stemmed as Dutch too). Views fill asynchronously; a
+English texts such as ECHR summaries are stemmed as Dutch too). `search_judgments` indexes each
+of the `names` of a judgment as a word (`text_nl`), a whole (`identity`, `lawgraph_norm`) and in
+n-grams. Views fill asynchronously; a
 fresh insert may be missing briefly. `members` and `factions` have no view: they are small
 enough to scan.
+`search_articles` indexes the `display_name`, `heading`, the `title` of every division in the
+`breadcrumb` (`breadcrumb.title`), `text`, `article_number` and `bwb_id` of an article;
+`search_instruments` the titles, `short_title`, `aliases` and `bwb_id` of an instrument.
+
+An instrument's `aliases` are every name it is cited by: the official WTI abbreviations
+(`Sr`, `WvS`, `WvSr`) and, for a book of a code in `CODE_FAMILIES`, `Boek 6 BW`, `6 BW`,
+`BW 6`, `BW6`, `BW Boek 6` and `BW`. Unlike `short_title` an alias may be shared: `BW` is one
+of every book. Written by `normalize bwb`.

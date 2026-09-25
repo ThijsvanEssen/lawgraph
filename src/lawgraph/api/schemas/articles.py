@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_arango_id
+from lawgraph.core.official_urls import article_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
 
@@ -151,9 +152,18 @@ class ArticleSummaryDTO(BaseModel):
         description="`Artikel 287`, or the heading of an article without a number "
         "(`Algemene bepaling`).",
     )
+    heading: str | None = Field(
+        None,
+        description="The title of its kop (`Definities`); most articles have none.",
+    )
     address: str = Field(..., description=ARTICLE_ADDRESS)
     repealed: bool = False
     display_name: str | None
+    official_url: str | None = Field(
+        None,
+        description="The article in force on wetten.overheid.nl (its JCI); the "
+        "regulation for an article without a number the JCI can address.",
+    )
     text: str | None
     parts: list[ArticlePartDTO] = Field(
         default_factory=list,
@@ -173,9 +183,11 @@ class ArticleSummaryDTO(BaseModel):
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
             label=props.get("label"),
+            heading=props.get("heading"),
             address=address_of(doc),
             repealed=bool(props.get("repealed")),
             display_name=props.get("display_name"),
+            official_url=article_url(props.get("bwb_id"), props.get("article_number")),
             text=props.get("text"),
             parts=parts_from_props(props),
         )
@@ -536,6 +548,11 @@ class ArticleVersionDTO(BaseModel):
     valid_from: str | None = None
     valid_until: str | None = None
     current: bool = False
+    official_url: str | None = Field(
+        None,
+        description="This version on wetten.overheid.nl: the JCI with ``g`` its "
+        "``valid_from``.",
+    )
     text: str | None = None
     parts: list[ArticlePartDTO] = Field(
         default_factory=list, description="As on the article: spans of `text`."
@@ -566,6 +583,11 @@ class ArticleVersionDTO(BaseModel):
             valid_from=props.get("valid_from"),
             valid_until=props.get("valid_until"),
             current=bool(props.get("current", False)),
+            official_url=article_url(
+                props.get("bwb_id"),
+                props.get("article_number"),
+                on=props.get("valid_from"),
+            ),
             text=props.get("text"),
             parts=parts_from_props(props),
             effect=effect,

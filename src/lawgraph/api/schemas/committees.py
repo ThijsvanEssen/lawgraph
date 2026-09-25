@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.dossiers import DossierSummaryDTO, SigningCapacity
 
 
@@ -175,6 +176,44 @@ class FactionMembershipDTO(BaseModel):
     role: str | None = None
 
 
+class GovernmentFunctionDTO(BaseModel):
+    """A post held in a cabinet: as Wikidata names it, and normalised."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    function: str | None = Field(
+        None,
+        description="The post as Wikidata names it: Minister voor Klimaat en Energie.",
+    )
+    cabinet: str | None = Field(None, description="The cabinet: kabinet-Rutte IV.")
+    cabinet_key: str | None = Field(
+        None, description="The cabinet node (``GET /api/cabinets/{key}``)."
+    )
+    post: Post | None = None
+    ministry: MinistryKey | None = Field(
+        None,
+        description="The ministry the post falls under (``GET /api/ministries``); a "
+        "minister without portfolio under the ministry the post is placed under.",
+    )
+    from_date: str | None = None
+    to_date: str | None = Field(None, description="Null while the post is held.")
+
+
+def government_functions_of(props: dict[str, Any]) -> list[GovernmentFunctionDTO]:
+    return [
+        GovernmentFunctionDTO(
+            function=f.get("function"),
+            cabinet=f.get("cabinet"),
+            cabinet_key=f.get("cabinet_key"),
+            post=f.get("post"),
+            ministry=f.get("ministry"),
+            from_date=f.get("from_date"),
+            to_date=f.get("to_date"),
+        )
+        for f in props.get("government_functions") or []
+    ]
+
+
 class MemberDTO(BaseModel):
     """A member of parliament or a minister.
 
@@ -193,6 +232,10 @@ class MemberDTO(BaseModel):
     party: str | None = None
     active: bool = False
     faction_memberships: list[FactionMembershipDTO] = []
+    government_functions: list[GovernmentFunctionDTO] = Field(
+        default_factory=list,
+        description="The posts held in a cabinet (from Wikidata), oldest first.",
+    )
     from_date: str | None = None
     to_date: str | None = None
 
@@ -222,23 +265,10 @@ class MemberDTO(BaseModel):
             party=party or props.get("party"),
             active=bool(open_memberships),
             faction_memberships=memberships,
+            government_functions=government_functions_of(props),
             from_date=doc.get("from_date"),
             to_date=doc.get("to_date"),
         )
-
-
-class GovernmentFunctionDTO(BaseModel):
-    """A post held in a cabinet, as Wikidata records it."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    function: str | None = Field(
-        None,
-        description="The post as Wikidata names it: Minister voor Klimaat en Energie.",
-    )
-    cabinet: str | None = Field(None, description="The cabinet: kabinet-Rutte IV.")
-    from_date: str | None = None
-    to_date: str | None = Field(None, description="Null while the post is held.")
 
 
 class MemberDetailDTO(MemberDTO):
@@ -253,7 +283,6 @@ class MemberDetailDTO(MemberDTO):
 
     birth_date: str | None = None
     wikidata_id: str | None = None
-    government_functions: list[GovernmentFunctionDTO] = []
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> MemberDetailDTO:
@@ -262,15 +291,6 @@ class MemberDetailDTO(MemberDTO):
             **MemberDTO.from_document(doc).model_dump(),
             birth_date=props.get("birth_date"),
             wikidata_id=props.get("wikidata_id"),
-            government_functions=[
-                GovernmentFunctionDTO(
-                    function=f.get("function"),
-                    cabinet=f.get("cabinet"),
-                    from_date=f.get("from_date"),
-                    to_date=f.get("to_date"),
-                )
-                for f in props.get("government_functions") or []
-            ],
         )
 
 

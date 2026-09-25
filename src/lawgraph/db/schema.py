@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
     COLLECTION_RAW_SOURCES,
     DOCUMENT_COLLECTIONS,
     TEXT_ANALYZER,
@@ -137,18 +138,40 @@ def _ensure_analyzers(db: StandardDatabase) -> None:
             logger.warning("Failed to create analyzer %s: %s", spec["name"], exc)
 
 
+def _flat_fields(fields: dict[str, Any], prefix: str = "") -> dict[str, frozenset[str]]:
+    """Dotted field path (``breadcrumb.title``) -> analyzers, from nested link fields."""
+    flat: dict[str, frozenset[str]] = {}
+    for name, spec in fields.items():
+        if spec.get("fields"):
+            flat.update(_flat_fields(spec["fields"], f"{prefix}{name}."))
+        else:
+            flat[f"{prefix}{name}"] = frozenset(spec.get("analyzers", ()))
+    return flat
+
+
 def _indexed_fields(links: dict[str, Any]) -> dict[str, dict[str, frozenset[str]]]:
     """collection -> field -> analyzers: the part of a view definition that we specify.
 
     The server returns links with its own defaults added and analyzers in its own order.
     """
     return {
-        collection: {
-            field: frozenset(spec.get("analyzers", ()))
-            for field, spec in link["fields"]["props"]["fields"].items()
-        }
+        collection: _flat_fields(link["fields"]["props"]["fields"])
         for collection, link in links.items()
     }
+
+
+def _nested_fields(fields: dict[str, list[str]]) -> dict[str, Any]:
+    """Link fields from dotted paths: ``breadcrumb.title`` indexes the ``title`` of every
+    element of the ``breadcrumb`` array (list positions are not tracked)."""
+    nested: dict[str, Any] = {}
+    for path, analyzers in fields.items():
+        head, _, rest = path.partition(".")
+        if rest:
+            inner = nested.setdefault(head, {"fields": {}})["fields"]
+            inner.update(_nested_fields({rest: analyzers}))
+        else:
+            nested[head] = {"analyzers": list(analyzers)}
+    return nested
 
 
 # view -> {collection: {field: analyzers}}; each view indexes one collection.
@@ -159,6 +182,13 @@ _VIEW_SPECS: dict[str, dict[str, dict[str, list[str]]]] = {
             "text": [TEXT_ANALYZER],
             "article_number": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
             "bwb_id": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
+            "heading": [
+                TEXT_ANALYZER,
+                "identity",
+                "lawgraph_norm",
+                "lawgraph_ngram_v2",
+            ],
+            "breadcrumb.title": [TEXT_ANALYZER],
         },
     },
     "search_instruments": {
@@ -168,12 +198,15 @@ _VIEW_SPECS: dict[str, dict[str, dict[str, list[str]]]] = {
             "official_title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
             "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
             "short_title": ["identity", "lawgraph_norm"],
+            "aliases": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
             "bwb_id": ["identity", "lawgraph_norm"],
         },
     },
     "search_judgments": {
         COLLECTION_JUDGMENTS: {
             "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
+            # every element of the array: "Haviltex", "Lindenbaum/Cohen"
+            "names": [TEXT_ANALYZER, "identity", "lawgraph_norm", "lawgraph_ngram_v2"],
             "summary": [TEXT_ANALYZER],
             "ecli": ["identity", "lawgraph_norm"],
             "appno": ["identity", "lawgraph_norm"],
@@ -230,14 +263,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
                 "includeAllFields": False,
                 "storeValues": "id",
                 "analyzers": ["identity"],
-                "fields": {
-                    "props": {
-                        "fields": {
-                            fname: {"analyzers": list(analyzers)}
-                            for fname, analyzers in fields.items()
-                        }
-                    }
-                },
+                "fields": {"props": {"fields": _nested_fields(fields)}},
             }
         properties = {"links": view_links}
         try:
@@ -335,7 +361,13 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_JUDGMENTS, ["props.series_id"], False, True),
         # What `/api/stats` counts per value is not sparse, so the count walks the index
         # and sees the documents without a value too; sparse, each count read every document.
-        (COLLECTION_JUDGMENTS, ["props.source"], False, False),
+        # It ends in the tier and the date for the facets of `/api/judgments?source=`.
+        (
+            COLLECTION_JUDGMENTS,
+            ["props.source", "props.date_eff", "props.tier"],
+            False,
+            False,
+        ),
         # ``/api/stats/coverage`` counts per court from this index alone
         # (``queries/stats.py``): every field it reads is in it.
         (
@@ -361,9 +393,19 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_INSTRUMENTS, ["props.jurisdiction"], False, False),
         (COLLECTION_INSTRUMENTS, ["props.kind"], False, False),
         (COLLECTION_INSTRUMENTS, ["props.article_count"], False, False),
-        (COLLECTION_JUDGMENTS, ["props.tier"], False, True),
-        (COLLECTION_JUDGMENTS, ["props.court_code"], False, True),
-        (COLLECTION_JUDGMENTS, ["props.date_eff"], False, False),
+        # `/api/judgments` counts per tier and per year of `date_eff` under the filters
+        # (`queries/judgments.py`): each filter's index ends in both, so a count reads
+        # the index alone, not the judgments.
+        (COLLECTION_JUDGMENTS, ["props.tier", "props.date_eff"], False, False),
+        (
+            COLLECTION_JUDGMENTS,
+            ["props.court_code", "props.date_eff", "props.tier"],
+            False,
+            False,
+        ),
+        (COLLECTION_JUDGMENTS, ["props.date_eff", "props.tier"], False, False),
+        # `/api/judgments?subject=`: `@subject IN doc.props.subjects[*]`
+        (COLLECTION_JUDGMENTS, ["props.subjects[*]"], False),
         (COLLECTION_JUDGMENTS, ["props.inbound_citation_count"], False, False),
         (COLLECTION_ARTICLES, ["props.inbound_citation_count"], False, False),
         # `/api/stats` counts the stubs (the judgments count them from the coverage index)
@@ -375,6 +417,10 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_DOCUMENTS, ["props.date"], False),
         (COLLECTION_DOCUMENTS, ["props.dossier_number"], False),
         (COLLECTION_DOSSIERS, ["props.number"], False),
+        # the orders and the number prefix of `GET /api/dossiers`
+        (COLLECTION_DOSSIERS, ["props.order"], False),
+        (COLLECTION_DOSSIERS, ["props.label"], False),
+        (COLLECTION_DOSSIERS, ["props.opened_on"], False),
         (COLLECTION_DOSSIERS, ["props.closed"], False),
         (COLLECTION_DOSSIERS, ["props.closed_on"], False),
         (COLLECTION_ACTIVITIES, ["props.date"], False),
@@ -384,6 +430,14 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_DECISIONS, ["props.dossier_numbers[*]"], False),
         (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
         (COLLECTION_COMMITMENTS, ["props.status"], False),
+        # who made it and under which cabinet (``semantic tk-government``)
+        (COLLECTION_COMMITMENTS, ["props.member_key"], False),
+        (COLLECTION_COMMITMENTS, ["props.cabinet"], False),
+        (COLLECTION_COMMITMENTS, ["props.ministry"], False),
+        (COLLECTION_DOSSIERS, ["props.cabinet"], False),
+        (COLLECTION_DOSSIERS, ["props.ministry"], False),
+        # `GET /api/members?cabinet=`: `@cabinet IN ...government_functions[*].cabinet_key`
+        (COLLECTION_MEMBERS, ["props.government_functions[*].cabinet_key"], False),
         # raw_sources: the normalize pipelines read by source and kind. Not sparse, so a
         # count per kind walks the index and reads no document (an EU act is up to 1 MB).
         (COLLECTION_RAW_SOURCES, ["source", "kind"], False, False),

@@ -18,6 +18,13 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from lawgraph.core.judgments import (
+    AREA_ADMINISTRATIVE,
+    AREA_CIVIL,
+    AREA_CRIMINAL,
+    area_of_law,
+)
+
 SIDE_FIRST = "first"
 SIDE_SECOND = "second"
 SIDE_OTHER = "other"
@@ -662,19 +669,6 @@ def _is_role_name(text: str) -> bool:
 
 # ── the role a judgment does not state ───────────────────────────────────────
 
-AREA_CRIMINAL = "Strafrecht"
-AREA_CIVIL = "Civiel recht"
-AREA_ADMINISTRATIVE = "Bestuursrecht"
-
-
-def _area(subjects: list[str] | None) -> str | None:
-    """The area of law of a judgment: the first part of its first subject."""
-    for subject in subjects or []:
-        area = subject.split(";")[0].strip()
-        if area in (AREA_CRIMINAL, AREA_CIVIL, AREA_ADMINISTRATIVE):
-            return area
-    return None
-
 
 def _derived_role(
     party: _Party, area: str | None, *, request: bool, appeal: bool
@@ -704,7 +698,7 @@ def read_parties(lines: list[str], subjects: list[str] | None) -> list[dict[str,
             party.role, party.role_stated = label, True
         if party.role == "Belanghebbende" and index > 0:
             party.side = SIDE_OTHER
-    area = _area(subjects)
+    area = area_of_law(subjects)
     request = any(re.search(r"\bbeschikking\b", line, re.IGNORECASE) for line in lines)
     appeal = any(p.role == "Appellant" and p.role_stated for p in parties)
     for party in parties:

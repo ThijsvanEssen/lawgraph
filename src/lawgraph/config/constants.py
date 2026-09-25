@@ -20,6 +20,7 @@ COLLECTION_COMMITMENTS = "commitments"
 COLLECTION_COMMITTEES = "committees"
 COLLECTION_MEMBERS = "members"
 COLLECTION_FACTIONS = "factions"
+COLLECTION_CABINETS = "cabinets"
 COLLECTION_TOPICS = "topics"
 COLLECTION_RAW_SOURCES = "raw_sources"
 COLLECTION_ANNEXES = "annexes"
@@ -43,6 +44,7 @@ DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     COLLECTION_COMMITTEES,
     COLLECTION_MEMBERS,
     COLLECTION_FACTIONS,
+    COLLECTION_CABINETS,
     COLLECTION_ANNEXES,
     COLLECTION_PIPELINE_STATE,
 )
@@ -86,6 +88,7 @@ RELATION_RELATED_TO = "RELATED_TO"
 RELATION_REVISES = "REVISES"
 RELATION_ACCOMPANIES = "ACCOMPANIES"
 RELATION_SECOND_READING_OF = "SECOND_READING_OF"
+RELATION_SERVED_IN = "SERVED_IN"
 
 # ── Semantic relationship types ───────────────────────────────────────────────
 # Curated semantic layer stored on edges as `semantic_type`. Orthogonal to
@@ -216,6 +219,8 @@ RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_VERDRAG = "verdrag-json"
 # Every post a person held in a Dutch cabinet, one record per person (external id: the Q-id).
 RAW_KIND_WIKIDATA_CABINET_POSTS = "wikidata-cabinet-posts-json"
+# Every Dutch cabinet, one record per cabinet (external id: the Q-id).
+RAW_KIND_WIKIDATA_CABINET = "wikidata-cabinet-json"
 
 # A document the source answered HTTP 404 for is remembered as a record of the kind it would
 # have had plus this suffix (no payload), so it is not asked for again on every run.
@@ -247,7 +252,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
     SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
-    SOURCE_WIKIDATA: (RAW_KIND_WIKIDATA_CABINET_POSTS,),
+    SOURCE_WIKIDATA: (RAW_KIND_WIKIDATA_CABINET_POSTS, RAW_KIND_WIKIDATA_CABINET),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────

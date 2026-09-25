@@ -318,9 +318,32 @@ def test_an_article_without_a_number_is_named_by_its_heading() -> None:
     </artikel></wettekst></wet-besluit></wetgeving></toestand>"""
     articles = parse_toestand(xml).articles
 
-    assert [(a.number, a.label) for a in articles] == [
-        (None, "Algemene bepaling"),
-        ("1", "Artikel 1"),
-        (None, "Slotartikel"),
+    assert [(a.number, a.label, a.heading) for a in articles] == [
+        (None, "Algemene bepaling", "Algemene bepaling"),
+        ("1", "Artikel 1", None),
+        (None, "Slotartikel", None),
     ]
     assert articles[0].text.startswith("De Grondwet waarborgt")
+
+
+def test_a_numbered_article_keeps_the_title_of_its_kop_as_its_heading() -> None:
+    from lawgraph.core.bwb_xml import article_props, parse_toestand
+
+    xml = """<toestand bwb-id="BWBR0040940"><wetgeving soort="wet"><wet-besluit><wettekst>
+    <hoofdstuk><kop><label>Hoofdstuk</label><nr>1</nr><titel>Algemene bepalingen</titel></kop>
+    <artikel stam-id="1" label="Artikel 1"><kop><label>Artikel</label><nr>1</nr>
+      <titel status="officieel">Definities</titel></kop>
+      <al>In deze wet wordt verstaan onder: ...</al></artikel>
+    </hoofdstuk></wettekst></wet-besluit></wetgeving></toestand>"""
+    article = parse_toestand(xml).articles[0]
+
+    assert (article.number, article.label, article.heading) == (
+        "1",
+        "Artikel 1",
+        "Definities",
+    )
+    props = article_props(article, "BWBR0040940", "Uitvoeringswet AVG", 0)
+    assert props["heading"] == "Definities"
+    assert props["breadcrumb"] == [
+        {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Algemene bepalingen"}
+    ]

@@ -41,6 +41,7 @@ from lawgraph.api.schemas.instruments import (
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.bwb_xml import article_label
+from lawgraph.core.official_urls import article_url
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries._helpers import props as _props
@@ -661,6 +662,11 @@ def list_articles_at(
             valid_from=_props(d).get("valid_from"),
             valid_until=_props(d).get("valid_until"),
             current=bool(_props(d).get("current", False)),
+            official_url=article_url(
+                _props(d).get("bwb_id"),
+                _props(d).get("article_number"),
+                on=_props(d).get("valid_from"),
+            ),
             text=_props(d).get("text"),
         )
         for d in docs

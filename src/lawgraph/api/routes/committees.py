@@ -183,9 +183,12 @@ def list_committee_activities(
     response_model=list[MemberDTO],
     summary="Members of parliament",
     description=(
-        "Members of parliament, optionally filtered by party or name. By "
-        "default only people who ever held a seat; pass "
-        "``?include_all=true`` to include ministers and other non-members."
+        "Members of parliament, optionally filtered by party or name, each with the "
+        "posts they held in a cabinet (``government_functions``). By default only "
+        "people who ever held a seat; ``?include_all=true`` includes ministers and "
+        "other non-members, ``capacity=bewindspersoon`` keeps everyone who held a post "
+        "in a cabinet and ``cabinet`` those who held one in that cabinet. A record "
+        "without a name is never listed."
     ),
     tags=["members"],
 )
@@ -199,6 +202,16 @@ def list_members(
     ] = None,
     q: Annotated[str | None, Query(description="Name substring.")] = None,
     include_all: Annotated[bool, Query()] = False,
+    capacity: Annotated[
+        Literal["bewindspersoon"] | None,
+        Query(
+            description="``bewindspersoon``: only those who held a post in a cabinet."
+        ),
+    ] = None,
+    cabinet: Annotated[
+        str | None,
+        Query(description="Only those who held a post in this cabinet (key)."),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[MemberDTO]:
@@ -208,6 +221,8 @@ def list_members(
         active=active,
         q=q,
         include_all=include_all,
+        government=capacity == "bewindspersoon",
+        cabinet=cabinet,
         limit=limit,
         offset=offset,
     )

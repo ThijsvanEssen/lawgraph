@@ -16,6 +16,7 @@ from lawgraph.api.schemas.judgments import (
     JudgmentCitedArticle,
     JudgmentDetailResponse,
     JudgmentDTO,
+    JudgmentFacets,
     JudgmentListItemDTO,
     JudgmentListResponse,
     mentions_of,
@@ -25,6 +26,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.judgments import (
     JudgmentArticleRelation,
+    JudgmentFilters,
     get_judgment_with_relations,
     get_judgments_list,
 )
@@ -40,8 +42,10 @@ logger = get_logger(__name__)
     description=(
         "A paginated list of judgments with filters on court (the ECLI court "
         "code), tier (the college: hoge_raad, raad_van_state, "
-        "centrale_raad_van_beroep, parket, gerechtshof, rechtbank, tuchtcollege, …), date "
-        "range and a minimum citation count."
+        "centrale_raad_van_beroep, parket, gerechtshof, rechtbank, tuchtcollege, …), "
+        "area of law (`subject`), date range and a minimum citation count. `facets` "
+        "counts the judgments under the filters per `tier` (without the tier filter) "
+        "and per year of `date` (without `from` and `to`)."
     ),
     tags=["judgments"],
 )
@@ -74,26 +78,35 @@ def list_judgments(
         str | None,
         Query(alias="to", description="Upper bound on judgment date, YYYY-MM-DD"),
     ] = None,
+    subject: Annotated[
+        str | None,
+        Query(
+            description="An area of law, one of `subjects` as written: `Strafrecht`, "
+            "`Bestuursrecht; Belastingrecht`."
+        ),
+    ] = None,
     cited_by_min: Annotated[int | None, Query(ge=0)] = None,
     sort: Annotated[
         Literal["date_desc", "date_asc", "citation_count"], Query()
     ] = "date_desc",
 ) -> JudgmentListResponse:
-    data = get_judgments_list(
-        store,
+    filters = JudgmentFilters(
         q=q,
         court=court,
         tier=tier.value if tier else None,
         source=source,
+        subject=(subject or "").strip() or None,
         date_from=date_from,
         date_to=date_to,
         cited_by_min=cited_by_min,
-        sort=sort,
-        limit=limit,
-        offset=offset,
     )
+    data = get_judgments_list(store, filters, sort=sort, limit=limit, offset=offset)
     items = [JudgmentListItemDTO.from_document(row) for row in data.get("items", [])]
-    return JudgmentListResponse(items=items, total=int(data.get("total", 0)))
+    return JudgmentListResponse(
+        items=items,
+        total=int(data.get("total", 0)),
+        facets=JudgmentFacets(**(data.get("facets") or {})),
+    )
 
 
 @router.get(
