@@ -230,7 +230,24 @@ A Rechtspraak judgment carries its header (`court`, `date`, `case_number`, `judg
 with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `related_eclis`
 (earlier instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion),
 `subjects`; `court_code`, `tier`, `date_eff` and `case_number_keys`, the case numbers as compared,
-derived), `summary`, `text`, `paragraphs` and `parties`.
+derived), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`.
+
+`summary` is the inhoudsindicatie, in Dutch. The Rechtspraak publishes a few judgments in an
+English translation too, under an ECLI of their own (ECLI:NL:HR:2019:2007 beside
+ECLI:NL:HR:2019:2006, case number `19/00135 (Engels)`); their inhoudsindicatie is English. An
+English inhoudsindicatie is kept as `summary_en`; the translation has `translation_of`, the ECLI
+of the judgment it translates, and that judgment's Dutch `summary`, and the judgment its
+`summary_en`. `summary` of a translation stays null while the judgment it translates is not
+loaded.
+
+`decision_kind` is what the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`,
+`conclusie` or `prejudiciële beslissing` (`core.judgments.decision_kind`; the rule is in
+[pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
+A stub has the kind its tier gives.
+
+`names` is what lawyers call the judgment (`Haviltex`, `Urgenda`, `Lindenbaum/Cohen`), from the
+curated list of landmark cases in `core/judgment_names.py`; empty for most judgments, null on a
+stub without one. The open data carries no names: see [pipelines](pipelines.md#rechtspraak).
 
 The judgments of one case are tied by `APPEAL_OF` (an appeal to the judgment it appeals),
 `ADVISES_ON` (a conclusion to its judgment) and `ANSWERS` (a preliminary ruling to the decision
@@ -444,6 +461,8 @@ ArangoSearch views back `/api/search`: `search_articles`, `search_instruments`,
 analyzers `lawgraph_ngram_v2` (lower-cased 3-12 character n-grams, so `vordering` finds
 `Strafvordering`) and `lawgraph_norm` (lower-cased identity for identifiers), plus `identity`
 and the Dutch `text_nl` (`TEXT_ANALYZER`: a word is stemmed, so `uitspraken` finds `uitspraak`;
-English texts such as ECHR summaries are stemmed as Dutch too). Views fill asynchronously; a
+English texts such as ECHR summaries are stemmed as Dutch too). `search_judgments` indexes each
+of the `names` of a judgment as a word (`text_nl`), a whole (`identity`, `lawgraph_norm`) and in
+n-grams. Views fill asynchronously; a
 fresh insert may be missing briefly. `members` and `factions` have no view: they are small
 enough to scan.

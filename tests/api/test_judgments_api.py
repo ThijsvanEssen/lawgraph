@@ -300,3 +300,42 @@ def test_a_judgment_without_subjects_lists_none(monkeypatch):
     body = client.get("/api/judgments").json()
     assert body["items"][0]["subjects"] == []
     assert body["facets"] == {"tier": [], "year": []}
+
+
+def test_a_translation_serves_both_summaries_its_original_names_and_kind():
+    doc = {
+        **_JUDGMENT_DOC,
+        "props": {
+            **_JUDGMENT_DOC["props"],
+            "summary": "Klimaatzaak Urgenda. Mensenrechten.",
+            "summary_en": "Climate case Urgenda. Human rights.",
+            "translation_of": "ECLI:NL:HR:2019:2006",
+            "names": ["Urgenda"],
+            "decision_kind": "arrest",
+        },
+    }
+
+    judgment = JudgmentDTO.from_document(doc)
+
+    assert judgment.summary == "Klimaatzaak Urgenda. Mensenrechten."
+    assert judgment.summary_en == "Climate case Urgenda. Human rights."
+    assert judgment.translation_of == "ECLI:NL:HR:2019:2006"
+    assert judgment.names == ["Urgenda"] and judgment.decision_kind == "arrest"
+
+
+def test_a_judgment_without_names_or_kind_has_none():
+    judgment = JudgmentDTO.from_document(_JUDGMENT_DOC)
+
+    assert judgment.names == [] and judgment.decision_kind is None
+    assert judgment.summary_en is None and judgment.translation_of is None
+
+
+def test_the_judgment_list_carries_names_and_kind(monkeypatch):
+    row = {**_LIST_ROW, "names": ["Haviltex"], "decision_kind": "arrest"}
+    monkeypatch.setattr(
+        "lawgraph.api.routes.judgments.get_judgments_list",
+        lambda store, filters, **kwargs: {"total": 1, "items": [row, _LIST_ROW]},
+    )
+    first, second = client.get("/api/judgments").json()["items"]
+    assert (first["names"], first["decision_kind"]) == (["Haviltex"], "arrest")
+    assert (second["names"], second["decision_kind"]) == ([], None)

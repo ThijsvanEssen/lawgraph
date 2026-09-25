@@ -17,6 +17,9 @@ judgments
                            'raad_van_state', 'gerechtshof', 'rechtbank', ...)
     props.date_eff       — effective judgment date
     props.inbound_citation_count — count of inbound REFERS_TO edges
+    props.decision_kind  — of a judgment without one (a stub): the kind its tier gives
+                           (``core.judgments.KIND_OF_TIER``)
+    props.names          — of a stub: its names in ``core.judgment_names``
 
 articles
     props.inbound_citation_count — count of inbound REFERS_TO / EXPLAINS edges

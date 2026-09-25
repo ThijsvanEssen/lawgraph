@@ -325,6 +325,39 @@ other. A code
 no table knows has no tier: there is no catch-all, and a test holds every code of the waardelijst
 to a named tier; `date_eff` is the judgment date.
 
+The inhoudsindicatie is `summary` when it is Dutch. An English one (`core.judgments.is_english`:
+at least three short English words such as "the", "and", "with", and more than twice as many as
+Dutch ones; the XML says `lang="nl"` for both) is `summary_en`: it is the translation the
+Rechtspraak publishes of a judgment under an ECLI of its own, with the case number followed by
+a remark in brackets (`19/00135 (Engels)`, `(Engelse vertaling)`, `(English translation)`).
+After the run each translation is linked to the judgment it translates (the same `court_code`,
+`date_eff` and case number without the remark, one that has a `summary`): the translation gets
+its Dutch `summary` and `translation_of`, the judgment the `summary_en`.
+
+`decision_kind` is the first that tells of: the document type (`Conclusie`: `conclusie`), the
+procedure (`Prejudiciële beslissing`: `prejudiciële beslissing`), the kop (its first line that
+opens with `arrest`, `vonnis`, `beschikking` or `uitspraak`, also as `tussenvonnis`, `eindarrest`
+and the like; not a label with its value, "Uitspraak : 10 augustus 2026", and a line with only a
+date after the word, "Uitspraak van 21 september 2026", only when no other line names one), the
+procedure again (`Beschikking`, `Tussenbeschikking`, `Raadkamer`, `Rekestprocedure`:
+`beschikking`), and last the college (`core.judgments.KIND_OF_TIER`): `arrest` for the Hoge Raad,
+a gerechtshof, the EHRM and the HvJ EU, `vonnis` for a rechtbank, a kantongerecht and a gerecht
+in eerste aanleg, `uitspraak` for the Raad van State, the Centrale Raad van Beroep, the CBB,
+every other administrative college and a tuchtcollege, `conclusie` for the Parket; a gerechtshof,
+rechtbank or gerecht in eerste aanleg gives an `uitspraak` in administrative law (the first of
+the `subjects` is `Bestuursrecht`, tax law too). The Kroon, a foreign court, the Gemeenschappelijk
+Hof, the Constitutioneel Hof and the arbitration board have no default: null unless the metadata
+or the kop tells.
+
+`names` comes from `core/judgment_names.py`, a list of landmark cases kept by hand: the open data
+carries no name for a judgment. Its RDF has no `dcterms:alternative` (none of 14,446 judgments
+checked), its vindplaatsen (`dcterms:hasVersion`) are citations without a title ("NJ 1981/635
+met annotatie van C.J.H. Brunner"), and an inhoudsindicatie names the precedent it applies as
+readily as the judgment itself ("Uitleg. Haviltex." in a judgment of 2026). A name is added for
+an ECLI checked against the judgment (court, date, inhoudsindicatie); an English translation
+carries the name of the judgment it translates. `semantic graph-list-stats` gives a stub its
+names and the kind of its tier.
+
 **Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
 made and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
 over a paragraph break; a citation that runs over one is dropped), with the detector of `tk`,
@@ -764,4 +797,4 @@ office then. Every commitment and dossier on every run; writes what changed. On 
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`) and `normalize tk-dossiers` (documents, decisions and their edges to the dossier) |
 | semantic `tk-government` | `normalize wikidata` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`; `decision_kind` where it is null, from the tier, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

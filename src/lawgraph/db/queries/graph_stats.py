@@ -19,7 +19,9 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.judgment_names import CURATED_NAMES
 from lawgraph.core.judgments import (
+    KIND_OF_TIER,
     PREFIX_LENGTHS,
     TIER_OF_COURT,
     TIER_OF_OTHER_COURT,
@@ -85,10 +87,18 @@ FOR doc IN {COLLECTION_JUDGMENTS}
             FILTER STARTS_WITH(e._from, '{COLLECTION_JUDGMENTS}/')
             RETURN 1
     )
+    // A loaded judgment has both from `normalize`; a stub from its ECLI: the kind of its
+    // tier (``core.judgments.KIND_OF_TIER``), the names of ``core.judgment_names``.
+    LET decision_kind = doc.props.decision_kind != null ? doc.props.decision_kind
+        : @kind_of_tier[tier]
+    LET names = doc.props.stub == true ? @curated_names[UPPER(ecli)]
+        : doc.props.names
     FILTER doc.props.court_code != court_code
         OR doc.props.tier != tier
         OR doc.props.date_eff != date_eff
         OR doc.props.inbound_citation_count != inbound_cnt
+        OR doc.props.decision_kind != decision_kind
+        OR doc.props.names != names
 """
 
 _ARTICLES_BODY = f"""
@@ -164,13 +174,16 @@ def refresh_judgments(store: Store, *, dry_run: bool) -> int:
             COLLECTION_JUDGMENTS,
             "doc",
             "court_code: court_code, tier: tier, date_eff: date_eff,"
-            " inbound_citation_count: inbound_cnt",
+            " inbound_citation_count: inbound_cnt, decision_kind: decision_kind,"
+            " names: names",
         ),
         {
             "inbound_rels": [RELATION_REFERS_TO],
             "tier_of_court": TIER_OF_COURT,
             "tier_of_prefix": TIER_OF_PREFIX,
             "tier_of_other_court": TIER_OF_OTHER_COURT,
+            "kind_of_tier": KIND_OF_TIER,
+            "curated_names": {e: list(n) for e, n in CURATED_NAMES.items()},
         },
         dry_run=dry_run,
     )

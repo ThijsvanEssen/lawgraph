@@ -267,6 +267,184 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
     return meta, subjects
 
 
+# ── the area of law ──────────────────────────────────────────────────────────
+
+AREA_CRIMINAL = "Strafrecht"
+AREA_CIVIL = "Civiel recht"
+AREA_ADMINISTRATIVE = "Bestuursrecht"
+
+
+def area_of_law(subjects: list[str] | None) -> str | None:
+    """The area of law of a judgment: the first part of its first subject."""
+    for subject in subjects or []:
+        area = subject.split(";")[0].strip()
+        if area in (AREA_CRIMINAL, AREA_CIVIL, AREA_ADMINISTRATIVE):
+            return area
+    return None
+
+
+# ── the kind of decision ─────────────────────────────────────────────────────
+#
+# What a decision is called: a court of cassation or appeal gives an arrest, a court of
+# first instance a vonnis, a court on a request (verzoekschrift) a beschikking, an
+# administrative court an uitspraak, the advocate-general a conclusie, and the Hoge Raad
+# answers the questions of a lower court in a prejudiciële beslissing.
+
+KIND_ARREST = "arrest"
+KIND_VONNIS = "vonnis"
+KIND_BESCHIKKING = "beschikking"
+KIND_UITSPRAAK = "uitspraak"
+KIND_CONCLUSIE = "conclusie"
+KIND_PRELIMINARY_RULING = "prejudiciële beslissing"
+DECISION_KINDS: tuple[str, ...] = (
+    KIND_ARREST,
+    KIND_VONNIS,
+    KIND_BESCHIKKING,
+    KIND_UITSPRAAK,
+    KIND_CONCLUSIE,
+    KIND_PRELIMINARY_RULING,
+)
+
+# The procedures (``psi:procedure``) that name the kind, where the kop does not.
+KIND_OF_PROCEDURE = {
+    "Beschikking": KIND_BESCHIKKING,
+    "Tussenbeschikking": KIND_BESCHIKKING,
+    "Raadkamer": KIND_BESCHIKKING,
+    "Rekestprocedure": KIND_BESCHIKKING,
+}
+# The kind a college gives when nothing else tells. Every administrative college gives an
+# uitspraak; a college not here (the Kroon, a foreign court, the Caribbean courts of appeal
+# and the constitutional court, the arbitration board) is left without a kind.
+KIND_OF_TIER = {
+    TIER_HOGE_RAAD: KIND_ARREST,
+    TIER_GERECHTSHOF: KIND_ARREST,
+    TIER_RECHTBANK: KIND_VONNIS,
+    TIER_KANTONGERECHT: KIND_VONNIS,
+    "gerecht_in_eerste_aanleg": KIND_VONNIS,
+    TIER_PARKET: KIND_CONCLUSIE,
+    TIER_EHRM: KIND_ARREST,
+    TIER_HVJ_EU: KIND_ARREST,
+    TIER_RAAD_VAN_STATE: KIND_UITSPRAAK,
+    TIER_CENTRALE_RAAD: KIND_UITSPRAAK,
+    TIER_CBB: KIND_UITSPRAAK,
+    TIER_TUCHTCOLLEGE: KIND_UITSPRAAK,
+    "ambtenarengerecht": KIND_UITSPRAAK,
+    "college_van_beroep_hoger_onderwijs": KIND_UITSPRAAK,
+    "college_van_beroep_studiefinanciering": KIND_UITSPRAAK,
+    "gerecht_in_ambtenarenzaken": KIND_UITSPRAAK,
+    "raad_van_beroep": KIND_UITSPRAAK,
+    "raad_van_beroep_in_ambtenarenzaken": KIND_UITSPRAAK,
+    "raad_van_beroep_voor_belastingzaken": KIND_UITSPRAAK,
+    "raad_voor_strafrechtstoepassing_en_jeugdbescherming": KIND_UITSPRAAK,
+    "tariefcommissie": KIND_UITSPRAAK,
+}
+# The courts of every area of law: in administrative law (tax law too) they give an uitspraak.
+_GENERAL_COURTS = frozenset(
+    {TIER_GERECHTSHOF, TIER_RECHTBANK, "gerecht_in_eerste_aanleg"}
+)
+
+# A kop line that names the decision: "Arrest", "ARREST", "Uitspraak op het hoger beroep
+# van:", "beschikking van de meervoudige kamer", "Tussenvonnis". Not a label with its value
+# ("Uitspraak : 10 augustus 2026", "Uitspraak d.d. : 28 augustus 2026").
+_KIND_LINE = re.compile(
+    r"^(?:tussen|eind|deel|herstel|verstek)?(arrest|vonnis|beschikking|uitspraak)\b"
+    r"(?!\s*(?:d\.d\.|datum)?\s*:)",
+    re.IGNORECASE,
+)
+# What follows the kind in a line that may only give the date of the decision: "Uitspraak
+# van 21 september 2026" above "Arrest van de meervoudige kamer voor strafzaken".
+_ONLY_A_DATE = re.compile(
+    r"\s*(?:van|d\.d\.)?\s*\d{1,2}\s+[a-z]+\s+\d{4}\.?\s*", re.IGNORECASE
+)
+
+
+def kind_in_kop(lines: list[str]) -> str | None:
+    """The kind the kop names (``_KIND_LINE``): the first line that names one, one with no
+    more than a date after the kind only when no other line names one. ``None`` when none
+    does."""
+    dated: str | None = None
+    for line in lines:
+        match = _KIND_LINE.match(line.strip())
+        if match is None:
+            continue
+        if not _ONLY_A_DATE.fullmatch(line.strip()[match.end() :]):
+            return match[1].lower()
+        dated = dated or match[1].lower()
+    return dated
+
+
+def kind_of_tier(tier: str | None, area: str | None = None) -> str | None:
+    """The kind a college gives (``KIND_OF_TIER``); a court of every area gives an
+    uitspraak in administrative law."""
+    if tier in _GENERAL_COURTS and area == AREA_ADMINISTRATIVE:
+        return KIND_UITSPRAAK
+    return KIND_OF_TIER.get(tier or "")
+
+
+def decision_kind(
+    *,
+    document_type: str | None,
+    procedure: str | None,
+    kop: list[str],
+    tier: str | None,
+    subjects: list[str] | None,
+) -> str | None:
+    """The kind of a decision (``DECISION_KINDS``), from the first that tells: the document
+    type (``Conclusie``), the procedure (``Prejudiciële beslissing``), the kop (the line that
+    names the decision), the procedure again (``Beschikking``, ``Raadkamer``, ...), and last
+    the college and the area of law (``kind_of_tier``). ``None`` when none does."""
+    if document_type == DOCUMENT_TYPE_CONCLUSION:
+        return KIND_CONCLUSIE
+    if procedure == PROCEDURE_PRELIMINARY_RULING:
+        return KIND_PRELIMINARY_RULING
+    return (
+        kind_in_kop(kop)
+        or KIND_OF_PROCEDURE.get(procedure or "")
+        or kind_of_tier(tier, area_of_law(subjects))
+    )
+
+
+# ── the language of a summary ────────────────────────────────────────────────
+#
+# The Rechtspraak publishes a few judgments in an English translation as well, under an
+# ECLI of their own: the case number ends in "(Engels)" or "(English translation)" and the
+# inhoudsindicatie is English, although the metadata says ``nl``. Only the words tell.
+
+# Short words of one language that are rare in the other ("in", "is", "of" are both).
+_DUTCH_WORDS = frozenset(
+    "de het een en van op dat die niet met voor zijn aan door ook bij als er te naar "
+    "wordt worden werd heeft hebben".split()
+)
+_ENGLISH_WORDS = frozenset(
+    "the an and that which not with for are to by also at or be was were has have "
+    "this from".split()
+)
+_WORD = re.compile(r"[a-z]+")
+MIN_ENGLISH_WORDS = 3
+
+
+def is_english(text: str | None) -> bool:
+    """Whether *text* is English: at least ``MIN_ENGLISH_WORDS`` English words, and more
+    than twice as many as Dutch ones."""
+    words = _WORD.findall((text or "").lower())
+    english = sum(word in _ENGLISH_WORDS for word in words)
+    dutch = sum(word in _DUTCH_WORDS for word in words)
+    return english >= MIN_ENGLISH_WORDS and english > 2 * dutch
+
+
+# "19/00135 (Engels)", "C/09/456689 / HA ZA 13-1396 (English translation)": what a
+# translation adds to the case number of the judgment it translates.
+_TRANSLATION_SUFFIX = re.compile(r"\s*\([^()]*\)\s*$")
+
+
+def translated_case_number(case_number: str | None) -> str | None:
+    """The case number of the judgment a translation translates: its own without the
+    closing remark in brackets. ``None`` when it has none."""
+    if not case_number or not _TRANSLATION_SUFFIX.search(case_number):
+        return None
+    return _TRANSLATION_SUFFIX.sub("", case_number) or None
+
+
 # ── case numbers ─────────────────────────────────────────────────────────────
 
 # Between the case numbers of one judgment: "18/04298 en 18/04299", "200.1, 200.2".

@@ -198,7 +198,16 @@ class JudgmentProps(_CommonProps):
     ecli: str | None = None
     source_kind: str | None = None
     meta: dict[str, Any] | None = None
+    # the Dutch inhoudsindicatie; an English one (a translation) is ``summary_en``
     summary: str | None = None
+    summary_en: str | None = None
+    # an English translation: the ECLI of the judgment it translates
+    translation_of: str | None = None
+    # what lawyers call it ("Haviltex"; ``core.judgment_names``)
+    names: list[str] | None = None
+    # arrest, vonnis, beschikking, uitspraak, conclusie, prejudiciële beslissing
+    # (``core.judgments.decision_kind``)
+    decision_kind: str | None = None
     text: str | None = None
     judgment_metadata: dict[str, Any] | None = None
     subjects: list[str] | None = None
