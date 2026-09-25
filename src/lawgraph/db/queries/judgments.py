@@ -201,7 +201,7 @@ def get_judgments_list(
     filters = filters or JudgmentFilters()
     tokens = tokenize_search_query(filters.q) if filters.q else []
     search_clause, tok_bind = (
-        build_search_clause(tokens, ["display_name", "summary", "ecli"])
+        build_search_clause(tokens, ["display_name", "names", "summary", "ecli"])
         if tokens
         else ("true", {})
     )
@@ -249,6 +249,8 @@ def get_judgments_list(
                 ecli: props.ecli != null ? props.ecli : doc._key,
                 display_name: props.display_name,
                 summary: props.summary,
+                names: props.names,
+                decision_kind: props.decision_kind,
                 court_code: props.court_code,
                 tier: props.tier,
                 date: props.date_eff,

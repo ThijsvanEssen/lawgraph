@@ -369,27 +369,33 @@ def _search_instruments(
     )
 
 
+_JUDGMENT_HIT = """
+        RETURN {
+            id: doc._id, key: doc._key,
+            collection: 'judgments', type: doc.type,
+            display_name: doc.props.display_name,
+            snippet: LEFT(doc.props.summary, 200),
+            extra: { ecli: doc.props.ecli, appno: doc.props.appno, names: doc.props.names }
+        }
+"""
+
+
 def _search_judgments(
     store: ArangoStore,
     tokens: list[str],
     notation: Notation | None,
     limit: int,
+    q: str = "",
 ) -> list[dict[str, Any]]:
     clause, tok_bind = build_search_clause(
-        tokens, ["display_name", "summary", "ecli", "appno"]
+        tokens, ["display_name", "names", "summary", "ecli", "appno"]
     )
     text_aql = f"""
     FOR doc IN search_judgments
         SEARCH {clause} {SEARCH_OPTIONS}
         SORT BM25(doc) DESC
         LIMIT @limit
-        RETURN {{
-            id: doc._id, key: doc._key,
-            collection: 'judgments', type: doc.type,
-            display_name: doc.props.display_name,
-            snippet: LEFT(doc.props.summary, 200),
-            extra: {{ ecli: doc.props.ecli, appno: doc.props.appno }}
-        }}
+        {_JUDGMENT_HIT}
     """
 
     if notation is not None and notation.kind == "ecli":
@@ -414,7 +420,24 @@ def _search_judgments(
             limit,
         )
 
-    return list(store.query(text_aql, {**tok_bind, "limit": limit}))[:limit]
+    # The query may be the name of a judgment ("Urgenda", "Lindenbaum/Cohen"): those first.
+    name_aql = f"""
+    FOR doc IN search_judgments
+        SEARCH ANALYZER(doc.props.names IN TOKENS(@name, 'lawgraph_norm'), 'lawgraph_norm')
+        // the latest decision first (of one case: the highest court), a translation after
+        // the judgment it translates
+        SORT doc.props.date_eff DESC, doc.props.translation_of != null
+        LIMIT @limit
+        {_JUDGMENT_HIT}
+    """
+    return _two_phase_search(
+        store,
+        name_aql,
+        {"name": q.strip(), "limit": limit},
+        text_aql,
+        {**tok_bind, "limit": limit},
+        limit,
+    )
 
 
 def _search_dossiers(
@@ -626,6 +649,7 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
     names = [
         _folded(hit.get("display_name")),
         *(_folded(extra.get(field)) for field in _NAME_FIELDS),
+        *(_folded(name) for name in extra.get("names") or []),
     ]
     names = [n for n in names if n] + _folded_list(extra, _NAME_LIST_FIELDS)
     if wanted in names:
@@ -680,7 +704,7 @@ def search_all(
         elif t == "instruments":
             results[t] = _search_instruments(store, q, tokens, limit)
         elif t == "judgments":
-            results[t] = _search_judgments(store, tokens, notation, limit)
+            results[t] = _search_judgments(store, tokens, notation, limit, q)
         elif t == "dossiers":
             results[t] = _search_dossiers(store, tokens, kinds, limit)
         elif t == "committees":

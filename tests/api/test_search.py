@@ -56,6 +56,10 @@ def hit(**fields: Any) -> dict[str, Any]:
             hit(extra={"citation_title": "Wetboek van Strafrecht"}),
             SCORE_TITLE,
         ),
+        # The name of a judgment is a name of it.
+        ("urgenda", hit(extra={"names": ["Urgenda"]}), SCORE_TITLE),
+        ("Lindenbaum", hit(extra={"names": ["Lindenbaum/Cohen"]}), SCORE_PREFIX),
+        ("moord", hit(extra={"names": None}), SCORE_WORDS),
         # The start of a name; a part of one; words only.
         ("wetboek van", hit(display_name="Wetboek van Strafrecht"), SCORE_PREFIX),
         ("strafrecht", hit(display_name="Wetboek van Strafrecht"), SCORE_CONTAINS),

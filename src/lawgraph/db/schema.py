@@ -205,6 +205,8 @@ _VIEW_SPECS: dict[str, dict[str, dict[str, list[str]]]] = {
     "search_judgments": {
         COLLECTION_JUDGMENTS: {
             "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
+            # every element of the array: "Haviltex", "Lindenbaum/Cohen"
+            "names": [TEXT_ANALYZER, "identity", "lawgraph_norm", "lawgraph_ngram_v2"],
             "summary": [TEXT_ANALYZER],
             "ecli": ["identity", "lawgraph_norm"],
             "appno": ["identity", "lawgraph_norm"],

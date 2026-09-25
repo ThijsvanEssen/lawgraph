@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:GHSHE:2026:2210</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-08-11T00:00:45</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-08-10</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Gerechtshof_'s-Hertogenbosch" scheme="overheid.RechterlijkeMacht">Gerechtshof 's-Hertogenbosch</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2026-08-10</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">20-000751-25</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#hogerBeroep">Hoger beroep</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:spatial rdfs:label="Zittingsplaats">'s-Hertogenbosch</dcterms:spatial>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#strafrecht">Strafrecht</dcterms:subject>
+      <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:RBLIM:2025:1984" psi:type="http://psi.rechtspraak.nl/hogerBeroep" psi:aanleg="http://psi.rechtspraak.nl/eerdereAanleg" psi:gevolg="http://psi.rechtspraak.nl/gevolg#bekrachtiging/bevestiging">Eerste aanleg: ECLI:NL:RBLIM:2025:1984, Bekrachtiging/bevestiging</dcterms:relation>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:GHSHE:2026:2210">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:GHSHE:2026:2210</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-08-10T10:22:32</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-08-10</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:GHSHE:2026:2210 Gerechtshof 's-Hertogenbosch , 10-08-2026 / 20-000751-25</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:GHSHE:2026:2210:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <para>Veroordeling tot een voorwaardelijke taakstraf voor de duur van 120 uren wegens het meermalen plegen van ontucht, terwijl de verdachte werkzaam was in de gezondheidszorg en/of maatschappelijke zorg, met iemand die zich als patiënt/cliënt aan haar hulp en zorg had toevertrouwd. Naast de voorwaardelijke taakstraf heeft het hof als bijzondere voorwaarde gesteld dat de verdachte geen werkzaamheden zal verrichten als sociaal therapeutisch medewerker, dan wel een soortgelijke functie, in de gezondheidszorg of maatschappelijke zorg, gedurende de proeftijd van 5 jaar.</para>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:GHSHE:2026:2210:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <para>Parketnummer	: 20-000751-25 </para>
+  <para>Uitspraak	: 10 augustus 2026</para>
+  <parablock>
+    <para>TEGENSPRAAK</para>
+  </parablock>
+  <section>
+    <title>Arrest van de meervoudige kamer voor strafzaken van het gerechtshof</title>
+    <bridgehead role="bold">'s-Hertogenbosch</bridgehead>
+    <para />
+    <parablock>
+      <para>gewezen op het hoger beroep tegen het vonnis van de rechtbank Limburg, zittingsplaats Roermond, van 28 februari 2025, in de strafzaak met parketnummer 03-268415-24 tegen: </para>
+    </parablock>
+    <para />
+  </section>
+  <section>
+    <title>
+      [verdachte] ,</title>
+    <parablock>
+      <para>geboren te [geboorteplaats] op [geboortedatum] 1983, </para>
+      <para>wonende te [woonplaats] .</para>
+    </parablock>
+    <para />
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="underline">Hoger beroep</emphasis>
+      </para>
+    </parablock>
+  </section>
+  </uitspraak>
+</open-rechtspraak>

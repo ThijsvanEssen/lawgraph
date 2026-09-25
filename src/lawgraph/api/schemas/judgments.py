@@ -16,6 +16,25 @@ from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
 from lawgraph.core.identifiers import ecli_source
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention
 
+# ``core.judgments.DECISION_KINDS``
+DecisionKind = Literal[
+    "arrest",
+    "vonnis",
+    "beschikking",
+    "uitspraak",
+    "conclusie",
+    "prejudiciële beslissing",
+]
+_DECISION_KIND = (
+    "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, "
+    "`conclusie` or `prejudiciële beslissing`. From the metadata and the kop where they "
+    "tell, else from the court and the area of law; null when nothing does."
+)
+_NAMES = (
+    "What lawyers call the judgment: `Haviltex`, `Urgenda`, "
+    "`Lindenbaum/Cohen`. From a curated list of landmark cases; empty for most."
+)
+
 
 class JudgmentDTO(BaseNodeDTO):
     """Rich judgment DTO that hides raw XML but exposes metadata."""
@@ -24,7 +43,22 @@ class JudgmentDTO(BaseNodeDTO):
 
     ecli: str | None
     source: str | None = None
-    summary: str | None
+    summary: str | None = Field(
+        description="The inhoudsindicatie, in Dutch. For an English translation the "
+        "inhoudsindicatie of the judgment it translates; null while that is not loaded."
+    )
+    summary_en: str | None = Field(
+        default=None,
+        description="An English inhoudsindicatie: that of the judgment itself when it is "
+        "an English translation, else that of its translation. Null when there is none.",
+    )
+    translation_of: str | None = Field(
+        default=None,
+        description="For an English translation, the ECLI of the Dutch judgment it "
+        "translates (the authentic text); null otherwise.",
+    )
+    names: list[str] = Field(default_factory=list, description=_NAMES)
+    decision_kind: DecisionKind | None = Field(default=None, description=_DECISION_KIND)
     series_id: str | None = Field(
         default=None,
         description="The series of parallel cases the judgment is one of (the same court, "
@@ -73,6 +107,10 @@ class JudgmentDTO(BaseNodeDTO):
             ecli=ecli,
             source=source,
             summary=props.get("summary"),
+            summary_en=props.get("summary_en"),
+            translation_of=props.get("translation_of"),
+            names=props.get("names") or [],
+            decision_kind=props.get("decision_kind"),
             series_id=props.get("series_id"),
             series_size=props.get("series_size"),
             paragraphs=paragraphs,
@@ -245,6 +283,8 @@ class JudgmentListItemDTO(BaseModel):
     tier: str | None
     date: str | None
     summary: str | None
+    names: list[str] = Field(default_factory=list, description=_NAMES)
+    decision_kind: DecisionKind | None = Field(default=None, description=_DECISION_KIND)
     source: str | None = None
     subjects: list[str] = Field(
         default_factory=list,
@@ -271,6 +311,8 @@ class JudgmentListItemDTO(BaseModel):
             tier=row.get("tier"),
             date=row.get("date"),
             summary=row.get("summary"),
+            names=row.get("names") or [],
+            decision_kind=row.get("decision_kind"),
             source=source,
             subjects=row.get("subjects") or [],
             inbound_citation_count=int(inbound) if inbound is not None else None,
