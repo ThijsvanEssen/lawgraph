@@ -30,7 +30,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
-from lawgraph.db.queries.decisions import get_decisions
+from lawgraph.db.queries.decisions import DecisionFilters, get_decisions
 from lawgraph.db.queries.documents import get_document_links, list_documents
 from lawgraph.db.queries.dossiers import get_dossier_timeline
 
@@ -410,12 +410,13 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(database: str) -> Non
     store = ArangoStore()
     _build(store)
 
-    page = get_decisions(store, dossier="36000", limit=10)
+    page = get_decisions(store, DecisionFilters(dossier="36000"), limit=10)
     assert page["total"] == 2
     assert [row["key"] for row in page["items"]] == ["stemming_2", "stemming_1"]
-    assert get_decisions(store, dossier="36001", limit=1)["total"] == 2
-    assert get_decisions(store, dossier="99999") == {"total": 0, "items": []}
-    together = get_decisions(store, dossier="36000", passed=True)
+    assert get_decisions(store, DecisionFilters(dossier="36001"), limit=1)["total"] == 2
+    nothing = get_decisions(store, DecisionFilters(dossier="99999"))
+    assert (nothing["total"], nothing["items"]) == (0, [])
+    together = get_decisions(store, DecisionFilters(dossier="36000", passed=True))
     assert together["total"] == 1
 
     aql = (

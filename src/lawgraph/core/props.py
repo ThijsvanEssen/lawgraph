@@ -351,6 +351,8 @@ class DecisionProps(_CommonProps):
     voters: dict[str, int] | None = None
     passed: bool | None = None
     external_id: str | None = None
+    # motie, amendement, wetsvoorstel or overig: from primary_case_kind
+    # (``tk_records.decision_kind``)
     kind: str | None = None
     # no source sets it: the Eerste Kamer has no votes here; the API still returns it
     chamber: str | None = None
