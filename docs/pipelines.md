@@ -385,8 +385,14 @@ lid, onderdelen and aanhef are read from the qualifier with `core/qualifiers.py`
 bwb` and `semantic tk` do. Text of a judgment outside `uitspraak` (the `inhoudsindicatie`) is not
 read. `--since` takes the judgments retrieved from then on.
 
-**Semantic `rechtspraak-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the XML of each judgment (from `raw_sources`):
-`REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations, missing judgments become stubs.
+**Semantic `rechtspraak-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the text of
+each judgment, the `<uitspraak>` and `<conclusie>` the court or advocate-general wrote (from
+`raw_sources`; `core/judgments.body_text`), never in its metadata: the `dcterms:relation` of the
+metadata names the earlier instance and the conclusion, which are `APPEAL_OF` and `ADVISES_ON`
+of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations,
+missing judgments become stubs. The citations of a judgment are derived in full each time it is
+read: an edge of this step its text no longer names is removed. `semantic graph-list-stats`
+recounts `inbound_citation_count` after it.
 
 **Semantic `rechtspraak-appeal`.** Judgments with `related_eclis` whose `judgment_metadata.type`
 contains `hoger beroep` or `cassatie`: `APPEAL_OF` from the appeal judgment to each related

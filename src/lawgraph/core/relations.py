@@ -150,8 +150,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "REFERS_TO",
         (_A, _DOC, _J),
         (_A, _I, _J),
-        "A text refers to an article, instrument or judgment. The source node says "
-        "who refers; article → article edges also carry a `semantic_type`.",
+        "A text refers to an article, instrument or judgment: the reference is in the "
+        "text, never only in metadata (a judgment's earlier instance or conclusion is "
+        "`APPEAL_OF` or `ADVISES_ON`). The source node says who refers; article → "
+        "article edges also carry a `semantic_type`.",
     ),
     RelationSpec(
         "EXPLAINS",
