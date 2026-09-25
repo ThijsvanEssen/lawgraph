@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -34,6 +34,12 @@ class JudgmentDTO(BaseNodeDTO):
         default=None, description="How many judgments the series has."
     )
     paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
+    parties: list["JudgmentParty"] | None = Field(
+        default=None,
+        description="The parties the kop of the judgment names, in its order. Null when "
+        "the judgment was normalized before parties were read; empty when the kop names "
+        "none.",
+    )
 
     @classmethod
     def from_document(
@@ -61,6 +67,7 @@ class JudgmentDTO(BaseNodeDTO):
         ]
         ecli = props.get("ecli")
         source = props.get("source") or ecli_source(ecli)
+        parties = props.get("parties")
         return cls(
             **base.model_dump(),
             ecli=ecli,
@@ -69,7 +76,47 @@ class JudgmentDTO(BaseNodeDTO):
             series_id=props.get("series_id"),
             series_size=props.get("series_size"),
             paragraphs=paragraphs,
+            parties=None if parties is None else [JudgmentParty(**p) for p in parties],
         )
+
+
+class JudgmentRepresentative(BaseModel):
+    """Who acts for a party, as the kop names them ("advocaat: mr. X")."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(description="As written: `mr. H.J.W. Alt`.")
+    role: Literal["advocaat", "gemachtigde"]
+
+
+class JudgmentParty(BaseModel):
+    """A party of a judgment, read from its kop."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        description="As the judgment writes it, anonymised where the source is: "
+        "`[eiser]`, `MAATSCHAP GRONINGEN`. Without its legal form, place or role."
+    )
+    role: str = Field(
+        description="`Verdachte`, `Betrokkene`, `Klager`, `Veroordeelde`, `Eiser`, "
+        "`Gedaagde`, `Verzoeker`, `Verweerder`, `Appellant`, `Geïntimeerde`, "
+        "`Belanghebbende`, `Opposant`, `Wederpartij`; `Partij` when none applies."
+    )
+    role_stated: bool = Field(
+        description="True when the judgment names the role (a role line, a role behind "
+        "the name, an anonymised name that is a role: `[verdachte]`); false when it is "
+        "derived from the area of law and the side."
+    )
+    side: Literal["first", "second", "other"] = Field(
+        description="The side of the case: `first` before `tegen` or `en`, `second` after "
+        "it, `other` for an interested party (belanghebbende)."
+    )
+    alias: str | None = Field(
+        default=None,
+        description='What the judgment calls the party: `EBN` for "hierna: EBN".',
+    )
+    representatives: list[JudgmentRepresentative] = Field(default_factory=list)
 
 
 class JudgmentParagraph(BaseModel):

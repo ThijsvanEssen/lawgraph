@@ -300,8 +300,11 @@ HA ZA 16-256` is `c/19/117301/haza16-256`), `procedure` as `judgment_metadata.ty
 judgment, or the judgment of a conclusion), and as `related_eclis` the judgments of the earlier
 instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:relation` that is not
 a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
-`summary`, `uitspraak` as `text` and as `paragraphs` (heading, subheading, body; see the
-paragraph props in the data model). The XML itself stays in the payload store. `court_code` is the ECLI court
+`summary`, `uitspraak` as `text` and as `paragraphs` (the kop, heading, subheading, body; see the
+paragraph props in the data model), and the parties its kop names as `parties` (data model,
+Judgment). Every judgment normalized before `parties` existed gets them from a run of
+`normalize rechtspraak` without `--since`; run `semantic rechtspraak` after it, since the kop is
+one paragraph now and the `p-<n>` ids after it moved. The XML itself stays in the payload store. `court_code` is the ECLI court
 segment; `tier` is the college that gave the judgment (`core/judgments.court_tier`, whose
 tables `graph-list-stats` reads too), as the Rechtspraak sorts its instanties (the `Type` in its
 waardelijst `/Waardelijst/Instanties`, kept as `tests/fixtures/rechtspraak_instanties.xml`):
