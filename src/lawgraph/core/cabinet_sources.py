@@ -3,10 +3,10 @@
 - **Rijksoverheid** has a page for every cabinet since 1945 (``core.rijksoverheid``): the
   cabinet starts on the day of its beëdiging and ends when the next one starts; its posts
   (``core.cabinet_posts``), phases (``core.cabinet_phases``) and parties come from it.
-- **Wikidata** has the cabinets before those: only their name and period
-  (``core.cabinets.complete_periods``). A Wikidata cabinet that began on or after the first
-  Rijksoverheid cabinet is left out; the last one before ends where that one begins. These
-  cabinets have no posts and no phases: no official source gives them.
+- **Wikidata** has the cabinets before those: only their name and period as Wikidata gives
+  it (``core.cabinets.wikidata_period``; a date it lacks stays null). A Wikidata cabinet that
+  began on or after the first Rijksoverheid cabinet is left out. These cabinets have no
+  posts and no phases: no official source gives them.
 
 ``build_cabinets`` does all of it without a database; the pipeline adds the members.
 """
@@ -26,7 +26,7 @@ from lawgraph.core.cabinet_phases import (
     page_events,
 )
 from lawgraph.core.cabinet_posts import cabinet_posts
-from lawgraph.core.cabinets import cabinet_key, cabinet_name, complete_periods
+from lawgraph.core.cabinets import cabinet_key, cabinet_name, wikidata_period
 
 SOURCE_NAME_RIJKSOVERHEID = "rijksoverheid"
 SOURCE_NAME_WIKIDATA = "wikidata"
@@ -92,7 +92,8 @@ def rijksoverheid_cabinets(
             }
         )
     cabinets.sort(key=lambda c: c["from_date"])
-    for cabinet, after in zip(cabinets, [*cabinets[1:], None], strict=True):
+    for i, cabinet in enumerate(cabinets):
+        after = cabinets[i + 1] if i + 1 < len(cabinets) else None
         cabinet["to_date"] = after["from_date"] if after else cabinet["intro_to"]
     events = [
         event
@@ -128,12 +129,10 @@ def wikidata_cabinets(
     records: Iterable[dict[str, Any]], before: str | None
 ) -> list[dict[str, Any]]:
     """The Wikidata cabinets (``WikidataClient.cabinets`` records) that began before
-    *before*, oldest first; the last ends on *before*."""
-    records = list(records)
-    periods = complete_periods(records)
+    *before*, oldest first."""
     cabinets = []
     for record in records:
-        period = periods[record["id"]]
+        period = wikidata_period(record)
         if before and (period["from_date"] or "") >= before:
             continue
         name = cabinet_name(record.get("name")) or record["id"]
@@ -150,11 +149,7 @@ def wikidata_cabinets(
                 "parties": [],
             }
         )
-    cabinets.sort(key=lambda c: (c["from_date"] or "", c["key"]))
-    if cabinets and before:
-        cabinets[-1]["to_date"] = before
-        cabinets[-1]["to_date_precision"] = "day"
-    return cabinets
+    return sorted(cabinets, key=lambda c: (c["from_date"] or "", c["key"]))
 
 
 def build_cabinets(

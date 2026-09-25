@@ -119,3 +119,11 @@ def test_the_ministries_name_existing_successors_and_rank_after_them() -> None:
             assert protocol_rank(ministry.key) > protocol_rank(ministry.successor)
     assert protocol_rank("az") == 0
     assert protocol_rank(None) == len(MINISTRIES)
+
+
+def test_a_ministry_with_a_successor_names_the_last_day_of_its_name() -> None:
+    from lawgraph.core.ministries import MINISTRIES
+
+    # the Rijksoverheid pages show no handover for these: their end stays unknown
+    unknown = {"aok", "bzbpbo", "opw", "ahn", "szv", "arbeid"}
+    assert {m.key for m in MINISTRIES if m.successor and not m.until} == unknown

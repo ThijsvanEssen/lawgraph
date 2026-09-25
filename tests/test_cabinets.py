@@ -44,6 +44,10 @@ def test_a_party_is_the_faction_that_bears_its_name_or_abbreviation() -> None:
     assert (
         faction_of({"name": "Katholieke Volkspartij", "short": "KVP"}, factions) is None
     )
+    # a faction without an abbreviation: the capitals of its name
+    nsc = [*factions, {"key": "nsc", "name": "Nieuw Sociaal Contract"}]
+    assert faction_of({"name": "NSC", "short": "NSC"}, nsc) == "nsc"
+    assert faction_of({"name": "CU", "short": "CU"}, nsc) == "christenunie"
 
 
 CABINETS = [
@@ -158,49 +162,26 @@ def test_the_api_knows_every_status_a_commitment_can_have() -> None:
     assert set(get_args(CommitmentStatus)) == set(COMMITMENT_STATUS.values())
 
 
-def _cabinet(qid, start, start_p, end=None, end_p=None, previous=()):
-    return {
-        "id": qid,
-        "from_date": start,
-        "from_date_precision": start_p,
-        "to_date": end,
-        "to_date_precision": end_p,
-        "previous": list(previous),
-    }
+def test_a_wikidata_period_is_what_wikidata_gives() -> None:
+    from lawgraph.core.cabinets import wikidata_period
 
-
-def test_a_cabinet_without_an_end_ends_when_the_next_one_starts() -> None:
-    from lawgraph.core.cabinets import complete_periods
-
-    periods = complete_periods(
-        [
-            _cabinet("A", "1879-08-20", 11, "1883-04-23", 11),
-            # Wikidata lacks the cabinet of 1883-1888: the year stays a year
-            _cabinet("B", "1888-01-01", 9),
-            _cabinet("C", "1891-01-01", 9),
-            # an end in the year the next one starts, known to the day
-            _cabinet("D", "1901-01-01", 9, "1905-01-01", 9),
-            _cabinet("E", "1905-08-17", 11, "1908-02-12", 11),
-            _cabinet("F", "1908-01-01", 9, previous=["E"]),
-            _cabinet("G", "2026-02-23", 11),
-        ]
-    )
-    assert periods["B"] == {
-        "from_date": "1888-01-01",
+    # De Geer II: known to the year, without an end; nothing is taken from its neighbours
+    assert wikidata_period(
+        {"from_date": "1939-01-01", "from_date_precision": 9, "to_date": None}
+    ) == {
+        "from_date": "1939-01-01",
         "from_date_precision": "year",
-        "to_date": "1891-01-01",
-        "to_date_precision": "year",
-        "previous": "A",
+        "to_date": None,
+        "to_date_precision": None,
     }
-    assert (periods["D"]["to_date"], periods["D"]["to_date_precision"]) == (
-        "1905-08-17",
-        "day",
+    assert (
+        wikidata_period(
+            {
+                "from_date": "1848-03-25",
+                "from_date_precision": 11,
+                "to_date": "1848-11-21",
+                "to_date_precision": 11,
+            }
+        )["to_date_precision"]
+        == "day"
     )
-    assert (periods["F"]["from_date"], periods["F"]["from_date_precision"]) == (
-        "1908-02-12",
-        "day",
-    )
-    assert periods["F"]["previous"] == "E"
-    assert periods["A"]["previous"] is None
-    # only the cabinet in office has no end
-    assert [q for q, p in periods.items() if p["to_date"] is None] == ["G"]

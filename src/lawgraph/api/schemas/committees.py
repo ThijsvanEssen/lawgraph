@@ -251,7 +251,15 @@ class MemberDTO(BaseModel):
 
     id: str
     key: str
-    name: str | None = None
+    name: str | None = Field(
+        None,
+        description="The name they go by: ``Ard van der Steur`` (``Persoon.Roepnaam``); "
+        "for a minister who never sat in parliament, as Rijksoverheid gives it.",
+    )
+    full_name: str | None = Field(
+        None,
+        description="``Gerard Adriaan van der Steur``; null when the TK gives none.",
+    )
     party: str | None = None
     active: bool = False
     faction_memberships: list[FactionMembershipDTO] = []
@@ -284,7 +292,10 @@ class MemberDTO(BaseModel):
             id=doc["_id"],
             key=doc["_key"],
             # a minister who never sat in parliament has a TK person without a name
-            name=props.get("name") or props.get("government_name"),
+            name=props.get("name")
+            or props.get("known_as")
+            or props.get("government_name"),
+            full_name=props.get("full_name"),
             party=party or props.get("party"),
             active=bool(open_memberships),
             faction_memberships=memberships,

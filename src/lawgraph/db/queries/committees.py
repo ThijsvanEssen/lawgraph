@@ -287,6 +287,12 @@ def get_committee_activities(
     return None
 
 
+# The name a member goes by; a TK person without one: the name Rijksoverheid gives.
+_MEMBER_NAME = (
+    "member.props.name OR member.props.known_as OR member.props.government_name"
+)
+
+
 def get_members(
     store: ArangoStore,
     *,
@@ -307,9 +313,7 @@ def get_members(
     (both whether they sat in parliament or not). *party* matches the current party or
     any abbreviation, name or alias in the member's faction timeline.
     """
-    filters: list[str] = [
-        "(member.props.name OR member.props.government_name) NOT IN [null, '']"
-    ]
+    filters: list[str] = [f"({_MEMBER_NAME}) NOT IN [null, '']"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
 
     if government:
@@ -330,9 +334,7 @@ def get_members(
         )
         bind["party"] = party.strip().lower()
     if q:
-        filters.append(
-            "CONTAINS(LOWER(member.props.name OR member.props.government_name), @q)"
-        )
+        filters.append(f"CONTAINS(LOWER({_MEMBER_NAME}), @q)")
         bind["q"] = q.strip().lower()
 
     where = ("FILTER " + " AND ".join(filters)) if filters else ""
@@ -345,7 +347,7 @@ def get_members(
                 LIMIT 1 RETURN 1
         ) > 0
         FILTER @active == null OR seated == @active
-        SORT member.props.name OR member.props.government_name ASC, member._key
+        SORT {_MEMBER_NAME} ASC, member._key
         LIMIT @offset, @limit
         RETURN member
     """

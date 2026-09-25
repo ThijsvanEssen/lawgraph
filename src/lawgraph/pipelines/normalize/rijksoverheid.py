@@ -9,12 +9,13 @@ A holder of a post (``Drs. S.Th.M. (Sophie) Hermans (VVD)``) is matched to one T
 person (``core.government``): a member of parliament by surname, initials and age, told
 apart by the faction of their party where two fit; a minister who never sat in parliament
 (a TK person without name or date) by the papers they signed. The member gets
-``government_functions`` (their posts, oldest first) and ``government_name`` (the name as
-Rijksoverheid writes it). A holder who matches nobody becomes a member of their own, keyed by
-initials and surname, labelled ``Rijksoverheid``; one that is no longer needed is removed,
-and a member that no longer holds a post loses both props. Every member gets an edge
-``SERVED_IN`` to every cabinet they held a post in, with those posts; the edges are derived
-in full.
+``government_functions`` (their posts, oldest first), ``government_name`` (the name as
+Rijksoverheid writes it) and ``known_as`` (the first name it gives in brackets with the
+surname: ``Sophie Hermans``; null when it gives none). A holder who matches nobody becomes
+a member of their own, keyed by initials and surname, labelled ``Rijksoverheid``; one that
+is no longer needed is removed, and a member that no longer holds a post loses these props.
+Every member gets an edge ``SERVED_IN`` to every cabinet they held a post in, with those
+posts; the edges are derived in full.
 
 A holder is looked up once per initials, surname and party: a party is part of who someone
 is on these pages (``dr. W. Drees (PvdA)`` in 1948 is not ``dr. W. Drees (DS'70)`` in
@@ -83,6 +84,16 @@ def holder_name(name: str) -> str:
     """``S.Th.M. Hermans`` of ``Drs. S.Th.M. (Sophie) Hermans``."""
     parts = split_name(name)
     return f"{parts['initials']} {parts['surname']}".strip()
+
+
+def known_as(posts: list[dict[str, Any]]) -> str | None:
+    """``Sophie Hermans``: the first name the pages give in brackets and the surname, from
+    the latest post that gives one; ``None`` when none does."""
+    for post in reversed(posts):
+        parts = split_name(post.get("name") or "")
+        if parts["first_name"] and parts["surname"]:
+            return f"{parts['first_name']} {parts['surname']}"
+    return None
 
 
 class RijksoverheidNormalizePipeline(NormalizePipelineBase):
@@ -263,6 +274,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         name = holder_name(posts[-1]["name"] or "")
         props: dict[str, Any] = {
             "government_name": name,
+            "known_as": known_as(posts),
             "government_functions": posts,
         }
         if key in own:
@@ -282,7 +294,11 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             type=NodeType.MEMBER,
             key=key,
             labels=[],
-            props={"government_name": None, "government_functions": None},
+            props={
+                "government_name": None,
+                "known_as": None,
+                "government_functions": None,
+            },
         )
 
     def _remove_stale(self, own: set[str], cabinets: set[str]) -> int:

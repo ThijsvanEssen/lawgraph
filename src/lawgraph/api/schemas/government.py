@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
+from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
@@ -38,7 +39,7 @@ class PersonRefDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     key: str
-    name: str | None = None
+    name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
 
 
 class SourceRefDTO(BaseModel):
@@ -375,8 +376,21 @@ class CommitmentDTO(BaseModel):
         )
 
 
+class CommitmentFacetsDTO(BaseModel):
+    """Per dimension the number of commitments per value under the current filters, each
+    dimension counted without its own filter, the largest first: only the values that
+    have commitments (a ministry without any is not listed)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: list[FacetCountDTO] = Field(default_factory=list)
+    cabinet: list[FacetCountDTO] = Field(default_factory=list)
+    ministry: list[FacetCountDTO] = Field(default_factory=list)
+
+
 class CommitmentListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     total: int = Field(..., description="Matching commitments, whatever the page.")
     items: list[CommitmentDTO]
+    facets: CommitmentFacetsDTO = Field(default_factory=CommitmentFacetsDTO)

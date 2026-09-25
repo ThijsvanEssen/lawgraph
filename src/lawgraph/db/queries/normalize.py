@@ -242,16 +242,17 @@ def dossiers_of_numbers(store: Store, numbers: list[str]) -> Iterator[dict[str, 
 
 
 def member_identities(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, family_name, name, birth_date, factions}`` of every Tweede Kamer person
-    with a surname (``normalize rijksoverheid`` matches the bewindspersonen to them);
-    ``factions`` the keys of the factions they sat in."""
+    """``{key, family_name, name, initials, birth_date, factions}`` of every Tweede Kamer
+    person with a surname (``normalize rijksoverheid`` matches the bewindspersonen to them):
+    ``name`` the full name, ``factions`` the keys of the factions they sat in."""
     aql = f"""
     FOR m IN {COLLECTION_MEMBERS}
         FILTER @tk IN m.labels AND m.props.family_name != null
         RETURN {{
             key: m._key,
             family_name: m.props.family_name,
-            name: m.props.name,
+            name: m.props.full_name OR m.props.name,
+            initials: m.props.initials,
             birth_date: m.props.birth_date,
             factions: UNIQUE(m.props.faction_memberships[*].faction_key)
         }}

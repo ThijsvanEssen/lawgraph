@@ -81,16 +81,46 @@ def test_ij_and_y_agree_only_when_the_spelling_finds_nobody() -> None:
     assert match_holder(_holder("Peijnenburg", "m", "1965-05-13"), twice) == "ij"
 
 
-def test_a_person_record_keeps_the_birth_date_and_the_surname() -> None:
+def test_a_person_record_keeps_the_names_initials_and_birth_date() -> None:
     _, props = tk_records.member(
         {
-            "Id": "49be3576-cea3-46c0-87eb-89beb108248d",
-            "Voornamen": "Rob Arnoldus Adrianus",
-            "Achternaam": "Jetten",
-            "Geboortedatum": "1987-03-25",
+            "Id": "e6e673f5-f0a7-4d34-a6aa-d2f12fed24ed",
+            "Voornamen": "Gerard Adriaan",
+            "Roepnaam": "Ard",
+            "Tussenvoegsel": "van der",
+            "Achternaam": "Steur",
+            "Initialen": "G.A.",
+            "Geboortedatum": "1975-12-20",
         }
     )
-    assert (props["family_name"], props["birth_date"]) == ("Jetten", "1987-03-25")
+    assert (props["name"], props["full_name"]) == (
+        "Ard van der Steur",
+        "Gerard Adriaan van der Steur",
+    )
+    assert (props["family_name"], props["initials"], props["birth_date"]) == (
+        "Steur",
+        "G.A.",
+        "1975-12-20",
+    )
+    # without a roepnaam: the first names
+    _, props = tk_records.member(
+        {"Id": "x", "Voornamen": "Joop", "Achternaam": "Atsma"}
+    )
+    assert (props["name"], props["full_name"]) == ("Joop Atsma", "Joop Atsma")
+
+
+def test_the_initials_of_the_tweede_kamer_come_before_the_first_names() -> None:
+    # the TK gives only the name Stef, but its initials S.A.
+    blok = {**_member("blok", "Stef Blok", "Blok", "1964-12-10"), "initials": "S.A."}
+    assert match_holder(_holder("Blok", "sa", "2012-11-05"), [blok]) == "blok"
+    assert match_holder(_holder("Blok", "s", "2012-11-05"), [blok]) == "blok"  # loosely
+    graaff = {
+        **_member("g", "Dieuwke de Graaff-Nauta", "Graaff-Nauta", "1930-01-01"),
+        "initials": "D.IJ.W.",
+    }
+    assert (
+        match_holder(_holder("de Graaff-Nauta", "dijw", "1986-07-14"), [graaff]) == "g"
+    )
 
 
 def _minister(qid: str, name: str, function: str, start: str, end: str | None) -> dict:
