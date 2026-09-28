@@ -1,7 +1,6 @@
-"""A member whose Persoon record the Tweede Kamer leaves empty has the name another source
-gives: its roll-call votes ("Nobel, J.N.J.") or, for a minister from outside the Kamer,
-Wikidata. The node props say it, not only the member route. The real ``normalize
-tk-dossiers`` and ``normalize wikidata``."""
+"""A member whose Persoon record the Tweede Kamer leaves empty has the name its roll-call
+votes give ("Nobel, J.N.J."). The node props say it, not only the member route. The real
+``normalize tk-dossiers``."""
 
 from __future__ import annotations
 
@@ -11,16 +10,11 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_STEMMING,
-    RAW_KIND_WIKIDATA_CABINET_POSTS,
-    RELATION_AUTHORED,
     SOURCE_TK,
-    SOURCE_WIKIDATA,
 )
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import make_node_key
 from lawgraph.db import (
     ArangoStore,
-    EdgeWriter,
-    NodeWriter,
     RawSourceWriter,
     raw_source_doc,
 )
@@ -83,73 +77,3 @@ def test_a_member_the_kamer_gives_no_name_is_named_by_its_votes(
         "J.N.J. Nobel",
         "J.N.J. Nobel",
     )
-
-
-def test_a_minister_from_outside_the_kamer_has_the_name_wikidata_gives(
-    database: str, cli: Any
-) -> None:
-    store = ArangoStore()
-    minister = uid(2, 9)
-    _store(store, RAW_KIND_TK_PERSOON, SOURCE_TK, {**EMPTY_PERSON, "Id": minister})
-    cli("normalize", "tk-dossiers")
-    with NodeWriter(store) as writer:
-        writer.add(
-            Node(
-                collection="documents",
-                type=NodeType.DOCUMENT,
-                key="letter",
-                labels=["TK"],
-                props={
-                    "date": "2026-03-01",
-                    "actors": [
-                        {
-                            "person_id": minister,
-                            "name": "C. van Bruggen",
-                            "function": "staatssecretaris van Justitie en Veiligheid",
-                            "capacity": "bewindspersoon",
-                        }
-                    ],
-                },
-            )
-        )
-    with EdgeWriter(store, what=None) as edges:
-        edges.add(
-            f"{COLLECTION_MEMBERS}/{make_node_key(minister)}",
-            "documents/letter",
-            RELATION_AUTHORED,
-            source="test",
-            meta={
-                "role": "Eerste ondertekenaar",
-                "function": "staatssecretaris van Justitie en Veiligheid",
-                "capacity": "bewindspersoon",
-            },
-        )
-    _store(
-        store,
-        RAW_KIND_WIKIDATA_CABINET_POSTS,
-        SOURCE_WIKIDATA,
-        {
-            "id": "Q7",
-            "name": "Claudia van Bruggen",
-            "birth_date": "1980-01-01",
-            "birth_precision": 11,
-            "posts": [
-                {
-                    "position_id": "Q8",
-                    "function": "staatssecretaris van Justitie en Veiligheid",
-                    "cabinet_id": "Q9",
-                    "cabinet": "kabinet-Jetten",
-                    "from_date": "2026-02-23",
-                    "to_date": None,
-                }
-            ],
-            "parties": [],
-        },
-    )
-
-    cli("normalize", "wikidata")
-
-    member = store.get_node(COLLECTION_MEMBERS, make_node_key(minister))
-    assert member is not None
-    assert member.props["wikidata_id"] == "Q7"
-    assert member.props["display_name"] == "Claudia van Bruggen"

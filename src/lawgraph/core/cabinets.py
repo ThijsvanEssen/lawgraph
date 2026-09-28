@@ -1,33 +1,18 @@
-"""Dutch cabinets as Wikidata records them: one name, a key, the prime minister, the parties.
+"""Dutch cabinets: one name, a key, the period, the faction of a party.
 
-Wikidata names a cabinet in several ways (``Kabinet-Balkenende II (2003-2006)``, ``Kabinet
+Sources name a cabinet in several ways (``Kabinet-Balkenende II (2003-2006)``, ``Kabinet
 Balkenende I (2002-2003)``, ``kabinet-Rutte III``); ``cabinet_name`` writes all of them as
 ``kabinet-<name>``, and ``cabinet_key`` makes the node key from it (``balkenende_ii``,
-``den_uyl``).
-
-The parties of a cabinet are the parties its members belonged to when their post began
-(``cabinet_parties``): Wikidata records no coalition, but it records the party of every
-person (``member of political party``, with dates where it knows them). A membership without
-dates counts when the party existed on that day. An independent is no party, and neither is
-a party only one member of the cabinet belonged to. The result follows Wikidata: a person
-whose old party it records without dates can still bring that party in.
+``den_uyl``). ``wikidata_period`` reads the period of a cabinet Wikidata knows before 1945,
+often only by a year.
 """
 
 from __future__ import annotations
 
 import re
 import unicodedata
-from collections import Counter
 from collections.abc import Iterable
 from typing import Any
-
-from lawgraph.core.government import PRECISION_DAY
-from lawgraph.core.ministries import POST_PRIME_MINISTER, classify_function
-
-# The Wikidata item "independent politician": a person without a party.
-INDEPENDENT = "Q327591"
-# The members a party needs in a cabinet to be one of its parties.
-MIN_PARTY_MEMBERS = 2
 
 
 def cabinet_name(label: str | None) -> str | None:
@@ -44,96 +29,23 @@ def cabinet_key(name: str | None) -> str | None:
     return "_".join(re.findall(r"[a-z0-9]+", plain)) or None
 
 
-def _within(day: str | None, start: str | None, end: str | None) -> bool:
-    if not day:
-        return not start and not end
-    return (not start or start <= day) and (not end or day <= end)
-
-
-def party_on(person: dict[str, Any], day: str | None) -> list[dict[str, Any]]:
-    """The parties *person* belonged to on *day*: a membership whose dates hold the day,
-    or, without dates, of a party that existed then."""
-    parties = []
-    for party in person.get("parties") or []:
-        if party.get("id") == INDEPENDENT:
-            continue
-        dated = party.get("from_date") or party.get("to_date")
-        if dated:
-            held = _within(day, party.get("from_date"), party.get("to_date"))
-        else:
-            held = _within(day, party.get("founded"), party.get("dissolved"))
-        if held:
-            parties.append(party)
-    return parties
-
-
-def cabinet_parties(
-    cabinet_id: str, people: Iterable[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    """The parties of the members of the cabinet *cabinet_id* when their post in it
-    began, the party with the most members first: ``{id, name, short}``.
-
-    A member with one party on that day counts for it. A member with several (a membership
-    without dates of a party they left, beside the one they are in) counts only for those
-    of them another member counts for, and for none when that leaves nothing to choose.
-    A party only one member counts for is left out: a minister from outside the coalition
-    (Van Rijn, a PvdA member, in Rutte III) brings no party into it."""
-    candidates: list[dict[str, dict[str, Any]]] = []
-    for person in people:
-        found: dict[str, dict[str, Any]] = {}
-        for post in person.get("posts") or []:
-            if post.get("cabinet_id") == cabinet_id:
-                for party in party_on(person, post.get("from_date")):
-                    found[party["id"]] = party
-        if found:
-            candidates.append(found)
-    sure = {next(iter(found)) for found in candidates if len(found) == 1}
-    counts: Counter[str] = Counter()
-    parties: dict[str, dict[str, Any]] = {}
-    for found in candidates:
-        chosen = list(found) if len(found) == 1 else [p for p in found if p in sure]
-        for party_id in chosen:
-            counts[party_id] += 1
-            party = found[party_id]
-            parties[party_id] = {
-                "id": party_id,
-                "name": party.get("name"),
-                "short": party.get("short"),
-            }
-    return [
-        parties[party_id]
-        for party_id, count in sorted(counts.items(), key=lambda c: (-c[1], c[0]))
-        if count >= MIN_PARTY_MEMBERS
-    ]
-
-
-def prime_minister(
-    cabinet: dict[str, Any], people: Iterable[dict[str, Any]]
-) -> str | None:
-    """The Q-id of the prime minister of *cabinet*: who held the post of minister-president
-    in it first, else its head of government (P6)."""
-    held = sorted(
-        (post.get("from_date") or "", person["id"])
-        for person in people
-        for post in person.get("posts") or []
-        if post.get("cabinet_id") == cabinet["id"]
-        and classify_function(post.get("function"))[0] == POST_PRIME_MINISTER
-    )
-    if held:
-        return held[0][1]
-    heads = cabinet.get("heads") or []
-    return heads[0] if heads else None
-
-
 def _plain(text: str | None) -> str:
     plain = unicodedata.normalize("NFKD", text or "")
     return "".join(c for c in plain if not unicodedata.combining(c)).lower().strip()
 
 
+def _capitals(name: str | None) -> str:
+    """``nsc`` of ``Nieuw Sociaal Contract``, ``cu`` of ``ChristenUnie``."""
+    return "".join(c for c in name or "" if c.isupper()).lower()
+
+
 def faction_of(party: dict[str, Any], factions: Iterable[dict[str, Any]]) -> str | None:
     """The key of the faction that bears the name or abbreviation of *party*, or ``None``
     (a party from before the Tweede Kamer data begins). *factions* are ``{key, name,
-    abbreviation, aliases}``."""
+    abbreviation, aliases}``. A faction the Tweede Kamer gives no abbreviation of
+    (``Nieuw Sociaal Contract``) is known by the capitals of its name (``NSC``), when they
+    name one faction only."""
+    factions = list(factions)
     names = {_plain(party.get("name")), _plain(party.get("short"))} - {""}
     for faction in factions:
         own = {
@@ -143,7 +55,12 @@ def faction_of(party: dict[str, Any], factions: Iterable[dict[str, Any]]) -> str
         }
         if names & own:
             return str(faction["key"])
-    return None
+    by_capitals = [
+        f
+        for f in factions
+        if len(_capitals(f.get("name"))) > 1 and _capitals(f.get("name")) in names
+    ]
+    return str(by_capitals[0]["key"]) if len(by_capitals) == 1 else None
 
 
 def cabinet_on(day: str | None, cabinets: Iterable[dict[str, Any]]) -> str | None:
@@ -165,69 +82,16 @@ def cabinet_on(day: str | None, cabinets: Iterable[dict[str, Any]]) -> str | Non
 PRECISION_NAMES = {11: "day", 10: "month", 9: "year"}
 
 
-def _precise(precision: int | None) -> bool:
-    return (precision or 0) >= PRECISION_DAY
-
-
-def _same_year(a: str | None, b: str | None) -> bool:
-    return bool(a and b and a[:4] == b[:4])
-
-
-def _meet(end: dict[str, Any], start: dict[str, Any]) -> None:
-    """Let the period *end* of one cabinet and *start* of the next meet: an end that is
-    missing is the next start; a date known only to the year becomes the other's day when
-    that falls in the same year (a year between them means a cabinet Wikidata lacks)."""
-    if start["from_date"] and (
-        not end["to_date"]
-        or (
-            not _precise(end["to_date_precision"])
-            and _precise(start["from_date_precision"])
-            and _same_year(end["to_date"], start["from_date"])
+def wikidata_period(record: dict[str, Any]) -> dict[str, Any]:
+    """``{from_date, from_date_precision, to_date, to_date_precision}`` of a Wikidata
+    cabinet as Wikidata gives it: a date it lacks stays ``None``, a year stays a year
+    (dated the first of January). Nothing is taken from the cabinets around it: Wikidata
+    lacks some, so the next start is not this end."""
+    period: dict[str, Any] = {}
+    for field in ("from_date", "to_date"):
+        day = record.get(field)
+        period[field] = day
+        period[f"{field}_precision"] = (
+            PRECISION_NAMES.get(record.get(f"{field}_precision") or 0) if day else None
         )
-    ):
-        end["to_date"] = start["from_date"]
-        end["to_date_precision"] = start["from_date_precision"]
-    if (
-        not _precise(start["from_date_precision"])
-        and _precise(end["to_date_precision"])
-        and _same_year(start["from_date"], end["to_date"])
-    ):
-        start["from_date"] = end["to_date"]
-        start["from_date_precision"] = end["to_date_precision"]
-
-
-def complete_periods(cabinets: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Q-id -> ``{from_date, from_date_precision, to_date, to_date_precision, previous}``
-    of every cabinet (records of ``WikidataClient.cabinets``), completed where Wikidata
-    leaves them open. Wikidata knows the old cabinets (before 1945) only by a year and
-    often without an end or a predecessor; a cabinet follows the one before it in time:
-
-    - ``previous`` is the cabinet Wikidata names (P155), else the one that started before it;
-    - a cabinet without an end ended when the next one started, and an end known only to
-      the year is the day the next one started in that year;
-    - a start known only to the year is the day the one before ended in that year.
-
-    Only the last cabinet (the one in office) can stay without an end. The precision is
-    ``day``, ``month`` or ``year``."""
-    ordered = sorted(cabinets, key=lambda c: (c.get("from_date") or "", c["id"]))
-    known = {c["id"] for c in ordered}
-    periods: dict[str, dict[str, Any]] = {}
-    for i, cabinet in enumerate(ordered):
-        named = [q for q in cabinet.get("previous") or [] if q in known]
-        periods[cabinet["id"]] = {
-            "from_date": cabinet.get("from_date"),
-            "from_date_precision": cabinet.get("from_date_precision"),
-            "to_date": cabinet.get("to_date"),
-            "to_date_precision": cabinet.get("to_date_precision"),
-            "previous": named[0] if named else (ordered[i - 1]["id"] if i else None),
-        }
-    for before, after in zip(ordered, ordered[1:], strict=False):
-        _meet(periods[before["id"]], periods[after["id"]])
-    for period in periods.values():
-        for field in ("from_date_precision", "to_date_precision"):
-            period[field] = (
-                PRECISION_NAMES.get(period[field] or 0)
-                if period[field.removesuffix("_precision")]
-                else None
-            )
-    return periods
+    return period

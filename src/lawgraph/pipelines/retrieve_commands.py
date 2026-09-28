@@ -23,6 +23,7 @@ from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
+from lawgraph.pipelines.retrieve.rijksoverheid import RijksoverheidRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
@@ -341,6 +342,13 @@ def retrieve_verdragenbank(argv: list[str] | None = None) -> PipelineResult:
 
 def retrieve_wikidata(argv: list[str] | None = None) -> PipelineResult:
     argparse.ArgumentParser(
-        description="Retrieve the posts people held in Dutch cabinets, from Wikidata."
+        description="Retrieve the Dutch cabinets from Wikidata."
     ).parse_args(argv)
     return WikidataRetrievePipeline(ArangoStore()).run()
+
+
+def retrieve_rijksoverheid(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve the page of every cabinet since 1945 from rijksoverheid.nl."
+    ).parse_args(argv)
+    return RijksoverheidRetrievePipeline(ArangoStore()).run()

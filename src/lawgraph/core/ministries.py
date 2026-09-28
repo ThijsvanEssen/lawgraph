@@ -45,22 +45,30 @@ class Ministry:
 
 
 # The ministries in protocol order (the order of the Rijksoverheid), each followed by the
-# ministries it succeeded; a former ministry takes the place of its successor.
+# ministries it succeeded; a former ministry takes the place of its successor. ``until`` is
+# the day before the successor's first post on the Rijksoverheid cabinet pages where the last
+# post under the old name ends that day; ``None`` where the pages show no such handover.
 MINISTRIES: tuple[Ministry, ...] = (
     Ministry("az", "Algemene Zaken"),
+    Ministry("aok", "Algemene Oorlogvoering van het Koninkrijk", "az"),
     Ministry("bz", "Buitenlandse Zaken"),
     Ministry("jenv", "Justitie en Veiligheid"),
     Ministry("venj", "Veiligheid en Justitie", "jenv", "2017-10-25"),
     Ministry("justitie", "Justitie", "venj", "2010-10-13"),
     Ministry("bzk", "Binnenlandse Zaken en Koninkrijksrelaties"),
     Ministry("biza", "Binnenlandse Zaken", "bzk", "1998-08-02"),
+    Ministry(
+        "bzbpbo",
+        "Binnenlandse Zaken, Bezitsvorming en Publiekrechtelijke Bedrijfsorganisatie",
+        "biza",
+    ),
     Ministry("ocw", "Onderwijs, Cultuur en Wetenschap"),
     Ministry("ow", "Onderwijs en Wetenschappen", "ocw", "1994-08-21"),
     Ministry("okw", "Onderwijs, Kunsten en Wetenschappen", "ow", "1965-04-13"),
     Ministry("fin", "Financiën"),
     Ministry("def", "Defensie"),
-    Ministry("oorlog", "Oorlog", "def"),
-    Ministry("marine", "Marine", "def"),
+    Ministry("oorlog", "Oorlog", "def", "1959-05-18"),
+    Ministry("marine", "Marine", "def", "1959-05-18"),
     Ministry("ienw", "Infrastructuur en Waterstaat"),
     Ministry("ienm", "Infrastructuur en Milieu", "ienw", "2017-10-25"),
     Ministry("venw", "Verkeer en Waterstaat", "ienm", "2010-10-13"),
@@ -70,21 +78,26 @@ MINISTRIES: tuple[Ministry, ...] = (
     Ministry("ez", "Economische Zaken"),
     Ministry("ezk", "Economische Zaken en Klimaat", "ez", "2024-07-01"),
     Ministry("eli", "Economische Zaken, Landbouw en Innovatie", "ez", "2012-11-04"),
-    Ministry("hn", "Handel en Nijverheid", "ez"),
+    Ministry("hn", "Handel en Nijverheid", "ez", "1946-07-02"),
     Ministry("ahn", "Arbeid, Handel en Nijverheid", "hn"),
     Ministry("kgg", "Klimaat en Groene Groei"),
     Ministry("lvvn", "Landbouw, Visserij, Voedselzekerheid en Natuur"),
     Ministry("lnv", "Landbouw, Natuur en Voedselkwaliteit", "lvvn", "2024-07-01"),
     Ministry("lnbv", "Landbouw, Natuurbeheer en Visserij", "lnv", "2003-05-26"),
     Ministry("lenv", "Landbouw en Visserij", "lnbv", "1989-11-06"),
+    Ministry("lvv", "Landbouw, Visserij en Voedselvoorziening", "lenv", "1959-05-18"),
     Ministry("szw", "Sociale Zaken en Werkgelegenheid"),
     Ministry("sz", "Sociale Zaken", "szw", "1981-09-10"),
+    Ministry("szv", "Sociale Zaken en Volksgezondheid", "sz"),
     Ministry("arbeid", "Arbeid", "sz"),
     Ministry("vws", "Volksgezondheid, Welzijn en Sport"),
     Ministry("wvc", "Welzijn, Volksgezondheid en Cultuur", "vws", "1994-08-21"),
     Ministry("vm", "Volksgezondheid en Milieuhygiëne", "wvc", "1982-11-03"),
     Ministry("crm", "Cultuur, Recreatie en Maatschappelijk Werk", "wvc", "1982-11-03"),
+    Ministry("mw", "Maatschappelijk Werk", "crm", "1965-04-13"),
     Ministry("vro", "Volkshuisvesting en Ruimtelijke Ordening"),
+    Ministry("vb", "Volkshuisvesting en Bouwnijverheid", "vro", "1965-04-13"),
+    Ministry("wv", "Wederopbouw en Volkshuisvesting", "vb", "1956-10-12"),
     Ministry(
         "vrom",
         "Volkshuisvesting, Ruimtelijke Ordening en Milieubeheer",
@@ -92,6 +105,12 @@ MINISTRIES: tuple[Ministry, ...] = (
         "2010-10-13",
     ),
     Ministry("aenm", "Asiel en Migratie"),
+    # Ministries without a successor of their name.
+    Ministry("scheepvaart", "Scheepvaart"),
+    Ministry("ogd", "Overzeese Gebiedsdelen"),
+    Ministry("uor", "Uniezaken en Overzeese Rijksdelen"),
+    Ministry("or", "Overzeese Rijksdelen"),
+    Ministry("zo", "Zaken Overzee"),
 )
 MINISTRY_BY_KEY: dict[str, Ministry] = {m.key: m for m in MINISTRIES}
 
@@ -118,9 +137,38 @@ _NAMES: dict[str, str] = {
     **{_plain(m.name): m.key for m in MINISTRIES},
     _plain("Volkshuisvesting, Ruimtelijke Ordening en Milieu"): "vrom",
     _plain("Landbouw Visserij Voedselzekerheid en Natuur"): "lvvn",
-    _plain("Algemene Oorlogvoering van het Koninkrijk"): "oorlog",
-    _plain("Algemene Oorlogvoering"): "oorlog",
+    _plain("Algemene Oorlogvoering"): "aok",
+    _plain("Algemene Oorlogsvoering"): "aok",
+    _plain("Onderwijs, Cultuur en Wetenschappen"): "ocw",
+    # the abbreviations the sources use for a ministry
+    **{
+        _plain(short): key
+        for short, key in (
+            ("AZ", "az"),
+            ("BZ", "bz"),
+            ("JenV", "jenv"),
+            ("BZK", "bzk"),
+            ("OCW", "ocw"),
+            ("OCenW", "ocw"),
+            ("IenW", "ienw"),
+            ("IenM", "ienm"),
+            ("VenW", "venw"),
+            ("EZ", "ez"),
+            ("EZK", "ezk"),
+            ("LNV", "lnv"),
+            ("SZW", "szw"),
+            ("VWS", "vws"),
+            ("WVC", "wvc"),
+            ("VROM", "vrom"),
+        )
+    },
 }
+
+
+def ministry_named(text: str | None) -> str | None:
+    """The key of the ministry whose name *text* is, exactly; ``None`` for a portfolio."""
+    return _NAMES.get(_plain(text))
+
 
 # A portfolio that is no ministry of its own: the ministry its post is placed under, by the
 # words it contains. The first rule that matches wins, so a narrower rule comes first.
