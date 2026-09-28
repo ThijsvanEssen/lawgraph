@@ -41,8 +41,8 @@ _COMMITTEE = {
         "name": "Vaste commissie voor Volksgezondheid",
         "abbreviation": "VWS",
         "slug": "vws",
+        "active_dossier_count": 3,
     },
-    "active_dossier_count": 3,
 }
 
 _FACTION = {

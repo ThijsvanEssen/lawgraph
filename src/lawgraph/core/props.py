@@ -417,6 +417,11 @@ class CommitteeProps(_CommonProps):
     name: str | None = None
     abbreviation: str | None = None
     slug: str | None = None
+    kind: str | None = None
+    started_on: str | None = None
+    ended_on: str | None = None
+    # the open dossiers it leads, none once dissolved (``semantic graph-list-stats``)
+    active_dossier_count: int | None = None
 
 
 # ---------------------------------------------------------------------------

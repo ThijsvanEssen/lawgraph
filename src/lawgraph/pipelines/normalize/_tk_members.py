@@ -43,6 +43,7 @@ def normalize_committees(
             labels=["TK"],
             props=props,
         )
+    tk_records.unique_committee_slugs([node.props for node in nodes.values()])
     _write(store, nodes.values())
     logger.info("Normalized %d committees.", len(nodes))
     return nodes

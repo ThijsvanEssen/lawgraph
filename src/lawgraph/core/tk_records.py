@@ -205,8 +205,74 @@ def committee(payload: Payload) -> Record | None:
         "name": name,
         "abbreviation": abbreviation,
         "slug": make_node_key(abbreviation or name),
+        "kind": committee_kind(name, _text(payload, "Inhoudsopgave")),
+        "started_on": iso_date(payload.get("DatumActief")),
+        "ended_on": iso_date(payload.get("DatumInactief")),
         "display_name": name,
     }
+
+
+# The kind of a committee, by its name, else by the group the Kamer lists it in
+# (``Commissie.Inhoudsopgave``): an enquête or ondervraging before "Parlementaire".
+_COMMITTEE_KINDS = (
+    ("enquete", re.compile(r"(?:enqu[eê]te|ondervragings)commissie", re.IGNORECASE)),
+    ("vast", re.compile(r"^vaste commissie\b", re.IGNORECASE)),
+    ("algemeen", re.compile(r"^algemene commissie\b", re.IGNORECASE)),
+    ("tijdelijk", re.compile(r"^(?:tijdelijke\b|themacommissie\b)", re.IGNORECASE)),
+    (
+        "delegatie",
+        re.compile(
+            r"^(?:contactgroep|ipc|interparlementaire)\b|assemblee|europol",
+            re.IGNORECASE,
+        ),
+    ),
+)
+_COMMITTEE_GROUPS = {
+    "Vaste commissies": "vast",
+    "Algemene commissies": "algemeen",
+    "Tijdelijke commissies": "tijdelijk",
+    "Delegaties naar internationale vergaderingen": "delegatie",
+}
+
+
+def committee_kind(name: str, group: str | None) -> str:
+    """``vast``, ``algemeen``, ``tijdelijk``, ``enquete``, ``delegatie`` or ``overig``."""
+    for kind, pattern in _COMMITTEE_KINDS:
+        if pattern.search(name):
+            return kind
+    return _COMMITTEE_GROUPS.get(group or "", "overig")
+
+
+def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
+    """Give every committee in *committees* (their props) a slug of its own.
+
+    Several committees share an abbreviation (``ez``, ``buhaos``): the one sitting now, else
+    the one that ended last, keeps it; the others get the year they started (``ez-2010``),
+    with a number behind it when that is taken too.
+    """
+    by_slug: dict[str, list[dict[str, Any]]] = {}
+    for props in committees:
+        by_slug.setdefault(props["slug"], []).append(props)
+    taken = set(by_slug)
+    for slug, group in by_slug.items():
+        group.sort(
+            key=lambda p: (
+                p.get("ended_on") is None,
+                p.get("ended_on") or "",
+                p.get("started_on") or "",
+                p["external_id"],
+            ),
+            reverse=True,
+        )
+        for props in group[1:]:
+            year = (props.get("started_on") or props.get("ended_on") or "")[:4]
+            base = f"{slug}-{year}" if year else slug
+            candidate, n = base, 1
+            while candidate in taken:
+                n += 1
+                candidate = f"{base}-{n}"
+            props["slug"] = candidate
+            taken.add(candidate)
 
 
 def committee_seats(payload: Payload) -> dict[str, list[tuple[str | None, str | None]]]:

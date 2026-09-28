@@ -4,6 +4,7 @@ counts them (a dry run) or writes the keys. Each ``refresh_*`` returns the numbe
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, cast
 
 from lawgraph.config.constants import (
@@ -134,18 +135,22 @@ LET open_activity_map = MERGE(
     FOR e IN {COLLECTION_EDGES}
         FILTER e.relation == @about
         FILTER open_dossier_map[e._to] == true
-        RETURN {{ [e._from]: true }}
+        COLLECT activity = e._from INTO dossier_ids = e._to
+        RETURN {{ [activity]: dossier_ids }}
 )
 LET counts = (
     FOR e IN {COLLECTION_EDGES}
         FILTER e.relation == @led_by
-        FILTER open_activity_map[e._from] == true
-        COLLECT committee = e._to WITH COUNT INTO cnt
-        RETURN {{ id: committee, count: cnt }}
+        FILTER open_activity_map[e._from] != null
+        FOR dossier_id IN open_activity_map[e._from]
+            COLLECT committee = e._to INTO led = dossier_id
+            RETURN {{ id: committee, count: COUNT_UNIQUE(led) }}
 )
 LET count_map = MERGE(FOR x IN counts RETURN {{ [x.id]: x.count }})
 FOR doc IN {COLLECTION_COMMITTEES}
-    LET active_dossier_count = count_map[doc._id] != null ? count_map[doc._id] : 0
+    LET dissolved = doc.props.ended_on != null AND doc.props.ended_on <= @today
+    LET active_dossier_count = dissolved || count_map[doc._id] == null
+        ? 0 : count_map[doc._id]
     FILTER doc.props.active_dossier_count != active_dossier_count
 """
 
@@ -220,6 +225,10 @@ def refresh_committees(store: Store, *, dry_run: bool) -> int:
         _update_tail(
             COLLECTION_COMMITTEES, "doc", "active_dossier_count: active_dossier_count"
         ),
-        {"about": RELATION_ABOUT, "led_by": RELATION_LED_BY},
+        {
+            "about": RELATION_ABOUT,
+            "led_by": RELATION_LED_BY,
+            "today": dt.date.today().isoformat(),
+        },
         dry_run=dry_run,
     )

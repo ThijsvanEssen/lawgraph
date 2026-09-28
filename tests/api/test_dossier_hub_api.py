@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import committees as committee_routes
-from lawgraph.api.schemas.committees import ActorDossierDTO, CommitteeDetailDTO
+from lawgraph.api.schemas.committees import ActorDossierDTO
 
 client = TestClient(app)
 
@@ -147,11 +147,10 @@ def test_the_committee_detail_pages_its_dossiers(
         return {
             "_id": "committees/c_a",
             "_key": "c_a",
-            "props": {"name": "Commissie A", "slug": "a"},
+            "props": {"name": "Commissie A", "slug": "a", "active_dossier_count": 17},
             "members": [],
             "dossiers": [_DOSSIER],
             "dossier_total": 240,
-            "open_dossier_count": 17,
         }
 
     monkeypatch.setattr("lawgraph.api.routes.committees.get_committee_detail", detail)
@@ -160,7 +159,7 @@ def test_the_committee_detail_pages_its_dossiers(
 
     assert asked["status"] == "closed" and asked["limit"] == 1 and asked["offset"] == 5
     assert body["dossier_total"] == 240
-    assert body["active_dossier_count"] == 17  # open ones of all, not of the page
+    assert body["active_dossier_count"] == 17  # the stored count, not the page
     assert [d["number"] for d in body["dossiers"]] == ["36000"]
 
 
@@ -169,20 +168,6 @@ def test_the_committee_detail_pages_its_dossiers(
 )
 def test_the_committee_dossier_paging_has_bounds(query: str) -> None:
     assert client.get(f"/api/committees/a?{query}").status_code == 422
-
-
-def test_the_committee_detail_dto_counts_from_the_query_not_from_the_page() -> None:
-    dto = CommitteeDetailDTO.from_detail_document(
-        {
-            "_id": "committees/c_a",
-            "_key": "c_a",
-            "props": {},
-            "dossiers": [{**_DOSSIER, "props": {**_DOSSIER["props"], "closed": True}}],
-            "dossier_total": 9,
-            "open_dossier_count": 4,
-        }
-    )
-    assert dto.dossier_total == 9 and dto.active_dossier_count == 4
 
 
 def test_committee_activities_are_paged_with_a_total(
