@@ -104,7 +104,10 @@ def test_the_dossier_detail_carries_its_hub(monkeypatch: pytest.MonkeyPatch) -> 
     body = client.get("/api/dossiers/36000").json()
 
     assert body["document_count"] == 5  # what it had before
-    assert body["instruments"][0] == _HUB["instruments"][0]
+    assert body["instruments"][0] == {
+        **_HUB["instruments"][0],
+        "links": [{"relation": "legislated_in", "status": "canoniek"}],
+    }
     assert body["instruments"][1]["celex"] == "32016L0680"
     assert body["instruments"][1]["bwb_id"] is None
     assert body["committees"] == [{**_HUB["committees"][0], "role": "lead"}]

@@ -1181,3 +1181,40 @@ def get_dossier_titles(
         RETURN {{ key: d._key, title: d.props.title }}
     """
     return {row["key"]: row.get("title") for row in store.query(aql, {"keys": keys})}
+
+
+def get_laws_named(store: ArangoStore, names: list[str]) -> list[dict[str, Any]]:
+    """``{name, loaded, key, bwb_id}`` of each law *names* holds (the laws a dossier title
+    names), found by the citation title, title or short title of an instrument; else by
+    the one citation title the name begins (a name the title cut at "in")."""
+    if not names:
+        return []
+    aql = f"""
+    FOR name IN @names
+        LET lower = LOWER(name)
+        LET exact = FIRST(
+            FOR i IN {COLLECTION_INSTRUMENTS}
+                FILTER i.props.stub != true
+                FILTER LOWER(i.props.citation_title) == lower
+                    OR LOWER(i.props.title) == lower
+                    OR LOWER(i.props.short_title) == lower
+                SORT i._key
+                LIMIT 1
+                RETURN i
+        )
+        LET begun = exact != null ? [] : (
+            FOR i IN {COLLECTION_INSTRUMENTS}
+                FILTER i.props.stub != true
+                FILTER STARTS_WITH(LOWER(i.props.citation_title), CONCAT(lower, " "))
+                LIMIT 2
+                RETURN i
+        )
+        LET found = exact != null ? exact : (LENGTH(begun) == 1 ? begun[0] : null)
+        RETURN {{
+            name,
+            loaded: found != null,
+            key: found._key,
+            bwb_id: found.props.bwb_id
+        }}
+    """
+    return list(store.query(aql, {"names": names}))
