@@ -11,9 +11,12 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
+    COLLECTION_COMMITMENTS,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
 )
 from lawgraph.core.models import Node, NodeType
@@ -50,6 +53,21 @@ def _nodes() -> list[Node]:
                     {"label": str(37000 + ROWS), "opened_on": "2026-09-22"},
                 ),
                 (COLLECTION_MEMBERS, NodeType.MEMBER, {"name": "Jansen"}),
+                (
+                    COLLECTION_JUDGMENTS,
+                    NodeType.JUDGMENT,
+                    {"ecli": f"ECLI:NL:HR:2026:{i}", "date_eff": "2026-09-22"},
+                ),
+                (
+                    COLLECTION_INSTRUMENTS,
+                    NodeType.INSTRUMENT,
+                    {"citation_title": "Wet", "article_count": 1},
+                ),
+                (
+                    COLLECTION_COMMITMENTS,
+                    NodeType.COMMITMENT,
+                    {"text": "Toezegging", "made_on": "2026-09-22"},
+                ),
             )
         )
     ]
@@ -61,7 +79,15 @@ def _nodes() -> list[Node]:
         "/api/decisions",
         "/api/documents",
         "/api/dossiers/open",
+        "/api/dossiers",
+        "/api/dossiers?sort=title",
         "/api/members?include_all=true",
+        "/api/judgments",
+        "/api/judgments?sort=date_asc",
+        "/api/judgments?sort=citation_count",
+        "/api/instruments",
+        "/api/instruments?sort=article_count",
+        "/api/commitments",
     ],
 )
 def test_walking_the_pages_finds_every_row_once(database: str, path: str) -> None:

@@ -161,10 +161,13 @@ statutes made by the legislator:
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records.
 - EU directives, regulations and decisions (`celex`).
 - The Convention of the ECHR (`echr_convention`): kind `verdrag`, `bwb_id` `ECHR-CONVENTION`, which its articles carry too.
-- Amending publications (Staatsblad, Tractatenblad, ...) are instruments too
-  (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
-  `date_published`, `dossier_numbers`); they are the source of `AMENDS`, `INTRODUCES` and
-  `REPEALS`.
+- Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`
+  `publicatie` (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
+  `date_published`, `dossier_numbers`; `citation_title` is their name, `Stb. 2019, 33`); they
+  are the source of `AMENDS`, `INTRODUCES` and `REPEALS`, and no regulation: the instrument
+  lists and `/api/stats` keep them apart.
+- `inbound_citation_count` of an instrument (`semantic graph-list-stats`): the `REFERS_TO`
+  edges to it and to its articles.
 
 An instrument that amends, introduces or repeals has enacted the change (`status: canoniek`).
 A bill (Document) carries the same three relations with `status: voorgesteld` — a change it
@@ -444,7 +447,7 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
-| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier)`, `(court_code, date_eff, tier)`, `(tier, date_eff)` and `(date_eff, tier)`: each filter of `/api/judgments` ends in the tier and the date, so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
+| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, stub)`, `(court_code, date_eff, tier, stub)`, `(tier, date_eff, stub)` and `(date_eff, tier, stub)`: each filter of `/api/judgments` ends in the tier, the date and `stub` (the list leaves stubs out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
 | `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on (`dossiers` `props.order`, `props.label` (a number prefix as a range), `props.opened_on`; `dossiers` and `commitments` also `props.cabinet`, `props.ministry`; `commitments` `props.member_key`) |
 | `members` | `props.government_functions[*].cabinet_key` (`GET /api/members?cabinet=`) |
 | `raw_sources` | `(source, kind)` |

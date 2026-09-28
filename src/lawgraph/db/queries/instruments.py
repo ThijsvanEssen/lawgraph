@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
     TEXT_ANALYZER,
 )
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.models import parse_arango_id
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
@@ -615,6 +616,7 @@ def get_instruments_list(
         "jurisdiction": jurisdiction.lower() if jurisdiction else None,
         "kind": kind.lower() if kind else None,
         "article_count_min": article_count_min,
+        "publication": KIND_PUBLICATION,
         **tok_bind,
     }
 
@@ -633,7 +635,8 @@ def get_instruments_list(
     LET items = (
         {source}
             FILTER @jurisdiction == null OR doc.props.jurisdiction == @jurisdiction
-            FILTER @kind == null OR doc.props.kind == @kind
+            FILTER @kind == null
+                ? doc.props.kind != @publication : doc.props.kind == @kind
             FILTER @article_count_min == null
                 OR (doc.props.article_count != null
                     AND doc.props.article_count >= @article_count_min)
@@ -642,8 +645,8 @@ def get_instruments_list(
             LET props = doc.props
             LET citation_title = (
                 props.citation_title != null ? props.citation_title :
-                (props.display_name != null ? props.display_name :
-                 (props.title != null ? props.title : doc._key))
+                (props.title != null ? props.title :
+                 (props.display_name != null ? props.display_name : doc._key))
             )
             RETURN {{
                 _id: doc._id,
@@ -674,7 +677,8 @@ def get_instruments_list(
     LET total = LENGTH(
         {count_source}
             FILTER @jurisdiction == null OR doc.props.jurisdiction == @jurisdiction
-            FILTER @kind == null OR doc.props.kind == @kind
+            FILTER @kind == null
+                ? doc.props.kind != @publication : doc.props.kind == @kind
             FILTER @article_count_min == null
                 OR (doc.props.article_count != null
                     AND doc.props.article_count >= @article_count_min)
@@ -682,7 +686,12 @@ def get_instruments_list(
     )
     """
     else:
-        aql += "LET total = COLLECTION_COUNT('instruments')\n"
+        # the collection less its publications, counted on the index of the kind
+        aql += f"""
+    LET total = COLLECTION_COUNT('{COLLECTION_INSTRUMENTS}') - LENGTH(
+        FOR doc IN {COLLECTION_INSTRUMENTS} FILTER doc.props.kind == @publication RETURN 1
+    )
+    """
 
     aql += "RETURN { total: total, items: items }\n"
 

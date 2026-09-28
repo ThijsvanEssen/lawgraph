@@ -97,6 +97,8 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
                 "external_id": external_id,
                 "uri": uri,
                 "title": title,
+                # the name a treaty is cited and sorted by: its whole title
+                "citation_title": title,
                 "title_nl": title_nl,
                 "title_en": title_en,
                 "display_name": display_name,

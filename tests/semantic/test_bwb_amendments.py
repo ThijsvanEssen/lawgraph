@@ -176,6 +176,10 @@ def test_documents_become_instruments_with_their_metadata() -> None:
     assert origin["type"] == "instrument"
     assert origin["props"] == {
         "display_name": "Stb. 2019, 33",
+        # a publication is no regulation: its own kind, and a name to sort it by
+        "citation_title": "Stb. 2019, 33",
+        "kind": "publicatie",
+        "jurisdiction": "nl",
         "source": "bwb",
         "publication_kind": "Stb",
         "publication_year": 2019,

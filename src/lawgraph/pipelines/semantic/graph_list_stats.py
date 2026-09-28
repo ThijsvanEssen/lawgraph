@@ -10,6 +10,7 @@ instruments
     props.jurisdiction   — 'nl' (bwb_id present) | 'eu' (celex present) | null
     props.article_count  — count of PART_OF edges pointing at it
     props.kind           — lower-cased copy of props.kind when present
+    props.inbound_citation_count — of an instrument: REFERS_TO to it and to its articles
 
 judgments
     props.court_code     — uppercase ECLI court segment (e.g. 'HR', 'GHARN')

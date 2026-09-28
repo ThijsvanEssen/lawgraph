@@ -360,14 +360,13 @@ def get_article_explanations(
 ) -> dict[str, Any]:
     """A page of the documents that EXPLAIN an article, and how many there are in all.
 
-    An explanation is an EXPLAINS edge whose target is the article, one of its versions
-    (found as ``get_article_history`` finds them) or its instrument; the edge of an
-    explanatory memorandum usually points at a version. The rows say at which level
-    they matched: level 0 for the article and its versions, level 1 for the instrument
-    (an edge written only for a law that changed no articles, so no evidence about this
-    article), sorted after the first. Per document and level one edge is kept, the one
-    that says most (a version before the article, the newest version first); edges that
-    carry a ``meta.section_anchor`` are kept apart from those that do not.
+    An explanation is an EXPLAINS edge whose target is the article or one of its versions
+    (found as ``get_article_history`` finds them); the edge of an explanatory memorandum
+    usually points at a version. An edge to the article's law is no explanation of the
+    article: it is written for a law that changed no articles, and says nothing about this
+    one. Per document one edge is kept, the one that says most (a version before the
+    article, the newest version first); edges that carry a ``meta.section_anchor`` are kept
+    apart from those that do not.
 
     An unknown article has no explanations: the answer is empty. Query budget: one
     lookup of the article and one query, driven by the ``(_to, relation)`` index of
@@ -380,18 +379,12 @@ def get_article_explanations(
     identity_filter, bind = _version_identity(article, bwb_id, article_number)
     aql = f"""
     LET targets = UNION(
-        [{{ id: @article_id, level: 0, rank: 1, valid_from: null }}],
+        [{{ id: @article_id, rank: 1, valid_from: null }}],
         (
             FOR v IN {COLLECTION_ARTICLE_VERSIONS}
                 FILTER v.props.bwb_id == @bwb_id
                 {identity_filter}
-                RETURN {{ id: v._id, level: 0, rank: 0, valid_from: v.props.valid_from }}
-        ),
-        (
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._from == @article_id AND e.relation == @part_of
-                FILTER STARTS_WITH(e._to, '{COLLECTION_INSTRUMENTS}/')
-                RETURN {{ id: e._to, level: 1, rank: 0, valid_from: null }}
+                RETURN {{ id: v._id, rank: 0, valid_from: v.props.valid_from }}
         )
     )
     LET found = (
@@ -405,7 +398,6 @@ def get_article_explanations(
                     document_id: document._id,
                     key: document._key,
                     date: document.props.date,
-                    level: t.level,
                     rank: t.rank,
                     valid_from: t.valid_from,
                     target_id: t.id,
@@ -415,7 +407,7 @@ def get_article_explanations(
     )
     LET picked = (
         FOR f IN found
-            COLLECT document_id = f.document_id, level = f.level,
+            COLLECT document_id = f.document_id,
                     section_anchor = f.section_anchor INTO grouped = f
             RETURN FIRST(
                 FOR g IN grouped
@@ -426,7 +418,7 @@ def get_article_explanations(
     )
     LET items = (
         FOR p IN picked
-            SORT p.level ASC, p.date DESC, p.key ASC, p.section_anchor ASC
+            SORT p.date DESC, p.key ASC, p.section_anchor ASC
             LIMIT @offset, @limit
             LET document = DOCUMENT(p.document_id)
             LET dossier_number = FIRST(

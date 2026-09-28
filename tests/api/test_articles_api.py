@@ -160,12 +160,10 @@ def test_an_explanation_on_a_version_names_the_version_and_is_dossier_wide() -> 
     }
 
 
-def test_an_explanation_on_an_article_or_an_instrument_has_no_version_key() -> None:
+def test_an_explanation_on_an_article_has_no_version_key() -> None:
     article = _explanation(target_id="articles/bwbr0002_5")
-    instrument = _explanation(target_id="instruments/bwbr0002")
 
     assert (article.target, article.article_version_key) == ("article", None)
-    assert (instrument.target, instrument.article_version_key) == ("instrument", None)
 
 
 def test_an_explanation_with_a_section_anchor_is_scoped_to_the_article() -> None:
