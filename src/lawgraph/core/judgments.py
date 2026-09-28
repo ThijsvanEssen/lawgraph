@@ -168,9 +168,23 @@ def parse_judgment(payload_text: str | None) -> ET.Element:
         raise ValueError(f"not XML: {exc}") from exc
 
 
+# What a court writes as inhoudsindicatie before it has one: no summary.
+_PLACEHOLDER_SUMMARIES = frozenset({"kopje volgt"})
+
+
+def is_placeholder_summary(summary: str | None) -> bool:
+    """Whether an inhoudsindicatie only holds a place: empty, dashes or dots, or a known
+    placeholder ("kopje volgt")."""
+    plain = " ".join((summary or "").split()).lower().rstrip(".")
+    return not plain.strip("-. ") or plain in _PLACEHOLDER_SUMMARIES
+
+
 def extract_judgment_text(root: ET.Element) -> tuple[str | None, str | None]:
-    """Return ``(summary, full_text)`` of a parsed judgment."""
+    """Return ``(summary, full_text)`` of a parsed judgment; a placeholder
+    inhoudsindicatie ("kopje volgt", "-") is no summary."""
     summary = text_of(first_named(root, "inhoudsindicatie"), " ") or None
+    if is_placeholder_summary(summary):
+        summary = None
     if summary:
         summary = summary.replace(LINE_BREAK, "\n")
     parts = [
@@ -300,7 +314,8 @@ def area_of_law(subjects: list[str] | None) -> str | None:
 # What a decision is called: a court of cassation or appeal gives an arrest, a court of
 # first instance a vonnis, a court on a request (verzoekschrift) a beschikking, an
 # administrative court an uitspraak, the advocate-general a conclusie, and the Hoge Raad
-# answers the questions of a lower court in a prejudiciële beslissing.
+# answers the questions of a lower court in a prejudiciële beslissing. The kantonrechter
+# rules on an appeal against a traffic fine (Wahv) in a beslissing.
 
 KIND_ARREST = "arrest"
 KIND_VONNIS = "vonnis"
@@ -308,11 +323,13 @@ KIND_BESCHIKKING = "beschikking"
 KIND_UITSPRAAK = "uitspraak"
 KIND_CONCLUSIE = "conclusie"
 KIND_PRELIMINARY_RULING = "prejudiciële beslissing"
+KIND_BESLISSING = "beslissing"
 DECISION_KINDS: tuple[str, ...] = (
     KIND_ARREST,
     KIND_VONNIS,
     KIND_BESCHIKKING,
     KIND_UITSPRAAK,
+    KIND_BESLISSING,
     KIND_CONCLUSIE,
     KIND_PRELIMINARY_RULING,
 )
@@ -356,10 +373,12 @@ _GENERAL_COURTS = frozenset(
 )
 
 # A kop line that names the decision: "Arrest", "ARREST", "Uitspraak op het hoger beroep
-# van:", "beschikking van de meervoudige kamer", "Tussenvonnis". Not a label with its value
+# van:", "beschikking van de meervoudige kamer", "Tussenvonnis", "beslissing van de
+# kantonrechter". Not a label with its value
 # ("Uitspraak : 10 augustus 2026", "Uitspraak d.d. : 28 augustus 2026").
 _KIND_LINE = re.compile(
-    r"^(?:tussen|eind|deel|herstel|verstek)?(arrest|vonnis|beschikking|uitspraak)\b"
+    r"^(?:tussen|eind|deel|herstel|verstek)?"
+    r"(arrest|vonnis|beschikking|uitspraak|beslissing(?=\s+van\b))\b"
     r"(?!\s*(?:d\.d\.|datum)?\s*:)",
     re.IGNORECASE,
 )
@@ -804,6 +823,8 @@ class _Sections:
         self._kop = kop  # the elements read into the kop
 
     def add(self, kind: str, number: str | None, text: str) -> None:
+        # "6.16." as a list prints it: the number is 6.16
+        number = number.rstrip(".") if number else number
         if not text and not number:
             return
         slug = _slug(number) if number else ""

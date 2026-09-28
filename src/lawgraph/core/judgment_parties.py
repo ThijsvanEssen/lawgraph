@@ -670,9 +670,32 @@ def _is_role_name(text: str) -> bool:
 # ── the role a judgment does not state ───────────────────────────────────────
 
 
+# A public authority as a party: the prosecution, a minister, a college, a tax inspector. A
+# role derived from the area of law (verdachte, eiser, appellant) is that of the other side.
+_AUTHORITY = re.compile(
+    r"\b(?:officier\s+van\s+justitie|openbaar\s+ministerie|advocaat-generaal|"
+    r"minister|staatssecretaris|college\s+van\s+(?:burgemeester|gedeputeerde)|"
+    r"burgemeester|dagelijks\s+bestuur|heffingsambtenaar|inspecteur|korpschef|"
+    r"raad\s+van\s+bestuur|belastingdienst|cjib)\b",
+    re.IGNORECASE,
+)
+_PROSECUTION = re.compile(
+    r"\b(?:officier\s+van\s+justitie|openbaar\s+ministerie|advocaat-generaal)\b",
+    re.IGNORECASE,
+)
+ROLE_PROSECUTOR = "Officier van justitie"
+
+
 def _derived_role(
     party: _Party, area: str | None, *, request: bool, appeal: bool
-) -> str:
+) -> str | None:
+    if _AUTHORITY.search(party.name):
+        # the role the procedure gives the authority, or none
+        if area == AREA_CRIMINAL:
+            return ROLE_PROSECUTOR if _PROSECUTION.search(party.name) else None
+        if area == AREA_ADMINISTRATIVE and party.side == SIDE_SECOND:
+            return "Verweerder"
+        return None
     if area == AREA_CRIMINAL:
         return "Verdachte"
     if party.side == SIDE_OTHER:

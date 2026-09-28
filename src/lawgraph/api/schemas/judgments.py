@@ -22,11 +22,13 @@ DecisionKind = Literal[
     "vonnis",
     "beschikking",
     "uitspraak",
+    "beslissing",
     "conclusie",
     "prejudiciële beslissing",
 ]
 _DECISION_KIND = (
-    "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, "
+    "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` "
+    "(the kantonrechter on an appeal against a traffic fine), "
     "`conclusie` or `prejudiciële beslissing`. From the metadata and the kop where they "
     "tell, else from the court and the area of law; null when nothing does."
 )
