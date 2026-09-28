@@ -22,11 +22,13 @@ DecisionKind = Literal[
     "vonnis",
     "beschikking",
     "uitspraak",
+    "beslissing",
     "conclusie",
     "prejudiciële beslissing",
 ]
 _DECISION_KIND = (
-    "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, "
+    "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` "
+    "(the kantonrechter on an appeal against a traffic fine), "
     "`conclusie` or `prejudiciële beslissing`. From the metadata and the kop where they "
     "tell, else from the court and the area of law; null when nothing does."
 )
@@ -141,6 +143,12 @@ class JudgmentParty(BaseModel):
         "`Gedaagde`, `Verzoeker`, `Verweerder`, `Appellant`, `Geïntimeerde`, "
         "`Belanghebbende`, `Opposant`, `Wederpartij`; `Partij` when none applies."
     )
+    roles: list[str] = Field(
+        default_factory=list,
+        description="Every role the judgment names for the party, in its order: "
+        "`Geïntimeerde` and `Appellant` for one that is geïntimeerde in principaal and "
+        "appellante in incidenteel hoger beroep. `[role]` when it names none.",
+    )
     role_stated: bool = Field(
         description="True when the judgment names the role (a role line, a role behind "
         "the name, an anonymised name that is a role: `[verdachte]`); false when it is "
@@ -152,7 +160,8 @@ class JudgmentParty(BaseModel):
     )
     alias: str | None = Field(
         default=None,
-        description='What the judgment calls the party: `EBN` for "hierna: EBN".',
+        description='What the judgment calls the party: `EBN` for "hierna: EBN", `KLM` '
+        'for "geïntimeerden worden hierna KLM respectievelijk VNV genoemd".',
     )
     representatives: list[JudgmentRepresentative] = Field(default_factory=list)
 

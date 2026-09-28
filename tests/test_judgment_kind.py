@@ -73,6 +73,10 @@ def test_a_conclusion_and_a_preliminary_ruling_are_named_by_the_metadata() -> No
             "arrest",
         ),
         (["arrest van 8 september 2026", "inzake"], "arrest"),
+        (
+            ["RECHTBANK MIDDEN-NEDERLAND", "beslissing van de kantonrechter van"],
+            "beslissing",
+        ),
     ],
 )
 def test_the_kop_names_the_kind(kop: list[str], kind: str | None) -> None:
@@ -134,6 +138,9 @@ def test_the_kinds_are_those_of_the_api_and_every_tier_is_a_real_one() -> None:
         ("rechtspraak_rvs_2026_5668.xml", "ECLI:NL:RVS:2026:5668", "uitspraak"),
         ("rechtspraak_rbams_2024_81.xml", "ECLI:NL:RBAMS:2024:81", "vonnis"),
         ("rechtspraak_rbams_2025_3600.xml", "ECLI:NL:RBAMS:2025:3600", "uitspraak"),
+        # an appeal against a traffic fine (Wahv) before the kantonrechter: no vonnis
+        ("rechtspraak_rbmne_2026_3889.xml", "ECLI:NL:RBMNE:2026:3889", "beslissing"),
+        ("rechtspraak_rbmne_2026_3708.xml", "ECLI:NL:RBMNE:2026:3708", "uitspraak"),
     ],
 )
 def test_the_kind_of_real_judgments(name: str, ecli: str, kind: str) -> None:
@@ -207,3 +214,22 @@ def test_the_curated_names_are_keyed_by_ecli() -> None:
     assert all(
         names and all(n.strip() == n for n in names) for names in CURATED_NAMES.values()
     )
+
+
+@pytest.mark.parametrize(
+    ("summary", "placeholder"),
+    [
+        ("kopje volgt", True),
+        ("Kopje volgt.", True),
+        ("-", True),
+        ("  ", True),
+        (None, True),
+        ("...", True),
+        ("HR: 81.1 RO.", False),
+        ("Effectenlease. Dexia.", False),
+    ],
+)
+def test_a_placeholder_is_no_summary(summary: str | None, placeholder: bool) -> None:
+    from lawgraph.core.judgments import is_placeholder_summary
+
+    assert is_placeholder_summary(summary) is placeholder
