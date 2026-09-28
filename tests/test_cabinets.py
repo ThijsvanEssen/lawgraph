@@ -80,10 +80,12 @@ def test_a_commitment_is_made_by_whoever_held_such_a_post_that_day() -> None:
         "role": "Minister van Economische Zaken",
         "date": "2026-03-19",
     }
+    # since 23 February 2026 the ministry is called Economische Zaken en Klimaat again
+    # (TOOI): the old name that day means it
     assert commitment_props(row, [herbert], CABINETS) == {
         "member_key": "herbert",
         "post": "minister",
-        "ministry": "ez",
+        "ministry": "ezk",
         "cabinet": "jetten",
     }
     # before the post began: nobody fits

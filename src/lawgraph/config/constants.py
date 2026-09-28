@@ -155,6 +155,7 @@ SOURCE_ECHR = "echr"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
+SOURCE_TOOI = "tooi"
 # The label of a member only Rijksoverheid knows: a bewindspersoon without a Tweede Kamer person.
 LABEL_RIJKSOVERHEID = "Rijksoverheid"
 
@@ -219,6 +220,8 @@ RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_VERDRAG = "verdrag-json"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
+# The TOOI value list of every ministry (external id: rwc_ministeries_compleet).
+RAW_KIND_TOOI_MINISTRIES = "tooi-ministries-jsonld"
 
 # A document the source answered HTTP 404 for is remembered as a record of the kind it would
 # have had plus this suffix (no payload), so it is not asked for again on every run.
@@ -251,6 +254,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
+    SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES,),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────

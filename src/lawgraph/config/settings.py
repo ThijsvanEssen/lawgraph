@@ -100,6 +100,7 @@ VERDRAGENBANK_SRU_ENDPOINT = os.getenv(
     "VERDRAGENBANK_SRU", "https://repository.overheid.nl/sru"
 )
 RIJKSOVERHEID_BASE = os.getenv("RIJKSOVERHEID_BASE", "https://www.rijksoverheid.nl")
+TOOI_BASE = os.getenv("TOOI_BASE", "https://identifier.overheid.nl")
 
 # ── Pipelines ─────────────────────────────────────────────────────────────────
 

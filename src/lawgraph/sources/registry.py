@@ -51,6 +51,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_tk,
     retrieve_tk_content,
     retrieve_tk_dossiers,
+    retrieve_tooi,
     retrieve_verdragenbank,
 )
 from lawgraph.pipelines.semantic import graph_list_stats
@@ -121,6 +122,7 @@ SOURCES: dict[str, str] = {
     "echr": "ECHR (HUDOC)",
     "verdragenbank": "Verdragenbank",
     "rijksoverheid": "Rijksoverheid (rijksoverheid.nl)",
+    "tooi": "TOOI (standaarden.overheid.nl)",
     "graph": "The whole graph",
 }
 # How a source is spelled in a class name, where capitalising it is not enough.
@@ -369,6 +371,12 @@ RETRIEVE: list[Pipeline] = [
         argv_for_all=_no_argv,
         lane=LANE_KOOP_REPOSITORY,
         fills_gaps=True,
+    ),
+    _pipeline(
+        retrieve_tooi,
+        "The TOOI value list of every ministry (names, dates, mergers since about 2010); "
+        "`lawgraph ministries build` makes data/ministries.json from it.",
+        argv_for_all=_no_argv,
     ),
     _pipeline(
         retrieve_rijksoverheid,

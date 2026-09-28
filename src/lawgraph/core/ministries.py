@@ -16,9 +16,12 @@ sources name only the portfolio.
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal
 
 POST_PRIME_MINISTER = "minister-president"
 POST_DEPUTY_PRIME_MINISTER = "viceminister-president"
@@ -36,82 +39,74 @@ POSTS: tuple[str, ...] = (
 )
 
 
+# Where a fact of the ministry table comes from (``core.ministry_sources``).
+Source = Literal["tooi", "rijksoverheid", "hand"]
+
+
+@dataclass(frozen=True)
+class Period:
+    """A stretch in which a ministry had its name (``data/ministries.json``)."""
+
+    from_date: str | None  # None where no source dates the start
+    until: (
+        str | None
+    )  # the last day; None while it has the name, or where no source says
+    successor: str | None  # the key of the name that followed
+    basis: str | None  # the decree the end rests on (a TOOI event)
+    source: Source
+    successor_source: Source | None = None  # hand, for a succession no source gives
+
+
 @dataclass(frozen=True)
 class Ministry:
     key: str
     name: str
-    successor: str | None = None  # the key of the ministry that took over its work
-    until: str | None = None  # the last day it had this name, for a former ministry
+    abbreviation: str | None = None
+    tooi: str | None = None  # the TOOI code of the organisation: mnre1045
+    periods: tuple[Period, ...] = ()
+
+    @property
+    def until(self) -> str | None:
+        """The last day it had this name; ``None`` while it has it."""
+        return self.periods[-1].until if self.periods else None
+
+    @property
+    def successor(self) -> str | None:
+        """The key of the name that followed its last period."""
+        return self.periods[-1].successor if self.periods else None
+
+
+DATA = Path(__file__).resolve().parents[1] / "data" / "ministries.json"
+
+
+def load_ministries(path: Path = DATA) -> tuple[Ministry, ...]:
+    """The ministries of ``data/ministries.json``, in protocol order."""
+    entries = json.loads(path.read_text(encoding="utf-8"))["ministries"]
+    return tuple(
+        Ministry(
+            key=m["key"],
+            name=m["name"],
+            abbreviation=m.get("abbreviation"),
+            tooi=m.get("tooi"),
+            periods=tuple(
+                Period(
+                    from_date=p.get("from"),
+                    until=p.get("until"),
+                    successor=p.get("successor"),
+                    basis=p.get("basis"),
+                    source=p["source"],
+                    successor_source=p.get("successor_source"),
+                )
+                for p in m["periods"]
+            ),
+        )
+        for m in entries
+    )
 
 
 # The ministries in protocol order (the order of the Rijksoverheid), each followed by the
-# ministries it succeeded; a former ministry takes the place of its successor. ``until`` is
-# the day before the successor's first post on the Rijksoverheid cabinet pages where the last
-# post under the old name ends that day; ``None`` where the pages show no such handover.
-MINISTRIES: tuple[Ministry, ...] = (
-    Ministry("az", "Algemene Zaken"),
-    Ministry("aok", "Algemene Oorlogvoering van het Koninkrijk", "az"),
-    Ministry("bz", "Buitenlandse Zaken"),
-    Ministry("jenv", "Justitie en Veiligheid"),
-    Ministry("venj", "Veiligheid en Justitie", "jenv", "2017-10-25"),
-    Ministry("justitie", "Justitie", "venj", "2010-10-13"),
-    Ministry("bzk", "Binnenlandse Zaken en Koninkrijksrelaties"),
-    Ministry("biza", "Binnenlandse Zaken", "bzk", "1998-08-02"),
-    Ministry(
-        "bzbpbo",
-        "Binnenlandse Zaken, Bezitsvorming en Publiekrechtelijke Bedrijfsorganisatie",
-        "biza",
-    ),
-    Ministry("ocw", "Onderwijs, Cultuur en Wetenschap"),
-    Ministry("ow", "Onderwijs en Wetenschappen", "ocw", "1994-08-21"),
-    Ministry("okw", "Onderwijs, Kunsten en Wetenschappen", "ow", "1965-04-13"),
-    Ministry("fin", "Financiën"),
-    Ministry("def", "Defensie"),
-    Ministry("oorlog", "Oorlog", "def", "1959-05-18"),
-    Ministry("marine", "Marine", "def", "1959-05-18"),
-    Ministry("ienw", "Infrastructuur en Waterstaat"),
-    Ministry("ienm", "Infrastructuur en Milieu", "ienw", "2017-10-25"),
-    Ministry("venw", "Verkeer en Waterstaat", "ienm", "2010-10-13"),
-    Ministry("vene", "Verkeer en Energie", "venw", "1946-07-02"),
-    Ministry("owen", "Openbare Werken en Wederopbouw", "venw", "1947-01-01"),
-    Ministry("opw", "Openbare Werken", "venw"),
-    Ministry("ez", "Economische Zaken"),
-    Ministry("ezk", "Economische Zaken en Klimaat", "ez", "2024-07-01"),
-    Ministry("eli", "Economische Zaken, Landbouw en Innovatie", "ez", "2012-11-04"),
-    Ministry("hn", "Handel en Nijverheid", "ez", "1946-07-02"),
-    Ministry("ahn", "Arbeid, Handel en Nijverheid", "hn"),
-    Ministry("kgg", "Klimaat en Groene Groei"),
-    Ministry("lvvn", "Landbouw, Visserij, Voedselzekerheid en Natuur"),
-    Ministry("lnv", "Landbouw, Natuur en Voedselkwaliteit", "lvvn", "2024-07-01"),
-    Ministry("lnbv", "Landbouw, Natuurbeheer en Visserij", "lnv", "2003-05-26"),
-    Ministry("lenv", "Landbouw en Visserij", "lnbv", "1989-11-06"),
-    Ministry("lvv", "Landbouw, Visserij en Voedselvoorziening", "lenv", "1959-05-18"),
-    Ministry("szw", "Sociale Zaken en Werkgelegenheid"),
-    Ministry("sz", "Sociale Zaken", "szw", "1981-09-10"),
-    Ministry("szv", "Sociale Zaken en Volksgezondheid", "sz"),
-    Ministry("arbeid", "Arbeid", "sz"),
-    Ministry("vws", "Volksgezondheid, Welzijn en Sport"),
-    Ministry("wvc", "Welzijn, Volksgezondheid en Cultuur", "vws", "1994-08-21"),
-    Ministry("vm", "Volksgezondheid en Milieuhygiëne", "wvc", "1982-11-03"),
-    Ministry("crm", "Cultuur, Recreatie en Maatschappelijk Werk", "wvc", "1982-11-03"),
-    Ministry("mw", "Maatschappelijk Werk", "crm", "1965-04-13"),
-    Ministry("vro", "Volkshuisvesting en Ruimtelijke Ordening"),
-    Ministry("vb", "Volkshuisvesting en Bouwnijverheid", "vro", "1965-04-13"),
-    Ministry("wv", "Wederopbouw en Volkshuisvesting", "vb", "1956-10-12"),
-    Ministry(
-        "vrom",
-        "Volkshuisvesting, Ruimtelijke Ordening en Milieubeheer",
-        "ienm",
-        "2010-10-13",
-    ),
-    Ministry("aenm", "Asiel en Migratie"),
-    # Ministries without a successor of their name.
-    Ministry("scheepvaart", "Scheepvaart"),
-    Ministry("ogd", "Overzeese Gebiedsdelen"),
-    Ministry("uor", "Uniezaken en Overzeese Rijksdelen"),
-    Ministry("or", "Overzeese Rijksdelen"),
-    Ministry("zo", "Zaken Overzee"),
-)
+# names it succeeded; a former name takes the place of its successor.
+MINISTRIES: tuple[Ministry, ...] = load_ministries()
 MINISTRY_BY_KEY: dict[str, Ministry] = {m.key: m for m in MINISTRIES}
 
 
@@ -140,26 +135,14 @@ _NAMES: dict[str, str] = {
     _plain("Algemene Oorlogvoering"): "aok",
     _plain("Algemene Oorlogsvoering"): "aok",
     _plain("Onderwijs, Cultuur en Wetenschappen"): "ocw",
-    # the abbreviations the sources use for a ministry
+    # the abbreviations TOOI gives, and those the sources use beside them
+    **{_plain(m.abbreviation): m.key for m in MINISTRIES if m.abbreviation},
     **{
         _plain(short): key
         for short, key in (
-            ("AZ", "az"),
-            ("BZ", "bz"),
-            ("JenV", "jenv"),
-            ("BZK", "bzk"),
-            ("OCW", "ocw"),
             ("OCenW", "ocw"),
-            ("IenW", "ienw"),
-            ("IenM", "ienm"),
             ("VenW", "venw"),
-            ("EZ", "ez"),
-            ("EZK", "ezk"),
-            ("LNV", "lnv"),
-            ("SZW", "szw"),
-            ("VWS", "vws"),
             ("WVC", "wvc"),
-            ("VROM", "vrom"),
         )
     },
 }
@@ -214,17 +197,30 @@ def _head(text: str | None) -> str:
     return re.split(r"\s+[-–]\s+", text or "", maxsplit=1)[0]
 
 
+def _holds(period: Period, day: str) -> bool:
+    return (period.from_date is None or period.from_date <= day) and (
+        period.until is None or day <= period.until
+    )
+
+
 def current_on(key: str | None, on: str | None) -> str | None:
-    """*key*, or the ministry that succeeded it when it no longer had its name *on* that
-    day: a later source that writes ``Binnenlandse Zaken`` means Binnenlandse Zaken en
-    Koninkrijksrelaties."""
+    """*key*, or the name that followed it when it no longer had its name *on* that day: a
+    later source that writes ``Binnenlandse Zaken`` means Binnenlandse Zaken en
+    Koninkrijksrelaties. A day in one of its periods, or before the first, keeps the name
+    as written; after a period, its successor (and so on)."""
     seen: set[str] = set()
     while key in MINISTRY_BY_KEY and on and key not in seen:
         seen.add(key)
-        ministry = MINISTRY_BY_KEY[key]
-        if not ministry.until or on <= ministry.until or not ministry.successor:
+        periods = MINISTRY_BY_KEY[key].periods
+        if any(_holds(p, on) for p in periods):
             break
-        key = ministry.successor
+        ended = [p for p in periods if p.until and p.until < on]
+        if not ended:
+            break
+        following = max(ended, key=lambda p: p.until or "").successor
+        if not following:
+            break
+        key = following
     return key
 
 

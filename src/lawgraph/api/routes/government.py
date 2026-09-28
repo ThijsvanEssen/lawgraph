@@ -24,6 +24,7 @@ from lawgraph.api.schemas.government import (
     CommitmentListResponse,
     CommitmentStatus,
     MinistryDTO,
+    MinistryPeriodDTO,
 )
 from lawgraph.core.ministries import MINISTRIES
 from lawgraph.db import ArangoStore
@@ -45,7 +46,9 @@ commitments_router = APIRouter()
     summary="Ministries",
     description=(
         "Every ministry a post, a dossier or a commitment can name, in protocol order; a "
-        "former ministry (``Verkeer en Waterstaat``) follows its successor and names it."
+        "former ministry (``Verkeer en Waterstaat``) follows its successor and names it. "
+        "From ``data/ministries.json``: TOOI since about 2010 (with the decree of each "
+        "change), the Rijksoverheid cabinet pages before; ``periods`` say which."
     ),
     tags=["government"],
 )
@@ -54,8 +57,21 @@ def list_ministries() -> list[MinistryDTO]:
         MinistryDTO(
             key=MinistryKey(m.key),
             name=m.name,
+            abbreviation=m.abbreviation,
+            tooi=m.tooi,
             successor=MinistryKey(m.successor) if m.successor else None,
             until=m.until,
+            periods=[
+                MinistryPeriodDTO(
+                    from_date=p.from_date,
+                    until=p.until,
+                    successor=MinistryKey(p.successor) if p.successor else None,
+                    basis=p.basis,
+                    source=p.source,
+                    successor_source=p.successor_source,
+                )
+                for p in m.periods
+            ],
         )
         for m in MINISTRIES
     ]

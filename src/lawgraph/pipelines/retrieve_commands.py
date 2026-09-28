@@ -29,6 +29,7 @@ from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipel
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
+from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
 
 _TK_EPOCH = dt.datetime(1995, 1, 1, tzinfo=dt.timezone.utc)
@@ -344,3 +345,10 @@ def retrieve_rijksoverheid(argv: list[str] | None = None) -> PipelineResult:
         description="Retrieve the page of every cabinet since 1945 from rijksoverheid.nl."
     ).parse_args(argv)
     return RijksoverheidRetrievePipeline(ArangoStore()).run()
+
+
+def retrieve_tooi(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve the TOOI value list of every ministry (KOOP)."
+    ).parse_args(argv)
+    return TooiRetrievePipeline(ArangoStore()).run()

@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
 from lawgraph.api.schemas.common import FacetCountDTO
-from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, protocol_rank
+from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
 # The statuses of ``core.tk_records.COMMITMENT_STATUS``.
@@ -20,16 +20,43 @@ PhaseKind = Literal[
 ]
 
 
+class MinistryPeriodDTO(BaseModel):
+    """A stretch in which the ministry had its name, and where that is known from."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    from_date: str | None = Field(None, description="Null where no source dates it.")
+    until: str | None = Field(
+        None, description="The last day; null while it has the name, or where unknown."
+    )
+    successor: MinistryKey | None = None
+    basis: str | None = Field(
+        None, description="The Staatscourant decree the end rests on (from TOOI)."
+    )
+    source: Source = Field(
+        ...,
+        description="``tooi`` (the TOOI value list, since about 2010), ``rijksoverheid`` "
+        "(the first post and a handover on the cabinet pages) or ``hand``.",
+    )
+    successor_source: Source | None = Field(
+        None, description="``hand`` for a succession no source gives (before 2010)."
+    )
+
+
 class MinistryDTO(BaseModel):
-    """A ministry of ``core.ministries``; a former one names its successor and the last
-    day it had its name."""
+    """A ministry name of ``data/ministries.json``: a name that came back (Economische
+    Zaken) has a period for each time; a former one names its successor and the last day
+    it had its name (``successor`` and ``until`` of its last period)."""
 
     model_config = ConfigDict(extra="forbid")
 
     key: MinistryKey
     name: str
+    abbreviation: str | None = None
+    tooi: str | None = Field(None, description="The TOOI code: ``mnre1045``.")
     successor: MinistryKey | None = None
     until: str | None = None
+    periods: list[MinistryPeriodDTO] = Field(default_factory=list)
 
 
 class PersonRefDTO(BaseModel):

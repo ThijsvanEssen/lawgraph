@@ -17,6 +17,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | `tk-government` |
+| TOOI | `tooi` | none (`lawgraph ministries build`) | none |
 | The graph itself (`graph`) | none | none | `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: base URL from `config/settings.py` (trailing
@@ -814,15 +815,16 @@ members and their signatures) and `normalize tk` (the factions).
 
 Every post also gets its normalised `post` (`minister-president`, `viceminister-president`,
 `minister`, `minister_zonder_portefeuille`, `staatssecretaris`) and `ministry`, read from the
-function by `core/ministries.classify_function`, and `cabinet_key`. The ministries are one
-controlled list in `core/ministries.py` (`GET /api/ministries`), in protocol order: `az`, `bz`,
-`jenv`, `bzk`, `ocw`, `fin`, `def`, `ienw`, `ez`, `kgg`, `lvvn`, `szw`, `vws`, `vro`, `aenm`;
-a ministry that no longer exists under its name (`venw` Verkeer en Waterstaat, `vrom`, `justitie`,
-`ezk`, ...) has its own key, a `successor` and the last day it had the name, and a later source
-that writes the old name ("Binnenlandse Zaken" for BZK) is read as the successor. A minister
-without portfolio ("minister voor …") and a state secretary belong to the ministry their post is
-placed under, by the words of the portfolio (Klimaat en Energie `ezk`, Basis- en Voortgezet
-Onderwijs `ocw`, Rechtsbescherming `jenv`, Herstel Groningen `bzk`); a name that names no
+function by `core/ministries.classify_function`, and `cabinet_key`. The ministries are the
+table `src/lawgraph/data/ministries.json` (`GET /api/ministries`), in protocol order, built
+from the official sources (see TOOI below). A ministry name that no longer exists
+(`venw` Verkeer en Waterstaat, `vrom`, `justitie`) has its own key; each name has periods,
+each with its last day and successor, and a later source that writes an old name
+("Binnenlandse Zaken" for BZK) is read as the name it had then. A minister without portfolio
+("minister voor …") and a state secretary belong to the ministry their post is placed
+under, by the words of the portfolio (Klimaat en Energie `ezk`, Basis- en Voortgezet
+Onderwijs `ocw`, Rechtsbescherming `jenv`, Herstel Groningen `bzk`): these rules
+(`_PORTFOLIO_RULES`) are kept by hand, no source gives them. A name that names no
 portfolio ("Nederlandse minister", the viceminister-president) has none.
 
 Every cabinet becomes a node of `cabinets`, key from its name (`kabinet-Rutte-Asscher`,
@@ -842,6 +844,43 @@ posts with and without a party, members of their own, phases, `demissionary_from
 of `core/cabinet_checks.py` (a post outside its cabinet, two holders of a seat at once without
 `overlaps_with`, phases that do not follow each other from start to end); a broken rule fails
 the command.
+
+## TOOI
+
+**Provides.** The value list `rwc_ministeries_compleet` of TOOI (Thesauri en Ontologieën
+voor Overheidsinformatie, KOOP; `TOOI_BASE`): every ministry since about 2010 with its code
+(`mnre1045`), abbreviation, begin and end, its former names (`HistorischeVersie` with the
+last day of each) and the events between them (`Oprichting`, `Samenvoeging`,
+`Afsplitsing`, `Toestandswijziging`), each with the Staatscourant decree it rests on. The
+content of the TOOI registers and value lists may be used by anyone without restriction
+(TOOI beheerplan, 2.3 Rechtenbeleid). Numbered versions; the page of the list links each.
+
+**Retrieve.** The latest version, one `tooi-ministries-jsonld` record (external id
+`rwc_ministeries_compleet`, `payload_json.items`, `meta.url`, `meta.read_on`). Two
+requests; always in full. A page without versions, or a version without a ministry, raises.
+
+**The ministry table.** `lawgraph ministries build` makes `src/lawgraph/data/ministries.json`
+from the stored TOOI list and the stored Rijksoverheid cabinet pages
+(`core/ministry_sources.py`) on top of the file itself, and prints what changed;
+`lawgraph ministries check` prints the same and fails on a change. Commit what a build
+writes. Per ministry name (the key, `ez`): the name, the TOOI code and abbreviation, and
+its periods, each with `from`, `until` (the last day), `successor`, `basis` (the decree)
+and `source`:
+
+- `tooi` for every name TOOI knows. A name comes back (`Economische Zaken`: a ministry
+  until 2010, a name of `mnre1045` in 2013–2017 and 2024–2026): each time is a period. A
+  name that ends is succeeded by the next name of its ministry, or by the name the
+  ministry it merged into had the next day (Verkeer en Waterstaat and VROM by Infrastructuur
+  en Milieu on 14 October 2010).
+- `rijksoverheid` for a name before TOOI: from its first post on the cabinet pages, until the
+  day before a post under its successor begins on the day its last post ends (Oorlog and
+  Marine until 18 May 1959); else the end stays null.
+- `hand` for what no source gives: the key, the protocol order, a name no source knows
+  (Openbare Werken), and a succession before 2010 (`successor_source: hand`).
+
+TOOI's dates are those of the decrees: `justitie` until 30 November 2010 and `venj` until
+31 December 2017, while the cabinets changed the names of the posts earlier; a post that
+uses a name before its first period keeps that name.
 
 ## Ordering
 
