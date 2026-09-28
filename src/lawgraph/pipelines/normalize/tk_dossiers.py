@@ -192,6 +192,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             normalized["members"],
             normalized["factions"],
             source=EDGE_SOURCE,
+            complete=not self._incremental,
         )
         tk_votes.link_votes(
             store,
@@ -232,10 +233,16 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
     def _normalize_dossiers(
         self, raw_records: Iterable[dict[str, Any]]
     ) -> dict[str, Node]:
-        """Kamerstukdossier nodes, keyed by TK ``Id`` *and* by dossier number."""
+        """Kamerstukdossier nodes, keyed by TK ``Id`` *and* by dossier number; the node of a
+        dossier the Kamer deleted is removed."""
         nodes: dict[str, Node] = {}
+        deleted: list[str] = []
         for raw in raw_records:
-            parsed = tk_records.dossier(self._payload_json(raw))
+            payload = self._payload_json(raw)
+            if tk_records.is_deleted(payload):
+                deleted.append(str(payload.get("Id") or ""))
+                continue
+            parsed = tk_records.dossier(payload)
             if parsed is None:
                 continue
             key, label, props = parsed
@@ -251,7 +258,14 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
 
         unique = _unique(nodes)
         self._upsert_nodes(unique)
-        logger.info("Normalized %d dossiers.", len(unique))
+        removed = normalize_queries.remove_nodes_of_records(
+            self.store, COLLECTION_DOSSIERS, deleted
+        )
+        logger.info(
+            "Normalized %d dossiers; removed %d the Kamer deleted.",
+            len(unique),
+            removed,
+        )
         self._refresh_same_number_counts({str(node.props["number"]) for node in unique})
         return nodes
 

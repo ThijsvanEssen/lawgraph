@@ -367,7 +367,7 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
     ]
 
     tk_members.link_members_to_factions(
-        store, raws, {"p1": member}, {"f-vvd": faction}, source=SOURCE
+        store, raws, {"p1": member}, {"f-vvd": faction}, source=SOURCE, complete=False
     )
 
     assert store.edge_meta == {

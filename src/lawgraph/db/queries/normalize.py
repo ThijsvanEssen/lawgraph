@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AUTHORED,
+    RELATION_MEMBER_OF,
     RELATION_PART_OF,
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
@@ -348,6 +349,48 @@ def remove_nodes(store: Store, collection: str, keys: list[str]) -> int:
         """
         removed += sum(store.query(nodes, {"keys": chunk}))
     return removed
+
+
+def remove_nodes_of_records(
+    store: Store, collection: str, record_ids: list[str]
+) -> int:
+    """Remove the nodes of *collection* made of the TK records *record_ids* alone (every id
+    in ``props.external_ids``, else ``props.external_id``, is one of them), with every edge
+    at them; how many nodes went. For a record the Kamer deleted: a node keyed by a label
+    (a dossier number, a faction abbreviation) cannot be found by the record's id."""
+    if not record_ids:
+        return 0
+    aql = f"""
+    FOR n IN {collection}
+        FILTER n.props.external_id IN @ids
+            OR LENGTH(INTERSECTION(n.props.external_ids || [], @ids)) > 0
+        FILTER LENGTH(MINUS(n.props.external_ids || [n.props.external_id], @ids)) == 0
+        RETURN n._key
+    """
+    keys = list(store.query(aql, {"ids": record_ids}))
+    return remove_nodes(store, collection, keys)
+
+
+def remove_seat_edges_except(store: Store, source: str, keep: list[str]) -> int:
+    """Remove the MEMBER_OF edges of *source* from a member to a faction whose key is not in
+    *keep*; how many went. For the seats one run derives in full: a seat the Kamer deleted
+    names neither its member nor its faction."""
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == @relation AND e.source == @source
+        FILTER STARTS_WITH(e._from, @members) AND STARTS_WITH(e._to, @factions)
+        FILTER e._key NOT IN @keep
+        REMOVE e IN {COLLECTION_EDGES}
+        RETURN 1
+    """
+    bind = {
+        "relation": RELATION_MEMBER_OF,
+        "source": source,
+        "members": f"{COLLECTION_MEMBERS}/",
+        "factions": f"{COLLECTION_FACTIONS}/",
+        "keep": keep,
+    }
+    return sum(store.query(aql, bind))
 
 
 def remove_members(store: Store, keys: list[str]) -> int:

@@ -604,11 +604,36 @@ _DOSSIER_TITLE = "Rechtsstaat en Rechtsorde"
             _DOSSIER_TITLE,
         ),
         ("Motie", None, None, _DOSSIER_TITLE, _DOSSIER_TITLE),
-        # any other paper keeps its Titel
-        ("Brief regering", "Voortgang aanpak ondermijning", None, _DOSSIER_TITLE, None),
+        # so is a letter or the report of a debate
+        (
+            "Brief regering",
+            "Voortgang aanpak ondermijning",
+            None,
+            "Voortgang aanpak ondermijning",
+            _DOSSIER_TITLE,
+        ),
+        (
+            "Verslag van een commissiedebat",
+            "Verslag van een commissiedebat, gehouden op 1 juli 2026, over mkb",
+            None,
+            "Verslag van een commissiedebat, gehouden op 1 juli 2026, over mkb",
+            _DOSSIER_TITLE,
+        ),
+        # an Onderwerp that only repeats the kind names nothing
+        ("Mededeling", "Mededeling", None, _DOSSIER_TITLE, _DOSSIER_TITLE),
+        # a bill and the papers on it keep their Titel: their Onderwerp is their kind
+        ("Voorstel van wet", "Voorstel van wet", None, _DOSSIER_TITLE, None),
+        (
+            "Memorie van toelichting",
+            "Memorie van toelichting",
+            None,
+            _DOSSIER_TITLE,
+            None,
+        ),
+        ("Geleidende brief", "Geleidende brief", None, _DOSSIER_TITLE, None),
     ],
 )
-def test_a_motion_is_named_by_its_own_subject(
+def test_a_paper_is_named_by_its_own_subject(
     kind: str,
     subject: str | None,
     case_subject: str | None,
@@ -665,7 +690,23 @@ def test_a_record_the_kamer_deleted_is_no_node() -> None:
     assert tk_records.is_deleted(deleted)
     assert tk_records.document(deleted) is None
     assert tk_records.case(deleted) is None
+    assert tk_records.member(deleted) is None
+    assert tk_records.dossier({**deleted, "Nummer": 36101}) is None
+    assert tk_records.faction({**deleted, "Afkorting": "OUD"}, []) is None
+    assert (
+        tk_records.seat_holding(
+            {**deleted, "Persoon_Id": "p-1", "FractieZetel": {"Fractie_Id": "f-1"}}
+        )
+        is None
+    )
     assert not tk_records.is_deleted({"Id": "d-2", "Verwijderd": False})
+
+
+def test_a_deleted_record_of_a_faction_is_not_one_of_its_records() -> None:
+    current = {"Id": "f-2", "Afkorting": "50PLUS", "DatumActief": "2025-11-12"}
+    deleted = {"Id": "f-1", "Verwijderd": True}
+    _, props = tk_records.faction(current, [], [deleted, current])  # type: ignore[misc]
+    assert props["external_ids"] == ["f-2"]
 
 
 def test_the_submitters_of_a_motion_are_its_signatories_the_indiener_first() -> None:

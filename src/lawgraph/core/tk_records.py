@@ -71,8 +71,41 @@ PLENARY_VOORTOUW = "TK"
 
 _COMMITMENT_TEXT_FIELDS = ("Tekst", "TekstAlgemeen", "TekstBrief")
 
-# The Soort prefixes of a paper named by its own Onderwerp (see ``is_motion_or_amendment``).
-_OWN_SUBJECT_KINDS = ("motie", "amendement")
+# The Soort prefixes of a motie or amendement (see ``is_motion_or_amendment``).
+_MOTION_OR_AMENDMENT_KINDS = ("motie", "amendement")
+
+# The Soort prefixes of a Document or Zaak named by its own Onderwerp (see
+# ``is_named_by_subject``): a motie, an amendement, a letter, the report of a debate or a
+# visit, a list of questions. The Onderwerp of a bill, its memorandum or the reports on it
+# names only the kind of paper (``Voorstel van wet``, ``Nota naar aanleiding van het
+# verslag``); those keep their Titel.
+_OWN_SUBJECT_KINDS = (
+    *_MOTION_OR_AMENDMENT_KINDS,
+    "brief ",
+    "rapport/brief",
+    "verslag van een ",
+    "inbreng verslag",
+    "lijst van vragen",
+    "mededeling",
+    "overig",
+    "advies van andere adviesorganen",
+)
+
+# The Soort prefixes of a paper that changes the text of a bill, and so the law it amends
+# (see ``may_amend``): an amendement, the bill and its notes of change, the text as it
+# stands or as it was passed, and the memorandum, which sets out the changes article by
+# article (``semantic tk-amendment-articles`` reads them in its text).
+_AMENDING_KINDS = (
+    "amendement",
+    "voorstel van wet",
+    "memorie van toelichting",
+    "nota van wijziging",
+    "nota van verbetering",
+    "wijzigingen voorgesteld door de regering",
+    "oorspronkelijke tekst",
+    "bijgewerkte tekst",
+    "eindtekst",
+)
 
 # DocumentActor.Relatie of who submits a motie or amendement -> the role we give them.
 SUBMITTER_FIRST = "indiener"
@@ -118,7 +151,37 @@ def is_motion_or_amendment(kind: str | None) -> bool:
     Its ``Titel`` is the title of its dossier; its ``Onderwerp`` is its own: ``Motie van het
     lid Faber over …``.
     """
+    return (kind or "").lower().startswith(_MOTION_OR_AMENDMENT_KINDS)
+
+
+def is_named_by_subject(kind: str | None) -> bool:
+    """Whether a Document or Zaak of this ``Soort`` is named by its ``Onderwerp``: a motie,
+    an amendement, a ``Brief regering`` or another letter, a ``Verslag van een
+    commissiedebat`` …
+
+    Its ``Titel`` is the title of its dossier, the same for every paper on it.
+    """
     return (kind or "").lower().startswith(_OWN_SUBJECT_KINDS)
+
+
+def own_subject(payload: Payload) -> str:
+    """The ``Onderwerp`` of a Document or Zaak named by it (``is_named_by_subject``); empty
+    for any other kind, and when the Onderwerp only repeats the kind (``Mededeling``)."""
+    kind = payload.get("Soort") or ""
+    if not is_named_by_subject(kind):
+        return ""
+    subject = _text(payload, "Onderwerp")
+    return "" if subject.lower() == kind.lower() else subject
+
+
+def may_amend(kind: str | None) -> bool:
+    """Whether a Document of this ``Soort`` can amend a law: an amendement, the text of a
+    bill (``Voorstel van wet``, ``Nota van wijziging``, ``Eindtekst`` …) or its memorandum.
+
+    Every other paper on a bill's dossier carries the bill's title, a motie too, and
+    changes nothing.
+    """
+    return (kind or "").lower().startswith(_AMENDING_KINDS)
 
 
 def _distinct(values: Iterable[str]) -> list[str]:
@@ -188,8 +251,8 @@ def case_kinds_by_dossier(cases: Iterable[Payload]) -> dict[str, list[str]]:
 def case(payload: Payload) -> Record | None:
     """Node key and props for a Zaak record; ``None`` without an id or when deleted.
 
-    A motie or amendement is named by its ``Onderwerp``: its ``Titel`` is the dossier's, the
-    same for every motie on it.
+    A motie, an amendement or a letter is named by its ``Onderwerp`` (``own_subject``): its
+    ``Titel`` is the dossier's, the same for every motie on it.
     """
     external_id = first_str(
         [payload.get("Id"), payload.get("ZaakId"), payload.get("ZaakNummer")],
@@ -198,8 +261,7 @@ def case(payload: Payload) -> Record | None:
     if external_id is None or is_deleted(payload):
         return None
     kind = payload.get("Soort") or None
-    own = _text(payload, "Onderwerp") if is_motion_or_amendment(kind) else ""
-    title = own or _text(payload, "Titel", "ZaakTitel", "Onderwerp")
+    title = own_subject(payload) or _text(payload, "Titel", "ZaakTitel", "Onderwerp")
     props: dict[str, Any] = {
         "source": SOURCE_TK,
         "external_id": external_id,
@@ -313,13 +375,13 @@ def representative_period(
 
 
 def member(payload: Payload) -> Record | None:
-    """Node key and props for a Persoon record.
+    """Node key and props for a Persoon record; ``None`` when deleted.
 
     Party affiliation is not read here: it follows from the
     FractieZetelPersoon timeline, which is the one source that dates it.
     """
     external_id = _external_id(payload)
-    if not external_id:
+    if not external_id or is_deleted(payload):
         return None
     surname = f"{payload.get('Tussenvoegsel') or ''} {payload.get('Achternaam') or ''}"
     full_name = " ".join(f"{payload.get('Voornamen') or ''} {surname}".split())
@@ -339,7 +401,10 @@ def member(payload: Payload) -> Record | None:
 
 
 def seat_holding(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
-    """``(Persoon_Id, Fractie_Id, period)`` for a FractieZetelPersoon record."""
+    """``(Persoon_Id, Fractie_Id, period)`` for a FractieZetelPersoon record; ``None`` when
+    deleted."""
+    if is_deleted(payload):
+        return None
     person_id = str(payload.get("Persoon_Id") or "")
     seat = next(_dicts(payload.get("FractieZetel")), {})
     faction_id = str(seat.get("Fractie_Id") or "")
@@ -394,12 +459,13 @@ def faction(
     """Node key and props for a faction: *payload* is its current Fractie record,
     *records* every record of it (the Kamer gives a faction that returns a new record, and
     still names the old one: 50PLUS 2012-2021 and again from 2025). The faction is active
-    from the first record's start until the last one ends, and knows every record's id."""
+    from the first record's start until the last one ends, and knows every record's id.
+    ``None`` when *payload* is deleted; a deleted one among *records* is passed over."""
     external_id = _external_id(payload)
     label = faction_label(payload)
-    if not external_id or not label:
+    if not external_id or not label or is_deleted(payload):
         return None
-    records = records or [payload]
+    records = [r for r in records or [payload] if not is_deleted(r)]
     abbreviation = _text(payload, "Afkorting")
     name = _text(payload, "NaamNL")
     starts = [d for d in (iso_date(r.get("DatumActief")) for r in records) if d]
@@ -435,10 +501,11 @@ def faction_is_current(payload: Payload) -> tuple[int, str]:
 
 
 def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
-    """``(node key, dossier number label, props)`` for a Kamerstukdossier."""
+    """``(node key, dossier number label, props)`` for a Kamerstukdossier; ``None`` when
+    deleted."""
     external_id = _external_id(payload)
     number = payload.get("Nummer")
-    if not external_id or number is None:
+    if not external_id or number is None or is_deleted(payload):
         return None
 
     number_str = str(number)
@@ -630,15 +697,15 @@ def submitters(
 
 
 def document_title(payload: Payload, cases: list[Payload]) -> str:
-    """The title of a Document: its ``Titel``, but the own subject of a motie or amendement.
+    """The title of a Document: its ``Titel``, but the own subject of a paper named by it.
 
-    The ``Titel`` of a motie or amendement is its dossier's; what names it is its
-    ``Onderwerp``, else the ``Onderwerp`` of its Zaak.
+    The ``Titel`` of a motie, an amendement or a letter is its dossier's; what names it is
+    its ``Onderwerp`` (``own_subject``), else the ``Onderwerp`` of its Zaak.
     """
     kind = payload.get("Soort") or ""
-    if is_motion_or_amendment(kind):
-        own = _text(payload, "Onderwerp") or next(
-            (subject for c in cases if (subject := _text(c, "Onderwerp"))), ""
+    if is_named_by_subject(kind):
+        own = own_subject(payload) or next(
+            (subject for c in cases if (subject := own_subject(c))), ""
         )
         if own:
             return own
@@ -671,10 +738,10 @@ def document(payload: Payload) -> Record | None:
         "sequence": sequence if (sequence or 0) > 0 else None,
         "kind": kind,
         "title": title,
-        # The Titel of a motie or amendement: the title of the dossier it was submitted on,
-        # which says which law an amendement changes (``semantic tk-amends``).
+        # The Titel of a paper named by its own subject: the title of its dossier, which
+        # says which law an amendement changes (``semantic tk-amends``).
         "dossier_title": (
-            _text(payload, "Titel") or None if is_motion_or_amendment(kind) else None
+            _text(payload, "Titel") or None if is_named_by_subject(kind) else None
         ),
         "subject": payload.get("Onderwerp") or "",
         "date": iso_date(payload.get("Datum") or payload.get("DatumRegistratie")),
