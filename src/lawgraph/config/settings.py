@@ -107,7 +107,6 @@ RIJKSOVERHEID_BASE = os.getenv("RIJKSOVERHEID_BASE", "https://www.rijksoverheid.
 # ── Pipelines ─────────────────────────────────────────────────────────────────
 
 BWB_IDS = _env_list("BWB_IDS")
-EURLEX_MAX_ARTICLE_NUMBER = int(os.getenv("EURLEX_MAX_ARTICLE_NUMBER", "200"))
 
 
 def skip_step(phase: str, pipeline_name: str) -> bool:
