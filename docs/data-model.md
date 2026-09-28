@@ -213,6 +213,13 @@ renumbering; each version has a `versie-id`.
   item without a letter or digit (a dash, a definition) is `onder-_<n>`, its position among
   its siblings; a marker that repeats one before it gets `_<n>`, its occurrence
   (`onder-a_2`). A paragraph next to the leden is no part.
+- An EU article (`celex`, `article_number`) has the same `heading`, `text` and `parts`, read
+  from the CELLAR HTML (`core/eurlex_html.py`): `heading` is the line under "Artikel N"
+  (`Onderwerp en toepassingsgebied`; null when the act prints none), a lid is `1. text`, a
+  point is a line of its own that starts with its marker as printed (`a) text`, `i) text`,
+  `— text`); `number` is the marker without its punctuation (`a`). A point laid out without
+  text of its own shares its line with the first point inside it (`f) — de ontbinding`).
+  An EU article has no `label`, `references`, `position` or versions.
 - `breadcrumb` is where the article stands in its regulation, outermost first:
   `{type, label, title}` per division that holds it, `type` the element of the toestand
   (`bijlage`, `boek`, `deel`, `titeldeel`, `hoofdstuk`, `afdeling`, `paragraaf`, `sub-paragraaf`,

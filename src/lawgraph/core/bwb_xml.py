@@ -416,8 +416,10 @@ class _OpenPart:
     depth: int  # 0 for a lid, 1 + the nesting for an onderdeel
 
 
-class _TextBuilder:
-    """Accumulate text and remember where references and the parts of the article sit."""
+class TextBuilder:
+    """Accumulate text and remember where references and the parts of the article sit.
+
+    Also builds the text and parts of an EU article (``core.eurlex_html``)."""
 
     def __init__(self) -> None:
         self.parts: list[str] = []
@@ -562,7 +564,7 @@ def _article_heading(article: ET.Element) -> str | None:
     return None
 
 
-def _add_paragraphs(builder: _TextBuilder, paragraphs: list[ET.Element]) -> None:
+def _add_paragraphs(builder: TextBuilder, paragraphs: list[ET.Element]) -> None:
     """Add *paragraphs* separated by a space."""
     for index, al in enumerate(paragraphs):
         if index:
@@ -583,7 +585,7 @@ def _list_items(
 
 
 def _add_item(
-    builder: _TextBuilder, li: ET.Element, body: list[ET.Element], depth: int
+    builder: TextBuilder, li: ET.Element, body: list[ET.Element], depth: int
 ) -> None:
     """Add one list item on a new line: its marker (``a.``, ``1°.``) and its paragraphs."""
     # The item before it ends here, not after the marker of this one.
@@ -596,7 +598,7 @@ def _add_item(
     _add_paragraphs(builder, body)
 
 
-def _add_lid(builder: _TextBuilder, lid: ET.Element) -> None:
+def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
     """Add one ``lid``: ``1. paragraph`` followed by its list items on new lines."""
     paragraphs = [c for c in lid if local_name(c.tag) == "al"]
     items = list(_list_items(lid))
@@ -623,7 +625,7 @@ def _add_lid(builder: _TextBuilder, lid: ET.Element) -> None:
     builder.close_from(0)
 
 
-def _add_block(builder: _TextBuilder, element: ET.Element, depth: int = 1) -> None:
+def _add_block(builder: TextBuilder, element: ET.Element, depth: int = 1) -> None:
     """Add the law text under *element* (paragraphs and list items) on new lines."""
     name = local_name(element.tag)
     if name == "meta-data":
@@ -669,7 +671,7 @@ def _article_text(
 
     Also the offsets of the leden, onderdelen and aanhef in that text, and of the references.
     An article without leden but with a list has the paragraphs before it as its aanhef."""
-    builder = _TextBuilder()
+    builder = TextBuilder()
     children = [c for c in article if local_name(c.tag) not in ("kop", "meta-data")]
     first_list = next(
         (i for i, c in enumerate(children) if local_name(c.tag) == "lijst"), None

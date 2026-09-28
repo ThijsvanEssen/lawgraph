@@ -462,9 +462,27 @@ counts as skipped, not as an error.
 
 **Normalize.** Instrument per CELEX (`jurisdiction: eu`, `title` from the `doc-ti` paragraph,
 `citation_title` derived from the number, for example `Richtlijn 2010/64/EU`). Articles are
-cut out of the plain text at `Artikel N` / `Article N` headers; numbers above
-`EURLEX_MAX_ARTICLE_NUMBER` (200, read at import) and bodies shorter than 10 characters or
-starting with `,` are skipped. `PART_OF` from article to instrument.
+read from the structure of the HTML (`core/eurlex_html.py`), in either format CELLAR serves:
+
+- the Official Journal format (acts from about 2004): an article is the `oj-ti-art` title
+  ("Artikel 1") with what follows it up to the next title; its heading is the `oj-sti-art`
+  paragraph. A lid is a paragraph that starts with its number ("1.   Deze verordening
+  bevat:"), or the lid container (`div id="004.002"`) laid out as one row numbered like the
+  lid; a point is a table row of a marker cell ("a)", "1)", "i)", "—") and a text cell, and a
+  table in the text cell holds the points inside it. A title inside a table cell is an
+  article that an amendment quotes: it stays text of the amending article;
+- the old format (older acts, flat `<p>` paragraphs): an article starts at a paragraph that is
+  only "Artikel N" and ends at the next one, at a division heading (`HOOFDSTUK II`,
+  `TITEL II`, `BIJLAGE`) or at the closing formula ("Gedaan te …"). A short paragraph right
+  after the number that does not end in `.`, `:`, `;` or `,` is the heading. Leden and points
+  are read from the marker a paragraph starts with (also spaced: `a )`, `1 .`); a marker
+  kind that is not yet open nests in the point before it (a dash under `a)`), one that is
+  open returns to its level, and `i)` after `h)` is a letter. A paragraph without a marker
+  continues the part before it.
+
+The text and parts are built as for BWB (see [data model](data-model.md), "Article and
+versions"): no empty lines, the heading not in the text. A number is taken once per act, and an
+article without text is not written. `PART_OF` from article to instrument.
 
 **Semantic `eurlex`.** Scans the text of EU articles.
 
