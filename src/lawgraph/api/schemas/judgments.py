@@ -67,6 +67,12 @@ class JudgmentDTO(BaseNodeDTO):
     series_size: int | None = Field(
         default=None, description="How many judgments the series has."
     )
+    unresolved_appeal_targets: list["AppealTarget"] = Field(
+        default_factory=list,
+        description='The decisions an appeal says in its text it appeals ("tegen de '
+        'uitspraak van de rechtbank Gelderland van 9 juli 2025 in zaak nr. 24/6811") that '
+        "are not loaded; one that is loaded is its `APPEAL_OF` edge. Empty for most.",
+    )
     paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
     parties: list["JudgmentParty"] | None = Field(
         default=None,
@@ -113,9 +119,25 @@ class JudgmentDTO(BaseNodeDTO):
             decision_kind=props.get("decision_kind"),
             series_id=props.get("series_id"),
             series_size=props.get("series_size"),
+            unresolved_appeal_targets=[
+                AppealTarget(**t) for t in props.get("unresolved_appeal_targets") or []
+            ],
             paragraphs=paragraphs,
             parties=None if parties is None else [JudgmentParty(**p) for p in parties],
         )
+
+
+class AppealTarget(BaseModel):
+    """A decision an appeal names in its text that is not loaded."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    court: str = Field(description="As the text writes it: `rechtbank Gelderland`.")
+    date: str = Field(description="ISO date of the decision.")
+    case_number: str | None = Field(
+        default=None,
+        description="As the text writes it: `24/6811`; null when it gives none.",
+    )
 
 
 class JudgmentRepresentative(BaseModel):

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from lawgraph.pipelines.semantic.rechtspraak_appeal import _APPEAL_PATTERN
+from lawgraph.core.appeals import APPEAL_PROCEDURE
 
 
 def _is_appeal(procedure: str) -> bool:
-    """Replicate the word-boundary check used in RechtspraakAppealSemanticPipeline."""
-    return bool(_APPEAL_PATTERN.search(procedure.strip()))
+    """The check semantic rechtspraak-appeal reads a procedure with."""
+    return bool(APPEAL_PROCEDURE.search(procedure.strip()))
 
 
 class TestAppealDetection:
@@ -16,6 +16,9 @@ class TestAppealDetection:
 
     def test_cassatie_matches(self) -> None:
         assert _is_appeal("Cassatie")
+
+    def test_a_decision_after_referral_matches(self) -> None:
+        assert _is_appeal("Verwijzing na Hoge Raad")
 
     def test_case_insensitive(self) -> None:
         assert _is_appeal("HOGER BEROEP")

@@ -2,9 +2,12 @@
 
 Only the text the court or advocate-general wrote is read (``core.judgments.body_text``), never
 the metadata: its ``dcterms:relation`` names the earlier instance and the conclusion, which are
-the procedural edges ``APPEAL_OF`` and ``ADVISES_ON`` of their own steps, not citations. The
-edges of a judgment are derived in full each time it is read: one its text no longer supports
-(made by an earlier rule) is removed.
+the procedural edges ``APPEAL_OF`` and ``ADVISES_ON`` of their own steps, not citations. Two
+judgments of one case that such an edge ties (``PROCEDURAL_RELATIONS``, either way) have that
+edge only: a Hoge Raad ruling that names the arrest under cassation and the conclusion in a
+footnote does not cite them. The procedural steps run before this one. The edges of a judgment
+are derived in full each time it is read: one its text no longer supports (made by an earlier
+rule) is removed.
 """
 
 from __future__ import annotations
@@ -13,6 +16,11 @@ import datetime as dt
 
 from lawgraph.config.constants import (
     EDGE_STATUS_CANONIEK,
+    RELATION_ADVISES_ON,
+    RELATION_ANSWERS,
+    RELATION_APPEAL_OF,
+    RELATION_CONTINUES,
+    RELATION_REFERRED_BY,
     RELATION_REFERS_TO,
 )
 from lawgraph.core.identifiers import find_eclis
@@ -29,6 +37,14 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "judgment-citation-linker"
+# The edges that tie two judgments of one case; such a pair is not also a citation.
+PROCEDURAL_RELATIONS = (
+    RELATION_APPEAL_OF,
+    RELATION_CONTINUES,
+    RELATION_REFERRED_BY,
+    RELATION_ADVISES_ON,
+    RELATION_ANSWERS,
+)
 
 
 class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
@@ -45,7 +61,8 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         )
 
         ecli_to_id = self._resolve_eclis(all_cited_eclis) if pending else {}
-        kept = self._emit_edges(pending, ecli_to_id, result)
+        tied = self._procedural_pairs(sorted({from_id for from_id, _ in pending}))
+        kept = self._emit_edges(pending, ecli_to_id, tied, result)
         removed = semantic_queries.remove_edges_from(
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
@@ -76,18 +93,34 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 all_cited_eclis.add(ecli)
         return pending, all_cited_eclis, read
 
+    def _procedural_pairs(self, ids: list[str]) -> set[tuple[str, str]]:
+        """``(id, other)`` for every judgment of *ids* and the judgments a procedural edge
+        ties it to."""
+        return {
+            (row[0], row[1])
+            for row in semantic_queries.procedural_neighbours(
+                self.store, ids, list(PROCEDURAL_RELATIONS)
+            )
+        }
+
     def _emit_edges(
         self,
         pending: list[tuple[str, str]],
         ecli_to_id: dict[str, str],
+        tied: set[tuple[str, str]],
         result: PipelineResult,
     ) -> dict[str, set[str]]:
-        """Write the edges; the keys of those written, per citing judgment."""
+        """Write the edges, but none between judgments *tied* by a procedural edge; the
+        keys of those written, per citing judgment."""
         kept: dict[str, set[str]] = {}
+        left_out: set[tuple[str, str]] = set()
         edges = EdgeWriter(self.store, what=None)
         for from_id, cited_ecli in pending:
             to_id = ecli_to_id.get(cited_ecli)
             if not to_id:
+                continue
+            if (from_id, to_id) in tied:
+                left_out.add((from_id, to_id))
                 continue
             from_coll, from_key = from_id.split("/", 1)
             to_coll, to_key = to_id.split("/", 1)
@@ -112,4 +145,8 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                     edge_key(from_id, RELATION_REFERS_TO, to_id)
                 )
         edges.flush_into(result)
+        logger.info(
+            "Left out %d citations between judgments tied by a procedural edge.",
+            len(left_out),
+        )
         return kept

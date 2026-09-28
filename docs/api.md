@@ -92,10 +92,16 @@ gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 | `/api/judgments/{ecli}` | the judgment with its `paragraphs` (each with a `paragraph_id` for deep links, its printed `number` and the article `citations` in it, one per occurrence with `start` and `end`; the first is the kop when the judgment has one), its `parties` (`name`, `role`, `role_stated`, `side` `first`/`second`/`other`, `alias`, `representatives`; null when the judgment was normalized before parties were read, empty when the kop names none), the articles its `REFERS_TO` edges point at with their parent instrument (`articles`), and the same articles as `cited_articles` with the paragraphs that cite them, the lid or onderdeel named and a snippet. Citations are read from the stored edges; nothing is detected per request. `judgment.names` and `decision_kind` as in the list; `summary` is the Dutch inhoudsindicatie and `summary_en` an English one: an English translation (its own ECLI, `translation_of` the ECLI of the Dutch judgment) has the Dutch `summary` of that judgment, and that judgment the English `summary_en` (see [data-model](data-model.md#judgment)). `judgment.series_id` and `series_size` name the series of parallel cases it is one of (the same court, day and text), `series` the other judgments of it |
 
 The judgments of one case are neighbours in `/api/nodes/judgments/{key}`: `APPEAL_OF` (appeal →
-the judgment appealed), `ADVISES_ON` (the conclusion of an advocate-general → its judgment;
-`meta.basis` `formal_relation` or `case_number`) and `ANSWERS` (a preliminary ruling → the
-decision that asked its questions; `formal_relation` or `referral_text`). A judgment has the
-inbound bucket, its conclusion or its referring decision the outbound one.
+the judgment appealed; `meta.basis` `formal_relation` or `appeal_text`), `CONTINUES` (a judgment
+→ an earlier one of the same court in the same case), `REFERRED_BY` (a decision after referral →
+the Hoge Raad ruling that sent the case back), `ADVISES_ON` (the conclusion of an
+advocate-general → its judgment, never the other way; `formal_relation` or `case_number`) and
+`ANSWERS` (a preliminary ruling → the decision that asked its questions; `formal_relation` or
+`referral_text`). A judgment has the inbound bucket, its conclusion or its referring decision
+the outbound one. Two judgments tied so are not also under `REFERS_TO`, and such a link is not
+in `inbound_citation_count`. `/api/judgments/{ecli}` has `judgment.unresolved_appeal_targets`:
+the decisions an appeal names in its text that are not loaded (`court`, `date`,
+`case_number`), empty for most.
 
 ### Parliament
 

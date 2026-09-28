@@ -104,19 +104,85 @@ def judgment_ids_by_ecli(store: Store, eclis: list[str]) -> Iterator[dict[str, A
 
 
 def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
-    """``{j_id, procedure_type, related_eclis}`` of every judgment that names an earlier
-    one."""
+    """``{j_id, ecli, date, case_number, case_number_keys, procedure_type,
+    related_eclis}`` of every judgment that names an earlier one."""
     aql = f"""
 FOR j IN {COLLECTION_JUDGMENTS}
   FILTER j.props.related_eclis != null
   FILTER LENGTH(j.props.related_eclis) > 0
   RETURN {{
     j_id: j._id,
+    ecli: j.props.ecli,
+    date: j.props.date_eff,
+    case_number: j.props.case_number,
+    case_number_keys: j.props.case_number_keys OR [],
     procedure_type: j.props.judgment_metadata.type,
     related_eclis: j.props.related_eclis,
   }}
 """
     return store.query(aql)
+
+
+def judgment_instances(store: Store, eclis: list[str]) -> Iterator[dict[str, Any]]:
+    """``{ecli, id, date, case_number, case_number_keys, procedure, is_conclusion}`` of the
+    judgments with these *eclis* (``core.appeals.Instance``)."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.ecli IN @eclis
+  RETURN {{
+    ecli: j.props.ecli,
+    id: j._id,
+    date: j.props.date_eff,
+    case_number: j.props.case_number,
+    case_number_keys: j.props.case_number_keys OR [],
+    procedure: j.props.judgment_metadata.type,
+    is_conclusion: j.props.judgment_metadata.document_type == @conclusion
+      OR j.props.court_code IN @conclusion_courts
+  }}
+"""
+    return store.query(
+        aql,
+        {
+            "eclis": eclis,
+            "conclusion": DOCUMENT_TYPE_CONCLUSION,
+            "conclusion_courts": sorted(CONCLUSION_ONLY_COURTS),
+        },
+    )
+
+
+def appeals_to_read(
+    store: Store, *, procedure: str, paragraphs: int
+) -> Iterator[dict[str, Any]]:
+    """``{key, j_id, ecli, read, paragraphs, unresolved_appeal_targets}`` of the appeals
+    whose metadata names no earlier instance (``read``: *procedure*, a regular expression,
+    matches their ``judgment_metadata.type``), with their first *paragraphs* paragraphs;
+    and of the judgments that carry unresolved appeal targets, so that those no longer
+    read lose them."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.source == @source
+  LET read = LENGTH(j.props.related_eclis) == 0
+    AND REGEX_TEST(j.props.judgment_metadata.type || "", @procedure, true)
+  FILTER read OR j.props.unresolved_appeal_targets != null
+  RETURN {{
+    key: j._key,
+    j_id: j._id,
+    ecli: j.props.ecli,
+    read: read,
+    paragraphs: read ? SLICE(j.props.paragraphs OR [], 0, @paragraphs)[* RETURN {{
+      text: CURRENT.text
+    }}] : [],
+    unresolved_appeal_targets: j.props.unresolved_appeal_targets
+  }}
+"""
+    return store.query(
+        aql,
+        {
+            "source": SOURCE_RECHTSPRAAK,
+            "procedure": procedure,
+            "paragraphs": paragraphs,
+        },
+    )
 
 
 def second_reading_memoranda(store: Store) -> Iterator[dict[str, Any]]:
@@ -160,8 +226,9 @@ FOR a IN {COLLECTION_ARTICLES}
 
 
 def conclusion_rows(store: Store) -> Iterator[dict[str, Any]]:
-    """``{ecli, court_code, is_conclusion, conclusion_eclis, case_number_keys}`` of every
-    conclusion and of every judgment that names its conclusion."""
+    """``{ecli, court_code, date, case_number, is_conclusion, conclusion_eclis,
+    case_number_keys}`` of every conclusion and of every judgment that names its
+    conclusion."""
     aql = f"""
 FOR j IN {COLLECTION_JUDGMENTS}
   FILTER j.props.source == @source
@@ -171,6 +238,8 @@ FOR j IN {COLLECTION_JUDGMENTS}
   RETURN {{
     ecli: j.props.ecli,
     court_code: j.props.court_code,
+    date: j.props.date_eff,
+    case_number: j.props.case_number,
     is_conclusion: is_conclusion,
     conclusion_eclis: j.props.conclusion_eclis OR [],
     case_number_keys: j.props.case_number_keys OR []
@@ -229,6 +298,27 @@ FOR j IN {COLLECTION_JUDGMENTS}
             "conclusion_courts": sorted(CONCLUSION_ONLY_COURTS),
         },
     )
+
+
+def court_decisions_between(
+    store: Store, spans: list[dict[str, str]]
+) -> Iterator[dict[str, Any]]:
+    """``{court_code, ecli, date, case_number}`` of the decisions (not conclusions) of the
+    court of each span (``{court_code, start, end}``) dated from its start to its end."""
+    aql = f"""
+FOR span IN @spans
+  FOR j IN {COLLECTION_JUDGMENTS}
+    FILTER j.props.court_code == span.court_code
+    FILTER j.props.date_eff >= span.start AND j.props.date_eff <= span.end
+    FILTER j.props.judgment_metadata.document_type != @conclusion
+    RETURN DISTINCT {{
+      court_code: j.props.court_code,
+      ecli: j.props.ecli,
+      date: j.props.date_eff,
+      case_number: j.props.case_number
+    }}
+"""
+    return store.query(aql, {"spans": spans, "conclusion": DOCUMENT_TYPE_CONCLUSION})
 
 
 def preliminary_rulings(store: Store, *, paragraphs: int) -> Iterator[dict[str, Any]]:
@@ -1108,6 +1198,23 @@ def related_cases(store: Store) -> Iterator[dict[str, Any]]:
             }}
         """
     )
+
+
+def procedural_neighbours(
+    store: Store, ids: list[str], relations: list[str], *, chunk: int = 5000
+) -> Iterator[list[str]]:
+    """``[id, other]`` for every edge of *relations* between a node of *ids* and another,
+    either way."""
+    aql = f"""
+    FOR id IN @ids
+        FOR e IN {COLLECTION_EDGES}
+            FILTER (e._from == id OR e._to == id) AND e.relation IN @relations
+            RETURN [id, e._from == id ? e._to : e._from]
+    """
+    for start in range(0, len(ids), chunk):
+        yield from store.query(
+            aql, {"ids": ids[start : start + chunk], "relations": relations}
+        )
 
 
 def remove_edges_from(
