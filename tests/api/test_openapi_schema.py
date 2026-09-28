@@ -17,12 +17,18 @@ OPERATIONS = [
     for method, operation in operations.items()
 ]
 WRITING = {"POST", "PUT", "PATCH", "DELETE"}
+# What a route may answer instead of JSON: a document of a standard format.
+DOCUMENT_TYPES = {"application/atom+xml"}
 
 
 def _answer_schema(operation: dict[str, Any]) -> dict[str, Any] | None:
-    """The JSON schema of the 2xx answer; ``None`` for an answer without a body (204)."""
+    """The JSON schema of the 2xx answer; ``None`` for an answer without a body (204) or
+    one that is a document of a standard format (the Atom feed)."""
     for status in ("200", "201"):
         content = operation["responses"].get(status, {}).get("content")
+        if content and "application/json" not in content:
+            assert set(content) <= DOCUMENT_TYPES, set(content)
+            return None
         if content:
             return content["application/json"].get("schema") or {}
     return None
