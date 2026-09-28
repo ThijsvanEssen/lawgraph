@@ -474,10 +474,9 @@ def _page_query(plan: _Plan) -> str:
 
 
 # The signatures of an event on the page, by its kind.
+_VOTE_SIGNATURES = _DECIDED_PERSONS.replace("{guard}", f'row.kind == "{EVENT_VOTE}"')
 _SIGNATURES = f"""row.kind == "{EVENT_COMMITMENT}" ? {_COMMITMENT_PERSONS}
-                : row.kind == "{EVENT_VOTE}" ? {
-    _DECIDED_PERSONS.replace("{guard}", f'row.kind == "{EVENT_VOTE}"')
-}
+                : row.kind == "{EVENT_VOTE}" ? {_VOTE_SIGNATURES}
                 : (n.props.actors OR [])"""
 
 # The page, read in full: the node's props, its first dossier, the cabinet on its date, the
@@ -489,7 +488,7 @@ _ITEMS = f"""
             LET n = DOCUMENT(row.id)
             LET dossier = FIRST(
                 FOR d IN {COLLECTION_DOSSIERS}
-                    FILTER row.dossier != null AND d.props.label == row.dossier
+                    FILTER d.props.label != null AND d.props.label == row.dossier
                     LIMIT 1
                     RETURN {{ key: d._key, number: d.props.label, title: d.props.title }}
             )
