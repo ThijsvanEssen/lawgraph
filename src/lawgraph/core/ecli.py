@@ -21,8 +21,8 @@ import re
 from collections.abc import Iterator
 
 # The countries (ISO 3166 codes, EL for Greece) of the ECLI Council conclusions
-# (2011/C 127/01), EU for the courts of the Union, CE for the Council of Europe and EP for the
-# boards of appeal of the European Patent Office.
+# (2011/C 127/01, revised in 2019/C 360/01), EU for the courts of the Union, CE for the
+# Council of Europe and EP for the boards of appeal of the European Patent Office.
 ECLI_COUNTRIES = frozenset(
     {
         "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "EL", "ES", "FI", "FR", "GR", "HR",
