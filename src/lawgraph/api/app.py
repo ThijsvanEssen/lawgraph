@@ -18,6 +18,7 @@ from lawgraph.api.routes import (
     decisions,
     documents,
     dossiers,
+    feed,
     government,
     graph,
     instruments,
@@ -184,7 +185,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.23.0",
+    version="0.25.0",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -214,8 +215,10 @@ for _name, _router in (
     ("stats", stats.router),
     ("decisions", decisions.router),
     ("parliament", parliament.router),
+    ("feed", feed.router),
 ):
     app.include_router(_router, prefix=f"/api/{_name}", tags=[_name])
+app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
 
 
 @app.middleware("http")
