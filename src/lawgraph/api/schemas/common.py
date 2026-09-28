@@ -35,6 +35,13 @@ def address_of(doc: dict[str, Any]) -> str:
     return article_address(law_id, doc["_key"], props.get("article_number"))
 
 
+VALID_UNTIL = (
+    "The first day the version is no longer in force, exclusive: the start of the next "
+    "one. `2021-07-01` is in force up to and including 2021-06-30 (wetten.overheid.nl: "
+    '"t/m 30-06-2021"). Null while it is in force.'
+)
+
+
 class QualifierFields(BaseModel):
     """Which parts of the cited article a reference names: "eerste lid, onder a"."""
 
