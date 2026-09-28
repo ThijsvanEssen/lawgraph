@@ -425,6 +425,7 @@ class InstrumentListItemDTO(BaseModel):
     title: str | None
     short_title: str | None
     citation_title: str | None
+    display_name: str | None = None
     jurisdiction: str | None
     kind: str | None
     article_count: int
@@ -440,6 +441,7 @@ class InstrumentListItemDTO(BaseModel):
             title=row.get("title"),
             short_title=row.get("short_title"),
             citation_title=row.get("citation_title"),
+            display_name=row.get("display_name"),
             jurisdiction=row.get("jurisdiction") or None,
             kind=row.get("kind"),
             article_count=int(row.get("article_count") or 0),

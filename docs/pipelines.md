@@ -461,9 +461,20 @@ refer to (`retrieve eurlex --mode gaps`, `expand-graph`), not by listing them.
 without an HTML text (HTTP 404, in every language: old regulations and every corrigendum)
 counts as skipped, not as an error.
 
-**Normalize.** Instrument per CELEX (`jurisdiction: eu`, `title` from the `doc-ti` paragraph,
-`citation_title` derived from the number, for example `Richtlijn 2010/64/EU`). Articles are
-read from the structure of the HTML (`core/eurlex_html.py`), in either format CELLAR serves:
+**Normalize.** Instrument per CELEX (`jurisdiction: eu`). Its names come from the printed
+title (`core/eu_titles.py`): the `doc-ti` paragraphs, or the `DC.description` of a page of
+the old format. `citation_title` follows the rules of the Official Journal: from 2015
+`Verordening (EU) 2016/679`, `Richtlijn (EU) 2019/1937`; before, a regulation `Verordening
+(EEG) nr. 295/91` and any other act `Richtlijn 95/46/EG`, with two digits for a year before
+1999; the domain is that of the day of adoption in the title (`EEG` before 1 November 1993,
+`EG` before 1 December 2009, `EU` after; `JBZ` for a framework decision), the word before
+the number the one the title starts with (`Beschikking`, `Tweede Richtlijn`). A title in
+capitals is written with the citation title (`Verordening (EU) 2022/868 van het Europees
+Parlement en de Raad van 30 mei 2022 betreffende …`); a closing note between brackets
+(`(Voor de EER relevante tekst)`) is left out; a name between brackets that ends the title
+and names the kind of act is `short_title` (`Datagovernanceverordening`). `display_name` is
+the citation title. Articles are read from the structure of the HTML
+(`core/eurlex_html.py`), in either format CELLAR serves:
 
 - the Official Journal format (acts from about 2004): an article is the `oj-ti-art` title
   ("Artikel 1") with what follows it up to the next title; its heading is the `oj-sti-art`
@@ -471,10 +482,16 @@ read from the structure of the HTML (`core/eurlex_html.py`), in either format CE
   bevat:"), or the lid container (`div id="004.002"`) laid out as one row numbered like the
   lid; a point is a table row of a marker cell ("a)", "1)", "i)", "—") and a text cell, and a
   table in the text cell holds the points inside it. A title inside a table cell is an
-  article that an amendment quotes: it stays text of the amending article;
+  article that an amendment quotes: it stays text of the amending article. The divisions
+  of an article are the `div` elements around it that open with an `oj-ti-section-1` label
+  (`HOOFDSTUK III`, `Afdeling 1`), titled by their `oj-ti-section-2` paragraph;
 - the old format (older acts, flat `<p>` paragraphs): an article starts at a paragraph that is
   only "Artikel N" and ends at the next one, at a division heading (`HOOFDSTUK II`,
-  `TITEL II`, `BIJLAGE`) or at the closing formula ("Gedaan te …"). A short paragraph right
+  `TITEL II`, `Afdeling 1: …`, `BIJLAGE`), at a heading in capitals right before an
+  article (`SLOTBEPALINGEN`) or at the closing formula ("Gedaan te …"). A division heading
+  has its title after its label or in the next paragraph; a kind of division that is open
+  ends at the next of its kind, another kind nests in it; a heading in capitals without a
+  label stands at the top level. A short paragraph right
   after the number that does not end in `.`, `:`, `;` or `,` is the heading. Leden and points
   are read from the marker a paragraph starts with (also spaced: `a )`, `1 .`); a marker
   kind that is not yet open nests in the point before it (a dash under `a)`), one that is
@@ -483,7 +500,8 @@ read from the structure of the HTML (`core/eurlex_html.py`), in either format CE
 
 The text and parts are built as for BWB (see [data model](data-model.md), "Article and
 versions"): no empty lines, the heading not in the text. A number is taken once per act, and an
-article without text is not written. `PART_OF` from article to instrument.
+article without text is not written. `position` is its place in the act, `breadcrumb` its
+divisions (`type` `hoofdstuk`, `label` `Hoofdstuk III`, `title`). `PART_OF` from article to instrument.
 
 **Semantic `eurlex`.** Scans the text of EU articles.
 

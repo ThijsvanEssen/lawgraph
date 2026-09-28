@@ -159,7 +159,12 @@ statutes made by the legislator:
   eight has an id with an impossible year in the source; it is rebuilt from the text of the
   link ("verordening (EU) 2021/784") or left out.
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records.
-- EU directives, regulations and decisions (`celex`).
+- EU directives, regulations and decisions (`celex`). `title` is the printed title
+  (`Verordening (EU) 2022/868 van het Europees Parlement en de Raad van 30 mei 2022
+  betreffende …`), `citation_title` the form the act is cited by in its era (`Richtlijn
+  87/102/EEG`, `Richtlijn 95/46/EG`, `Verordening (EU) nr. 1093/2010`, `Verordening (EU)
+  2016/679`), `short_title` the name between brackets that ends the title
+  (`Datagovernanceverordening`), `display_name` the citation title.
 - The Convention of the ECHR (`echr_convention`): kind `verdrag`, `bwb_id` `ECHR-CONVENTION`, which its articles carry too.
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`
   `publicatie` (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
@@ -222,7 +227,10 @@ renumbering; each version has a `versie-id`.
   point is a line of its own that starts with its marker as printed (`a) text`, `i) text`,
   `— text`); `number` is the marker without its punctuation (`a`). A point laid out without
   text of its own shares its line with the first point inside it (`f) — de ontbinding`).
-  An EU article has no `label`, `references`, `position` or versions.
+  Its `position` is its place in the act and its `breadcrumb` the divisions of the act
+  (`hoofdstuk`, `afdeling`, `titel`, `deel`, `onderafdeling`: the first word of the label,
+  written `Hoofdstuk III`, the title as printed). An EU article has no `label`, `references`
+  or versions.
 - `breadcrumb` is where the article stands in its regulation, outermost first:
   `{type, label, title}` per division that holds it, `type` the element of the toestand
   (`bijlage`, `boek`, `deel`, `titeldeel`, `hoofdstuk`, `afdeling`, `paragraaf`, `sub-paragraaf`,
