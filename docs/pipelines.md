@@ -811,7 +811,7 @@ no post any more loses them. A holder
 no Tweede Kamer person matches becomes a member of their own, key
 `rijksoverheid_<initials>_<surname>`, label `Rijksoverheid`; once a later run matches them,
 that member is removed. Every page is read on every run. Needs `normalize tk-dossiers` (the
-members and their signatures) and `normalize tk` (the factions).
+members, their signatures and the factions).
 
 Every post also gets its normalised `post` (`minister-president`, `viceminister-president`,
 `minister`, `minister_zonder_portefeuille`, `staatssecretaris`) and `ministry`, read from the
@@ -890,7 +890,7 @@ uses a name before its first period keeps that name.
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
-| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures) and `normalize tk` (the factions a party is matched to) |
+| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures, and the factions a party is matched to) |
 | normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
