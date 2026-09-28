@@ -36,7 +36,7 @@ zoek.officielebekendmakingen.nl (`stb-2019-33`; null before 1995, where that sit
 |--------|------|----------|
 | GET | `/` | `{"name": "lawgraph-api", "version": ...}` |
 | GET | `/api/health` | `{"status": "ok", "database": "connected"}`, 503 when the database is unreachable |
-| GET | `/api/stats` | `nodes`: document count per collection without stubs (also `commitments` and `cabinets`; `instruments` without the publications, which `publications` counts); `stubs`: per collection that has them (`instruments`, `articles`, `judgments`) the nodes known only because something refers to them; `edges`: count per relation |
+| GET | `/api/stats` | `nodes`: document count without stubs of `instruments` (without the publications), `publications` (the Staatsblad, Staatscourant and Tractatenblad publications), `articles`, `judgments`, `documents`, `cases`, `topics`, `dossiers`, `activities`, `decisions`, `commitments`, `committees`, `members` and `cabinets` (not `factions`, `annexes`, `instrument_versions` or `article_versions`); `stubs`: per collection that has them (`instruments`, `articles`, `judgments`) the nodes known only because something refers to them; `edges`: `total` and `by_relation`; `by_source`: `judgments` and `documents` per `props.source`; `instruments`: `by_kind` and `by_jurisdiction` (publications included) |
 | GET | `/api/stats/coverage` | the judgments whose text is loaded: `total`, `first_date`, `last_date`, per tier (`tiers`: `tier`, `count`, `first_date`, `last_date`, in the order of `core.judgments.TIERS`: the highest courts, the parket, the courts of first instance and appeal, the other colleges, the EHRM last) and per court (`courts`: `source`, `tier`, `court_code`, `court`, `count`, `first_date`, `last_date`, most first), and `stubs`, the judgments known only because a loaded one cites them. Every count of judgments in the API counts this selection, not the case law |
 
 ### Articles
@@ -207,8 +207,9 @@ relations and status.
   `limit`. Some carry a domain name instead of `items` (`entries` for timelines, `versions`,
   `votes`, `relationships`). The neighbours of a node are grouped in `buckets`, each with its
   own `items`, `total` and `next_offset`.
-- Errors: 401 missing or wrong key, 404 unknown resource, 422 invalid parameter, 429 rate
-  limited, 503 database unreachable or writing not configured.
+- Errors: 400 a node collection the API does not serve or an unknown search type, 404
+  unknown resource, 422 invalid parameter, 429 rate limited, 503 from `/api/health` when the
+  database is unreachable.
 - Responses of the route handlers carry an `X-Request-ID` header.
 
 ## Layout
@@ -216,7 +217,7 @@ relations and status.
 | Path | Contents |
 |------|----------|
 | `api/app.py` | app, middleware, router registration, `lawgraph-api` entry point |
-| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `relationships`, `annexes`, `parliament`) |
+| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers`, `committees` (also `members` and `factions`), `government` (`ministries`, `cabinets` and `commitments`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `relationships`, `annexes`, `parliament` (also `parties`)) |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
 | `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
 | `api/dependencies.py` | `get_store()`: one shared `ArangoStore` |

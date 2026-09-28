@@ -1,7 +1,8 @@
 # Architecture
 
 LawGraph is a batch system that fills an ArangoDB graph, plus an HTTP API on top of it that
-only reads. There is no other user interface.
+only reads. The user interface is Concordans, a SvelteKit front end in a repository of its
+own, which reads this API over HTTP; this repository has no user interface.
 
 ## Pipeline model
 
