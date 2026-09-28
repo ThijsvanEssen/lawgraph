@@ -39,6 +39,15 @@ def _brief(parties: list[dict[str, Any]]) -> list[str]:
             ],
         ),
         ("rechtspraak_hr_2026_1504.xml", ["Betrokkene: [betrokkene]"]),
+        # an appeal against a traffic fine: the officier van justitie is no verdachte
+        (
+            "rechtspraak_rbmne_2026_3708.xml",
+            [
+                "Betrokkene: [betrokkene]",
+                "Officier van justitie: de officier van justitie van het Parket "
+                "Centrale Verwerking Openbaar Ministerie",
+            ],
+        ),
         ("rechtspraak_hr_2026_1434.xml", ["Klager: [klager]"]),
         ("rechtspraak_gharl_2026_6060.xml", ["Verdachte: [verdachte]"]),
         ("rechtspraak_ghdha_2026_2908.xml", ["Verdachte: [verdachte]"]),
@@ -133,6 +142,7 @@ def test_sides_aliases_and_representatives() -> None:
     assert parties["[eiseres 1]"] == {
         "name": "[eiseres 1]",
         "role": "Eiser",
+        "roles": ["Eiser"],
         "role_stated": True,  # "EISERS in eerste aanleg,"
         "side": "first",
         "alias": "[eisers]",  # "hierna gezamenlijk: [eisers] ,"
@@ -236,6 +246,52 @@ def test_what_names_no_party_is_left_out() -> None:
             ("in de strafzaak tegen", "Jan Jansen,"),
             ["Verdachte: Jan Jansen"],
         ),
+        # a public authority never gets the role of the other side
+        (
+            ["Strafrecht"],
+            (
+                "in de zaak van",
+                "Jan Jansen",
+                "en",
+                "de officier van justitie te Utrecht",
+            ),
+            [
+                "Verdachte: Jan Jansen",
+                "Officier van justitie: de officier van justitie",
+            ],
+        ),
+        (
+            ["Strafrecht"],
+            (
+                "in de zaak van",
+                "Jan Jansen",
+                "en",
+                "de minister van Justitie en Veiligheid",
+            ),
+            ["Verdachte: Jan Jansen", "Partij: de minister van Justitie en Veiligheid"],
+        ),
+        # an authority in administrative law: verweerder on the second side, and on the
+        # first (where it may have appealed) no role the text does not give
+        (
+            ["Bestuursrecht"],
+            (
+                "Uitspraak in het geding tussen:",
+                "A B.V.",
+                "en",
+                "de heffingsambtenaar van Utrecht",
+            ),
+            ["Appellant: A B.V.", "Verweerder: de heffingsambtenaar van Utrecht"],
+        ),
+        (
+            ["Bestuursrecht"],
+            (
+                "Uitspraak in het geding tussen:",
+                "de heffingsambtenaar van Utrecht",
+                "en",
+                "A B.V.",
+            ),
+            ["Partij: de heffingsambtenaar van Utrecht", "Verweerder: A B.V."],
+        ),
         (
             None,
             ("tussen", "A B.V.", "en", "C B.V."),
@@ -255,3 +311,22 @@ def test_a_kop_without_parties_has_none() -> None:
 
 def test_the_parties_are_valid_judgment_props() -> None:
     JudgmentProps.model_validate({"parties": _parties("rechtspraak_hr_2019_1278.xml")})
+
+
+def test_what_the_parties_are_called_from_here_on_is_their_alias() -> None:
+    """ "Partijen worden hierna Chipsoft, UMCG, Treant (sub 2 en 3) en OZG genoemd.", and a
+    party that is geïntimeerde and appellante in incidenteel hoger beroep has both roles."""
+    chipsoft = _parties("rechtspraak_rbnne_2026_2437.xml")
+    assert [p["alias"] for p in chipsoft] == [
+        "Chipsoft",
+        "UMCG",
+        "Treant",
+        "Treant",
+        "OZG",
+    ]
+
+    klm = [p for p in _parties("rechtspraak_ghams_2026_2678.xml") if p["alias"]]
+    assert [(p["alias"], p["roles"]) for p in klm] == [
+        ("KLM", ["Geïntimeerde"]),
+        ("VNV", ["Geïntimeerde", "Appellant"]),
+    ]
