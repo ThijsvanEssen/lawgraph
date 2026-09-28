@@ -391,9 +391,16 @@ each judgment, the `<uitspraak>` and `<conclusie>` the court or advocate-general
 `raw_sources`; `core/judgments.body_text`), never in its metadata: the `dcterms:relation` of the
 metadata names the earlier instance and the conclusion, which are `APPEAL_OF` and `ADVISES_ON`
 of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations,
-missing judgments become stubs. The citations of a judgment are derived in full each time it is
-read: an edge of this step its text no longer names is removed. `semantic graph-list-stats`
-recounts `inbound_citation_count` after it.
+missing judgments become stubs. The ECLIs are read by `core/ecli.cited_eclis`: one is valid when
+its country issues ECLIs, its court code has the shape of one (letters for a Dutch court; whether
+the court exists is not checked), its year lies between 1900 and the current year and its number
+has the shape of one (Dutch: a number or an LJN). What the text shows is repaired: an LJN whose
+digits it sets apart (`BH 2815`, `BH:4033`), NL and the court swapped, a range (`2018:2374-2375`)
+as its members, a word or the next ECLI glued to the number, a zero or one typed for a letter of
+an LJN (`A09006`). The rest is dropped and makes no stub; `_resolve_eclis` makes no stub of a
+malformed ECLI for any step. The citations of a judgment are derived in full each time it is
+read: an edge of this step its text no longer names is removed, and then every stub judgment no
+edge reaches or leaves. `semantic graph-list-stats` recounts `inbound_citation_count` after it.
 
 **Semantic `rechtspraak-appeal`.** Judgments with `related_eclis` whose `judgment_metadata.type`
 contains `hoger beroep` or `cassatie`: `APPEAL_OF` from the appeal judgment to each related
