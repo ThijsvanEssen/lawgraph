@@ -238,7 +238,7 @@ class TKClient(BaseClient):
         """
         params: dict[str, Any] = {
             "$expand": (
-                "Zaak($select=Id,Soort,Titel,Nummer;"
+                "Zaak($select=Id,Soort,Titel,Onderwerp,Nummer;"
                 "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)),"
                 "DocumentActor($select=Id,ActorNaam,ActorFractie,Functie,Relatie,Persoon_Id,Fractie_Id)"
             ),

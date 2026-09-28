@@ -27,7 +27,10 @@ from lawgraph.pipelines.retrieve.rijksoverheid import RijksoverheidRetrievePipel
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
-from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_content import (
+    DEFAULT_KINDS,
+    TKContentRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
 from lawgraph.pipelines.retrieve.wikidata import WikidataRetrievePipeline
@@ -263,7 +266,12 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve the XML of Tweede Kamer documents."
     )
-    parser.add_argument("--kind", default="toelichting")
+    parser.add_argument(
+        "--kind",
+        action="append",
+        help="A word of the kind of paper to fetch (repeatable; default: "
+        f'{", ".join(DEFAULT_KINDS)}; "" for every paper).',
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--mode",
@@ -274,7 +282,7 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
 
     pipeline = TKContentRetrievePipeline(store=ArangoStore())
-    return pipeline.run(kind_filter=args.kind, dry_run=args.dry_run)
+    return pipeline.run(kinds=args.kind or DEFAULT_KINDS, dry_run=args.dry_run)
 
 
 def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:

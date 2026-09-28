@@ -572,3 +572,130 @@ def test_a_document_says_which_source_it_is_from() -> None:
     126,710 papers and `/api/stats` counted them as unknown."""
     _, props = tk_records.document({"Id": "doc-1", "Soort": "Motie"})  # type: ignore[misc]
     assert props["source"] == "tk"
+
+
+_DOSSIER_TITLE = "Rechtsstaat en Rechtsorde"
+
+
+@pytest.mark.parametrize(
+    ("kind", "subject", "case_subject", "title", "dossier_title"),
+    [
+        # a motie or amendement is named by its own Onderwerp, stripped
+        (
+            "Motie",
+            "Motie van het lid Faber over fouilleren ",
+            None,
+            "Motie van het lid Faber over fouilleren",
+            _DOSSIER_TITLE,
+        ),
+        (
+            "Amendement (gewijzigd/nader/vervangend)",
+            "Amendement van het lid Ergin",
+            None,
+            "Amendement van het lid Ergin",
+            _DOSSIER_TITLE,
+        ),
+        # without one, by the Onderwerp of its Zaak; without that, by its Titel
+        (
+            "Motie (gewijzigd/nader)",
+            None,
+            "Gewijzigde motie van het lid Kostić",
+            "Gewijzigde motie van het lid Kostić",
+            _DOSSIER_TITLE,
+        ),
+        ("Motie", None, None, _DOSSIER_TITLE, _DOSSIER_TITLE),
+        # any other paper keeps its Titel
+        ("Brief regering", "Voortgang aanpak ondermijning", None, _DOSSIER_TITLE, None),
+    ],
+)
+def test_a_motion_is_named_by_its_own_subject(
+    kind: str,
+    subject: str | None,
+    case_subject: str | None,
+    title: str,
+    dossier_title: str | None,
+) -> None:
+    _, props = tk_records.document(  # type: ignore[misc]
+        {
+            "Id": "d-1",
+            "Soort": kind,
+            "Titel": _DOSSIER_TITLE,
+            "Onderwerp": subject,
+            "Zaak": [{"Id": "z-1", "Soort": "Motie", "Onderwerp": case_subject}],
+        }
+    )
+    assert (props["title"], props["dossier_title"]) == (title, dossier_title)
+
+
+def test_the_case_of_a_motion_is_named_by_its_subject_and_a_bill_by_its_title() -> None:
+    key, props = tk_records.case(  # type: ignore[misc]
+        {
+            "Id": "z-1",
+            "Nummer": "2026Z18284",
+            "Soort": "Motie",
+            "Titel": _DOSSIER_TITLE,
+            "Onderwerp": "Motie van het lid Faber over fouilleren ",
+        }
+    )
+    assert key == "z_1"
+    assert props["title"] == "Motie van het lid Faber over fouilleren"
+    assert props["display_name"] == props["title"]
+    assert (props["number"], props["kind"]) == ("2026Z18284", "Motie")
+
+    _, bill = tk_records.case(  # type: ignore[misc]
+        {
+            "Id": "z-2",
+            "Soort": "Wetgeving",
+            "Titel": "Wijziging van de Wegenwet",
+            "Onderwerp": "Wijziging van de Wegenwet in verband met wegen",
+        }
+    )
+    assert bill["title"] == "Wijziging van de Wegenwet"
+    assert tk_records.case({"Soort": "Motie"}) is None
+
+
+def test_a_record_the_kamer_deleted_is_no_node() -> None:
+    deleted = {
+        "Id": "d-1",
+        "Soort": None,
+        "Titel": None,
+        "Verwijderd": True,
+        "Zaak": [],
+    }
+    assert tk_records.is_deleted(deleted)
+    assert tk_records.document(deleted) is None
+    assert tk_records.case(deleted) is None
+    assert not tk_records.is_deleted({"Id": "d-2", "Verwijderd": False})
+
+
+def test_the_submitters_of_a_motion_are_its_signatories_the_indiener_first() -> None:
+    actors = tk_records.document_actors(
+        {
+            "DocumentActor": [
+                {
+                    "Persoon_Id": "p-2",
+                    "ActorNaam": "I. Ellian",
+                    "ActorFractie": "VVD",
+                    "Relatie": "Mede ondertekenaar",
+                },
+                {"ActorNaam": "Griffier", "Relatie": "Afzender"},
+                {
+                    "Persoon_Id": "p-1",
+                    "ActorNaam": "M. Faber",
+                    "ActorFractie": "PVV",
+                    "Relatie": "Eerste ondertekenaar",
+                },
+            ]
+        }
+    )
+    assert tk_records.submitters("Motie", actors) == [
+        {"name": "M. Faber", "faction": "PVV", "member_key": "p_1", "role": "indiener"},
+        {
+            "name": "I. Ellian",
+            "faction": "VVD",
+            "member_key": "p_2",
+            "role": "medeindiener",
+        },
+    ]
+    # the first signatory of a letter is no indiener
+    assert tk_records.submitters("Brief regering", actors) == []

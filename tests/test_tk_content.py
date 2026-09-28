@@ -175,10 +175,10 @@ def test_each_paper_is_fetched_by_its_identifier_and_its_xml_stored_unchanged() 
 
 
 def test_the_query_joins_the_dossier_and_asks_for_tk_papers_of_the_kind() -> None:
-    _, store, _ = _run([_paper("36867", 3)], kind_filter="Toelichting")
+    _, store, _ = _run([_paper("36867", 3)], kinds=["Toelichting", "Motie"])
     aql, bind = store.queries[0]
     assert '"TK" IN pub.labels' in aql and "@part_of" in aql
-    assert "dossier.props.suffix" in aql and bind["kind"] == "toelichting"
+    assert "dossier.props.suffix" in aql and bind["kinds"] == ["toelichting", "motie"]
     assert "kind || " in aql  # not the ``??`` AQL does not have
 
 

@@ -16,8 +16,8 @@ from lawgraph.config.constants import COLLECTION_CASES, RAW_KIND_TK_ZAAK, SOURCE
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.core.values import first_str
 from lawgraph.db import NodeWriter
+from lawgraph.db.queries import normalize as normalize_queries
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -52,53 +52,38 @@ class TKNormalizePipeline(NormalizePipelineBase):
         """None: a case is linked to its dossiers once the dossiers exist."""
 
     def _normalize_cases(self, raw_records: Iterable[dict[str, Any]]) -> int:
-        """Case nodes, keyed by the Zaak identifier documents refer to."""
+        """Case nodes, keyed by the Zaak identifier documents refer to; the node of a Zaak
+        the Kamer deleted is removed."""
         writer = NodeWriter(self.store)
+        deleted: list[str] = []
         for raw in raw_records:
             payload = self._payload_json(raw)
-            external_id = first_str(
-                [payload.get("Id"), payload.get("ZaakId"), payload.get("ZaakNummer")],
-                skip_blank=True,
-            )
-            if external_id is None:
+            if tk_records.is_deleted(payload) and payload.get("Id"):
+                deleted.append(make_node_key(str(payload["Id"])))
+                continue
+            parsed = tk_records.case(payload)
+            if parsed is None:
                 logger.warning(
                     "Skipping a TK Zaak without an identifier (_key=%s).",
                     raw.get("_key"),
                 )
                 continue
-
-            title = (
-                payload.get("Titel")
-                or payload.get("ZaakTitel")
-                or payload.get("Onderwerp")
-            )
-            props: dict[str, Any] = {
-                "source": SOURCE_TK,
-                "external_id": external_id,
-                "number": str(payload.get("Nummer") or payload.get("ZaakNummer") or ""),
-                "kind": payload.get("Soort") or None,
-                # The dossiers this case belongs to; the dossier pipeline turns
-                # them into PART_OF edges once the dossier nodes exist.
-                "dossier_numbers": tk_records.dossier_numbers([payload]),
-                # What `semantic tk-dossier-relations` lifts to RELATED_TO edges between dossiers.
-                "related_cases": tk_records.related_cases(payload),
-            }
-            if title:
-                props["title"] = title
-            if payload.get("Citeertitel"):
-                props["citation_title"] = payload["Citeertitel"]
-            props["display_name"] = props.get("title") or f"Zaak {external_id}"
-
+            key, props = parsed
             writer.add(
                 Node(
                     collection=COLLECTION_CASES,
                     type=NodeType.CASE,
-                    key=make_node_key(external_id),
+                    key=key,
                     labels=["TK"],
                     props=props,
                 )
             )
 
         writer.flush()
-        logger.info("Normalized %d TK cases.", writer.written)
+        removed = normalize_queries.remove_nodes(self.store, COLLECTION_CASES, deleted)
+        logger.info(
+            "Normalized %d TK cases; removed %d the Kamer deleted.",
+            writer.written,
+            removed,
+        )
         return writer.written

@@ -163,8 +163,8 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                             id: doc._id,
                             kind: doc.props.kind,
                             date: doc.props.date,
-                            title: (doc.props.title != null ? doc.props.title
-                                    : doc.props.display_name)
+                            title: NOT_NULL(doc.props.dossier_title, doc.props.title,
+                                            doc.props.display_name)
                         }"""
     aql = f"""
         FOR dossier_id IN @dossier_ids
@@ -318,6 +318,36 @@ def remove_nodes_except(store: Store, collection: str, keep: list[str]) -> int:
         RETURN 1
     """
     return sum(store.query(aql, {"keep": keep}))
+
+
+# Keys removed in one query.
+_REMOVE_CHUNK = 5000
+
+
+def remove_nodes(store: Store, collection: str, keys: list[str]) -> int:
+    """Remove the nodes *keys* of *collection* with every edge at them; how many nodes went.
+    A key without a node is passed over."""
+    removed = 0
+    for start in range(0, len(keys), _REMOVE_CHUNK):
+        chunk = keys[start : start + _REMOVE_CHUNK]
+        edges = f"""
+        FOR key IN @keys
+            LET id = CONCAT(@collection, "/", key)
+            FOR e IN UNION_DISTINCT(
+                (FOR out IN {COLLECTION_EDGES} FILTER out._from == id RETURN out._key),
+                (FOR inn IN {COLLECTION_EDGES} FILTER inn._to == id RETURN inn._key)
+            )
+                REMOVE e IN {COLLECTION_EDGES} OPTIONS {{ ignoreErrors: true }}
+        """
+        list(store.query(edges, {"keys": chunk, "collection": collection}))
+        nodes = f"""
+        FOR n IN {collection}
+            FILTER n._key IN @keys
+            REMOVE n IN {collection}
+            RETURN 1
+        """
+        removed += sum(store.query(nodes, {"keys": chunk}))
+    return removed
 
 
 def remove_members(store: Store, keys: list[str]) -> int:
