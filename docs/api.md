@@ -232,7 +232,7 @@ relations and status.
 |------------|-----------|
 | CORS | origins from `LAWGRAPH_ALLOWED_ORIGINS` (default `localhost:5173`, `5174`, `127.0.0.1` variants); credentials allowed |
 | Rate limit | sliding window per client IP: `LAWGRAPH_RATE_LIMIT_CALLS` (200) per `LAWGRAPH_RATE_LIMIT_PERIOD` seconds (60); 429 with `Retry-After`. Requests whose `Origin` is in the CORS allow-list are exempt. `X-Forwarded-For` is honoured only from loopback or `LAWGRAPH_TRUSTED_PROXIES`. State is per process, so N workers allow N times the limit |
-| Cache-Control | on 2xx GET: `/api/articles/` 30 min public, `/api/judgments/` 1 h public, `/api/stats` 5 min public, everything else `private, max-age=60` |
+| Cache-Control, ETag | on 2xx GET: `/api/articles/`, `/api/judgments/` and `/api/stats` `public, max-age=60`, everything else `private, max-age=60`; and a weak `ETag` of the data version (`ArangoStore.data_version`: the revisions of the graph's collections, read at most every 15 s), the same for every response of one version. A GET with `If-None-Match` naming the current version is 304; any write to the graph (a migration) changes it, so the new data shows within a minute |
 | Request log | `[id] client METHOD path -> status size latency`; sets `X-Request-ID` |
 
 ## Access

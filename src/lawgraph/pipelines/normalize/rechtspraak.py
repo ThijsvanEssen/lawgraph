@@ -148,7 +148,8 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         (``_link_translations``)."""
         if summary and is_english(summary):
             props["summary_en"] = summary
-        elif summary:
+        else:
+            # null clears what an earlier run stored ("kopje volgt", now a placeholder)
             props["summary"] = summary
 
     def _remember_translation(self, key: str, props: dict[str, Any]) -> None:
