@@ -97,6 +97,36 @@ def test_a_commitment_is_made_by_whoever_held_such_a_post_that_day() -> None:
     )
 
 
+def test_a_commitment_is_of_the_ministry_its_text_names() -> None:
+    """Van Weel, minister of Justitie en Veiligheid, held Asiel en Migratie ad interim."""
+    van_weel = {
+        "id": "van_weel",
+        "name": "David van Weel",
+        "posts": [
+            {
+                "function": "Minister van Justitie en Veiligheid",
+                "from_date": "2024-07-02",
+                "to_date": None,
+            }
+        ],
+    }
+    row = {
+        "name": "Weel, D.M. van",
+        "role": "Minister van Justitie en Veiligheid",
+        "text": "De minister van Asiel en Migratie zegt toe de Kamer te informeren.",
+        "date": "2025-09-10",
+    }
+    props = commitment_props(row, [van_weel], CABINETS)
+    assert (props["member_key"], props["post"], props["ministry"]) == (
+        "van_weel",
+        "minister",
+        "aenm",
+    )
+    # an abbreviation names no ministry: the role stands
+    abbreviated = {**row, "text": "De minister van J&V zegt toe te kijken naar ..."}
+    assert commitment_props(abbreviated, [van_weel], CABINETS)["ministry"] == "jenv"
+
+
 def test_a_dossier_is_brought_in_by_its_first_signatory() -> None:
     minister = {
         "date": "2023-05-01",

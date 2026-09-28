@@ -49,14 +49,15 @@ def cabinet_periods(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def commitment_makers(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, name, role, date, props}`` of every commitment: who made it as the source
-    writes it, and what is stored now of who made it."""
+    """``{key, name, role, text, date, props}`` of every commitment: who made it as the
+    source writes it, its text, and what is stored now of who made it."""
     aql = f"""
     FOR c IN {COLLECTION_COMMITMENTS}
         RETURN {{
             key: c._key,
             name: c.props.minister_name,
             role: c.props.minister_role,
+            text: c.props.text,
             date: c.props.made_on,
             props: KEEP(c.props, "member_key", "post", "ministry", "cabinet")
         }}
