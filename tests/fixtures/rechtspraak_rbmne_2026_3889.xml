@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:RBMNE:2026:3889</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-07-03T12:47:15</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-07-02</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Rechtbank_Midden-Nederland" scheme="overheid.RechterlijkeMacht">Rechtbank Midden-Nederland</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2026-07-01</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">12045071 UM VERZ  26-109</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#eersteAanlegEnkelvoudig">Eerste aanleg - enkelvoudig</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:spatial rdfs:label="Zittingsplaats">Utrecht</dcterms:spatial>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#strafrecht">Strafrecht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBMNE:2026:3889">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBMNE:2026:3889</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-07-02T13:15:30</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-07-03</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:RBMNE:2026:3889 Rechtbank Midden-Nederland , 01-07-2026 / 12045071 UM VERZ  26-109</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:RBMNE:2026:3889:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <para>Wahv, verlaging boete uit 2024 vanwege strijd met het evenredigheidsbeginsel. Deze kantonrechter sluit aan bij de uitspraak van een andere kantonrechter van 30 juni 2026 (ECLI:NL:RBMNE:2026:3707) waarin de verhoging van de boetebedragen uit 2024 onverbindend is verklaard.</para>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:RBMNE:2026:3889:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <uitspraak.info>
+    <bridgehead role="bold">RECHTBANK MIDDEN-NEDERLAND</bridgehead>
+    <para />
+    <parablock>
+      <para>Strafrecht</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>zittingsplaats Utrecht</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>zaaknummer:  12045071 UM VERZ  26-109</para>
+      <para>CJIB-nummer: 271550166</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">beslissing van de kantonrechter van 1 juli 2026 en proces-verbaal van de zitting van 25 juni 2026</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>inzake</para>
+    </parablock>
+    <para />
+    <bridgehead role="bold">
+      [betrokkene] , te [woonplaats] , [adres] ,</bridgehead>
+    <parablock>
+      <para>
+        <emphasis role="underline">hierna te noemen: betrokkene</emphasis>,</para>
+      <para>gemachtigde: Adviesbureau Skandara.</para>
+    </parablock>
+    <para />
+    <para />
+  </uitspraak.info>
+  <section role="procesverloop">
+    <title>Procesverloop</title>
+    <para />
+    <parablock>
+      <para>Bij inleidende beschikking is aan betrokkene een administratieve sanctie opgelegd van € 300,00. De sanctie is opgelegd voor een gedraging op 21 januari 2025 om 9:02 uur te Utrecht, knooppunt Laagraven, met de personenauto, kenteken [kenteken] . Het gaat om op een kruising niet de richting volgen die de voorsorteerstrook aangeeft.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Bij beslissing op het administratief beroep heeft de officier van justitie de sanctie gehandhaafd en het beroep ongegrond verklaard.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Tegen de beslissing van de officier van justitie heeft betrokkene beroep ingesteld bij de kantonrechter.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>De kantonrechter heeft partijen in de gelegenheid gesteld om op de zitting van 25 juni 2026 hun zienswijze nader toe te lichten. Gemachtigde is verschenen. Namens de officier van justitie is een zittingsvertegenwoordiger verschenen.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>De kantonrechter heeft het onderzoek ter zitting gesloten en zes dagen later uitspraak gedaan.</para>
+    </parablock>
+    <para />
+    <para />
+  </section>
+  <section>
+    <title>Standpunten</title>
+    <para />
+    <parablock>
+      <para>Betrokkene heeft in het (aanvullend) beroepschrift samengevat het volgende aangevoerd:</para>
+    </parablock>
+    <para>- de gedraging is niet verricht;</para>
+    <para>- het sanctiebedrag is onevenredig hoog; de sanctie is in strijd met de algemene beginselen van behoorlijk bestuur, waaronder het proportionaliteits- en het evenredigheidsbeginsel;</para>
+    <para>- er wordt om proceskostenvergoeding verzocht. </para>
+    <para />
+    <parablock>
+      <para>De gemachtigde persisteert bij wat in het (aanvullend) beroepschrift is aangevoerd. </para>
+      <para>De zittingsvertegenwoordiger heeft ter zitting het standpunt ingenomen dat het beroep bij de kantonrechter ongegrond is en dat er geen ruimte bestaat om af te wijken van de sanctietarieven zoals die zijn vastgesteld door de minister. Tevens heeft de zittingsvertegenwoordiger aangegeven dat de vaststelling van de gedraging kan plaatsvinden op basis van het zaakoverzicht.</para>
+    </parablock>
+    <para />
+    <para />
+  </section>
+  <section role="overwegingen">
+    <title>Beoordeling</title>
+    <para />
+    <parablock>
+      <para>De kantonrechter stelt op grond van de verklaring van de verbalisant vast dat de gedraging is verricht. In zaken op grond van de Wet administratiefrechtelijke handhaving verkeersvoorschriften (Wahv) is de verklaring van de verbalisant in het zaakoverzicht in beginsel voldoende voor het vaststellen van de gedraging, tenzij concrete omstandigheden worden aangevoerd die aanleiding geven tot twijfel. Daarvan is in dit geval geen sprake.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>De gemachtigde van de betrokkene voert aan dat het boetebedrag van € 300,- onevenredig hoog is en dat de overheid de zogenoemde Mulderboetes gebruikt om het gat in de begroting te dichten. De Wahv is in het leven geroepen ter handhaving van de verkeersveiligheid en de verkeersvoorschriften, maar schiet het doel inmiddels voorbij. In dit verband heeft hij verwezen naar onder meer het advies van de Afdeling advisering van de Raad van State inzake indexering Wahv<footnote-ref linkend="_ac5ab45d-48f1-44e5-bc1f-10de90bb1c5e" />, het rapport “Boetestelsels in balans” van 24 mei 2023<footnote-ref linkend="_ba9cf597-9d9f-4ccd-b7b2-16e7de6d9bb2" /> en het onderzoeksrapport van het Wetenschappelijk Onderzoek en Documentatie Centrum van 29 januari 2026<footnote-ref linkend="_04e13c28-fa03-4696-aaf5-b491c515a27d" /> . De kantonrechter overweegt daarover het volgende.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Met ingang van 1 maart 2024 zijn de verkeersboetes die op grond van de Wahv worden opgelegd, verhoogd met (ruim) 10%. De algemene maatregel van bestuur die aan deze verhoging ten grondslag ligt, is door een andere kantonrechter van deze rechtbank getoetst in de uitspraak van 30 juni 2026 (ECLI:NL:RBMNE:2026:3707). In deze uitspraak is geoordeeld dat de verhoging onverbindend is, omdat sprake is van strijd met het evenredigheidsbeginsel. </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Deze kantonrechter sluit zich aan bij het oordeel uit de uitspraak van 30 juni 2026 en verwijst naar de overwegingen uit die uitspraak. Dat heeft tot gevolg dat de betrokkene slechts een boete had mogen krijgen ter hoogte van het bedrag dat voor deze overtreding gold vóór 1 maart 2024, zijnde € 280,-. Het beroep is gegrond en de kantonrechter zal de boete vaststellen op € 280,-.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Proceskostenvergoeding</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>De kantonrechter ziet aanleiding om de officier van justitie te veroordelen in de proceskosten van de betrokkene. De vergoeding is met toepassing van het Besluit proceskosten bestuursrecht als volgt berekend. Voor de rechtsbijstand in de fase van administratief beroep wordt geen vergoeding toegekend, omdat de onrechtmatigheid in het boetebedrag niet te wijten is aan de ambtenaar die de boete heeft opgelegd. Voor de rechtsbijstand in de fase van beroep bij de kantonrechter krijgt de betrokkene € 934,- per proceshandeling. De gemachtigde heeft een beroepschrift ingediend en de zitting bijgewoond. Vanwege de aard van de zaak hanteert de kantonrechter de wegingsfactor 0,5 (licht). De hoogte van de vergoeding wordt op grond van artikel 13a, tweede lid onder a, van de Wahv vermenigvuldigd met 0,25, omdat de sanctie wordt gewijzigd en niet is gebleken van bijzondere omstandigheden. De vergoeding bedraagt 2 x € 934,- x 0,5 x 0,25 = € 233,50. De officier van justitie mag de proceskosten uitsluitend uitbetalen op een bankrekening die op naam staat van betrokkene.</para>
+    </parablock>
+    <para />
+    <para />
+  </section>
+  <section>
+    <title>Beslissing</title>
+    <para />
+    <parablock>
+      <para>De kantonrechter:</para>
+    </parablock>
+    <para />
+    <para>- verklaart het beroep gedeeltelijk gegrond;</para>
+    <para>- wijzigt de beslissing van de officier van justitie;</para>
+    <para>- stelt het bedrag van de administratieve sanctie vast op € 280,- (exclusief </para>
+    <para>administratiekosten);</para>
+    <para>- bepaalt dat de officier van justitie aan betrokkene het te veel betaalde teruggeeft;</para>
+    <para>- veroordeelt de officier van justitie tot het vergoeden van de proceskosten van de </para>
+    <para>betrokkene, ter hoogte van € 233,50.</para>
+    <para />
+    <parablock>
+      <para>Deze beslissing is genomen door mr. D. Verduijn, kantonrechter, en uitgesproken op de openbare zitting van 1 juli 2026, in tegenwoordigheid van de griffier.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>de griffier,	de kantonrechter,</para>
+    </parablock>
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <parablock>
+      <para>mr. M.A.L. Hagenouw	mr. D. Verduijn</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Als u het met de beslissing op uw beroep niet eens bent, dan kunt u binnen zes weken na de hieronder vermelde datum van toezending van deze beslissing hoger beroep instellen bij het gerechtshof Arnhem - Leeuwarden, maar alleen als:</para>
+    </parablock>
+    <orderedlist numeration="loweralpha">
+      <listitem>
+        <para>de u opgelegde administratieve sanctie meer dan € 110,00 bedraagt, of</para>
+      </listitem>
+      <listitem>
+        <para>uw beroep niet-ontvankelijk is verklaard omdat u niet of niet op tijd zekerheid heeft gesteld.</para>
+      </listitem>
+    </orderedlist>
+    <parablock>
+      <para>Het beroepschrift moet worden ingediend bij </para>
+      <para>de rechtbank Midden-Nederland, Afdeling Strafrecht, </para>
+      <para>locatie Utrecht, o.v.v. Mulderzaken, postbus 16005, 3500 DA Utrecht.</para>
+      <para>Let u erop dat u of uw gemachtigde het beroepschrift heeft ondertekend.</para>
+      <para>De procedure bij het gerechtshof verloopt geheel schriftelijk, tenzij u in uw beroepschrift uitdrukkelijk om een zitting vraagt waarop u uw standpunt mondeling wilt toelichten.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Datum toezending proces-verbaal:</para>
+    </parablock>
+  </section>
+  <footnote id="_ac5ab45d-48f1-44e5-bc1f-10de90bb1c5e" label="1">
+    <para> Staatscourant 2024, nr. 186.</para>
+  </footnote>
+  <footnote id="_ba9cf597-9d9f-4ccd-b7b2-16e7de6d9bb2" label="2">
+    <para>Bijlage bij Kamerstukken II 2022/23, 29 398, nr. 1076, ook te raadplegen op rijksoverheid.nl.</para>
+  </footnote>
+  <footnote id="_04e13c28-fa03-4696-aaf5-b491c515a27d" label="3">
+    <para> Bijlage bij Kamerstukken II 2025/26, 29 398, nr. 1200, ook te raadplegen op wodc.nl.</para>
+  </footnote>
+</uitspraak>
+</open-rechtspraak>

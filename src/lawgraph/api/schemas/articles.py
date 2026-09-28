@@ -21,7 +21,6 @@ from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
-    COLLECTION_INSTRUMENTS,
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.mentions import Mention
@@ -30,13 +29,12 @@ from lawgraph.core.official_urls import article_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
 
-ExplanationTarget = Literal["article", "article_version", "instrument"]
+ExplanationTarget = Literal["article", "article_version"]
 ExplanationScope = Literal["dossier", "article"]
 
 _TARGET_OF_COLLECTION: dict[str, ExplanationTarget] = {
     COLLECTION_ARTICLES: "article",
     COLLECTION_ARTICLE_VERSIONS: "article_version",
-    COLLECTION_INSTRUMENTS: "instrument",
 }
 
 
@@ -458,10 +456,9 @@ class ArticleExplanationDTO(BaseModel):
     target: ExplanationTarget = Field(
         ...,
         description=(
-            "What the edge points at: the 'article', one of its versions "
-            "('article_version') or its 'instrument'. An 'instrument' explanation "
-            "is written only when the dossier's law changed no articles at all, so "
-            "it says nothing about this article in particular."
+            "What the edge points at: the 'article' or one of its versions "
+            "('article_version'). An explanation of the article's law as a whole is "
+            "none of this article, and is not listed."
         ),
     )
     target_id: str = Field(

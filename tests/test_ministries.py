@@ -37,7 +37,7 @@ FUNCTIONS = [
     ("minister van Langdurige Zorg, Jeugd en Sport", "minister", "vws"),
     ("Minister van Asiel en Migratie", "minister", "aenm"),
     ("minister van Klimaat en Groene Groei", "minister", "kgg"),
-    ("Minister van Algemene Oorlogvoering", "minister", "oorlog"),
+    ("Minister van Algemene Oorlogvoering", "minister", "aok"),
     ("minister van openbare werken", "minister", "opw"),
     # a minister without portfolio: the ministry the post is placed under
     ("Minister voor Klimaat en Energie", "minister_zonder_portefeuille", "ezk"),
@@ -119,3 +119,11 @@ def test_the_ministries_name_existing_successors_and_rank_after_them() -> None:
             assert protocol_rank(ministry.key) > protocol_rank(ministry.successor)
     assert protocol_rank("az") == 0
     assert protocol_rank(None) == len(MINISTRIES)
+
+
+def test_a_ministry_with_a_successor_names_the_last_day_of_its_name() -> None:
+    from lawgraph.core.ministries import MINISTRIES
+
+    # the Rijksoverheid pages show no handover for these: their end stays unknown
+    unknown = {"aok", "bzbpbo", "opw", "ahn", "szv", "arbeid"}
+    assert {m.key for m in MINISTRIES if m.successor and not m.until} == unknown

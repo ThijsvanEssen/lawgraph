@@ -197,7 +197,7 @@ def _summary(page: dict[str, Any]) -> list[tuple[str, str, str | None]]:
     ]
 
 
-def test_an_article_is_explained_through_itself_its_versions_and_its_instrument(
+def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
     database: str,
 ) -> None:
     store = ArangoStore()
@@ -211,12 +211,12 @@ def test_an_article_is_explained_through_itself_its_versions_and_its_instrument(
         ("nvt_2023", ARTICLE, None),
         ("mvt_anchor", ARTICLE, None),  # without a passage before with one
         ("mvt_anchor", AV_OLD, "artikel-5"),
-        ("ek_nota", ARTICLE, None),  # no date: last of the article-level ones
-        ("mvt_law", INSTRUMENT, None),  # instrument level after all of those
+        ("ek_nota", ARTICLE, None),  # no date: last
     ]
-    assert page["total"] == 7
-    # the document of another article is nowhere
-    assert "mvt_other" not in [row["key"] for row in page["items"]]
+    assert page["total"] == 6
+    # the document of another article is nowhere, nor one that explains only the law:
+    # it says nothing about this article
+    assert {"mvt_other", "mvt_law"}.isdisjoint(row["key"] for row in page["items"])
 
 
 def test_a_row_carries_what_the_dto_needs(database: str) -> None:
@@ -239,10 +239,6 @@ def test_a_row_carries_what_the_dto_needs(database: str) -> None:
     assert passage.article_version_key == "av_5_old"
     assert by_key[("mvt_anchor", None)].scope == "dossier"
 
-    law = by_key[("mvt_law", None)]
-    assert law.target == "instrument" and law.article_version_key is None
-    assert law.document.dossier_number == "36001"
-
     ek = by_key[("ek_nota", None)]
     assert ek.document.chamber == "EK" and ek.document.dossier_number is None
     assert ek.document.date is None
@@ -257,9 +253,9 @@ def test_the_page_is_cut_and_the_total_is_not(database: str) -> None:
     rest = _explanations(store, limit=3, offset=3)
     last = _explanations(store, limit=3, offset=6)
 
-    assert first["total"] == rest["total"] == last["total"] == 7
+    assert first["total"] == rest["total"] == last["total"] == 6
     assert _summary(first) + _summary(rest) + _summary(last) == everything
-    assert _explanations(store, offset=50) == {"total": 7, "items": []}
+    assert _explanations(store, offset=50) == {"total": 6, "items": []}
 
 
 def test_an_unknown_article_has_no_explanations(database: str) -> None:
@@ -282,7 +278,6 @@ def test_an_article_of_another_identity_is_not_explained_by_the_versions_of_this
 
     assert _summary(other) == [
         ("mvt_other", AV_OTHER, None),
-        ("mvt_law", INSTRUMENT, None),
     ]
 
 
@@ -472,15 +467,17 @@ def test_the_explanations_of_an_article_read_no_document_but_the_page(
     _build_at_scale(real)
     store: Any = _Recording(real)
 
+    explained = DOCUMENTS - DOCUMENTS // 4  # every fourth explains only the law
     page = get_article_explanations(store, BWB, "5", limit=50, offset=0)
-    rest = get_article_explanations(store, BWB, "5", limit=50, offset=DOCUMENTS - 100)
+    rest = get_article_explanations(store, BWB, "5", limit=50, offset=explained - 50)
 
-    assert page["total"] == rest["total"] == DOCUMENTS
+    assert page["total"] == rest["total"] == explained
     assert len(page["items"]) == 50 and len(rest["items"]) == 50
-    first = {ArticleExplanationDTO.from_row(r).target for r in page["items"]}
-    last = {ArticleExplanationDTO.from_row(r).target for r in rest["items"]}
-    assert first == {"article_version"}
-    assert last == {"instrument"}  # 1,800 of the article, then the instrument's
+    targets = {
+        ArticleExplanationDTO.from_row(r).target
+        for r in [*page["items"], *rest["items"]]
+    }
+    assert targets == {"article_version"}
     assert all("text" not in row for row in page["items"])
 
     aql, bind = next((a, b) for a, b in store.asked if "@explains" in a)

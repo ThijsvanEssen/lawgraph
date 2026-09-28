@@ -31,13 +31,13 @@ from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
+from lawgraph.pipelines.normalize.rijksoverheid import RijksoverheidNormalizePipeline
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
-from lawgraph.pipelines.normalize.wikidata import WikidataNormalizePipeline
 from lawgraph.pipelines.retrieve_commands import (
     retrieve_bwb,
     retrieve_bwb_history,
@@ -45,6 +45,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_eerstekamer,
     retrieve_eurlex,
     retrieve_rechtspraak,
+    retrieve_rijksoverheid,
     retrieve_staatsblad,
     retrieve_staatscourant,
     retrieve_tk,
@@ -121,6 +122,7 @@ SOURCES: dict[str, str] = {
     "echr": "ECHR (HUDOC)",
     "verdragenbank": "Verdragenbank",
     "wikidata": "Wikidata",
+    "rijksoverheid": "Rijksoverheid (rijksoverheid.nl)",
     "graph": "The whole graph",
 }
 # How a source is spelled in a class name, where capitalising it is not enough.
@@ -372,7 +374,12 @@ RETRIEVE: list[Pipeline] = [
     ),
     _pipeline(
         retrieve_wikidata,
-        "The Dutch cabinets and the posts people held in them, from Wikidata (SPARQL).",
+        "The Dutch cabinets, from Wikidata (SPARQL): used for those before 1945.",
+        argv_for_all=_no_argv,
+    ),
+    _pipeline(
+        retrieve_rijksoverheid,
+        "The page of every cabinet since 1945 (posts, holders, dates), from rijksoverheid.nl.",
         argv_for_all=_no_argv,
     ),
 ]
@@ -429,9 +436,10 @@ NORMALIZE: list[Pipeline] = [
         "Judgments as nodes.",
     ),
     _pipeline(
-        WikidataNormalizePipeline,
-        "Cabinet posts onto the members they belong to (date of birth and surname, or "
-        "signatures); a person without a Tweede Kamer person becomes a member of their own.",
+        RijksoverheidNormalizePipeline,
+        "Cabinets with their phases and parties, and every post held in them onto the "
+        "member who held it (surname and initials, or signatures); a holder without a "
+        "Tweede Kamer person becomes a member of their own.",
     ),
     _pipeline(
         VerdragenbankNormalizePipeline,

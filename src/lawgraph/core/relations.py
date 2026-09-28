@@ -223,8 +223,8 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "SERVED_IN",
         (_MEMBER,),
         (_CABINET,),
-        "A post held in a cabinet, one edge per post: `function` as the source writes "
-        "it, the normalised `post` and `ministry`, `from_date`, `to_date`.",
+        "The posts a member held in a cabinet, one edge per member and cabinet, "
+        "`meta.posts` as in the member's `government_functions`.",
     ),
     RelationSpec(
         "AUTHORED",

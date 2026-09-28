@@ -22,7 +22,6 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
-    LABEL_WIKIDATA,
     RELATION_ABOUT,
     RELATION_AUTHORED,
     RELATION_PART_OF,
@@ -243,19 +242,19 @@ def dossiers_of_numbers(store: Store, numbers: list[str]) -> Iterator[dict[str, 
 
 
 def member_identities(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, family_name, first_names, birth_date, wikidata_id}`` of every Tweede Kamer
-    person (``normalize wikidata`` matches them, and clears a Wikidata id no person claims)."""
+    """``{key, family_name, name, initials, birth_date, factions}`` of every Tweede Kamer
+    person with a surname (``normalize rijksoverheid`` matches the bewindspersonen to them):
+    ``name`` the full name, ``factions`` the keys of the factions they sat in."""
     aql = f"""
     FOR m IN {COLLECTION_MEMBERS}
-        FILTER @tk IN m.labels
-        FILTER m.props.birth_date != null OR m.props.wikidata_id != null
-            OR m.props.family_name == null
+        FILTER @tk IN m.labels AND m.props.family_name != null
         RETURN {{
             key: m._key,
             family_name: m.props.family_name,
-            first_names: m.props.name,
+            name: m.props.full_name OR m.props.name,
+            initials: m.props.initials,
             birth_date: m.props.birth_date,
-            wikidata_id: m.props.wikidata_id
+            factions: UNIQUE(m.props.faction_memberships[*].faction_key)
         }}
     """
     return store.query(aql, {"tk": CHAMBER_TK})
@@ -288,14 +287,37 @@ def government_signatures(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
-def wikidata_members(store: Store) -> Iterator[str]:
-    """The keys of the members only Wikidata knows (label ``Wikidata``)."""
+def labelled_members(store: Store, label: str) -> Iterator[str]:
+    """The keys of the members with *label* (``Rijksoverheid``: a bewindspersoon only
+    Rijksoverheid knows)."""
     aql = f"""
     FOR m IN {COLLECTION_MEMBERS}
         FILTER @label IN m.labels
         RETURN m._key
     """
-    return store.query(aql, {"label": LABEL_WIKIDATA})
+    return store.query(aql, {"label": label})
+
+
+def government_members(store: Store) -> Iterator[str]:
+    """The keys of the members that have ``government_functions``."""
+    aql = f"""
+    FOR m IN {COLLECTION_MEMBERS}
+        FILTER m.props.government_functions != null
+        RETURN m._key
+    """
+    return store.query(aql)
+
+
+def remove_nodes_except(store: Store, collection: str, keep: list[str]) -> int:
+    """Remove the nodes of *collection* whose key is not in *keep*, for a collection one
+    pipeline derives in full; how many went."""
+    aql = f"""
+    FOR n IN {collection}
+        FILTER n._key NOT IN @keep
+        REMOVE n IN {collection}
+        RETURN 1
+    """
+    return sum(store.query(aql, {"keep": keep}))
 
 
 def remove_members(store: Store, keys: list[str]) -> int:
@@ -319,8 +341,8 @@ def remove_members(store: Store, keys: list[str]) -> int:
 
 
 def faction_names(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, name, abbreviation, aliases}`` of every faction (``normalize wikidata`` finds
-    the faction of a party of a cabinet by them)."""
+    """``{key, name, abbreviation, aliases}`` of every faction (``normalize rijksoverheid``
+    finds the faction of a bewindspersoon's party by them)."""
     aql = f"""
     FOR f IN {COLLECTION_FACTIONS}
         RETURN {{
