@@ -55,9 +55,22 @@ FOR inst IN {COLLECTION_INSTRUMENTS}
             RETURN 1
     )
     LET kind = inst.props.kind != null ? LOWER(inst.props.kind) : null
+    // what refers to the law: to the law itself, and to each of its articles
+    LET inbound_cnt = LENGTH(
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == inst._id AND e.relation == @refers_to
+            RETURN 1
+    ) + LENGTH(
+        FOR p IN {COLLECTION_EDGES}
+            FILTER p._to == inst._id AND p.relation == @part_of
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._to == p._from AND e.relation == @refers_to
+                RETURN 1
+    )
     FILTER inst.props.jurisdiction != jurisdiction
         OR inst.props.article_count != article_count
         OR inst.props.kind != kind
+        OR inst.props.inbound_citation_count != inbound_cnt
 """
 
 # Attributes are read one by one (``doc.props.ecli``), never ``LET props = doc.props``: that
@@ -159,9 +172,10 @@ def refresh_instruments(store: Store, *, dry_run: bool) -> int:
         _update_tail(
             COLLECTION_INSTRUMENTS,
             "inst",
-            "jurisdiction: jurisdiction, article_count: article_count, kind: kind",
+            "jurisdiction: jurisdiction, article_count: article_count, kind: kind,"
+            " inbound_citation_count: inbound_cnt",
         ),
-        {"part_of": RELATION_PART_OF},
+        {"part_of": RELATION_PART_OF, "refers_to": RELATION_REFERS_TO},
         dry_run=dry_run,
     )
 

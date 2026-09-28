@@ -314,6 +314,11 @@ def publication_display_name(publication: Mapping[str, Any]) -> str:
     return str(publication.get("id") or "")
 
 
+# The kind of an instrument node that is a publication (Stb. 2019, 33), not a regulation: kept
+# out of the instrument lists and counts.
+KIND_PUBLICATION = "publicatie"
+
+
 def publication_props(publication: Mapping[str, Any]) -> dict[str, Any]:
     """Instrument props of a publication; unknown (None) values are left out.
 
@@ -323,8 +328,12 @@ def publication_props(publication: Mapping[str, Any]) -> dict[str, Any]:
     must not overwrite one written earlier. ``dossier_numbers`` is not included —
     the caller merges the dossiers of all versions naming the publication.
     """
+    name = publication_display_name(publication)
     props: dict[str, Any] = {
-        "display_name": publication_display_name(publication),
+        "display_name": name,
+        "citation_title": name,
+        "kind": KIND_PUBLICATION,
+        "jurisdiction": "nl",
         "source": SOURCE_BWB,
         "publication_kind": publication.get("kind") or None,
         "publication_year": publication.get("year"),
