@@ -486,6 +486,8 @@ def test_a_roll_call_counts_members_not_faction_sizes() -> None:
     assert props["vote_kind"] == "member"
     assert props["tally"] == {"Voor": 2, "Tegen": 1}
     assert props["passed"] is True
+    # each member's vote weighs one seat, not the size of the faction (K4)
+    assert [cast.seats for cast in votes] == [1, 1, 1]
 
 
 def test_the_outcome_falls_back_to_the_tally_when_the_source_is_silent() -> None:

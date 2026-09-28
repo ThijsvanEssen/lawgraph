@@ -623,11 +623,13 @@ def vote(payload: Payload) -> VoteCast | None:
     if not decision_id:
         return None
     faction_id = str(payload.get("Fractie_Id") or "")
+    person_id = str(payload.get("Persoon_Id") or "") or None
     return VoteCast(
         decision_id=sys.intern(decision_id),
         choice=sys.intern(str(payload.get("Soort") or "")),
-        seats=payload.get("FractieGrootte") or 0,
-        person_id=str(payload.get("Persoon_Id") or "") or None,
+        # a row of a roll-call is one member, whose FractieGrootte is that of the faction
+        seats=1 if person_id else payload.get("FractieGrootte") or 0,
+        person_id=person_id,
         faction_id=sys.intern(faction_id) if faction_id else None,
         faction_label=sys.intern((payload.get("ActorFractie") or "").strip()),
         changed_at=payload.get("GewijzigdOp"),

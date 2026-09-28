@@ -376,7 +376,7 @@ Votes: TK returns one row per voter per `Besluit`. A roll-call (`Hoofdelijk`) na
 member, so its `VOTED` edges start at the member; any other vote is cast per faction and the
 edge starts at the faction. The decision carries `vote_kind` (`member` or `faction`), `tally`
 (seats per choice, members per choice on a roll-call), `voters` (how many cast each choice)
-and `passed`; each edge carries `meta.choice` and `meta.seats`. The API derives a member's
+and `passed`; each edge carries `meta.choice` and `meta.seats` (the seats of the faction; 1 for a member on a roll-call, whose row carries the size of the faction). The API derives a member's
 non-roll-call votes from the faction they belonged to at the time, using
 `members.props.faction_memberships`.
 
