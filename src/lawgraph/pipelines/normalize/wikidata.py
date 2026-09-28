@@ -118,7 +118,12 @@ class WikidataNormalizePipeline(NormalizePipelineBase):
         keys = self._cabinet_keys(cabinets)
         cabinet_nodes = self._cabinets(cabinets, keys, people, member_of)
 
-        nodes = [self._member(key, people[qid], keys) for key, qid in matched.items()]
+        # a member the Kamer gives no name (a minister from outside it) takes Wikidata's
+        nameless = {m["key"] for m in members if not m.get("first_names")}
+        nodes = [
+            self._member(key, people[qid], keys, named=key not in nameless)
+            for key, qid in matched.items()
+        ]
         cleared = [
             self._member(m["key"], None, keys)
             for m in members
@@ -304,14 +309,22 @@ class WikidataNormalizePipeline(NormalizePipelineBase):
 
     @classmethod
     def _member(
-        cls, key: str, person: dict[str, Any] | None, keys: dict[str, str]
+        cls,
+        key: str,
+        person: dict[str, Any] | None,
+        keys: dict[str, str],
+        *,
+        named: bool = True,
     ) -> Node:
+        props = cls._wikidata_props(person, keys)
+        if not named and person and person.get("name"):
+            props["name"] = props["display_name"] = person["name"]
         return Node(
             collection=COLLECTION_MEMBERS,
             type=NodeType.MEMBER,
             key=key,
             labels=[],
-            props=cls._wikidata_props(person, keys),
+            props=props,
         )
 
     @staticmethod

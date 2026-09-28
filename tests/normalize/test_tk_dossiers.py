@@ -470,7 +470,7 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
             f"{COLLECTION_MEMBERS}/p_1",
             RELATION_VOTED,
             f"{COLLECTION_DECISIONS}/{decision.key}",
-        ): {"choice": "Voor", "seats": 24}
+        ): {"choice": "Voor", "seats": 1}  # a member is one seat, not the faction
     }
 
 

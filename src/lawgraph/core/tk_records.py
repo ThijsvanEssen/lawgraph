@@ -264,14 +264,17 @@ def member(payload: Payload) -> Record | None:
         f"{payload.get('Voornamen') or ''} {payload.get('Tussenvoegsel') or ''} "
         f"{payload.get('Achternaam') or ''}".split()
     )
-    return make_node_key(external_id), {
+    props: dict[str, Any] = {
         "external_id": external_id,
-        "name": name,
-        "display_name": name,
         # what another source knows a person by (``core.government.match_member``)
         "family_name": _text(payload, "Achternaam") or None,
         "birth_date": iso_date(payload.get("Geboortedatum")),
     }
+    if name:
+        # a Persoon the Kamer gives no name (a minister from outside it, a record it
+        # withholds) keeps the name another source gave (a vote, Wikidata)
+        props["name"] = props["display_name"] = name
+    return make_node_key(external_id), props
 
 
 def seat_holding(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
@@ -616,6 +619,7 @@ class VoteCast:
     faction_id: str | None
     faction_label: str
     changed_at: str | None
+    actor_name: str | None = None  # "Nobel, J.N.J.": who voted, as the row names them
 
 
 def vote(payload: Payload) -> VoteCast | None:
@@ -633,6 +637,9 @@ def vote(payload: Payload) -> VoteCast | None:
         faction_id=sys.intern(faction_id) if faction_id else None,
         faction_label=sys.intern((payload.get("ActorFractie") or "").strip()),
         changed_at=payload.get("GewijzigdOp"),
+        actor_name=(payload.get("ActorNaam") or "").strip() or None
+        if person_id
+        else None,
     )
 
 
@@ -754,3 +761,11 @@ def _int_or_none(value: Any) -> int | None:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
         return None
+
+
+def display_person_name(actor_name: str | None) -> str | None:
+    """ "J.N.J. Nobel" of "Nobel, J.N.J.", as a Stemming or a DocumentActor names a person."""
+    if not actor_name:
+        return None
+    family, _, initials = actor_name.partition(",")
+    return " ".join(f"{initials.strip()} {family.strip()}".split()) or None
