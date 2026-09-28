@@ -25,8 +25,13 @@ from lawgraph.core.citations import (
 )
 from lawgraph.core.identifiers import is_bwb_id, is_ecli, parse_celex
 
-NotationKind = Literal["ecli", "bwb", "celex", "dossier", "document", "article"]
+NotationKind = Literal[
+    "ecli", "bwb", "celex", "dossier", "document", "article", "commitment"
+]
 LawTier = Literal["code", "title", "prefix", "contains"]
+
+# The number of a toezegging: "TZ202603-130".
+_COMMITMENT_RE = re.compile(r"^TZ\d{6}-\d{1,5}$", re.IGNORECASE)
 
 # A bare number is a dossier only when it has the length of one; behind "Kamerstuk" or
 # "dossier" any number is.
@@ -159,6 +164,8 @@ class NotationParser:
             return Notation(kind="bwb", identifier=text.upper())
         if parse_celex(text):
             return Notation(kind="celex", identifier=text.upper())
+        if _COMMITMENT_RE.match(text):
+            return Notation(kind="commitment", identifier=text.upper())
         return _dossier(text) or self._article(text)
 
     def law_matches(self, text: str) -> list[LawMatch]:

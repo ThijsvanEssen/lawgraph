@@ -211,6 +211,9 @@ class CommitmentDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     key: str
+    number: str | None = Field(
+        None, description="How the Kamer cites it: `TZ202603-130`."
+    )
     text: str | None = None
     status: CommitmentStatus | None = None
     date: str | None = Field(None, description="The day it was made.")
@@ -235,6 +238,7 @@ class CommitmentDTO(BaseModel):
         due = props.get("expected_resolution")
         return cls(
             key=commitment["_key"],
+            number=props.get("number"),
             text=props.get("text"),
             status=(
                 props.get("status")

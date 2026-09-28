@@ -459,6 +459,7 @@ def commitment(payload: Payload) -> Record | None:
         "expected_resolution": iso_date(payload.get("DatumNakoming")),
         "status": COMMITMENT_STATUS.get(raw_status, "open"),
         "activity_number": str(payload.get("ActiviteitNummer") or ""),
+        "number": _text(payload, "Nummer") or None,
         "display_name": (text[:80] + "…") if len(text) > 80 else text,
     }
 
