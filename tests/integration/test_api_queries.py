@@ -125,7 +125,8 @@ def test_the_counts_of_the_stats_walk_an_index(database: str) -> None:
     store.query = recording  # type: ignore[method-assign]
     stats.get_db_stats(store)
 
-    assert len(asked) == 8  # five counts per value, three counts of stubs
+    # five counts per value, three counts of stubs, the count of the publications
+    assert len(asked) == 9
     for aql in asked:
         nodes = store.db.aql.explain(aql)["nodes"]
         kinds = [node["type"] for node in nodes]

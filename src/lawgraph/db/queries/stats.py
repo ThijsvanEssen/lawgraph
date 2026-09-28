@@ -68,11 +68,11 @@ def _stub_count(store: ArangoStore, collection: str) -> int:
 def _publication_count(store: ArangoStore) -> int:
     aql = f"""
     FOR doc IN {COLLECTION_INSTRUMENTS}
-        FILTER doc.props.kind == @publication
+        FILTER doc.props.kind == '{KIND_PUBLICATION}'
         COLLECT WITH COUNT INTO n
         RETURN n
     """
-    rows = store.query(aql, {"publication": KIND_PUBLICATION})
+    rows = store.query(aql)
     return cast(int, next(iter(rows), 0))
 
 
