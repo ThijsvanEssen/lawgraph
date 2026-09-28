@@ -291,16 +291,14 @@ def get_legislative_history(
     summary="Explanatory documents of an article",
     description=(
         "The documents that explain this article: every EXPLAINS edge that points "
-        "at the article, at one of its versions or at its instrument. Newest "
-        "first, the article-level explanations (`target` `article` and "
-        "`article_version`) before those of the instrument. An explanation of "
+        "at the article (`target` `article`) or at one of its versions (`target` "
+        "`article_version`); an explanation of the law as a whole is no evidence "
+        "about this article and is not listed. Newest first. An explanation of "
         "`scope` `dossier` is written per dossier: the memorandum explains all "
         "the changes of the dossier; of `scope` `article` the memorandum names "
         "the section about this article in `section_anchor` (the `id` of a "
         "section of the document; `GET /api/documents/{key}/passages` gives its "
-        "text). An `instrument` explanation exists only for a dossier whose law "
-        "changed no articles, so it is no evidence about this article; filter on "
-        "`target`. One document appears once per level. `total` counts all "
+        "text). One document appears once per level. `total` counts all "
         "explanations, independent of `limit` and `offset`. Returns an empty list "
         "for an unknown article — never a 404."
     ),
