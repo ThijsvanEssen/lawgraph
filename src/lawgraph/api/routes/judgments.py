@@ -86,6 +86,13 @@ def list_judgments(
         ),
     ] = None,
     cited_by_min: Annotated[int | None, Query(ge=0)] = None,
+    include_stubs: Annotated[
+        bool,
+        Query(
+            description="Also the judgments known only because something cites them "
+            "(no date, court or text)."
+        ),
+    ] = False,
     sort: Annotated[
         Literal["date_desc", "date_asc", "citation_count"], Query()
     ] = "date_desc",
@@ -99,6 +106,7 @@ def list_judgments(
         date_from=date_from,
         date_to=date_to,
         cited_by_min=cited_by_min,
+        include_stubs=include_stubs,
     )
     data = get_judgments_list(store, filters, sort=sort, limit=limit, offset=offset)
     items = [JudgmentListItemDTO.from_document(row) for row in data.get("items", [])]

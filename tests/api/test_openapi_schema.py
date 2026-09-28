@@ -88,7 +88,7 @@ def test_an_explanation_says_what_it_points_at_and_how_far_it_reaches() -> None:
         "article_version_key",
         "confidence",
     } <= set(explanation)
-    assert explanation["target"]["enum"] == ["article", "article_version", "instrument"]
+    assert explanation["target"]["enum"] == ["article", "article_version"]
     assert explanation["scope"]["enum"] == ["dossier", "article"]
     assert "section_anchor" in explanation
     document = schemas["ExplainingDocumentDTO"]["properties"]

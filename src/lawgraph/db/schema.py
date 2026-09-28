@@ -364,7 +364,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         # It ends in the tier and the date for the facets of `/api/judgments?source=`.
         (
             COLLECTION_JUDGMENTS,
-            ["props.source", "props.date_eff", "props.tier"],
+            ["props.source", "props.date_eff", "props.tier", "props.stub"],
             False,
             False,
         ),
@@ -394,16 +394,26 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_INSTRUMENTS, ["props.kind"], False, False),
         (COLLECTION_INSTRUMENTS, ["props.article_count"], False, False),
         # `/api/judgments` counts per tier and per year of `date_eff` under the filters
-        # (`queries/judgments.py`): each filter's index ends in both, so a count reads
-        # the index alone, not the judgments.
-        (COLLECTION_JUDGMENTS, ["props.tier", "props.date_eff"], False, False),
+        # (`queries/judgments.py`): each filter's index ends in both and in `stub` (the list
+        # leaves the stubs out), so a count reads the index alone, not the judgments.
         (
             COLLECTION_JUDGMENTS,
-            ["props.court_code", "props.date_eff", "props.tier"],
+            ["props.tier", "props.date_eff", "props.stub"],
             False,
             False,
         ),
-        (COLLECTION_JUDGMENTS, ["props.date_eff", "props.tier"], False, False),
+        (
+            COLLECTION_JUDGMENTS,
+            ["props.court_code", "props.date_eff", "props.tier", "props.stub"],
+            False,
+            False,
+        ),
+        (
+            COLLECTION_JUDGMENTS,
+            ["props.date_eff", "props.tier", "props.stub"],
+            False,
+            False,
+        ),
         # `/api/judgments?subject=`: `@subject IN doc.props.subjects[*]`
         (COLLECTION_JUDGMENTS, ["props.subjects[*]"], False),
         (COLLECTION_JUDGMENTS, ["props.inbound_citation_count"], False, False),
