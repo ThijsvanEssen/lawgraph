@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_MEMBERS,
+    LABEL_RIJKSOVERHEID,
     RELATION_ABOUT,
     RELATION_AUTHORED,
     RELATION_MADE_IN,
@@ -26,8 +27,15 @@ from lawgraph.db import ArangoStore
 TRACK_BILL = "wetsvoorstel"
 COMMITMENT_OPEN = "open"
 
+
+def _name(member: str) -> str:
+    """AQL: the name *member* goes by; for a TK person without one, the name Rijksoverheid
+    gives (``David van Weel``, else ``D.M. van Weel``)."""
+    return f"{member}.props.name OR {member}.props.known_as OR {member}.props.government_name"
+
+
 # The member of a SERVED_IN edge as a list and detail item name it.
-_PERSON = "{ key: member._key, name: member.props.name OR member.props.wikidata_name }"
+_PERSON = f"{{ key: member._key, name: {_name('member')} }}"
 
 
 def get_cabinets(store: ArangoStore) -> list[dict[str, Any]]:
@@ -134,7 +142,7 @@ def get_cabinet(store: ArangoStore, key: str) -> dict[str, Any] | None:
     RETURN {{
         cabinet: cabinet,
         prime_minister: prime != null ? {{
-            key: prime._key, name: prime.props.name OR prime.props.wikidata_name
+            key: prime._key, name: {_name("prime")}
         }} : null,
         members: posts,
         bills: bill_count,
@@ -162,7 +170,7 @@ _COMMITMENT_ITEM = f"""{{
     member: c.props.member_key != null ? FIRST(
         FOR m IN {COLLECTION_MEMBERS}
             FILTER m._key == c.props.member_key
-            RETURN {{ key: m._key, name: m.props.name OR m.props.wikidata_name }}
+            RETURN {{ key: m._key, name: {_name("m")} }}
     ) : null,
     dossiers: (
         FOR e IN {COLLECTION_EDGES}
@@ -184,6 +192,14 @@ _COMMITMENT_ITEM = f"""{{
 }}"""
 
 
+# The dimensions a commitment list counts as facets, and the prop each counts.
+_COMMITMENT_FACETS = {
+    "status": "c.props.status",
+    "cabinet": "c.props.cabinet",
+    "ministry": "c.props.ministry",
+}
+
+
 def get_commitments(
     store: ArangoStore,
     *,
@@ -199,35 +215,40 @@ def get_commitments(
     limit: int = 100,
     offset: int = 0,
 ) -> dict[str, Any]:
-    """A page of commitments and the total. *dossier* is a number (``36600``) or the label
-    of a dossier (``36600-VII``); *overdue* keeps the open ones whose expected date has
-    passed; *sort* is ``date`` (newest made first) or ``expected_resolution`` (soonest
+    """A page of commitments, the total and ``facets``: per ``status``, ``cabinet`` and
+    ``ministry`` the number of commitments per value under the other filters, each
+    dimension counted without its own filter. *dossier* is a number (``36600``) or the
+    label of a dossier (``36600-VII``); *overdue* keeps the open ones whose expected date
+    has passed; *sort* is ``date`` (newest made first) or ``expected_resolution`` (soonest
     first, those without one last)."""
-    filters: list[str] = []
+    shared: list[str] = []
+    own: dict[str, str] = {}
     bind: dict[str, Any] = {
         "limit": limit,
         "offset": offset,
         "about": RELATION_ABOUT,
         "made_in": RELATION_MADE_IN,
     }
-    for name, value, clause in (
-        ("status", status, "c.props.status == @status"),
-        ("member", member, "c.props.member_key == @member"),
-        ("cabinet", cabinet, "c.props.cabinet == @cabinet"),
-        ("ministry", ministry, "c.props.ministry == @ministry"),
+    for name, value in (
+        ("status", status),
+        ("cabinet", cabinet),
+        ("ministry", ministry),
     ):
         if value:
-            filters.append(clause)
+            own[name] = f"{_COMMITMENT_FACETS[name]} == @{name}"
             bind[name] = value
+    if member:
+        shared.append("c.props.member_key == @member")
+        bind["member"] = member
     if due_before:
-        filters.append(
+        shared.append(
             "c.props.expected_resolution != @no_date"
             " AND c.props.expected_resolution < @due_before"
         )
         bind["due_before"] = due_before
         bind["no_date"] = NO_DUE_DATE
     if overdue:
-        filters.append(
+        shared.append(
             "c.props.status == @open AND c.props.expected_resolution != @no_date"
             " AND c.props.expected_resolution < @today"
         )
@@ -235,10 +256,10 @@ def get_commitments(
         bind["no_date"] = NO_DUE_DATE
         bind["today"] = dt.date.today().isoformat()
     if q:
-        filters.append("CONTAINS(LOWER(c.props.text), @q)")
+        shared.append("CONTAINS(LOWER(c.props.text), @q)")
         bind["q"] = q.strip().lower()
     if dossier:
-        filters.append(
+        shared.append(
             f"""LENGTH(
                 FOR e IN {COLLECTION_EDGES}
                     FILTER e._from == c._id AND e.relation == @about
@@ -257,11 +278,24 @@ def get_commitments(
         )
     else:
         order = "c.props.made_on DESC"
-    where = "\n        ".join(f"FILTER {f}" for f in filters)
+
+    def where(*clauses: str) -> str:
+        return "\n            ".join(f"FILTER {c}" for c in clauses)
+
+    facets = ",\n        ".join(
+        f"""{name}: (
+            FOR c IN {COLLECTION_COMMITMENTS}
+                {where(*shared, *(c for n, c in own.items() if n != name))}
+                COLLECT value = {expression} WITH COUNT INTO n
+                SORT n DESC, value
+                RETURN {{ value, count: n }}
+        )"""
+        for name, expression in _COMMITMENT_FACETS.items()
+    )
     aql = f"""
     LET matching = (
         FOR c IN {COLLECTION_COMMITMENTS}
-            {where}
+            {where(*shared, *own.values())}
             RETURN c
     )
     RETURN {{
@@ -271,11 +305,18 @@ def get_commitments(
                 SORT {order}, c._key
                 LIMIT @offset, @limit
                 RETURN {_COMMITMENT_ITEM}
-        )
+        ),
+        facets: {{
+        {facets}
+        }}
     }}
     """
     rows = list(store.query(aql, bind))
-    return cast(dict[str, Any], rows[0]) if rows else {"total": 0, "items": []}
+    return (
+        cast(dict[str, Any], rows[0])
+        if rows
+        else {"total": 0, "items": [], "facets": {}}
+    )
 
 
 def get_commitment(store: ArangoStore, key: str) -> dict[str, Any] | None:
@@ -291,3 +332,30 @@ def get_commitment(store: ArangoStore, key: str) -> dict[str, Any] | None:
         )
     )
     return cast(dict[str, Any], rows[0]) if rows else None
+
+
+def cabinets_with_posts(store: ArangoStore) -> list[dict[str, Any]]:
+    """Every cabinet, oldest first, with every post held in it (``lawgraph verify
+    cabinets``): ``{key, props, posts}``, each post with ``member`` (its key) and ``own``
+    (a member only Rijksoverheid knows)."""
+    aql = f"""
+    FOR cabinet IN {COLLECTION_CABINETS}
+        SORT cabinet.props.from_date, cabinet._key
+        RETURN {{
+            key: cabinet._key,
+            props: cabinet.props,
+            posts: (
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER e._to == cabinet._id AND e.relation == @served_in
+                    LET member = DOCUMENT(e._from)
+                    FOR post IN e.meta.posts OR []
+                        RETURN MERGE(post, {{
+                            member: PARSE_IDENTIFIER(e._from).key,
+                            own: @own IN (member.labels OR [])
+                        }})
+            )
+        }}
+    """
+    return list(
+        store.query(aql, {"served_in": RELATION_SERVED_IN, "own": LABEL_RIJKSOVERHEID})
+    )

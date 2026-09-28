@@ -12,7 +12,7 @@ bewindspersoon gives it the ``ministry`` of their function that day, a Kamerlid 
 ``initiative``; ``cabinet`` is the cabinet in office then. Both are null for a dossier none of
 whose documents a Kamerlid or bewindspersoon signed first.
 
-Runs over every commitment and dossier after ``normalize wikidata`` has written the cabinets
+Runs over every commitment and dossier after ``normalize rijksoverheid`` has written the cabinets
 and posts, and writes only what changed.
 """
 

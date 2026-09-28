@@ -1,8 +1,10 @@
-"""Cabinets, bewindspersonen and commitments: the real ``normalize wikidata`` and ``semantic
-tk-government`` on stored records, and the endpoints on their answer."""
+"""Cabinets, bewindspersonen and commitments: the real ``normalize rijksoverheid`` and
+``semantic tk-government`` on the stored pages of Schoof and Jetten, and the endpoints on
+their answer."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -16,12 +18,13 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
+    RAW_KIND_RIJKSOVERHEID_CABINET,
     RAW_KIND_WIKIDATA_CABINET,
-    RAW_KIND_WIKIDATA_CABINET_POSTS,
     RELATION_ABOUT,
     RELATION_AUTHORED,
     RELATION_PART_OF,
     RELATION_SERVED_IN,
+    SOURCE_RIJKSOVERHEID,
     SOURCE_WIKIDATA,
 )
 from lawgraph.core.models import Node, NodeType
@@ -33,92 +36,17 @@ from lawgraph.db import (
     raw_source_doc,
 )
 
-SCHOOF, JETTEN = "Q126527270", "Q137926983"
-VVD = {"id": "Q1", "name": "Volkspartij voor Vrijheid en Democratie", "short": "VVD"}
-D66 = {"id": "Q2", "name": "Democraten 66", "short": "D66"}
-KVP = {"id": "Q3", "name": "Katholieke Volkspartij", "short": "KVP"}
-
-
-def _post(function: str, cabinet: str, start: str, end: str | None) -> dict:
-    return {
-        "position_id": "Q9",
-        "function": function,
-        "cabinet_id": cabinet,
-        "cabinet": "kabinet-Jetten" if cabinet == JETTEN else "kabinet-Schoof",
-        "from_date": start,
-        "to_date": end,
-    }
-
-
-PEOPLE = [
-    {
-        "id": "Q10",
-        "name": "Rob Jetten",
-        "birth_date": "1987-03-25",
-        "birth_precision": 11,
-        "posts": [
-            _post("minister-president van Nederland", JETTEN, "2026-02-23", None)
-        ],
-        "parties": [D66],
-    },
-    {
-        "id": "Q11",
-        "name": "Eelco Heinen",
-        "birth_date": "1981-01-02",
-        "birth_precision": 11,
-        "posts": [
-            _post(
-                "Nederlands minister van Financiën", SCHOOF, "2025-01-01", "2026-02-23"
-            ),
-            _post("Nederlands minister van Financiën", JETTEN, "2026-02-23", None),
-        ],
-        "parties": [VVD],
-    },
-    {
-        "id": "Q12",
-        "name": "Sjoerd Sjoerdsma",
-        "birth_date": "1981-05-05",
-        "birth_precision": 11,
-        "posts": [
-            _post(
-                "Minister voor Buitenlandse Handel en Ontwikkelingshulp",
-                JETTEN,
-                "2026-02-23",
-                None,
-            ),
-        ],
-        "parties": [D66],
-    },
-    {
-        "id": "Q13",
-        "name": "Thierry Aartsen",
-        "birth_date": "1983-06-06",
-        "birth_precision": 11,
-        "posts": [
-            _post("staatssecretaris van Financiën", JETTEN, "2026-02-23", None),
-        ],
-        # an old party without dates that ended long ago beside the one he is in
-        "parties": [VVD, {**KVP, "dissolved": "1980-09-27"}],
-    },
-]
-CABINETS = [
-    {
-        "id": SCHOOF,
-        "name": "kabinet-Schoof",
-        "from_date": "2024-07-02",
-        "to_date": "2026-02-23",
-        "heads": ["Q99"],
-        "previous": [],
-    },
-    {
-        "id": JETTEN,
-        "name": "kabinet-Jetten",
-        "from_date": "2026-02-23",
-        "to_date": None,
-        "heads": ["Q10"],
-        "previous": [SCHOOF],
-    },
-]
+PAGES = Path(__file__).parents[1] / "fixtures" / "rijksoverheid"
+# A cabinet before the first page: from Wikidata, name and period only.
+RUTTE_IV = {
+    "id": "Q110111120",
+    "name": "kabinet-Rutte IV",
+    "from_date": "2022-01-10",
+    "from_date_precision": 11,
+    "to_date": "2024-07-02",
+    "to_date_precision": 11,
+    "previous": [],
+}
 
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
@@ -128,6 +56,7 @@ def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
 
 
 def _member(key: str, name: str, family_name: str, birth_date: str) -> Node:
+    """A member of parliament: the full first names, by whose initials a holder is found."""
     return _node(
         COLLECTION_MEMBERS,
         NodeType.MEMBER,
@@ -142,10 +71,14 @@ def _seed(store: ArangoStore) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(
             [
-                _member("jetten", "Rob Jetten", "Jetten", "1987-03-25"),
+                _member(
+                    "jetten", "Rob Arnoldus Adrianus Jetten", "Jetten", "1987-03-25"
+                ),
                 _member("heinen", "Eelco Heinen", "Heinen", "1981-01-02"),
-                _member("sjoerdsma", "Sjoerd Sjoerdsma", "Sjoerdsma", "1981-05-05"),
-                _member("aartsen", "Thierry Aartsen", "Aartsen", "1983-06-06"),
+                _member(
+                    "sjoerdsma", "Sjoerd Wiebren Sjoerdsma", "Sjoerdsma", "1981-05-05"
+                ),
+                _member("aartsen", "Anthonie Arie Aartsen", "Aartsen", "1983-06-06"),
                 _member("kamerlid", "Kim Kamerlid", "Kamerlid", "1990-01-01"),
                 # a Tweede Kamer person without a name is never listed
                 _node(COLLECTION_MEMBERS, NodeType.MEMBER, "nameless", name=""),
@@ -255,19 +188,27 @@ def _seed(store: ArangoStore) -> None:
             source="t",
         )
     with RawSourceWriter(store) as writer:
-        for kind, records in (
-            (RAW_KIND_WIKIDATA_CABINET_POSTS, PEOPLE),
-            (RAW_KIND_WIKIDATA_CABINET, CABINETS),
-        ):
-            for record in records:
-                writer.add(
-                    raw_source_doc(
-                        source=SOURCE_WIKIDATA,
-                        kind=kind,
-                        external_id=record["id"],
-                        payload_json=record,
-                    )
+        for slug in ("kabinet-schoof", "kabinet-jetten"):
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_RIJKSOVERHEID,
+                    kind=RAW_KIND_RIJKSOVERHEID_CABINET,
+                    external_id=slug,
+                    payload_text=(PAGES / f"{slug}.html").read_text(),
+                    meta={
+                        "url": f"https://example.org/{slug}",
+                        "read_on": "2026-09-25",
+                    },
                 )
+            )
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_WIKIDATA,
+                kind=RAW_KIND_WIKIDATA_CABINET,
+                external_id=RUTTE_IV["id"],
+                payload_json=RUTTE_IV,
+            )
+        )
 
 
 def _client(store: ArangoStore) -> TestClient:
@@ -281,7 +222,7 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     store = ArangoStore()
     _seed(store)
 
-    cli("normalize", "wikidata")
+    cli("normalize", "rijksoverheid")
     cli("semantic", "tk-government")
 
     jetten = store.get_node(COLLECTION_CABINETS, "jetten")
@@ -289,8 +230,8 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     assert jetten.props["name"] == "kabinet-Jetten"
     assert jetten.props["prime_minister"] == "jetten"
     assert jetten.props["previous"] == "schoof"
-    # D66 and VVD have two members each; the KVP had ended before Aartsen's post began
-    assert sorted(jetten.props["factions"]) == ["d66", "vvd"]
+    assert [p["short"] for p in jetten.props["parties"]] == ["D66", "VVD", "CDA"]
+    assert jetten.props["factions"] == ["d66", "vvd"]
     served = list(
         store.query(
             "FOR e IN edges FILTER e.relation == @r AND e._from == @m RETURN e._to",
@@ -303,6 +244,7 @@ def test_cabinets_their_bewindspersonen_and_commitments(
         client = _client(store)
         cabinets = client.get("/api/cabinets").json()
         detail = client.get("/api/cabinets/jetten").json()
+        schoof = client.get("/api/cabinets/schoof").json()
         ministers = client.get("/api/members?cabinet=jetten").json()
         everyone = client.get("/api/members?include_all=true").json()
         commitments = client.get(
@@ -317,56 +259,75 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     finally:
         app.dependency_overrides.pop(get_store, None)
 
-    assert [c["key"] for c in cabinets] == ["jetten", "schoof"]
-    assert cabinets[0]["prime_minister"] == {"key": "jetten", "name": "Rob Jetten"}
+    assert [c["key"] for c in cabinets] == ["jetten", "schoof", "rutte_iv"]
+    assert cabinets[0]["prime_minister"] == {
+        "key": "jetten",
+        "name": "Rob Arnoldus Adrianus Jetten",
+    }
+    assert (cabinets[0]["bills"], cabinets[0]["commitments"]) == (1, 2)
+    assert cabinets[0]["members"] >= 25
+    # before the first page: Wikidata, name and period only
     assert (
-        cabinets[0]["members"],
-        cabinets[0]["bills"],
-        cabinets[0]["commitments"],
+        cabinets[2]["source"]["name"],
+        cabinets[2]["phases"],
+        cabinets[2]["parties"],
     ) == (
-        4,
-        1,
-        2,
+        "wikidata",
+        [],
+        [],
     )
+    assert cabinets[2]["to_date"] == "2024-07-02"
+
+    # the phases of Schoof, and its seats: a stand-in between two holders
+    assert schoof["demissionary_from"] == "2025-06-03"
+    assert [(p["kind"], p["from_date"]) for p in schoof["phases"]] == [
+        ("formatie", "2023-11-22"),
+        ("in_functie", "2024-07-02"),
+        ("demissionair", "2025-06-03"),
+        ("dubbel_demissionair", "2025-08-22"),
+    ]
+    assert schoof["source"]["url"] == "https://example.org/kabinet-schoof"
+    ez = next(m for m in schoof["ministries"] if m["ministry"] == "ez")
+    (minister,) = [s for s in ez["seats"] if s["seat"] == "ez/minister"]
+    assert [
+        (p["member"]["key"] == "heinen", p["from_date"], p["acting"])
+        for p in minister["posts"]
+    ] == [
+        (False, "2024-07-02", False),
+        (True, "2025-06-03", True),
+        (False, "2025-06-19", False),
+    ]
+    assert minister["posts"][1]["party"] == {"short": "VVD", "faction": "vvd"}
 
     # the minister-president first, then the ministries in protocol order
-    assert [
-        (m["ministry"], [p["member"]["key"] for p in m["posts"]])
-        for m in detail["ministries"]
-    ] == [
-        ("az", ["jetten"]),
-        ("bz", ["sjoerdsma"]),
-        ("fin", ["heinen", "aartsen"]),
-    ]
-    heinen = detail["ministries"][2]["posts"][0]
+    ministries = [m["ministry"] for m in detail["ministries"]]
+    assert ministries[:3] == ["az", "bz", "jenv"]
+    fin = next(m for m in detail["ministries"] if m["ministry"] == "fin")
+    heinen = fin["seats"][0]["posts"][0]
     assert (
+        heinen["member"]["key"],
         heinen["post"],
         heinen["dossiers"],
         heinen["bills"],
         heinen["open_commitments"],
-    ) == (
-        "minister",
-        1,
-        1,
-        2,
-    )
+    ) == ("heinen", "minister", 1, 1, 2)
 
-    assert sorted(m["key"] for m in ministers) == [
-        "aartsen",
-        "heinen",
-        "jetten",
-        "sjoerdsma",
-    ]
+    assert {"aartsen", "heinen", "jetten", "sjoerdsma"} <= {m["key"] for m in ministers}
     heinen_functions = next(m for m in ministers if m["key"] == "heinen")[
         "government_functions"
     ]
-    assert [(f["cabinet_key"], f["post"], f["ministry"]) for f in heinen_functions] == [
-        ("schoof", "minister", "fin"),
-        ("jetten", "minister", "fin"),
+    assert [(f["cabinet_key"], f["seat"], f["acting"]) for f in heinen_functions] == [
+        ("schoof", "fin/minister", False),
+        ("schoof", "ez/minister", True),
+        ("jetten", "fin/minister", False),
     ]
     assert "nameless" not in {m["key"] for m in everyone}
 
     assert commitments["total"] == 2
+    # counted without their own filter; only values that have commitments
+    assert commitments["facets"]["ministry"] == [{"value": "fin", "count": 2}]
+    assert commitments["facets"]["cabinet"] == [{"value": "jetten", "count": 2}]
+    assert commitments["facets"]["status"] == [{"value": "open", "count": 2}]
     first = commitments["items"][0]
     assert first["key"] == "toezegging"  # due first; the undated one last
     assert first["member"] == {

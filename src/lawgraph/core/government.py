@@ -1,18 +1,17 @@
-"""Which Tweede Kamer person a Wikidata person is, and the cabinet posts they held.
+"""Which Tweede Kamer person holds a post in a cabinet.
 
-Wikidata knows a person by a name (``Rob Jetten``) and a date of birth. The Tweede Kamer has
-two kinds of ``Persoon``:
+Rijksoverheid names a bewindspersoon by initials and surname (``Drs. S.Th.M. (Sophie)
+Hermans``, ``dr. W. Drees``), with the party. The Tweede Kamer has two kinds of ``Persoon``:
 
-- a member of parliament, with ``Achternaam`` (``Jetten``, ``Yeşilgöz-Zegerius``, ``Burg`` for
-  Van der Burg) and ``Geboortedatum``. Two people are one when the date of birth is the same
-  and a word of the surname is a word of the name (``match_member``). The date alone is not
-  enough: among thousands of people many share one. A date that Wikidata knows only to the
-  year is compared by its year, and then the surname must single out one person of that year.
-  A date that differs in one of year, month or day (two years at most) is a slip in one of
-  the sources when the surname and the first name agree as well and only one member fits.
+- a member of parliament, with ``Achternaam`` (``Hermans``, ``Yeşilgöz-Zegerius``, ``Weel``
+  for Van Weel), ``Initialen``, the first names and ``Geboortedatum``. A holder is that member
+  when the surname words agree, the initials agree (``Initialen``, else those of the first
+  names), and the member was of an age to hold the post (``match_holder``). Two members
+  that fit (a father and a son of one name) are told apart by the faction of the holder's
+  party; if that leaves more than one, the holder matches nobody.
 - a minister or state secretary who never sat in parliament: a record without name or date,
   known only by the papers they signed (``DocumentActor``: ``J. van Essen``, ``minister van
-  …``, on a date). Such a signatory is the person whose surname is in the signed name and who
+  …``, on a date). Such a signatory is the holder whose surname is in the signed name and who
   held a post of the same kind (minister, state secretary) on a date they signed
   (``match_signatory``).
 
@@ -29,9 +28,6 @@ import unicodedata
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-# wikibase:timePrecision of a date known to the day.
-PRECISION_DAY = 11
-
 PARTICLES = frozenset(
     {"van", "de", "der", "den", "het", "ter", "ten", "te", "t", "op", "in", "la", "le"}
     | {"d", "des", "du", "l", "von", "zu", "vander", "vande", "vanden", "aan", "bij"}
@@ -39,6 +35,8 @@ PARTICLES = frozenset(
 
 # A signature on a letter sent just after the post ended still belongs to it.
 _SIGNED_AFTER_POST = dt.timedelta(days=14)
+# The ages between which one holds a post in a cabinet.
+YOUNGEST, OLDEST = 28, 95
 
 
 def _plain(text: str | None) -> str:
@@ -58,82 +56,102 @@ def _surname_words(family_name: str | None, *, ij: bool = False) -> set[str]:
     return {w for w in _words(family_name, ij=ij) if len(w) > 1 and w not in PARTICLES}
 
 
-def _names_agree(person_name: str | None, family_name: str | None, *, ij: bool) -> bool:
-    return bool(_surname_words(family_name, ij=ij) & _words(person_name, ij=ij))
-
-
-def _first_name(name: str | None) -> str:
-    words = re.findall(r"[a-z]+", _plain(name))
-    return words[0] if words else ""
-
-
-def _one_slip(a: str, b: str) -> bool:
-    """Whether two ``YYYY-MM-DD`` dates differ in exactly one part, the year by two at most."""
-    parts = list(zip(a.split("-"), b.split("-"), strict=False))
-    if len(parts) != 3:
-        return False
-    differ = [i for i, (x, y) in enumerate(parts) if x != y]
-    if len(differ) != 1:
-        return False
-    return differ[0] != 0 or abs(int(parts[0][0]) - int(parts[0][1])) <= 2
-
-
-def _born_alike(person: dict[str, Any], member: dict[str, Any]) -> bool:
-    birth, other = person.get("birth_date"), member.get("birth_date")
-    if not birth or not other:
-        return False
-    if (person.get("birth_precision") or 0) >= PRECISION_DAY:
-        return bool(other == birth)
-    return bool(other[:4] == birth[:4])
-
-
-def _first_names_agree(person: dict[str, Any], member: dict[str, Any]) -> bool:
-    """The first two letters of the first names, when the member has first names.
-
-    ``first_names`` is the member's full name; a name that is only a surname (``Hoekzema``,
-    ``van der Stee``) has none."""
-    surname = _surname_words(member.get("family_name")) | PARTICLES
-    names = [
-        w
-        for w in re.findall(r"[a-z]+", _plain(member.get("first_names")))
-        if w not in surname
-    ]
-    return not names or names[0][:2] == _first_name(person.get("name"))[:2]
-
-
 def _only(keys: Sequence[str]) -> str | None:
     return keys[0] if len(keys) == 1 else None
 
 
-def match_member(
-    person: dict[str, Any], members: Iterable[dict[str, Any]]
+def initial_letters(first_names: Iterable[str]) -> str:
+    """``stm`` of Sophia Theodora Monique; ``ij`` stays one letter (IJsbrand)."""
+    return "".join("ij" if n.startswith("ij") else n[:1] for n in first_names)
+
+
+def _first_names(member: dict[str, Any]) -> list[str]:
+    """The first names of a member: the words of the full name before the surname."""
+    surname = _surname_words(member.get("family_name")) | PARTICLES
+    words = re.findall(r"[a-z]+", _plain(member.get("name")))
+    names: list[str] = []
+    for word in words:
+        if word in surname:
+            break
+        names.append(word)
+    return names
+
+
+def _age(birth: str | None, day: str) -> int | None:
+    if not birth:
+        return None
+    return int(day[:4]) - int(birth[:4]) - (day[5:] < birth[5:])
+
+
+def _surnames_agree(holder: str, member: str | None, *, ij: bool, loose: bool) -> bool:
+    ours, theirs = _surname_words(holder, ij=ij), _surname_words(member, ij=ij)
+    if not ours or not theirs:
+        return False
+    return ours == theirs or (loose and (ours <= theirs or theirs <= ours))
+
+
+def _member_letters(member: dict[str, Any]) -> str:
+    """The initial letters of a member: of ``Persoon.Initialen`` (``S.Th.M.``: ``stm``),
+    else of the first names in their full name."""
+    initials = [p for p in re.split(r"[.\s]+", _plain(member.get("initials"))) if p]
+    if initials:
+        return "".join("ij" if p.startswith("ij") else p[0] for p in initials)
+    return initial_letters(_first_names(member))
+
+
+def _initials_agree(letters: str, member: dict[str, Any], *, loose: bool) -> bool:
+    theirs = _member_letters(member)
+    if not theirs or not letters:
+        return True
+    if loose:
+        return theirs.startswith(letters) or letters.startswith(theirs)
+    return theirs == letters
+
+
+def _fits(
+    holder: dict[str, Any], member: dict[str, Any], *, ij: bool, loose: bool
+) -> bool:
+    if not _surnames_agree(
+        holder["surname"], member.get("family_name"), ij=ij, loose=loose
+    ):
+        return False
+    if not _initials_agree(holder["letters"], member, loose=loose):
+        return False
+    for day in holder["days"]:
+        age = _age(member.get("birth_date"), day)
+        if age is not None and not YOUNGEST <= age <= OLDEST:
+            return False
+    return True
+
+
+def match_holder(
+    holder: dict[str, Any], members: Iterable[dict[str, Any]]
 ) -> str | None:
-    """The key of the member of parliament that *person* (a record of
-    ``WikidataClient.cabinet_posts``) is, or ``None``. *members* are ``{key, family_name,
-    first_names, birth_date}``: pass every member, or at least those born within two years."""
-    if not person.get("birth_date"):
-        return None
-    members = [m for m in members if m.get("birth_date")]
-    name = person.get("name")
-    for ij in (False, True):
-        exact = [
-            m["key"]
-            for m in members
-            if _born_alike(person, m)
-            and _names_agree(name, m.get("family_name"), ij=ij)
-        ]
-        if exact:
-            return _only(exact)
-    if (person.get("birth_precision") or 0) < PRECISION_DAY:
-        return None
-    slipped = [
-        m["key"]
-        for m in members
-        if _one_slip(person["birth_date"], m["birth_date"])
-        and _names_agree(name, m.get("family_name"), ij=False)
-        and _first_names_agree(person, m)
-    ]
-    return _only(slipped)
+    """The key of the member of parliament that *holder* is, or ``None``.
+
+    *holder* is ``{surname, letters, days, factions}``: the surname and initial letters as
+    Rijksoverheid writes them, the first days of their posts, the faction keys of their
+    parties. *members* are ``{key, family_name, name, initials, birth_date, factions}``,
+    ``name`` the full name.
+
+    First strictly: the same surname words, the initials of all first names. When that finds
+    nobody, loosely: a surname that is part of the other (``Bijleveld``,
+    ``Bijleveld-Schouten``), initials of which one begins the other (``S.A.`` and the member
+    known as ``Stef``; ``M.C.`` and ``M.C.G.``). Each pass tries ``ij`` as ``y`` when the
+    spelling finds nobody, and settles a tie by the faction of the holder's party."""
+    members = [m for m in members if m.get("family_name")]
+    for loose in (False, True):
+        for ij in (False, True):
+            fits = [m for m in members if _fits(holder, m, ij=ij, loose=loose)]
+            if len(fits) > 1 and holder.get("factions"):
+                fits = [
+                    m
+                    for m in fits
+                    if set(m.get("factions") or ()) & set(holder["factions"])
+                ] or fits
+            if fits:
+                return _only([m["key"] for m in fits])
+    return None
 
 
 def _post_kind(function: str | None) -> str:
@@ -164,7 +182,8 @@ def _signed_as(person: dict[str, Any], signature: dict[str, Any]) -> bool:
 def match_signatory(
     signatures: Iterable[dict[str, Any]], people: Iterable[dict[str, Any]]
 ) -> str | None:
-    """The Q-id of the person who signed *signatures*, or ``None``.
+    """The ``id`` of the person in *people* (``{id, name, posts}``) who signed
+    *signatures*, or ``None``.
 
     *signatures* are one Tweede Kamer person's signatures as a minister or state secretary,
     grouped by signed name and function: ``{name, function, first, last}`` (the first and last
@@ -183,20 +202,3 @@ def match_signatory(
         if len(fits) == 1:
             found.update(fits)
     return _only(sorted(found))
-
-
-def government_functions(person: dict[str, Any]) -> list[dict[str, Any]]:
-    """The posts of *person* as a member stores them, oldest first."""
-    return [
-        {
-            "function": post.get("function"),
-            "cabinet": post.get("cabinet"),
-            "from_date": post.get("from_date"),
-            "to_date": post.get("to_date"),
-            "position_id": post.get("position_id"),
-            "cabinet_id": post.get("cabinet_id"),
-        }
-        for post in sorted(
-            person.get("posts") or [], key=lambda p: p.get("from_date") or ""
-        )
-    ]
