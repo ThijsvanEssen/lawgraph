@@ -2,13 +2,11 @@
 made them.
 
 The pages are the Rijksoverheid pages of every cabinet since 1945 (``fixtures/rijksoverheid``,
-read on 25 September 2026); the cabinets before them are the Wikidata records
-(``fixtures/wikidata_cabinets.json``).
+read on 25 September 2026).
 """
 
 from __future__ import annotations
 
-import json
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -43,10 +41,7 @@ def _cabinets() -> tuple[dict[str, Any], ...]:
         }
         for path in sorted((FIXTURES / "rijksoverheid").glob("*.html"))
     ]
-    wikidata = json.loads((FIXTURES / "wikidata_cabinets.json").read_text())
-    return tuple(
-        build_cabinets(pages, wikidata, lambda text: {"short": text, "faction": None})
-    )
+    return tuple(build_cabinets(pages, lambda text: {"short": text, "faction": None}))
 
 
 def _cabinet(key: str) -> dict[str, Any]:
@@ -66,28 +61,13 @@ def _held(key: str, seat: str) -> list[tuple[str, str, str | None, bool]]:
 
 def test_every_cabinet_is_there_once_and_follows_the_one_before() -> None:
     cabinets = _cabinets()
-    # the 57 of Wikidata, less one: Rijksoverheid describes Biesheuvel I and II as one
-    assert len(cabinets) == 56
+    # 32 pages since 1945: Rijksoverheid describes Biesheuvel I and II as one cabinet
+    assert len(cabinets) == 32
     assert len({c["key"] for c in cabinets}) == len(cabinets)
     for before, after in zip(cabinets, cabinets[1:], strict=False):
         assert after["previous"] == before["key"]
-    # Wikidata lacks some cabinets and knows others only by a year (Colijn V and De Geer
-    # II both "1939"); since 1945 one follows the other
-    official = [c for c in cabinets if c["source"]["name"] == "rijksoverheid"]
-    for before, after in zip(official, official[1:], strict=False):
         assert before["to_date"] == after["from_date"], after["key"]
-    # since 1945 only the cabinet in office has no end; before, an end Wikidata lacks is null
-    assert [
-        c["key"]
-        for c in cabinets
-        if c["to_date"] is None and c["source"]["name"] == "rijksoverheid"
-    ] == ["jetten"]
-    by_key = {c["key"]: c for c in cabinets}
-    assert (by_key["thorbecke_ii"]["to_date"], by_key["de_geer_ii"]["to_date"]) != (
-        "1873-08-27",
-        "1939-01-01",
-    )
-    assert by_key["colijn_v"]["to_date"] != "1945-02-23"
+    assert [c["key"] for c in cabinets if c["to_date"] is None] == ["jetten"]
 
 
 @pytest.mark.parametrize("cabinet", _cabinets(), ids=lambda c: c["key"])
@@ -95,13 +75,11 @@ def test_every_cabinet_meets_the_rules(cabinet: dict[str, Any]) -> None:
     assert violations(cabinet, cabinet["posts"]) == []
 
 
-def test_every_cabinet_since_1945_has_posts_and_phases_and_none_before() -> None:
+def test_every_cabinet_has_posts_and_phases() -> None:
     for cabinet in _cabinets():
-        official = cabinet["source"]["name"] == "rijksoverheid"
-        assert bool(cabinet["posts"]) == official, cabinet["key"]
-        assert bool(cabinet["phases"]) == official, cabinet["key"]
+        assert cabinet["posts"] and cabinet["phases"], cabinet["key"]
         assert all(p["kind"] in (*PHASE_KINDS, None) for p in cabinet["phases"])
-    assert _cabinet("schermerhorn_drees")["previous"] == "gerbrandy_iii"
+    assert _cabinet("schermerhorn_drees")["previous"] is None
 
 
 def test_every_post_names_a_holder_a_seat_and_mostly_a_party() -> None:
@@ -391,9 +369,5 @@ def test_a_holder_who_held_another_seat_throughout_stood_in() -> None:
     assert not any(p["acting"] for p in posts if p["person"] != "ab vast")
 
 
-def test_without_pages_every_cabinet_comes_from_wikidata() -> None:
-    wikidata = json.loads((FIXTURES / "wikidata_cabinets.json").read_text())
-    cabinets = build_cabinets([], wikidata, lambda text: None)
-    assert len(cabinets) == len(wikidata)
-    assert not any(c["posts"] or c["phases"] for c in cabinets)
-    assert build_cabinets([], [], lambda text: None) == []
+def test_without_pages_there_are_no_cabinets() -> None:
+    assert build_cabinets([], lambda text: None) == []

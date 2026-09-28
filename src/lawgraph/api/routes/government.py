@@ -66,11 +66,10 @@ def list_ministries() -> list[MinistryDTO]:
     response_model=list[CabinetSummaryDTO],
     summary="Cabinets",
     description=(
-        "Every Dutch cabinet, newest first: those since 1945 from Rijksoverheid, with "
-        "their prime minister, parties, ``phases`` and ``demissionary_from``; those "
-        "before from Wikidata (name and period only). Counts: ``members`` "
-        "(bewindspersonen), ``bills`` (government bills brought in while it was in "
-        "office) and ``commitments``."
+        "Every Dutch cabinet since 1945, newest first, from Rijksoverheid: with its "
+        "prime minister, parties, ``phases`` and ``demissionary_from``. Counts: "
+        "``members`` (bewindspersonen), ``bills`` (government bills brought in while it "
+        "was in office) and ``commitments``."
     ),
     tags=["government"],
 )

@@ -13,7 +13,6 @@ from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
 # The statuses of ``core.tk_records.COMMITMENT_STATUS``.
-DatePrecision = Literal["day", "month", "year"]
 CommitmentStatus = Literal["open", "done", "partly_done", "unfulfilled", "lapsed"]
 # The kinds of ``core.cabinet_phases.PHASE_KINDS``.
 PhaseKind = Literal[
@@ -43,7 +42,7 @@ class PersonRefDTO(BaseModel):
 
 
 class SourceRefDTO(BaseModel):
-    """Where it was read: ``rijksoverheid`` with the page and the day, or ``wikidata``."""
+    """Where it was read: ``rijksoverheid``, with the page and the day."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -78,18 +77,12 @@ class CabinetSummaryDTO(BaseModel):
     name: str = Field(..., description="``kabinet-Rutte IV``.")
     from_date: str | None = Field(None, description="The day of its beëdiging.")
     to_date: str | None = Field(None, description="Null while in office.")
-    from_date_precision: DatePrecision | None = Field(
-        None,
-        description="How precisely ``from_date`` is known: ``year`` for most cabinets "
-        "before 1945, whose date is then the first of January.",
-    )
-    to_date_precision: DatePrecision | None = None
     previous: str | None = Field(None, description="The key of the cabinet before it.")
     prime_minister: PersonRefDTO | None = None
     parties: list[PartyRefDTO] = Field(
         default_factory=list,
         description="The parties of the bewindspersonen sworn in on its first day, the "
-        "party with the most first; empty before 1945.",
+        "party with the most first.",
     )
     factions: list[str] = Field(
         default_factory=list, description="The faction keys of its parties."
@@ -100,12 +93,11 @@ class CabinetSummaryDTO(BaseModel):
     phases: list[CabinetPhaseDTO] = Field(
         default_factory=list,
         description="Formatie, in functie, demissionair, dubbel demissionair, missionair, "
-        "in order; empty before 1945 (no official source gives them).",
+        "in order.",
     )
     source: SourceRefDTO | None = Field(
-        None, description="Rijksoverheid since 1945; Wikidata before (name and period)."
+        None, description="The Rijksoverheid page it was read from."
     )
-    wikidata_id: str | None = Field(None, description="For a cabinet from Wikidata.")
     members: int = Field(0, description="The people who held a post in it.")
     bills: int = Field(
         0,
@@ -123,8 +115,6 @@ class CabinetSummaryDTO(BaseModel):
             name=props.get("name") or cabinet["_key"],
             from_date=props.get("from_date"),
             to_date=props.get("to_date"),
-            from_date_precision=props.get("from_date_precision"),
-            to_date_precision=props.get("to_date_precision"),
             previous=props.get("previous"),
             prime_minister=row.get("prime_minister"),
             parties=[PartyRefDTO(**p) for p in props.get("parties") or []],
@@ -132,7 +122,6 @@ class CabinetSummaryDTO(BaseModel):
             demissionary_from=props.get("demissionary_from"),
             phases=[CabinetPhaseDTO(**p) for p in props.get("phases") or []],
             source=props.get("origin"),
-            wikidata_id=props.get("wikidata_id"),
             members=int(row.get("members") or 0),
             bills=int(row.get("bills") or 0),
             commitments=int(row.get("commitments") or 0),

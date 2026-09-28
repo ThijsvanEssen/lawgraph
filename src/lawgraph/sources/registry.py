@@ -52,7 +52,6 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_tk_content,
     retrieve_tk_dossiers,
     retrieve_verdragenbank,
-    retrieve_wikidata,
 )
 from lawgraph.pipelines.semantic import graph_list_stats
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
@@ -121,7 +120,6 @@ SOURCES: dict[str, str] = {
     "eerstekamer": "Eerste Kamer",
     "echr": "ECHR (HUDOC)",
     "verdragenbank": "Verdragenbank",
-    "wikidata": "Wikidata",
     "rijksoverheid": "Rijksoverheid (rijksoverheid.nl)",
     "graph": "The whole graph",
 }
@@ -371,11 +369,6 @@ RETRIEVE: list[Pipeline] = [
         argv_for_all=_no_argv,
         lane=LANE_KOOP_REPOSITORY,
         fills_gaps=True,
-    ),
-    _pipeline(
-        retrieve_wikidata,
-        "The Dutch cabinets, from Wikidata (SPARQL): used for those before 1945.",
-        argv_for_all=_no_argv,
     ),
     _pipeline(
         retrieve_rijksoverheid,

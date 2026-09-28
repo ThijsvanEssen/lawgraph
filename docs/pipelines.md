@@ -16,7 +16,6 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
-| Wikidata | `wikidata` | none (read by `normalize rijksoverheid`) | none |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | `tk-government` |
 | The graph itself (`graph`) | none | none | `graph-list-stats` |
 
@@ -755,7 +754,7 @@ from the stored pages without asking again. An index without cabinet links raise
 **Normalize.** `core/rijksoverheid.py` reads a page (seats, holder lines, dated facts,
 resignation sentences); `core/cabinet_posts.py` turns its seats into posts;
 `core/cabinet_phases.py` its facts into phases; `core/cabinet_sources.py` puts the cabinets
-together, those before the first page from the stored Wikidata records.
+together.
 
 A post is held in a **seat**: `<ministry>/<post>[/<portfolio>]` (`ienw/minister`,
 `bz/minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp`,
@@ -844,35 +843,6 @@ of `core/cabinet_checks.py` (a post outside its cabinet, two holders of a seat a
 `overlaps_with`, phases that do not follow each other from start to end); a broken rule fails
 the command.
 
-## Wikidata
-
-**Provides.** Every item that is a `Cabinet of the Netherlands` (Q2479200): its name, start
-(the most precise of P580 and P571), end (of P582 and P576), each with its precision, and the
-cabinet before it (P155), in one SPARQL query to `WIKIDATA_SPARQL`. 57 cabinets; most before
-1945 are dated to the year only, often without an end or predecessor.
-
-**Retrieve.** One `wikidata-cabinet-json` record per cabinet (`id`, `name`, `from_date`,
-`to_date`, their precision, `previous`), in full on every run. An empty answer raises.
-`normalize rijksoverheid` reads the cabinets that began before the first Rijksoverheid page:
-name and period only, no posts or phases, the period as Wikidata gives it
-(`core/cabinets.wikidata_period`): a date known to the year stays a year (the first of
-January, precision `year`), a date Wikidata lacks stays null. Nothing is taken from the
-cabinets around it, since Wikidata lacks some (Thorbecke II ends in 1866, not when Heemskerk
-began in 1873).
-
-**Semantic `tk-government`.** Who in government made each commitment and brought each dossier
-in (`pipelines/semantic/tk_government.py`). A commitment names its maker as the Tweede Kamer
-writes it (`Herbert, H.G.`, `Minister van Economische Zaken`) on its date: the member is the one
-who held a post of that kind that day and whose surname is in the name
-(`core/government.match_signatory`), else none (`member_key` null); `post` and `ministry` come
-from the role, `cabinet` is the cabinet in office that day (on a handover day the new one). A
-dossier is brought in by whoever signed its earliest signed document first (`AUTHORED` role
-`Eerste ondertekenaar`, capacity `bewindspersoon` or `kamerlid`, the document `PART_OF` the
-dossier directly or through a case): a bewindspersoon gives it the `ministry` of their function
-that day and `initiative: false`, a Kamerlid `initiative: true`; `cabinet` is the cabinet in
-office then. Every commitment and dossier on every run; writes what changed. On lawgraph_small
-192 of 195 commitments find their member.
-
 ## Ordering
 
 `normalize all` and `semantic all` run in registry order; each row needs what is above it.
@@ -881,7 +851,7 @@ office then. Every commitment and dossier on every run; writes what changed. On 
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
-| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures) and `normalize tk` (the factions a party is matched to); stored `wikidata-cabinet-json` for the cabinets before 1945 |
+| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures) and `normalize tk` (the factions a party is matched to) |
 | normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |

@@ -30,7 +30,6 @@ from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
-from lawgraph.pipelines.retrieve.wikidata import WikidataRetrievePipeline
 
 _TK_EPOCH = dt.datetime(1995, 1, 1, tzinfo=dt.timezone.utc)
 
@@ -338,13 +337,6 @@ def retrieve_verdragenbank(argv: list[str] | None = None) -> PipelineResult:
     if args.mode == GAPS and not _gaps.verdragenbank_gaps(store):
         return PipelineResult()
     return VerdragenbankRetrievePipeline(store).run(max_records=args.max_records)
-
-
-def retrieve_wikidata(argv: list[str] | None = None) -> PipelineResult:
-    argparse.ArgumentParser(
-        description="Retrieve the Dutch cabinets from Wikidata."
-    ).parse_args(argv)
-    return WikidataRetrievePipeline(ArangoStore()).run()
 
 
 def retrieve_rijksoverheid(argv: list[str] | None = None) -> PipelineResult:
