@@ -477,7 +477,7 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         BWBAnnexesSemanticPipeline,
-        "Annex nodes from the BWB XML and SCOPED_BY edges.",
+        "SCOPED_BY: links articles to the annexes their text names (stubs for missing ones).",
     ),
     _pipeline(
         StaatsbladSemanticPipeline,

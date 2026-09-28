@@ -38,14 +38,14 @@ zoek.officielebekendmakingen.nl (`stb-2019-33`; null before 1995, where that sit
 |--------|------|----------|
 | GET | `/` | `{"name": "lawgraph-api", "version": ...}` |
 | GET | `/api/health` | `{"status": "ok", "database": "connected"}`, 503 when the database is unreachable |
-| GET | `/api/stats` | `nodes`: document count per collection without stubs (also `commitments` and `cabinets`; `instruments` without the publications, which `publications` counts); `stubs`: per collection that has them (`instruments`, `articles`, `judgments`) the nodes known only because something refers to them; `edges`: count per relation |
+| GET | `/api/stats` | `nodes`: document count without stubs of `instruments` (without the publications), `publications` (the Staatsblad, Staatscourant and Tractatenblad publications), `articles`, `judgments`, `documents`, `cases`, `topics`, `dossiers`, `activities`, `decisions`, `commitments`, `committees`, `members` and `cabinets` (not `factions`, `annexes`, `instrument_versions` or `article_versions`); `stubs`: per collection that has them (`instruments`, `articles`, `judgments`) the nodes known only because something refers to them; `edges`: `total` and `by_relation`; `by_source`: `judgments` and `documents` per `props.source`; `instruments`: `by_kind` and `by_jurisdiction` (publications included) |
 | GET | `/api/stats/coverage` | the judgments whose text is loaded: `total`, `first_date`, `last_date`, per tier (`tiers`: `tier`, `count`, `first_date`, `last_date`, in the order of `core.judgments.TIERS`: the highest courts, the parket, the courts of first instance and appeal, the other colleges, the EHRM last) and per court (`courts`: `source`, `tier`, `court_code`, `court`, `count`, `first_date`, `last_date`, most first), and `stubs`, the judgments known only because a loaded one cites them. Every count of judgments in the API counts this selection, not the case law |
 
 ### Articles
 
 | Path | Returns |
 |------|---------|
-| `/api/articles/{bwb_id}/{article_number}` | (`article_number` of a book of the BW may carry its book: `6:162` under BWBR0005289 is article 162, on every article route) the article (with `label`, `heading`, `address`, `repealed`) with its `parts` (aanhef, leden and onderdelen as spans of `text`), its instrument, citing judgments, `citations` (the resolved references, one per target) and `references` (every reference in the text, with the `leden`, `onderdelen` and `aanhef` it names, also when the target is not in the graph) |
+| `/api/articles/{bwb_id}/{article_number}` | (`article_number` of a book of the BW may carry its book: `6:162` under BWBR0005289 is article 162, on every article route) the article (with `label`, `heading`, `address`, `repealed`) with its `parts` (aanhef, leden and onderdelen as spans of `text`; an EU article, addressed by its CELEX number, has them too, with the heading under its number), its instrument, citing judgments, `citations` (the resolved references, one per target) and `references` (every reference in the text, with the `leden`, `onderdelen` and `aanhef` it names, also when the target is not in the graph) |
 | `.../history` | every version of the article, oldest first (only the last is `current`; empty for a law whose toestanden `retrieve bwb-history` has not loaded): validity period, text, `effect`, normalized `change` (`introduces`, `amends`, `repeals`), amending publication (`amended_by`) and commencement publication, each with its dossiers and its `parts`. The article is identified by `stam_id`, so renumbering does not break history; 404 for an unknown article |
 | `.../legislative-history` | the dossiers that introduced, amended or repealed the article, or propose to: one entry per change and dossier (`dossier_id`, null for a dossier a publication names that is not in the graph, `dossier_number`, `dossier_title`, `change` `introduces`/`amends`/`repeals`, `status` `canoniek` for an amending publication, `voorgesteld` for a bill, `document_id`, `kind`, `date`, `summary` of that publication or bill), proposed first, then newest first. What only cites the article (a judgment, another article) is no history; the explanatory documents are at `explained-by`; empty list, never 404 |
 | `.../explained-by` | the documents that `EXPLAINS` the article: edges to the article or to any of its versions (same `stam_id`); an edge to its law as a whole says nothing about the article and is not listed. `items[]`: `document` (`id`, `key`, `kind`, `title`, `date`, `dossier_number`, `chamber`, `source`, `is_explanatory`), `target` (`article`, `article_version`), `target_id`, `article_version_key`, `confidence`, `scope`, `section_anchor`. `scope` is `dossier` when the memorandum explains all changes of its dossier (`semantic tk-mvt`), `article` when the edge names the section about the article in `section_anchor` (`semantic tk-mvt-articles`; the `id` of a section of the document, whose text `GET /api/documents/{key}/passages` gives). Newest first; one item per document and anchor (a version before the article, the newest version first); `limit` (1-500, default 100), `offset`, `total` counts all; empty list for an unknown article, never 404 |
@@ -210,8 +210,9 @@ relations and status.
   `limit`. Some carry a domain name instead of `items` (`entries` for timelines, `versions`,
   `votes`, `relationships`). The neighbours of a node are grouped in `buckets`, each with its
   own `items`, `total` and `next_offset`.
-- Errors: 401 missing or wrong key, 404 unknown resource, 422 invalid parameter, 429 rate
-  limited, 503 database unreachable or writing not configured.
+- Errors: 400 a node collection the API does not serve or an unknown search type, 404
+  unknown resource, 422 invalid parameter, 429 rate limited, 503 from `/api/health` when the
+  database is unreachable.
 - Responses of the route handlers carry an `X-Request-ID` header.
 
 ## Layout
@@ -219,7 +220,7 @@ relations and status.
 | Path | Contents |
 |------|----------|
 | `api/app.py` | app, middleware, router registration, `lawgraph-api` entry point |
-| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers` (also `parties`), `committees` (also `members` and `factions`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `relationships`, `annexes`, `parliament`) |
+| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers`, `committees` (also `members` and `factions`), `government` (`ministries`, `cabinets` and `commitments`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `relationships`, `annexes`, `parliament` (also `parties`)) |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
 | `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
 | `api/dependencies.py` | `get_store()`: one shared `ArangoStore` |

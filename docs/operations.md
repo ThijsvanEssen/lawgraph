@@ -57,7 +57,6 @@ All default to the public endpoints; no key is required.
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
-| `EURLEX_MAX_ARTICLE_NUMBER` | `200` | EU articles above this number are not written |
 | `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` |
 | `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | unset | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
 
@@ -221,7 +220,7 @@ graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` r
 | `retrieve tk-content` | one XML per paper (up to several MB), paced at 0.5 s |
 | `retrieve tk-dossiers` full | about 400K documents, fetched 250 at a time |
 | `retrieve bwb --mode full`, `retrieve bwb-history` | `bwb`: the SRU listing, then one XML download and one short WTI request (about 1 KB read) per regulation whose current toestand is not the stored one (an unchanged regulation costs nothing; its WTI file is read again after 30 days). `bwb-history`: one SRU query per regulation and one download per toestand |
-| `normalize bwb-history`, `semantic bwb-grondslagen`, `bwb-annexes` | stream every stored toestand XML (large documents) in batches of 20 |
+| `normalize bwb-history` | streams every stored toestand XML (large documents) in batches of 20 |
 | `normalize tk-dossiers` | the largest normalize step (documents, decisions, edges, dossier backfill) |
 | `semantic bwb` | scans every article text |
 
