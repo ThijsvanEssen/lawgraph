@@ -280,11 +280,24 @@ class _Party:
     role_stated: bool = False
     alias: str | None = None
     representatives: list[dict[str, str]] = field(default_factory=list)
+    # every role the judgment names for the party, in its order: "geïntimeerde in principaal
+    # hoger beroep, appellante in incidenteel hoger beroep"
+    stated_roles: list[str] = field(default_factory=list)
+
+    def state(self, role: str) -> None:
+        """The judgment names *role* for the party: its role when it has none stated yet,
+        and one of its ``roles`` in any case."""
+        if not self.role_stated:
+            self.role, self.role_stated = role, True
+        if role not in self.stated_roles:
+            self.stated_roles.append(role)
 
     def as_dict(self) -> dict[str, Any]:
+        role = self.role or ROLE_PARTY
         return {
             "name": self.name,
-            "role": self.role or ROLE_PARTY,
+            "role": role,
+            "roles": self.stated_roles or [role],
             "role_stated": self.role_stated,
             "side": self.side,
             "alias": self.alias,
@@ -425,6 +438,9 @@ class _Reader:
         line = _despace(line.strip())
         if not line or self._opener(line):
             return
+        if _named_later(line, self.parties):
+            self.active = False
+            return
         legal_form = bool(_LEGAL_FORM_ALONE.match(_ENUMERATOR.sub("", line)))
         if legal_form and not self.parties:
             # "de besloten vennootschap ..." with no opener before it: the parties begin
@@ -536,8 +552,7 @@ class _Reader:
         if not label or len(text) > 120 or _is_role_name(text):
             return False
         for party in self.since_role or self.group[-1:]:
-            if not party.role_stated:
-                party.role, party.role_stated = label, True
+            party.state(label)
         self.since_role = []
         return True
 
@@ -551,8 +566,7 @@ class _Reader:
         if label and len(alias.split()) <= 3 and not alias.startswith("["):
             # "hierna: de verdachte": a role, no name
             for party in targets:
-                if not party.role_stated:
-                    party.role, party.role_stated = label, True
+                party.state(label)
             return True
         if len(alias) > MAX_ALIAS_CHARS:
             return True
@@ -597,8 +611,8 @@ class _Reader:
             known = same_role[index] if 0 <= index < len(same_role) else None
             if known is not None:
                 known.alias = name
-        if known is not None and not known.role_stated:
-            known.role, known.role_stated = label, True
+        if known is not None and label:
+            known.state(label)
         return True
 
     def _known(self, name: str) -> _Party | None:
@@ -630,16 +644,80 @@ class _Reader:
             self.parties.append(party)
             if self.kind == "list":
                 self.side = SIDE_SECOND  # "Partijen:": the first against the rest
-        if found.role and not party.role_stated:
-            party.role, party.role_stated = found.role, True
+        if found.role:
+            party.state(found.role)
         elif self.opener_role and not party.role_stated and existing is None:
-            party.role, party.role_stated = self.opener_role, True
+            party.state(self.opener_role)
         if found.alias and not party.alias:
             party.alias = found.alias
         party.representatives += found.representatives
         if existing is None:
             self.since_role.append(party)
             self.group.append(party)
+
+
+# "Partijen worden hierna Chipsoft, UMCG, Treant (sub 2 en 3) en OZG genoemd.", "Appellanten
+# worden hierna 'de vrachtvliegers' genoemd, geïntimeerden KLM respectievelijk VNV."
+_NAMED_LATER = re.compile(
+    r"^(?P<who>\w+)\s+(?:worden|wordt)\s+hierna\s+(?P<names>.+?)\s+genoemd"
+    r"(?:\s*,\s*(?P<rest>.+?))?\.?$",
+    re.IGNORECASE,
+)
+_NAME_LIST = re.compile(r"\s*,\s*|\s+(?:en|respectievelijk)\s+")
+_SUB = re.compile(r"\s*\(sub\s+([\d\s,en]+)\)\s*$", re.IGNORECASE)
+_QUOTES = "'\"‘’“”"
+
+
+def _named_later(line: str, parties: list[_Party]) -> bool:
+    """Read a sentence that says what parties are called from here on, and give each party
+    named one by one its alias. A name for a whole group ("de vrachtvliegers", "UMCG c.s.")
+    is no party's alias. Whether the line holds such a sentence."""
+    matches = [
+        match
+        for sentence in re.split(r"(?<=\.)\s+(?=[A-Z])", line)
+        if (match := _NAMED_LATER.match(sentence))
+    ]
+    for match in matches:
+        _name_parties(match, parties)
+    return bool(matches)
+
+
+def _name_parties(match: re.Match[str], parties: list[_Party]) -> None:
+    clauses = [(match["who"], match["names"])]
+    if match["rest"] and len(parts := match["rest"].split(None, 1)) == 2:
+        clauses.append((parts[0], parts[1]))
+    for who, names in clauses:
+        if re.match(r"(?:gezamenlijk|samen)\b", names, re.IGNORECASE):
+            continue
+        label = role_label(who)
+        targets = (
+            parties
+            if who.lower() in ("partijen", "zij")
+            else [p for p in parties if label and p.role == label]
+        )
+        _name_one_by_one(targets, names)
+
+
+def _split_outside_parentheses(names: str) -> list[str]:
+    """*names* split at commas, "en" and "respectievelijk", not inside "(sub 2 en 3)"."""
+    held = re.findall(r"\([^()]*\)", names)
+    masked = re.sub(r"\([^()]*\)", "\x00", names)
+    parts = _NAME_LIST.split(masked)
+    restored = iter(held)
+    return [re.sub("\x00", lambda _: next(restored), part) for part in parts]
+
+
+def _name_one_by_one(targets: list[_Party], names: str) -> None:
+    slots: list[str] = []
+    for name in _split_outside_parentheses(names.strip()):
+        sub = _SUB.search(name)
+        name = _SUB.sub("", name).strip(_QUOTES + " ")
+        count = len(re.findall(r"\d+", sub.group(1))) if sub else 1
+        slots += [name] * count
+    if len(slots) > 1 and len(slots) == len(targets):
+        for party, name in zip(targets, slots, strict=True):
+            if name and len(name) <= MAX_ALIAS_CHARS:
+                party.alias = party.alias or name
 
 
 def _about_a_party(line: str) -> bool:
@@ -718,7 +796,7 @@ def read_parties(lines: list[str], subjects: list[str] | None) -> list[dict[str,
     parties = reader.parties
     for index, party in enumerate(parties):
         if not party.role_stated and (label := _anonymised_role(party.name)):
-            party.role, party.role_stated = label, True
+            party.state(label)
         if party.role == "Belanghebbende" and index > 0:
             party.side = SIDE_OTHER
     area = area_of_law(subjects)

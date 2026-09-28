@@ -197,6 +197,7 @@ class JudgmentPartyProps(_StrictBase):
 
     name: str  # as the judgment writes it, anonymised where the source is: "[eiser]"
     role: str  # "Eiser", "Verdachte", ...; "Partij" when none applies
+    roles: list[str] = []  # every role the judgment names, in its order; [role] if none
     role_stated: bool  # the judgment names the role; false when derived
     side: Literal["first", "second", "other"]
     alias: str | None = None  # what the judgment calls it: "EBN"

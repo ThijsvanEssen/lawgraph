@@ -336,7 +336,7 @@ its Dutch `summary` and `translation_of`, the judgment the `summary_en`.
 
 `decision_kind` is the first that tells of: the document type (`Conclusie`: `conclusie`), the
 procedure (`Prejudiciële beslissing`: `prejudiciële beslissing`), the kop (its first line that
-opens with `arrest`, `vonnis`, `beschikking` or `uitspraak`, also as `tussenvonnis`, `eindarrest`
+opens with `arrest`, `vonnis`, `beschikking`, `uitspraak` or `beslissing van`, also as `tussenvonnis`, `eindarrest`
 and the like; not a label with its value, "Uitspraak : 10 augustus 2026", and a line with only a
 date after the word, "Uitspraak van 21 september 2026", only when no other line names one), the
 procedure again (`Beschikking`, `Tussenbeschikking`, `Raadkamer`, `Rekestprocedure`:

@@ -232,7 +232,7 @@ with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `re
 `subjects`; `court_code`, `tier`, `date_eff` and `case_number_keys`, the case numbers as compared,
 derived), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`.
 
-`summary` is the inhoudsindicatie, in Dutch. The Rechtspraak publishes a few judgments in an
+`summary` is the inhoudsindicatie, in Dutch; null for a placeholder ("kopje volgt", "-", empty). The Rechtspraak publishes a few judgments in an
 English translation too, under an ECLI of their own (ECLI:NL:HR:2019:2007 beside
 ECLI:NL:HR:2019:2006, case number `19/00135 (Engels)`); their inhoudsindicatie is English. An
 English inhoudsindicatie is kept as `summary_en`; the translation has `translation_of`, the ECLI
@@ -241,7 +241,8 @@ of the judgment it translates, and that judgment's Dutch `summary`, and the judg
 loaded.
 
 `decision_kind` is what the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`,
-`conclusie` or `prejudiciële beslissing` (`core.judgments.decision_kind`; the rule is in
+`beslissing` (the kantonrechter on a Wahv appeal, a wraking, the notariskamer), `conclusie` or
+`prejudiciële beslissing` (`core.judgments.decision_kind`; the rule is in
 [pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
 A stub has the kind its tier gives.
 

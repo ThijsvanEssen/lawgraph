@@ -142,6 +142,7 @@ def test_sides_aliases_and_representatives() -> None:
     assert parties["[eiseres 1]"] == {
         "name": "[eiseres 1]",
         "role": "Eiser",
+        "roles": ["Eiser"],
         "role_stated": True,  # "EISERS in eerste aanleg,"
         "side": "first",
         "alias": "[eisers]",  # "hierna gezamenlijk: [eisers] ,"
@@ -310,3 +311,22 @@ def test_a_kop_without_parties_has_none() -> None:
 
 def test_the_parties_are_valid_judgment_props() -> None:
     JudgmentProps.model_validate({"parties": _parties("rechtspraak_hr_2019_1278.xml")})
+
+
+def test_what_the_parties_are_called_from_here_on_is_their_alias() -> None:
+    """ "Partijen worden hierna Chipsoft, UMCG, Treant (sub 2 en 3) en OZG genoemd.", and a
+    party that is geïntimeerde and appellante in incidenteel hoger beroep has both roles."""
+    chipsoft = _parties("rechtspraak_rbnne_2026_2437.xml")
+    assert [p["alias"] for p in chipsoft] == [
+        "Chipsoft",
+        "UMCG",
+        "Treant",
+        "Treant",
+        "OZG",
+    ]
+
+    klm = [p for p in _parties("rechtspraak_ghams_2026_2678.xml") if p["alias"]]
+    assert [(p["alias"], p["roles"]) for p in klm] == [
+        ("KLM", ["Geïntimeerde"]),
+        ("VNV", ["Geïntimeerde", "Appellant"]),
+    ]
