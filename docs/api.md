@@ -22,7 +22,9 @@ or a `dossier` filter as it is. List parameters `limit` and `offset` have the bo
 `/docs`. Every paged list has a total order (its sort ends in a unique key, or reads an index
 that orders ties by key), so walking its pages gives each row once.
 
-Every period is half-open: `valid_until` is the first day a version is no longer in force (the start of the next), so `2021-07-01` means up to and including 2021-06-30, the "t/m 30-06-2021" of wetten.overheid.nl. An open period has `valid_until` null.
+The periods of articles and versions are half-open: `valid_until` is the first day a version is no longer in force (the start of the next), so `2021-07-01` means up to and including 2021-06-30, the "t/m 30-06-2021" of wetten.overheid.nl. An open period has `valid_until` null.
+
+The periods of members and factions follow the Tweede Kamer and are inclusive: `to_date` (of a faction membership, a committee seat, a faction's `active_until`) is the last day, the Kamer's `TotEnMet`. Two successive periods touch: one ends the day before the next begins. An open period has `to_date` null.
 
 Articles, their versions, instruments, their versions and publications carry `official_url`,
 the official text (`core/official_urls.py`): an article on wetten.overheid.nl by its JCI

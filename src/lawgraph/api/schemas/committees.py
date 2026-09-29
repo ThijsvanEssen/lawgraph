@@ -154,7 +154,10 @@ class FactionDTO(BaseModel):
     active: bool = True
     seats: int | None = None
     active_from: str | None = None
-    active_until: str | None = None
+    active_until: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
     member_count: int = 0
 
     @classmethod
@@ -191,7 +194,10 @@ class FactionMembershipDTO(BaseModel):
     abbreviation: str | None = None
     aliases: list[str] = []
     from_date: str | None = None
-    to_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
     role: str | None = None
 
 
@@ -287,7 +293,10 @@ class MemberDTO(BaseModel):
         description="The posts held in a cabinet (from Rijksoverheid), oldest first.",
     )
     from_date: str | None = None
-    to_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> MemberDTO:
