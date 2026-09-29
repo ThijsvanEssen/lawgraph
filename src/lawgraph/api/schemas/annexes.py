@@ -76,23 +76,3 @@ class AnnexDetailResponse(BaseModel):
 
     annex: AnnexDTO
     referenced_by: list[AnnexReferencedByItem] = Field(default_factory=list)
-
-
-class AnnexListItem(BaseModel):
-    """Annex plus the laws whose articles reference it."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    annex: AnnexDTO
-    referencing_laws: list[str] = Field(default_factory=list)
-
-
-class AnnexListResponse(BaseModel):
-    """Paginated annex list (optionally restricted to cross-law shared ones)."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    annexes: list[AnnexListItem]
-    total: int
-    limit: int
-    offset: int

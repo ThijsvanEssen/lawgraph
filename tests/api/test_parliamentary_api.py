@@ -102,9 +102,9 @@ def test_open_dossiers_are_wrapped_in_a_total_and_items(monkeypatch) -> None:
         return {"total": 1, "items": [_DOSSIER]}
 
     monkeypatch.setattr("lawgraph.api.routes.dossiers.get_dossiers", get_dossiers)
-    body = client.get("/api/dossiers/open").json()
+    body = client.get("/api/dossiers?status=open").json()
     assert client.get("/api/dossiers").status_code == 200
-    assert asked == ["open", None]  # /open is the list with status=open; all by default
+    assert asked == ["open", None]  # all by default
     assert body["total"] == 1
     assert body["items"][0]["number"] == "36000"
     assert body["items"][0]["title"] == "Testwet"
@@ -169,21 +169,11 @@ def test_the_documents_of_a_dossier_say_their_chamber_and_kind(monkeypatch) -> N
             "items": [_DOCUMENT_ROW, {**ek, "kind": "Verslag"}],
         },
     )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_number_to_id_map",
-        lambda store, numbers: {"36000": "dossiers/36000"},
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_documents_for_dossiers",
-        lambda store, ids, **kwargs: {"dossiers/36000": [_DOCUMENT_ROW]},
-    )
     listed = client.get("/api/dossiers/36000/documents").json()["items"]
     assert [(d["chamber"], d["source"], d["is_explanatory"]) for d in listed] == [
         ("TK", "tk", True),
         ("EK", "eerstekamer", False),
     ]
-    bulk = client.get("/api/dossiers/documents/bulk?numbers=36000").json()
-    assert bulk["items"]["36000"][0] == listed[0]  # every list of documents agrees
 
 
 _MVT_PAGE = (

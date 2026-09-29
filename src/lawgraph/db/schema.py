@@ -361,7 +361,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_JUDGMENTS, ["props.series_id"], False, True),
         # What `/api/stats` counts per value is not sparse, so the count walks the index
         # and sees the documents without a value too; sparse, each count read every document.
-        # It ends in the tier and the date for the facets of `/api/judgments?source=`.
+        # It holds the tier and the date for the facets of `/api/judgments?source=`.
         (
             COLLECTION_JUDGMENTS,
             ["props.source", "props.date_eff", "props.tier", "props.stub"],
@@ -393,24 +393,31 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_INSTRUMENTS, ["props.jurisdiction"], False, False),
         (COLLECTION_INSTRUMENTS, ["props.kind"], False, False),
         (COLLECTION_INSTRUMENTS, ["props.article_count"], False, False),
-        # `/api/judgments` counts per tier and per year of `date_eff` under the filters
-        # (`queries/judgments.py`): each filter's index ends in both and in `stub` (the list
-        # leaves the stubs out), so a count reads the index alone, not the judgments.
+        # `/api/judgments` counts per tier, per source and per year of `date_eff` under the
+        # filters (`queries/judgments.py`): each filter's index holds all three and `stub`
+        # (the list leaves the stubs out), so a count reads the index alone, not the
+        # judgments.
         (
             COLLECTION_JUDGMENTS,
-            ["props.tier", "props.date_eff", "props.stub"],
+            ["props.tier", "props.date_eff", "props.stub", "props.source"],
             False,
             False,
         ),
         (
             COLLECTION_JUDGMENTS,
-            ["props.court_code", "props.date_eff", "props.tier", "props.stub"],
+            [
+                "props.court_code",
+                "props.date_eff",
+                "props.tier",
+                "props.stub",
+                "props.source",
+            ],
             False,
             False,
         ),
         (
             COLLECTION_JUDGMENTS,
-            ["props.date_eff", "props.tier", "props.stub"],
+            ["props.date_eff", "props.tier", "props.stub", "props.source"],
             False,
             False,
         ),

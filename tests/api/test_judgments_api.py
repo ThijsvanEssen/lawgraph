@@ -269,6 +269,7 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
     asked: list[tuple[JudgmentFilters, dict]] = []
     facets = {
         "tier": [{"value": "hoge_raad", "count": 7}, {"value": None, "count": 1}],
+        "source": [{"value": "rechtspraak", "count": 8}, {"value": "echr", "count": 2}],
         "year": [{"value": None, "count": 1}, {"value": "2020", "count": 7}],
     }
 
@@ -299,7 +300,7 @@ def test_a_judgment_without_subjects_lists_none(monkeypatch):
     )
     body = client.get("/api/judgments").json()
     assert body["items"][0]["subjects"] == []
-    assert body["facets"] == {"tier": [], "year": []}
+    assert body["facets"] == {"tier": [], "source": [], "year": []}
 
 
 def test_a_translation_serves_both_summaries_its_original_names_and_kind():

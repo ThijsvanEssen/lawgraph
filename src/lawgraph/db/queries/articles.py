@@ -460,29 +460,6 @@ def get_article_explanations(
     return rows[0] if rows else {"total": 0, "items": []}
 
 
-def get_article_in_flux(
-    store: ArangoStore, bwb_id: str, article_number: str, article_id: str | None = None
-) -> dict[str, Any]:
-    """In-flux status for an article: a flag plus the number of proposed edges."""
-    if article_id is None:
-        article_key = make_node_key(bwb_id, article_number)
-        article_id = f"{COLLECTION_ARTICLES}/{article_key}"
-
-    aql = f"""
-    LET proposed = LENGTH(
-        FOR edge IN {COLLECTION_EDGES}
-            FILTER edge._to == @article_id
-            FILTER edge.status == '{EDGE_STATUS_VOORGESTELD}'
-            RETURN 1
-    )
-    RETURN {{ in_flux: proposed > 0, open_dossier_count: proposed }}
-    """
-    rows = list(store.query(aql, {"article_id": article_id}))
-    if rows:
-        return rows[0]
-    return {"in_flux": False, "open_dossier_count": 0}
-
-
 def get_article_cited_by(
     store: ArangoStore,
     article_id: str,

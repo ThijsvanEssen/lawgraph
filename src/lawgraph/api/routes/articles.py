@@ -13,9 +13,7 @@ from lawgraph.api.schemas.articles import (
     ArticleExplanationDTO,
     ArticleExplanationsResponse,
     ArticleHistoryResponse,
-    ArticleInFluxResponse,
     ArticleLegislativeHistoryResponse,
-    ArticleRelationshipsResponse,
     ArticleRelationshipWithType,
     ArticleSummaryDTO,
     ArticleVersionDTO,
@@ -39,7 +37,6 @@ from lawgraph.db.queries.articles import (
     get_article_cited_by,
     get_article_explanations,
     get_article_history,
-    get_article_in_flux,
     get_article_legislative_history,
     get_article_with_relations,
 )
@@ -130,35 +127,6 @@ def _build_relationship_dtos(
         for row in relationship_data.get("scope", [])
     ]
     return upstream, downstream, scope
-
-
-@router.get(
-    "/{bwb_id}/{article_number}/relationships",
-    response_model=ArticleRelationshipsResponse,
-    summary="Semantic relationships of an article",
-    description=(
-        "Upstream dependencies (outgoing references), downstream implications "
-        "(incoming references) and annex scopes, each with its semantic type "
-        "and explanation."
-    ),
-    tags=["articles"],
-)
-def get_article_relationships(
-    bwb_id: str,
-    article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> ArticleRelationshipsResponse:
-    article_number = native_article_number(bwb_id, article_number)
-    article_key = make_node_key(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{article_key}"
-    relationship_data = get_article_relationship_data(store, article_id)
-    upstream, downstream, scope = _build_relationship_dtos(relationship_data)
-    return ArticleRelationshipsResponse(
-        article_id=article_id,
-        upstream_dependencies=upstream,
-        downstream_implications=downstream,
-        scope_articles=scope,
-    )
 
 
 @router.get(
@@ -320,33 +288,6 @@ def get_explained_by(
         article_id=article_id,
         total=page["total"],
         items=[ArticleExplanationDTO.from_row(row) for row in page["items"]],
-    )
-
-
-@router.get(
-    "/{bwb_id}/{article_number}/in-flux",
-    response_model=ArticleInFluxResponse,
-    summary="In-flux status of an article",
-    description=(
-        "A cheap check whether one or more open bills currently target this "
-        "article. Returns a flag and the number of open dossiers. Aggressively "
-        "cached — always 200, never 404."
-    ),
-    tags=["articles"],
-)
-def get_in_flux(
-    bwb_id: str,
-    article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> ArticleInFluxResponse:
-    article_number = native_article_number(bwb_id, article_number)
-    article_key = make_node_key(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{article_key}"
-    result = get_article_in_flux(store, bwb_id, article_number, article_id=article_id)
-    return ArticleInFluxResponse(
-        article_id=article_id,
-        in_flux=result.get("in_flux", False),
-        open_dossier_count=result.get("open_dossier_count", 0),
     )
 
 

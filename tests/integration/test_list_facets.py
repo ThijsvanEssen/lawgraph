@@ -157,7 +157,12 @@ def test_the_decisions_are_filtered_and_counted_per_kind_outcome_and_day(
 
 
 def _judgment(
-    number: int, tier: str, court: str, date: str | None, subjects: list[str]
+    number: int,
+    tier: str,
+    court: str,
+    date: str | None,
+    subjects: list[str],
+    source: str = "rechtspraak",
 ) -> Node:
     ecli = f"ECLI:NL:{court}:2020:{number}"
     return Node(
@@ -168,7 +173,7 @@ def _judgment(
         props={
             "ecli": ecli,
             "display_name": ecli,
-            "source": "rechtspraak",
+            "source": source,
             "tier": tier,
             "court_code": court,
             "date_eff": date,
@@ -236,6 +241,38 @@ def test_the_judgments_carry_their_subjects_and_are_counted_per_tier_and_year(
     assert _counts(in_2024["facets"]["year"]) == {None: 1, "2023": 1, "2024": 3}
 
 
+def test_the_judgments_are_counted_per_source_without_the_source_filter(
+    database: str,
+) -> None:
+    store = ArangoStore()
+    _build_judgments(store)
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                _judgment(6, "ehrm", "ECHR", "2024-03-01", [], source="echr"),
+                _judgment(7, "ehrm", "ECHR", "2023-03-01", [], source="echr"),
+            ]
+        )
+
+    everything = _get(store, "/api/judgments")
+    assert everything["facets"]["source"] == [
+        {"value": "rechtspraak", "count": 5},
+        {"value": "echr", "count": 2},
+    ]
+    # one call gives the page of one source and the total of the other
+    dutch = _get(store, "/api/judgments", source="rechtspraak", limit=1)
+    assert dutch["total"] == 5 and len(dutch["items"]) == 1
+    assert _counts(dutch["facets"]["source"]) == {"rechtspraak": 5, "echr": 2}
+    assert _counts(dutch["facets"]["tier"]) == {
+        "hoge_raad": 2,
+        "rechtbank": 2,
+        "gerechtshof": 1,
+    }
+    # the facet keeps the other filters
+    in_2024 = _get(store, "/api/judgments", **{"from": "2024-01-01"})
+    assert _counts(in_2024["facets"]["source"]) == {"rechtspraak": 3, "echr": 1}
+
+
 def _plans(store: ArangoStore, filters: JudgmentFilters) -> dict[str, list[dict]]:
     """The plan of every count of the list query, by the name of its LET."""
     captured: list[tuple[str, dict[str, Any]]] = []
@@ -249,7 +286,7 @@ def _plans(store: ArangoStore, filters: JudgmentFilters) -> dict[str, list[dict]
     aql, bind_vars = captured[0]
     # each facet on its own: the same loop, returning its count
     plans: dict[str, list[dict]] = {}
-    for name in ("by_tier", "by_year"):
+    for name in ("by_tier", "by_source", "by_year"):
         body = aql.split(f"LET {name} = (", 1)[1].split("\n    )", 1)[0]
         used = {k: v for k, v in bind_vars.items() if f"@{k}" in body}
         plans[name] = store.db.aql.explain(body, bind_vars=used)["nodes"]
