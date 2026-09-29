@@ -15,6 +15,10 @@ then applies the rules of a seat:
 - **Dates.** A holder line without a start held the post from the start of the cabinet, one
   without an end until its end; ``from_date_source`` and ``to_date_source`` keep what the
   source gave (``None`` where it gave nothing).
+- **One seat per heading.** The holders of one heading who follow one another hold one
+  seat, the one the heading names, even where their own lines name the post otherwise (a
+  portfolio renamed on the way: that name in ``also_named``); holders of one heading at the
+  same time hold seats of their own.
 - **Double listings.** Two posts of one person in one seat on the same days are one post; the
   other name is kept in ``also_named`` (``Minister-president, minister van Algemene Zaken``).
 - **Ending at the successor, starting at the predecessor.** In a named seat, a post whose end
@@ -266,6 +270,7 @@ def _post(
     part: dict[str, Any],
     cabinet: dict[str, Any],
     item: dict[str, Any],
+    heading: tuple[int, int] = (0, 0),
 ) -> dict[str, Any]:
     start, end = cabinet["from_date"], cabinet["to_date"]
     temporary = item.get("temporary")
@@ -284,14 +289,12 @@ def _post(
     corrected = []
     if (given_from and from_date != given_from) or (given_to and to_date != given_to):
         corrected.append(CORRECTED_TO_CABINET)
-    seat = seat_of(
-        part["function"],
-        holder["portfolio"]
-        and re.sub(r"^staatssecretaris\s+", "", holder["portfolio"], flags=re.I)
-        or part["portfolio"],
-        part["hint"],
-        from_date,
+    own = (
+        re.sub(r"^staatssecretaris\s+", "", holder["portfolio"], flags=re.I)
+        if holder["portfolio"]
+        else None
     )
+    seat = seat_of(part["function"], own or part["portfolio"], part["hint"], from_date)
     acting_basis = None
     if holder["acting"]:
         acting_basis = BASIS_AI
@@ -318,6 +321,12 @@ def _post(
         "absent": holder.get("absent"),
         "taken_over_by": holder.get("taken_over_by"),
         "overlaps_with": [],
+        # where the post stands on the page, for ``_one_seat_per_heading``
+        _HEADING: heading,
+        _HEADING_SEAT: seat_of(
+            part["function"], part["portfolio"], part["hint"], from_date
+        ),
+        _OWN_NAME: holder["portfolio"] if own else None,
     }
 
 
@@ -359,7 +368,7 @@ def page_posts(page: dict[str, Any], cabinet: dict[str, Any]) -> list[dict[str, 
     """Every post the seats of *page* name, before the rules of a seat: one per part of
     the heading, holder and period."""
     posts: list[dict[str, Any]] = []
-    for item in page["seats"]:
+    for n, item in enumerate(page["seats"]):
         parts = heading_parts(item["heading"], item["section"])
         deputies = [p for p in parts if _DEPUTY.match(p["function"])]
         offices = [p for p in parts if not _DEPUTY.match(p["function"])]
@@ -370,9 +379,9 @@ def page_posts(page: dict[str, Any], cabinet: dict[str, Any]) -> list[dict[str, 
             for period in holder["periods"]:
                 held = [
                     post
-                    for part in offices
+                    for i, part in enumerate(offices)
                     for post in _split_definitive(
-                        _post(holder, period, part, cabinet, item),
+                        _post(holder, period, part, cabinet, item, (n, i)),
                         holder["until_acting"],
                     )
                 ]
@@ -397,6 +406,48 @@ def _overlap(a: dict[str, Any], b: dict[str, Any]) -> bool:
     return a["from_date"] < (b["to_date"] or "9999") and b["from_date"] < (
         a["to_date"] or "9999"
     )
+
+
+# Where a post stands on the page: its heading, the seat the heading names and the name
+# the holder's own line gives the post; dropped when the rules of a seat are done.
+_HEADING = "_heading"
+_HEADING_SEAT = "_heading_seat"
+_OWN_NAME = "_own_name"
+
+
+def _concurrent(posts: list[dict[str, Any]]) -> bool:
+    """Whether two people among *posts* held them at the same time."""
+    return any(
+        a["person"] != b["person"] and _overlap(a, b)
+        for i, a in enumerate(posts)
+        for b in posts[i + 1 :]
+    )
+
+
+def _one_seat_per_heading(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A heading of the page names one seat, and a seat has one holder at a time. Where
+    the holders of a heading follow one another but their own lines name the post
+    otherwise (``Staatssecretaris Fiscaliteit, Belastingdienst en Douane``, held before as
+    ``staatssecretaris Fiscaliteit en Belastingdienst``), they hold the seat the heading
+    names, the name of their line in ``also_named``. Holders of one heading at the same time
+    (two ministers without portfolio, two state secretaries of one ministry) hold seats of
+    their own."""
+    by_heading: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+    for post in posts:
+        if post["seat"] != SEAT_DEPUTY and post.get(_HEADING) is not None:
+            by_heading[post[_HEADING]].append(post)
+    for held in by_heading.values():
+        if len({p["seat"] for p in held}) < 2 or _concurrent(held):
+            continue
+        target = min(held, key=lambda p: p["from_date"])[_HEADING_SEAT]
+        for post in held:
+            if post["seat"] == target["seat"]:
+                continue
+            own = post.get(_OWN_NAME)
+            if own and own not in post["also_named"] and own != post["function"]:
+                post["also_named"].append(own)
+            post["seat"], post["named"] = target["seat"], target["named"]
+    return posts
 
 
 def merge_double_listings(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -572,7 +623,8 @@ def cabinet_posts(
 ) -> list[dict[str, Any]]:
     """Every post of the cabinet *cabinet* (``{from_date, to_date}``) that *page* names,
     after the rules of a seat, in order of seat and start."""
-    posts = merge_double_listings(page_posts(page, cabinet))
+    posts = _one_seat_per_heading(page_posts(page, cabinet))
+    posts = merge_double_listings(posts)
     by_seat: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for post in posts:
         by_seat[post["seat"]].append(post)
@@ -587,6 +639,9 @@ def cabinet_posts(
     posts = merge_double_listings(posts)
     _stand_ins(posts)
     _overlaps(posts)
+    for post in posts:
+        for key in (_HEADING, _HEADING_SEAT, _OWN_NAME):
+            post.pop(key, None)
     return sorted(posts, key=lambda p: (p["seat"], p["from_date"], p["person"]))
 
 
