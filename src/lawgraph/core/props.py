@@ -81,8 +81,9 @@ class InstrumentProps(_CommonProps):
     treaty_type: str | None = None
     status: str | None = None
     in_force: bool | None = None
-    date_signed: str | None = None
+    date_signed: str | None = None  # of the instrument itself, not of an amendment
     date_in_force: str | None = None
+    version_date_in_force: str | None = None  # BWB: the start of the toestand in force
     parties: list[str] | None = None
     article_count: int | None = None
     inbound_citation_count: int | None = None
@@ -603,6 +604,8 @@ class AnnexEntry(_StrictBase):
     index: int | None = None
     name: str | None = None
     description: str | None = None
+    heading: str | None = None  # the paragraph introducing its list: "Gemeentewet"
+    parent_index: int | None = None  # the entry it is nested in
 
 
 class AnnexProps(_CommonProps):

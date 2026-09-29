@@ -4,8 +4,9 @@ The Tweede Kamer record cannot say it: ``Kamerstukdossier`` has no ``Afgedaan`` 
 ``DatumGesloten``, and ``Afgesloten`` is false on every dossier (34851, the Uitvoeringswet
 AVG, law since Stb. 2018, 144, says false). The records below have the fields the API sends.
 
-* 35786 changed the Grondwet: the toestand of the Grondwet names it as the dossier of
-  Stb. 2022, 332, so ``semantic bwb-amendments`` writes ``LEGISLATED_IN`` and it is enacted.
+* 35786 changed the Grondwet: its article versions name it as the dossier of Stb. 2022, 332,
+  so ``semantic bwb-amendments`` writes ``LEGISLATED_IN`` from that publication and it is
+  enacted.
 * 37014 (Wet weerbare waarden) is pending: an amendment on it was voted down, which does not
   end the bill.
 * 36680 was withdrawn by letter; 36999 was voted down by the Tweede Kamer.
@@ -27,6 +28,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
@@ -210,19 +212,26 @@ def store(database: str, cli: Any) -> Iterator[ArangoStore]:
                     payload_json=payload,
                 )
             )
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id=GRONDWET,
-                payload_text=(FIXTURES / "bwb_grondwet_toestand.xml").read_text(),
-                meta={
-                    "bwb_id": GRONDWET,
-                    "state_url": f"https://repo/{GRONDWET}/x.xml",
-                },
+        for kind, external_id in (
+            (RAW_KIND_BWB_TOESTAND, GRONDWET),
+            (RAW_KIND_BWB_TOESTAND_ALL, f"{GRONDWET}@2023-02-22"),
+        ):
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_BWB,
+                    kind=kind,
+                    external_id=external_id,
+                    payload_text=(FIXTURES / "bwb_grondwet_toestand.xml").read_text(),
+                    meta={
+                        "bwb_id": GRONDWET,
+                        "state_url": f"https://repo/{GRONDWET}/x.xml",
+                        "start_date": "2023-02-22",
+                        "end_date": "9999-12-31",
+                    },
+                )
             )
-        )
     cli("normalize", "bwb")
+    cli("normalize", "bwb-history")
     cli("normalize", "tk-dossiers")
     cli("semantic", "bwb-amendments")
     cli("semantic", "tk-dossier-outcomes")

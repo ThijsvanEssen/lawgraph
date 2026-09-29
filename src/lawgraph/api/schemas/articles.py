@@ -40,16 +40,19 @@ _TARGET_OF_COLLECTION: dict[str, ExplanationTarget] = {
 
 
 class ArticlePartDTO(BaseModel):
-    """A lid, an onderdeel or an aanhef of an article, as a span of its `text`."""
+    """A lid, an onderdeel, an aanhef or a tekst of an article, as a span of its `text`.
+
+    The parts and the printed numbers between them cover the whole text."""
 
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(
         description="Where the part sits: `aanhef`, `lid-2`, `lid-2-aanhef`, `lid-2-onder-a`, "
         "`onder-a` (an article without leden), `lid-2-onder-a-onder-1` (an onderdeel "
-        "inside an onderdeel). Unique within the article."
+        "inside an onderdeel), `tekst-1` (a paragraph outside the other parts, such as a line "
+        "between the lists of an article of a bijlage). Unique within the article."
     )
-    kind: str = Field(description="`aanhef`, `lid` or `onderdeel`.")
+    kind: str = Field(description="`aanhef`, `lid`, `onderdeel` or `tekst`.")
     number: str | None = Field(
         description="The number as printed: `2`, `2a`, `a`, `1°`; null for an aanhef "
         "or an item without one."

@@ -1,0 +1,491 @@
+<?xml version="1.0" encoding="UTF-8"?><toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0005537/2026-08-15/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBR0005537" inwerkingtreding="2026-08-15"><bwb-inputbestand /><bwb-wijzigingen /><redactionele-correcties /><wetgeving dtdversie="2.0" soort="wet" xml:lang="nl" stam-id="2866023" versie-id="20012862" id="C28273291" label-id="2816734" inwerkingtredingsdatum="2013-01-01">
+  <intitule bwb-ng-variabel-deel="/Intitule" stam-id="2866053" versie-id="4410552" id="C5056351" label-id="2813884" inwerking="1994-01-01" bron="Stb.1992-315" effect="nieuwe-regeling" ondertekening_bron="1992-06-04" publicatie_bron="1992-06-30" publicatie_iwt="1993-12-23" status="goed">Wet van 4 juni 1992, houdende algemene regels van bestuursrecht (Algemene wet bestuursrecht) <meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1992</publicatiejaar><publicatienr>315</publicatienr><uitgiftedatum isodatum="1992-06-30">30-06-1992</uitgiftedatum><ondertekeningsdatum isodatum="1992-06-04">04-06-1992</ondertekeningsdatum><dossierref dossier="21221">21221</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1993</publicatiejaar><publicatienr>693</publicatienr><uitgiftedatum isodatum="1993-12-23">23-12-1993</uitgiftedatum><ondertekeningsdatum isodatum="1993-12-23">23-12-1993</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="1994-01-01">01-01-1994</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></intitule>
+  <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="2866063" versie-id="4410582" id="C4410581" label-id="2813894" inwerking="1994-01-01" bron="Stb.1992-315" effect="nieuwe-regeling" ondertekening_bron="1992-06-04" publicatie_bron="1992-06-30" publicatie_iwt="1993-12-23">Algemene wet bestuursrecht<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1992</publicatiejaar><publicatienr>315</publicatienr><uitgiftedatum isodatum="1992-06-30">30-06-1992</uitgiftedatum><ondertekeningsdatum isodatum="1992-06-04">04-06-1992</ondertekeningsdatum><dossierref dossier="21221">21221</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1993</publicatiejaar><publicatienr>693</publicatienr><uitgiftedatum isodatum="1993-12-23">23-12-1993</uitgiftedatum><ondertekeningsdatum isodatum="1993-12-23">23-12-1993</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="1994-01-01">01-01-1994</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></citeertitel>
+  <wet-besluit>
+    <aanhef bwb-ng-variabel-deel="/Aanhef" stam-id="2866073" versie-id="4410592" id="C4410591" label-id="2813904" inwerking="1994-01-01" bron="Stb.1992-315" effect="nieuwe-regeling" ondertekening_bron="1992-06-04" publicatie_bron="1992-06-30" publicatie_iwt="1993-12-23" status="goed">
+  <wij>Wij Beatrix, bij de gratie Gods, Koningin der Nederlanden, Prinses van Oranje-Nassau, enz. enz. enz. </wij>
+  <considerans>
+    <considerans.al>Allen, die deze zullen zien of horen lezen, saluut! doen te weten: </considerans.al>
+    <considerans.al>Alzo Wij in overweging genomen hebben, dat ingevolge <extref verwijzing-id="1386352" doc="jci1.3:c:BWBR0001840&amp;artikel=107" bwb-id="BWBR0001840" label-id="2941654">artikel 107, tweede lid, van de Grondwet</extref> de wet algemene regels van bestuursrecht dient vast te stellen; </considerans.al>
+  </considerans>
+  <afkondiging>
+    <al>Zo is het, dat Wij, de Raad van State gehoord, en met gemeen overleg der Staten-Generaal, hebben goedgevonden en verstaan, gelijk Wij goedvinden en verstaan bij deze: </al>
+  </afkondiging>
+</aanhef>
+    <wettekst>
+      <hoofdstuk bwb-ng-variabel-deel="/Hoofdstuk8" stam-id="2868803" versie-id="20195102" id="C28775411" label-id="2816634" inwerking="2013-07-01" label="Hoofdstuk 8" bron="Stb.2013-50" effect="wijziging" ondertekening_bron="2013-01-31" publicatie_bron="2013-02-15" publicatie_iwt="2013-04-26" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr status="officieel">8</nr>
+    <titel status="officieel">Bijzondere bepalingen over de wijze van procederen bij de bestuursrechter</titel>
+  </kop><titeldeel bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1" stam-id="2868213" versie-id="27178632" id="C38408781" label-id="2816044" inwerking="2020-10-14" label="Titel 8.1" bron="Stb.2020-416" effect="structuurwijziging" ondertekening_bron="2020-10-14" publicatie_bron="2020-11-04" publicatie_iwt="2020-11-04" status="goed">
+  <kop>
+    <label>Titel</label>
+    <nr status="officieel">8.1</nr>
+    <titel status="officieel">Algemene bepalingen over het beroep in eerste aanleg</titel>
+  </kop><afdeling bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1" stam-id="2867833" versie-id="20050102" id="C28273221" label-id="2815664" inwerking="2013-01-01" label="Afdeling 8.1.1" bron="Stb.2012-682" effect="wijziging" ondertekening_bron="2012-12-20" publicatie_bron="2012-12-27" publicatie_iwt="2012-12-27" status="goed">
+  <kop>
+    <label>Afdeling</label>
+    <nr>8.1.1</nr>
+    <titel status="officieel">Bevoegdheid</titel>
+  </kop><artikel bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:5" stam-id="2867783" versie-id="20002772" id="C42569131" label-id="2815614" inwerking="2013-01-01" label="Artikel 8:5" bron="Stb.2012-682" effect="wijziging" ondertekening_bron="2012-12-20" publicatie_bron="2012-12-27" publicatie_iwt="2012-12-27" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">8:5</nr>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:5/Lid1" label-id="2815614L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>Geen beroep kan worden ingesteld tegen een besluit als bedoeld in artikel 1 van de bij deze wet behorende <intref doc="jci1.3:c:BWBR0005537&amp;bijlage=2&amp;z=2026-08-15&amp;g=2026-08-15" label-id="11995284" verwijzing-id="3267403" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Bijlage2">Bevoegdheidsregeling bestuursrechtspraak</intref>.</al>
+  </lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:5/Lid2" label-id="2815614L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>Geen beroep kan worden ingesteld tegen een besluit waartegen administratief beroep kan worden ingesteld of door de belanghebbende kon worden ingesteld.</al>
+  </lid>
+</artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:6" stam-id="2867793" versie-id="20002782" id="C43051271" label-id="2815624" inwerking="2013-01-01" label="Artikel 8:6" bron="Stb.2012-682" effect="wijziging" ondertekening_bron="2012-12-20" publicatie_bron="2012-12-27" publicatie_iwt="2012-12-27" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">8:6</nr>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:6/Lid1" label-id="2815624L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>Het beroep kan worden ingesteld bij de rechtbank, tenzij een andere bestuursrechter bevoegd is ingevolge hoofdstuk 2 van de bij deze wet behorende <intref doc="jci1.3:c:BWBR0005537&amp;bijlage=2&amp;z=2026-08-15&amp;g=2026-08-15" label-id="11995284" verwijzing-id="2543054" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Bijlage2">Bevoegdheidsregeling bestuursrechtspraak</intref> dan wel ingevolge een ander wettelijk voorschrift.</al>
+  </lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:6/Lid2" label-id="2815624L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>Bij elk van de bestuursrechters, genoemd in hoofdstuk 2 van de bij deze wet behorende Bevoegdheidsregeling bestuursrechtspraak, kan beroep worden ingesteld tegen een besluit waarover die rechter in hoger beroep oordeelt, indien hij toepassing heeft gegeven aan <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.5&amp;artikel=8:113&amp;z=2026-08-15&amp;g=2026-08-15" label-id="11994774" verwijzing-id="2543055" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.5/Artikel8:113">artikel 8:113, tweede lid</intref>.</al>
+  </lid>
+</artikel></afdeling></titeldeel></hoofdstuk>
+      </wettekst>
+    <wetsluiting bwb-ng-variabel-deel="/SlotformulierEnOndertekening" stam-id="2868883" versie-id="4413572" id="C4413571" label-id="2816714" inwerking="1994-01-01" bron="Stb.1992-315" effect="nieuwe-regeling" ondertekening_bron="1992-06-04" publicatie_bron="1992-06-30" publicatie_iwt="1993-12-23" status="goed">
+  <slotformulering>
+    <al>Lasten en bevelen dat deze in het <nadruk type="cur">Staatsblad</nadruk> zal worden geplaatst en dat alle ministeries, autoriteiten, colleges en ambtenaren wie zulks aangaat, aan de nauwkeurige uitvoering de hand zullen houden. </al>
+  </slotformulering>
+  <gegeven>
+    <dagtekening>
+      <plaats>Gegeven te ’s-Gravenhage</plaats>
+      <datum isodatum="">4 juni 1992 </datum>
+    </dagtekening>
+    <koning>Beatrix </koning>
+  </gegeven>
+  <ondertekening>
+    <functie>De Minister van Justitie, </functie>
+    <naam>
+      <achternaam>E. M. H. Hirsch Ballin </achternaam>
+    </naam>
+  </ondertekening>
+  <ondertekening>
+    <functie>De Minister van Binnenlandse Zaken, </functie>
+    <naam>
+      <achternaam>C. I. Dales </achternaam>
+    </naam>
+  </ondertekening>
+  <uitgifte>
+    <datum isodatum="">de dertigste juni 1992 </datum>
+    <ondertekening>
+      <functie>De Minister van Justitie, </functie>
+      <naam>
+        <achternaam>E. M. H. Hirsch Ballin </achternaam>
+      </naam>
+    </ondertekening>
+  </uitgifte>
+</wetsluiting>
+    <bijlage bwb-ng-variabel-deel="/Bijlage2" stam-id="12023653" versie-id="31719552" id="C45287871" label-id="11995284" inwerking="2026-08-15" label="Bijlage 2" bron="Stb.2026-188" effect="wijziging" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Bijlage</label>
+    <nr status="officieel">2</nr>
+    <titel status="officieel">Bevoegdheidsregeling bestuursrechtspraak (<intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.1&amp;afdeling=8.1.1&amp;artikel=8:5&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815614" verwijzing-id="2540817" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:5">artikelen 8:5</intref>, <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.1&amp;afdeling=8.1.1&amp;artikel=8:6&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815624" verwijzing-id="2540818" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:6">8:6</intref>, <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.1&amp;afdeling=8.1.1&amp;artikel=8:7&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815634" verwijzing-id="2540819" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:7">8:7</intref>, <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.5&amp;artikel=8:105&amp;z=2026-08-15&amp;g=2026-08-15" label-id="11994694" verwijzing-id="2540820" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.5/Artikel8:105">8:105</intref> en <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.5&amp;artikel=8:106&amp;z=2026-08-15&amp;g=2026-08-15" label-id="11994704" verwijzing-id="2540821" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.5/Artikel8:106">8:106</intref>) </titel>
+  </kop>
+  <divisie bwb-ng-variabel-deel="/Bijlage2/Divisie1" opmaak="default">
+    <kop>
+      <label>Hoofdstuk</label>
+      <nr status="officieel">1</nr>
+      <titel status="officieel">Van beroep uitgezonderde besluiten (<intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.1&amp;afdeling=8.1.1&amp;artikel=8:5&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815614" verwijzing-id="2550201" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:5">artikel 8:5</intref>) </titel>
+    </kop>
+    <artikel bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1">
+      <kop>
+        <label>Artikel</label>
+        <nr status="officieel">1</nr>
+        <titel status="officieel">Geen beroep</titel>
+      </kop>
+      <al>Tegen een besluit, genomen op grond van een in dit artikel genoemd voorschrift of anderszins in dit artikel omschreven, kan geen beroep worden ingesteld.</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0007376" label-id="1215304" verwijzing-id="2576169" bwb-id="BWBR0007376">Archiefwet 1995</extref>:</al>
+      <lijst bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_1" level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_1/Onderdeela">
+          <li.nr>a.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0007376&amp;artikel=38" label-id="1214754" verwijzing-id="2576170" bwb-id="BWBR0007376">artikel 38</extref>, indien overeenkomstige toepassing is gegeven aan <extref doc="jci1.3:c:BWBR0005416&amp;artikel=124" label-id="2894214" verwijzing-id="2576171" bwb-id="BWBR0005416">artikel 124 van de Gemeentewet</extref> voor zover het beroep niet wordt ingesteld door het dagelijks bestuur of het algemeen bestuur van een waterschap, en indien overeenkomstige toepassing is gegeven aan <extref doc="jci1.3:c:BWBR0005416&amp;artikel=124a" label-id="11719794" verwijzing-id="2576172" bwb-id="BWBR0005416">artikel 124a van de Gemeentewet</extref> voor zover het beroep niet wordt ingesteld door gedeputeerde staten</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_1/Onderdeelb">
+          <li.nr>b.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0007376&amp;artikel=38" label-id="1214754" verwijzing-id="2576173" bwb-id="BWBR0007376">artikel 38</extref>, indien overeenkomstige toepassing is gegeven aan <extref doc="jci1.3:c:BWBR0005416&amp;hoofdstuk=XVII" label-id="2896234" verwijzing-id="2576174" bwb-id="BWBR0005416">hoofdstuk XVII van de Gemeentewet</extref>, voor zover het betreft de weigering om een besluit tot vernietiging te nemen en het niet tijdig nemen van een besluit tot vernietiging en voor zover het betreft de weigering om een voordracht tot vernietiging te doen</al>
+        </li>
+      </lijst>
+      <al>
+        <extref doc="jci1.3:c:BWBR0004287" label-id="1218444" verwijzing-id="3071085" bwb-id="BWBR0004287">Bekendmakingswet</extref>: <extref doc="jci1.3:c:BWBR0004287&amp;artikel=21" label-id="15528094" verwijzing-id="3071086" bwb-id="BWBR0004287">artikel 21</extref>, indien overeenkomstige toepassing is gegeven <extref doc="jci1.3:c:BWBR0005645&amp;artikel=121" label-id="2943784" verwijzing-id="3071087" bwb-id="BWBR0005645">artikel 121 van de Provinciewet</extref>, voor zover het beroep niet wordt ingesteld door het dagelijks bestuur of het algemeen bestuur van een waterschap</al>
+      <al> Burgerlijk Wetboek:</al>
+      <lijst bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_2" level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_2/Onderdeela">
+          <li.nr>a.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0002656" label-id="2761264" verwijzing-id="2549968" bwb-id="BWBR0002656">Boek 1</extref>:</al>
+          <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+            <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_2/Onderdeela/Onderdeel1">
+              <li.nr>1.</li.nr>
+              <al>
+                <extref doc="jci1.3:c:BWBR0002656&amp;artikel=7" label-id="2750844" verwijzing-id="2575359" bwb-id="BWBR0002656">artikel 7, eerste en tweede lid</extref>
+              </al>
+            </li>
+            <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_2/Onderdeela/Onderdeel2">
+              <li.nr>2.</li.nr>
+              <al>
+                <extref doc="jci1.3:c:BWBR0002656&amp;afdeling=4" label-id="2757694" verwijzing-id="2575360" bwb-id="BWBR0002656">titel 14, afdeling 4</extref>
+              </al>
+            </li>
+          </lijst>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_2/Onderdeelb">
+          <li.nr>b.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0003045" label-id="2873674" verwijzing-id="2549969" bwb-id="BWBR0003045">Boek 2</extref>: de <extref doc="jci1.3:c:BWBR0003045&amp;artikel=63d" label-id="2868754" verwijzing-id="2575361" bwb-id="BWBR0003045">artikelen 63d, tweede lid</extref>, <extref doc="jci1.3:c:BWBR0003045&amp;artikel=156" label-id="2870064" verwijzing-id="2575362" bwb-id="BWBR0003045">156</extref> en <extref doc="jci1.3:c:BWBR0003045&amp;artikel=266" label-id="2871404" verwijzing-id="2575363" bwb-id="BWBR0003045">266</extref>, voor zover de aanvraag is toegewezen</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_2/Onderdeelc">
+          <li.nr>c.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0005290" label-id="2913524" verwijzing-id="2682870" bwb-id="BWBR0005290">Boek 7</extref>: <extref doc="jci1.3:c:BWBR0005290&amp;artikel=671a" label-id="12670184" verwijzing-id="2682875" bwb-id="BWBR0005290">artikel 671a</extref>.</al>
+        </li>
+      </lijst>
+      <al>
+        <extref doc="jci1.3:c:BWBR0050714" label-id="17256854" verwijzing-id="3362894" bwb-id="BWBR0050714">Energiewet</extref>: de <extref doc="jci1.3:c:BWBR0050714&amp;artikel=6.1" label-id="17256004" verwijzing-id="3362895" bwb-id="BWBR0050714">artikelen 6.1, derde lid</extref>, en <extref doc="jci1.3:c:BWBR0050714&amp;artikel=6.2" label-id="17256014" verwijzing-id="3362896" bwb-id="BWBR0050714">6.2, tweede lid</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0001860" label-id="2890854" verwijzing-id="2549971" bwb-id="BWBR0001860">Faillissementswet</extref>: <extref doc="jci1.3:c:BWBR0001860&amp;artikel=285" label-id="2891074" verwijzing-id="2575371" bwb-id="BWBR0001860">artikel 285</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0008290" label-id="186784" verwijzing-id="2550505" bwb-id="BWBR0008290">Financiële-verhoudingswet</extref>: <extref doc="jci1.3:c:BWBR0008290&amp;artikel=9" label-id="186494" verwijzing-id="2575372" bwb-id="BWBR0008290">artikel 9</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0005416" label-id="2896654" verwijzing-id="2549973" bwb-id="BWBR0005416">Gemeentewet</extref>: </al>
+      <lijst bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_3" level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_3/Onderdeela">
+          <li.nr>a.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0005416&amp;artikel=49" label-id="2893384" verwijzing-id="2583129" bwb-id="BWBR0005416">artikel 49</extref>
+          </al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_3/Onderdeelb">
+          <li.nr>b.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0005416&amp;artikel=85" label-id="2893764" verwijzing-id="2678113" bwb-id="BWBR0005416">artikel 85, tweede lid</extref>, voor zover het betreft de weigering om een besluit tot vernietiging te nemen en het niet tijdig nemen van een besluit tot vernietiging</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_3/Onderdeelc">
+          <li.nr>c.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0005416&amp;artikel=124" label-id="2894214" verwijzing-id="2583130" bwb-id="BWBR0005416">artikel 124</extref>, voor zover het beroep niet wordt ingesteld door de raad, het college van burgemeester en wethouders, onderscheidenlijk de burgemeester</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_3/Onderdeeld">
+          <li.nr>d.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0005416&amp;artikel=124a" label-id="11719794" verwijzing-id="2583131" bwb-id="BWBR0005416">artikel 124a</extref>, voor zover het beroep niet wordt ingesteld door gedeputeerde staten, onderscheidenlijk de commissaris van de Koning</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_3/Onderdeele">
+          <li.nr>e.</li.nr>
+          <al>de <extref doc="jci1.3:c:BWBR0005416&amp;artikel=169" label-id="2894734" verwijzing-id="2583132" bwb-id="BWBR0005416">artikelen 169, derde lid</extref>, <extref doc="jci1.3:c:BWBR0005416&amp;artikel=180" label-id="2894854" verwijzing-id="2583133" bwb-id="BWBR0005416">180, derde lid</extref>, en <extref doc="jci1.3:c:BWBR0005416&amp;artikel=234" label-id="2895644" verwijzing-id="2583134" bwb-id="BWBR0005416">234, tweede lid, onderdeel a</extref></al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_3/Onderdeelf">
+          <li.nr>f.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0005416&amp;artikel=268" label-id="2896084" verwijzing-id="2583135" bwb-id="BWBR0005416">artikel 268</extref>, voor zover het betreft de weigering om een besluit tot vernietiging te nemen en het niet tijdig nemen van een besluit tot vernietiging</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_3/Onderdeelg">
+          <li.nr>g.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0005416&amp;artikel=278" label-id="2896184" verwijzing-id="2583136" bwb-id="BWBR0005416">artikel 278</extref>, voor zover het betreft de weigering om een voordracht tot vernietiging te doen</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie1/Artikel1/Opsomming_3/Onderdeelh">
+          <li.nr>h.</li.nr>
+          <al>de <extref doc="jci1.3:c:BWBR0005416&amp;artikel=278a" label-id="11719894" verwijzing-id="2583137" bwb-id="BWBR0005416">artikelen 278a, vierde lid</extref>, en <extref doc="jci1.3:c:BWBR0005416&amp;artikel=281" label-id="2896214" verwijzing-id="2583138" bwb-id="BWBR0005416">281, tweede lid</extref>, indien overeenkomstige toepassing is gegeven aan <extref doc="jci1.3:c:BWBR0005416&amp;artikel=124" label-id="2894214" verwijzing-id="2583139" bwb-id="BWBR0005416">artikel 124 van de Gemeentewet</extref> voor zover het beroep niet wordt ingesteld door de raad, het college van burgemeester en wethouders, onderscheidenlijk de burgemeester, en indien overeenkomstige toepassing is gegeven aan <extref doc="jci1.3:c:BWBR0005416&amp;artikel=124a" label-id="11719794" verwijzing-id="2583140" bwb-id="BWBR0005416">artikel 124a van de Gemeentewet</extref> voor zover het beroep niet wordt ingesteld door gedeputeerde staten, onderscheidenlijk de commissaris van de Koning</al>
+        </li>
+      </lijst>
+      <al>
+        <extref doc="jci1.3:c:BWBR0021505" label-id="8976374" verwijzing-id="2549974" bwb-id="BWBR0021505">Geneesmiddelenwet</extref>: <extref doc="jci1.3:c:BWBR0021505&amp;artikel=17" label-id="8974914" verwijzing-id="2583141" bwb-id="BWBR0021505">artikel 17, onderdeel a</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0012197" label-id="2572194" verwijzing-id="2549975" bwb-id="BWBR0012197">Gerechtsdeurwaarderswet</extref>: <extref doc="jci1.3:c:BWBR0012197&amp;artikel=3a" label-id="2573214" verwijzing-id="2583142" bwb-id="BWBR0012197">artikel 3a, tweede lid</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0033043" label-id="12115944" verwijzing-id="2645978" bwb-id="BWBR0033043">Instellingswet Autoriteit Consument en Markt</extref>: <extref doc="jci1.3:c:BWBR0033043&amp;artikel=12h" label-id="12688604" verwijzing-id="2645979" bwb-id="BWBR0033043">artikel 12h, eerste lid</extref>, voor zover de aanvraag is afgewezen</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0043660" label-id="15438384" verwijzing-id="3231365" bwb-id="BWBR0043660">Invoeringswet Omgevingswet</extref>: <extref doc="jci1.3:c:BWBR0043660&amp;artikel=4.45" label-id="15437464" verwijzing-id="3231364" bwb-id="BWBR0043660">artikel 4.45</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0004770" label-id="2911504" verwijzing-id="2549977" bwb-id="BWBR0004770">Invorderingswet 1990</extref>, met uitzondering van de <extref doc="jci1.3:c:BWBR0004770&amp;artikel=30" label-id="2910924" verwijzing-id="2583149" bwb-id="BWBR0004770">artikelen 30</extref>, <extref doc="jci1.3:c:BWBR0004770&amp;artikel=49" label-id="2911174" verwijzing-id="2583150" bwb-id="BWBR0004770">49</extref> en <extref doc="jci1.3:c:BWBR0004770&amp;artikel=62a" label-id="11310904" verwijzing-id="2583151" bwb-id="BWBR0004770">62a</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0034925" label-id="12579084" verwijzing-id="2664792" bwb-id="BWBR0034925">Jeugdwet</extref>:</al>
+      </artikel>
+  </divisie>
+  <divisie bwb-ng-variabel-deel="/Bijlage2/Divisie2" opmaak="default">
+    <kop>
+      <label>Hoofdstuk</label>
+      <nr status="officieel">2</nr>
+      <titel status="officieel">Beroep in eerste aanleg bij een bijzondere bestuursrechter (<intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.1&amp;afdeling=8.1.1&amp;artikel=8:4&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815604" verwijzing-id="2576179" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:4">artikelen 8:4, tweede lid</intref>, en <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.1&amp;afdeling=8.1.1&amp;artikel=8:6&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815624" verwijzing-id="2550202" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:6">8:6</intref>)</titel>
+    </kop>
+    <artikel bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4">
+      <kop>
+        <label>Artikel</label>
+        <nr status="officieel">4</nr>
+        <titel status="officieel">Beroep bij het College van Beroep voor het bedrijfsleven</titel>
+      </kop>
+      <al>Tegen een besluit, genomen op grond van een in dit artikel genoemd voorschrift of anderszins in dit artikel omschreven, kan beroep worden ingesteld bij het College van Beroep voor het bedrijfsleven.</al>
+      <al>Een besluit van de Sociaal-Economische Raad of van de Kamer van Koophandel, genoemd in <extref doc="jci1.3:c:BWBR0034331&amp;artikel=2" label-id="12440234" verwijzing-id="2601500" bwb-id="BWBR0034331">artikel 2 van de Wet op de Kamer van Koophandel</extref>, met uitzondering van:</al>
+      <lijst bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_1" level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_1/Onderdeela">
+          <li.nr>a.</li.nr>
+          <al>een besluit op grond van de <extref doc="jci1.3:c:BWBR0045754" label-id="16045964" verwijzing-id="3152210" bwb-id="BWBR0045754">Wet open overheid</extref></al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_1/Onderdeelb">
+          <li.nr>b.</li.nr>
+          <al>een besluit ten aanzien van een persoon met betrekking tot diens in <extref doc="jci1.3:c:BWBR0001947&amp;artikel=3" label-id="1202734" verwijzing-id="2966771" bwb-id="BWBR0001947">artikel 3 van de Ambtenarenwet 2017</extref> bedoelde hoedanigheid</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_1/Onderdeelc">
+          <li.nr>c.</li.nr>
+          <al>een besluit op grond van de Algemene verordening gegevensbescherming</al>
+        </li>
+      </lijst>
+      <al>
+        <extref doc="jci1.3:c:BWBR0023746" label-id="9453784" verwijzing-id="2550208" bwb-id="BWBR0023746">Algemene douanewet</extref>: een beschikking ter zake van landbouwrestituties</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0009508" label-id="776664" verwijzing-id="2576201" bwb-id="BWBR0009508">Bankwet 1998</extref>: <extref doc="jci1.3:c:BWBR0009508&amp;artikel=12" label-id="776314" verwijzing-id="2583606" bwb-id="BWBR0009508">artikel 12, vierde lid</extref>, voor zover het een schorsing of ontheffing van een directeur betreft</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0003045" label-id="2873674" verwijzing-id="2550211" bwb-id="BWBR0003045"> Burgerlijk Wetboek, Boek 2</extref>, voor zover het besluit is bekendgemaakt voor 1 juli 2011:</al>
+      <lijst bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2" level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeela">
+          <li.nr>a.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0003045&amp;artikel=64" label-id="2868844" verwijzing-id="2583608" bwb-id="BWBR0003045">artikel 64, derde lid</extref>, tweede volzin, voor zover het betreft een weigering om de in de eerste volzin bedoelde termijn te verlengen</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeelb">
+          <li.nr>b.</li.nr>
+          <al>de <extref doc="jci1.3:c:BWBR0003045&amp;artikel=68" label-id="2868884" verwijzing-id="2583613" bwb-id="BWBR0003045">artikelen 68, tweede lid</extref>, en <extref doc="jci1.3:c:BWBR0003045&amp;artikel=125" label-id="2869734" verwijzing-id="2583614" bwb-id="BWBR0003045">125, tweede lid</extref>, voor zover het betreft een weigering van een verklaring</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeelc">
+          <li.nr>c.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0003045&amp;artikel=156" label-id="2870064" verwijzing-id="2583615" bwb-id="BWBR0003045">artikel 156</extref>, voor zover het betreft:</al>
+          <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+            <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeelc/Onderdeel1">
+              <li.nr>1.</li.nr>
+              <al>een weigering, wijziging of intrekking van een ontheffing</al>
+            </li>
+            <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeelc/Onderdeel2">
+              <li.nr>2.</li.nr>
+              <al>een besluit tot verlening van de ontheffing voor zover daaraan voorschriften zijn verbonden dan wel daarbij beperkingen zijn opgelegd</al>
+            </li>
+          </lijst>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeeld">
+          <li.nr>d.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0003045&amp;artikel=175" label-id="2870304" verwijzing-id="2583616" bwb-id="BWBR0003045">artikel 175, derde lid</extref>, tweede volzin, voor zover het betreft een afwijzing van een verzoek</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeele">
+          <li.nr>e.</li.nr>
+          <al>de <extref doc="jci1.3:c:BWBR0003045&amp;artikel=179" label-id="2870344" verwijzing-id="2583617" bwb-id="BWBR0003045">artikelen 179, tweede lid</extref>, en <extref doc="jci1.3:c:BWBR0003045&amp;artikel=235" label-id="2871074" verwijzing-id="2583618" bwb-id="BWBR0003045">235, tweede lid</extref>, voor zover het betreft een weigering van een verklaring</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeelf">
+          <li.nr>f.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0003045&amp;artikel=266" label-id="2871404" verwijzing-id="2583619" bwb-id="BWBR0003045">artikel 266</extref>, voor zover het betreft:</al>
+          <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+            <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeelf/Onderdeel1">
+              <li.nr>1.</li.nr>
+              <al>een besluit tot weigering, wijziging of intrekking van de ontheffing</al>
+            </li>
+            <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_2/Onderdeelf/Onderdeel2">
+              <li.nr>2.</li.nr>
+              <al>een besluit tot verlening van de ontheffing voor zover daaraan voorschriften zijn verbonden dan wel daarbij beperkingen zijn opgelegd</al>
+            </li>
+          </lijst>
+        </li>
+      </lijst>
+      <al>
+        <extref doc="jci1.3:c:BWBR0050714" label-id="17256854" verwijzing-id="3362897" bwb-id="BWBR0050714">Energiewet</extref>, met inbegrip van een besluit van de Autoriteit Consument en Markt genomen op grond van <extref doc="jci1.3:c:BWBR0050714&amp;artikel=3.37" label-id="17254184" verwijzing-id="3362898" bwb-id="BWBR0050714">artikel 3.37</extref>, <extref doc="jci1.3:c:BWBR0050714&amp;artikel=3.106" label-id="17255024" verwijzing-id="3362899" bwb-id="BWBR0050714">3.106, tweede lid</extref>, <extref doc="jci1.3:c:BWBR0050714&amp;artikel=3.108" label-id="17255054" verwijzing-id="3362900" bwb-id="BWBR0050714">3.108</extref>, <extref doc="jci1.3:c:BWBR0050714&amp;artikel=3.109" label-id="17255064" verwijzing-id="3362901" bwb-id="BWBR0050714">3.109</extref>, <extref doc="jci1.3:c:BWBR0050714&amp;artikel=3.110" label-id="17255074" verwijzing-id="3362902" bwb-id="BWBR0050714">3.110</extref>, <extref doc="jci1.3:c:BWBR0050714&amp;artikel=3.112" label-id="17255104" verwijzing-id="3362903" bwb-id="BWBR0050714">3.112</extref> en <extref doc="jci1.3:c:BWBR0050714&amp;artikel=3.121" label-id="17255214" verwijzing-id="3362904" bwb-id="BWBR0050714">3.121</extref>, voor zover het besluit kan worden aangemerkt als een algemeen verbindend voorschrift als bedoeld in <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.1&amp;afdeling=8.1.1&amp;artikel=8:3&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815594" verwijzing-id="3362905" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:3">artikel 8.3, eerste lid</intref>, van de Algemene wet bestuursrecht, en met uitzondering van een besluit op grond van de <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=3&amp;afdeling=3.5&amp;artikel=3:33&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2814604" verwijzing-id="3362906" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.5/Artikel3:33">artikelen 3.33, tweede lid, onderdeel e</intref>, <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=5&amp;titeldeel=5.2&amp;artikel=5:19&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2820064" verwijzing-id="3362908" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk5/Titeldeel5.2/Artikel5:19">5.19</intref>, <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=5&amp;titeldeel=5.3&amp;afdeling=5.3.1&amp;artikel=5:21&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2820094" verwijzing-id="3362909" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk5/Titeldeel5.3/Afdeling5.3.1/Artikel5:21">5.21</intref>, <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=6&amp;afdeling=6.2&amp;artikel=6:21&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815184" verwijzing-id="3362910" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk6/Afdeling6.2/Artikel6:21">6.1, derde lid</intref>, en <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=6&amp;afdeling=6.2&amp;artikel=6:21&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815184" verwijzing-id="3362911" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk6/Afdeling6.2/Artikel6:21">6.2, tweede lid</intref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0005416" label-id="2896654" verwijzing-id="2550213" bwb-id="BWBR0005416">Gemeentewet</extref>: <extref doc="jci1.3:c:BWBR0005416&amp;artikel=125" label-id="2894234" verwijzing-id="2583652" bwb-id="BWBR0005416">artikel 125</extref>, voor zover het betreft een besluit dat betrekking heeft op de handhaving van het bepaalde bij of krachtens de <extref doc="jci1.3:c:BWBR0007952" label-id="29084" verwijzing-id="2584365" bwb-id="BWBR0007952">Winkeltijdenwet</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0002389" label-id="1336034" verwijzing-id="2550215" bwb-id="BWBR0002389">Hamsterwet</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0046156" label-id="16148984" verwijzing-id="3187812" bwb-id="BWBR0046156">Implementatiewet registratie uiteindelijk belanghebbenden van trusts en soortgelijke juridische constructies</extref>, met uitzondering van de <extref doc="jci1.3:c:BWBR0046156&amp;artikel=22" label-id="16148814" verwijzing-id="3187813" bwb-id="BWBR0046156">artikelen 22</extref> en <extref doc="jci1.3:c:BWBR0046156&amp;artikel=23" label-id="16148824" verwijzing-id="3187814" bwb-id="BWBR0046156">23</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0033043" label-id="12115944" verwijzing-id="3390494" bwb-id="BWBR0033043">Instellingswet Autoriteit Consument en Markt</extref>, <extref doc="jci1.3:c:BWBR0033043&amp;artikel=12w" label-id="12688774" verwijzing-id="3390495" bwb-id="BWBR0033043">artikel 12w</extref>, voor zover het betreft de openbaarmaking van een besluit waartegen beroep kan worden ingesteld bij het College van Beroep voor het bedrijfsleven</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0007919" label-id="1511324" verwijzing-id="3146509" bwb-id="BWBR0007919">Kaderwet EZK- en LNV-subsidies</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0002755" label-id="1544644" verwijzing-id="2550218" bwb-id="BWBR0002755">Landbouwkwaliteitswet</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0002252" label-id="1546524" verwijzing-id="2550219" bwb-id="BWBR0002252">Landbouwwet</extref>: de <extref doc="jci1.3:c:BWBR0002252&amp;artikel=13" label-id="1545814" verwijzing-id="2583654" bwb-id="BWBR0002252">artikelen 13</extref>, <extref doc="jci1.3:c:BWBR0002252&amp;artikel=15" label-id="1545834" verwijzing-id="2583655" bwb-id="BWBR0002252">15</extref>, <extref doc="jci1.3:c:BWBR0002252&amp;artikel=17" label-id="1545854,1545864,1545874,1545884,1545894,1545904" verwijzing-id="2583609" bwb-id="BWBR0002252">17 tot en met 22</extref> en <extref doc="jci1.3:c:BWBR0002252&amp;artikel=26" label-id="1546034" verwijzing-id="2583656" bwb-id="BWBR0002252">26</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0004365" label-id="1564514" verwijzing-id="2550220" bwb-id="BWBR0004365">Loodsenwet</extref>: de <extref doc="jci1.3:c:BWBR0004365&amp;artikel=21" label-id="1563874" verwijzing-id="2645980" bwb-id="BWBR0004365">artikelen 21, derde lid</extref>, <extref doc="jci1.3:c:BWBR0004365&amp;artikel=27b" label-id="9323584" verwijzing-id="2645981" bwb-id="BWBR0004365">27b, vierde lid</extref>, <extref doc="jci1.3:c:BWBR0004365&amp;artikel=27d" label-id="9323624" verwijzing-id="2645982" bwb-id="BWBR0004365">27d</extref>, <extref doc="jci1.3:c:BWBR0004365&amp;artikel=27f" label-id="9323654" verwijzing-id="2583657" bwb-id="BWBR0004365">27f</extref>, <extref doc="jci1.3:c:BWBR0004365&amp;artikel=27h" label-id="9323674" verwijzing-id="2645984" bwb-id="BWBR0004365">27h</extref> en <extref doc="jci1.3:c:BWBR0004365&amp;artikel=27l" label-id="9323734" verwijzing-id="2645985" bwb-id="BWBR0004365">27l</extref></al>
+      <al> Marktverordening voor het wegvervoer </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0004054" label-id="2644764" verwijzing-id="2550221" bwb-id="BWBR0004054">Meststoffenwet</extref>, met uitzondering van <extref doc="jci1.3:c:BWBR0004054&amp;artikel=51" label-id="2649084" verwijzing-id="2583658" bwb-id="BWBR0004054">artikel 51</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0019517" label-id="8122064" verwijzing-id="2550222" bwb-id="BWBR0019517">Metrologiewet</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0002392" label-id="1639564" verwijzing-id="2550223" bwb-id="BWBR0002392">Noodwet voedselvoorziening</extref>: de <extref doc="jci1.3:c:BWBR0002392&amp;artikel=6" label-id="1639134,1639144,1639164,1639174,1639184" verwijzing-id="2583612" bwb-id="BWBR0002392">artikelen 6 tot en met 10</extref> en <extref doc="jci1.3:c:BWBR0002392&amp;artikel=29" label-id="1639454" verwijzing-id="2583659" bwb-id="BWBR0002392">29</extref>, behoudens in geval van toepassing van <extref doc="jci1.3:c:BWBR0002392&amp;artikel=18" label-id="1639304" verwijzing-id="2583660" bwb-id="BWBR0002392">artikel 18</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0043194" label-id="15291914" verwijzing-id="3057024" bwb-id="BWBR0043194"> Plantgezondheidswet</extref>, met uitzondering van <extref doc="jci1.3:c:BWBR0043194&amp;artikel=26" label-id="15291654" verwijzing-id="3057025" bwb-id="BWBR0043194">artikel 26</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0025572" label-id="9934584" verwijzing-id="2597241" bwb-id="BWBR0025572">Postwet 2009</extref>: <extref doc="jci1.3:c:BWBR0025572&amp;hoofdstuk=3a" label-id="12413244" verwijzing-id="2597242" bwb-id="BWBR0025572">hoofdstuk 3A</extref> en <extref doc="jci1.3:c:BWBR0025572&amp;artikel=58" label-id="9934124" verwijzing-id="2645986" bwb-id="BWBR0025572">artikel 58</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0003734" label-id="1692524" verwijzing-id="2550225" bwb-id="BWBR0003734">Prijzennoodwet</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0002353" label-id="2099754" verwijzing-id="2550226" bwb-id="BWBR0002353">Prijzenwet </extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0048148" label-id="16660174" verwijzing-id="3373468" bwb-id="BWBR0048148">Rijkswet nationaliteit zeeschepen</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0004364" label-id="1706574" verwijzing-id="2645987" bwb-id="BWBR0004364">Scheepvaartverkeerswet</extref>: de <extref doc="jci1.3:c:BWBR0004364&amp;artikel=14a" label-id="1705984" verwijzing-id="2645988" bwb-id="BWBR0004364">artikelen 14a, tweede lid, eerste volzin</extref>, en <extref doc="jci1.3:c:BWBR0004364&amp;artikel=15ba" label-id="9325084" verwijzing-id="2645989" bwb-id="BWBR0004364">15ba, eerste lid</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0015007" label-id="4859094" verwijzing-id="2645990" bwb-id="BWBR0015007">Spoorwegwet</extref>: <extref doc="jci1.3:c:BWBR0015007&amp;artikel=63" label-id="4858194" verwijzing-id="3231469" bwb-id="BWBR0015007">artikel 63, tweede lid</extref>, <extref doc="jci1.3:c:BWBR0015007&amp;hoofdstuk=5" label-id="4858294" verwijzing-id="2732551" bwb-id="BWBR0015007">hoofdstuk 5</extref>, <extref doc="jci1.3:c:BWBR0015007&amp;paragraaf=2" label-id="4858374" verwijzing-id="2732552" bwb-id="BWBR0015007">paragraaf 2</extref>, en <extref doc="jci1.3:c:BWBR0015007&amp;artikel=71" label-id="4858334" verwijzing-id="2732550" bwb-id="BWBR0015007">artikel 71, tweede lid</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0009950" label-id="2781714" verwijzing-id="2550228" bwb-id="BWBR0009950">Telecommunicatiewet</extref>, voor zover het betreft een besluit van de Autoriteit Consument en Markt, genomen op grond van:</al>
+      <lijst bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_3" level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_3/Onderdeela">
+          <li.nr>a.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0009950&amp;hoofdstuk=6" label-id="2779804" verwijzing-id="2583661" bwb-id="BWBR0009950">hoofdstuk 6</extref>, tenzij beroep kon worden ingesteld voor de inwerkingtreding van de <extref doc="jci1.3:c:BWBR0016635" label-id="5842644" verwijzing-id="2583662" bwb-id="BWBR0016635">Wet implementatie Europees regelgevingskader voor de elektronische communicatiesector 2002</extref></al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_3/Onderdeelb">
+          <li.nr>b.</li.nr>
+          <al>de <extref doc="jci1.3:c:BWBR0009950&amp;hoofdstuk=5a" label-id="14520974" verwijzing-id="3144800" bwb-id="BWBR0009950">hoofdstukken 5a</extref>, <extref doc="jci1.3:c:BWBR0009950&amp;hoofdstuk=5c" label-id="16198164" verwijzing-id="3144839" bwb-id="BWBR0009950">5c</extref>, <extref doc="jci1.3:c:BWBR0009950&amp;hoofdstuk=6a" label-id="5844144" verwijzing-id="3144801" bwb-id="BWBR0009950">6a</extref>, <extref doc="jci1.3:c:BWBR0009950&amp;hoofdstuk=6b" label-id="5844214" verwijzing-id="3144802" bwb-id="BWBR0009950">6b</extref> en <extref doc="jci1.3:c:BWBR0009950&amp;hoofdstuk=12" label-id="2780744" verwijzing-id="3144803" bwb-id="BWBR0009950">12</extref></al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_3/Onderdeelc">
+          <li.nr>c.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0009950&amp;hoofdstuk=15" label-id="2781094" verwijzing-id="2583666" bwb-id="BWBR0009950">hoofdstuk 15</extref>, met uitzondering van de <extref doc="jci1.3:c:BWBR0009950&amp;artikel=15.2" label-id="2780924" verwijzing-id="2645992" bwb-id="BWBR0009950">artikelen 15.2</extref>, <extref doc="jci1.3:c:BWBR0009950&amp;artikel=15.2a" label-id="5844784" verwijzing-id="2583667" bwb-id="BWBR0009950">15.2a</extref> en <extref doc="jci1.3:c:BWBR0009950&amp;artikel=15.4" label-id="2780954" verwijzing-id="2583668" bwb-id="BWBR0009950">15.4</extref></al>
+        </li>
+      </lijst>
+      <al>
+        <extref doc="jci1.3:c:BWBR0046840" label-id="16328304" verwijzing-id="3168020" bwb-id="BWBR0046840">Tijdelijke wet Nationaal Groeifonds</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0044856" label-id="15793934" verwijzing-id="3056575" bwb-id="BWBR0044856">Uitvoeringswet EU-zeehavenverordening</extref>: <extref doc="jci1.3:c:BWBR0044856&amp;artikel=7" label-id="15793844" verwijzing-id="3056576" bwb-id="BWBR0044856">artikel 7</extref>, voor zover het betreft een besluit van de Autoriteit Consument en Markt</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0020302" label-id="8579334" verwijzing-id="2550229" bwb-id="BWBR0020302">Uitvoeringswet verordening Europese coöperatieve vennootschap</extref>: het verzet, bedoeld in de <extref doc="jci1.3:c:BWBR0020302&amp;artikel=6" label-id="8579084" verwijzing-id="2583669" bwb-id="BWBR0020302">artikelen 6, eerste lid</extref>, en <extref doc="jci1.3:c:BWBR0020302&amp;artikel=9" label-id="8579114" verwijzing-id="2583689" bwb-id="BWBR0020302">9</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0018114" label-id="6878544" verwijzing-id="2550230" bwb-id="BWBR0018114">Uitvoeringswet verordening Europese vennootschap</extref>: het verzet, bedoeld in de <extref doc="jci1.3:c:BWBR0018114&amp;artikel=5" label-id="6878274" verwijzing-id="2583670" bwb-id="BWBR0018114">artikelen 5, eerste lid</extref>, en <extref doc="jci1.3:c:BWBR0018114&amp;artikel=7" label-id="6878294" verwijzing-id="2583671" bwb-id="BWBR0018114">7</extref></al>
+      <al> Verordening (EG) nr. 1435/2003 van de Raad van 22 juli 2003 betreffende het statuut voor een Europese Coöperatieve Vennootschap (SCE) (PbEU 2003, L 207): artikel 7, veertiende lid, tweede alinea</al>
+      <al> Verordening (EG) nr. 2157/2001 van de Raad van 8 oktober 2001 betreffende het statuut van de Europese vennootschap (SE) (PbEG 2001, L 294): artikel 8, veertiende lid, tweede alinea</al>
+      <al>Verordening (EU) nr. 806/2014 van het Europees parlement en de Raad van 15 juli 2014 tot vaststelling van eenvormige regels en een eenvormige procedure voor de afwikkeling van kredietinstellingen en bepaalde beleggingsondernemingen in het kader van een gemeenschappelijk afwikkelingsmechanisme en een gemeenschappelijk bankenafwikkelingsfonds en tot wijziging van Verordening (EU) nr. 1093/2010 van het Europees parlement en de Raad (PbEU 2014, L 225): de artikelen 16, 18 en 21</al>
+      <al>Verordening (EU) nr. 2017/1129 van het Europees Parlement en de Raad van 14 juni 2017 betreffende het prospectus dat moet worden gepubliceerd wanneer effecten aan het publiek worden aangeboden of tot de handel op een gereglementeerde markt worden toegelaten en tot intrekking van <extref doc="32003L0071" label="richtlijn" reeks="Celex">Richtlijn 2003/71/EG</extref> (PbEU 2017, L 168): de artikelen 20, eerste en vijfde lid, en 23, eerste lid</al>
+      <al>
+        <extref doc="31923R2021" label="verordening" reeks="Celex">Verordening (EU) 2021/23</extref> van het Europees Parlement en de Raad van 16 december 2020 betreffende een kader voor het herstel en de afwikkeling van centrale tegenpartijen en tot wijziging van de <extref doc="32010R1095" label="verordening" reeks="Celex">Verordeningen (EU) nr. 1095/2010</extref>, <extref doc="32012R0648" label="verordening" reeks="Celex">(EU) nr. 648/2012</extref>, <extref doc="32014R0600" label="verordening" reeks="Celex">(EU) nr. 600/2014</extref>, <extref doc="32014R0806" label="verordening" reeks="Celex">(EU) nr. 806/2014</extref> en <extref doc="32365R2015" label="verordening" reeks="Celex">(EU) 2015/2365</extref>, en de <extref doc="32002L0047" label="richtlijn" reeks="Celex">Richtlijnen 2002/47/EG</extref>, <extref doc="32004L0025" label="richtlijn" reeks="Celex">2004/25/EG</extref>, <extref doc="32007L0036" label="richtlijn" reeks="Celex">2007/36/EG</extref>, <extref doc="32014L0059" label="richtlijn" reeks="Celex">2014/59</extref>/EU en (EU) <extref doc="32017L1132" label="richtlijn" reeks="Celex">2017/1132</extref> (PbEU 2021, L 22): de artikelen 21 tot en met 58</al>
+      <al>
+        <extref doc="32022R2065" label="verordening" reeks="Celex">Verordening (EU) 2022/2065</extref> van het Europees Parlement en de Raad van 19 oktober 2022 betreffende een eengemaakte markt voor digitale diensten en tot wijziging van <extref doc="32000L0031" label="richtlijn" reeks="Celex">Richtlijn 2000/31/EG</extref> (digitaledienstenverordening) (PbEU 2022, L 277): de artikelen 21, derde en zevende lid, 22, tweede, zesde en zevende lid, 40, achtste en tiende lid</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0042284" label-id="15040504" verwijzing-id="3007313" bwb-id="BWBR0042284">Waarborgwet 2019</extref>, met uitzondering van <extref doc="jci1.3:c:BWBR0042284&amp;artikel=38" label-id="15040324" verwijzing-id="3007314" bwb-id="BWBR0042284">artikel 38</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0033729" label-id="12300484" verwijzing-id="2587265" bwb-id="BWBR0033729">Warmtewet</extref>, met inbegrip van een op grond van <extref doc="jci1.3:c:BWBR0033729&amp;artikel=5" label-id="12299934" verwijzing-id="2587266" bwb-id="BWBR0033729">artikel 5, eerste lid</extref>, genomen besluit tot vaststelling van een maximumprijs, en met uitzondering van <extref doc="jci1.3:c:BWBR0033729&amp;artikel=18" label-id="12300084" verwijzing-id="2587267" bwb-id="BWBR0033729">artikel 18</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0003104" label-id="1756154" verwijzing-id="2550232" bwb-id="BWBR0003104">Wedervergeldingswet zeescheepvaart</extref>: </al>
+      <lijst bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_4" level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_4/Onderdeela">
+          <li.nr>a.</li.nr>
+          <al>een verlening of weigering van een vergunning of een ontheffing</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_4/Onderdeelb">
+          <li.nr>b.</li.nr>
+          <al>een intrekking van een vergunning of een ontheffing krachtens <extref doc="jci1.3:c:BWBR0003104&amp;artikel=7" label-id="1755974" verwijzing-id="2584366" bwb-id="BWBR0003104">artikel 7</extref></al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_4/Onderdeelc">
+          <li.nr>c.</li.nr>
+          <al>een oplegging van een heffing</al>
+        </li>
+      </lijst>
+      <al>
+        <extref doc="jci1.3:c:BWBR0012950" label-id="1587294" verwijzing-id="2550233" bwb-id="BWBR0012950">Wet capaciteitsbeheersing binnenvaartvloot</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0030250" label-id="11366934" verwijzing-id="2550234" bwb-id="BWBR0030250">Wet dieren</extref>, met uitzondering van een besluit op grond van <extref doc="jci1.3:c:BWBR0030250&amp;artikel=8.7" label-id="11365984" verwijzing-id="2583672" bwb-id="BWBR0030250">artikel 8.7</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0007867" label-id="345324" verwijzing-id="2550235" bwb-id="BWBR0007867">Wet geneesmiddelenprijzen</extref>, met uitzondering van <extref doc="jci1.3:c:BWBR0007867&amp;artikel=11" label-id="345214" verwijzing-id="2583673" bwb-id="BWBR0007867">artikel 11</extref> en met inbegrip van een besluit tot vaststelling van een maximumprijs</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0021670" label-id="9017124" verwijzing-id="2550236" bwb-id="BWBR0021670">Wet gewasbeschermingsmiddelen en biociden</extref>, met uitzondering van de <extref doc="jci1.3:c:BWBR0021670&amp;artikel=90" label-id="9016394" verwijzing-id="2583674" bwb-id="BWBR0021670">artikelen 90</extref> en <extref doc="jci1.3:c:BWBR0021670&amp;artikel=108" label-id="9016604" verwijzing-id="2583675" bwb-id="BWBR0021670">108</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0029672" label-id="11233984" verwijzing-id="2550237" bwb-id="BWBR0029672">Wet uitvoering EU-handelingen energie-efficiëntie</extref>, met uitzondering van de <extref doc="jci1.3:c:BWBR0029672&amp;artikel=21" label-id="11233674" verwijzing-id="2583676" bwb-id="BWBR0029672">artikelen 21</extref> en <extref doc="jci1.3:c:BWBR0029672&amp;artikel=22" label-id="11233684" verwijzing-id="2583677" bwb-id="BWBR0029672">22</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0011353" label-id="2787014" verwijzing-id="2550238" bwb-id="BWBR0011353">Wet inkomstenbelasting 2001</extref>:</al>
+      <lijst bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_5" level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_5/Onderdeela">
+          <li.nr>a.</li.nr>
+          <al>de <extref doc="jci1.3:c:BWBR0011353&amp;artikel=3.31" label-id="2782424" verwijzing-id="3348914" bwb-id="BWBR0011353">artikelen 3.31, eerste lid</extref>, en <extref doc="jci1.3:c:BWBR0011353&amp;artikel=3.42a" label-id="2793134" verwijzing-id="3348915" bwb-id="BWBR0011353">3.42a, eerste lid</extref>, voor zover het betreft een besluit van Onze Minister van Infrastructuur en Waterstaat</al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_5/Onderdeelb">
+          <li.nr>b.</li.nr>
+          <al>de <extref doc="jci1.3:c:BWBR0011353&amp;artikel=3.37" label-id="2782484" verwijzing-id="2618530" bwb-id="BWBR0011353">artikelen 3.37, eerste lid</extref>, en <extref doc="jci1.3:c:BWBR0011353&amp;artikel=3.42" label-id="2782534" verwijzing-id="2618531" bwb-id="BWBR0011353">3.42, eerste lid</extref>, voor zover het betreft een besluit van Onze Minister van Economische Zaken en Klimaat</al>
+        </li>
+      </lijst>
+      <al>
+        <extref doc="jci1.3:c:BWBR0035917" label-id="12850634" verwijzing-id="2792728" bwb-id="BWBR0035917"> Wet langdurige zorg</extref>: <extref doc="jci1.3:c:BWBR0035917&amp;artikel=11.4.1" label-id="12849914" verwijzing-id="2792729" bwb-id="BWBR0035917">artikel 11.4.1</extref> en <extref doc="jci1.3:c:BWBR0035917&amp;artikel=11.4.2" label-id="12849924" verwijzing-id="2792730" bwb-id="BWBR0035917">artikel 11.4.2</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0005555" label-id="532704" verwijzing-id="3041783" bwb-id="BWBR0005555">Wet luchtvaart</extref>: de <extref doc="jci1.3:c:BWBR0005555&amp;artikel=8.25ea" label-id="11223064" verwijzing-id="3041784" bwb-id="BWBR0005555">artikelen 8.25ea, vierde lid</extref>, <extref doc="jci1.3:c:BWBR0005555&amp;artikel=8.25f" label-id="8491514" verwijzing-id="3041785" bwb-id="BWBR0005555">8.25f, tweede, vierde en vijfde lid</extref>, <extref doc="jci1.3:c:BWBR0005555&amp;artikel=8.25g" label-id="8491524" verwijzing-id="3041786" bwb-id="BWBR0005555">8.25g, eerste lid</extref>, <extref doc="jci1.3:c:BWBR0005555&amp;artikel=8.40f" label-id="14529464" verwijzing-id="3041787" bwb-id="BWBR0005555">8.40f, vierde lid</extref>, en <extref doc="jci1.3:c:BWBR0005555&amp;artikel=8.40g" label-id="14529474" verwijzing-id="3041788" bwb-id="BWBR0005555">8.40g, tweede, vierde en vijfde lid</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0020078" label-id="8576874" verwijzing-id="2550239" bwb-id="BWBR0020078">Wet marktordening gezondheidszorg</extref>, met uitzondering van beschikkingen van de Nederlandse Zorgautoriteit als bedoeld in <extref doc="jci1.3:c:BWBR0020078&amp;paragraaf=6.4" label-id="8576544" verwijzing-id="2583690" bwb-id="BWBR0020078">paragraaf 4 van hoofdstuk 6</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0001995" label-id="558204" verwijzing-id="2550240" bwb-id="BWBR0001995">Wet medewerking verdedigingsvoorbereiding</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0004189" label-id="1055304" verwijzing-id="2550242" bwb-id="BWBR0004189">Wet op de architectentitel</extref>, met inbegrip van een besluit inzake een aanwijzing als bedoeld in de <extref doc="jci1.3:c:BWBR0004189&amp;artikel=9" label-id="1054904" verwijzing-id="2583691" bwb-id="BWBR0004189">artikelen 9, eerste lid, onderdeel j</extref>, <extref doc="jci1.3:c:BWBR0004189&amp;artikel=10" label-id="1054914" verwijzing-id="2583692" bwb-id="BWBR0004189">10, eerste lid, onderdeel f</extref>, <extref doc="jci1.3:c:BWBR0004189&amp;artikel=11" label-id="1054924" verwijzing-id="2583693" bwb-id="BWBR0004189">11, eerste lid, onderdeel f</extref>, en <extref doc="jci1.3:c:BWBR0004189&amp;artikel=12" label-id="1054934" verwijzing-id="2583694" bwb-id="BWBR0004189">12, eerste lid, onderdeel f</extref>, dat kan worden aangemerkt als algemeen verbindend voorschrift als bedoeld in <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.1&amp;afdeling=8.1.1&amp;artikel=8:3&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815594" verwijzing-id="2583695" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:3">artikel 8:3, eerste lid</intref>, van de Algemene wet bestuursrecht, tenzij het betreft een besluit als bedoeld in <intref doc="jci1.3:c:BWBR0005537&amp;hoofdstuk=8&amp;titeldeel=8.1&amp;afdeling=8.1.1&amp;artikel=8:4&amp;z=2026-08-15&amp;g=2026-08-15" label-id="2815604" verwijzing-id="2583696" bwb-id="BWBR0005537" bwb-ng-variabel-deel="/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.1/Artikel8:4">artikel 8:4, derde lid, onderdeel b</intref>, van de Algemene wet bestuursrecht</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0032573" label-id="11960764" verwijzing-id="2550243" bwb-id="BWBR0032573">Wet op het accountantsberoep</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0020368" label-id="8664264" verwijzing-id="2550244" bwb-id="BWBR0020368">Wet op het financieel toezicht</extref>: </al>
+      <lijst bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_6" level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_6/Onderdeela">
+          <li.nr>a.</li.nr>
+          <al>
+            <extref doc="jci1.3:c:BWBR0020368&amp;artikel=1:26" label-id="8654764" verwijzing-id="2583697" bwb-id="BWBR0020368">artikel 1:26, eerste en tweede lid</extref>, de <extref doc="jci1.3:c:BWBR0020368&amp;afdeling=3a.1.3" label-id="14867124" verwijzing-id="3264160" bwb-id="BWBR0020368">afdelingen 3A.1.3</extref>, <extref doc="jci1.3:c:BWBR0020368&amp;afdeling=3a.1.4" label-id="14867134" verwijzing-id="3264162" bwb-id="BWBR0020368">3A.1.4</extref>, <extref doc="jci1.3:c:BWBR0020368&amp;afdeling=3a.1.5" label-id="14867224" verwijzing-id="3264163" bwb-id="BWBR0020368">3A.1.5</extref>, <extref doc="jci1.3:c:BWBR0020368&amp;afdeling=3a.2.3" label-id="14867434" verwijzing-id="3264164" bwb-id="BWBR0020368">3A.2.3</extref> en <extref doc="jci1.3:c:BWBR0020368&amp;afdeling=3a.2.4" label-id="14867954" verwijzing-id="3264165" bwb-id="BWBR0020368">3A.2.4</extref> en de <extref doc="jci1.3:c:BWBR0020368&amp;artikel=5:77" label-id="9093114" verwijzing-id="2583699" bwb-id="BWBR0020368">artikelen 5:77, eerste lid</extref>, en <extref doc="jci1.3:c:BWBR0020368&amp;artikel=5:81" label-id="9093184" verwijzing-id="2583700" bwb-id="BWBR0020368">5:81, derde lid</extref></al>
+        </li>
+        <li bwb-ng-variabel-deel="/Bijlage2/Divisie2/Artikel4/Opsomming_6/Onderdeelb">
+          <li.nr>b.</li.nr>
+          <al>een besluit ter zake van het ingevolge <extref doc="jci1.3:c:BWBR0020368&amp;artikel=5:76" label-id="9093104" verwijzing-id="2583701" bwb-id="BWBR0020368">artikel 5:76, tweede lid</extref>, of <extref doc="jci1.3:c:BWBR0020368&amp;artikel=5:80b" label-id="9093174" verwijzing-id="2583702" bwb-id="BWBR0020368">5:80b, vijfde lid</extref>, bepaalde, met uitzondering van een besluit tot het opleggen van een bestuurlijke boete als bedoeld in <extref doc="jci1.3:c:BWBR0020368&amp;artikel=1:80" label-id="8655454" verwijzing-id="2583703" bwb-id="BWBR0020368">artikel 1:80</extref></al>
+        </li>
+      </lijst>
+      <al>
+        <extref doc="jci1.3:c:BWBR0011470" label-id="2849424" verwijzing-id="2550245" bwb-id="BWBR0011470">Wet personenvervoer 2000</extref>, met uitzondering van de <extref doc="jci1.3:c:BWBR0011470&amp;artikel=56" label-id="2848354" verwijzing-id="2583704" bwb-id="BWBR0011470">artikelen 56, eerste lid</extref>, <extref doc="jci1.3:c:BWBR0011470&amp;artikel=59" label-id="2848384" verwijzing-id="2583705" bwb-id="BWBR0011470">59, eerste lid</extref>, <extref doc="jci1.3:c:BWBR0011470&amp;artikel=94" label-id="2848834" verwijzing-id="2583706" bwb-id="BWBR0011470">94, eerste lid</extref>, en <extref doc="jci1.3:c:BWBR0011470&amp;artikel=96" label-id="2848854" verwijzing-id="2583707" bwb-id="BWBR0011470">96, eerste lid</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0040718" label-id="14521354" verwijzing-id="2886754" bwb-id="BWBR0040718">Wet terugvordering staatssteun</extref>: <extref doc="jci1.3:c:BWBR0040718&amp;artikel=3" label-id="14521194" verwijzing-id="2877841" bwb-id="BWBR0040718">artikel 3</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0003235" label-id="353474" verwijzing-id="2550247" bwb-id="BWBR0003235">Wet uitvoering Internationaal Energieprogramma</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0032739" label-id="12011884" verwijzing-id="2550590" bwb-id="BWBR0032739">Wet verbod pelsdierhouderij</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0007746" label-id="364814" verwijzing-id="2550249" bwb-id="BWBR0007746">Wet vermindering afdracht loonbelasting en premie voor de volksverzekeringen</extref>: een besluit genomen door een van de in <extref doc="jci1.3:c:BWBR0007746&amp;artikel=30" label-id="364484" verwijzing-id="2583709" bwb-id="BWBR0007746">artikel 30, eerste lid</extref>, genoemde bestuursorganen, tenzij toepassing of mede toepassing is gegeven aan <extref doc="jci1.3:c:BWBR0007746&amp;artikel=26" label-id="364424" verwijzing-id="2583710" bwb-id="BWBR0007746">artikel 26</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0003528" label-id="422804" verwijzing-id="2550250" bwb-id="BWBR0003528">Wet vervoer over zee</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0032775" label-id="12033734" verwijzing-id="2558081" bwb-id="BWBR0032775">Wet voorraadvorming aardolieproducten 2012</extref>, met uitzondering van <extref doc="jci1.3:c:BWBR0032775&amp;artikel=26" label-id="12033554" verwijzing-id="2583711" bwb-id="BWBR0032775">artikel 26</extref> en met inbegrip van een besluit van Onze Minister van Economische Zaken en Klimaat dat is genomen op grond van een bilateraal akkoord en betrekking heeft op het niet in Nederland aanhouden van een wettelijke voorraad</al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0024800" label-id="9763954" verwijzing-id="2550252" bwb-id="BWBR0024800">Wet wegvervoer goederen</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0036752" label-id="13159254" verwijzing-id="2710028" bwb-id="BWBR0036752">Wet windenergie op zee</extref>: <extref doc="jci1.3:c:BWBR0036752&amp;artikel=15" label-id="13158954" verwijzing-id="2710029" bwb-id="BWBR0036752">artikelen 15, vierde lid</extref>, <extref doc="jci1.3:c:BWBR0036752&amp;artikel=16" label-id="13158964" verwijzing-id="2710030" bwb-id="BWBR0036752">16</extref>, <extref doc="jci1.3:c:BWBR0036752&amp;artikel=17" label-id="13158974" verwijzing-id="2710031" bwb-id="BWBR0036752">17</extref>, <extref doc="jci1.3:c:BWBR0036752&amp;artikel=21" label-id="13159024" verwijzing-id="2710032" bwb-id="BWBR0036752">21, tweede lid</extref>, en <extref doc="jci1.3:c:BWBR0036752&amp;artikel=25" label-id="13159074" verwijzing-id="2710033" bwb-id="BWBR0036752">25</extref></al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0007952" label-id="29084" verwijzing-id="2550254" bwb-id="BWBR0007952">Winkeltijdenwet</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0018040" label-id="6898504" verwijzing-id="2550255" bwb-id="BWBR0018040">Zaaizaad- en plantgoedwet 2005</extref>
+      </al>
+      <al>
+        <extref doc="jci1.3:c:BWBR0018450" label-id="7147974" verwijzing-id="2550256" bwb-id="BWBR0018450">Zorgverzekeringswet</extref>: <extref doc="jci1.3:c:BWBR0018450&amp;artikel=122a" label-id="9769204" verwijzing-id="2583713" bwb-id="BWBR0018450">artikel 122a</extref></al>
+    </artikel>
+    </divisie>
+  </bijlage>
+    </wet-besluit>
+<meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2012-682"><publicatiejaar>2012</publicatiejaar><publicatienr>682</publicatienr><uitgiftedatum isodatum="2012-12-27">27-12-2012</uitgiftedatum><ondertekeningsdatum isodatum="2012-12-20">20-12-2012</ondertekeningsdatum><dossierref dossier="32450">32450</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2012-684"><publicatiejaar>2012</publicatiejaar><publicatienr>684</publicatienr><uitgiftedatum isodatum="2012-12-27">27-12-2012</uitgiftedatum><ondertekeningsdatum isodatum="2012-12-20">20-12-2012</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2013-01-01">01-01-2013</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Deel C, artikel I, van Stb. 2012/682 bevat overgangsrecht m.b.t. deze wijziging.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0005537&amp;g=2026-08-15" onderdeel="wetgeving" korte-verwijzing="1.0:c:BWBR0005537" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0005537&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="wetgeving" korte-verwijzing="jci1.3:c:BWBR0005537" /></jcis></meta-data></wetgeving></toestand>

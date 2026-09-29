@@ -88,6 +88,16 @@ def article_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any
     return store.query(_VERSIONS_AQL, {"ids": bwb_ids})
 
 
+def article_version_starts(store: Store, keys: list[str]) -> dict[str, str]:
+    """``valid_from`` of the article versions of *keys* that exist, by key."""
+    aql = f"""
+    FOR v IN {COLLECTION_ARTICLE_VERSIONS}
+        FILTER v._key IN @keys AND v.props.valid_from != null
+        RETURN [v._key, v.props.valid_from]
+    """
+    return dict(store.query(aql, {"keys": keys}))
+
+
 def toestand_starts(store: Store, bwb_ids: list[str]) -> dict[str, list[str]]:
     """The start dates of the toestanden of each of *bwb_ids*, oldest first."""
     aql = f"""

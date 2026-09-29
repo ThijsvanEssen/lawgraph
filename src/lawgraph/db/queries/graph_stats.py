@@ -45,9 +45,11 @@ FOR inst IN {COLLECTION_INSTRUMENTS}
         (inst.props.celex != null ? 'eu' :
          (inst.props.bwb_id != null ? 'nl' : null))
     )
+    // its articles only: its annexes are PART_OF it too
     LET article_count = LENGTH(
         FOR e IN {COLLECTION_EDGES}
             FILTER e._to == inst._id AND e.relation == @part_of
+            FILTER STARTS_WITH(e._from, '{COLLECTION_ARTICLES}/')
             RETURN 1
     )
     LET kind = inst.props.kind != null ? LOWER(inst.props.kind) : null

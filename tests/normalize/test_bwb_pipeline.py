@@ -10,6 +10,7 @@ from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
+from tests.conftest import remove_edges_from
 from tests.normalize.test_bwb import GRONDWET, XML, _older, _record, _Store
 
 
@@ -47,10 +48,12 @@ class _GraphStore(_Store):
             ]
         if "IS_ARRAY(i.props.dossier_numbers)" in aql:
             return [
-                {"key": k, "dossiers": d["props"]["dossier_numbers"]}
+                {"key": k, "dossiers": d["props"].get("dossier_numbers") or []}
                 for k, d in self.nodes.get("instruments", {}).items()
-                if d["props"].get("dossier_numbers")
+                if d["props"].get("bwb_id")
             ]
+        if "REMOVE e IN edges" in aql:
+            return remove_edges_from(self.edges, bind)
         return super().query(aql, bind_vars, **kw)
 
 
@@ -104,10 +107,14 @@ def test_publication_instruments_carry_their_metadata_and_dossiers() -> None:
         f"instruments/{publication_key('stb-2018-493')}",
         f"dossiers/{make_node_key('34716')}",
     ) in legislated
+    # the revision of 2022 is legislated in 35786, not the Grondwet (of 1840) itself
     assert (
-        f"instruments/{make_node_key(GRONDWET)}",
+        f"instruments/{publication_key('stb-2022-332')}",
         f"dossiers/{make_node_key('35786')}",
     ) in legislated
+    assert not any(
+        src == f"instruments/{make_node_key(GRONDWET)}" for src, _ in legislated
+    )
 
 
 def test_every_amendment_targets_an_existing_article() -> None:

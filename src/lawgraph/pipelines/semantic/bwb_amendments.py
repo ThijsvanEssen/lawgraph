@@ -45,7 +45,7 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, NodeWriter, edge_key
 from lawgraph.db.queries import semantic as semantic_queries
 
 from .base import SemanticPipelineBase
@@ -273,36 +273,54 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
             )
 
     def _link_regulation_dossiers(self, edges: EdgeWriter) -> None:
-        """Regulation → dossier from ``props.dossier_numbers`` (streamed, in chunks)."""
+        """Regulation → dossier from ``props.dossier_numbers`` (streamed, in chunks); the
+        edges of this pipeline from a regulation to a dossier it no longer lists go."""
         rows: Iterable[dict[str, Any]] = semantic_queries.regulation_dossier_numbers(
             self.store
         )
+        removed = 0
         for chunk in chunked(rows, self._CHUNK):
-            self._write_dossier_links(
+            kept = self._write_dossier_links(
                 {r["key"]: {str(d) for d in r["dossiers"] if d} for r in chunk}, edges
             )
+            removed += semantic_queries.remove_edges_from(
+                self.store,
+                RELATION_LEGISLATED_IN,
+                SEMANTIC_SOURCE,
+                [_instrument_id(r["key"]) for r in chunk],
+                kept,
+            )
+        logger.info("Removed %d regulation dossiers the BWB no longer names.", removed)
 
     def _write_dossier_links(
         self, dossiers_by_instrument: dict[str, set[str]], edges: EdgeWriter
-    ) -> None:
-        """LEGISLATED_IN for every dossier that exists: one existence check per call."""
+    ) -> dict[str, set[str]]:
+        """LEGISLATED_IN for every dossier that exists: one existence check per call.
+        Returns the keys of the edges per instrument id."""
         wanted = {
             number: make_node_key(number)
             for numbers in dossiers_by_instrument.values()
             for number in numbers
         }
         if not wanted:
-            return
+            return {}
         existing = self.store.existing_keys(COLLECTION_DOSSIERS, set(wanted.values()))
+        kept: dict[str, set[str]] = {}
         for instrument, numbers in dossiers_by_instrument.items():
             for number in sorted(numbers):
                 if wanted[number] not in existing:
                     continue
+                source_id = _instrument_id(instrument)
+                target_id = f"{COLLECTION_DOSSIERS}/{wanted[number]}"
                 edges.add(
-                    _instrument_id(instrument),
-                    f"{COLLECTION_DOSSIERS}/{wanted[number]}",
+                    source_id,
+                    target_id,
                     RELATION_LEGISLATED_IN,
                     source=SEMANTIC_SOURCE,
                     confidence=1.0,
                     meta={"dossier_number": number},
                 )
+                kept.setdefault(source_id, set()).add(
+                    edge_key(source_id, RELATION_LEGISLATED_IN, target_id)
+                )
+        return kept
