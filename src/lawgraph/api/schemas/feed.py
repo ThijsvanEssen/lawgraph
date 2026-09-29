@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any, Literal, cast, get_args
 from xml.etree import ElementTree
@@ -450,6 +451,120 @@ class FeedResponse(BaseModel):
     data_as_of: dict[str, DataAsOfDTO] = Field(
         default_factory=dict,
         description="Per source: how current the graph is, as in `GET /api/stats`.",
+    )
+
+
+class FeedDossierCountDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    number: str
+    key: str | None = None
+    title: str | None = None
+    short_title: str | None = None
+    count: int
+
+
+class FeedVoteCountDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    subkind: str | None = Field(
+        None,
+        description="What was voted on: ``motie``, ``amendement``, ``wetsvoorstel``.",
+    )
+    outcome: Literal["aangenomen", "verworpen"] | None = None
+    count: int
+
+
+class FeedDayDTO(BaseModel):
+    """The events of one day, counted."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    date: str
+    total: int = 0
+    kinds: list[FacetCountDTO] = Field(default_factory=list)
+    dossiers: list[FeedDossierCountDTO] = Field(
+        default_factory=list, description="Per first dossier of an event, most first."
+    )
+    votes: list[FeedVoteCountDTO] = Field(default_factory=list)
+
+
+class FeedSummaryResponse(BaseModel):
+    """A few days of the feed in one answer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    since: str
+    until: str
+    margin: int
+    days: list[FeedDayDTO] = Field(
+        default_factory=list, description="Every day of the window, newest first."
+    )
+    items: list[FeedItemDTO] = Field(
+        default_factory=list, description="The events shown one by one, feed order."
+    )
+    items_truncated: bool = Field(
+        False, description="More events qualified than ``limit``."
+    )
+
+    @classmethod
+    def from_raw(
+        cls,
+        raw: dict[str, Any],
+        *,
+        since: dt.date,
+        until: dt.date,
+        margin: int,
+        limit: int,
+    ) -> FeedSummaryResponse:
+        titles = {d["number"]: d for d in raw.get("dossiers") or []}
+        counted = {day["date"]: day for day in raw.get("days") or []}
+        days = []
+        date = until
+        while date >= since:
+            day = counted.get(date.isoformat()) or {}
+            days.append(
+                FeedDayDTO(
+                    date=date.isoformat(),
+                    total=int(day.get("total") or 0),
+                    kinds=[FacetCountDTO(**k) for k in day.get("kinds") or []],
+                    dossiers=[
+                        _dossier_count(d, titles) for d in day.get("dossiers") or []
+                    ],
+                    votes=[
+                        FeedVoteCountDTO(
+                            subkind=v.get("subkind"),
+                            outcome=_OUTCOME.get(v["passed"])  # type: ignore[arg-type]
+                            if isinstance(v.get("passed"), bool)
+                            else None,
+                            count=v["count"],
+                        )
+                        for v in day.get("votes") or []
+                    ],
+                )
+            )
+            date -= dt.timedelta(days=1)
+        rows = raw.get("items") or []
+        return cls(
+            since=since.isoformat(),
+            until=until.isoformat(),
+            margin=margin,
+            days=days,
+            items=[FeedItemDTO.from_row(row) for row in rows[:limit]],
+            items_truncated=len(rows) > limit,
+        )
+
+
+def _dossier_count(
+    count: dict[str, Any], titles: dict[str, dict[str, Any]]
+) -> FeedDossierCountDTO:
+    dossier = titles.get(count["number"]) or {}
+    return FeedDossierCountDTO(
+        number=count["number"],
+        key=dossier.get("key"),
+        title=dossier.get("title"),
+        short_title=short_title(dossier.get("title")),
+        count=count["count"],
     )
 
 

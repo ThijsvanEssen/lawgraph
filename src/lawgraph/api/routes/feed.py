@@ -7,6 +7,7 @@ GET /api/feed.atom  — the same page as an Atom feed, for a feed reader
 from __future__ import annotations
 
 import datetime as dt
+from dataclasses import replace
 from typing import Annotated
 from urllib.parse import urlencode
 
@@ -18,6 +19,7 @@ from lawgraph.api.schemas.feed import (
     FeedFacetsDTO,
     FeedItemDTO,
     FeedResponse,
+    FeedSummaryResponse,
     atom_feed,
 )
 from lawgraph.api.schemas.stats import DataAsOfDTO
@@ -25,7 +27,7 @@ from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FEED_KINDS, FeedCursor
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries.feed import FeedFilters, get_feed
+from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
 from lawgraph.db.queries.stats import cached_data_as_of
 
 router = APIRouter()
@@ -46,14 +48,10 @@ _EVENTS = (
 )
 
 
-def feed_filters(
+def scope_filters(
     kind: Annotated[
         str | None,
         Query(description=f"Comma-separated: {', '.join(FEED_KINDS)}."),
-    ] = None,
-    since: Annotated[dt.date | None, Query(description="On or after this day.")] = None,
-    until: Annotated[
-        dt.date | None, Query(description="On or before this day.")
     ] = None,
     cabinet: Annotated[
         str | None,
@@ -85,17 +83,30 @@ def feed_filters(
         ),
     ] = None,
 ) -> FeedFilters:
-    """The filters of both feed routes."""
+    """The filters of every feed route but its dates."""
     return FeedFilters(
         kinds=parse_choices(kind, FEED_KINDS, "kind"),
-        since=since.isoformat() if since else None,
-        until=until.isoformat() if until else None,
         cabinet=cabinet or None,
         ministry=ministry.value if ministry else None,
         dossier=dossier or None,
         member=member or None,
         faction=faction or None,
         q=(q or "").strip() or None,
+    )
+
+
+def feed_filters(
+    scope: Annotated[FeedFilters, Depends(scope_filters)],
+    since: Annotated[dt.date | None, Query(description="On or after this day.")] = None,
+    until: Annotated[
+        dt.date | None, Query(description="On or before this day.")
+    ] = None,
+) -> FeedFilters:
+    """The filters of the feed and its Atom version."""
+    return replace(
+        scope,
+        since=since.isoformat() if since else None,
+        until=until.isoformat() if until else None,
     )
 
 
@@ -277,3 +288,45 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
     if filters.until:
         parts.append(f"tot en met {filters.until}")
     return "Concordans: " + ", ".join(parts) if parts else "Concordans"
+
+
+@router.get(
+    "/summary",
+    response_model=FeedSummaryResponse,
+    summary="News feed summary",
+    description=(
+        "The days up to ``until`` (default today, ``days`` of them) in one small answer, "
+        "under the filters of ``GET /api/feed``: per day the events per kind, per dossier "
+        "and, of the votes, per subkind and outcome; and the events a timeline shows one by "
+        "one, as feed items in the order of the feed: bills submitted, votes on a bill, "
+        "votes decided by at most ``margin`` seats, commitments and commencements."
+    ),
+    tags=["feed"],
+)
+def get_feed_summary_route(
+    store: Annotated[ArangoStore, Depends(get_store)],
+    scope: Annotated[FeedFilters, Depends(scope_filters)],
+    until: Annotated[
+        dt.date | None, Query(description="The last day; default today.")
+    ] = None,
+    days: Annotated[int, Query(ge=1, le=31, description="How many days.")] = 3,
+    margin: Annotated[
+        int,
+        Query(
+            ge=0,
+            le=150,
+            description="A vote this close (seats for minus against) "
+            "is shown one by one.",
+        ),
+    ] = 10,
+    limit: Annotated[
+        int, Query(ge=1, le=500, description="Events shown one by one, at most.")
+    ] = 100,
+) -> FeedSummaryResponse:
+    last = until or dt.date.today()
+    first = last - dt.timedelta(days=days - 1)
+    filters = replace(scope, since=first.isoformat(), until=last.isoformat())
+    raw = get_feed_summary(store, filters, margin=margin, limit=limit)
+    return FeedSummaryResponse.from_raw(
+        raw, since=first, until=last, margin=margin, limit=limit
+    )
