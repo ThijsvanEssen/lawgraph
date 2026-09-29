@@ -339,12 +339,28 @@ class CabinetDetailDTO(CabinetSummaryDTO):
     def from_detail(cls, row: dict[str, Any]) -> CabinetDetailDTO:
         members = row.get("members") or []
         summary = CabinetSummaryDTO.from_row({**row, "members": len(members)})
+        # a seat stands under its ministry: the one its key names (by the name the ministry
+        # had when the seat ended: ELI to EZ keeps one seat in one place), else, for a seat
+        # whose function names no ministry, that of its last post; each post keeps its own
+        # ``ministry`` of its day
+        held = [
+            (post, _post_dto(item, post))
+            for item in members
+            for post in item.get("posts") or []
+        ]
+        last: dict[str, dict[str, Any]] = {}
+        for post, _ in held:
+            seat = post.get("seat") or ""
+            if seat not in last or (post.get("from_date") or "") >= (
+                last[seat].get("from_date") or ""
+            ):
+                last[seat] = post
         groups: dict[str | None, list[CabinetPostDTO]] = {}
-        for item in members:
-            for post in item.get("posts") or []:
-                groups.setdefault(post.get("ministry"), []).append(
-                    _post_dto(item, post)
-                )
+        for post, dto in held:
+            seat = post.get("seat") or ""
+            named = seat.partition("/")[0]
+            ministry = named if named in MINISTRY_BY_KEY else last[seat].get("ministry")
+            groups.setdefault(ministry, []).append(dto)
         ministries = [
             CabinetMinistryDTO(
                 ministry=MinistryKey(key) if key else None,

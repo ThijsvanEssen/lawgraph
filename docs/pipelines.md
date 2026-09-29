@@ -831,6 +831,10 @@ Binnenlandse Zaken`), each with the days it gives. The rules of a seat:
   Belastingdienst en Douane"; that name in `also_named`); holders of one heading at the same
   time (Szabó and Van Marum under Binnenlandse Zaken, two ministers without portfolio) hold
   seats of their own;
+- a seat is named by the name its ministry had when the seat ended (Rutte-Asscher:
+  `ez/minister` and `ez/staatssecretaris`, although Economische Zaken, Landbouw en Innovatie
+  was named Economische Zaken only from 1 January 2013); each post keeps the `ministry` of its
+  own first day, and `/api/cabinets/{key}` places a seat under the ministry of its name;
 - two posts of one person in one seat on the same days are one post, the other name in
   `also_named`;
 - in a named seat, an end the page does not give is the start of the next holder, a start it
