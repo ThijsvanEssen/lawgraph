@@ -307,25 +307,21 @@ paragraph props in the data model), and the parties its kop names as `parties` (
 Judgment). Every judgment normalized before `parties` existed gets them from a run of
 `normalize rechtspraak` without `--since`; run `semantic rechtspraak` after it, since the kop is
 one paragraph now and the `p-<n>` ids after it moved. The XML itself stays in the payload store. `court_code` is the ECLI court
-segment; `tier` is the college that gave the judgment (`core/judgments.court_tier`, whose
-tables `graph-list-stats` reads too), as the Rechtspraak sorts its instanties (the `Type` in its
-waardelijst `/Waardelijst/Instanties`, kept as `tests/fixtures/rechtspraak_instanties.xml`):
-`hoge_raad` (`HR`), `raad_van_state` (`RVS`), `centrale_raad_van_beroep` (`CRVB`),
-`college_van_beroep_bedrijfsleven` (`CBB`), `parket` (`PHR`, the conclusions of the Parket bij de
-Hoge Raad), `gerechtshof` (`GH*`), `rechtbank` (`RB*`), `kantongerecht` (`KTG*`, until 2002),
-`tuchtcollege` (every disciplinary tribunal: `T*`, `IAR`), `ambtenarengerecht` (`AG*`),
-`raad_van_beroep` (`RVB*`, until 1992), every other college under its own name
-(`college_van_beroep_hoger_onderwijs`, `college_van_beroep_studiefinanciering`,
-`tariefcommissie`, `raad_voor_strafrechtstoepassing_en_jeugdbescherming`,
-`raad_van_arbitrage_in_bouwgeschillen`), the Caribbean part of the Kingdom
-(`gemeenschappelijk_hof`, `gerecht_in_eerste_aanleg`, `gerecht_in_ambtenarenzaken`,
-`raad_van_beroep_in_ambtenarenzaken`, `raad_van_beroep_voor_belastingzaken`,
-`constitutioneel_hof`), and for the code `XX` (the courts outside the Rechtspraak) the court it names: `kroon` (`KB`, a
-decision of the Crown on an appeal), `ehrm` (the European Court of Human Rights, also every ECHR
-judgment of HUDOC), `hvj_eu` (the Court of Justice of the EU), `buitenlandse_instantie` for any
-other. A code
-no table knows has no tier: there is no catch-all, and a test holds every code of the waardelijst
-to a named tier; `date_eff` is the judgment date.
+segment. The court table (`src/lawgraph/data/courts.json`, `core/courts.court_of`, whose table
+`graph-list-stats` reads too; see [Courts](#courts)) gives a judgment two levels: `tier`, the
+`Type` of its court in the Instanties value list of the Rechtspraak, and `court_kind`, the kind
+of court within it. The tiers: `hoge_raad` (`HR`), `raad_van_state` (`RVS`),
+`centrale_raad_van_beroep` (`CRVB`), `college_van_beroep_bedrijfsleven` (`CBB`), `parket`
+(`PHR`, the conclusions of the Parket bij de Hoge Raad), `gerechtshof`, `rechtbank`,
+`kantongerecht` (until 2002), `tuchtcollege` (every disciplinary tribunal), `andere_instantie`
+(the ambtenarengerechten, the raden van beroep until 1992, the College van Beroep voor het hoger
+onderwijs, the Tariefcommissie, …), `koninkrijksinstantie` (the courts of Aruba, Curaçao, Sint
+Maarten and the BES islands), `buitenlandse_instantie` (code `XX`, a court outside the
+Rechtspraak), and from the curated courts `kroon` (`XX` named `KB`, a decision of the Crown on
+an appeal), `hvj_eu` (the Court of Justice of the EU) and `ehrm` (the European Court of Human
+Rights, also every ECHR judgment of HUDOC). A code the table does not know has no tier and no
+kind: there is no catch-all, and a test holds every code of the value list to a tier and a kind;
+`date_eff` is the judgment date.
 
 The inhoudsindicatie is `summary` when it is Dutch. An English one (`core.judgments.is_english`:
 at least three short English words such as "the", "and", "with", and more than twice as many as
@@ -358,7 +354,7 @@ met annotatie van C.J.H. Brunner"), and an inhoudsindicatie names the precedent 
 readily as the judgment itself ("Uitleg. Haviltex." in a judgment of 2026). A name is added for
 an ECLI checked against the judgment (court, date, inhoudsindicatie); an English translation
 carries the name of the judgment it translates. `semantic graph-list-stats` gives a stub its
-names and the kind of its tier.
+names and the kind of its kind of court.
 
 **Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
 made and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
@@ -893,6 +889,47 @@ of `core/cabinet_checks.py` (a post outside its cabinet, two holders of a seat a
 `overlaps_with`, phases that do not follow each other from start to end); a broken rule fails
 the command.
 
+## Courts
+
+**Provides.** The Instanties value list of the Rechtspraak
+(`https://data.rechtspraak.nl/Waardelijst/Instanties`, `RECHTSPRAAK_BASE`): every court an ECLI
+can name, with its code (`Afkorting`, the court part of the ECLI), official name, `Type` and the
+days it existed; 261 courts, of which 237 have a code (the military and colonial courts before
+ECLI have none). A free public service of the Rechtspraak, like its judgments.
+
+**Retrieve.** `retrieve rechtspraak-instanties`: the list, one `rs-instanties-xml` record
+(external id `Instanties`, meta `url` and `read_on`), on the lane of `retrieve rechtspraak`.
+
+**The court table.** `lawgraph courts build` makes `src/lawgraph/data/courts.json` from the
+stored list (`core/court_sources.build_courts`) and prints what changed; `lawgraph courts check`
+prints the same and fails on a change. Commit what a build writes, and run `semantic
+graph-list-stats` when a tier or kind changed. Per court: `code`, `name`, `type`, `tier`,
+`court_kind`, `from`, `until`.
+
+- `tier` is the `Type` (`core/court_sources.TIER_OF_TYPE`): `TypeHr` `hoge_raad`, `TypeRvS`
+  `raad_van_state`, `TypeCRvB` `centrale_raad_van_beroep`, `TypeCBb`
+  `college_van_beroep_bedrijfsleven`, `Parket` `parket`, `Gerechtshof`, `Rechtbank`,
+  `Kantongerecht` in lower case, `TuchtrechtelijkeInstantie` `tuchtcollege`,
+  `AndereGerechtelijkeInstantie` `andere_instantie`, `Koninkrijksinstantie`
+  `koninkrijksinstantie`, the foreign courts `buitenlandse_instantie`.
+- `court_kind` is the tier itself for a tier of one kind of court. In `andere_instantie` and
+  `koninkrijksinstantie` it is the official name without its place, in lower case joined by `_`
+  (`core/court_sources.court_kind`): a part in brackets goes, a country of the Kingdom with
+  `van`/`voor` before it goes (`Gerecht in eerste aanleg van Curaçao`), and a place the list
+  names a rechtbank, kantongerecht or gerechtshof after goes at the end (`Raad van beroep
+  Alkmaar`). So `ambtenarengerecht`, `raad_van_beroep`, `college_van_beroep_studiefinanciering`,
+  `college_van_beroep_voor_het_hoger_onderwijs`, `tariefcommissie`,
+  `raad_voor_strafrechtstoepassing_en_jeugdbescherming`, `raad_van_arbitrage_in_bouwgeschillen`,
+  `gerecht_in_eerste_aanleg`, `gemeenschappelijk_hof_van_justitie`, `hof_van_justitie` (its
+  predecessor, of the Nederlandse Antillen), `gerecht_in_ambtenarenzaken`,
+  `raad_van_beroep_in_ambtenarenzaken`, `raad_van_beroep_voor_belastingzaken`,
+  `constitutioneel_hof`.
+
+Curated, as no list holds them (`src/lawgraph/data/curated/`): `courts_outside.json`, the EHRM's
+own code and the courts published under `XX` by the name their metadata gives (`KB` the Kroon,
+the EHRM, the Court of Justice of the EU under both its names); `decision_kinds.json`, the kind
+of decision a kind of court gives when neither the metadata nor the kop names one.
+
 ## TOOI
 
 **Provides.** The value list `rwc_ministeries_compleet` of TOOI (Thesauri en Ontologieën
@@ -953,4 +990,4 @@ uses a name before its first period keeps that name.
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`) and `normalize tk-dossiers` (documents, decisions and their edges to the dossier) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`; `decision_kind` where it is null, from the tier, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |
