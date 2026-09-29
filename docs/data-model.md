@@ -22,7 +22,8 @@ A node is a document `{_key, type, labels, props}`:
   unknown fields are rejected. Upserts merge props (shallow), so several pipelines can add
   fields to one node.
 - `stub: true` marks a placeholder created because something referred to it before its own
-  source was ingested.
+  source was ingested. A stub judgment has a valid ECLI (`core/ecli.is_valid_ecli`) and an edge
+  at it; `semantic rechtspraak-citations` removes one that has none.
 
 Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
 store), `topics` (schema only; nothing writes it), `pipeline_state` (one document per phase:
