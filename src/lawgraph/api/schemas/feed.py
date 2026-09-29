@@ -214,8 +214,8 @@ class FeedItemDTO(BaseModel):
     subkind: str | None = Field(
         None,
         description="What the source calls it: the document kind (``Motie (gewijzigd/"
-        "nader)``), for a vote what was voted on (``motie``, ``amendement``, "
-        "``wetsvoorstel``, ``overig``); null for the other kinds.",
+        "nader)``), for a vote what was voted on (the ``Zaak.Soort``: ``Motie``, "
+        "``Amendement``, ``Wetgeving``, ...); null for the other kinds.",
     )
     node: FeedNodeDTO
     dossier: FeedDossierDTO | None = Field(
@@ -506,7 +506,8 @@ class FeedVoteCountDTO(BaseModel):
 
     subkind: str | None = Field(
         None,
-        description="What was voted on: ``motie``, ``amendement``, ``wetsvoorstel``.",
+        description="What was voted on, the ``Zaak.Soort``: ``Motie``, ``Amendement``, "
+        "``Wetgeving``, ...",
     )
     outcome: Literal["aangenomen", "verworpen"] | None = None
     count: int

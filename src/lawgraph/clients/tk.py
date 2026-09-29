@@ -193,6 +193,39 @@ class TKClient(BaseClient):
             logger.info("Fetching all Stemming records")
         return self._skip_paged_get("Stemming", params=params, page_size=top)
 
+    def fetch_bill_decisions(
+        self,
+        case_kinds: tuple[str, ...],
+        since: dt.datetime | None = None,
+        top: int = 250,
+    ) -> Iterable[dict[str, Any]]:
+        """Fetch the Besluit records ``Stemmen - ...`` on a zaak of one of *case_kinds* (a
+        bill, a budget), as ``fetch_stemmingen`` expands them: also those without a vote
+        (``Stemmen - zonder stemming aannemen``, a hamerstuk), which no Stemming carries."""
+        zaak = (
+            "Zaak("
+            "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
+            "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)"
+            ")"
+        )
+        kinds = " or ".join(f"z/Soort eq '{kind}'" for kind in case_kinds)
+        odata_filter = f"startswith(BesluitSoort,'Stemmen') and Zaak/any(z:{kinds})"
+        if since is not None:
+            since_string = odata_datetime(since)
+            odata_filter += f" and ApiGewijzigdOp ge {since_string}"
+            logger.info(
+                "Fetching the Besluiten on bills modified since %s", since_string
+            )
+        else:
+            logger.info("Fetching every Besluit on a bill")
+        params: dict[str, Any] = {
+            "$filter": odata_filter,
+            "$expand": (
+                f"{zaak},Agendapunt($expand=Activiteit($select=Id,Datum,Soort),{zaak})"
+            ),
+        }
+        return self._skip_paged_get("Besluit", params=params, page_size=top)
+
     def fetch_toezeggingen(
         self,
         since: dt.datetime | None = None,

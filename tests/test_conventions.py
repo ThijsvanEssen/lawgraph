@@ -219,7 +219,7 @@ def _dutch_tokens(field: str) -> set[str]:
 def test_the_props_scan_finds_the_schemas() -> None:
     """The guard below is only worth having if it reads real fields."""
     fields = _props_fields()
-    assert ("DossierProps", "current_stage") in fields
+    assert ("DossierProps", "current_phase") in fields
     assert len(fields) > 100
 
 

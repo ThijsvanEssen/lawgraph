@@ -72,6 +72,7 @@ FOR v IN {COLLECTION_ARTICLE_VERSIONS}
         current: v.props.current,
         last_seen: v.props.last_seen,
         effect: v.props.effect,
+        position: v.props.position,
         text_start: SUBSTRING(v.props.text, 0, 60),
         title: v.props.instrument_citation_title
     }}
@@ -86,6 +87,22 @@ def article_identities(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, A
 def article_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
     """The article versions of *bwb_ids*, with their validity and article number."""
     return store.query(_VERSIONS_AQL, {"ids": bwb_ids})
+
+
+def stored_places(store: Store, bwb_id: str) -> Iterator[dict[str, Any]]:
+    """``{key, breadcrumb, breadcrumb_changes}`` of the article versions of *bwb_id*, in
+    their stored order (``position``)."""
+    aql = f"""
+    FOR v IN {COLLECTION_ARTICLE_VERSIONS}
+        FILTER v.props.bwb_id == @id
+        SORT v.props.position == null, v.props.position, v._key
+        RETURN {{
+            key: v._key,
+            breadcrumb: v.props.breadcrumb,
+            breadcrumb_changes: v.props.breadcrumb_changes
+        }}
+    """
+    return store.query(aql, {"id": bwb_id})
 
 
 def article_version_starts(store: Store, keys: list[str]) -> dict[str, str]:
@@ -164,8 +181,10 @@ def dossier_case_kinds(store: Store, keys: list[str]) -> Iterator[dict[str, Any]
 
 
 def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, Any]]:
-    """Documents, activities and decisions per dossier of *dossier_ids*, and the case
-    kinds, ``closed`` and ``opened_on`` it holds.
+    """Documents, activities and decisions per dossier of *dossier_ids*; its case kinds
+    (the ``Zaak.Soort`` of its own zaken: those ``PART_OF`` it, those of its papers that
+    belong to it alone, and those rolled up from its activities); and the ``opened_on`` it
+    holds.
 
     Every subquery returns the few fields that are used: a list of whole documents (their
     text, their payload) is built in the memory of the server before it is projected.
@@ -175,7 +194,9 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                             kind: doc.props.kind,
                             date: doc.props.date,
                             title: NOT_NULL(doc.props.dossier_title, doc.props.title,
-                                            doc.props.display_name)
+                                            doc.props.display_name),
+                            case_kinds: LENGTH(doc.props.dossier_numbers) == 1
+                                ? doc.props.case_kinds : []
                         }"""
     aql = f"""
         FOR dossier_id IN @dossier_ids
@@ -187,12 +208,16 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                     FILTER doc != null
                     RETURN {signal}
             )
+            LET own_cases = (
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER e._to == dossier_id AND e.relation == @part_of
+                    FILTER STARTS_WITH(e._from, '{COLLECTION_CASES}/')
+                    RETURN e._from
+            )
             LET via_case = (
-                FOR e1 IN {COLLECTION_EDGES}
-                    FILTER e1._to == dossier_id AND e1.relation == @part_of
-                    FILTER STARTS_WITH(e1._from, '{COLLECTION_CASES}/')
+                FOR case_id IN own_cases
                     FOR e2 IN {COLLECTION_EDGES}
-                        FILTER e2._to == e1._from AND e2.relation == @part_of
+                        FILTER e2._to == case_id AND e2.relation == @part_of
                         FILTER STARTS_WITH(e2._from, '{COLLECTION_DOCUMENTS}/')
                         LET doc = DOCUMENT(e2._from)
                         FILTER doc != null
@@ -208,19 +233,24 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                         kind: node.props.kind,
                         date: node.props.date,
                         status: node.props.status,
-                        passed: node.props.passed
+                        passed: node.props.passed,
+                        decision_kind: node.props.decision_kind,
+                        decision_text: node.props.decision_text,
+                        case_kind: node.props.primary_case_kind
                     }}
             )
             LET stored = DOCUMENT(dossier_id).props
             RETURN {{
                 dossier_id: dossier_id,
-                closed: stored.closed,
-                outcome: stored.outcome,
                 opened_on: stored.opened_on,
-                case_kinds: stored.case_kinds,
+                case_kinds: UNIQUE(FLATTEN([
+                    stored.case_kinds OR [],
+                    own_cases[* RETURN DOCUMENT(CURRENT).props.kind],
+                    APPEND(direct, via_case)[*].case_kinds
+                ], 2)[* FILTER CURRENT != null]),
                 docs: (
                     FOR doc IN UNIQUE(APPEND(direct, via_case))
-                        RETURN UNSET(doc, "id")
+                        RETURN UNSET(doc, "id", "case_kinds")
                 ),
                 activities: (
                     FOR node IN subjects
@@ -230,7 +260,7 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                 decisions: (
                     FOR node IN subjects
                         FILTER STARTS_WITH(node.id, '{COLLECTION_DECISIONS}/')
-                        RETURN {{date: node.date, passed: node.passed}}
+                        RETURN UNSET(node, "id", "status")
                 )
             }}
         """

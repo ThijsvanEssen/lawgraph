@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.common import JudgmentSummaryDTO
 from lawgraph.api.schemas.instruments import (
+    TEXT_PREVIEW_CHARS,
     AmendedByResponse,
     AmendingInstrumentDTO,
     CitedArticleRef,
@@ -307,7 +308,7 @@ def get_instrument_dossiers_route(
                 dossier_number=_props(d)["label"],
                 title=_props(d).get("title"),
                 display_name=_props(d).get("display_name"),
-                stage=_props(d).get("current_stage"),
+                current_phase=_props(d).get("current_phase"),
                 opened_on=_props(d).get("opened_on"),
                 closed=_props(d).get("closed"),
                 via=row["via"],
@@ -407,9 +408,13 @@ def list_instrument_versions(
     summary="Articles as they stood on a given date",
     description=(
         "The articles of a BWB instrument as they applied on ``at_date`` "
-        "(YYYY-MM-DD), read from the article versions, in the order of the document. "
-        "Empty when no version covers that date. ``text_preview`` is the start of "
-        "``text``; ``limit`` and ``offset`` page, ``total`` counts every article."
+        "(YYYY-MM-DD), read from the article versions, in the order of that day's "
+        "toestand, each with the divisions it stood in that day (``breadcrumb``). Empty "
+        "before the first toestand of the law (``first_version_from``) and when no "
+        "version covers that date. ``text_preview`` is the start of the text; with "
+        "``text_preview_chars`` the whole ``text`` is left out unless "
+        "``include_text=true``. ``limit`` and ``offset`` page, ``total`` counts every "
+        "article."
     ),
     tags=["instruments"],
 )
@@ -418,8 +423,22 @@ def list_articles_at(
     at_date: str,
     store: Annotated[ArangoStore, Depends(get_store)],
     text_preview_chars: Annotated[
-        int, Query(ge=0, le=600, description="Chars of text to inline as preview")
-    ] = 160,
+        int | None,
+        Query(
+            ge=0,
+            le=600,
+            description=f"Chars of text to inline as preview (default "
+            f"{TEXT_PREVIEW_CHARS}); given, the "
+            "whole text is left out unless include_text=true",
+        ),
+    ] = None,
+    include_text: Annotated[
+        bool | None,
+        Query(
+            description="Give the whole text; default: true unless text_preview_chars "
+            "is given"
+        ),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> InstrumentArticlesAtResponse:
@@ -429,15 +448,24 @@ def list_articles_at(
         raise HTTPException(
             status_code=422, detail="at_date must be YYYY-MM-DD"
         ) from None
-    docs, total = get_articles_at(store, bwb_id, at_date, limit=limit, offset=offset)
+    law = get_articles_at(store, bwb_id, at_date, limit=limit, offset=offset)
+    whole = text_preview_chars is None if include_text is None else include_text
     return InstrumentArticlesAtResponse(
         bwb_id=bwb_id,
         at_date=at_date,
-        total=total,
+        total=law.total,
+        first_version_from=law.first_version_from,
         items=[
             InstrumentArticleVersionDTO.from_document(
-                d, text_preview_chars=text_preview_chars
+                d,
+                on=at_date,
+                text_preview_chars=(
+                    TEXT_PREVIEW_CHARS
+                    if text_preview_chars is None
+                    else text_preview_chars
+                ),
+                include_text=whole,
             )
-            for d in docs
+            for d in law.items
         ],
     )

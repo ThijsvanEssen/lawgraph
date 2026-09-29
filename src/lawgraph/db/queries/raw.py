@@ -10,11 +10,13 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_RAW_SOURCES,
     RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_ECHR_JUDGMENT,
     RAW_KIND_RS_CONTENT,
     RAW_KIND_STB_AMVB,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_STEMMING,
     SOURCE_BWB,
+    SOURCE_ECHR,
     SOURCE_EURLEX,
     SOURCE_RECHTSPRAAK,
     SOURCE_STAATSBLAD,
@@ -126,6 +128,20 @@ def ids_stored_since(
             RETURN r.external_id
         """
     return store.query(aql, {"source": source, "kind": kind, "cutoff": cutoff_iso})
+
+
+def echr_items(store: Store) -> Iterator[dict[str, Any]]:
+    """``{item_id, ecli, language}`` of every stored HUDOC judgment record."""
+    aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind
+            RETURN {{
+                item_id: r.external_id,
+                ecli: r.payload_json.ecli,
+                language: r.payload_json.languageisocode
+            }}
+        """
+    return store.query(aql, {"source": SOURCE_ECHR, "kind": RAW_KIND_ECHR_JUDGMENT})
 
 
 def fetch_times(store: Store, *, source: str, kind: str) -> Iterator[dict[str, Any]]:
