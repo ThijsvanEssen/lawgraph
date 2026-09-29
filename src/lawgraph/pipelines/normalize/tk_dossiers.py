@@ -132,7 +132,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             ),
             "members": tk_members.normalize_members(store, raw[RAW_KIND_TK_PERSOON]),
             "factions": tk_members.normalize_factions(
-                store, raw[RAW_KIND_TK_FRACTIE], vote_labels
+                store, raw[RAW_KIND_TK_FRACTIE], vote_labels, self._every_seat()
             ),
             "dossiers": self._normalize_dossiers(raw[RAW_KIND_TK_DOSSIER]),
             "activities": tk_cases.normalize_activities(
@@ -204,13 +204,24 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             },
             source=EDGE_SOURCE,
         )
-        tk_members.name_members_by_their_votes(
-            store, normalized["members"], normalized["votes"]
+        tk_members.name_nameless_members(
+            store, normalized["members"], normalized["votes"], normalized["documents"]
         )
 
         # Once the edges exist, each dossier's documents can be walked to
         # derive its title and stage, so reads stay O(1).
         self._backfill_titles_and_stages(normalized["dossiers"])
+
+    def _every_seat(self) -> RawRecords:
+        """Every FractieZetelPersoon record, also on a run over a window: the seats date a
+        faction (1,236 records)."""
+        return RawRecords(
+            self,
+            source=SOURCE_TK,
+            kinds=[RAW_KIND_TK_FRACTIEZETELPERSOON],
+            since=None,
+            batch_size=1000,
+        )
 
     def _stored_faction_aliases(self) -> set[str]:
         return set(normalize_queries.faction_aliases(self.store))

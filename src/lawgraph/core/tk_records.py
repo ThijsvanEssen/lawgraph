@@ -442,9 +442,12 @@ def member(payload: Payload) -> Record | None:
     if not external_id or is_deleted(payload):
         return None
     surname = f"{payload.get('Tussenvoegsel') or ''} {payload.get('Achternaam') or ''}"
-    full_name = " ".join(f"{payload.get('Voornamen') or ''} {surname}".split())
+    # a member of old the Kamer knows by initials alone: ``W.B. Buma`` (1807-1848)
+    initials = _dotted_initials(_text(payload, "Initialen"))
+    first = payload.get("Voornamen") or initials
+    full_name = " ".join(f"{first} {surname}".split())
     # the name a person goes by: ``Ard van der Steur``, not ``Gerard Adriaan van der Steur``
-    called = payload.get("Roepnaam") or payload.get("Voornamen") or ""
+    called = payload.get("Roepnaam") or first
     name = " ".join(f"{called} {surname}".split())
     props: dict[str, Any] = {
         "external_id": external_id,
@@ -456,9 +459,16 @@ def member(payload: Payload) -> Record | None:
     }
     if name:
         # a Persoon the Kamer gives no name (a record it withholds) keeps the name its
-        # roll-call votes gave (``_tk_members.name_members_by_their_votes``)
+        # roll-call votes and signatures gave (``_tk_members.name_nameless_members``)
         props["name"] = props["display_name"] = name
     return make_node_key(external_id), props
+
+
+def _dotted_initials(initials: str) -> str:
+    """``W.B.`` of ``WB``: the Kamer writes the initials of members of old without dots."""
+    if not initials or "." in initials:
+        return initials
+    return "".join(f"{letter}." for letter in initials if letter.isalpha())
 
 
 def seat_holding(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
@@ -548,7 +558,8 @@ def faction(
         "aliases": aliases,
         "active_from": min(starts) if starts else None,
         "active_until": None if active else max(e for e in ends if e),
-        "seats": payload.get("AantalZetels"),
+        # the Kamer keeps the seats a faction had on its record after it ended
+        "seats": payload.get("AantalZetels") if active else 0,
         "active": active,
         "display_name": abbreviation or name,
     }

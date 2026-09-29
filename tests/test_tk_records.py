@@ -79,6 +79,29 @@ def test_member_joins_the_name_parts() -> None:
     assert "party" not in props
 
 
+def test_a_member_of_old_is_named_by_initials_and_surname() -> None:
+    _, props = tk_records.member({"Id": "p-1", "Initialen": "WB", "Achternaam": "Buma"})
+    assert (props["name"], props["full_name"]) == ("W.B. Buma", "W.B. Buma")
+    _, props = tk_records.member(
+        {"Id": "p-2", "Initialen": "S.", "Achternaam": "Dekker"}
+    )
+    assert props["name"] == "S. Dekker"
+
+
+def test_an_ended_faction_has_no_seats() -> None:
+    record = {
+        "Id": "f-1",
+        "Afkorting": "Nieuw Sociaal Contract",
+        "DatumActief": "2023-12-05",
+        "DatumInactief": "2025-11-11",
+        "AantalZetels": 19,
+    }
+    _, props = tk_records.faction(record, [])  # type: ignore[misc]
+    assert (props["active"], props["seats"]) == (False, 0)
+    _, props = tk_records.faction({**record, "DatumInactief": None}, [])  # type: ignore[misc]
+    assert props["seats"] == 19
+
+
 def test_seat_holding_reads_the_period_and_the_faction() -> None:
     assert tk_records.seat_holding(
         {
