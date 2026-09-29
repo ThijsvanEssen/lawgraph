@@ -197,6 +197,7 @@ class JudgmentPartyProps(_StrictBase):
 
     name: str  # as the judgment writes it, anonymised where the source is: "[eiser]"
     role: str  # "Eiser", "Verdachte", ...; "Partij" when none applies
+    roles: list[str] = []  # every role the judgment names, in its order; [role] if none
     role_stated: bool  # the judgment names the role; false when derived
     side: Literal["first", "second", "other"]
     alias: str | None = None  # what the judgment calls it: "EBN"
@@ -232,7 +233,9 @@ class JudgmentProps(_CommonProps):
     # the conclusion of a judgment, or the judgment of a conclusion (``psi:type`` conclusie)
     conclusion_eclis: list[str] | None = None
     court_code: str | None = None
+    # the coarse tier (the Type of the Instanties list) and the kind of court within it
     tier: str | None = None
+    court_kind: str | None = None
     date_eff: str | None = None
     inbound_citation_count: int | None = None
     # parallel cases of one court and day (``semantic rechtspraak-series``): the lowest
@@ -396,10 +399,13 @@ class CommitmentProps(_CommonProps):
     text: str | None = None
     minister_name: str | None = None
     minister_role: str | None = None
+    # the ministry the Tweede Kamer gives the commitment (``Toezegging.Ministerie``)
+    ministry_name: str | None = None
     made_on: str | None = None
     expected_resolution: str | None = None
     status: str | None = None
     activity_number: str | None = None
+    number: str | None = None  # "TZ202603-130", how the Kamer cites it
     # who made it (``semantic government``): the member, the post and ministry of their
     # role, and the cabinet in office on the day
     member_key: str | None = None
@@ -418,6 +424,11 @@ class CommitteeProps(_CommonProps):
     name: str | None = None
     abbreviation: str | None = None
     slug: str | None = None
+    kind: str | None = None
+    started_on: str | None = None
+    ended_on: str | None = None
+    # the open dossiers it leads, none once dissolved (``semantic graph-list-stats``)
+    active_dossier_count: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -426,8 +437,7 @@ class CommitteeProps(_CommonProps):
 
 
 class SourceRefProps(_StrictBase):
-    """Where a cabinet or a post was read: ``rijksoverheid`` (with the page and the day)
-    or ``wikidata``."""
+    """Where a cabinet or a post was read: ``rijksoverheid``, with the page and the day."""
 
     name: str | None = None
     url: str | None = None
@@ -452,6 +462,10 @@ class GovernmentFunctionProps(_StrictBase):
     also_named: list[str] | None = None  # the same post under another name
     post: str | None = None  # core.ministries.POSTS
     ministry: str | None = None  # a key of core.ministries.MINISTRIES
+    # where the ministry comes from (core.post_ministries): page, tk_signatures,
+    # tk_commitments, staatscourant; and why there is none: no_source, ambiguous
+    ministry_source: str | None = None
+    ministry_missing: str | None = None
     seat: str | None = None  # "ienw/minister"
     portfolio: str | None = None
     from_date: str | None = None
@@ -460,7 +474,9 @@ class GovernmentFunctionProps(_StrictBase):
     to_date_source: str | None = None
     corrected: list[str] | None = None  # which dates the rules of a seat set
     acting: bool | None = None  # a stand-in (ad interim)
-    acting_basis: str | None = None
+    acting_reason: str | None = None  # source | held_other_seat
+    acting_basis: str | None = None  # the words of the source
+    acting_other_seat: dict[str, str] | None = None  # {seat, function}
     party: PartyRefProps | None = None
     overlaps_with: list[str] | None = (
         None  # member keys holding the seat at the same time
@@ -501,12 +517,8 @@ class CabinetPhaseProps(_StrictBase):
 
 class CabinetProps(_CommonProps):
     name: str | None = None  # "kabinet-Rutte IV"
-    wikidata_id: str | None = None  # a cabinet from before 1945
     from_date: str | None = None
     to_date: str | None = None  # null while in office
-    # how precisely the dates are known: day, month or year (the old cabinets)
-    from_date_precision: str | None = None
-    to_date_precision: str | None = None
     prime_minister: str | None = None  # member key
     previous: str | None = None  # the cabinet key before it
     parties: list[PartyRefProps] | None = None

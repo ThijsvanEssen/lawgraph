@@ -1,0 +1,814 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:RBNNE:2026:2437</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-08-28T15:02:17</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-06-22</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Rechtbank_Noord-Nederland" scheme="overheid.RechterlijkeMacht">Rechtbank Noord-Nederland</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2026-06-22</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">C/18/251280 HA RK 25-89</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#eersteAanlegEnkelvoudig">Eerste aanleg - enkelvoudig</psi:procedure>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#opTegenspraak">Op tegenspraak</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:spatial rdfs:label="Zittingsplaats">Groningen</dcterms:spatial>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#civielRecht_europeesCivielRecht">Civiel recht; Europees civiel recht</dcterms:subject>
+      <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:GHARL:2026:5284" psi:type="http://psi.rechtspraak.nl/hogerBeroep" psi:aanleg="http://psi.rechtspraak.nl/latereAanleg">Hoger beroep: ECLI:NL:GHARL:2026:5284</dcterms:relation>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+          <rdf:li>GJ 2026/81</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBNNE:2026:2437">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBNNE:2026:2437</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-06-22T17:07:42</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-06-22</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:RBNNE:2026:2437 Rechtbank Noord-Nederland , 22-06-2026 / C/18/251280 HA RK 25-89</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:RBNNE:2026:2437:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <para>Verzoek voorlopige bewijsverrichtingen (inzage gegevens en voorlopig getuigenverhoor). ICT-leverancier stelt dat voorgenomen aansluiting van derden op elektronisch patiëntendossier van ziekenhuis in strijd is met aanbestedingsrecht. Vraag in hoeverre deze leverancier, om deze stelling nader te kunnen onderbouwen, aanspraak kan maken op inzage in interne bestuursstukken ziekenhuis.</para>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:RBNNE:2026:2437:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <uitspraak.info>
+    <bridgehead role="bold caps">RECHTBANK Noord-Nederland</bridgehead>
+    <para />
+    <parablock>
+      <para>Civiel recht</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Zittingsplaats Groningen</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Zaaknummer / rekestnummer: C/18/251280 / HA RK 25-89</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">Beschikking van</emphasis>
+        <emphasis role="bold caps"> 22</emphasis>
+        <emphasis role="bold"> juni 2026</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>in de zaak van</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">CHIPSOFT B.V.</emphasis>, </para>
+      <para>te Amsterdam, </para>
+      <para>verzoekende partij,</para>
+      <para>advocaat: mr. K.E.L. van Haastrecht, mr. J.G.H.M. van den Biggelaar en mr. L. Bozkurt,</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>tegen</para>
+    </parablock>
+    <para />
+  </uitspraak.info>
+  <section>
+    <title>
+      <nr>1</nr>UNIVERSITAIR MEDISCH CENTRUM GRONINGEN, </title>
+    <parablock>
+      <para>te Groningen,<?linebreak?>2. <emphasis role="bold">STICHTING TREANT ZORGGROEP</emphasis>, </para>
+      <para>te Hoogeveen,<?linebreak?>3. <emphasis role="bold">STICHTING TREANT ZIEKENHUISZORG</emphasis>, </para>
+      <para>te Hoogeveen,<?linebreak?>4. <emphasis role="bold">OMMELANDER ZIEKENHUIS GRONINGEN B.V.</emphasis>, </para>
+      <para>te Scheemda,</para>
+      <para>verwerende partijen,</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Partijen worden hierna Chipsoft, UMCG, Treant (sub 2 en 3) en OZG genoemd. Gedaagden worden hierna gezamenlijk in vrouwelijk enkelvoud UMCG c.s. genoemd.  </para>
+    </parablock>
+    <para />
+  </section>
+  <section>
+    <title>
+      <nr>1</nr>De procedure</title>
+    <para />
+    <paragroup>
+      <nr>1.1.</nr>
+      <para>Het verloop van de procedure blijkt uit:</para>
+      <para>- het verzoekschrift;</para>
+      <para>- het verweerschrift;</para>
+      <para>- de mondelinge behandeling van 18 mei 2026, waarvan door de griffier aantekeningen zijn gemaakt. Mr. Van Haastrecht heeft pleitaantekeningen overgelegd, die zij deels heeft voorgedragen. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>1.2.</nr>
+      <para>De beschikking is bepaald op vandaag.</para>
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>2</nr>De feiten</title>
+    <para />
+    <paragroup>
+      <nr>2.1.</nr>
+      <para>UMCG is één van de acht universitair medische centra in Nederland. Als academisch ziekenhuis houdt UMCG zich onder meer bezig met patiëntenzorg, wetenschappelijk onderzoek en onderwijs.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.2.</nr>
+      <parablock>
+        <para>UMCG heeft op 4 oktober 2015 een Europese openbare aanbesteding uitgeschreven</para>
+        <para>voor een eigen elektronisch patiëntendossier (EPD) met de naam ‘Nieuw EPD UMCG’. Een</para>
+        <para>EPD is een digitaal systeem waarin zorgverleners medische gegevens van patiënten bewaren,</para>
+        <para>zoals diagnoses, behandelingen en medicatie. Deze aanbesteding omvatte het selecteren en</para>
+        <para>contracteren van een EPD-leverancier voor het UMCG als enige opdrachtgever.</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.3.</nr>
+      <parablock>
+        <para>Chipsoft heeft ingeschreven op die aanbesteding uit 2015. De opdracht is uiteindelijk</para>
+        <para>gegund aan EPIC Den Bosch B.V. (verder: Epic). De initiële looptijd van deze overeenkomst</para>
+        <para>en bijhorende Service Level Agreement (SLA) betrof 15 jaar. Deze verloopt medio 2029, tenzij deze wordt verlengd.</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.4.</nr>
+      <para>OZG is het streekziekenhuis van Noord- en Oost-Groningen, als opvolgster van de ziekenhuizen in Delfzijl en Winschoten. OZG is sinds december 2015 een 100%-dochter van UMCG, maar fungeert als volledig zelfstandig ziekenhuis.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.5.</nr>
+      <para>Treant exploiteert een algemeen ziekenhuis met een drietal locaties in Oost- Groningen en Zuidoost Drenthe, namelijk Rafajah Stadskanaal, Bethesda Hoogeveen en Scheper Emmen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.6.</nr>
+      <parablock>
+        <para>OZG en Treant hebben een EPD-systeem dat is geleverd en wordt onderhouden door</para>
+        <para>Nexus. Nexus heeft aangekondigd te stoppen met de EPD-dienstverlening zoals die nu aan Treant en OZG tot aan migratie wordt geleverd. </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.7.</nr>
+      <para>Sinds augustus 2024 is Chipsoft in gesprek geweest met Treant voor een nieuw ziekenhuis-informatiesysteem en een EPD. Chipsoft heeft op 5 december 2024 een offerte aan Treant uitgebracht. Begin 2025 gaf Treant aan ook met onder andere UMCG in gesprek te zijn en een regio-EPD te onderzoeken. Ook aan Chipsoft is de vraag voorgelegd naar een regionaal EPD met het Wilhelmina Ziekenhuis in Assen en/of het Martiniziekenhuis in Groningen die beide een door Chipsoft geleverd EPD hebben. In de loop van 2025 heeft Treant tweemaal verzocht aan Chipsoft om het aanbod in de vorm van een direct ondertekenbare overeenkomst te gieten en de gestanddoeningstermijn van het aanbod te verlengen. De tweede keer is dat verlengd tot 1 december 2025.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.8.</nr>
+      <para>Op 5 oktober 2025 heeft het UMCG een vrijwillige aankondiging (verder: Vooraankondiging 1) als bedoeld in artikel 4.16 van de Aanbestedingswet (Aw) gedaan. Daarin is onder meer het volgende vermeld:</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">‘Aankondiging vrijwillige transparantie vooraf. UMCG levering van een elektronisch patiëntendossier en aanverwante diensten (EPD). Deze vrijwillige aankondiging overeenkomstig artikel 4.16 van de Aanbestedingswet betreft het voornemen van UMCG en twee andere ziekenhuizen om een gezamenlijk EPD te realiseren op basis van de overeenkomst met Epic Den Bosch B.V. (Epic) voor de levering van een elektronisch patiëntendossier en aanverwante diensten (EPD). Dit voornemen ziet op de opdracht die door UMCG is gegund naar aanleiding van de Europese aanbesteding die bekend is gemaakt onder nummer [nummer] . Het aansluiten van de andere ziekenhuizen op deze aanbestede opdracht is mogelijk op basis van de oorspronkelijke uitvraag. In die uitvraag is voorzien in een mogelijke toekomstige regionale samenwerking, waarvoor het EPD van de inschrijver bij voorkeur geschikt zou moeten zijn. Die samenwerking wenst UMCG nu te bewerkstelligen.</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Deze wordt gefaciliteerd door het EPD binnen de contractuele structuur van Epic. De ziekenhuizen die voornemens zijn aan te sluiten, zijn niet aanbestedingsplichtig. </emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">[…]</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Waarde van alle contracten toegekend in deze kennisgeving- I Euro</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">[…]</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Rechtvaardiging voor onderhandse gunning: Opdrachten met een geraamde waarde onder de aanbestedingsdrempels.</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Andere rechtvaardiging: De opdracht is eerder aanbesteed. In die aanbesteding is reeds voorzien in de mogelijkheid van uitbreiding in verband met een (regionale) samenwerking.</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">De toepassing van deze optie komt overigens ten goede aan partijen die niet aanbestedingsplichtig zijn. Het volume van UMCG wijzigt niet.’</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.9.</nr>
+      <parablock>
+        <para>Op 14 november 2025 heeft het UMCG een vrijwillige aankondiging (verder: Vooraankondiging 2) als bedoeld in artikel 4.16 Aw gepubliceerd. Daarin is onder meer het</para>
+        <para>volgende vermeld:</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">‘De opdracht betreft de aansturing en realisatie van het programma “Implementatie SCN”. Het betreft de planvorming, de regievoering op de uit te voeren werkzaamheden, de rapportage over voortgang, risicomanagement en budgetuitnutting, het management van de informatiestromen. E.e.a. is samen te brengen in de rollen programmadirectie, centraal programmamanagement “verandermanagement” en Programma Management Office. Gezien de complexiteit van het programma “Implementatie SCN” is adequate sturing en monitoring op de programmamanagementprocessen (financieel management, risicomanagement, informatievoorziening en rapportage) een noodzakelijke voorwaarde. Betreft het realiseren van een Epic Connect omgeving in de periode december 2025 tot en met juli 2027.</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">[…]</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Waarde van alle contracten toegekend in deze kennisgeving: 3.160.500 Euro </emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Rechtvaardiging voor onderhandse gunning: Opdrachten met een geraamde waarde onder de aanbestedingsdrempels</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Andere rechtvaardiging:</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">De ervaringen van Pragus zijn noodzakelijk voor een succesvolle realisatie van de EPIC-connect. Op dit moment zijn er geen partijen in Nederland actief met de benodigde ervaring. AW20I2 art. 2.32 lid 1 b2 stelt dat als de mededinging om technische gronden ontbreekt, wat in deze situatie het geval is, het gegrond is om een onderhandelingsprocedure zonder aankondiging te starten.’</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.10.</nr>
+      <para>Chipsoft heeft bij e-mail van 26 november 2025 UMCG vragen gesteld over het gezamenlijke EPD. UMCG heeft daar op 1 december 2025 op gereageerd in die zin dat de voorgenomen samenwerking al was geadresseerd in de aanbesteding uit 2015, dat de termijn om te protesteren inmiddels is verlopen en dat UMCG ervan uitgaat dat Chipsoft geen gerechtelijke stappen zal ondernemen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.11.</nr>
+      <para>Bij dagvaarding van 3 december 2025 heeft Chipsoft een kort geding aanhangig gemaakt, omdat zij – kort gezegd – meent dat UMCG c.s. aanbestedings- en staatsteunregels heeft geschonden. Zij heeft daarom gevorderd dat het UMCG c.s. wordt verboden om uitvoering te geven aan wat is omschreven in de Vooraankondigingen. Daarnaast heeft Chipsoft UMCG c.s. op 12 december 2025 gedagvaard in een bodemzaak, tegen de rol van 29 april 2026. Bij die dagvaarding heeft zij eveneens in voorwaardelijk incident inzage/afgifte van informatie door UMCG c.s. gevorderd, en het gelasten van een getuigenverhoor. </para>
+      <para />
+      <para />
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.12.</nr>
+      <para>De voorzieningenrechter van de rechtbank Noord-Nederland, locatie Groningen,  heeft bij vonnis van 6 februari 2026 in kort geding vonnis gewezen. Tegen dat vonnis is hoger beroep ingesteld. Het gerechtshof Arnhem-Leeuwarden heeft op 21 april 2026 arrest gewezen. Het gerechtshof heeft onder meer beslist:</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">‘5.10	Chipsoft heeft aangegeven dat de beslissing van de voorzieningenrechter dat Treant niet als aanbestedende dienst kan worden aangemerkt, ook in het later aanhangig gemaakte hoger beroep van Chipsoft tegen Treant niet zal worden aangevochten.</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">[…]</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.17</nr>
+      <para>
+        <emphasis role="italic">Het hof komt daarmee tot de conclusie dat OZG niet kan worden aangemerkt als een publiekrechtelijke instelling en bijgevolg evenmin als een aanbestedende dienst. De tegen het andersluidende oordeel van de voorzieningenrechter gerichte grieven van UMCG c.s. slagen in zoverre en de vordering van Chipsoft om uitdrukkelijk te bepalen dat OZG een aanbestedende dienst is kan niet worden toegewezen, nog daargelaten dat in kort geding geen verklaring voor recht kan worden afgegeven.</emphasis>
+      </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">[…]</emphasis>
+          <?linebreak?>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>5.21</nr>
+      <para>
+        <emphasis role="italic">Vervolgens moet het hof oordelen of het gebruik mogen maken van het EPD door Treant een wezenlijke wijziging oplevert van de opdracht die UMCG in 2015 heeft aanbesteed.</emphasis>
+      </para>
+    </paragroup>
+    <paragroup>
+      <nr>5.22</nr>
+      <para>
+        <emphasis role="italic">Het hof beantwoordt die vraag in dit kort geding, anders dan de voorzieningenrechter, voorshands ontkennend. UMCG had in de aanbesteding uit 2015 een aantal wensen geformuleerd die zagen op regionale samenwerking en de mogelijkheid dat het EPD van UMCG ook in regionale ziekenhuizen zou worden uitgerold. Het hof heeft de wensen 77 en 87 waarin dit het meest pregnant is verwoord hiervoor onder 3.3 geciteerd, maar ook in de wensen 73 tot en met 75 komt deze vraag aan de orde. Epic heeft in die aanbesteding een product aangeboden waarbij zowel volledige integratie als strikte scheiding tussen meerdere instellingen kan worden gerealiseerd.</emphasis>
+      </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.23</nr>
+      <para>
+        <emphasis role="italic">Het hof oordeelt dat het gebruik maken van een optie waarom in de aanbesteding in 2015 is gevraagd, niet als een wezenlijke wijziging van de opdracht tot het realiseren van het EPD van UMCG kan worden aangemerkt. Het EPD van het UMCG zelf wijzigt daardoor niet. De programmatuur van dat EPD moet in zoverre worden aangepast dat, in de woorden van UMCG, een deurtje moet worden opengezet waardoor niet-aanbestedingsplichtige instellingen buiten het UMCG ook van de programmatuur van het EPD van UMCG gebruik kunnen maken. Het openzetten van die figuurlijke deur en de daarmee gemoeide kosten merkt het hof aan als een niet-wezenlijke wijziging in de zin van artikel 2.163g Aw. Het hof merkt daarbij op dat daarbij bepalend is dat Treant zelf geen aanbestedende dienst is en dat de kosten van de invoering van het Epic - EPD bij Treant geheel door Treant zullen worden gedragen en ook rechtstreeks bij Treant door Epic in rekening worden gebracht zoals UMCG en Treant ter zitting hebben meegedeeld. De omvang van de opdracht uit 2015 wijzigt niet doordat een niet-aanbestedingsplichtig ziekenhuis via een licentie gebruik kan maken van het EPD van UMCG. Als een aanbestedingsplichtige instelling, zoals een ander academisch ziekenhuis via een licentie aan zou willen sluiten op het EPD van het UCMG, dan zou dit niet langs deze weg kunnen worden gerealiseerd omdat in dat geval de ‘scope’ van de opdracht uit 2015 wel wijzigt.</emphasis>
+      </para>
+      <para />
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.24</nr>
+      <parablock>
+        <para>
+          <emphasis role="italic">Van een aanzienlijke verruiming van het toepassingsgebied van de aanbesteding uit 2015 is naar het voorshandse oordeel van het hof ook sprake als de aansluiting van Treant op het EPD van UMCG financieel geheel via UMCG zou lopen, wat dus klaarblijkelijk de opzet was in het contract zoals dat op 11 september 2025 is gesloten. Een dergelijk vormgegeven contract kwalificeert dan ook niet als een ‘niet-wezenlijke wijziging' als bedoeld in artikel 2.163g Aw van de oorspronkelijke aanbesteding uit 2015. Voor zover UMCG nog heeft betoogd dat de overeenkomst van 11 november 2025 in de oorspronkelijke vorm wel zou kwalificeren als passend binnen een herzieningsclausule als bedoeld in artikel 2:163c Aw, gaat dit betoog niet op. Van een herzieningsclausule 'avant la lettre’ als in dat artikel bedoeld - waarbij geldt dat de in dat artikel opgesomde eisen cumulatief gelden - is in de</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">aanbesteding uit 2015 geen sprake geweest.</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.25</nr>
+      <para>
+        <emphasis role="italic">Het hof oordeelt derhalve dat een overeenkomst waarin ten behoeve van Treant de optie wordt benut uit de aanbesteding uit 2015 dat een ander ziekenhuis kan aansluiten op het EPD van UMCG. geen wezenlijke wijziging inhoudt van die in 2015 aanbestede opdracht, op voorwaarde dat wordt overeengekomen dat Treant zelf alle kosten van het gebruik van het EPD van het UMCG - daaronder nadrukkelijk begrepen de kosten van de licentie van Epic - en de kosten van de invoering van een nieuw EPD op haar werkvloer draagt en dat de daarmee gepaard gaande vergoedingen die Treant moet betalen niet via UMCG lopen. </emphasis>
+      </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">De positie van OZG</emphasis>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>5.26</nr>
+      <para>
+        <emphasis role="italic">Voor OZG geldt, als de overeenkomst op dezelfde wijze zou vorm krijgen als de overeenkomst met Treant wanneer die in de hiervoor bedoelde zin is aangepast, hetzelfde als het hof hiervoor over Treant heeft aangegeven.</emphasis>
+      </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">[…]</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.29</nr>
+      <para>
+        <emphasis role="italic">Dit betekent dat het contract van 11 november 2025 als omschreven door UCMG voor zover dat ziet op het verlenen van een sublicentie aan OZG, moet worden aangemerkt als een wezenlijke wijziging van de aanbesteding uit 2015.</emphasis>
+      </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.30</nr>
+      <para>
+        <emphasis role="italic">UMCG c.s. hebben zich bereid verklaard om, als het hof dat nodig vindt, het contract betreffende OZG op dezelfde wijze aan te passen als dat met Treant gaat gebeuren. […]</emphasis>
+      </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Chipsoft heeft geen belang bij de opdracht genoemd in Vooraankondiging 2</emphasis>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>5.31</nr>
+      <para>
+        <emphasis role="italic">Vooraankondiging 2 heeft betrekking op de implementatie van de overeenkomsten die voortvloeien uit Vooraankondiging I. […]</emphasis>
+      </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.32</nr>
+      <para>
+        <emphasis role="italic">Al deze implementatiewerkzaamheden kunnen niet door Chipsoft gedaan worden omdat zij daarvoor nooit toestemming krijgt van Epic. Dat heeft Chipsoft ook erkend. Dit betekent dat zij geen zelfstandig belang heeft bij toetsing van Vooraankondiging 2 en een verbod tot het sluiten van een de overeenkomst van UMCG c.s. met Pragus. Alleen als geoordeeld zou worden dat de in Vooraankondiging 1 voorziene overeenkomst met Epic niet gesloten zou mogen worden, heeft Chipsoft belang bij het niet kunnen sluiten van de uitvoeringsovereenkomst met Pragus. In het voorgaande heeft het hof geoordeeld dat UMCG weliswaar niet de overeenkomst met Epic had mogen sluiten in de op 11 november 2025 overeengekomen vorm, maar dat de overeenkomst, in aangepaste vorm, wel toelaatbaar is. Daarmee heeft Chipsoft geen belang meer bij toetsing van Vooraankondiging 2.’</emphasis>
+      </para>
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>3</nr>Het verzoek en het verweer</title>
+    <para />
+    <paragroup>
+      <nr>3.1.</nr>
+      <para>Chipsoft verzoekt de rechtbank om bij beschikking, uitvoerbaar bij voorraad:</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Primair</emphasis>
+        </para>
+        <para>I. te bepalen dat Chipsoft en haar advocaten afschrift, inzage of uittreksels krijgen van de bepaalde gegevens zoals omschreven in randnummer 54 van het verzoekschrift welke bepaalde gegevens binnen een termijn van 14 dagen na toewijzing van het verzoek door UMCG c.s. aan Chipsoft en haar advocaten moeten worden verstrekt;</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>II. te bepalen dat één of meer getuigen zoals genoemd in randnummer 73 van het verzoekschrift zullen worden gehoord medio 21 dagen na toewijzing van het verzoek zodat Chipsoft in de gelegenheid is gesteld kennis te nemen van de bepaalde gegevens onder I, althans zo snel mogelijk gelet op de roldatum in de bodemprocedure van <?linebreak?>29 april 2026 en dat daartoe een voorlopig getuigenverhoor zal worden gehouden met bepaling van een door de rechtbank te bepalen tijdstip;</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Subsidiair</emphasis>
+        </para>
+        <para>I. aan de advocaten van Chipsoft toestemming te verlenen om inzage te nemen in de in randnummer 54 van het verzoekschrift opgenomen documenten voor zover UMCG c.s. van mening zijn dat dit bedrijfsvertrouwelijke informatie betreft, zulks ten kantore van de advocaat van UMCG c.s.;</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>II. een zitting te bepalen waarop de advocaten van Chipsoft en de advocaten van UMCG c.s. kunnen toelichten waarom bepaalde informatie in de door de advocaten van UMCG c.s. aangemerkte documentatie al dan niet door Chipsoft en haar advocaten zouden mogen worden ingezien, waarbij Chipsoft niet aanwezig zal mogen zijn; en</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>III. door de rechtbank in goede justitie te bepalen welke passages zwartgelakt kunnen worden zodat de in randnummer 54 van het verzoekschrift opgenomen documenten met Chipsoft en/of haar advocaten gedeeld kan worden;</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Meer subsidiair </emphasis>
+        </para>
+        <para>I. op de voet van artikel 194-195 van het Wetboek van Burgerlijke Rechtsvordering (Rv) en in goede justitie te bepalen op welke wijze Chipsoft afschrift, inzage of uittreksels verkrijgt van de in randnummer 54 van het verzoekschrift opgenomen documenten;</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Zowel primair als subsidiair</emphasis>
+        </para>
+        <para>I. UMCG c.s. binnen vijf dagen na betekening van de beschikking aan de advocaten van Chipsoft afschrift, inzage of uittreksels te verschaffen van de in randnummer 54 opgenomen documenten toe te sturen dan wel door uw rechtbank te bepalen documenten;</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>II. UMCG c.s. te bevelen een dwangsom te betalen van € 2.500,00 (zegge: tweeënhalfduizend euro) per dag (een gedeelte van een dag gerekend als een hele dag) dat in strijd wordt gehandeld met onder hetgeen primair I en subsidiair voor zover deze worden toegewezen, met een maximum van € 500.000,00 (zegge: vijfhonderdduizend euro);</para>
+        <para>III. UMCG c.s. hoofdelijk te veroordelen in de kosten van het geding.</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.2.</nr>
+      <para>UMCG c.s. verzet zich tegen toewijzing van het verzoek. </para>
+      <para />
+    </paragroup>
+  </section>
+  <section role="overwegingen">
+    <title>
+      <nr>4</nr>De beoordeling</title>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Het beoordelingskader </emphasis>
+      </para>
+    </parablock>
+    <paragroup>
+      <nr>4.1.</nr>
+      <para>Chipsoft verzoekt om voorlopige bewijsverrichtingen, te weten (1) afschrift of inzage krijgen in de door haar omschreven stukken en (2) het horen van getuigen. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.2.</nr>
+      <para>Op grond van artikel 196 lid 1 Rv kan de rechter, voordat een zaak aanhangig is, of als het geding aanhangig is gemaakt, voordat de zaak op de rol is ingeschreven, op verzoek van een belanghebbende een of meer voorlopige bewijsverrichtingen bevelen. Een dergelijk verzoek dient op grond van artikel 197 lid 1 Rv te worden ingediend bij de rechter die (vermoedelijk) bevoegd zal zijn van de zaak kennis te nemen als deze aanhangig wordt gemaakt. De rechtbank is met partijen van oordeel dat dit in dit geval de rechtbank Noord-Nederland, locatie Groningen, is. De rechtbank acht zich dan ook bevoegd om kennis te nemen van de verzoeken zoals ze zijn gedaan.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.3.</nr>
+      <para>Uit artikel 196 lid 2 Rv volgt dat de rechter een verzoek om een voorlopige bewijsverrichting toewijst, tenzij:</para>
+      <parablock>
+        <para> de informatie die verlangd wordt, niet voldoende bepaald is;</para>
+        <para> onvoldoende belang bij de voorlopige bewijsverrichting bestaat;</para>
+        <para> het verzoek is strijd is met de goede procesorde;</para>
+        <para> sprake is van misbruik van bevoegdheid;</para>
+        <para> er andere gewichtige redenen bestaan die zich verzetten tegen de voorlopige bewijsverrichting.</para>
+      </parablock>
+      <para>De rechtbank merkt hierbij op dat deze afwijzingscriteria geen van elkaar afgescheiden criteria vormen, maar min of meer in elkaar overlopen en om die reden naast elkaar van toepassing kunnen zijn.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.4.</nr>
+      <para>De rechtbank zal de verzoeken zoals ze zijn gedaan hierna aan de hand van dit kader beoordelen.</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Ontvankelijkheid Chipsoft</emphasis>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>4.5.</nr>
+      <para>UMCG c.s. voert allereerst aan dat Chipsoft niet-ontvankelijk is in haar verzoeken. Volgens UMCG c.s. kan een voorlopige bewijsverrichting niet naast een bodemprocedure lopen, omdat daarmee de bodemprocedure wordt doorkruist. UMCG c.s. meent dan ook dat de beslissing omtrent de inzage in dan wel uittreksel/afschrift van stukken en het horen van getuigen is voorbehouden aan de rechter die over de vorderingen beslist die in de reeds aanhangige bodemprocedure (r.o. 2.11.) voorliggen. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.6.</nr>
+      <para>De rechtbank acht Chipsoft ontvankelijk in haar verzoeken. Chipsoft heeft UMCG c.s. op 12 december 2025 gedagvaard tegen de rolzitting van 29 april 2026. Op die laatste dag is de bodemzaak op de rol ingeschreven. Vóór die inschrijving, op 2 januari 2026, heeft Chipsoft onderhavig verzoek ingediend. In zoverre is voldaan aan de eisen die artikel 196 lid 1 Rv stelt. De rechtbank is weliswaar met UMCG c.s. van oordeel dat artikel 196 Rv strekt te voorkomen dat een lopende hoofdzaak wordt doorkruist door een voorlopige bewijsverrichting, maar de rechtbank ziet geen aanleiding om te veronderstellen dat artikel 196 Rv ook meebrengt dat een verzoeker niet-ontvankelijk is dan wel het verzoek om een voorlopige bewijsverrichting moet worden afgewezen indien na het indienen van dat verzoek, maar voor het moment van beslissen daarop een bodemzaak aanhangig wordt gemaakt. De parlementaire geschiedenis biedt geen aanwijzing in die richting. In dit geval is het niet de bewijsverrichting die de bodemzaak ‘doorkruist’, maar de bodemzaak die een nog lopend (verzoek tot) bewijsverrichting ‘doorkruist’. In die situatie ligt veel meer voor de hand om de rechtbank desgewenst te verzoeken de behandeling van de bodemzaak aan te houden tot het moment dat eventueel te bevelen bewijsverrichtingen zijn uitgevoerd. Het volgen van de door UMCG c.s. voorgestane uitleg van de wet zou bovendien ook tot de ongerijmde conclusie leiden dat iedere partij die liever geen voorlopige bewijsverrichtingen ziet de toewijzing daarvan kan voorkomen door na kennisname van het daartoe strekkende verzoek eenvoudigweg een dagvaarding over dezelfde kwestie uit te brengen. </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Het verzoek tot inzage, afschrift of uittreksel van stukken </emphasis>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>4.7.</nr>
+      <para>Een van de in artikel 196 Rv bedoelde voorlopige bewijsverrichtingen betreft het verkrijgen van inzage in of afschrift van bepaalde gegevens, een en ander als ook bedoeld in artikel 194 Rv. In dat artikel is bepaald dat een <emphasis role="underline">partij bij een rechtsbetrekking</emphasis> tegenover diegene die beschikt over <emphasis role="underline">bepaalde gegevens</emphasis> over die rechtsbetrekking, recht heeft op inzage, afschrift of uittreksel van die gegevens als zij daarbij <emphasis role="underline">voldoende belang</emphasis> heeft. Chipsoft heeft haar verzoek op dit punt uitdrukkelijk onderbouwd door te verwijzen naar dit beoordelingskader, en daarbij te betogen dat aan deze voorwaarden is voldaan. De rechtbank zal bij de beoordeling van het verzoek daarom dezelfde indeling aanhouden.</para>
+      <para />
+      <parablock>
+        <para>1. <emphasis role="italic">Partij bij rechtsbetrekking</emphasis></para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>4.8.</nr>
+      <para>In de eerste plaats stelt Chipsoft dat sprake is van een rechtsbetrekking waarbij Chipsoft als verzoekster partij is. In dit geval doet zich echter de situatie voor dat de (door Chipsoft) gestelde rechtsbetrekkingen bestaan uit een jegens haar gepleegde of nog te plegen onrechtmatige daad en UMCG c.s. betwist dat daarvan sprake is (geweest). De door Chipsoft gevraagde gegevens dienen er in de kern dan ook juist toe om het bestaan van de gestelde rechtsbetrekking te onderbouwen dan wel te ontzenuwen. Dit roept de vraag op welke eisen in een dergelijke geval mogen worden gesteld aan het aannemelijk zijn van het daadwerkelijk bestaan van een rechtsbetrekking.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.9.</nr>
+      <para>De Hoge Raad heeft onder het oude recht (artikel 843a Rv) overwogen dat degene die inzage, afschrift of uittreksel van bewijsmateriaal verlangt om een door hem vermoede tekortkoming of onrechtmatige daad te kunnen aantonen, gemotiveerd zodanige feiten en omstandigheden dient te stellen en met eventueel reeds voorhanden bewijsmateriaal moet onderbouwen, dat voldoende aannemelijk is dat die tekortkoming of onrechtmatige daad zich heeft voorgedaan of dreigt voor te doen. Die maatstaf stelt de rechter in staat een evenwicht te vinden tussen het belang van eiser of verzoeker om de waarheid te kunnen achterhalen en zijn bewijspositie te versterken, en het belang van verweerder om geen vertrouwelijke informatie prijs te hoeven geven en om verschoond te blijven van de ingrijpende maatregel die exhibitie niet zelden is. Die maatstaf biedt de rechter voorts voldoende ruimte om rekening te houden met de aard van het onderliggende geschil en de overige omstandigheden van het geval, waaronder de omvang van de gevorderde exhibitie en de mogelijkheid om het bestaan van de gestelde vordering met andere bewijsmiddelen te onderbouwen. Degene die inzage, afschrift of uittreksel van bewijsmateriaal verlangt om een door hem vermoede tekortkoming of onrechtmatige daad te kunnen aantonen, zal derhalve gemotiveerd zodanige feiten en omstandigheden dienen te stellen en met eventueel reeds voorhanden bewijsmateriaal moeten onderbouwen, dat voldoende aannemelijk is dat die tekortkoming of onrechtmatige daad zich heeft voorgedaan of dreigt voor te doen. <footnote-ref linkend="_6169905d-e89c-4b46-ac6c-2ee253129a96" /></para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.10.</nr>
+      <para>In de parlementaire geschiedenis van artikel 194 Rv, dat artikel 843a Rv sinds <?linebreak?>1 januari 2025 vervangt, is verwoord dat het bestaan van een rechtsbetrekking nog niet in rechte hoeft vast te staan. Ook jegens degene die zich op het standpunt stelt dat er helemaal geen rechtsbetrekking bestaat waarbij hij partij is, kan aanspraak worden gemaakt op bepaalde gegevens om dat aan te tonen. De inzet van een procedure kan juist bestaan in de vraag of tussen partijen al dan niet een rechtsbetrekking bestaat. Vaak zijn bepaalde feiten die van belang zijn voor het bestaan, de inhoud of de omvang van een rechtsbetrekking nog niet helder. Precies om die reden kan een partij aanspraak maken op bepaalde gegevens waarover zij beschikt, maar een ander wel. Uit de verkregen informatie kan ook blijken dat een partij die meende bij een rechtsbetrekking betrokken te zijn, dat toch uiteindelijk niet is, waardoor een potentieel geschil tussen partijen vroegtijdig kan worden beëindigd. Gelet op het doel om opheldering van de feiten te verkrijgen en geschillen zo effectief mogelijk op te lossen, moet het begrip ‘partij bij een rechtsbetrekking’ in de optiek van de wetgever ruim worden opgevat. <footnote-ref linkend="_e68bffdf-d86d-4f4a-bf44-6f2e23c9098c" /></para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.11.</nr>
+      <para>Uit deze parlementaire geschiedenis leidt de rechtbank af dat geen al te hoge eisen mogen worden gesteld aan de mate waarin het bestaan van een rechtsbetrekking moet worden onderbouwd. Tegelijk blijft gelden dat, ook al hoeft de partij die om inzage verzoekt niet eerst aannemelijk te maken dat zij daadwerkelijk een vorderingsrecht heeft, de verzoekende partij naar het oordeel van de rechtbank wél enige onderbouwing moet geven, in de vorm van ‘aanknopingspunten’ van haar stelling dat een rechtsbetrekking (mogelijk) bestaat, en feiten en omstandigheden moet aandragen die als aanknopingspunten voor dat bestaan kunnen dienen. Immers, nog steeds geldt de in artikel 194 en artikel 196 Rv tot uitdrukking gebrachte voorwaarde dat de verzoekende partij afdoende belang moet hebben bij haar verzoek: wanneer iedere aanwijzing tot het bestaan van een rechtsbetrekking ontbreekt, zal in de regel onvoldoende belang bestaan bij inzage in stukken. Indien geen enkele onderbouwing van de verzoekende partij zou worden verlangd, wordt bij de beoordeling van de vraag of sprake is van een rechtsbetrekking geen enkele rekening gehouden met de belangen van de partij die inzage zou moeten verstrekken in de gegevens. Bovendien zou de deur naar een (onwenselijke) ‘fishing expedition’ in dat geval open worden gezet.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.12.</nr>
+      <para>Chipsoft heeft haar stelling dat sprake is van een rechtsbetrekking als volgt onderbouwd. Ten aanzien van UMCG en OZG stelt Chipsoft dat zij – kort gezegd – in strijd met de aanbestedingsregels hebben gehandeld door de opdracht ten aanzien van de gezamenlijke EPD niet aan te besteden en dat zij de staatsteunregels niet hebben nageleefd. UMCG voert volgens Chipsoft ten onrechte aan dat het realiseren van een gezamenlijke EPD onder de aanbesteding uit 2015 valt en OZG is volgens Chipsoft (ook) een aanbestedingsplichtige dienst. Ten aanzien van Treant stelt Chipsoft dat Treant heeft meegewerkt aan de omzeiling van de aanbesteding- en staatsteunregels door UMCG en OZG en daarom sprake is van onrechtmatig handelen, en daarnaast mogelijk van (verboden) staatssteun. De rechtbank zal hierna voor UMCG, OZG en Treant apart beoordelen in hoeverre, tegen bovenstaande achtergrond bezien, het bestaan van een rechtsverhouding in die mate aannemelijk is geworden dat aangenomen moet worden dat aan het vereiste van afdoende belang bij inzage is voldaan.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.13.</nr>
+      <para>Ten aanzien van de rechtsbetrekking ten opzichte van UMCG is de rechtbank van oordeel dat Chipsoft haar stelling dat UMCG onrechtmatig jegens haar heeft gehandeld voldoende heeft onderbouwd om te kunnen oordelen dat op dit punt aan genoemde eis is voldaan. Het gerechtshof heeft bij arrest van 21 april 2026 geoordeeld dat een overeenkomst waarin ten behoeve van Treant en OZG de optie wordt benut uit de aanbesteding uit 2015 dat een ander ziekenhuis kan aansluiten op het EPD van UMCG geen wezenlijke wijziging inhoudt van die in 2015 aanbestede opdracht, <emphasis role="underline">op voorwaarde</emphasis> dat wordt overeengekomen dat Treant en OZG zelf alle kosten van het gebruik van het EPD van het UMCG - daaronder nadrukkelijk begrepen de kosten van de licentie van Epic - en de kosten van de invoering van een nieuw EPD op haar werkvloer dragen en dat de daarmee gepaard gaande vergoedingen die Treant en OZG moet betalen niet via UMCG lopen. UMCG heeft tijdens de mondelinge behandeling verklaard dat de overeenkomst zal worden aangepast zoals door het gerechtshof is aangegeven, maar dat dit nog niet is gebeurd. Zolang nog geen ‘knip’ in de overeenkomst heeft plaatsgevonden is, aldus het gerechtshof, sprake van een wezenlijke wijziging en moet de opdracht worden aanbesteed. Chipsoft heeft daarmee onderbouwd dat UMCG in die situatie onrechtmatig handelt, omdat zij de opdracht heeft gegund aan Epic terwijl zij de opdracht had moeten aanbesteden en Chipsoft als concurrent van Epic daarop kon inschrijven. UMCG heeft weliswaar aangevoerd dat Chipsoft niet in aanmerking zou komen voor de opdracht, maar dat heeft zij naar het oordeel van de rechtbank onvoldoende onderbouwd. Tussen partijen staat vast dat Chipsoft een concurrent is van Epic en vergelijkbare diensten levert. UMCG c.s. verwijst naar r.o. 5.32 van het arrest van het gerechtshof, maar daarin heeft het gerechtshof slechts overwogen dat de implementatiewerkzaamheden (Vooraankondiging 2) met betrekking tot de overeenkomst met Epic niet door Chipsoft gedaan kunnen worden en zij in zoverre geen belang heeft bij een verbod tot het sluiten van de overeenkomst tussen UMCG en Pragus (de partij die implementatiewerkzaamheden uitvoert). Volgens het gerechtshof heeft Chipsoft daar wél belang bij indien de overeenkomst met Epic niet gesloten kon worden, waaruit de rechtbank afleidt dat ook het gerechtshof van oordeel is dat Chipsoft zich kan inschrijven voor een dergelijke opdracht.  </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.14.</nr>
+      <para>Ten aanzien van de rechtsbetrekking ten opzichte van OZG is de rechtbank van oordeel dat Chipsoft onvoldoende heeft onderbouwd dat OZG onrechtmatig jegens haar hebben gehandeld, in de zin dat dergelijke rechtsbetrekking voldoende aannemelijk is geworden om aan de norm van artikel 194 jo. 196 Rv te voldoen. Redengevend acht de rechtbank dat het gerechtshof heeft geoordeeld dat OZG geen aanbestedingsplichtige dienst is. Weliswaar betreft het hier een voorlopig oordeel in kort geding, maar UMCG c.s. heeft in onderhavige procedure niet geduid of toegelicht waarom dit oordeel onjuist zou zijn. De rechtbank ziet dan ook aanleiding bij haar eigen beoordeling van de juistheid daarvan uit te gaan. Wanneer OZG niet als aanbestedende dienst moet worden aangemerkt, bestaat er echter geen enkel aanknopingspunt om uit te gaan van de juistheid van de stelling van Chipsoft dat OZG de opdracht voor een gezamenlijk EPD had moeten aanbesteden, en daarmee evenmin voor de stelling dat er tussen Chipsoft en OZG sprake is van een rechtsbetrekking uit hoofde van onrechtmatige daad. Hier staat tegenover dat toewijzing van het verzoek jegens OZG ingrijpende gevolgen zou hebben. Daarmee ontbreekt het, naar oordeel van de rechtbank,  aan de zijde van Chipsoft ten aanzien van OZG aan het voor toewijzing van het verzoek benodigde afdoende belang.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.15.</nr>
+      <para>Ten aanzien van Treant geldt, op vergelijkbare wijze, dat Chipsoft niet, althans onvoldoende heeft onderbouwd dat Treant heeft meegewerkt aan een constructie om aan de aanbestedings- en staatsteunregels te omzeilen. Zij heeft die stelling op geen enkele manier concreet gemaakt. Ook de blote stelling dat hier (mogelijk) sprake zou zijn van ongeoorloofde staatssteun is niet concreet gemaakt, bijvoorbeeld door het aanreiken van aanknopingspunten die daarop zouden wijzen. Ook ten aanzien van Treant geldt dat toewijzing van het verzoek ingrijpend zou zijn, gelet op de in dat geval te openbaren bescheiden. Daarmee ontbeert het verzoek ook ten aanzien van Treant tot inzage in stukken ook ten aanzien van Treant het benodigde belang.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.16.</nr>
+      <para>Dit leidt tot de conclusie dat het verzoek van Chipsoft tot inzage in stukken moet worden afgewezen voor zover het ziet op (het bestaan van) een rechtsbetrekking tussen Chipsoft enerzijds, en OZG en/of Treant anderzijds. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.17.</nr>
+      <para>De rechtbank zal hierna daarom uitsluitend nog beoordelen of het verzoek dat is gegrond op de rechtsbetrekking tussen Chipsoft en UMCG voldoet aan de overige eisen die artikel 194 Rv stelt. </para>
+      <para />
+      <parablock>
+        <para>2. <emphasis role="italic">Voldoende belang </emphasis></para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>4.18.</nr>
+      <para>Hiervoor is al geoordeeld dat, nu onvoldoende aanknopingspunten voor het bestaan van een rechtsbetrekking jegens OZG en Treant zijn gebleken, het verzoek tot inzage jegens die partijen bij gebrek aan belang moet worden afgewezen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.19.</nr>
+      <para>Ten aanzien van het verzoek jegens UMCG ligt dat anders. Het gerechtshof heeft bij arrest van 21 april 2026 immers geoordeeld dat een overeenkomst waarin ten behoeve van Treant en OZG de optie wordt benut uit de aanbesteding uit 2015 dat een ander ziekenhuis kan aansluiten op het EPD van UMCG, geen wezenlijke wijziging inhoudt van die in 2015 aanbestede opdracht, op voorwaarde dat de overeenkomsten worden aangepast zoals hiervoor is weergegeven in r.o. 4.14. Het gerechtshof is er daarbij van uitgegaan dat, zoals UMCG c.s. had aangevoerd, een figuurlijk ‘deurtje’ in het EPD van UMCG moet worden opengezet waardoor niet-aanbestedingsplichtige instellingen buiten het UMCG ook van de programmatuur van het EPD van UMCG gebruik kunnen maken. Dat laatste betwist Chipsoft: volgens haar is sprake van een substantiële wijziging in de inrichting en omvang van het EPD van UMCG. Bovendien heeft UMCG de overeenkomsten met Epic nog niet aangepast en ligt de vraag of sprake is van een wezenlijke wijziging, en daarmee de vraag of het UMCG aanbesteding- en staatsteunregels heeft geschonden, in de al aanhangig gemaakte bodemprocedure wederom voor. Chipsoft stelt dat zij informatie dient te hebben over de structuur van de samenwerking tussen UMCG, OZG en Treant met betrekking tot de realisatie van een gezamenlijke EPD om te kunnen beoordelen – en mogelijk in een bodemprocedure te kunnen onderbouwen – of dan wel dat sprake is van een wezenlijke wijziging. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.20.</nr>
+      <para>Ten aanzien van de verhouding tussen Chipsoft en UMCG is het bestaan van een rechtsbetrekking daarmee evenmin komen vast te staan, maar zijn wel concrete aanknopingspunten aangevoerd. In de kern bestaat dat belang eruit dat haar duidelijk(er) wordt welke structuur het gezamenlijke EPD van UMCG c.s. zal krijgen. De rechtbank zal hierna nog nader ingaan op de omvang van de gevorderde inzage, en die begrenzen. De rechtbank is van oordeel dat Chipsoft, gelet op hetgeen rondom het bestaan van een rechtsbetrekking is geoordeeld, en met inachtname van genoemde begrenzingen, afdoende belang heeft bij toewijzing van haar verzoek, ook wanneer wordt meegewogen dat dit verzoek voor UMCG een ingrijpend karakter heeft. </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">3. Bepaalde gegevens</emphasis>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>4.21.</nr>
+      <para>De resterende relevante vraag is ten aanzien van welke gegevens, betrekking hebbende op haar rechtsrelatie met UMCG, Chipsoft inzage kan verlangen. Ook daarbij dient wederom het belang dat Chipsoft heeft bij inzage afgewogen te worden tegen de belangen van UMCG.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.22.</nr>
+      <para>Chipsoft verzoekt <emphasis role="underline">in de eerste plaats</emphasis> onder rn. 54 van haar verzoekschrift in zijn algemeenheid om inzage in of afschrift van: </para>
+      <para />
+      <parablock>
+        <para>“documentatie zoals offerteaanvragen, programma’s van eisen, offertes, overeenkomsten en daaraan gerelateerde documenten (inclusief bijlagen, addenda, wijzigingen en conceptversies), correspondentie of adviezen tussen of van UMCG en/of Treant en/of OZG en/of Epic, voor zover deze betrekking hebben op Shares Care Noord-project en/of het gezamenlijk EPD, waaronder ook de implementatie zoals gegund aan Pragus en informatie over de boogde reikwijdte van het EPD in de regio-Noord-Nederland”, </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>om vervolgens (onder ‘a’ tot en met ‘h’) een achttal min of meer concrete categorieën van stukken te benoemen die volgens Chipsoft in ieder geval onder deze omschrijving zouden moeten vallen. Ook die acht categorieën zijn echter dermate ruim geformuleerd, dat de rechtbank niet duidelijk is welke stukken vallen onder de in de aanhef bedoelde “offerteaanvragen, programma’s van eisen, offertes, overeenkomsten en daaraan gerelateerde documenten (inclusief bijlagen, addenda, wijzigingen en conceptversies), correspondentie of adviezen”, terwijl zie niet ook al door deze acht categorieën worden bestreken. De rechtbank zal hierna daarom enkel beoordelen of UMCG c.s. de stukken genoemd onder a tot en met h aan Chipsoft moet verstrekken. </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.23.</nr>
+      <para>De rechtbank heeft hiervoor overwogen dat Chipsoft belang heeft bij stukken die haar inzage geeft in de structuur van de samenwerking tussen UMCG, Treant en OZG. Dat belang wordt naar het oordeel van de rechtbank afdoende gewaarborgd door een afschrift van de volgende stukken:</para>
+      <para />
+      <parablock>
+        <para>a. overeenkomst(en) inclusief bijlagen tussen UMCG enerzijds en Treant en /of OZG anderzijds, voor zover die zien op de inrichting van een gezamenlijk EPD;</para>
+        <para>b. notulen van vergaderingen in de raad van bestuur van UMCG, en/of bestuurlijke overleggen en/of stuurgroepoverleggen van UMCG, voor zover die zien op de inrichting van een gezamenlijk EPD;</para>
+        <para>c. correspondentie tussen de bestuursleden van het UMCG onderling, en correspondentie tussen UMCG enerzijds en Treant of OZG anderzijds, in alle gevallen voor zover bedoelde correspondentie ziet op de inrichting van een gezamenlijk EPD;  </para>
+        <para>d. overeenkomsten inclusief bijlagen en offertes van Epic voor de inrichting van een gezamenlijk EPD voor UMCG en OZG of Treant, voor zover deze zijn gericht aan UMCG;</para>
+        <para>e. documenten van of gericht aan UMCG waarin de rol, (onderlinge) verantwoordelijkheid, taakverdeling of governance-structuur van het voorgenomen gezamenlijk EPD is beschreven;</para>
+        <para>f. adviezen en/of presentaties, zoals juridische of commerciële, van of gericht aan UMCG, die zien op de inrichting van een gezamenlijk EPD en/of aanbesteding van een (gezamenlijk) EPD en/of het overwegen van een stichting voor een (gezamenlijk) EPD.</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.24.</nr>
+      <para>Voor de goede orde herhaalt de rechtbank dat het hier steeds uitsluitend ziet op stukken die betrekking hebben op de (vermeende) rechtsverhouding tussen Chipsoft enerzijds, en UMCG anderzijds. Bij de formulering van het voorgaande heeft de rechtbank daarnaast mee laten wegen in hoeverre van de zijde van UMCG c.s. tegen specifiek gevraagde stukken al dan geen specifiek verweer is gevoerd. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.25.</nr>
+      <para>Chipsoft heeft onvoldoende onderbouwd dat zij belang heeft bij inzage in/afgifte van de overige onder randnummer 54 van haar verzoekschrift gevraagde stukken. Ten aanzien van de stukken die betrekking hebben op het project ‘Shared Care Noord’ heeft UMCG c.s. aangevoerd dat dit project veel meer omvat dan een gezamenlijk EPD. Het gaat volgens haar bijvoorbeeld om onderlinge afspraken van de drie ziekenhuizen om werkprocessen op elkaar af te stemmen en afspraken over het gedeeld gebruik van de infrastructuur. De rechtbank is met UMCG van oordeel dat stukken die hier betrekking op hebben te ver verwijderd zijn van de stelling van Chipsoft dat UMCG de aanbestedings- en staatsteunregels heeft geschonden. Chipsoft heeft ook niet onderbouwd waarom deze specifieke stukken, naast de overige algemene stukken, relevant voor haar zijn. Dat geldt ook voor de stukken met betrekking tot Pragus. Chipsoft stelt dat aan Pragus een bedrag van € 3.000.000,00 wordt betaald en daaruit kan worden afgeleid dat de realisatie van een gezamenlijk EPD van een veel grotere omvang is dan UMCG c.s. bepleit. UMCG c.s. betwist echter niet het door Chipsoft genoemde bedrag. Bovendien valt niet in te zien dat Chipsoft met deze stukken informatie krijgt over de structuur van de samenwerking tussen UMCG, OZG en Treant.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.26.</nr>
+      <para>Vervolgens heeft Chipsoft onder rn. 55 van haar verzoekschrift <emphasis role="underline">in de tweede plaats</emphasis> gevraagd om inzage in althans afschrift van documenten waaruit de bekostiging blijkt van de werkzaamheden, opdrachten en samenwerkingsafspraken, waaronder documenten waaruit blijkt welke bijdrage UMCG, Treant en/of OZG leveren aan de financiering van het gezamenlijke EPD en Shared Care Noord en welke prijzen en voorwaarden worden gehanteerd ten einde te toetsen of deze marktconform zijn, waaronder de stukken die nader gespecifieerd worden onder a tot en met c (financiële stukken). </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.27.</nr>
+      <para>De rechtbank is van oordeel dat Chipsoft onvoldoende duidelijk heeft kunnen maken welk (afdoende) belang zij heeft bij een inzage dan wel afschrift van dergelijke financiële stukken. Het gerechtvaardigde belang van Chipsoft bij informatie zit er naar oordeel van de rechtbank in dat zij helder krijgt hoe de structuur van het voorgenomen gezamenlijke EPD eruit ziet, en hoe zich dat verhoudt tot de ten tijde van de vorige aanbesteding in 2015 gesloten overeenkomst. De rechtbank is niet duidelijk geworden op welke manier de vraag welke bedragen daarmee exact gemoeid zijn een aanvullende waarde heeft. Daar komt bij dat UMCG c.s. heeft aangevoerd dat zij in lijn met het arrest van het gerechtshof een knip zal maken in de overeenkomst, Treant en OZG alle kosten van het gebruik van het EPD zullen dragen en de vergoedingen niet (meer) via UMCG zullen lopen. Dat betekent dat voor zover Chipsoft inzage zou krijgen in tussen partijen afgesproken bedragen, de waarde van die informatie beperkt zal zijn, aangezien deze inmiddels achterhaald zijn. Tot slot weegt de rechtbank mee dat UMCG c.s. heeft aangevoerd dat juist waar het gaat om financiële details snel sprake zal zijn van gevoelige en vertrouwelijke informatie, zodat het belang van geheimhouding juist hier het zwaarst weegt.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.28.</nr>
+      <para>Zoals uit het voorgaande reeds volgt, worden de voor het overige door UMCG c.s. gevoerde verweren door de rechtbank niet gevolgd.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.29.</nr>
+      <para>Zo heeft UMCG in zijn algemeenheid aangevoerd dat met de eerdere procedures al veel informatie over de samenwerking en overeenkomst met Chipsoft is gedeeld, maar zij heeft niet onderbouwd dat Chipsoft beschikt over de hiervoor vermelde stukken. In zoverre gaat de rechtbank aan het verweer van UMCG voorbij. Dat geldt ook voor het verweer dat sprake is van een fishing expedition, nu de hiervoor genoemde stukken naar het oordeel van de rechtbank voldoende zijn bepaald en betrekking hebben op de mogelijke rechtsbetrekking (onrechtmatige daad) tussen Chipsoft en UMCG. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.30.</nr>
+      <para>De rechtbank gaat tot slot voorbij aan het verweer van UMCG c.s. dat het verzoek tot afgifte van de stukken moet worden afgewezen omdat de informatie vertrouwelijk en concurrentiegevoelig is. Het enkele feit dat de stukken (mogelijk) bedrijfsgevoelige informatie bevatten, is onvoldoende om het verzoek af te wijzen. Dat is anders indien de stukken een dusdanig vertrouwelijk karakter hebben, dat het belang van UMCG c.s. om die informatie niet te delen zwaarder moet wegen dan het belang van Chipsoft bij afgifte van de stukken. UMCG c.s. heeft onvoldoende onderbouwd dat in zijn algemeenheid van die situatie sprake is. Tijdens de mondelinge behandeling heeft UMCG c.s. aangevoerd dat ook de algemene stukken bedrijfsgevoelige informatie bevatten, te weten het ‘technische gedeelte’, maar zij heeft dit niet nader onderbouwd. Bovendien heeft Chipsoft tijdens de mondelinge behandeling toegelicht dat zij marktkennis heeft, weet hoe de techniek van het systeem werkt en het haar (daarom) ook niet te doen is om die informatie.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.31.</nr>
+      <para>Wel heeft UMCG c.s. concreet gewezen op het vertrouwelijke karakter van financiële gegevens. Voor een deel is de rechtbank daaraan tegemoet gekomen door het verzoek om inzage in de onder rn. 55 van het verzoekschrift gevraagde gegevens af te wijzen. De rechtbank voegt daaraan toe dat voor zover in de onder r.o. 4.23 genoemde stukken, die wel voor inzage in aanmerking komen, financiële gegevens worden vermeld, deze mogen worden zwartgelakt. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.32.</nr>
+      <para>Nu ook niet is gebleken van één van de overige afwijzingsgronden zoals genoemd in r.o. 4.3, zal het verzoek van Chipsoft wordt toegewezen, voor zover dat betrekking heeft op de onder r.o. 4.23 genoemde stukken. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.33.</nr>
+      <para>De rechtbank zal aan het verstrekken van de stukken een termijn verbinden van vier weken. Voor zover OZG en Treant over deze stukken beschikken, dienen zij op grond van artikel 194 lid 1 Rv ook deze stukken aan Chipsoft te verstrekken. In zoverre is het verzoek dat is ingesteld jegens OZG en Treant toewijsbaar. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.34.</nr>
+      <para>Chipsoft verzoekt onder ‘zowel primair als subsidiair’ nogmaals om afgifte van de stukken (I). Dat verzoek wordt al toegewezen, met dien verstande dat een termijn van vier weken wordt verbonden na het geven (en niet de betekening) van deze beschikking. De rechtbank zal tot slot een dwangsom verbinden aan de veroordeling tot afgifte van de stukken van € 2.500,00 per dag met een maximum van € 50.000,00.</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Het verzoek tot het houden van een voorlopig getuigenverhoor</emphasis>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>4.35.</nr>
+      <para>De rechtbank wijst het verzoek om het houden van een voorlopig getuigenverhoor toe voor zover dat is ingesteld tegen UMCG en OZG, omdat geen van de uitzonderingsgronden als bedoeld in artikel 196 lid 2 Rv van toepassing is. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.36.</nr>
+      <para>Ten aanzien van UMCG geldt dat hiervoor is overwogen dat Chipsoft er jegens UMCG belang bij heeft om informatie te verkrijgen over de structuur van de samenwerking. Daarover wil zij getuigen horen. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.37.</nr>
+      <para>Ten aanzien van OZG stelt Chipsoft dat zij getuigen wil horen om vast te kunnen stellen of OZG aanbestedingsplichtig is. Ook daarbij heeft zij vanzelfsprekend een belang. Het verzoek om getuigen te mogen horen is, anders dan ten aanzien van het verzoek tot afgifte van stukken, jegens OZG dus wel toewijsbaar. In geval van afgifte van stukken speelt het bestaan van een rechtsbetrekking een rol, zoals hiervoor is gebleken. Dat geldt niet bij het verzoek tot het houden van een voorlopig getuigenverhoor. Chipsoft stelt ten aanzien van het verzoek tot afgifte van stukken immers dat OZG aanbestedingsplichtig <emphasis role="underline italic">is</emphasis> en zij daarom stukken wil inzien maar stelt ten aanzien van het verzoek om het houden van een voorlopig getuigenverhoor dat zij getuigen wil horen omdat zij vast wil stellen <emphasis role="underline italic">of</emphasis> OZG een aanbestedingsplichtige dienst is. Van een fishing expedition is, anders dan UMCG c.s. meent, dan ook geen sprake. De rechtbank gaat ook voorbij aan het verweer van UMCG c.s. dat het verzoek in strijd is met de goede procesorde omdat in de bodemprocedure beoordeeld zou moeten worden welke feiten nog bewezen moeten worden. Aan een bewijsopdracht wordt immers pas toegekomen indien een stelling voldoende is onderbouwd en voor die onderbouwing wil Chipsoft juist getuigen horen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.38.</nr>
+      <para>Het verzoek voor zover gericht jegens Treant zal worden afgewezen, omdat Chipsoft onvoldoende heeft onderbouwd dat Treant heeft meegewerkt aan een constructie om de aanbestedingsregels te omzeilen, dan wel dat sprake is van verboden staatssteun. Zij heeft eveneens haar stelling dat sprake is van staatssteun onvoldoende onderbouwd. Die stelling is op geen enkele manier nader toegelicht. In zoverre heeft Chipsoft onvoldoende belang bij haar verzoek. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.39.</nr>
+      <para>De rechtbank zal Chipsoft in eerste instantie gelegenheid geven om vijf van de in het verzoekschrift aangedragen getuigen te laten horen. Nu in het verzoekschrift meer getuigen zijn vermeld, dient Chipsoft een keuze te maken en aan de rechter schriftelijk op te geven de namen van de getuigen die zij gehoord wenst te zien. Indien Chipsoft het na het horen van deze vijf getuigen noodzakelijk acht dat nog enkele getuigen worden gehoord, dan kan zij dit gemotiveerd verzoeken aan de rechter-commissaris die de getuigen heeft gehoord. Nadat UMCG en OZG de gelegenheid hebben gehad hun standpunt kenbaar te maken, zal de rechter-commissaris een beslissing op een dergelijk verzoek nemen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.40.</nr>
+      <para>Bij het oproepen van de getuigen moet er rekening mee worden gehouden dat het verhoor van een getuige gemiddeld ten minste 60 minuten duurt. De namen en woonplaatsen van de getuigen en de tijdstippen waartegen zij zijn opgeroepen moeten ten minste tien dagen voor het verhoor aan de wederpartij en aan de griffier van de rechtbank worden opgegeven.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.41.</nr>
+      <para>De rechtbank wijst Chipsoft erop dat de rechtbank voor het verhoor in beginsel maximaal 60 minuten in totaal per getuige zal reserveren. Als Chipsoft van mening is dat meer tijd noodzakelijk is, moet zij dit – binnen 14 dagen na dagtekening van deze beschikking – gemotiveerd aan de rechter verzoeken.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.42.</nr>
+      <para>Chipsoft heeft verzocht om te bepalen dat het getuigenverhoor minstens 21 dagen na toewijzing van het verzoek plaatsvindt, ervan uitgaande dat de rechtbank zal bepalen dat UMCG c.s. de door haar verzochte stukken binnen twee weken na deze beschikking aan Chipsoft moet verstrekken. De rechtbank is met Chipsoft van oordeel dat zij er belang bij heeft om eerst de stukken te kunnen bestuderen alvorens het getuigenverhoor plaatsvindt. Nu de rechtbank zal bepalen dat UMCG c.s. de stukken uiterlijk 13 juli 2026 aan Chipsoft moet verstrekken, zal de rechtbank bepalen dat het getuigenverhoor niet eerder plaatsvindt dan <?linebreak?>20 juli 2026. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.43.</nr>
+      <para>Ten overvloede overweegt de rechtbank dat, wanneer UMCG en OZG bij het verhoor van getuigen ter zitting verschijnen, UMCG en OZG het recht hebben op het verhoor van getuigen tot het leveren van tegenbewijs (artikel 201 lid 3 Rv). </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">De proceskosten</emphasis>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>4.44.</nr>
+      <para>Chipsoft en UMCG c.s. over en weer gedeeltelijk in het (on)gelijk gesteld, en UMCG c.s. hebben gelijkluidend verweer gevoerd. De rechtbank ziet daarin aanleiding de proceskosten van deze verzoekschriftprocedure te compenseren, in die zin dat iedere partij haar eigen kosten draagt.</para>
+      <para />
+    </paragroup>
+  </section>
+  <section role="beslissing">
+    <title>
+      <nr>5</nr>De beslissing</title>
+    <para />
+    <parablock>
+      <para>De rechtbank:</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">ten aanzien van het verzoek tot afgifte van stukken </emphasis>
+      </para>
+    </parablock>
+    <para />
+    <paragroup>
+      <nr>5.1.</nr>
+      <para>beveelt UMCG c.s. om afschrift te verstrekken van de in r.o. 4.23. vermelde stukken, met dien verstande dat voor zover in die stukken financiële gegevens worden vermeld die mogen worden zwartgelakt, </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.2.</nr>
+      <para>bepaalt dat het verstrekken van afschrift van de gegevens moet plaatsvinden uiterlijk op 20 juli 2026, </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.3.</nr>
+      <para>veroordeelt UMCG c.s. tot betaling van een dwangsom van € 2.500,00 per dag, tot een maximum van € 50.000,00, verschuldigd voor iedere dag of gedeelte daarvan dat zij in gebreke blijft met de verplichtingen als bedoeld in 5.1. en 5.2., </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.4.</nr>
+      <para>bepaalt dat Chipsoft uiterlijk op 29 juni 2026 een afschrift van het verzoekschrift en deze beschikking bij aangetekende brief of exploot moet laten toekomen aan UMCG c.s.,</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">ten aanzien van het verzoek tot het houden van een voorlopig getuigenverhoor </emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.5.</nr>
+      <para>beveelt een voorlopig getuigenverhoor,</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.6.</nr>
+      <para>bepaalt dat het getuigenverhoor zal worden gehouden door mr. M. Griffioen,</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.7.</nr>
+      <para>bepaalt dat het getuigenverhoor zal plaatsvinden in het gerechtsgebouw te Groningen, Guyotplein 1,</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.8.</nr>
+      <para>bepaalt dat het getuigenverhoor plaatsvindt na 20 juli 2026;</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.9.</nr>
+      <para>bepaalt dat Chipsoft <emphasis role="bold">binnen twee weken</emphasis> na de datum van deze beschikking schriftelijk aan de rechtbank de (vijf) getuigen en de verhinderdagen van de partijen en hun advocaten in de maanden <emphasis role="bold">juli 2026 (vanaf 20 juli 2026) tot en met oktober 2026</emphasis> moet opgeven waarna dag en uur van het getuigenverhoor zullen worden bepaald,</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">ten aanzien van beide verzoeken </emphasis>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>5.10.</nr>
+      <para>compenseert de proceskosten, in die zin dat iedere partij haar eigen kosten draagt,</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.11.</nr>
+      <para>verklaart deze beschikking tot zover uitvoerbaar bij voorraad,</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.12.</nr>
+      <para>wijst af hetgeen meer of anders is verzocht. </para>
+      <para />
+      <parablock>
+        <para>Deze beschikking is gegeven door mr. C.S. Huizinga en in het openbaar uitgesproken op 22 juni 2026.</para>
+      </parablock>
+      <para />
+      <para />
+      <parablock>
+        <para>
+          <?linebreak?>710</para>
+      </parablock>
+    </paragroup>
+  </section>
+  <footnote id="_6169905d-e89c-4b46-ac6c-2ee253129a96" label="1">
+    <para>[1] HR 10 juli 2020, ECLI:NL:HR:2020:1251</para>
+  </footnote>
+  <footnote id="_e68bffdf-d86d-4f4a-bf44-6f2e23c9098c" label="2">
+    <para>[2] Kamerstukken II 2019/20, 35498, nr. 3</para>
+  </footnote>
+</uitspraak>
+</open-rechtspraak>

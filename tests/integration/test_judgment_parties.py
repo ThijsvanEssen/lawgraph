@@ -82,6 +82,7 @@ def test_the_kop_keeps_every_line_and_the_parties_are_served(
         {
             "name": "[verdachte]",
             "role": "Verdachte",
+            "roles": ["Verdachte"],
             "role_stated": True,
             "side": "second",
             "alias": None,

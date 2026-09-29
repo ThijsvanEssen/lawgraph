@@ -9,11 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
 from lawgraph.api.schemas.common import FacetCountDTO
-from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, protocol_rank
+from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
 # The statuses of ``core.tk_records.COMMITMENT_STATUS``.
-DatePrecision = Literal["day", "month", "year"]
 CommitmentStatus = Literal["open", "done", "partly_done", "unfulfilled", "lapsed"]
 # The kinds of ``core.cabinet_phases.PHASE_KINDS``.
 PhaseKind = Literal[
@@ -21,16 +20,45 @@ PhaseKind = Literal[
 ]
 
 
+class MinistryPeriodDTO(BaseModel):
+    """A stretch in which the ministry had its name, and where that is known from."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    from_date: str | None = Field(None, description="Null where no source dates it.")
+    until: str | None = Field(
+        None, description="The last day; null while it has the name, or where unknown."
+    )
+    successor: MinistryKey | None = None
+    basis: str | None = Field(
+        None, description="The Staatscourant decree the end rests on (from TOOI)."
+    )
+    source: Source = Field(
+        ...,
+        description="``tooi`` (the TOOI value list, since about 2010) or "
+        "``rijksoverheid`` (the first post and a handover on the cabinet pages).",
+    )
+    successor_source: Source | None = Field(
+        None,
+        description="``curated`` for a succession no source gives (before 2010; "
+        "``data/curated/ministries.json``).",
+    )
+
+
 class MinistryDTO(BaseModel):
-    """A ministry of ``core.ministries``; a former one names its successor and the last
-    day it had its name."""
+    """A ministry name of ``data/ministries.json``: a name that came back (Economische
+    Zaken) has a period for each time; a former one names its successor and the last day
+    it had its name (``successor`` and ``until`` of its last period)."""
 
     model_config = ConfigDict(extra="forbid")
 
     key: MinistryKey
     name: str
+    abbreviation: str | None = None
+    tooi: str | None = Field(None, description="The TOOI code: ``mnre1045``.")
     successor: MinistryKey | None = None
     until: str | None = None
+    periods: list[MinistryPeriodDTO] = Field(default_factory=list)
 
 
 class PersonRefDTO(BaseModel):
@@ -43,7 +71,7 @@ class PersonRefDTO(BaseModel):
 
 
 class SourceRefDTO(BaseModel):
-    """Where it was read: ``rijksoverheid`` with the page and the day, or ``wikidata``."""
+    """Where it was read: ``rijksoverheid``, with the page and the day."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -78,18 +106,12 @@ class CabinetSummaryDTO(BaseModel):
     name: str = Field(..., description="``kabinet-Rutte IV``.")
     from_date: str | None = Field(None, description="The day of its beëdiging.")
     to_date: str | None = Field(None, description="Null while in office.")
-    from_date_precision: DatePrecision | None = Field(
-        None,
-        description="How precisely ``from_date`` is known: ``year`` for most cabinets "
-        "before 1945, whose date is then the first of January.",
-    )
-    to_date_precision: DatePrecision | None = None
     previous: str | None = Field(None, description="The key of the cabinet before it.")
     prime_minister: PersonRefDTO | None = None
     parties: list[PartyRefDTO] = Field(
         default_factory=list,
         description="The parties of the bewindspersonen sworn in on its first day, the "
-        "party with the most first; empty before 1945.",
+        "party with the most first.",
     )
     factions: list[str] = Field(
         default_factory=list, description="The faction keys of its parties."
@@ -100,12 +122,11 @@ class CabinetSummaryDTO(BaseModel):
     phases: list[CabinetPhaseDTO] = Field(
         default_factory=list,
         description="Formatie, in functie, demissionair, dubbel demissionair, missionair, "
-        "in order; empty before 1945 (no official source gives them).",
+        "in order.",
     )
     source: SourceRefDTO | None = Field(
-        None, description="Rijksoverheid since 1945; Wikidata before (name and period)."
+        None, description="The Rijksoverheid page it was read from."
     )
-    wikidata_id: str | None = Field(None, description="For a cabinet from Wikidata.")
     members: int = Field(0, description="The people who held a post in it.")
     bills: int = Field(
         0,
@@ -123,8 +144,6 @@ class CabinetSummaryDTO(BaseModel):
             name=props.get("name") or cabinet["_key"],
             from_date=props.get("from_date"),
             to_date=props.get("to_date"),
-            from_date_precision=props.get("from_date_precision"),
-            to_date_precision=props.get("to_date_precision"),
             previous=props.get("previous"),
             prime_minister=row.get("prime_minister"),
             parties=[PartyRefDTO(**p) for p in props.get("parties") or []],
@@ -132,11 +151,19 @@ class CabinetSummaryDTO(BaseModel):
             demissionary_from=props.get("demissionary_from"),
             phases=[CabinetPhaseDTO(**p) for p in props.get("phases") or []],
             source=props.get("origin"),
-            wikidata_id=props.get("wikidata_id"),
             members=int(row.get("members") or 0),
             bills=int(row.get("bills") or 0),
             commitments=int(row.get("commitments") or 0),
         )
+
+
+class ActingOtherSeatDTO(BaseModel):
+    """The seat a stand-in held throughout."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    seat: str
+    function: str | None = None
 
 
 class CabinetPostDTO(BaseModel):
@@ -169,10 +196,33 @@ class CabinetPostDTO(BaseModel):
         description="Which dates the rules of a seat set, and why.",
     )
     acting: bool = Field(False, description="A stand-in (ad interim).")
+    acting_reason: Literal["source", "held_other_seat"] | None = Field(
+        None,
+        description="Why a post is acting: `source`, the page says so (its words in "
+        "`acting_basis`); `held_other_seat`, the holder held another seat throughout and "
+        "the post ended where the next holder began (that seat in `acting_other_seat`).",
+    )
     acting_basis: str | None = Field(
         None,
-        description="Why: ``rijksoverheid: a.i.``, a temporary arrangement, or the rule "
-        "(held another seat throughout and ended where the next holder began).",
+        description="What the page says, as it says it: `a.i.`, `tijdelijke voorziening: "
+        "…`, `beheer portefeuille overgenomen door de minister van …`.",
+    )
+    acting_other_seat: ActingOtherSeatDTO | None = Field(
+        None, description="For `held_other_seat`: the seat the holder held throughout."
+    )
+    ministry_source: (
+        Literal["page", "tk_signatures", "tk_commitments", "staatscourant"] | None
+    ) = Field(
+        None,
+        description="Where the ministry of the post comes from: `page` (its function "
+        "names it), `tk_signatures` (the functions the holder signed Tweede Kamer papers "
+        "in), `tk_commitments` (the ministry of their commitments), `staatscourant` (the "
+        "ministry that issued the publications naming the post).",
+    )
+    ministry_missing: Literal["no_source", "ambiguous"] | None = Field(
+        None,
+        description="Why a post has no ministry: `no_source` (no official source names "
+        "one), `ambiguous` (the sources split between ministries).",
     )
     party: PartyRefDTO | None = None
     overlaps_with: list[str] = Field(
@@ -233,7 +283,11 @@ def _post_dto(item: dict[str, Any], post: dict[str, Any]) -> CabinetPostDTO:
         to_date_source=post.get("to_date_source"),
         corrected=post.get("corrected") or [],
         acting=bool(post.get("acting")),
+        acting_reason=post.get("acting_reason"),
         acting_basis=post.get("acting_basis"),
+        acting_other_seat=post.get("acting_other_seat"),
+        ministry_source=post.get("ministry_source"),
+        ministry_missing=post.get("ministry_missing"),
         party=post.get("party"),
         overlaps_with=post.get("overlaps_with") or [],
         absent=post.get("absent"),
@@ -330,6 +384,9 @@ class CommitmentDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     key: str
+    number: str | None = Field(
+        None, description="How the Kamer cites it: `TZ202603-130`."
+    )
     text: str | None = None
     status: CommitmentStatus | None = None
     date: str | None = Field(None, description="The day it was made.")
@@ -354,6 +411,7 @@ class CommitmentDTO(BaseModel):
         due = props.get("expected_resolution")
         return cls(
             key=commitment["_key"],
+            number=props.get("number"),
             text=props.get("text"),
             status=(
                 props.get("status")

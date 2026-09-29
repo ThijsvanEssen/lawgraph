@@ -13,108 +13,16 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     RELATION_EXPLAINS,
     RELATION_PART_OF,
-    RELATION_REFERS_TO,
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries.dossiers import _dossier_documents_aql
 
 
 def get_document(store: ArangoStore, key: str) -> dict[str, Any] | None:
     """One document by key (keys are lowercased at ingest)."""
     doc = store.collection(COLLECTION_DOCUMENTS).get(key.lower())
     return doc if isinstance(doc, dict) else None
-
-
-def list_documents(
-    store: ArangoStore,
-    *,
-    q: str | None,
-    kind: str | None,
-    chamber: str | None,
-    source: str | None,
-    dossier_id: str | None,
-    limit: int,
-    offset: int,
-) -> dict[str, Any]:
-    """A page of document rows, and how many documents match in all.
-
-    Each row carries the number of articles the document links to, computed for the
-    page only. ``total`` is a separate count that materialises no document. With
-    *dossier_id* the documents are those of that dossier, PART_OF it directly or
-    through a case, as ``get_dossier_documents`` finds them.
-    """
-    filters: list[str] = []
-    bind: dict[str, Any] = {
-        "limit": limit,
-        "offset": offset,
-        "linking": [RELATION_REFERS_TO, RELATION_EXPLAINS],
-    }
-
-    if chamber:
-        filters.append("FILTER @chamber IN document.labels")
-        bind["chamber"] = chamber.upper()
-    if source:
-        filters.append("FILTER document.props.source == @source")
-        bind["source"] = source
-    if kind:
-        filters.append("FILTER document.props.kind == @kind")
-        bind["kind"] = kind
-    if q:
-        filters.append(
-            "FILTER CONTAINS(LOWER(document.props.title), LOWER(@q))"
-            " OR CONTAINS(LOWER(document.props.kind), LOWER(@q))"
-        )
-        bind["q"] = q
-
-    where = chr(10).join(f"    {f}" for f in filters)
-    if dossier_id:
-        bind["dossier_id"] = dossier_id
-        bind["part_of"] = RELATION_PART_OF
-        documents = "all_documents"
-    else:
-        documents = COLLECTION_DOCUMENTS
-    total = (
-        f"LENGTH(FOR document IN {documents}\n{where}\n    RETURN 1)"
-        if filters or dossier_id
-        else f"COLLECTION_COUNT('{COLLECTION_DOCUMENTS}')"
-    )
-    page = f"""
-LET total = {total}
-LET items = (
-    FOR document IN {documents}
-    {where}
-    SORT document.props.date DESC, document.props.title ASC, document._key
-    LIMIT @offset, @limit
-    LET linked = LENGTH(
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from == document._id
-            FILTER e.relation IN @linking
-            RETURN 1
-    )
-    RETURN {{
-        key: document._key,
-        title: document.props.title,
-        kind: document.props.kind,
-        date: document.props.date,
-        external_id: document.props.external_id,
-        dossier_numbers: document.props.dossier_numbers,
-        source: document.props.source,
-        labels: document.labels,
-        has_text: document.props.text != null,
-        linked_articles: linked
-    }}
-)
-RETURN {{ total: total, items: items }}
-"""
-    aql = (
-        f"LET dossier_id = @dossier_id\n{_dossier_documents_aql(page)}"
-        if dossier_id
-        else page
-    )
-    rows = list(store.query(aql, bind_vars=bind))
-    return rows[0] if rows else {"total": 0, "items": []}
 
 
 def get_document_links(store: ArangoStore, document_id: str) -> dict[str, Any]:

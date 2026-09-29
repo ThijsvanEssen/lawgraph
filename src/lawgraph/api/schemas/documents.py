@@ -50,47 +50,6 @@ def origin_fields(
     }
 
 
-class DocumentSummaryDTO(DocumentOrigin):
-    """One row in the document index. ``dossier_numbers`` are the labels of the dossiers
-    it names (``37020-XV``), in either chamber."""
-
-    key: str
-    title: str | None = None
-    kind: str | None = None
-    date: str | None = None
-    external_id: str | None = None
-    dossier_numbers: list[str] = Field(default_factory=list)
-    has_text: bool = False
-    linked_articles: int = 0
-
-    @classmethod
-    def from_row(cls, row: dict[str, Any]) -> DocumentSummaryDTO:
-        from lawgraph.core.time import strip_time_component
-
-        return cls(
-            key=row["key"],
-            title=row.get("title") or None,
-            kind=row.get("kind") or None,
-            date=strip_time_component(row.get("date")),
-            external_id=row.get("external_id") or None,
-            dossier_numbers=list(row.get("dossier_numbers") or []),
-            has_text=bool(row.get("has_text")),
-            linked_articles=int(row.get("linked_articles") or 0),
-            **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
-        )
-
-
-class DocumentListResponse(BaseModel):
-    """A page of document summaries."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    total: int = Field(
-        ..., description="Matching documents, independent of ``limit`` and ``offset``."
-    )
-    items: list[DocumentSummaryDTO]
-
-
 class ArticleRefDTO(BaseModel):
     """An article number a heading names."""
 

@@ -154,8 +154,8 @@ SOURCE_STAATSCOURANT = "staatscourant"
 SOURCE_ECHR = "echr"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
-SOURCE_WIKIDATA = "wikidata"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
+SOURCE_TOOI = "tooi"
 # The label of a member only Rijksoverheid knows: a bewindspersoon without a Tweede Kamer person.
 LABEL_RIJKSOVERHEID = "Rijksoverheid"
 
@@ -208,6 +208,8 @@ RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
 # The XML of a Kamerstuk in the KOOP repository (source ``tk``, external id ``kst-<dossier>-<n>``).
 RAW_KIND_TK_KAMERSTUK_XML = "tk-kamerstuk-xml"
 RAW_KIND_RS_CONTENT = "rs-content"
+# The Instanties value list of the Rechtspraak (external id: Instanties).
+RAW_KIND_RS_INSTANTIES = "rs-instanties-xml"
 RAW_KIND_EU_CELEX = "eu-celex-html"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
 RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
@@ -215,13 +217,15 @@ RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
 RAW_KIND_BWB_WTI_GENERAL = "bwb-wti-algemene-informatie-xml"
 RAW_KIND_STB_AMVB = "stb-amvb-xml"
 RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
+# How many publications of each ministry name a cabinet post (external id: the query).
+RAW_KIND_STCRT_POST_CREATORS = "stcrt-post-creators-json"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_VERDRAG = "verdrag-json"
-# Every Dutch cabinet, one record per cabinet (external id: the Q-id).
-RAW_KIND_WIKIDATA_CABINET = "wikidata-cabinet-json"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
+# The TOOI value list of every ministry (external id: rwc_ministeries_compleet).
+RAW_KIND_TOOI_MINISTRIES = "tooi-ministries-jsonld"
 
 # A document the source answered HTTP 404 for is remembered as a record of the kind it would
 # have had plus this suffix (no payload), so it is not asked for again on every run.
@@ -241,7 +245,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_FRACTIEZETELPERSOON,
         RAW_KIND_TK_KAMERSTUK_XML,
     ),
-    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT,),
+    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT, RAW_KIND_RS_INSTANTIES),
     SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),
     SOURCE_BWB: (
         RAW_KIND_BWB_TOESTAND,
@@ -249,12 +253,12 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_BWB_WTI_GENERAL,
     ),
     SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
-    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING,),
+    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING, RAW_KIND_STCRT_POST_CREATORS),
     SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
     SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
-    SOURCE_WIKIDATA: (RAW_KIND_WIKIDATA_CABINET,),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
+    SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES,),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────
@@ -347,7 +351,10 @@ RECHTSPRAAK_COURT_GROUPS: dict[str, tuple[str, ...]] = {
         "gh-s-gravenhage",
     ),
 }
-RECHTSPRAAK_DEFAULT_COURTS = ("hr", "rvs", "hoven")
+# Every court the index holds (no ``creator`` filter): the rechtbanken, the special courts
+# and those that no longer exist too.
+RECHTSPRAAK_EVERY_COURT = "all"
+RECHTSPRAAK_DEFAULT_COURTS = (RECHTSPRAAK_EVERY_COURT,)
 # Judgments are published up to weeks after the decision date; an incremental run looks this
 # far before its ``--since``.
 RECHTSPRAAK_PUBLICATION_LAG_DAYS = 30

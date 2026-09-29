@@ -1,4 +1,4 @@
-"""BWBClient.enumerate_all_ids against real (recorded) SRU responses."""
+"""BWBClient.enumerate_toestanden against real (recorded) SRU responses."""
 
 from __future__ import annotations
 
@@ -58,15 +58,15 @@ def _no_sleep(monkeypatch):
 def test_deduplicates_ids_across_toestand_records() -> None:
     calls: list[dict] = []
 
-    ids = _client([_page(3, 3)], calls).enumerate_all_ids(types=("wet",))
+    ids = _client([_page(3, 3)], calls).enumerate_toestanden(types=("wet",))
 
-    assert ids == ["BWBR0001840"]  # 3 records, one law
+    assert list(ids) == ["BWBR0001840"]  # 3 records, one law
 
 
 def test_queries_use_exact_type_values_and_no_record_schema() -> None:
     calls: list[dict] = []
 
-    _client([_page(3, 3)] * len(BWB_INSTRUMENT_TYPES), calls).enumerate_all_ids()
+    _client([_page(3, 3)] * len(BWB_INSTRUMENT_TYPES), calls).enumerate_toestanden()
 
     assert [c["query"] for c in calls] == [
         f'dcterms.type=="{t}"' for t in BWB_INSTRUMENT_TYPES
@@ -81,9 +81,9 @@ def test_pages_until_the_reported_total_is_read() -> None:
 
     ids = _client(
         [_page(SRU_PAGE_SIZE, total), _page(3, total, first=SRU_PAGE_SIZE)], calls
-    ).enumerate_all_ids(types=("wet",))
+    ).enumerate_toestanden(types=("wet",))
 
-    assert ids == ["BWBR0001840"]
+    assert list(ids) == ["BWBR0001840"]
     assert [c["startRecord"] for c in calls] == ["1", str(SRU_PAGE_SIZE + 1)]
 
 
@@ -98,9 +98,9 @@ def test_an_empty_page_in_the_middle_is_not_the_end_of_the_list() -> None:
         _page(3, total, first=SRU_PAGE_SIZE),
     ]
 
-    ids = _client(responses, calls).enumerate_all_ids(types=("wet",))
+    ids = _client(responses, calls).enumerate_toestanden(types=("wet",))
 
-    assert ids == ["BWBR0001840"]
+    assert list(ids) == ["BWBR0001840"]
     assert [c["startRecord"] for c in calls] == [
         "1",
         str(SRU_PAGE_SIZE + 1),
@@ -114,7 +114,7 @@ def test_an_empty_page_that_stays_empty_raises() -> None:
         EMPTY_PAGE_SIZES
     )
     with pytest.raises(RuntimeError, match="empty page at startRecord=1001"):
-        _client(responses, []).enumerate_all_ids(types=("wet",))
+        _client(responses, []).enumerate_toestanden(types=("wet",))
 
 
 def test_an_empty_page_is_asked_again_with_a_smaller_page() -> None:
@@ -127,7 +127,7 @@ def test_an_empty_page_is_asked_again_with_a_smaller_page() -> None:
         _empty_page(total),  # 500 records asked: empty too
         _page(3, total, first=SRU_PAGE_SIZE),  # 250 records asked: the service answers
     ]
-    _client(responses, calls).enumerate_all_ids(types=("wet",))
+    _client(responses, calls).enumerate_toestanden(types=("wet",))
     assert [c["maximumRecords"] for c in calls] == [
         str(SRU_PAGE_SIZE),
         str(SRU_PAGE_SIZE),
@@ -145,7 +145,7 @@ def test_fewer_records_than_the_service_reports_raises() -> None:
     # after 1001 records the next page (start 1002) is empty for good
     responses += [_empty_page(total)] * len(EMPTY_PAGE_SIZES)
     with pytest.raises(RuntimeError, match="empty page at startRecord=1002"):
-        _client(responses, []).enumerate_all_ids(types=("wet",))
+        _client(responses, []).enumerate_toestanden(types=("wet",))
 
 
 def test_pages_that_repeat_are_not_a_complete_listing(caplog) -> None:
@@ -162,8 +162,8 @@ def test_pages_that_repeat_are_not_a_complete_listing(caplog) -> None:
         _page(SRU_PAGE_SIZE, total, first=SRU_PAGE_SIZE),
     ]
     with caplog.at_level("WARNING"):
-        ids = _client(repeated + honest, []).enumerate_all_ids(types=("wet",))
-    assert ids == ["BWBR0001840"]
+        ids = _client(repeated + honest, []).enumerate_toestanden(types=("wet",))
+    assert list(ids) == ["BWBR0001840"]
     assert any("listing it again" in m for m in caplog.messages)
 
 
@@ -171,22 +171,22 @@ def test_a_listing_that_stays_short_is_an_error_not_a_smaller_catalogue() -> Non
     total = 2 * SRU_PAGE_SIZE
     repeated = [_page(SRU_PAGE_SIZE, total), _page(SRU_PAGE_SIZE, total)] * 3
     with pytest.raises(RuntimeError, match=r"1000 of 2000 toestanden.*not complete"):
-        _client(repeated, []).enumerate_all_ids(types=("wet",))
+        _client(repeated, []).enumerate_toestanden(types=("wet",))
 
 
 def test_a_type_without_records_is_fine() -> None:
-    assert _client([_empty_page(0)], []).enumerate_all_ids(types=("verdrag",)) == []
+    assert _client([_empty_page(0)], []).enumerate_toestanden(types=("verdrag",)) == {}
 
 
 def test_service_error_raises_instead_of_returning_nothing() -> None:
     calls: list[dict] = []
 
     with pytest.raises(RuntimeError, match="record schema is known"):
-        _client([DIAGNOSTIC], calls).enumerate_all_ids(types=("wet",))
+        _client([DIAGNOSTIC], calls).enumerate_toestanden(types=("wet",))
 
 
 def test_a_page_that_is_no_sru_response_is_not_an_empty_type() -> None:
     """A maintenance page sent with HTTP 200 parses as XML and holds no records."""
     page = '<html xmlns="http://www.w3.org/1999/xhtml"><body>Onderhoud</body></html>'
     with pytest.raises(RuntimeError, match="not an SRU response"):
-        _client([page], []).enumerate_all_ids(types=("wet",))
+        _client([page], []).enumerate_toestanden(types=("wet",))

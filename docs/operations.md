@@ -12,7 +12,7 @@ the same values; a variable already set in the process environment wins over `.e
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `ARANGO_URL` | `http://localhost:8529` | server |
-| `ARANGO_DB_NAME` | `lawgraph` | database; created on first use when it is missing, together with its collections, indexes and views |
+| `ARANGO_DB_NAME` | `lawgraph` | database; created on first use when it is missing, together with its collections, indexes and views; an index the schema (`db/schema.py`) no longer makes stays until it is dropped by hand |
 | `ARANGO_USER` | `root` | user |
 | `ARANGO_PASSWORD` | empty | password |
 | `ARANGO_ROOT_PASSWORD` | none | read by `docker-compose.yml` for the root password of the container; set it equal to `ARANGO_PASSWORD` |
@@ -49,15 +49,14 @@ All default to the public endpoints; no key is required.
 | `EERSTEKAMER_SRU` | `https://repository.overheid.nl/sru` |
 | `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
 | `VERDRAGENBANK_SRU` | `https://repository.overheid.nl/sru` |
-| `WIKIDATA_SPARQL` | `https://query.wikidata.org/sparql` |
 | `RIJKSOVERHEID_BASE` | `https://www.rijksoverheid.nl` |
+| `TOOI_BASE` | `https://identifier.overheid.nl` |
 
 ### Pipelines
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
-| `EURLEX_MAX_ARTICLE_NUMBER` | `200` | EU articles above this number are not written |
 | `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` |
 | `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | unset | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
 
@@ -70,6 +69,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
+| `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to |
 
 ### Logging and tests
 
@@ -98,14 +98,14 @@ and exits 1 when any of them failed.
 
 | Command | Options |
 |---------|---------|
-| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 8). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`. Full passes the mode to `bwb` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`, `wikidata`, `rijksoverheid`) are always read in full. `eurlex`, `staatsblad`, `verdragenbank`, `wikidata` and `rijksoverheid` take nothing (`eurlex` fetches the acts already in the graph). `bwb-history` and `tk-content` are not run. `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `staatsblad`, `staatscourant`, `eerstekamer` and `verdragenbank`) run one after the other, and `--jobs 1` runs every source in turn. `staatsblad` reads the stored BWB toestanden, so it starts when `bwb` has ended (and last on its server, so the others do not wait with it) |
+| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 8). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb` and `bwb-history`. Full passes the mode to `bwb` and `bwb-history` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties`) are always read in full. `tk-content`, `eurlex`, `staatsblad`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties` and `staatscourant-posts` take nothing (`eurlex` fetches the acts already in the graph, `tk-content` the papers without stored XML, `staatscourant-posts` the posts of the stored cabinet pages whose function names no ministry). `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `rechtspraak` and `rechtspraak-instanties`; `bwb` and then `bwb-history`; `tk-content`, `staatsblad`, `staatscourant`, `eerstekamer`, `verdragenbank` and `staatscourant-posts`) run one after the other, and `--jobs 1` runs every source in turn. A source that reads what another stored starts when that one has ended, last on its own server so the others do not wait with it: `tk-content` after `tk-dossiers` (its papers are the documents that step stored), `staatsblad` after `bwb` (it reads the stored toestanden), `staatscourant-posts` after `rijksoverheid` (it reads the stored cabinet pages) |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` (only that dossier and its documents, whatever their date: the backfill of an old dossier); `--mode gaps`: every dossier the graph names and lacks (the dossiers of the publications that amended or brought into force a version of an article or a regulation, and the first reading a change in the Grondwet in its second reading refers to), with its documents; a number the Tweede Kamer has no dossier of is remembered (`tk-dossier-missing`) for 30 days |
-| `retrieve tk-content` | `--mode gaps` (the only mode: the papers of `--kind` of which no XML is stored), `--kind` (repeatable; default `toelichting`, `motie` and `amendement`; `--kind ""` every paper with a dossier and a number), `--dry-run` |
-| `retrieve rechtspraak` | `--court` (repeatable; default `hr`, `rvs`, `hoven`), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
+| `retrieve tk-content` | `--mode gaps` (the only mode: the papers of `--kind` of which no XML is stored, less those the repository answered HTTP 404 for not long ago), `--kind` (repeatable; default `toelichting`, `motie` and `amendement`; `--kind ""` every paper with a dossier and a number), `--dry-run` |
+| `retrieve rechtspraak` | `--court` (repeatable; default `all`, every court of the index; a court or `hoven` narrows it), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
 | `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
 | `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
-| `retrieve bwb-history` | optional BWB ids (all when omitted) |
+| `retrieve bwb-history` | optional BWB ids (default: every regulation of which the current toestand is stored), `--mode incremental` (default: the toestanden not stored yet) or `full` (every one again) |
 | `retrieve staatsblad` | `--mode from-graph\|full` |
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--max-records` |
@@ -154,6 +154,9 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph bootstrap [--window DATE] [--jobs N] [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve]` | `retrieve all --mode full --window DATE --jobs N` (default `730d` and one job per server; `all` loads the whole history of the producing sources), `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5) |
 | `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, referrals of preliminary rulings, EU acts, treaties, memoranda without text) |
+| `lawgraph verify cabinets` | reads only: one row per cabinet (posts, seats, gaps, overlaps, stand-ins, phases) and every rule a cabinet breaks; a broken rule fails it |
+| `lawgraph ministries build\|check [--output FILE]` | builds `src/lawgraph/data/ministries.json` from the stored TOOI list and Rijksoverheid pages with the curated keys, order and successions (`data/curated/ministries.json`) and prints what changed and every curated name no source names (`build` writes it, `check` fails on a change); run after `retrieve tooi` and commit the file |
+| `lawgraph courts build\|check [--output FILE]` | builds `src/lawgraph/data/courts.json` from the stored Instanties list of the Rechtspraak and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve rechtspraak-instanties`, commit the file, and run `semantic graph-list-stats` when a tier or kind changed |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-dossiers`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
 | `lawgraph check [--skip-edges]` | asks the database what no step asks: does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
@@ -166,8 +169,8 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
 | Phase | Pipelines |
 |-------|-----------|
-| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK`, `WIKIDATA`, `RIJKSOVERHEID` |
-| `NORMALIZE` | the same without `WIKIDATA`, plus `BWB_HISTORY` and `TK_CONTENT` |
+| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
+| `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES` and `STAATSCOURANT_POSTS` (`lawgraph ministries build`, `lawgraph courts build` and `normalize rijksoverheid` read them) |
 | `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_DOSSIER_RELATIONS`, `GRAPH_LIST_STATS` |
 
 ## Runs
@@ -183,9 +186,10 @@ lawgraph normalize all
 lawgraph semantic all
 ```
 
-`lawgraph bootstrap` runs the first, fifth and sixth step and then `expand-graph`. In full mode
-`retrieve all` enumerates every BWB regulation; EU acts come from `expand-graph`, which fetches
-the ones the loaded records refer to. The sources that keep producing (Tweede Kamer,
+`lawgraph bootstrap` runs these three and then `expand-graph`. In full mode `retrieve all`
+enumerates every BWB regulation and fetches every toestand of each (`bwb-history`), the XML
+of the explanatory memoranda (`tk-content`) and the judgments of every court; EU acts come
+from `expand-graph`, which fetches the ones the loaded records refer to. The sources that keep producing (Tweede Kamer,
 Rechtspraak, Staatscourant, Eerste Kamer, ECHR) load only the last two years, and
 `expand-graph` later adds what the loaded records refer to. The whole history for research is
 one option away: `--window all` (the Tweede Kamer alone is over 400K documents and hours), or
@@ -207,6 +211,13 @@ not move it (it says so). Before the first complete run `--since last` is refuse
 `bootstrap`, or a run with a date such as `--since 7d`, puts one on record.
 
 Incremental `retrieve bwb` needs `BWB_IDS` or `--bwb-id`, otherwise it fetches nothing.
+Incremental `retrieve bwb-history` reads which toestanden exist (the SRU listing, about 150
+pages, once there are 150 regulations or more; else one query per regulation) and downloads
+those it has no record of: a new toestand of a known regulation, and every toestand of a
+regulation `bwb` stored since. Incremental `retrieve tk-content` fetches the papers of which
+no XML is stored; a paper the repository has no XML for yet is asked for again after 3 days
+when it is younger than a week (the XML follows the PDF within about two working days), else
+after 30.
 Law abbreviations (`instruments.props.short_title`, used by the citation detectors) come from
 the WTI records that `retrieve bwb` stores and are written by `normalize bwb`, so run both
 before `semantic`. `normalize bwb --since` still re-evaluates the short title of every
@@ -218,10 +229,11 @@ graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` r
 
 | Step | Why |
 |------|-----|
-| `retrieve tk-content` | one XML per paper (up to several MB), paced at 0.5 s |
+| `retrieve tk-content` | one XML per paper (up to several MB), paced at 0.5 s; at most 50,000 papers a run |
+| `retrieve rechtspraak` full | every court: 160,718 judgments decided in the two years of the default `--window` (index counts of 2026-09-29; the Hoge Raad, Raad van State and hoven are about 33,000 of them, the rechtbanken most of the rest), one download each at 8 a second: about 5.5 hours. `--window all` is 928,955 judgments, about 32 hours. An incremental run with `--since 1d` reads the index of the last 30 days by decision date (about 3,600 entries) and of the last day by modified date (about 500) and downloads what is new or changed: minutes. A `--since` up to 60 days back also lists by modified date (every court, 60 days: 20,481), which re-downloads what the Rechtspraak republished since it was stored; further back only the decision date is read |
 | `retrieve tk-dossiers` full | about 400K documents, fetched 250 at a time |
-| `retrieve bwb --mode full`, `retrieve bwb-history` | `bwb`: the SRU listing, then one XML download and one short WTI request (about 1 KB read) per regulation whose current toestand is not the stored one (an unchanged regulation costs nothing; its WTI file is read again after 30 days). `bwb-history`: one SRU query per regulation and one download per toestand |
-| `normalize bwb-history`, `semantic bwb-grondslagen`, `bwb-annexes` | stream every stored toestand XML (large documents) in batches of 20 |
+| `retrieve bwb --mode full`, `retrieve bwb-history` | `bwb`: the SRU listing, then one XML download and one short WTI request (about 1 KB read) per regulation whose current toestand is not the stored one (an unchanged regulation costs nothing; its WTI file is read again after 30 days). `bwb-history`: the SRU listing (or one query per regulation for fewer than 150) and one download per toestand not stored yet; the first run downloads all of them (148,287 toestanden in the SRU on 2026-09-20), side by side at the pace of the repository (0.1 s): at least 4 hours |
+| `normalize bwb-history` | streams every stored toestand XML (large documents) in batches of 20 |
 | `normalize tk-dossiers` | the largest normalize step (documents, decisions, edges, dossier backfill) |
 | `semantic bwb` | scans every article text |
 

@@ -10,13 +10,13 @@ from typing import get_args
 import pytest
 
 from lawgraph.api.schemas.judgments import DecisionKind
+from lawgraph.core.courts import COURT_KINDS
 from lawgraph.core.judgment_names import CURATED_NAMES, judgment_names
 from lawgraph.core.judgments import (
     DECISION_KINDS,
-    KIND_OF_TIER,
-    TIERS,
+    KIND_OF_COURT_KIND,
     decision_kind,
-    derive_court_tier,
+    derive_court,
     extract_judgment_text,
     extract_rdf_metadata,
     is_english,
@@ -41,7 +41,7 @@ def _kind(
         document_type=document_type,
         procedure=procedure,
         kop=kop or [],
-        tier=tier,
+        court_kind=tier,
         subjects=subjects,
     )
 
@@ -73,6 +73,10 @@ def test_a_conclusion_and_a_preliminary_ruling_are_named_by_the_metadata() -> No
             "arrest",
         ),
         (["arrest van 8 september 2026", "inzake"], "arrest"),
+        (
+            ["RECHTBANK MIDDEN-NEDERLAND", "beslissing van de kantonrechter van"],
+            "beslissing",
+        ),
     ],
 )
 def test_the_kop_names_the_kind(kop: list[str], kind: str | None) -> None:
@@ -111,8 +115,8 @@ def test_without_metadata_the_court_and_the_area_of_law_tell(
 
 def test_the_kinds_are_those_of_the_api_and_every_tier_is_a_real_one() -> None:
     assert set(get_args(DecisionKind)) == set(DECISION_KINDS)
-    assert set(KIND_OF_TIER) <= set(TIERS)
-    assert set(KIND_OF_TIER.values()) <= set(DECISION_KINDS)
+    assert set(KIND_OF_COURT_KIND) <= set(COURT_KINDS)
+    assert set(KIND_OF_COURT_KIND.values()) <= set(DECISION_KINDS)
 
 
 @pytest.mark.parametrize(
@@ -134,17 +138,20 @@ def test_the_kinds_are_those_of_the_api_and_every_tier_is_a_real_one() -> None:
         ("rechtspraak_rvs_2026_5668.xml", "ECLI:NL:RVS:2026:5668", "uitspraak"),
         ("rechtspraak_rbams_2024_81.xml", "ECLI:NL:RBAMS:2024:81", "vonnis"),
         ("rechtspraak_rbams_2025_3600.xml", "ECLI:NL:RBAMS:2025:3600", "uitspraak"),
+        # an appeal against a traffic fine (Wahv) before the kantonrechter: no vonnis
+        ("rechtspraak_rbmne_2026_3889.xml", "ECLI:NL:RBMNE:2026:3889", "beslissing"),
+        ("rechtspraak_rbmne_2026_3708.xml", "ECLI:NL:RBMNE:2026:3708", "uitspraak"),
     ],
 )
 def test_the_kind_of_real_judgments(name: str, ecli: str, kind: str) -> None:
     root = parse_judgment((FIXTURES / name).read_text())
     meta, subjects = extract_rdf_metadata(root)
-    _, tier = derive_court_tier(ecli, meta.get("court"))
+    _, _, court_kind = derive_court(ecli, meta.get("court"))
     found = decision_kind(
         document_type=meta.get("document_type"),
         procedure=meta.get("type"),
         kop=kop_lines(root),
-        tier=tier,
+        court_kind=court_kind,
         subjects=subjects,
     )
     assert found == kind
@@ -207,3 +214,22 @@ def test_the_curated_names_are_keyed_by_ecli() -> None:
     assert all(
         names and all(n.strip() == n for n in names) for names in CURATED_NAMES.values()
     )
+
+
+@pytest.mark.parametrize(
+    ("summary", "placeholder"),
+    [
+        ("kopje volgt", True),
+        ("Kopje volgt.", True),
+        ("-", True),
+        ("  ", True),
+        (None, True),
+        ("...", True),
+        ("HR: 81.1 RO.", False),
+        ("Effectenlease. Dexia.", False),
+    ],
+)
+def test_a_placeholder_is_no_summary(summary: str | None, placeholder: bool) -> None:
+    from lawgraph.core.judgments import is_placeholder_summary
+
+    assert is_placeholder_summary(summary) is placeholder

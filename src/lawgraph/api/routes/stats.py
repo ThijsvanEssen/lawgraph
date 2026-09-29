@@ -8,14 +8,19 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.stats import (
     CoverageCourtDTO,
     CoverageTierDTO,
+    DataAsOfDTO,
     EdgeStatsDTO,
     InstrumentStatsDTO,
     JudgmentCoverageResponse,
     StatsResponse,
 )
-from lawgraph.core.judgments import TIERS
+from lawgraph.core.courts import TIERS, court_of
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries.stats import get_db_stats, get_judgment_coverage
+from lawgraph.db.queries.stats import (
+    cached_data_as_of,
+    get_db_stats,
+    get_judgment_coverage,
+)
 
 router = APIRouter()
 
@@ -38,6 +43,10 @@ def get_stats(store: Annotated[ArangoStore, Depends(get_store)]) -> StatsRespons
         edges=EdgeStatsDTO(**data["edges"]),
         by_source=data.get("by_source", {}),
         instruments=InstrumentStatsDTO(**data.get("instruments", {})),
+        data_as_of={
+            source: DataAsOfDTO(**row)
+            for source, row in cached_data_as_of(store).items()
+        },
     )
 
 
@@ -45,6 +54,12 @@ def _span(rows: list[CoverageCourtDTO]) -> tuple[str | None, str | None]:
     firsts = [r.first_date for r in rows if r.first_date]
     lasts = [r.last_date for r in rows if r.last_date]
     return (min(firsts) if firsts else None, max(lasts) if lasts else None)
+
+
+def _kind(row: dict) -> str | None:
+    """The kind of court of a coverage row, from the court table (no read of a judgment)."""
+    found = court_of(row.get("court_code"), row.get("court"))
+    return found.court_kind if found else None
 
 
 @router.get(
@@ -65,7 +80,7 @@ def get_coverage(
 ) -> JudgmentCoverageResponse:
     data = get_judgment_coverage(store)
     courts = sorted(
-        (CoverageCourtDTO(**row) for row in data["courts"]),
+        (CoverageCourtDTO(**row, court_kind=_kind(row)) for row in data["courts"]),
         key=lambda c: (-c.count, c.court_code or ""),
     )
     tiers = []

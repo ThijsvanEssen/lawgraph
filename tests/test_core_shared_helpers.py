@@ -202,23 +202,32 @@ def test_rechtspraak_extract_rdf_metadata() -> None:
 @pytest.mark.parametrize(
     "ecli,expected",
     [
-        (None, (None, None)),
-        ("", (None, None)),
-        ("ECLI:NL:HR:2020:1", ("HR", "hoge_raad")),
-        ("ecli:nl:hr:2020:1", ("HR", "hoge_raad")),
-        ("ECLI:NL:GHAMS:2020:1", ("GHAMS", "gerechtshof")),
-        ("ECLI:NL:RBAMS:2020:1", ("RBAMS", "rechtbank")),
-        ("ECLI:NL:CRVB:2020:1", ("CRVB", "centrale_raad_van_beroep")),
-        ("ECLI:NL:RVS:2020:1", ("RVS", "raad_van_state")),
-        ("ECLI:NL:TGZRAMS:2020:1", ("TGZRAMS", "tuchtcollege")),
-        ("ECLI:NL:OGHACMB:2020:1", ("OGHACMB", "gemeenschappelijk_hof")),
-        ("ECLI:NL:PHR:2019:496", ("PHR", "parket")),
-        ("ECLI:NL", (None, None)),
-        ("garbage", (None, None)),
+        (None, (None, None, None)),
+        ("", (None, None, None)),
+        ("ECLI:NL:HR:2020:1", ("HR", "hoge_raad", "hoge_raad")),
+        ("ecli:nl:hr:2020:1", ("HR", "hoge_raad", "hoge_raad")),
+        ("ECLI:NL:GHAMS:2020:1", ("GHAMS", "gerechtshof", "gerechtshof")),
+        ("ECLI:NL:RBAMS:2020:1", ("RBAMS", "rechtbank", "rechtbank")),
+        (
+            "ECLI:NL:CRVB:2020:1",
+            ("CRVB", "centrale_raad_van_beroep", "centrale_raad_van_beroep"),
+        ),
+        ("ECLI:NL:RVS:2020:1", ("RVS", "raad_van_state", "raad_van_state")),
+        ("ECLI:NL:TGZRAMS:2020:1", ("TGZRAMS", "tuchtcollege", "tuchtcollege")),
+        (
+            "ECLI:NL:OGHACMB:2020:1",
+            ("OGHACMB", "koninkrijksinstantie", "gemeenschappelijk_hof_van_justitie"),
+        ),
+        ("ECLI:NL:AGAMS:1990:1", ("AGAMS", "andere_instantie", "ambtenarengerecht")),
+        ("ECLI:NL:PHR:2019:496", ("PHR", "parket", "parket")),
+        ("ECLI:CE:ECHR:2020:1", ("ECHR", "ehrm", "ehrm")),
+        ("ECLI:NL:ZZZ:2020:1", ("ZZZ", None, None)),
+        ("ECLI:NL", (None, None, None)),
+        ("garbage", (None, None, None)),
     ],
 )
-def test_derive_court_tier(ecli: str | None, expected: tuple[Any, Any]) -> None:
-    assert judgments.derive_court_tier(ecli) == expected
+def test_derive_court(ecli: str | None, expected: tuple[Any, Any, Any]) -> None:
+    assert judgments.derive_court(ecli) == expected
 
 
 def test_compose_display_name() -> None:
@@ -567,7 +576,7 @@ def test_the_tier_filters_of_the_api_are_the_tiers() -> None:
     import typing
 
     from lawgraph.api.routes import articles, judgments
-    from lawgraph.core.judgments import TIERS
+    from lawgraph.core.courts import TIERS
 
     for route in (articles.get_article_cited_by_passages, judgments.list_judgments):
         hint = typing.get_type_hints(route, include_extras=True)["tier"]
@@ -577,13 +586,13 @@ def test_the_tier_filters_of_the_api_are_the_tiers() -> None:
         assert [member.value for member in enum] == list(TIERS), route.__name__
 
 
-def test_every_court_of_the_rechtspraak_has_a_named_tier() -> None:
+def test_every_court_of_the_rechtspraak_has_a_tier_and_a_kind() -> None:
     """The waardelijst of the Rechtspraak (``/Waardelijst/Instanties``) names every court an
-    ECLI can have; each has a tier of its own kind, and none is a catch-all."""
+    ECLI can have; each has the tier of its Type and a kind, and none is a catch-all."""
     import xml.etree.ElementTree as ET
     from pathlib import Path
 
-    from lawgraph.core.judgments import court_tier
+    from lawgraph.core.courts import court_of
 
     root = ET.parse(Path(__file__).parent / "fixtures" / "rechtspraak_instanties.xml")
     codes = {
@@ -592,15 +601,28 @@ def test_every_court_of_the_rechtspraak_has_a_named_tier() -> None:
     }
     codes.pop("", None)  # the military and colonial courts without an ECLI code
     assert len(codes) > 150
-    missing = sorted(code for code in codes if court_tier(code) is None)
+    missing = sorted(code for code in codes if court_of(code) is None)
     assert missing == []
     by_type: dict[str, set[str]] = {}
     for code, kind in codes.items():
-        by_type.setdefault(kind, set()).add(str(court_tier(code)))
+        by_type.setdefault(kind, set()).add(str(getattr(court_of(code), "tier", None)))
     assert by_type["Rechtbank"] == {"rechtbank"}
     assert by_type["Gerechtshof"] == {"gerechtshof"}
     assert by_type["Kantongerecht"] == {"kantongerecht"}
     assert by_type["TuchtrechtelijkeInstantie"] == {"tuchtcollege"}
-    assert court_tier("XX", "KB") == "kroon"
-    assert court_tier("XX", "Europees Hof voor de Rechten van de Mens") == "ehrm"
-    assert court_tier("XX", "Hof van Justitie van de Europese Unie") == "hvj_eu"
+    assert by_type["AndereGerechtelijkeInstantie"] == {"andere_instantie"}
+    assert by_type["Koninkrijksinstantie"] == {"koninkrijksinstantie"}
+    assert getattr(court_of("XX", "KB"), "tier", None) == "kroon"
+    assert (
+        getattr(
+            court_of("XX", "Europees Hof voor de Rechten van de Mens"), "tier", None
+        )
+        == "ehrm"
+    )
+    assert (
+        getattr(court_of("XX", "Hof van Justitie van de Europese Unie"), "tier", None)
+        == "hvj_eu"
+    )
+    assert getattr(court_of("XX", "Hoge Raad van Belgie"), "tier", None) == (
+        "buitenlandse_instantie"
+    )

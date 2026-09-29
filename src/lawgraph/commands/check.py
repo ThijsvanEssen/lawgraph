@@ -28,7 +28,6 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RAW_KIND_BWB_TOESTAND,
-    RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_ECHR_JUDGMENT,
     RAW_KIND_EK_KAMERSTUK,
     RAW_KIND_EU_CELEX,
@@ -89,8 +88,6 @@ NORMALIZED_SHARE = 0.9
 # Sources of which several records make one node, and how many nodes their records make:
 # HUDOC holds a judgment once per language, and ``normalize echr`` keeps one of them.
 NODES_OF_RECORDS = {SOURCE_ECHR: checks.count_echr_judgments_in_raw}
-# Kinds that are only there after a manual command; their absence says nothing.
-OPTIONAL_KINDS = {RAW_KIND_BWB_TOESTAND_ALL, RAW_KIND_TK_KAMERSTUK_XML}
 
 
 @dataclass
@@ -162,7 +159,7 @@ def _check_raw(raw: dict[tuple[str, str], int], report: Report) -> None:
             count = raw.get((source, kind), 0)
             if count:
                 report.note(f"raw {source}/{kind}: {count:,}")
-            elif kind not in OPTIONAL_KINDS:
+            else:
                 report.problem(
                     f"raw {source}/{kind}: no records. Was it retrieved, and did the source "
                     "answer what was asked?"

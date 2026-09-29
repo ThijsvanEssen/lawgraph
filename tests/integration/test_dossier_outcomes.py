@@ -285,7 +285,7 @@ def test_the_api_lists_only_the_pending_dossier_as_open(store: ArangoStore) -> N
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
-        open_page = client.get("/api/dossiers/open").json()
+        open_page = client.get("/api/dossiers?status=open").json()
         assert [item["number"] for item in open_page["items"]] == [PENDING]
         assert open_page["total"] == 1
 
@@ -320,11 +320,10 @@ def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(
         assert decision_kind(REJECTED) == ("Wetgeving", "Wetgeving")
         assert decision_kind(PENDING) == ("Amendement", "Amendement")
 
-        letters = client.get(
-            "/api/documents", params={"dossier": WITHDRAWN, "kind": "Brief regering"}
-        ).json()["items"]
-        assert letters[0]["dossier_numbers"] == [WITHDRAWN]
+        documents = client.get(f"/api/dossiers/{WITHDRAWN}/documents").json()["items"]
+        letters = [d for d in documents if d["kind"] == "Brief regering"]
         letter = client.get(f"/api/documents/{letters[0]['key']}").json()
+        assert letter["dossier_numbers"] == [WITHDRAWN]
         assert letter["case_kinds"] == ["Wetgeving", "Brief regering"]
     finally:
         app.dependency_overrides.pop(get_store, None)

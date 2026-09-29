@@ -132,6 +132,7 @@ class JudgmentFilters:
     q: str | None = None
     court: str | None = None
     tier: str | None = None
+    court_kind: str | None = None
     source: str | None = None
     subject: str | None = None
     date_from: str | None = None
@@ -144,7 +145,10 @@ class JudgmentFilters:
 
 
 # The filter a facet leaves out: each facet counts what choosing another value would give.
-_TIER_FILTERS = frozenset({"tier"})
+# Another tier drops the kind of court chosen within one.
+_TIER_FILTERS = frozenset({"tier", "court_kind"})
+_COURT_KIND_FILTERS = frozenset({"court_kind"})
+_SOURCE_FILTERS = frozenset({"source"})
 _YEAR_FILTERS = frozenset({"from", "to"})
 
 
@@ -168,6 +172,9 @@ def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> dict[st
     if filters.tier:
         clauses["tier"] = "FILTER doc.props.tier == @tier"
         bind["tier"] = filters.tier
+    if filters.court_kind:
+        clauses["court_kind"] = "FILTER doc.props.court_kind == @court_kind"
+        bind["court_kind"] = filters.court_kind
     if filters.source:
         clauses["source"] = "FILTER doc.props.source == @source"
         bind["source"] = filters.source
@@ -206,12 +213,14 @@ def get_judgments_list(
       * Free-text via ``search_judgments`` ArangoSearch view (BM25). Without
         the view, ``CONTAINS(LOWER(props.summary), @q)`` dominates wall time
         because summaries are multi-KB.
-      * ``tier``, ``court_code``, ``date_eff``, ``source`` and ``subjects`` are
+      * ``tier``, ``court_kind``, ``court_code``, ``date_eff``, ``source`` and ``subjects`` are
         read from the props the normalize pipelines write, each indexed.
       * ``total`` is exact when filtered, otherwise the collection
         cardinality. The frontend uses ``has_more`` for paging.
-      * ``facets`` counts per ``tier`` (without the tier filter) and per year
-        of ``date_eff`` (without ``from`` and ``to``). Unfiltered, each count
+      * ``facets`` counts per ``tier`` (without the tier and court_kind filters), per
+        ``court_kind`` (without the court_kind filter), per ``source`` (without the
+        source filter) and per year of ``date_eff`` (without ``from`` and ``to``).
+        Unfiltered, each count
         walks one index and reads no judgment (``db/schema.py``).
     """
     from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
@@ -276,6 +285,7 @@ def get_judgments_list(
                 decision_kind: props.decision_kind,
                 court_code: props.court_code,
                 tier: props.tier,
+                court_kind: props.court_kind,
                 date: props.date_eff,
                 source: props.source,
                 subjects: props.subjects,
@@ -288,6 +298,20 @@ def get_judgments_list(
         {from_clause}
             {where(_TIER_FILTERS)}
             COLLECT value = doc.props.tier WITH COUNT INTO count
+            SORT count DESC, value
+            RETURN {{ value, count }}
+    )
+    LET by_court_kind = (
+        {from_clause}
+            {where(_COURT_KIND_FILTERS)}
+            COLLECT value = doc.props.court_kind WITH COUNT INTO count
+            SORT count DESC, value
+            RETURN {{ value, count }}
+    )
+    LET by_source = (
+        {from_clause}
+            {where(_SOURCE_FILTERS)}
+            COLLECT value = doc.props.source WITH COUNT INTO count
             SORT count DESC, value
             RETURN {{ value, count }}
     )
@@ -323,7 +347,8 @@ def get_judgments_list(
 
     aql += (
         "RETURN { total: total, items: items, "
-        "facets: { tier: by_tier, year: by_year } }\n"
+        "facets: { tier: by_tier, court_kind: by_court_kind, source: by_source, "
+        "year: by_year } }\n"
     )
 
     rows = list(store.query(aql, bind_vars))

@@ -266,8 +266,74 @@ def committee(payload: Payload) -> Record | None:
         "name": name,
         "abbreviation": abbreviation,
         "slug": make_node_key(abbreviation or name),
+        "kind": committee_kind(name, _text(payload, "Inhoudsopgave")),
+        "started_on": iso_date(payload.get("DatumActief")),
+        "ended_on": iso_date(payload.get("DatumInactief")),
         "display_name": name,
     }
+
+
+# The kind of a committee, by its name, else by the group the Kamer lists it in
+# (``Commissie.Inhoudsopgave``): an enquête or ondervraging before "Parlementaire".
+_COMMITTEE_KINDS = (
+    ("enquete", re.compile(r"(?:enqu[eê]te|ondervragings)commissie", re.IGNORECASE)),
+    ("vast", re.compile(r"^vaste commissie\b", re.IGNORECASE)),
+    ("algemeen", re.compile(r"^algemene commissie\b", re.IGNORECASE)),
+    ("tijdelijk", re.compile(r"^(?:tijdelijke\b|themacommissie\b)", re.IGNORECASE)),
+    (
+        "delegatie",
+        re.compile(
+            r"^(?:contactgroep|ipc|interparlementaire)\b|assemblee|europol",
+            re.IGNORECASE,
+        ),
+    ),
+)
+_COMMITTEE_GROUPS = {
+    "Vaste commissies": "vast",
+    "Algemene commissies": "algemeen",
+    "Tijdelijke commissies": "tijdelijk",
+    "Delegaties naar internationale vergaderingen": "delegatie",
+}
+
+
+def committee_kind(name: str, group: str | None) -> str:
+    """``vast``, ``algemeen``, ``tijdelijk``, ``enquete``, ``delegatie`` or ``overig``."""
+    for kind, pattern in _COMMITTEE_KINDS:
+        if pattern.search(name):
+            return kind
+    return _COMMITTEE_GROUPS.get(group or "", "overig")
+
+
+def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
+    """Give every committee in *committees* (their props) a slug of its own.
+
+    Several committees share an abbreviation (``ez``, ``buhaos``): the one sitting now, else
+    the one that ended last, keeps it; the others get the year they started (``ez-2010``),
+    with a number behind it when that is taken too.
+    """
+    by_slug: dict[str, list[dict[str, Any]]] = {}
+    for props in committees:
+        by_slug.setdefault(props["slug"], []).append(props)
+    taken = set(by_slug)
+    for slug, group in by_slug.items():
+        group.sort(
+            key=lambda p: (
+                p.get("ended_on") is None,
+                p.get("ended_on") or "",
+                p.get("started_on") or "",
+                p["external_id"],
+            ),
+            reverse=True,
+        )
+        for props in group[1:]:
+            year = (props.get("started_on") or props.get("ended_on") or "")[:4]
+            base = f"{slug}-{year}" if year else slug
+            candidate, n = base, 1
+            while candidate in taken:
+                n += 1
+                candidate = f"{base}-{n}"
+            props["slug"] = candidate
+            taken.add(candidate)
 
 
 def committee_seats(payload: Payload) -> dict[str, list[tuple[str | None, str | None]]]:
@@ -326,16 +392,19 @@ def member(payload: Payload) -> Record | None:
     # the name a person goes by: ``Ard van der Steur``, not ``Gerard Adriaan van der Steur``
     called = payload.get("Roepnaam") or payload.get("Voornamen") or ""
     name = " ".join(f"{called} {surname}".split())
-    return make_node_key(external_id), {
+    props: dict[str, Any] = {
         "external_id": external_id,
-        "name": name,
         "full_name": full_name or None,
-        "display_name": name,
         # what another source knows a person by (``core.government.match_holder``)
         "family_name": _text(payload, "Achternaam") or None,
         "initials": _text(payload, "Initialen") or None,
         "birth_date": iso_date(payload.get("Geboortedatum")),
     }
+    if name:
+        # a Persoon the Kamer gives no name (a record it withholds) keeps the name its
+        # roll-call votes gave (``_tk_members.name_members_by_their_votes``)
+        props["name"] = props["display_name"] = name
+    return make_node_key(external_id), props
 
 
 def seat_holding(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
@@ -516,10 +585,13 @@ def commitment(payload: Payload) -> Record | None:
         "text": text,
         "minister_name": _text(payload, "Naam", "MinisterNaam"),
         "minister_role": _text(payload, "Functie", "MinisterTitel"),
+        # the ministry the Tweede Kamer gives the commitment (``Justitie en Veiligheid``)
+        "ministry_name": _text(payload, "Ministerie") or None,
         "made_on": iso_date(payload.get("Aanmaakdatum")),
         "expected_resolution": iso_date(payload.get("DatumNakoming")),
         "status": COMMITMENT_STATUS.get(raw_status, "open"),
         "activity_number": str(payload.get("ActiviteitNummer") or ""),
+        "number": _text(payload, "Nummer") or None,
         "display_name": (text[:80] + "…") if len(text) > 80 else text,
     }
 
@@ -730,6 +802,7 @@ class VoteCast:
     faction_id: str | None
     faction_label: str
     changed_at: str | None
+    actor_name: str | None = None  # "Nobel, J.N.J.": who voted, as the row names them
 
 
 def vote(payload: Payload) -> VoteCast | None:
@@ -737,14 +810,19 @@ def vote(payload: Payload) -> VoteCast | None:
     if not decision_id:
         return None
     faction_id = str(payload.get("Fractie_Id") or "")
+    person_id = str(payload.get("Persoon_Id") or "") or None
     return VoteCast(
         decision_id=sys.intern(decision_id),
         choice=sys.intern(str(payload.get("Soort") or "")),
-        seats=payload.get("FractieGrootte") or 0,
-        person_id=str(payload.get("Persoon_Id") or "") or None,
+        # a row of a roll-call is one member, whose FractieGrootte is that of the faction
+        seats=1 if person_id else payload.get("FractieGrootte") or 0,
+        person_id=person_id,
         faction_id=sys.intern(faction_id) if faction_id else None,
         faction_label=sys.intern((payload.get("ActorFractie") or "").strip()),
         changed_at=payload.get("GewijzigdOp"),
+        actor_name=(payload.get("ActorNaam") or "").strip() or None
+        if person_id
+        else None,
     )
 
 
@@ -866,3 +944,11 @@ def _int_or_none(value: Any) -> int | None:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
         return None
+
+
+def display_person_name(actor_name: str | None) -> str | None:
+    """ "J.N.J. Nobel" of "Nobel, J.N.J.", as a Stemming or a DocumentActor names a person."""
+    if not actor_name:
+        return None
+    family, _, initials = actor_name.partition(",")
+    return " ".join(f"{initials.strip()} {family.strip()}".split()) or None

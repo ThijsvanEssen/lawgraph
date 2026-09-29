@@ -36,122 +36,21 @@ _CURRENT_MEMBERSHIP = (
 
 
 def get_committees(store: ArangoStore) -> list[dict[str, Any]]:
-    """Every committee with the number of open dossiers it leads.
-
-    ``active_dossier_count`` is precomputed on the node; the fallback derives
-    it for the committees that lack it in one pass over the edges rather than
-    one traversal per committee.
-    """
-    rows = list(
-        store.query(
-            f"""
-        FOR committee IN {COLLECTION_COMMITTEES}
-            LET name = committee.props.name
-            FILTER name != null AND name != ""
-            FILTER NOT REGEX_TEST(name, "{_GUID_NAME}", true)
-            SORT name ASC
-            RETURN MERGE(committee, {{
-                active_dossier_count: committee.props.active_dossier_count
-            }})
-    """
-        )
-    )
-    missing = [r["_id"] for r in rows if r.get("active_dossier_count") is None]
-    if not missing:
-        return rows
-
-    counts = _open_dossier_counts(store, missing)
-    for row in rows:
-        if row.get("active_dossier_count") is None:
-            row["active_dossier_count"] = counts.get(row["_id"], 0)
-    return rows
-
-
-def _open_dossier_counts(
-    store: ArangoStore, committee_ids: list[str]
-) -> dict[str, int]:
-    """Open dossiers per committee, counted in one pass over two hash maps."""
+    """Every committee with a name, by name. ``props.active_dossier_count`` is what
+    ``semantic graph-list-stats`` counted."""
     aql = f"""
-    LET open_dossiers = MERGE(
-        FOR dossier IN {COLLECTION_DOSSIERS}
-            FILTER dossier.props.closed != true
-            RETURN {{ [dossier._id]: true }}
-    )
-    LET open_activities = MERGE(
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == @about
-            FILTER open_dossiers[e._to] == true
-            RETURN {{ [e._from]: true }}
-    )
-    LET counts = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == @led_by
-            FILTER e._to IN @committee_ids
-            FILTER open_activities[e._from] == true
-            COLLECT committee = e._to WITH COUNT INTO total
-            RETURN {{ id: committee, count: total }}
-    )
-    RETURN MERGE(FOR row IN counts RETURN {{ [row.id]: row.count }})
-    """
-    bind = {
-        "committee_ids": committee_ids,
-        "about": RELATION_ABOUT,
-        "led_by": RELATION_LED_BY,
-    }
-    counts: dict[str, int] = {}
-    for row in store.query(aql, bind):
-        if isinstance(row, dict):
-            counts.update(row)
-    return counts
-
-
-def get_committees_with_members(store: ArangoStore) -> list[dict[str, Any]]:
-    """Every committee with its current members inlined — one round trip.
-
-    The parliamentary layer draws a halo of members around each committee;
-    fetching them per committee would be 130 round trips.
-    """
-    aql = f"""
-    LET today = DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd")
-    LET committee_ids = (FOR c IN {COLLECTION_COMMITTEES} RETURN c._id)
-    LET seats = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == @member_of AND e._to IN committee_ids
-            FILTER NOT HAS(e.meta, "to_date") OR e.meta.to_date == null
-                OR e.meta.to_date >= today
-            RETURN {{ member: e._from, committee: e._to }}
-    )
-    LET member_docs = MERGE(
-        FOR id IN UNIQUE(seats[*].member)
-            LET member = DOCUMENT(id)
-            FILTER member != null
-            RETURN {{ [member._id]: member }}
-    )
-    LET members_by_committee = MERGE(
-        FOR seat IN seats
-            COLLECT committee = seat.committee INTO group = seat.member
-            RETURN {{ [committee]: (
-                FOR id IN UNIQUE(group)
-                    LET member = member_docs[id]
-                    FILTER member != null
-                    SORT member.props.name ASC
-                    RETURN member
-            ) }}
-    )
     FOR committee IN {COLLECTION_COMMITTEES}
         LET name = committee.props.name
         FILTER name != null AND name != ""
         FILTER NOT REGEX_TEST(name, "{_GUID_NAME}", true)
-        SORT name ASC
-        RETURN MERGE(committee, {{
-            members: members_by_committee[committee._id] != null
-                ? members_by_committee[committee._id] : []
-        }})
+        SORT name ASC, committee._key ASC
+        RETURN committee
     """
-    return list(store.query(aql, {"member_of": RELATION_MEMBER_OF}))
+    return list(store.query(aql))
 
 
-# A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as ``/dossiers/open``).
+# A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as
+# ``/dossiers?status=open``).
 _DOSSIER_CLOSED = "dossier.props.closed == true"
 
 
@@ -169,8 +68,7 @@ def get_committee_detail(
     Accepts the committee's ``slug`` or its ``_key``. With *current_only* the
     members are those whose seat has no end date, or an end date still ahead.
     *status* (``open`` or ``closed``) keeps the dossiers of that state, newest
-    first; ``dossier_total`` counts them all, ``open_dossier_count`` the open ones
-    whatever the filter.
+    first; ``dossier_total`` counts them all.
     """
     aql = f"""
     FOR committee IN {COLLECTION_COMMITTEES}
@@ -220,8 +118,7 @@ def get_committee_detail(
         RETURN MERGE(committee, {{
             members: members,
             dossiers: dossiers,
-            dossier_total: LENGTH(matching),
-            open_dossier_count: LENGTH(FOR row IN led_dossiers FILTER NOT row.closed RETURN 1)
+            dossier_total: LENGTH(matching)
         }})
     """
     bind: dict[str, Any] = {

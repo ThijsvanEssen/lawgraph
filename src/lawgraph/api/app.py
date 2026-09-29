@@ -4,10 +4,13 @@ import collections
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from typing import Annotated
 
+import anyio
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from starlette.responses import Response as StarletteResponse
 
 from lawgraph.api.dependencies import get_store
@@ -18,8 +21,8 @@ from lawgraph.api.routes import (
     decisions,
     documents,
     dossiers,
+    feed,
     government,
-    graph,
     instruments,
     judgments,
     nodes,
@@ -44,48 +47,94 @@ setup_logging()
 
 _logger = logging.getLogger(__name__)
 
-CACHE_TTL_ARTICLES = 1800
-CACHE_TTL_JUDGMENTS = 3600
-CACHE_TTL_STATS = 300
+# How long a browser or proxy may use a response without asking again. Short: after a
+# migration the new data shows within a minute, and asking again is cheap (``ETag``).
+CACHE_TTL_PUBLIC = 60
 CACHE_TTL_DEFAULT = 60
+# How often the API reads the data version from the database.
+DATA_VERSION_TTL = 15.0
+
+
+class _DataVersion:
+    """``ArangoStore.data_version``, read at most every ``DATA_VERSION_TTL`` seconds; None
+    while the database cannot be reached."""
+
+    def __init__(self, store: Callable[[], ArangoStore]) -> None:
+        self._store = store
+        self._value: str | None = None
+        self._read_at = float("-inf")
+
+    async def current(self) -> str | None:
+        if time.monotonic() - self._read_at >= DATA_VERSION_TTL:
+            try:
+                self._value = await anyio.to_thread.run_sync(
+                    lambda: self._store().data_version()
+                )
+            except Exception as exc:  # noqa: BLE001 — no stamp is no cache validation
+                _logger.warning("No data version: %s: %s", type(exc).__name__, exc)
+                self._value = None
+            self._read_at = time.monotonic()
+        return self._value
 
 
 class _CacheControlMiddleware:
-    """Inject Cache-Control headers on successful GET responses."""
+    """``Cache-Control`` and a weak ``ETag`` of the data version on successful GET
+    responses; a GET whose ``If-None-Match`` names the current version is 304.
 
-    _RULES: tuple[tuple[str, str], ...] = (
-        ("/api/articles/", f"public, max-age={CACHE_TTL_ARTICLES}"),
-        ("/api/judgments/", f"public, max-age={CACHE_TTL_JUDGMENTS}"),
-        ("/api/stats", f"public, max-age={CACHE_TTL_STATS}"),
-    )
-    _DEFAULT = f"private, max-age={CACHE_TTL_DEFAULT}"
+    Every response of one data version has the same ``ETag``: a cache keeps it per URL, and
+    after a migration (a write to the graph) none of them matches any more."""
 
-    def __init__(self, app) -> None:
+    _PUBLIC = ("/api/articles/", "/api/judgments/", "/api/stats")
+
+    def __init__(self, app, store: Callable[[], ArangoStore]) -> None:
         self._app = app
+        self._version = _DataVersion(store)
+
+    def _cache_value(self, path: str) -> str:
+        if path.startswith(self._PUBLIC):
+            return f"public, max-age={CACHE_TTL_PUBLIC}"
+        return f"private, max-age={CACHE_TTL_DEFAULT}"
 
     async def __call__(self, scope, receive, send) -> None:
         if scope["type"] != "http" or scope.get("method") != "GET":
             await self._app(scope, receive, send)
             return
 
-        path: str = scope.get("path", "")
-        cache_value = self._DEFAULT
-        for prefix, header in self._RULES:
-            if path.startswith(prefix):
-                cache_value = header
-                break
+        cache_value = self._cache_value(scope.get("path", ""))
+        version = await self._version.current()
+        etag = f'W/"{version}"'.encode() if version else None
+        if etag and etag in _if_none_match(scope):
+            headers = [(b"etag", etag), (b"cache-control", cache_value.encode())]
+            await send(
+                {"type": "http.response.start", "status": 304, "headers": headers}
+            )
+            await send({"type": "http.response.body", "body": b""})
+            return
 
         async def _send_with_cache(message) -> None:
-            if message["type"] == "http.response.start":
-                headers = list(message.get("headers", []))
-                status = message.get("status", 200)
-                # Only add Cache-Control on 2xx responses
-                if 200 <= status < 300:
-                    headers.append((b"cache-control", cache_value.encode()))
-                    message = {**message, "headers": headers}
+            if message["type"] == "http.response.start" and (
+                200 <= message.get("status", 200) < 300
+            ):
+                headers = [
+                    *message.get("headers", []),
+                    (b"cache-control", cache_value.encode()),
+                ]
+                if etag:
+                    headers.append((b"etag", etag))
+                message = {**message, "headers": headers}
             await send(message)
 
         await self._app(scope, receive, _send_with_cache)
+
+
+def _if_none_match(scope) -> list[bytes]:
+    """The entity tags of the request's ``If-None-Match``."""
+    return [
+        tag.strip()
+        for name, value in scope.get("headers", [])
+        if name == b"if-none-match"
+        for tag in value.split(b",")
+    ]
 
 
 class _RateLimitMiddleware:
@@ -184,7 +233,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.21.0",
+    version="0.35.0",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -205,7 +254,6 @@ for _name, _router in (
     ("cabinets", government.cabinets_router),
     ("commitments", government.commitments_router),
     ("parties", parliament.party_router),
-    ("graph", graph.router),
     ("relationships", relationships.router),
     ("annexes", annexes.router),
     ("documents", documents.router),
@@ -214,8 +262,10 @@ for _name, _router in (
     ("stats", stats.router),
     ("decisions", decisions.router),
     ("parliament", parliament.router),
+    ("feed", feed.router),
 ):
     app.include_router(_router, prefix=f"/api/{_name}", tags=[_name])
+app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
 
 
 @app.middleware("http")
@@ -245,7 +295,13 @@ async def _log_requests(request: Request, call_next):
 
 
 app.add_middleware(_RateLimitMiddleware, trusted_origins=frozenset(API_ALLOWED_ORIGINS))
-app.add_middleware(_CacheControlMiddleware)
+app.add_middleware(
+    _CacheControlMiddleware,
+    store=lambda: app.dependency_overrides.get(get_store, get_store)(),
+)
+# A page of the feed is 87 KB as JSON and some 10 KB compressed; a response under 1 KB is
+# sent as it is. A 304 has no body, and the ETag stays weak, so compression leaves both.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=API_ALLOWED_ORIGINS,
