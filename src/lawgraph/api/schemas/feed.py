@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal, cast, get_args
 from xml.etree import ElementTree
 
@@ -14,17 +15,18 @@ from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
     DOCUMENT_KINDS,
+    EVENT_BILL,
     EVENT_COMMENCEMENT,
     EVENT_COMMITMENT,
     EVENT_PUBLICATION,
     EVENT_VOTE,
-    ROLE_GOVERNMENT,
+    ROLE_SUBMITTER,
     person_role,
 )
-from lawgraph.core.models import make_node_key, parse_arango_id
+from lawgraph.core.models import parse_arango_id
 from lawgraph.core.official_urls import instrument_url
 from lawgraph.core.tk_links import document_page
-from lawgraph.core.tk_records import NO_DUE_DATE
+from lawgraph.core.tk_records import CAPACITY_MEMBER, NO_DUE_DATE
 
 # The values of ``core.feed.FEED_KINDS`` and ``PERSON_ROLES``.
 FeedKind = Literal[
@@ -79,7 +81,17 @@ class FeedPersonDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     key: str | None = Field(None, description="Member key; null when unknown.")
-    name: str | None = None
+    name: str | None = Field(
+        None, description="The name they go by and the surname: ``Hanneke Steen``."
+    )
+    surname: str | None = Field(
+        None, description="With its prefix, as written: ``van der Plas``."
+    )
+    function: str | None = Field(
+        None,
+        description="What they signed as, as the source writes it: ``minister van "
+        "Sociale Zaken en Werkgelegenheid``, ``Tweede Kamerlid``.",
+    )
     role: PersonRole
     faction: FeedFactionDTO | None = Field(
         None,
@@ -152,6 +164,27 @@ class FeedCommencementDTO(BaseModel):
     )
 
 
+class FeedHeadlineDTO(BaseModel):
+    """The parts a headline is made of; the front end makes the sentence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    surname: str | None = Field(
+        None,
+        description="Of the first submitter (``indiener``): ``van der Plas`` of "
+        "``motie-Van der Plas``; null without one.",
+    )
+    subject: str | None = Field(
+        None,
+        description="What the title says it is about: the part after the first "
+        "`` over ``; null when it has none.",
+    )
+    short_title: str | None = Field(
+        None,
+        description="The short title of the event's dossier (``dossier.short_title``).",
+    )
+
+
 class FeedItemDTO(BaseModel):
     """One event."""
 
@@ -193,6 +226,7 @@ class FeedItemDTO(BaseModel):
     tk_url: str | None = Field(
         None, description="The page of a paper on tweedekamer.nl."
     )
+    headline: FeedHeadlineDTO
     vote: FeedVoteDTO | None = None
     commitment: FeedCommitmentDTO | None = None
     publication: FeedPublicationDTO | None = None
@@ -204,20 +238,26 @@ class FeedItemDTO(BaseModel):
         props = row.get("props") or {}
         collection, key = parse_arango_id(row["id"])
         dossier = row.get("dossier")
+        title = _title(kind, props, row)
+        persons = _persons(kind, row)
+        short = short_title(dossier.get("title")) if dossier else None
         return cls(
             id=row["id"],
             kind=kind,
             date=row["date"],
-            title=_title(kind, props, row),
+            title=title,
             summary=_summary(kind, props, row),
             subkind=_subkind(kind, props),
             node=FeedNodeDTO(collection=collection, key=key),
-            dossier=(
-                FeedDossierDTO(**dossier, short_title=short_title(dossier.get("title")))
-                if dossier
-                else None
+            dossier=(FeedDossierDTO(**dossier, short_title=short) if dossier else None),
+            persons=persons,
+            headline=FeedHeadlineDTO(
+                surname=next(
+                    (p.surname for p in persons if p.role == ROLE_SUBMITTER), None
+                ),
+                subject=_subject(title),
+                short_title=short,
             ),
-            persons=_persons(row),
             ministry=row.get("ministry"),
             cabinet=row.get("cabinet"),
             official_url=_official_url(kind, props),
@@ -232,6 +272,24 @@ class FeedItemDTO(BaseModel):
 
 
 def _title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | None:
+    title = _source_title(kind, props, row)
+    return " ".join(title.split()) if title else None
+
+
+def _source_title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | None:
+    """A bill by the title of its dossier (the paper is called ``Voorstel van wet``), a
+    commitment by its first words, a publication by its citation title, a version by the
+    title of its law, any other paper or a vote by its subject."""
+    if kind == EVENT_BILL:
+        named = [props.get("title"), props.get("subject")]
+        own = [
+            t
+            for t in named
+            if t and not t.strip().lower().startswith("voorstel van wet")
+        ]
+        return (
+            (row.get("dossier") or {}).get("title") or next(iter(own), None) or named[0]
+        )
     if kind == EVENT_COMMITMENT:
         return props.get("display_name") or row.get("text")
     if kind == EVENT_COMMENCEMENT:
@@ -255,31 +313,52 @@ def _subkind(kind: str, props: dict[str, Any]) -> str | None:
     return None
 
 
-def _persons(row: dict[str, Any]) -> list[FeedPersonDTO]:
-    """The signatures as people: a TK person by the key of its member, the maker of a
-    commitment by the member it was matched to."""
-    member = row.get("member") or {}
+# "Motie van het lid Bakker over gemeenten": what comes after the first " over ".
+_ABOUT = re.compile(r"\sover\s+(.+)$", re.DOTALL)
+# An initial as a paper writes it before the surname: "D.J.", "Th.", "A.C.".
+_INITIAL = re.compile(r"^(?:[A-Z][a-z]?\.)+$")
+
+
+def _subject(title: str | None) -> str | None:
+    match = _ABOUT.search(title or "")
+    return (match.group(1).strip() or None) if match else None
+
+
+def _surname(signature: dict[str, Any]) -> str | None:
+    """The surname with its prefix: from the name on the paper without its initials
+    (``D.J. van den Berg``), or before the comma (``Vijlbrief, J.A.``), else the member's
+    name without the name they go by."""
+    written = (signature.get("name") or "").strip()
+    if "," in written:
+        return written.split(",", 1)[0].strip() or None
+    words = written.split()
+    if words and _INITIAL.match(words[0]):
+        rest = [w for w in words if not _INITIAL.match(w)]
+        return " ".join(rest) or None
+    member = (signature.get("member_name") or "").split()
+    return " ".join(member[1:]) if len(member) > 1 else None
+
+
+def _persons(kind: str, row: dict[str, Any]) -> list[FeedPersonDTO]:
+    """The signatures as people, named as the member routes name them (the name they go by
+    and the surname: ``Hanneke Steen``), else as the paper names them."""
     persons = []
     for signature in row.get("persons") or []:
-        role = person_role(signature.get("role"), signature.get("capacity"))
+        capacity = signature.get("capacity")
+        role = person_role(signature.get("role"), capacity, kind)
         if role is None:
             continue
-        person_id = signature.get("person_id")
-        key = signature.get("member_key") or (
-            make_node_key(person_id) if person_id else None
-        )
-        name = signature.get("name")
-        if key and key == member.get("key") and member.get("name"):
-            name = member["name"]
         faction = signature.get("faction")
         persons.append(
             FeedPersonDTO(
-                key=key,
-                name=name,
+                key=signature.get("member_key"),
+                name=signature.get("member_name") or signature.get("name"),
+                surname=_surname(signature),
+                function=signature.get("function"),
                 role=cast(PersonRole, role),
                 faction=(
                     FeedFactionDTO(**faction)
-                    if faction and role != ROLE_GOVERNMENT
+                    if faction and capacity == CAPACITY_MEMBER
                     else None
                 ),
             )
@@ -377,13 +456,18 @@ class FeedResponse(BaseModel):
 _ATOM = "http://www.w3.org/2005/Atom"
 
 
-def _atom_entry(feed: ElementTree.Element, item: FeedItemDTO, node_url: str) -> None:
+def _atom_entry(feed: ElementTree.Element, item: FeedItemDTO, site_url: str) -> None:
     entry = ElementTree.SubElement(feed, "entry")
     ElementTree.SubElement(entry, "id").text = f"tag:lawgraph,2026:{item.id}"
     ElementTree.SubElement(entry, "title").text = item.title or item.kind
     ElementTree.SubElement(entry, "updated").text = f"{item.date}T00:00:00Z"
-    link = item.official_url or item.tk_url or node_url.format(**item.node.model_dump())
-    ElementTree.SubElement(entry, "link", href=link)
+    # the event on Concordans, and its official page
+    ElementTree.SubElement(
+        entry, "link", rel="alternate", href=f"{site_url}/explore?focus={item.id}"
+    )
+    related = item.official_url or item.tk_url
+    if related:
+        ElementTree.SubElement(entry, "link", rel="related", href=related)
     ElementTree.SubElement(entry, "category", term=item.kind)
     for person in item.persons:
         author = ElementTree.SubElement(entry, "author")
@@ -400,18 +484,25 @@ def _dossier_line(item: FeedItemDTO) -> str | None:
 
 
 def atom_feed(
-    page: FeedResponse, *, self_url: str, next_url: str | None, node_url: str
+    page: FeedResponse,
+    *,
+    title: str,
+    self_url: str,
+    next_url: str | None,
+    page_url: str,
+    site_url: str,
 ) -> bytes:
-    """*page* as an Atom 1.0 document. *node_url* is the link of an event without an
-    official page, with ``{collection}`` and ``{key}`` in it."""
+    """*page* as an Atom 1.0 document named *title*: its ``alternate`` link is *page_url*
+    (the same view on Concordans, at *site_url*), each entry's the event there."""
     feed = ElementTree.Element("feed", xmlns=_ATOM)
     ElementTree.SubElement(feed, "id").text = self_url
-    ElementTree.SubElement(feed, "title").text = "LawGraph"
+    ElementTree.SubElement(feed, "title").text = title
     newest = page.items[0].date if page.items else "1970-01-01"
     ElementTree.SubElement(feed, "updated").text = f"{newest}T00:00:00Z"
     ElementTree.SubElement(feed, "link", rel="self", href=self_url)
+    ElementTree.SubElement(feed, "link", rel="alternate", href=page_url)
     if next_url:
         ElementTree.SubElement(feed, "link", rel="next", href=next_url)
     for item in page.items:
-        _atom_entry(feed, item, node_url)
+        _atom_entry(feed, item, site_url)
     return ElementTree.tostring(feed, encoding="utf-8", xml_declaration=True)

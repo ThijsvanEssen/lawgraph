@@ -10,6 +10,7 @@ from typing import Annotated
 import anyio
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from starlette.responses import Response as StarletteResponse
 
 from lawgraph.api.dependencies import get_store
@@ -232,7 +233,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.31.0",
+    version="0.32.0",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -298,6 +299,9 @@ app.add_middleware(
     _CacheControlMiddleware,
     store=lambda: app.dependency_overrides.get(get_store, get_store)(),
 )
+# A page of the feed is 87 KB as JSON and some 10 KB compressed; a response under 1 KB is
+# sent as it is. A 304 has no body, and the ETag stays weak, so compression leaves both.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=API_ALLOWED_ORIGINS,

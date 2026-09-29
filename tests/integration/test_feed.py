@@ -29,7 +29,7 @@ from lawgraph.config.constants import (
     RELATION_AMENDS,
     RELATION_PART_OF,
 )
-from lawgraph.config.settings import API_ALLOWED_ORIGINS
+from lawgraph.config.settings import API_ALLOWED_ORIGINS, SITE_URL
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
 
@@ -145,7 +145,14 @@ def _nodes() -> list[Node]:
             "Voorstel van wet",
             "2026-03-01",
             "37000",
-            title="Wijziging van de Wet voorbeeld (Wet beter voorbeeld)",
+            title="Voorstel van wet ",
+        ),
+        # the source signs the memorandum, not the voorstel: its signatories submitted it
+        _document(
+            "memorandum_008",
+            "Memorie van toelichting",
+            "2026-03-01",
+            "37000",
             actors=[_actor(HEINEN, None, FIRST, "bewindspersoon")],
         ),
         # the bill as the Eerste Kamer received it is not submitted again
@@ -223,6 +230,7 @@ def _nodes() -> list[Node]:
             text="De minister stuurt voor de zomer een brief over de grens.",
             display_name="De minister stuurt voor de zomer een brief…",
             minister_name="Heinen, E.",
+            minister_role="Minister van Financiën",
             made_on="2024-09-01",
             expected_resolution="2025-06-01",
             status="open",
@@ -341,9 +349,9 @@ ALL = [
     "instruments/stb_2026_10",
     "documents/letter_006",
     "decisions/stemming_1",
-    # two papers of one day: by id, descending
-    "documents/motion_005",
+    # two papers of one day: by kind, an amendment before a motion
     "documents/amendment_004",
+    "documents/motion_005",
     "documents/note_003",
     "documents/bill_001",
     "commitments/commitment_1",
@@ -379,6 +387,8 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         {
             "key": HEINEN_KEY,
             "name": "Eelco Heinen",
+            "surname": "Heinen",
+            "function": "Minister van Financiën",
             "role": "bewindspersoon",
             "faction": None,
         }
@@ -401,25 +411,54 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
     assert amendment["persons"] == [
         {
             "key": AALDERS_KEY,
-            "name": "A. Aalders",
+            "name": "Anna Aalders",
+            "surname": "Aalders",
+            "function": "Tweede Kamerlid",
             "role": "indiener",
             "faction": {"key": "vvd", "short": "VVD"},
         },
         {
             "key": BAKKER_KEY,
-            "name": "B. Bakker",
+            "name": "Bram Bakker",
+            "surname": "Bakker",
+            "function": "Tweede Kamerlid",
             "role": "medeindiener",
             # an older Fractie record of the faction
             "faction": {"key": "d66", "short": "D66"},
         },
     ]
 
+    assert amendment["headline"] == {
+        "surname": "Aalders",
+        "subject": "de grens",
+        "short_title": "Wet beter voorbeeld",
+    }
     # the griffier signs, but is no person of the event
     assert [p["key"] for p in items["motie"]["persons"]] == [BAKKER_KEY]
     assert items["motie"]["subkind"] == "Motie (gewijzigd/nader)"
-    assert items["wetsvoorstel"]["persons"][0]["role"] == "bewindspersoon"
+    # named as the member routes name them, whatever the paper writes
+    assert items["brief_regering"]["persons"][0]["name"] == "Eelco Heinen"
+    bill = items["wetsvoorstel"]
+    assert bill["title"] == "Wijziging van de Wet voorbeeld (Wet beter voorbeeld)"
+    assert bill["persons"] == [
+        {
+            "key": HEINEN_KEY,
+            "name": "Eelco Heinen",
+            "surname": "Heinen",
+            "function": "minister",
+            "role": "indiener",
+            "faction": None,
+        }
+    ]
+
+    assert bill["headline"]["short_title"] == "Wet beter voorbeeld"
 
     vote = items["stemming"]
+    assert vote["headline"] == {
+        "surname": "Bakker",
+        "subject": "gemeenten",
+        "short_title": None,
+    }
     assert vote["vote"] == {
         "passed": True,
         "outcome": "aangenomen",
@@ -487,14 +526,17 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
             {"dossier": "37001"},
             ["documents/letter_006", "decisions/stemming_1", "documents/motion_005"],
         ),
-        ({"dossier": "37001-VII"}, ALL[2:5]),
+        (
+            {"dossier": "37001-VII"},
+            ["documents/letter_006", "decisions/stemming_1", "documents/motion_005"],
+        ),
         ({"dossier": "3700"}, ALL[1:]),
         (
             {"member": BAKKER_KEY},
             [
                 "decisions/stemming_1",
-                "documents/motion_005",
                 "documents/amendment_004",
+                "documents/motion_005",
             ],
         ),
         (
@@ -511,13 +553,16 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
             {"faction": "d66"},
             [
                 "decisions/stemming_1",
-                "documents/motion_005",
                 "documents/amendment_004",
+                "documents/motion_005",
             ],
         ),
         # the title, or the title of the dossier
         ({"q": "GRENS"}, ["documents/amendment_004", "commitments/commitment_1"]),
-        ({"q": "binnenlandse"}, ALL[2:5]),
+        (
+            {"q": "binnenlandse"},
+            ["documents/letter_006", "decisions/stemming_1", "documents/motion_005"],
+        ),
         ({"q": "wet voorbeeld", "kind": "inwerkingtreding"}, ALL[:1]),
     ],
 )
@@ -587,11 +632,25 @@ def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     assert [e.find("a:id", ns).text for e in entries] == [  # type: ignore[union-attr]
         "tag:lawgraph,2026:decisions/stemming_1"
     ]
+    assert root.find("a:title", ns).text == "Concordans: moties en stemmingen"  # type: ignore[union-attr]
     following = {
         link.get("rel"): link.get("href") for link in root.findall("a:link", ns)
     }
     assert "kind=motie%2Cstemming" in following["next"]
     assert "cursor=" in following["next"]
+    assert following["alternate"] == f"{SITE_URL}/actueel?soort=motie%2Cstemming"
+    entry = {
+        link.get("rel"): link.get("href") for link in entries[0].findall("a:link", ns)
+    }
+    assert entry == {"alternate": f"{SITE_URL}/explore?focus=decisions/stemming_1"}
+
+
+def test_the_feed_and_its_atom_are_sent_compressed(client: TestClient) -> None:
+    gzip = {"Accept-Encoding": "gzip"}
+    for path in ("/api/feed", "/api/feed.atom"):
+        response = client.get(path, headers=gzip)
+        assert response.status_code == 200
+        assert response.headers["content-encoding"] == "gzip", path
 
 
 def test_a_cursor_or_kind_that_is_none_is_422(client: TestClient) -> None:
@@ -600,37 +659,76 @@ def test_a_cursor_or_kind_that_is_none_is_422(client: TestClient) -> None:
     assert client.get("/api/feed?dossier=abc").status_code == 422
 
 
-def test_a_day_of_many_events_is_paged_whole(database: str) -> None:
-    """Read one page at a time from its index, a kind finds the events of the cursor's day
-    after the cursor, however many there are."""
-    store = ArangoStore()
-    with NodeWriter(store) as writer:
-        writer.add_all(
+def _busy_days() -> list[Node]:
+    """Publications, votes and commitments, many of each kind on each of a few days."""
+    day = ["2026-07-01", "2026-06-30", "2026-06-29"]
+    return [
+        *(
             _node(
                 COLLECTION_INSTRUMENTS,
                 NodeType.INSTRUMENT,
                 f"stb_2026_{n}",
                 kind="publicatie",
                 citation_title=f"Stb. 2026, {n}",
-                date_published="2026-07-01" if n % 2 else f"2026-06-{n % 28 + 1:02d}",
+                date_published=day[n % 3],
                 labels=["BWB", "Publication"],
             )
-            for n in range(1, 301)
-        )
+            for n in range(1, 151)
+        ),
+        *(
+            _node(
+                COLLECTION_DECISIONS,
+                NodeType.DECISION,
+                f"stemming_{n}",
+                date=day[n % 3],
+                subject=f"Motie {n}",
+                passed=n % 2 == 0,
+            )
+            for n in range(1, 91)
+        ),
+        *(
+            _node(
+                COLLECTION_COMMITMENTS,
+                NodeType.COMMITMENT,
+                f"commitment_{n}",
+                text=f"Toezegging {n}",
+                made_on=day[n % 3],
+            )
+            for n in range(1, 61)
+        ),
+    ]
+
+
+@pytest.mark.parametrize("facets", [False, True])
+def test_busy_days_are_paged_whole_by_day_kind_and_id(
+    database: str, facets: bool
+) -> None:
+    """Pages end inside a day and inside a kind; each event is on one page, in the order of
+    the feed: the day, newest first, then the kind (a vote before a commitment before a
+    publication), then the id."""
+    store = ArangoStore()
+    with NodeWriter(store) as writer:
+        writer.add_all(_busy_days())
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = _test_client()
-        seen: list[str] = []
+        seen: list[dict[str, Any]] = []
         cursor = None
         for _ in range(60):
-            params: dict[str, Any] = {"limit": 7, "facets": False}
+            params: dict[str, Any] = {"limit": 7, "facets": facets}
             if cursor:
                 params["cursor"] = cursor
             answer = _feed(client, **params)
-            seen += _ids(answer)
+            seen += answer["items"]
             cursor = answer["next_cursor"]
             if cursor is None:
                 break
     finally:
         app.dependency_overrides.pop(get_store, None)
-    assert len(seen) == len(set(seen)) == 300
+    ids = [item["id"] for item in seen]
+    assert len(ids) == len(set(ids)) == 300
+    rank = {"stemming": 1, "toezegging": 2, "publicatie": 4}
+    order = sorted(seen, key=lambda item: item["id"])
+    order.sort(key=lambda item: rank[item["kind"]])
+    order.sort(key=lambda item: item["date"], reverse=True)
+    assert ids == [item["id"] for item in order]

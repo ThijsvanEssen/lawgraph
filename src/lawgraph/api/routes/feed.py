@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
@@ -20,7 +21,9 @@ from lawgraph.api.schemas.feed import (
     atom_feed,
 )
 from lawgraph.api.schemas.stats import DataAsOfDTO
+from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FEED_KINDS, FeedCursor
+from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.feed import FeedFilters, get_feed
 from lawgraph.db.queries.stats import cached_data_as_of
@@ -113,7 +116,9 @@ def _page(
     last = page[-1] if len(rows) > limit else None
     return FeedResponse(
         items=page,
-        next_cursor=FeedCursor(date=last.date, id=last.id).encode() if last else None,
+        next_cursor=FeedCursor(date=last.date, kind=last.kind, id=last.id).encode()
+        if last
+        else None,
         total=raw.get("total"),
         facets=FeedFacetsDTO(**raw["facets"]) if raw.get("facets") else None,
         data_as_of={
@@ -160,8 +165,10 @@ def get_feed_route(
     summary="News feed as Atom",
     description=(
         "A page of ``GET /api/feed`` under the same filters as an Atom 1.0 feed, for a "
-        "feed reader: one entry per event, its link the official text or the page on "
-        "tweedekamer.nl when it has one, and a ``next`` link to the next page."
+        "feed reader, named after its filters (``Concordans: moties``): an ``alternate`` "
+        "link to the same view on Concordans (``LAWGRAPH_SITE_URL``/actueel), per entry "
+        "an ``alternate`` link to the event there and a ``related`` link to its official "
+        "page, and a ``next`` link to the next page."
     ),
     responses={
         200: {
@@ -184,10 +191,89 @@ def get_feed_atom(
         if page.next_cursor
         else None
     )
+    query = urlencode(site_query(filters))
     body = atom_feed(
         page,
+        title=feed_title(filters, page),
         self_url=str(request.url),
         next_url=next_url,
-        node_url=str(request.base_url) + "api/nodes/{collection}/{key}",
+        page_url=f"{SITE_URL}/actueel" + (f"?{query}" if query else ""),
+        site_url=SITE_URL,
     )
     return Response(content=body, media_type=ATOM_MEDIA_TYPE)
+
+
+# How Concordans names the kinds in the plural, and the parameters of its page /actueel.
+_KIND_PLURALS = {
+    "toezegging": "toezeggingen",
+    "wetsvoorstel": "wetsvoorstellen",
+    "nota_van_wijziging": "nota's van wijziging",
+    "amendement": "amendementen",
+    "motie": "moties",
+    "stemming": "stemmingen",
+    "publicatie": "publicaties",
+    "inwerkingtreding": "inwerkingtredingen",
+    "brief_regering": "brieven van de regering",
+}
+_SITE_PARAMETERS = {
+    "kinds": "soort",
+    "since": "van",
+    "until": "tot",
+    "cabinet": "kabinet",
+    "ministry": "ministerie",
+    "dossier": "dossier",
+    "member": "persoon",
+    "faction": "fractie",
+    "q": "q",
+}
+
+
+def site_query(filters: FeedFilters) -> dict[str, str]:
+    """The filters as the parameters of the page /actueel of Concordans."""
+    query = {}
+    for field, parameter in _SITE_PARAMETERS.items():
+        value = getattr(filters, field)
+        if value:
+            query[parameter] = ",".join(value) if isinstance(value, tuple) else value
+    return query
+
+
+def _person_name(page: FeedResponse, key: str) -> str:
+    names = (p.name for item in page.items for p in item.persons if p.key == key)
+    return next((name for name in names if name), key)
+
+
+def _faction_name(page: FeedResponse, key: str) -> str:
+    shorts = (
+        p.faction.short
+        for item in page.items
+        for p in item.persons
+        if p.faction and p.faction.key == key
+    )
+    return next((short for short in shorts if short), key)
+
+
+def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
+    """``Concordans``, and what the filters keep: ``Concordans: moties, dossier 36600``. A
+    person and a faction are named as the page names them."""
+    parts = []
+    if filters.kinds:
+        parts.append(" en ".join(_KIND_PLURALS[kind] for kind in filters.kinds))
+    if filters.dossier:
+        parts.append(f"dossier {filters.dossier}")
+    if filters.ministry:
+        ministry = MINISTRY_BY_KEY.get(filters.ministry)
+        parts.append(ministry.name if ministry else filters.ministry)
+    if filters.cabinet:
+        parts.append(f"kabinet {filters.cabinet}")
+    if filters.member:
+        parts.append(_person_name(page, filters.member))
+    if filters.faction:
+        parts.append(_faction_name(page, filters.faction))
+    if filters.q:
+        parts.append(f"‘{filters.q}’")
+    if filters.since:
+        parts.append(f"vanaf {filters.since}")
+    if filters.until:
+        parts.append(f"tot en met {filters.until}")
+    return "Concordans: " + ", ".join(parts) if parts else "Concordans"

@@ -56,3 +56,35 @@ def test_a_write_to_the_graph_changes_the_etag(
     assert changed.headers["etag"] != first.headers["etag"]
     body: dict[str, Any] = changed.json()
     assert body["judgment"]["props"]["summary"] == "Nieuwe samenvatting."
+
+
+def test_a_large_answer_is_compressed_and_still_validated(
+    database: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(app_module, "DATA_VERSION_TTL", 0.0)
+    store = ArangoStore()
+    _put(store, "Een samenvatting. " * 200)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        gzip = {"Accept-Encoding": "gzip"}
+        first = client.get(PATH, headers=gzip)
+        again = client.get(
+            PATH, headers={**gzip, "If-None-Match": first.headers["etag"]}
+        )
+        plain = client.get(PATH, headers={"Accept-Encoding": "identity"})
+        atom = client.get("/api/feed.atom", headers=gzip)
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    assert first.status_code == 200
+    assert first.headers["content-encoding"] == "gzip"
+    assert "Accept-Encoding" in first.headers["vary"]
+    assert first.headers["etag"].startswith('W/"')
+    assert first.json()["judgment"]["props"]["summary"].startswith("Een samenvatting.")
+    assert again.status_code == 304
+    assert "content-encoding" not in plain.headers
+    assert plain.headers["etag"] == first.headers["etag"]
+    # the Atom feed of an empty graph is small; its headers say what a large one gets
+    assert atom.status_code == 200
+    assert atom.headers["etag"] == first.headers["etag"]
