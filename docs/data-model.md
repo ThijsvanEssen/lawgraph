@@ -207,7 +207,7 @@ renumbering; each version has a `versie-id`.
   written.
 - `parts` is the structure of the text: a list of `{id, kind, number, start, end}`, offsets into
   the article's own `text` (the text of a part is `text[start:end]`, without its printed
-  number). `kind` is `lid`, `onderdeel` or `aanhef`; sentences (volzinnen) are not parts. A
+  number). `kind` is `lid`, `onderdeel`, `aanhef` or `tekst`; sentences (volzinnen) are not parts. A
   part with onderdelen spans them too, and the list is ordered by `start`, an enclosing part
   first. The `id` is stable and unique in the article: `lid-2`, `lid-2a`, `lid-2-aanhef` (the
   text of a lid before its onderdelen), `lid-2-onder-a`, `lid-2-onder-a-onder-1` (an onderdeel
@@ -215,7 +215,9 @@ renumbering; each version has a `versie-id`.
   written lower case without the degree sign (`1°` is `onder-1`; `number` keeps `1°`). An
   item without a letter or digit (a dash, a definition) is `onder-_<n>`, its position among
   its siblings; a marker that repeats one before it gets `_<n>`, its occurrence
-  (`onder-a_2`). A paragraph next to the leden is no part.
+  (`onder-a_2`). In an article with parts, a paragraph in none of them (a note next to the
+  leden, a line between the lists of an article of a bijlage) is a `tekst` (`tekst-1`,
+  `tekst-2`), so that the parts and their printed numbers cover the whole text.
 - An EU article (`celex`, `article_number`) has the same `heading`, `text` and `parts`, read
   from the CELLAR HTML (`core/eurlex_html.py`): `heading` is the line under "Artikel N"
   (`Onderwerp en toepassingsgebied`; null when the act prints none), a lid is `1. text`, a

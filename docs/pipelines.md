@@ -529,8 +529,11 @@ failed WTI download is reported as an error; the toestand is stored regardless. 
 without a WTI location or element gets no WTI record.
 
 **Normalize `bwb`.** `core/bwb_xml.parse_toestand` is the single parser. Instrument props: title
-(citeertitel, else intitule), `kind` (`wetgeving@soort`), `date_signed`, `date_published`,
-`date_in_force`, `dossier_numbers` of the originating publication. One Article per
+(citeertitel, else intitule), `kind` (`wetgeving@soort`), `date_signed`, `date_published` and
+`date_in_force` of the regulation as enacted (the `oorspronkelijk` publication and the
+`inwerkingtreding.datum` in the `meta-data` of the `<intitule>`; null when it does not say
+them), `version_date_in_force` (the start of the toestand), `dossier_numbers` of the
+publication in the `meta-data` of `<wetgeving>`. One Article per
 `(bwb_id, article number)`, or per `stam-id` for an article with a heading and no number (its
 `label` is the heading), with its `heading` (the `<titel>` of its `<kop>`, numbered or not) and
 its `breadcrumb`, at its `position` in the toestand, with the article text (leden as `1. text`, list items on their
@@ -567,7 +570,9 @@ not created.
 
 - an InstrumentVersion per toestand and an ArticleVersion per `(stam_id, versie_id)` (a
   toestand only repeats versions still valid), with `parts`, `origin_publication` and
-  `commencement_publication`;
+  `commencement_publication`; an article without a `versie-id` (an article of a bijlage) has
+  an ArticleVersion per text (its number and a digest of its text), which begins in the first
+  toestand holding that text, also over incremental runs;
 - `valid_until` and `current`, recomputed from the database in chunks of 200 regulations, so
   incremental runs stay correct: a version is `current` exactly when nothing follows it, also
   after a re-run has written it again. Every period is half-open (`valid_until` is the first day
@@ -619,11 +624,16 @@ which `normalize bwb` keeps when it parses the toestand; no XML is read again.
 
 Versions with an unknown effect or without a matching article count as skipped.
 
-**Semantic `bwb-annexes`.** Finds `bijlage <label>` in article texts and writes `SCOPED_BY`
-(0.9 with a label, 0.7 without) with `meta.scope_type` `discretionary` when
+**Semantic `bwb-annexes`.** Finds `bijlage <label>` in article texts, and the name of an annex
+of the same regulation (its title without the parentheses at its end: "de bij deze wet
+behorende Bevoegdheidsregeling bestuursrechtspraak"; a name of at least two words, not in the
+annex's own articles), and writes `SCOPED_BY` (0.9 with a label or a name, 0.7 for "de
+bijlage") with `meta.scope_type` `discretionary` when
 ministerial-designation wording is near (`bij ministeriële regeling`, `Onze Minister
 kan ...`), else `fixed`. The Annex nodes (`label`, `title`, `description` up to 2,000
-characters, `entries` from `<li>` items, at most 200) and their `PART_OF` to the instrument
+characters, `entries` from `<li>` items, at most 200: each item's own text with its marker,
+`heading` (the paragraph ending in a colon that introduces its outermost list, without the
+colon: "Gemeentewet") and `parent_index` (the entry it is nested in)) and their `PART_OF` to the instrument
 are made by `normalize bwb` from the toestand it parses; a reference to an annex that is not
 there gets a stub.
 
@@ -902,4 +912,4 @@ uses a name before its first period keeps that name.
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`) and `normalize tk-dossiers` (documents, decisions and their edges to the dossier) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`; `decision_kind` where it is null, from the tier, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`), judgments (`court_code`, `tier`, `date_eff`, `inbound_citation_count`; `decision_kind` where it is null, from the tier, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

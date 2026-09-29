@@ -11,6 +11,7 @@ from lawgraph.core.bwb_xml import (
     EFFECT_INTRODUCES,
     EFFECT_REPEALS,
     effect_kind,
+    instrument_props,
     parse_jci,
     parse_toestand,
 )
@@ -38,7 +39,24 @@ def test_instrument_metadata(grondwet) -> None:
     assert grondwet.citation_title == "Grondwet"
     assert grondwet.official_title.startswith("Grondwet voor het Koninkrijk")
     assert grondwet.title == "Grondwet"  # citation title wins, as before
-    assert grondwet.valid_from == "2022-07-06"
+    assert grondwet.valid_from == "2023-02-22"  # the start of the toestand
+
+
+def test_the_enactment_is_read_from_the_intitule(grondwet) -> None:
+    # the Grondwet itself, not the revision of 2022 its current version names
+    assert grondwet.enacted is not None
+    assert (grondwet.enacted.identifier, grondwet.enacted.signed) == (
+        "stb-1840-54",
+        "1840-09-04",
+    )
+    assert grondwet.enacted_in_force == "1840-09-12"
+    props = instrument_props(grondwet, "BWBR0001840")
+    assert (props["date_signed"], props["date_in_force"]) == (
+        "1840-09-04",
+        "1840-09-12",
+    )
+    assert props["date_published"] is None  # the source does not say it
+    assert props["version_date_in_force"] == "2023-02-22"
 
 
 def test_instrument_level_publication_carries_the_dossier(grondwet) -> None:

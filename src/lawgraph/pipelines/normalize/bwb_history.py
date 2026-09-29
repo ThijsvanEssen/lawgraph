@@ -11,7 +11,9 @@ Model:
   so "the instrument on date X" is a date query and needs no membership edges.
   Every period is half-open: ``valid_until`` is the first day the version no longer
   holds; a toestand's inclusive end date becomes the day after it;
-* an identity without a ``stam-id`` (an article of a bijlage) is followed by its number;
+* an identity without a ``stam-id`` (an article of a bijlage) is followed by its number, and
+  it has a version per text (the XML gives it no ``versie-id``): the toestanden that repeat
+  the text name one version, which begins in the first of them;
 * at most one version of an article holds on a date (``valid_until_by_key``):
   - a version that says the article lapsed ("Vervallen") holds on no date: it ends the
     article on its ``valid_from``;
@@ -30,6 +32,7 @@ links each new version to its Article and each toestand to its Instrument.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -60,6 +63,7 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db.counting import Store
 from lawgraph.db.queries import normalize as normalize_queries
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -71,8 +75,69 @@ _PLACEHOLDER = re.compile(r"^\s*Dit onderdeel is nog niet in\s*werking getreden"
 _LAPSED = re.compile(r"^\s*Vervallen\b", re.I)
 EDGE_SOURCE = "bwb-history-normalize"
 _INSTRUMENT_CHUNK = 200  # regulations per finalisation query
+_DIGEST_CHARS = 16
 
 WrittenVersions = dict[str, list[tuple[str, str | None]]]  # bwb_id -> [(key, stam_id)]
+
+
+def _has_version_id(article: ArticleXml) -> bool:
+    return bool(article.stam_id and article.versie_id)
+
+
+def text_digest(text: str) -> str:
+    """A short digest of an article's text: the version of an article without a versie-id."""
+    return hashlib.sha1(text.encode()).hexdigest()[:_DIGEST_CHARS]
+
+
+class _FirstSeen:
+    """The versions of articles without a versie-id (the articles of a bijlage), each from
+    the first toestand that holds its text: the toestanden come in no order, and a version
+    begins in the first of them."""
+
+    def __init__(self) -> None:
+        # key -> (bwb_id, start, article, citation title, position)
+        self._first: dict[str, tuple[str, str, ArticleXml, str | None, int]] = {}
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._first
+
+    def __len__(self) -> int:
+        return len(self._first)
+
+    def keep(
+        self,
+        key: str,
+        bwb_id: str,
+        start_date: str,
+        article: ArticleXml,
+        toestand: ToestandXml,
+        position: int,
+    ) -> None:
+        first = self._first.get(key)
+        if first is None or start_date < first[1]:
+            self._first[key] = (
+                bwb_id,
+                start_date,
+                article,
+                toestand.citation_title,
+                position,
+            )
+
+    def earliest(
+        self, store: Store
+    ) -> dict[str, tuple[ArticleXml, str, str, str | None, int]]:
+        """Per version the arguments of ``_article_version`` after the key, beginning at
+        the earliest start: of this run, or of an earlier run that wrote it."""
+        stored: dict[str, str] = {}
+        for keys in chunked(sorted(self._first), _INSTRUMENT_CHUNK * 5):
+            stored.update(normalize_queries.article_version_starts(store, keys))
+        result = {}
+        for key, (bwb_id, start, article, title, position) in self._first.items():
+            earlier = stored.get(key)
+            if earlier and earlier < start:
+                start = earlier
+            result[key] = (article, bwb_id, start, title, position)
+        return result
 
 
 def is_placeholder(text: str | None) -> bool:
@@ -170,6 +235,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         announced: set[str] = set()  # versions written as a placeholder only
         last_seen: dict[str, str] = {}  # version -> the latest toestand holding it
         written: WrittenVersions = defaultdict(list)
+        by_text = _FirstSeen()  # the versions of articles without a versie-id
 
         with NodeWriter(self.store) as writer:
             for record in raw:
@@ -188,10 +254,17 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 instrument_versions.append((bwb_id, version_key))
 
                 for position, article in enumerate(toestand.articles):
-                    key = self._version_key(article, bwb_id, start_date)
+                    key = self._version_key(article, bwb_id)
                     if key is None:
                         continue
                     last_seen[key] = max(last_seen.get(key, ""), start_date)
+                    if not _has_version_id(article):
+                        if key not in by_text:
+                            written[bwb_id].append((key, article.stam_id))
+                        by_text.keep(
+                            key, bwb_id, start_date, article, toestand, position
+                        )
+                        continue
                     placeholder = is_placeholder(article.text)
                     if key in seen or (placeholder and key in announced):
                         continue
@@ -200,14 +273,21 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                     (announced if placeholder else seen).add(key)
                     writer.add(
                         self._article_version(
-                            key, article, bwb_id, start_date, toestand, position
+                            key,
+                            article,
+                            bwb_id,
+                            start_date,
+                            toestand.citation_title,
+                            position,
                         )
                     )
+            for key, first in by_text.earliest(self.store).items():
+                writer.add(self._article_version(key, *first))
 
         logger.info(
             "Normalized %d toestanden and %d article versions for %d instruments.",
             len(instrument_versions),
-            len(seen),
+            len(seen) + len(by_text),
             len(instrument_seed),
         )
         return {
@@ -268,12 +348,10 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         article: ArticleXml,
         bwb_id: str,
         start_date: str,
-        toestand: ToestandXml,
+        citation_title: str | None,
         position: int,
     ) -> Node:
-        props = article_version_props(
-            article, bwb_id, toestand.citation_title, position
-        )
+        props = article_version_props(article, bwb_id, citation_title, position)
         props.setdefault("valid_from", start_date)
         props["current"] = (
             True  # until a later version is found (finalised in build_edges)
@@ -288,13 +366,16 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         )
 
     @staticmethod
-    def _version_key(article: ArticleXml, bwb_id: str, start_date: str) -> str | None:
-        """Key of an article version; falls back to number + date when ids are missing."""
-        if article.stam_id and article.versie_id:
-            return article_version_key(bwb_id, article.stam_id, article.versie_id)
+    def _version_key(article: ArticleXml, bwb_id: str) -> str | None:
+        """Key of an article version: its ``stam-id`` and ``versie-id``; without them its
+        number and its text, so every toestand that repeats the text names one version."""
+        if _has_version_id(article):
+            return article_version_key(
+                bwb_id, str(article.stam_id), str(article.versie_id)
+            )
         if article.number:
             return article_version_key(
-                bwb_id, f"n{article.number}", article.valid_from or start_date
+                bwb_id, f"n{article.number}", text_digest(article.text)
             )
         return None
 

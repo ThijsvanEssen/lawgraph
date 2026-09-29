@@ -474,6 +474,40 @@ def annex_keys(store: Store) -> Iterator[Any]:
     return store.query(f"FOR a IN {COLLECTION_ANNEXES} RETURN a._key")
 
 
+def titled_annexes(store: Store) -> Iterator[dict[str, Any]]:
+    """``{key, bwb_id, label, title}`` of every annex with a title, by key."""
+    aql = f"""
+        FOR annex IN {COLLECTION_ANNEXES}
+            FILTER annex.props.title != null AND annex.props.bwb_id != null
+            SORT annex._key
+            RETURN {{
+                key: annex._key,
+                bwb_id: annex.props.bwb_id,
+                label: annex.props.label,
+                title: annex.props.title
+            }}
+        """
+    return store.query(aql)
+
+
+def articles_naming_annexes(
+    store: Store, names: list[dict[str, Any]]
+) -> Iterator[dict[str, Any]]:
+    """Per ``{key, bwb_id, name}`` of *names*: the articles of that regulation whose text
+    contains the name, as ``{annex, article}``."""
+    aql = f"""
+        FOR n IN @names
+            FOR doc IN {COLLECTION_ARTICLES}
+                FILTER doc.props.bwb_id == n.bwb_id AND doc.props.bwb_id != null
+                FILTER doc.props.text != null AND CONTAINS(doc.props.text, n.name)
+                RETURN {{
+                    annex: n.key,
+                    article: {slim("doc", "bwb_id", "text", "article_number")}
+                }}
+        """
+    return store.query(aql, {"names": names})
+
+
 def articles_mentioning_annex(store: Store) -> Iterator[dict[str, Any]]:
     """The articles whose text contains the word "bijlage"."""
     aql = f"""

@@ -547,9 +547,20 @@ class InstrumentDetailDTO(BaseModel):
     stub: bool = False
     article_count: int = 0
     inbound_citation_count: int = 0
-    date_signed: str | None = None
-    date_published: str | None = None
-    date_in_force: str | None = None
+    date_signed: str | None = Field(
+        None,
+        description="When the instrument itself was signed; for a BWB regulation that of "
+        "the publication that enacted it, not of a later amendment.",
+    )
+    date_published: str | None = Field(
+        None, description="When the instrument itself was published."
+    )
+    date_in_force: str | None = Field(
+        None, description="When the instrument itself entered into force."
+    )
+    version_date_in_force: str | None = Field(
+        None, description="BWB: the start of the version in force (its toestand)."
+    )
     treaty_number: str | None = None
     in_force: bool | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
@@ -580,6 +591,7 @@ class InstrumentDetailDTO(BaseModel):
             date_signed=props.get("date_signed"),
             date_published=props.get("date_published"),
             date_in_force=props.get("date_in_force"),
+            version_date_in_force=props.get("version_date_in_force"),
             treaty_number=props.get("treaty_number") or None,
             in_force=props.get("in_force"),
             dossier_numbers=[str(n) for n in props.get("dossier_numbers") or []],

@@ -52,6 +52,44 @@ def _normalize_label(raw: str | None) -> str | None:
     return label
 
 
+def _scope_type(text: str, start: int, end: int) -> str:
+    """Discretionary when ministerial-designation language is near ``text[start:end]``."""
+    window = text[max(0, start - _SCOPE_WINDOW_CHARS) : end + _SCOPE_WINDOW_CHARS]
+    if _DISCRETIONARY_RE.search(window):
+        return SCOPE_TYPE_DISCRETIONARY
+    return SCOPE_TYPE_FIXED
+
+
+# The articles an annex belongs to, after its name: "Bevoegdheidsregeling
+# bestuursrechtspraak (artikelen 8:5, 8:6, 8:7, 8:105 en 8:106)".
+_TRAILING_PARENTHESES = re.compile(r"\s*\([^()]*\)\s*$")
+_MIN_NAME_WORDS = 2
+
+
+def annex_name(title: str | None) -> str | None:
+    """The name an article cites an annex by: its title without the parentheses at its end.
+
+    None for a name of one word ("Tabel"), which is no name to find in a text."""
+    name = _TRAILING_PARENTHESES.sub("", title or "").strip()
+    return name if len(name.split()) >= _MIN_NAME_WORDS else None
+
+
+def detect_annex_name(text: str, name: str) -> AnnexReferenceHit | None:
+    """The first place *text* names the annex called *name* ("de bij deze wet behorende
+    Bevoegdheidsregeling bestuursrechtspraak"), as a whole-word match; None when it does
+    not."""
+    match = re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text)
+    if match is None:
+        return None
+    return AnnexReferenceHit(
+        label=None,
+        start=match.start(),
+        end=match.end(),
+        text=match.group(0),
+        scope_type=_scope_type(text, match.start(), match.end()),
+    )
+
+
 def detect_annex_references(text: str) -> list[AnnexReferenceHit]:
     """Return all annex references in *text*, deduplicated by label.
 
@@ -69,23 +107,13 @@ def detect_annex_references(text: str) -> list[AnnexReferenceHit]:
         if label in seen_labels:
             continue
         seen_labels.add(label)
-
-        window = text[
-            max(0, match.start() - _SCOPE_WINDOW_CHARS) : match.end()
-            + _SCOPE_WINDOW_CHARS
-        ]
-        scope_type = (
-            SCOPE_TYPE_DISCRETIONARY
-            if _DISCRETIONARY_RE.search(window)
-            else SCOPE_TYPE_FIXED
-        )
         hits.append(
             AnnexReferenceHit(
                 label=label,
                 start=match.start(),
                 end=match.end(),
                 text=match.group(0),
-                scope_type=scope_type,
+                scope_type=_scope_type(text, match.start(), match.end()),
             )
         )
     return hits

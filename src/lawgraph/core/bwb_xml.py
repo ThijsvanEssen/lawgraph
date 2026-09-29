@@ -154,11 +154,13 @@ class Reference:
 PART_AANHEF = "aanhef"
 PART_LID = "lid"
 PART_ONDERDEEL = "onderdeel"
+PART_TEKST = "tekst"
 
 
 @dataclass(frozen=True)
 class ArticlePart:
-    """A lid, an onderdeel or an aanhef of an article, as a span of ``ArticleXml.text``.
+    """A lid, an onderdeel, an aanhef or a tekst of an article, as a span of
+    ``ArticleXml.text``.
 
     ``text[start:end]`` is the content without its printed number (``number``: ``"2"``,
     ``"a"``, ``"1°"``, None for an aanhef or an unnumbered item). A lid or onderdeel with
@@ -166,6 +168,9 @@ class ArticlePart:
     before the parts inside it. The ``id`` says where the part sits:
 
     * ``aanhef``: the text before the onderdelen of an article without leden;
+    * ``tekst-1``, ``tekst-2``: a paragraph of an article with parts that is in none of them
+      (the lines between the lists of an article of a bijlage, a note next to the leden), so
+      that the parts and their printed numbers cover the whole text;
     * ``lid-2``, ``lid-2a``; ``lid-2-aanhef``: the text of a lid before its onderdelen;
     * ``lid-2-onder-a``, ``onder-a`` (an article without leden), ``lid-2-onder-a-onder-1`` (an
       onderdeel of an onderdeel: the id of the part it sits in, then its own).
@@ -177,7 +182,7 @@ class ArticlePart:
     """
 
     id: str
-    kind: str  # PART_AANHEF | PART_LID | PART_ONDERDEEL
+    kind: str  # PART_AANHEF | PART_LID | PART_ONDERDEEL | PART_TEKST
     number: str | None
     start: int
     end: int
@@ -290,9 +295,13 @@ class ToestandXml:
     title: str | None  # citation title, else the official title
     official_title: str | None
     citation_title: str | None
-    valid_from: str | None
-    origin: Publication | None
+    valid_from: str | None  # the start of this toestand
+    origin: Publication | None  # of the latest version of the regulation as a whole
     commencement: Publication | None
+    # The regulation as it was enacted: the publication in the ``meta-data`` of its
+    # ``<intitule>`` and the date it entered into force.
+    enacted: Publication | None = None
+    enacted_in_force: str | None = None
     basis: tuple[BasisRef, ...] = ()
     articles: tuple[ArticleXml, ...] = field(default_factory=tuple)
     annexes: tuple[AnnexXml, ...] = ()
@@ -399,6 +408,24 @@ def _publication(element: ET.Element | None) -> Publication | None:
         published=_iso(_child(pub, "uitgiftedatum")),
         dossiers=dossiers,
     )
+
+
+def _enactment(root: ET.Element) -> tuple[Publication | None, str | None]:
+    """The publication that enacted the regulation and the date it entered into force,
+    from the ``meta-data`` of its ``<intitule>`` (``oorspronkelijk`` and
+    ``inwerkingtreding.datum``); None for what it does not say."""
+    intitule = next(iter_named(root, "intitule"), None)
+    meta = _child(intitule, "meta-data") if intitule is not None else None
+    brondata = _child(meta, "brondata") if meta is not None else None
+    if brondata is None:
+        return None, None
+    commencement = _child(brondata, "inwerkingtreding")
+    in_force = (
+        _iso(_child(commencement, "inwerkingtreding.datum"))
+        if commencement is not None
+        else None
+    )
+    return _publication(_child(brondata, "oorspronkelijk")), in_force
 
 
 def _brondata(container: ET.Element) -> tuple[Publication | None, Publication | None]:
@@ -687,22 +714,29 @@ def _article_text(
     )
     has_leden = any(local_name(c.tag) == "lid" for c in children)
     intro: list[tuple[int, int]] = []  # spans of the paragraphs before the list
+    loose: list[tuple[int, int]] = []  # spans of the other paragraphs outside the leden
     for index, child in enumerate(children):
         start = builder.length
         if local_name(child.tag) == "lid":
             _add_lid(builder, child)
-        else:
-            _add_block(builder, child)
-            if (
-                not has_leden
-                and first_list is not None
-                and index < first_list
-                and local_name(child.tag) == "al"
-            ):
-                intro.append((start, builder.length))
+            continue
+        _add_block(builder, child)
+        if local_name(child.tag) != "al":
+            continue
+        before_list = first_list is not None and index < first_list
+        (intro if not has_leden and before_list else loose).append(
+            (start, builder.length)
+        )
     if intro and any(part.kind == PART_ONDERDEEL for part in builder.structure):
         builder.add_aanhef(intro[0][0], intro[-1][1])
+    else:
+        loose = intro + loose
     builder.close_from(0)
+    if builder.structure:
+        for number, (start, end) in enumerate(loose, start=1):
+            builder.structure.append(
+                ArticlePart(f"{PART_TEKST}-{number}", PART_TEKST, None, start, end)
+            )
     raw = builder.value()
     text = raw.strip()
     lead = len(raw) - len(raw.lstrip())
@@ -832,18 +866,18 @@ def parse_toestand(xml_text: str) -> ToestandXml:
         _brondata(wetgeving) if wetgeving is not None else (None, None)
     )
     articles = tuple(_articles(root))
+    enacted, enacted_in_force = _enactment(root)
     return ToestandXml(
         bwb_id=root.get("bwb-id"),
         kind=wetgeving.get("soort") if wetgeving is not None else None,
         title=_title(root, "citeertitel") or _title(root, "intitule"),
         official_title=_title(root, "intitule"),
         citation_title=_title(root, "citeertitel"),
-        valid_from=(
-            wetgeving.get("inwerkingtredingsdatum") if wetgeving is not None else None
-        )
-        or root.get("inwerkingtreding"),
+        valid_from=root.get("inwerkingtreding"),
         origin=origin,
         commencement=commencement,
+        enacted=enacted,
+        enacted_in_force=enacted_in_force,
         basis=_basis(root),
         articles=articles,
         annexes=parse_annexes(root),
@@ -888,10 +922,15 @@ def instrument_props(
     ``basis`` and ``celex_refs`` are what the semantic steps link from (BASED_ON,
     IMPLEMENTS): kept here, where the toestand is parsed anyway, so they do not read and
     parse every toestand again. Both are always written: an empty list replaces a stale one.
+
+    ``date_signed``, ``date_published`` and ``date_in_force`` are those of the regulation as
+    it was enacted (``ToestandXml.enacted``), always written (null when the toestand does
+    not say them); ``version_date_in_force`` is the start of the toestand.
     """
     origin = toestand.origin
+    enacted = toestand.enacted
     title = toestand.title or f"BWB-regeling {bwb_id}"
-    return _drop_none(
+    props = _drop_none(
         {
             "basis": [
                 {"bwb_id": r.bwb_id, "article": r.article, "doc": r.doc, "text": r.text}
@@ -909,11 +948,15 @@ def instrument_props(
             "dossier_numbers": (
                 list(origin.dossiers) if origin and origin.dossiers else None
             ),
-            "date_signed": origin.signed if origin else None,
-            "date_published": origin.published if origin else None,
-            "date_in_force": toestand.valid_from,
+            "version_date_in_force": toestand.valid_from,
         }
     )
+    return {
+        **props,
+        "date_signed": enacted.signed if enacted else None,
+        "date_published": enacted.published if enacted else None,
+        "date_in_force": toestand.enacted_in_force,
+    }
 
 
 def article_display_name(label: str | None, citation_title: str | None) -> str | None:
