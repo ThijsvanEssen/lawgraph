@@ -506,3 +506,28 @@ An instrument's `aliases` are every name it is cited by: the official WTI abbrev
 (`Sr`, `WvS`, `WvSr`) and, for a book of a code in `core/code_families.CODE_FAMILIES` (from the WTI), `Boek 6 BW`, `6 BW`,
 `BW 6`, `BW6`, `BW Boek 6` and `BW`. Unlike `short_title` an alias may be shared: `BW` is one
 of every book. Written by `normalize bwb`.
+
+## Known limits
+
+What the graph deliberately does not hold, because no official source gives it:
+
+- **Cabinets before 1945.** Rijksoverheid describes the cabinets since 1945 only, and no other
+  official source gives the posts or phases of the earlier ones.
+- **Who followed whom in an unnamed seat.** Where the Rijksoverheid page names no portfolio (two
+  staatssecretarissen of one ministry, two ministers without portfolio), it does not say who
+  succeeded whom: the holders are put in lanes by date (`fin/staatssecretaris`,
+  `fin/staatssecretaris#2`), and a successor in such a seat is the next holder in its lane.
+- **Bewindspersonen without a TK person.** A post holder whom no Tweede Kamer `Persoon`
+  matches is a member of their own (label `Rijksoverheid`, key `rijksoverheid_<initials>_<surname>`),
+  with the name Rijksoverheid gives and no parliamentary record; `lawgraph verify cabinets`
+  counts them per cabinet (`own`).
+- **Posts without a ministry.** A post whose ministry no source settles keeps `ministry` null,
+  with `ministry_missing` `no_source` or `ambiguous` (see
+  [pipelines](pipelines.md#rijksoverheid)); `lawgraph verify cabinets` counts and lists them.
+- **Versions of EU articles.** An EU act is loaded as CELLAR serves its CELEX number: the text as
+  adopted. Consolidated versions are not fetched, so an EU article has no `article_versions`
+  and does not show the changes of a later act.
+- **Withdrawal of a bill.** The Tweede Kamer records no withdrawal as data of the bill or its
+  case. `ingetrokken` rests only on the subject of the letter that withdraws it (see
+  [pipelines](pipelines.md), `tk-dossier-outcomes`); a bill withdrawn without such a letter in
+  the dossier stays open.
