@@ -376,3 +376,59 @@ def test_a_holder_who_held_another_seat_throughout_stood_in() -> None:
 
 def test_without_pages_there_are_no_cabinets() -> None:
     assert build_cabinets([], lambda text: None) == []
+
+
+def test_the_holders_of_one_heading_who_follow_one_another_hold_one_seat() -> None:
+    # Schoof: the page lists Idsinga under "Staatssecretaris Fiscaliteit, Belastingdienst en
+    # Douane", his line naming the post as it was then
+    fiscaliteit = _held(
+        "schoof", "-/staatssecretaris/fiscaliteit-belastingdienst-en-douane"
+    )
+    assert [p[0] for p in fiscaliteit] == [
+        "fl idsinga",
+        "t van oostenbruggen",
+        "ehj heijnen",
+    ]
+    (idsinga,) = [p for p in _cabinet("schoof")["posts"] if p["person"] == "fl idsinga"]
+    assert idsinga["also_named"] == ["staatssecretaris Fiscaliteit en Belastingdienst"]
+    seats = {p["seat"] for p in _cabinet("schoof")["posts"]}
+    assert "-/staatssecretaris/fiscaliteit-en-belastingdienst" not in seats
+    assert "-/staatssecretaris/toeslagen-en-douane" not in seats
+    assert "-/staatssecretaris/buitenlandse-handel" not in seats
+
+
+def test_the_holders_of_one_heading_at_the_same_time_hold_seats_of_their_own() -> None:
+    # Schoof: Szabó and Van Marum, both "Staatssecretaris van Binnenlandse Zaken en
+    # Koninkrijksrelaties", from the same day
+    seats = {
+        p["seat"]
+        for p in _cabinet("schoof")["posts"]
+        if p["person"] in ("fz szabo", "e van marum")
+    }
+    assert {
+        "bzk/staatssecretaris/digitalisering-en-koninkrijksrelaties",
+        "bzk/staatssecretaris/herstel-groningen",
+    } <= seats
+
+
+def test_a_ministry_renamed_during_the_cabinet_keeps_its_seat_in_one_place() -> None:
+    # Rutte-Asscher: the state secretary of Economische Zaken, Landbouw en Innovatie, named
+    # Economische Zaken from 1 January 2013 (TOOI); one seat, by its later name
+    held = [
+        (p["person"], p["from_date"], p["ministry"])
+        for p in _cabinet("rutte_asscher")["posts"]
+        if p["seat"] == "ez/staatssecretaris"
+    ]
+    assert [(person, ministry) for person, _, ministry in held] == [
+        ("c verdaas", "eli"),
+        ("sam dijksma", "eli"),
+        ("mhp van dam", "ez"),
+    ]
+    # Kamp, minister for the whole cabinet: one post from before the new name
+    (kamp,) = [
+        p for p in _cabinet("rutte_asscher")["posts"] if p["person"] == "hgj kamp"
+    ]
+    assert (kamp["seat"], kamp["ministry"]) == ("ez/minister", "eli")
+    assert not any(
+        p["seat"].startswith("eli/") for p in _cabinet("rutte_asscher")["posts"]
+    )

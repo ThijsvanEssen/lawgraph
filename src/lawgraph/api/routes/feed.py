@@ -40,8 +40,9 @@ DOSSIER_PREFIX_PATTERN = r"^\d+(-[A-Za-z0-9()]*)?$"
 ATOM_MEDIA_TYPE = "application/atom+xml"
 
 _EVENTS = (
-    "``toezegging`` (a commitment made), ``wetsvoorstel``, ``nota_van_wijziging``, "
-    "``amendement``, ``motie`` and ``brief_regering`` (a Tweede Kamer paper submitted), "
+    "``toezegging`` (a commitment made), ``Voorstel van wet``, ``Nota van wijziging``, "
+    "``Amendement``, ``Motie`` and ``Brief regering`` (a Tweede Kamer paper submitted, by "
+    "its ``Document.Soort`` before `` (``), "
     "``stemming`` (a vote with its outcome), ``publicatie`` (in the Staatsblad, "
     "Staatscourant or Tractatenblad) and ``inwerkingtreding`` (a new version of a law in "
     "force)"
@@ -132,11 +133,15 @@ def _page(
         else None,
         total=raw.get("total"),
         facets=FeedFacetsDTO(**raw["facets"]) if raw.get("facets") else None,
-        data_as_of={
-            source: DataAsOfDTO(**row)
-            for source, row in cached_data_as_of(store).items()
-        },
+        data_as_of=_data_as_of(store),
     )
+
+
+def _data_as_of(store: ArangoStore) -> dict[str, DataAsOfDTO]:
+    """How current each source is, as ``GET /api/stats`` says."""
+    return {
+        source: DataAsOfDTO(**row) for source, row in cached_data_as_of(store).items()
+    }
 
 
 _Cursor = Annotated[
@@ -217,14 +222,14 @@ def get_feed_atom(
 # How Concordans names the kinds in the plural, and the parameters of its page /actueel.
 _KIND_PLURALS = {
     "toezegging": "toezeggingen",
-    "wetsvoorstel": "wetsvoorstellen",
-    "nota_van_wijziging": "nota's van wijziging",
-    "amendement": "amendementen",
-    "motie": "moties",
+    "Voorstel van wet": "wetsvoorstellen",
+    "Nota van wijziging": "nota's van wijziging",
+    "Amendement": "amendementen",
+    "Motie": "moties",
     "stemming": "stemmingen",
     "publicatie": "publicaties",
     "inwerkingtreding": "inwerkingtredingen",
-    "brief_regering": "brieven van de regering",
+    "Brief regering": "brieven van de regering",
 }
 _SITE_PARAMETERS = {
     "kinds": "soort",
@@ -319,6 +324,15 @@ def get_feed_summary_route(
             "is shown one by one.",
         ),
     ] = 10,
+    few: Annotated[
+        int,
+        Query(
+            ge=0,
+            le=50,
+            description="Every vote of a day with at most this many votes on "
+            "anything but a bill is shown one by one.",
+        ),
+    ] = 2,
     limit: Annotated[
         int, Query(ge=1, le=500, description="Events shown one by one, at most.")
     ] = 100,
@@ -326,7 +340,9 @@ def get_feed_summary_route(
     last = until or dt.date.today()
     first = last - dt.timedelta(days=days - 1)
     filters = replace(scope, since=first.isoformat(), until=last.isoformat())
-    raw = get_feed_summary(store, filters, margin=margin, limit=limit)
-    return FeedSummaryResponse.from_raw(
+    raw = get_feed_summary(store, filters, margin=margin, few=few, limit=limit)
+    summary = FeedSummaryResponse.from_raw(
         raw, since=first, until=last, margin=margin, limit=limit
     )
+    summary.data_as_of = _data_as_of(store)
+    return summary

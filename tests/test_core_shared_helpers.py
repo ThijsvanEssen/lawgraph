@@ -262,8 +262,8 @@ def test_annex_kop_entries_description() -> None:
     assert annex_xml.extract_kop(_el("<bijlage/>")) == (None, None)
     assert annex_xml.extract_kop(_el("<bijlage><kop/></bijlage>")) == (None, None)
     assert annex_xml.extract_entries(root) == [
-        {"index": 0, "name": "Energie"},
-        {"index": 1, "name": "Water en gas"},
+        {"index": 0, "name": "Energie", "heading": None, "parent_index": None},
+        {"index": 1, "name": "Water en gas", "heading": None, "parent_index": None},
     ]
     assert annex_xml.extract_description(root) == "Intro tekst.\nTwee."
     assert annex_xml.extract_description(_el("<bijlage/>")) is None
@@ -271,7 +271,7 @@ def test_annex_kop_entries_description() -> None:
 
 def test_annex_entry_and_description_caps() -> None:
     lis = "".join(f"<li>e{i}</li>" for i in range(250))
-    assert len(annex_xml.extract_entries(_el(f"<b>{lis}</b>"))) == 200
+    assert len(annex_xml.extract_entries(_el(f"<b><lijst>{lis}</lijst></b>"))) == 200
     long_al = "x" * 1500
     xml = f"<b><al>{long_al}</al><al>{long_al}</al><al>{long_al}</al></b>"
     desc = annex_xml.extract_description(_el(xml))

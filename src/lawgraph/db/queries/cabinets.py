@@ -20,12 +20,11 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_SERVED_IN,
 )
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, NO_DUE_DATE
+from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import ArangoStore
 
 # The track of a bill the government brings in.
 TRACK_BILL = "wetsvoorstel"
-COMMITMENT_OPEN = "open"
 
 
 def _name(member: str) -> str:

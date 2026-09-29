@@ -152,7 +152,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_A, _I, _J),
         "A text refers to an article, instrument or judgment: the reference is in the "
         "text, never only in metadata (a judgment's earlier instance or conclusion is "
-        "`APPEAL_OF` or `ADVISES_ON`). The source node says who refers; article → "
+        "`APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, "
+        "`CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The "
+        "source node says who refers; article → "
         "article edges also carry a `semantic_type`.",
     ),
     RelationSpec(
@@ -168,15 +170,34 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "APPEAL_OF",
         (_J,),
         (_J,),
-        "An appeal or cassation judgment → the judgment it appeals.",
+        "An appeal or cassation judgment → the judgment it appeals: an earlier instance "
+        "its metadata names (`meta.basis` `formal_relation`), else the decision its text "
+        "says it appeals, by date and case number (`appeal_text`).",
+    ),
+    RelationSpec(
+        "CONTINUES",
+        (_J,),
+        (_J,),
+        "A judgment → an earlier one of the same court in the same case (an interim "
+        "judgment followed by the final one): an earlier instance its metadata names that "
+        "shares its court and case number.",
+    ),
+    RelationSpec(
+        "REFERRED_BY",
+        (_J,),
+        (_J,),
+        "A decision after referral (verwijzing) → the ruling of the Hoge Raad that set "
+        "aside the earlier decision and sent the case to it: an earlier instance its "
+        "metadata names that is a Hoge Raad ruling (not a preliminary ruling).",
     ),
     RelationSpec(
         "ADVISES_ON",
         (_J,),
         (_J,),
         "The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court "
-        "itself) → the judgment in its case: the formal relation of either (`meta.basis` "
-        "`formal_relation`), else a case number the two share (`case_number`).",
+        "itself) → the judgment in its case, one way only: the formal relation of either, "
+        "when the side it calls the conclusion is one (`meta.basis` `formal_relation`), "
+        "else a case number the two share (`case_number`).",
     ),
     RelationSpec(
         "ANSWERS",

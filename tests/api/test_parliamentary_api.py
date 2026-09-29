@@ -550,3 +550,6 @@ def test_seats_are_reported_per_faction(monkeypatch) -> None:
     assert body["factions"][0]["abbreviation"] == "VVD"
     assert body["factions"][0]["seats"] == 24
     assert body["factions"][0]["color"].startswith("#")
+    # the order follows the plan of the Tweede Kamer, which the answer names
+    assert body["seating_plan"]["dated"] == "2026-06-01"
+    assert "wie-zit-waar" in body["seating_plan"]["page"]

@@ -233,7 +233,7 @@ def _nodes() -> list[Node]:
             minister_role="Minister van Financiën",
             made_on="2024-09-01",
             expected_resolution="2025-06-01",
-            status="open",
+            status="Openstaand",
             member_key=HEINEN_KEY,
             ministry="fin",
             cabinet="schoof",
@@ -366,21 +366,21 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
     items = {item["kind"]: item for item in answer["items"]}
     assert set(items) == {
         "toezegging",
-        "wetsvoorstel",
-        "nota_van_wijziging",
-        "amendement",
-        "motie",
+        "Voorstel van wet",
+        "Nota van wijziging",
+        "Amendement",
+        "Motie",
         "stemming",
         "publicatie",
         "inwerkingtreding",
-        "brief_regering",
+        "Brief regering",
     }
 
     commitment = items["toezegging"]
     assert commitment["title"] == "De minister stuurt voor de zomer een brief…"
     assert commitment["summary"].startswith("De minister stuurt")
     assert commitment["commitment"] == {
-        "status": "open",
+        "status": "Openstaand",
         "expected_resolution": "2025-06-01",
     }
     assert commitment["persons"] == [
@@ -399,9 +399,10 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "number": "37000",
         "title": "Wijziging van de Wet voorbeeld (Wet beter voorbeeld)",
         "short_title": "Wet beter voorbeeld",
+        "short_title_basis": "title",
     }
 
-    amendment = items["amendement"]
+    amendment = items["Amendement"]
     assert amendment["title"] == "Amendement van het lid Aalders over de grens"
     assert amendment["subkind"] == "Amendement"
     assert amendment["node"] == {"collection": "documents", "key": "amendment_004"}
@@ -434,11 +435,11 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "short_title": "Wet beter voorbeeld",
     }
     # the griffier signs, but is no person of the event
-    assert [p["key"] for p in items["motie"]["persons"]] == [BAKKER_KEY]
-    assert items["motie"]["subkind"] == "Motie (gewijzigd/nader)"
+    assert [p["key"] for p in items["Motie"]["persons"]] == [BAKKER_KEY]
+    assert items["Motie"]["subkind"] == "Motie (gewijzigd/nader)"
     # named as the member routes name them, whatever the paper writes
-    assert items["brief_regering"]["persons"][0]["name"] == "Eelco Heinen"
-    bill = items["wetsvoorstel"]
+    assert items["Brief regering"]["persons"][0]["name"] == "Eelco Heinen"
+    bill = items["Voorstel van wet"]
     assert bill["title"] == "Wijziging van de Wet voorbeeld (Wet beter voorbeeld)"
     assert bill["persons"] == [
         {
@@ -508,7 +509,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
 @pytest.mark.parametrize(
     ("params", "expected"),
     [
-        ({"kind": "motie,stemming"}, ["decisions/stemming_1", "documents/motion_005"]),
+        ({"kind": "Motie,stemming"}, ["decisions/stemming_1", "documents/motion_005"]),
         ({"since": "2026-05-01", "until": "2026-05-31"}, ALL[3:6]),
         ({"cabinet": "schoof"}, ["commitments/commitment_1"]),
         ({"cabinet": "nobody"}, []),
@@ -579,11 +580,11 @@ def test_a_filter_keeps_its_events(
 
 
 def test_each_facet_is_counted_under_the_other_filters(client: TestClient) -> None:
-    answer = _feed(client, kind="motie", ministry="bzk")
+    answer = _feed(client, kind="Motie", ministry="bzk")
     facets = answer["facets"]
     assert answer["total"] == 1
     # every kind of dossier 37001-VII (the ministry bzk), whatever the kind asked for
-    assert _counts(facets["kind"]) == {"brief_regering": 1, "stemming": 1, "motie": 1}
+    assert _counts(facets["kind"]) == {"Brief regering": 1, "stemming": 1, "Motie": 1}
     # the motions of every ministry
     assert _counts(facets["ministry"]) == {"bzk": 1}
     assert _counts(facets["faction"]) == {"d66": 1}
@@ -622,7 +623,7 @@ def test_the_pages_neither_repeat_nor_skip(
 
 def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     response = client.get(
-        "/api/feed.atom", params={"kind": "motie,stemming", "limit": 1}
+        "/api/feed.atom", params={"kind": "Motie,stemming", "limit": 1}
     )
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/atom+xml")
@@ -636,9 +637,9 @@ def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     following = {
         link.get("rel"): link.get("href") for link in root.findall("a:link", ns)
     }
-    assert "kind=motie%2Cstemming" in following["next"]
+    assert "kind=Motie%2Cstemming" in following["next"]
     assert "cursor=" in following["next"]
-    assert following["alternate"] == f"{SITE_URL}/actueel?soort=motie%2Cstemming"
+    assert following["alternate"] == f"{SITE_URL}/actueel?soort=Motie%2Cstemming"
     entry = {
         link.get("rel"): link.get("href") for link in entries[0].findall("a:link", ns)
     }
@@ -655,7 +656,7 @@ def test_the_feed_and_its_atom_are_sent_compressed(client: TestClient) -> None:
 
 def test_a_cursor_or_kind_that_is_none_is_422(client: TestClient) -> None:
     assert client.get("/api/feed?cursor=nonsense").status_code == 422
-    assert client.get("/api/feed?kind=motie,roddel").status_code == 422
+    assert client.get("/api/feed?kind=Motie,roddel").status_code == 422
     assert client.get("/api/feed?dossier=abc").status_code == 422
 
 
@@ -761,21 +762,32 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
     may_first = days["2026-05-01"]
     assert may_first["total"] == 2
     assert {k["value"]: k["count"] for k in may_first["kinds"]} == {
-        "amendement": 1,
-        "motie": 1,
+        "Amendement": 1,
+        "Motie": 1,
     }
-    assert {d["number"]: d["short_title"] for d in may_first["dossiers"]} == {
-        "37000": "Wet beter voorbeeld",
-        "37001-VII": None,
-    }
+    assert [
+        (d["kind"], d["number"], d["short_title"], d["count"])
+        for d in may_first["dossiers"]
+    ] == [
+        ("Amendement", "37000", "Wet beter voorbeeld", 1),
+        ("Motie", "37001-VII", None, 1),
+    ]
+    assert isinstance(summary["data_as_of"], dict)
     # the vote is decided by 10 seats: close enough by default
     assert [item["id"] for item in summary["items"]] == ["decisions/stemming_1"]
     assert summary["items"][0]["headline"]["surname"] == "Bakker"
 
+    # a closer margin, and no day is quiet enough to show all its votes
     closer = client.get(
-        "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "margin": 5}
+        "/api/feed/summary",
+        params={"until": "2026-05-12", "days": 12, "margin": 5, "few": 0},
     ).json()
     assert closer["items"] == []
+    # the only vote of its day is shown, whatever its margin
+    quiet = client.get(
+        "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "margin": 5}
+    ).json()
+    assert [item["id"] for item in quiet["items"]] == ["decisions/stemming_1"]
     bill_day = client.get(
         "/api/feed/summary", params={"until": "2026-03-01", "days": 1}
     ).json()
@@ -786,3 +798,86 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
     ).json()
     assert sum(day["total"] for day in by_member["days"]) == 1
     assert client.get("/api/feed/summary?days=0").status_code == 422
+
+
+def test_a_bill_goes_by_the_name_official_data_give_it(database: str) -> None:
+    """The citation title in the bill itself, else of its case, else of the one Dutch law
+    it changes; nothing when there is none of them (a law of the EU is no name)."""
+    case = "55555555-5555-5555-5555-555555555555"
+    nodes = [
+        *(
+            _node(
+                COLLECTION_DOSSIERS,
+                NodeType.DOSSIER,
+                number,
+                number=number,
+                label=number,
+                title="Wijziging van enige wetten",
+            )
+            for number in ("38001", "38002", "38003", "38004")
+        ),
+        _document(
+            "bill_101",
+            "Voorstel van wet",
+            "2026-06-01",
+            "38001",
+            text="Artikel III\nDeze wet wordt aangehaald als: Wet sterkere archieven.",
+        ),
+        _document(
+            "bill_102", "Voorstel van wet", "2026-06-02", "38002", case_ids=[case]
+        ),
+        _document("bill_103", "Voorstel van wet", "2026-06-03", "38003"),
+        _document("bill_104", "Voorstel van wet", "2026-06-04", "38004"),
+        _node(
+            COLLECTION_CASES,
+            NodeType.CASE,
+            case.replace("-", "_"),
+            citation_title="Wet open overheid",
+        ),
+        _node(
+            COLLECTION_INSTRUMENTS,
+            NodeType.INSTRUMENT,
+            "bwbr0007376",
+            bwb_id="BWBR0007376",
+            citation_title="Archiefwet 1995",
+        ),
+        _node(
+            COLLECTION_INSTRUMENTS,
+            NodeType.INSTRUMENT,
+            "32019l1937",
+            celex="32019L1937",
+            citation_title="Richtlijn 2019/1937/EU",
+            labels=["EU"],
+        ),
+    ]
+    store = ArangoStore()
+    with NodeWriter(store) as writer:
+        writer.add_all(nodes)
+    with EdgeWriter(store, what=None) as edges:
+        for paper, law in (("bill_103", "bwbr0007376"), ("bill_104", "32019l1937")):
+            edges.add(
+                f"{COLLECTION_DOCUMENTS}/{paper}",
+                f"{COLLECTION_INSTRUMENTS}/{law}",
+                RELATION_AMENDS,
+                source="t",
+                status="voorgesteld",
+            )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        items = _feed(_test_client(), kind="Voorstel van wet")["items"]
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    names = {
+        item["dossier"]["number"]: (
+            item["dossier"]["short_title"],
+            item["dossier"]["short_title_basis"],
+            item["headline"]["short_title"],
+        )
+        for item in items
+    }
+    assert names == {
+        "38001": ("Wet sterkere archieven", "citation", "Wet sterkere archieven"),
+        "38002": ("Wet open overheid", "case", "Wet open overheid"),
+        "38003": ("Archiefwet 1995", "amended_law", "Archiefwet 1995"),
+        "38004": (None, None, None),
+    }

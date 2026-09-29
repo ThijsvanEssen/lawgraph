@@ -8,7 +8,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
-| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series` |
+| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
@@ -27,8 +27,8 @@ slash enforced), one `requests.Session`, 30 s timeout, and retry with exponentia
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
 `instruments.props.short_title` and law names through instrument titles; `normalize bwb` writes `short_title` from the official
 abbreviations in the BWB WTI files (see BWB below). A code split over books
-(`CODE_FAMILIES` in `config/constants.py`: the Burgerlijk Wetboek, book 1 to 10 and 7A, each
-its own BWB id) resolves through the book in the article number: `artikel 6:162 BW` cites
+(`src/lawgraph/data/code_families.json`, `core/code_families.CODE_FAMILIES`: the Burgerlijk
+Wetboek, book 1 to 10 and 7A, each its own BWB id; see the code families under BWB) resolves through the book in the article number: `artikel 6:162 BW` cites
 article `162` of book 6 (`BWBR0005289`, key `bwbr0005289_162`), whichever books are loaded, so a
 citation of a book that is not loaded becomes a stub of that book, which its load fills; without
 a book (`artikel 162 BW`) or with an unknown one there is no hit. The code of the family itself
@@ -57,7 +57,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 |---------|---------|--------------|
 | `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
-| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`; `""` every paper) of which none is stored, so a second run asks only for the new papers; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-content` | the XML of documents whose `kind` contains a `--kind` (repeatable; default `toelichting`, `motie` and `amendement`; `""` every paper) of which none is stored, so a second run asks only for the new papers; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), and the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`) | `tk-dossier`, `tk-document`, `tk-dossier-missing` |
 
 `tk-dossiers` options: `--since`, `--skip-members` (also skips Fractie and FractieZetelPersoon),
@@ -92,8 +92,21 @@ Client quirks:
 **Normalize `tk`.** Zaak to Case (`cases`, key = Zaak GUID; its `kind` is the `Soort`;
 `dossier_numbers` kept for the dossier pipeline; `related_cases` the cases of
 `GerelateerdNaar`, each with its `Soort` and dossiers, which `retrieve tk` expands with it so the
-relation holds also when the other case was not retrieved). No edges: a case is linked once the
-dossiers exist.
+relation holds also when the other case was not retrieved). A motie, an amendement, a letter
+(`Brief …`), the report of a debate or visit (`Verslag van een …`, `Inbreng verslag …`), a list
+of questions, a `Mededeling`, an `Overig` or the advice of another body is named by its
+`Onderwerp` (`Motie van het lid … over …`, `Verzamelbrief opvang Oekraïne`): its `Titel` is the
+title of its dossier. An `Onderwerp` that only repeats the kind names nothing (`core/tk_records.
+is_named_by_subject`, `own_subject`); a bill and the papers on it keep their `Titel`, as their
+`Onderwerp` is their kind (`Voorstel van wet`). No edges: a case is linked once the dossiers
+exist.
+
+A TK record the Kamer deleted (`Verwijderd`) holds its id and nothing else. `normalize tk` and
+`normalize tk-dossiers` make no case, activity, commitment, document, dossier, member or faction
+of it, and remove the node an earlier run made, with its edges (a dossier or faction by the
+record id it holds; a faction goes when all its records are deleted). A deleted
+FractieZetelPersoon names neither member nor faction: a run that reads every seat (not
+`--since`) removes the seat edges they no longer give.
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `fetched_at`), turns each into text and sections with `core/kamerstuk_xml.py` and writes them
@@ -124,7 +137,7 @@ date onto each dossier (it needs the document edges).
 | members | every Persoon, with `family_name` (`Achternaam`) and `birth_date` (`Geboortedatum`), by which `normalize rijksoverheid` finds them; `party` and `faction_memberships` come from FractieZetelPersoon (dated), so a member without those records has no party |
 | activities | `agenda_title` from `Onderwerp`, `status` as the source writes it (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`; a planned activity may lie beyond the end of its dossier), `committee_id` from `Voortouwcommissie_Id` unless `Voortouwafkorting` is `TK`: a plenary activity has the Kamer as voortouw, not a committee |
 | dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `order` sorts them as the Kamer does; `same_number_count` is recounted for every number the run writes (this pipeline is the only one that makes dossiers); `current_stage`, `stages_present`, `track_kind` and `title` (from a voorstel-van-wet or MvT document when the dossier has none) are derived from documents, activities and decisions by `core/dossier_stages.py` (an activity that did not take place, `Gepland`, `Geannuleerd`, `Verplaatst` or `Vervallen`, marks no stage), and `stages_missing`: the stages the bill passed to reach its current one without a dated document, activity or vote (the listed stages up to the current one, and those its track always passes: `wetsvoorstel`, `mvt`, `advies_rvs` of a bill, `wetsvoorstel` and `mvt` of a budget, `advies_rvs` of a treaty; and `stemming` for a bill or budget aangenomen or verworpen, of which an `Eindtekst` is evidence too; a stage known only from the kind of a case has no date), and `stages_complete` when there are none; `opened_on` is the date of the first document or activity. The record has no end: `Afgesloten` is false on every dossier and there is no closing date, so `closed`, `outcome` and `closed_on` are `semantic tk-dossier-outcomes`; a closed dossier (as stored) is at stage `afgehandeld` |
-| documents | dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers`; `DocumentNummer` as `document_number`, from which the API makes the link to tweedekamer.nl (no link is stored) |
+| documents | a paper named by its subject (as a case above: a motie, amendement, letter, report of a debate …) is named by its `Onderwerp` (else that of its Zaak) and keeps its `Titel`, the dossier's, as `dossier_title` (what `tk-amends` and the dossier title backfill read); dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers`; `DocumentNummer` as `document_number`, from which the API makes the link to tweedekamer.nl (no link is stored) |
 
 `dossier_numbers` of a case, document, activity or decision (and the keys of
 `case_kinds_by_dossier`) are dossier labels: `37020-XV` for a budget chapter, `37020` for the
@@ -160,7 +173,7 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
-| `AMENDS` (Document to Instrument, `voorgesteld`) | TK document title contains `wijziging van` and a known instrument title | 0.85 |
+| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument title; any other paper on the bill's dossier, a motie too, amends nothing. A document the step reads loses the `AMENDS` edges of the step it no longer gets | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | CELEX `3YYYY[CLRDF]NNNN` in the BWB XML of an instrument (`props.celex_refs`, kept by `normalize bwb`); both instruments must exist; naming the number is all the edge says (`meta.celex`), not that the regulation transposes the act | 0.75 |
 
 **Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by
@@ -283,7 +296,7 @@ index) is skipped, so a re-run or a resumed run only downloads the rest.
 
 | Option | Meaning |
 |--------|---------|
-| `--court NAME` (repeatable) | `all` (every court of the index: the rechtbanken, the special courts and the courts that no longer exist too), `hr`, `rvs`, `crvb`, `cbb`, `gh-amsterdam`, `gh-arnhem-leeuwarden`, `gh-den-haag`, `gh-s-hertogenbosch` (the older `gh-arnhem`, `gh-leeuwarden`, `gh-s-gravenhage`), or the group `hoven` (all courts of appeal). Default: `all`; none when only `--ecli` is given |
+| `--court NAME` (repeatable) | `all` (every court of the index: the rechtbanken, the special courts and the courts that no longer exist too), an ECLI court code (`HR`, `RVS`, `GHAMS`, any case), or a tier of the court table (`gerechtshof`: every court of appeal, the older ones too; `rechtbank`, ...). The court table gives each court its OWMS term, the `creator` the index is filtered by (`owms_term` of `data/courts.json`, from the `Identifier` of the Instanties list); a court without one (the courts before ECLI, `XX`) cannot be asked for. Default: `all`; none when only `--ecli` is given |
 | `--mode incremental` (default) | judgments decided from `--since` (default `1d`) minus 30 days, because judgments are published up to weeks after the decision |
 | `--mode full` | no date filter: every judgment of the courts (928,955 of every court on 2026-09-29) |
 | `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
@@ -347,7 +360,8 @@ the `subjects` is `Bestuursrecht`, tax law too). The Kroon, a foreign court, the
 Hof, the Constitutioneel Hof and the arbitration board have no default: null unless the metadata
 or the kop tells.
 
-`names` comes from `core/judgment_names.py`, a list of landmark cases kept by hand: the open data
+`names` comes from `src/lawgraph/data/curated/judgment_names.json` (`core/judgment_names.py`;
+`lawgraph curated set judgment-names`), a list of landmark cases kept by hand: the open data
 carries no name for a judgment. Its RDF has no `dcterms:alternative` (none of 14,446 judgments
 checked), its vindplaatsen (`dcterms:hasVersion`) are citations without a title ("NJ 1981/635
 met annotatie van C.J.H. Brunner"), and an inhoudsindicatie names the precedent it applies as
@@ -397,19 +411,40 @@ as its members, a word or the next ECLI glued to the number, a zero or one typed
 an LJN (`A09006`). The rest is dropped and makes no stub; `_resolve_eclis` makes no stub of a
 malformed ECLI for any step. The citations of a judgment are derived in full each time it is
 read: an edge of this step its text no longer names is removed, and then every stub judgment no
-edge reaches or leaves. `semantic graph-list-stats` recounts `inbound_citation_count` after it.
+edge reaches or leaves. No `REFERS_TO` is written between two judgments that `APPEAL_OF`,
+`CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` tie (either way): a Hoge Raad ruling that
+names the arrest under cassation and the conclusion in a footnote does not cite them. It runs
+after the steps that make those edges. `semantic graph-list-stats` recounts
+`inbound_citation_count` after it.
 
-**Semantic `rechtspraak-appeal`.** Judgments with `related_eclis` whose `judgment_metadata.type`
-contains `hoger beroep` or `cassatie`: `APPEAL_OF` from the appeal judgment to each related
-ECLI, 0.95, `meta.procedure_type`; missing judgments become stubs.
+**Semantic `rechtspraak-appeal`.** Judgments whose `judgment_metadata.type` contains `hoger
+beroep`, `cassatie` or `verwijzing` (`core/appeals.py`). To each of their `related_eclis`
+(`meta.basis` `formal_relation`, 0.95, `meta.procedure_type`): `CONTINUES` when it is of the
+same court with a case number the two share (an interim judgment, then the final one);
+`REFERRED_BY` when it is a ruling of the Hoge Raad and the judgment is of another court (the
+decision after referral), no edge when that ruling is a preliminary ruling the court asked for;
+no edge to a conclusion or to a judgment given later; `APPEAL_OF` otherwise. An appeal without
+`related_eclis` is read for the decision it appeals, in its first 12 paragraphs: `tegen
+de/het/een uitspraak|vonnis|beschikking|beslissing|arrest van <court> van <date>`, optionally
+followed by `in zaak nr.`, `nummer`, `onder parketnummer`, `met zaaknummer`, `kenmerk` and the
+case number, where `<court>` names a court (not an administrative body). The decision of that
+date with that case number (`core.judgments.same_case_number`) gets `APPEAL_OF` (`appeal_text`,
+0.9); one not loaded is written to `unresolved_appeal_targets` (`court`, `date`,
+`case_number`) of the appeal. Missing judgments become stubs. The edges of a judgment read are
+derived in full: one no longer derived is removed.
 
 **Semantic `rechtspraak-conclusions`.** `ADVISES_ON` from the conclusion of an
-advocate-general to the judgment of its case. A judgment is a conclusion by its
+advocate-general to the judgment of its case, one way only. A judgment is a conclusion by its
 `document_type` or its court (`PHR`). Pairs come from `conclusion_eclis` on either side
-(`meta.basis` `formal_relation`, 1.0); a conclusion that no relation ties is paired with the
+(`meta.basis` `formal_relation`, 1.0), except where a judgment names as its conclusion a loaded
+judgment that is no conclusion; a conclusion that no relation ties is paired with the
 judgments of the court it advises (the Parket bij de Hoge Raad the Hoge Raad, any other court
-itself) that share one of its `case_number_keys` (`case_number`, 0.9). A judgment named but not
-loaded becomes a stub.
+itself) that share one of its `case_number_keys` (`case_number`, 0.9). A court that advises
+itself asks for the conclusion under a number of its own (the staatsraad advocaat-generaal of
+the Raad van State: conclusion `201406676/2/A3`, judgment `201406676/1/A3`): such a conclusion
+without a pair goes to the decisions of its court of the three years after it that share its
+dossier number (`same_case_number`; `case_number`). A judgment named but not loaded becomes a
+stub; an edge no longer derived is removed.
 
 **Semantic `rechtspraak-referrals`.** `ANSWERS` from a preliminary ruling
 (`judgment_metadata.type` `Prejudiciële beslissing`) to the decision that asked its questions:
@@ -465,9 +500,20 @@ refer to (`retrieve eurlex --mode gaps`, `expand-graph`), not by listing them.
 without an HTML text (HTTP 404, in every language: old regulations and every corrigendum)
 counts as skipped, not as an error.
 
-**Normalize.** Instrument per CELEX (`jurisdiction: eu`, `title` from the `doc-ti` paragraph,
-`citation_title` derived from the number, for example `Richtlijn 2010/64/EU`). Articles are
-read from the structure of the HTML (`core/eurlex_html.py`), in either format CELLAR serves:
+**Normalize.** Instrument per CELEX (`jurisdiction: eu`). Its names come from the printed
+title (`core/eu_titles.py`): the `doc-ti` paragraphs, or the `DC.description` of a page of
+the old format. `citation_title` follows the rules of the Official Journal: from 2015
+`Verordening (EU) 2016/679`, `Richtlijn (EU) 2019/1937`; before, a regulation `Verordening
+(EEG) nr. 295/91` and any other act `Richtlijn 95/46/EG`, with two digits for a year before
+1999; the domain is that of the day of adoption in the title (`EEG` before 1 November 1993,
+`EG` before 1 December 2009, `EU` after; `JBZ` for a framework decision), the word before
+the number the one the title starts with (`Beschikking`, `Tweede Richtlijn`). A title in
+capitals is written with the citation title (`Verordening (EU) 2022/868 van het Europees
+Parlement en de Raad van 30 mei 2022 betreffende …`); a closing note between brackets
+(`(Voor de EER relevante tekst)`) is left out; a name between brackets that ends the title
+and names the kind of act is `short_title` (`Datagovernanceverordening`). `display_name` is
+the citation title. Articles are read from the structure of the HTML
+(`core/eurlex_html.py`), in either format CELLAR serves:
 
 - the Official Journal format (acts from about 2004): an article is the `oj-ti-art` title
   ("Artikel 1") with what follows it up to the next title; its heading is the `oj-sti-art`
@@ -475,10 +521,16 @@ read from the structure of the HTML (`core/eurlex_html.py`), in either format CE
   bevat:"), or the lid container (`div id="004.002"`) laid out as one row numbered like the
   lid; a point is a table row of a marker cell ("a)", "1)", "i)", "—") and a text cell, and a
   table in the text cell holds the points inside it. A title inside a table cell is an
-  article that an amendment quotes: it stays text of the amending article;
+  article that an amendment quotes: it stays text of the amending article. The divisions
+  of an article are the `div` elements around it that open with an `oj-ti-section-1` label
+  (`HOOFDSTUK III`, `Afdeling 1`), titled by their `oj-ti-section-2` paragraph;
 - the old format (older acts, flat `<p>` paragraphs): an article starts at a paragraph that is
   only "Artikel N" and ends at the next one, at a division heading (`HOOFDSTUK II`,
-  `TITEL II`, `BIJLAGE`) or at the closing formula ("Gedaan te …"). A short paragraph right
+  `TITEL II`, `Afdeling 1: …`, `BIJLAGE`), at a heading in capitals right before an
+  article (`SLOTBEPALINGEN`) or at the closing formula ("Gedaan te …"). A division heading
+  has its title after its label or in the next paragraph; a kind of division that is open
+  ends at the next of its kind, another kind nests in it; a heading in capitals without a
+  label stands at the top level. A short paragraph right
   after the number that does not end in `.`, `:`, `;` or `,` is the heading. Leden and points
   are read from the marker a paragraph starts with (also spaced: `a )`, `1 .`); a marker
   kind that is not yet open nests in the point before it (a dash under `a)`), one that is
@@ -487,7 +539,8 @@ read from the structure of the HTML (`core/eurlex_html.py`), in either format CE
 
 The text and parts are built as for BWB (see [data model](data-model.md), "Article and
 versions"): no empty lines, the heading not in the text. A number is taken once per act, and an
-article without text is not written. `PART_OF` from article to instrument.
+article without text is not written. `position` is its place in the act, `breadcrumb` its
+divisions (`type` `hoofdstuk`, `label` `Hoofdstuk III`, `title`). `PART_OF` from article to instrument.
 
 **Semantic `eurlex`.** Scans the text of EU articles.
 
@@ -532,8 +585,12 @@ failed WTI download is reported as an error; the toestand is stored regardless. 
 without a WTI location or element gets no WTI record.
 
 **Normalize `bwb`.** `core/bwb_xml.parse_toestand` is the single parser. Instrument props: title
-(citeertitel, else intitule), `kind` (`wetgeving@soort`), `date_signed`, `date_published`,
-`date_in_force`, `dossier_numbers` of the originating publication. One Article per
+(citeertitel, else intitule), `kind` (`wetgeving@soort`), `date_signed`, `date_published` and
+`date_in_force` of the regulation as enacted (the `oorspronkelijk` publication and the
+`inwerkingtreding.datum` in the `meta-data` of the `<intitule>`; null when it does not say
+them), `dossier_numbers` of that enacting publication (the `meta-data` of `<wetgeving>`
+names the last change to the structure of the law, not the law), `version_date_in_force`
+(the start of the toestand). One Article per
 `(bwb_id, article number)`, or per `stam-id` for an article with a heading and no number (its
 `label` is the heading), with its `heading` (the `<titel>` of its `<kop>`, numbered or not) and
 its `breadcrumb`, at its `position` in the toestand, with the article text (leden as `1. text`, list items on their
@@ -566,11 +623,21 @@ for each book of a code in `CODE_FAMILIES` the forms `Boek 6 BW`, `6 BW`, `BW 6`
 `BW Boek 6` and `BW`, also when its WTI record is missing. Instruments that do not exist are
 not created.
 
+**The code families.** `lawgraph code-families build` makes `src/lawgraph/data/code_families.json`
+from the stored WTI records (`core/code_families.families_from_wti`) and prints what changed;
+`lawgraph code-families check` prints the same and fails on a change. Commit what a build
+writes. A code is an abbreviation that two or more regulations list, each of which also lists
+a book of it (`BW` with `BW Boek 6`): the book is the number of that abbreviation (`7A` too),
+the code keeps the spelling most regulations give it. So the families follow the WTI; nothing
+is kept by hand. A book whose WTI record is not stored is not in its family.
+
 **Normalize `bwb-history`.** Reads every stored toestand once and writes:
 
 - an InstrumentVersion per toestand and an ArticleVersion per `(stam_id, versie_id)` (a
   toestand only repeats versions still valid), with `parts`, `origin_publication` and
-  `commencement_publication`;
+  `commencement_publication`; an article without a `versie-id` (an article of a bijlage) has
+  an ArticleVersion per text (its number and a digest of its text), which begins in the first
+  toestand holding that text, also over incremental runs;
 - `valid_until` and `current`, recomputed from the database in chunks of 200 regulations, so
   incremental runs stay correct: a version is `current` exactly when nothing follows it, also
   after a re-run has written it again. Every period is half-open (`valid_until` is the first day
@@ -622,15 +689,21 @@ which `normalize bwb` keeps when it parses the toestand; no XML is read again.
    `effective_date`, `article_version`, `effect`, `source_publication`; one edge per
    publication, article and kind, with the earliest effective date;
 4. writes `LEGISLATED_IN` from each publication and each regulation to the dossiers of
-   `dossier_numbers` that exist (key = the plain dossier number).
+   `dossier_numbers` that exist (key = the plain dossier number), and removes its
+   `LEGISLATED_IN` from a regulation to a dossier the regulation no longer lists.
 
 Versions with an unknown effect or without a matching article count as skipped.
 
-**Semantic `bwb-annexes`.** Finds `bijlage <label>` in article texts and writes `SCOPED_BY`
-(0.9 with a label, 0.7 without) with `meta.scope_type` `discretionary` when
+**Semantic `bwb-annexes`.** Finds `bijlage <label>` in article texts, and the name of an annex
+of the same regulation (its title without the parentheses at its end: "de bij deze wet
+behorende Bevoegdheidsregeling bestuursrechtspraak"; a name of at least two words, not in the
+annex's own articles), and writes `SCOPED_BY` (0.9 with a label or a name, 0.7 for "de
+bijlage") with `meta.scope_type` `discretionary` when
 ministerial-designation wording is near (`bij ministeriële regeling`, `Onze Minister
 kan ...`), else `fixed`. The Annex nodes (`label`, `title`, `description` up to 2,000
-characters, `entries` from `<li>` items, at most 200) and their `PART_OF` to the instrument
+characters, `entries` from `<li>` items, at most 200: each item's own text with its marker,
+`heading` (the paragraph ending in a colon that introduces its outermost list, without the
+colon: "Gemeentewet") and `parent_index` (the entry it is nested in)) and their `PART_OF` to the instrument
 are made by `normalize bwb` from the toestand it parses; a reference to an annex that is not
 there gets a stub.
 
@@ -786,6 +859,16 @@ Binnenlandse Zaken`), each with the days it gives. The rules of a seat:
 
 - a holder line without a start held the post from the start of the cabinet, one without an
   end until its end; `from_date_source` and `to_date_source` keep what the page gave;
+- the holders of one heading who follow one another hold one seat, the one the heading
+  names, also where their own lines name the post otherwise (Schoof: Idsinga as
+  "staatssecretaris Fiscaliteit en Belastingdienst" under "Staatssecretaris Fiscaliteit,
+  Belastingdienst en Douane"; that name in `also_named`); holders of one heading at the same
+  time (Szabó and Van Marum under Binnenlandse Zaken, two ministers without portfolio) hold
+  seats of their own;
+- a seat is named by the name its ministry had when the seat ended (Rutte-Asscher:
+  `ez/minister` and `ez/staatssecretaris`, although Economische Zaken, Landbouw en Innovatie
+  was named Economische Zaken only from 1 January 2013); each post keeps the `ministry` of its
+  own first day, and `/api/cabinets/{key}` places a seat under the ministry of its name;
 - two posts of one person in one seat on the same days are one post, the other name in
   `also_named`;
 - in a named seat, an end the page does not give is the start of the next holder, a start it
@@ -994,4 +1077,4 @@ uses a name before its first period keeps that name.
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`) and `normalize tk-dossiers` (documents, decisions and their edges to the dossier) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count`, `kind`), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

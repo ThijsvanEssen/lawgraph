@@ -6,8 +6,6 @@ import argparse
 import datetime as dt
 
 from lawgraph.config.constants import (
-    RECHTSPRAAK_COURT_GROUPS,
-    RECHTSPRAAK_COURTS,
     RECHTSPRAAK_DEFAULT_COURTS,
     RECHTSPRAAK_EVERY_COURT,
     RECHTSPRAAK_MODIFIED_WINDOW_DAYS,
@@ -34,7 +32,10 @@ from lawgraph.pipelines.retrieve.staatscourant_posts import (
     StaatscourantPostsRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
-from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_content import (
+    DEFAULT_KINDS,
+    TKContentRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
@@ -196,8 +197,8 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
         "--court",
         action="append",
         metavar="NAME",
-        help="Court or group to read (repeatable): "
-        f"{', '.join(sorted({*RECHTSPRAAK_COURTS, *RECHTSPRAAK_COURT_GROUPS}))}, or "
+        help="Court to read (repeatable): an ECLI court code (HR, RVS, GHAMS), a tier "
+        "of the court table (gerechtshof, rechtbank, ...: every court of it), or "
         f"{RECHTSPRAAK_EVERY_COURT} for every court of the index (the rechtbanken too). "
         f"Default: {', '.join(RECHTSPRAAK_DEFAULT_COURTS)}; none when only --ecli is given.",
     )
@@ -279,7 +280,12 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve the XML of Tweede Kamer documents."
     )
-    parser.add_argument("--kind", default="toelichting")
+    parser.add_argument(
+        "--kind",
+        action="append",
+        help="A word of the kind of paper to fetch (repeatable; default: "
+        f'{", ".join(DEFAULT_KINDS)}; "" for every paper).',
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--mode",
@@ -290,7 +296,7 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
 
     pipeline = TKContentRetrievePipeline(store=ArangoStore())
-    return pipeline.run(kind_filter=args.kind, dry_run=args.dry_run)
+    return pipeline.run(kinds=args.kind or DEFAULT_KINDS, dry_run=args.dry_run)
 
 
 def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:

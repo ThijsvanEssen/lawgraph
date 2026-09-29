@@ -4,8 +4,9 @@ The Tweede Kamer record cannot say it: ``Kamerstukdossier`` has no ``Afgedaan`` 
 ``DatumGesloten``, and ``Afgesloten`` is false on every dossier (34851, the Uitvoeringswet
 AVG, law since Stb. 2018, 144, says false). The records below have the fields the API sends.
 
-* 35786 changed the Grondwet: the toestand of the Grondwet names it as the dossier of
-  Stb. 2022, 332, so ``semantic bwb-amendments`` writes ``LEGISLATED_IN`` and it is enacted.
+* 35786 changed the Grondwet: its article versions name it as the dossier of Stb. 2022, 332,
+  so ``semantic bwb-amendments`` writes ``LEGISLATED_IN`` from that publication and it is
+  enacted.
 * 37014 (Wet weerbare waarden) is pending: an amendment on it was voted down, which does not
   end the bill.
 * 36680 was withdrawn by letter; 36999 was voted down by the Tweede Kamer.
@@ -17,7 +18,6 @@ shows the vote. Its timeline marks what came after the closing, and a meeting st
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterator
 from typing import Any
 
@@ -28,6 +28,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
@@ -36,7 +37,6 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
-from lawgraph.db.queries.dossiers import get_recent_dossiers
 from tests.integration.seed import FIXTURES, uid
 
 GRONDWET = "BWBR0001840"
@@ -212,19 +212,26 @@ def store(database: str, cli: Any) -> Iterator[ArangoStore]:
                     payload_json=payload,
                 )
             )
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id=GRONDWET,
-                payload_text=(FIXTURES / "bwb_grondwet_toestand.xml").read_text(),
-                meta={
-                    "bwb_id": GRONDWET,
-                    "state_url": f"https://repo/{GRONDWET}/x.xml",
-                },
+        for kind, external_id in (
+            (RAW_KIND_BWB_TOESTAND, GRONDWET),
+            (RAW_KIND_BWB_TOESTAND_ALL, f"{GRONDWET}@2023-02-22"),
+        ):
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_BWB,
+                    kind=kind,
+                    external_id=external_id,
+                    payload_text=(FIXTURES / "bwb_grondwet_toestand.xml").read_text(),
+                    meta={
+                        "bwb_id": GRONDWET,
+                        "state_url": f"https://repo/{GRONDWET}/x.xml",
+                        "start_date": "2023-02-22",
+                        "end_date": "9999-12-31",
+                    },
+                )
             )
-        )
     cli("normalize", "bwb")
+    cli("normalize", "bwb-history")
     cli("normalize", "tk-dossiers")
     cli("semantic", "bwb-amendments")
     cli("semantic", "tk-dossier-outcomes")
@@ -327,35 +334,6 @@ def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(
         assert letter["case_kinds"] == ["Wetgeving", "Brief regering"]
     finally:
         app.dependency_overrides.pop(get_store, None)
-
-
-def test_recent_dossiers_include_one_that_closed_without_an_activity(
-    store: ArangoStore,
-) -> None:
-    """A law is published in the Staatsblad, not in a debate: the dossier that closed
-    by it is recent, and comes before the ones with older evidence."""
-    today = dt.date.today().isoformat()
-    store.db.collection("dossiers").update(
-        {"_key": ENACTED, "props": {"closed_on": today}}
-    )
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        client = TestClient(app)
-        recent = client.get("/api/dossiers/recent", params={"days": 30}).json()
-        assert [(d["number"], d["closed"], d["outcome"]) for d in recent] == [
-            (ENACTED, True, "aangenomen")
-        ]
-    finally:
-        app.dependency_overrides.pop(get_store, None)
-
-    # Over a longer window the most recent evidence comes first.
-    longer = get_recent_dossiers(store, days=5000)
-    assert [d["props"]["label"] for d in longer] == [
-        ENACTED,  # closed today
-        PENDING,  # the vote on its amendment, 2025-11-04
-        WITHDRAWN,  # the letter, 2025-06-02
-        REJECTED,  # the vote, 2025-03-11
-    ]
 
 
 def test_the_timeline_marks_what_came_after_the_closing(store: ArangoStore) -> None:

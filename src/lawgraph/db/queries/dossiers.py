@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
@@ -1028,66 +1027,6 @@ def get_dossiers(
     """
     rows = list(store.query(aql, bind))
     return rows[0] if rows else {"total": 0, "items": [], "facets": {}}
-
-
-def get_recent_dossiers(
-    store: ArangoStore, *, days: int = 30, limit: int = 50, subject: str | None = None
-) -> list[dict[str, Any]]:
-    """Dossiers with an activity, a vote, a document or their closing in the last *days*
-    days, the most recent first.
-
-    A dossier can close without an activity: its law is published in the Staatsblad.
-    """
-    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).strftime(
-        "%Y-%m-%d"
-    )
-    bind: dict[str, Any] = {
-        "cutoff": cutoff,
-        "limit": limit,
-        "about": RELATION_ABOUT,
-        "part_of": RELATION_PART_OF,
-    }
-    subject_filter = f"FILTER {_subject_filter(subject, bind)}" if subject else ""
-    aql = f"""
-    LET by_activity = (
-        FOR activity IN {COLLECTION_ACTIVITIES}
-            FILTER activity.props.date >= @cutoff
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._from == activity._id AND e.relation == @about
-                FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
-                RETURN {{id: e._to, date: activity.props.date}}
-    )
-    LET by_decision = (
-        FOR decision IN {COLLECTION_DECISIONS}
-            FILTER decision.props.date >= @cutoff
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._from == decision._id AND e.relation == @about
-                FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
-                RETURN {{id: e._to, date: decision.props.date}}
-    )
-    LET by_document = (
-        FOR document IN {COLLECTION_DOCUMENTS}
-            FILTER document.props.date >= @cutoff
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._from == document._id AND e.relation == @part_of
-                FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
-                RETURN {{id: e._to, date: document.props.date}}
-    )
-    LET by_closing = (
-        FOR dossier IN {COLLECTION_DOSSIERS}
-            FILTER dossier.props.closed_on >= @cutoff
-            RETURN {{id: dossier._id, date: dossier.props.closed_on}}
-    )
-    FOR row IN UNION(by_activity, by_decision, by_document, by_closing)
-        COLLECT id = row.id AGGREGATE last = MAX(row.date)
-        LET dossier = DOCUMENT(id)
-        FILTER dossier != null
-        {subject_filter}
-        SORT last DESC, id
-        LIMIT @limit
-        RETURN dossier
-    """
-    return list(store.query(aql, bind))
 
 
 def count_dossier_members(store: ArangoStore, dossier_id: str) -> dict[str, int]:

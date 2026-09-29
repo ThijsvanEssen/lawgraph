@@ -100,6 +100,9 @@ class _FakeStore(_BaseFakeStore):
             )
         if "FOR i IN instruments" in aql:
             return iter(self.regulations)
+        if "REMOVE e IN edges" in aql:
+            assert bind_vars is not None
+            return self.remove_edges_from(bind_vars)
         raise AssertionError(aql)
 
     def existing_keys(self, collection: str, keys) -> set[str]:

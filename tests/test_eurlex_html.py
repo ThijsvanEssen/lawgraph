@@ -7,7 +7,7 @@ show, cut down to what makes them different.
 
 from __future__ import annotations
 
-from lawgraph.core.eurlex_html import EuArticle, parse_articles
+from lawgraph.core.eurlex_html import EuArticle, parse_act, parse_articles
 from tests.integration.seed import FIXTURES
 
 
@@ -144,3 +144,117 @@ def test_the_old_format_keeps_a_quoted_article_in_the_article_that_quotes_it() -
         "\nArtikel 1\nDeze richtlijn is van toepassing op pakketreizen."
     )
     assert addressees.number == "2"
+
+
+def _flat(paragraphs: list[str]) -> str:
+    return (
+        "<html><body>" + "".join(f"<p>{p}</p>" for p in paragraphs) + "</body></html>"
+    )
+
+
+def _crumbs(article: EuArticle) -> list[tuple[str, str | None, str | None]]:
+    return [(c.type, c.label, c.title) for c in article.breadcrumb]
+
+
+def test_an_article_of_the_official_journal_stands_in_its_divisions() -> None:
+    def division(ident: str, label: str, title: str, body: str) -> str:
+        return (
+            f'<div id="{ident}"><p class="oj-ti-section-1">'
+            f'<span class="oj-italic">{label}</span></p>'
+            f'<div class="eli-title" id="{ident}.tit_1">'
+            f'<p class="oj-ti-section-2">{title}</p></div>{body}</div>'
+        )
+
+    text = '<p class="oj-normal">Tekst.</p>'
+    html = division(
+        "cpt_III",
+        "HOOFDSTUK III",
+        "ZORGVULDIGHEIDSVERPLICHTINGEN",
+        _journal("10", "Kop", text)
+        + division("cpt_III.sct_1", "Afdeling 1", "Alle aanbieders", "")
+        + division(
+            "cpt_III.sct_2",
+            "Afdeling 2",
+            "Hostingdiensten",
+            _journal("16", "Melding", text),
+        ),
+    )
+
+    first, second = parse_articles(html)
+
+    chapter = ("hoofdstuk", "Hoofdstuk III", "ZORGVULDIGHEIDSVERPLICHTINGEN")
+    assert _crumbs(first) == [chapter]
+    assert _crumbs(second) == [chapter, ("afdeling", "Afdeling 2", "Hostingdiensten")]
+
+
+def test_a_division_of_the_old_format_ends_where_its_kind_comes_again() -> None:
+    articles = parse_articles(
+        _flat(
+            [
+                "TITEL I",
+                "Algemene bepalingen",
+                "Artikel 1",
+                "Tekst een.",
+                "HOOFDSTUK II BEGINSELEN",
+                "Afdeling 1: Vestiging",
+                "Artikel 2",
+                "Tekst twee.",
+                "Afdeling 2: Communicatie",
+                "Artikel 3",
+                "Tekst drie.",
+                "TITEL II",
+                "Artikel 4",
+                "Tekst vier.",
+            ]
+        )
+    )
+
+    assert [_crumbs(a) for a in articles] == [
+        [("titel", "Titel I", "Algemene bepalingen")],
+        [
+            ("titel", "Titel I", "Algemene bepalingen"),
+            ("hoofdstuk", "Hoofdstuk II", "BEGINSELEN"),
+            ("afdeling", "Afdeling 1", "Vestiging"),
+        ],
+        [
+            ("titel", "Titel I", "Algemene bepalingen"),
+            ("hoofdstuk", "Hoofdstuk II", "BEGINSELEN"),
+            ("afdeling", "Afdeling 2", "Communicatie"),
+        ],
+        [("titel", "Titel II", None)],
+    ]
+    assert articles[1].text == "Tekst twee."
+
+
+def test_a_heading_in_capitals_before_an_article_ends_the_one_before() -> None:
+    articles = parse_articles(
+        _flat(
+            [
+                "HEBBEN DE VOLGENDE RICHTLIJN VASTGESTELD:",
+                "Artikel 1",
+                "Tekst een.",
+                "SLOTBEPALINGEN",
+                "Artikel 2",
+                "Tekst twee.",
+            ]
+        )
+    )
+
+    assert [a.text for a in articles] == ["Tekst een.", "Tekst twee."]
+    # without a division open there is no level to put it at
+    assert [_crumbs(a) for a in articles] == [[], []]
+
+
+def test_the_title_of_the_act_as_printed() -> None:
+    journal = parse_act((FIXTURES / "eurlex_32022r0868.html").read_text())
+    assert journal.title == (
+        "VERORDENING (EU) 2022/868 VAN HET EUROPEES PARLEMENT EN DE RAAD",
+        "van 30 mei 2022",
+        "betreffende Europese datagovernance en tot wijziging van Verordening (EU) "
+        "2018/1724 (Datagovernanceverordening)",
+        "(Voor de EER relevante tekst)",
+    )
+
+    old = parse_act((FIXTURES / "eurlex_31995l0046.html").read_text())
+    (description,) = old.title
+    assert description.startswith("Richtlijn 95/46/EG van het Europees Parlement")

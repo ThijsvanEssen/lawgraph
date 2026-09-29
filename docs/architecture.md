@@ -116,6 +116,13 @@ linted (`sys.exit` and `setup_logging` outside the entry points are banned in
 Adding a pipeline: write the module under its address and add one `_pipeline(...)` line to
 the list of its phase. Adding a source: add it to `SOURCES` first.
 
+What no official source gives and a person decides (a party colour, the name of a landmark
+judgment, our key of a ministry) is data: it lives in `src/lawgraph/data/curated/` and only
+`lawgraph curated` changes it. How a source is written (month names, name particles, the
+words of a legal form, ECLI country codes) is parser vocabulary and stays in code. Tables an
+official source gives are built from it by a command and committed (`data/ministries.json`,
+`courts.json`, `code_families.json`).
+
 ## Layering
 
 | Layer | Rule |

@@ -11,6 +11,7 @@ from lawgraph.core.bwb_xml import (
     EFFECT_INTRODUCES,
     EFFECT_REPEALS,
     effect_kind,
+    instrument_props,
     parse_jci,
     parse_toestand,
 )
@@ -38,13 +39,34 @@ def test_instrument_metadata(grondwet) -> None:
     assert grondwet.citation_title == "Grondwet"
     assert grondwet.official_title.startswith("Grondwet voor het Koninkrijk")
     assert grondwet.title == "Grondwet"  # citation title wins, as before
-    assert grondwet.valid_from == "2022-07-06"
+    assert grondwet.valid_from == "2023-02-22"  # the start of the toestand
 
 
-def test_instrument_level_publication_carries_the_dossier(grondwet) -> None:
-    assert grondwet.origin.identifier == "stb-2022-332"
-    assert grondwet.origin.dossiers == ("35786",)
-    assert grondwet.origin.signed == "2022-07-06"
+def test_the_enactment_is_read_from_the_intitule(grondwet) -> None:
+    # the Grondwet itself, not the revision of 2022 its current version names
+    assert grondwet.enacted is not None
+    assert (grondwet.enacted.identifier, grondwet.enacted.signed) == (
+        "stb-1840-54",
+        "1840-09-04",
+    )
+    assert grondwet.enacted_in_force == "1840-09-12"
+    props = instrument_props(grondwet, "BWBR0001840")
+    assert (props["date_signed"], props["date_in_force"]) == (
+        "1840-09-04",
+        "1840-09-12",
+    )
+    assert props["date_published"] is None  # the source does not say it
+    assert props["version_date_in_force"] == "2023-02-22"
+
+
+def test_the_dossier_of_a_regulation_is_that_of_the_bill_that_enacted_it(
+    grondwet,
+) -> None:
+    # the <wetgeving> of the Awb names Stb. 2012, 682 of dossier 32450, a later change
+    awb = parse_toestand((FIXTURES / "bwb_awb_annexes_toestand.xml").read_text())
+    assert instrument_props(awb, "BWBR0005537")["dossier_numbers"] == ["21221"]
+    # the Grondwet of 1840 names no dossier: an empty list replaces a stale one
+    assert instrument_props(grondwet, "BWBR0001840")["dossier_numbers"] == []
 
 
 def test_article_identity_and_version_fields(grondwet) -> None:

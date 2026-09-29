@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, get_args
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,8 +12,12 @@ from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
-# The statuses of ``core.tk_records.COMMITMENT_STATUS``.
-CommitmentStatus = Literal["open", "done", "partly_done", "unfulfilled", "lapsed"]
+# The status of a commitment is the Toezegging.Status the Tweede Kamer gives it.
+COMMITMENT_STATUS_DESCRIPTION = (
+    "The status the Tweede Kamer gives the commitment (`Toezegging.Status`), as it writes "
+    "it: `Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, "
+    "`Vervallen`; null when it gives none."
+)
 # The kinds of ``core.cabinet_phases.PHASE_KINDS``.
 PhaseKind = Literal[
     "formatie", "in_functie", "demissionair", "dubbel_demissionair", "missionair"
@@ -339,12 +343,28 @@ class CabinetDetailDTO(CabinetSummaryDTO):
     def from_detail(cls, row: dict[str, Any]) -> CabinetDetailDTO:
         members = row.get("members") or []
         summary = CabinetSummaryDTO.from_row({**row, "members": len(members)})
+        # a seat stands under its ministry: the one its key names (by the name the ministry
+        # had when the seat ended: ELI to EZ keeps one seat in one place), else, for a seat
+        # whose function names no ministry, that of its last post; each post keeps its own
+        # ``ministry`` of its day
+        held = [
+            (post, _post_dto(item, post))
+            for item in members
+            for post in item.get("posts") or []
+        ]
+        last: dict[str, dict[str, Any]] = {}
+        for post, _ in held:
+            seat = post.get("seat") or ""
+            if seat not in last or (post.get("from_date") or "") >= (
+                last[seat].get("from_date") or ""
+            ):
+                last[seat] = post
         groups: dict[str | None, list[CabinetPostDTO]] = {}
-        for item in members:
-            for post in item.get("posts") or []:
-                groups.setdefault(post.get("ministry"), []).append(
-                    _post_dto(item, post)
-                )
+        for post, dto in held:
+            seat = post.get("seat") or ""
+            named = seat.partition("/")[0]
+            ministry = named if named in MINISTRY_BY_KEY else last[seat].get("ministry")
+            groups.setdefault(ministry, []).append(dto)
         ministries = [
             CabinetMinistryDTO(
                 ministry=MinistryKey(key) if key else None,
@@ -388,7 +408,7 @@ class CommitmentDTO(BaseModel):
         None, description="How the Kamer cites it: `TZ202603-130`."
     )
     text: str | None = None
-    status: CommitmentStatus | None = None
+    status: str | None = Field(None, description=COMMITMENT_STATUS_DESCRIPTION)
     date: str | None = Field(None, description="The day it was made.")
     expected_resolution: str | None = Field(
         None, description="The day it is due; null when the Kamer names none."
@@ -413,11 +433,7 @@ class CommitmentDTO(BaseModel):
             key=commitment["_key"],
             number=props.get("number"),
             text=props.get("text"),
-            status=(
-                props.get("status")
-                if props.get("status") in get_args(CommitmentStatus)
-                else None
-            ),
+            status=props.get("status"),
             date=props.get("made_on"),
             expected_resolution=due if due and due != NO_DUE_DATE else None,
             minister_name=props.get("minister_name"),

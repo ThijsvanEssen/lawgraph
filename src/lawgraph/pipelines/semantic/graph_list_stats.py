@@ -8,7 +8,7 @@ Fields written:
 
 instruments
     props.jurisdiction   — 'nl' (bwb_id present) | 'eu' (celex present) | null
-    props.article_count  — count of PART_OF edges pointing at it
+    props.article_count  — count of PART_OF edges from an article to it (not its annexes)
     props.kind           — lower-cased copy of props.kind when present
     props.inbound_citation_count — of an instrument: REFERS_TO to it and to its articles
 

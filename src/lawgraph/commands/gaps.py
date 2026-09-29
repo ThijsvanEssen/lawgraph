@@ -19,6 +19,7 @@ import argparse
 from typing import Any
 
 from lawgraph.clients.bwb import BWBClient
+from lawgraph.config.constants import EXPLANATORY_KIND_MARKER
 from lawgraph.core.judgments import Referral
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
@@ -66,7 +67,7 @@ def _report(store: ArangoStore, min_stubs: int) -> None:
     _print_judgment_stub_report(
         _gaps.rechtspraak_gaps(store), _gaps.unanswered_referrals(store)
     )
-    _print_mvt_report(_gaps.kamerstuk_gaps(store, "toelichting"))
+    _print_mvt_report(_gaps.kamerstuk_gaps(store, [EXPLANATORY_KIND_MARKER]))
     _print_celex_stub_report(_gaps.eurlex_gaps(store))
     _print_echr_stub_report(_gaps.echr_gaps(store))
     _print_verdrag_stub_report(_gaps.verdragenbank_gaps(store))

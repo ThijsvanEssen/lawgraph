@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import re
 from collections.abc import Iterable, Iterator
 from typing import Any
 
@@ -12,11 +11,10 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     SOURCE_EURLEX,
 )
-from lawgraph.core.eurlex_html import parse_articles
-from lawgraph.core.identifiers import parse_celex
+from lawgraph.core.eu_titles import act_names
+from lawgraph.core.eurlex_html import parse_act
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.core.xml import XML_TAG_RE
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -25,42 +23,6 @@ logger = get_logger(__name__)
 EDGE_SOURCE = "eu-normalize"
 
 _NODE_BATCH_SIZE = 200
-
-_DOC_TI_RE = re.compile(
-    r'<p[^>]+class=["\'][^"\']*doc-ti[^"\']*["\'][^>]*>(.*?)</p>',
-    re.IGNORECASE | re.DOTALL,
-)
-
-# Dutch citation label per instrument kind (CELEX letters live in core.identifiers).
-_KIND_CITATION_LABELS: dict[str, str] = {
-    "directive": "Richtlijn",
-    "regulation": "Verordening",
-    "decision": "Besluit",
-    "framework_decision": "Kaderbesluit",
-}
-
-
-def _extract_eu_title_from_html(html: str) -> str | None:
-    """Return the document title from CELLAR HTML, or None if not found."""
-    m = _DOC_TI_RE.search(html)
-    if m:
-        text = XML_TAG_RE.sub("", m.group(1)).replace("\xa0", " ").strip()
-        if len(text) > 5:
-            return " ".join(text.split())
-    return None
-
-
-def _derive_eu_citation_title(celex: str) -> str | None:
-    """Derive a short citation title from a CELEX number, e.g. 'Richtlijn 2010/64/EU'."""
-    parsed = parse_celex(celex)
-    if parsed is None or parsed.kind is None:
-        return None
-    label = _KIND_CITATION_LABELS.get(parsed.kind)
-    if not label:
-        return None
-    number = parsed.number.lstrip("0") or "0"
-    suffix = "JBZ" if parsed.kind == "framework_decision" else "EU"
-    return f"{label} {parsed.year}/{number}/{suffix}"
 
 
 class EurlexNormalizePipeline(NormalizePipelineBase):
@@ -119,20 +81,15 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
             if meta:
                 props["meta"] = meta
 
-            # Extract title from CELLAR HTML; derive short citation title from CELEX.
-            if payload_text:
-                html_title = _extract_eu_title_from_html(payload_text)
-                if html_title:
-                    props["title"] = html_title
-            citation_title = _derive_eu_citation_title(celex)
-            if citation_title:
-                props["citation_title"] = citation_title
+            act = parse_act(payload_text or "")
+            names = act_names(celex, act.title)
+            # always written: an upsert merges props, so a stale name goes
+            props["title"] = names.title
+            props["citation_title"] = names.citation_title
+            props["short_title"] = names.short_title
+            props["display_name"] = names.citation_title or names.title or f"EU {celex}"
 
             labels = ["EU"]
-
-            props["display_name"] = (
-                props.get("title") or citation_title or f"EU {celex}"
-            )
             instrument_key = make_node_key(celex)
 
             instrument_node = Node(
@@ -146,22 +103,15 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
             instruments_by_celex[celex] = inserted_instrument
 
             # --- article nodes ---
-            if not payload_text:
-                continue
-
-            raw_articles = parse_articles(payload_text)
+            raw_articles = act.articles
             if not raw_articles:
                 logger.debug("No articles found in EUR-Lex CELEX %s.", celex)
                 continue
 
-            # Citation title for articles: prefer the stored instrument value so a
-            # title already seeded (e.g. "EVRM") is not overwritten by the CELEX
-            # pattern derivation.
-            inst_props = inserted_instrument.props
-            eu_ct = inst_props.get("citation_title") or inst_props.get("title")
+            eu_ct = names.citation_title or names.title
 
             article_nodes: list[Node] = []
-            for art in raw_articles:
+            for position, art in enumerate(raw_articles):
                 article_number = art.number
                 article_props: dict[str, Any] = {
                     "celex": celex,
@@ -170,6 +120,8 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
                     "heading": art.heading,
                     "text": art.text,
                     "parts": [part.to_dict() for part in art.parts],
+                    "position": position,
+                    "breadcrumb": [crumb.to_dict() for crumb in art.breadcrumb] or None,
                 }
                 if eu_ct:
                     article_props["instrument_citation_title"] = eu_ct

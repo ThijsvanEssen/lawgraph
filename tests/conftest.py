@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 import pytest
@@ -38,6 +39,21 @@ def patch_route_stores(monkeypatch: pytest.MonkeyPatch) -> None:
     ):
         module = importlib.import_module(module_name)
         monkeypatch.setattr(module, "get_store", lambda store=store_stub: store)
+
+
+def remove_edges_from(edges: dict[str, dict], bind: dict) -> Iterator[int]:
+    """What ``semantic_queries.remove_edges_from`` does, on *edges* (key -> edge)."""
+    gone = [
+        key
+        for key, edge in edges.items()
+        if edge["_from"] in bind["ids"]
+        and edge.get("relation") == bind["relation"]
+        and edge.get("source") == bind["source"]
+        and key not in bind["keep"].get(edge["_from"], [])
+    ]
+    for key in gone:
+        del edges[key]
+    return iter([1] * len(gone))
 
 
 class _BaseFakeStore:
@@ -79,6 +95,9 @@ class _BaseFakeStore:
         is_new = key not in self.edges
         self.edges[key] = doc
         return doc, is_new
+
+    def remove_edges_from(self, bind: dict) -> Iterator[int]:
+        return remove_edges_from(self.edges, bind)
 
     def get_node(self, collection: str, key: str) -> dict | None:
         raise NotImplementedError

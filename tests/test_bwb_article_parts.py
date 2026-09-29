@@ -110,7 +110,7 @@ def test_references_name_the_lid_and_onderdeel_their_text_says() -> None:
     assert all(article.text[r.start : r.end] == r.text for r in article.references)
 
 
-def test_a_paragraph_next_to_the_leden_is_no_part() -> None:
+def test_a_paragraph_next_to_the_leden_is_a_tekst() -> None:
     article = _article(
         """<artikel><kop><nr>5</nr></kop>
         <al>Dit artikel is nog niet in werking getreden.</al>
@@ -123,9 +123,38 @@ def test_a_paragraph_next_to_the_leden_is_no_part() -> None:
         == "Dit artikel is nog niet in werking getreden.\n1. Een.\n2. Twee."
     )
     assert _shape(article) == [
+        ("tekst-1", "tekst", None, "Dit artikel is nog niet in werking getreden."),
         ("lid-1", "lid", "1", "Een."),
         ("lid-2", "lid", "2", "Twee."),
     ]
+
+
+def test_the_lines_between_the_lists_of_an_article_are_teksten() -> None:
+    article = _article(
+        """<artikel><kop><nr>4</nr></kop>
+        <al>Geen beroep tegen:</al>
+        <al>Gemeentewet:</al>
+        <lijst><li><li.nr>a.</li.nr><al>artikel 49</al></li></lijst>
+        <al>Hamsterwet</al>
+        <al>Provinciewet:</al>
+        <lijst><li><li.nr>a.</li.nr><al>artikel 83</al></li></lijst></artikel>"""
+    )
+
+    assert _shape(article) == [
+        ("aanhef", "aanhef", None, "Geen beroep tegen:\nGemeentewet:"),
+        ("onder-a", "onderdeel", "a", "artikel 49"),
+        ("tekst-1", "tekst", None, "Hamsterwet"),
+        ("tekst-2", "tekst", None, "Provinciewet:"),
+        ("onder-a_2", "onderdeel", "a", "artikel 83"),
+    ]
+
+
+def test_an_article_without_parts_gets_no_tekst() -> None:
+    article = _article(
+        "<artikel><kop><nr>6</nr></kop><al>Een.</al><al>Twee.</al></artikel>"
+    )
+
+    assert article.parts == ()
 
 
 def test_empty_leden_are_no_parts() -> None:
@@ -166,6 +195,7 @@ def test_an_article_without_leden_has_an_aanhef_and_onderdelen() -> None:
         ("onder-a_2", "onderdeel", "a", "alfa nogmaals;"),
         ("onder-_3", "onderdeel", "–", "streepje;"),
         ("onder-_4", "onderdeel", None, "zonder teken."),
+        ("tekst-1", "tekst", None, "Slot na de lijst."),
     ]
 
 

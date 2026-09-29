@@ -15,8 +15,20 @@ class AnnexEntryDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     index: int | None = None
-    name: str | None = None
+    name: str | None = Field(
+        None, description="The item's own text with its marker (`a. artikel 49`)."
+    )
     description: str | None = None
+    heading: str | None = Field(
+        None,
+        description="The paragraph that introduces its list, without the colon: the law "
+        "the item falls under (`Gemeentewet`). Null when the list has none.",
+    )
+    parent_index: int | None = Field(
+        None,
+        description="The `index` of the entry this one is nested in (`1.` under "
+        "`a. Boek 1:`); null for an item of an outermost list.",
+    )
 
 
 class AnnexDTO(BaseModel):
@@ -42,6 +54,8 @@ class AnnexDTO(BaseModel):
                 index=e.get("index"),
                 name=e.get("name"),
                 description=e.get("description"),
+                heading=e.get("heading"),
+                parent_index=e.get("parent_index"),
             )
             for e in (props.get("entries") or [])
             if isinstance(e, dict)

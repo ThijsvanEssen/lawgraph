@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from types import MappingProxyType
-
 # ── Collection name constants ─────────────────────────────────────────────────
 
 COLLECTION_INSTRUMENTS = "instruments"
@@ -75,6 +73,8 @@ RELATION_LEGISLATED_IN = "LEGISLATED_IN"
 RELATION_REFERS_TO = "REFERS_TO"
 RELATION_EXPLAINS = "EXPLAINS"
 RELATION_APPEAL_OF = "APPEAL_OF"
+RELATION_CONTINUES = "CONTINUES"
+RELATION_REFERRED_BY = "REFERRED_BY"
 RELATION_ADVISES_ON = "ADVISES_ON"
 RELATION_ANSWERS = "ANSWERS"
 RELATION_SCOPED_BY = "SCOPED_BY"
@@ -175,24 +175,6 @@ EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements-directive"
 BWB_TREATY_ID_PREFIX = "BWBV"
 ECHR_CONVENTION_ID = "ECHR-CONVENTION"
 
-# A code whose books are regulations of their own: code -> book -> BWB id. A citation of
-# the code names the book in front of the colon (``art. 6:162 BW`` is article 162 of
-# book 6), so the code itself never stands for one regulation, whichever books are loaded.
-CODE_FAMILIES: dict[str, dict[str, str]] = {
-    "BW": {
-        "1": "BWBR0002656",
-        "2": "BWBR0003045",
-        "3": "BWBR0005291",
-        "4": "BWBR0002761",
-        "5": "BWBR0005288",
-        "6": "BWBR0005289",
-        "7": "BWBR0005290",
-        "7A": "BWBR0006000",
-        "8": "BWBR0005034",
-        "10": "BWBR0030068",
-    },
-}
-
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 
 RAW_KIND_TK_ZAAK = "tk-zaak"
@@ -266,42 +248,6 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
 # Maximum characters of a document's text scanned for citations (200 KB).
 MAX_SEMANTIC_TEXT_LENGTH = 200_000
 
-# ── Party colors ──────────────────────────────────────────────────────────────
-# Canonical brand colors for Dutch parliamentary parties.
-# Keyed by the party abbreviation as it appears in fractie.abbreviation.
-# GL-PvdA, GroenLinks, GroenLinks-PvdA and PRO are all intentional duplicates:
-# different API versions use different abbreviations for the same merged party.
-
-PARTY_COLORS: MappingProxyType[str, str] = MappingProxyType(
-    {
-        "VVD": "#003082",
-        "D66": "#1DB954",
-        "PVV": "#002868",
-        "CDA": "#399E48",
-        "SP": "#EE1C25",
-        "PvdA": "#E63325",
-        "GroenLinks": "#46962B",
-        "GL-PvdA": "#46962B",
-        "GroenLinks-PvdA": "#46962B",
-        "PRO": "#46962B",
-        "ChristenUnie": "#4F95D4",
-        "Volt": "#592D82",
-        "NSC": "#1B4F72",
-        "BBB": "#9ECA3C",
-        "JA21": "#CC0000",
-        "SGP": "#FF6600",
-        "FvD": "#8B0000",
-        "FVD": "#8B0000",
-        "DENK": "#39B54A",
-        "BIJ1": "#FFCC00",
-        "50PLUS": "#8B008B",
-        "PvdD": "#4CAF50",
-        "Groep Van Haga": "#002868",
-        "Groep Markuszower": "#1F2A44",
-        "Lid Keijzer": "#999999",
-    }
-)
-
 # Longest title / display name stored on a node (longer source titles are truncated).
 MAX_TITLE_CHARS = 200
 
@@ -325,32 +271,7 @@ HOST_MIN_INTERVAL: dict[str, float] = {
 }
 
 # ── Rechtspraak courts ────────────────────────────────────────────────────────
-# Short name -> the OWMS term of the court in the Rechtspraak API (``creator``).
-RECHTSPRAAK_COURTS: dict[str, str] = {
-    "hr": "Hoge_Raad_der_Nederlanden",
-    "rvs": "Raad_van_State",
-    "crvb": "Centrale_Raad_van_Beroep",
-    "cbb": "College_van_Beroep_voor_het_bedrijfsleven",
-    "gh-amsterdam": "Gerechtshof_Amsterdam",
-    "gh-arnhem-leeuwarden": "Gerechtshof_Arnhem-Leeuwarden",
-    "gh-den-haag": "Gerechtshof_Den_Haag",
-    "gh-s-hertogenbosch": "Gerechtshof_'s-Hertogenbosch",
-    # courts of appeal before the 2013 reorganisation, for research into older years
-    "gh-arnhem": "Gerechtshof_Arnhem",
-    "gh-leeuwarden": "Gerechtshof_Leeuwarden",
-    "gh-s-gravenhage": "Gerechtshof_'s-Gravenhage",
-}
-RECHTSPRAAK_COURT_GROUPS: dict[str, tuple[str, ...]] = {
-    "hoven": (
-        "gh-amsterdam",
-        "gh-arnhem-leeuwarden",
-        "gh-den-haag",
-        "gh-s-hertogenbosch",
-        "gh-arnhem",
-        "gh-leeuwarden",
-        "gh-s-gravenhage",
-    ),
-}
+# A court to read is an ECLI code or a tier of the court table (``core.courts.owms_terms``).
 # Every court the index holds (no ``creator`` filter): the rechtbanken, the special courts
 # and those that no longer exist too.
 RECHTSPRAAK_EVERY_COURT = "all"

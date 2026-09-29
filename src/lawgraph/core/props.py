@@ -81,8 +81,9 @@ class InstrumentProps(_CommonProps):
     treaty_type: str | None = None
     status: str | None = None
     in_force: bool | None = None
-    date_signed: str | None = None
+    date_signed: str | None = None  # of the instrument itself, not of an amendment
     date_in_force: str | None = None
+    version_date_in_force: str | None = None  # BWB: the start of the toestand in force
     parties: list[str] | None = None
     article_count: int | None = None
     inbound_citation_count: int | None = None
@@ -204,6 +205,14 @@ class JudgmentPartyProps(_StrictBase):
     representatives: list[JudgmentRepresentativeProps] = []
 
 
+class JudgmentAppealTargetProps(_StrictBase):
+    """A decision an appeal says it appeals that is not loaded (``core.appeals``)."""
+
+    court: str  # as the text writes it: "rechtbank Gelderland"
+    date: str  # ISO
+    case_number: str | None = None  # as the text writes it: "24/6811"
+
+
 class JudgmentProps(_CommonProps):
     ecli: str | None = None
     source_kind: str | None = None
@@ -232,6 +241,9 @@ class JudgmentProps(_CommonProps):
     related_eclis: list[str] | None = None
     # the conclusion of a judgment, or the judgment of a conclusion (``psi:type`` conclusie)
     conclusion_eclis: list[str] | None = None
+    # the decisions an appeal names in its text that are not loaded
+    # (``semantic rechtspraak-appeal``); null when there are none
+    unresolved_appeal_targets: list[JudgmentAppealTargetProps] | None = None
     court_code: str | None = None
     # the coarse tier (the Type of the Instanties list) and the kind of court within it
     tier: str | None = None
@@ -263,6 +275,8 @@ class DocumentProps(_CommonProps):
     external_id: str | None = None
     raw: dict[str, Any] | None = None
     title: str | None = None
+    # a paper named by its own subject (a motie, a letter): the title of its dossier
+    dossier_title: str | None = None
     subject: str | None = None
     kind: str | None = None
     date: str | None = None
@@ -540,6 +554,8 @@ class FactionProps(_CommonProps):
     active_from: str | None = None
     active_until: str | None = None
     seats: int | None = None
+    # the day one of its seats last changed (FractieZetel.GewijzigdOp)
+    seats_changed_on: str | None = None
     active: bool | None = None
 
 
@@ -588,6 +604,8 @@ class AnnexEntry(_StrictBase):
     index: int | None = None
     name: str | None = None
     description: str | None = None
+    heading: str | None = None  # the paragraph introducing its list: "Gemeentewet"
+    parent_index: int | None = None  # the entry it is nested in
 
 
 class AnnexProps(_CommonProps):

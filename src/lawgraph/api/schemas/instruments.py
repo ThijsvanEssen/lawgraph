@@ -384,6 +384,7 @@ class InstrumentListItemDTO(BaseModel):
     title: str | None
     short_title: str | None
     citation_title: str | None
+    display_name: str | None = None
     jurisdiction: str | None
     kind: str | None
     article_count: int
@@ -399,6 +400,7 @@ class InstrumentListItemDTO(BaseModel):
             title=row.get("title"),
             short_title=row.get("short_title"),
             citation_title=row.get("citation_title"),
+            display_name=row.get("display_name"),
             jurisdiction=row.get("jurisdiction") or None,
             kind=row.get("kind"),
             article_count=int(row.get("article_count") or 0),
@@ -592,9 +594,20 @@ class InstrumentDetailDTO(BaseModel):
     stub: bool = False
     article_count: int = 0
     inbound_citation_count: int = 0
-    date_signed: str | None = None
-    date_published: str | None = None
-    date_in_force: str | None = None
+    date_signed: str | None = Field(
+        None,
+        description="When the instrument itself was signed; for a BWB regulation that of "
+        "the publication that enacted it, not of a later amendment.",
+    )
+    date_published: str | None = Field(
+        None, description="When the instrument itself was published."
+    )
+    date_in_force: str | None = Field(
+        None, description="When the instrument itself entered into force."
+    )
+    version_date_in_force: str | None = Field(
+        None, description="BWB: the start of the version in force (its toestand)."
+    )
     treaty_number: str | None = None
     in_force: bool | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
@@ -625,6 +638,7 @@ class InstrumentDetailDTO(BaseModel):
             date_signed=props.get("date_signed"),
             date_published=props.get("date_published"),
             date_in_force=props.get("date_in_force"),
+            version_date_in_force=props.get("version_date_in_force"),
             treaty_number=props.get("treaty_number") or None,
             in_force=props.get("in_force"),
             dossier_numbers=[str(n) for n in props.get("dossier_numbers") or []],

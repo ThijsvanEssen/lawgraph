@@ -78,17 +78,20 @@ class _DataVersion:
 
 
 class _CacheControlMiddleware:
-    """``Cache-Control`` and a weak ``ETag`` of the data version on successful GET
-    responses; a GET whose ``If-None-Match`` names the current version is 304.
+    """An explicit ``Cache-Control`` on every GET and HEAD response (``no-store`` on one
+    that is not a success), and on a success a weak ``ETag`` of the API version and the
+    data version; a request whose ``If-None-Match`` names the current tag is 304.
 
-    Every response of one data version has the same ``ETag``: a cache keeps it per URL, and
-    after a migration (a write to the graph) none of them matches any more."""
+    Every response of one API and data version has the same ``ETag``: a cache keeps it per
+    URL, and after a migration (a write to the graph) or a release none of them matches
+    any more, so a browser that asks again gets the new answer, not a 304 for its old one."""
 
     _PUBLIC = ("/api/articles/", "/api/judgments/", "/api/stats")
 
-    def __init__(self, app, store: Callable[[], ArangoStore]) -> None:
+    def __init__(self, app, store: Callable[[], ArangoStore], api_version: str) -> None:
         self._app = app
         self._version = _DataVersion(store)
+        self._api_version = api_version
 
     def _cache_value(self, path: str) -> str:
         if path.startswith(self._PUBLIC):
@@ -96,13 +99,13 @@ class _CacheControlMiddleware:
         return f"private, max-age={CACHE_TTL_DEFAULT}"
 
     async def __call__(self, scope, receive, send) -> None:
-        if scope["type"] != "http" or scope.get("method") != "GET":
+        if scope["type"] != "http" or scope.get("method") not in ("GET", "HEAD"):
             await self._app(scope, receive, send)
             return
 
         cache_value = self._cache_value(scope.get("path", ""))
         version = await self._version.current()
-        etag = f'W/"{version}"'.encode() if version else None
+        etag = f'W/"{self._api_version}-{version}"'.encode() if version else None
         if etag and etag in _if_none_match(scope):
             headers = [(b"etag", etag), (b"cache-control", cache_value.encode())]
             await send(
@@ -112,14 +115,17 @@ class _CacheControlMiddleware:
             return
 
         async def _send_with_cache(message) -> None:
-            if message["type"] == "http.response.start" and (
-                200 <= message.get("status", 200) < 300
-            ):
+            if message["type"] == "http.response.start":
+                success = 200 <= message.get("status", 200) < 300
                 headers = [
-                    *message.get("headers", []),
-                    (b"cache-control", cache_value.encode()),
+                    (name, value)
+                    for name, value in message.get("headers", [])
+                    if name.lower() != b"cache-control"
                 ]
-                if etag:
+                headers.append(
+                    (b"cache-control", cache_value.encode() if success else b"no-store")
+                )
+                if etag and success:
                     headers.append((b"etag", etag))
                 message = {**message, "headers": headers}
             await send(message)
@@ -233,7 +239,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.35.0",
+    version="0.50.0",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -298,6 +304,7 @@ app.add_middleware(_RateLimitMiddleware, trusted_origins=frozenset(API_ALLOWED_O
 app.add_middleware(
     _CacheControlMiddleware,
     store=lambda: app.dependency_overrides.get(get_store, get_store)(),
+    api_version=app.version,
 )
 # A page of the feed is 87 KB as JSON and some 10 KB compressed; a response under 1 KB is
 # sent as it is. A 304 has no body, and the ETag stays weak, so compression leaves both.
