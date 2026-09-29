@@ -1,21 +1,32 @@
-"""Parse the articles of an EU act from its CELLAR HTML — pure, no I/O.
+"""Parse the title and the articles of an EU act from its CELLAR HTML — pure, no I/O.
 
 CELLAR serves an act in one of two HTML formats, and the structure is read from the markup
 where there is markup:
 
-* the Official Journal format (acts from about 2004): every article is a
-  ``div.eli-subdivision`` with its number in ``p.oj-ti-art`` ("Artikel 1") and its heading
-  in ``p.oj-sti-art`` ("Onderwerp en toepassingsgebied"). A lid is a paragraph that starts
-  with its number ("1.   Deze verordening bevat:"); a point is a table row of two cells, the
-  marker ("a)", "1)", "i)", "—") and its text, and a point inside a point is a table inside
-  that text cell;
-* the old format (older acts): flat ``<p>`` paragraphs. An article starts at a paragraph that
-  is only "Artikel N"; a short paragraph right after it without closing punctuation is its
-  heading; leden and points are read from the marker a paragraph starts with. How deep a
-  point sits follows from the kind of its marker (letters, digits, roman numerals, dashes):
-  a kind not yet open nests inside the point before it, a kind that is open returns to that
-  level. An article ends at the next one, at a division heading ("HOOFDSTUK II") or at the
-  closing formula ("Gedaan te Brussel, …").
+* the Official Journal format (acts from about 2004): the title is the ``p.oj-doc-ti``
+  paragraphs of ``div.eli-main-title``. Every article is a ``div.eli-subdivision`` with its
+  number in ``p.oj-ti-art`` ("Artikel 1") and its heading in ``p.oj-sti-art`` ("Onderwerp en
+  toepassingsgebied"). A lid is a paragraph that starts with its number ("1.   Deze
+  verordening bevat:"); a point is a table row of two cells, the marker ("a)", "1)", "i)",
+  "—") and its text, and a point inside a point is a table inside that text cell. The
+  divisions an article stands in are the ``div`` elements around it that start with a
+  ``p.oj-ti-section-1`` label ("HOOFDSTUK III", "Afdeling 1"), with their
+  ``p.oj-ti-section-2`` title;
+* the old format (older acts): the title is the ``DC.description`` of the page; the text is
+  flat ``<p>`` paragraphs. An article starts at a paragraph that is only "Artikel N"; a short
+  paragraph right after it without closing punctuation is its heading; leden and points are
+  read from the marker a paragraph starts with. How deep a point sits follows from the kind
+  of its marker (letters, digits, roman numerals, dashes): a kind not yet open nests inside
+  the point before it, a kind that is open returns to that level. An article ends at the
+  next one, at a division heading or at the closing formula ("Gedaan te Brussel, …").
+  A division heading is its label with the title after it ("HOOFDSTUK I ALGEMENE
+  BEPALINGEN", "Afdeling 1: Vestiging") or in the next paragraph; a kind of division that
+  is open ends there and the divisions inside it too, another kind nests in the open ones.
+  A heading in capitals without a label right before an article ("SLOTBEPALINGEN") stands
+  at the top level.
+
+A division is a ``Crumb`` as for BWB: its ``type`` is the first word of the label in lower
+case ("hoofdstuk"), its label is written "Hoofdstuk III", its title as printed.
 
 The text of an article is built as for BWB (``core.bwb_xml.TextBuilder``): a lid as
 ``1. text``, a point on a line of its own with its marker (``a) text``), every other
@@ -37,12 +48,18 @@ from lawgraph.core.bwb_xml import (
     PART_LID,
     PART_ONDERDEEL,
     ArticlePart,
+    Crumb,
     TextBuilder,
 )
 from lawgraph.core.xml import collapse_ws
 
 _TITLE_CLASSES = frozenset({"oj-ti-art", "ti-art"})
 _HEADING_CLASSES = frozenset({"oj-sti-art", "sti-art"})
+_DOC_TITLE_CLASSES = frozenset({"oj-doc-ti", "doc-ti"})
+_DIVISION_LABEL_CLASSES = frozenset({"oj-ti-section-1", "ti-section-1"})
+_DIVISION_TITLE_CLASSES = frozenset({"oj-ti-section-2", "ti-section-2"})
+# The description of a page of the old format is the title of the act.
+_DESCRIPTION_META = "DC.description"
 
 _ARTICLE_RE = re.compile(r"(?:Artikel|Article)\s+(\d+[a-z]*)", re.IGNORECASE)
 # A lid: "1.   Deze verordening bevat:"; old acts also print "1 . Het recht".
@@ -64,6 +81,13 @@ _CLOSING_RE = re.compile(r"(?:Gedaan te|Done at)\b")
 _DIVISION_RE = re.compile(
     r"(?:HOOFDSTUK|TITEL|AFDELING|DEEL|SECTIE|BIJLAGE|CHAPTER|TITLE|SECTION|ANNEX)\b"
 )
+# A division heading of the old format: its kind and number, then maybe its title. In
+# capitals ("HOOFDSTUK I ALGEMENE BEPALINGEN") or with a colon ("Afdeling 1: Vestiging").
+_DIVISION_LABEL_RE = re.compile(
+    r"((?:onder)?afdeling|hoofdstuk|titel|deel|sectie)\s+([ivxlc]+|\d+[a-z]*)\b"
+    r"\s*(:)?\s*(.*)",
+    re.IGNORECASE | re.DOTALL,
+)
 # A heading of the old format is short and does not end like a sentence or a lead-in.
 _HEADING_MAX_CHARS = 200
 _SENTENCE_END = (".", ":", ";", ",")
@@ -84,12 +108,24 @@ _MARKER_DASH = "dash"
 
 @dataclass(frozen=True)
 class EuArticle:
-    """One article: its number ("1", "12a"), heading, text and the parts of that text."""
+    """One article: its number ("1", "12a"), heading, text, the parts of that text and the
+    divisions it stands in, outermost first."""
 
     number: str
     heading: str | None
     text: str
     parts: tuple[ArticlePart, ...] = ()
+    breadcrumb: tuple[Crumb, ...] = ()
+
+
+@dataclass(frozen=True)
+class EuAct:
+    """An act: its title as printed, in paragraphs ("VERORDENING (EU) 2022/868 VAN HET
+    EUROPEES PARLEMENT EN DE RAAD", "van 30 mei 2022", "betreffende …"; one paragraph for
+    the old format), and its articles in document order."""
+
+    title: tuple[str, ...]
+    articles: tuple[EuArticle, ...]
 
 
 @dataclass(frozen=True)
@@ -160,10 +196,10 @@ def _text(element: ET.Element) -> str:
     return collapse_ws("".join(element.itertext()))
 
 
-def parse_articles(html: str) -> list[EuArticle]:
-    """The articles of the act, in document order; a number is taken once (a quoted
-    article of an amendment with the number of an earlier one is text of the amending
-    article), an article without text is left out."""
+def parse_act(html: str) -> EuAct:
+    """The title of the act and its articles, in document order; a number is taken once
+    (a quoted article of an amendment with the number of an earlier one is text of the
+    amending article), an article without text is left out."""
     root = _parse_html(html)
     titles = [p for p in root.iter("p") if _classes(p) & _TITLE_CLASSES]
     articles = _journal_articles(root, titles) if titles else _flat_articles(root)
@@ -174,12 +210,50 @@ def parse_articles(html: str) -> list[EuArticle]:
             continue
         seen.add(article.number)
         unique.append(article)
-    return unique
+    return EuAct(_printed_title(root), tuple(unique))
 
 
-def _article(number: str, heading: str | None, blocks: list[_Block]) -> EuArticle:
+def parse_articles(html: str) -> list[EuArticle]:
+    """The articles of the act (see ``parse_act``)."""
+    return list(parse_act(html).articles)
+
+
+def _printed_title(root: ET.Element) -> tuple[str, ...]:
+    """The ``doc-ti`` paragraphs of the main title, else the description of the page."""
+    main = next((e for e in root.iter() if "eli-main-title" in _classes(e)), root)
+    paragraphs = tuple(
+        text
+        for p in main.iter("p")
+        if _classes(p) & _DOC_TITLE_CLASSES and (text := _text(p))
+    )
+    if paragraphs:
+        return paragraphs
+    for meta in root.iter("meta"):
+        if meta.get("name") == _DESCRIPTION_META:
+            description = collapse_ws(meta.get("content"))
+            return (description,) if description else ()
+    return ()
+
+
+def _article(
+    number: str,
+    heading: str | None,
+    blocks: list[_Block],
+    breadcrumb: tuple[Crumb, ...] = (),
+) -> EuArticle:
     text, parts = _build(blocks)
-    return EuArticle(number, heading, text, tuple(parts))
+    return EuArticle(number, heading, text, tuple(parts), breadcrumb)
+
+
+def _crumb(label: str, title: str | None) -> Crumb:
+    """A division from its printed label ("HOOFDSTUK III") and title."""
+    kind, _, rest = collapse_ws(label).partition(" ")
+    written = kind.capitalize() if kind.isupper() else kind
+    return Crumb(
+        type=kind.lower(),
+        label=f"{written} {rest}".strip(),
+        title=collapse_ws(title) or None,
+    )
 
 
 # --- The Official Journal format -----------------------------------------------------
@@ -195,6 +269,7 @@ def _journal_articles(root: ET.Element, titles: list[ET.Element]) -> list[EuArti
         if (match := _ARTICLE_RE.fullmatch(_text(title)))
         and not _in_cell(title, parents)
     }
+    divisions: dict[ET.Element, Crumb | None] = {}
     articles: list[EuArticle] = []
     for title, number in numbered.items():
         siblings = list(parents[title])
@@ -209,8 +284,48 @@ def _journal_articles(root: ET.Element, titles: list[ET.Element]) -> list[EuArti
             body.append(element)
         blocks: list[_Block] = []
         _add_blocks(body, 0, blocks)
-        articles.append(_article(number, heading, blocks))
+        breadcrumb = _journal_breadcrumb(title, parents, divisions)
+        articles.append(_article(number, heading, blocks, breadcrumb))
     return articles
+
+
+def _journal_breadcrumb(
+    title: ET.Element,
+    parents: dict[ET.Element, ET.Element],
+    divisions: dict[ET.Element, Crumb | None],
+) -> tuple[Crumb, ...]:
+    """The divisions around the article of *title*, outermost first; *divisions* keeps
+    what an element was found to be."""
+    crumbs: list[Crumb] = []
+    node = parents.get(title)
+    while node is not None:
+        if node not in divisions:
+            divisions[node] = _journal_division(node)
+        if (crumb := divisions[node]) is not None:
+            crumbs.append(crumb)
+        node = parents.get(node)
+    return tuple(reversed(crumbs))
+
+
+def _journal_division(element: ET.Element) -> Crumb | None:
+    """The division *element* is when a label paragraph opens it: its label and the
+    title in a paragraph of its own or in its ``eli-title``."""
+    label: str | None = None
+    title: str | None = None
+    for child in element:
+        classes = _classes(child)
+        if child.tag == "p" and classes & _DIVISION_LABEL_CLASSES and label is None:
+            label = _text(child)
+        elif child.tag == "p" or "eli-title" in classes:
+            title = title or next(
+                (
+                    _text(node)
+                    for node in child.iter("p")
+                    if _classes(node) & _DIVISION_TITLE_CLASSES
+                ),
+                None,
+            )
+    return _crumb(label, title) if label else None
 
 
 def _in_cell(element: ET.Element, parents: dict[ET.Element, ET.Element]) -> bool:
@@ -317,29 +432,96 @@ def _flat_articles(root: ET.Element) -> list[EuArticle]:
         for p in root.iter("p")
         if all(node is p for node in p.iter("p")) and (text := _text(p))
     ]
-    articles: list[EuArticle] = []
-    number: str | None = None
-    body: list[str] = []
-    for text in [*paragraphs, ""]:
+    reader = _FlatReader()
+    for index, text in enumerate(paragraphs):
+        following = paragraphs[index + 1] if index + 1 < len(paragraphs) else ""
+        reader.read(text, following)
+    reader.end_article()
+    return reader.articles
+
+
+class _FlatReader:
+    """Reads the paragraphs of the old format one by one: the article that is open, its
+    paragraphs and the divisions it stands in."""
+
+    def __init__(self) -> None:
+        self.articles: list[EuArticle] = []
+        self.number: str | None = None
+        self.body: list[str] = []
+        self.crumbs: list[Crumb] = []
+        self.untitled = False  # the last division has no title yet
+
+    def read(self, text: str, following: str) -> None:
+        number = self._new_article(text)
+        division = _flat_division(text)
+        if number is not None or _CLOSING_RE.match(text) or _DIVISION_RE.match(text):
+            self.end_article()
+            self.number = number
+        elif division is not None:
+            self.end_article()
+        elif self._is_untitled_heading(text, following):
+            self.end_article()
+            self.crumbs = (
+                [Crumb(self.crumbs[0].type, None, text)] if self.crumbs else []
+            )
+            return
+        elif self.number is not None:
+            self.body.append(text)
+        elif self.untitled and _is_heading(text):
+            self.crumbs[-1] = _crumb(self.crumbs[-1].label or "", text)
+        self.untitled = False
+        if division is not None:
+            self._open(division)
+
+    def end_article(self) -> None:
+        if self.number is not None:
+            self.articles.append(
+                _flat_article(self.number, self.body, tuple(self.crumbs))
+            )
+        self.number, self.body = None, []
+
+    def _new_article(self, text: str) -> str | None:
+        """The number of the article *text* starts, None for one taken before."""
         match = _ARTICLE_RE.fullmatch(text)
-        if match and match[1] in (number, *(article.number for article in articles)):
-            match = None
-        ends = not text or match or _CLOSING_RE.match(text) or _DIVISION_RE.match(text)
-        if not ends:
-            if number is not None:
-                body.append(text)
-            continue
-        if number is not None:
-            articles.append(_flat_article(number, body))
-        number, body = (match[1] if match else None), []
-    return articles
+        if not match or match[1] == self.number:
+            return None
+        if any(article.number == match[1] for article in self.articles):
+            return None
+        return match[1]
+
+    def _is_untitled_heading(self, text: str, following: str) -> bool:
+        """A heading in capitals without a label between two articles."""
+        return (
+            self.number is not None
+            and text.isupper()
+            and not text.endswith(_SENTENCE_END)
+            and self._new_article(following) is not None
+        )
+
+    def _open(self, division: Crumb) -> None:
+        """A kind that is open ends with what is inside it; another kind nests."""
+        kinds = [crumb.type for crumb in self.crumbs]
+        if division.type in kinds:
+            del self.crumbs[kinds.index(division.type) :]
+        self.crumbs.append(division)
+        self.untitled = division.title is None
 
 
-def _flat_article(number: str, paragraphs: list[str]) -> EuArticle:
+def _flat_division(text: str) -> Crumb | None:
+    """The division a paragraph of the old format opens, if it is a division heading."""
+    match = _DIVISION_LABEL_RE.fullmatch(text)
+    if not match or not (match[1].isupper() or match[3]):
+        return None
+    return _crumb(f"{match[1]} {match[2]}", match[4])
+
+
+def _flat_article(
+    number: str, paragraphs: list[str], breadcrumb: tuple[Crumb, ...]
+) -> EuArticle:
     heading: str | None = None
     if len(paragraphs) > 1 and _is_heading(paragraphs[0]):
         heading, paragraphs = paragraphs[0], paragraphs[1:]
-    return _article(number, heading, _flat_blocks(paragraphs))
+    return _article(number, heading, _flat_blocks(paragraphs), breadcrumb)
 
 
 def _is_heading(text: str) -> bool:

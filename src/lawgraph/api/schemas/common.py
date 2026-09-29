@@ -65,6 +65,11 @@ class InstrumentSummaryDTO(BaseModel):
 
     id: str
     key: str
+    bwb_id: str | None = None
+    celex: str | None = Field(None, description="CELEX number of an EU act.")
+    title: str | None = None
+    citation_title: str | None = None
+    short_title: str | None = None
     display_name: str | None
     official_url: str | None = Field(None, description=OFFICIAL_URL)
     article_count: int = Field(0, description="The articles of the instrument.")
@@ -85,6 +90,11 @@ class InstrumentSummaryDTO(BaseModel):
         return cls(
             id=doc["_id"],
             key=doc["_key"],
+            bwb_id=props.get("bwb_id"),
+            celex=props.get("celex"),
+            title=props.get("title"),
+            citation_title=props.get("citation_title"),
+            short_title=props.get("short_title"),
             display_name=props.get("display_name"),
             official_url=instrument_url(props),
             article_count=int(props.get("article_count") or 0),

@@ -541,6 +541,7 @@ def get_instruments_list(
                 short_title: props.short_title,
                 kind: props.kind,
                 citation_title: citation_title,
+                display_name: props.display_name != null ? props.display_name : citation_title,
                 jurisdiction: props.jurisdiction,
                 article_count: props.article_count,
                 uri: props.uri,
