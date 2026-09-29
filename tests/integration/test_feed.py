@@ -399,6 +399,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "number": "37000",
         "title": "Wijziging van de Wet voorbeeld (Wet beter voorbeeld)",
         "short_title": "Wet beter voorbeeld",
+        "short_title_basis": "title",
     }
 
     amendment = items["amendement"]
@@ -764,18 +765,29 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
         "amendement": 1,
         "motie": 1,
     }
-    assert {d["number"]: d["short_title"] for d in may_first["dossiers"]} == {
-        "37000": "Wet beter voorbeeld",
-        "37001-VII": None,
-    }
+    assert [
+        (d["kind"], d["number"], d["short_title"], d["count"])
+        for d in may_first["dossiers"]
+    ] == [
+        ("amendement", "37000", "Wet beter voorbeeld", 1),
+        ("motie", "37001-VII", None, 1),
+    ]
+    assert isinstance(summary["data_as_of"], dict)
     # the vote is decided by 10 seats: close enough by default
     assert [item["id"] for item in summary["items"]] == ["decisions/stemming_1"]
     assert summary["items"][0]["headline"]["surname"] == "Bakker"
 
+    # a closer margin, and no day is quiet enough to show all its votes
     closer = client.get(
-        "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "margin": 5}
+        "/api/feed/summary",
+        params={"until": "2026-05-12", "days": 12, "margin": 5, "few": 0},
     ).json()
     assert closer["items"] == []
+    # the only vote of its day is shown, whatever its margin
+    quiet = client.get(
+        "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "margin": 5}
+    ).json()
+    assert [item["id"] for item in quiet["items"]] == ["decisions/stemming_1"]
     bill_day = client.get(
         "/api/feed/summary", params={"until": "2026-03-01", "days": 1}
     ).json()
@@ -786,3 +798,86 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
     ).json()
     assert sum(day["total"] for day in by_member["days"]) == 1
     assert client.get("/api/feed/summary?days=0").status_code == 422
+
+
+def test_a_bill_goes_by_the_name_official_data_give_it(database: str) -> None:
+    """The citation title in the bill itself, else of its case, else of the one Dutch law
+    it changes; nothing when there is none of them (a law of the EU is no name)."""
+    case = "55555555-5555-5555-5555-555555555555"
+    nodes = [
+        *(
+            _node(
+                COLLECTION_DOSSIERS,
+                NodeType.DOSSIER,
+                number,
+                number=number,
+                label=number,
+                title="Wijziging van enige wetten",
+            )
+            for number in ("38001", "38002", "38003", "38004")
+        ),
+        _document(
+            "bill_101",
+            "Voorstel van wet",
+            "2026-06-01",
+            "38001",
+            text="Artikel III\nDeze wet wordt aangehaald als: Wet sterkere archieven.",
+        ),
+        _document(
+            "bill_102", "Voorstel van wet", "2026-06-02", "38002", case_ids=[case]
+        ),
+        _document("bill_103", "Voorstel van wet", "2026-06-03", "38003"),
+        _document("bill_104", "Voorstel van wet", "2026-06-04", "38004"),
+        _node(
+            COLLECTION_CASES,
+            NodeType.CASE,
+            case.replace("-", "_"),
+            citation_title="Wet open overheid",
+        ),
+        _node(
+            COLLECTION_INSTRUMENTS,
+            NodeType.INSTRUMENT,
+            "bwbr0007376",
+            bwb_id="BWBR0007376",
+            citation_title="Archiefwet 1995",
+        ),
+        _node(
+            COLLECTION_INSTRUMENTS,
+            NodeType.INSTRUMENT,
+            "32019l1937",
+            celex="32019L1937",
+            citation_title="Richtlijn 2019/1937/EU",
+            labels=["EU"],
+        ),
+    ]
+    store = ArangoStore()
+    with NodeWriter(store) as writer:
+        writer.add_all(nodes)
+    with EdgeWriter(store, what=None) as edges:
+        for paper, law in (("bill_103", "bwbr0007376"), ("bill_104", "32019l1937")):
+            edges.add(
+                f"{COLLECTION_DOCUMENTS}/{paper}",
+                f"{COLLECTION_INSTRUMENTS}/{law}",
+                RELATION_AMENDS,
+                source="t",
+                status="voorgesteld",
+            )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        items = _feed(_test_client(), kind="wetsvoorstel")["items"]
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    names = {
+        item["dossier"]["number"]: (
+            item["dossier"]["short_title"],
+            item["dossier"]["short_title_basis"],
+            item["headline"]["short_title"],
+        )
+        for item in items
+    }
+    assert names == {
+        "38001": ("Wet sterkere archieven", "citation", "Wet sterkere archieven"),
+        "38002": ("Wet open overheid", "case", "Wet open overheid"),
+        "38003": ("Archiefwet 1995", "amended_law", "Archiefwet 1995"),
+        "38004": (None, None, None),
+    }

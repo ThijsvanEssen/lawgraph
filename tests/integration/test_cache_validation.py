@@ -88,3 +88,31 @@ def test_a_large_answer_is_compressed_and_still_validated(
     # the Atom feed of an empty graph is small; its headers say what a large one gets
     assert atom.status_code == 200
     assert atom.headers["etag"] == first.headers["etag"]
+
+
+def test_a_release_changes_the_etag_and_every_answer_says_how_to_keep_it(
+    database: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A browser that kept an answer of an older release asks with its tag and gets the
+    new answer, not a 304: the tag holds the API version. An error is never kept."""
+    monkeypatch.setattr(app_module, "DATA_VERSION_TTL", 0.0)
+    store = ArangoStore()
+    _put(store, "Een samenvatting.")
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        first = client.get(PATH)
+        data_version = first.headers["etag"].rsplit("-", 1)[1].rstrip('"')
+        older_release = client.get(
+            PATH, headers={"If-None-Match": f'W/"0.0.1-{data_version}"'}
+        )
+        missing = client.get("/api/judgments/ECLI:NL:HR:1999:1")
+        invalid = client.get("/api/feed?kind=roddel")
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    assert first.headers["etag"].startswith(f'W/"{app.version}-')
+    assert older_release.status_code == 200
+    assert (missing.status_code, missing.headers["cache-control"]) == (404, "no-store")
+    assert (invalid.status_code, invalid.headers["cache-control"]) == (422, "no-store")
+    assert "etag" not in missing.headers
