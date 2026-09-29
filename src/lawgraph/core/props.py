@@ -37,7 +37,6 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
-    COLLECTION_TOPICS,
 )
 
 
@@ -72,7 +71,6 @@ class InstrumentProps(_CommonProps):
     kind: str | None = None
     lang: str | None = None
     meta: dict[str, Any] | None = None
-    topics: list[str] | None = None
     external_id: str | None = None
     uri: str | None = None
     title_nl: str | None = None
@@ -560,19 +558,6 @@ class FactionProps(_CommonProps):
 
 
 # ---------------------------------------------------------------------------
-# topics
-# ---------------------------------------------------------------------------
-
-
-class TopicProps(_CommonProps):
-    id: str | None = None
-    slug: str | None = None
-    name: str | None = None
-    description: str | None = None
-    tags: list[str] | None = None
-
-
-# ---------------------------------------------------------------------------
 # cases (TK Zaken)
 # ---------------------------------------------------------------------------
 
@@ -636,7 +621,6 @@ COLLECTION_SCHEMAS: dict[str, type[_StrictBase]] = {
     COLLECTION_MEMBERS: MemberProps,
     COLLECTION_FACTIONS: FactionProps,
     COLLECTION_CABINETS: CabinetProps,
-    COLLECTION_TOPICS: TopicProps,
     COLLECTION_CASES: CaseProps,
     COLLECTION_ANNEXES: AnnexProps,
 }

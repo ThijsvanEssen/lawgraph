@@ -13,7 +13,7 @@ A node is a document `{_key, type, labels, props}`:
   non-alphanumerics replaced by `_`), so every pipeline can be re-run.
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
   `annex`, `judgment`, `dossier`, `case`, `document`, `activity`, `decision`, `commitment`,
-  `member`, `faction`, `committee`, `topic`). Every type has its own collection and every
+  `member`, `faction`, `committee`, `cabinet`). Every type has its own collection and every
   collection holds one type (`core.models.COLLECTION_OF_TYPE`), so the collection in an id
   says the type.
 - `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
@@ -26,7 +26,7 @@ A node is a document `{_key, type, labels, props}`:
   at it; `semantic rechtspraak-citations` removes one that has none.
 
 Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
-store), `topics` (schema only; nothing writes it), `pipeline_state` (one document per phase:
+store), `pipeline_state` (one document per phase:
 when its last complete `<phase> all` began, for `--since last`).
 
 ## Node types and relation catalogue
