@@ -59,7 +59,7 @@ def test_an_ordered_list_takes_a_place(copy: Path) -> None:
     order = list(LISTS["ministries"].entries())
     assert order[order.index("az") + 1] == "nieuw"
     assert not command.main(
-        ["set", "ministries", "nieuw", "--first", '{"name": "Nieuw"}']
+        ["set", "ministries", "nieuw", '{"name": "Nieuw"}', "--first"]
     ).errors
     assert list(LISTS["ministries"].entries())[0] == "nieuw"
     assert not command.main(["remove", "ministries", "nieuw"]).errors
