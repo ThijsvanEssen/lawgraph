@@ -250,6 +250,14 @@ class JudgmentProps(_CommonProps):
     court_kind: str | None = None
     date_eff: str | None = None
     inbound_citation_count: int | None = None
+    # the judgments its text cites (``semantic graph-list-stats``)
+    outbound_citation_count: int | None = None
+    # ``dcterms:isReplacedBy``: the ECLI of the publication of the same decision that
+    # replaces this one
+    replaced_by: str | None = None
+    # that publication, when it is loaded (``semantic rechtspraak-duplicates``): this one
+    # is ``SAME_AS`` it and left out of the lists
+    same_as: str | None = None
     # parallel cases of one court and day (``semantic rechtspraak-series``): the lowest
     # ECLI of the series and how many judgments it has
     series_id: str | None = None

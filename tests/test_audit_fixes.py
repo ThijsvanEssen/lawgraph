@@ -205,6 +205,8 @@ class _JudgmentStore(RawSourcesFake):
         if "raw_sources" in aql:  # the ECLIs of the judgments retrieved since a date
             self.recent.append(dict(bind_vars or {}))
             return iter(["ECLI:NL:HR:2020:1"])
+        if "REMOVE e IN edges" in aql:  # the citations the text no longer makes
+            return iter([])
         assert "FOR j IN judgments" in aql
         if "COLLECT WITH COUNT" in aql:  # the total for the progress line
             return iter([3])

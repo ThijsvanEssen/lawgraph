@@ -74,6 +74,7 @@ they are out of date. Do not edit inside the markers.
 | `REFERRED_BY` | Judgment | Judgment | A decision after referral (verwijzing) → the ruling of the Hoge Raad that set aside the earlier decision and sent the case to it: an earlier instance its metadata names that is a Hoge Raad ruling (not a preliminary ruling). |
 | `ADVISES_ON` | Judgment | Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case, one way only: the formal relation of either, when the side it calls the conclusion is one (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
 | `ANSWERS` | Judgment | Judgment | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). |
+| `SAME_AS` | Judgment | Judgment | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
 | `LED_BY` | Activity | Committee | The lead committee (`voortouwcommissie`) of an activity; absent for plenary. |
@@ -289,7 +290,13 @@ Parallel cases a court decided on one day in (nearly) the same words form a seri
 judgment of it has `series_id`, the lowest ECLI in the series, and `series_size`; outside a
 series both are null (`semantic rechtspraak-series`). A series has no edges.
 
-`paragraphs` is the `<uitspraak>` in reading order, a list of `{id, number, kind, text}`. `kind` is
+A publication of a decision that another publication replaces (`dcterms:isReplacedBy`, kept as
+`replaced_by`) is `SAME_AS` the one kept when that is loaded, and has its ECLI as `same_as`
+(`semantic rechtspraak-duplicates`); the lists leave it out. `inbound_citation_count` counts
+the judgments that cite a judgment or a publication `SAME_AS` it, each once;
+`outbound_citation_count` the judgments it cites.
+
+`paragraphs` is the `<uitspraak>` (of a conclusion: the `<conclusie>`) in reading order, a list of `{id, number, kind, text}`. `kind` is
 `heading` (a section or a bridgehead), `subheading` (a nested section, or the kop) or `body`.
 The kop is every line before the first section heading (`Procesverloop`, `De procedure`,
 `Onderzoek van de zaak`, `1 Het verloop van het geding`, ...): court, case number, date and
@@ -476,7 +483,7 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
-| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, court_kind, stub)`, `(court_code, date_eff, tier, court_kind, stub, source)`, `(tier, court_kind, date_eff, stub, source)`, `(court_kind, date_eff, stub, source)` and `(date_eff, tier, court_kind, stub, source)`: the index of each filter of `/api/judgments` holds the tier, the kind of court, the source, the date and `stub` (the list leaves stubs out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
+| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.replaced_by` and `props.same_as`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, court_kind, stub, same_as)`, `(court_code, date_eff, tier, court_kind, stub, source, same_as)`, `(tier, court_kind, date_eff, stub, source, same_as)`, `(court_kind, date_eff, stub, source, same_as)` and `(date_eff, tier, court_kind, stub, source, same_as)`: the index of each filter of `/api/judgments` holds the tier, the kind of court, the source, the date, `stub` and `same_as` (the list leaves stubs and replaced publications out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
 | `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on (`dossiers` `props.order`, `props.label` (a number prefix as a range), `props.opened_on`; `dossiers` and `commitments` also `props.cabinet`, `props.ministry`; `commitments` `props.member_key`); the date of each kind of event of `/api/feed`, not sparse, so a page is read newest first from the index: `documents` `(props.kind, props.date)` and `props.dossier_numbers[*]` (the memorie van toelichting of a bill's dossier), `commitments` `props.made_on`, `instruments` `(props.kind, props.date_published)`, `instrument_versions` `props.valid_from` |
 | `members` | `props.government_functions[*].cabinet_key` (`GET /api/members?cabinet=`) |
 | `raw_sources` | `(source, kind)` |

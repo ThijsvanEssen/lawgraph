@@ -394,6 +394,34 @@ FOR j IN {COLLECTION_JUDGMENTS}
     return store.query(aql)
 
 
+def replaced_judgments(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, key, ecli, replaced_by, same_as}`` of the judgments a later publication
+    replaces (``props.replaced_by``) and of those ``SAME_AS`` another now; each through
+    its sparse index."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.replaced_by != null OR j.props.same_as != null
+  RETURN {{
+    id: j._id,
+    key: j._key,
+    ecli: j.props.ecli,
+    replaced_by: j.props.replaced_by,
+    same_as: j.props.same_as
+  }}
+"""
+    return store.query(aql)
+
+
+def loaded_judgment_ids(store: Store, eclis: list[str]) -> Iterator[dict[str, Any]]:
+    """``{ecli, id}`` of the judgments with these *eclis* that are loaded (no stub)."""
+    aql = f"""
+FOR doc IN {COLLECTION_JUDGMENTS}
+  FILTER doc.props.ecli IN @eclis AND doc.props.stub != true
+  RETURN {{ ecli: doc.props.ecli, id: doc._id }}
+"""
+    return store.query(aql, {"eclis": eclis})
+
+
 def judgments_of_court_day(
     store: Store,
     *,
