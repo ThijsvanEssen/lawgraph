@@ -472,6 +472,9 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_DECISIONS, ["props.date"], False),
         # `GET /api/decisions?dossier=`: `@number IN decision.props.dossier_numbers`
         (COLLECTION_DECISIONS, ["props.dossier_numbers[*]"], False),
+        # the memorie van toelichting of a bill's dossier (`queries/feed.py`); not sparse:
+        # the dossier is a loop variable there
+        (COLLECTION_DOCUMENTS, ["props.dossier_numbers[*]"], False, False),
         (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
         (COLLECTION_COMMITMENTS, ["props.status"], False),
         (COLLECTION_COMMITMENTS, ["props.number"], False),

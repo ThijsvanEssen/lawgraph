@@ -3,13 +3,24 @@ variables it builds, and the items and Atom document made of its rows."""
 
 from __future__ import annotations
 
+import base64
+import json
 import re
 from xml.etree import ElementTree
 
 import pytest
 
-from lawgraph.api.schemas.feed import FeedItemDTO, FeedResponse, atom_feed
+from lawgraph.api.routes.feed import feed_title, site_query
+from lawgraph.api.schemas.feed import (
+    FeedItemDTO,
+    FeedResponse,
+    _subject,
+    _surname,
+    atom_feed,
+)
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
+    DAY_ORDER,
     DOCUMENT_KINDS,
     FEED_KINDS,
     FeedCursor,
@@ -19,33 +30,55 @@ from lawgraph.db.queries.feed import _SOURCES, FeedFilters, feed_query
 
 
 def test_a_cursor_survives_its_token() -> None:
-    cursor = FeedCursor(date="2026-05-01", id="documents/motion_005")
+    cursor = FeedCursor(date="2026-05-01", kind="motie", id="documents/motion_005")
     token = cursor.encode()
     assert re.fullmatch(r"[A-Za-z0-9_-]+", token)
     assert FeedCursor.decode(token) == cursor
 
 
-@pytest.mark.parametrize("token", ["nonsense!", "WyIyMDI2Il0", "e30", ""])
+def _token(value: object) -> str:
+    raw = json.dumps(value).encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "nonsense!",
+        "e30",
+        "",
+        _token(["2026-05-01", "documents/x"]),  # no kind
+        _token(["2026-05-01", "roddel", "documents/x"]),
+    ],
+)
 def test_a_token_this_api_did_not_hand_out_is_refused(token: str) -> None:
     with pytest.raises(ValueError, match="not a feed cursor"):
         FeedCursor.decode(token)
 
 
 @pytest.mark.parametrize(
-    ("role", "capacity", "expected"),
+    ("role", "capacity", "kind", "expected"),
     [
-        ("Eerste ondertekenaar", "kamerlid", "indiener"),
-        ("Mede ondertekenaar", "kamerlid", "medeindiener"),
-        ("Eerste ondertekenaar", "bewindspersoon", "bewindspersoon"),
-        ("Mede namens", "bewindspersoon", "bewindspersoon"),
-        ("Eerste ondertekenaar", "overig", None),
-        (None, None, None),
+        ("Eerste ondertekenaar", "kamerlid", "motie", "indiener"),
+        ("Mede ondertekenaar", "kamerlid", "motie", "medeindiener"),
+        ("Eerste ondertekenaar", "bewindspersoon", "brief_regering", "bewindspersoon"),
+        ("Mede namens", "bewindspersoon", "toezegging", "bewindspersoon"),
+        # a bill and a note of change are submitted by who signs them
+        ("Eerste ondertekenaar", "bewindspersoon", "wetsvoorstel", "indiener"),
+        ("Mede namens", "bewindspersoon", "nota_van_wijziging", "medeindiener"),
+        ("Eerste ondertekenaar", "overig", "wetsvoorstel", None),
+        (None, None, None, None),
     ],
 )
 def test_a_signature_has_its_role(
-    role: str | None, capacity: str | None, expected: str | None
+    role: str | None, capacity: str | None, kind: str | None, expected: str | None
 ) -> None:
-    assert person_role(role, capacity) == expected
+    assert person_role(role, capacity, kind) == expected
+
+
+def test_a_day_orders_its_kinds() -> None:
+    assert DAY_ORDER[:3] == ("wetsvoorstel", "stemming", "toezegging")
+    assert set(DAY_ORDER) == set(FEED_KINDS)
 
 
 def test_every_kind_is_read_from_a_source() -> None:
@@ -69,7 +102,9 @@ def _bind_names(aql: str) -> set[str]:
     ],
 )
 @pytest.mark.parametrize("facets", [True, False])
-@pytest.mark.parametrize("cursor", [None, FeedCursor("2026-05-01", "documents/x")])
+@pytest.mark.parametrize(
+    "cursor", [None, FeedCursor("2026-05-01", "motie", "documents/x")]
+)
 def test_every_bind_variable_is_used_and_every_used_one_is_bound(
     filters: FeedFilters, facets: bool, cursor: FeedCursor | None
 ) -> None:
@@ -111,16 +146,31 @@ def test_a_page_without_filters_is_cut_before_anything_is_looked_up() -> None:
     assert rows.index("LET labels") < rows.index("LIMIT @page_size")
 
 
+def test_a_kind_reads_the_cursor_s_day_by_its_rank() -> None:
+    cursor = FeedCursor("2026-05-01", "toezegging", "commitments/c1")
+    aql, bind = feed_query(FeedFilters(), cursor=cursor, facets=False)
+    rows = {
+        block.split('kind: "')[1].split('"')[0]: block
+        for block in aql.split("LET rows_")[1:]
+    }
+    assert "== @cursor_date ? false : true" in rows["wetsvoorstel"]
+    assert "== @cursor_date ? n._id > @cursor_id : true" in rows["toezegging"]
+    assert "== @cursor_date ? true : true" in rows["motie"]
+    assert "cursor_rank" not in bind  # only the page with facets reads it
+    _, bind = feed_query(FeedFilters(), cursor=cursor, facets=True)
+    assert bind["cursor_rank"] == 2
+
+
 def test_a_cursor_reads_nothing_after_its_day_from_the_index() -> None:
     _, bind = feed_query(
         FeedFilters(until="2026-12-31"),
-        cursor=FeedCursor("2026-05-01", "documents/x"),
+        cursor=FeedCursor("2026-05-01", "motie", "documents/x"),
         facets=False,
     )
     assert bind["until"] == "2026-05-01"
     _, bind = feed_query(
         FeedFilters(until="2026-12-31"),
-        cursor=FeedCursor("2026-05-01", "documents/x"),
+        cursor=FeedCursor("2026-05-01", "motie", "documents/x"),
         facets=True,
     )
     assert bind["until"] == "2026-12-31"
@@ -150,6 +200,8 @@ VOTE_ROW = {
     "persons": [
         {
             "person_id": "22222222-2222-2222-2222-222222222222",
+            "member_key": "22222222_2222_2222_2222_222222222222",
+            "member_name": "Bram Bakker",
             "name": "B. Bakker",
             "role": "Eerste ondertekenaar",
             "capacity": "kamerlid",
@@ -158,7 +210,6 @@ VOTE_ROW = {
         },
         {"name": "griffier", "role": "Mede ondertekenaar", "capacity": "overig"},
     ],
-    "member": None,
     "instrument": None,
     "changed_articles": 0,
     "changed_instruments": [],
@@ -176,7 +227,9 @@ def test_a_vote_is_an_item() -> None:
     assert [p.model_dump() for p in item.persons] == [
         {
             "key": "22222222_2222_2222_2222_222222222222",
-            "name": "B. Bakker",
+            "name": "Bram Bakker",
+            "surname": "Bakker",
+            "function": None,
             "role": "indiener",
             "faction": {"key": "d66", "short": "D66"},
         }
@@ -184,6 +237,45 @@ def test_a_vote_is_an_item() -> None:
     assert item.dossier is not None and item.dossier.short_title is None
     assert item.commitment is None and item.publication is None
     assert item.tk_url is None and item.official_url is None
+
+
+def test_a_vote_has_the_parts_of_its_headline() -> None:
+    item = FeedItemDTO.from_row(VOTE_ROW)
+    assert item.headline.model_dump() == {
+        "surname": "Bakker",
+        "subject": None,
+        "short_title": None,
+    }
+
+
+@pytest.mark.parametrize(
+    ("title", "subject"),
+    [
+        ("Motie van het lid Van der Plas over de mestregels", "de mestregels"),
+        ("Gewijzigde motie van de leden A en B over X over Y", "X over Y"),
+        ("Brief over", None),
+        ("Stand van zaken gemeentefonds", None),
+        (None, None),
+    ],
+)
+def test_the_subject_is_what_comes_after_over(
+    title: str | None, subject: str | None
+) -> None:
+    assert _subject(title) == subject
+
+
+@pytest.mark.parametrize(
+    ("signature", "surname"),
+    [
+        ({"name": "C.A.M. van der Plas"}, "van der Plas"),
+        ({"name": "Th.J.A.M. de Bruijn"}, "de Bruijn"),
+        ({"name": "Vijlbrief, J.A.", "member_name": "Hans Vijlbrief"}, "Vijlbrief"),
+        ({"name": None, "member_name": "Hanneke Steen"}, "Steen"),
+        ({"name": None, "member_name": None}, None),
+    ],
+)
+def test_a_surname_keeps_its_prefix(signature: dict, surname: str | None) -> None:
+    assert _surname(signature) == surname
 
 
 def test_a_commitment_without_a_due_date_says_none() -> None:
@@ -201,39 +293,128 @@ def test_a_commitment_without_a_due_date_says_none() -> None:
             "persons": [
                 {
                     "member_key": "m1",
+                    "member_name": "Hans Vijlbrief",
                     "name": "Vijlbrief, J.A.",
+                    "function": "Minister van Sociale Zaken en Werkgelegenheid",
                     "role": "Eerste ondertekenaar",
                     "capacity": "bewindspersoon",
                 }
             ],
-            "member": {"key": "m1", "name": "Hans Vijlbrief"},
         }
     )
     assert item.commitment is not None
     assert item.commitment.model_dump() == {"status": None, "expected_resolution": None}
-    assert [(p.key, p.name, p.role) for p in item.persons] == [
-        ("m1", "Hans Vijlbrief", "bewindspersoon")
+    assert [(p.key, p.name, p.surname, p.function, p.role) for p in item.persons] == [
+        (
+            "m1",
+            "Hans Vijlbrief",
+            "Vijlbrief",
+            "Minister van Sociale Zaken en Werkgelegenheid",
+            "bewindspersoon",
+        )
     ]
+
+
+def test_a_bill_is_named_by_its_dossier() -> None:
+    item = FeedItemDTO.from_row(
+        {
+            "kind": "wetsvoorstel",
+            "id": "documents/b1",
+            "date": "2026-09-15",
+            "dossier": {
+                "key": "37035_xv",
+                "number": "37035-XV",
+                "title": "Wijziging van de begrotingsstaten van het Ministerie van Sociale "
+                "Zaken en Werkgelegenheid (XV) voor het jaar 2026 (wijziging "
+                "samenhangende met de Miljoenennota)",
+            },
+            "props": {"kind": "Voorstel van wet", "title": "Voorstel van wet "},
+        }
+    )
+    assert item.title is not None and item.title.startswith(
+        "Wijziging van de begroting"
+    )
+    assert item.dossier is not None
+    assert item.dossier.short_title == (
+        "Suppletoire begroting Sociale Zaken en Werkgelegenheid 2026 (Miljoenennota)"
+    )
 
 
 def test_a_page_is_an_atom_feed() -> None:
     page = FeedResponse(items=[FeedItemDTO.from_row(VOTE_ROW)], next_cursor="abc")
     body = atom_feed(
         page,
+        title="Concordans: stemmingen",
         self_url="http://x/api/feed.atom?kind=stemming",
         next_url="http://x/api/feed.atom?kind=stemming&cursor=abc",
-        node_url="http://x/api/nodes/{collection}/{key}",
+        page_url="https://site/actueel?soort=stemming",
+        site_url="https://site",
     )
     root = ElementTree.fromstring(body)
     ns = {"a": "http://www.w3.org/2005/Atom"}
+    assert root.find("a:title", ns).text == "Concordans: stemmingen"  # type: ignore[union-attr]
     assert root.find("a:updated", ns).text == "2026-05-12T00:00:00Z"  # type: ignore[union-attr]
     links = {link.get("rel"): link.get("href") for link in root.findall("a:link", ns)}
     assert links["next"].endswith("cursor=abc")
+    assert links["alternate"] == "https://site/actueel?soort=stemming"
     entry = root.find("a:entry", ns)
     assert entry is not None
     assert entry.find("a:title", ns).text == "Motie van het lid Bakker"  # type: ignore[union-attr]
-    assert entry.find("a:link", ns).get("href") == (  # type: ignore[union-attr]
-        "http://x/api/nodes/decisions/stemming_1"
-    )
+    entry_links = {
+        link.get("rel"): link.get("href") for link in entry.findall("a:link", ns)
+    }
+    assert entry_links == {
+        "alternate": "https://site/explore?focus=decisions/stemming_1"
+    }
     assert entry.find("a:category", ns).get("term") == "stemming"  # type: ignore[union-attr]
     assert entry.find("a:summary", ns).text == "Verworpen.\n37001-VII Begroting"  # type: ignore[union-attr]
+
+
+def test_the_feed_title_and_page_say_the_filters() -> None:
+    filters = FeedFilters(
+        kinds=("motie", "stemming"), dossier="36600", ministry="fin", faction="d66"
+    )
+    page = FeedResponse(items=[FeedItemDTO.from_row(VOTE_ROW)])
+    assert feed_title(filters, page) == (
+        "Concordans: moties en stemmingen, dossier 36600, Financiën, D66"
+    )
+    assert feed_title(FeedFilters(), page) == "Concordans"
+    assert site_query(filters) == {
+        "soort": "motie,stemming",
+        "ministerie": "fin",
+        "dossier": "36600",
+        "fractie": "d66",
+    }
+
+
+@pytest.mark.parametrize(
+    ("title", "short"),
+    [
+        (
+            "Vaststelling van de begrotingsstaten van het Ministerie van Defensie (X) voor "
+            "het jaar 2027",
+            "Begroting Defensie 2027",
+        ),
+        (
+            "Wijziging van de begrotingsstaat van het gemeentefonds voor het jaar 2026 "
+            "(wijziging samenhangende met de Voorjaarsnota)",
+            "Suppletoire begroting gemeentefonds 2026 (Voorjaarsnota)",
+        ),
+        (
+            "Vaststelling van de begrotingsstaten van Koninkrijksrelaties (IV) en het "
+            "BES-fonds (H) voor het jaar 2027",
+            "Begroting Koninkrijksrelaties 2027",
+        ),
+        (
+            "Jaarverslag en slotwet Ministerie van Defensie 2025 ",
+            "Slotwet Defensie 2025",
+        ),
+        ("Wijziging van de Wet X (Wet beter voorbeeld)", "Wet beter voorbeeld"),
+        ("Toekomst pensioenstelsel", None),
+        (None, None),
+    ],
+)
+def test_a_dossier_has_the_short_title_it_goes_by(
+    title: str | None, short: str | None
+) -> None:
+    assert short_title(title) == short
