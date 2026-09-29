@@ -32,6 +32,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
+from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
@@ -179,9 +180,11 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
         return result
 
     def run_gaps(self, numbers: list[str]) -> PipelineResult:
-        """Fetch the dossiers with these *numbers* (every suffix of each) and their
-        documents. A number the Tweede Kamer has no dossier of is remembered
-        (``tk-dossier-missing``), so it is not asked for again for a while."""
+        """Fetch the dossiers with these *numbers* (every suffix of each) and all their
+        documents. A number the Tweede Kamer has no dossier of (``tk-dossier-missing``), or
+        whose papers it has not all either (``tk-document-missing``: nr. 2 to 10 of a
+        dossier of before its records begin), is remembered, so it is not asked for again
+        for a while."""
         return self._store_all(self._gap_records(numbers), what="dossiers named")
 
     def _gap_records(self, numbers: list[str]) -> Iterator[RetrieveRecord]:
@@ -197,13 +200,20 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                 yield missing_record(SOURCE_TK, RAW_KIND_TK_DOSSIER, number, status=200)
                 continue
             yield from dossiers
-            yield from self._records(
+            numbered: dict[str, set[int]] = {}
+            for record in self._records(
                 RAW_KIND_TK_DOCUMENT,
                 "Id",
                 partial(
                     self.client.fetch_documents, since=None, dossier_number=int(number)
                 ),
-            )
+            ):
+                _count_number(numbered, number, record.payload_json or {})
+                yield record
+            if any(len(held) < max(held) for held in numbered.values()):
+                yield missing_record(
+                    SOURCE_TK, RAW_KIND_TK_DOCUMENT, number, status=200
+                )
 
     def _fetch_and_store(
         self,
@@ -240,3 +250,13 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                 external_id=external_id,
                 payload_json=record,
             )
+
+
+def _count_number(numbered: dict[str, set[int]], number: str, payload: Any) -> None:
+    """Add the number of the paper *payload* to *numbered* (per suffix) when it is a
+    Kamerstuk of dossier *number*."""
+    own = tk_records.own_dossier(payload)
+    sequence = payload.get("Volgnummer")
+    if own is None or own[0] != number or not isinstance(sequence, int) or sequence < 1:
+        return
+    numbered.setdefault(own[1] or "", set()).add(sequence)

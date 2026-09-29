@@ -319,7 +319,11 @@ def test_document_reads_its_cases_dossiers_and_signatories() -> None:
             "Titel": "Amendement over iets",
             "Volgnummer": 7,
             "Datum": "2024-03-01T00:00:00",
-            "Zaak": [{"Id": "z-1", "Kamerstukdossier": [{"Nummer": 29684}]}],
+            "Zaak": [
+                {"Id": "z-1", "Kamerstukdossier": [{"Nummer": 29684}]},
+                {"Id": "z-2", "Kamerstukdossier": [{"Nummer": 31058}]},
+            ],
+            "Kamerstukdossier": [{"Nummer": 29684, "Toevoeging": None}],
             "DocumentActor": [
                 {
                     "Persoon_Id": "p-1",
@@ -331,8 +335,10 @@ def test_document_reads_its_cases_dossiers_and_signatories() -> None:
             ],
         }
     )
-    assert props["case_ids"] == ["z-1"]
-    assert props["dossier_numbers"] == ["29684"]
+    assert props["case_ids"] == ["z-1", "z-2"]
+    assert props["dossier_numbers"] == ["29684", "31058"]
+    # It is part of both and numbered in one.
+    assert (props["dossier_number"], props["dossier_suffix"]) == ("29684", None)
     assert props["sequence"] == 7
     assert [a["person_id"] for a in props["actors"]] == ["p-1"]
     assert props["display_name"].startswith("Kamerstuk 29684, nr. 7")
@@ -772,3 +778,25 @@ def test_a_vote_on_a_motion_is_named_by_the_motion() -> None:
     assert tk_records.decision_display_name(primary, 1, 1, "Over de huur") == (
         "Motie 2026Z17941: Over de huur"
     )
+
+
+def test_a_paper_numbered_in_no_dossier_is_no_kamerstuk() -> None:
+    """A nader rapport sent along with a bill: part of its case, numbered nowhere."""
+    _, props = tk_records.document(
+        {
+            "Id": "doc-2",
+            "Soort": "Nader rapport",
+            "Onderwerp": "Nader rapport",
+            "Volgnummer": -1,
+            "Zaak": [
+                {
+                    "Id": "z-1",
+                    "Kamerstukdossier": [{"Nummer": 37020, "Toevoeging": "XV"}],
+                }
+            ],
+            "Kamerstukdossier": [],
+        }
+    )
+    assert props["dossier_numbers"] == ["37020-XV"]
+    assert (props["dossier_number"], props["sequence"]) == (None, None)
+    assert not props["display_name"].startswith("Kamerstuk")

@@ -34,7 +34,7 @@ from lawgraph.config.constants import (
     RELATION_REVISES,
     RELATION_SECOND_READING_OF,
 )
-from lawgraph.core.documents import chamber_of, is_explanatory
+from lawgraph.core.documents import chamber_of, is_explanatory, numbered_in
 from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
 from lawgraph.core.dossier_stages import (
     ACTIVITY_PLANNED,
@@ -82,6 +82,8 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "kind",
         "title",
         "sequence",
+        "dossier_number",
+        "dossier_suffix",
         "session_year",
         "document_number",
         "url",
@@ -467,6 +469,9 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "kind": props.get("kind"),
         "title": props.get("title"),
         "sequence": props.get("sequence"),
+        "dossier_number": numbered_in(
+            props.get("dossier_number"), props.get("dossier_suffix")
+        ),
         "session_year": props.get("session_year"),
         "date": props.get("date"),
         "tk_url": tk_url(NodeType.DOCUMENT.value, props),
@@ -486,6 +491,8 @@ _DOSSIER_DOCUMENT_ROW = """
                 title: (document.props.title != null ? document.props.title
                         : document.props.display_name),
                 sequence: document.props.sequence,
+                dossier_number: document.props.dossier_number,
+                dossier_suffix: document.props.dossier_suffix,
                 session_year: document.props.session_year,
                 date: document.props.date,
                 document_number: document.props.document_number,

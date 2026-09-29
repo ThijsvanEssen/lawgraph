@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.core.documents import chamber_of
+
 # ``core.tk_records.DECISION_KINDS``
 DecisionKind = Literal["motie", "amendement", "wetsvoorstel", "overig"]
 
@@ -46,7 +48,11 @@ class DecisionDTO(BaseModel):
         description="The ``Zaak.Soort`` of the case it decided: ``Wetgeving`` on the vote on "
         "a bill itself, ``Amendement`` or ``Motie`` on the others.",
     )
-    chamber: str | None = None
+    dossier_numbers: list[str] = Field(
+        default_factory=list,
+        description="The dossiers of the cases it decided (``36774``, ``37020-XV``).",
+    )
+    chamber: str | None = Field(None, description="'TK' or 'EK'.")
     vote_kind: str = "faction"
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
@@ -63,7 +69,8 @@ class DecisionDTO(BaseModel):
             external_id=props.get("decision_id"),
             passed=bool(props.get("passed")),
             primary_case_kind=props.get("primary_case_kind"),
-            chamber=props.get("chamber"),
+            dossier_numbers=props.get("dossier_numbers") or [],
+            chamber=chamber_of(doc.get("labels")),
             vote_kind=props.get("vote_kind") or "faction",
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},

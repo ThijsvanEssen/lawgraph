@@ -237,7 +237,11 @@ class TKClient(BaseClient):
         *keyword_fields* so the API never returns the records we would discard.
         """
         params: dict[str, Any] = {
+            # The Kamerstukdossier of the Document itself is the one it is numbered in (at
+            # most one; none for a paper that is no Kamerstuk); those of its cases are every
+            # dossier it is about.
             "$expand": (
+                "Kamerstukdossier($select=Id,Nummer,Toevoeging),"
                 "Zaak($select=Id,Soort,Titel,Onderwerp,Nummer;"
                 "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)),"
                 "DocumentActor($select=Id,ActorNaam,ActorFractie,Functie,Relatie,Persoon_Id,Fractie_Id)"
@@ -248,8 +252,12 @@ class TKClient(BaseClient):
             since_string = odata_datetime(since)
             filters.append(f"ApiGewijzigdOp ge {since_string}")
         if dossier_number is not None:
+            # Numbered in the dossier, or part of a case of it (a nader rapport is only the
+            # latter; a few papers only the former).
+            number = f"k:k/Nummer eq {int(dossier_number)}"
             filters.append(
-                f"Zaak/any(z:z/Kamerstukdossier/any(k:k/Nummer eq {int(dossier_number)}))"
+                f"(Kamerstukdossier/any({number}) "
+                f"or Zaak/any(z:z/Kamerstukdossier/any({number})))"
             )
         if keywords and keyword_fields:
             filters.append(_build_contains_filter(keyword_fields, keywords))

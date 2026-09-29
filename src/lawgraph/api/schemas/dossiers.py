@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.core.documents import numbered_in
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_links import tk_url
 
@@ -101,7 +102,13 @@ class DocumentEntryDTO(DocumentOrigin):
     kind: str | None = None
     title: str | None = None
     sequence: int | None = Field(
-        None, description="Document number within the dossier."
+        None, description="The number of the paper in ``dossier_number``."
+    )
+    dossier_number: str | None = Field(
+        None,
+        description="The dossier the paper is numbered in (``31058``, ``37020-XV``): a "
+        "paper is part of every dossier of its cases and a Kamerstuk of one. Null for a "
+        "paper that is no Kamerstuk, such as a nader rapport sent along with a bill.",
     )
     session_year: str | None = Field(None, description="Parliamentary year.")
     date: str | None = None
@@ -127,7 +134,13 @@ class TimelineDocumentBody(DocumentOrigin):
     kind: str | None = None
     title: str | None = None
     sequence: int | None = Field(
-        None, description="Document number within the dossier."
+        None, description="The number of the paper in ``dossier_number``."
+    )
+    dossier_number: str | None = Field(
+        None,
+        description="The dossier the paper is numbered in (``31058``, ``37020-XV``): a "
+        "paper is part of every dossier of its cases and a Kamerstuk of one. Null for a "
+        "paper that is no Kamerstuk, such as a nader rapport sent along with a bill.",
     )
     session_year: str | None = Field(None, description="Parliamentary year.")
     tk_url: str | None = None
@@ -268,6 +281,9 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
     if node_type == "document":
         common["body"] = {
             **{f: body.get(f) for f in ("kind", "title", "sequence", "session_year")},
+            "dossier_number": numbered_in(
+                body.get("dossier_number"), body.get("dossier_suffix")
+            ),
             "tk_url": link,
             "url": body.get("url"),
             **origin_fields(row.get("labels"), body.get("source"), body.get("kind")),
@@ -304,6 +320,9 @@ class DossierDocumentDTO(DocumentEntryDTO):
             kind=row.get("kind"),
             title=row.get("title"),
             sequence=row.get("sequence"),
+            dossier_number=numbered_in(
+                row.get("dossier_number"), row.get("dossier_suffix")
+            ),
             session_year=row.get("session_year"),
             date=row.get("date"),
             tk_url=tk_url("document", row),

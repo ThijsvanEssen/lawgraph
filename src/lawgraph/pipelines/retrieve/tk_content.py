@@ -1,15 +1,16 @@
 """Pipeline that fetches the XML of Tweede Kamer papers and stores it in raw_sources.
 
 Only papers whose kind contains one of a few words qualify (by default ``toelichting``,
-``motie`` and ``amendement``): the memoranda that feed the memorandum context (``tk-mvt``,
-``tk-amendment-articles``) and the moties and amendementen, whose text is what they say; not
-the whole corpus.
+``motie``, ``amendement``, ``voorstel van wet`` and ``nota van wijziging``): the memoranda
+that feed the memorandum context (``tk-mvt``, ``tk-amendment-articles``), the moties and
+amendementen, and the bill and its changes, whose text is what they say; not the whole
+corpus.
 The Tweede Kamer's own API serves only a PDF; the KOOP repository has the same paper as
 structured XML, filed under its dossier. ``normalize tk-content`` reads the XML from the
 raw records.
 
 Flow:
-    1. The papers of the graph that have a dossier and a number in it and no raw XML yet
+    1. The papers of the graph that are numbered in a dossier and have no raw XML yet
        (``_gaps.kamerstuk_gaps``)
     2. Build the identifier ``kst-<dossier>-<number>`` and fetch its XML
     3. Store it unchanged, keyed by the identifier; an answer of HTTP 404 becomes a record
@@ -41,7 +42,13 @@ from lawgraph.pipelines.retrieve.base import (
 logger = get_logger(__name__)
 
 # The words of a kind that qualify a paper for fetching, by default.
-DEFAULT_KINDS = ("toelichting", "motie", "amendement")
+DEFAULT_KINDS = (
+    "toelichting",
+    "motie",
+    "amendement",
+    "voorstel van wet",
+    "nota van wijziging",
+)
 
 # A new paper is first published as a PDF only ("Onopgemaakt"); its XML follows within about
 # two working days. A paper this young that the repository has no XML for yet is asked for

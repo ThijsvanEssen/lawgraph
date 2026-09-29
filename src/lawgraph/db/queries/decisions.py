@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
     COLLECTION_CASES,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
@@ -119,7 +121,11 @@ def get_decisions(
     read once, three fields each, and every count is made from that.
     """
     filters = filters or DecisionFilters()
-    bind: dict[str, Any] = {"limit": limit, "offset": offset}
+    bind: dict[str, Any] = {
+        "limit": limit,
+        "offset": offset,
+        "chambers": [CHAMBER_TK, CHAMBER_EK],
+    }
     pre, common = _common_filters(filters, bind)
     where = "\n            ".join(common)
     kind_on_row = _kind_filter(filters, "row", bind)
@@ -182,7 +188,7 @@ def get_decisions(
                 dossier_numbers: decision.props.dossier_numbers,
                 kind: decision.props.kind,
                 passed: decision.props.passed,
-                chamber: decision.props.chamber,
+                chamber: FIRST(FOR chamber IN @chambers FILTER chamber IN decision.labels RETURN chamber),
                 vote_kind: decision.props.vote_kind,
                 tally: tally,
                 voters: voters

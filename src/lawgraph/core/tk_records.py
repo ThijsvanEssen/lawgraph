@@ -775,18 +775,34 @@ def document_title(payload: Payload, cases: list[Payload]) -> str:
     return _text(payload, "Titel", "Onderwerp") or kind
 
 
+def own_dossier(payload: Payload) -> tuple[str, str | None] | None:
+    """``(Nummer, Toevoeging)`` of the Kamerstukdossier a Document is numbered in; ``None``
+    for a paper that is no Kamerstuk (a nader rapport sent along with a bill).
+
+    A Document is a Kamerstuk of at most one dossier. Its cases may reach several: the
+    report of one consultation on five bills is part of all five and nr. 11 of one.
+    """
+    dossier = next(_dicts(payload.get("Kamerstukdossier")), None)
+    if dossier is None or not dossier.get("Nummer"):
+        return None
+    return str(dossier["Nummer"]), dossier.get("Toevoeging") or None
+
+
 def document(payload: Payload) -> Record | None:
     """Node key and props for a Document (Kamerstuk) record; ``None`` when deleted.
 
-    A Document carries no dossier number of its own; it reaches dossiers
-    through Zaak → Kamerstukdossier, and one document may reach several.
+    A Document reaches dossiers through Zaak → Kamerstukdossier, and one document may
+    reach several; its number (``sequence``) is that in its own dossier
+    (``dossier_number``, ``dossier_suffix``).
     """
     external_id = _external_id(payload)
     if not external_id or is_deleted(payload):
         return None
 
     cases = list(_dicts(payload.get("Zaak")))
-    dossiers = dossier_numbers(cases)
+    own = own_dossier(payload)
+    own_label = dossier_label(*own) if own else None
+    dossiers = _distinct([*dossier_numbers(cases), own_label or ""])
     kind = payload.get("Soort") or ""
     title = document_title(payload, cases)
     sequence = payload.get("Volgnummer")  # -1 marks a non-Kamerstuk
@@ -796,6 +812,8 @@ def document(payload: Payload) -> Record | None:
         "external_id": external_id,
         "raw": payload,
         "dossier_numbers": dossiers,
+        "dossier_number": own[0] if own else None,
+        "dossier_suffix": own[1] if own else None,
         "case_ids": case_ids(cases),
         "case_kinds": case_kinds(cases),
         "sequence": sequence if (sequence or 0) > 0 else None,
@@ -811,9 +829,7 @@ def document(payload: Payload) -> Record | None:
         "session_year": payload.get("Vergaderjaar") or "",
         # What tweedekamer.nl finds the document by (``2026D44984``); see ``core.tk_links``.
         "document_number": payload.get("DocumentNummer") or None,
-        "display_name": document_display_name(
-            dossiers[0] if dossiers else None, sequence, kind, title
-        ),
+        "display_name": document_display_name(own_label, sequence, kind, title),
         "actors": document_actors(payload),
     }
 
