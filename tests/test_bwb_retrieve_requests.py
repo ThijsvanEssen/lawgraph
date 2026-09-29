@@ -4,8 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.clients.bwb import BWBClient, ToestandMeta, _newer
-from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, RAW_KIND_BWB_WTI_GENERAL
+from lawgraph.config.constants import (
+    RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_BWB_TOESTAND_ALL,
+    RAW_KIND_BWB_WTI_GENERAL,
+)
+from lawgraph.pipelines.retrieve import bwb
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from tests.fakes import RawSourcesFake
 
@@ -25,6 +32,9 @@ class _Client:
     def __init__(self, current: dict[str, ToestandMeta]) -> None:
         self.current = current
         self.requests: list[str] = []
+        self.history: dict[
+            str, list[ToestandMeta]
+        ] = {}  # every toestand per regulation
 
     def enumerate_latest(self) -> dict[str, ToestandMeta]:
         self.requests.append("listing")
@@ -37,6 +47,14 @@ class _Client:
     def fetch_toestand_xml(self, meta: ToestandMeta) -> str:
         self.requests.append(f"xml {meta['bwb_id']}")
         return "<toestand/>"
+
+    def search_toestanden(self, bwb_id: str) -> list[ToestandMeta]:
+        self.requests.append(f"sru {bwb_id}")
+        return list(self.history.get(bwb_id, []))
+
+    def enumerate_toestanden(self) -> dict[str, list[ToestandMeta]]:
+        self.requests.append("listing")
+        return {bwb_id: list(metas) for bwb_id, metas in self.history.items()}
 
     def fetch_wti_general_info(self, meta: ToestandMeta) -> str | None:
         self.requests.append(f"wti {meta['bwb_id']}")
@@ -57,8 +75,13 @@ class _Store(RawSourcesFake):
             return [d["external_id"] for d in rows]
         if "cutoff" in bind:  # stored since: everything here was stored just now
             return [d["external_id"] for d in rows if not d.get("old")]
-        return [
-            {"id": d["external_id"], "url": d["meta"].get("state_url")} for d in rows
+        return [  # the state urls and the fetch times
+            {
+                "id": d["external_id"],
+                "url": d["meta"].get("state_url"),
+                "at": "2026-01-01T00:00:00Z",
+            }
+            for d in rows
         ]
 
 
@@ -187,3 +210,118 @@ def test_a_toestand_the_repository_does_not_serve_is_remembered_not_a_failure() 
     store.docs[(RAW_KIND_BWB_TOESTAND, "BWBR1")]["old"] = True  # not stored today
     BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
     assert "xml BWBR2" not in client.requests
+
+
+# ── the history ──────────────────────────────────────────────────────────────
+
+
+def _history_client() -> _Client:
+    client = _Client(
+        {"BWBR1": _meta("BWBR1", "2024-01-01"), "BWBR2": _meta("BWBR2", "2023-07-01")}
+    )
+    client.history = {
+        "BWBR1": [
+            _meta("BWBR1", "2020-01-01", "2023-12-31"),
+            _meta("BWBR1", "2024-01-01"),
+        ],
+        "BWBR2": [_meta("BWBR2", "2023-07-01")],
+    }
+    return client
+
+
+def _history_keys(store: _Store) -> set[str]:
+    return {key for kind, key in store.docs if kind == RAW_KIND_BWB_TOESTAND_ALL}
+
+
+@pytest.mark.parametrize("listing", [False, True])
+def test_a_second_history_run_downloads_only_the_new_toestanden(
+    monkeypatch, listing: bool
+) -> None:
+    """Of a known regulation only what is new, of a new regulation everything: whether the
+    toestanden come from one SRU query per regulation or from the listing of them all."""
+    monkeypatch.setattr(bwb, "HISTORY_LISTING_FROM", 1 if listing else 1000)
+    client = _history_client()
+    store = _Store()
+    first = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
+        bwb_ids=["BWBR1", "BWBR2"]
+    )
+    assert (first.created, first.errors) == (3, [])
+    assert _history_keys(store) == {
+        "BWBR1@2020-01-01",
+        "BWBR1@2024-01-01",
+        "BWBR2@2023-07-01",
+    }
+
+    # BWBR1 gets a toestand of next year; BWBR3 is new.
+    client.history["BWBR1"].append(_meta("BWBR1", "2027-01-01"))
+    client.history["BWBR3"] = [
+        _meta("BWBR3", "2025-01-01", "2025-12-31"),
+        _meta("BWBR3", "2026-01-01"),
+    ]
+    client.requests.clear()
+    second = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
+        bwb_ids=["BWBR1", "BWBR2", "BWBR3"]
+    )
+
+    assert second.created == 3
+    downloads = sorted(r for r in client.requests if r.startswith("xml"))
+    assert downloads == ["xml BWBR1", "xml BWBR3", "xml BWBR3"]
+    asked = [r for r in client.requests if not r.startswith("xml")]
+    assert asked == (
+        ["listing"] if listing else ["sru BWBR1", "sru BWBR2", "sru BWBR3"]
+    )
+
+
+def test_full_mode_downloads_every_toestand_again() -> None:
+    client = _history_client()
+    store = _Store()
+    BWBRetrievePipeline(store=store, client=client).run_history(bwb_ids=["BWBR1"])  # type: ignore[arg-type]
+    client.requests.clear()
+    result = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
+        bwb_ids=["BWBR1"], refetch=True
+    )
+    assert result.created == 2
+    assert client.requests.count("xml BWBR1") == 2
+
+
+def test_without_ids_the_history_is_that_of_the_regulations_bwb_stored() -> None:
+    client = _history_client()
+    store = _Store()
+    BWBRetrievePipeline(store=store, client=client).run(bwb_ids=["BWBR2"])  # type: ignore[arg-type]
+    client.requests.clear()
+    BWBRetrievePipeline(store=store, client=client).run_history()  # type: ignore[arg-type]
+
+    assert client.requests == ["sru BWBR2", "xml BWBR2"]
+    assert _history_keys(store) == {"BWBR2@2023-07-01"}
+
+
+def test_a_toestand_without_a_file_is_remembered_and_not_asked_for_again() -> None:
+    import requests
+
+    from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
+
+    response = requests.Response()
+    response.status_code = 404
+
+    class Client(_Client):
+        def fetch_toestand_xml(self, meta: ToestandMeta) -> str:
+            self.requests.append(f"xml {meta['geldigheidsperiode_startdatum']}")
+            if meta["geldigheidsperiode_startdatum"] == "2020-01-01":
+                raise requests.HTTPError("404", response=response)
+            return "<toestand/>"
+
+    client = Client({})
+    client.history = _history_client().history
+    store = _Store()
+    result = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
+        bwb_ids=["BWBR1"]
+    )
+    assert (result.created, result.errors) == (1, [])
+    assert (
+        RAW_KIND_BWB_TOESTAND_ALL + RAW_KIND_MISSING_SUFFIX,
+        "BWBR1@2020-01-01",
+    ) in (store.docs)
+
+    client.requests.clear()
+    BWBRetrievePipeline(store=store, client=client).run_history(bwb_ids=["BWBR1"])  # type: ignore[arg-type]
+    assert client.requests == ["sru BWBR1"]

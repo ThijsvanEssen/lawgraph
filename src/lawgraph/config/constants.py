@@ -347,7 +347,10 @@ RECHTSPRAAK_COURT_GROUPS: dict[str, tuple[str, ...]] = {
         "gh-s-gravenhage",
     ),
 }
-RECHTSPRAAK_DEFAULT_COURTS = ("hr", "rvs", "hoven")
+# Every court the index holds (no ``creator`` filter): the rechtbanken, the special courts
+# and those that no longer exist too.
+RECHTSPRAAK_EVERY_COURT = "all"
+RECHTSPRAAK_DEFAULT_COURTS = (RECHTSPRAAK_EVERY_COURT,)
 # Judgments are published up to weeks after the decision date; an incremental run looks this
 # far before its ``--since``.
 RECHTSPRAAK_PUBLICATION_LAG_DAYS = 30

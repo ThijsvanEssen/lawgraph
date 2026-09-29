@@ -51,9 +51,7 @@ def _sources_overview() -> str:
             for pipeline in PIPELINES[phase]:
                 if pipeline.source != source:
                     continue
-                manual = phase == "retrieve" and pipeline.argv_for_all is None
-                note = " [manual: not in retrieve all]" if manual else ""
-                lines.append(f"    {pipeline.address:<34} {pipeline.description}{note}")
+                lines.append(f"    {pipeline.address:<34} {pipeline.description}")
         lines.append("")
     return "\n".join(lines).rstrip()
 

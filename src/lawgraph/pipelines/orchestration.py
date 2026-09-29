@@ -35,9 +35,7 @@ from lawgraph.sources.registry import PIPELINES, Phase, Pipeline, RetrieveCtx
 logger = get_logger(__name__)
 
 # One per server (lane): each server is paced on its own, so there is nothing to wait for.
-DEFAULT_RETRIEVE_JOBS = len(
-    {p.lane_id for p in PIPELINES["retrieve"] if p.argv_for_all is not None}
-)
+DEFAULT_RETRIEVE_JOBS = len({p.lane_id for p in PIPELINES["retrieve"]})
 DEFAULT_WINDOW = "730d"
 
 
@@ -239,13 +237,11 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
 
 
 def _pipelines_of(phase: Phase, args: argparse.Namespace) -> list[Pipeline]:
-    """The pipelines ``<phase> all`` runs: all of them, but for retrieve those that have
-    options for it, or in gaps mode those that can fill gaps."""
-    if phase != "retrieve":
-        return PIPELINES[phase]
-    if args.mode == GAPS:
+    """The pipelines ``<phase> all`` runs: all of them, but in gaps mode those that can fill
+    gaps."""
+    if phase == "retrieve" and args.mode == GAPS:
         return [pipeline for pipeline in PIPELINES[phase] if pipeline.fills_gaps]
-    return [p for p in PIPELINES[phase] if p.argv_for_all is not None]
+    return PIPELINES[phase]
 
 
 def _retrieve_argv(args: argparse.Namespace) -> ArgvOf:

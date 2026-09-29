@@ -92,9 +92,8 @@ def test_the_skip_variable_is_the_address_in_capitals(monkeypatch) -> None:
     assert not skip_step("semantic", "tk-dossiers")
 
 
-def test_a_manual_retrieve_pipeline_has_no_options_for_retrieve_all() -> None:
-    manual = {p.name for p in PIPELINES["retrieve"] if p.argv_for_all is None}
-    assert manual == {"bwb-history", "tk-content"}
+def test_every_retrieve_pipeline_is_part_of_retrieve_all() -> None:
+    assert all(p.argv_for_all is not None for p in PIPELINES["retrieve"])
 
 
 # ── the order of a phase ─────────────────────────────────────────────────────
@@ -135,11 +134,11 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
     from lawgraph.sources.registry import PIPELINES
 
     text = (Path(__file__).resolve().parents[1] / "docs" / "operations.md").read_text()
-    names = {p.name for p in PIPELINES["retrieve"] if p.argv_for_all is not None}
+    names = {p.name for p in PIPELINES["retrieve"]}
     rows = {
         "retrieve": names,
-        # "the same without TOOI, plus"
-        "normalize": names - {"tooi"} | {"bwb-history", "tk-content"},
+        # "the same without TOOI"
+        "normalize": names - {"tooi"},
         "semantic": {p.name for p in PIPELINES["semantic"]},
     }
     for phase in ("retrieve", "semantic"):
