@@ -30,8 +30,14 @@ from lawgraph.pipelines.retrieve.rechtspraak_instanties import (
 from lawgraph.pipelines.retrieve.rijksoverheid import RijksoverheidRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
+from lawgraph.pipelines.retrieve.staatscourant_posts import (
+    StaatscourantPostsRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
-from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_content import (
+    DEFAULT_KINDS,
+    TKContentRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
@@ -276,7 +282,12 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve the XML of Tweede Kamer documents."
     )
-    parser.add_argument("--kind", default="toelichting")
+    parser.add_argument(
+        "--kind",
+        action="append",
+        help="A word of the kind of paper to fetch (repeatable; default: "
+        f'{", ".join(DEFAULT_KINDS)}; "" for every paper).',
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--mode",
@@ -287,7 +298,7 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
 
     pipeline = TKContentRetrievePipeline(store=ArangoStore())
-    return pipeline.run(kind_filter=args.kind, dry_run=args.dry_run)
+    return pipeline.run(kinds=args.kind or DEFAULT_KINDS, dry_run=args.dry_run)
 
 
 def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
@@ -372,3 +383,11 @@ def retrieve_rechtspraak_instanties(argv: list[str] | None = None) -> PipelineRe
         description="Retrieve the Instanties value list of the Rechtspraak (every court)."
     ).parse_args(argv)
     return RechtspraakInstantiesRetrievePipeline(ArangoStore()).run()
+
+
+def retrieve_staatscourant_posts(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve per cabinet post whose function names no ministry which "
+        "ministries issued the publications naming it (KOOP SRU)."
+    ).parse_args(argv)
+    return StaatscourantPostsRetrievePipeline(ArangoStore()).run()

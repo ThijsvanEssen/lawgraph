@@ -14,6 +14,7 @@ import pytest
 from lawgraph.clients.tooi import latest_version
 from lawgraph.core.cabinet_sources import build_cabinets
 from lawgraph.core.ministries import (
+    CURATED,
     DATA,
     MINISTRY_BY_KEY,
     classify_function,
@@ -52,13 +53,36 @@ def test_tooi_gives_every_name_with_its_days_and_the_decree_that_ended_it() -> N
 
 
 def test_the_data_file_is_what_the_sources_give() -> None:
-    """``data/ministries.json`` is the build of the fixtures: nothing in it was edited
-    beside the build but what it marks ``hand``."""
+    """``data/ministries.json`` is the build of the fixtures and the curated list: nothing
+    in it was edited by hand, and every curated name has a source."""
     current = json.loads(DATA.read_text(encoding="utf-8"))
-    rebuilt = build_ministries(
-        current["ministries"], TOOI, build_cabinets(_pages(), lambda text: None)
+    curated = json.loads(CURATED.read_text(encoding="utf-8"))
+    rebuilt, dropped = build_ministries(
+        curated, TOOI, build_cabinets(_pages(), lambda text: None)
     )
     assert rebuilt == current["ministries"]
+    assert dropped == []
+    sources = {p["source"] for m in rebuilt for p in m["periods"]}
+    assert sources <= {"tooi", "rijksoverheid"}
+    assert {p.get("successor_source") for m in rebuilt for p in m["periods"]} <= {
+        None,
+        "curated",
+    }
+
+
+def test_a_curated_name_no_source_names_is_left_out() -> None:
+    curated = {
+        "ministries": [
+            {"key": "az", "name": "Algemene Zaken"},
+            {"key": "opw", "name": "Openbare Werken"},
+        ],
+        "successions": {"opw": "venw"},
+    }
+    table, dropped = build_ministries(
+        curated, TOOI, build_cabinets(_pages(), lambda text: None)
+    )
+    assert dropped == ["opw"]
+    assert "opw" not in {m["key"] for m in table}
 
 
 def test_every_succession_and_period_in_the_table_holds() -> None:

@@ -35,11 +35,13 @@ class MinistryPeriodDTO(BaseModel):
     )
     source: Source = Field(
         ...,
-        description="``tooi`` (the TOOI value list, since about 2010), ``rijksoverheid`` "
-        "(the first post and a handover on the cabinet pages) or ``hand``.",
+        description="``tooi`` (the TOOI value list, since about 2010) or "
+        "``rijksoverheid`` (the first post and a handover on the cabinet pages).",
     )
     successor_source: Source | None = Field(
-        None, description="``hand`` for a succession no source gives (before 2010)."
+        None,
+        description="``curated`` for a succession no source gives (before 2010; "
+        "``data/curated/ministries.json``).",
     )
 
 
@@ -155,6 +157,15 @@ class CabinetSummaryDTO(BaseModel):
         )
 
 
+class ActingOtherSeatDTO(BaseModel):
+    """The seat a stand-in held throughout."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    seat: str
+    function: str | None = None
+
+
 class CabinetPostDTO(BaseModel):
     """One post a person held in the cabinet, with their counts within it."""
 
@@ -185,10 +196,33 @@ class CabinetPostDTO(BaseModel):
         description="Which dates the rules of a seat set, and why.",
     )
     acting: bool = Field(False, description="A stand-in (ad interim).")
+    acting_reason: Literal["source", "held_other_seat"] | None = Field(
+        None,
+        description="Why a post is acting: `source`, the page says so (its words in "
+        "`acting_basis`); `held_other_seat`, the holder held another seat throughout and "
+        "the post ended where the next holder began (that seat in `acting_other_seat`).",
+    )
     acting_basis: str | None = Field(
         None,
-        description="Why: ``rijksoverheid: a.i.``, a temporary arrangement, or the rule "
-        "(held another seat throughout and ended where the next holder began).",
+        description="What the page says, as it says it: `a.i.`, `tijdelijke voorziening: "
+        "…`, `beheer portefeuille overgenomen door de minister van …`.",
+    )
+    acting_other_seat: ActingOtherSeatDTO | None = Field(
+        None, description="For `held_other_seat`: the seat the holder held throughout."
+    )
+    ministry_source: (
+        Literal["page", "tk_signatures", "tk_commitments", "staatscourant"] | None
+    ) = Field(
+        None,
+        description="Where the ministry of the post comes from: `page` (its function "
+        "names it), `tk_signatures` (the functions the holder signed Tweede Kamer papers "
+        "in), `tk_commitments` (the ministry of their commitments), `staatscourant` (the "
+        "ministry that issued the publications naming the post).",
+    )
+    ministry_missing: Literal["no_source", "ambiguous"] | None = Field(
+        None,
+        description="Why a post has no ministry: `no_source` (no official source names "
+        "one), `ambiguous` (the sources split between ministries).",
     )
     party: PartyRefDTO | None = None
     overlaps_with: list[str] = Field(
@@ -249,7 +283,11 @@ def _post_dto(item: dict[str, Any], post: dict[str, Any]) -> CabinetPostDTO:
         to_date_source=post.get("to_date_source"),
         corrected=post.get("corrected") or [],
         acting=bool(post.get("acting")),
+        acting_reason=post.get("acting_reason"),
         acting_basis=post.get("acting_basis"),
+        acting_other_seat=post.get("acting_other_seat"),
+        ministry_source=post.get("ministry_source"),
+        ministry_missing=post.get("ministry_missing"),
         party=post.get("party"),
         overlaps_with=post.get("overlaps_with") or [],
         absent=post.get("absent"),
@@ -301,12 +339,28 @@ class CabinetDetailDTO(CabinetSummaryDTO):
     def from_detail(cls, row: dict[str, Any]) -> CabinetDetailDTO:
         members = row.get("members") or []
         summary = CabinetSummaryDTO.from_row({**row, "members": len(members)})
+        # a seat stands under its ministry: the one its key names (by the name the ministry
+        # had when the seat ended: ELI to EZ keeps one seat in one place), else, for a seat
+        # whose function names no ministry, that of its last post; each post keeps its own
+        # ``ministry`` of its day
+        held = [
+            (post, _post_dto(item, post))
+            for item in members
+            for post in item.get("posts") or []
+        ]
+        last: dict[str, dict[str, Any]] = {}
+        for post, _ in held:
+            seat = post.get("seat") or ""
+            if seat not in last or (post.get("from_date") or "") >= (
+                last[seat].get("from_date") or ""
+            ):
+                last[seat] = post
         groups: dict[str | None, list[CabinetPostDTO]] = {}
-        for item in members:
-            for post in item.get("posts") or []:
-                groups.setdefault(post.get("ministry"), []).append(
-                    _post_dto(item, post)
-                )
+        for post, dto in held:
+            seat = post.get("seat") or ""
+            named = seat.partition("/")[0]
+            ministry = named if named in MINISTRY_BY_KEY else last[seat].get("ministry")
+            groups.setdefault(ministry, []).append(dto)
         ministries = [
             CabinetMinistryDTO(
                 ministry=MinistryKey(key) if key else None,

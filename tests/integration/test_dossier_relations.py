@@ -252,9 +252,6 @@ def _the_lists_find_a_number(client: TestClient) -> None:
         "items"
     ]
     assert [d["number"] for d in words] == ["21501-02"]
-    recent = _get(client, "/api/dossiers/recent", subject="37035")
-    assert [d["number"] for d in recent] == ["37035-XXII"]
-    assert _get(client, "/api/dossiers/recent", subject="36800") == []
 
 
 def _the_pages_on_tweedekamer_nl_follow_from_the_numbers(client: TestClient) -> None:

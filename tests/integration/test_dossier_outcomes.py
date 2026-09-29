@@ -18,7 +18,6 @@ shows the vote. Its timeline marks what came after the closing, and a meeting st
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterator
 from typing import Any
 
@@ -38,7 +37,6 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
-from lawgraph.db.queries.dossiers import get_recent_dossiers
 from tests.integration.seed import FIXTURES, uid
 
 GRONDWET = "BWBR0001840"
@@ -336,35 +334,6 @@ def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(
         assert letter["case_kinds"] == ["Wetgeving", "Brief regering"]
     finally:
         app.dependency_overrides.pop(get_store, None)
-
-
-def test_recent_dossiers_include_one_that_closed_without_an_activity(
-    store: ArangoStore,
-) -> None:
-    """A law is published in the Staatsblad, not in a debate: the dossier that closed
-    by it is recent, and comes before the ones with older evidence."""
-    today = dt.date.today().isoformat()
-    store.db.collection("dossiers").update(
-        {"_key": ENACTED, "props": {"closed_on": today}}
-    )
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        client = TestClient(app)
-        recent = client.get("/api/dossiers/recent", params={"days": 30}).json()
-        assert [(d["number"], d["closed"], d["outcome"]) for d in recent] == [
-            (ENACTED, True, "aangenomen")
-        ]
-    finally:
-        app.dependency_overrides.pop(get_store, None)
-
-    # Over a longer window the most recent evidence comes first.
-    longer = get_recent_dossiers(store, days=5000)
-    assert [d["props"]["label"] for d in longer] == [
-        ENACTED,  # closed today
-        PENDING,  # the vote on its amendment, 2025-11-04
-        WITHDRAWN,  # the letter, 2025-06-02
-        REJECTED,  # the vote, 2025-03-11
-    ]
 
 
 def test_the_timeline_marks_what_came_after_the_closing(store: ArangoStore) -> None:

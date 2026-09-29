@@ -16,8 +16,9 @@ import pytest
 from lawgraph.core.cabinet_checks import violations
 from lawgraph.core.cabinet_phases import PHASE_KINDS
 from lawgraph.core.cabinet_posts import (
+    ACTING_HELD_OTHER_SEAT,
+    ACTING_SOURCE,
     BASIS_AI,
-    BASIS_RULE,
     CORRECTED_BY_PREDECESSOR,
     CORRECTED_BY_SUCCESSOR,
     SEAT_DEPUTY,
@@ -107,9 +108,10 @@ def test_schoof_stand_ins_end_where_the_next_holder_begins() -> None:
         for p in _cabinet("schoof")["posts"]
         if p["person"] == "stm hermans" and p["acting"]
     ]
-    assert {p["acting_basis"] for p in hermans} == {
-        f"{BASIS_RULE} (Minister van Klimaat en Groene Groei)"
-    }
+    assert {
+        (p["acting_reason"], p["acting_basis"], p["acting_other_seat"]["function"])
+        for p in hermans
+    } == {(ACTING_HELD_OTHER_SEAT, None, "Minister van Klimaat en Groene Groei")}
 
 
 def test_schoof_phases() -> None:
@@ -127,7 +129,7 @@ def test_schoof_phases() -> None:
 def test_schoof_keeps_the_overlap_the_source_gives() -> None:
     # Rijksoverheid lists Keijzer as minister voor Asiel en Migratie from 19 June 2025,
     # while Van Hijum held that post until 22 August 2025.
-    seat = "aenm/minister_zonder_portefeuille/asiel-en-migratie"
+    seat = "-/minister_zonder_portefeuille/asiel-en-migratie"
     overlapping = {
         p["person"]: p["overlaps_with"]
         for p in _cabinet("schoof")["posts"]
@@ -223,13 +225,16 @@ def test_an_ai_line_is_a_stand_in_between_two_holders() -> None:
         for p in _cabinet("cals")["posts"]
         if p["person"] == "i samkalden" and p["acting"]
     ]
-    assert samkalden["acting_basis"] == BASIS_AI
+    assert (samkalden["acting_reason"], samkalden["acting_basis"]) == (
+        ACTING_SOURCE,
+        BASIS_AI,
+    )
 
 
 def test_a_holder_listed_after_one_who_resigned_starts_when_that_one_left() -> None:
     # Biesheuvel: De Brauw resigned 20 July 1972; "Deze taken werden vervolgens opgedragen
     # aan: mr. C. van Veen" without a day
-    seat = "ocw/minister_zonder_portefeuille/wetenschapsbeleid-en-het-wetenschappelijk-onderwijs"
+    seat = "-/minister_zonder_portefeuille/wetenschapsbeleid-en-het-wetenschappelijk-onderwijs"
     (van_veen,) = [
         p
         for p in _cabinet("biesheuvel")["posts"]
@@ -364,10 +369,66 @@ def test_a_holder_who_held_another_seat_throughout_stood_in() -> None:
     (standing,) = [
         p for p in posts if p["seat"] == "def/minister" and p["person"] == "ab vast"
     ]
-    assert standing["acting"] and standing["acting_basis"].startswith(BASIS_RULE)
+    assert standing["acting"] and standing["acting_reason"] == ACTING_HELD_OTHER_SEAT
     # whoever follows no one, or leaves no one to follow, did not stand in
     assert not any(p["acting"] for p in posts if p["person"] != "ab vast")
 
 
 def test_without_pages_there_are_no_cabinets() -> None:
     assert build_cabinets([], lambda text: None) == []
+
+
+def test_the_holders_of_one_heading_who_follow_one_another_hold_one_seat() -> None:
+    # Schoof: the page lists Idsinga under "Staatssecretaris Fiscaliteit, Belastingdienst en
+    # Douane", his line naming the post as it was then
+    fiscaliteit = _held(
+        "schoof", "-/staatssecretaris/fiscaliteit-belastingdienst-en-douane"
+    )
+    assert [p[0] for p in fiscaliteit] == [
+        "fl idsinga",
+        "t van oostenbruggen",
+        "ehj heijnen",
+    ]
+    (idsinga,) = [p for p in _cabinet("schoof")["posts"] if p["person"] == "fl idsinga"]
+    assert idsinga["also_named"] == ["staatssecretaris Fiscaliteit en Belastingdienst"]
+    seats = {p["seat"] for p in _cabinet("schoof")["posts"]}
+    assert "-/staatssecretaris/fiscaliteit-en-belastingdienst" not in seats
+    assert "-/staatssecretaris/toeslagen-en-douane" not in seats
+    assert "-/staatssecretaris/buitenlandse-handel" not in seats
+
+
+def test_the_holders_of_one_heading_at_the_same_time_hold_seats_of_their_own() -> None:
+    # Schoof: Szabó and Van Marum, both "Staatssecretaris van Binnenlandse Zaken en
+    # Koninkrijksrelaties", from the same day
+    seats = {
+        p["seat"]
+        for p in _cabinet("schoof")["posts"]
+        if p["person"] in ("fz szabo", "e van marum")
+    }
+    assert {
+        "bzk/staatssecretaris/digitalisering-en-koninkrijksrelaties",
+        "bzk/staatssecretaris/herstel-groningen",
+    } <= seats
+
+
+def test_a_ministry_renamed_during_the_cabinet_keeps_its_seat_in_one_place() -> None:
+    # Rutte-Asscher: the state secretary of Economische Zaken, Landbouw en Innovatie, named
+    # Economische Zaken from 1 January 2013 (TOOI); one seat, by its later name
+    held = [
+        (p["person"], p["from_date"], p["ministry"])
+        for p in _cabinet("rutte_asscher")["posts"]
+        if p["seat"] == "ez/staatssecretaris"
+    ]
+    assert [(person, ministry) for person, _, ministry in held] == [
+        ("c verdaas", "eli"),
+        ("sam dijksma", "eli"),
+        ("mhp van dam", "ez"),
+    ]
+    # Kamp, minister for the whole cabinet: one post from before the new name
+    (kamp,) = [
+        p for p in _cabinet("rutte_asscher")["posts"] if p["person"] == "hgj kamp"
+    ]
+    assert (kamp["seat"], kamp["ministry"]) == ("ez/minister", "eli")
+    assert not any(
+        p["seat"].startswith("eli/") for p in _cabinet("rutte_asscher")["posts"]
+    )

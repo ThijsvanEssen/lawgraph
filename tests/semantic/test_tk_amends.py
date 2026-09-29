@@ -113,13 +113,18 @@ class _FakeStore(ExistingKeysFake):
         return created, updated
 
 
-def _make_pub(key: str, title: str, labels: list[str] | None = None) -> dict[str, Any]:
+def _make_pub(
+    key: str,
+    title: str,
+    labels: list[str] | None = None,
+    kind: str = "Voorstel van wet",
+) -> dict[str, Any]:
     return {
         "_key": key,
         "_id": f"documents/{key}",
         "type": NodeType.DOCUMENT.value,
         "labels": labels or ["TK"],
-        "props": {"title": title, "source": "tk"},
+        "props": {"title": title, "source": "tk", "kind": kind},
     }
 
 
@@ -169,6 +174,24 @@ def test_amends_endpoints_match_the_catalogue() -> None:
     for edge in store.edges.values():
         assert edge["_from"].split("/")[0] in spec.sources
         assert edge["_to"].split("/")[0] in spec.targets
+
+
+def test_a_motion_on_the_bill_amends_nothing() -> None:
+    """A motie carries the title of the bill's dossier; only the bill and its amendementen
+    change the law."""
+    store = _amends_store()
+    store._pub_docs = [
+        _make_pub("motie", "Wijziging van het Wetboek van Strafrecht", kind="Motie"),
+        _make_pub(
+            "amendement",
+            "Wijziging van het Wetboek van Strafrecht",
+            kind="Amendement (gewijzigd/nader/vervangend)",
+        ),
+    ]
+
+    TKAmendsSemanticPipeline(store=store).run()
+
+    assert [e["_from"] for e in store.edges.values()] == ["documents/amendement"]
 
 
 def test_a_case_never_produces_an_edge() -> None:

@@ -205,6 +205,14 @@ class JudgmentPartyProps(_StrictBase):
     representatives: list[JudgmentRepresentativeProps] = []
 
 
+class JudgmentAppealTargetProps(_StrictBase):
+    """A decision an appeal says it appeals that is not loaded (``core.appeals``)."""
+
+    court: str  # as the text writes it: "rechtbank Gelderland"
+    date: str  # ISO
+    case_number: str | None = None  # as the text writes it: "24/6811"
+
+
 class JudgmentProps(_CommonProps):
     ecli: str | None = None
     source_kind: str | None = None
@@ -233,6 +241,9 @@ class JudgmentProps(_CommonProps):
     related_eclis: list[str] | None = None
     # the conclusion of a judgment, or the judgment of a conclusion (``psi:type`` conclusie)
     conclusion_eclis: list[str] | None = None
+    # the decisions an appeal names in its text that are not loaded
+    # (``semantic rechtspraak-appeal``); null when there are none
+    unresolved_appeal_targets: list[JudgmentAppealTargetProps] | None = None
     court_code: str | None = None
     # the coarse tier (the Type of the Instanties list) and the kind of court within it
     tier: str | None = None
@@ -264,6 +275,8 @@ class DocumentProps(_CommonProps):
     external_id: str | None = None
     raw: dict[str, Any] | None = None
     title: str | None = None
+    # a paper named by its own subject (a motie, a letter): the title of its dossier
+    dossier_title: str | None = None
     subject: str | None = None
     kind: str | None = None
     date: str | None = None
@@ -398,6 +411,8 @@ class CommitmentProps(_CommonProps):
     text: str | None = None
     minister_name: str | None = None
     minister_role: str | None = None
+    # the ministry the Tweede Kamer gives the commitment (``Toezegging.Ministerie``)
+    ministry_name: str | None = None
     made_on: str | None = None
     expected_resolution: str | None = None
     status: str | None = None
@@ -459,6 +474,10 @@ class GovernmentFunctionProps(_StrictBase):
     also_named: list[str] | None = None  # the same post under another name
     post: str | None = None  # core.ministries.POSTS
     ministry: str | None = None  # a key of core.ministries.MINISTRIES
+    # where the ministry comes from (core.post_ministries): page, tk_signatures,
+    # tk_commitments, staatscourant; and why there is none: no_source, ambiguous
+    ministry_source: str | None = None
+    ministry_missing: str | None = None
     seat: str | None = None  # "ienw/minister"
     portfolio: str | None = None
     from_date: str | None = None
@@ -467,7 +486,9 @@ class GovernmentFunctionProps(_StrictBase):
     to_date_source: str | None = None
     corrected: list[str] | None = None  # which dates the rules of a seat set
     acting: bool | None = None  # a stand-in (ad interim)
-    acting_basis: str | None = None
+    acting_reason: str | None = None  # source | held_other_seat
+    acting_basis: str | None = None  # the words of the source
+    acting_other_seat: dict[str, str] | None = None  # {seat, function}
     party: PartyRefProps | None = None
     overlaps_with: list[str] | None = (
         None  # member keys holding the seat at the same time
@@ -533,6 +554,8 @@ class FactionProps(_CommonProps):
     active_from: str | None = None
     active_until: str | None = None
     seats: int | None = None
+    # the day one of its seats last changed (FractieZetel.GewijzigdOp)
+    seats_changed_on: str | None = None
     active: bool | None = None
 
 

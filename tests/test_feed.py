@@ -445,7 +445,7 @@ def test_a_summary_has_every_day_of_its_window() -> None:
                     "total": 1,
                     "kinds": [],
                     "votes": [{"subkind": "wetsvoorstel", "passed": False, "count": 1}],
-                    "dossiers": [{"number": "36600-VII", "count": 1}],
+                    "dossiers": [{"kind": "motie", "number": "36600-VII", "count": 1}],
                 }
             ],
             "dossiers": [
@@ -462,3 +462,24 @@ def test_a_summary_has_every_day_of_its_window() -> None:
     assert summary.days[1].votes[0].outcome == "verworpen"
     assert summary.days[1].dossiers[0].short_title == "Wet x"
     assert len(summary.items) == 1 and summary.items_truncated
+
+
+def test_a_person_the_paper_lists_twice_is_one_person() -> None:
+    """Heerma signs a letter as first and as co-signatory with one function."""
+    heerma = {
+        "person_id": "cf4c4d24-798d-4bbe-bf06-23ca674f0d28",
+        "member_key": "cf4c4d24_798d_4bbe_bf06_23ca674f0d28",
+        "member_name": "Pieter Heerma",
+        "name": "P.E. Heerma",
+        "function": "minister van Binnenlandse Zaken en Koninkrijksrelaties",
+        "capacity": "bewindspersoon",
+    }
+    row = {
+        **VOTE_ROW,
+        "persons": [
+            {**heerma, "role": "Eerste ondertekenaar"},
+            {**heerma, "role": "Mede ondertekenaar"},
+        ],
+    }
+    item = FeedItemDTO.from_row(row)
+    assert [p.key for p in item.persons] == ["cf4c4d24_798d_4bbe_bf06_23ca674f0d28"]

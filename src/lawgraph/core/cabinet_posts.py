@@ -15,6 +15,10 @@ then applies the rules of a seat:
 - **Dates.** A holder line without a start held the post from the start of the cabinet, one
   without an end until its end; ``from_date_source`` and ``to_date_source`` keep what the
   source gave (``None`` where it gave nothing).
+- **One seat per heading.** The holders of one heading who follow one another hold one
+  seat, the one the heading names, even where their own lines name the post otherwise (a
+  portfolio renamed on the way: that name in ``also_named``); holders of one heading at the
+  same time hold seats of their own.
 - **Double listings.** Two posts of one person in one seat on the same days are one post; the
   other name is kept in ``also_named`` (``Minister-president, minister van Algemene Zaken``).
 - **Ending at the successor, starting at the predecessor.** In a named seat, a post whose end
@@ -25,10 +29,11 @@ then applies the rules of a seat:
   Buitenlandse Zaken`` with two names, ``Minister zonder Portefeuille`` twice), it does not
   say which holder followed which: the holders are put in lanes by date, ``#2`` for the
   second one, and no date is changed.
-- **Stand-ins.** A post is ``acting`` when the source says ``a.i.`` (or lists it among
-  ``tijdelijke voorzieningen``, or ``beheer portefeuille overgenomen door de minister van
-  …``), or when its holder held another seat through the whole period and the period ends
-  where the next holder of the seat begins. ``acting_basis`` says which.
+- **Stand-ins.** A post is ``acting`` when the source says so (``acting_reason``
+  ``source``, with its words in ``acting_basis``: ``a.i.``, ``tijdelijke voorziening: …``,
+  ``beheer portefeuille overgenomen door de minister van …``), or when its holder held
+  another seat through the whole period and the period ends where the next holder of the
+  seat begins (``held_other_seat``, that seat in ``acting_other_seat``).
 - **Overlaps.** Two holders of one named seat at the same time after these rules are not
   hidden: both get ``overlaps_with``.
 
@@ -53,6 +58,7 @@ from lawgraph.core.ministries import (
     POST_PRIME_MINISTER,
     POST_STATE_SECRETARY,
     classify_function,
+    current_on,
     ministry_named,
     ministry_of,
 )
@@ -69,10 +75,13 @@ SEAT_PRIME_MINISTER = "az/minister-president"
 # A seat nobody held for longer than this inside the cabinet's period has a gap.
 GAP_DAYS = 14
 
-BASIS_AI = "rijksoverheid: a.i."
-BASIS_TEMPORARY = "rijksoverheid: tijdelijke voorziening"
-BASIS_TAKEN_OVER = "rijksoverheid: beheer portefeuille overgenomen"
-BASIS_RULE = "held another seat throughout and ended where the next holder began"
+# Why a post is acting: the source says so, or the holder held another seat throughout.
+ACTING_SOURCE = "source"
+ACTING_HELD_OTHER_SEAT = "held_other_seat"
+# What the source says, as ``acting_basis``.
+BASIS_AI = "a.i."
+BASIS_TEMPORARY = "tijdelijke voorziening"
+BASIS_TAKEN_OVER = "beheer portefeuille overgenomen door de"
 
 CORRECTED_BY_SUCCESSOR = "to_date: start of the next holder"
 CORRECTED_BY_PREDECESSOR = "from_date: end of the previous holder"
@@ -219,8 +228,6 @@ def seat_of(
             r"^minister\s+(?:voor|zonder portefeuille)\s*", "", function, flags=re.I
         ).strip()
         portfolio = portfolio or own or None
-        if portfolio and ministry is None:
-            ministry = ministry_of(portfolio, on=on, named=False)
     elif post == POST_STATE_SECRETARY and portfolio is None:
         own = re.sub(
             r"^staatssecretaris\s*(?:van\s+|voor\s+)?", "", function, flags=re.I
@@ -264,6 +271,7 @@ def _post(
     part: dict[str, Any],
     cabinet: dict[str, Any],
     item: dict[str, Any],
+    heading: tuple[int, int] = (0, 0),
 ) -> dict[str, Any]:
     start, end = cabinet["from_date"], cabinet["to_date"]
     temporary = item.get("temporary")
@@ -282,19 +290,18 @@ def _post(
     corrected = []
     if (given_from and from_date != given_from) or (given_to and to_date != given_to):
         corrected.append(CORRECTED_TO_CABINET)
-    seat = seat_of(
-        part["function"],
-        holder["portfolio"]
-        and re.sub(r"^staatssecretaris\s+", "", holder["portfolio"], flags=re.I)
-        or part["portfolio"],
-        part["hint"],
-        from_date,
+    own = (
+        re.sub(r"^staatssecretaris\s+", "", holder["portfolio"], flags=re.I)
+        if holder["portfolio"]
+        else None
     )
+    seat = seat_of(part["function"], own or part["portfolio"], part["hint"], from_date)
     acting_basis = None
     if holder["acting"]:
         acting_basis = BASIS_AI
     elif temporary:
         acting_basis = f"{BASIS_TEMPORARY}: {temporary['note']}"
+    reason = ACTING_SOURCE if acting_basis else None
     return {
         **seat,
         "function": part["function"],
@@ -309,10 +316,18 @@ def _post(
         "ended": period.get("ended"),
         "corrected": corrected,
         "acting": acting_basis is not None,
+        "acting_reason": reason,
         "acting_basis": acting_basis,
+        "acting_other_seat": None,
         "absent": holder.get("absent"),
         "taken_over_by": holder.get("taken_over_by"),
         "overlaps_with": [],
+        # where the post stands on the page, for ``_one_seat_per_heading``
+        _HEADING: heading,
+        _HEADING_SEAT: seat_of(
+            part["function"], part["portfolio"], part["hint"], from_date
+        ),
+        _OWN_NAME: holder["portfolio"] if own else None,
     }
 
 
@@ -326,7 +341,9 @@ def _split_definitive(post: dict[str, Any], day: str | None) -> list[dict[str, A
         "from_date": day,
         "from_date_source": day,
         "acting": False,
+        "acting_reason": None,
         "acting_basis": None,
+        "acting_other_seat": None,
     }
     return [acting, held]
 
@@ -341,7 +358,9 @@ def _deputy(post: dict[str, Any], part: dict[str, Any] | None) -> dict[str, Any]
         "from_date": start,
         "from_date_source": (part or {}).get("from_date") or post["from_date_source"],
         "acting": False,
+        "acting_reason": None,
         "acting_basis": None,
+        "acting_other_seat": None,
         "taken_over_by": None,
     }
 
@@ -350,7 +369,7 @@ def page_posts(page: dict[str, Any], cabinet: dict[str, Any]) -> list[dict[str, 
     """Every post the seats of *page* name, before the rules of a seat: one per part of
     the heading, holder and period."""
     posts: list[dict[str, Any]] = []
-    for item in page["seats"]:
+    for n, item in enumerate(page["seats"]):
         parts = heading_parts(item["heading"], item["section"])
         deputies = [p for p in parts if _DEPUTY.match(p["function"])]
         offices = [p for p in parts if not _DEPUTY.match(p["function"])]
@@ -361,9 +380,9 @@ def page_posts(page: dict[str, Any], cabinet: dict[str, Any]) -> list[dict[str, 
             for period in holder["periods"]:
                 held = [
                     post
-                    for part in offices
+                    for i, part in enumerate(offices)
                     for post in _split_definitive(
-                        _post(holder, period, part, cabinet, item),
+                        _post(holder, period, part, cabinet, item, (n, i)),
                         holder["until_acting"],
                     )
                 ]
@@ -390,6 +409,74 @@ def _overlap(a: dict[str, Any], b: dict[str, Any]) -> bool:
     )
 
 
+# Where a post stands on the page: its heading, the seat the heading names and the name
+# the holder's own line gives the post; dropped when the rules of a seat are done.
+_HEADING = "_heading"
+_HEADING_SEAT = "_heading_seat"
+_OWN_NAME = "_own_name"
+
+
+def _concurrent(posts: list[dict[str, Any]]) -> bool:
+    """Whether two people among *posts* held them at the same time."""
+    return any(
+        a["person"] != b["person"] and _overlap(a, b)
+        for i, a in enumerate(posts)
+        for b in posts[i + 1 :]
+    )
+
+
+def _one_seat_per_heading(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A heading of the page names one seat, and a seat has one holder at a time. Where
+    the holders of a heading follow one another but their own lines name the post
+    otherwise (``Staatssecretaris Fiscaliteit, Belastingdienst en Douane``, held before as
+    ``staatssecretaris Fiscaliteit en Belastingdienst``), or the ministry was renamed
+    between them (Economische Zaken, Landbouw en Innovatie, Economische Zaken from 2013),
+    they hold the seat the heading names on the day of the last of them, the name of their
+    line in ``also_named``. Holders of one heading at the same time
+    (two ministers without portfolio, two state secretaries of one ministry) hold seats of
+    their own."""
+    by_heading: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+    for post in posts:
+        if post["seat"] != SEAT_DEPUTY and post.get(_HEADING) is not None:
+            by_heading[post[_HEADING]].append(post)
+    for held in by_heading.values():
+        if len({p["seat"] for p in held}) < 2 or _concurrent(held):
+            continue
+        # the seat as the heading names it on the day of its last holder: a ministry
+        # renamed during the cabinet (ELI to EZ, 2013) names the seat by its later name
+        target = max(held, key=lambda p: p["from_date"])[_HEADING_SEAT]
+        for post in held:
+            if post["seat"] == target["seat"]:
+                continue
+            own = post.get(_OWN_NAME)
+            if own and own not in post["also_named"] and own != post["function"]:
+                post["also_named"].append(own)
+            post["seat"], post["named"] = target["seat"], target["named"]
+    return posts
+
+
+def _seats_by_their_last_name(
+    posts: list[dict[str, Any]], cabinet: dict[str, Any]
+) -> None:
+    """A seat is named by the name its ministry had when the seat ended: a ministry renamed
+    during the cabinet (Economische Zaken, Landbouw en Innovatie, named Economische Zaken
+    from 1 January 2013) holds one seat, ``ez/minister``, however its posts began. Each post
+    keeps the ``ministry`` of its own first day."""
+    ends: dict[str, str] = {}
+    for post in posts:
+        end = post["to_date"] or cabinet.get("to_date") or dt.date.today().isoformat()
+        last = (dt.date.fromisoformat(end) - dt.timedelta(days=1)).isoformat()
+        last = max(last, post["from_date"])
+        ends[post["seat"]] = max(ends.get(post["seat"], ""), last)
+    for post in posts:
+        ministry, slash, rest = post["seat"].partition("/")
+        if not slash or ministry not in MINISTRY_BY_KEY:
+            continue
+        named = current_on(ministry, ends[post["seat"]])
+        if named and named != ministry:
+            post["seat"] = f"{named}/{rest}"
+
+
 def merge_double_listings(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """One post per person, seat and days; the names of the others in ``also_named``."""
     kept: dict[tuple[Any, ...], dict[str, Any]] = {}
@@ -404,7 +491,7 @@ def merge_double_listings(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 first["also_named"].append(name)
         first["acting"] = first["acting"] and post["acting"]
         if not first["acting"]:
-            first["acting_basis"] = None
+            first.update(acting_reason=None, acting_basis=None, acting_other_seat=None)
     return list(kept.values())
 
 
@@ -480,7 +567,11 @@ def _stand_ins(posts: list[dict[str, Any]]) -> None:
             ]
             if nexts and others:
                 post["acting"] = True
-                post["acting_basis"] = f"{BASIS_RULE} ({others[0]['function']})"
+                post["acting_reason"] = ACTING_HELD_OTHER_SEAT
+                post["acting_other_seat"] = {
+                    "seat": others[0]["seat"],
+                    "function": others[0]["function"],
+                }
 
 
 def _taken_over(posts: list[dict[str, Any]], cabinet: dict[str, Any]) -> None:
@@ -531,7 +622,9 @@ def _taken_over(posts: list[dict[str, Any]], cabinet: dict[str, Any]) -> None:
                 "to_date_source": None,
                 "corrected": [],
                 "acting": True,
-                "acting_basis": f"{BASIS_TAKEN_OVER} ({by})",
+                "acting_reason": ACTING_SOURCE,
+                "acting_basis": f"{BASIS_TAKEN_OVER} {by}",
+                "acting_other_seat": None,
                 "taken_over_by": None,
                 "overlaps_with": [],
             }
@@ -557,7 +650,8 @@ def cabinet_posts(
 ) -> list[dict[str, Any]]:
     """Every post of the cabinet *cabinet* (``{from_date, to_date}``) that *page* names,
     after the rules of a seat, in order of seat and start."""
-    posts = merge_double_listings(page_posts(page, cabinet))
+    posts = _one_seat_per_heading(page_posts(page, cabinet))
+    posts = merge_double_listings(posts)
     by_seat: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for post in posts:
         by_seat[post["seat"]].append(post)
@@ -572,6 +666,10 @@ def cabinet_posts(
     posts = merge_double_listings(posts)
     _stand_ins(posts)
     _overlaps(posts)
+    _seats_by_their_last_name(posts, cabinet)
+    for post in posts:
+        for key in (_HEADING, _HEADING_SEAT, _OWN_NAME):
+            post.pop(key, None)
     return sorted(posts, key=lambda p: (p["seat"], p["from_date"], p["person"]))
 
 

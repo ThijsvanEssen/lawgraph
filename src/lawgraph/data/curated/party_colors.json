@@ -1,0 +1,124 @@
+{
+ "about": "By hand: the colour of each party, from its own house style, and the other names the sources give it (an abbreviation, a former name). No official source gives party colours. `lawgraph curated set party-colors`; GET /api/parties/colors.",
+ "parties": [
+  {
+   "name": "VVD",
+   "color": "#003082",
+   "aliases": []
+  },
+  {
+   "name": "D66",
+   "color": "#1DB954",
+   "aliases": []
+  },
+  {
+   "name": "PVV",
+   "color": "#002868",
+   "aliases": []
+  },
+  {
+   "name": "CDA",
+   "color": "#399E48",
+   "aliases": []
+  },
+  {
+   "name": "SP",
+   "color": "#EE1C25",
+   "aliases": []
+  },
+  {
+   "name": "PvdA",
+   "color": "#E63325",
+   "aliases": []
+  },
+  {
+   "name": "GroenLinks",
+   "color": "#46962B",
+   "aliases": [
+    "GL"
+   ]
+  },
+  {
+   "name": "GroenLinks-PvdA",
+   "color": "#46962B",
+   "aliases": [
+    "GL-PvdA",
+    "PRO"
+   ]
+  },
+  {
+   "name": "ChristenUnie",
+   "color": "#4F95D4",
+   "aliases": [
+    "CU"
+   ]
+  },
+  {
+   "name": "Volt",
+   "color": "#592D82",
+   "aliases": []
+  },
+  {
+   "name": "NSC",
+   "color": "#1B4F72",
+   "aliases": []
+  },
+  {
+   "name": "BBB",
+   "color": "#9ECA3C",
+   "aliases": []
+  },
+  {
+   "name": "JA21",
+   "color": "#CC0000",
+   "aliases": []
+  },
+  {
+   "name": "SGP",
+   "color": "#FF6600",
+   "aliases": []
+  },
+  {
+   "name": "FVD",
+   "color": "#8B0000",
+   "aliases": [
+    "FvD"
+   ]
+  },
+  {
+   "name": "DENK",
+   "color": "#39B54A",
+   "aliases": []
+  },
+  {
+   "name": "BIJ1",
+   "color": "#FFCC00",
+   "aliases": []
+  },
+  {
+   "name": "50PLUS",
+   "color": "#8B008B",
+   "aliases": []
+  },
+  {
+   "name": "PvdD",
+   "color": "#4CAF50",
+   "aliases": []
+  },
+  {
+   "name": "Groep Van Haga",
+   "color": "#002868",
+   "aliases": []
+  },
+  {
+   "name": "Groep Markuszower",
+   "color": "#1F2A44",
+   "aliases": []
+  },
+  {
+   "name": "Lid Keijzer",
+   "color": "#999999",
+   "aliases": []
+  }
+ ]
+}

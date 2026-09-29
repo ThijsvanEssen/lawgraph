@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.core.documents import chamber_of, is_explanatory
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
+from lawgraph.core.tk_records import submitters
 
 Chamber = Literal["TK", "EK"]
 ExplainedCollection = Literal["articles", "instruments"]
@@ -110,6 +111,21 @@ class ExplainedTargetDTO(BaseModel):
     article_number: str | None = None
 
 
+class SubmitterDTO(BaseModel):
+    """Who submitted a motie or amendement."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(description="As the paper names them: `C.A.M. van der Plas`.")
+    faction: str | None = Field(None, description="The faction they signed for.")
+    member_key: str | None = Field(
+        None, description="Their member (`/api/nodes/members/{key}`)."
+    )
+    role: Literal["indiener", "medeindiener"] = Field(
+        description="`indiener` (the first signatory) or `medeindiener`."
+    )
+
+
 class DocumentTextResponse(DocumentOrigin):
     """One document with its text.
 
@@ -117,10 +133,11 @@ class DocumentTextResponse(DocumentOrigin):
     from before December 1994 has no XML and never gets one. ``sections`` are
     the headings of the paper in document order, empty when there is no text or
     the structure of the paper could not be read; their offsets are into
-    ``text``. ``dossier_numbers`` are the dossiers the document is PART_OF, in
-    either chamber; ``case_kinds`` the ``Zaak.Soort`` of the cases it belongs to
-    (Tweede Kamer only); ``explains`` are the articles and instruments it explains,
-    without duplicates.
+    ``text``. ``submitters`` are who submitted a motie or amendement, the indiener
+    first (empty for any other paper). ``dossier_numbers`` are the dossiers the
+    document is PART_OF, in either chamber; ``case_kinds`` the ``Zaak.Soort`` of the
+    cases it belongs to (Tweede Kamer only); ``explains`` are the articles and
+    instruments it explains, without duplicates.
     """
 
     key: str
@@ -136,6 +153,7 @@ class DocumentTextResponse(DocumentOrigin):
         "Gegevensmagazijn.",
     )
     text: str | None = None
+    submitters: list[SubmitterDTO] = Field(default_factory=list)
     dossier_numbers: list[str] = Field(default_factory=list)
     case_kinds: list[str] = Field(default_factory=list)
     explains: list[ExplainedTargetDTO] = Field(default_factory=list)
@@ -170,6 +188,10 @@ class DocumentTextResponse(DocumentOrigin):
             ),
             text=text,
             sections=readable_sections(text, props.get("sections")),
+            submitters=[
+                SubmitterDTO(**row)
+                for row in submitters(props.get("kind"), props.get("actors") or [])
+            ],
             dossier_numbers=list(links.get("dossier_numbers") or []),
             case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],

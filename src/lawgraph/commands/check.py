@@ -116,6 +116,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     _check_derived(store, report)
     _check_papers(store, raw, report)
     _check_cases(store, report)
+    _check_curated(store, report)
     return report
 
 
@@ -299,6 +300,21 @@ def _check_cases(store: ArangoStore, report: Report) -> None:
         )
     elif total:
         report.note(f"cases: {counts[True]:,} of {total:,} name a dossier")
+
+
+def _check_curated(store: ArangoStore, report: Report) -> None:
+    """The lists kept by hand (``lawgraph curated check --db``): a mistake in one would
+    otherwise show only in what it feeds."""
+    from lawgraph.commands.curated import check as curated_problems
+    from lawgraph.commands.curated import database_notes, database_problems
+
+    found = curated_problems() + database_problems(store)
+    for problem in found:
+        report.problem(f"curated {problem}")
+    for note in database_notes(store):
+        report.note(f"curated {note}")
+    if not found:
+        report.note("curated: every list is in order")
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:

@@ -49,6 +49,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_rijksoverheid,
     retrieve_staatsblad,
     retrieve_staatscourant,
+    retrieve_staatscourant_posts,
     retrieve_tk,
     retrieve_tk_content,
     retrieve_tk_dossiers,
@@ -402,6 +403,14 @@ RETRIEVE: list[Pipeline] = [
         "The page of every cabinet since 1945 (posts, holders, dates), from rijksoverheid.nl.",
         argv_for_all=_no_argv,
     ),
+    _pipeline(
+        retrieve_staatscourant_posts,
+        "Per cabinet post whose function names no ministry: which ministries issued the "
+        "publications naming it (Staatscourant and Staatsblad, from 1995).",
+        argv_for_all=_no_argv,
+        lane=LANE_KOOP_REPOSITORY,
+        after=("rijksoverheid",),
+    ),
 ]
 
 NORMALIZE: list[Pipeline] = [
@@ -516,15 +525,11 @@ SEMANTIC: list[Pipeline] = [
         "REFERS_TO: links ECHR judgments to Convention articles.",
     ),
     _pipeline(
-        RechtspraakCitationsSemanticPipeline,
-        (
-            "ECLI references between judgments: REFERS_TO; cited judgments that are not loaded "
-            "become stubs."
-        ),
-    ),
-    _pipeline(
         RechtspraakAppealSemanticPipeline,
-        "APPEAL_OF from appeal and cassation judgments to the earlier proceedings.",
+        (
+            "APPEAL_OF, CONTINUES and REFERRED_BY from a judgment to the earlier judgments "
+            "of its case; the decision an appeal names but is not loaded."
+        ),
     ),
     _pipeline(
         RechtspraakConclusionsSemanticPipeline,
@@ -533,6 +538,13 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         RechtspraakReferralsSemanticPipeline,
         "ANSWERS from a preliminary ruling to the decision that asked its questions.",
+    ),
+    _pipeline(
+        RechtspraakCitationsSemanticPipeline,
+        (
+            "ECLI references between judgments: REFERS_TO, none between judgments the steps "
+            "above tie; cited judgments that are not loaded become stubs."
+        ),
     ),
     _pipeline(
         RechtspraakSeriesSemanticPipeline,

@@ -2,10 +2,11 @@
 
 ``build`` reads the stored TOOI value list (``retrieve tooi``) and the stored Rijksoverheid
 cabinet pages (``retrieve rijksoverheid``), makes the table with
-``core.ministry_sources.build_ministries`` on top of the current ``data/ministries.json``,
-writes it (``--output``, else that file) and prints what changed. ``check`` prints the same
-and writes nothing; a difference fails it, so a run after ``retrieve tooi`` shows when TOOI
-has changed. Commit the file a build writes.
+``core.ministry_sources.build_ministries`` with the curated keys, order and successions
+(``data/curated/ministries.json``), writes it (``--output``, else ``data/ministries.json``) and
+prints what changed, and every curated name no source names. ``check`` prints the same and
+writes nothing; a difference fails it, so a run after ``retrieve tooi`` shows when TOOI has
+changed. Commit the file a build writes.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from lawgraph.config.constants import (
     SOURCE_TOOI,
 )
 from lawgraph.core.cabinet_sources import build_cabinets
-from lawgraph.core.ministries import DATA
+from lawgraph.core.ministries import CURATED, DATA
 from lawgraph.core.ministry_sources import build_ministries
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.raw_records import meta, payload_json, payload_text
@@ -43,8 +44,11 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
     result = PipelineResult()
     current = json.loads(DATA.read_text(encoding="utf-8"))
-    rebuilt = rebuild(ArangoStore(), current)
+    curated = json.loads(CURATED.read_text(encoding="utf-8"))
+    rebuilt, dropped = rebuild(ArangoStore(), current, curated)
     changes = differences(current["ministries"], rebuilt["ministries"])
+    for key in dropped:
+        print(f"! {key}: curated, but no source names it; left out.")
     for line in changes:
         print(line)
     print(f"{len(changes)} changes.")
@@ -67,9 +71,12 @@ def _records(store: ArangoStore, source: str, kind: str) -> list[dict[str, Any]]
     return list(store.with_payloads(rows))
 
 
-def rebuild(store: ArangoStore, current: dict[str, Any]) -> dict[str, Any]:
+def rebuild(
+    store: ArangoStore, current: dict[str, Any], curated: dict[str, Any]
+) -> tuple[dict[str, Any], list[str]]:
     """*current* (the content of ``data/ministries.json``) built again from the stored
-    sources. Raises when a source was never retrieved."""
+    sources and *curated*, and the curated keys no source names. Raises when a source was
+    never retrieved."""
     tooi = _records(store, SOURCE_TOOI, RAW_KIND_TOOI_MINISTRIES)
     pages = _records(store, SOURCE_RIJKSOVERHEID, RAW_KIND_RIJKSOVERHEID_CABINET)
     if not tooi or not pages:
@@ -87,6 +94,9 @@ def rebuild(store: ArangoStore, current: dict[str, Any]) -> dict[str, Any]:
         lambda text: None,
     )
     about = meta(tooi[0])
+    table, dropped = build_ministries(
+        curated, payload_json(tooi[0]).get("items") or [], cabinets
+    )
     return {
         **current,
         "sources": {
@@ -96,10 +106,8 @@ def rebuild(store: ArangoStore, current: dict[str, Any]) -> dict[str, Any]:
                 "read_on": max(meta(r).get("read_on") or "" for r in pages) or None,
             },
         },
-        "ministries": build_ministries(
-            current["ministries"], payload_json(tooi[0]).get("items") or [], cabinets
-        ),
-    }
+        "ministries": table,
+    }, dropped
 
 
 def differences(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> list[str]:

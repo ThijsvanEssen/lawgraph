@@ -1,0 +1,124 @@
+{
+ "about": "By hand: the names lawyers call landmark judgments by. The open data of the Rechtspraak carries no name for a judgment. A name is added only for an ECLI checked against the judgment itself (its court, date and inhoudsindicatie); an English translation published under an ECLI of its own carries the name of the judgment it translates. `lawgraph curated set judgment-names`.",
+ "judgments": [
+  {
+   "ecli": "ECLI:NL:HR:1919:AG1776",
+   "names": [
+    "Lindenbaum/Cohen"
+   ],
+   "note": "onrechtmatige daad (HR 31 januari 1919)"
+  },
+  {
+   "ecli": "ECLI:NL:HR:1916:BG9431",
+   "names": [
+    "Melk en water"
+   ],
+   "note": "afwezigheid van alle schuld (HR 14 februari 1916)"
+  },
+  {
+   "ecli": "ECLI:NL:HR:1921:186",
+   "names": [
+    "Elektriciteitsarrest"
+   ],
+   "note": "wederrechtelijke toe-eigening van elektriciteit (HR 23 mei 1921)"
+  },
+  {
+   "ecli": "ECLI:NL:HR:1954:3",
+   "names": [
+    "IJzerdraad"
+   ],
+   "note": "functioneel daderschap (HR 23 februari 1954)"
+  },
+  {
+   "ecli": "ECLI:NL:HR:1965:AB7079",
+   "names": [
+    "Kelderluik"
+   ],
+   "note": "gevaarzetting (HR 5 november 1965)"
+  },
+  {
+   "ecli": "ECLI:NL:HR:1981:AG4158",
+   "names": [
+    "Haviltex"
+   ],
+   "note": "uitleg van overeenkomsten (HR 13 maart 1981)"
+  },
+  {
+   "ecli": "ECLI:NL:HR:1981:AC7243",
+   "names": [
+    "Papa Blanca"
+   ],
+   "note": "HR 16 juni 1981"
+  },
+  {
+   "ecli": "ECLI:NL:HR:2005:AR5213",
+   "names": [
+    "Baby Kelly"
+   ],
+   "note": "schade door de geboorte van een kind (HR 18 maart 2005)"
+  },
+  {
+   "ecli": "ECLI:NL:HR:2019:1734",
+   "names": [
+    "Xella"
+   ],
+   "note": "slapend dienstverband (HR 8 november 2019)"
+  },
+  {
+   "ecli": "ECLI:NL:HR:2019:2006",
+   "names": [
+    "Urgenda"
+   ],
+   "note": "the climate case: HR 20 december 2019"
+  },
+  {
+   "ecli": "ECLI:NL:HR:2019:2007",
+   "names": [
+    "Urgenda"
+   ],
+   "note": "the climate case: HR 20 december 2019, in English"
+  },
+  {
+   "ecli": "ECLI:NL:GHDHA:2018:2591",
+   "names": [
+    "Urgenda"
+   ],
+   "note": "the climate case: gerechtshof Den Haag 9 oktober 2018"
+  },
+  {
+   "ecli": "ECLI:NL:GHDHA:2018:2610",
+   "names": [
+    "Urgenda"
+   ],
+   "note": "the climate case: gerechtshof Den Haag 9 oktober 2018, in English"
+  },
+  {
+   "ecli": "ECLI:NL:RBDHA:2015:7145",
+   "names": [
+    "Urgenda"
+   ],
+   "note": "the climate case: rechtbank Den Haag 24 juni 2015"
+  },
+  {
+   "ecli": "ECLI:NL:RBDHA:2015:7196",
+   "names": [
+    "Urgenda"
+   ],
+   "note": "the climate case: rechtbank Den Haag 24 juni 2015, in English"
+  },
+  {
+   "ecli": "ECLI:NL:HR:2021:1778",
+   "names": [
+    "Didam"
+   ],
+   "note": "verkoop van onroerende zaken door de overheid (HR 26 november 2021)"
+  },
+  {
+   "ecli": "ECLI:NL:HR:2023:443",
+   "names": [
+    "Deliveroo"
+   ],
+   "note": "de arbeidsovereenkomst van maaltijdbezorgers (HR 24 maart 2023)"
+  }
+ ]
+}

@@ -10,7 +10,8 @@
 - the phases are ordered, do not overlap and cover the cabinet from its start to its end
   (or to now): a ``formatie`` before the start, then one after another.
 
-``cabinet_row`` is one row of ``lawgraph verify cabinets``.
+``cabinet_row`` is one row of ``lawgraph verify cabinets``; ``ministry_report`` its count of
+where the ministry of every post comes from, and of the posts without one per reason.
 """
 
 from __future__ import annotations
@@ -133,6 +134,10 @@ def cabinet_row(cabinet: dict[str, Any], posts: list[dict[str, Any]]) -> dict[st
         "double": sum(1 for p in posts if p.get("also_named")),
         "party": sum(1 for p in posts if p.get("party")),
         "no_party": sum(1 for p in posts if not p.get("party")),
+        "no_ministry": sum(
+            1 for p in posts if p.get("ministry_missing") == "no_source"
+        ),
+        "ambiguous": sum(1 for p in posts if p.get("ministry_missing") == "ambiguous"),
         "own": sum(1 for p in posts if p.get("own")),
         "phases": len(phases),
         "demissionary_from": cabinet.get("demissionary_from"),
@@ -142,3 +147,23 @@ def cabinet_row(cabinet: dict[str, Any], posts: list[dict[str, Any]]) -> dict[st
             else in_office["from_date"] == cabinet["from_date"]
         ),
     }
+
+
+def ministry_report(
+    rows: Iterable[tuple[str, list[dict[str, Any]]]],
+) -> tuple[dict[str, int], dict[str, list[str]]]:
+    """``(counts, missing)`` over *rows* (cabinet key, its posts): how many posts have
+    their ministry from each source (``core.post_ministries``), and per reason
+    (``no_source``, ``ambiguous``) the posts without one (``<cabinet>: <name>, <function>``)."""
+    counts: dict[str, int] = defaultdict(int)
+    missing: dict[str, list[str]] = defaultdict(list)
+    for key, posts in rows:
+        for post in posts:
+            if post.get("ministry_source"):
+                counts[post["ministry_source"]] += 1
+            elif post.get("ministry_missing"):
+                counts[post["ministry_missing"]] += 1
+                missing[post["ministry_missing"]].append(
+                    f"{key}: {post.get('name')}, {post.get('function')}"
+                )
+    return dict(counts), dict(missing)
