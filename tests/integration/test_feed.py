@@ -732,3 +732,57 @@ def test_busy_days_are_paged_whole_by_day_kind_and_id(
     order.sort(key=lambda item: rank[item["kind"]])
     order.sort(key=lambda item: item["date"], reverse=True)
     assert ids == [item["id"] for item in order]
+
+
+def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) -> None:
+    response = client.get(
+        "/api/feed/summary", params={"until": "2026-05-12", "days": 12}
+    )
+    assert response.status_code == 200, response.text
+    summary = response.json()
+    assert (summary["since"], summary["until"], summary["margin"]) == (
+        "2026-05-01",
+        "2026-05-12",
+        10,
+    )
+    days = {day["date"]: day for day in summary["days"]}
+    assert len(summary["days"]) == 12
+    assert summary["days"][0]["date"] == "2026-05-12"
+    assert days["2026-05-05"] == {
+        "date": "2026-05-05",
+        "total": 0,
+        "kinds": [],
+        "dossiers": [],
+        "votes": [],
+    }
+    assert days["2026-05-12"]["votes"] == [
+        {"subkind": "motie", "outcome": "aangenomen", "count": 1}
+    ]
+    may_first = days["2026-05-01"]
+    assert may_first["total"] == 2
+    assert {k["value"]: k["count"] for k in may_first["kinds"]} == {
+        "amendement": 1,
+        "motie": 1,
+    }
+    assert {d["number"]: d["short_title"] for d in may_first["dossiers"]} == {
+        "37000": "Wet beter voorbeeld",
+        "37001-VII": None,
+    }
+    # the vote is decided by 10 seats: close enough by default
+    assert [item["id"] for item in summary["items"]] == ["decisions/stemming_1"]
+    assert summary["items"][0]["headline"]["surname"] == "Bakker"
+
+    closer = client.get(
+        "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "margin": 5}
+    ).json()
+    assert closer["items"] == []
+    bill_day = client.get(
+        "/api/feed/summary", params={"until": "2026-03-01", "days": 1}
+    ).json()
+    assert [item["id"] for item in bill_day["items"]] == ["documents/bill_001"]
+    by_member = client.get(
+        "/api/feed/summary",
+        params={"until": "2026-05-12", "days": 12, "member": AALDERS_KEY},
+    ).json()
+    assert sum(day["total"] for day in by_member["days"]) == 1
+    assert client.get("/api/feed/summary?days=0").status_code == 422

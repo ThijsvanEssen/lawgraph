@@ -4,6 +4,7 @@ variables it builds, and the items and Atom document made of its rows."""
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import json
 import re
 from xml.etree import ElementTree
@@ -14,6 +15,7 @@ from lawgraph.api.routes.feed import feed_title, site_query
 from lawgraph.api.schemas.feed import (
     FeedItemDTO,
     FeedResponse,
+    FeedSummaryResponse,
     _subject,
     _surname,
     atom_feed,
@@ -26,7 +28,7 @@ from lawgraph.core.feed import (
     FeedCursor,
     person_role,
 )
-from lawgraph.db.queries.feed import _SOURCES, FeedFilters, feed_query
+from lawgraph.db.queries.feed import _SOURCES, FeedFilters, feed_query, summary_query
 
 
 def test_a_cursor_survives_its_token() -> None:
@@ -418,3 +420,45 @@ def test_a_dossier_has_the_short_title_it_goes_by(
     title: str | None, short: str | None
 ) -> None:
     assert short_title(title) == short
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        FeedFilters(since="2026-05-01", until="2026-05-03"),
+        FeedFilters(since="2026-05-01", until="2026-05-03", kinds=("motie",), q="x"),
+        FeedFilters(since="2026-05-01", until="2026-05-03", member="m1", cabinet="c"),
+    ],
+)
+def test_a_summary_binds_what_it_reads(filters: FeedFilters) -> None:
+    aql, bind = summary_query(filters, margin=7, limit=20)
+    assert _bind_names(aql) == set(bind)
+    assert (bind["margin"], bind["page_size"]) == (7, 21)
+
+
+def test_a_summary_has_every_day_of_its_window() -> None:
+    summary = FeedSummaryResponse.from_raw(
+        {
+            "days": [
+                {
+                    "date": "2026-05-02",
+                    "total": 1,
+                    "kinds": [],
+                    "votes": [{"subkind": "wetsvoorstel", "passed": False, "count": 1}],
+                    "dossiers": [{"number": "36600-VII", "count": 1}],
+                }
+            ],
+            "dossiers": [
+                {"number": "36600-VII", "key": "36600_vii", "title": "T (Wet x)"}
+            ],
+            "items": [VOTE_ROW, VOTE_ROW],
+        },
+        since=dt.date(2026, 5, 1),
+        until=dt.date(2026, 5, 3),
+        margin=10,
+        limit=1,
+    )
+    assert [d.date for d in summary.days] == ["2026-05-03", "2026-05-02", "2026-05-01"]
+    assert summary.days[1].votes[0].outcome == "verworpen"
+    assert summary.days[1].dossiers[0].short_title == "Wet x"
+    assert len(summary.items) == 1 and summary.items_truncated
