@@ -53,6 +53,19 @@ def text_items(judgments: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]
     return {item_id: meta for _, item_id, meta in sorted(best.values())}
 
 
+def _server_error(exc: Exception) -> bool:
+    status = status_of(exc)
+    return status is not None and 500 <= status < 600
+
+
+def _no_text(exc: Exception) -> bool:
+    """HUDOC has no text for this item: HTTP 404, an answer that is no DOCX, or an HTTP 5xx
+    that outlasted the client's retries (HUDOC answers HTTP 500 for an item it cannot
+    convert, every time). The item is remembered as missing and asked for again after
+    ``MISSING_FOR_DAYS``."""
+    return is_not_found(exc) or isinstance(exc, ValueError) or _server_error(exc)
+
+
 class ECHRRetrievePipeline(RetrievePipelineBase):
     """Retrieve ECHR HUDOC judgments for a given respondent country."""
 
@@ -154,7 +167,11 @@ class ECHRRetrievePipeline(RetrievePipelineBase):
                     payload_text=answer,
                     meta=items[item_id],
                 )
-            elif is_not_found(answer) or isinstance(answer, ValueError):
+            elif _no_text(answer):
+                if _server_error(answer):
+                    # One document HUDOC cannot convert; many in a row is the host.
+                    streak.failed(item_id, answer)
+                self.progress.skip(f"no text ({failure_reason(answer)})", item_id)
                 yield missing_record(
                     SOURCE_ECHR,
                     RAW_KIND_ECHR_TEXT,
