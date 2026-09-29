@@ -610,13 +610,24 @@ class InstrumentDetailDTO(BaseModel):
     version_date_in_force: str | None = Field(
         None, description="BWB: the start of the version in force (its toestand)."
     )
-    treaty_number: str | None = None
+    treaty_number: str | None = Field(
+        None,
+        description="A treaty: its Verdragenbank id (six digits), which the BWB text of the "
+        "treaty names too (`wetgeving@verdragnummer`).",
+    )
     in_force: bool | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
     official_url: str | None = Field(None, description=OFFICIAL_URL)
+    same_treaty: list[LinkedInstrumentDTO] = Field(
+        default_factory=list,
+        description="The other instruments with its treaty number: the Verdragenbank "
+        "record of a BWB treaty, the BWB text of a Verdragenbank treaty.",
+    )
 
     @classmethod
-    def from_document(cls, doc: dict[str, Any]) -> InstrumentDetailDTO:
+    def from_document(
+        cls, doc: dict[str, Any], *, same_treaty: list[dict[str, Any]] | None = None
+    ) -> InstrumentDetailDTO:
         props = doc.get("props") or {}
         return cls(
             id=doc["_id"],
@@ -645,6 +656,9 @@ class InstrumentDetailDTO(BaseModel):
             in_force=props.get("in_force"),
             dossier_numbers=[str(n) for n in props.get("dossier_numbers") or []],
             official_url=instrument_url(props),
+            same_treaty=[
+                LinkedInstrumentDTO.from_document(other) for other in same_treaty or []
+            ],
         )
 
 

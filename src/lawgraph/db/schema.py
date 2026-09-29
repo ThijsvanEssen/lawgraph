@@ -457,6 +457,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_INSTRUMENTS, ["props.stub"], False, True),
         # Title-sort key for /api/instruments default list.
         (COLLECTION_INSTRUMENTS, ["props.citation_title"], False, False),
+        # one treaty in the BWB and in the Verdragenbank (`same_treaty` of an instrument)
+        (COLLECTION_INSTRUMENTS, ["props.treaty_number"], False),
         (COLLECTION_DOCUMENTS, ["props.kind"], False),
         (COLLECTION_DOCUMENTS, ["props.date"], False),
         (COLLECTION_DOCUMENTS, ["props.dossier_number"], False),
