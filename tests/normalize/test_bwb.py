@@ -121,7 +121,7 @@ def test_normalize_current_writes_articles_and_part_of_edges() -> None:
 
     instrument = store.nodes["instruments"][make_node_key(GRONDWET)]["props"]
     assert instrument["citation_title"] == "Grondwet" and instrument["kind"] == "wet"
-    assert instrument["dossier_numbers"] == ["35786"]
+    assert instrument["dossier_numbers"] == []  # the Grondwet of 1840 names none
     art7 = store.nodes["articles"][make_node_key(GRONDWET, "7")]["props"]
     assert (art7["stam_id"], art7["versie_id"]) == ("2990103", "25689252")
     assert (

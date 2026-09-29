@@ -546,9 +546,12 @@ FOR a IN {COLLECTION_ARTICLES}
 
 _REGULATION_DOSSIERS_AQL = f"""
 FOR i IN {COLLECTION_INSTRUMENTS}
-  FILTER i.props.bwb_id != null AND IS_ARRAY(i.props.dossier_numbers)
-  FILTER LENGTH(i.props.dossier_numbers) > 0
-  RETURN {{key: i._key, dossiers: i.props.dossier_numbers}}
+  FILTER i.props.bwb_id != null
+  SORT i._key
+  RETURN {{
+    key: i._key,
+    dossiers: IS_ARRAY(i.props.dossier_numbers) ? i.props.dossier_numbers : []
+  }}
 """
 
 
@@ -569,7 +572,8 @@ def articles_by_identity(
 
 
 def regulation_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, dossiers}`` of the BWB regulations that list parliamentary dossiers."""
+    """``{key, dossiers}`` of every BWB regulation, with the parliamentary dossiers it
+    lists (none too: its edges to dossiers it no longer lists go)."""
     return store.query(_REGULATION_DOSSIERS_AQL)
 
 

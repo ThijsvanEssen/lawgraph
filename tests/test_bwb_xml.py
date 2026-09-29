@@ -59,10 +59,14 @@ def test_the_enactment_is_read_from_the_intitule(grondwet) -> None:
     assert props["version_date_in_force"] == "2023-02-22"
 
 
-def test_instrument_level_publication_carries_the_dossier(grondwet) -> None:
-    assert grondwet.origin.identifier == "stb-2022-332"
-    assert grondwet.origin.dossiers == ("35786",)
-    assert grondwet.origin.signed == "2022-07-06"
+def test_the_dossier_of_a_regulation_is_that_of_the_bill_that_enacted_it(
+    grondwet,
+) -> None:
+    # the <wetgeving> of the Awb names Stb. 2012, 682 of dossier 32450, a later change
+    awb = parse_toestand((FIXTURES / "bwb_awb_annexes_toestand.xml").read_text())
+    assert instrument_props(awb, "BWBR0005537")["dossier_numbers"] == ["21221"]
+    # the Grondwet of 1840 names no dossier: an empty list replaces a stale one
+    assert instrument_props(grondwet, "BWBR0001840")["dossier_numbers"] == []
 
 
 def test_article_identity_and_version_fields(grondwet) -> None:

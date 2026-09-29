@@ -539,8 +539,9 @@ without a WTI location or element gets no WTI record.
 (citeertitel, else intitule), `kind` (`wetgeving@soort`), `date_signed`, `date_published` and
 `date_in_force` of the regulation as enacted (the `oorspronkelijk` publication and the
 `inwerkingtreding.datum` in the `meta-data` of the `<intitule>`; null when it does not say
-them), `version_date_in_force` (the start of the toestand), `dossier_numbers` of the
-publication in the `meta-data` of `<wetgeving>`. One Article per
+them), `dossier_numbers` of that enacting publication (the `meta-data` of `<wetgeving>`
+names the last change to the structure of the law, not the law), `version_date_in_force`
+(the start of the toestand). One Article per
 `(bwb_id, article number)`, or per `stam-id` for an article with a heading and no number (its
 `label` is the heading), with its `heading` (the `<titel>` of its `<kop>`, numbered or not) and
 its `breadcrumb`, at its `position` in the toestand, with the article text (leden as `1. text`, list items on their
@@ -627,7 +628,8 @@ which `normalize bwb` keeps when it parses the toestand; no XML is read again.
    `effective_date`, `article_version`, `effect`, `source_publication`; one edge per
    publication, article and kind, with the earliest effective date;
 4. writes `LEGISLATED_IN` from each publication and each regulation to the dossiers of
-   `dossier_numbers` that exist (key = the plain dossier number).
+   `dossier_numbers` that exist (key = the plain dossier number), and removes its
+   `LEGISLATED_IN` from a regulation to a dossier the regulation no longer lists.
 
 Versions with an unknown effect or without a matching article count as skipped.
 

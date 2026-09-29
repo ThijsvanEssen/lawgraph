@@ -296,10 +296,9 @@ class ToestandXml:
     official_title: str | None
     citation_title: str | None
     valid_from: str | None  # the start of this toestand
-    origin: Publication | None  # of the latest version of the regulation as a whole
-    commencement: Publication | None
     # The regulation as it was enacted: the publication in the ``meta-data`` of its
-    # ``<intitule>`` and the date it entered into force.
+    # ``<intitule>`` and the date it entered into force. (The ``meta-data`` of
+    # ``<wetgeving>`` names the last change to the structure of the law, not the law.)
     enacted: Publication | None = None
     enacted_in_force: str | None = None
     basis: tuple[BasisRef, ...] = ()
@@ -862,9 +861,6 @@ def parse_toestand(xml_text: str) -> ToestandXml:
     """Parse the XML of one toestand. Raises ``ET.ParseError`` on malformed XML."""
     root = ET.fromstring(xml_text)
     wetgeving = next(iter_named(root, "wetgeving"), None)
-    origin, commencement = (
-        _brondata(wetgeving) if wetgeving is not None else (None, None)
-    )
     articles = tuple(_articles(root))
     enacted, enacted_in_force = _enactment(root)
     return ToestandXml(
@@ -874,8 +870,6 @@ def parse_toestand(xml_text: str) -> ToestandXml:
         official_title=_title(root, "intitule"),
         citation_title=_title(root, "citeertitel"),
         valid_from=root.get("inwerkingtreding"),
-        origin=origin,
-        commencement=commencement,
         enacted=enacted,
         enacted_in_force=enacted_in_force,
         basis=_basis(root),
@@ -923,11 +917,11 @@ def instrument_props(
     IMPLEMENTS): kept here, where the toestand is parsed anyway, so they do not read and
     parse every toestand again. Both are always written: an empty list replaces a stale one.
 
-    ``date_signed``, ``date_published`` and ``date_in_force`` are those of the regulation as
-    it was enacted (``ToestandXml.enacted``), always written (null when the toestand does
-    not say them); ``version_date_in_force`` is the start of the toestand.
+    ``date_signed``, ``date_published``, ``date_in_force`` and ``dossier_numbers`` are those
+    of the regulation as it was enacted (``ToestandXml.enacted``), always written (null or
+    empty when the toestand does not say them); ``version_date_in_force`` is the start of
+    the toestand.
     """
-    origin = toestand.origin
     enacted = toestand.enacted
     title = toestand.title or f"BWB-regeling {bwb_id}"
     props = _drop_none(
@@ -945,9 +939,6 @@ def instrument_props(
             "display_name": title,
             "kind": toestand.kind,
             "jurisdiction": "nl",
-            "dossier_numbers": (
-                list(origin.dossiers) if origin and origin.dossiers else None
-            ),
             "version_date_in_force": toestand.valid_from,
         }
     )
@@ -956,6 +947,7 @@ def instrument_props(
         "date_signed": enacted.signed if enacted else None,
         "date_published": enacted.published if enacted else None,
         "date_in_force": toestand.enacted_in_force,
+        "dossier_numbers": list(enacted.dossiers) if enacted else [],
     }
 
 
