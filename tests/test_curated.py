@@ -73,13 +73,26 @@ def test_an_ordered_list_takes_a_place(copy: Path) -> None:
 def test_the_seating_plan_is_kept_in_order_of_angle_and_names_its_plan(
     copy: Path,
 ) -> None:
+    # a new faction takes a seat of another: the plan keeps 150
     assert not command.main(
-        ["set", "seating", "nsc", '{"abbreviation": "NSC", "angle": 90.0}']
+        [
+            "set",
+            "seating",
+            "vvd",
+            '{"abbreviation": "VVD", "angle": 109.9, "seats": 21}',
+        ]
+    ).errors
+    assert not command.main(
+        ["set", "seating", "nsc", '{"abbreviation": "NSC", "angle": 90.0, "seats": 1}']
     ).errors
     angles = [v["angle"] for v in LISTS["seating"].entries().values()]
     assert angles == sorted(angles)
     assert command.main(
-        ["set", "seating", "x", '{"abbreviation": "X", "angle": 200}']
+        ["set", "seating", "x", '{"abbreviation": "X", "angle": 200, "seats": 1}']
+    ).errors
+    # a faction on the plan has seats
+    assert command.main(
+        ["set", "seating", "y", '{"abbreviation": "Y", "angle": 90}']
     ).errors
     source = LISTS["seating"].document()["source"]
     assert source["url"].startswith("https://www.tweedekamer.nl/")

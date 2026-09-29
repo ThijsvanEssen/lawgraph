@@ -1,6 +1,7 @@
 """The curated seating plan against the database: a faction with seats the plan does not
-place, or a plan older than the last change of a seat, is a problem of ``lawgraph check``
-(in the small database: NSC, whose seats are of before the plan)."""
+place, or with another number of seats than on the plan, is a problem of ``lawgraph check``
+(in the small database: NSC, whose seats were of before the plan), and a faction whose
+number of seats differs from the plan's."""
 
 from __future__ import annotations
 
@@ -47,16 +48,24 @@ def test_a_seated_faction_without_a_place_is_a_problem(database: str) -> None:
     assert not any(":sp:" in n.replace(" ", "") for n in notes)
 
 
-def test_a_plan_older_than_a_seat_change_is_a_problem(database: str) -> None:
+def test_a_number_of_seats_other_than_the_plans_is_a_problem_a_new_member_a_note(
+    database: str,
+) -> None:
     store = ArangoStore()
     with NodeWriter(store) as writer:
         writer.add_all(
             [
-                _faction("sp", "SP", 3, "2026-05-01"),
-                _faction("pvv", "PVV", 19, "2026-07-15"),
+                # as on the plan; a seat changed after it (a new member): only a note
+                _faction("vvd", "VVD", 22, "2026-09-02"),
+                # one seat more than on the plan: the seating has changed
+                _faction("pvv", "PVV", 20, "2026-07-15"),
             ]
         )
     assert database_problems(store) == [
-        "seating: the plan is of 2026-06-01, a seat changed on 2026-07-15: take the new "
-        "plan of the Tweede Kamer (wie zit waar)"
+        "seating: pvv (PVV) has 20 seats, the plan 19: take the new plan of the Tweede "
+        "Kamer (wie zit waar)"
     ]
+    assert (
+        "seating: a seat changed on 2026-09-02, after the plan of 2026-06-01 (the seating "
+        "changes only when the numbers of seats do)"
+    ) in database_notes(store)

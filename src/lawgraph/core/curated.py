@@ -166,6 +166,12 @@ def _seating(entries: Entries) -> list[str]:
             found.append(f"{key}: angle {angle!r} is no number from 0 to 180")
         if not (value or {}).get("abbreviation"):
             found.append(f"{key}: needs an abbreviation")
+        seats = (value or {}).get("seats")
+        if not isinstance(seats, int) or seats < 1:
+            found.append(f"{key}: seats {seats!r} is no number of seats on the plan")
+    total = sum((v or {}).get("seats") or 0 for v in entries.values())
+    if total > 150:
+        found.append(f"the plan has {total} seats; the Kamer has 150")
     source = LISTS["seating"].document().get("source") or {}
     dated = str(source.get("dated"))
     if not source.get("url") or not re.match(r"^\d{4}-\d{2}-\d{2}$", dated):
@@ -282,7 +288,7 @@ LISTS: dict[str, CuratedList] = {
         _list(
             "seating",
             "seating.json",
-            "faction key -> {abbreviation, angle}: where it sits, after the TK plan",
+            "faction key -> {abbreviation, angle, seats}: where it sits, after the TK plan",
             _seating_entries(),
             _seating,
         ),

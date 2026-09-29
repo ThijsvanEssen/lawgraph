@@ -88,49 +88,62 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
 
 def database_problems(store: Any) -> list[str]:
     """What the database says is wrong with the seating plan: a faction with seats that it
-    does not place (it would sit at the right end), and a plan older than the last change of
-    a seat (``seats_changed_on`` of a faction, from FractieZetel): the seating may have
-    changed since. A key of the plan no faction has is a note (``database_notes``): a
-    partial database lacks factions."""
+    does not place (it would sit at the right end), and a faction whose number of seats
+    differs from the plan's (a split, a new faction, elections: the Kamer then draws a new
+    plan). A seat that changed after the plan (a new member in it) is only a note
+    (``database_notes``), as is a key of the plan no faction has (a partial database)."""
     from lawgraph.db.queries.committees import get_factions
 
     placed = LISTS["seating"].entries()
-    seated = [
-        doc
-        for doc in get_factions(store, active=True)
-        if int((doc.get("props") or {}).get("seats") or 0) > 0
-    ]
-    found = [
-        f"seating: {doc['_key']} ({(doc.get('props') or {}).get('abbreviation')}) has "
-        "seats but no place in the seating plan: take it from the plan of the Tweede "
-        "Kamer (`lawgraph curated set seating`)"
-        for doc in seated
-        if doc["_key"] not in placed
-    ]
-    dated = str((LISTS["seating"].document().get("source") or {}).get("dated") or "")
-    changed = max(
-        (str((d.get("props") or {}).get("seats_changed_on") or "") for d in seated),
-        default="",
-    )
-    if dated and changed > dated:
-        found.append(
-            f"seating: the plan is of {dated}, a seat changed on {changed}: take the new "
-            "plan of the Tweede Kamer (wie zit waar)"
-        )
+    found = []
+    for doc in get_factions(store, active=True):
+        props = doc.get("props") or {}
+        seats = int(props.get("seats") or 0)
+        key, name = doc["_key"], props.get("abbreviation")
+        if seats <= 0:
+            continue
+        if key not in placed:
+            found.append(
+                f"seating: {key} ({name}) has seats but no place in the seating plan: take "
+                "it from the plan of the Tweede Kamer (`lawgraph curated set seating`)"
+            )
+        elif placed[key].get("seats") != seats:
+            found.append(
+                f"seating: {key} ({name}) has {seats} seats, the plan {placed[key].get('seats')}"
+                ": take the new plan of the Tweede Kamer (wie zit waar)"
+            )
     return found
 
 
 def database_notes(store: Any) -> list[str]:
-    """The keys of the seating plan no faction in the database has (a typo, or a faction the
-    database does not hold)."""
+    """What the database tells of the seating plan without making it wrong: a seat that
+    changed after the plan's date (a replacement within a faction leaves the seating as it
+    is), and a key of the plan no faction in the database has (a typo, or a faction a
+    partial database does not hold)."""
     from lawgraph.db.queries.committees import get_factions
 
-    known = {doc["_key"] for doc in get_factions(store)}
-    return [
+    factions = get_factions(store)
+    known = {doc["_key"] for doc in factions}
+    notes = [
         f"seating: {key}: no faction in the database has this key"
         for key in LISTS["seating"].entries()
         if known and key not in known
     ]
+    dated = str((LISTS["seating"].document().get("source") or {}).get("dated") or "")
+    changed = max(
+        (
+            str((d.get("props") or {}).get("seats_changed_on") or "")
+            for d in factions
+            if (d.get("props") or {}).get("active")
+        ),
+        default="",
+    )
+    if dated and changed > dated:
+        notes.append(
+            f"seating: a seat changed on {changed}, after the plan of {dated} (the seating "
+            "changes only when the numbers of seats do)"
+        )
+    return notes
 
 
 def _change(args: argparse.Namespace) -> list[str]:
