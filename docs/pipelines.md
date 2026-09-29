@@ -586,6 +586,10 @@ not created.
   - a toestand from before an article's commencement shows it as "Dit onderdeel is nog niet
     inwerking getreden", under the versie-id its text will have; that placeholder is written only
     while no toestand gave the text, and never replaces it;
+- the place of each ArticleVersion on a day (`pipelines/normalize/_bwb_places.py`): its
+  `position` in one order of the versions of the law in which the versions of every toestand
+  keep their order, and its `breadcrumb` with `breadcrumb_changes` from every toestand that
+  holds it; a run with `--since` starts from what is stored for each law it reads;
 - `VERSION_OF` from each ArticleVersion to its Article and from each InstrumentVersion to its
   Instrument;
 - an Instrument if `normalize bwb` has not created it, and a historical Article for an identity

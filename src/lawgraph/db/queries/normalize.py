@@ -71,6 +71,7 @@ FOR v IN {COLLECTION_ARTICLE_VERSIONS}
         current: v.props.current,
         last_seen: v.props.last_seen,
         effect: v.props.effect,
+        position: v.props.position,
         text_start: SUBSTRING(v.props.text, 0, 60),
         title: v.props.instrument_citation_title
     }}
@@ -85,6 +86,22 @@ def article_identities(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, A
 def article_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
     """The article versions of *bwb_ids*, with their validity and article number."""
     return store.query(_VERSIONS_AQL, {"ids": bwb_ids})
+
+
+def stored_places(store: Store, bwb_id: str) -> Iterator[dict[str, Any]]:
+    """``{key, breadcrumb, breadcrumb_changes}`` of the article versions of *bwb_id*, in
+    their stored order (``position``)."""
+    aql = f"""
+    FOR v IN {COLLECTION_ARTICLE_VERSIONS}
+        FILTER v.props.bwb_id == @id
+        SORT v.props.position == null, v.props.position, v._key
+        RETURN {{
+            key: v._key,
+            breadcrumb: v.props.breadcrumb,
+            breadcrumb_changes: v.props.breadcrumb_changes
+        }}
+    """
+    return store.query(aql, {"id": bwb_id})
 
 
 def toestand_starts(store: Store, bwb_ids: list[str]) -> dict[str, list[str]]:

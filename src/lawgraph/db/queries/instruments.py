@@ -597,6 +597,16 @@ def get_instrument_versions(
     return list(store.query(aql, {"bwb_id": bwb_id.upper()}))
 
 
+@dataclass(frozen=True)
+class LawOnADate:
+    """The articles of a law in force on a date (a page of them), how many there are, and
+    the start of the first toestand of the law."""
+
+    items: list[dict[str, Any]]
+    total: int
+    first_version_from: str | None
+
+
 def get_articles_at(
     store: ArangoStore,
     bwb_id: str,
@@ -604,13 +614,23 @@ def get_articles_at(
     *,
     limit: int = 2000,
     offset: int = 0,
-) -> tuple[list[dict[str, Any]], int]:
-    """The articles of the law in force on *at_date* (YYYY-MM-DD) and how many there are:
-    the article versions whose half-open period holds it, in the order of the document. A
-    bijlage is part of the law, not an article of it: the articles of a bijlage are left
-    out."""
+) -> LawOnADate:
+    """The articles of the law in force on *at_date* (YYYY-MM-DD): the article versions
+    whose half-open period holds it, in the order of the document. A bijlage is part of the
+    law, not an article of it: the articles of a bijlage are left out.
+
+    None before the first toestand of the law: the source gives the law from there, and an
+    article's own start before it (``inwerking``) says nothing of the articles that were
+    replaced or lapsed before it."""
     aql = f"""
-    LET filtered = (
+    LET first = FIRST(
+        FOR v IN {COLLECTION_INSTRUMENT_VERSIONS}
+            FILTER v.props.bwb_id == @bwb_id
+            SORT v.props.valid_from
+            LIMIT 1
+            RETURN v.props.valid_from
+    )
+    LET filtered = first == null OR @at_date < first ? [] : (
         FOR doc IN {COLLECTION_ARTICLE_VERSIONS}
             FILTER doc.props.bwb_id == @bwb_id
             FILTER doc.props.valid_from <= @at_date
@@ -624,7 +644,7 @@ def get_articles_at(
             LIMIT @offset, @limit
             RETURN doc
     )
-    RETURN {{ total: LENGTH(filtered), items: items }}
+    RETURN {{ total: LENGTH(filtered), items: items, first: first }}
     """
     bind = {
         "bwb_id": bwb_id.upper(),
@@ -633,6 +653,9 @@ def get_articles_at(
         "offset": offset,
     }
     rows = list(store.query(aql, bind))
-    if not rows:
-        return [], 0
-    return list(rows[0].get("items") or []), int(rows[0].get("total") or 0)
+    row = rows[0] if rows else {}
+    return LawOnADate(
+        items=list(row.get("items") or []),
+        total=int(row.get("total") or 0),
+        first_version_from=row.get("first"),
+    )

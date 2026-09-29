@@ -61,6 +61,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
 from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.pipelines.normalize._bwb_places import Crumbs, Places
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -145,6 +146,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
+        self._incremental = False  # a run with --since: it adds to what is stored
 
     def fetch_raw(
         self,
@@ -152,6 +154,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         since: dt.datetime | None = None,
     ) -> Iterator[dict[str, Any]]:
         """Stream the raw historical toestanden (each is a large XML document)."""
+        self._incremental = since is not None
         return self._iter_raw_sources(
             source=SOURCE_BWB, kinds=[RAW_KIND_BWB_TOESTAND_ALL], since=since
         )
@@ -170,6 +173,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         announced: set[str] = set()  # versions written as a placeholder only
         last_seen: dict[str, str] = {}  # version -> the latest toestand holding it
         written: WrittenVersions = defaultdict(list)
+        places = Places()
 
         with NodeWriter(self.store) as writer:
             for record in raw:
@@ -186,6 +190,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                     )
                 )
                 instrument_versions.append((bwb_id, version_key))
+                self._place(places, bwb_id, start_date, toestand)
 
                 for position, article in enumerate(toestand.articles):
                     key = self._version_key(article, bwb_id, start_date)
@@ -215,7 +220,22 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             "instrument_versions": instrument_versions,
             "written": written,
             "last_seen": last_seen,
+            "places": places,
         }
+
+    def _place(
+        self, places: Places, bwb_id: str, start_date: str, toestand: ToestandXml
+    ) -> None:
+        """Add the versions of a toestand, in its order, to *places*; a run with --since
+        first reads what an earlier run stored for the law."""
+        if self._incremental and bwb_id not in places:
+            places.seed(bwb_id, normalize_queries.stored_places(self.store, bwb_id))
+        versions: list[tuple[str, Crumbs]] = []
+        for article in toestand.articles:
+            key = self._version_key(article, bwb_id, start_date)
+            if key is not None:
+                versions.append((key, article.breadcrumb))
+        places.add(bwb_id, start_date, versions)
 
     def _parse_record(
         self, record: dict[str, Any]
@@ -316,7 +336,9 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
         for bwb_ids in chunked(sorted(seed), _INSTRUMENT_CHUNK):
             self._ensure_instruments(bwb_ids, seed)
-            self._finalise_chunk(bwb_ids, written, normalized["last_seen"], writer)
+            self._finalise_chunk(
+                bwb_ids, written, normalized["last_seen"], normalized["places"], writer
+            )
 
         writer.flush()
         logger.info(
@@ -345,9 +367,13 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         bwb_ids: list[str],
         written: WrittenVersions,
         last_seen: dict[str, str],
+        places: Places,
         writer: EdgeWriter,
     ) -> None:
         versions = list(normalize_queries.article_versions(self.store, bwb_ids))
+        positions: dict[str, int] = {}
+        for bwb_id in bwb_ids:
+            positions.update(places.positions(bwb_id))
         for v in versions:
             v["last_seen"] = max(v.get("last_seen") or "", last_seen.get(v["key"], ""))
             v["lapsed"] = is_lapsed(v.get("effect"), v.get("text_start"))
@@ -360,8 +386,11 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 if v.get("valid_until") != expected[v["key"]]
                 or v.get("current") is not (expected[v["key"]] is None)
                 or v["key"] in last_seen
+                or v.get("position") != positions.get(v["key"], v.get("position"))
             ],
             expected,
+            positions,
+            places,
         )
 
         article_by_identity = {
@@ -433,9 +462,14 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         )
 
     def _write_valid_until(
-        self, stale: list[dict[str, Any]], expected: dict[str, str | None]
+        self,
+        stale: list[dict[str, Any]],
+        expected: dict[str, str | None],
+        positions: dict[str, int],
+        places: Places,
     ) -> None:
-        """Write ``valid_until`` and ``current`` of the versions where either differs.
+        """Write ``valid_until`` and ``current`` of the versions where either differs, and
+        the place of the versions read in this run or moved by them (``_bwb_places``).
 
         Phase 1 writes every version it reads as current, also one that a later version
         already ended, so ``current`` is checked on its own.
@@ -449,9 +483,18 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                     "valid_until": expected[v["key"]],
                     "current": expected[v["key"]] is None,
                     "last_seen": v["last_seen"] or None,
+                    **_place_props(v["key"], positions, places),
                 },
             }
             for v in stale
         ]
         for block in chunked(docs, 500):
             self.store.bulk_insert_or_update_nodes(COLLECTION_ARTICLE_VERSIONS, block)
+
+
+def _place_props(key: str, positions: dict[str, int], places: Places) -> dict[str, Any]:
+    """``position`` and the breadcrumbs of a version, where this run knows them."""
+    props: dict[str, Any] = places.breadcrumbs(key) or {}
+    if key in positions:
+        props["position"] = positions[key]
+    return props
