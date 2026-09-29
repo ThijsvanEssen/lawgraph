@@ -528,6 +528,7 @@ def get_article_cited_by(
                                 display_name: j.props.display_name,
                                 court_code: j.props.court_code,
                                 tier: j.props.tier,
+                                court_kind: j.props.court_kind,
                                 date_eff: j.props.date_eff
                             }}
                         }},

@@ -233,7 +233,9 @@ class JudgmentProps(_CommonProps):
     # the conclusion of a judgment, or the judgment of a conclusion (``psi:type`` conclusie)
     conclusion_eclis: list[str] | None = None
     court_code: str | None = None
+    # the coarse tier (the Type of the Instanties list) and the kind of court within it
     tier: str | None = None
+    court_kind: str | None = None
     date_eff: str | None = None
     inbound_citation_count: int | None = None
     # parallel cases of one court and day (``semantic rechtspraak-series``): the lowest

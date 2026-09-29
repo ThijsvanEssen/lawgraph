@@ -275,9 +275,10 @@ def test_sources_on_one_server_share_a_lane() -> None:
     lanes = {p.name: p.lane_id for p in registry.PIPELINES["retrieve"]}
     assert lanes["tk"] == lanes["tk-dossiers"]
     assert lanes["bwb"] == lanes["bwb-history"] == registry.LANE_BWB
+    assert lanes["rechtspraak"] == lanes["rechtspraak-instanties"]
     koop = {"staatsblad", "staatscourant", "eerstekamer", "verdragenbank", "tk-content"}
     assert {lanes[name] for name in koop} == {registry.LANE_KOOP_REPOSITORY}
-    assert len(set(lanes.values())) == len(lanes) - 1 - 1 - (len(koop) - 1)
+    assert len(set(lanes.values())) == len(lanes) - 1 - 1 - 1 - (len(koop) - 1)
 
 
 def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
@@ -297,6 +298,7 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("tk-dossiers", tk, ()),
         ("tk-content", koop, ("tk-dossiers",)),
         ("rechtspraak", "rechtspraak", ()),
+        ("rechtspraak-instanties", "rechtspraak", ()),  # after rechtspraak in its lane
         ("eurlex", "eurlex", ()),
         ("bwb", bwb, ()),
         ("bwb-history", bwb, ()),  # after bwb in the same lane
