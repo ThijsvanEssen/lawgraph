@@ -6,8 +6,6 @@ import argparse
 import datetime as dt
 
 from lawgraph.config.constants import (
-    RECHTSPRAAK_COURT_GROUPS,
-    RECHTSPRAAK_COURTS,
     RECHTSPRAAK_DEFAULT_COURTS,
     RECHTSPRAAK_EVERY_COURT,
     RECHTSPRAAK_MODIFIED_WINDOW_DAYS,
@@ -199,8 +197,8 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
         "--court",
         action="append",
         metavar="NAME",
-        help="Court or group to read (repeatable): "
-        f"{', '.join(sorted({*RECHTSPRAAK_COURTS, *RECHTSPRAAK_COURT_GROUPS}))}, or "
+        help="Court to read (repeatable): an ECLI court code (HR, RVS, GHAMS), a tier "
+        "of the court table (gerechtshof, rechtbank, ...: every court of it), or "
         f"{RECHTSPRAAK_EVERY_COURT} for every court of the index (the rechtbanken too). "
         f"Default: {', '.join(RECHTSPRAAK_DEFAULT_COURTS)}; none when only --ecli is given.",
     )

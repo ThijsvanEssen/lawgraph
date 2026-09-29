@@ -7,13 +7,8 @@ import itertools
 from collections.abc import Iterator, Sequence
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
-from lawgraph.config.constants import (
-    RAW_KIND_RS_CONTENT,
-    RECHTSPRAAK_COURT_GROUPS,
-    RECHTSPRAAK_COURTS,
-    RECHTSPRAAK_EVERY_COURT,
-    SOURCE_RECHTSPRAAK,
-)
+from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.core.courts import owms_terms
 from lawgraph.core.judgments import Referral
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
@@ -33,27 +28,10 @@ logger = get_logger(__name__)
 
 
 def resolve_courts(names: Sequence[str]) -> list[str]:
-    """OWMS terms of court names or groups (``hr``, ``rvs``, ``hoven``); unknown names raise.
-
-    ``all`` is every court: no terms, so the index is not filtered by court.
-    """
-    if RECHTSPRAAK_EVERY_COURT in names:
-        return []
-    terms: list[str] = []
-    for name in names:
-        for key in RECHTSPRAAK_COURT_GROUPS.get(name, (name,)):
-            if key not in RECHTSPRAAK_COURTS:
-                known = sorted(
-                    {
-                        *RECHTSPRAAK_COURTS,
-                        *RECHTSPRAAK_COURT_GROUPS,
-                        RECHTSPRAAK_EVERY_COURT,
-                    }
-                )
-                raise ValueError(f"unknown court {name!r}; known: {', '.join(known)}")
-            if RECHTSPRAAK_COURTS[key] not in terms:
-                terms.append(RECHTSPRAAK_COURTS[key])
-    return terms
+    """OWMS terms of courts (an ECLI code: ``HR``, ``GHAMS``) or tiers (``gerechtshof``), from
+    the court table (``core.courts.owms_terms``); unknown names raise. ``all`` is every court:
+    no terms, so the index is not filtered by court."""
+    return owms_terms(names)
 
 
 class RechtspraakRetrievePipeline(RetrievePipelineBase):

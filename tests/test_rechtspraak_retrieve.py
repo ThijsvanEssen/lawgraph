@@ -11,7 +11,6 @@ import pytest
 import requests
 
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
-from lawgraph.config.constants import RECHTSPRAAK_COURT_GROUPS
 from lawgraph.core.judgments import IndexEntry, Referral, parse_index
 from lawgraph.pipelines.retrieve.rechtspraak import (
     RechtspraakRetrievePipeline,
@@ -149,25 +148,33 @@ def test_a_failing_page_raises_after_the_earlier_ones_were_yielded() -> None:
 # ── which courts ─────────────────────────────────────────────────────────────
 
 
-def test_short_names_and_groups_resolve_to_owms_terms() -> None:
-    assert resolve_courts(["hr", "rvs"]) == [
+def test_codes_and_tiers_resolve_to_the_owms_terms_of_the_court_table() -> None:
+    assert resolve_courts(["HR", "rvs"]) == [
         "Hoge_Raad_der_Nederlanden",
         "Raad_van_State",
     ]
-    hoven = resolve_courts(["hoven"])
+    hoven = resolve_courts(["gerechtshof"])
     assert "Gerechtshof_Amsterdam" in hoven and "Gerechtshof_'s-Hertogenbosch" in hoven
-    assert len(hoven) == len(RECHTSPRAAK_COURT_GROUPS["hoven"])
+    # the courts of appeal before 2013 too: the index keeps their judgments
+    assert "Gerechtshof_Leeuwarden" in hoven and len(hoven) == 7
+
+
+def test_a_court_the_index_cannot_be_filtered_by_or_an_unknown_name_raises() -> None:
+    with pytest.raises(ValueError, match="cannot be filtered"):
+        resolve_courts(["XX"])  # the foreign courts: no OWMS term
+    with pytest.raises(ValueError, match="unknown court"):
+        resolve_courts(["hoven"])
 
 
 def test_all_is_every_court_so_no_filter_at_all() -> None:
     """The rechtbanken and every other court of the index are in it, none left out."""
     assert resolve_courts(["all"]) == []
-    assert resolve_courts(["hr", "all"]) == []
+    assert resolve_courts(["HR", "all"]) == []
 
 
 def test_a_court_is_listed_once() -> None:
     assert (
-        resolve_courts(["hr", "hr", "hoven", "gh-amsterdam"]).count(
+        resolve_courts(["HR", "hr", "gerechtshof", "GHAMS"]).count(
             "Gerechtshof_Amsterdam"
         )
         == 1
@@ -175,8 +182,8 @@ def test_a_court_is_listed_once() -> None:
 
 
 def test_an_unknown_court_is_named_with_the_known_ones() -> None:
-    with pytest.raises(ValueError, match="unknown court 'rechtbank'.*hr"):
-        resolve_courts(["rechtbank"])
+    with pytest.raises(ValueError, match="unknown court 'nope'.*gerechtshof"):
+        resolve_courts(["nope"])
 
 
 # ── the pipeline ─────────────────────────────────────────────────────────────
@@ -246,7 +253,7 @@ def test_every_judgment_of_the_index_is_downloaded_and_stored() -> None:
 def test_the_courts_and_dates_reach_the_index() -> None:
     rs = _Rs([])
     pipeline, _ = _pipeline(rs)
-    pipeline.run(courts=["hr", "hoven"], date_from=dt.date(2024, 9, 20))
+    pipeline.run(courts=["hr", "gerechtshof"], date_from=dt.date(2024, 9, 20))
     call = rs.index_calls[0]
     assert call["courts"][0] == "Hoge_Raad_der_Nederlanden" and len(call["courts"]) == 8
     assert call["from"] == dt.date(2024, 9, 20)
@@ -344,7 +351,7 @@ def test_a_referral_is_found_in_the_index_of_its_date_by_case_number() -> None:
 
 def test_an_unknown_court_is_an_error_of_the_step() -> None:
     pipeline, store = _pipeline(_Rs([]))
-    result = pipeline.run(courts=["rechtbank"])
+    result = pipeline.run(courts=["nope"])
     assert store.records == [] and "unknown court" in result.errors[0]
 
 
@@ -393,7 +400,10 @@ def test_the_default_is_every_court(cli) -> None:
 
 
 def test_court_narrows_the_default(cli) -> None:
-    assert cli(["--court", "hr", "--court", "hoven"])["courts"] == ["hr", "hoven"]
+    assert cli(["--court", "hr", "--court", "gerechtshof"])["courts"] == [
+        "hr",
+        "gerechtshof",
+    ]
 
 
 def test_only_eclis_means_no_courts(cli) -> None:
