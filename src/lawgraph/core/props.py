@@ -397,6 +397,8 @@ class CommitmentProps(_CommonProps):
     text: str | None = None
     minister_name: str | None = None
     minister_role: str | None = None
+    # the ministry the Tweede Kamer gives the commitment (``Toezegging.Ministerie``)
+    ministry_name: str | None = None
     made_on: str | None = None
     expected_resolution: str | None = None
     status: str | None = None
@@ -458,6 +460,10 @@ class GovernmentFunctionProps(_StrictBase):
     also_named: list[str] | None = None  # the same post under another name
     post: str | None = None  # core.ministries.POSTS
     ministry: str | None = None  # a key of core.ministries.MINISTRIES
+    # where the ministry comes from (core.post_ministries): page, tk_signatures,
+    # tk_commitments, staatscourant; and why there is none: no_source, ambiguous
+    ministry_source: str | None = None
+    ministry_missing: str | None = None
     seat: str | None = None  # "ienw/minister"
     portfolio: str | None = None
     from_date: str | None = None
@@ -466,7 +472,9 @@ class GovernmentFunctionProps(_StrictBase):
     to_date_source: str | None = None
     corrected: list[str] | None = None  # which dates the rules of a seat set
     acting: bool | None = None  # a stand-in (ad interim)
-    acting_basis: str | None = None
+    acting_reason: str | None = None  # source | held_other_seat
+    acting_basis: str | None = None  # the words of the source
+    acting_other_seat: dict[str, str] | None = None  # {seat, function}
     party: PartyRefProps | None = None
     overlaps_with: list[str] | None = (
         None  # member keys holding the seat at the same time

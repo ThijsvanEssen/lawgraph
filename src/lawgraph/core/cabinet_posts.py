@@ -25,10 +25,11 @@ then applies the rules of a seat:
   Buitenlandse Zaken`` with two names, ``Minister zonder Portefeuille`` twice), it does not
   say which holder followed which: the holders are put in lanes by date, ``#2`` for the
   second one, and no date is changed.
-- **Stand-ins.** A post is ``acting`` when the source says ``a.i.`` (or lists it among
-  ``tijdelijke voorzieningen``, or ``beheer portefeuille overgenomen door de minister van
-  …``), or when its holder held another seat through the whole period and the period ends
-  where the next holder of the seat begins. ``acting_basis`` says which.
+- **Stand-ins.** A post is ``acting`` when the source says so (``acting_reason``
+  ``source``, with its words in ``acting_basis``: ``a.i.``, ``tijdelijke voorziening: …``,
+  ``beheer portefeuille overgenomen door de minister van …``), or when its holder held
+  another seat through the whole period and the period ends where the next holder of the
+  seat begins (``held_other_seat``, that seat in ``acting_other_seat``).
 - **Overlaps.** Two holders of one named seat at the same time after these rules are not
   hidden: both get ``overlaps_with``.
 
@@ -69,10 +70,13 @@ SEAT_PRIME_MINISTER = "az/minister-president"
 # A seat nobody held for longer than this inside the cabinet's period has a gap.
 GAP_DAYS = 14
 
-BASIS_AI = "rijksoverheid: a.i."
-BASIS_TEMPORARY = "rijksoverheid: tijdelijke voorziening"
-BASIS_TAKEN_OVER = "rijksoverheid: beheer portefeuille overgenomen"
-BASIS_RULE = "held another seat throughout and ended where the next holder began"
+# Why a post is acting: the source says so, or the holder held another seat throughout.
+ACTING_SOURCE = "source"
+ACTING_HELD_OTHER_SEAT = "held_other_seat"
+# What the source says, as ``acting_basis``.
+BASIS_AI = "a.i."
+BASIS_TEMPORARY = "tijdelijke voorziening"
+BASIS_TAKEN_OVER = "beheer portefeuille overgenomen door de"
 
 CORRECTED_BY_SUCCESSOR = "to_date: start of the next holder"
 CORRECTED_BY_PREDECESSOR = "from_date: end of the previous holder"
@@ -219,8 +223,6 @@ def seat_of(
             r"^minister\s+(?:voor|zonder portefeuille)\s*", "", function, flags=re.I
         ).strip()
         portfolio = portfolio or own or None
-        if portfolio and ministry is None:
-            ministry = ministry_of(portfolio, on=on, named=False)
     elif post == POST_STATE_SECRETARY and portfolio is None:
         own = re.sub(
             r"^staatssecretaris\s*(?:van\s+|voor\s+)?", "", function, flags=re.I
@@ -295,6 +297,7 @@ def _post(
         acting_basis = BASIS_AI
     elif temporary:
         acting_basis = f"{BASIS_TEMPORARY}: {temporary['note']}"
+    reason = ACTING_SOURCE if acting_basis else None
     return {
         **seat,
         "function": part["function"],
@@ -309,7 +312,9 @@ def _post(
         "ended": period.get("ended"),
         "corrected": corrected,
         "acting": acting_basis is not None,
+        "acting_reason": reason,
         "acting_basis": acting_basis,
+        "acting_other_seat": None,
         "absent": holder.get("absent"),
         "taken_over_by": holder.get("taken_over_by"),
         "overlaps_with": [],
@@ -326,7 +331,9 @@ def _split_definitive(post: dict[str, Any], day: str | None) -> list[dict[str, A
         "from_date": day,
         "from_date_source": day,
         "acting": False,
+        "acting_reason": None,
         "acting_basis": None,
+        "acting_other_seat": None,
     }
     return [acting, held]
 
@@ -341,7 +348,9 @@ def _deputy(post: dict[str, Any], part: dict[str, Any] | None) -> dict[str, Any]
         "from_date": start,
         "from_date_source": (part or {}).get("from_date") or post["from_date_source"],
         "acting": False,
+        "acting_reason": None,
         "acting_basis": None,
+        "acting_other_seat": None,
         "taken_over_by": None,
     }
 
@@ -404,7 +413,7 @@ def merge_double_listings(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 first["also_named"].append(name)
         first["acting"] = first["acting"] and post["acting"]
         if not first["acting"]:
-            first["acting_basis"] = None
+            first.update(acting_reason=None, acting_basis=None, acting_other_seat=None)
     return list(kept.values())
 
 
@@ -480,7 +489,11 @@ def _stand_ins(posts: list[dict[str, Any]]) -> None:
             ]
             if nexts and others:
                 post["acting"] = True
-                post["acting_basis"] = f"{BASIS_RULE} ({others[0]['function']})"
+                post["acting_reason"] = ACTING_HELD_OTHER_SEAT
+                post["acting_other_seat"] = {
+                    "seat": others[0]["seat"],
+                    "function": others[0]["function"],
+                }
 
 
 def _taken_over(posts: list[dict[str, Any]], cabinet: dict[str, Any]) -> None:
@@ -531,7 +544,9 @@ def _taken_over(posts: list[dict[str, Any]], cabinet: dict[str, Any]) -> None:
                 "to_date_source": None,
                 "corrected": [],
                 "acting": True,
-                "acting_basis": f"{BASIS_TAKEN_OVER} ({by})",
+                "acting_reason": ACTING_SOURCE,
+                "acting_basis": f"{BASIS_TAKEN_OVER} {by}",
+                "acting_other_seat": None,
                 "taken_over_by": None,
                 "overlaps_with": [],
             }

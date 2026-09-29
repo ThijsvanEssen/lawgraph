@@ -93,7 +93,7 @@ lawgraph semantic all --since 7d
 | `src/lawgraph/db/` | `ArangoStore`, bulk `NodeWriter` / `EdgeWriter`, schema, indexes, search views |
 | `src/lawgraph/api/` | FastAPI app: `routes/`, `queries/`, `schemas/` |
 | `src/lawgraph/commands/` | sequences of phases (`bootstrap`, `expand-graph`), reports (`check`, `gaps`, `verify`) `ministries` and `courts` (build the ministry and court tables) |
-| `src/lawgraph/data/` | tables built from official sources and committed (`ministries.json`, `courts.json`); `curated/` what no source gives (`courts_outside.json`, `decision_kinds.json`) |
+| `src/lawgraph/data/` | tables built from official sources and committed (`ministries.json`, `courts.json`); `curated/` what no source gives (`courts_outside.json`, `decision_kinds.json`, `ministries.json`: keys, protocol order, successions before 2010, name aliases) |
 | `src/lawgraph/config/` | `constants.py` (every name), `settings.py` (every environment value; loads `.env`) |
 | `tests/` | offline test suite (fake store, real XML fixtures) |
 

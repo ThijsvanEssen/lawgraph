@@ -6,12 +6,12 @@ en Veiligheid - Rechtsbescherming en Gevangeniswezen``. ``classify_function`` re
 any of them what the post is (``POSTS``) and under which ministry it falls (``MINISTRIES``).
 
 A ministry that no longer exists under its name (``Verkeer en Waterstaat``, ``VROM``,
-``Justitie``) has a key of its own and names its ``successor``. A minister without
-portfolio ("minister voor …") and a state secretary belong to the ministry their post is
-placed under: the Minister voor Klimaat en Energie to Economische Zaken en Klimaat, the
-Minister voor Basis- en Voortgezet Onderwijs to Onderwijs, Cultuur en Wetenschap. Which
-ministry that is follows from the words of the portfolio (``_PORTFOLIO_RULES``), since the
-sources name only the portfolio.
+``Justitie``) has a key of its own and names its ``successor``. A function names a ministry
+only when it names one: ``Staatssecretaris van Financiën``. A minister without portfolio
+("minister voor Klimaat en Energie") and a state secretary with a portfolio of their own
+("Staatssecretaris Herstel en Toeslagen") name none; under which ministry their post falls an
+official source has to say (``normalize rijksoverheid``: the Tweede Kamer and the
+Staatscourant), not the words of the portfolio.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ POSTS: tuple[str, ...] = (
 
 
 # Where a fact of the ministry table comes from (``core.ministry_sources``).
-Source = Literal["tooi", "rijksoverheid", "hand"]
+Source = Literal["tooi", "rijksoverheid", "curated"]
 
 
 @dataclass(frozen=True)
@@ -54,7 +54,7 @@ class Period:
     successor: str | None  # the key of the name that followed
     basis: str | None  # the decree the end rests on (a TOOI event)
     source: Source
-    successor_source: Source | None = None  # hand, for a succession no source gives
+    successor_source: Source | None = None  # curated, for a succession no source gives
 
 
 @dataclass(frozen=True)
@@ -77,6 +77,7 @@ class Ministry:
 
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "ministries.json"
+CURATED = Path(__file__).resolve().parents[1] / "data" / "curated" / "ministries.json"
 
 
 def load_ministries(path: Path = DATA) -> tuple[Ministry, ...]:
@@ -127,23 +128,17 @@ _RANK = {m.key: i for i, m in enumerate(MINISTRIES)}
 
 
 # The name of every ministry, and the other ways the sources write one ("VROM" without
-# "beheer", the Landbouw ministries without commas).
+# "beheer", the Landbouw ministries without commas; ``data/curated/ministries.json``).
 _NAMES: dict[str, str] = {
     **{_plain(m.name): m.key for m in MINISTRIES},
-    _plain("Volkshuisvesting, Ruimtelijke Ordening en Milieu"): "vrom",
-    _plain("Landbouw Visserij Voedselzekerheid en Natuur"): "lvvn",
-    _plain("Algemene Oorlogvoering"): "aok",
-    _plain("Algemene Oorlogsvoering"): "aok",
-    _plain("Onderwijs, Cultuur en Wetenschappen"): "ocw",
-    # the abbreviations TOOI gives, and those the sources use beside them
+    # the abbreviations TOOI gives
     **{_plain(m.abbreviation): m.key for m in MINISTRIES if m.abbreviation},
+    # the other ways the sources write a name (curated)
     **{
-        _plain(short): key
-        for short, key in (
-            ("OCenW", "ocw"),
-            ("VenW", "venw"),
-            ("WVC", "wvc"),
-        )
+        _plain(alias): key
+        for alias, key in json.loads(CURATED.read_text(encoding="utf-8"))[
+            "aliases"
+        ].items()
     },
 }
 
@@ -152,40 +147,6 @@ def ministry_named(text: str | None) -> str | None:
     """The key of the ministry whose name *text* is, exactly; ``None`` for a portfolio."""
     return _NAMES.get(_plain(text))
 
-
-# A portfolio that is no ministry of its own: the ministry its post is placed under, by the
-# words it contains. The first rule that matches wins, so a narrower rule comes first.
-_PORTFOLIO_RULES: tuple[tuple[str, str], ...] = (
-    (r"\bwonen wijken\b", "vrom"),
-    (r"\bklimaat en energie\b|\bmijnbouw\b", "ezk"),
-    (r"\bdigitale economie\b", "ez"),
-    (r"\bontwikkeling|\bbuitenlandse handel\b|\beuropese zaken\b", "bz"),
-    (r"\basiel\b|\bmigratie\b", "aenm"),
-    (
-        r"\bvreemdelingen|\bjeugdbescherming\b|\breclassering\b|\brechtsbescherming\b"
-        r"|\bgevangeniswezen\b|\bjustitie\b|\bveiligheid\b",
-        "jenv",
-    ),
-    (r"\btoeslagen\b|\bdouane\b|\bfiscaliteit\b|\bbelastingdienst\b", "fin"),
-    (
-        r"\bkoninkrijk|\bantilliaanse\b|\bbestuurlijke vernieuwing\b|\brijksdienst\b"
-        r"|\bdigitalisering\b|\bslagvaardige overheid\b|\binlichtingen\b"
-        r"|\bgrote steden\b|\bwonen\b|\bvolkshuisvesting\b|\bherstel groningen\b"
-        r"|\bbinnenlandse zaken\b",
-        "bzk",
-    ),
-    (
-        r"\bonderwijs\b|\bwetenschap|\bmedia\b|\bemancipatie\b|\bcultuur\b",
-        "ocw",
-    ),
-    (r"\bjeugd\b|\bgezin\b|\bzorg\b|\bsport\b|\bvolksgezondheid\b", "vws"),
-    (r"\bwerk\b|\bparticipatie\b|\bpensioen|\bsociale zaken\b", "szw"),
-    (r"\bnatuur\b|\bstikstof\b|\blandbouw\b|\bvisserij\b", "lvvn"),
-    (r"\bmilieu\b|\bwaterstaat\b|\binfrastructuur\b", "ienw"),
-    (r"\bdefensie\b", "def"),
-    (r"\bfinancien\b", "fin"),
-    (r"\beconomische zaken\b|\bklimaat\b", "ezk"),
-)
 
 _PREFIXES = re.compile(r"^(?:nederlandse?|de)\s+")
 _OF_THE_NETHERLANDS = re.compile(r"\s+van nederland$")
@@ -224,23 +185,13 @@ def current_on(key: str | None, on: str | None) -> str | None:
     return key
 
 
-def ministry_of(
-    portfolio: str | None, *, on: str | None = None, named: bool = True
-) -> str | None:
-    """The key of the ministry a portfolio (``Economische Zaken en Klimaat``, ``Klimaat en
-    Energie``, ``Justitie en Veiligheid - Rechtsbescherming``) falls under on the day
-    *on*, or ``None``. With *named* false, the portfolio is never a ministry itself: the
-    portfolio of a minister without portfolio ("minister voor Volkshuisvesting") is placed
-    under a ministry, even when a ministry had that name at another time."""
-    plain = _plain(_head(portfolio))
-    if not plain:
-        return None
-    if named and plain in _NAMES:
-        return current_on(_NAMES[plain], on)
-    for pattern, key in _PORTFOLIO_RULES:
-        if re.search(pattern, plain):
-            return current_on(key, on)
-    return None
+def ministry_of(text: str | None, *, on: str | None = None) -> str | None:
+    """The key of the ministry *text* names (``Economische Zaken en Klimaat``, ``Justitie en
+    Veiligheid - Rechtsbescherming``: the part before the dash), as it was named on the day
+    *on*; ``None`` for a portfolio that names no ministry (``Klimaat en Energie``): which
+    ministry that falls under an official source has to say (``normalize rijksoverheid``)."""
+    plain = _plain(_head(text))
+    return current_on(_NAMES[plain], on) if plain in _NAMES else None
 
 
 def classify_function(
@@ -265,6 +216,7 @@ def classify_function(
             portfolio = re.sub(
                 r"^(?:van|voor)\b", "", plain.removeprefix(prefix).strip()
             )
-            named = post != POST_MINISTER_WITHOUT_PORTFOLIO
-            return post, ministry_of(portfolio, on=on, named=named)
+            if post == POST_MINISTER_WITHOUT_PORTFOLIO:
+                return post, None
+            return post, ministry_of(portfolio, on=on)
     return None, None

@@ -4,10 +4,12 @@ Reads only.
 One row per cabinet (``core.cabinet_checks.cabinet_row``): its posts, seats, the seats with
 a gap of more than two weeks and those with an overlap that remained, the stand-ins, the
 dates the rules set, the double listings merged, the posts with and without a party, the
-holders that are members of their own, the phases and ``demissionary_from``, and whether
-``in_functie`` begins on the cabinet's first day. Then the labels of the phases with their
-kind, and every rule a cabinet breaks (``core.cabinet_checks.violations``); a broken rule
-fails the command.
+holders that are members of their own, the posts without a ministry (no source, or sources
+that split), the phases and ``demissionary_from``, and whether ``in_functie`` begins on the
+cabinet's first day. Then the labels of the phases with their kind; where the ministry of
+the posts comes from and every post without one by reason
+(``core.cabinet_checks.ministry_report``); and every rule a cabinet breaks
+(``core.cabinet_checks.violations``); a broken rule fails the command.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ import argparse
 from collections import Counter
 from typing import Any
 
-from lawgraph.core.cabinet_checks import cabinet_row, violations
+from lawgraph.core.cabinet_checks import cabinet_row, ministry_report, violations
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.cabinets import cabinets_with_posts
@@ -35,6 +37,8 @@ _COLUMNS = (
     ("double", 6),
     ("party", 5),
     ("no_party", 8),
+    ("no_ministry", 11),
+    ("ambiguous", 9),
     ("own", 3),
     ("phases", 6),
     ("demissionary_from", 17),
@@ -86,6 +90,16 @@ def verify_cabinets(store: ArangoStore) -> list[str]:
         labels.items(), key=lambda x: (str(x[0][0]), x[0][1])
     ):
         print(f"  {str(kind):<20} {n:>3}  {word}")
+    counts, missing = ministry_report((row["key"], row["posts"]) for row in rows)
+    print(
+        "\nThe ministry of the posts, by source (and the posts without one, by reason):"
+    )
+    for what, n in sorted(counts.items()):
+        print(f"  {what:<16} {n:>5}")
+    for reason, posts in sorted(missing.items()):
+        print(f"\nWithout a ministry, {reason} ({len(posts)}):")
+        for post in posts:
+            print(f"  {post}")
     print(f"\n{len(problems)} rules broken.")
     for problem in problems:
         print(f"  {problem}")
