@@ -141,8 +141,8 @@ passed to the pipelines that accept it and the others run in full.
 | `graph-list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 
 The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
-`bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-citations`,
-`rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series`,
+`bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-appeal`,
+`rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-citations`, `rechtspraak-series`,
 `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-dossier-relations`, `tk-mvt`,
 `tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-outcomes`, `tk-government`,
 `graph-list-stats`.

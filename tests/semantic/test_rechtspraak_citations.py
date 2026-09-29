@@ -58,8 +58,8 @@ class _FakeStore(RawSourcesFake):
     def query(
         self, aql: str, bind_vars: dict | None = None, **_kw: Any
     ) -> list[dict[str, Any]]:
-        # Secondary ECLI lookup — return nothing (we populate via get_node).
-        if "props.ecli" in aql or "REMOVE" in aql:
+        # Secondary ECLI lookup and procedural edges — nothing (we populate via get_node).
+        if "props.ecli" in aql or "REMOVE" in aql or "@relations" in aql:
             return []
         return [
             {"ecli": d["props"]["ecli"], "payload_text": d["props"]["raw_xml"]}

@@ -58,6 +58,7 @@ from lawgraph.core.ministries import (
     POST_PRIME_MINISTER,
     POST_STATE_SECRETARY,
     classify_function,
+    current_on,
     ministry_named,
     ministry_of,
 )
@@ -428,8 +429,10 @@ def _one_seat_per_heading(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """A heading of the page names one seat, and a seat has one holder at a time. Where
     the holders of a heading follow one another but their own lines name the post
     otherwise (``Staatssecretaris Fiscaliteit, Belastingdienst en Douane``, held before as
-    ``staatssecretaris Fiscaliteit en Belastingdienst``), they hold the seat the heading
-    names, the name of their line in ``also_named``. Holders of one heading at the same time
+    ``staatssecretaris Fiscaliteit en Belastingdienst``), or the ministry was renamed
+    between them (Economische Zaken, Landbouw en Innovatie, Economische Zaken from 2013),
+    they hold the seat the heading names on the day of the last of them, the name of their
+    line in ``also_named``. Holders of one heading at the same time
     (two ministers without portfolio, two state secretaries of one ministry) hold seats of
     their own."""
     by_heading: dict[Any, list[dict[str, Any]]] = defaultdict(list)
@@ -439,7 +442,9 @@ def _one_seat_per_heading(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for held in by_heading.values():
         if len({p["seat"] for p in held}) < 2 or _concurrent(held):
             continue
-        target = min(held, key=lambda p: p["from_date"])[_HEADING_SEAT]
+        # the seat as the heading names it on the day of its last holder: a ministry
+        # renamed during the cabinet (ELI to EZ, 2013) names the seat by its later name
+        target = max(held, key=lambda p: p["from_date"])[_HEADING_SEAT]
         for post in held:
             if post["seat"] == target["seat"]:
                 continue
@@ -448,6 +453,28 @@ def _one_seat_per_heading(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 post["also_named"].append(own)
             post["seat"], post["named"] = target["seat"], target["named"]
     return posts
+
+
+def _seats_by_their_last_name(
+    posts: list[dict[str, Any]], cabinet: dict[str, Any]
+) -> None:
+    """A seat is named by the name its ministry had when the seat ended: a ministry renamed
+    during the cabinet (Economische Zaken, Landbouw en Innovatie, named Economische Zaken
+    from 1 January 2013) holds one seat, ``ez/minister``, however its posts began. Each post
+    keeps the ``ministry`` of its own first day."""
+    ends: dict[str, str] = {}
+    for post in posts:
+        end = post["to_date"] or cabinet.get("to_date") or dt.date.today().isoformat()
+        last = (dt.date.fromisoformat(end) - dt.timedelta(days=1)).isoformat()
+        last = max(last, post["from_date"])
+        ends[post["seat"]] = max(ends.get(post["seat"], ""), last)
+    for post in posts:
+        ministry, slash, rest = post["seat"].partition("/")
+        if not slash or ministry not in MINISTRY_BY_KEY:
+            continue
+        named = current_on(ministry, ends[post["seat"]])
+        if named and named != ministry:
+            post["seat"] = f"{named}/{rest}"
 
 
 def merge_double_listings(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -639,6 +666,7 @@ def cabinet_posts(
     posts = merge_double_listings(posts)
     _stand_ins(posts)
     _overlaps(posts)
+    _seats_by_their_last_name(posts, cabinet)
     for post in posts:
         for key in (_HEADING, _HEADING_SEAT, _OWN_NAME):
             post.pop(key, None)

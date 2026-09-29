@@ -204,6 +204,14 @@ class JudgmentPartyProps(_StrictBase):
     representatives: list[JudgmentRepresentativeProps] = []
 
 
+class JudgmentAppealTargetProps(_StrictBase):
+    """A decision an appeal says it appeals that is not loaded (``core.appeals``)."""
+
+    court: str  # as the text writes it: "rechtbank Gelderland"
+    date: str  # ISO
+    case_number: str | None = None  # as the text writes it: "24/6811"
+
+
 class JudgmentProps(_CommonProps):
     ecli: str | None = None
     source_kind: str | None = None
@@ -232,6 +240,9 @@ class JudgmentProps(_CommonProps):
     related_eclis: list[str] | None = None
     # the conclusion of a judgment, or the judgment of a conclusion (``psi:type`` conclusie)
     conclusion_eclis: list[str] | None = None
+    # the decisions an appeal names in its text that are not loaded
+    # (``semantic rechtspraak-appeal``); null when there are none
+    unresolved_appeal_targets: list[JudgmentAppealTargetProps] | None = None
     court_code: str | None = None
     # the coarse tier (the Type of the Instanties list) and the kind of court within it
     tier: str | None = None

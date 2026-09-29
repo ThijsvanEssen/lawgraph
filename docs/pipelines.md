@@ -8,7 +8,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
-| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series` |
+| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
@@ -411,19 +411,40 @@ as its members, a word or the next ECLI glued to the number, a zero or one typed
 an LJN (`A09006`). The rest is dropped and makes no stub; `_resolve_eclis` makes no stub of a
 malformed ECLI for any step. The citations of a judgment are derived in full each time it is
 read: an edge of this step its text no longer names is removed, and then every stub judgment no
-edge reaches or leaves. `semantic graph-list-stats` recounts `inbound_citation_count` after it.
+edge reaches or leaves. No `REFERS_TO` is written between two judgments that `APPEAL_OF`,
+`CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` tie (either way): a Hoge Raad ruling that
+names the arrest under cassation and the conclusion in a footnote does not cite them. It runs
+after the steps that make those edges. `semantic graph-list-stats` recounts
+`inbound_citation_count` after it.
 
-**Semantic `rechtspraak-appeal`.** Judgments with `related_eclis` whose `judgment_metadata.type`
-contains `hoger beroep` or `cassatie`: `APPEAL_OF` from the appeal judgment to each related
-ECLI, 0.95, `meta.procedure_type`; missing judgments become stubs.
+**Semantic `rechtspraak-appeal`.** Judgments whose `judgment_metadata.type` contains `hoger
+beroep`, `cassatie` or `verwijzing` (`core/appeals.py`). To each of their `related_eclis`
+(`meta.basis` `formal_relation`, 0.95, `meta.procedure_type`): `CONTINUES` when it is of the
+same court with a case number the two share (an interim judgment, then the final one);
+`REFERRED_BY` when it is a ruling of the Hoge Raad and the judgment is of another court (the
+decision after referral), no edge when that ruling is a preliminary ruling the court asked for;
+no edge to a conclusion or to a judgment given later; `APPEAL_OF` otherwise. An appeal without
+`related_eclis` is read for the decision it appeals, in its first 12 paragraphs: `tegen
+de/het/een uitspraak|vonnis|beschikking|beslissing|arrest van <court> van <date>`, optionally
+followed by `in zaak nr.`, `nummer`, `onder parketnummer`, `met zaaknummer`, `kenmerk` and the
+case number, where `<court>` names a court (not an administrative body). The decision of that
+date with that case number (`core.judgments.same_case_number`) gets `APPEAL_OF` (`appeal_text`,
+0.9); one not loaded is written to `unresolved_appeal_targets` (`court`, `date`,
+`case_number`) of the appeal. Missing judgments become stubs. The edges of a judgment read are
+derived in full: one no longer derived is removed.
 
 **Semantic `rechtspraak-conclusions`.** `ADVISES_ON` from the conclusion of an
-advocate-general to the judgment of its case. A judgment is a conclusion by its
+advocate-general to the judgment of its case, one way only. A judgment is a conclusion by its
 `document_type` or its court (`PHR`). Pairs come from `conclusion_eclis` on either side
-(`meta.basis` `formal_relation`, 1.0); a conclusion that no relation ties is paired with the
+(`meta.basis` `formal_relation`, 1.0), except where a judgment names as its conclusion a loaded
+judgment that is no conclusion; a conclusion that no relation ties is paired with the
 judgments of the court it advises (the Parket bij de Hoge Raad the Hoge Raad, any other court
-itself) that share one of its `case_number_keys` (`case_number`, 0.9). A judgment named but not
-loaded becomes a stub.
+itself) that share one of its `case_number_keys` (`case_number`, 0.9). A court that advises
+itself asks for the conclusion under a number of its own (the staatsraad advocaat-generaal of
+the Raad van State: conclusion `201406676/2/A3`, judgment `201406676/1/A3`): such a conclusion
+without a pair goes to the decisions of its court of the three years after it that share its
+dossier number (`same_case_number`; `case_number`). A judgment named but not loaded becomes a
+stub; an edge no longer derived is removed.
 
 **Semantic `rechtspraak-referrals`.** `ANSWERS` from a preliminary ruling
 (`judgment_metadata.type` `Prejudiciële beslissing`) to the decision that asked its questions:
@@ -828,6 +849,10 @@ Binnenlandse Zaken`), each with the days it gives. The rules of a seat:
   Belastingdienst en Douane"; that name in `also_named`); holders of one heading at the same
   time (Szabó and Van Marum under Binnenlandse Zaken, two ministers without portfolio) hold
   seats of their own;
+- a seat is named by the name its ministry had when the seat ended (Rutte-Asscher:
+  `ez/minister` and `ez/staatssecretaris`, although Economische Zaken, Landbouw en Innovatie
+  was named Economische Zaken only from 1 January 2013); each post keeps the `ministry` of its
+  own first day, and `/api/cabinets/{key}` places a seat under the ministry of its name;
 - two posts of one person in one seat on the same days are one post, the other name in
   `also_named`;
 - in a named seat, an end the page does not give is the start of the next holder, a start it
