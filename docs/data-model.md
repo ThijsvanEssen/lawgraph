@@ -484,6 +484,6 @@ enough to scan.
 `search_instruments` the titles, `short_title`, `aliases` and `bwb_id` of an instrument.
 
 An instrument's `aliases` are every name it is cited by: the official WTI abbreviations
-(`Sr`, `WvS`, `WvSr`) and, for a book of a code in `CODE_FAMILIES`, `Boek 6 BW`, `6 BW`,
+(`Sr`, `WvS`, `WvSr`) and, for a book of a code in `core/code_families.CODE_FAMILIES` (from the WTI), `Boek 6 BW`, `6 BW`,
 `BW 6`, `BW6`, `BW Boek 6` and `BW`. Unlike `short_title` an alias may be shared: `BW` is one
 of every book. Written by `normalize bwb`.

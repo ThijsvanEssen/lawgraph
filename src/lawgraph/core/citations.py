@@ -32,7 +32,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from lawgraph.config.constants import CODE_FAMILIES
+from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, is_bwb_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.xml import XML_TAG_RE

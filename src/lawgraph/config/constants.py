@@ -175,24 +175,6 @@ EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements-directive"
 BWB_TREATY_ID_PREFIX = "BWBV"
 ECHR_CONVENTION_ID = "ECHR-CONVENTION"
 
-# A code whose books are regulations of their own: code -> book -> BWB id. A citation of
-# the code names the book in front of the colon (``art. 6:162 BW`` is article 162 of
-# book 6), so the code itself never stands for one regulation, whichever books are loaded.
-CODE_FAMILIES: dict[str, dict[str, str]] = {
-    "BW": {
-        "1": "BWBR0002656",
-        "2": "BWBR0003045",
-        "3": "BWBR0005291",
-        "4": "BWBR0002761",
-        "5": "BWBR0005288",
-        "6": "BWBR0005289",
-        "7": "BWBR0005290",
-        "7A": "BWBR0006000",
-        "8": "BWBR0005034",
-        "10": "BWBR0030068",
-    },
-}
-
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 
 RAW_KIND_TK_ZAAK = "tk-zaak"
