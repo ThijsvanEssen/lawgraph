@@ -12,7 +12,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
-| Staatscourant | `staatscourant` | `staatscourant` | `staatscourant` |
+| Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
 | Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
@@ -678,6 +678,16 @@ Staatsblad records, which are dropped: about 13,800 regulations).
 **Normalize.** Document (`kind` "Ministeriële regeling", `title`, `text`, `bwb_id`, `date`),
 key `stcrt_<identifier>`.
 
+**Retrieve `staatscourant-posts`.** For every post on the stored Rijksoverheid cabinet pages
+whose function names no ministry, held from 1995 on (the repository holds the Staatscourant
+and the Staatsblad in full from then): how many publications of the Staatscourant and the
+Staatsblad name the function (full text, the function in lower case without accents) while
+the post was held, per `dcterms:creator` (`Ministerie van Buitenlandse Zaken`). One
+`stcrt-post-creators-json` record per query, external id `<phrase>|<from>|<to>` (`to` empty
+while the post is held), `payload_json.creators`. The query of an ended post is asked once;
+that of a post still held on every run. After `retrieve rijksoverheid`, on the KOOP lane.
+`normalize rijksoverheid` reads the records (no normalize of its own).
+
 **Semantic `staatscourant`.** `EXPLAINS`: `bwb_id` match 0.92, title contains an instrument
 `citation_title` 0.65, a BWB id found in the text 0.75 (at most 5,000 documents).
 
@@ -766,8 +776,9 @@ resignation sentences); `core/cabinet_posts.py` turns its seats into posts;
 together.
 
 A post is held in a **seat**: `<ministry>/<post>[/<portfolio>]` (`ienw/minister`,
-`bz/minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp`,
-`jenv/staatssecretaris/rechtsbescherming`); the minister-president and the minister of
+`-/minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp`,
+`-/staatssecretaris/rechtsbescherming`: `-` where the function names no ministry); the
+minister-president and the minister of
 Algemene Zaken are one seat (`az/minister-president`), every viceminister-president sits in
 the shared seat `viceminister-president`. A heading can name several posts (`Vice-minister-president
 en minister van Financiën`, `Minister-president, tot 15 sept. 1947 tevens minister van
@@ -782,10 +793,12 @@ Binnenlandse Zaken`), each with the days it gives. The rules of a seat:
 - where the page names no portfolio (two staatssecretarissen of one ministry, two ministers
   without portfolio) it does not say who followed whom: the holders are put in lanes by date
   (`fin/staatssecretaris`, `fin/staatssecretaris#2`) and no date changes;
-- a post is `acting` by `a.i.`, by a `tijdelijke voorziening` note, by `beheer portefeuille
-  overgenomen door de minister van …` (the holder of that seat then stands in until the next
-  holder begins), or when its holder held another seat through the whole period and it ended
-  where the next holder began; `acting_basis` says which;
+- a post is `acting` when the page says so (`acting_reason` `source`, its words in
+  `acting_basis`: `a.i.`, `tijdelijke voorziening: …`, `beheer portefeuille overgenomen door
+  de minister van …`, after which the holder of that seat stands in until the next holder
+  begins), or when its holder held another seat through the whole period and it ended where
+  the next holder began (`acting_reason` `held_other_seat`, that seat and its function in
+  `acting_other_seat`);
 - two holders of one named seat at the same time after these rules both get `overlaps_with`.
 
 The **phases** of a cabinet: `formatie` from the earliest dated fact of its formatie block (the
@@ -802,14 +815,22 @@ Each holder (initials, surname and party as written) is matched to one Tweede Ka
 
 - a member of parliament: the surname words agree (`family_name`, `Persoon.Achternaam`;
   particles such as `van`, `de` do not count; `ij` and `y` agree when the exact spelling finds
-  nobody), the initials are those of the first names, and the member was between 28 and 95 on
-  the first day of each post; where two fit (father and son), the faction of the holder's
-  party decides;
+  nobody), the initials agree, and the member was between 28 and 95 on the first day of each
+  post; where two fit (father and son), the faction of the holder's party decides. The
+  Tweede Kamer writes most initials without dots (`JF`, `WTHC` for W.Th.C., `TM` for Th.M.)
+  and at times other initials than the first names of the full name it gives (`JR` for Jan
+  Frederik): such initials agree with the holder's written the same way (`jf`, `wthc`, `ij`
+  as `y`), with their initial letters, or with the first names of the full name;
 - a minister or state secretary who never sat in parliament: the Tweede Kamer holds such a
   person without name or date of birth, known only by what they signed (`AUTHORED` with
   capacity `bewindspersoon`, the signed name in the document's `actors`). The person is the
   holder whose surname is in the signed name and who held a post of the same kind (minister or
-  state secretary) on a date they signed, or up to two weeks after it ended.
+  state secretary) on a date they signed, or up to two weeks after it ended;
+- a holder neither finds (`J.H. Hoogervorst` on the pages of Balkenende II and III, whom the
+  Tweede Kamer knows as J.F.): the one member with the same surname, a faction of the holder's
+  party, and a signature in government of the kind of one of the holder's posts while they
+  held it (`core/government.match_by_function`); two such members match none. The log says
+  how many were found so.
 
 A holder who matches no member or several, or a member two people match, is left out (and
 logged). The member gets `government_functions` (the posts, oldest first) and
@@ -822,18 +843,35 @@ that member is removed. Every page is read on every run. Needs `normalize tk-dos
 members, their signatures and the factions).
 
 Every post also gets its normalised `post` (`minister-president`, `viceminister-president`,
-`minister`, `minister_zonder_portefeuille`, `staatssecretaris`) and `ministry`, read from the
-function by `core/ministries.classify_function`, and `cabinet_key`. The ministries are the
-table `src/lawgraph/data/ministries.json` (`GET /api/ministries`), in protocol order, built
-from the official sources (see TOOI below). A ministry name that no longer exists
-(`venw` Verkeer en Waterstaat, `vrom`, `justitie`) has its own key; each name has periods,
-each with its last day and successor, and a later source that writes an old name
-("Binnenlandse Zaken" for BZK) is read as the name it had then. A minister without portfolio
-("minister voor …") and a state secretary belong to the ministry their post is placed
-under, by the words of the portfolio (Klimaat en Energie `ezk`, Basis- en Voortgezet
-Onderwijs `ocw`, Rechtsbescherming `jenv`, Herstel Groningen `bzk`): these rules
-(`_PORTFOLIO_RULES`) are kept by hand, no source gives them. A name that names no
-portfolio ("Nederlandse minister", the viceminister-president) has none.
+`minister`, `minister_zonder_portefeuille`, `staatssecretaris`), `cabinet_key` and `ministry`.
+The ministries are the table `src/lawgraph/data/ministries.json` (`GET /api/ministries`), in
+protocol order, built from the official sources (see TOOI below). A ministry name that no
+longer exists (`venw` Verkeer en Waterstaat, `vrom`, `justitie`) has its own key; each name
+has periods, each with its last day and successor, and a later source that writes an old
+name ("Binnenlandse Zaken" for BZK) is read as the name it had then.
+
+The **ministry of a post** (`core/post_ministries.py`) is the one its function names
+(`Minister van Financiën`, `ministry_source` `page`; `core/ministries.classify_function`). A
+minister without portfolio ("Minister voor Ontwikkelingssamenwerking") or a state secretary
+with a portfolio of their own ("Staatssecretaris Herstel en Toeslagen") names none; for those
+the first of these official sources that is clear decides:
+
+1. `tk_signatures`: the functions the holder signed Tweede Kamer papers in, of the kind of the
+   post, while holding it (`DocumentActor.Functie`: "staatssecretaris van Financiën"),
+   counted per month;
+2. `tk_commitments`: the ministry the Tweede Kamer gives the commitments made in a function
+   of that kind by someone of the holder's surname while holding the post
+   (`Toezegging.Ministerie`, from September 2022);
+3. `staatscourant`: the ministry that issued the publications naming the post
+   (`retrieve staatscourant-posts`, from 1995).
+
+A source is clear when its largest ministry has at least 60% of its counts and at least one
+signature or commitment, or five publications. Otherwise `ministry` stays null, with
+`ministry_missing` `ambiguous` (a source had enough, but split: Van Veldhoven, Minister voor
+Milieu en Wonen, Infrastructuur en Waterstaat 50 and BZK 32 publications) or `no_source` (none
+had enough: a minister without portfolio before 1995, a typo on a page). Nothing decides by
+the words of a portfolio: the sources are better at it (Van der Wal, Minister voor Natuur en
+Stikstof in 2022: LNV, not the LVVN of 2024). A viceminister-president has no ministry.
 
 Every cabinet becomes a node of `cabinets`, key from its name (`kabinet-Rutte-Asscher`,
 key `rutte_asscher`): since 1945 from its page, `from_date` the day of its beëdiging,
@@ -847,8 +885,10 @@ removed. Each member gets an edge `SERVED_IN` to each cabinet they held a post i
 
 `lawgraph verify cabinets` prints one row per cabinet (posts, seats, seats with a gap of more
 than 14 days, seats with an overlap, stand-ins, corrected and clipped dates, double listings,
-posts with and without a party, members of their own, phases, `demissionary_from`, whether
-`in_functie` begins on the first day), the phase labels with their kind, and every broken rule
+posts with and without a party, posts without a ministry by reason, members of their own,
+phases, `demissionary_from`, whether `in_functie` begins on the first day), the phase labels
+with their kind, the number of posts per `ministry_source` and every post without a ministry
+by reason, and every broken rule
 of `core/cabinet_checks.py` (a post outside its cabinet, two holders of a seat at once without
 `overlaps_with`, phases that do not follow each other from start to end); a broken rule fails
 the command.
@@ -868,10 +908,10 @@ content of the TOOI registers and value lists may be used by anyone without rest
 requests; always in full. A page without versions, or a version without a ministry, raises.
 
 **The ministry table.** `lawgraph ministries build` makes `src/lawgraph/data/ministries.json`
-from the stored TOOI list and the stored Rijksoverheid cabinet pages
-(`core/ministry_sources.py`) on top of the file itself, and prints what changed;
-`lawgraph ministries check` prints the same and fails on a change. Commit what a build
-writes. Per ministry name (the key, `ez`): the name, the TOOI code and abbreviation, and
+from the stored TOOI list, the stored Rijksoverheid cabinet pages and the curated list
+`src/lawgraph/data/curated/ministries.json` (`core/ministry_sources.py`), and prints what
+changed; `lawgraph ministries check` prints the same and fails on a change. Commit what a
+build writes. Per ministry name (the key, `ez`): the name, the TOOI code and abbreviation, and
 its periods, each with `from`, `until` (the last day), `successor`, `basis` (the decree)
 and `source`:
 
@@ -883,8 +923,12 @@ and `source`:
 - `rijksoverheid` for a name before TOOI: from its first post on the cabinet pages, until the
   day before a post under its successor begins on the day its last post ends (Oorlog and
   Marine until 18 May 1959); else the end stays null.
-- `hand` for what no source gives: the key, the protocol order, a name no source knows
-  (Openbare Werken), and a succession before 2010 (`successor_source: hand`).
+
+What no source gives is curated: our key of each name and the protocol order, the other ways
+the sources write a name (`OCenW`, `VenW`), and a succession before 2010
+(`successor_source: curated`). A curated name no source names is left out, and the build
+says so: Openbare Werken, Arbeid, and Arbeid, Handel en Nijverheid have neither a post nor
+a TOOI entry.
 
 TOOI's dates are those of the decrees: `justitie` until 30 November 2010 and `venj` until
 31 December 2017, while the cabinets changed the names of the posts earlier; a post that
@@ -898,7 +942,7 @@ uses a name before its first period keeps that name.
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
-| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures, and the factions a party is matched to) |
+| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures, the factions a party is matched to, and the commitments) and `retrieve staatscourant-posts` |
 | normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |

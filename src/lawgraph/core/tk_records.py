@@ -524,6 +524,8 @@ def commitment(payload: Payload) -> Record | None:
         "text": text,
         "minister_name": _text(payload, "Naam", "MinisterNaam"),
         "minister_role": _text(payload, "Functie", "MinisterTitel"),
+        # the ministry the Tweede Kamer gives the commitment (``Justitie en Veiligheid``)
+        "ministry_name": _text(payload, "Ministerie") or None,
         "made_on": iso_date(payload.get("Aanmaakdatum")),
         "expected_resolution": iso_date(payload.get("DatumNakoming")),
         "status": COMMITMENT_STATUS.get(raw_status, "open"),
