@@ -109,13 +109,13 @@ def test_different_texts_are_no_pair() -> None:
 
 
 def test_long_texts_need_less_overlap() -> None:
-    a = _judgment("ECLI:NL:HR:2025:1", _vary(LONG, 60, 1))
-    b = _judgment("ECLI:NL:HR:2025:2", _vary(LONG, 60, 2))
-    assert 0.7 <= jaccard(a.shingles, b.shingles) < 0.85
+    a = _judgment("ECLI:NL:HR:2025:1", _vary(LONG, 32, 1))
+    b = _judgment("ECLI:NL:HR:2025:2", _vary(LONG, 32, 2))
+    assert 0.5 <= jaccard(a.shingles, b.shingles) < 0.7
     assert is_pair(a, b, set())
     short = LONG[: LONG_TEXT_WORDS - 100]
-    c = _judgment("ECLI:NL:HR:2025:3", _vary(short, 60, 1))
-    d = _judgment("ECLI:NL:HR:2025:4", _vary(short, 60, 2))
+    c = _judgment("ECLI:NL:HR:2025:3", _vary(short, 32, 1))
+    d = _judgment("ECLI:NL:HR:2025:4", _vary(short, 32, 2))
     assert 0.5 <= jaccard(c.shingles, d.shingles) < 0.85
     assert not is_pair(c, d, set())
 
