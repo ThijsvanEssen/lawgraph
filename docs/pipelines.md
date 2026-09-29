@@ -27,8 +27,8 @@ slash enforced), one `requests.Session`, 30 s timeout, and retry with exponentia
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
 `instruments.props.short_title` and law names through instrument titles; `normalize bwb` writes `short_title` from the official
 abbreviations in the BWB WTI files (see BWB below). A code split over books
-(`CODE_FAMILIES` in `config/constants.py`: the Burgerlijk Wetboek, book 1 to 10 and 7A, each
-its own BWB id) resolves through the book in the article number: `artikel 6:162 BW` cites
+(`src/lawgraph/data/code_families.json`, `core/code_families.CODE_FAMILIES`: the Burgerlijk
+Wetboek, book 1 to 10 and 7A, each its own BWB id; see the code families under BWB) resolves through the book in the article number: `artikel 6:162 BW` cites
 article `162` of book 6 (`BWBR0005289`, key `bwbr0005289_162`), whichever books are loaded, so a
 citation of a book that is not loaded becomes a stub of that book, which its load fills; without
 a book (`artikel 162 BW`) or with an unknown one there is no hit. The code of the family itself
@@ -570,6 +570,14 @@ In the same pass it sets `aliases`, the names the search finds an instrument by
 for each book of a code in `CODE_FAMILIES` the forms `Boek 6 BW`, `6 BW`, `BW 6`, `BW6`,
 `BW Boek 6` and `BW`, also when its WTI record is missing. Instruments that do not exist are
 not created.
+
+**The code families.** `lawgraph code-families build` makes `src/lawgraph/data/code_families.json`
+from the stored WTI records (`core/code_families.families_from_wti`) and prints what changed;
+`lawgraph code-families check` prints the same and fails on a change. Commit what a build
+writes. A code is an abbreviation that two or more regulations list, each of which also lists
+a book of it (`BW` with `BW Boek 6`): the book is the number of that abbreviation (`7A` too),
+the code keeps the spelling most regulations give it. So the families follow the WTI; nothing
+is kept by hand. A book whose WTI record is not stored is not in its family.
 
 **Normalize `bwb-history`.** Reads every stored toestand once and writes:
 

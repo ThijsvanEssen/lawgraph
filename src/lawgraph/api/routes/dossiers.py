@@ -1,7 +1,6 @@
 """Dossier endpoints.
 
 GET /api/dossiers                      — every dossier, with filters, order and facets
-GET /api/dossiers/recent               — recently active dossiers
 GET /api/dossiers/{number}             — one dossier with its counts
 GET /api/dossiers/{number}/documents   — its documents
 GET /api/dossiers/{number}/timeline    — everything that happened, in order
@@ -49,7 +48,6 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_timeline,
     get_dossiers,
     get_laws_named,
-    get_recent_dossiers,
 )
 
 router = APIRouter()
@@ -208,28 +206,6 @@ def list_dossiers(
     params: Annotated[_ListParams, Depends()],
 ) -> DossierListResponse:
     return _list(store, params)
-
-
-@router.get(
-    "/recent",
-    response_model=list[DossierSummaryDTO],
-    summary="Recently active dossiers",
-    description=(
-        "Dossiers with an activity, a vote, a document or their closing in the given "
-        "period, the most recent first. ``subject`` narrows them to a number, a dossier "
-        "or title text."
-    ),
-    tags=["dossiers"],
-)
-def list_recent_dossiers(
-    store: Annotated[ArangoStore, Depends(get_store)],
-    days: Annotated[int, Query(ge=1, le=365, description="Look-back in days.")] = 30,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    subject: Subject = None,
-) -> list[DossierSummaryDTO]:
-    docs = get_recent_dossiers(store, days=days, limit=limit, subject=subject)
-    enrich_dossier_docs(store, docs)
-    return [DossierSummaryDTO.from_document(d) for d in docs]
 
 
 @router.get(

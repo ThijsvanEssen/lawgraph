@@ -342,13 +342,25 @@ def _surname(signature: dict[str, Any]) -> str | None:
 
 def _persons(kind: str, row: dict[str, Any]) -> list[FeedPersonDTO]:
     """The signatures as people, named as the member routes name them (the name they go by
-    and the surname: ``Hanneke Steen``), else as the paper names them."""
+    and the surname: ``Hanneke Steen``), else as the paper names them. A person the paper
+    lists twice (first and co-signatory, as a minister for two posts) is one person, with
+    the first signature."""
     persons = []
+    seen: set[str] = set()
     for signature in row.get("persons") or []:
         capacity = signature.get("capacity")
         role = person_role(signature.get("role"), capacity, kind)
         if role is None:
             continue
+        who = (
+            signature.get("member_key")
+            or signature.get("person_id")
+            or signature.get("name")
+        )
+        if who:
+            if who in seen:
+                continue
+            seen.add(who)
         faction = signature.get("faction")
         persons.append(
             FeedPersonDTO(
