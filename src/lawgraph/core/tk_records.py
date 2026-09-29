@@ -26,17 +26,9 @@ from lawgraph.core.values import first_str
 Payload = dict[str, Any]
 Record = tuple[str, dict[str, Any]]
 
-# Toezegging.Status -> the status we store. The source distinguishes a
-# commitment that was settled from one that was explicitly not kept.
-COMMITMENT_STATUS = {
-    "Openstaand": "open",
-    "Afgedaan": "done",
-    "Nagekomen": "done",
-    "Niet nagekomen": "unfulfilled",
-    # seen in the real data: were mapped to "open" because the map did not know them
-    "Deels Afgedaan": "partly_done",
-    "Vervallen": "lapsed",
-}
+# Toezegging.Status of a commitment still to be kept (the others: Afgedaan, Nagekomen, Niet
+# nagekomen, Deels Afgedaan, Vervallen). A commitment keeps the Status the Kamer gives it.
+COMMITMENT_OPEN = "Openstaand"
 
 # Stemming.Soort values that mean the vote was cast in favour / against; any
 # other value ("Onthouden", "Niet deelgenomen") is kept as the source wrote it.
@@ -654,7 +646,7 @@ def commitment(payload: Payload) -> Record | None:
         return None
 
     text = _text(payload, *_COMMITMENT_TEXT_FIELDS)
-    raw_status = payload.get("Status") or "Openstaand"
+    raw_status = _text(payload, "Status") or None
     return make_node_key(external_id), {
         "external_id": external_id,
         "text": text,
@@ -664,19 +656,10 @@ def commitment(payload: Payload) -> Record | None:
         "ministry_name": _text(payload, "Ministerie") or None,
         "made_on": iso_date(payload.get("Aanmaakdatum")),
         "expected_resolution": iso_date(payload.get("DatumNakoming")),
-        "status": COMMITMENT_STATUS.get(raw_status, "open"),
+        "status": raw_status,
         "activity_number": str(payload.get("ActiviteitNummer") or ""),
         "number": _text(payload, "Nummer") or None,
         "display_name": (text[:80] + "…") if len(text) > 80 else text,
-    }
-
-
-def unknown_commitment_statuses(payloads: Iterable[Payload]) -> set[str]:
-    """Toezegging.Status values the status map does not cover."""
-    return {
-        str(payload.get("Status"))
-        for payload in payloads
-        if payload.get("Status") and payload.get("Status") not in COMMITMENT_STATUS
     }
 
 

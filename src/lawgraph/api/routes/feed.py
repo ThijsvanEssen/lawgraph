@@ -40,8 +40,9 @@ DOSSIER_PREFIX_PATTERN = r"^\d+(-[A-Za-z0-9()]*)?$"
 ATOM_MEDIA_TYPE = "application/atom+xml"
 
 _EVENTS = (
-    "``toezegging`` (a commitment made), ``wetsvoorstel``, ``nota_van_wijziging``, "
-    "``amendement``, ``motie`` and ``brief_regering`` (a Tweede Kamer paper submitted), "
+    "``toezegging`` (a commitment made), ``Voorstel van wet``, ``Nota van wijziging``, "
+    "``Amendement``, ``Motie`` and ``Brief regering`` (a Tweede Kamer paper submitted, by "
+    "its ``Document.Soort`` before `` (``), "
     "``stemming`` (a vote with its outcome), ``publicatie`` (in the Staatsblad, "
     "Staatscourant or Tractatenblad) and ``inwerkingtreding`` (a new version of a law in "
     "force)"
@@ -221,14 +222,14 @@ def get_feed_atom(
 # How Concordans names the kinds in the plural, and the parameters of its page /actueel.
 _KIND_PLURALS = {
     "toezegging": "toezeggingen",
-    "wetsvoorstel": "wetsvoorstellen",
-    "nota_van_wijziging": "nota's van wijziging",
-    "amendement": "amendementen",
-    "motie": "moties",
+    "Voorstel van wet": "wetsvoorstellen",
+    "Nota van wijziging": "nota's van wijziging",
+    "Amendement": "amendementen",
+    "Motie": "moties",
     "stemming": "stemmingen",
     "publicatie": "publicaties",
     "inwerkingtreding": "inwerkingtredingen",
-    "brief_regering": "brieven van de regering",
+    "Brief regering": "brieven van de regering",
 }
 _SITE_PARAMETERS = {
     "kinds": "soort",

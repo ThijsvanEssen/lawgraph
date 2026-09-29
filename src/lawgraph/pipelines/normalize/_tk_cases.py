@@ -54,21 +54,13 @@ def normalize_commitments(
     store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Toezegging nodes, keyed by TK ``Id``."""
-    unknown: set[str] = set()
-
-    def read(payload: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
-        unknown.update(tk_records.unknown_commitment_statuses([payload]))
-        return tk_records.commitment(payload)
-
     nodes = _write_nodes(
         store,
         raw_records,  # walked once: a second walk is a second read of every record
-        read,
+        tk_records.commitment,
         COLLECTION_COMMITMENTS,
         NodeType.COMMITMENT,
     )
-    if unknown:
-        logger.warning("Toezegging statuses not in the status map: %s", sorted(unknown))
     logger.info("Normalized %d commitments.", len(nodes))
     return nodes
 
