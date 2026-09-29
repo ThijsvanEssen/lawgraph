@@ -172,18 +172,6 @@ def get_node_with_neighbors(
     return NodeGraphData(node=node_doc, buckets=buckets)
 
 
-def get_node_facets(
-    store: ArangoStore,
-    collection: str,
-    key: str,
-    *,
-    filters: NeighborFilter = NO_FILTER,
-) -> list[NeighborFacet]:
-    """How many edges a node has per relation, direction and neighbour collection."""
-    node_doc = _load_node(store, collection, key)
-    return _count_facets(store, node_doc["_id"], filters)
-
-
 def _edge_scan_aql(direction: Direction, filters: NeighborFilter) -> str:
     """The edges of ``@node_id`` in one direction that pass ``filters``, as ``e``."""
     own, other = _EDGE_SIDES[direction]

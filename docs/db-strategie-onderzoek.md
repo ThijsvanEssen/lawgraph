@@ -102,7 +102,7 @@ keer genest. 3b\* is een scan of aggregatie over heel `edges`.
 - **Buurtweergave**: `/api/nodes/{c}/{k}/neighborhood`, de enige traversal (diepte 1 tot 4,
   cap 1.000, `PRUNE`, `uniqueVertices: 'global'`, `bfs: true`; `api/queries/nodes.py`).
   **Categorie 3a: belangrijk voor de front-end, maar één query.**
-- **Zwaar maar gecachet**: `/api/graph/*`, `/api/nodes/heat` en `/api/nodes/in-flux` (3b\*,
+- **Zwaar maar gecachet**: `/api/nodes/heat` en `/api/nodes/in-flux` (3b\*,
   scans over alle edges met een TTL-cache), en `/api/stats`.
 - **Batch**: alle pipelines. Vooral categorie 2 (raw records per `(source, kind)` en
   `fetched_at`, props-joins) en bulk-upserts.

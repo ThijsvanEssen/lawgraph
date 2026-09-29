@@ -145,6 +145,7 @@ class JudgmentFilters:
 
 # The filter a facet leaves out: each facet counts what choosing another value would give.
 _TIER_FILTERS = frozenset({"tier"})
+_SOURCE_FILTERS = frozenset({"source"})
 _YEAR_FILTERS = frozenset({"from", "to"})
 
 
@@ -210,8 +211,9 @@ def get_judgments_list(
         read from the props the normalize pipelines write, each indexed.
       * ``total`` is exact when filtered, otherwise the collection
         cardinality. The frontend uses ``has_more`` for paging.
-      * ``facets`` counts per ``tier`` (without the tier filter) and per year
-        of ``date_eff`` (without ``from`` and ``to``). Unfiltered, each count
+      * ``facets`` counts per ``tier`` (without the tier filter), per ``source``
+        (without the source filter) and per year of ``date_eff`` (without ``from``
+        and ``to``). Unfiltered, each count
         walks one index and reads no judgment (``db/schema.py``).
     """
     from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
@@ -291,6 +293,13 @@ def get_judgments_list(
             SORT count DESC, value
             RETURN {{ value, count }}
     )
+    LET by_source = (
+        {from_clause}
+            {where(_SOURCE_FILTERS)}
+            COLLECT value = doc.props.source WITH COUNT INTO count
+            SORT count DESC, value
+            RETURN {{ value, count }}
+    )
     LET by_year = (
         {from_clause}
             {where(_YEAR_FILTERS)}
@@ -323,7 +332,7 @@ def get_judgments_list(
 
     aql += (
         "RETURN { total: total, items: items, "
-        "facets: { tier: by_tier, year: by_year } }\n"
+        "facets: { tier: by_tier, source: by_source, year: by_year } }\n"
     )
 
     rows = list(store.query(aql, bind_vars))

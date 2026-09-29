@@ -274,18 +274,12 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
     assert (hub["closed"], hub["outcome"]) == (True, "aangenomen")
 
     # every document carries its chamber, source and whether it explains, wherever it is listed
-    listed = {
-        "/api/documents": _get(client, "/api/documents", dossier=DOSSIER)["items"],
-        f"/api/dossiers/{DOSSIER}/documents": _get(
-            client, f"/api/dossiers/{DOSSIER}/documents"
-        )["items"],
-    }
-    for path, items in listed.items():
-        by_key = {d["key"]: d for d in items}
-        assert set(by_key) == {MVT_KEY, WET_KEY}, path
-        assert (by_key[MVT_KEY]["chamber"], by_key[MVT_KEY]["source"]) == ("TK", "tk")
-        assert by_key[MVT_KEY]["is_explanatory"] is True, path
-        assert by_key[WET_KEY]["is_explanatory"] is False, path
+    items = _get(client, f"/api/dossiers/{DOSSIER}/documents")["items"]
+    by_key = {d["key"]: d for d in items}
+    assert set(by_key) == {MVT_KEY, WET_KEY}
+    assert (by_key[MVT_KEY]["chamber"], by_key[MVT_KEY]["source"]) == ("TK", "tk")
+    assert by_key[MVT_KEY]["is_explanatory"] is True
+    assert by_key[WET_KEY]["is_explanatory"] is False
 
     entries = _get(client, f"/api/dossiers/{DOSSIER}/timeline")["entries"]
     assert sorted(e["node_type"] for e in entries) == [
@@ -439,10 +433,10 @@ def test_what_a_reader_types_resolves_and_every_node_has_its_facets(
     found = _get(client, "/api/search", q="art 2 klimaatfonds", types="articles")
     assert found["results"]["articles"][0]["key"] == "bwbr0044234_2"
 
-    # the facets of the memorandum count what the series wrote around it
-    facets = _get(client, f"/api/nodes/documents/{MVT_KEY}/facets")["items"]
+    # the buckets of the memorandum count what the series wrote around it
+    buckets = _get(client, f"/api/nodes/documents/{MVT_KEY}")["neighbors"]["buckets"]
     counted = {
-        (f["relation"], f["direction"], f["collection"]): f["count"] for f in facets
+        (b["relation"], b["direction"], b["collection"]): b["total"] for b in buckets
     }
     assert counted[("EXPLAINS", "outbound", "article_versions")] == 1
     assert counted[("PART_OF", "outbound", "dossiers")] == 1

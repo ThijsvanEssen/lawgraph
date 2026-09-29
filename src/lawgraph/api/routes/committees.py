@@ -1,7 +1,6 @@
 """Committee, member and faction endpoints.
 
 GET /api/committees                          — every committee
-GET /api/committees/with-members             — every committee with its members
 GET /api/committees/{slug}                   — one committee in full
 GET /api/committees/{slug}/activities        — the activities it leads
 GET /api/members                             — members of parliament
@@ -29,7 +28,6 @@ from lawgraph.api.schemas.committees import (
     CommitteeActivityDTO,
     CommitteeDetailDTO,
     CommitteeDTO,
-    CommitteeWithMembersDTO,
     FactionDetailDTO,
     FactionDTO,
     MemberDetailDTO,
@@ -48,7 +46,6 @@ from lawgraph.db.queries.committees import (
     get_committee_activities,
     get_committee_detail,
     get_committees,
-    get_committees_with_members,
     get_factions,
     get_member_votes,
     get_members,
@@ -58,11 +55,6 @@ from lawgraph.db.queries.dossiers import enrich_dossier_docs
 router = APIRouter()
 members_router = APIRouter()
 factions_router = APIRouter()
-
-# Committee membership changes rarely, and the bulk shape is what the
-# parliamentary layer loads first, so a short cache spares every cold click
-# the aggregation.
-_bulk_cache: TTLCache[str, Any] = TTLCache(maxsize=32)
 
 # A faction's dossiers walk every AUTHORED edge of every member it ever had, so a page
 # is worth keeping for the next click.
@@ -82,30 +74,6 @@ def list_committees(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> list[CommitteeDTO]:
     return [CommitteeDTO.from_document(doc) for doc in get_committees(store)]
-
-
-@router.get(
-    "/with-members",
-    response_model=list[CommitteeWithMembersDTO],
-    summary="All committees with their members",
-    description=(
-        "One query returns every committee with its current members. The "
-        "alternative is a separate call per committee, 130 times over."
-    ),
-    tags=["committees"],
-)
-def list_committees_with_members(
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> list[CommitteeWithMembersDTO]:
-    cached = _bulk_cache.get("with_members")
-    if cached is not _MISSING:
-        return cached  # type: ignore[return-value]
-    response = [
-        CommitteeWithMembersDTO.from_document(doc)
-        for doc in get_committees_with_members(store)
-    ]
-    _bulk_cache.set("with_members", response)
-    return response
 
 
 @router.get(

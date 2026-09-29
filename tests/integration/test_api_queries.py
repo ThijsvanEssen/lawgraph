@@ -5,10 +5,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_EDGES,
+    RELATION_REFERS_TO,
+)
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries._helpers import _find_judgments_for_article, _load_judgment
-from lawgraph.db.queries.graph import get_global_graph, get_judgment_graph
 from lawgraph.db.queries.instruments import get_instrument_judgments
 from lawgraph.db.queries.relationships import search_relationships
 from tests.integration.seed import seed
@@ -40,19 +45,6 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
     assert set(items[0]["judgment"]["props"]) == {"ecli", "display_name"}
     assert items[0]["cited_articles"][0]["article_number"] == "1"
 
-    graph = get_judgment_graph(store, max_judgments=25)
-    assert len(graph.judgments) == 25
-    assert (
-        graph.edges and graph.instruments
-    )  # judgments -> the laws they cite, weighted
-    assert all(edge.weight >= 1 for edge in graph.edges)
-
-    everything = get_global_graph(store, max_judgments=25)
-    for judgment in everything.judgments:
-        assert not {"text", "paragraphs", "summary"} & set(judgment["props"])
-    for article in everything.articles:
-        assert "text" not in article["props"]
-
 
 def test_classified_relationships_are_counted_by_id_and_paged(
     database: str, cli: Any
@@ -68,6 +60,47 @@ def test_classified_relationships_are_counted_by_id_and_paged(
         assert row["edge"]["semantic_type"] and row["source_article"] and row["target"]
     of_law, law_total = search_relationships(store, bwb_id=GRONDWET, limit=5)
     assert law_total <= total and len(of_law) <= 5
+
+
+def test_relationships_are_searched_by_several_types_or_without_some(
+    database: str,
+) -> None:
+    store = ArangoStore()
+    types = ["cross_reference", "definitional_reference", "scope_limitation"]
+    articles = [
+        {"_key": f"a{n}", "type": "article", "labels": [], "props": {"bwb_id": law}}
+        for n, law in enumerate(["BWBR1", "BWBR1", "BWBR1", "BWBR2"])
+    ]
+    store.db.collection(COLLECTION_ARTICLES).insert_many(articles)
+    edges = [
+        {
+            **make_edge_doc(
+                f"{COLLECTION_ARTICLES}/a{n}",
+                f"{COLLECTION_ARTICLES}/a3",
+                RELATION_REFERS_TO,
+                source="test",
+            ),
+            "semantic_type": semantic_type,
+        }
+        for n, semantic_type in enumerate(types)
+    ]
+    store.db.collection(COLLECTION_EDGES).insert_many(edges)
+
+    def found(**kwargs: Any) -> tuple[list[str], int]:
+        rows, total = search_relationships(store, **kwargs)
+        return sorted(row["edge"]["semantic_type"] for row in rows), total
+
+    assert found() == (types, 3)
+    assert found(semantic_types=["scope_limitation", "cross_reference"]) == (
+        ["cross_reference", "scope_limitation"],
+        2,
+    )
+    assert found(exclude_types=["cross_reference"]) == (types[1:], 2)
+    assert found(
+        semantic_types=["cross_reference", "scope_limitation"],
+        exclude_types=["cross_reference"],
+    ) == (["scope_limitation"], 1)
+    assert found(exclude_types=["cross_reference"], bwb_id="BWBR1", limit=1)[1] == 2
 
 
 def test_a_judgment_is_found_by_key_or_index_never_by_reading_them_all(

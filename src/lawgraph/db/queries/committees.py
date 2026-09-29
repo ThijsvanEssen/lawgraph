@@ -49,53 +49,8 @@ def get_committees(store: ArangoStore) -> list[dict[str, Any]]:
     return list(store.query(aql))
 
 
-def get_committees_with_members(store: ArangoStore) -> list[dict[str, Any]]:
-    """Every committee with its current members inlined — one round trip.
-
-    The parliamentary layer draws a halo of members around each committee;
-    fetching them per committee would be 130 round trips.
-    """
-    aql = f"""
-    LET today = DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd")
-    LET committee_ids = (FOR c IN {COLLECTION_COMMITTEES} RETURN c._id)
-    LET seats = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == @member_of AND e._to IN committee_ids
-            FILTER NOT HAS(e.meta, "to_date") OR e.meta.to_date == null
-                OR e.meta.to_date >= today
-            RETURN {{ member: e._from, committee: e._to }}
-    )
-    LET member_docs = MERGE(
-        FOR id IN UNIQUE(seats[*].member)
-            LET member = DOCUMENT(id)
-            FILTER member != null
-            RETURN {{ [member._id]: member }}
-    )
-    LET members_by_committee = MERGE(
-        FOR seat IN seats
-            COLLECT committee = seat.committee INTO group = seat.member
-            RETURN {{ [committee]: (
-                FOR id IN UNIQUE(group)
-                    LET member = member_docs[id]
-                    FILTER member != null
-                    SORT member.props.name ASC
-                    RETURN member
-            ) }}
-    )
-    FOR committee IN {COLLECTION_COMMITTEES}
-        LET name = committee.props.name
-        FILTER name != null AND name != ""
-        FILTER NOT REGEX_TEST(name, "{_GUID_NAME}", true)
-        SORT name ASC
-        RETURN MERGE(committee, {{
-            members: members_by_committee[committee._id] != null
-                ? members_by_committee[committee._id] : []
-        }})
-    """
-    return list(store.query(aql, {"member_of": RELATION_MEMBER_OF}))
-
-
-# A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as ``/dossiers/open``).
+# A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as
+# ``/dossiers?status=open``).
 _DOSSIER_CLOSED = "dossier.props.closed == true"
 
 

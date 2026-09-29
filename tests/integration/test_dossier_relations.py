@@ -240,15 +240,17 @@ def _buckets(node: dict[str, Any]) -> set[tuple[str, str]]:
 
 
 def _the_lists_find_a_number(client: TestClient) -> None:
-    listed = _get(client, "/api/dossiers/open", subject="37035")
+    listed = _get(client, "/api/dossiers", status="open", subject="37035")
     assert sorted(d["number"] for d in listed["items"]) == [
         "37035-IIA",
         "37035-III",
         "37035-XXII",
     ]
-    one = _get(client, "/api/dossiers/open", subject="37035-xxii")["items"]
+    one = _get(client, "/api/dossiers", status="open", subject="37035-xxii")["items"]
     assert [d["number"] for d in one] == ["37035-XXII"]
-    words = _get(client, "/api/dossiers/open", subject="Raad Algemene")["items"]
+    words = _get(client, "/api/dossiers", status="open", subject="Raad Algemene")[
+        "items"
+    ]
     assert [d["number"] for d in words] == ["21501-02"]
     recent = _get(client, "/api/dossiers/recent", subject="37035")
     assert [d["number"] for d in recent] == ["37035-XXII"]

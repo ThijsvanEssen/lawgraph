@@ -232,8 +232,8 @@ def test_cabinets_their_bewindspersonen_and_commitments(
         ).json()
         overdue = client.get("/api/commitments?overdue=true").json()
         by_dossier = client.get("/api/commitments?dossier=37022").json()
-        dossiers = client.get("/api/dossiers/open?ministry=fin").json()
-        initiatives = client.get("/api/dossiers/open?initiative=true").json()
+        dossiers = client.get("/api/dossiers?status=open&ministry=fin").json()
+        initiatives = client.get("/api/dossiers?status=open&initiative=true").json()
         missing = client.get("/api/cabinets/nope").status_code
         unknown_ministry = client.get("/api/commitments?ministry=nope").status_code
     finally:

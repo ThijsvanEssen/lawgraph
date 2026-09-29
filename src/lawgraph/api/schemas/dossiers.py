@@ -321,20 +321,6 @@ class DossierDocumentsResponse(BaseModel):
     items: list[DossierDocumentDTO]
 
 
-class DossierDocumentsBulkResponse(BaseModel):
-    """Response for GET /api/dossiers/documents/bulk."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    items: dict[str, list[DossierDocumentDTO]] = Field(
-        ...,
-        description=(
-            "Map keyed by dossier number; each value is that dossier's "
-            "documents, most recent first."
-        ),
-    )
-
-
 class DossierSummaryDTO(BaseModel):
     """A dossier in a list.
 
