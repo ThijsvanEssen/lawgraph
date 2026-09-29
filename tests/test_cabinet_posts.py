@@ -409,3 +409,26 @@ def test_the_holders_of_one_heading_at_the_same_time_hold_seats_of_their_own() -
         "bzk/staatssecretaris/digitalisering-en-koninkrijksrelaties",
         "bzk/staatssecretaris/herstel-groningen",
     } <= seats
+
+
+def test_a_ministry_renamed_during_the_cabinet_keeps_its_seat_in_one_place() -> None:
+    # Rutte-Asscher: the state secretary of Economische Zaken, Landbouw en Innovatie, named
+    # Economische Zaken from 1 January 2013 (TOOI); one seat, by its later name
+    held = [
+        (p["person"], p["from_date"], p["ministry"])
+        for p in _cabinet("rutte_asscher")["posts"]
+        if p["seat"] == "ez/staatssecretaris"
+    ]
+    assert [(person, ministry) for person, _, ministry in held] == [
+        ("c verdaas", "eli"),
+        ("sam dijksma", "eli"),
+        ("mhp van dam", "ez"),
+    ]
+    # Kamp, minister for the whole cabinet: one post from before the new name
+    (kamp,) = [
+        p for p in _cabinet("rutte_asscher")["posts"] if p["person"] == "hgj kamp"
+    ]
+    assert (kamp["seat"], kamp["ministry"]) == ("ez/minister", "eli")
+    assert not any(
+        p["seat"].startswith("eli/") for p in _cabinet("rutte_asscher")["posts"]
+    )
