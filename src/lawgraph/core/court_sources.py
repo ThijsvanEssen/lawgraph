@@ -3,10 +3,11 @@
 ``data/courts.json`` holds the courts ``core.courts`` reads. ``build_courts`` makes it from
 the value list ``https://data.rechtspraak.nl/Waardelijst/Instanties``: every court an ECLI
 can name, with its code (``Afkorting``, the court part of the ECLI), its official name, its
-``Type`` and the days it existed. What the list does not hold is kept by hand in
-``data/curated/courts_outside.json``: the EHRM's own code, and the courts outside the
-Netherlands the Rechtspraak publishes under code ``XX`` (the Kroon, the EHRM, the Court of
-Justice of the EU).
+``Type``, the days it existed and its identifier (``owms_term``: the ``creator`` the index of
+judgments is filtered by, ``retrieve rechtspraak --court``). What the list does not hold is
+kept by hand in ``data/curated/courts_outside.json``: the EHRM's own code, and the courts
+outside the Netherlands the Rechtspraak publishes under code ``XX`` (the Kroon, the EHRM, the
+Court of Justice of the EU).
 
 A court has two levels:
 
@@ -84,6 +85,7 @@ def parse_instanties(xml_text: str) -> list[dict[str, Any]]:
         courts.append(
             {
                 "code": fields.get("Afkorting") or None,
+                "identifier": fields.get("Identifier") or None,
                 "name": fields.get("Naam", ""),
                 "type": fields.get("Type", ""),
                 "from": fields.get("BeginDate") or None,
@@ -123,6 +125,19 @@ def court_kind(name: str, tier: str, known_places: set[str]) -> str:
     return slug(text)
 
 
+# The court as the index of judgments names it (``creator``): the term of its OWMS identifier.
+OWMS_TERMS = "http://standaarden.overheid.nl/owms/terms/"
+
+
+def owms_term(identifier: str | None) -> str | None:
+    """``Gerechtshof_Amsterdam`` of the identifier ``…/owms/terms/Gerechtshof_Amsterdam``;
+    ``None`` for a court the list identifies otherwise (``http://psi.rechtspraak.nl/…``, the
+    courts before ECLI and the foreign ones), which the index cannot be filtered by."""
+    if identifier and identifier.startswith(OWMS_TERMS):
+        return identifier.removeprefix(OWMS_TERMS)
+    return None
+
+
 def build_courts(xml_text: str) -> list[dict[str, Any]]:
     """The court table: every court of the value list with a code, in its order."""
     listed = parse_instanties(xml_text)
@@ -136,6 +151,7 @@ def build_courts(xml_text: str) -> list[dict[str, Any]]:
             "court_kind": court_kind(court["name"], TIER_OF_TYPE[court["type"]], known),
             "from": court["from"],
             "until": court["until"],
+            "owms_term": owms_term(court.get("identifier")),
         }
         for court in listed
         if court["code"] and court["type"] in TIER_OF_TYPE

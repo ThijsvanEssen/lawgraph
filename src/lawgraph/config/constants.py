@@ -271,32 +271,7 @@ HOST_MIN_INTERVAL: dict[str, float] = {
 }
 
 # ── Rechtspraak courts ────────────────────────────────────────────────────────
-# Short name -> the OWMS term of the court in the Rechtspraak API (``creator``).
-RECHTSPRAAK_COURTS: dict[str, str] = {
-    "hr": "Hoge_Raad_der_Nederlanden",
-    "rvs": "Raad_van_State",
-    "crvb": "Centrale_Raad_van_Beroep",
-    "cbb": "College_van_Beroep_voor_het_bedrijfsleven",
-    "gh-amsterdam": "Gerechtshof_Amsterdam",
-    "gh-arnhem-leeuwarden": "Gerechtshof_Arnhem-Leeuwarden",
-    "gh-den-haag": "Gerechtshof_Den_Haag",
-    "gh-s-hertogenbosch": "Gerechtshof_'s-Hertogenbosch",
-    # courts of appeal before the 2013 reorganisation, for research into older years
-    "gh-arnhem": "Gerechtshof_Arnhem",
-    "gh-leeuwarden": "Gerechtshof_Leeuwarden",
-    "gh-s-gravenhage": "Gerechtshof_'s-Gravenhage",
-}
-RECHTSPRAAK_COURT_GROUPS: dict[str, tuple[str, ...]] = {
-    "hoven": (
-        "gh-amsterdam",
-        "gh-arnhem-leeuwarden",
-        "gh-den-haag",
-        "gh-s-hertogenbosch",
-        "gh-arnhem",
-        "gh-leeuwarden",
-        "gh-s-gravenhage",
-    ),
-}
+# A court to read is an ECLI code or a tier of the court table (``core.courts.owms_terms``).
 # Every court the index holds (no ``creator`` filter): the rechtbanken, the special courts
 # and those that no longer exist too.
 RECHTSPRAAK_EVERY_COURT = "all"
