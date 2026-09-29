@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from types import MappingProxyType
-
 # ── Collection name constants ─────────────────────────────────────────────────
 
 COLLECTION_INSTRUMENTS = "instruments"
@@ -247,42 +245,6 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
 
 # Maximum characters of a document's text scanned for citations (200 KB).
 MAX_SEMANTIC_TEXT_LENGTH = 200_000
-
-# ── Party colors ──────────────────────────────────────────────────────────────
-# Canonical brand colors for Dutch parliamentary parties.
-# Keyed by the party abbreviation as it appears in fractie.abbreviation.
-# GL-PvdA, GroenLinks, GroenLinks-PvdA and PRO are all intentional duplicates:
-# different API versions use different abbreviations for the same merged party.
-
-PARTY_COLORS: MappingProxyType[str, str] = MappingProxyType(
-    {
-        "VVD": "#003082",
-        "D66": "#1DB954",
-        "PVV": "#002868",
-        "CDA": "#399E48",
-        "SP": "#EE1C25",
-        "PvdA": "#E63325",
-        "GroenLinks": "#46962B",
-        "GL-PvdA": "#46962B",
-        "GroenLinks-PvdA": "#46962B",
-        "PRO": "#46962B",
-        "ChristenUnie": "#4F95D4",
-        "Volt": "#592D82",
-        "NSC": "#1B4F72",
-        "BBB": "#9ECA3C",
-        "JA21": "#CC0000",
-        "SGP": "#FF6600",
-        "FvD": "#8B0000",
-        "FVD": "#8B0000",
-        "DENK": "#39B54A",
-        "BIJ1": "#FFCC00",
-        "50PLUS": "#8B008B",
-        "PvdD": "#4CAF50",
-        "Groep Van Haga": "#002868",
-        "Groep Markuszower": "#1F2A44",
-        "Lid Keijzer": "#999999",
-    }
-)
 
 # Longest title / display name stored on a node (longer source titles are truncated).
 MAX_TITLE_CHARS = 200

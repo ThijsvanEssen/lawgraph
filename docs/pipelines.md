@@ -347,7 +347,8 @@ the `subjects` is `Bestuursrecht`, tax law too). The Kroon, a foreign court, the
 Hof, the Constitutioneel Hof and the arbitration board have no default: null unless the metadata
 or the kop tells.
 
-`names` comes from `core/judgment_names.py`, a list of landmark cases kept by hand: the open data
+`names` comes from `src/lawgraph/data/curated/judgment_names.json` (`core/judgment_names.py`;
+`lawgraph curated set judgment-names`), a list of landmark cases kept by hand: the open data
 carries no name for a judgment. Its RDF has no `dcterms:alternative` (none of 14,446 judgments
 checked), its vindplaatsen (`dcterms:hasVersion`) are citations without a title ("NJ 1981/635
 met annotatie van C.J.H. Brunner"), and an inhoudsindicatie names the precedent it applies as

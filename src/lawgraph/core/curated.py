@@ -1,0 +1,351 @@
+"""The lists kept by hand, because no official source gives them: ``data/curated/``.
+
+Every list is a JSON file (or a part of one) under ``src/lawgraph/data/curated/``, with an
+``about`` that says what it holds and why no source does. ``lawgraph curated`` lists, checks
+and changes them (``commands/curated.py``); nothing else writes them, and ``lawgraph check``
+checks them all.
+
+What is kept here is data: facts a person decides and may change (a party colour, the
+landmark name of a judgment, our key of a ministry). Parser vocabulary (month names, name
+particles, the words of a legal form) and facts of a specification (ECLI country codes) stay
+in code: they describe how a source is written, not what it says.
+
+A list is a mapping from a key to a value, in order: ``entries`` reads it from the file,
+``store`` writes it back. ``problems`` checks it on its own and, given a database, against
+it (a faction key that no faction has).
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+CURATED = Path(__file__).resolve().parents[1] / "data" / "curated"
+
+Entries = dict[str, Any]
+
+
+@dataclass(frozen=True)
+class CuratedList:
+    name: str  # as the command line names it: ``party-colors``
+    file: str  # under ``data/curated/``
+    description: str
+    # the part of the file the list is, and how its entries are read from and written to it
+    read: Callable[[dict[str, Any]], Entries]
+    write: Callable[[dict[str, Any], Entries], None]
+    # what is wrong with the entries, on their own
+    check: Callable[[Entries], list[str]]
+    ordered: bool = False  # the order is part of the list (``--after``)
+
+    @property
+    def path(self) -> Path:
+        return CURATED / self.file
+
+    def document(self) -> dict[str, Any]:
+        data: dict[str, Any] = json.loads(self.path.read_text(encoding="utf-8"))
+        return data
+
+    def entries(self) -> Entries:
+        return self.read(self.document())
+
+    def store(self, entries: Entries) -> None:
+        document = self.document()
+        self.write(document, entries)
+        self.path.write_text(
+            json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+        )
+
+
+# ── Reading and writing the parts of a file ──────────────────────────────────
+
+
+def _records(part: str, key: str) -> tuple[Callable[..., Entries], Callable[..., None]]:
+    """A list of records under *part*, keyed by their field *key*."""
+
+    def read(document: dict[str, Any]) -> Entries:
+        return {
+            r[key]: {k: v for k, v in r.items() if k != key} for r in document[part]
+        }
+
+    def write(document: dict[str, Any], entries: Entries) -> None:
+        document[part] = [{key: k, **(v or {})} for k, v in entries.items()]
+
+    return read, write
+
+
+def _mapping(part: str) -> tuple[Callable[..., Entries], Callable[..., None]]:
+    """A mapping under *part*."""
+
+    def read(document: dict[str, Any]) -> Entries:
+        return dict(document[part])
+
+    def write(document: dict[str, Any], entries: Entries) -> None:
+        document[part] = dict(entries)
+
+    return read, write
+
+
+def _keys(part: str) -> tuple[Callable[..., Entries], Callable[..., None]]:
+    """A list of keys under *part* (the value of an entry is ``None``)."""
+
+    def read(document: dict[str, Any]) -> Entries:
+        return dict.fromkeys(document[part])
+
+    def write(document: dict[str, Any], entries: Entries) -> None:
+        document[part] = list(entries)
+
+    return read, write
+
+
+def _outside_courts() -> tuple[Callable[..., Entries], Callable[..., None]]:
+    """The courts outside the value list, keyed ``ECHR`` or ``XX:<court>``."""
+
+    def read(document: dict[str, Any]) -> Entries:
+        return {
+            (f"{c['code']}:{c['court']}" if c.get("court") else c["code"]): {
+                k: v for k, v in c.items() if k not in ("code", "court")
+            }
+            for c in document["courts"]
+        }
+
+    def write(document: dict[str, Any], entries: Entries) -> None:
+        courts = []
+        for key, value in entries.items():
+            code, _, court = key.partition(":")
+            courts.append(
+                {"code": code, **({"court": court} if court else {}), **value}
+            )
+        document["courts"] = courts
+
+    return read, write
+
+
+# ── What makes an entry wrong ────────────────────────────────────────────────
+
+_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
+_ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9.]{1,7}:\d{4}:[A-Z0-9.]{1,25}$")
+
+
+def _party_colors(entries: Entries) -> list[str]:
+    found = []
+    seen: dict[str, str] = {}
+    for name, value in entries.items():
+        if not _COLOR.match(str(value.get("color"))):
+            found.append(f"{name}: color {value.get('color')!r} is no #rrggbb")
+        for label in (name, *(value.get("aliases") or [])):
+            other = seen.setdefault(label.lower(), name)
+            if other != name:
+                found.append(f"{label}: a name or alias of both {other} and {name}")
+    return found
+
+
+def _order(entries: Entries) -> list[str]:
+    return [
+        f"{key}: not a faction key"
+        for key in entries
+        if not re.match(r"^[a-z0-9_]+$", key)
+    ]
+
+
+def _judgment_names(entries: Entries) -> list[str]:
+    found = []
+    for ecli, value in entries.items():
+        if not _ECLI.match(ecli):
+            found.append(f"{ecli}: not an ECLI in upper case")
+        names = value.get("names") or []
+        if not names or any(not n or n != n.strip() for n in names):
+            found.append(f"{ecli}: names must be non-empty and trimmed")
+    return found
+
+
+def _in(values: set[str], what: str) -> Callable[[Entries], list[str]]:
+    def check(entries: Entries) -> list[str]:
+        return [
+            f"{k}: {v!r} is no {what}" for k, v in entries.items() if v not in values
+        ]
+
+    return check
+
+
+def _decision_kinds(entries: Entries) -> list[str]:
+    from lawgraph.core.courts import COURT_KINDS
+    from lawgraph.core.judgments import DECISION_KINDS
+
+    return [f"{k}: unknown court_kind" for k in entries if k not in COURT_KINDS] + _in(
+        set(DECISION_KINDS), "decision kind"
+    )(entries)
+
+
+def _procedure_kinds(entries: Entries) -> list[str]:
+    from lawgraph.core.judgments import DECISION_KINDS
+
+    return _in(set(DECISION_KINDS), "decision kind")(entries)
+
+
+def _general_courts(entries: Entries) -> list[str]:
+    from lawgraph.core.courts import COURT_KINDS
+
+    return [f"{k}: unknown court_kind" for k in entries if k not in COURT_KINDS]
+
+
+def _outside(entries: Entries) -> list[str]:
+    from lawgraph.core.courts import TIERS
+
+    found = []
+    for key, value in entries.items():
+        if value.get("tier") not in TIERS:
+            found.append(f"{key}: tier {value.get('tier')!r} is not one of TIERS")
+        if not value.get("name") or not value.get("court_kind"):
+            found.append(f"{key}: needs a name and a court_kind")
+    return found
+
+
+def _ministries(entries: Entries) -> list[str]:
+    return [
+        f"{key}: needs a name"
+        for key, value in entries.items()
+        if not (value or {}).get("name") or not re.match(r"^[a-z0-9_]+$", key)
+    ]
+
+
+def _ministry_keys(entries: Entries) -> list[str]:
+    known = set(LISTS["ministries"].entries())
+    return [f"{k}: not a curated ministry" for k in entries if k not in known] + [
+        f"{k} -> {v}: not a curated ministry"
+        for k, v in entries.items()
+        if v not in known
+    ]
+
+
+def _aliases(entries: Entries) -> list[str]:
+    known = set(LISTS["ministries"].entries())
+    return [
+        f"{k} -> {v}: not a curated ministry"
+        for k, v in entries.items()
+        if v not in known
+    ]
+
+
+# ── The lists ────────────────────────────────────────────────────────────────
+
+
+def _list(
+    name: str,
+    file: str,
+    description: str,
+    part: tuple[Any, Any],
+    check: Callable[[Entries], list[str]],
+    *,
+    ordered: bool = False,
+) -> CuratedList:
+    return CuratedList(name, file, description, part[0], part[1], check, ordered)
+
+
+LISTS: dict[str, CuratedList] = {
+    c.name: c
+    for c in (
+        _list(
+            "party-colors",
+            "party_colors.json",
+            "party -> {color, aliases}: the house colour of a party and its other names",
+            _records("parties", "name"),
+            _party_colors,
+        ),
+        _list(
+            "left-right",
+            "left_right.json",
+            "faction keys, left to right as they sit in the chamber",
+            _keys("order"),
+            _order,
+            ordered=True,
+        ),
+        _list(
+            "judgment-names",
+            "judgment_names.json",
+            "ECLI -> {names, note}: the names lawyers call landmark judgments by",
+            _records("judgments", "ecli"),
+            _judgment_names,
+        ),
+        _list(
+            "decision-kinds",
+            "decision_kinds.json",
+            "court_kind -> the kind of decision it gives when nothing else tells",
+            _mapping("kinds"),
+            _decision_kinds,
+        ),
+        _list(
+            "procedure-kinds",
+            "decision_kinds.json",
+            "procedure (psi:procedure) -> the kind of decision it names",
+            _mapping("procedures"),
+            _procedure_kinds,
+        ),
+        _list(
+            "general-courts",
+            "decision_kinds.json",
+            "the kinds of court of every area of law (an uitspraak in administrative law)",
+            _keys("general_courts"),
+            _general_courts,
+        ),
+        _list(
+            "courts-outside",
+            "courts_outside.json",
+            "ECHR or XX:<court> -> {name, tier, court_kind, ...}: courts no value list holds",
+            _outside_courts(),
+            _outside,
+        ),
+        _list(
+            "ministries",
+            "ministries.json",
+            "ministry key -> {name}, in protocol order",
+            _records("ministries", "key"),
+            _ministries,
+            ordered=True,
+        ),
+        _list(
+            "ministry-successions",
+            "ministries.json",
+            "ministry key -> the key that followed it, before 2010",
+            _mapping("successions"),
+            _ministry_keys,
+        ),
+        _list(
+            "ministry-aliases",
+            "ministries.json",
+            "another way the sources write a ministry -> its key",
+            _mapping("aliases"),
+            _aliases,
+        ),
+    )
+}
+
+
+def problems(entries_by_list: dict[str, Entries] | None = None) -> list[str]:
+    """What is wrong with every list (``<list>: <problem>``); with *entries_by_list*, those
+    entries instead of the files' for the lists it names."""
+    found = []
+    for name, curated in LISTS.items():
+        entries = (entries_by_list or {}).get(name)
+        for problem in curated.check(curated.entries() if entries is None else entries):
+            found.append(f"{name}: {problem}")
+    return found
+
+
+def place(entries: Entries, key: str, value: Any, after: str | None = None) -> Entries:
+    """*entries* with *key* set to *value*: in its place when it is there, else at the end;
+    with *after* right after that key (``""``: first)."""
+    rest = {k: v for k, v in entries.items() if k != key}
+    if after is None:
+        return {**entries, key: value} if key in entries else {**rest, key: value}
+    if after and after not in rest:
+        raise KeyError(f"{after}: not in the list")
+    placed: Entries = {} if after else {key: value}
+    for k, v in rest.items():
+        placed[k] = v
+        if k == after:
+            placed[key] = value
+    return placed

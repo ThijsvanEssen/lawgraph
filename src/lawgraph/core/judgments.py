@@ -11,10 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from lawgraph.core.court_sources import (
-    TIER_GERECHTSHOF,
-    TIER_RECHTBANK,
-)
 from lawgraph.core.courts import court_of
 from lawgraph.core.xml import (
     collapse_ws,
@@ -238,25 +234,19 @@ DECISION_KINDS: tuple[str, ...] = (
     KIND_PRELIMINARY_RULING,
 )
 
-# The procedures (``psi:procedure``) that name the kind, where the kop does not.
-KIND_OF_PROCEDURE = {
-    "Beschikking": KIND_BESCHIKKING,
-    "Tussenbeschikking": KIND_BESCHIKKING,
-    "Raadkamer": KIND_BESCHIKKING,
-    "Rekestprocedure": KIND_BESCHIKKING,
-}
-# The kind a kind of court gives when nothing else tells (by ``court_kind``: a tier of one
-# kind of court is its own), curated in ``data/curated/decision_kinds.json``.
+# The curated kinds (``data/curated/decision_kinds.json``): the kind a procedure
+# (``psi:procedure``) names where the kop does not; the kind a kind of court gives when
+# nothing else tells (by ``court_kind``: a tier of one kind of court is its own); the kinds
+# of court of every area of law, which give an uitspraak in administrative law (tax law too).
 DECISION_KINDS_FILE = (
     Path(__file__).resolve().parents[1] / "data" / "curated" / "decision_kinds.json"
 )
-KIND_OF_COURT_KIND: dict[str, str] = json.loads(
+_CURATED_KINDS: dict[str, Any] = json.loads(
     DECISION_KINDS_FILE.read_text(encoding="utf-8")
-)["kinds"]
-# The courts of every area of law: in administrative law (tax law too) they give an uitspraak.
-_GENERAL_COURTS = frozenset(
-    {TIER_GERECHTSHOF, TIER_RECHTBANK, "gerecht_in_eerste_aanleg"}
 )
+KIND_OF_PROCEDURE: dict[str, str] = _CURATED_KINDS["procedures"]
+KIND_OF_COURT_KIND: dict[str, str] = _CURATED_KINDS["kinds"]
+_GENERAL_COURTS = frozenset(_CURATED_KINDS["general_courts"])
 
 # A kop line that names the decision: "Arrest", "ARREST", "Uitspraak op het hoger beroep
 # van:", "beschikking van de meervoudige kamer", "Tussenvonnis", "beslissing van de

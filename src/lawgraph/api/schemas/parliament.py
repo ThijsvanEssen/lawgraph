@@ -31,8 +31,12 @@ class ParliamentSeatsResponse(BaseModel):
 
 
 class PartyColorsResponse(BaseModel):
-    """Party abbreviation to hex colour."""
+    """Party to hex colour, by every name and alias; and the aliases."""
 
     model_config = ConfigDict(extra="forbid")
 
     colors: dict[str, str]
+    aliases: dict[str, str] = Field(
+        default_factory=dict,
+        description="Another name of a party (`GL-PvdA`, `CU`) -> its name in `colors`.",
+    )

@@ -259,7 +259,7 @@ loaded.
 A stub has the kind its kind of court gives (`data/curated/decision_kinds.json`).
 
 `names` is what lawyers call the judgment (`Haviltex`, `Urgenda`, `Lindenbaum/Cohen`), from the
-curated list of landmark cases in `core/judgment_names.py`; empty for most judgments, null on a
+curated list of landmark cases (`data/curated/judgment_names.json`, `lawgraph curated`); empty for most judgments, null on a
 stub without one. The open data carries no names: see [pipelines](pipelines.md#rechtspraak).
 
 The judgments of one case are tied by `APPEAL_OF` (an appeal to the judgment it appeals),
