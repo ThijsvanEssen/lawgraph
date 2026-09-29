@@ -213,7 +213,9 @@ class InstrumentDossierItem(BaseModel):
     dossier_number: str = Field(..., description="The dossier's label, e.g. 37020-XV.")
     title: str | None = None
     display_name: str | None = None
-    stage: str | None = None
+    current_phase: str | None = Field(
+        None, description="The current phase of the dossier's bill (``phases``)."
+    )
     opened_on: str | None = None
     closed: bool | None = None
     via: Literal["instrument", "amending_publication"] = Field(

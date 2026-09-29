@@ -328,13 +328,17 @@ class DossierProps(_CommonProps):
     closed: bool | None = None
     opened_on: str | None = None
     closed_on: str | None = None
-    current_stage: str | None = None
     case_kinds: list[str] | None = None
-    stages_present: list[str] | None = None
-    stages_complete: bool | None = None
-    stages_missing: list[str] | None = None
-    track_kind: str | None = None
+    # what it is (the Zaak.Soort of its own zaak, ``core.dossier_stages.dossier_kind``) and
+    # where that comes from (``case`` or ``document``)
+    kind: str | None = None
+    kind_basis: str | None = None
+    # of a bill: every phase of the curated list, ``{name, done, date}``, and the latest
+    phases: list | None = None
+    current_phase: str | None = None
     outcome: str | None = None
+    # the last decision of the Kamer on its bill: ``{kind (BesluitSoort), text, date}``
+    tk_decision: dict | None = None
     # who brought the dossier in (``semantic government``): the ministry (``core.ministries``)
     # of the first bewindspersoon to sign its earliest document, or ``initiative`` when a
     # Kamerlid signed first; the cabinet in office on that day
@@ -377,6 +381,9 @@ class DecisionProps(_CommonProps):
     subject: str | None = None
     agenda_item_subject: str | None = None
     decision_text: str | None = None
+    # BesluitSoort as the Kamer writes it: Stemmen - aangenomen, Stemmen - zonder stemming
+    # aannemen, Stemmen - uitstellen, ...
+    decision_kind: str | None = None
     decision_order: int | None = None
     meeting_kind: str | None = None
     case_ids: list[str] | None = None
@@ -392,8 +399,8 @@ class DecisionProps(_CommonProps):
     voters: dict[str, int] | None = None
     passed: bool | None = None
     external_id: str | None = None
-    # motie, amendement, wetsvoorstel or overig: from primary_case_kind
-    # (``tk_records.decision_kind``)
+    # what was decided on: the Zaak.Soort of the primary case, or the one Soort of the
+    # cases on its Agendapunt (``tk_records.decision_kind``)
     kind: str | None = None
     # no source sets it: the Eerste Kamer has no votes here; the API still returns it
     chamber: str | None = None

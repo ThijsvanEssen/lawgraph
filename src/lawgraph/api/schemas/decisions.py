@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# ``core.tk_records.DECISION_KINDS``
-DecisionKind = Literal["motie", "amendement", "wetsvoorstel", "overig"]
+_KIND = (
+    "What was decided on: the ``Zaak.Soort`` of the case it decided (``primary_case_kind``), "
+    "or the one Soort of the cases on its agenda item, as the Kamer writes it: ``Motie``, "
+    "``Amendement``, ``Wetgeving``, ``Begroting``, ...; null when neither tells."
+)
+_DECISION_KIND = (
+    "``BesluitSoort`` as the Kamer writes it: ``Stemmen - aangenomen``, ``Stemmen - "
+    "verworpen``, ``Stemmen - zonder stemming aannemen`` (a hamerstuk: no votes), "
+    "``Stemmen - uitstellen``, ..."
+)
 
 
 class VoteDTO(BaseModel):
@@ -40,14 +48,22 @@ class DecisionDTO(BaseModel):
     date: str | None = None
     subject: str | None = None
     external_id: str | None = Field(None, description="TK Besluit identifier.")
-    passed: bool
+    passed: bool | None = Field(
+        None,
+        description="Whether it carried; null for a decision that is no vote "
+        "(``Stemmen - uitstellen``).",
+    )
+    kind: str | None = Field(None, description=_KIND)
+    decision_kind: str | None = Field(None, description=_DECISION_KIND)
     primary_case_kind: str | None = Field(
         None,
         description="The ``Zaak.Soort`` of the case it decided: ``Wetgeving`` on the vote on "
         "a bill itself, ``Amendement`` or ``Motie`` on the others.",
     )
     chamber: str | None = None
-    vote_kind: str = "faction"
+    vote_kind: str | None = Field(
+        None, description="``member``, ``faction``; null without votes (a hamerstuk)."
+    )
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     votes: list[VoteDTO] = Field(default_factory=list)
@@ -61,10 +77,12 @@ class DecisionDTO(BaseModel):
             date=props.get("date"),
             subject=props.get("subject"),
             external_id=props.get("decision_id"),
-            passed=bool(props.get("passed")),
+            passed=props.get("passed"),
+            kind=props.get("kind"),
+            decision_kind=props.get("decision_kind"),
             primary_case_kind=props.get("primary_case_kind"),
             chamber=props.get("chamber"),
-            vote_kind=props.get("vote_kind") or "faction",
+            vote_kind=props.get("vote_kind"),
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},
             votes=[VoteDTO(**v) for v in doc.get("votes") or []],
@@ -88,13 +106,8 @@ class DecisionSummaryDTO(BaseModel):
     subject: str | None = None
     external_id: str | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
-    kind: DecisionKind | None = Field(
-        None,
-        description="What was voted on, from the ``Zaak.Soort`` of the case it decided "
-        "(``primary_case_kind``): ``motie``, ``amendement``, ``wetsvoorstel`` (a bill, "
-        "also an initiative bill or a budget) or ``overig``. Null for a decision "
-        "normalized before the kind was stored.",
-    )
+    kind: str | None = Field(None, description=_KIND)
+    decision_kind: str | None = Field(None, description=_DECISION_KIND)
     passed: bool | None = None
     chamber: str | None = None
     vote_kind: str | None = None
@@ -107,7 +120,7 @@ class DecisionKindCount(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    value: DecisionKind | None
+    value: str | None
     count: int
 
 

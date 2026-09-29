@@ -47,11 +47,11 @@ def test_normalize_stores_the_kind_of_the_case_a_decision_decided(
 
     body = _get(store, "/api/decisions", limit=200)
     assert body["total"] == 8
-    assert _counts(body["facets"]["kind"]) == {"motie": 6, "wetsvoorstel": 2}
-    assert {row["kind"] for row in body["items"]} == {"motie", "wetsvoorstel"}
-    bills = _get(store, "/api/decisions", kind="wetsvoorstel")
+    assert _counts(body["facets"]["kind"]) == {"Motie": 6, "Wetgeving": 2}
+    assert {row["kind"] for row in body["items"]} == {"Motie", "Wetgeving"}
+    bills = _get(store, "/api/decisions", kind="Wetgeving")
     assert bills["total"] == 2
-    assert _counts(bills["facets"]["kind"]) == {"motie": 6, "wetsvoorstel": 2}
+    assert _counts(bills["facets"]["kind"]) == {"Motie": 6, "Wetgeving": 2}
 
 
 def _decision(key: str, kind: str, passed: bool, date: str, subject: str) -> Node:
@@ -74,11 +74,11 @@ def _decision(key: str, kind: str, passed: bool, date: str, subject: str) -> Nod
 
 def _build_decisions(store: ArangoStore) -> None:
     nodes = [
-        _decision("d1", "motie", True, "2025-03-04", "Motie over de wegen"),
-        _decision("d2", "motie", False, "2025-03-04", "Motie over het spoor"),
-        _decision("d3", "amendement", True, "2025-03-11", "Amendement over WEGEN"),
-        _decision("d4", "wetsvoorstel", True, "2025-03-18", "Wijziging Wegenwet"),
-        _decision("d5", "motie", False, "2025-04-01", "Motie over water"),
+        _decision("d1", "Motie", True, "2025-03-04", "Motie over de wegen"),
+        _decision("d2", "Motie", False, "2025-03-04", "Motie over het spoor"),
+        _decision("d3", "Amendement", True, "2025-03-11", "Amendement over WEGEN"),
+        _decision("d4", "Wetgeving", True, "2025-03-18", "Wijziging Wegenwet"),
+        _decision("d5", "Motie", False, "2025-04-01", "Motie over water"),
         Node(
             collection=COLLECTION_FACTIONS,
             type=NodeType.FACTION,
@@ -115,9 +115,9 @@ def test_the_decisions_are_filtered_and_counted_per_kind_outcome_and_day(
     everything = _get(store, "/api/decisions")
     assert everything["total"] == 5
     assert everything["facets"]["kind"] == [
-        {"value": "motie", "count": 3},
-        {"value": "amendement", "count": 1},
-        {"value": "wetsvoorstel", "count": 1},
+        {"value": "Motie", "count": 3},
+        {"value": "Amendement", "count": 1},
+        {"value": "Wetgeving", "count": 1},
     ]
     assert _counts(everything["facets"]["passed"]) == {True: 3, False: 2}
     assert everything["facets"]["days"] == [
@@ -129,15 +129,15 @@ def test_the_decisions_are_filtered_and_counted_per_kind_outcome_and_day(
 
     # kind is counted without the kind filter, passed without the passed filter, the
     # days under both; total is the matches, whatever the limit
-    motions = _get(store, "/api/decisions", kind="motie", passed="false", limit=1)
+    motions = _get(store, "/api/decisions", kind="Motie", passed="false", limit=1)
     assert motions["total"] == 2 and len(motions["items"]) == 1
-    assert _counts(motions["facets"]["kind"]) == {"motie": 2}
+    assert _counts(motions["facets"]["kind"]) == {"Motie": 2}
     assert _counts(motions["facets"]["passed"]) == {True: 1, False: 2}
     assert motions["facets"]["days"] == [
         {"date": "2025-03-04", "count": 1, "passed": 0},
         {"date": "2025-04-01", "count": 1, "passed": 0},
     ]
-    both = _get(store, "/api/decisions", kind="motie,amendement")
+    both = _get(store, "/api/decisions", kind="Motie,Amendement")
     assert both["total"] == 4
 
     march = _get(store, "/api/decisions", **{"from": "2025-03-05", "to": "2025-03-31"})
@@ -150,7 +150,7 @@ def test_the_decisions_are_filtered_and_counted_per_kind_outcome_and_day(
     assert voted["total"] == 4
     against = _get(store, "/api/decisions", party="f1", vote="tegen")
     assert {row["key"] for row in against["items"]} == {"d2", "d4"}
-    assert _counts(against["facets"]["kind"]) == {"motie": 1, "wetsvoorstel": 1}
+    assert _counts(against["facets"]["kind"]) == {"Motie": 1, "Wetgeving": 1}
 
 
 # ── judgments ────────────────────────────────────────────────────────────────

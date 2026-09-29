@@ -41,6 +41,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION as INSTRUMENT_KIND_PUBLICATION
+from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.feed import (
     DOCUMENT_EVENTS,
     EVENT_BILL,
@@ -54,11 +55,7 @@ from lawgraph.core.feed import (
     KIND_RANK,
     FeedCursor,
 )
-from lawgraph.core.tk_records import (
-    CAPACITY_GOVERNMENT,
-    CAPACITY_MEMBER,
-    DECISION_KIND_BILL,
-)
+from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import ArangoStore
 
 # The instruments a publication names at most.
@@ -743,7 +740,7 @@ def feed_query(
 # vote on a bill, a vote whose margin is at most @margin, and every vote of a quiet day.
 _HIGHLIGHT = (
     f'row.kind IN ["{EVENT_BILL}", "{EVENT_COMMITMENT}", "{EVENT_COMMENCEMENT}"]'
-    f' OR (row.kind == "{EVENT_VOTE}" AND (row.vote.subkind == "{DECISION_KIND_BILL}"'
+    f' OR (row.kind == "{EVENT_VOTE}" AND (row.vote.subkind IN {json.dumps(list(LEGISLATIVE_KINDS))}'
     " OR row.vote.margin <= @margin OR row.date IN quiet_days))"
 )
 
@@ -801,7 +798,7 @@ _SUMMARY = f"""
     // the days with at most @few votes on anything but a bill: each of them is shown
     LET quiet_days = (
         FOR row IN matching
-            FILTER row.kind == "{EVENT_VOTE}" AND row.vote.subkind != "{DECISION_KIND_BILL}"
+            FILTER row.kind == "{EVENT_VOTE}" AND row.vote.subkind NOT IN {json.dumps(list(LEGISLATIVE_KINDS))}
             COLLECT date = row.date WITH COUNT INTO count
             FILTER count <= @few
             RETURN date
