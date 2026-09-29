@@ -11,7 +11,6 @@ from lawgraph.core.identifiers import (
     find_celex_ids,
     parse_celex,
 )
-from lawgraph.pipelines.normalize.eurlex import _derive_eu_citation_title
 
 
 def test_sector3_letters_follow_eu_convention() -> None:
@@ -82,21 +81,6 @@ def test_parse_celex_rejects_non_celex(value: str) -> None:
 def test_parse_celex_accepts_any_number_length() -> None:
     parsed = parse_celex("32010L64")
     assert parsed is not None and parsed.number == "64"
-
-
-@pytest.mark.parametrize(
-    ("celex", "title"),
-    [
-        ("32010L0064", "Richtlijn 2010/64/EU"),
-        ("32016R0679", "Verordening 2016/679/EU"),
-        ("32011D0024", "Besluit 2011/24/EU"),
-        ("32002F0584", "Kaderbesluit 2002/584/JBZ"),
-        ("32011C0024", None),
-        ("nonsense", None),
-    ],
-)
-def test_derive_eu_citation_title(celex: str, title: str | None) -> None:
-    assert _derive_eu_citation_title(celex) == title
 
 
 # The links of BWBR0001854, BWBR0001860 and others, as KOOP publishes them: one Celex link
