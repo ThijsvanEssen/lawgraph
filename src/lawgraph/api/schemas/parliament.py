@@ -19,6 +19,17 @@ class FactionSeatsDTO(BaseModel):
     order: int = Field(..., description="Left-to-right position in the chamber.")
 
 
+class SeatingPlanDTO(BaseModel):
+    """The seating plan of the plenary hall the order is taken from."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    dated: str = Field(..., description="The date of the plan, YYYY-MM-DD.")
+    url: str = Field(..., description="The plan (PDF) on tweedekamer.nl.")
+    page: str | None = Field(None, description="The page that links it.")
+
+
 class ParliamentSeatsResponse(BaseModel):
     """The current seat composition of the Tweede Kamer."""
 
@@ -28,6 +39,10 @@ class ParliamentSeatsResponse(BaseModel):
     assigned_seats: int
     as_of: str
     factions: list[FactionSeatsDTO]
+    seating_plan: SeatingPlanDTO | None = Field(
+        None,
+        description="The plan of the Tweede Kamer the order of `factions` follows.",
+    )
 
 
 class PartyColorsResponse(BaseModel):

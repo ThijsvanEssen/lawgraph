@@ -425,6 +425,14 @@ def seat_holding(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
     )
 
 
+def seat_changed_on(payload: Payload) -> str | None:
+    """The day the FractieZetel of a FractieZetelPersoon record last changed (its
+    ``GewijzigdOp``): when a seat goes to another faction, the seating of the plenary hall
+    may change with it."""
+    seat = next(_dicts(payload.get("FractieZetel")), {})
+    return iso_date(seat.get("GewijzigdOp"))
+
+
 # ── Fractie (Faction) ────────────────────────────────────────────────────────
 
 

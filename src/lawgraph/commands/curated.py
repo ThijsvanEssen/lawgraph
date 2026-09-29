@@ -8,7 +8,7 @@
     lawgraph curated remove <list> <key>
 
 ``set`` gives *key* the JSON value (``'{"color": "#003082", "aliases": []}'``; none for a
-list of keys such as ``left-right``), in its place or at the end; ``--after`` and ``--first``
+list of keys such as ``general-courts``), in its place or at the end; ``--after`` and ``--first``
 place it in an ordered list. A change that makes the list wrong is not written. Commit what
 ``set`` and ``remove`` change; ``lawgraph check`` checks every list.
 """
@@ -76,7 +76,7 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
     """What is wrong with the lists (one of them with *name*); with *db* also against the
     database."""
     found = [p for p in problems() if name is None or p.startswith(f"{name}: ")]
-    if db and name in (None, "left-right"):
+    if db and name in (None, "seating"):
         from lawgraph.db import ArangoStore
 
         store = ArangoStore()
@@ -87,31 +87,48 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
 
 
 def database_problems(store: Any) -> list[str]:
-    """What the database says is wrong: a faction with seats that ``left-right`` does not
-    place (it would sit at the right end, whatever its politics). A key of the list that no
-    faction has is no problem here: a partial database lacks factions; ``database_notes``
-    names them."""
+    """What the database says is wrong with the seating plan: a faction with seats that it
+    does not place (it would sit at the right end), and a plan older than the last change of
+    a seat (``seats_changed_on`` of a faction, from FractieZetel): the seating may have
+    changed since. A key of the plan no faction has is a note (``database_notes``): a
+    partial database lacks factions."""
     from lawgraph.db.queries.committees import get_factions
 
-    placed = LISTS["left-right"].entries()
-    return [
-        f"left-right: {doc['_key']} ({(doc.get('props') or {}).get('abbreviation')}) has "
-        "seats but no place: `lawgraph curated set left-right <key> --after <key>`"
+    placed = LISTS["seating"].entries()
+    seated = [
+        doc
         for doc in get_factions(store, active=True)
         if int((doc.get("props") or {}).get("seats") or 0) > 0
-        and doc["_key"] not in placed
     ]
+    found = [
+        f"seating: {doc['_key']} ({(doc.get('props') or {}).get('abbreviation')}) has "
+        "seats but no place in the seating plan: take it from the plan of the Tweede "
+        "Kamer (`lawgraph curated set seating`)"
+        for doc in seated
+        if doc["_key"] not in placed
+    ]
+    dated = str((LISTS["seating"].document().get("source") or {}).get("dated") or "")
+    changed = max(
+        (str((d.get("props") or {}).get("seats_changed_on") or "") for d in seated),
+        default="",
+    )
+    if dated and changed > dated:
+        found.append(
+            f"seating: the plan is of {dated}, a seat changed on {changed}: take the new "
+            "plan of the Tweede Kamer (wie zit waar)"
+        )
+    return found
 
 
 def database_notes(store: Any) -> list[str]:
-    """The keys of ``left-right`` no faction in the database has (a typo, or a faction the
+    """The keys of the seating plan no faction in the database has (a typo, or a faction the
     database does not hold)."""
     from lawgraph.db.queries.committees import get_factions
 
     known = {doc["_key"] for doc in get_factions(store)}
     return [
-        f"left-right: {key}: no faction in the database has this key"
-        for key in LISTS["left-right"].entries()
+        f"seating: {key}: no faction in the database has this key"
+        for key in LISTS["seating"].entries()
         if known and key not in known
     ]
 

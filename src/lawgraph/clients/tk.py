@@ -289,10 +289,11 @@ class TKClient(BaseClient):
         Each row is one Persoon's membership of one Fractie over a
         [Van, TotEnMet] interval (TotEnMet=null means current). Multiple
         rows per Persoon represent party switches over time. FractieZetel
-        is expanded so we can resolve Fractie_Id without a second request.
+        is expanded so we can resolve Fractie_Id without a second request, and see when the
+        seat last changed (``GewijzigdOp``).
         """
         params: dict[str, Any] = {
-            "$expand": "FractieZetel($select=Id,Fractie_Id)",
+            "$expand": "FractieZetel($select=Id,Fractie_Id,GewijzigdOp)",
         }
         logger.info("Fetching FractieZetelPersoon records")
         return self._skip_paged_get("FractieZetelPersoon", params=params, page_size=top)
