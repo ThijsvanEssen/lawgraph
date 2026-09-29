@@ -22,6 +22,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.official_urls import article_url, instrument_url
 
+TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
+
 # What `bwb_id` holds in the answer of an instrument route: the identifier of the request.
 _REQUESTED = (
     "The instrument as requested: its BWB id, or its CELEX number for an EU act."
@@ -38,6 +40,27 @@ class InstrumentArticleBreadcrumbDTO(BaseModel):
     type: str | None = None
     label: str | None = None
     title: str | None = None
+
+
+def breadcrumb_dtos(raw: Any) -> list[InstrumentArticleBreadcrumbDTO]:
+    """The stored ``breadcrumb`` of an article or an article version as DTOs."""
+    return [
+        InstrumentArticleBreadcrumbDTO(
+            type=c.get("type"), label=c.get("label"), title=c.get("title")
+        )
+        for c in raw or []
+        if isinstance(c, dict)
+    ]
+
+
+def breadcrumb_on(props: dict[str, Any], day: str) -> Any:
+    """The stored breadcrumb of an article version on *day*: the last of its
+    ``breadcrumb_changes`` from on or before *day*, else its ``breadcrumb``."""
+    crumbs = props.get("breadcrumb")
+    for change in props.get("breadcrumb_changes") or []:
+        if (change.get("from") or "") <= day:
+            crumbs = change.get("breadcrumb")
+    return crumbs
 
 
 class InstrumentArticleNodeDTO(BaseModel):
@@ -91,14 +114,6 @@ class InstrumentArticleNodeDTO(BaseModel):
     ) -> InstrumentArticleNodeDTO:
         props = doc.get("props") or {}
         text = props.get("text") or ""
-        raw_crumbs = props.get("breadcrumb") or []
-        crumbs = [
-            InstrumentArticleBreadcrumbDTO(
-                type=c.get("type"), label=c.get("label"), title=c.get("title")
-            )
-            for c in raw_crumbs
-            if isinstance(c, dict)
-        ]
         return cls(
             id=doc["_id"],
             key=doc["_key"],
@@ -110,7 +125,7 @@ class InstrumentArticleNodeDTO(BaseModel):
             address=address_of(doc),
             display_name=props.get("display_name"),
             official_url=article_url(props.get("bwb_id"), props.get("article_number")),
-            breadcrumb=crumbs,
+            breadcrumb=breadcrumb_dtos(props.get("breadcrumb")),
             stub=bool(props.get("stub", False)),
             repealed=bool(props.get("repealed")),
             last_article_number=props.get("last_article_number"),
@@ -447,34 +462,58 @@ class InstrumentVersionsResponse(BaseModel):
 
 
 class InstrumentArticleVersionDTO(BaseModel):
-    """One historical version of a single BWB article."""
+    """One historical version of a single BWB article, in its place on the day asked for."""
 
     model_config = ConfigDict(extra="forbid")
 
     key: str
     bwb_id: str
     article_number: str
+    label: str | None = Field(
+        None,
+        description="`Artikel 1:3`, or the heading of an article without a number.",
+    )
+    heading: str | None = Field(
+        None,
+        description="The title of its kop (`Definities`); most articles have none.",
+    )
+    breadcrumb: list[InstrumentArticleBreadcrumbDTO] = Field(
+        [],
+        description="The divisions the article stood in on the day asked for, outermost "
+        "first: those of the toestand of that day.",
+    )
     valid_from: str | None = None
     valid_until: str | None = Field(None, description=VALID_UNTIL)
     current: bool = False
     official_url: str | None = Field(
         None, description="This version on wetten.overheid.nl (JCI with ``g``)."
     )
-    text: str | None = None
+    text: str | None = Field(
+        None, description="The whole text; null when it was not asked for."
+    )
     text_preview: str | None = Field(
-        None, description="The first ``text_preview_chars`` characters of ``text``."
+        None, description="The first ``text_preview_chars`` characters of the text."
     )
 
     @classmethod
     def from_document(
-        cls, doc: dict[str, Any], *, text_preview_chars: int = 160
+        cls,
+        doc: dict[str, Any],
+        *,
+        on: str,
+        text_preview_chars: int = TEXT_PREVIEW_CHARS,
+        include_text: bool = True,
     ) -> InstrumentArticleVersionDTO:
+        """The version *doc* with its breadcrumb *on* that day."""
         props = doc.get("props") or {}
         text = props.get("text") or None
         return cls(
             key=doc["_key"],
             bwb_id=props.get("bwb_id", ""),
             article_number=props.get("article_number", ""),
+            label=props.get("label"),
+            heading=props.get("heading"),
+            breadcrumb=breadcrumb_dtos(breadcrumb_on(props, on)),
             valid_from=props.get("valid_from"),
             valid_until=props.get("valid_until"),
             current=bool(props.get("current", False)),
@@ -483,7 +522,7 @@ class InstrumentArticleVersionDTO(BaseModel):
                 props.get("article_number"),
                 on=props.get("valid_from"),
             ),
-            text=text,
+            text=text if include_text else None,
             text_preview=text[:text_preview_chars] if text else None,
         )
 
@@ -499,6 +538,12 @@ class InstrumentArticlesAtResponse(BaseModel):
         ...,
         description="Every article in force on ``at_date``, independent of ``limit`` "
         "and ``offset``.",
+    )
+    first_version_from: str | None = Field(
+        None,
+        description="The start of the first toestand of the law the source gives (the "
+        "oldest ``valid_from`` of its versions). Before it the source gives no law: the "
+        "route is empty, also where an article's own ``valid_from`` is older.",
     )
     items: list[InstrumentArticleVersionDTO]
 
