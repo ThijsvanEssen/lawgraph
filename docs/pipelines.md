@@ -92,13 +92,21 @@ Client quirks:
 **Normalize `tk`.** Zaak to Case (`cases`, key = Zaak GUID; its `kind` is the `Soort`;
 `dossier_numbers` kept for the dossier pipeline; `related_cases` the cases of
 `GerelateerdNaar`, each with its `Soort` and dossiers, which `retrieve tk` expands with it so the
-relation holds also when the other case was not retrieved). A motie or amendement is named by
-its `Onderwerp` (`Motie van het lid … over …`): its `Titel` is the title of its dossier. No
-edges: a case is linked once the dossiers exist.
+relation holds also when the other case was not retrieved). A motie, an amendement, a letter
+(`Brief …`), the report of a debate or visit (`Verslag van een …`, `Inbreng verslag …`), a list
+of questions, a `Mededeling`, an `Overig` or the advice of another body is named by its
+`Onderwerp` (`Motie van het lid … over …`, `Verzamelbrief opvang Oekraïne`): its `Titel` is the
+title of its dossier. An `Onderwerp` that only repeats the kind names nothing (`core/tk_records.
+is_named_by_subject`, `own_subject`); a bill and the papers on it keep their `Titel`, as their
+`Onderwerp` is their kind (`Voorstel van wet`). No edges: a case is linked once the dossiers
+exist.
 
 A TK record the Kamer deleted (`Verwijderd`) holds its id and nothing else. `normalize tk` and
-`normalize tk-dossiers` make no case, activity, commitment or document of it, and remove the node
-an earlier run made, with its edges.
+`normalize tk-dossiers` make no case, activity, commitment, document, dossier, member or faction
+of it, and remove the node an earlier run made, with its edges (a dossier or faction by the
+record id it holds; a faction goes when all its records are deleted). A deleted
+FractieZetelPersoon names neither member nor faction: a run that reads every seat (not
+`--since`) removes the seat edges they no longer give.
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `fetched_at`), turns each into text and sections with `core/kamerstuk_xml.py` and writes them
@@ -129,7 +137,7 @@ date onto each dossier (it needs the document edges).
 | members | every Persoon, with `family_name` (`Achternaam`) and `birth_date` (`Geboortedatum`), by which `normalize rijksoverheid` finds them; `party` and `faction_memberships` come from FractieZetelPersoon (dated), so a member without those records has no party |
 | activities | `agenda_title` from `Onderwerp`, `status` as the source writes it (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`; a planned activity may lie beyond the end of its dossier), `committee_id` from `Voortouwcommissie_Id` unless `Voortouwafkorting` is `TK`: a plenary activity has the Kamer as voortouw, not a committee |
 | dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `order` sorts them as the Kamer does; `same_number_count` is recounted for every number the run writes (this pipeline is the only one that makes dossiers); `current_stage`, `stages_present`, `track_kind` and `title` (from a voorstel-van-wet or MvT document when the dossier has none) are derived from documents, activities and decisions by `core/dossier_stages.py` (an activity that did not take place, `Gepland`, `Geannuleerd`, `Verplaatst` or `Vervallen`, marks no stage), and `stages_missing`: the stages the bill passed to reach its current one without a dated document, activity or vote (the listed stages up to the current one, and those its track always passes: `wetsvoorstel`, `mvt`, `advies_rvs` of a bill, `wetsvoorstel` and `mvt` of a budget, `advies_rvs` of a treaty; and `stemming` for a bill or budget aangenomen or verworpen, of which an `Eindtekst` is evidence too; a stage known only from the kind of a case has no date), and `stages_complete` when there are none; `opened_on` is the date of the first document or activity. The record has no end: `Afgesloten` is false on every dossier and there is no closing date, so `closed`, `outcome` and `closed_on` are `semantic tk-dossier-outcomes`; a closed dossier (as stored) is at stage `afgehandeld` |
-| documents | a motie or amendement is named by its `Onderwerp` (else that of its Zaak) and keeps its `Titel`, the dossier's, as `dossier_title` (what `tk-amends` and the dossier title backfill read); dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers`; `DocumentNummer` as `document_number`, from which the API makes the link to tweedekamer.nl (no link is stored) |
+| documents | a paper named by its subject (as a case above: a motie, amendement, letter, report of a debate …) is named by its `Onderwerp` (else that of its Zaak) and keeps its `Titel`, the dossier's, as `dossier_title` (what `tk-amends` and the dossier title backfill read); dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers`; `DocumentNummer` as `document_number`, from which the API makes the link to tweedekamer.nl (no link is stored) |
 
 `dossier_numbers` of a case, document, activity or decision (and the keys of
 `case_kinds_by_dossier`) are dossier labels: `37020-XV` for a budget chapter, `37020` for the
@@ -165,7 +173,7 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
-| `AMENDS` (Document to Instrument, `voorgesteld`) | TK document title (of a motie or amendement: its `dossier_title`) contains `wijziging van` and a known instrument title | 0.85 |
+| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument title; any other paper on the bill's dossier, a motie too, amends nothing. A document the step reads loses the `AMENDS` edges of the step it no longer gets | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | CELEX `3YYYY[CLRDF]NNNN` in the BWB XML of an instrument (`props.celex_refs`, kept by `normalize bwb`); both instruments must exist; naming the number is all the edge says (`meta.celex`), not that the regulation transposes the act | 0.75 |
 
 **Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by

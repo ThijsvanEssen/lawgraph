@@ -108,10 +108,15 @@ AMENDMENT = _document(
     AMENDMENT_SUBJECT,
     [_signature(ELLIAN, VVD, "I. Ellian", "Eerste ondertekenaar")],
 )
+LETTER_SUBJECT = "Voortgang aanpak ondermijning"
 LETTER = {
-    **_document(3, "Brief regering", "Voortgang aanpak ondermijning", []),
+    **_document(3, "Brief regering", LETTER_SUBJECT, []),
     "Zaak": [],
 }
+LETTER_CASE = _zaak(5, "Brief regering", LETTER_SUBJECT)
+# Papers whose Onderwerp names only their kind: they keep the title of the dossier.
+BILL = {**_document(6, "Voorstel van wet", "Voorstel van wet", []), "Zaak": []}
+NOTICE = {**_document(7, "Mededeling", "Mededeling", []), "Zaak": []}
 GONE = _document(4, "Motie", "Motie van het lid Faber over iets anders", [])
 GONE_CASE = _zaak(4, "Motie", "Motie van het lid Faber over iets anders")
 GONE_ACTIVITY = {
@@ -150,9 +155,12 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
         (RAW_KIND_TK_ZAAK, _zaak(1, "Motie", MOTION_SUBJECT)),
         (RAW_KIND_TK_ZAAK, _zaak(2, "Amendement", AMENDMENT_SUBJECT)),
         (RAW_KIND_TK_ZAAK, GONE_CASE),
+        (RAW_KIND_TK_ZAAK, LETTER_CASE),
         (RAW_KIND_TK_DOCUMENT, MOTION),
         (RAW_KIND_TK_DOCUMENT, AMENDMENT),
         (RAW_KIND_TK_DOCUMENT, LETTER),
+        (RAW_KIND_TK_DOCUMENT, BILL),
+        (RAW_KIND_TK_DOCUMENT, NOTICE),
         (RAW_KIND_TK_DOCUMENT, GONE),
         (RAW_KIND_TK_ACTIVITEIT, GONE_ACTIVITY),
     ]
@@ -191,9 +199,18 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
         assert amendment["title"] == AMENDMENT_SUBJECT
         assert [s["name"] for s in amendment["submitters"]] == ["I. Ellian"]
 
-        # A letter keeps the title the source gives it, and has no submitters.
+        # A letter is named by its own subject too, and has no submitters; so is its case.
         letter = client.get(f"/api/documents/{make_node_key(LETTER['Id'])}").json()
-        assert (letter["title"], letter["submitters"]) == (DOSSIER_TITLE, [])
+        assert (letter["title"], letter["submitters"]) == (LETTER_SUBJECT, [])
+        letter_case = client.get(
+            f"/api/nodes/cases/{make_node_key(LETTER_CASE['Id'])}"
+        ).json()
+        assert letter_case["node"]["props"]["title"] == LETTER_SUBJECT
+
+        # A paper whose subject is its kind keeps the title of the dossier.
+        for paper in (BILL, NOTICE):
+            response = client.get(f"/api/documents/{make_node_key(paper['Id'])}")
+            assert response.json()["title"] == DOSSIER_TITLE, paper["Soort"]
 
         # The case of a motie is named by it too: a decision on a day of seven moties
         # names seven different cases.
@@ -237,7 +254,7 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
         )
         assert list(dangling) == []
         kinds = list(store.query("FOR d IN documents RETURN d.props.kind"))
-        assert len(kinds) == 3 and all(kinds)
+        assert len(kinds) == 5 and all(kinds)
     finally:
         app.dependency_overrides.pop(get_store, None)
 

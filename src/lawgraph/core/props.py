@@ -263,7 +263,7 @@ class DocumentProps(_CommonProps):
     external_id: str | None = None
     raw: dict[str, Any] | None = None
     title: str | None = None
-    # a motie or amendement: the title of its dossier (its own is ``title``)
+    # a paper named by its own subject (a motie, a letter): the title of its dossier
     dossier_title: str | None = None
     subject: str | None = None
     kind: str | None = None
