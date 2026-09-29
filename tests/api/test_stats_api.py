@@ -22,12 +22,19 @@ def test_get_stats_returns_200(monkeypatch) -> None:
         "lawgraph.api.routes.stats.get_db_stats",
         lambda store: _STATS_DATA,
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.stats.cached_data_as_of",
+        lambda store: {
+            "tk": {"retrieved_at": "2026-09-24T20:51:42Z", "newest": "2026-09-24"}
+        },
+    )
     response = client.get("/api/stats")
     assert response.status_code == 200
     body = response.json()
     assert "nodes" in body
     assert "edges" in body
     assert body["stubs"] == {"judgments": 70}
+    assert body["data_as_of"]["tk"]["newest"] == "2026-09-24"
 
 
 def _court(tier, code, count, first, last, source="rechtspraak"):

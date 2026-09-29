@@ -35,6 +35,13 @@ def address_of(doc: dict[str, Any]) -> str:
     return article_address(law_id, doc["_key"], props.get("article_number"))
 
 
+VALID_UNTIL = (
+    "The first day the version is no longer in force, exclusive: the start of the next "
+    "one. `2021-07-01` is in force up to and including 2021-06-30 (wetten.overheid.nl: "
+    '"t/m 30-06-2021"). Null while it is in force.'
+)
+
+
 class QualifierFields(BaseModel):
     """Which parts of the cited article a reference names: "eerste lid, onder a"."""
 
@@ -60,33 +67,30 @@ class InstrumentSummaryDTO(BaseModel):
     key: str
     display_name: str | None
     official_url: str | None = Field(None, description=OFFICIAL_URL)
-    article_count: int = 0
-    judgment_count: int = 0
-    inbound_citation_count: int = 0
-    outbound_citation_count: int = 0
+    article_count: int = Field(0, description="The articles of the instrument.")
+    inbound_citation_count: int = Field(
+        0, description="What refers to the instrument and to its articles."
+    )
+    judgment_count: int | None = Field(
+        None, description="Not counted here: see `GET /api/instruments/{identifier}`."
+    )
+    outbound_citation_count: int | None = Field(
+        None, description="Not counted here: see `GET /api/instruments/{identifier}`."
+    )
 
     @classmethod
-    def from_document(
-        cls,
-        doc: dict[str, Any],
-        *,
-        stats: Any = None,
-    ) -> InstrumentSummaryDTO:
-        """Build from an ArangoDB document and an optional InstrumentStats dataclass."""
+    def from_document(cls, doc: dict[str, Any]) -> InstrumentSummaryDTO:
+        """Build from an ArangoDB document, with the counts ``graph-list-stats`` stores."""
         props = doc.get("props") or {}
         return cls(
             id=doc["_id"],
             key=doc["_key"],
             display_name=props.get("display_name"),
             official_url=instrument_url(props),
-            article_count=int(getattr(stats, "article_count", 0) or 0),
-            judgment_count=int(getattr(stats, "judgment_count", 0) or 0),
-            inbound_citation_count=int(
-                getattr(stats, "inbound_citation_count", 0) or 0
-            ),
-            outbound_citation_count=int(
-                getattr(stats, "outbound_citation_count", 0) or 0
-            ),
+            article_count=int(props.get("article_count") or 0),
+            inbound_citation_count=int(props.get("inbound_citation_count") or 0),
+            judgment_count=None,
+            outbound_citation_count=None,
         )
 
 

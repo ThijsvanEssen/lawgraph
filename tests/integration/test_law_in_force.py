@@ -128,6 +128,28 @@ def test_the_law_on_a_date_has_each_article_once_and_only_in_force(
     assert "101" not in before and "101" not in after  # it lapsed in 1995
 
 
+def test_the_law_on_a_date_is_paged_in_the_order_of_the_document_with_previews(
+    client: TestClient,
+) -> None:
+    whole = _get(client, f"/api/instruments/{LAW}/articles/at/2026-01-01")
+    everything = [a["key"] for a in whole["items"]]
+    assert whole["total"] == len(everything) > 2
+
+    pages: list[str] = []
+    for offset in range(0, whole["total"], 2):
+        page = _get(
+            client,
+            f"/api/instruments/{LAW}/articles/at/2026-01-01"
+            f"?limit=2&offset={offset}&text_preview_chars=12",
+        )
+        assert page["total"] == whole["total"] and len(page["items"]) <= 2
+        for article in page["items"]:
+            text = article["text"]
+            assert article["text_preview"] == (text[:12] if text else None)
+        pages += [a["key"] for a in page["items"]]
+    assert pages == everything
+
+
 def test_an_article_that_left_the_law_ends_when_the_next_toestand_starts(
     client: TestClient,
 ) -> None:

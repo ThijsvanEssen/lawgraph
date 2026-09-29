@@ -7,17 +7,17 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
-| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
+| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
-| BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
+| BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant` | `staatscourant` | `staatscourant` |
 | Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
-| Wikidata | `wikidata` | none (read by `normalize rijksoverheid`) | none |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | `tk-government` |
+| TOOI | `tooi` | none (`lawgraph ministries build`) | none |
 | The graph itself (`graph`) | none | none | `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: base URL from `config/settings.py` (trailing
@@ -57,7 +57,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 |---------|---------|--------------|
 | `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
-| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`; `""` every paper) of which none is stored; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`; `""` every paper) of which none is stored, so a second run asks only for the new papers; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), and the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`) | `tk-dossier`, `tk-document`, `tk-dossier-missing` |
 
 `tk-dossiers` options: `--since`, `--skip-members` (also skips Fractie and FractieZetelPersoon),
@@ -273,25 +273,26 @@ edges: an edge whose evidence is gone stays until the database is built again.
 **Provides.** Judgments from data.rechtspraak.nl: an Atom index (`uitspraken/zoeken`) and the
 XML of one judgment (`uitspraken/content?id=<ECLI>`).
 
-**Retrieve.** The index is filtered by court (`creator`, an OWMS term; several are OR) and by
-decision date (`date`, twice for a range) and read in pages of 1,000. `modifiedsince` is not
-used as a window: the Rechtspraak republished nearly its whole corpus, so it matches almost
-everything. For each judgment of the index one `rs-content` record is stored, as soon as it is
+**Retrieve.** The index is read in pages of 1,000, of every court or filtered by court
+(`creator`, an OWMS term; several are OR), by decision date (`date`, twice for a range) and,
+for a `--since` up to 60 days back, also by when a judgment was published or changed
+(`modified`), which finds one published long after its decision. Further back `modified` is no
+filter: the Rechtspraak republished nearly its whole corpus. For each judgment of the index one `rs-content` record is stored, as soon as it is
 downloaded. A judgment that is stored and was fetched after its last change (`updated` in the
 index) is skipped, so a re-run or a resumed run only downloads the rest.
 
 | Option | Meaning |
 |--------|---------|
-| `--court NAME` (repeatable) | `hr`, `rvs`, `crvb`, `cbb`, `gh-amsterdam`, `gh-arnhem-leeuwarden`, `gh-den-haag`, `gh-s-hertogenbosch` (the older `gh-arnhem`, `gh-leeuwarden`, `gh-s-gravenhage`), or the group `hoven` (all courts of appeal). Default: `hr`, `rvs`, `hoven`; none when only `--ecli` is given |
+| `--court NAME` (repeatable) | `all` (every court of the index: the rechtbanken, the special courts and the courts that no longer exist too), `hr`, `rvs`, `crvb`, `cbb`, `gh-amsterdam`, `gh-arnhem-leeuwarden`, `gh-den-haag`, `gh-s-hertogenbosch` (the older `gh-arnhem`, `gh-leeuwarden`, `gh-s-gravenhage`), or the group `hoven` (all courts of appeal). Default: `all`; none when only `--ecli` is given |
 | `--mode incremental` (default) | judgments decided from `--since` (default `1d`) minus 30 days, because judgments are published up to weeks after the decision |
-| `--mode full` | no date filter: every judgment of the courts (the Raad van State alone is far over 100,000) |
+| `--mode full` | no date filter: every judgment of the courts (928,955 of every court on 2026-09-29) |
 | `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
 | `--mode gaps` | the cited judgments that are stubs, and the decisions that asked the questions of a preliminary ruling without an `ANSWERS` edge: the index of the date the ruling names, of every court (60 to 450 judgments a day), is read once per date, and an entry whose title (`ECLI, court, dd-mm-yyyy, case numbers`) has a case number the ruling names is fetched |
 
-Over the last two years the default courts hold about 33,000 judgments (Hoge Raad 4,100, Raad van
-State 11,000, the four courts of appeal about 18,000), a few hours at the paced rate.
-`retrieve all` reads the `--window` (a judgment is in it by decision date). Other courts, such as
-the rechtbanken (over 100,000 in two years), are chosen with `--court`.
+Over the last two years the index holds 160,718 judgments of every court (Hoge Raad 4,100,
+Raad van State 11,000, the four courts of appeal about 18,000, the rechtbanken most of the
+rest), about 5.5 hours at the paced rate (`docs/operations.md`, slow steps). `retrieve all`
+reads the `--window` (a judgment is in it by decision date).
 
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
 `case_number` (and split, lower case and without spaces, as `case_number_keys`: `C/19/117301 /
@@ -337,7 +338,7 @@ its Dutch `summary` and `translation_of`, the judgment the `summary_en`.
 
 `decision_kind` is the first that tells of: the document type (`Conclusie`: `conclusie`), the
 procedure (`Prejudiciële beslissing`: `prejudiciële beslissing`), the kop (its first line that
-opens with `arrest`, `vonnis`, `beschikking` or `uitspraak`, also as `tussenvonnis`, `eindarrest`
+opens with `arrest`, `vonnis`, `beschikking`, `uitspraak` or `beslissing van`, also as `tussenvonnis`, `eindarrest`
 and the like; not a label with its value, "Uitspraak : 10 augustus 2026", and a line with only a
 date after the word, "Uitspraak van 21 september 2026", only when no other line names one), the
 procedure again (`Beschikking`, `Tussenbeschikking`, `Raadkamer`, `Rekestprocedure`:
@@ -470,9 +471,27 @@ counts as skipped, not as an error.
 
 **Normalize.** Instrument per CELEX (`jurisdiction: eu`, `title` from the `doc-ti` paragraph,
 `citation_title` derived from the number, for example `Richtlijn 2010/64/EU`). Articles are
-cut out of the plain text at `Artikel N` / `Article N` headers; numbers above
-`EURLEX_MAX_ARTICLE_NUMBER` (200, read at import) and bodies shorter than 10 characters or
-starting with `,` are skipped. `PART_OF` from article to instrument.
+read from the structure of the HTML (`core/eurlex_html.py`), in either format CELLAR serves:
+
+- the Official Journal format (acts from about 2004): an article is the `oj-ti-art` title
+  ("Artikel 1") with what follows it up to the next title; its heading is the `oj-sti-art`
+  paragraph. A lid is a paragraph that starts with its number ("1.   Deze verordening
+  bevat:"), or the lid container (`div id="004.002"`) laid out as one row numbered like the
+  lid; a point is a table row of a marker cell ("a)", "1)", "i)", "—") and a text cell, and a
+  table in the text cell holds the points inside it. A title inside a table cell is an
+  article that an amendment quotes: it stays text of the amending article;
+- the old format (older acts, flat `<p>` paragraphs): an article starts at a paragraph that is
+  only "Artikel N" and ends at the next one, at a division heading (`HOOFDSTUK II`,
+  `TITEL II`, `BIJLAGE`) or at the closing formula ("Gedaan te …"). A short paragraph right
+  after the number that does not end in `.`, `:`, `;` or `,` is the heading. Leden and points
+  are read from the marker a paragraph starts with (also spaced: `a )`, `1 .`); a marker
+  kind that is not yet open nests in the point before it (a dash under `a)`), one that is
+  open returns to its level, and `i)` after `h)` is a letter. A paragraph without a marker
+  continues the part before it.
+
+The text and parts are built as for BWB (see [data model](data-model.md), "Article and
+versions"): no empty lines, the heading not in the text. A number is taken once per act, and an
+article without text is not written. `PART_OF` from article to instrument.
 
 **Semantic `eurlex`.** Scans the text of EU articles.
 
@@ -502,7 +521,7 @@ first element `<algemene-informatie>` lists the official abbreviations (`<afkort
 | Command | Behaviour |
 |---------|-----------|
 | `retrieve bwb` | `--bwb-id` (repeatable) or `BWB_IDS` (comma-separated): the current toestand of each id (in force means end date `9999-12-31`, else the newest), plus the `<algemene-informatie>` element of its WTI file (kind `bwb-wti-algemene-informatie-xml`). Without ids in incremental mode nothing is fetched. `--mode full` enumerates every id first |
-| `retrieve bwb-history [ids...]` | every toestand of each id, or of all ids when none are given; stored `<bwb_id>@<start_date>`. Without it a law has no versions: `history`, `versions` and `articles/at` of the API are empty for it (the Wetboek van Strafrecht has 126 toestanden since 2002, the Awb 236) |
+| `retrieve bwb-history [ids...]` | every toestand of each id, or of every regulation of which the current toestand is stored when none are given, that is not stored yet (`--mode full`: every one again); stored `<bwb_id>@<start_date>`, a file the repository does not serve as `bwb-toestand-xml-all-missing`. From 150 regulations the toestanden come from the SRU listing, below that from one SRU query per regulation. It is part of `retrieve all`, after `bwb`; it gives a law its versions: `history`, `versions` and `articles/at` of the API (the Wetboek van Strafrecht has 126 toestanden since 2002, the Awb 236) |
 
 Enumeration queries `dcterms.type=="<type>"` for each type in `BWB_INSTRUMENT_TYPES`
 (case-sensitive: `AMvB`, `ministeriele-regeling`), 1,000 records a page (the service silently
@@ -744,7 +763,7 @@ from the stored pages without asking again. An index without cabinet links raise
 **Normalize.** `core/rijksoverheid.py` reads a page (seats, holder lines, dated facts,
 resignation sentences); `core/cabinet_posts.py` turns its seats into posts;
 `core/cabinet_phases.py` its facts into phases; `core/cabinet_sources.py` puts the cabinets
-together, those before the first page from the stored Wikidata records.
+together.
 
 A post is held in a **seat**: `<ministry>/<post>[/<portfolio>]` (`ienw/minister`,
 `bz/minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp`,
@@ -800,19 +819,20 @@ no post any more loses them. A holder
 no Tweede Kamer person matches becomes a member of their own, key
 `rijksoverheid_<initials>_<surname>`, label `Rijksoverheid`; once a later run matches them,
 that member is removed. Every page is read on every run. Needs `normalize tk-dossiers` (the
-members and their signatures) and `normalize tk` (the factions).
+members, their signatures and the factions).
 
 Every post also gets its normalised `post` (`minister-president`, `viceminister-president`,
 `minister`, `minister_zonder_portefeuille`, `staatssecretaris`) and `ministry`, read from the
-function by `core/ministries.classify_function`, and `cabinet_key`. The ministries are one
-controlled list in `core/ministries.py` (`GET /api/ministries`), in protocol order: `az`, `bz`,
-`jenv`, `bzk`, `ocw`, `fin`, `def`, `ienw`, `ez`, `kgg`, `lvvn`, `szw`, `vws`, `vro`, `aenm`;
-a ministry that no longer exists under its name (`venw` Verkeer en Waterstaat, `vrom`, `justitie`,
-`ezk`, ...) has its own key, a `successor` and the last day it had the name, and a later source
-that writes the old name ("Binnenlandse Zaken" for BZK) is read as the successor. A minister
-without portfolio ("minister voor …") and a state secretary belong to the ministry their post is
-placed under, by the words of the portfolio (Klimaat en Energie `ezk`, Basis- en Voortgezet
-Onderwijs `ocw`, Rechtsbescherming `jenv`, Herstel Groningen `bzk`); a name that names no
+function by `core/ministries.classify_function`, and `cabinet_key`. The ministries are the
+table `src/lawgraph/data/ministries.json` (`GET /api/ministries`), in protocol order, built
+from the official sources (see TOOI below). A ministry name that no longer exists
+(`venw` Verkeer en Waterstaat, `vrom`, `justitie`) has its own key; each name has periods,
+each with its last day and successor, and a later source that writes an old name
+("Binnenlandse Zaken" for BZK) is read as the name it had then. A minister without portfolio
+("minister voor …") and a state secretary belong to the ministry their post is placed
+under, by the words of the portfolio (Klimaat en Energie `ezk`, Basis- en Voortgezet
+Onderwijs `ocw`, Rechtsbescherming `jenv`, Herstel Groningen `bzk`): these rules
+(`_PORTFOLIO_RULES`) are kept by hand, no source gives them. A name that names no
 portfolio ("Nederlandse minister", the viceminister-president) has none.
 
 Every cabinet becomes a node of `cabinets`, key from its name (`kabinet-Rutte-Asscher`,
@@ -833,34 +853,42 @@ of `core/cabinet_checks.py` (a post outside its cabinet, two holders of a seat a
 `overlaps_with`, phases that do not follow each other from start to end); a broken rule fails
 the command.
 
-## Wikidata
+## TOOI
 
-**Provides.** Every item that is a `Cabinet of the Netherlands` (Q2479200): its name, start
-(the most precise of P580 and P571), end (of P582 and P576), each with its precision, and the
-cabinet before it (P155), in one SPARQL query to `WIKIDATA_SPARQL`. 57 cabinets; most before
-1945 are dated to the year only, often without an end or predecessor.
+**Provides.** The value list `rwc_ministeries_compleet` of TOOI (Thesauri en Ontologieën
+voor Overheidsinformatie, KOOP; `TOOI_BASE`): every ministry since about 2010 with its code
+(`mnre1045`), abbreviation, begin and end, its former names (`HistorischeVersie` with the
+last day of each) and the events between them (`Oprichting`, `Samenvoeging`,
+`Afsplitsing`, `Toestandswijziging`), each with the Staatscourant decree it rests on. The
+content of the TOOI registers and value lists may be used by anyone without restriction
+(TOOI beheerplan, 2.3 Rechtenbeleid). Numbered versions; the page of the list links each.
 
-**Retrieve.** One `wikidata-cabinet-json` record per cabinet (`id`, `name`, `from_date`,
-`to_date`, their precision, `previous`), in full on every run. An empty answer raises.
-`normalize rijksoverheid` reads the cabinets that began before the first Rijksoverheid page:
-name and period only, no posts or phases, the period as Wikidata gives it
-(`core/cabinets.wikidata_period`): a date known to the year stays a year (the first of
-January, precision `year`), a date Wikidata lacks stays null. Nothing is taken from the
-cabinets around it, since Wikidata lacks some (Thorbecke II ends in 1866, not when Heemskerk
-began in 1873).
+**Retrieve.** The latest version, one `tooi-ministries-jsonld` record (external id
+`rwc_ministeries_compleet`, `payload_json.items`, `meta.url`, `meta.read_on`). Two
+requests; always in full. A page without versions, or a version without a ministry, raises.
 
-**Semantic `tk-government`.** Who in government made each commitment and brought each dossier
-in (`pipelines/semantic/tk_government.py`). A commitment names its maker as the Tweede Kamer
-writes it (`Herbert, H.G.`, `Minister van Economische Zaken`) on its date: the member is the one
-who held a post of that kind that day and whose surname is in the name
-(`core/government.match_signatory`), else none (`member_key` null); `post` and `ministry` come
-from the role, `cabinet` is the cabinet in office that day (on a handover day the new one). A
-dossier is brought in by whoever signed its earliest signed document first (`AUTHORED` role
-`Eerste ondertekenaar`, capacity `bewindspersoon` or `kamerlid`, the document `PART_OF` the
-dossier directly or through a case): a bewindspersoon gives it the `ministry` of their function
-that day and `initiative: false`, a Kamerlid `initiative: true`; `cabinet` is the cabinet in
-office then. Every commitment and dossier on every run; writes what changed. On lawgraph_small
-192 of 195 commitments find their member.
+**The ministry table.** `lawgraph ministries build` makes `src/lawgraph/data/ministries.json`
+from the stored TOOI list and the stored Rijksoverheid cabinet pages
+(`core/ministry_sources.py`) on top of the file itself, and prints what changed;
+`lawgraph ministries check` prints the same and fails on a change. Commit what a build
+writes. Per ministry name (the key, `ez`): the name, the TOOI code and abbreviation, and
+its periods, each with `from`, `until` (the last day), `successor`, `basis` (the decree)
+and `source`:
+
+- `tooi` for every name TOOI knows. A name comes back (`Economische Zaken`: a ministry
+  until 2010, a name of `mnre1045` in 2013–2017 and 2024–2026): each time is a period. A
+  name that ends is succeeded by the next name of its ministry, or by the name the
+  ministry it merged into had the next day (Verkeer en Waterstaat and VROM by Infrastructuur
+  en Milieu on 14 October 2010).
+- `rijksoverheid` for a name before TOOI: from its first post on the cabinet pages, until the
+  day before a post under its successor begins on the day its last post ends (Oorlog and
+  Marine until 18 May 1959); else the end stays null.
+- `hand` for what no source gives: the key, the protocol order, a name no source knows
+  (Openbare Werken), and a succession before 2010 (`successor_source: hand`).
+
+TOOI's dates are those of the decrees: `justitie` until 30 November 2010 and `venj` until
+31 December 2017, while the cabinets changed the names of the posts earlier; a post that
+uses a name before its first period keeps that name.
 
 ## Ordering
 
@@ -870,7 +898,7 @@ office then. Every commitment and dossier on every run; writes what changed. On 
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
-| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures) and `normalize tk` (the factions a party is matched to); stored `wikidata-cabinet-json` for the cabinets before 1945 |
+| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures, and the factions a party is matched to) |
 | normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |

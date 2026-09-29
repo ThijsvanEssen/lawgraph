@@ -182,18 +182,11 @@ def _api_names_the_chapter_by_its_label(client: TestClient) -> None:
         dossier = _get(client, f"/api/dossiers/{label}")
         assert (dossier["key"], dossier["number"]) == (key, label)
 
-    senate = _get(client, "/api/documents", chamber="EK")["items"]
-    assert sorted(d["dossier_numbers"] for d in senate) == [["37020-XV"], ["37021"]]
-
-    bulk = _get(client, "/api/dossiers/documents/bulk", numbers="37020,37020-XV,1")
-    assert sorted(bulk["items"]) == ["37020", "37020-XV"]
-    assert [len(bulk["items"][n]) for n in ("37020", "37020-XV")] == [0, 1]
-
-    document = _get(client, "/api/documents", dossier="37020-XV")["items"]
-    assert len(document) == 1
-    links = _get(client, f"/api/documents/{document[0]['key']}")
+    # The paper of the chapter is in the chapter, not in the nota.
+    (paper,) = _get(client, "/api/dossiers/37020-XV/documents")["items"]
+    links = _get(client, f"/api/documents/{paper['key']}")
     assert links["dossier_numbers"] == ["37020-XV"]
-    assert _get(client, "/api/documents", dossier="37020")["total"] == 0
+    assert _get(client, "/api/dossiers/37020/documents")["total"] == 0
 
     assert _get(client, "/api/decisions", dossier="37020-XV")["total"] == 1
     assert _get(client, "/api/decisions", dossier="37020")["total"] == 0

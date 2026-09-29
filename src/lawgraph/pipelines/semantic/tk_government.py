@@ -5,7 +5,10 @@ A commitment (toezegging) names the one who made it as the Tweede Kamer writes i
 person who held a post of that kind on that day and whose surname is in the name
 (``core.government.match_signatory``, as for the signatures of ministers from outside
 parliament); ``member_key`` is null when no one or several fit. ``post`` and ``ministry`` are
-read from the role (``core.ministries``), ``cabinet`` is the cabinet in office on the day.
+read from the role (``core.ministries``), unless the text names another ministry: "De minister
+van Asiel en Migratie zegt toe" under the role ``Minister van Justitie en Veiligheid`` is a
+commitment of Asiel en Migratie, which that minister held ad interim. ``cabinet`` is the
+cabinet in office on the day.
 
 A dossier is brought in by whoever signed its earliest signed document first: a
 bewindspersoon gives it the ``ministry`` of their function that day, a Kamerlid makes it an
@@ -18,6 +21,7 @@ and posts, and writes only what changed.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_COMMITMENTS, COLLECTION_DOSSIERS
@@ -34,6 +38,28 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 
+# "De minister van Asiel en Migratie zegt toe ...": the function a commitment is made in.
+_TEXT_FUNCTION = re.compile(
+    r"^\s*(?:de|het)\s+((?:minister|staatssecretaris)(?:-president)?\s+(?:van|voor)\s+.+?)"
+    r"\s+(?:zegt|zeggen|zal|gaat)\b",
+    re.IGNORECASE,
+)
+
+
+def _post_and_ministry(
+    role: str | None, text: str | None, on: str | None
+) -> tuple[str | None, str | None]:
+    """The post and ministry of the role, or of the function the text names when that is
+    another ministry."""
+    post, ministry = classify_function(role, on=on)
+    named = _TEXT_FUNCTION.match(text or "")
+    if named:
+        text_post, text_ministry = classify_function(named.group(1), on=on)
+        if text_ministry and text_ministry != ministry:
+            return text_post, text_ministry
+    return post, ministry
+
+
 def commitment_props(
     row: dict[str, Any], people: list[dict[str, Any]], cabinets: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -46,7 +72,7 @@ def commitment_props(
         "first": date,
         "last": date,
     }
-    post, ministry = classify_function(row.get("role"), on=date)
+    post, ministry = _post_and_ministry(row.get("role"), row.get("text"), date)
     return {
         "member_key": match_signatory([signature], people) if date else None,
         "post": post,

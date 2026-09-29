@@ -361,10 +361,17 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_JUDGMENTS, ["props.series_id"], False, True),
         # What `/api/stats` counts per value is not sparse, so the count walks the index
         # and sees the documents without a value too; sparse, each count read every document.
-        # It ends in the tier and the date for the facets of `/api/judgments?source=`.
+        # It holds the tier, the kind of court and the date for the facets of
+        # `/api/judgments?source=`.
         (
             COLLECTION_JUDGMENTS,
-            ["props.source", "props.date_eff", "props.tier", "props.stub"],
+            [
+                "props.source",
+                "props.date_eff",
+                "props.tier",
+                "props.court_kind",
+                "props.stub",
+            ],
             False,
             False,
         ),
@@ -393,24 +400,51 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_INSTRUMENTS, ["props.jurisdiction"], False, False),
         (COLLECTION_INSTRUMENTS, ["props.kind"], False, False),
         (COLLECTION_INSTRUMENTS, ["props.article_count"], False, False),
-        # `/api/judgments` counts per tier and per year of `date_eff` under the filters
-        # (`queries/judgments.py`): each filter's index ends in both and in `stub` (the list
-        # leaves the stubs out), so a count reads the index alone, not the judgments.
+        # `/api/judgments` counts per tier, per kind of court, per source and per year of
+        # `date_eff` under the filters (`queries/judgments.py`): each filter's index holds
+        # all four and `stub` (the list leaves the stubs out), so a count reads the index
+        # alone, not the judgments.
         (
             COLLECTION_JUDGMENTS,
-            ["props.tier", "props.date_eff", "props.stub"],
+            [
+                "props.tier",
+                "props.court_kind",
+                "props.date_eff",
+                "props.stub",
+                "props.source",
+            ],
             False,
             False,
         ),
         (
             COLLECTION_JUDGMENTS,
-            ["props.court_code", "props.date_eff", "props.tier", "props.stub"],
+            [
+                "props.court_code",
+                "props.date_eff",
+                "props.tier",
+                "props.court_kind",
+                "props.stub",
+                "props.source",
+            ],
             False,
             False,
         ),
         (
             COLLECTION_JUDGMENTS,
-            ["props.date_eff", "props.tier", "props.stub"],
+            [
+                "props.date_eff",
+                "props.tier",
+                "props.court_kind",
+                "props.stub",
+                "props.source",
+            ],
+            False,
+            False,
+        ),
+        # `/api/judgments?court_kind=` and its facets
+        (
+            COLLECTION_JUDGMENTS,
+            ["props.court_kind", "props.date_eff", "props.stub", "props.source"],
             False,
             False,
         ),
@@ -440,12 +474,19 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_DECISIONS, ["props.dossier_numbers[*]"], False),
         (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
         (COLLECTION_COMMITMENTS, ["props.status"], False),
+        (COLLECTION_COMMITMENTS, ["props.number"], False),
         # who made it and under which cabinet (``semantic tk-government``)
         (COLLECTION_COMMITMENTS, ["props.member_key"], False),
         (COLLECTION_COMMITMENTS, ["props.cabinet"], False),
         (COLLECTION_COMMITMENTS, ["props.ministry"], False),
         (COLLECTION_DOSSIERS, ["props.cabinet"], False),
         (COLLECTION_DOSSIERS, ["props.ministry"], False),
+        # `GET /api/feed` reads each kind of event newest first by its date
+        # (`queries/feed.py`); decisions by `props.date` above.
+        (COLLECTION_DOCUMENTS, ["props.kind", "props.date"], False, False),
+        (COLLECTION_COMMITMENTS, ["props.made_on"], False, False),
+        (COLLECTION_INSTRUMENTS, ["props.kind", "props.date_published"], False, False),
+        (COLLECTION_INSTRUMENT_VERSIONS, ["props.valid_from"], False, False),
         # `GET /api/members?cabinet=`: `@cabinet IN ...government_functions[*].cabinet_key`
         (COLLECTION_MEMBERS, ["props.government_functions[*].cabinet_key"], False),
         # raw_sources: the normalize pipelines read by source and kind. Not sparse, so a

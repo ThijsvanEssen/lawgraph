@@ -1,9 +1,7 @@
 """Dossier endpoints.
 
 GET /api/dossiers                      — every dossier, with filters, order and facets
-GET /api/dossiers/open                 — the same with status=open
 GET /api/dossiers/recent               — recently active dossiers
-GET /api/dossiers/documents/bulk       — documents for several dossiers at once
 GET /api/dossiers/{number}             — one dossier with its counts
 GET /api/dossiers/{number}/documents   — its documents
 GET /api/dossiers/{number}/timeline    — everything that happened, in order
@@ -14,7 +12,6 @@ GET /api/parties/colors                — party colours for the frontend
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import replace
 from typing import Annotated, Any, Literal, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
@@ -25,7 +22,6 @@ from lawgraph.api.schemas.dossiers import (
     DOSSIER_NUMBER_PATTERN,
     DossierDetailResponse,
     DossierDocumentDTO,
-    DossierDocumentsBulkResponse,
     DossierDocumentsResponse,
     DossierFacetsDTO,
     DossierListResponse,
@@ -39,20 +35,20 @@ from lawgraph.api.schemas.dossiers import (
     DossierTrack,
     timeline_entry,
 )
+from lawgraph.core.law_names import laws_in_title
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.dossiers import (
     DossierFilters,
     count_dossier_members,
     enrich_dossier_docs,
-    get_documents_for_dossiers,
     get_dossier_by_number,
     get_dossier_documents,
     get_dossier_hub,
     get_dossier_mutations,
-    get_dossier_number_to_id_map,
     get_dossier_relations,
     get_dossier_timeline,
     get_dossiers,
+    get_laws_named,
     get_recent_dossiers,
 )
 
@@ -215,24 +211,6 @@ def list_dossiers(
 
 
 @router.get(
-    "/open",
-    response_model=DossierListResponse,
-    summary="Open dossiers",
-    description=(
-        "``GET /api/dossiers`` with ``status=open``: the dossiers not closed yet. "
-        + _LIST_DESCRIPTION
-    ),
-    tags=["dossiers"],
-)
-def list_open_dossiers(
-    store: Annotated[ArangoStore, Depends(get_store)],
-    params: Annotated[_ListParams, Depends()],
-) -> DossierListResponse:
-    params.filters = replace(params.filters, status="open")
-    return _list(store, params)
-
-
-@router.get(
     "/recent",
     response_model=list[DossierSummaryDTO],
     summary="Recently active dossiers",
@@ -252,42 +230,6 @@ def list_recent_dossiers(
     docs = get_recent_dossiers(store, days=days, limit=limit, subject=subject)
     enrich_dossier_docs(store, docs)
     return [DossierSummaryDTO.from_document(d) for d in docs]
-
-
-@router.get(
-    "/documents/bulk",
-    response_model=DossierDocumentsBulkResponse,
-    summary="Documents for several dossiers",
-    description=(
-        "The top documents per dossier for a list of dossier numbers, in one "
-        "call rather than one per dossier."
-    ),
-    tags=["dossiers"],
-)
-def list_documents_for_dossiers(
-    store: Annotated[ArangoStore, Depends(get_store)],
-    numbers: Annotated[
-        str,
-        Query(
-            description="Comma-separated dossier numbers, e.g. '29684,29515-Z'.",
-            min_length=1,
-        ),
-    ],
-    per_dossier_limit: Annotated[int, Query(ge=1, le=50)] = 8,
-) -> DossierDocumentsBulkResponse:
-    wanted = [n.strip() for n in numbers.split(",") if n.strip()]
-    number_to_id = get_dossier_number_to_id_map(store, wanted) if wanted else {}
-    if not number_to_id:
-        return DossierDocumentsBulkResponse(items={})
-    by_id = get_documents_for_dossiers(
-        store, list(number_to_id.values()), per_dossier_limit=per_dossier_limit
-    )
-    return DossierDocumentsBulkResponse(
-        items={
-            number: [DossierDocumentDTO.from_row(d) for d in by_id.get(dossier_id, [])]
-            for number, dossier_id in number_to_id.items()
-        }
-    )
 
 
 @router.get(
@@ -318,6 +260,9 @@ def get_dossier(
         counts=count_dossier_members(store, dossier["_id"]),
         hub=get_dossier_hub(store, dossier["_id"]),
         relations=relations,
+        laws_named=get_laws_named(
+            store, laws_in_title((dossier.get("props") or {}).get("title"))
+        ),
     )
 
 

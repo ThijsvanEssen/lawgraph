@@ -217,6 +217,13 @@ renumbering; each version has a `versie-id`.
   item without a letter or digit (a dash, a definition) is `onder-_<n>`, its position among
   its siblings; a marker that repeats one before it gets `_<n>`, its occurrence
   (`onder-a_2`). A paragraph next to the leden is no part.
+- An EU article (`celex`, `article_number`) has the same `heading`, `text` and `parts`, read
+  from the CELLAR HTML (`core/eurlex_html.py`): `heading` is the line under "Artikel N"
+  (`Onderwerp en toepassingsgebied`; null when the act prints none), a lid is `1. text`, a
+  point is a line of its own that starts with its marker as printed (`a) text`, `i) text`,
+  `— text`); `number` is the marker without its punctuation (`a`). A point laid out without
+  text of its own shares its line with the first point inside it (`f) — de ontbinding`).
+  An EU article has no `label`, `references`, `position` or versions.
 - `breadcrumb` is where the article stands in its regulation, outermost first:
   `{type, label, title}` per division that holds it, `type` the element of the toestand
   (`bijlage`, `boek`, `deel`, `titeldeel`, `hoofdstuk`, `afdeling`, `paragraaf`, `sub-paragraaf`,
@@ -233,10 +240,11 @@ renumbering; each version has a `versie-id`.
 A Rechtspraak judgment carries its header (`court`, `date`, `case_number`, `judgment_metadata`
 with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `related_eclis`
 (earlier instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion),
-`subjects`; `court_code`, `tier`, `date_eff` and `case_number_keys`, the case numbers as compared,
-derived), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`.
+`subjects`; `court_code`, `tier` (the `Type` of its court in the Instanties list), `court_kind`
+(the kind of court within it), `date_eff` and `case_number_keys`, the case numbers as compared,
+derived; see [Courts](pipelines.md#courts)), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`.
 
-`summary` is the inhoudsindicatie, in Dutch. The Rechtspraak publishes a few judgments in an
+`summary` is the inhoudsindicatie, in Dutch; null for a placeholder ("kopje volgt", "-", empty). The Rechtspraak publishes a few judgments in an
 English translation too, under an ECLI of their own (ECLI:NL:HR:2019:2007 beside
 ECLI:NL:HR:2019:2006, case number `19/00135 (Engels)`); their inhoudsindicatie is English. An
 English inhoudsindicatie is kept as `summary_en`; the translation has `translation_of`, the ECLI
@@ -245,9 +253,10 @@ of the judgment it translates, and that judgment's Dutch `summary`, and the judg
 loaded.
 
 `decision_kind` is what the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`,
-`conclusie` or `prejudiciële beslissing` (`core.judgments.decision_kind`; the rule is in
+`beslissing` (the kantonrechter on a Wahv appeal, a wraking, the notariskamer), `conclusie` or
+`prejudiciële beslissing` (`core.judgments.decision_kind`; the rule is in
 [pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
-A stub has the kind its tier gives.
+A stub has the kind its kind of court gives (`data/curated/decision_kinds.json`).
 
 `names` is what lawyers call the judgment (`Haviltex`, `Urgenda`, `Lindenbaum/Cohen`), from the
 curated list of landmark cases in `core/judgment_names.py`; empty for most judgments, null on a
@@ -319,10 +328,10 @@ Dossier contains Case contains Document. TK data is the source.
 | Activity | `activities` | debate or hearing; `number` (`Activiteit.Nummer`), `date`, `agenda_title` (`Onderwerp`), `kind`, `status` (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`), `committee_id` (null for a plenary activity), `case_ids`, `dossier_numbers`, `case_kinds_by_dossier` |
 | Decision | `decisions` | one node per TK `Besluit`; `primary_case_id` and `primary_case_kind` name the Zaak it decided (`Wetgeving` on the vote on a bill itself); `kind`, what was voted on, from that `Zaak.Soort` (the stage `classify_case_kind` gives it): `motie`, `amendement`, `wetsvoorstel` (also an initiative bill or a budget) or `overig`; without a primary case the kind of the cases on its Agendapunt when they are all of one kind; never read from the subject |
 | Commitment | `commitments` | `text`, `minister_name`, `minister_role` (as the source writes them), `made_on`, `expected_resolution` (`0001-01-01` when the Kamer names none), `status` (`open`, `done`, `partly_done`, `unfulfilled`, `lapsed`), `activity_number`; from `semantic tk-government`: `member_key` (who made it), `post`, `ministry` and `cabinet` (in office that day) |
-| Member | `members` | every TK `Persoon` (members and ministers; a minister who never sat in parliament has no name or date of birth there); `name`, `family_name`, `birth_date`, `party`, `faction_memberships` (dated timeline); from Rijksoverheid `government_name` (`S.Th.M. Hermans`), `known_as` (`Sophie Hermans`, the first name the page gives; null when none) and `government_functions`: every post in a cabinet since 1945, oldest first, each with `cabinet_key`, `cabinet`, `function` as the source writes it, `also_named`, the normalised `post` and `ministry` (`core/ministries.py`), `seat` (`ienw/minister`, `jenv/staatssecretaris/rechtsbescherming`, `viceminister-president`), `portfolio`, `from_date`, `to_date`, `from_date_source` and `to_date_source` (what the page gave), `corrected` (the dates the rules of a seat set), `acting` and `acting_basis`, `party` (`short`, `faction`), `overlaps_with` (member keys), `absent`, `name` (as the page writes the holder) and `source` (`name`, `url`, `read_on`); see [pipelines](pipelines.md#rijksoverheid). A bewindspersoon without a TK `Persoon` is a member of their own, label `Rijksoverheid` |
+| Member | `members` | every TK `Persoon` (members and ministers; a minister who never sat in parliament has no name or date of birth there, and a few records are empty: such a member takes the name its roll-call votes give, "Nobel, J.N.J." as `J.N.J. Nobel`); `name`, `family_name`, `birth_date`, `party`, `faction_memberships` (dated timeline); from Rijksoverheid `government_name` (`S.Th.M. Hermans`), `known_as` (`Sophie Hermans`, the first name the page gives; null when none) and `government_functions`: every post in a cabinet since 1945, oldest first, each with `cabinet_key`, `cabinet`, `function` as the source writes it, `also_named`, the normalised `post` and `ministry` (`core/ministries.py`), `seat` (`ienw/minister`, `jenv/staatssecretaris/rechtsbescherming`, `viceminister-president`), `portfolio`, `from_date`, `to_date`, `from_date_source` and `to_date_source` (what the page gave), `corrected` (the dates the rules of a seat set), `acting` and `acting_basis`, `party` (`short`, `faction`), `overlaps_with` (member keys), `absent`, `name` (as the page writes the holder) and `source` (`name`, `url`, `read_on`); see [pipelines](pipelines.md#rijksoverheid). A bewindspersoon without a TK `Persoon` is a member of their own, label `Rijksoverheid` |
 | Faction | `factions` | `name`, `abbreviation`, `aliases`, `seats`, `active`, `active_from`, `active_until`; `external_id` (the current Fractie record) and `external_ids` (every Fractie record of the faction: a faction that returns gets a new record, 50PLUS 2012-2021 and from 2025, and votes and seats name either) |
-| Cabinet | `cabinets` | a Dutch cabinet: since 1945 from its Rijksoverheid page, before from Wikidata (name and period only); key from its name (`rutte_asscher`, `den_uyl`); `name` (`kabinet-Rutte-Asscher`), `from_date` (the beëdiging), `to_date` (null in office, or before 1945 when Wikidata gives no end), `from_date_precision`, `to_date_precision` (`day`, `month`, `year`), `previous` (cabinet key), `prime_minister` (member key), `parties` (`short`, `faction`: of the bewindspersonen sworn in on the first day) and `factions`, `phases` (`kind`: `formatie`, `in_functie`, `demissionair`, `dubbel_demissionair`, `missionair` or null; `from_date`, `to_date`, `label` in the source's words, `source`), `demissionary_from`, `origin` (`name`, `url`, `read_on`), `wikidata_id` for a cabinet from Wikidata |
-| Committee | `committees` | `name`, `abbreviation`, `slug`; only a Commissie with a name (the plenary is no committee) |
+| Cabinet | `cabinets` | a Dutch cabinet since 1945, from its Rijksoverheid page (none before: no official source describes them); key from its name (`rutte_asscher`, `den_uyl`); `name` (`kabinet-Rutte-Asscher`), `from_date` (the beëdiging), `to_date` (null in office), `previous` (cabinet key), `prime_minister` (member key), `parties` (`short`, `faction`: of the bewindspersonen sworn in on the first day) and `factions`, `phases` (`kind`: `formatie`, `in_functie`, `demissionair`, `dubbel_demissionair`, `missionair` or null; `from_date`, `to_date`, `label` in the source's words, `source`), `demissionary_from`, `origin` (`name`, `url`, `read_on`) |
+| Committee | `committees` | `name`, `abbreviation`, `slug` (unique, see `GET /api/committees`), `kind` (by its name, else `Commissie.Inhoudsopgave`), `started_on` (`DatumActief`), `ended_on` (`DatumInactief`), `active_dossier_count` (`semantic graph-list-stats`); only a Commissie with a name (the plenary is no committee) |
 
 No link to tweedekamer.nl is stored. The site finds a document by its `document_number` and an
 activity by its `number`, never by the GUID of the record (`external_id`), so the API derives
@@ -380,7 +389,7 @@ Votes: TK returns one row per voter per `Besluit`. A roll-call (`Hoofdelijk`) na
 member, so its `VOTED` edges start at the member; any other vote is cast per faction and the
 edge starts at the faction. The decision carries `vote_kind` (`member` or `faction`), `tally`
 (seats per choice, members per choice on a roll-call), `voters` (how many cast each choice)
-and `passed`; each edge carries `meta.choice` and `meta.seats`. The API derives a member's
+and `passed`; each edge carries `meta.choice` and `meta.seats` (the seats of the faction; 1 for a member on a roll-call, whose row carries the size of the faction). The API derives a member's
 non-roll-call votes from the faction they belonged to at the time, using
 `members.props.faction_memberships`.
 
@@ -432,7 +441,6 @@ record is skipped like one without a payload.
 | `eerstekamer` | `ek-kamerstuk-json` |
 | `echr` | `echr-judgment-json` |
 | `verdragenbank` | `verdrag-json` |
-| `wikidata` | `wikidata-cabinet-json` (one cabinet, external id the Q-id) |
 | `rijksoverheid` | `rijksoverheid-cabinet-html` (the page of one cabinet since 1945, external id its slug, `meta.url` and `meta.read_on`) |
 
 A document the source answered HTTP 404 for is remembered as a record without payload of
@@ -449,8 +457,8 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
-| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, stub)`, `(court_code, date_eff, tier, stub)`, `(tier, date_eff, stub)` and `(date_eff, tier, stub)`: each filter of `/api/judgments` ends in the tier, the date and `stub` (the list leaves stubs out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
-| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on (`dossiers` `props.order`, `props.label` (a number prefix as a range), `props.opened_on`; `dossiers` and `commitments` also `props.cabinet`, `props.ministry`; `commitments` `props.member_key`) |
+| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, court_kind, stub)`, `(court_code, date_eff, tier, court_kind, stub, source)`, `(tier, court_kind, date_eff, stub, source)`, `(court_kind, date_eff, stub, source)` and `(date_eff, tier, court_kind, stub, source)`: the index of each filter of `/api/judgments` holds the tier, the kind of court, the source, the date and `stub` (the list leaves stubs out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
+| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on (`dossiers` `props.order`, `props.label` (a number prefix as a range), `props.opened_on`; `dossiers` and `commitments` also `props.cabinet`, `props.ministry`; `commitments` `props.member_key`); the date of each kind of event of `/api/feed`, not sparse, so a page is read newest first from the index: `documents` `(props.kind, props.date)`, `commitments` `props.made_on`, `instruments` `(props.kind, props.date_published)`, `instrument_versions` `props.valid_from` |
 | `members` | `props.government_functions[*].cabinet_key` (`GET /api/members?cabinet=`) |
 | `raw_sources` | `(source, kind)` |
 | `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)` |

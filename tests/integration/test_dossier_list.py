@@ -97,8 +97,7 @@ def test_every_dossier_can_be_listed_found_and_ordered(database: str) -> None:
         enacted = _get(client, "/api/dossiers", outcome="aangenomen")
         budget = _get(client, "/api/dossiers", number="37020")
         by_title = _get(client, "/api/dossiers", sort="title", limit=2)
-        still_open = _get(client, "/api/dossiers/open")
-        both_filters = _get(client, "/api/dossiers/open", status="closed")
+        still_open = _get(client, "/api/dossiers", status="open")
         bad = client.get("/api/dossiers", params={"has_stage": "nope"}).status_code
     finally:
         app.dependency_overrides.pop(get_store, None)
@@ -126,5 +125,4 @@ def test_every_dossier_can_be_listed_found_and_ordered(database: str) -> None:
     ]
     assert by_title["total"] == 5
     assert still_open["total"] == 3
-    assert both_filters["total"] == 3  # /open is always open
     assert bad == 422

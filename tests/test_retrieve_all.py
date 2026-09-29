@@ -202,7 +202,7 @@ def test_the_window_reaches_the_sources_that_keep_producing(
     for source in PRODUCING:
         assert recorded[source] == ["--mode", "incremental", "--since", WINDOW], source
     assert recorded["tk-dossiers"] == ["--since", WINDOW]
-    assert "tk-content" not in recorded
+    assert recorded["tk-content"] == []  # the papers without XML, whatever the window
 
 
 def test_reference_sources_are_read_in_full_whatever_the_window(
@@ -211,6 +211,7 @@ def test_reference_sources_are_read_in_full_whatever_the_window(
     monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
     retrieve_all(["--mode", "full", "--window", "2024-09-20"])
     assert recorded["bwb"] == ["--mode", "full"]
+    assert recorded["bwb-history"] == ["--mode", "full"]
     assert WINDOW not in recorded["verdragenbank"]
     assert WINDOW not in recorded["eurlex"]
 
@@ -271,13 +272,54 @@ def test_jobs_must_be_positive() -> None:
 
 
 def test_sources_on_one_server_share_a_lane() -> None:
-    lanes = {
-        p.name: p.lane_id for p in registry.PIPELINES["retrieve"] if p.argv_for_all
-    }
+    lanes = {p.name: p.lane_id for p in registry.PIPELINES["retrieve"]}
     assert lanes["tk"] == lanes["tk-dossiers"]
-    koop = {"staatsblad", "staatscourant", "eerstekamer", "verdragenbank"}
+    assert lanes["bwb"] == lanes["bwb-history"] == registry.LANE_BWB
+    assert lanes["rechtspraak"] == lanes["rechtspraak-instanties"]
+    koop = {"staatsblad", "staatscourant", "eerstekamer", "verdragenbank", "tk-content"}
     assert {lanes[name] for name in koop} == {registry.LANE_KOOP_REPOSITORY}
-    assert len(set(lanes.values())) == len(lanes) - 1 - (len(koop) - 1)
+    assert len(set(lanes.values())) == len(lanes) - 1 - 1 - 1 - (len(koop) - 1)
+
+
+def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
+    """The whole plan: which pipelines, on which server, and what waits for what."""
+    plan = [
+        (p.name, p.lane_id, p.after)
+        for p in registry.PIPELINES["retrieve"]
+        if p.argv_for_all is not None
+    ]
+    koop, bwb, tk = (
+        registry.LANE_KOOP_REPOSITORY,
+        registry.LANE_BWB,
+        registry.LANE_TWEEDE_KAMER,
+    )
+    assert plan == [
+        ("tk", tk, ()),
+        ("tk-dossiers", tk, ()),
+        ("tk-content", koop, ("tk-dossiers",)),
+        ("rechtspraak", "rechtspraak", ()),
+        ("rechtspraak-instanties", "rechtspraak", ()),  # after rechtspraak in its lane
+        ("eurlex", "eurlex", ()),
+        ("bwb", bwb, ()),
+        ("bwb-history", bwb, ()),  # after bwb in the same lane
+        ("staatsblad", koop, ("bwb",)),
+        ("staatscourant", koop, ()),
+        ("eerstekamer", koop, ()),
+        ("echr", "echr", ()),
+        ("verdragenbank", koop, ()),
+        ("tooi", "tooi", ()),
+        ("rijksoverheid", "rijksoverheid", ()),
+    ]
+
+
+def test_an_incremental_run_passes_its_mode_to_the_history_and_nothing_to_the_papers(
+    monkeypatch, recorded
+) -> None:
+    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
+    retrieve_all(["--since", "7d"])
+    assert recorded["bwb-history"] == ["--mode", "incremental"]
+    assert recorded["tk-content"] == []
+    assert set(recorded) == {p.name for p in registry.PIPELINES["retrieve"]}
 
 
 # ── bootstrap ────────────────────────────────────────────────────────────────
@@ -375,7 +417,7 @@ def test_a_pipeline_comes_after_the_ones_it_reads() -> None:
 def test_by_default_every_server_has_its_own_job() -> None:
     from lawgraph.pipelines.orchestration import DEFAULT_RETRIEVE_JOBS
 
-    lanes = {p.lane_id for p in registry.PIPELINES["retrieve"] if p.argv_for_all}
+    lanes = {p.lane_id for p in registry.PIPELINES["retrieve"]}
     assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 8
 
 
@@ -424,18 +466,15 @@ def test_gaps_mode_runs_the_sources_that_can_fetch_what_the_graph_lacks(
     result = retrieve_all(["--mode", "gaps"])
 
     assert result.errors == []
-    assert (
-        set(recorded)
-        == {
-            "bwb",
-            "echr",
-            "eurlex",
-            "rechtspraak",
-            "tk-content",  # a manual command otherwise: the text of papers is a gap by nature
-            "tk-dossiers",  # the dossiers the publications name
-            "verdragenbank",
-        }
-    )
+    assert set(recorded) == {
+        "bwb",
+        "echr",
+        "eurlex",
+        "rechtspraak",
+        "tk-content",
+        "tk-dossiers",  # the dossiers the publications name
+        "verdragenbank",
+    }
     assert all(argv == ["--mode", "gaps"] for argv in recorded.values())
     assert store.state == {}  # a gaps run says nothing about a date: the mark stays
 

@@ -18,10 +18,8 @@ from lawgraph.db import ArangoStore
 def get_in_flux_counts(store: ArangoStore) -> dict[str, int]:
     """Return a map of node_id → count of proposed edges pointing at it.
 
-    Mirrors the definition used by ``get_article_in_flux`` exactly so the bulk
-    overlay and per-article endpoints can never disagree. The map is empty when
-    the graph holds no proposed edges yet (e.g. before the amendment scanner has
-    run) — that is the truth, not a bug.
+    The map is empty when the graph holds no proposed edges yet (e.g. before the
+    amendment scanner has run) — that is the truth, not a bug.
     """
     aql = f"""
     FOR e IN {COLLECTION_EDGES}

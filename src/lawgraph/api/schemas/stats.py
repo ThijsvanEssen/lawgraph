@@ -21,6 +21,22 @@ class InstrumentStatsDTO(BaseModel):
     by_jurisdiction: dict[str, int] = {}
 
 
+class DataAsOfDTO(BaseModel):
+    """How current the graph is for one source."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    retrieved_at: str | None = Field(
+        None, description="When its newest raw record was fetched (UTC, ISO 8601)."
+    )
+    newest: str | None = Field(
+        None,
+        description="The date of its newest dated record, on or before today: a paper of "
+        "the Kamer, a judgment, a publication, a version of a law coming into force. Null "
+        "for a source without dated records.",
+    )
+
+
 class StatsResponse(BaseModel):
     """Database statistics: document counts per collection and edge counts."""
 
@@ -37,6 +53,11 @@ class StatsResponse(BaseModel):
     edges: EdgeStatsDTO
     by_source: dict[str, dict[str, int]] = {}
     instruments: InstrumentStatsDTO = InstrumentStatsDTO()
+    data_as_of: dict[str, DataAsOfDTO] = Field(
+        default_factory=dict,
+        description="Per source (`tk`, `eerstekamer`, `rechtspraak`, `staatsblad`, "
+        "`staatscourant`, `bwb`, `eurlex`, …): how current the graph is.",
+    )
 
 
 class CoverageCourtDTO(BaseModel):
@@ -47,9 +68,14 @@ class CoverageCourtDTO(BaseModel):
     source: str | None = Field(None, description="`rechtspraak` or `echr`.")
     tier: str | None = Field(
         None,
-        description="`hoge_raad`, `parket` (the conclusions of the Parket bij de Hoge Raad), "
-        "`raad_van_state`, `centrale_raad_van_beroep`, `gerechtshof`, `rechtbank`, … one per "
-        "college (``core.judgments.TIERS``).",
+        description="The Type of the court in the Instanties value list: `hoge_raad`, "
+        "`parket` (the conclusions of the Parket bij de Hoge Raad), `raad_van_state`, "
+        "`gerechtshof`, `rechtbank`, `andere_instantie`, … (``core.courts.TIERS``).",
+    )
+    court_kind: str | None = Field(
+        None,
+        description="The kind of court within the tier (`ambtenarengerecht`); a tier of "
+        "one kind of court is its own kind.",
     )
     court_code: str | None = Field(None, description="The court in the ECLI: `GHAMS`.")
     court: str | None = Field(None, description="Its name: Gerechtshof Amsterdam.")
@@ -85,6 +111,7 @@ class JudgmentCoverageResponse(BaseModel):
     tiers: list[CoverageTierDTO] = Field(
         ...,
         description="Per tier: the highest courts first, the parket, the courts of first "
-        "instance and appeal, the other colleges, the EHRM last.",
+        "instance and appeal, the disciplinary tribunals, the other colleges, the "
+        "Caribbean part, then the courts outside the Netherlands, the EHRM last.",
     )
     courts: list[CoverageCourtDTO] = Field(..., description="Per court, most first.")

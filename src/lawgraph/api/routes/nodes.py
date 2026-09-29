@@ -12,8 +12,6 @@ from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
     NeighborBucketDTO,
     NeighborDTO,
-    NodeFacetDTO,
-    NodeFacetsResponse,
     NodeGraphResponse,
     NodeNeighborhoodEdge,
     NodeNeighborhoodResponse,
@@ -31,7 +29,6 @@ from lawgraph.db.queries.nodes import (
     NeighborFilter,
     NodeNotFoundError,
     UnsupportedCollectionError,
-    get_node_facets,
     get_node_neighborhood,
     get_node_with_neighbors,
 )
@@ -237,47 +234,6 @@ def get_node_graph(
         neighbors=NodeNeighborsDTO(
             total=sum(bucket.total for bucket in buckets), buckets=buckets
         ),
-    )
-
-
-@router.get(
-    "/{collection}/{key}/facets",
-    response_model=NodeFacetsResponse,
-    summary="Count a node's neighbors per relation, direction and collection",
-    description=(
-        "How many edges the node has per relation, direction and neighbor "
-        "collection (with the node type of that collection), counted in the "
-        "database without reading the neighbors. `total` is the number of edges "
-        "over all facets. `relations`, `node_types`, `direction` and `status` "
-        "narrow the edges."
-    ),
-    tags=["nodes"],
-)
-def get_node_facets_route(
-    collection: str,
-    key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-    filters: NeighborFilterParams,
-) -> NodeFacetsResponse:
-    try:
-        facets = get_node_facets(store, collection, key, filters=filters)
-    except UnsupportedCollectionError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
-    except NodeNotFoundError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
-
-    return NodeFacetsResponse(
-        items=[
-            NodeFacetDTO(
-                relation=facet.relation,
-                direction=facet.direction,
-                collection=facet.collection,
-                type=node_type_of(facet.collection),
-                count=facet.count,
-            )
-            for facet in facets
-        ],
-        total=sum(facet.count for facet in facets),
     )
 
 

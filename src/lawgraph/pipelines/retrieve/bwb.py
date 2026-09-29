@@ -30,6 +30,14 @@ logger = get_logger(__name__)
 
 # The WTI file of an unchanged toestand is read again after this many days.
 WTI_REFRESH_DAYS = 30
+# From this many regulations the history reads the SRU listing of every toestand (about 150
+# pages) instead of asking the SRU once per regulation.
+HISTORY_LISTING_FROM = 150
+
+
+def _history_id(meta: ToestandMeta) -> str:
+    """``{bwb_id}@{start_date}``: the key of a historical toestand."""
+    return f"{meta['bwb_id']}@{meta.get('geldigheidsperiode_startdatum') or 'unknown'}"
 
 
 @dataclass
@@ -208,82 +216,107 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         self,
         *,
         bwb_ids: Sequence[str] | None = None,
+        refetch: bool = False,
         **kwargs: object,
     ) -> PipelineResult:
-        """Fetch and store ALL historical BWB toestanden for given IDs.
+        """Fetch and store the historical toestanden of *bwb_ids* that are not stored yet.
 
-        Each historical version is stored as a separate raw_source record keyed
-        by ``{bwb_id}@{start_date}``.  Safe to re-run — ``_insert`` is
-        upsert-based.
+        Without *bwb_ids*: every regulation of which the current toestand is stored (what
+        ``retrieve bwb`` loaded). A new regulation has none stored, so it gets all of them;
+        *refetch* downloads every toestand again. Each is a record of its own, keyed by
+        ``{bwb_id}@{start_date}``.
         """
-        normalized = clean_ids(bwb_ids)
-        result = PipelineResult()
-
+        normalized = (
+            clean_ids(bwb_ids) if bwb_ids else sorted(self._stored_state_urls())
+        )
         if not normalized:
             logger.warning("BWB history retrieve: no IDs to process.")
-            return result
+            return PipelineResult()
 
-        logger.info("Starting BWB history retrieve for %d IDs.", len(normalized))
-        return self._store_all(self._fetch_history(normalized), what="toestanden")
+        stored = (
+            set()
+            if refetch
+            else set(self._stored_at(SOURCE_BWB, RAW_KIND_BWB_TOESTAND_ALL))
+        )
+        logger.info(
+            "Starting BWB history retrieve for %d IDs (%d toestanden stored).",
+            len(normalized),
+            len(stored),
+        )
+        return self._store_all(
+            self._fetch_history(normalized, stored), what="toestanden"
+        )
 
-    def _fetch_history(self, bwb_ids: Sequence[str]) -> Iterator[RetrieveRecord]:
-        """Every toestand of each regulation; how many there are is only known per regulation."""
+    def _toestanden_of(
+        self, bwb_ids: Sequence[str]
+    ) -> Iterator[tuple[str, list[ToestandMeta]]]:
+        """Every toestand of each regulation: from one SRU listing of all of them when there
+        are that many regulations, else from one SRU query per regulation."""
+        if len(bwb_ids) >= HISTORY_LISTING_FROM:
+            listed = self.client.enumerate_toestanden()
+            for bwb_id in bwb_ids:
+                yield bwb_id, listed.get(bwb_id, [])
+            return
         for bwb_id in bwb_ids:
             try:
-                toestanden = self.client.search_toestanden(bwb_id)
+                yield bwb_id, self.client.search_toestanden(bwb_id)
             except Exception as exc:
                 self.progress.fail(
                     f"toestanden list not fetched ({failure_reason(exc)})", bwb_id
                 )
-                continue
+
+    def _fetch_history(
+        self, bwb_ids: Sequence[str], stored: set[str]
+    ) -> Iterator[RetrieveRecord]:
+        """The toestanden of *bwb_ids* whose key is not in *stored*, downloaded side by side."""
+        todo: dict[str, ToestandMeta] = {}
+        for bwb_id, toestanden in self._toestanden_of(bwb_ids):
             if not toestanden:
                 self.progress.skip("no toestanden in the SRU", bwb_id)
-                continue
-
             for meta in toestanden:
-                start_date = meta.get("geldigheidsperiode_startdatum") or "unknown"
-                external_id = f"{bwb_id}@{start_date}"
-                try:
-                    xml_text = self.client.fetch_toestand_xml(meta)
-                except Exception as exc:
+                external_id = _history_id(meta)
+                if external_id not in stored:
+                    todo.setdefault(external_id, meta)
+        wanted = self._without_missing(
+            SOURCE_BWB, RAW_KIND_BWB_TOESTAND_ALL, list(todo)
+        )
+        logger.info("%d toestanden are not stored yet.", len(wanted))
+        self.progress.expect(len(wanted))
+
+        def download(external_id: str) -> str:
+            return self.client.fetch_toestand_xml(todo[external_id])
+
+        for external_id, xml_text in fetched_side_by_side(wanted, download):
+            meta = todo[external_id]
+            if isinstance(xml_text, Exception):
+                exc = xml_text
+                if is_not_found(exc):
+                    self.progress.skip("no toestand file at the source", external_id)
+                    yield missing_record(
+                        SOURCE_BWB,
+                        RAW_KIND_BWB_TOESTAND_ALL,
+                        external_id,
+                        listed=True,
+                        status=status_of(exc) or 404,
+                    )
+                else:
                     self.progress.fail(
                         f"download failed ({failure_reason(exc)})", external_id
                     )
-                    continue
-                yield RetrieveRecord(
-                    source=SOURCE_BWB,
-                    kind=RAW_KIND_BWB_TOESTAND_ALL,
-                    external_id=external_id,
-                    payload_text=xml_text,
-                    meta={
-                        "bwb_id": bwb_id,
-                        "state_url": meta["locatie_toestand"],
-                        "start_date": start_date,
-                        "end_date": meta.get("geldigheidsperiode_einddatum"),
-                    },
-                )
-
-    def run_history_full(self) -> PipelineResult:
-        """Full-load mode: enumerate ALL BWB laws via SRU wildcard, then fetch all toestanden.
-
-        Uses ``BWBClient.enumerate_all_ids()`` to discover every BWBR ID
-        registered in the SRU catalogue, then calls ``run_history(bwb_ids=...)``
-        to fetch all historical versions.  Safe to interrupt and re-run.
-        """
-        logger.info("BWB history full-load: enumerating all BWBR IDs via SRU wildcard.")
-        try:
-            all_ids = self.client.enumerate_all_ids()
-        except Exception as exc:
-            result = PipelineResult()
-            msg = f"BWB SRU enumeration failed: {exc}"
-            logger.error(msg)
-            result.add_error(msg)
-            return result
-
-        logger.info(
-            "BWB history full-load: %d IDs found; starting retrieval.", len(all_ids)
-        )
-        return self.run_history(bwb_ids=all_ids)
+                continue
+            yield RetrieveRecord(
+                source=SOURCE_BWB,
+                kind=RAW_KIND_BWB_TOESTAND_ALL,
+                external_id=external_id,
+                payload_text=xml_text,
+                meta={
+                    "bwb_id": meta["bwb_id"],
+                    "state_url": meta["locatie_toestand"],
+                    "start_date": meta.get("geldigheidsperiode_startdatum")
+                    or "unknown",
+                    "end_date": meta.get("geldigheidsperiode_einddatum"),
+                },
+            )
 
     def run_full(self) -> PipelineResult:
         """Full-load mode: enumerate ALL BWB laws via SRU wildcard, then fetch each.

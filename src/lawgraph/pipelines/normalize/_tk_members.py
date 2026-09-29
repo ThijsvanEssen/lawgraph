@@ -7,6 +7,7 @@ and writes are bulk: one existence lookup per collection, one edge flush.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable
 from typing import Any
 
@@ -42,6 +43,7 @@ def normalize_committees(
             labels=["TK"],
             props=props,
         )
+    tk_records.unique_committee_slugs([node.props for node in nodes.values()])
     _write(store, nodes.values())
     logger.info("Normalized %d committees.", len(nodes))
     return nodes
@@ -244,3 +246,35 @@ def _write_timelines(
 def _write(store: Store, nodes: Any) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(nodes)
+
+
+def name_members_by_their_votes(
+    store: Store,
+    member_nodes: dict[str, Node],
+    votes_by_decision: dict[str, list[tk_records.VoteCast]],
+) -> None:
+    """Give a member the Kamer gives no name (an empty Persoon record) the name its roll-call
+    votes carry ("Nobel, J.N.J." is J.N.J. Nobel), the one it carries most."""
+    nameless = {
+        person_id
+        for person_id, node in member_nodes.items()
+        if not node.props.get("name")
+    }
+    names: dict[str, Counter[str]] = {}
+    for votes in votes_by_decision.values():
+        for cast in votes:
+            if cast.person_id in nameless and cast.actor_name:
+                names.setdefault(cast.person_id, Counter())[cast.actor_name] += 1
+    updated = []
+    for person_id, counted in names.items():
+        name = tk_records.display_person_name(counted.most_common(1)[0][0])
+        if not name:
+            continue
+        node = member_nodes[person_id]
+        node.props["name"] = node.props["display_name"] = name
+        updated.append(node.to_document())
+    if updated:
+        store.bulk_insert_or_update_nodes(COLLECTION_MEMBERS, updated)
+    logger.info(
+        "Named %d members the Kamer gives no name by their votes.", len(updated)
+    )

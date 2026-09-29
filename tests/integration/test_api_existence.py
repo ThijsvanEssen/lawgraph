@@ -18,7 +18,8 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 
 BW7 = "BWBR0005290"
-KEY = make_node_key(BW7, "7:231")
+# a book of the BW numbers its articles without the book, as the graph stores them
+KEY = make_node_key(BW7, "231")
 
 
 @pytest.fixture()
@@ -28,7 +29,7 @@ def client(database: str) -> Iterator[TestClient]:
         "_key": KEY,
         "type": "article",
         "labels": [],
-        "props": {"bwb_id": BW7, "article_number": "7:231", "text": "Tekst."},
+        "props": {"bwb_id": BW7, "article_number": "231", "text": "Tekst."},
     }
     store.bulk_insert_or_update_nodes(COLLECTION_ARTICLES, [doc])
     app.dependency_overrides[get_store] = lambda: store
@@ -39,6 +40,7 @@ def client(database: str) -> Iterator[TestClient]:
 
 
 def test_cited_by_of_an_article_that_is_not_there_is_a_404(client: TestClient) -> None:
+    assert client.get(f"/api/articles/{BW7}/231/cited-by").status_code == 200
     assert client.get(f"/api/articles/{BW7}/7:231/cited-by").status_code == 200
     assert client.get(f"/api/articles/{BW7}/9:999/cited-by").status_code == 404
 
