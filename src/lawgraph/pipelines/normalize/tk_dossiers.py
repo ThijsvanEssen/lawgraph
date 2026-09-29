@@ -95,31 +95,44 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             for kind in RAW_KINDS
         }
         if since is not None:
-            raw[RAW_KIND_TK_STEMMING] = self._rows_of_decisions_voted_since(since)
+            # A deleted row names no decision; the VOTED edge it made does, so the rows and
+            # the Besluit of that decision are read again too.
+            since_iso = iso_timestamp(since)
+            deleted = list(
+                raw_queries.deleted_records_since(
+                    self.store, RAW_KIND_TK_STEMMING, since_iso
+                )
+            )
+            voted_on = [
+                row["decision_id"]
+                for row in normalize_queries.decisions_of_vote_records(
+                    self.store, [str(self._payload_json(r).get("Id")) for r in deleted]
+                )
+                if row["decision_id"]
+            ]
+            raw[RAW_KIND_TK_STEMMING] = self._rows_of_decisions_voted_since(
+                since_iso, voted_on, deleted
+            )
+            raw[RAW_KIND_TK_BESLUIT] = self._besluiten(
+                raw[RAW_KIND_TK_BESLUIT], voted_on
+            )
         return raw
 
     def _rows_of_decisions_voted_since(
-        self, since: dt.datetime
+        self,
+        since_iso: str | None,
+        voted_on: list[str],
+        deleted: list[dict[str, Any]],
     ) -> Iterator[dict[str, Any]]:
-        """Every Stemming row of the decisions that have a row in the window, and the rows
-        of the window the Kamer deleted.
+        """Every Stemming row of the decisions that have a row in the window or that a
+        *deleted* row of the window was on (*voted_on*), and those deleted rows.
 
         A decision is its rows together (the tally, who voted): one corrected vote must
-        not turn it into a decision of one. A deleted row names no decision; the VOTED edge
-        it made does, so that decision is read again too.
+        not turn it into a decision of one.
         """
-        since_iso = iso_timestamp(since)
-        deleted = list(
-            raw_queries.deleted_records_since(
-                self.store, RAW_KIND_TK_STEMMING, since_iso
-            )
-        )
-        voted_on = normalize_queries.decisions_of_vote_records(
-            self.store, [str(self._payload_json(raw).get("Id")) for raw in deleted]
-        )
         decisions = sorted(
             set(raw_queries.decisions_voted_since(self.store, since_iso))
-            | {row["decision_id"] for row in voted_on if row["decision_id"]}
+            | set(voted_on)
         )
         progress = Progress(f"{RAW_KIND_TK_STEMMING} records")
         yield from progress.track(
@@ -128,6 +141,17 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             else ()
         )
         yield from deleted
+
+    def _besluiten(
+        self, window: Iterable[dict[str, Any]], voted_on: list[str]
+    ) -> Iterator[dict[str, Any]]:
+        """The Besluit records of the window, and those of the decisions *voted_on*: a
+        Besluit whose votes were all deleted stays a decision."""
+        yield from window
+        if voted_on:
+            yield from self.store.with_payloads(
+                raw_queries.tk_records_of(self.store, RAW_KIND_TK_BESLUIT, voted_on)
+            )
 
     def normalize_nodes(
         self,
@@ -172,7 +196,11 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """Add the Besluiten on bills, also those without votes (a hamerstuk). An
         incremental run first reads the stored vote rows of those its window holds no
         rows of, so a Besluit that changed does not lose its votes."""
-        payloads = [self._payload_json(raw) for raw in raw_records]
+        payloads = [
+            payload
+            for raw in raw_records
+            if not votes.struck(payload := self._payload_json(raw))
+        ]
         if self._incremental:
             unseen = [
                 decision_id
@@ -188,6 +216,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                     ),
                 )
         added = tk_votes.add_decisions(votes, payloads)
+        votes.drop_struck()  # a Besluit record the Kamer deleted, and its decision
         logger.info("Added %d decisions on bills without votes.", added)
 
     def build_edges(

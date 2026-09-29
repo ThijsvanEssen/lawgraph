@@ -9,7 +9,10 @@ import datetime as dt
 import time
 from typing import Any
 
+import pytest
+
 from lawgraph.config.constants import (
+    RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
@@ -317,3 +320,61 @@ def test_an_incremental_run_removes_what_the_kamer_deleted_in_its_window(
     _write(store, _deletions())
     cli("normalize", "tk-dossiers", "--since", window)
     _assert_votes_follow_the_deletions(store)
+
+
+# ── Besluit records (tk-besluit) ─────────────────────────────────────────────
+
+BILL_DECISION, GONE_BILL_DECISION = uid(4, 7), uid(5, 7)
+
+
+def _bill_besluit(decision: str) -> dict[str, Any]:
+    """A Besluit on a bill, as ``retrieve tk-dossiers`` stores it (a tk-besluit record)."""
+    return _besluit(decision, BesluitSoort="Stemmen - aangenomen", Verwijderd=False)
+
+
+def _besluit_records() -> list[tuple[str, dict[str, Any]]]:
+    return [
+        (RAW_KIND_TK_FRACTIE, _faction(VVD, "VVD", "1948-01-01", None)),
+        (RAW_KIND_TK_FRACTIE, _faction(CDA, "CDA", "1980-10-11", None)),
+        (RAW_KIND_TK_BESLUIT, _bill_besluit(BILL_DECISION)),
+        (RAW_KIND_TK_BESLUIT, _bill_besluit(GONE_BILL_DECISION)),
+        (RAW_KIND_TK_STEMMING, _vote(11, BILL_DECISION, VVD, "VVD", 22)),
+        (RAW_KIND_TK_STEMMING, _vote(12, BILL_DECISION, CDA, "CDA", 18)),
+        (RAW_KIND_TK_STEMMING, _vote(13, GONE_BILL_DECISION, VVD, "VVD", 22)),
+    ]
+
+
+def _besluit_deletions() -> list[tuple[str, dict[str, Any]]]:
+    """Every vote on the bill decision goes, its Besluit stays; the other Besluit goes."""
+    return [
+        (RAW_KIND_TK_STEMMING, _deleted(uid(11, 6))),
+        (RAW_KIND_TK_STEMMING, _deleted(uid(12, 6))),
+        (RAW_KIND_TK_BESLUIT, _deleted(GONE_BILL_DECISION)),
+    ]
+
+
+def _assert_besluit_deletions(store: ArangoStore) -> None:
+    kept = store.get_node("decisions", make_node_key("decision", BILL_DECISION))
+    assert kept is not None  # a decision without votes, as a hamerstuk is one
+    assert kept.props["tally"] == {}
+    assert _voters(store, BILL_DECISION) == []
+    gone = f"decisions/{make_node_key('decision', GONE_BILL_DECISION)}"
+    assert store.get_node(*gone.split("/")) is None
+    assert _edges_at(store, gone) == []
+
+
+@pytest.mark.parametrize("incremental", [False, True])
+def test_a_besluit_stays_without_its_votes_and_goes_when_deleted(
+    database: str, cli: Any, incremental: bool
+) -> None:
+    store = ArangoStore()
+    _write(store, _besluit_records())
+    cli("normalize", "tk-dossiers")
+    assert _voters(store, BILL_DECISION) == ["factions/cda", "factions/vvd"]
+    assert _voters(store, GONE_BILL_DECISION) == ["factions/vvd"]
+
+    time.sleep(1.1)  # fetched_at has a precision of a second
+    window = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    _write(store, _besluit_deletions())
+    cli("normalize", "tk-dossiers", *(["--since", window] if incremental else []))
+    _assert_besluit_deletions(store)

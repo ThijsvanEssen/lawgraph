@@ -101,6 +101,19 @@ def deleted_records_since(
     return store.query(aql, {"source": SOURCE_TK, "kind": kind, "since": since_iso})
 
 
+def tk_records_of(
+    store: Store, kind: str, external_ids: list[str]
+) -> Iterator[dict[str, Any]]:
+    """The Tweede Kamer records of *kind* with these TK ids."""
+    aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind
+            FILTER r.external_id IN @ids
+            RETURN r
+        """
+    return store.query(aql, {"source": SOURCE_TK, "kind": kind, "ids": external_ids})
+
+
 # ── what was stored when ─────────────────────────────────────────────────────
 
 

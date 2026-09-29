@@ -47,6 +47,13 @@ class Votes:
         default_factory=lambda: Deleted(COLLECTION_DECISIONS, tk_records.decision_key)
     )
 
+    def drop_struck(self) -> None:
+        """Leave out the decisions whose Besluit the Kamer deleted, also those whose rows
+        were read before the row or record that struck them."""
+        for decision_id in self.struck.ids:
+            self.by_decision.pop(decision_id, None)
+            self.decisions.pop(decision_id, None)
+
 
 def read_votes(raw_records: Iterable[dict[str, Any]]) -> Votes:
     """Group the Stemming rows by ``Besluit_Id``; a deleted row, and every row of a
@@ -67,9 +74,7 @@ def read_votes(raw_records: Iterable[dict[str, Any]]) -> Votes:
         decision = payload.get("Besluit")
         if isinstance(decision, dict) and cast.decision_id not in votes.decisions:
             votes.decisions[cast.decision_id] = decision
-    for decision_id in votes.struck.ids:  # its rows read before the one that struck it
-        votes.by_decision.pop(decision_id, None)
-        votes.decisions.pop(decision_id, None)
+    votes.drop_struck()
     return votes
 
 

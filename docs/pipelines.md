@@ -109,9 +109,11 @@ that holds it in `props.external_id(s)` (a dossier, a faction: a faction goes wh
 records are deleted), or the edge that holds it in `meta.record_ids` (the `VOTED` edge of a
 Stemming, the `MEMBER_OF` edge of a FractieZetelPersoon), each with the edges at a node that
 goes. A deleted Stemming names no decision; its edge does, so a run `--since` also reads the
-rows of that decision. A decision whose Besluit a row names deleted, or on which no live vote is
-left, goes with its edges; a decision that keeps votes gets its tally and `VOTED` edges from
-its live rows alone.
+rows and the `tk-besluit` record of that decision. A decision whose Besluit is deleted (its
+`tk-besluit` record, or the Besluit a row carries), or on which no live vote is left and no
+`tk-besluit` record, goes with its edges; a decision that keeps votes gets its tally and `VOTED`
+edges from its live rows alone, and one that keeps only its `tk-besluit` record stays without
+votes.
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `fetched_at`), turns each into text and sections with `core/kamerstuk_xml.py` and writes them
