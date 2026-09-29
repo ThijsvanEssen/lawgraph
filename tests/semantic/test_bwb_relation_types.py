@@ -14,8 +14,10 @@ from lawgraph.config.constants import (
     SEMANTIC_TYPE_SCOPE_LIMITATION,
 )
 from lawgraph.pipelines.semantic._relation_type_patterns import (
-    CONFIDENCE_ADJACENT,
+    ADJACENT,
+    CONFIDENCE,
     CONFIDENCE_FALLBACK,
+    WINDOW,
     classify_citation_context,
 )
 
@@ -31,7 +33,8 @@ def test_definitional_reference_adjacent():
     result = classify_citation_context(text, start, end)
     assert result is not None
     assert result.semantic_type == SEMANTIC_TYPE_DEFINITIONAL_REFERENCE
-    assert result.confidence == CONFIDENCE_ADJACENT
+    assert result.confidence == CONFIDENCE[("definitional_reference", ADJACENT)]
+    assert result.pattern == "definitional_reference_adjacent"
 
 
 def test_conditional_requirement():
@@ -67,11 +70,59 @@ def test_prerequisite_procedure():
 
 
 def test_scope_limitation():
-    text = "Deze wet is van toepassing op de sectoren vermeld in artikel 2."
-    start, end = _span(text, "artikel 2")
+    text = "De artikelen 2 en 3 zijn niet van toepassing op de sectoren van bijlage I."
+    start, end = _span(text, "artikelen 2")
     result = classify_citation_context(text, start, end)
     assert result is not None
     assert result.semantic_type == SEMANTIC_TYPE_SCOPE_LIMITATION
+
+
+def test_what_an_article_names_defines_a_term():
+    """ "genoemd in", "vermeld in": the vorderingen named in artikel 821, a definition by
+    reference, not a limit of scope."""
+    text = "De vorderingen, genoemd in artikel 821, doen een voorrecht ontstaan."
+    start, end = _span(text, "artikel 821")
+    result = classify_citation_context(text, start, end)
+    assert result is not None
+    assert result.semantic_type == SEMANTIC_TYPE_DEFINITIONAL_REFERENCE
+
+
+def test_the_inverted_form_of_a_definition():
+    text = "De in artikel 204, eerste lid, bedoelde periode is verstreken."
+    start, end = _span(text, "artikel 204, eerste lid")
+    result = classify_citation_context(text, start, end)
+    assert result is not None
+    assert result.semantic_type == SEMANTIC_TYPE_DEFINITIONAL_REFERENCE
+    assert result.pattern == "definitional_reference_inverted_adjacent"
+    assert "bedoelde" in result.explanation
+
+
+def test_a_trigger_in_another_sentence_says_nothing():
+    text = (
+        "Het bestuur maakt dit bekend, voor zover de partijen hebben ingestemd. "
+        "Artikel 107a is van overeenkomstige toepassing."
+    )
+    start, end = _span(text, "Artikel 107a")
+    result = classify_citation_context(text, start, end)
+    assert result is not None
+    assert result.semantic_type == SEMANTIC_TYPE_CROSS_REFERENCE
+
+
+def test_a_trigger_elsewhere_in_the_sentence_is_less_sure_than_one_before_it():
+    text = (
+        "Op een verzoek als bedoeld in lid 3 zijn in afwachting van de beslissing van de "
+        "rechter de regels van artikel 612 van overeenkomstige toepassing."
+    )
+    start, end = _span(text, "artikel 612")
+    result = classify_citation_context(text, start, end)
+    assert result is not None
+    assert result.pattern == "definitional_reference_window"
+    assert result.confidence == CONFIDENCE[("definitional_reference", WINDOW)]
+    assert result.confidence < CONFIDENCE[("definitional_reference", ADJACENT)]
+
+
+def test_no_pattern_is_certain():
+    assert all(0 < confidence < 1 for confidence in CONFIDENCE.values())
 
 
 def test_delegated_discretion_in_window():

@@ -57,7 +57,7 @@ All default to the public endpoints; no key is required.
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
-| `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` |
+| `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION_WINDOW=0.7` |
 | `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | unset | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
 
 ### API
@@ -220,9 +220,13 @@ regulation `bwb` stored since. Incremental `retrieve tk-content` fetches the pap
 no XML is stored; a paper the repository has no XML for yet is asked for again after 3 days
 when it is younger than a week (the XML follows the PDF within about two working days), else
 after 30.
-Law abbreviations (`instruments.props.short_title`, used by the citation detectors) come from
-the WTI records that `retrieve bwb` stores and are written by `normalize bwb`, so run both
-before `semantic`. `normalize bwb --since` still re-evaluates the short title of every
+Law abbreviations (`instruments.props.short_title` and `aliases`, used by the citation
+detectors) come from the WTI records that `retrieve bwb` stores and are written by `normalize
+bwb`, so run both before `semantic`. A law is only cited once it is loaded: `retrieve bwb
+--mode full` enumerates every regulation and treaty of the BWB; an incremental build needs
+its ids in `BWB_IDS` (the Wetboek van Strafvordering `BWBR0001903`, Rv `BWBR0001827`, Wet RO
+`BWBR0001830`, AWR `BWBR0002320`, Vw 2000 `BWBR0011823`, the EVRM `BWBV0001000`). The laws
+judgments cite that are not loaded are in `judgments.props.unresolved_citations`. `normalize bwb --since` still re-evaluates the short title of every
 regulation, because an abbreviation claimed by a newly loaded regulation stops being unique.
 Incremental `retrieve eurlex` re-fetches the CELEX numbers of the instruments already in the
 graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML.

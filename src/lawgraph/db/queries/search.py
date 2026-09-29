@@ -13,10 +13,12 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     TEXT_ANALYZER,
 )
+from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.semantic import CODE_ALIAS_AQL
 
 _law_cache: TTLCache[str, Any] = TTLCache(maxsize=4, ttl=60.0)
 
@@ -158,17 +160,12 @@ def tokenize_search_query(q: str) -> list[str]:
 
 
 def load_code_aliases(store: ArangoStore) -> dict[str, str]:
-    """Law abbreviation (``short_title``, e.g. ``Sr``) → bwb_id, cached for 60 s."""
+    """Law abbreviation (``Sr``, ``AVG``) → BWB id or CELEX number, cached for 60 s
+    (``core.aliases.code_aliases``)."""
     cached = _law_cache.get("codes")
     if cached is not _MISSING:
         return cast(dict[str, str], cached)
-
-    aql = f"""
-    FOR i IN {COLLECTION_INSTRUMENTS}
-        FILTER i.props.bwb_id != null AND i.props.short_title != null
-        RETURN [i.props.short_title, i.props.bwb_id]
-    """
-    codes = dict(store.query(aql))
+    codes = code_aliases(store.query(CODE_ALIAS_AQL), curated_abbreviations())
     _law_cache.set("codes", codes)
     return codes
 

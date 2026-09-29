@@ -13,10 +13,13 @@ none), with the section in ``meta``.
 
 An edge is one per (document, article), so an article that several sections explain has one
 edge that lists them all: ``meta.section_anchor`` and the fields beside it describe the surest
-of them, ``meta.sections`` every one. The edge is the one ``semantic tk-mvt`` writes for the
-whole dossier, upgraded in place (same key): this pipeline's source and confidence are what the
-edge carries when it exists, whichever of the two ran first, because ``tk-mvt`` leaves an edge
-alone that this pipeline has written.
+of them, ``meta.sections`` every one. What a match rests on is in ``explanation``,
+``match_type`` and ``changed``: whether the dossier changed the article, which corroborates
+what the paper says (``core.mvt_articles``).
+
+The edge is the one ``semantic tk-mvt`` writes for the whole dossier, upgraded in place (same
+key): this pipeline's source and confidence are what the edge carries when it exists, whichever
+of the two ran first, because ``tk-mvt`` leaves an edge alone that this pipeline has written.
 """
 
 from __future__ import annotations
@@ -96,6 +99,8 @@ def edge_meta(references: list[Reference]) -> dict[str, Any]:
         "char_start": best.char_start,
         "char_end": best.char_end,
         "match_type": best.match_type,
+        "changed": best.changed,
+        "explanation": best.explanation,
         "heading": best.heading,
         "sections": [
             {
@@ -104,7 +109,9 @@ def edge_meta(references: list[Reference]) -> dict[str, Any]:
                 "char_start": r.char_start,
                 "char_end": r.char_end,
                 "match_type": r.match_type,
+                "changed": r.changed,
                 "confidence": r.confidence,
+                "explanation": r.explanation,
             }
             for r in listed
         ],
@@ -149,14 +156,13 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
         )
         explained = explained_targets(references, changes, self._article_exists)
         for target, refs in explained.items():
-            meta = edge_meta(refs)
             edges.add(
                 row["document"],
                 target,
                 RELATION_EXPLAINS,
                 source=SEMANTIC_SOURCE,
                 confidence=max(r.confidence for r in refs),
-                meta=meta,
+                meta=edge_meta(refs),
             )
         return len(explained)
 

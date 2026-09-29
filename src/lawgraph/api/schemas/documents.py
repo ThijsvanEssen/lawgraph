@@ -212,12 +212,26 @@ class PassageDTO(BaseModel):
     char_start: int
     char_end: int
     text: str = Field(description="`text[char_start:char_end]` of the document.")
-    confidence: float = Field(description="Uncalibrated: 0.7 to 0.9, see `match_type`.")
+    confidence: float = Field(
+        description="The share of such matches a hand check found right (0.3 to 0.95), "
+        "by `match_type` and `changed`."
+    )
     match_type: str = Field(
         description=(
             "How the section names the article: `heading_target`, `body_named_law`, "
             "`own_number` or `inferred_law`."
         )
+    )
+    changed: bool | None = Field(
+        default=None,
+        description="Whether the dossier changed the article, which corroborates the "
+        "match; a heading naming an article the dossier left alone is often of another "
+        "law. Null for a link made before this was recorded.",
+    )
+    explanation: str | None = Field(
+        default=None,
+        description="What the match rests on, in Dutch: the heading, and whether the "
+        "dossier changed the article.",
     )
 
 

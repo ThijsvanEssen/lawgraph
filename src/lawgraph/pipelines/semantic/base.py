@@ -10,7 +10,12 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_CANONIEK,
 )
-from lawgraph.core.aliases import InstrumentAliasMap, normalize_instrument_id
+from lawgraph.core.aliases import (
+    InstrumentAliasMap,
+    code_aliases,
+    curated_abbreviations,
+    normalize_instrument_id,
+)
 from lawgraph.core.citations import number_shape
 from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.logging import get_logger
@@ -313,11 +318,10 @@ class SemanticPipelineBase(PipelineBase):
         return index
 
     def _load_code_aliases(self) -> CodeMapping:
-        """Build short_title → bwb_id/celex map from instruments in the graph."""
-        return self._load_alias_index(
-            semantic_queries.code_alias_rows(self.store),
-            "short_title",
-            ("bwb_id", "celex"),
+        """Abbreviation → bwb_id/celex of the instruments in the graph
+        (``core.aliases.code_aliases``)."""
+        return code_aliases(
+            semantic_queries.code_alias_rows(self.store), curated_abbreviations()
         )
 
     def _load_instrument_aliases(self) -> InstrumentAliasMap:

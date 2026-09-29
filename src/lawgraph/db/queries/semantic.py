@@ -65,8 +65,8 @@ _CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 def judgment_paragraphs(
     store: Store, *, eclis: list[str] | None, batch_size: int
 ) -> Iterator[dict[str, Any]]:
-    """``{ecli, paragraphs}`` (as a slim document) of every Rechtspraak judgment, only those
-    of *eclis* when it is given."""
+    """``{ecli, paragraphs, unresolved_citations}`` (as a slim document) of every
+    Rechtspraak judgment, only those of *eclis* when it is given."""
     bind: dict[str, Any] = {"source": SOURCE_RECHTSPRAAK}
     recent = ""
     if eclis is not None:
@@ -76,7 +76,7 @@ def judgment_paragraphs(
         FOR j IN {COLLECTION_JUDGMENTS}
             FILTER j.props.source == @source
             {recent}
-            RETURN {slim("j", "ecli", "paragraphs")}
+            RETURN {slim("j", "ecli", "paragraphs", "unresolved_citations")}
         """
     return store.query(aql, bind, batch_size=batch_size)
 
@@ -451,19 +451,23 @@ FOR j IN {COLLECTION_JUDGMENTS}
 # ── instruments ──────────────────────────────────────────────────────────────
 
 
+# The abbreviations of the instruments: ``core.aliases.code_aliases`` reads them.
+CODE_ALIAS_AQL = f"""
+    FOR inst IN {COLLECTION_INSTRUMENTS}
+        FILTER inst.props.bwb_id != null OR inst.props.celex != null
+        RETURN {{
+            short_title: inst.props.short_title,
+            aliases: inst.props.aliases,
+            bwb_id: inst.props.bwb_id,
+            celex: inst.props.celex
+        }}
+    """
+
+
 def code_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
-    """``{short_title, bwb_id, celex}`` of the instruments with a short title."""
-    aql = f"""
-        FOR inst IN {COLLECTION_INSTRUMENTS}
-            FILTER inst.props.short_title != null
-            FILTER inst.props.bwb_id != null OR inst.props.celex != null
-            RETURN {{
-                short_title: inst.props.short_title,
-                bwb_id: inst.props.bwb_id,
-                celex: inst.props.celex
-            }}
-        """
-    return store.query(aql)
+    """``{short_title, aliases, bwb_id, celex}`` of the instruments with a BWB id or a
+    CELEX number."""
+    return store.query(CODE_ALIAS_AQL)
 
 
 def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:

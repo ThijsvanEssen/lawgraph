@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from lawgraph.core.code_families import CODE_FAMILIES
-from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, is_bwb_id
+from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.xml import XML_TAG_RE
 
@@ -79,6 +79,9 @@ class CitationHit:
     # ``raw_match``. Unset for a hit that was not read from a text.
     start: int | None = None
     end: int | None = None
+    # The law as the text writes it ("Rv", "Vw 2000"), for a citation of a law the registry
+    # does not know: then *bwb_id* and *celex* are unset (``extract(unknown_laws=True)``).
+    unknown_law: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -234,6 +237,25 @@ _HIERNA_RE = re.compile(
     r"\s*\(hierna:?\s*(?:de\s+|het\s+)?(?:te noemen\s+)?(?P<alias>[^()]{1,40}?)\s*\)",
     re.IGNORECASE,
 )
+# A law the registry does not know, as a citation writes it after the article: an
+# abbreviation (``Rv``, ``RO``, ``AWR``, ``Vw 2000``) or a name of one word (``Opiumwet``,
+# ``Vreemdelingenwet 2000``), with its year. A name of several words ("Wet op de rechterlijke
+# organisatie") has no end the text marks, so it is not read, nor is the first word of one
+# ("Invoeringswet Boeken 3, 5 en 6", "Rijkswet op het Nederlanderschap").
+_UNKNOWN_LAW_RE = re.compile(
+    r"(?P<law>(?:[A-Z][A-Za-z]*[A-Z][A-Za-z]*|[A-Z][a-z]{1,3}"
+    r"|(?P<name>[A-Z][a-z]+(?:wet|wetboek|besluit|verordening|reglement)))"
+    r"(?:\s+(?:18|19|20)\d{2})?)(?![\w-])"
+    r"(?(name)(?!\s+(?:[A-Z]|(?:op|van|tot|inzake|betreffende|houdende)\b)))"
+)
+# Words that stand after an article number without naming a law: the start of a sentence or
+# of a name of several words, a court, a part of a law, and a heading in capitals ("EN").
+_NOT_A_LAW = frozenset(
+    "AAN AARD ALLE ALS BIJ BOEK CODE DAN DAT DE DEZE DIE DIT DOOR DRIE EEN ELKE EN ER GEEN "
+    "HET HIJ HOF HR IK IN IS JO LID MET NA NOTA NU OF OM ONZE OOK OP SUB TE TEN TER TITEL "
+    "TOT TWEE UIT UW VAN VIER VOOR WET WIJ ZIJ ZO".split()
+)
+CONFIDENCE_UNKNOWN_LAW = 0.8
 _MAX_NAME_WORDS = 12
 _MIN_NAME_LENGTH = 5
 # How far back "die wet" may look for the law it means.
@@ -471,14 +493,18 @@ class DutchCitationExtractor:
     # ── extraction ────────────────────────────────────────────────────────────
 
     def extract(
-        self, text: str, *, every_occurrence: bool = False
+        self, text: str, *, every_occurrence: bool = False, unknown_laws: bool = False
     ) -> list[CitationHit]:
         """Return the detected Dutch article citations in *text*.
 
         An article is reported once, at its first citation, unless *every_occurrence* asks
-        for a hit per citation.
+        for a hit per citation. With *unknown_laws* a citation of a law the registry does not
+        know (``artikel 392 Rv``) is a hit as well, with the law as written in
+        ``unknown_law`` and no id.
         """
-        if not text or not (self._code_map or self._name_map or self._books):
+        if not text or not (
+            self._code_map or self._name_map or self._books or unknown_laws
+        ):
             return []
 
         hits: list[CitationHit] = []
@@ -489,6 +515,12 @@ class DutchCitationExtractor:
         for match in ARTICLE_HEAD_RE.finditer(text):
             law = self._resolve_law(text, match.end(), local, last)
             if law is None:
+                if unknown_laws:
+                    hits.extend(
+                        self._unknown_hits(
+                            text, match, None if every_occurrence else seen
+                        )
+                    )
                 continue
             self._remember_alias(text, law, local)
             span = (match.start(), law.end)
@@ -498,6 +530,41 @@ class DutchCitationExtractor:
                 hits.append(hit)
                 last = (law.end, hit.bwb_id or hit.celex or "")
         return hits
+
+    @staticmethod
+    def _unknown_hits(
+        text: str,
+        match: re.Match[str],
+        seen: set[tuple[str | None, str | None, str]] | None,
+    ) -> Iterator[CitationHit]:
+        """The articles of a citation whose law is written as a law the registry does
+        not know (``_UNKNOWN_LAW_RE``); nothing when no law is written there."""
+        if _ANAPHORA_RE.match(text, match.end()):
+            return
+        pos = LAW_CONNECTOR_RE.match(text, match.end()).end()  # type: ignore[union-attr]
+        named = _UNKNOWN_LAW_RE.match(text, pos)
+        if not named or named["law"].split()[0].upper() in _NOT_A_LAW:
+            return
+        law = named["law"]
+        qualifier = (match.group("qual") or "").strip(", ") or None
+        span = (match.start(), named.end())
+        for number in parse_article_numbers(match.group("nums") or ""):
+            key = (None, law.upper(), number)
+            if seen is not None:
+                if key in seen:
+                    continue
+                seen.add(key)
+            yield CitationHit(
+                kind="article",
+                article_number=number,
+                qualifier=qualifier,
+                confidence=CONFIDENCE_UNKNOWN_LAW,
+                raw_match=text[span[0] : span[1]],
+                snippet=make_snippet(text, span),
+                start=span[0],
+                end=span[1],
+                unknown_law=law,
+            )
 
     def _remember_alias(self, text: str, law: _Law, local: dict[str, str]) -> None:
         """Register the name a citation gives its law: ``(hierna: de Awb)``."""
@@ -522,7 +589,9 @@ class DutchCitationExtractor:
             law_id, art_num = self._apply_family(law, raw_num)
             if not law_id:
                 continue
-            is_bwb = is_bwb_id(law_id)
+            is_bwb = (
+                parse_celex(law_id) is None
+            )  # a BWB id, or the pseudo id of the EVRM
             key = (law_id if is_bwb else None, None if is_bwb else law_id, art_num)
             if seen is not None:
                 if key in seen:

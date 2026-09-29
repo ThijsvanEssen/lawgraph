@@ -26,6 +26,10 @@ from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries import search as search_module
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
 from lawgraph.db.queries.search import search_all
+from lawgraph.pipelines.semantic.echr import (
+    _ensure_echr_article,
+    _ensure_echr_convention_instrument,
+)
 
 SR, GW, AWB, BW6 = "BWBR0001854", "BWBR0001840", "BWBR0005537", "BWBR0005289"
 GDPR = "32016R0679"
@@ -263,6 +267,56 @@ def test_an_article_without_a_law_that_only_one_law_has(store: ArangoStore) -> N
     assert answer["alternatives"] == []
 
 
+def _treaty_and_eu_act(store: ArangoStore) -> None:
+    """The EVRM as ``semantic echr`` writes it, and the AVG with the short title of
+    EUR-Lex; its abbreviation is the one ``curated instrument-abbreviations`` keeps."""
+    convention = _ensure_echr_convention_instrument(store)
+    _ensure_echr_article(store, convention, "8")
+    _put(
+        store,
+        COLLECTION_INSTRUMENTS,
+        make_node_key(GDPR),
+        celex=GDPR,
+        title="Verordening (EU) 2016/679 van het Europees Parlement en de Raad",
+        citation_title="Verordening (EU) 2016/679",
+        short_title="Algemene verordening gegevensbescherming",
+    )
+    _article(store, GDPR, "6")
+    search_module._law_cache.clear()
+
+
+@pytest.mark.parametrize(
+    ("query", "key"),
+    [
+        ("art. 8 EVRM", "echr_convention_8"),
+        ("artikel 8, eerste lid, van het EVRM", "echr_convention_8"),
+        ("art. 6 AVG", "32016r0679_6"),
+        ("artikel 6, eerste lid, AVG", "32016r0679_6"),
+    ],
+)
+def test_an_article_of_a_treaty_or_eu_act_by_its_abbreviation(
+    store: ArangoStore, query: str, key: str
+) -> None:
+    _treaty_and_eu_act(store)
+    answer = resolve(store, query)
+    assert (answer["kind"], answer["match"]["key"]) == ("article", key)
+    assert answer["confidence"] == 0.95
+
+
+def test_a_treaty_or_eu_act_by_its_abbreviation(store: ArangoStore) -> None:
+    _treaty_and_eu_act(store)
+    for query, key in (("EVRM", "echr_convention"), ("AVG", "32016r0679")):
+        answer = resolve(store, query)
+        assert (answer["kind"], answer["match"]["key"]) == ("instrument", key), query
+        assert answer["confidence"] == 0.9
+
+
+def test_an_article_of_a_law_that_is_not_loaded_is_no_match(
+    store: ArangoStore,
+) -> None:
+    assert resolve(store, "art. 350 Sv")["kind"] == "none"
+
+
 # ── dossiers and papers ───────────────────────────────────────────────────────
 
 
@@ -393,7 +447,7 @@ def test_resolving_reads_by_key_or_index_never_every_document(
     asked = [
         (aql, bind)
         for aql, bind in queries
-        if "names: [" not in aql and "RETURN [i.props.short_title" not in aql
+        if "names: [" not in aql and "aliases: inst.props.aliases" not in aql
     ]
     assert len(asked) >= 6
     for aql, bind in asked:

@@ -192,6 +192,29 @@ def _judgment_names(entries: Entries) -> list[str]:
     return found
 
 
+def _instrument_abbreviations(entries: Entries) -> list[str]:
+    from lawgraph.core.identifiers import is_bwb_id, parse_celex
+
+    found = []
+    claimed: dict[str, str] = {}
+    for law_id, value in entries.items():
+        if not (is_bwb_id(law_id) or parse_celex(law_id)) or law_id != law_id.upper():
+            found.append(f"{law_id}: not a BWB id or CELEX number in upper case")
+        abbreviations = (value or {}).get("abbreviations") or []
+        if not abbreviations or any(
+            not isinstance(a, str) or not a or a != a.strip() for a in abbreviations
+        ):
+            found.append(f"{law_id}: abbreviations must be non-empty and trimmed")
+            continue
+        for abbreviation in abbreviations:
+            other = claimed.setdefault(abbreviation.upper(), law_id)
+            if other != law_id:
+                found.append(
+                    f"{abbreviation}: an abbreviation of both {other} and {law_id}"
+                )
+    return found
+
+
 def _in(values: set[str], what: str) -> Callable[[Entries], list[str]]:
     def check(entries: Entries) -> list[str]:
         return [
@@ -298,6 +321,14 @@ LISTS: dict[str, CuratedList] = {
             "ECLI -> {names, note}: the names lawyers call landmark judgments by",
             _records("judgments", "ecli"),
             _judgment_names,
+        ),
+        _list(
+            "instrument-abbreviations",
+            "instrument_abbreviations.json",
+            "BWB id or CELEX -> {abbreviations, note}: how lawyers abbreviate an instrument "
+            "whose source gives no abbreviation",
+            _records("instruments", "id"),
+            _instrument_abbreviations,
         ),
         _list(
             "decision-kinds",

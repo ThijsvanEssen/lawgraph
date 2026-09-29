@@ -25,8 +25,15 @@ slash enforced), one `requests.Session`, 30 s timeout, and retry with exponentia
 (5 tries, factor 2) on HTTP 429, 502, 503, 504 and connection errors. No source needs an API key.
 
 Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
-`instruments.props.short_title` and law names through instrument titles; `normalize bwb` writes `short_title` from the official
-abbreviations in the BWB WTI files (see BWB below). A code split over books
+`instruments.props.short_title` and `aliases` and law names through instrument titles;
+`normalize bwb` writes both from the official abbreviations in the BWB WTI files (see BWB
+below), `normalize eurlex` the short title of an EU act. `core/aliases.code_aliases` makes the
+table: a short title is the law's, another alias only when one law claims it (`WvSr` is the
+Wetboek van Strafrecht's, `BW` no single book's). An EU act or treaty whose source gives no
+abbreviation gets one from `src/lawgraph/data/curated/instrument_abbreviations.json`
+(`lawgraph curated set instrument-abbreviations`: `AVG` for Verordening (EU) 2016/679), for an
+instrument in the graph only; the EVRM of `semantic echr` has `EVRM` as its alias. The same
+table serves `/api/resolve` and the search. A code split over books
 (`src/lawgraph/data/code_families.json`, `core/code_families.CODE_FAMILIES`: the Burgerlijk
 Wetboek, book 1 to 10 and 7A, each its own BWB id; see the code families under BWB) resolves through the book in the article number: `artikel 6:162 BW` cites
 article `162` of book 6 (`BWBR0005289`, key `bwbr0005289_162`), whichever books are loaded, so a
@@ -209,13 +216,18 @@ are read.
 
 | `meta.match_type` | Section says | Confidence |
 |-------------------|--------------|-----------|
-| `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.90 |
-| `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.85 |
-| `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`) and the dossier made the law: its instrument is `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it | 0.80 |
-| `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names, else of the only law the dossier changes; the dossier changed that article | 0.70 |
+| `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.95; 0.3 when the dossier did not change the article |
+| `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.65 |
+| `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`) and the dossier made the law: its instrument is `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it | 0.95 |
+| `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names, else of the only law the dossier changes; the dossier changed that article | 0.8 |
 
-The confidences are constants (`core/mvt_articles.py`) and a first estimate: there is no set of
-labelled sections to calibrate them against. A heading with several numbers (`Artikelen 3 en
+The confidences (`core/mvt_articles.py`) are the share a hand check of 10 edges per kind in
+lawgraph_small found right. A change of the article by the dossier corroborates a match; a
+heading that names an article the dossier did not change mostly names one of another law than
+the one it is taken for (the heading says `Wft`, the dossier changes Boek 2 BW). What a match
+rests on is `match_type`, `changed` (whether the dossier changed the article) and
+`explanation`, in Dutch ("De kop 'Onderdeel A (artikel 247)' noemt het artikel; het dossier
+wijzigt het artikel."). A heading with several numbers (`Artikelen 3 en
 4`) gives a reference per number. An `Artikel I` / `Onderdeel B` that names no article gives
 nothing: attaching it to every article the dossier changed would only repeat the dossier-level
 edges. `heading_target` and `own_number` also point at the article of the law when the dossier
@@ -227,8 +239,9 @@ two laws share.
 An edge is one per (document, target), so an article that several sections explain has one
 edge, and it is the edge `tk-mvt` writes at dossier level: the same key, upgraded in place.
 Its `confidence` is that of the surest section, `source` is `mvt-section-linker` and `meta`
-holds `section_anchor`, `char_start`, `char_end`, `match_type` and `heading` of that section
-and `sections`, every section that explains the article, in document order. The span of a
+holds `section_anchor`, `char_start`, `char_end`, `match_type`, `changed`, `explanation` and
+`heading` of that section and `sections`, every section that explains the article (each with
+its `confidence`, `changed` and `explanation`), in document order. The span of a
 section is `text[char_start:char_end]`: the whole section for a heading match, the text before
 its first subsection for a match in the body. The two pipelines can run in either order and any
 number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to.
@@ -385,9 +398,20 @@ the article first and resolves the law after it:
 | `artikel 2.8 van de Wnb` after `... (hierna: de Wnb)` in the same text | 0.90 |
 | `artikel 3a van die wet` (also `deze`, `genoemde`, `voornoemde`), the law named last within 3,000 characters | 0.70 |
 
-Codes come from `instruments.props.short_title`, names from instrument titles; a title two
-instruments share is not a name. A missing target article is resolved as the Overview says (a
-stub from 0.9); an article cited only as `artikel N` with no law is not written.
+Codes come from `instruments.props.short_title` and `aliases` (see the Overview), names from
+instrument titles; a title two instruments share is not a name. A missing target article is
+resolved as the Overview says (a stub from 0.9); an article cited only as `artikel N` with no
+law is not written.
+
+A citation of a law the graph does not have (`art. 392 Rv` before the Rv is loaded) has no
+article to point at: the judgment keeps it in `props.unresolved_citations`, one per law and
+article in reading order, at most 100: `law` as written, `article_number`, `raw_match` and
+`qualifier` of the first citation, its `leden`, `onderdelen`, `aanhef`, `paragraph_ids` and
+`mention_count`; null when there is none, written only when it changed. Such a law is an
+abbreviation (`Rv`, `RO`, `AWR`, `Vw 2000`) or a name of one word (`Opiumwet`,
+`Huisvestingswet 2014`) after the article; a name of several words (`Wet op de rechterlijke
+organisatie`) is not read, nor a word that starts a sentence (`Onze Minister`). Once the law is
+loaded, the next run links the citation and drops it from the list.
 
 One `REFERS_TO` edge per judgment and article, its `confidence` the strongest mention and
 `meta.mentions` the mentions in reading order (`paragraph_id`, `paragraph_number`, `start`,
@@ -664,8 +688,17 @@ Run `normalize bwb` first.
 only articles that carry `props.references` are scanned, and each reference naming a regulation
 and an article becomes one edge with confidence 1.0, `meta` = `start`, `end`, `text`,
 `reason = bwb_xml_ref`, `reference_kind` (`intref` or `extref`) and the `leden`, `onderdelen` and
-`aanhef` the reference names. An edge is keyed by its two articles, so an article that refers
-to another twice keeps the span of one; `props.references` keeps both. Self references are dropped and targets must exist — nothing is stubbed.
+`aanhef` the reference names. The link of the XML is written by hand beside the words and is
+sometimes wrong where the words are not ("artikel 230m" linked to article 230, "artikel 1133"
+to 113, "Artikel 62 leden 2 en 3 van Boek 4" to 178): where the words name another article,
+numbered the same way, they count, and `meta.linked_article` keeps the key of the linked one. A
+link inside a range the words name ("395a tot en met 397") stands; a book the words name
+("van Boek 4", `6:162`) counts for a link into a book of a code. When the graph has no article
+the words name, the link counts (14 of 8,063 references changed target in lawgraph_small).
+An edge is keyed by its two articles, so an article that refers to another twice keeps the span
+of one; `props.references` keeps both. Self references are dropped and targets must exist —
+nothing is stubbed. The edges of an article are derived in full: one its references no longer
+support is removed.
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
 `--store-citations` also writes the references onto the article as `props.citations`.
 
@@ -704,15 +737,32 @@ are made by `normalize bwb` from the toestand it parses; a reference to an annex
 there gets a stub.
 
 **Semantic `bwb-relation-types`.** Sets `semantic_type` on article-to-article `REFERS_TO` edges
-from the text around the reference (`meta.start`/`end`): a trigger phrase in the 40 characters before
-the reference scores 0.9, elsewhere within 120 characters either side 0.7, no trigger gives
-`cross_reference` at 0.5. Types and their patterns: `limiting_exception`,
-`definitional_reference`, `conditional_requirement`, `prerequisite_procedure`,
-`scope_limitation`, `delegated_discretion`, `cross_reference`, and writes only the
-classifications that changed. The
-confidence of one pattern can be overridden with `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>`, for
-example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` (patterns: the type names above and
-`cross_reference_explicit`, `cross_reference_fallback`).
+from the sentence around the reference (`meta.start`/`end`; a sentence ends at a full stop
+before a capital, a semicolon or a line break): a trigger phrase in the 40 characters before the
+reference (`adjacent`), "in <reference> bedoelde/genoemde/omschreven/vermelde"
+(`definitional_reference_inverted`), a trigger elsewhere within 120 characters in the sentence
+(`window`), else `cross_reference`. Types: `limiting_exception`, `definitional_reference`
+(also "genoemd in", "vermeld in", "opgenomen in"), `conditional_requirement`,
+`prerequisite_procedure`, `scope_limitation`, `delegated_discretion`, `cross_reference`. A
+type rests on a phrase only, so `meta.semantic_confidence` is the share of such classifications
+a hand check found right (10 per cell in lawgraph_small, `_relation_type_patterns.CONFIDENCE`):
+
+| Pattern | adjacent | window |
+|---------|----------|--------|
+| `limiting_exception` | 0.85 | 0.65 |
+| `definitional_reference` | 0.85 (inverted 0.9) | 0.25 |
+| `conditional_requirement` | 0.8 | 0.3 |
+| `scope_limitation` | 0.8 | 0.8 |
+| `prerequisite_procedure` | 0.6 | 0.3 |
+| `delegated_discretion` | 0.3 | 0.3 |
+| `cross_reference_explicit` | 0.5 | 0.5 |
+| `cross_reference_fallback` | 0.5 | |
+
+`meta.semantic_pattern` is `<pattern>_<adjacent|window>` (`cross_reference_fallback`),
+`explanation` names the phrase and where it stood; the edge's own `confidence` (1.0) is that the
+reference exists. Only the classifications that changed are written. The confidence of one
+pattern can be overridden with `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>`, for example
+`LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION_WINDOW=0.7`.
 
 ## Staatsblad
 
@@ -797,8 +847,10 @@ reads up to 50,000.
 **Normalize.** Judgment per item (`echr_<itemid>`; `appno`, `title`, `date`, `articles`,
 `conclusion`, `importance`); no judgment text.
 
-**Semantic `echr`.** Creates the instrument `EVRM` (`echr_convention`, `bwb_id`
-`ECHR-CONVENTION`) and one article per cited Convention article (`echr_convention_<n>`);
+**Semantic `echr`.** Writes the instrument `EVRM` (`echr_convention`, `bwb_id`
+`ECHR-CONVENTION`, alias `EVRM`, so "art. 8 EVRM" in a Dutch text cites it; the Convention
+loaded from the BWB, `BWBV0001000`, has `EVRM` as its short title and takes the abbreviation
+over) and one article per cited Convention article (`echr_convention_<n>`);
 `REFERS_TO` from judgment to article at 0.95, and from judgment to a BWB instrument named in
 the `conclusion` at 0.80.
 
