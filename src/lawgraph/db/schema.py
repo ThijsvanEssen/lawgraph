@@ -447,6 +447,12 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_COMMITMENTS, ["props.ministry"], False),
         (COLLECTION_DOSSIERS, ["props.cabinet"], False),
         (COLLECTION_DOSSIERS, ["props.ministry"], False),
+        # `GET /api/feed` reads each kind of event newest first by its date
+        # (`queries/feed.py`); decisions by `props.date` above.
+        (COLLECTION_DOCUMENTS, ["props.kind", "props.date"], False, False),
+        (COLLECTION_COMMITMENTS, ["props.made_on"], False, False),
+        (COLLECTION_INSTRUMENTS, ["props.kind", "props.date_published"], False, False),
+        (COLLECTION_INSTRUMENT_VERSIONS, ["props.valid_from"], False, False),
         # `GET /api/members?cabinet=`: `@cabinet IN ...government_functions[*].cabinet_key`
         (COLLECTION_MEMBERS, ["props.government_functions[*].cabinet_key"], False),
         # raw_sources: the normalize pipelines read by source and kind. Not sparse, so a

@@ -1,0 +1,636 @@
+"""``GET /api/feed`` on a small graph that has one event of every kind: what each item shows,
+every filter, the facets under the other filters, and pages that neither repeat nor skip."""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from typing import Any
+from xml.etree import ElementTree
+
+import pytest
+from fastapi.testclient import TestClient
+
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
+    COLLECTION_CASES,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_MEMBERS,
+    RELATION_ABOUT,
+    RELATION_AMENDS,
+    RELATION_PART_OF,
+)
+from lawgraph.config.settings import API_ALLOWED_ORIGINS
+from lawgraph.core.models import Node, NodeType
+from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+
+# TK GUIDs: a member's key is its GUID made a node key.
+AALDERS = "11111111-1111-1111-1111-111111111111"
+BAKKER = "22222222-2222-2222-2222-222222222222"
+HEINEN = "33333333-3333-3333-3333-333333333333"
+MOTION_CASE = "44444444-4444-4444-4444-444444444444"
+AALDERS_KEY = AALDERS.replace("-", "_")
+BAKKER_KEY = BAKKER.replace("-", "_")
+HEINEN_KEY = HEINEN.replace("-", "_")
+
+
+def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
+    labels = props.pop("labels", ["TK"])
+    return Node(
+        collection=collection, type=node_type, key=key, labels=labels, props=props
+    )
+
+
+def _actor(person: str, faction: str | None, role: str, capacity: str) -> dict:
+    return {
+        "person_id": person,
+        "faction_id": faction,
+        "name": {AALDERS: "A. Aalders", BAKKER: "B. Bakker", HEINEN: "E. Heinen"}.get(
+            person, "griffier"
+        ),
+        "role": role,
+        "function": "Tweede Kamerlid" if capacity == "kamerlid" else "minister",
+        "capacity": capacity,
+    }
+
+
+FIRST = "Eerste ondertekenaar"
+CO = "Mede ondertekenaar"
+
+
+def _document(key: str, kind: str, date: str, dossier: str, **props: Any) -> Node:
+    return _node(
+        COLLECTION_DOCUMENTS,
+        NodeType.DOCUMENT,
+        key,
+        kind=kind,
+        date=date,
+        dossier_numbers=[dossier],
+        document_number=f"2026D{key[-3:]}",
+        **props,
+    )
+
+
+def _nodes() -> list[Node]:
+    return [
+        _node(COLLECTION_CABINETS, NodeType.CABINET, "schoof", from_date="2024-07-02"),
+        _node(COLLECTION_CABINETS, NodeType.CABINET, "jetten", from_date="2026-02-23"),
+        _node(
+            COLLECTION_FACTIONS,
+            NodeType.FACTION,
+            "vvd",
+            abbreviation="VVD",
+            external_id="f-vvd",
+            external_ids=["f-vvd"],
+        ),
+        _node(
+            COLLECTION_FACTIONS,
+            NodeType.FACTION,
+            "d66",
+            abbreviation="D66",
+            external_id="f-d66",
+            external_ids=["f-d66-old", "f-d66"],
+        ),
+        _node(
+            COLLECTION_MEMBERS,
+            NodeType.MEMBER,
+            AALDERS_KEY,
+            name="Anna Aalders",
+            external_id=AALDERS,
+        ),
+        _node(
+            COLLECTION_MEMBERS,
+            NodeType.MEMBER,
+            BAKKER_KEY,
+            name="Bram Bakker",
+            external_id=BAKKER,
+        ),
+        _node(
+            COLLECTION_MEMBERS,
+            NodeType.MEMBER,
+            HEINEN_KEY,
+            name="Eelco Heinen",
+            external_id=HEINEN,
+        ),
+        _node(
+            COLLECTION_DOSSIERS,
+            NodeType.DOSSIER,
+            "37000",
+            number="37000",
+            label="37000",
+            title="Wijziging van de Wet voorbeeld (Wet beter voorbeeld)",
+            ministry="fin",
+        ),
+        _node(
+            COLLECTION_DOSSIERS,
+            NodeType.DOSSIER,
+            "37001_vii",
+            number="37001",
+            suffix="VII",
+            label="37001-VII",
+            title="Begroting Binnenlandse Zaken 2027",
+            ministry="bzk",
+        ),
+        _document(
+            "bill_001",
+            "Voorstel van wet",
+            "2026-03-01",
+            "37000",
+            title="Wijziging van de Wet voorbeeld (Wet beter voorbeeld)",
+            actors=[_actor(HEINEN, None, FIRST, "bewindspersoon")],
+        ),
+        # the bill as the Eerste Kamer received it is not submitted again
+        _document(
+            "ek_bill_002",
+            "Voorstel van wet",
+            "2026-06-15",
+            "37000",
+            labels=["EersteKamer", "EK"],
+        ),
+        _document("note_003", "Nota van wijziging", "2026-04-01", "37000"),
+        _document(
+            "amendment_004",
+            "Amendement",
+            "2026-05-01",
+            "37000",
+            subject="Amendement van het lid Aalders over de grens",
+            actors=[
+                _actor(AALDERS, "f-vvd", FIRST, "kamerlid"),
+                _actor(BAKKER, "f-d66-old", CO, "kamerlid"),
+            ],
+        ),
+        _document(
+            "motion_005",
+            "Motie (gewijzigd/nader)",
+            "2026-05-01",
+            "37001-VII",
+            subject="Gewijzigde motie van het lid Bakker over gemeenten",
+            case_ids=[MOTION_CASE],
+            actors=[
+                _actor(BAKKER, "f-d66", FIRST, "kamerlid"),
+                _actor("griffier", None, CO, "overig"),
+            ],
+        ),
+        _document(
+            "letter_006",
+            "Brief regering",
+            "2026-06-01",
+            "37001-VII",
+            subject="Stand van zaken gemeentefonds",
+            actors=[_actor(HEINEN, None, FIRST, "bewindspersoon")],
+        ),
+        # a paper of another kind is no event
+        _document("report_007", "Verslag", "2026-06-02", "37000"),
+        _node(
+            COLLECTION_CASES, NodeType.CASE, MOTION_CASE.replace("-", "_"), kind="Motie"
+        ),
+        _node(
+            COLLECTION_DECISIONS,
+            NodeType.DECISION,
+            "stemming_1",
+            date="2026-05-12",
+            subject="Gewijzigde motie van het lid Bakker over gemeenten",
+            decision_text="Aangenomen.",
+            primary_case_id=MOTION_CASE,
+            dossier_numbers=["37001-VII"],
+            kind="motie",
+            vote_kind="faction",
+            tally={"Voor": 80, "Tegen": 70},
+            passed=True,
+        ),
+        # a decision without an outcome is no vote
+        _node(
+            COLLECTION_DECISIONS,
+            NodeType.DECISION,
+            "stemming_2",
+            date="2026-05-12",
+            subject="Uitstel",
+            dossier_numbers=["37001-VII"],
+        ),
+        _node(
+            COLLECTION_COMMITMENTS,
+            NodeType.COMMITMENT,
+            "commitment_1",
+            text="De minister stuurt voor de zomer een brief over de grens.",
+            display_name="De minister stuurt voor de zomer een brief…",
+            minister_name="Heinen, E.",
+            made_on="2024-09-01",
+            expected_resolution="2025-06-01",
+            status="open",
+            member_key=HEINEN_KEY,
+            ministry="fin",
+            cabinet="schoof",
+        ),
+        _node(
+            COLLECTION_INSTRUMENTS,
+            NodeType.INSTRUMENT,
+            "bwbr0000001",
+            bwb_id="BWBR0000001",
+            citation_title="Wet voorbeeld",
+            article_count=12,
+        ),
+        _node(
+            COLLECTION_ARTICLES,
+            NodeType.ARTICLE,
+            "bwbr0000001_1",
+            bwb_id="BWBR0000001",
+            article_number="1",
+            labels=["BWB"],
+        ),
+        _node(
+            COLLECTION_INSTRUMENTS,
+            NodeType.INSTRUMENT,
+            "stb_2026_10",
+            kind="publicatie",
+            citation_title="Stb. 2026, 10",
+            publication_kind="Stb",
+            publication_year=2026,
+            publication_number="10",
+            date_published="2026-07-01",
+            dossier_numbers=["37000"],
+            labels=["BWB", "Publication"],
+        ),
+        _node(
+            COLLECTION_INSTRUMENT_VERSIONS,
+            NodeType.INSTRUMENT_VERSION,
+            "bwbr0000001_2026_08_01",
+            bwb_id="BWBR0000001",
+            valid_from="2026-08-01",
+            labels=["BWB", "Version"],
+        ),
+        *(
+            _node(
+                COLLECTION_ARTICLE_VERSIONS,
+                NodeType.ARTICLE_VERSION,
+                f"bwbr0000001_av_{n}_1",
+                bwb_id="BWBR0000001",
+                valid_from="2026-08-01",
+                labels=["BWB"],
+            )
+            for n in (1, 2)
+        ),
+    ]
+
+
+def _seed(store: ArangoStore) -> None:
+    with NodeWriter(store) as writer:
+        writer.add_all(_nodes())
+    with EdgeWriter(store, what=None) as edges:
+        edges.add(
+            f"{COLLECTION_COMMITMENTS}/commitment_1",
+            f"{COLLECTION_DOSSIERS}/37000",
+            RELATION_ABOUT,
+            source="t",
+        )
+        edges.add(
+            f"{COLLECTION_DOCUMENTS}/motion_005",
+            f"{COLLECTION_CASES}/{MOTION_CASE.replace('-', '_')}",
+            RELATION_PART_OF,
+            source="t",
+        )
+        edges.add(
+            f"{COLLECTION_INSTRUMENTS}/stb_2026_10",
+            f"{COLLECTION_ARTICLES}/bwbr0000001_1",
+            RELATION_AMENDS,
+            source="t",
+        )
+
+
+def _test_client() -> TestClient:
+    """A client of the front end, whose origin the rate limit lets through: these tests ask
+    more than the limit allows one address, and the tests after them would get 429."""
+    return TestClient(app, headers={"Origin": API_ALLOWED_ORIGINS[0]})
+
+
+@pytest.fixture()
+def client(database: str) -> Iterator[TestClient]:
+    store = ArangoStore()
+    _seed(store)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        yield _test_client()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+
+def _feed(client: TestClient, **params: Any) -> dict[str, Any]:
+    response = client.get("/api/feed", params=params)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def _ids(answer: dict[str, Any]) -> list[str]:
+    return [item["id"] for item in answer["items"]]
+
+
+def _counts(facet: list[dict[str, Any]]) -> dict[str | None, int]:
+    return {row["value"]: row["count"] for row in facet}
+
+
+ALL = [
+    "instrument_versions/bwbr0000001_2026_08_01",
+    "instruments/stb_2026_10",
+    "documents/letter_006",
+    "decisions/stemming_1",
+    # two papers of one day: by id, descending
+    "documents/motion_005",
+    "documents/amendment_004",
+    "documents/note_003",
+    "documents/bill_001",
+    "commitments/commitment_1",
+]
+
+
+def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
+    answer = _feed(client)
+    assert _ids(answer) == ALL
+    assert answer["total"] == 9
+    assert answer["next_cursor"] is None
+    items = {item["kind"]: item for item in answer["items"]}
+    assert set(items) == {
+        "toezegging",
+        "wetsvoorstel",
+        "nota_van_wijziging",
+        "amendement",
+        "motie",
+        "stemming",
+        "publicatie",
+        "inwerkingtreding",
+        "brief_regering",
+    }
+
+    commitment = items["toezegging"]
+    assert commitment["title"] == "De minister stuurt voor de zomer een brief…"
+    assert commitment["summary"].startswith("De minister stuurt")
+    assert commitment["commitment"] == {
+        "status": "open",
+        "expected_resolution": "2025-06-01",
+    }
+    assert commitment["persons"] == [
+        {
+            "key": HEINEN_KEY,
+            "name": "Eelco Heinen",
+            "role": "bewindspersoon",
+            "faction": None,
+        }
+    ]
+    assert (commitment["ministry"], commitment["cabinet"]) == ("fin", "schoof")
+    assert commitment["dossier"] == {
+        "key": "37000",
+        "number": "37000",
+        "title": "Wijziging van de Wet voorbeeld (Wet beter voorbeeld)",
+        "short_title": "Wet beter voorbeeld",
+    }
+
+    amendment = items["amendement"]
+    assert amendment["title"] == "Amendement van het lid Aalders over de grens"
+    assert amendment["subkind"] == "Amendement"
+    assert amendment["node"] == {"collection": "documents", "key": "amendment_004"}
+    assert amendment["tk_url"].endswith("2026D004")
+    assert amendment["ministry"] == "fin"  # of its dossier
+    assert amendment["cabinet"] == "jetten"
+    assert amendment["persons"] == [
+        {
+            "key": AALDERS_KEY,
+            "name": "A. Aalders",
+            "role": "indiener",
+            "faction": {"key": "vvd", "short": "VVD"},
+        },
+        {
+            "key": BAKKER_KEY,
+            "name": "B. Bakker",
+            "role": "medeindiener",
+            # an older Fractie record of the faction
+            "faction": {"key": "d66", "short": "D66"},
+        },
+    ]
+
+    # the griffier signs, but is no person of the event
+    assert [p["key"] for p in items["motie"]["persons"]] == [BAKKER_KEY]
+    assert items["motie"]["subkind"] == "Motie (gewijzigd/nader)"
+    assert items["wetsvoorstel"]["persons"][0]["role"] == "bewindspersoon"
+
+    vote = items["stemming"]
+    assert vote["vote"] == {
+        "passed": True,
+        "outcome": "aangenomen",
+        "vote_kind": "faction",
+        "tally": {"Voor": 80, "Tegen": 70},
+    }
+    assert vote["subkind"] == "motie"
+    assert vote["summary"] == "Aangenomen."
+    # the signatures of the motion it decided
+    assert [p["key"] for p in vote["persons"]] == [BAKKER_KEY]
+    assert vote["ministry"] == "bzk"
+
+    publication = items["publicatie"]
+    assert publication["title"] == "Stb. 2026, 10"
+    assert publication["publication"] == {
+        "series": "stb",
+        "year": 2026,
+        "number": "10",
+        "instruments": [
+            {
+                "key": "bwbr0000001",
+                "title": "Wet voorbeeld",
+                "official_url": "https://wetten.overheid.nl/BWBR0000001",
+            }
+        ],
+    }
+    assert publication["official_url"].endswith("stb-2026-10.html")
+    assert publication["dossier"]["number"] == "37000"
+
+    commencement = items["inwerkingtreding"]
+    assert commencement["title"] == "Wet voorbeeld"
+    assert commencement["official_url"] == (
+        "https://wetten.overheid.nl/BWBR0000001/2026-08-01"
+    )
+    assert commencement["commencement"] == {
+        "instrument": {
+            "key": "bwbr0000001",
+            "title": "Wet voorbeeld",
+            "official_url": "https://wetten.overheid.nl/BWBR0000001",
+        },
+        "article_count": 12,
+        "changed_articles": 2,
+    }
+    assert commencement["dossier"] is None
+
+
+@pytest.mark.parametrize(
+    ("params", "expected"),
+    [
+        ({"kind": "motie,stemming"}, ["decisions/stemming_1", "documents/motion_005"]),
+        ({"since": "2026-05-01", "until": "2026-05-31"}, ALL[3:6]),
+        ({"cabinet": "schoof"}, ["commitments/commitment_1"]),
+        ({"cabinet": "nobody"}, []),
+        (
+            {"ministry": "fin"},
+            [
+                "instruments/stb_2026_10",
+                "documents/amendment_004",
+                "documents/note_003",
+                "documents/bill_001",
+                "commitments/commitment_1",
+            ],
+        ),
+        (
+            {"dossier": "37001"},
+            ["documents/letter_006", "decisions/stemming_1", "documents/motion_005"],
+        ),
+        ({"dossier": "37001-VII"}, ALL[2:5]),
+        ({"dossier": "3700"}, ALL[1:]),
+        (
+            {"member": BAKKER_KEY},
+            [
+                "decisions/stemming_1",
+                "documents/motion_005",
+                "documents/amendment_004",
+            ],
+        ),
+        (
+            {"member": HEINEN_KEY},
+            [
+                "documents/letter_006",
+                "documents/bill_001",
+                "commitments/commitment_1",
+            ],
+        ),
+        ({"member": "nobody"}, []),
+        ({"faction": "vvd"}, ["documents/amendment_004"]),
+        (
+            {"faction": "d66"},
+            [
+                "decisions/stemming_1",
+                "documents/motion_005",
+                "documents/amendment_004",
+            ],
+        ),
+        # the title, or the title of the dossier
+        ({"q": "GRENS"}, ["documents/amendment_004", "commitments/commitment_1"]),
+        ({"q": "binnenlandse"}, ALL[2:5]),
+        ({"q": "wet voorbeeld", "kind": "inwerkingtreding"}, ALL[:1]),
+    ],
+)
+@pytest.mark.parametrize("facets", [True, False])
+def test_a_filter_keeps_its_events(
+    client: TestClient, params: dict[str, str], expected: list[str], facets: bool
+) -> None:
+    answer = _feed(client, facets=facets, **params)
+    assert _ids(answer) == expected
+    if facets:
+        assert answer["total"] == len(expected)
+    else:
+        assert answer["total"] is None and answer["facets"] is None
+
+
+def test_each_facet_is_counted_under_the_other_filters(client: TestClient) -> None:
+    answer = _feed(client, kind="motie", ministry="bzk")
+    facets = answer["facets"]
+    assert answer["total"] == 1
+    # every kind of dossier 37001-VII (the ministry bzk), whatever the kind asked for
+    assert _counts(facets["kind"]) == {"brief_regering": 1, "stemming": 1, "motie": 1}
+    # the motions of every ministry
+    assert _counts(facets["ministry"]) == {"bzk": 1}
+    assert _counts(facets["faction"]) == {"d66": 1}
+    assert _counts(facets["cabinet"]) == {"jetten": 1}
+
+    everything = _feed(client)["facets"]
+    assert _counts(everything["ministry"]) == {"fin": 5, "bzk": 3, None: 1}
+    assert _counts(everything["cabinet"]) == {"jetten": 8, "schoof": 1}
+    # the amendment counts for both its factions
+    assert _counts(everything["faction"]) == {None: 6, "d66": 3, "vvd": 1}
+    assert _counts(_feed(client, cabinet="schoof")["facets"]["cabinet"]) == {
+        "jetten": 8,
+        "schoof": 1,
+    }
+
+
+@pytest.mark.parametrize("limit", [1, 2, 3])
+@pytest.mark.parametrize("facets", [True, False])
+def test_the_pages_neither_repeat_nor_skip(
+    client: TestClient, facets: bool, limit: int
+) -> None:
+    """A page may end inside a day (the motion and the amendment of 1 May)."""
+    seen: list[str] = []
+    cursor = None
+    for _ in range(10):
+        params: dict[str, Any] = {"limit": limit, "facets": facets}
+        if cursor:
+            params["cursor"] = cursor
+        answer = _feed(client, **params)
+        seen += _ids(answer)
+        cursor = answer["next_cursor"]
+        if cursor is None:
+            break
+    assert seen == ALL
+
+
+def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
+    response = client.get(
+        "/api/feed.atom", params={"kind": "motie,stemming", "limit": 1}
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/atom+xml")
+    root = ElementTree.fromstring(response.content)
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    entries = root.findall("a:entry", ns)
+    assert [e.find("a:id", ns).text for e in entries] == [  # type: ignore[union-attr]
+        "tag:lawgraph,2026:decisions/stemming_1"
+    ]
+    following = {
+        link.get("rel"): link.get("href") for link in root.findall("a:link", ns)
+    }
+    assert "kind=motie%2Cstemming" in following["next"]
+    assert "cursor=" in following["next"]
+
+
+def test_a_cursor_or_kind_that_is_none_is_422(client: TestClient) -> None:
+    assert client.get("/api/feed?cursor=nonsense").status_code == 422
+    assert client.get("/api/feed?kind=motie,roddel").status_code == 422
+    assert client.get("/api/feed?dossier=abc").status_code == 422
+
+
+def test_a_day_of_many_events_is_paged_whole(database: str) -> None:
+    """Read one page at a time from its index, a kind finds the events of the cursor's day
+    after the cursor, however many there are."""
+    store = ArangoStore()
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            _node(
+                COLLECTION_INSTRUMENTS,
+                NodeType.INSTRUMENT,
+                f"stb_2026_{n}",
+                kind="publicatie",
+                citation_title=f"Stb. 2026, {n}",
+                date_published="2026-07-01" if n % 2 else f"2026-06-{n % 28 + 1:02d}",
+                labels=["BWB", "Publication"],
+            )
+            for n in range(1, 301)
+        )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = _test_client()
+        seen: list[str] = []
+        cursor = None
+        for _ in range(60):
+            params: dict[str, Any] = {"limit": 7, "facets": False}
+            if cursor:
+                params["cursor"] = cursor
+            answer = _feed(client, **params)
+            seen += _ids(answer)
+            cursor = answer["next_cursor"]
+            if cursor is None:
+                break
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert len(seen) == len(set(seen)) == 300

@@ -147,6 +147,47 @@ has no such number, as an Eerste Kamer paper, whose page is its `url`.
 | `GET /api/documents`, `/{key}` | documents across sources, metadata only, with `dossier_numbers` (`q`, `kind`, `chamber`, `source`, `dossier` number: documents linked directly or through a case; `limit` up to 1000, `offset`; `total` counts all matches); one with `tk_url` (its page), `file_url` (the original Word or PDF file of a Tweede Kamer document, from the Gegevensmagazijn), its extracted text (null when `normalize tk-content` has not reached it), its `sections` (the headings of the paper: `id`, `heading`, `level`, `parent`, `kind`, `number`, `number_scheme`, `article_refs`, `law`, `char_start`, `char_end`; offsets into `text`, empty without text), `dossier_numbers` (the dossiers it is `PART_OF`, in either chamber), `case_kinds` (the `Zaak.Soort` of its cases) and `explains` (the articles and instruments it `EXPLAINS`: `id`, `key`, `collection`, `bwb_id`, `article_number`; an article version resolves to its article, an instrument has no `article_number`) |
 | `GET /api/documents/{key}/passages?bwb_id=&article=` | the sections of a memorandum that explain an article (or one of its versions), in document order: `section_id`, `heading`, `level`, `char_start`, `char_end`, `text`, `confidence` (uncalibrated), `match_type`; with `total`; empty list for an article without passages or a document without text, 404 for an unknown document |
 
+### Feed
+
+What was promised and proposed, as one stream of events, newest first. An event is a node
+of the graph with a date; nothing is stored for the feed.
+
+| `kind` | Event | Node, date |
+|--------|-------|------------|
+| `toezegging` | a commitment made (its current `status`; the source gives no date of a change) | commitment, `made_on` |
+| `wetsvoorstel` | a bill submitted: `Voorstel van wet`, also of an initiative | Tweede Kamer document, `date` |
+| `nota_van_wijziging` | `Nota van wijziging`, also of an initiative | Tweede Kamer document, `date` |
+| `amendement` | `Amendement`, also a changed one | Tweede Kamer document, `date` |
+| `motie` | `Motie`, also a changed one | Tweede Kamer document, `date` |
+| `brief_regering` | `Brief regering` | Tweede Kamer document, `date` |
+| `stemming` | a vote with an outcome (`passed` true or false) | decision, `date` |
+| `publicatie` | a publication in the Staatsblad, Staatscourant or Tractatenblad | instrument of kind `publicatie`, `date_published` |
+| `inwerkingtreding` | a new version (toestand) of a law in force | instrument version, `valid_from` (may lie ahead) |
+
+| Path | Returns |
+|------|---------|
+| `GET /api/feed` | `items`, `next_cursor`, `total` and `facets`. Filters: `kind` (comma-separated), `since`, `until` (YYYY-MM-DD, inclusive), `cabinet` (a key: the events from its beëdiging to that of the next cabinet), `ministry`, `dossier` (the start of a dossier label: `36600` holds `36600-VII`, `37020-` the chapters), `member` (a member key: the papers they signed, the votes on them, the commitments they made), `faction` (a faction key: the papers its Kamerleden signed for it and the votes on them), `q` (words of the title or of the title of the event's dossier, any case); `limit` (1-200, default 50), `cursor` (the `next_cursor` of the page before; 422 for a token the API did not hand out). Order: `date`, then `id`, both descending; a page starts after its cursor, so pages neither repeat nor skip an event. `facets` (default true) counts per `kind`, `ministry`, `faction` and `cabinet` (`{value, count}`, the largest first, `value` null for none) the events under the other filters, and `total` under all of them, whatever the cursor; `facets=false` gives null for both and reads one page only, the choice for the pages after the first |
+| `GET /api/feed.atom` | the same page under the same parameters (without `facets`) as an Atom 1.0 feed (`application/atom+xml`): an entry per event (`id` `tag:lawgraph,2026:<id>`, `title`, `updated` the date, `link` its `official_url`, else its `tk_url`, else its node in the API, `category` its kind, an `author` per person, `summary` its summary and dossier), and a `next` link with the cursor |
+
+Each item: `id` (`collection/key` of its node), `kind`, `date` (no time of day; the source
+gives none), `title` (a commitment its first words, a paper or vote its subject, a publication
+its citation title, a version the title of its law), `summary` (the text of a commitment, the
+decision of a vote, `Aangenomen.`; else null), `subkind` (the document kind as the source
+writes it, `Motie (gewijzigd/nader)`; for a vote what was voted on, `motie`, `amendement`,
+`wetsvoorstel`, `overig`), `node` (`collection`, `key`), `dossier` (the first:
+`key`, `number`, `title`, `short_title`; null without), `persons` (`key` a member key, `name`,
+`role` `indiener` (the first signatory), `medeindiener` or `bewindspersoon`, `faction`
+(`key`, `short`) of a Kamerlid; of a vote the signatories of the paper it decided; the griffier
+and other signatures that are neither are left out), `ministry` (of a commitment its own, else
+the `ministry` of its first dossier: who brought the dossier in), `cabinet` (in office on
+`date`), `official_url` (a publication, a version of a law), `tk_url` (a paper), and by kind:
+`vote` (`passed`, `outcome` `aangenomen`/`verworpen`, `vote_kind` `member`/`faction`, `tally`
+as the source writes it), `commitment` (`status`, `expected_resolution`), `publication`
+(`series` `stb`/`stcrt`/`trb`, `year`, `number`, `instruments`: the laws it amends,
+introduces or repeals, up to ten, `key`, `title`, `official_url`), `commencement`
+(`instrument`, `article_count` of the law, `changed_articles`: the articles with a version
+that begins that day).
+
 ### Graph, search, nodes
 
 | Path | Returns |
@@ -220,7 +261,7 @@ relations and status.
 | Path | Contents |
 |------|----------|
 | `api/app.py` | app, middleware, router registration, `lawgraph-api` entry point |
-| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers`, `committees` (also `members` and `factions`), `government` (`ministries`, `cabinets` and `commitments`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `relationships`, `annexes`, `parliament` (also `parties`)) |
+| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers`, `committees` (also `members` and `factions`), `government` (`ministries`, `cabinets` and `commitments`), `decisions`, `documents`, `graph`, `nodes`, `resolve`, `search`, `stats`, `relationships`, `annexes`, `parliament` (also `parties`), `feed`) |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
 | `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
 | `api/dependencies.py` | `get_store()`: one shared `ArangoStore` |
