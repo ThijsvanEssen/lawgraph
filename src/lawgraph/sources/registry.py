@@ -51,8 +51,8 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_tk,
     retrieve_tk_content,
     retrieve_tk_dossiers,
+    retrieve_tooi,
     retrieve_verdragenbank,
-    retrieve_wikidata,
 )
 from lawgraph.pipelines.semantic import graph_list_stats
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
@@ -121,8 +121,8 @@ SOURCES: dict[str, str] = {
     "eerstekamer": "Eerste Kamer",
     "echr": "ECHR (HUDOC)",
     "verdragenbank": "Verdragenbank",
-    "wikidata": "Wikidata",
     "rijksoverheid": "Rijksoverheid (rijksoverheid.nl)",
+    "tooi": "TOOI (standaarden.overheid.nl)",
     "graph": "The whole graph",
 }
 # How a source is spelled in a class name, where capitalising it is not enough.
@@ -373,8 +373,9 @@ RETRIEVE: list[Pipeline] = [
         fills_gaps=True,
     ),
     _pipeline(
-        retrieve_wikidata,
-        "The Dutch cabinets, from Wikidata (SPARQL): used for those before 1945.",
+        retrieve_tooi,
+        "The TOOI value list of every ministry (names, dates, mergers since about 2010); "
+        "`lawgraph ministries build` makes data/ministries.json from it.",
         argv_for_all=_no_argv,
     ),
     _pipeline(

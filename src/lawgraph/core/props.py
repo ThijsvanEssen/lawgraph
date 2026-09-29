@@ -425,8 +425,7 @@ class CommitteeProps(_CommonProps):
 
 
 class SourceRefProps(_StrictBase):
-    """Where a cabinet or a post was read: ``rijksoverheid`` (with the page and the day)
-    or ``wikidata``."""
+    """Where a cabinet or a post was read: ``rijksoverheid``, with the page and the day."""
 
     name: str | None = None
     url: str | None = None
@@ -500,12 +499,8 @@ class CabinetPhaseProps(_StrictBase):
 
 class CabinetProps(_CommonProps):
     name: str | None = None  # "kabinet-Rutte IV"
-    wikidata_id: str | None = None  # a cabinet from before 1945
     from_date: str | None = None
     to_date: str | None = None  # null while in office
-    # how precisely the dates are known: day, month or year (the old cabinets)
-    from_date_precision: str | None = None
-    to_date_precision: str | None = None
     prime_minister: str | None = None  # member key
     previous: str | None = None  # the cabinet key before it
     parties: list[PartyRefProps] | None = None

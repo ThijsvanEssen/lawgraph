@@ -1,0 +1,844 @@
+{
+ "about": "The ministries of the Netherlands, in protocol order, built by `lawgraph ministries build` from TOOI (rwc_ministeries_compleet) and the Rijksoverheid cabinet pages. Each period says its source: tooi and rijksoverheid are written again by every build; by hand are the key, the order, a name no source knows, and a succession marked successor_source hand.",
+ "sources": {
+  "tooi": {
+   "url": "https://identifier.overheid.nl/tooi/set/rwc_ministeries_compleet/6",
+   "published": "2026-02-24"
+  },
+  "rijksoverheid": {
+   "url": "https://www.rijksoverheid.nl/regering/over-de-regering/kabinetten-sinds-1945",
+   "read_on": "2026-09-25"
+  }
+ },
+ "ministries": [
+  {
+   "key": "az",
+   "name": "Algemene Zaken",
+   "abbreviation": "AZ",
+   "tooi": "mnre1010",
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "aok",
+   "name": "Algemene Oorlogvoering van het Koninkrijk",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": "1946-07-02",
+     "successor": "az",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "bz",
+   "name": "Buitenlandse Zaken",
+   "abbreviation": "BZ",
+   "tooi": "mnre1013",
+   "periods": [
+    {
+     "from": "1798-03-12",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "jenv",
+   "name": "Justitie en Veiligheid",
+   "abbreviation": "JenV",
+   "tooi": "mnre1058",
+   "periods": [
+    {
+     "from": "2018-01-01",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "venj",
+   "name": "Veiligheid en Justitie",
+   "abbreviation": "VenJ",
+   "tooi": "mnre1058",
+   "periods": [
+    {
+     "from": "2010-12-01",
+     "until": "2017-12-31",
+     "successor": "jenv",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2017-62719.html",
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "justitie",
+   "name": "Justitie",
+   "abbreviation": "MinJus",
+   "tooi": "mnre1058",
+   "periods": [
+    {
+     "from": null,
+     "until": "2010-11-30",
+     "successor": "venj",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2010-16523.html",
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "bzk",
+   "name": "Binnenlandse Zaken en Koninkrijksrelaties",
+   "abbreviation": "BZK",
+   "tooi": "mnre1034",
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "biza",
+   "name": "Binnenlandse Zaken",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": "1998-08-02",
+     "successor": "bzk",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "bzbpbo",
+   "name": "Binnenlandse Zaken, Bezitsvorming en Publiekrechtelijke Bedrijfsorganisatie",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1956-10-29",
+     "until": "1959-05-18",
+     "successor": "biza",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "ocw",
+   "name": "Onderwijs, Cultuur en Wetenschap",
+   "abbreviation": "OCW",
+   "tooi": "mnre1109",
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "ow",
+   "name": "Onderwijs en Wetenschappen",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1965-04-14",
+     "until": "1994-08-21",
+     "successor": "ocw",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "okw",
+   "name": "Onderwijs, Kunsten en Wetenschappen",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": "1965-04-13",
+     "successor": "ow",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "fin",
+   "name": "Financiën",
+   "abbreviation": "Fin",
+   "tooi": "mnre1090",
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "def",
+   "name": "Defensie",
+   "abbreviation": "Def",
+   "tooi": "mnre1018",
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "oorlog",
+   "name": "Oorlog",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": "1959-05-18",
+     "successor": "def",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "marine",
+   "name": "Marine",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": "1959-05-18",
+     "successor": "def",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "ienw",
+   "name": "Infrastructuur en Waterstaat",
+   "abbreviation": "IenW",
+   "tooi": "mnre1130",
+   "periods": [
+    {
+     "from": "2018-01-01",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "ienm",
+   "name": "Infrastructuur en Milieu",
+   "abbreviation": "IenM",
+   "tooi": "mnre1130",
+   "periods": [
+    {
+     "from": "2010-10-14",
+     "until": "2017-12-31",
+     "successor": "ienw",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2017-62720.html",
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "venw",
+   "name": "Verkeer en Waterstaat",
+   "abbreviation": "VW",
+   "tooi": "mnre0170",
+   "periods": [
+    {
+     "from": null,
+     "until": "2010-10-13",
+     "successor": "ienm",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2010-16525.html",
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "vene",
+   "name": "Verkeer en Energie",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": null,
+     "successor": "venw",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "owen",
+   "name": "Openbare Werken en Wederopbouw",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": null,
+     "successor": "venw",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "opw",
+   "name": "Openbare Werken",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": "venw",
+     "basis": null,
+     "source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "ezk",
+   "name": "Economische Zaken en Klimaat",
+   "abbreviation": "EZK",
+   "tooi": "mnre1045",
+   "periods": [
+    {
+     "from": "2018-01-01",
+     "until": "2024-07-01",
+     "successor": "ez",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2024-22493.html",
+     "source": "tooi"
+    },
+    {
+     "from": "2026-02-23",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "ez",
+   "name": "Economische Zaken",
+   "abbreviation": "EZ",
+   "tooi": "mnre1040",
+   "periods": [
+    {
+     "from": null,
+     "until": "2010-10-13",
+     "successor": "eli",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2010-16584.html",
+     "source": "tooi"
+    },
+    {
+     "from": "2013-01-01",
+     "until": "2017-12-31",
+     "successor": "ezk",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2017-62722.html",
+     "source": "tooi"
+    },
+    {
+     "from": "2024-07-02",
+     "until": "2026-02-22",
+     "successor": "ezk",
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "eli",
+   "name": "Economische Zaken, Landbouw en Innovatie",
+   "abbreviation": "ELenI",
+   "tooi": "mnre1045",
+   "periods": [
+    {
+     "from": "2010-10-14",
+     "until": "2012-12-31",
+     "successor": "ez",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2012-23040.html",
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "hn",
+   "name": "Handel en Nijverheid",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": "1946-07-02",
+     "successor": "ez",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "ahn",
+   "name": "Arbeid, Handel en Nijverheid",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": "hn",
+     "basis": null,
+     "source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "kgg",
+   "name": "Klimaat en Groene Groei",
+   "abbreviation": "KGG",
+   "tooi": "mnre1182",
+   "periods": [
+    {
+     "from": "2024-07-02",
+     "until": "2026-02-22",
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "lvvn",
+   "name": "Landbouw, Visserij, Voedselzekerheid en Natuur",
+   "abbreviation": "LVVN",
+   "tooi": "mnre1153",
+   "periods": [
+    {
+     "from": "2024-07-02",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "lnv",
+   "name": "Landbouw, Natuur en Voedselkwaliteit",
+   "abbreviation": "LNV",
+   "tooi": "mnre1150",
+   "periods": [
+    {
+     "from": null,
+     "until": "2010-10-13",
+     "successor": "eli",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2010-16584.html",
+     "source": "tooi"
+    },
+    {
+     "from": "2017-10-26",
+     "until": "2024-07-01",
+     "successor": "lvvn",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2024-22495.html",
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "lnbv",
+   "name": "Landbouw, Natuurbeheer en Visserij",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1989-11-07",
+     "until": "2003-05-26",
+     "successor": "lnv",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "lenv",
+   "name": "Landbouw en Visserij",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1959-05-19",
+     "until": "1989-11-06",
+     "successor": "lnbv",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "lvv",
+   "name": "Landbouw, Visserij en Voedselvoorziening",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": "1959-05-18",
+     "successor": "lenv",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "szw",
+   "name": "Sociale Zaken en Werkgelegenheid",
+   "abbreviation": "SZW",
+   "tooi": "mnre1073",
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "sz",
+   "name": "Sociale Zaken",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": "1981-09-10",
+     "successor": "szw",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "szv",
+   "name": "Sociale Zaken en Volksgezondheid",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1952-09-02",
+     "until": "1971-07-05",
+     "successor": "sz",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "arbeid",
+   "name": "Arbeid",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": "sz",
+     "basis": null,
+     "source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "vws",
+   "name": "Volksgezondheid, Welzijn en Sport",
+   "abbreviation": "VWS",
+   "tooi": "mnre1025",
+   "periods": [
+    {
+     "from": null,
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "wvc",
+   "name": "Welzijn, Volksgezondheid en Cultuur",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1982-11-04",
+     "until": "1994-08-21",
+     "successor": "vws",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "vm",
+   "name": "Volksgezondheid en Milieuhygiëne",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1971-07-06",
+     "until": "1982-11-03",
+     "successor": "wvc",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "crm",
+   "name": "Cultuur, Recreatie en Maatschappelijk Werk",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1965-04-14",
+     "until": "1982-11-03",
+     "successor": "wvc",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "mw",
+   "name": "Maatschappelijk Werk",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1952-09-02",
+     "until": "1965-04-13",
+     "successor": "crm",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "vro",
+   "name": "Volkshuisvesting en Ruimtelijke Ordening",
+   "abbreviation": "VRO",
+   "tooi": "mnre1171",
+   "periods": [
+    {
+     "from": "2024-07-02",
+     "until": "2026-02-22",
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "vb",
+   "name": "Volkshuisvesting en Bouwnijverheid",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1956-10-13",
+     "until": "1965-04-13",
+     "successor": "vro",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "wv",
+   "name": "Wederopbouw en Volkshuisvesting",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1947-02-28",
+     "until": "1956-10-12",
+     "successor": "vb",
+     "basis": null,
+     "source": "rijksoverheid",
+     "successor_source": "hand"
+    }
+   ]
+  },
+  {
+   "key": "vrom",
+   "name": "Volkshuisvesting, Ruimtelijke Ordening en Milieubeheer",
+   "abbreviation": "VROM",
+   "tooi": "mnre0180",
+   "periods": [
+    {
+     "from": null,
+     "until": "2010-10-13",
+     "successor": "ienm",
+     "basis": "https://zoek.officielebekendmakingen.nl/stcrt-2010-16525.html",
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "aenm",
+   "name": "Asiel en Migratie",
+   "abbreviation": "AenM",
+   "tooi": "mnre1162",
+   "periods": [
+    {
+     "from": "2024-07-02",
+     "until": "2026-02-22",
+     "successor": null,
+     "basis": null,
+     "source": "tooi"
+    }
+   ]
+  },
+  {
+   "key": "scheepvaart",
+   "name": "Scheepvaart",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "rijksoverheid"
+    }
+   ]
+  },
+  {
+   "key": "ogd",
+   "name": "Overzeese Gebiedsdelen",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1945-06-24",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "rijksoverheid"
+    }
+   ]
+  },
+  {
+   "key": "uor",
+   "name": "Uniezaken en Overzeese Rijksdelen",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1951-03-15",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "rijksoverheid"
+    }
+   ]
+  },
+  {
+   "key": "or",
+   "name": "Overzeese Rijksdelen",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1956-10-13",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "rijksoverheid"
+    }
+   ]
+  },
+  {
+   "key": "zo",
+   "name": "Zaken Overzee",
+   "abbreviation": null,
+   "tooi": null,
+   "periods": [
+    {
+     "from": "1957-02-14",
+     "until": null,
+     "successor": null,
+     "basis": null,
+     "source": "rijksoverheid"
+    }
+   ]
+  }
+ ]
+}

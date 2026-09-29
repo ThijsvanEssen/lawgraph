@@ -16,8 +16,8 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
-| Wikidata | `wikidata` | none (read by `normalize rijksoverheid`) | none |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | `tk-government` |
+| TOOI | `tooi` | none (`lawgraph ministries build`) | none |
 | The graph itself (`graph`) | none | none | `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: base URL from `config/settings.py` (trailing
@@ -755,7 +755,7 @@ from the stored pages without asking again. An index without cabinet links raise
 **Normalize.** `core/rijksoverheid.py` reads a page (seats, holder lines, dated facts,
 resignation sentences); `core/cabinet_posts.py` turns its seats into posts;
 `core/cabinet_phases.py` its facts into phases; `core/cabinet_sources.py` puts the cabinets
-together, those before the first page from the stored Wikidata records.
+together.
 
 A post is held in a **seat**: `<ministry>/<post>[/<portfolio>]` (`ienw/minister`,
 `bz/minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp`,
@@ -811,19 +811,20 @@ no post any more loses them. A holder
 no Tweede Kamer person matches becomes a member of their own, key
 `rijksoverheid_<initials>_<surname>`, label `Rijksoverheid`; once a later run matches them,
 that member is removed. Every page is read on every run. Needs `normalize tk-dossiers` (the
-members and their signatures) and `normalize tk` (the factions).
+members, their signatures and the factions).
 
 Every post also gets its normalised `post` (`minister-president`, `viceminister-president`,
 `minister`, `minister_zonder_portefeuille`, `staatssecretaris`) and `ministry`, read from the
-function by `core/ministries.classify_function`, and `cabinet_key`. The ministries are one
-controlled list in `core/ministries.py` (`GET /api/ministries`), in protocol order: `az`, `bz`,
-`jenv`, `bzk`, `ocw`, `fin`, `def`, `ienw`, `ez`, `kgg`, `lvvn`, `szw`, `vws`, `vro`, `aenm`;
-a ministry that no longer exists under its name (`venw` Verkeer en Waterstaat, `vrom`, `justitie`,
-`ezk`, ...) has its own key, a `successor` and the last day it had the name, and a later source
-that writes the old name ("Binnenlandse Zaken" for BZK) is read as the successor. A minister
-without portfolio ("minister voor …") and a state secretary belong to the ministry their post is
-placed under, by the words of the portfolio (Klimaat en Energie `ezk`, Basis- en Voortgezet
-Onderwijs `ocw`, Rechtsbescherming `jenv`, Herstel Groningen `bzk`); a name that names no
+function by `core/ministries.classify_function`, and `cabinet_key`. The ministries are the
+table `src/lawgraph/data/ministries.json` (`GET /api/ministries`), in protocol order, built
+from the official sources (see TOOI below). A ministry name that no longer exists
+(`venw` Verkeer en Waterstaat, `vrom`, `justitie`) has its own key; each name has periods,
+each with its last day and successor, and a later source that writes an old name
+("Binnenlandse Zaken" for BZK) is read as the name it had then. A minister without portfolio
+("minister voor …") and a state secretary belong to the ministry their post is placed
+under, by the words of the portfolio (Klimaat en Energie `ezk`, Basis- en Voortgezet
+Onderwijs `ocw`, Rechtsbescherming `jenv`, Herstel Groningen `bzk`): these rules
+(`_PORTFOLIO_RULES`) are kept by hand, no source gives them. A name that names no
 portfolio ("Nederlandse minister", the viceminister-president) has none.
 
 Every cabinet becomes a node of `cabinets`, key from its name (`kabinet-Rutte-Asscher`,
@@ -844,34 +845,42 @@ of `core/cabinet_checks.py` (a post outside its cabinet, two holders of a seat a
 `overlaps_with`, phases that do not follow each other from start to end); a broken rule fails
 the command.
 
-## Wikidata
+## TOOI
 
-**Provides.** Every item that is a `Cabinet of the Netherlands` (Q2479200): its name, start
-(the most precise of P580 and P571), end (of P582 and P576), each with its precision, and the
-cabinet before it (P155), in one SPARQL query to `WIKIDATA_SPARQL`. 57 cabinets; most before
-1945 are dated to the year only, often without an end or predecessor.
+**Provides.** The value list `rwc_ministeries_compleet` of TOOI (Thesauri en Ontologieën
+voor Overheidsinformatie, KOOP; `TOOI_BASE`): every ministry since about 2010 with its code
+(`mnre1045`), abbreviation, begin and end, its former names (`HistorischeVersie` with the
+last day of each) and the events between them (`Oprichting`, `Samenvoeging`,
+`Afsplitsing`, `Toestandswijziging`), each with the Staatscourant decree it rests on. The
+content of the TOOI registers and value lists may be used by anyone without restriction
+(TOOI beheerplan, 2.3 Rechtenbeleid). Numbered versions; the page of the list links each.
 
-**Retrieve.** One `wikidata-cabinet-json` record per cabinet (`id`, `name`, `from_date`,
-`to_date`, their precision, `previous`), in full on every run. An empty answer raises.
-`normalize rijksoverheid` reads the cabinets that began before the first Rijksoverheid page:
-name and period only, no posts or phases, the period as Wikidata gives it
-(`core/cabinets.wikidata_period`): a date known to the year stays a year (the first of
-January, precision `year`), a date Wikidata lacks stays null. Nothing is taken from the
-cabinets around it, since Wikidata lacks some (Thorbecke II ends in 1866, not when Heemskerk
-began in 1873).
+**Retrieve.** The latest version, one `tooi-ministries-jsonld` record (external id
+`rwc_ministeries_compleet`, `payload_json.items`, `meta.url`, `meta.read_on`). Two
+requests; always in full. A page without versions, or a version without a ministry, raises.
 
-**Semantic `tk-government`.** Who in government made each commitment and brought each dossier
-in (`pipelines/semantic/tk_government.py`). A commitment names its maker as the Tweede Kamer
-writes it (`Herbert, H.G.`, `Minister van Economische Zaken`) on its date: the member is the one
-who held a post of that kind that day and whose surname is in the name
-(`core/government.match_signatory`), else none (`member_key` null); `post` and `ministry` come
-from the role, `cabinet` is the cabinet in office that day (on a handover day the new one). A
-dossier is brought in by whoever signed its earliest signed document first (`AUTHORED` role
-`Eerste ondertekenaar`, capacity `bewindspersoon` or `kamerlid`, the document `PART_OF` the
-dossier directly or through a case): a bewindspersoon gives it the `ministry` of their function
-that day and `initiative: false`, a Kamerlid `initiative: true`; `cabinet` is the cabinet in
-office then. Every commitment and dossier on every run; writes what changed. On lawgraph_small
-192 of 195 commitments find their member.
+**The ministry table.** `lawgraph ministries build` makes `src/lawgraph/data/ministries.json`
+from the stored TOOI list and the stored Rijksoverheid cabinet pages
+(`core/ministry_sources.py`) on top of the file itself, and prints what changed;
+`lawgraph ministries check` prints the same and fails on a change. Commit what a build
+writes. Per ministry name (the key, `ez`): the name, the TOOI code and abbreviation, and
+its periods, each with `from`, `until` (the last day), `successor`, `basis` (the decree)
+and `source`:
+
+- `tooi` for every name TOOI knows. A name comes back (`Economische Zaken`: a ministry
+  until 2010, a name of `mnre1045` in 2013–2017 and 2024–2026): each time is a period. A
+  name that ends is succeeded by the next name of its ministry, or by the name the
+  ministry it merged into had the next day (Verkeer en Waterstaat and VROM by Infrastructuur
+  en Milieu on 14 October 2010).
+- `rijksoverheid` for a name before TOOI: from its first post on the cabinet pages, until the
+  day before a post under its successor begins on the day its last post ends (Oorlog and
+  Marine until 18 May 1959); else the end stays null.
+- `hand` for what no source gives: the key, the protocol order, a name no source knows
+  (Openbare Werken), and a succession before 2010 (`successor_source: hand`).
+
+TOOI's dates are those of the decrees: `justitie` until 30 November 2010 and `venj` until
+31 December 2017, while the cabinets changed the names of the posts earlier; a post that
+uses a name before its first period keeps that name.
 
 ## Ordering
 
@@ -881,7 +890,7 @@ office then. Every commitment and dossier on every run; writes what changed. On 
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
-| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures) and `normalize tk` (the factions a party is matched to); stored `wikidata-cabinet-json` for the cabinets before 1945 |
+| normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures, and the factions a party is matched to) |
 | normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
