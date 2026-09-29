@@ -10,9 +10,11 @@ metadata gives (``dc:creator``) tells apart.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from lawgraph.config.constants import RECHTSPRAAK_EVERY_COURT
 from lawgraph.core.court_sources import (
     TIER_ANDERE,
     TIER_BUITENLAND,
@@ -44,6 +46,7 @@ class Court:
     from_date: str | None = None
     until: str | None = None
     court: str | None = None  # code XX: the name the metadata gives
+    owms_term: str | None = None  # the creator of the index: Gerechtshof_Amsterdam
 
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "courts.json"
@@ -64,6 +67,7 @@ def load_courts(path: Path) -> tuple[Court, ...]:
             from_date=c.get("from"),
             until=c.get("until"),
             court=c.get("court"),
+            owms_term=c.get("owms_term"),
         )
         for c in json.loads(path.read_text(encoding="utf-8"))["courts"]
     )
@@ -117,3 +121,32 @@ def court_of(court_code: str | None, court: str | None = None) -> Court | None:
     if court_code == CODE_OTHER and (court or "").strip() in OTHER_COURT_BY_NAME:
         return OTHER_COURT_BY_NAME[(court or "").strip()]
     return COURT_BY_CODE.get(court_code)
+
+
+def owms_terms(names: Sequence[str]) -> list[str]:
+    """The ``creator`` terms of the index for *names*: an ECLI court code (``HR``,
+    ``GHAMS``) or a tier (``gerechtshof``: every court of it the index can be filtered by),
+    in order, each once; ``all`` is every court (no terms). Raises for a name that is none of
+    these, or a court the index cannot be filtered by (one without an OWMS identifier)."""
+    if RECHTSPRAAK_EVERY_COURT in names:
+        return []
+    terms: list[str] = []
+    for name in names:
+        court = COURT_BY_CODE.get(name.upper())
+        if court is not None:
+            if not court.owms_term:
+                raise ValueError(
+                    f"{court.code} ({court.name}): the index cannot be filtered by it"
+                )
+            found = [court.owms_term]
+        elif name.lower() in TIERS:
+            found = [
+                c.owms_term for c in COURTS if c.tier == name.lower() and c.owms_term
+            ]
+        else:
+            raise ValueError(
+                f"unknown court {name!r}: an ECLI court code (HR, RVS, GHAMS), a tier "
+                f"({', '.join(TIERS)}) or {RECHTSPRAAK_EVERY_COURT}"
+            )
+        terms += [t for t in found if t not in terms]
+    return terms

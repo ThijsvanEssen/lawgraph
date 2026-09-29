@@ -23,7 +23,7 @@ from lawgraph.api.schemas.feed import (
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
     DAY_ORDER,
-    DOCUMENT_KINDS,
+    DOCUMENT_EVENTS,
     FEED_KINDS,
     FeedCursor,
     person_role,
@@ -32,7 +32,7 @@ from lawgraph.db.queries.feed import _SOURCES, FeedFilters, feed_query, summary_
 
 
 def test_a_cursor_survives_its_token() -> None:
-    cursor = FeedCursor(date="2026-05-01", kind="motie", id="documents/motion_005")
+    cursor = FeedCursor(date="2026-05-01", kind="Motie", id="documents/motion_005")
     token = cursor.encode()
     assert re.fullmatch(r"[A-Za-z0-9_-]+", token)
     assert FeedCursor.decode(token) == cursor
@@ -61,14 +61,14 @@ def test_a_token_this_api_did_not_hand_out_is_refused(token: str) -> None:
 @pytest.mark.parametrize(
     ("role", "capacity", "kind", "expected"),
     [
-        ("Eerste ondertekenaar", "kamerlid", "motie", "indiener"),
-        ("Mede ondertekenaar", "kamerlid", "motie", "medeindiener"),
-        ("Eerste ondertekenaar", "bewindspersoon", "brief_regering", "bewindspersoon"),
+        ("Eerste ondertekenaar", "kamerlid", "Motie", "indiener"),
+        ("Mede ondertekenaar", "kamerlid", "Motie", "medeindiener"),
+        ("Eerste ondertekenaar", "bewindspersoon", "Brief regering", "bewindspersoon"),
         ("Mede namens", "bewindspersoon", "toezegging", "bewindspersoon"),
         # a bill and a note of change are submitted by who signs them
-        ("Eerste ondertekenaar", "bewindspersoon", "wetsvoorstel", "indiener"),
-        ("Mede namens", "bewindspersoon", "nota_van_wijziging", "medeindiener"),
-        ("Eerste ondertekenaar", "overig", "wetsvoorstel", None),
+        ("Eerste ondertekenaar", "bewindspersoon", "Voorstel van wet", "indiener"),
+        ("Mede namens", "bewindspersoon", "Nota van wijziging", "medeindiener"),
+        ("Eerste ondertekenaar", "overig", "Voorstel van wet", None),
         (None, None, None, None),
     ],
 )
@@ -79,13 +79,13 @@ def test_a_signature_has_its_role(
 
 
 def test_a_day_orders_its_kinds() -> None:
-    assert DAY_ORDER[:3] == ("wetsvoorstel", "stemming", "toezegging")
+    assert DAY_ORDER[:3] == ("Voorstel van wet", "stemming", "toezegging")
     assert set(DAY_ORDER) == set(FEED_KINDS)
 
 
 def test_every_kind_is_read_from_a_source() -> None:
     assert set(_SOURCES) == set(FEED_KINDS)
-    assert set(DOCUMENT_KINDS) < set(FEED_KINDS)
+    assert set(DOCUMENT_EVENTS) < set(FEED_KINDS)
 
 
 def _bind_names(aql: str) -> set[str]:
@@ -97,7 +97,7 @@ def _bind_names(aql: str) -> set[str]:
     [
         FeedFilters(),
         FeedFilters(
-            kinds=("motie", "stemming"), since="2026-01-01", until="2026-12-31"
+            kinds=("Motie", "stemming"), since="2026-01-01", until="2026-12-31"
         ),
         FeedFilters(cabinet="jetten", ministry="fin", faction="vvd"),
         FeedFilters(dossier="36600", member="m1", q="Pensioen "),
@@ -105,7 +105,7 @@ def _bind_names(aql: str) -> set[str]:
 )
 @pytest.mark.parametrize("facets", [True, False])
 @pytest.mark.parametrize(
-    "cursor", [None, FeedCursor("2026-05-01", "motie", "documents/x")]
+    "cursor", [None, FeedCursor("2026-05-01", "Motie", "documents/x")]
 )
 def test_every_bind_variable_is_used_and_every_used_one_is_bound(
     filters: FeedFilters, facets: bool, cursor: FeedCursor | None
@@ -117,16 +117,16 @@ def test_every_bind_variable_is_used_and_every_used_one_is_bound(
 
 
 def test_without_facets_only_the_kinds_asked_for_are_read() -> None:
-    aql, bind = feed_query(FeedFilters(kinds=("motie",)), facets=False)
+    aql, bind = feed_query(FeedFilters(kinds=("Motie",)), facets=False)
     assert aql.count("LET rows_") == 1
     assert "kinds" not in bind
     assert "facets = null" in aql
 
 
 def test_the_facets_count_every_kind() -> None:
-    aql, bind = feed_query(FeedFilters(kinds=("motie",)), facets=True)
+    aql, bind = feed_query(FeedFilters(kinds=("Motie",)), facets=True)
     assert aql.count("LET rows_") == len(FEED_KINDS)
-    assert bind["kinds"] == ["motie"]
+    assert bind["kinds"] == ["Motie"]
     for name in ("kind", "ministry", "faction", "cabinet"):
         assert f"{name}: (" in aql
 
@@ -155,9 +155,9 @@ def test_a_kind_reads_the_cursor_s_day_by_its_rank() -> None:
         block.split('kind: "')[1].split('"')[0]: block
         for block in aql.split("LET rows_")[1:]
     }
-    assert "== @cursor_date ? false : true" in rows["wetsvoorstel"]
+    assert "== @cursor_date ? false : true" in rows["Voorstel van wet"]
     assert "== @cursor_date ? n._id > @cursor_id : true" in rows["toezegging"]
-    assert "== @cursor_date ? true : true" in rows["motie"]
+    assert "== @cursor_date ? true : true" in rows["Motie"]
     assert "cursor_rank" not in bind  # only the page with facets reads it
     _, bind = feed_query(FeedFilters(), cursor=cursor, facets=True)
     assert bind["cursor_rank"] == 2
@@ -166,13 +166,13 @@ def test_a_kind_reads_the_cursor_s_day_by_its_rank() -> None:
 def test_a_cursor_reads_nothing_after_its_day_from_the_index() -> None:
     _, bind = feed_query(
         FeedFilters(until="2026-12-31"),
-        cursor=FeedCursor("2026-05-01", "motie", "documents/x"),
+        cursor=FeedCursor("2026-05-01", "Motie", "documents/x"),
         facets=False,
     )
     assert bind["until"] == "2026-05-01"
     _, bind = feed_query(
         FeedFilters(until="2026-12-31"),
-        cursor=FeedCursor("2026-05-01", "motie", "documents/x"),
+        cursor=FeedCursor("2026-05-01", "Motie", "documents/x"),
         facets=True,
     )
     assert bind["until"] == "2026-12-31"
@@ -196,7 +196,7 @@ VOTE_ROW = {
         "passed": False,
         "tally": {"Voor": 70, "Tegen": 80},
         "vote_kind": "faction",
-        "kind": "motie",
+        "kind": "Motie",
     },
     "text": None,
     "persons": [
@@ -222,7 +222,7 @@ def test_a_vote_is_an_item() -> None:
     item = FeedItemDTO.from_row(VOTE_ROW)
     assert item.title == "Motie van het lid Bakker"
     assert item.summary == "Verworpen."
-    assert item.subkind == "motie"
+    assert item.subkind == "Motie"
     assert item.node.model_dump() == {"collection": "decisions", "key": "stemming_1"}
     assert item.vote is not None
     assert (item.vote.passed, item.vote.outcome) == (False, "verworpen")
@@ -288,7 +288,7 @@ def test_a_commitment_without_a_due_date_says_none() -> None:
             "date": "2026-09-22",
             "props": {
                 "display_name": "De minister…",
-                "status": "rumoured",
+                "status": "Openstaand",
                 "expected_resolution": "0001-01-01",
             },
             "text": "De minister stuurt een brief.",
@@ -305,7 +305,10 @@ def test_a_commitment_without_a_due_date_says_none() -> None:
         }
     )
     assert item.commitment is not None
-    assert item.commitment.model_dump() == {"status": None, "expected_resolution": None}
+    assert item.commitment.model_dump() == {
+        "status": "Openstaand",
+        "expected_resolution": None,
+    }
     assert [(p.key, p.name, p.surname, p.function, p.role) for p in item.persons] == [
         (
             "m1",
@@ -320,7 +323,7 @@ def test_a_commitment_without_a_due_date_says_none() -> None:
 def test_a_bill_is_named_by_its_dossier() -> None:
     item = FeedItemDTO.from_row(
         {
-            "kind": "wetsvoorstel",
+            "kind": "Voorstel van wet",
             "id": "documents/b1",
             "date": "2026-09-15",
             "dossier": {
@@ -374,7 +377,7 @@ def test_a_page_is_an_atom_feed() -> None:
 
 def test_the_feed_title_and_page_say_the_filters() -> None:
     filters = FeedFilters(
-        kinds=("motie", "stemming"), dossier="36600", ministry="fin", faction="d66"
+        kinds=("Motie", "stemming"), dossier="36600", ministry="fin", faction="d66"
     )
     page = FeedResponse(items=[FeedItemDTO.from_row(VOTE_ROW)])
     assert feed_title(filters, page) == (
@@ -382,7 +385,7 @@ def test_the_feed_title_and_page_say_the_filters() -> None:
     )
     assert feed_title(FeedFilters(), page) == "Concordans"
     assert site_query(filters) == {
-        "soort": "motie,stemming",
+        "soort": "Motie,stemming",
         "ministerie": "fin",
         "dossier": "36600",
         "fractie": "d66",
@@ -426,7 +429,7 @@ def test_a_dossier_has_the_short_title_it_goes_by(
     "filters",
     [
         FeedFilters(since="2026-05-01", until="2026-05-03"),
-        FeedFilters(since="2026-05-01", until="2026-05-03", kinds=("motie",), q="x"),
+        FeedFilters(since="2026-05-01", until="2026-05-03", kinds=("Motie",), q="x"),
         FeedFilters(since="2026-05-01", until="2026-05-03", member="m1", cabinet="c"),
     ],
 )
@@ -445,7 +448,7 @@ def test_a_summary_has_every_day_of_its_window() -> None:
                     "total": 1,
                     "kinds": [],
                     "votes": [{"subkind": "wetsvoorstel", "passed": False, "count": 1}],
-                    "dossiers": [{"kind": "motie", "number": "36600-VII", "count": 1}],
+                    "dossiers": [{"kind": "Motie", "number": "36600-VII", "count": 1}],
                 }
             ],
             "dossiers": [

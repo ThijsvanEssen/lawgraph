@@ -283,7 +283,7 @@ def test_activity_reads_its_subject_and_status() -> None:
     assert props["display_name"] == "Digitale grondrechten en data-ethiek (2027-02-11)"
 
 
-def test_commitment_reads_the_minister_and_maps_the_status() -> None:
+def test_commitment_reads_the_minister_and_the_status() -> None:
     _, props = tk_records.commitment(
         {
             "Id": "t-1",
@@ -296,32 +296,19 @@ def test_commitment_reads_the_minister_and_maps_the_status() -> None:
             "Aanmaakdatum": "2024-12-16T15:01:11.847+01:00",
         }
     )
-    assert props["status"] == "open"
+    assert props["status"] == "Openstaand"
     assert props["minister_name"] == "Wiersma, F.M."
     assert props["activity_number"] == "2024A05766"
     assert props["made_on"] == "2024-12-16"
 
 
-def test_statuses_seen_in_the_real_data_are_not_reported_as_open() -> None:
-    """The retrieve run warned about these two: they used to fall back to "open"."""
-    _, partly = tk_records.commitment({"Id": "t-3", "Status": "Deels Afgedaan"})
-    _, lapsed = tk_records.commitment({"Id": "t-4", "Status": "Vervallen"})
-    assert (partly["status"], lapsed["status"]) == ("partly_done", "lapsed")
-    assert not tk_records.unknown_commitment_statuses(
-        [{"Status": "Deels Afgedaan"}, {"Status": "Vervallen"}]
-    )
-
-
-def test_an_unfulfilled_commitment_keeps_that_apart_from_done() -> None:
-    _, done = tk_records.commitment({"Id": "t-1", "Status": "Nagekomen"})
-    _, failed = tk_records.commitment({"Id": "t-2", "Status": "Niet nagekomen"})
-    assert (done["status"], failed["status"]) == ("done", "unfulfilled")
-
-
-def test_unknown_commitment_statuses_are_reported() -> None:
-    assert tk_records.unknown_commitment_statuses(
-        [{"Status": "Openstaand"}, {"Status": "Iets nieuws"}, {}]
-    ) == {"Iets nieuws"}
+def test_a_commitment_keeps_the_status_the_kamer_gives_it() -> None:
+    statuses = ("Deels Afgedaan", "Vervallen", "Nagekomen", "Niet nagekomen", "Iets")
+    kept = [
+        tk_records.commitment({"Id": "t", "Status": s})[1]["status"] for s in statuses
+    ]
+    assert tuple(kept) == statuses
+    assert tk_records.commitment({"Id": "t"})[1]["status"] is None
 
 
 def test_document_reads_its_cases_dossiers_and_signatories() -> None:

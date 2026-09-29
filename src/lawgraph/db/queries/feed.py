@@ -42,7 +42,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION as INSTRUMENT_KIND_PUBLICATION
 from lawgraph.core.feed import (
-    DOCUMENT_KINDS,
+    DOCUMENT_EVENTS,
     EVENT_BILL,
     EVENT_COMMENCEMENT,
     EVENT_COMMITMENT,
@@ -54,7 +54,11 @@ from lawgraph.core.feed import (
     KIND_RANK,
     FeedCursor,
 )
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.core.tk_records import (
+    CAPACITY_GOVERNMENT,
+    CAPACITY_MEMBER,
+    DECISION_KIND_BILL,
+)
 from lawgraph.db import ArangoStore
 
 # The instruments a publication names at most.
@@ -178,7 +182,13 @@ _BILL_PERSONS = f"""(LENGTH(n.props.actors) > 0 ? n.props.actors : (FIRST(
         ) OR []))"""
 
 
-def _document_source(kind: str, document_kinds: tuple[str, ...]) -> _Source:
+def _of_kind(field: str, kind: str) -> str:
+    """AQL: *field* is a ``Document.Soort`` of *kind*: *kind* itself or ``kind (…)``. The
+    ``kind (…)`` as a range, not ``STARTS_WITH``, so the index on the kind reads both."""
+    return f'({field} == "{kind}" OR ({field} >= "{kind} (" AND {field} < "{kind} )"))'
+
+
+def _document_source(kind: str) -> _Source:
     persons = "n.props.actors OR []"
     if kind == EVENT_BILL:
         persons = _BILL_PERSONS.replace("{guard}", "true").replace(
@@ -189,10 +199,10 @@ def _document_source(kind: str, document_kinds: tuple[str, ...]) -> _Source:
         collection=COLLECTION_DOCUMENTS,
         date="date",
         where=(
-            f"n.props.kind IN {json.dumps(list(document_kinds))}"
+            _of_kind("n.props.kind", kind)
             # not `IN n.labels`: the index on the labels holds nearly every paper, and
             # the one on the kind and the date is the one to read
-            f' AND POSITION(n.labels, "{CHAMBER_TK}")'
+            + f' AND POSITION(n.labels, "{CHAMBER_TK}")'
         ),
         dossiers=_DOSSIER_NUMBERS,
         persons=persons,
@@ -213,7 +223,7 @@ _SOURCES: dict[str, _Source] = {
             title="n.props.text",
             ministry="n.props.ministry",
         ),
-        *(_document_source(kind, kinds) for kind, kinds in DOCUMENT_KINDS.items()),
+        *(_document_source(kind) for kind in DOCUMENT_EVENTS),
         _Source(
             kind=EVENT_VOTE,
             collection=COLLECTION_DECISIONS,
@@ -536,7 +546,7 @@ def _official_short(label: str) -> str:
     return f"""FIRST(
                 FOR paper IN {COLLECTION_DOCUMENTS}
                     FILTER {label} != null AND {label} IN paper.props.dossier_numbers[*]
-                    FILTER paper.props.kind IN {json.dumps(list(DOCUMENT_KINDS[EVENT_BILL]))}
+                    FILTER {_of_kind("paper.props.kind", EVENT_BILL)}
                     SORT paper.props.date, paper._key
                     LIMIT 1
                     LET cited = REGEX_MATCHES(
@@ -733,7 +743,7 @@ def feed_query(
 # vote on a bill, a vote whose margin is at most @margin, and every vote of a quiet day.
 _HIGHLIGHT = (
     f'row.kind IN ["{EVENT_BILL}", "{EVENT_COMMITMENT}", "{EVENT_COMMENCEMENT}"]'
-    f' OR (row.kind == "{EVENT_VOTE}" AND (row.vote.subkind == "{EVENT_BILL}"'
+    f' OR (row.kind == "{EVENT_VOTE}" AND (row.vote.subkind == "{DECISION_KIND_BILL}"'
     " OR row.vote.margin <= @margin OR row.date IN quiet_days))"
 )
 
@@ -791,7 +801,7 @@ _SUMMARY = f"""
     // the days with at most @few votes on anything but a bill: each of them is shown
     LET quiet_days = (
         FOR row IN matching
-            FILTER row.kind == "{EVENT_VOTE}" AND row.vote.subkind != "{EVENT_BILL}"
+            FILTER row.kind == "{EVENT_VOTE}" AND row.vote.subkind != "{DECISION_KIND_BILL}"
             COLLECT date = row.date WITH COUNT INTO count
             FILTER count <= @few
             RETURN date

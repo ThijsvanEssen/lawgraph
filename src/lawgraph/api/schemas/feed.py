@@ -11,11 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
-from lawgraph.api.schemas.government import CommitmentStatus
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
-    DOCUMENT_KINDS,
+    DOCUMENT_EVENTS,
     EVENT_BILL,
     EVENT_COMMENCEMENT,
     EVENT_COMMITMENT,
@@ -32,14 +31,14 @@ from lawgraph.core.tk_records import CAPACITY_MEMBER, NO_DUE_DATE
 # The values of ``core.feed.FEED_KINDS`` and ``PERSON_ROLES``.
 FeedKind = Literal[
     "toezegging",
-    "wetsvoorstel",
-    "nota_van_wijziging",
-    "amendement",
-    "motie",
+    "Voorstel van wet",
+    "Nota van wijziging",
+    "Amendement",
+    "Motie",
     "stemming",
     "publicatie",
     "inwerkingtreding",
-    "brief_regering",
+    "Brief regering",
 ]
 PersonRole = Literal["indiener", "medeindiener", "bewindspersoon"]
 PublicationSeries = Literal["stb", "stcrt", "trb"]
@@ -132,7 +131,9 @@ class FeedCommitmentDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    status: CommitmentStatus | None = None
+    status: str | None = Field(
+        None, description="Of a commitment: its Toezegging.Status (`Openstaand`)."
+    )
     expected_resolution: str | None = Field(
         None, description="The day it is due; null when the Kamer names none."
     )
@@ -283,7 +284,7 @@ class FeedItemDTO(BaseModel):
             cabinet=row.get("cabinet"),
             official_url=_official_url(kind, props),
             tk_url=document_page(props.get("document_number"))
-            if kind in DOCUMENT_KINDS
+            if kind in DOCUMENT_EVENTS
             else None,
             vote=_vote(props) if kind == EVENT_VOTE else None,
             commitment=_commitment(props) if kind == EVENT_COMMITMENT else None,
@@ -329,7 +330,7 @@ def _summary(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | Non
 
 
 def _subkind(kind: str, props: dict[str, Any]) -> str | None:
-    if kind in DOCUMENT_KINDS or kind == EVENT_VOTE:
+    if kind in DOCUMENT_EVENTS or kind == EVENT_VOTE:
         return props.get("kind")
     return None
 
@@ -423,7 +424,7 @@ def _commitment(props: dict[str, Any]) -> FeedCommitmentDTO:
     due = props.get("expected_resolution")
     status = props.get("status")
     return FeedCommitmentDTO(
-        status=status if status in get_args(CommitmentStatus) else None,
+        status=status,
         expected_resolution=due if due and due != NO_DUE_DATE else None,
     )
 

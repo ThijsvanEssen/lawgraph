@@ -22,7 +22,6 @@ from lawgraph.api.schemas.government import (
     CommitmentDTO,
     CommitmentFacetsDTO,
     CommitmentListResponse,
-    CommitmentStatus,
     MinistryDTO,
     MinistryPeriodDTO,
 )
@@ -125,7 +124,9 @@ def get_cabinet_detail(
     summary="Commitments",
     description=(
         "Commitments (toezeggingen) of bewindspersonen, paged; ``total`` counts every "
-        "match. ``overdue`` keeps the open ones whose expected date has passed. "
+        "match. ``status`` is the Toezegging.Status of the Tweede Kamer (`Openstaand`, "
+        "`Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`). "
+        "``overdue`` keeps the `Openstaand` ones whose expected date has passed. "
         "``facets`` counts per ``status``, ``cabinet`` and ``ministry`` the commitments "
         "under the other filters."
     ),
@@ -133,7 +134,12 @@ def get_cabinet_detail(
 )
 def list_commitments(
     store: Annotated[ArangoStore, Depends(get_store)],
-    status: Annotated[CommitmentStatus | None, Query()] = None,
+    status: Annotated[
+        str | None,
+        Query(
+            description="A Toezegging.Status as the Tweede Kamer writes it: `Openstaand`."
+        ),
+    ] = None,
     member: Annotated[str | None, Query(description="Member key.")] = None,
     cabinet: Annotated[str | None, Query(description="Cabinet key.")] = None,
     ministry: Annotated[MinistryKey | None, Query()] = None,
