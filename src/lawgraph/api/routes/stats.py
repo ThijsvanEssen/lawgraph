@@ -8,6 +8,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.stats import (
     CoverageCourtDTO,
     CoverageTierDTO,
+    DataAsOfDTO,
     EdgeStatsDTO,
     InstrumentStatsDTO,
     JudgmentCoverageResponse,
@@ -15,7 +16,11 @@ from lawgraph.api.schemas.stats import (
 )
 from lawgraph.core.courts import TIERS, court_of
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries.stats import get_db_stats, get_judgment_coverage
+from lawgraph.db.queries.stats import (
+    cached_data_as_of,
+    get_db_stats,
+    get_judgment_coverage,
+)
 
 router = APIRouter()
 
@@ -38,6 +43,10 @@ def get_stats(store: Annotated[ArangoStore, Depends(get_store)]) -> StatsRespons
         edges=EdgeStatsDTO(**data["edges"]),
         by_source=data.get("by_source", {}),
         instruments=InstrumentStatsDTO(**data.get("instruments", {})),
+        data_as_of={
+            source: DataAsOfDTO(**row)
+            for source, row in cached_data_as_of(store).items()
+        },
     )
 
 

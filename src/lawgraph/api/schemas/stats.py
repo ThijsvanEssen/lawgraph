@@ -21,6 +21,22 @@ class InstrumentStatsDTO(BaseModel):
     by_jurisdiction: dict[str, int] = {}
 
 
+class DataAsOfDTO(BaseModel):
+    """How current the graph is for one source."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    retrieved_at: str | None = Field(
+        None, description="When its newest raw record was fetched (UTC, ISO 8601)."
+    )
+    newest: str | None = Field(
+        None,
+        description="The date of its newest dated record, on or before today: a paper of "
+        "the Kamer, a judgment, a publication, a version of a law coming into force. Null "
+        "for a source without dated records.",
+    )
+
+
 class StatsResponse(BaseModel):
     """Database statistics: document counts per collection and edge counts."""
 
@@ -37,6 +53,11 @@ class StatsResponse(BaseModel):
     edges: EdgeStatsDTO
     by_source: dict[str, dict[str, int]] = {}
     instruments: InstrumentStatsDTO = InstrumentStatsDTO()
+    data_as_of: dict[str, DataAsOfDTO] = Field(
+        default_factory=dict,
+        description="Per source (`tk`, `eerstekamer`, `rechtspraak`, `staatsblad`, "
+        "`staatscourant`, `bwb`, `eurlex`, …): how current the graph is.",
+    )
 
 
 class CoverageCourtDTO(BaseModel):
