@@ -14,7 +14,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from lawgraph.config.constants import CODE_FAMILIES
 from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
     ARTICLE_NUMBER_PATTERN,
@@ -23,6 +22,7 @@ from lawgraph.core.citations import (
     name_key,
     parse_article_numbers,
 )
+from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.identifiers import is_bwb_id, is_ecli, parse_celex
 
 NotationKind = Literal[
