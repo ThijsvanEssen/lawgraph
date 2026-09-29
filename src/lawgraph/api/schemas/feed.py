@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.government import CommitmentStatus
+from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
     DOCUMENT_KINDS,
@@ -367,6 +368,10 @@ class FeedResponse(BaseModel):
         None, description="Events under the filters, all pages; null without facets."
     )
     facets: FeedFacetsDTO | None = Field(None, description="Null without facets.")
+    data_as_of: dict[str, DataAsOfDTO] = Field(
+        default_factory=dict,
+        description="Per source: how current the graph is, as in `GET /api/stats`.",
+    )
 
 
 _ATOM = "http://www.w3.org/2005/Atom"

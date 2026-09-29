@@ -19,9 +19,11 @@ from lawgraph.api.schemas.feed import (
     FeedResponse,
     atom_feed,
 )
+from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.core.feed import FEED_KINDS, FeedCursor
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.feed import FeedFilters, get_feed
+from lawgraph.db.queries.stats import cached_data_as_of
 
 router = APIRouter()
 # Mounted at ``/api``: a path of a router starts with ``/``, and ``feed.atom`` is no
@@ -114,6 +116,10 @@ def _page(
         next_cursor=FeedCursor(date=last.date, id=last.id).encode() if last else None,
         total=raw.get("total"),
         facets=FeedFacetsDTO(**raw["facets"]) if raw.get("facets") else None,
+        data_as_of={
+            source: DataAsOfDTO(**row)
+            for source, row in cached_data_as_of(store).items()
+        },
     )
 
 
