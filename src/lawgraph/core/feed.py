@@ -1,8 +1,8 @@
 """The kinds of event in the news feed (``GET /api/feed``) and what each is read from.
 
 An event is one node of the graph with a date: a commitment made, a paper submitted, a vote,
-a publication, a new version of a law in force. The kinds keep the Dutch word the Kamer
-uses, as the dossier tracks and stages do.
+a publication, a new version of a law in force. The kind of a paper is its ``Document.Soort``
+up to `` (``, as the Kamer names it; its subkind is the whole ``Soort``.
 """
 
 from __future__ import annotations
@@ -16,14 +16,14 @@ from typing import Final
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 
 EVENT_COMMITMENT: Final = "toezegging"
-EVENT_BILL: Final = "wetsvoorstel"
-EVENT_AMENDMENT_NOTE: Final = "nota_van_wijziging"
-EVENT_AMENDMENT: Final = "amendement"
-EVENT_MOTION: Final = "motie"
+EVENT_BILL: Final = "Voorstel van wet"
+EVENT_AMENDMENT_NOTE: Final = "Nota van wijziging"
+EVENT_AMENDMENT: Final = "Amendement"
+EVENT_MOTION: Final = "Motie"
 EVENT_VOTE: Final = "stemming"
 EVENT_PUBLICATION: Final = "publicatie"
 EVENT_COMMENCEMENT: Final = "inwerkingtreding"
-EVENT_GOVERNMENT_LETTER: Final = "brief_regering"
+EVENT_GOVERNMENT_LETTER: Final = "Brief regering"
 
 # The kinds, in the order the facets and the documentation list them.
 FEED_KINDS: Final = (
@@ -57,18 +57,16 @@ KIND_RANK: Final[dict[str, int]] = {kind: rank for rank, kind in enumerate(DAY_O
 # of change are brought in by who signs them.
 SUBMITTED_KINDS: Final = (EVENT_BILL, EVENT_AMENDMENT_NOTE)
 
-# The kinds that are a Tweede Kamer document, and the document ``kind`` values (the
-# ``Document.Soort`` of the source) each is read from.
-DOCUMENT_KINDS: Final[dict[str, tuple[str, ...]]] = {
-    EVENT_BILL: ("Voorstel van wet", "Voorstel van wet (initiatiefvoorstel)"),
-    EVENT_AMENDMENT_NOTE: (
-        "Nota van wijziging",
-        "Nota van wijziging (initiatiefvoorstel)",
-    ),
-    EVENT_AMENDMENT: ("Amendement", "Amendement (gewijzigd/nader/vervangend)"),
-    EVENT_MOTION: ("Motie", "Motie (gewijzigd/nader)"),
-    EVENT_GOVERNMENT_LETTER: ("Brief regering",),
-}
+# The kinds that are a Tweede Kamer paper: the papers the feed shows, by the part of their
+# ``Document.Soort`` before `` (`` ("Motie (gewijzigd/nader)" is a Motie).
+DOCUMENT_EVENTS: Final = (
+    EVENT_BILL,
+    EVENT_AMENDMENT_NOTE,
+    EVENT_AMENDMENT,
+    EVENT_MOTION,
+    EVENT_GOVERNMENT_LETTER,
+)
+
 
 # What a person was to an event: the first signatory submitted it, the others signed with
 # them; a bewindspersoon signed for the government (or made the commitment).

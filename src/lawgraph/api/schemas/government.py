@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, get_args
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,8 +12,12 @@ from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
-# The statuses of ``core.tk_records.COMMITMENT_STATUS``.
-CommitmentStatus = Literal["open", "done", "partly_done", "unfulfilled", "lapsed"]
+# The status of a commitment is the Toezegging.Status the Tweede Kamer gives it.
+COMMITMENT_STATUS_DESCRIPTION = (
+    "The status the Tweede Kamer gives the commitment (`Toezegging.Status`), as it writes "
+    "it: `Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, "
+    "`Vervallen`; null when it gives none."
+)
 # The kinds of ``core.cabinet_phases.PHASE_KINDS``.
 PhaseKind = Literal[
     "formatie", "in_functie", "demissionair", "dubbel_demissionair", "missionair"
@@ -404,7 +408,7 @@ class CommitmentDTO(BaseModel):
         None, description="How the Kamer cites it: `TZ202603-130`."
     )
     text: str | None = None
-    status: CommitmentStatus | None = None
+    status: str | None = Field(None, description=COMMITMENT_STATUS_DESCRIPTION)
     date: str | None = Field(None, description="The day it was made.")
     expected_resolution: str | None = Field(
         None, description="The day it is due; null when the Kamer names none."
@@ -429,11 +433,7 @@ class CommitmentDTO(BaseModel):
             key=commitment["_key"],
             number=props.get("number"),
             text=props.get("text"),
-            status=(
-                props.get("status")
-                if props.get("status") in get_args(CommitmentStatus)
-                else None
-            ),
+            status=props.get("status"),
             date=props.get("made_on"),
             expected_resolution=due if due and due != NO_DUE_DATE else None,
             minister_name=props.get("minister_name"),

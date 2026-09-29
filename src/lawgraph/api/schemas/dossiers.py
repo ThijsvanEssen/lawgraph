@@ -184,7 +184,9 @@ class TimelineCommitmentBody(BaseModel):
     text: str | None = None
     minister_name: str | None = None
     minister_role: str | None = None
-    status: str | None = Field(None, description="'open', 'done' or 'vervallen'.")
+    status: str | None = Field(
+        None, description="The Toezegging.Status of the Tweede Kamer: `Openstaand`, …"
+    )
     expected_resolution: str | None = None
 
 

@@ -203,7 +203,7 @@ def _build(store: ArangoStore) -> None:
             made_on="2025-03-11",
             text="De minister zegt toe.",
             minister_name="Minister X",
-            status="open",
+            status="Openstaand",
             display_name="Toezegging",
         ),
         _node(
@@ -460,7 +460,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
 
     commitment = entries["toez_1"].model_dump()["body"]
     assert commitment["minister_name"] == "Minister X"
-    assert commitment["status"] == "open"
+    assert commitment["status"] == "Openstaand"
 
 
 def test_only_an_activity_entry_has_a_committee(database: str) -> None:

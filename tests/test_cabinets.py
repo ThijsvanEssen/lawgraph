@@ -153,12 +153,3 @@ def test_a_dossier_is_brought_in_by_its_first_signatory() -> None:
         "initiative": None,
         "cabinet": None,
     }
-
-
-def test_the_api_knows_every_status_a_commitment_can_have() -> None:
-    from typing import get_args
-
-    from lawgraph.api.schemas.government import CommitmentStatus
-    from lawgraph.core.tk_records import COMMITMENT_STATUS
-
-    assert set(get_args(CommitmentStatus)) == set(COMMITMENT_STATUS.values())
