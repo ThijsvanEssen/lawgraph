@@ -839,9 +839,19 @@ not read. An empty result raises: the endpoint or its data model has changed.
 
 **Retrieve.** `--max-records` stops early. **Normalize.** Instrument `verdrag_<id>`
 (`kind` `verdrag`, `multilateraalverdrag` or `bilateraalverdrag`, `jurisdiction: int`,
-`in_force` only for `Inwerkinggetreden`). No edges and no semantic pipeline. These
-instruments are not linked to the BWB treaties (`BWBV...`). Not ingested: the Trb references
-(`dcterms:isPartOf`), the parties and the place of signing.
+`in_force` only for `Inwerkinggetreden`, `treaty_number` its id). No edges and no semantic
+pipeline. Not ingested: the Trb references (`dcterms:isPartOf`), the parties and the place of
+signing.
+
+**Joined to the BWB by number.** The toestand of a BWB treaty names its Verdragenbank id
+(`<wetgeving soort="verdrag" verdragnummer="005132">`, the EVRM), which `normalize bwb` writes
+as `treaty_number`; the Verdragenbank record has no BWB id. The number is the join: the
+instrument detail lists the other instruments with it (`same_treaty`), and `lawgraph check`
+counts the BWB treaties whose number the Verdragenbank has, does not have, or that name none.
+The BWB has 3,703 treaties and the Verdragenbank 8,774 (September 2026); of 40 BWB treaties
+drawn at random every one named a number and 39 were in the Verdragenbank, with the same
+title (000462, an arrangement of the Minister van Sociale Zaken, is not). Titles are not
+compared.
 
 ## Rijksoverheid
 

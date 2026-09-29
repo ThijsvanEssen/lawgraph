@@ -161,7 +161,10 @@ statutes made by the legislator:
   text names, which is also what `retrieve eurlex --mode gaps` fetches). One Celex link in
   eight has an id with an impossible year in the source; it is rebuilt from the text of the
   link ("verordening (EU) 2021/784") or left out.
-- Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records.
+- Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records
+  (`verdrag_<id>`), two nodes for a treaty that is in both. They share `treaty_number`, the
+  six-digit Verdragenbank id, which a BWB treaty names in `wetgeving@verdragnummer`; no edge
+  joins them (see [pipelines](pipelines.md#verdragenbank)).
 - EU directives, regulations and decisions (`celex`). `title` is the printed title
   (`Verordening (EU) 2022/868 van het Europees Parlement en de Raad van 30 mei 2022
   betreffende …`), `citation_title` the form the act is cited by in its era (`Richtlijn
@@ -486,7 +489,7 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 
 | Collection | Indexes |
 |------------|---------|
-| `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
+| `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title`; sparse `props.treaty_number` |
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
 | `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, court_kind, stub)`, `(court_code, date_eff, tier, court_kind, stub, source)`, `(tier, court_kind, date_eff, stub, source)`, `(court_kind, date_eff, stub, source)` and `(date_eff, tier, court_kind, stub, source)`: the index of each filter of `/api/judgments` holds the tier, the kind of court, the source, the date and `stub` (the list leaves stubs out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
