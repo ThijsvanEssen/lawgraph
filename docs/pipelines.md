@@ -790,6 +790,12 @@ Binnenlandse Zaken`), each with the days it gives. The rules of a seat:
 
 - a holder line without a start held the post from the start of the cabinet, one without an
   end until its end; `from_date_source` and `to_date_source` keep what the page gave;
+- the holders of one heading who follow one another hold one seat, the one the heading
+  names, also where their own lines name the post otherwise (Schoof: Idsinga as
+  "staatssecretaris Fiscaliteit en Belastingdienst" under "Staatssecretaris Fiscaliteit,
+  Belastingdienst en Douane"; that name in `also_named`); holders of one heading at the same
+  time (Szabó and Van Marum under Binnenlandse Zaken, two ministers without portfolio) hold
+  seats of their own;
 - two posts of one person in one seat on the same days are one post, the other name in
   `also_named`;
 - in a named seat, an end the page does not give is the start of the next holder, a start it
