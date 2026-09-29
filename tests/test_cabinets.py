@@ -3,7 +3,6 @@ government made a commitment or brought a dossier in."""
 
 from __future__ import annotations
 
-from lawgraph.clients.wikidata import group_cabinets
 from lawgraph.core.cabinets import (
     cabinet_key,
     cabinet_name,
@@ -12,7 +11,6 @@ from lawgraph.core.cabinets import (
 )
 from lawgraph.pipelines.semantic.tk_government import commitment_props, dossier_props
 
-E = "http://www.wikidata.org/entity/"
 RUTTE_IV = "Q110111120"
 
 
@@ -82,10 +80,12 @@ def test_a_commitment_is_made_by_whoever_held_such_a_post_that_day() -> None:
         "role": "Minister van Economische Zaken",
         "date": "2026-03-19",
     }
+    # since 23 February 2026 the ministry is called Economische Zaken en Klimaat again
+    # (TOOI): the old name that day means it
     assert commitment_props(row, [herbert], CABINETS) == {
         "member_key": "herbert",
         "post": "minister",
-        "ministry": "ez",
+        "ministry": "ezk",
         "cabinet": "jetten",
     }
     # before the post began: nobody fits
@@ -155,34 +155,6 @@ def test_a_dossier_is_brought_in_by_its_first_signatory() -> None:
     }
 
 
-def test_the_wikidata_rows_become_cabinets() -> None:
-    rows = [
-        {
-            "cabinet": {"value": E + RUTTE_IV},
-            "cabinetLabel": {"value": "kabinet-Rutte IV"},
-            "inception": {"value": "2022-01-10T00:00:00Z"},
-            "inceptionPrecision": {"value": "11"},
-            # the end of the term, known to the year only, and the dissolution to the day
-            "end": {"value": "2024-01-01T00:00:00Z"},
-            "endPrecision": {"value": "9"},
-            "dissolved": {"value": "2024-07-02T00:00:00Z"},
-            "dissolvedPrecision": {"value": "11"},
-            "previous": {"value": E + "Q42293409"},
-        }
-    ]
-    assert group_cabinets(rows) == [
-        {
-            "id": RUTTE_IV,
-            "name": "kabinet-Rutte IV",
-            "from_date": "2022-01-10",
-            "from_date_precision": 11,
-            "to_date": "2024-07-02",
-            "to_date_precision": 11,
-            "previous": ["Q42293409"],
-        }
-    ]
-
-
 def test_the_api_knows_every_status_a_commitment_can_have() -> None:
     from typing import get_args
 
@@ -190,28 +162,3 @@ def test_the_api_knows_every_status_a_commitment_can_have() -> None:
     from lawgraph.core.tk_records import COMMITMENT_STATUS
 
     assert set(get_args(CommitmentStatus)) == set(COMMITMENT_STATUS.values())
-
-
-def test_a_wikidata_period_is_what_wikidata_gives() -> None:
-    from lawgraph.core.cabinets import wikidata_period
-
-    # De Geer II: known to the year, without an end; nothing is taken from its neighbours
-    assert wikidata_period(
-        {"from_date": "1939-01-01", "from_date_precision": 9, "to_date": None}
-    ) == {
-        "from_date": "1939-01-01",
-        "from_date_precision": "year",
-        "to_date": None,
-        "to_date_precision": None,
-    }
-    assert (
-        wikidata_period(
-            {
-                "from_date": "1848-03-25",
-                "from_date_precision": 11,
-                "to_date": "1848-11-21",
-                "to_date_precision": 11,
-            }
-        )["to_date_precision"]
-        == "day"
-    )

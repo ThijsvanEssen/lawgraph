@@ -1,9 +1,8 @@
 """Normalize pipeline for Rijksoverheid: the cabinets, who held which post in them, and when.
 
-Every cabinet becomes a node of ``cabinets`` (``core.cabinet_sources``): those since 1945
-from their Rijksoverheid page, with their phases, parties and prime minister; those before
-from the stored Wikidata records, with only their name and period. The collection is derived
-in full: a cabinet no source names any more is removed.
+Every cabinet since 1945 becomes a node of ``cabinets`` (``core.cabinet_sources``), from its
+Rijksoverheid page, with its phases, parties and prime minister. The collection is derived
+in full: a cabinet no page names any more is removed.
 
 A holder of a post (``Drs. S.Th.M. (Sophie) Hermans (VVD)``) is matched to one Tweede Kamer
 person (``core.government``): a member of parliament by surname, initials and age, told
@@ -35,10 +34,8 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     LABEL_RIJKSOVERHEID,
     RAW_KIND_RIJKSOVERHEID_CABINET,
-    RAW_KIND_WIKIDATA_CABINET,
     RELATION_SERVED_IN,
     SOURCE_RIJKSOVERHEID,
-    SOURCE_WIKIDATA,
 )
 from lawgraph.core.cabinet_posts import SEAT_PRIME_MINISTER
 from lawgraph.core.cabinet_sources import NO_PARTY, build_cabinets
@@ -107,25 +104,17 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
-        yield from self._iter_raw_sources(
+        return self._iter_raw_sources(
             source=SOURCE_RIJKSOVERHEID,
             kinds=[RAW_KIND_RIJKSOVERHEID_CABINET],
             batch_size=50,
-        )
-        yield from self._iter_raw_sources(
-            source=SOURCE_WIKIDATA, kinds=[RAW_KIND_WIKIDATA_CABINET], batch_size=500
         )
 
     def normalize_nodes(
         self, raw: Iterator[dict[str, Any]], result: PipelineResult
     ) -> int:
-        pages, wikidata = [], []
+        pages = []
         for record in raw:
-            if record.get("kind") == RAW_KIND_WIKIDATA_CABINET:
-                item = self._payload_json(record)
-                if isinstance(item, dict) and item.get("id"):
-                    wikidata.append(item)
-                continue
             html = self._payload_text(record)
             if not html:
                 result.skipped += 1
@@ -140,9 +129,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
                 }
             )
         factions = list(normalize_queries.faction_names(self.store))
-        cabinets = build_cabinets(
-            pages, wikidata, lambda text: party_of(text, factions)
-        )
+        cabinets = build_cabinets(pages, lambda text: party_of(text, factions))
         member_of, own = self._members_of(cabinets)
         posts = self._posts_by_member(cabinets, member_of)
         nodes = [self._cabinet(c, member_of) for c in cabinets]
@@ -254,11 +241,8 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             props={
                 "name": cabinet["name"],
                 "display_name": cabinet["name"],
-                "wikidata_id": cabinet.get("wikidata_id"),
                 "from_date": cabinet["from_date"],
-                "from_date_precision": cabinet.get("from_date_precision"),
                 "to_date": cabinet["to_date"],
-                "to_date_precision": cabinet.get("to_date_precision"),
                 "prime_minister": prime[0][1] if prime else None,
                 "previous": cabinet["previous"],
                 "parties": cabinet["parties"],
