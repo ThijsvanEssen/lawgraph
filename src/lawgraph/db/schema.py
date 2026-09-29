@@ -503,6 +503,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_EDGES, ["status", "relation"], False),
         # edges confidence — for semantic filtering by confidence threshold
         (COLLECTION_EDGES, ["confidence"], False),
+        # the TK records an edge is made of (a vote, a seat), which a deleted one takes along
+        (COLLECTION_EDGES, ["meta.record_ids[*]"], False),
         # Semantic relationship type layer — equality filters only, so sparse
         # is fine and skips the (large) majority of unclassified edges.
         (COLLECTION_EDGES, ["semantic_type"], False),

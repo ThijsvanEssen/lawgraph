@@ -873,6 +873,12 @@ class VoteCast:
     faction_label: str
     changed_at: str | None
     actor_name: str | None = None  # "Nobel, J.N.J.": who voted, as the row names them
+    record_id: str | None = None  # the Stemming ``Id``, which its VOTED edge keeps
+
+
+def decision_key(decision_id: str) -> str:
+    """The node key of the decision on the Besluit *decision_id* (see ``decision``)."""
+    return make_node_key("decision", decision_id)
 
 
 def vote(payload: Payload) -> VoteCast | None:
@@ -893,6 +899,7 @@ def vote(payload: Payload) -> VoteCast | None:
         actor_name=(payload.get("ActorNaam") or "").strip() or None
         if person_id
         else None,
+        record_id=str(payload.get("Id") or "") or None,
     )
 
 

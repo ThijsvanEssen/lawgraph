@@ -86,6 +86,19 @@ def vote_rows_of_decisions(
     return store.query(rows, {**bind_vars, "decisions": decisions})
 
 
+def deleted_records_since(
+    store: Store, kind: str, since_iso: str | None
+) -> Iterator[dict[str, Any]]:
+    """The Tweede Kamer records of *kind* fetched since then that the Kamer deleted."""
+    aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind AND r.fetched_at >= @since
+            FILTER r.payload_json.Verwijderd == true
+            RETURN r
+        """
+    return store.query(aql, {"source": SOURCE_TK, "kind": kind, "since": since_iso})
+
+
 # ── what was stored when ─────────────────────────────────────────────────────
 
 

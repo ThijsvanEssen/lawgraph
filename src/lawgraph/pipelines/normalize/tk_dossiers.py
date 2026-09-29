@@ -55,6 +55,7 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
+from lawgraph.pipelines.normalize._tk_deleted import Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
 logger = get_logger(__name__)
@@ -100,18 +101,33 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
     def _rows_of_decisions_voted_since(
         self, since: dt.datetime
     ) -> Iterator[dict[str, Any]]:
-        """Every Stemming row of the decisions that have a row in the window.
+        """Every Stemming row of the decisions that have a row in the window, and the rows
+        of the window the Kamer deleted.
 
         A decision is its rows together (the tally, who voted): one corrected vote must
-        not turn it into a decision of one.
+        not turn it into a decision of one. A deleted row names no decision; the VOTED edge
+        it made does, so that decision is read again too.
         """
-        decisions = raw_queries.decisions_voted_since(self.store, iso_timestamp(since))
+        since_iso = iso_timestamp(since)
+        deleted = list(
+            raw_queries.deleted_records_since(
+                self.store, RAW_KIND_TK_STEMMING, since_iso
+            )
+        )
+        voted_on = normalize_queries.decisions_of_vote_records(
+            self.store, [str(self._payload_json(raw).get("Id")) for raw in deleted]
+        )
+        decisions = sorted(
+            set(raw_queries.decisions_voted_since(self.store, since_iso))
+            | {row["decision_id"] for row in voted_on if row["decision_id"]}
+        )
         progress = Progress(f"{RAW_KIND_TK_STEMMING} records")
         yield from progress.track(
             raw_queries.vote_rows_of_decisions(self.store, decisions)
             if decisions
             else ()
         )
+        yield from deleted
 
     def normalize_nodes(
         self,
@@ -145,6 +161,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             "votes": votes.by_decision,
         }
         normalized["decisions"] = tk_votes.normalize_decisions(store, votes)
+        tk_votes.remove_deleted_votes(store, votes, normalized["decisions"])
         self._refresh_case_kinds(normalized["activities"])
         return normalized
 
@@ -192,7 +209,6 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             normalized["members"],
             normalized["factions"],
             source=EDGE_SOURCE,
-            complete=not self._incremental,
         )
         tk_votes.link_votes(
             store,
@@ -239,11 +255,10 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """Kamerstukdossier nodes, keyed by TK ``Id`` *and* by dossier number; the node of a
         dossier the Kamer deleted is removed."""
         nodes: dict[str, Node] = {}
-        deleted: list[str] = []
+        deleted = Deleted(COLLECTION_DOSSIERS, key=None)  # keyed by the dossier number
         for raw in raw_records:
             payload = self._payload_json(raw)
-            if tk_records.is_deleted(payload):
-                deleted.append(str(payload.get("Id") or ""))
+            if deleted(payload):
                 continue
             parsed = tk_records.dossier(payload)
             if parsed is None:
@@ -261,9 +276,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
 
         unique = _unique(nodes)
         self._upsert_nodes(unique)
-        removed = normalize_queries.remove_nodes_of_records(
-            self.store, COLLECTION_DOSSIERS, deleted
-        )
+        removed = deleted.remove(self.store)
         logger.info(
             "Normalized %d dossiers; removed %d the Kamer deleted.",
             len(unique),

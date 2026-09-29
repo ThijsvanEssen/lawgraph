@@ -24,8 +24,8 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AUTHORED,
-    RELATION_MEMBER_OF,
     RELATION_PART_OF,
+    RELATION_VOTED,
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
 from lawgraph.db.counting import Store
@@ -406,25 +406,59 @@ def remove_nodes_of_records(
     return remove_nodes(store, collection, keys)
 
 
-def remove_seat_edges_except(store: Store, source: str, keep: list[str]) -> int:
-    """Remove the MEMBER_OF edges of *source* from a member to a faction whose key is not in
-    *keep*; how many went. For the seats one run derives in full: a seat the Kamer deleted
-    names neither its member nor its faction."""
+def remove_edges_of_records(store: Store, record_ids: list[str]) -> int:
+    """Remove the edges made of the TK records *record_ids* alone (every id in
+    ``meta.record_ids`` is one of them); how many went. For a record the Kamer deleted: a
+    vote or a seat names nothing but its id then."""
+    removed = 0
+    for start in range(0, len(record_ids), _REMOVE_CHUNK):
+        aql = f"""
+        LET keys = (
+            FOR id IN @ids
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER id IN e.meta.record_ids[*]
+                    FILTER LENGTH(MINUS(e.meta.record_ids, @all)) == 0
+                    RETURN DISTINCT e._key
+        )
+        FOR key IN keys
+            REMOVE key IN {COLLECTION_EDGES} OPTIONS {{ ignoreErrors: true }}
+            RETURN 1
+        """
+        chunk = record_ids[start : start + _REMOVE_CHUNK]
+        removed += sum(store.query(aql, {"ids": chunk, "all": record_ids}))
+    return removed
+
+
+def decisions_of_vote_records(
+    store: Store, record_ids: list[str]
+) -> Iterator[dict[str, Any]]:
+    """``{key, decision_id}`` of the decisions the Stemming records *record_ids* voted on,
+    by the VOTED edges they made: a vote the Kamer deleted names no decision any more."""
     aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation == @relation AND e.source == @source
-        FILTER STARTS_WITH(e._from, @members) AND STARTS_WITH(e._to, @factions)
-        FILTER e._key NOT IN @keep
-        REMOVE e IN {COLLECTION_EDGES}
-        RETURN 1
+    FOR id IN @ids
+        FOR e IN {COLLECTION_EDGES}
+            FILTER id IN e.meta.record_ids[*] AND e.relation == @voted
+            LET decision = DOCUMENT(e._to)
+            FILTER decision != null
+            RETURN DISTINCT {{key: decision._key, decision_id: decision.props.decision_id}}
     """
-    bind = {
-        "relation": RELATION_MEMBER_OF,
-        "source": source,
-        "members": f"{COLLECTION_MEMBERS}/",
-        "factions": f"{COLLECTION_FACTIONS}/",
-        "keep": keep,
-    }
+    return store.query(aql, {"ids": record_ids, "voted": RELATION_VOTED})
+
+
+def remove_edges_into_except(
+    store: Store, relation: str, to_ids: list[str], keep: list[str]
+) -> int:
+    """Remove the *relation* edges into *to_ids* whose key is not in *keep*; how many went.
+    For the edges of a node one run derives in full (the votes on a decision)."""
+    aql = f"""
+    FOR id IN @to_ids
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == id AND e.relation == @relation
+            FILTER e._key NOT IN @keep
+            REMOVE e IN {COLLECTION_EDGES}
+            RETURN 1
+    """
+    bind = {"to_ids": to_ids, "relation": relation, "keep": keep}
     return sum(store.query(aql, bind))
 
 

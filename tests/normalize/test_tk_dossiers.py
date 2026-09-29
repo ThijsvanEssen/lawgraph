@@ -356,6 +356,7 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
     raws = [
         _raw(
             {
+                "Id": "s1",
                 "Persoon_Id": "p1",
                 "FractieZetel": {"Fractie_Id": "f-vvd"},
                 "Van": "2020-01-01",
@@ -367,7 +368,7 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
     ]
 
     tk_members.link_members_to_factions(
-        store, raws, {"p1": member}, {"f-vvd": faction}, source=SOURCE, complete=False
+        store, raws, {"p1": member}, {"f-vvd": faction}, source=SOURCE
     )
 
     assert store.edge_meta == {
@@ -375,7 +376,12 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
             f"{COLLECTION_MEMBERS}/p1",
             RELATION_MEMBER_OF,
             f"{COLLECTION_FACTIONS}/vvd",
-        ): {"from_date": "2020-01-01", "to_date": None, "role": "Lid"}
+        ): {
+            "from_date": "2020-01-01",
+            "to_date": None,
+            "role": "Lid",
+            "record_ids": ["s1"],
+        }
     }
     written = store.written_nodes[(COLLECTION_MEMBERS, "p1")]
     assert written["party"] == "VVD"
@@ -415,9 +421,9 @@ def _vote_raw(**overrides: Any) -> dict[str, Any]:
 def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
     store = _Store()
     raws = [
-        _vote_raw(),
-        _vote_raw(Soort="Tegen", FractieGrootte=9, Fractie_Id="f-d66"),
-        _vote_raw(Soort="Onthouden", FractieGrootte=1, Fractie_Id="f-unknown"),
+        _vote_raw(Id="v-1"),
+        _vote_raw(Id="v-2", Soort="Tegen", FractieGrootte=9, Fractie_Id="f-d66"),
+        _vote_raw(Id="v-3", Soort="Onthouden", FractieGrootte=1, Fractie_Id="f-x"),
     ]
     votes = tk_votes.read_votes(raws)
     decisions = tk_votes.normalize_decisions(store, votes)
@@ -433,10 +439,12 @@ def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
         (f"{COLLECTION_FACTIONS}/vvd", RELATION_VOTED, decision_id): {
             "choice": "Voor",
             "seats": 24,
+            "record_ids": ["v-1"],
         },
         (f"{COLLECTION_FACTIONS}/d66", RELATION_VOTED, decision_id): {
             "choice": "Tegen",
             "seats": 9,
+            "record_ids": ["v-2"],
         },
     }
 
@@ -445,6 +453,7 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
     store = _Store(existing={COLLECTION_MEMBERS: {"p_1"}})
     raws = [
         _vote_raw(
+            Id="v-1",
             Persoon_Id="p-1",
             Besluit={
                 "StemmingsSoort": "Hoofdelijk",
@@ -470,8 +479,23 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
             f"{COLLECTION_MEMBERS}/p_1",
             RELATION_VOTED,
             f"{COLLECTION_DECISIONS}/{decision.key}",
-        ): {"choice": "Voor", "seats": 1}  # a member is one seat, not the faction
+        ): {"choice": "Voor", "seats": 1, "record_ids": ["v-1"]}  # one seat
     }
+
+
+def test_a_deleted_vote_and_the_votes_on_a_deleted_besluit_are_no_votes() -> None:
+    raws = [
+        _vote_raw(Id="v-1"),
+        _raw({"Id": "v-2", "Besluit_Id": None, "Verwijderd": True}),
+        _vote_raw(Id="v-3", Besluit_Id="b-2", Besluit={"Id": "b-2"}),
+        _vote_raw(
+            Id="v-4", Besluit_Id="b-2", Besluit={"Id": "b-2", "Verwijderd": True}
+        ),
+    ]
+    votes = tk_votes.read_votes(raws)
+    assert list(votes.by_decision) == ["b-1"]
+    assert votes.deleted.ids == {"v-2"}
+    assert votes.struck.ids == {"b-2"}
 
 
 # ── cost: a build must not grow a lookup per item ────────────────────────────

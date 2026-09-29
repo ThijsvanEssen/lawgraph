@@ -15,6 +15,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
+    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
     RELATION_MEMBER_OF,
@@ -24,7 +25,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.pipelines.normalize._tk_deleted import Deleted
 
 logger = get_logger(__name__)
 
@@ -32,10 +33,15 @@ logger = get_logger(__name__)
 def normalize_committees(
     store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
-    """Commissie nodes, keyed by TK ``Id``."""
+    """Commissie nodes, keyed by TK ``Id``; the node of a committee the Kamer deleted is
+    removed."""
     nodes: dict[str, Node] = {}
+    deleted = Deleted(COLLECTION_COMMITTEES)
     for raw in raw_records:
-        parsed = tk_records.committee(payload_json(raw))
+        payload = payload_json(raw)
+        if deleted(payload):
+            continue
+        parsed = tk_records.committee(payload)
         if parsed is None:
             continue
         key, props = parsed
@@ -48,7 +54,10 @@ def normalize_committees(
         )
     tk_records.unique_committee_slugs([node.props for node in nodes.values()])
     _write(store, nodes.values())
-    logger.info("Normalized %d committees.", len(nodes))
+    removed = deleted.remove(store)
+    logger.info(
+        "Normalized %d committees; removed %d the Kamer deleted.", len(nodes), removed
+    )
     return nodes
 
 
@@ -57,11 +66,10 @@ def normalize_members(
 ) -> dict[str, Node]:
     """Persoon nodes, keyed by TK ``Id``; the node of a person the Kamer deleted is removed."""
     nodes: dict[str, Node] = {}
-    deleted: list[str] = []
+    deleted = Deleted(COLLECTION_MEMBERS)
     for raw in raw_records:
         payload = payload_json(raw)
-        if tk_records.is_deleted(payload):
-            deleted.append(str(payload.get("Id") or ""))
+        if deleted(payload):
             continue
         parsed = tk_records.member(payload)
         if parsed is None:
@@ -75,9 +83,7 @@ def normalize_members(
             props=props,
         )
     _write(store, nodes.values())
-    removed = normalize_queries.remove_nodes_of_records(
-        store, COLLECTION_MEMBERS, deleted
-    )
+    removed = deleted.remove(store)
     logger.info(
         "Normalized %d members; removed %d the Kamer deleted.", len(nodes), removed
     )
@@ -100,11 +106,10 @@ def normalize_factions(
     them; a faction whose every record is deleted is removed.
     """
     by_key: dict[str, list[dict[str, Any]]] = {}
-    deleted: list[str] = []
+    deleted = Deleted(COLLECTION_FACTIONS, key=None)  # keyed by the abbreviation
     for raw in faction_raws:
         payload = payload_json(raw)
-        if tk_records.is_deleted(payload):
-            deleted.append(str(payload.get("Id") or ""))
+        if deleted(payload):
             continue
         label = tk_records.faction_label(payload)
         if label:
@@ -130,9 +135,7 @@ def normalize_factions(
             nodes[external_id] = node
     written = {node.key: node for node in nodes.values()}
     _write(store, written.values())
-    removed = normalize_queries.remove_nodes_of_records(
-        store, COLLECTION_FACTIONS, deleted
-    )
+    removed = deleted.remove(store)
     logger.info(
         "Normalized %d factions (%d Fractie records); removed %d the Kamer deleted.",
         len(written),
@@ -190,25 +193,23 @@ def link_members_to_factions(
     faction_nodes: dict[str, Node],
     *,
     source: str,
-    complete: bool,
 ) -> None:
     """MEMBER_OF edges from Persoon to Fractie, plus the member's timeline.
 
     The edge key is deterministic per (member, faction), so someone who left
-    and rejoined a party has one edge carrying the latest period; the full
-    timeline is denormalised onto the member as ``faction_memberships`` so a
-    profile renders without a traversal. When *seat_raws* are *complete* (every seat,
-    not those of a window), a seat edge they no longer give is removed: a seat the Kamer
-    deleted names neither its member nor its faction.
+    and rejoined a party has one edge carrying the latest period and the ids of every
+    FractieZetelPersoon it is made of; the full timeline is denormalised onto the member
+    as ``faction_memberships`` so a profile renders without a traversal. The edge of a
+    seat the Kamer deleted goes.
     """
-    writer = EdgeWriter(store, what="faction seat edges")
+    seats: dict[str, dict[str, Any]] = {}  # edge key -> the edge
     timeline: dict[str, list[dict[str, Any]]] = {}
-    written: set[str] = set()
     changed: dict[str, str] = {}  # faction key -> the day one of its seats last changed
+    deleted = Deleted(COLLECTION_EDGES)
 
     for raw in seat_raws:
         payload = payload_json(raw)
-        parsed = tk_records.seat_holding(payload)
+        parsed = None if deleted(payload) else tk_records.seat_holding(payload)
         if parsed is None:
             continue
         person_id, faction_id, period = parsed
@@ -227,8 +228,11 @@ def link_members_to_factions(
             source=source,
             meta=period,
         )
-        written.add(edge["_key"])
-        writer.add_doc(edge)
+        held = seats.get(edge["_key"], {}).get("meta", {}).get("record_ids", [])
+        edge["meta"]["record_ids"] = sorted(
+            {*held, str(payload.get("Id") or "")} - {""}
+        )
+        seats[edge["_key"]] = edge
         timeline.setdefault(person_id, []).append(
             {
                 "faction_id": faction_node.arango_id,
@@ -240,17 +244,16 @@ def link_members_to_factions(
             }
         )
 
+    writer = EdgeWriter(store, what="faction seat edges")
+    for edge in seats.values():
+        writer.add_doc(edge)
     writer.flush()
-    removed = (
-        normalize_queries.remove_seat_edges_except(store, source, sorted(written))
-        if complete
-        else 0
-    )
+    removed = deleted.remove(store)
     _write_timelines(store, member_nodes, timeline)
     _write_seat_changes(store, faction_nodes, changed)
     logger.info(
-        "Linked %d members to factions (%d with a timeline); removed %d seats no "
-        "longer given.",
+        "Linked %d members to factions (%d with a timeline); removed %d seats the "
+        "Kamer deleted.",
         writer.added,
         len(timeline),
         removed,

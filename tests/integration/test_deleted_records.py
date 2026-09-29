@@ -1,17 +1,22 @@
-"""A dossier, faction, person or seat the Tweede Kamer deleted (a record with its id and
-``Verwijderd``, nothing else) is no node and no edge, and what an earlier run wrote of it
-goes. The real ``normalize tk`` and ``normalize tk-dossiers`` on stored records."""
+"""A dossier, faction, person, seat, committee, vote or decision the Tweede Kamer deleted (a
+record with its id and ``Verwijderd``, nothing else) is no node and no edge, and what an
+earlier run wrote of it goes. The real ``normalize tk`` and ``normalize tk-dossiers`` on
+stored records."""
 
 from __future__ import annotations
 
+import datetime as dt
+import time
 from typing import Any
 
 from lawgraph.config.constants import (
+    RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_FRACTIEZETELPERSOON,
     RAW_KIND_TK_PERSOON,
+    RAW_KIND_TK_STEMMING,
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
@@ -191,3 +196,124 @@ def test_what_the_kamer_deleted_leaves_the_graph(database: str, cli: Any) -> Non
     ):
         stored = store.query(f"FOR n IN {collection} SORT n._key RETURN n._key")
         assert list(stored) == keys, collection
+
+
+# ── Votes and decisions ──────────────────────────────────────────────────────
+
+CDA, D66 = uid(5, 8), uid(6, 8)
+KEPT_DECISION, EMPTIED_DECISION, STRUCK_DECISION = uid(1, 7), uid(2, 7), uid(3, 7)
+COMMITTEE, GONE_COMMITTEE = uid(1, 4), uid(2, 4)
+
+
+def _besluit(decision: str, **fields: Any) -> dict[str, Any]:
+    return {"Id": decision, "BesluitSoort": "Stemmen - aangenomen", **fields}
+
+
+def _vote(
+    number: int, decision: str, faction: str, label: str, seats: int
+) -> dict[str, Any]:
+    return {
+        "Id": uid(number, 6),
+        "Besluit_Id": decision,
+        "Soort": "Voor",
+        "FractieGrootte": seats,
+        "ActorFractie": label,
+        "Fractie_Id": faction,
+        "Persoon_Id": None,
+        "GewijzigdOp": "2026-09-23T09:00:00+02:00",
+        "Besluit": _besluit(decision),
+    }
+
+
+VOTES = [
+    _vote(1, KEPT_DECISION, VVD, "VVD", 22),
+    _vote(2, KEPT_DECISION, CDA, "CDA", 18),
+    _vote(3, KEPT_DECISION, D66, "D66", 26),
+    _vote(4, EMPTIED_DECISION, VVD, "VVD", 22),
+    _vote(5, EMPTIED_DECISION, CDA, "CDA", 18),
+    _vote(6, STRUCK_DECISION, D66, "D66", 26),
+]
+
+
+def _vote_records() -> list[tuple[str, dict[str, Any]]]:
+    return [
+        (RAW_KIND_TK_FRACTIE, _faction(VVD, "VVD", "1948-01-01", None)),
+        (RAW_KIND_TK_FRACTIE, _faction(CDA, "CDA", "1980-10-11", None)),
+        (RAW_KIND_TK_FRACTIE, _faction(D66, "D66", "1966-10-14", None)),
+        (RAW_KIND_TK_COMMISSIE, {"Id": COMMITTEE, "NaamNL": "Commissie voor J&V"}),
+        (
+            RAW_KIND_TK_COMMISSIE,
+            {"Id": GONE_COMMITTEE, "NaamNL": "Verdwenen commissie"},
+        ),
+        *((RAW_KIND_TK_STEMMING, vote) for vote in VOTES),
+    ]
+
+
+def _deletions() -> list[tuple[str, dict[str, Any]]]:
+    """The Kamer deletes the CDA vote on the kept decision, both votes on the emptied one,
+    the Besluit of the struck one (its vote names it deleted) and a committee."""
+    struck = VOTES[5] | {"Besluit": _besluit(STRUCK_DECISION, Verwijderd=True)}
+    return [
+        (RAW_KIND_TK_STEMMING, _deleted(VOTES[1]["Id"])),
+        (RAW_KIND_TK_STEMMING, _deleted(VOTES[3]["Id"])),
+        (RAW_KIND_TK_STEMMING, _deleted(VOTES[4]["Id"])),
+        (RAW_KIND_TK_STEMMING, struck),
+        (RAW_KIND_TK_COMMISSIE, _deleted(GONE_COMMITTEE)),
+    ]
+
+
+def _voters(store: ArangoStore, decision: str) -> list[str]:
+    return sorted(
+        store.query(
+            'FOR e IN edges FILTER e._to == @id AND e.relation == "VOTED" RETURN e._from',
+            {"id": f"decisions/{make_node_key('decision', decision)}"},
+        )
+    )
+
+
+def _assert_votes_follow_the_deletions(store: ArangoStore) -> None:
+    kept = store.get_node("decisions", make_node_key("decision", KEPT_DECISION))
+    assert kept is not None
+    assert kept.props["tally"] == {"Voor": 48}
+    assert kept.props["voters"] == {"Voor": 2}
+    assert _voters(store, KEPT_DECISION) == ["factions/d66", "factions/vvd"]
+    for gone in (EMPTIED_DECISION, STRUCK_DECISION):
+        node_id = f"decisions/{make_node_key('decision', gone)}"
+        assert store.get_node(*node_id.split("/")) is None
+        assert _edges_at(store, node_id) == []
+    assert store.get_node("committees", make_node_key(GONE_COMMITTEE)) is None
+    assert store.get_node("committees", make_node_key(COMMITTEE)) is not None
+
+
+def test_a_deleted_vote_leaves_its_decision_and_a_decision_without_votes_goes(
+    database: str, cli: Any
+) -> None:
+    store = ArangoStore()
+    _write(store, _vote_records())
+    cli("normalize", "tk-dossiers")
+    assert _voters(store, KEPT_DECISION) == [
+        "factions/cda",
+        "factions/d66",
+        "factions/vvd",
+    ]
+    assert _voters(store, EMPTIED_DECISION) == ["factions/cda", "factions/vvd"]
+    assert _voters(store, STRUCK_DECISION) == ["factions/d66"]
+
+    _write(store, _deletions())
+    cli("normalize", "tk-dossiers")
+    _assert_votes_follow_the_deletions(store)
+
+
+def test_an_incremental_run_removes_what_the_kamer_deleted_in_its_window(
+    database: str, cli: Any
+) -> None:
+    """A deleted vote names no decision: the edge it made does."""
+    store = ArangoStore()
+    _write(store, _vote_records())
+    cli("normalize", "tk-dossiers")
+
+    time.sleep(1.1)  # fetched_at has a precision of a second
+    window = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    _write(store, _deletions())
+    cli("normalize", "tk-dossiers", "--since", window)
+    _assert_votes_follow_the_deletions(store)
