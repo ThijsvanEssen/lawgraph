@@ -159,6 +159,12 @@ def test_short_names_and_groups_resolve_to_owms_terms() -> None:
     assert len(hoven) == len(RECHTSPRAAK_COURT_GROUPS["hoven"])
 
 
+def test_all_is_every_court_so_no_filter_at_all() -> None:
+    """The rechtbanken and every other court of the index are in it, none left out."""
+    assert resolve_courts(["all"]) == []
+    assert resolve_courts(["hr", "all"]) == []
+
+
 def test_a_court_is_listed_once() -> None:
     assert (
         resolve_courts(["hr", "hr", "hoven", "gh-amsterdam"]).count(
@@ -244,6 +250,14 @@ def test_the_courts_and_dates_reach_the_index() -> None:
     call = rs.index_calls[0]
     assert call["courts"][0] == "Hoge_Raad_der_Nederlanden" and len(call["courts"]) == 8
     assert call["from"] == dt.date(2024, 9, 20)
+
+
+def test_every_court_reads_the_index_without_a_court_filter() -> None:
+    rs = _Rs([_entry("ECLI:NL:RBAMS:2025:1"), _entry("ECLI:NL:HR:2025:1")])
+    pipeline, _ = _pipeline(rs)
+    pipeline.run(courts=["all"], date_from=dt.date(2024, 9, 20))
+    assert rs.index_calls[0]["courts"] == []
+    assert rs.fetched == ["ECLI:NL:RBAMS:2025:1", "ECLI:NL:HR:2025:1"]
 
 
 def test_a_judgment_stored_after_its_last_change_is_not_downloaded_again() -> None:
@@ -374,8 +388,12 @@ def cli(monkeypatch):
     return lambda argv: (retrieve_commands.retrieve_rechtspraak(argv), seen)[1]
 
 
-def test_the_default_courts_are_the_hoge_raad_raad_van_state_and_the_hoven(cli) -> None:
-    assert cli([])["courts"] == ["hr", "rvs", "hoven"]
+def test_the_default_is_every_court(cli) -> None:
+    assert cli([])["courts"] == ["all"]
+
+
+def test_court_narrows_the_default(cli) -> None:
+    assert cli(["--court", "hr", "--court", "hoven"])["courts"] == ["hr", "hoven"]
 
 
 def test_only_eclis_means_no_courts(cli) -> None:

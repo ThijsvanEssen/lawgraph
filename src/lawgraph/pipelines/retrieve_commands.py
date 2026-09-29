@@ -9,6 +9,7 @@ from lawgraph.config.constants import (
     RECHTSPRAAK_COURT_GROUPS,
     RECHTSPRAAK_COURTS,
     RECHTSPRAAK_DEFAULT_COURTS,
+    RECHTSPRAAK_EVERY_COURT,
     RECHTSPRAAK_MODIFIED_WINDOW_DAYS,
     RECHTSPRAAK_PUBLICATION_LAG_DAYS,
 )
@@ -82,15 +83,23 @@ def retrieve_bwb(argv: list[str] | None = None) -> PipelineResult:
 
 def retrieve_bwb_history(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
-        description="Retrieve every historical BWB toestand."
+        description="Retrieve the historical BWB toestanden that are not stored yet."
     )
-    parser.add_argument("bwb_ids", nargs="*", help="Default: all regulations.")
+    parser.add_argument(
+        "bwb_ids",
+        nargs="*",
+        help="Default: every regulation of which the current toestand is stored.",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["incremental", "full"],
+        default="incremental",
+        help="incremental: only the toestanden not stored yet; full: every one again.",
+    )
     args = parser.parse_args(argv)
 
     pipeline = BWBRetrievePipeline(store=ArangoStore())
-    if args.bwb_ids:
-        return pipeline.run_history(bwb_ids=args.bwb_ids)
-    return pipeline.run_history_full()
+    return pipeline.run_history(bwb_ids=args.bwb_ids, refetch=args.mode == "full")
 
 
 def retrieve_echr(argv: list[str] | None = None) -> PipelineResult:
@@ -182,7 +191,8 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
         action="append",
         metavar="NAME",
         help="Court or group to read (repeatable): "
-        f"{', '.join(sorted({*RECHTSPRAAK_COURTS, *RECHTSPRAAK_COURT_GROUPS}))}. "
+        f"{', '.join(sorted({*RECHTSPRAAK_COURTS, *RECHTSPRAAK_COURT_GROUPS}))}, or "
+        f"{RECHTSPRAAK_EVERY_COURT} for every court of the index (the rechtbanken too). "
         f"Default: {', '.join(RECHTSPRAAK_DEFAULT_COURTS)}; none when only --ecli is given.",
     )
     parser.add_argument(

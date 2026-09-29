@@ -14,7 +14,7 @@ and a class whose name does not follow is refused when this module is imported. 
 that links two sources belongs to the one its edges start at, the text that is read.
 
 The lists below are the order of ``<phase> all``; a pipeline that reads edges written by
-another comes after it. A retrieve pipeline without ``argv_for_all`` is a manual command.
+another comes after it.
 """
 
 from __future__ import annotations
@@ -131,6 +131,9 @@ _CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR"}
 # Retrieve pipelines that share a server run one after the other.
 LANE_TWEEDE_KAMER = "tweede_kamer"
 LANE_KOOP_REPOSITORY = "koop_repository"  # repository.overheid.nl: SRU and publications
+LANE_BWB = (
+    "bwb"  # zoekservice.overheid.nl and repository.officiele-overheidspublicaties.nl
+)
 
 
 @dataclass(frozen=True)
@@ -151,8 +154,8 @@ class Pipeline:
     part: str | None
     command: Command
     description: str  # printed by ``lawgraph sources`` and in the first log line
-    # Retrieve only. ``argv_for_all`` turns the options of ``retrieve all`` into those of the
-    # command (without it: a manual command); ``lane`` names the server it talks to, so no
+    # Retrieve only (every retrieve pipeline has it). ``argv_for_all`` turns the options of
+    # ``retrieve all`` into those of the command; ``lane`` names the server it talks to, so no
     # server gets two request streams; ``after`` names pipelines that must have ended first.
     argv_for_all: Callable[[RetrieveCtx], list[str]] | None = None
     lane: str = ""
@@ -300,17 +303,19 @@ RETRIEVE: list[Pipeline] = [
     _pipeline(
         retrieve_tk_content,
         (
-            "XML of Tweede Kamer papers (explanatory memoranda) from the KOOP repository; slow, "
-            "one XML per paper."
+            "XML of Tweede Kamer papers (explanatory memoranda) from the KOOP repository: those "
+            "of which none is stored yet, one XML per paper."
         ),
+        argv_for_all=_no_argv,
         lane=LANE_KOOP_REPOSITORY,  # the papers come from repository.overheid.nl
+        after=("tk-dossiers",),  # the papers are the documents tk-dossiers stored
         fills_gaps=True,
     ),
     _pipeline(
         retrieve_rechtspraak,
         (
-            "Judgments of the Hoge Raad, Raad van State and gerechtshoven (--court), by decision "
-            "date, and those given with --ecli."
+            "Judgments of every court (--court narrows it), by decision date, and those given "
+            "with --ecli."
         ),
         argv_for_all=_windowed_argv,
         fills_gaps=True,
@@ -331,11 +336,17 @@ RETRIEVE: list[Pipeline] = [
             "regulation."
         ),
         argv_for_all=_mode_argv,
+        lane=LANE_BWB,
         fills_gaps=True,
     ),
     _pipeline(
         retrieve_bwb_history,
-        "Every toestand of the given regulations; slow.",
+        (
+            "Every historical toestand of the regulations of which the current one is stored: "
+            "those not stored yet."
+        ),
+        argv_for_all=_mode_argv,
+        lane=LANE_BWB,  # after bwb in its lane: it reads which regulations bwb stored
     ),
     _pipeline(
         retrieve_staatsblad,

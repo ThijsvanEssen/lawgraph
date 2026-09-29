@@ -7,10 +7,10 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` (manual) | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
 | Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
-| BWB | `bwb`, `bwb-history` (manual) | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
+| BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant` | `staatscourant` | `staatscourant` |
 | Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
@@ -57,7 +57,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 |---------|---------|--------------|
 | `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
-| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`; `""` every paper) of which none is stored; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-content` | the XML of documents whose `kind` contains `--kind` (default `toelichting`; `""` every paper) of which none is stored, so a second run asks only for the new papers; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), and the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`) | `tk-dossier`, `tk-document`, `tk-dossier-missing` |
 
 `tk-dossiers` options: `--since`, `--skip-members` (also skips Fractie and FractieZetelPersoon),
@@ -273,25 +273,26 @@ edges: an edge whose evidence is gone stays until the database is built again.
 **Provides.** Judgments from data.rechtspraak.nl: an Atom index (`uitspraken/zoeken`) and the
 XML of one judgment (`uitspraken/content?id=<ECLI>`).
 
-**Retrieve.** The index is filtered by court (`creator`, an OWMS term; several are OR) and by
-decision date (`date`, twice for a range) and read in pages of 1,000. `modifiedsince` is not
-used as a window: the Rechtspraak republished nearly its whole corpus, so it matches almost
-everything. For each judgment of the index one `rs-content` record is stored, as soon as it is
+**Retrieve.** The index is read in pages of 1,000, of every court or filtered by court
+(`creator`, an OWMS term; several are OR), by decision date (`date`, twice for a range) and,
+for a `--since` up to 60 days back, also by when a judgment was published or changed
+(`modified`), which finds one published long after its decision. Further back `modified` is no
+filter: the Rechtspraak republished nearly its whole corpus. For each judgment of the index one `rs-content` record is stored, as soon as it is
 downloaded. A judgment that is stored and was fetched after its last change (`updated` in the
 index) is skipped, so a re-run or a resumed run only downloads the rest.
 
 | Option | Meaning |
 |--------|---------|
-| `--court NAME` (repeatable) | `hr`, `rvs`, `crvb`, `cbb`, `gh-amsterdam`, `gh-arnhem-leeuwarden`, `gh-den-haag`, `gh-s-hertogenbosch` (the older `gh-arnhem`, `gh-leeuwarden`, `gh-s-gravenhage`), or the group `hoven` (all courts of appeal). Default: `hr`, `rvs`, `hoven`; none when only `--ecli` is given |
+| `--court NAME` (repeatable) | `all` (every court of the index: the rechtbanken, the special courts and the courts that no longer exist too), `hr`, `rvs`, `crvb`, `cbb`, `gh-amsterdam`, `gh-arnhem-leeuwarden`, `gh-den-haag`, `gh-s-hertogenbosch` (the older `gh-arnhem`, `gh-leeuwarden`, `gh-s-gravenhage`), or the group `hoven` (all courts of appeal). Default: `all`; none when only `--ecli` is given |
 | `--mode incremental` (default) | judgments decided from `--since` (default `1d`) minus 30 days, because judgments are published up to weeks after the decision |
-| `--mode full` | no date filter: every judgment of the courts (the Raad van State alone is far over 100,000) |
+| `--mode full` | no date filter: every judgment of the courts (928,955 of every court on 2026-09-29) |
 | `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
 | `--mode gaps` | the cited judgments that are stubs, and the decisions that asked the questions of a preliminary ruling without an `ANSWERS` edge: the index of the date the ruling names, of every court (60 to 450 judgments a day), is read once per date, and an entry whose title (`ECLI, court, dd-mm-yyyy, case numbers`) has a case number the ruling names is fetched |
 
-Over the last two years the default courts hold about 33,000 judgments (Hoge Raad 4,100, Raad van
-State 11,000, the four courts of appeal about 18,000), a few hours at the paced rate.
-`retrieve all` reads the `--window` (a judgment is in it by decision date). Other courts, such as
-the rechtbanken (over 100,000 in two years), are chosen with `--court`.
+Over the last two years the index holds 160,718 judgments of every court (Hoge Raad 4,100,
+Raad van State 11,000, the four courts of appeal about 18,000, the rechtbanken most of the
+rest), about 5.5 hours at the paced rate (`docs/operations.md`, slow steps). `retrieve all`
+reads the `--window` (a judgment is in it by decision date).
 
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
 `case_number` (and split, lower case and without spaces, as `case_number_keys`: `C/19/117301 /
@@ -513,7 +514,7 @@ first element `<algemene-informatie>` lists the official abbreviations (`<afkort
 | Command | Behaviour |
 |---------|-----------|
 | `retrieve bwb` | `--bwb-id` (repeatable) or `BWB_IDS` (comma-separated): the current toestand of each id (in force means end date `9999-12-31`, else the newest), plus the `<algemene-informatie>` element of its WTI file (kind `bwb-wti-algemene-informatie-xml`). Without ids in incremental mode nothing is fetched. `--mode full` enumerates every id first |
-| `retrieve bwb-history [ids...]` | every toestand of each id, or of all ids when none are given; stored `<bwb_id>@<start_date>`. Without it a law has no versions: `history`, `versions` and `articles/at` of the API are empty for it (the Wetboek van Strafrecht has 126 toestanden since 2002, the Awb 236) |
+| `retrieve bwb-history [ids...]` | every toestand of each id, or of every regulation of which the current toestand is stored when none are given, that is not stored yet (`--mode full`: every one again); stored `<bwb_id>@<start_date>`, a file the repository does not serve as `bwb-toestand-xml-all-missing`. From 150 regulations the toestanden come from the SRU listing, below that from one SRU query per regulation. It is part of `retrieve all`, after `bwb`; it gives a law its versions: `history`, `versions` and `articles/at` of the API (the Wetboek van Strafrecht has 126 toestanden since 2002, the Awb 236) |
 
 Enumeration queries `dcterms.type=="<type>"` for each type in `BWB_INSTRUMENT_TYPES`
 (case-sensitive: `AMvB`, `ministeriele-regeling`), 1,000 records a page (the service silently
