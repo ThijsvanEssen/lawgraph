@@ -256,6 +256,19 @@ with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `re
 (the kind of court within it), `date_eff` and `case_number_keys`, the case numbers as compared,
 derived; see [Courts](pipelines.md#courts)), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`.
 
+An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
+`articles`, `conclusion`, `importance` and, from the DOCX of its English item (else its French
+one), `text` and `paragraphs`. Its paragraphs are read from the Word styles of the Court's
+templates (`core/echr_docx.py`): `heading` for a section heading (`JuHHead`, `OpiHHead`,
+`ECHRHeading1`), `subheading` for the levels below it (`JuHIRoman`, `JuHA`, `JuH1`,
+`ECHRHeading2`…, and the cover lines styled so), `body` for the rest; a table of contents is left
+out. A paragraph of the Court opens with its number ("12.  The applicant …"), cited as § 12:
+`id` `par-12`, `number` `12`, the number not in `text` (not for a quotation or a point of the
+operative part). A heading's number is read only where it is text ("I.  THE CIRCUMSTANCES",
+`kop-i`); newer templates number headings by Word's list numbering, which the body does not
+hold. A separate opinion numbers from 1 again (`par-1_2`). `text` is every paragraph as printed,
+a blank line between.
+
 `summary` is the inhoudsindicatie, in Dutch; null for a placeholder ("kopje volgt", "-", empty). The Rechtspraak publishes a few judgments in an
 English translation too, under an ECLI of their own (ECLI:NL:HR:2019:2007 beside
 ECLI:NL:HR:2019:2006, case number `19/00135 (Engels)`); their inhoudsindicatie is English. An
@@ -458,7 +471,7 @@ record is skipped like one without a payload.
 | `staatsblad` | `stb-amvb-xml` |
 | `staatscourant` | `stcrt-regeling-xml` |
 | `eerstekamer` | `ek-kamerstuk-json` |
-| `echr` | `echr-judgment-json` |
+| `echr` | `echr-judgment-json` (one per HUDOC item: a judgment in one language), `echr-judgment-docx-xml` (the `word/document.xml` of the DOCX of the item whose text a judgment gets, external id its item id, `meta.ecli` and `meta.language`) |
 | `verdragenbank` | `verdrag-json` |
 | `rijksoverheid` | `rijksoverheid-cabinet-html` (the page of one cabinet since 1945, external id its slug, `meta.url` and `meta.read_on`) |
 
