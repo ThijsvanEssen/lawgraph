@@ -32,41 +32,42 @@ FUNCTIONS = [
     ("Minister van Landbouw, Visserij, Voedselzekerheid en Natuur", "minister", "lvvn"),
     ("Minister van landbouw, natuur en voedselkwaliteit", "minister", "lnv"),
     ("minister van Onderwijs en Wetenschappen", "minister", "ow"),
-    ("Minister van Buitenlandse Handel en Ontwikkelingssamenwerking", "minister", "bz"),
-    ("Minister van Werk en Participatie", "minister", "szw"),
-    ("minister van Langdurige Zorg, Jeugd en Sport", "minister", "vws"),
+    ("Minister van Buitenlandse Handel en Ontwikkelingssamenwerking", "minister", None),
+    ("Minister van Werk en Participatie", "minister", None),
+    ("minister van Langdurige Zorg, Jeugd en Sport", "minister", None),
     ("Minister van Asiel en Migratie", "minister", "aenm"),
     ("minister van Klimaat en Groene Groei", "minister", "kgg"),
     ("Minister van Algemene Oorlogvoering", "minister", "aok"),
-    ("minister van openbare werken", "minister", "opw"),
-    # a minister without portfolio: the ministry the post is placed under
-    ("Minister voor Klimaat en Energie", "minister_zonder_portefeuille", "ezk"),
+    # a name no source gives (Openbare Werken, before 1945) is no ministry
+    ("minister van openbare werken", "minister", None),
+    # a portfolio names no ministry: which one the post falls under a source has to say
+    ("Minister voor Klimaat en Energie", "minister_zonder_portefeuille", None),
     (
         "Minister voor Basis- en Voortgezet Onderwijs en Media",
         "minister_zonder_portefeuille",
-        "ocw",
+        None,
     ),
-    ("Minister voor Rechtsbescherming", "minister_zonder_portefeuille", "jenv"),
-    ("Minister voor Ontwikkelingssamenwerking", "minister_zonder_portefeuille", "bz"),
-    ("minister voor Jeugd en Gezin", "minister_zonder_portefeuille", "vws"),
+    ("Minister voor Rechtsbescherming", "minister_zonder_portefeuille", None),
+    ("Minister voor Ontwikkelingssamenwerking", "minister_zonder_portefeuille", None),
+    ("minister voor Jeugd en Gezin", "minister_zonder_portefeuille", None),
     (
         "Minister voor Wonen, Wijken en Integratie",
         "minister_zonder_portefeuille",
-        "vrom",
+        None,
     ),
-    ("minister voor Wonen en Rijksdienst", "minister_zonder_portefeuille", "bzk"),
-    # the name of a ministry, but a post without portfolio at BZK (Rutte IV)
+    ("minister voor Wonen en Rijksdienst", "minister_zonder_portefeuille", None),
+    # the name of a ministry, but a post without portfolio (Rutte IV)
     (
         "minister voor Volkshuisvesting en Ruimtelijke Ordening",
         "minister_zonder_portefeuille",
-        "bzk",
+        None,
     ),
     (
         "minister voor Nederlands-Antilliaanse Zaken",
         "minister_zonder_portefeuille",
-        "bzk",
+        None,
     ),
-    ("minister voor Natuur en Stikstof", "minister_zonder_portefeuille", "lvvn"),
+    ("minister voor Natuur en Stikstof", "minister_zonder_portefeuille", None),
     ("minister zonder portefeuille", "minister_zonder_portefeuille", None),
     ("Nederlands staatssecretaris van Economische Zaken", "staatssecretaris", "ez"),
     ("staatssecretaris van Financiën", "staatssecretaris", "fin"),
@@ -81,11 +82,11 @@ FUNCTIONS = [
         "staatssecretaris",
         "ez",
     ),
-    ("Staatssecretaris Herstel Toeslagen", "staatssecretaris", "fin"),
-    ("Staatssecretaris voor Toeslagen en Douane", "staatssecretaris", "fin"),
-    ("Staatssecretaris Herstel Groningen", "staatssecretaris", "bzk"),
-    ("Staatssecretaris mijnbouw", "staatssecretaris", "ezk"),
-    ("Staatssecretaris Onderwijs en Emancipatie", "staatssecretaris", "ocw"),
+    ("Staatssecretaris Herstel Toeslagen", "staatssecretaris", None),
+    ("Staatssecretaris voor Toeslagen en Douane", "staatssecretaris", None),
+    ("Staatssecretaris Herstel Groningen", "staatssecretaris", None),
+    ("Staatssecretaris mijnbouw", "staatssecretaris", None),
+    ("Staatssecretaris Onderwijs en Emancipatie", "staatssecretaris", None),
     (
         "Staatssecretaris van Landbouw Visserij Voedselzekerheid en Natuur",
         "staatssecretaris",
@@ -124,6 +125,7 @@ def test_the_ministries_name_existing_successors_and_rank_after_them() -> None:
 def test_a_ministry_with_a_successor_names_the_last_day_of_its_name() -> None:
     from lawgraph.core.ministries import MINISTRIES
 
-    # the Rijksoverheid pages show no handover for these: their end stays unknown
-    unknown = {"aok", "bzbpbo", "opw", "ahn", "szv", "arbeid"}
+    # the Rijksoverheid pages show no handover for these, TOOI does not know them: their
+    # end stays unknown
+    unknown = {"vene", "owen"}
     assert {m.key for m in MINISTRIES if m.successor and not m.until} == unknown

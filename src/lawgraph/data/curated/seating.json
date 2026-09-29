@@ -1,0 +1,98 @@
+{
+ "about": "By hand, after the official plan: where each faction sits in the plenary hall, as the angle of its seats around the centre of the hemicycle seen from the chair (0 the chair's left, 180 its right; the median over its seats: blocks interleave, so one number per faction). Taken over from the plan of the Tweede Kamer named in `source`, which is published as a drawing only (no data: the open data has no seat position). Update it at every Presidium decision on the seating, with the new plan's url and date: `lawgraph curated set seating <key> '{\"abbreviation\": ..., \"angle\": ...}'` and edit `source` with the new plan. A faction with seats and no angle sits at the right end; `lawgraph check` names it, and a plan older than the last change of a seat.",
+ "source": {
+  "title": "Zetelverdeling plenaire zaal, juni 2026",
+  "dated": "2026-06-01",
+  "url": "https://www.tweedekamer.nl/sites/default/files/2026-06/zetelverdeling%20Juni%202026%20NL.pdf",
+  "page": "https://www.tweedekamer.nl/kamerleden-en-commissies/wie-zit-waar",
+  "read_on": "2026-09-29",
+  "method": "the median angle of the pixels of each faction's colour on the plan (PNG of the same page), around the centre of the hemicycle"
+ },
+ "factions": [
+  {
+   "key": "sp",
+   "abbreviation": "SP",
+   "angle": 8.6
+  },
+  {
+   "key": "pro",
+   "abbreviation": "PRO",
+   "angle": 15.8
+  },
+  {
+   "key": "50plus",
+   "abbreviation": "50PLUS",
+   "angle": 23.5
+  },
+  {
+   "key": "volt",
+   "abbreviation": "Volt",
+   "angle": 34.9
+  },
+  {
+   "key": "pvdd",
+   "abbreviation": "PvdD",
+   "angle": 38.5
+  },
+  {
+   "key": "d66",
+   "abbreviation": "D66",
+   "angle": 49.5
+  },
+  {
+   "key": "denk",
+   "abbreviation": "DENK",
+   "angle": 70.1
+  },
+  {
+   "key": "cda",
+   "abbreviation": "CDA",
+   "angle": 79.2
+  },
+  {
+   "key": "christenunie",
+   "abbreviation": "ChristenUnie",
+   "angle": 99.6
+  },
+  {
+   "key": "sgp",
+   "abbreviation": "SGP",
+   "angle": 99.7
+  },
+  {
+   "key": "vvd",
+   "abbreviation": "VVD",
+   "angle": 109.9
+  },
+  {
+   "key": "lid_keijzer",
+   "abbreviation": "Lid Keijzer",
+   "angle": 123.8
+  },
+  {
+   "key": "bbb",
+   "abbreviation": "BBB",
+   "angle": 129.1
+  },
+  {
+   "key": "ja21",
+   "abbreviation": "JA21",
+   "angle": 134.5
+  },
+  {
+   "key": "groep_markuszower",
+   "abbreviation": "Groep Markuszower",
+   "angle": 139.5
+  },
+  {
+   "key": "fvd",
+   "abbreviation": "FVD",
+   "angle": 158.4
+  },
+  {
+   "key": "pvv",
+   "abbreviation": "PVV",
+   "angle": 167.3
+  }
+ ]
+}

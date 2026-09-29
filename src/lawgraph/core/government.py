@@ -99,13 +99,40 @@ def _member_letters(member: dict[str, Any]) -> str:
     return initial_letters(_first_names(member))
 
 
-def _initials_agree(letters: str, member: dict[str, Any], *, loose: bool) -> bool:
-    theirs = _member_letters(member)
-    if not theirs or not letters:
+def _undotted(text: str | None) -> str:
+    """Initials without dots or spaces, in lower case: ``wthc`` of ``W.Th.C.`` and ``WTHC``."""
+    return re.sub(r"[^a-z]", "", _plain(text))
+
+
+def _readings(
+    holder: dict[str, Any], member: dict[str, Any]
+) -> tuple[set[str], set[str]]:
+    """The ways the initials of a holder and of a member can be read. Initials with dots
+    (``S.Th.M.``) are letters (``stm``). The Tweede Kamer writes most without dots, and then
+    keeps a digraph (``WTHC`` for W.Th.C.) or not (``TM`` for Th.M.), and at times gives
+    other initials than the first names of the full name it gives (``JR`` for Jan Frederik):
+    each of those readings counts, the holder's with and without its digraphs (``IJ`` as
+    ``Y`` too)."""
+    letters = holder["letters"]
+    if "." in (member.get("initials") or "") or not member.get("initials"):
+        return {letters}, {_member_letters(member)}
+    undotted = _undotted(holder.get("initials"))
+    ours = {letters, undotted, undotted.replace("ij", "y")}
+    theirs = {_undotted(member["initials"]), initial_letters(_first_names(member))}
+    return {o for o in ours if o}, {t for t in theirs if t}
+
+
+def _initials_agree(
+    holder: dict[str, Any], member: dict[str, Any], *, loose: bool
+) -> bool:
+    """Whether the initials of a holder and a member agree in one of their readings
+    (``_readings``): the same, or loosely one beginning the other."""
+    ours, theirs = _readings(holder, member)
+    if not ours or not theirs:
         return True
     if loose:
-        return theirs.startswith(letters) or letters.startswith(theirs)
-    return theirs == letters
+        return any(t.startswith(o) or o.startswith(t) for o in ours for t in theirs)
+    return bool(ours & theirs)
 
 
 def _fits(
@@ -115,7 +142,7 @@ def _fits(
         holder["surname"], member.get("family_name"), ij=ij, loose=loose
     ):
         return False
-    if not _initials_agree(holder["letters"], member, loose=loose):
+    if not _initials_agree(holder, member, loose=loose):
         return False
     for day in holder["days"]:
         age = _age(member.get("birth_date"), day)
@@ -129,7 +156,8 @@ def match_holder(
 ) -> str | None:
     """The key of the member of parliament that *holder* is, or ``None``.
 
-    *holder* is ``{surname, letters, days, factions}``: the surname and initial letters as
+    *holder* is ``{surname, initials, letters, days, factions}``: the surname, initials and
+    initial letters as
     Rijksoverheid writes them, the first days of their posts, the faction keys of their
     parties. *members* are ``{key, family_name, name, initials, birth_date, factions}``,
     ``name`` the full name.
@@ -152,6 +180,17 @@ def match_holder(
             if fits:
                 return _only([m["key"] for m in fits])
     return None
+
+
+def surname_in(surname: str | None, name: str | None) -> bool:
+    """Whether the words of *surname* are among those of *name* (``Herbert, H.G.``)."""
+    words = _surname_words(surname)
+    return bool(words) and words <= _words(name)
+
+
+def post_kind(function: str | None) -> str:
+    """``staatssecretaris`` or ``minister``: what a post or a signature is, by its name."""
+    return _post_kind(function)
 
 
 def _post_kind(function: str | None) -> str:
@@ -202,3 +241,29 @@ def match_signatory(
         if len(fits) == 1:
             found.update(fits)
     return _only(sorted(found))
+
+
+def match_by_function(
+    holder: dict[str, Any],
+    members: Iterable[dict[str, Any]],
+    signed: dict[str, list[dict[str, Any]]],
+) -> str | None:
+    """The key of the member *holder* is by what they did, or ``None``: the one member with
+    the same surname, a faction of the holder's party and a signature as a minister or
+    state secretary, of the kind of one of the holder's posts, while they held it.
+
+    For a holder whose name matches no member (``J.H. Hoogervorst`` on two pages where the
+    Tweede Kamer knows J.F.). *signed* is member key -> their signatures in government
+    (``{function, first, last}``); *holder* is as for ``match_holder``, with its ``posts``.
+    Two members that fit (two of one surname and party signing in one period) match none."""
+    factions = set(holder.get("factions") or ())
+    fits = [
+        m["key"]
+        for m in members
+        if factions & set(m.get("factions") or ())
+        and _surnames_agree(
+            holder["surname"], m.get("family_name"), ij=False, loose=False
+        )
+        and any(_signed_as(holder, s) for s in signed.get(m["key"], ()))
+    ]
+    return _only(fits)

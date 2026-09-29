@@ -107,13 +107,21 @@ linted (`sys.exit` and `setup_logging` outside the entry points are banned in
   `setup_logging()` out of every other module, so any command can be a part of another.
 - There is one date option, `--since` (ISO 8601 or relative, `7d`). A command has it only
   when its pipeline filters on it.
-- A retrieve pipeline without `argv_for_all` (`bwb-history`, `tk-content`) is a manual command
-  and is not part of `retrieve all`.
+- Every retrieve pipeline has `argv_for_all` and is part of `retrieve all`; `lane` puts
+  pipelines of one server one after the other and `after` makes one wait for a pipeline whose
+  records it reads.
 - The order in the registry is the order of `semantic all`; pipelines that read edges written
   by others are placed after them.
 
 Adding a pipeline: write the module under its address and add one `_pipeline(...)` line to
 the list of its phase. Adding a source: add it to `SOURCES` first.
+
+What no official source gives and a person decides (a party colour, the name of a landmark
+judgment, our key of a ministry) is data: it lives in `src/lawgraph/data/curated/` and only
+`lawgraph curated` changes it. How a source is written (month names, name particles, the
+words of a legal form, ECLI country codes) is parser vocabulary and stays in code. Tables an
+official source gives are built from it by a command and committed (`data/ministries.json`,
+`courts.json`, `code_families.json`).
 
 ## Layering
 
@@ -174,7 +182,7 @@ administer the server), then the missing collections, indexes, analyzers and sea
 | Pipeline class name = CamelCase(module) + Phase + `Pipeline` (acronyms BWB, TK, EU, ECHR in capitals); base classes `<Phase>PipelineBase`; every pipeline inherits `PipelineBase` | `tests/test_pipeline_naming.py` |
 | McCabe complexity C901 <= 15 | `ruff` (`pyproject.toml`), CI pre-commit |
 | Relation catalogue: names are English `UPPER_SNAKE` verbs, never repeat the target type, every endpoint is a known collection, only instruments and bills amend / introduce / repeal, the `RELATION_*` constants are exactly the catalogue; the generated tables in `docs/data-model.md` are current | `tests/test_relation_catalogue.py` |
-| CLI commands and their order come only from the registry; skip variables follow `LAWGRAPH_<PHASE>_SKIP_<SOURCE_ID>`; `graph-list-stats` runs last; manual sources stay out of `retrieve all`; dependencies precede dependents in `semantic all` | `tests/test_source_registry.py` |
+| CLI commands and their order come only from the registry; skip variables follow `LAWGRAPH_<PHASE>_SKIP_<SOURCE_ID>`; `graph-list-stats` runs last; every retrieve pipeline is part of `retrieve all`; dependencies precede dependents in `semantic all` | `tests/test_source_registry.py` |
 | Only `config/settings.py` reads the environment; collection names are spelled out only in `config/constants.py`, also inside AQL; `.env.example` lists only variables that are read | `tests/test_configuration.py` |
 | Every command exits 1 when it raised or reported errors; `--since` reaches a pipeline only when the command accepts it | `tests/test_pipeline_cli.py` |
 | A relation name is spelled out only in `config/constants.py` and `core/relations.py` — everywhere else, including AQL, it comes from a `RELATION_*` constant | `tests/test_conventions.py` |

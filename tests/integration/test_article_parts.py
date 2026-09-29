@@ -146,7 +146,7 @@ def test_the_edge_and_the_citation_carry_the_qualifier_of_the_reference(
     assert citation["leden"] == list(named.leden) != []
     assert citation["aanhef"] is named.aanhef
 
-    (downstream,) = client.get(f"/api/articles/{BWB}/2/relationships").json()[
+    (downstream,) = client.get(f"/api/articles/{BWB}/2").json()[
         "downstream_implications"
     ]
     assert downstream["reference_kind"] == "intref"

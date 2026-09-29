@@ -1,4 +1,4 @@
-"""API tests for the /api/relationships endpoints and article relationships view."""
+"""API tests for the /api/relationships endpoints and the relationships of an article."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.config.constants import RELATION_SCOPED_BY
+from lawgraph.db.queries.articles import ArticleDetailData
 
 client = TestClient(app)
 
@@ -72,7 +73,16 @@ def test_relationship_types_endpoint():
     assert len(payload["semantic_types"]) == 7
 
 
-def test_article_relationships_endpoint(monkeypatch):
+def test_the_article_detail_carries_its_relationships(monkeypatch):
+    monkeypatch.setattr(
+        "lawgraph.api.routes.articles.get_article_with_relations",
+        lambda store, bwb_id, article_number: ArticleDetailData(
+            article=_SOURCE_ARTICLE, instrument=None, judgments=[], metadata={}
+        ),
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.articles.get_article_citations", lambda store, doc: []
+    )
     monkeypatch.setattr(
         "lawgraph.api.routes.articles.get_article_relationship_data",
         lambda store, article_id: {
@@ -83,11 +93,11 @@ def test_article_relationships_endpoint(monkeypatch):
             "scope": [{"edge": _SCOPE_EDGE, "annex": _ANNEX}],
         },
     )
-    response = client.get("/api/articles/BWBR0001854/287/relationships")
+    response = client.get("/api/articles/BWBR0001854/287")
     assert response.status_code == 200
     payload = response.json()
 
-    assert payload["article_id"] == _SOURCE_ARTICLE["_id"]
+    assert payload["article"]["id"] == _SOURCE_ARTICLE["_id"]
     upstream = payload["upstream_dependencies"]
     assert len(upstream) == 1
     rel = upstream[0]
@@ -127,6 +137,34 @@ def test_relationships_search(monkeypatch):
     assert rel["semantic_type"] == "definitional_reference"
     assert rel["source_article"]["article_number"] == "287"
     assert rel["target_article"]["article_number"] == "24c"
+
+
+def test_relationships_search_takes_several_types_and_types_to_leave_out(monkeypatch):
+    asked: list[dict] = []
+
+    def fake(store, **kwargs):
+        asked.append(kwargs)
+        return [], 0
+
+    monkeypatch.setattr("lawgraph.api.routes.relationships.search_relationships", fake)
+    response = client.get(
+        "/api/relationships/search",
+        params={
+            "type": "definitional_reference, scope_limitation",
+            "exclude_type": "cross_reference",
+        },
+    )
+    assert response.status_code == 200
+    assert asked[0]["semantic_types"] == ("definitional_reference", "scope_limitation")
+    assert asked[0]["exclude_types"] == ("cross_reference",)
+
+    client.get("/api/relationships/search")
+    assert asked[1]["semantic_types"] is None and asked[1]["exclude_types"] is None
+
+
+def test_relationships_search_rejects_an_unknown_type_to_leave_out():
+    response = client.get("/api/relationships/search?exclude_type=nope")
+    assert response.status_code == 422
 
 
 def test_relationships_search_rejects_unknown_type():

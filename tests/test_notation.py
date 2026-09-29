@@ -93,6 +93,11 @@ def article(law: str | None, number: str, qualifier: str | None = None) -> Notat
         ("Wetboek van Strafrecht art 287", article(SR, "287")),
         ("Wetboek van Strafrecht artikel 287", article(SR, "287")),
         ("Awb 3:4", article(AWB, "3:4")),
+        # The number first, as in running text.
+        ("6:162 BW", article(BW6, "162")),
+        ("3:40 BW", article(BW3, "40")),
+        ("287 Sr", article(SR, "287")),
+        ("3:4 Awb", article(AWB, "3:4")),
         # Qualifiers are kept apart from the number.
         ("art. 6:162 lid 2 BW", article(BW6, "162", "lid 2")),
         ("artikel 287, derde lid, Sr", article(SR, "287", "derde lid")),
@@ -140,6 +145,8 @@ def test_the_book_is_not_an_article_of_its_own() -> None:
         "art. 9:1 BW",  # there is no such book
         "artikel 287 Sr moord",  # the law is not what ends the text
         "Wetboek 287",  # too generic to be a law
+        "2024 Onbekende wet",  # a number before words that name no law
+        "162 BW",  # a family without the book
         "moord",
         "Wetboek van Strafrecht",
         "",
@@ -310,3 +317,13 @@ def test_a_parser_without_laws_still_reads_identifiers_and_dossiers() -> None:
     assert empty.parse("artikel 6") == article(None, "6")
     assert empty.parse("artikel 287 Sr") is None
     assert empty.law_matches("Grondwet") == []
+
+
+def test_a_number_of_a_book_is_its_number_in_that_book() -> None:
+    from lawgraph.core.notation import native_article_number
+
+    assert native_article_number(BW6, "6:162") == "162"
+    assert native_article_number(BW6.lower(), "6:162") == "162"
+    assert native_article_number(BW6, "162") == "162"
+    assert native_article_number(BW6, "3:40") == "3:40"  # another book: left alone
+    assert native_article_number(AWB, "8:69") == "8:69"  # the Awb's own number

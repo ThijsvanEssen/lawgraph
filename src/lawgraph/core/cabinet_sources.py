@@ -1,12 +1,9 @@
-"""Every Dutch cabinet, from the source that describes it.
+"""Every Dutch cabinet since 1945, from its Rijksoverheid page.
 
-- **Rijksoverheid** has a page for every cabinet since 1945 (``core.rijksoverheid``): the
-  cabinet starts on the day of its beëdiging and ends when the next one starts; its posts
-  (``core.cabinet_posts``), phases (``core.cabinet_phases``) and parties come from it.
-- **Wikidata** has the cabinets before those: only their name and period as Wikidata gives
-  it (``core.cabinets.wikidata_period``; a date it lacks stays null). A Wikidata cabinet that
-  began on or after the first Rijksoverheid cabinet is left out. These cabinets have no
-  posts and no phases: no official source gives them.
+Rijksoverheid has a page for every cabinet since 1945 (``core.rijksoverheid``): the cabinet
+starts on the day of its beëdiging and ends when the next one starts; its posts
+(``core.cabinet_posts``), phases (``core.cabinet_phases``) and parties come from it. The
+cabinets before 1945 are not in the graph: no official source describes them.
 
 ``build_cabinets`` does all of it without a database; the pipeline adds the members.
 """
@@ -26,10 +23,9 @@ from lawgraph.core.cabinet_phases import (
     page_events,
 )
 from lawgraph.core.cabinet_posts import cabinet_posts
-from lawgraph.core.cabinets import cabinet_key, cabinet_name, wikidata_period
+from lawgraph.core.cabinets import cabinet_key, cabinet_name
 
 SOURCE_NAME_RIJKSOVERHEID = "rijksoverheid"
-SOURCE_NAME_WIKIDATA = "wikidata"
 NO_PARTY = "partijloos"
 
 # party text -> ``{short, faction}``
@@ -125,47 +121,12 @@ def rijksoverheid_cabinets(
     return cabinets
 
 
-def wikidata_cabinets(
-    records: Iterable[dict[str, Any]], before: str | None
-) -> list[dict[str, Any]]:
-    """The Wikidata cabinets (``WikidataClient.cabinets`` records) that began before
-    *before*, oldest first."""
-    cabinets = []
-    for record in records:
-        period = wikidata_period(record)
-        if before and (period["from_date"] or "") >= before:
-            continue
-        name = cabinet_name(record.get("name")) or record["id"]
-        cabinets.append(
-            {
-                "key": cabinet_key(name) or record["id"].lower(),
-                "name": name,
-                **period,
-                "wikidata_id": record["id"],
-                "source": {"name": SOURCE_NAME_WIKIDATA, "url": None, "read_on": None},
-                "posts": [],
-                "phases": [],
-                "demissionary_from": None,
-                "parties": [],
-            }
-        )
-    return sorted(cabinets, key=lambda c: (c["from_date"] or "", c["key"]))
-
-
 def build_cabinets(
-    pages: Iterable[dict[str, Any]],
-    wikidata: Iterable[dict[str, Any]],
-    party_of: PartyOf,
+    pages: Iterable[dict[str, Any]], party_of: PartyOf
 ) -> list[dict[str, Any]]:
     """Every cabinet, oldest first, each with ``previous`` the one before it. A key two
     cabinets would share gets the start year of the later one."""
-    official = rijksoverheid_cabinets(pages, party_of)
-    for cabinet in official:
-        cabinet["from_date_precision"] = "day"
-        cabinet["to_date_precision"] = "day" if cabinet["to_date"] else None
-        cabinet["wikidata_id"] = None
-    before = official[0]["from_date"] if official else None
-    cabinets = [*wikidata_cabinets(wikidata, before), *official]
+    cabinets = rijksoverheid_cabinets(pages, party_of)
     taken: set[str] = set()
     for cabinet in cabinets:
         if cabinet["key"] in taken:

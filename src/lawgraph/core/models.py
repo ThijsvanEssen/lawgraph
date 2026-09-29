@@ -97,7 +97,7 @@ class NodeType(str, Enum):
     COMMITTEE = "committee"  # parliamentary committee
     MEMBER = "member"  # member of parliament or minister
     FACTION = "faction"  # parliamentary party / political group
-    CABINET = "cabinet"  # a Dutch cabinet (kabinet), from Wikidata
+    CABINET = "cabinet"  # a Dutch cabinet since 1945 (kabinet), from Rijksoverheid
     INSTRUMENT_VERSION = "instrument_version"  # dated version of an instrument
     ARTICLE_VERSION = "article_version"  # dated version of an article
     ANNEX = "annex"  # annex (bijlage) of an instrument

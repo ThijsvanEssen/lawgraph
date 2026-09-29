@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.core.documents import chamber_of, is_explanatory
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
+from lawgraph.core.tk_records import submitters
 
 Chamber = Literal["TK", "EK"]
 ExplainedCollection = Literal["articles", "instruments"]
@@ -47,47 +48,6 @@ def origin_fields(
         "source": source or None,
         "is_explanatory": is_explanatory(kind),
     }
-
-
-class DocumentSummaryDTO(DocumentOrigin):
-    """One row in the document index. ``dossier_numbers`` are the labels of the dossiers
-    it names (``37020-XV``), in either chamber."""
-
-    key: str
-    title: str | None = None
-    kind: str | None = None
-    date: str | None = None
-    external_id: str | None = None
-    dossier_numbers: list[str] = Field(default_factory=list)
-    has_text: bool = False
-    linked_articles: int = 0
-
-    @classmethod
-    def from_row(cls, row: dict[str, Any]) -> DocumentSummaryDTO:
-        from lawgraph.core.time import strip_time_component
-
-        return cls(
-            key=row["key"],
-            title=row.get("title") or None,
-            kind=row.get("kind") or None,
-            date=strip_time_component(row.get("date")),
-            external_id=row.get("external_id") or None,
-            dossier_numbers=list(row.get("dossier_numbers") or []),
-            has_text=bool(row.get("has_text")),
-            linked_articles=int(row.get("linked_articles") or 0),
-            **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
-        )
-
-
-class DocumentListResponse(BaseModel):
-    """A page of document summaries."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    total: int = Field(
-        ..., description="Matching documents, independent of ``limit`` and ``offset``."
-    )
-    items: list[DocumentSummaryDTO]
 
 
 class ArticleRefDTO(BaseModel):
@@ -151,6 +111,21 @@ class ExplainedTargetDTO(BaseModel):
     article_number: str | None = None
 
 
+class SubmitterDTO(BaseModel):
+    """Who submitted a motie or amendement."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(description="As the paper names them: `C.A.M. van der Plas`.")
+    faction: str | None = Field(None, description="The faction they signed for.")
+    member_key: str | None = Field(
+        None, description="Their member (`/api/nodes/members/{key}`)."
+    )
+    role: Literal["indiener", "medeindiener"] = Field(
+        description="`indiener` (the first signatory) or `medeindiener`."
+    )
+
+
 class DocumentTextResponse(DocumentOrigin):
     """One document with its text.
 
@@ -158,10 +133,11 @@ class DocumentTextResponse(DocumentOrigin):
     from before December 1994 has no XML and never gets one. ``sections`` are
     the headings of the paper in document order, empty when there is no text or
     the structure of the paper could not be read; their offsets are into
-    ``text``. ``dossier_numbers`` are the dossiers the document is PART_OF, in
-    either chamber; ``case_kinds`` the ``Zaak.Soort`` of the cases it belongs to
-    (Tweede Kamer only); ``explains`` are the articles and instruments it explains,
-    without duplicates.
+    ``text``. ``submitters`` are who submitted a motie or amendement, the indiener
+    first (empty for any other paper). ``dossier_numbers`` are the dossiers the
+    document is PART_OF, in either chamber; ``case_kinds`` the ``Zaak.Soort`` of the
+    cases it belongs to (Tweede Kamer only); ``explains`` are the articles and
+    instruments it explains, without duplicates.
     """
 
     key: str
@@ -177,6 +153,7 @@ class DocumentTextResponse(DocumentOrigin):
         "Gegevensmagazijn.",
     )
     text: str | None = None
+    submitters: list[SubmitterDTO] = Field(default_factory=list)
     dossier_numbers: list[str] = Field(default_factory=list)
     case_kinds: list[str] = Field(default_factory=list)
     explains: list[ExplainedTargetDTO] = Field(default_factory=list)
@@ -211,6 +188,10 @@ class DocumentTextResponse(DocumentOrigin):
             ),
             text=text,
             sections=readable_sections(text, props.get("sections")),
+            submitters=[
+                SubmitterDTO(**row)
+                for row in submitters(props.get("kind"), props.get("actors") or [])
+            ],
             dossier_numbers=list(links.get("dossier_numbers") or []),
             case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],

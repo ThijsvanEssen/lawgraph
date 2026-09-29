@@ -587,7 +587,8 @@ def _search_documents(
             extra: {{
                 kind: doc.props.kind,
                 external_id: doc.props.external_id,
-                dossier_number: FIRST(doc.props.dossier_numbers)
+                dossier_number: FIRST(doc.props.dossier_numbers),
+                sequence: doc.props.sequence
             }}
         }}
     """

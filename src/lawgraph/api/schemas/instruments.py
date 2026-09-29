@@ -1,5 +1,5 @@
-"""Instrument endpoints: articles, citations, judgments, dossiers, related instruments,
-lists, versions and cross-law dependencies."""
+"""Instrument endpoints: articles, judgments, dossiers, related instruments, lists and
+versions."""
 
 from __future__ import annotations
 
@@ -7,11 +7,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.api.schemas.annexes import AnnexListItem
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
     OFFICIAL_URL,
-    ArticleRelationDTO,
+    VALID_UNTIL,
     DossierRefDTO,
     JudgmentSummaryDTO,
     address_of,
@@ -133,61 +132,6 @@ class InstrumentArticlesResponse(BaseModel):
         ),
     )
     items: list[InstrumentArticleNodeDTO]
-
-
-# ── /api/instruments/{bwb_id}/citations (bulk edges) ──────────────────────
-
-
-class InstrumentCitationEdge(BaseModel):
-    """One edge incident to an article of the focal instrument.
-
-    Edges keep ``from``/``to`` (not ``source``/``target``) — that matches
-    the ArangoDB edge shape and the citation graph rendering convention.
-    For an article-node id reference inside other DTOs, ``id``/``key`` are
-    used instead.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    from_id: str = Field(..., alias="from", description="Edge source node _id")
-    to_id: str = Field(..., alias="to", description="Edge target node _id")
-    relation: str = Field(..., description="Edge relation type, e.g. REFERS_TO")
-    direction: Literal["in", "out", "intra"] = Field(
-        ...,
-        description=(
-            "Relative to the focal instrument: ``out`` = source is in this "
-            "instrument, ``in`` = target is in it, ``intra`` = both sides."
-        ),
-    )
-    meta: dict[str, Any] | None = Field(
-        None, description="Optional edge metadata as written by the pipeline."
-    )
-
-
-class InstrumentCitationsResponse(BaseModel):
-    """Response for GET /api/instruments/{bwb_id}/citations.
-
-    One-shot bundle of every edge incident to the instrument's articles plus
-    the foreign endpoints those edges point at, grouped by collection.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    bwb_id: str = Field(..., description=_REQUESTED)
-    article_count: int = Field(
-        ..., description="Number of articles in the focal instrument."
-    )
-    total_edges: int = Field(
-        ..., description="Number of edges in the response (capped by ``max_edges``)."
-    )
-    edges: list[InstrumentCitationEdge]
-    nodes: dict[str, list[dict[str, Any]]] = Field(
-        ...,
-        description=(
-            "Foreign endpoints grouped by collection name "
-            "(e.g. ``{'judgments': [...], 'articles': [...]}``)."
-        ),
-    )
 
 
 # ── /api/instruments/{bwb_id}/judgments ───────────────────────────────────
@@ -466,7 +410,7 @@ class InstrumentVersionDTO(BaseModel):
     key: str
     bwb_id: str
     valid_from: str | None = None
-    valid_until: str | None = None
+    valid_until: str | None = Field(None, description=VALID_UNTIL)
     current: bool = False
     state_url: str | None = None
     official_url: str | None = Field(
@@ -511,12 +455,37 @@ class InstrumentArticleVersionDTO(BaseModel):
     bwb_id: str
     article_number: str
     valid_from: str | None = None
-    valid_until: str | None = None
+    valid_until: str | None = Field(None, description=VALID_UNTIL)
     current: bool = False
     official_url: str | None = Field(
         None, description="This version on wetten.overheid.nl (JCI with ``g``)."
     )
     text: str | None = None
+    text_preview: str | None = Field(
+        None, description="The first ``text_preview_chars`` characters of ``text``."
+    )
+
+    @classmethod
+    def from_document(
+        cls, doc: dict[str, Any], *, text_preview_chars: int = 160
+    ) -> InstrumentArticleVersionDTO:
+        props = doc.get("props") or {}
+        text = props.get("text") or None
+        return cls(
+            key=doc["_key"],
+            bwb_id=props.get("bwb_id", ""),
+            article_number=props.get("article_number", ""),
+            valid_from=props.get("valid_from"),
+            valid_until=props.get("valid_until"),
+            current=bool(props.get("current", False)),
+            official_url=article_url(
+                props.get("bwb_id"),
+                props.get("article_number"),
+                on=props.get("valid_from"),
+            ),
+            text=text,
+            text_preview=text[:text_preview_chars] if text else None,
+        )
 
 
 class InstrumentArticlesAtResponse(BaseModel):
@@ -526,38 +495,12 @@ class InstrumentArticlesAtResponse(BaseModel):
 
     bwb_id: str
     at_date: str
-    total: int
+    total: int = Field(
+        ...,
+        description="Every article in force on ``at_date``, independent of ``limit`` "
+        "and ``offset``.",
+    )
     items: list[InstrumentArticleVersionDTO]
-
-
-class SharedAnnexesResponse(BaseModel):
-    """Response for GET /api/instruments/{bwb_id}/shared-annexes."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    bwb_id: str
-    annexes: list[AnnexListItem] = Field(default_factory=list)
-
-
-class CrossLawDependencyItem(BaseModel):
-    """An article reference crossing a law boundary."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    source_article: ArticleRelationDTO
-    target_article: ArticleRelationDTO
-    semantic_type: str | None = None
-    explanation: str | None = None
-    confidence: float | None = None
-
-
-class CrossLawDependenciesResponse(BaseModel):
-    """Response for GET /api/instruments/{bwb_id}/cross-law-dependencies."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    bwb_id: str = Field(..., description=_REQUESTED)
-    dependencies: list[CrossLawDependencyItem] = Field(default_factory=list)
 
 
 # ── /api/instruments/{identifier} and /eu-links ───────────────────────────

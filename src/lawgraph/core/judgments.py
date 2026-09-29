@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
+from lawgraph.core.courts import court_of
 from lawgraph.core.xml import (
     collapse_ws,
     first_named,
@@ -19,126 +22,23 @@ from lawgraph.core.xml import (
 
 # ── ECLI-derived attributes ──────────────────────────────────────────────────
 
-# The tier of a judgment is the college that gave it, as the Rechtspraak itself sorts its
-# instanties (the ``Type`` of each in its waardelijst ``/Waardelijst/Instanties``): a highest
-# court on its own, the courts of one kind together, every other college under its own name.
-# ``tests/fixtures/rechtspraak_instanties.xml`` holds that list; a test fails when one of its
-# codes has no tier here. ``graph-list-stats`` writes the same in AQL from these tables.
-TIER_HOGE_RAAD = "hoge_raad"
-TIER_RAAD_VAN_STATE = "raad_van_state"
-TIER_CENTRALE_RAAD = "centrale_raad_van_beroep"
-TIER_CBB = "college_van_beroep_bedrijfsleven"
-# The Parket bij de Hoge Raad: the conclusions of its advocates-general, no judgments.
-TIER_PARKET = "parket"
-TIER_GERECHTSHOF = "gerechtshof"
-TIER_RECHTBANK = "rechtbank"
-TIER_KANTONGERECHT = "kantongerecht"  # until 2002
-TIER_TUCHTCOLLEGE = (
-    "tuchtcollege"  # every disciplinary tribunal (tuchtrechtelijke instantie)
-)
-TIER_EHRM = (
-    "ehrm"  # the European Court of Human Rights (source ``echr``); no Dutch court
-)
-TIER_KROON = "kroon"  # a decision of the Crown on an appeal (Kroonberoep, court "KB")
-TIER_HVJ_EU = "hvj_eu"  # the Court of Justice of the European Union
 
-TIER_OF_COURT = {
-    "HR": TIER_HOGE_RAAD,
-    "RVS": TIER_RAAD_VAN_STATE,
-    "CRVB": TIER_CENTRALE_RAAD,
-    "CBB": TIER_CBB,
-    "PHR": TIER_PARKET,
-    "CBHO": "college_van_beroep_hoger_onderwijs",
-    "CVBSTUF": "college_van_beroep_studiefinanciering",
-    "DETARCO": "tariefcommissie",
-    "RSJ": "raad_voor_strafrechtstoepassing_en_jeugdbescherming",
-    "RVAB": "raad_van_arbitrage_in_bouwgeschillen",
-    "OCHM": "constitutioneel_hof",
-    "OHJNA": "gemeenschappelijk_hof",  # the Hof van Justitie before the Gemeenschappelijk Hof
-    "IAR": TIER_TUCHTCOLLEGE,
-    "XX": "buitenlandse_instantie",  # the waardelijst: a court outside the Netherlands
-    "ECHR": TIER_EHRM,
-}
-# The kind of court a code starts with; the longest prefix wins.
-TIER_OF_PREFIX = {
-    "GH": TIER_GERECHTSHOF,
-    "RB": TIER_RECHTBANK,
-    "KTG": TIER_KANTONGERECHT,
-    "T": TIER_TUCHTCOLLEGE,
-    "AG": "ambtenarengerecht",
-    "RVB": "raad_van_beroep",  # the raden van beroep in social security, until 1992
-    "OGH": "gemeenschappelijk_hof",
-    "OGEA": "gerecht_in_eerste_aanleg",
-    "OGA": "gerecht_in_ambtenarenzaken",
-    "ORBA": "raad_van_beroep_in_ambtenarenzaken",
-    "ORBB": "raad_van_beroep_voor_belastingzaken",
-}
-PREFIX_LENGTHS = sorted({len(p) for p in TIER_OF_PREFIX}, reverse=True)
-# An ECLI of the code XX ("another issuer": the waardelijst calls it the foreign courts) is
-# published by the Rechtspraak for courts outside it; the court names which.
-TIER_OF_OTHER_COURT = {
-    "KB": TIER_KROON,
-    "Europees Hof voor de Rechten van de Mens": TIER_EHRM,
-    "Hof van Justitie van de Europese Unie": TIER_HVJ_EU,
-    "Hof van Justitie van de Europese Gemeenschappen": TIER_HVJ_EU,
-}
-
-# In the order lists show them: the highest courts, the parket, the courts of first instance
-# and appeal, then the other colleges, the Caribbean part, the EHRM last.
-TIERS: tuple[str, ...] = tuple(
-    dict.fromkeys(
-        [
-            TIER_HOGE_RAAD,
-            TIER_RAAD_VAN_STATE,
-            TIER_CENTRALE_RAAD,
-            TIER_CBB,
-            TIER_PARKET,
-            TIER_GERECHTSHOF,
-            TIER_RECHTBANK,
-            TIER_KANTONGERECHT,
-            TIER_TUCHTCOLLEGE,
-            *sorted(
-                {*TIER_OF_COURT.values(), *TIER_OF_PREFIX.values()}
-                - {TIER_EHRM, "buitenlandse_instantie"}
-            ),
-            TIER_KROON,
-            "buitenlandse_instantie",
-            TIER_HVJ_EU,
-            TIER_EHRM,
-        ]
-    )
-)
-
-
-def court_tier(court_code: str | None, court: str | None = None) -> str | None:
-    """The tier of a court: its code (``TIER_OF_COURT``), else the longest prefix of the code
-    (``TIER_OF_PREFIX``); for code ``XX`` the court it names (``TIER_OF_OTHER_COURT``). ``None``
-    for no code, or a code no table knows: never a catch-all."""
-    if not court_code:
-        return None
-    if court_code == "XX" and (court or "").strip() in TIER_OF_OTHER_COURT:
-        return TIER_OF_OTHER_COURT[(court or "").strip()]
-    if court_code in TIER_OF_COURT:
-        return TIER_OF_COURT[court_code]
-    return next(
-        (
-            TIER_OF_PREFIX[court_code[:length]]
-            for length in PREFIX_LENGTHS
-            if court_code[:length] in TIER_OF_PREFIX
-        ),
-        None,
-    )
-
-
-def derive_court_tier(
+def derive_court(
     ecli: str | None, court: str | None = None
-) -> tuple[str | None, str | None]:
-    """Return ``(court_code, tier)`` derived from the ECLI identifier and the court."""
+) -> tuple[str | None, str | None, str | None]:
+    """``(court_code, tier, court_kind)`` of a judgment, from its ECLI and the court its
+    metadata names (``core.courts.court_of``); the tier and kind ``None`` for a code the
+    court table does not know."""
     if not ecli:
-        return None, None
+        return None, None, None
     parts = ecli.split(":")
     court_code = parts[2].upper() if len(parts) >= 3 else None
-    return court_code, court_tier(court_code, court)
+    found = court_of(court_code, court)
+    return (
+        court_code,
+        found.tier if found else None,
+        found.court_kind if found else None,
+    )
 
 
 def compose_display_name(props: dict[str, Any]) -> str | None:
@@ -334,43 +234,19 @@ DECISION_KINDS: tuple[str, ...] = (
     KIND_PRELIMINARY_RULING,
 )
 
-# The procedures (``psi:procedure``) that name the kind, where the kop does not.
-KIND_OF_PROCEDURE = {
-    "Beschikking": KIND_BESCHIKKING,
-    "Tussenbeschikking": KIND_BESCHIKKING,
-    "Raadkamer": KIND_BESCHIKKING,
-    "Rekestprocedure": KIND_BESCHIKKING,
-}
-# The kind a college gives when nothing else tells. Every administrative college gives an
-# uitspraak; a college not here (the Kroon, a foreign court, the Caribbean courts of appeal
-# and the constitutional court, the arbitration board) is left without a kind.
-KIND_OF_TIER = {
-    TIER_HOGE_RAAD: KIND_ARREST,
-    TIER_GERECHTSHOF: KIND_ARREST,
-    TIER_RECHTBANK: KIND_VONNIS,
-    TIER_KANTONGERECHT: KIND_VONNIS,
-    "gerecht_in_eerste_aanleg": KIND_VONNIS,
-    TIER_PARKET: KIND_CONCLUSIE,
-    TIER_EHRM: KIND_ARREST,
-    TIER_HVJ_EU: KIND_ARREST,
-    TIER_RAAD_VAN_STATE: KIND_UITSPRAAK,
-    TIER_CENTRALE_RAAD: KIND_UITSPRAAK,
-    TIER_CBB: KIND_UITSPRAAK,
-    TIER_TUCHTCOLLEGE: KIND_UITSPRAAK,
-    "ambtenarengerecht": KIND_UITSPRAAK,
-    "college_van_beroep_hoger_onderwijs": KIND_UITSPRAAK,
-    "college_van_beroep_studiefinanciering": KIND_UITSPRAAK,
-    "gerecht_in_ambtenarenzaken": KIND_UITSPRAAK,
-    "raad_van_beroep": KIND_UITSPRAAK,
-    "raad_van_beroep_in_ambtenarenzaken": KIND_UITSPRAAK,
-    "raad_van_beroep_voor_belastingzaken": KIND_UITSPRAAK,
-    "raad_voor_strafrechtstoepassing_en_jeugdbescherming": KIND_UITSPRAAK,
-    "tariefcommissie": KIND_UITSPRAAK,
-}
-# The courts of every area of law: in administrative law (tax law too) they give an uitspraak.
-_GENERAL_COURTS = frozenset(
-    {TIER_GERECHTSHOF, TIER_RECHTBANK, "gerecht_in_eerste_aanleg"}
+# The curated kinds (``data/curated/decision_kinds.json``): the kind a procedure
+# (``psi:procedure``) names where the kop does not; the kind a kind of court gives when
+# nothing else tells (by ``court_kind``: a tier of one kind of court is its own); the kinds
+# of court of every area of law, which give an uitspraak in administrative law (tax law too).
+DECISION_KINDS_FILE = (
+    Path(__file__).resolve().parents[1] / "data" / "curated" / "decision_kinds.json"
 )
+_CURATED_KINDS: dict[str, Any] = json.loads(
+    DECISION_KINDS_FILE.read_text(encoding="utf-8")
+)
+KIND_OF_PROCEDURE: dict[str, str] = _CURATED_KINDS["procedures"]
+KIND_OF_COURT_KIND: dict[str, str] = _CURATED_KINDS["kinds"]
+_GENERAL_COURTS = frozenset(_CURATED_KINDS["general_courts"])
 
 # A kop line that names the decision: "Arrest", "ARREST", "Uitspraak op het hoger beroep
 # van:", "beschikking van de meervoudige kamer", "Tussenvonnis", "beslissing van de
@@ -404,12 +280,12 @@ def kind_in_kop(lines: list[str]) -> str | None:
     return dated
 
 
-def kind_of_tier(tier: str | None, area: str | None = None) -> str | None:
-    """The kind a college gives (``KIND_OF_TIER``); a court of every area gives an
-    uitspraak in administrative law."""
-    if tier in _GENERAL_COURTS and area == AREA_ADMINISTRATIVE:
+def kind_of_court(court_kind: str | None, area: str | None = None) -> str | None:
+    """The kind a kind of court gives (``KIND_OF_COURT_KIND``); a court of every area gives
+    an uitspraak in administrative law."""
+    if court_kind in _GENERAL_COURTS and area == AREA_ADMINISTRATIVE:
         return KIND_UITSPRAAK
-    return KIND_OF_TIER.get(tier or "")
+    return KIND_OF_COURT_KIND.get(court_kind or "")
 
 
 def decision_kind(
@@ -417,13 +293,13 @@ def decision_kind(
     document_type: str | None,
     procedure: str | None,
     kop: list[str],
-    tier: str | None,
+    court_kind: str | None,
     subjects: list[str] | None,
 ) -> str | None:
     """The kind of a decision (``DECISION_KINDS``), from the first that tells: the document
     type (``Conclusie``), the procedure (``Prejudiciële beslissing``), the kop (the line that
     names the decision), the procedure again (``Beschikking``, ``Raadkamer``, ...), and last
-    the college and the area of law (``kind_of_tier``). ``None`` when none does."""
+    the kind of court and the area of law (``kind_of_court``). ``None`` when none does."""
     if document_type == DOCUMENT_TYPE_CONCLUSION:
         return KIND_CONCLUSIE
     if procedure == PROCEDURE_PRELIMINARY_RULING:
@@ -431,7 +307,7 @@ def decision_kind(
     return (
         kind_in_kop(kop)
         or KIND_OF_PROCEDURE.get(procedure or "")
-        or kind_of_tier(tier, area_of_law(subjects))
+        or kind_of_court(court_kind, area_of_law(subjects))
     )
 
 

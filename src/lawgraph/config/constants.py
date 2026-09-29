@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from types import MappingProxyType
-
 # ── Collection name constants ─────────────────────────────────────────────────
 
 COLLECTION_INSTRUMENTS = "instruments"
@@ -154,8 +152,8 @@ SOURCE_STAATSCOURANT = "staatscourant"
 SOURCE_ECHR = "echr"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
-SOURCE_WIKIDATA = "wikidata"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
+SOURCE_TOOI = "tooi"
 # The label of a member only Rijksoverheid knows: a bewindspersoon without a Tweede Kamer person.
 LABEL_RIJKSOVERHEID = "Rijksoverheid"
 
@@ -175,24 +173,6 @@ EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements-directive"
 BWB_TREATY_ID_PREFIX = "BWBV"
 ECHR_CONVENTION_ID = "ECHR-CONVENTION"
 
-# A code whose books are regulations of their own: code -> book -> BWB id. A citation of
-# the code names the book in front of the colon (``art. 6:162 BW`` is article 162 of
-# book 6), so the code itself never stands for one regulation, whichever books are loaded.
-CODE_FAMILIES: dict[str, dict[str, str]] = {
-    "BW": {
-        "1": "BWBR0002656",
-        "2": "BWBR0003045",
-        "3": "BWBR0005291",
-        "4": "BWBR0002761",
-        "5": "BWBR0005288",
-        "6": "BWBR0005289",
-        "7": "BWBR0005290",
-        "7A": "BWBR0006000",
-        "8": "BWBR0005034",
-        "10": "BWBR0030068",
-    },
-}
-
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 
 RAW_KIND_TK_ZAAK = "tk-zaak"
@@ -208,6 +188,8 @@ RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
 # The XML of a Kamerstuk in the KOOP repository (source ``tk``, external id ``kst-<dossier>-<n>``).
 RAW_KIND_TK_KAMERSTUK_XML = "tk-kamerstuk-xml"
 RAW_KIND_RS_CONTENT = "rs-content"
+# The Instanties value list of the Rechtspraak (external id: Instanties).
+RAW_KIND_RS_INSTANTIES = "rs-instanties-xml"
 RAW_KIND_EU_CELEX = "eu-celex-html"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
 RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
@@ -215,13 +197,15 @@ RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
 RAW_KIND_BWB_WTI_GENERAL = "bwb-wti-algemene-informatie-xml"
 RAW_KIND_STB_AMVB = "stb-amvb-xml"
 RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
+# How many publications of each ministry name a cabinet post (external id: the query).
+RAW_KIND_STCRT_POST_CREATORS = "stcrt-post-creators-json"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_VERDRAG = "verdrag-json"
-# Every Dutch cabinet, one record per cabinet (external id: the Q-id).
-RAW_KIND_WIKIDATA_CABINET = "wikidata-cabinet-json"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
+# The TOOI value list of every ministry (external id: rwc_ministeries_compleet).
+RAW_KIND_TOOI_MINISTRIES = "tooi-ministries-jsonld"
 
 # A document the source answered HTTP 404 for is remembered as a record of the kind it would
 # have had plus this suffix (no payload), so it is not asked for again on every run.
@@ -241,7 +225,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_FRACTIEZETELPERSOON,
         RAW_KIND_TK_KAMERSTUK_XML,
     ),
-    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT,),
+    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT, RAW_KIND_RS_INSTANTIES),
     SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),
     SOURCE_BWB: (
         RAW_KIND_BWB_TOESTAND,
@@ -249,54 +233,18 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_BWB_WTI_GENERAL,
     ),
     SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
-    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING,),
+    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING, RAW_KIND_STCRT_POST_CREATORS),
     SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
     SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
-    SOURCE_WIKIDATA: (RAW_KIND_WIKIDATA_CABINET,),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
+    SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES,),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────
 
 # Maximum characters of a document's text scanned for citations (200 KB).
 MAX_SEMANTIC_TEXT_LENGTH = 200_000
-
-# ── Party colors ──────────────────────────────────────────────────────────────
-# Canonical brand colors for Dutch parliamentary parties.
-# Keyed by the party abbreviation as it appears in fractie.abbreviation.
-# GL-PvdA, GroenLinks, GroenLinks-PvdA and PRO are all intentional duplicates:
-# different API versions use different abbreviations for the same merged party.
-
-PARTY_COLORS: MappingProxyType[str, str] = MappingProxyType(
-    {
-        "VVD": "#003082",
-        "D66": "#1DB954",
-        "PVV": "#002868",
-        "CDA": "#399E48",
-        "SP": "#EE1C25",
-        "PvdA": "#E63325",
-        "GroenLinks": "#46962B",
-        "GL-PvdA": "#46962B",
-        "GroenLinks-PvdA": "#46962B",
-        "PRO": "#46962B",
-        "ChristenUnie": "#4F95D4",
-        "Volt": "#592D82",
-        "NSC": "#1B4F72",
-        "BBB": "#9ECA3C",
-        "JA21": "#CC0000",
-        "SGP": "#FF6600",
-        "FvD": "#8B0000",
-        "FVD": "#8B0000",
-        "DENK": "#39B54A",
-        "BIJ1": "#FFCC00",
-        "50PLUS": "#8B008B",
-        "PvdD": "#4CAF50",
-        "Groep Van Haga": "#002868",
-        "Groep Markuszower": "#1F2A44",
-        "Lid Keijzer": "#999999",
-    }
-)
 
 # Longest title / display name stored on a node (longer source titles are truncated).
 MAX_TITLE_CHARS = 200
@@ -347,7 +295,10 @@ RECHTSPRAAK_COURT_GROUPS: dict[str, tuple[str, ...]] = {
         "gh-s-gravenhage",
     ),
 }
-RECHTSPRAAK_DEFAULT_COURTS = ("hr", "rvs", "hoven")
+# Every court the index holds (no ``creator`` filter): the rechtbanken, the special courts
+# and those that no longer exist too.
+RECHTSPRAAK_EVERY_COURT = "all"
+RECHTSPRAAK_DEFAULT_COURTS = (RECHTSPRAAK_EVERY_COURT,)
 # Judgments are published up to weeks after the decision date; an incremental run looks this
 # far before its ``--since``.
 RECHTSPRAAK_PUBLICATION_LAG_DAYS = 30

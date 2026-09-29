@@ -10,13 +10,13 @@ from typing import get_args
 import pytest
 
 from lawgraph.api.schemas.judgments import DecisionKind
+from lawgraph.core.courts import COURT_KINDS
 from lawgraph.core.judgment_names import CURATED_NAMES, judgment_names
 from lawgraph.core.judgments import (
     DECISION_KINDS,
-    KIND_OF_TIER,
-    TIERS,
+    KIND_OF_COURT_KIND,
     decision_kind,
-    derive_court_tier,
+    derive_court,
     extract_judgment_text,
     extract_rdf_metadata,
     is_english,
@@ -41,7 +41,7 @@ def _kind(
         document_type=document_type,
         procedure=procedure,
         kop=kop or [],
-        tier=tier,
+        court_kind=tier,
         subjects=subjects,
     )
 
@@ -115,8 +115,8 @@ def test_without_metadata_the_court_and_the_area_of_law_tell(
 
 def test_the_kinds_are_those_of_the_api_and_every_tier_is_a_real_one() -> None:
     assert set(get_args(DecisionKind)) == set(DECISION_KINDS)
-    assert set(KIND_OF_TIER) <= set(TIERS)
-    assert set(KIND_OF_TIER.values()) <= set(DECISION_KINDS)
+    assert set(KIND_OF_COURT_KIND) <= set(COURT_KINDS)
+    assert set(KIND_OF_COURT_KIND.values()) <= set(DECISION_KINDS)
 
 
 @pytest.mark.parametrize(
@@ -146,12 +146,12 @@ def test_the_kinds_are_those_of_the_api_and_every_tier_is_a_real_one() -> None:
 def test_the_kind_of_real_judgments(name: str, ecli: str, kind: str) -> None:
     root = parse_judgment((FIXTURES / name).read_text())
     meta, subjects = extract_rdf_metadata(root)
-    _, tier = derive_court_tier(ecli, meta.get("court"))
+    _, _, court_kind = derive_court(ecli, meta.get("court"))
     found = decision_kind(
         document_type=meta.get("document_type"),
         procedure=meta.get("type"),
         kop=kop_lines(root),
-        tier=tier,
+        court_kind=court_kind,
         subjects=subjects,
     )
     assert found == kind

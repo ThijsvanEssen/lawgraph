@@ -1,5 +1,5 @@
-"""Article endpoints: detail, relationships, legislative history, explanatory
-documents, version history and in-flux state."""
+"""Article endpoints: detail with its relationships, legislative history, explanatory
+documents and version history."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    VALID_UNTIL,
     ArticleCitationSpan,
     ArticleRelationDTO,
     InstrumentSummaryDTO,
@@ -271,21 +272,6 @@ class ScopeArticleReference(BaseModel):
         )
 
 
-class ArticleRelationshipsResponse(BaseModel):
-    """Response for GET /api/articles/{bwb_id}/{article_number}/relationships."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    article_id: str
-    upstream_dependencies: list[ArticleRelationshipWithType] = Field(
-        default_factory=list
-    )
-    downstream_implications: list[ArticleRelationshipWithType] = Field(
-        default_factory=list
-    )
-    scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
-
-
 class ArticleDetailResponse(BaseModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}."""
 
@@ -321,9 +307,14 @@ class CitedByJudgment(BaseModel):
     ecli: str | None
     court: str | None = Field(description="ECLI court code, `HR`, `RBAMS`.")
     tier: str | None = Field(
-        description="The college: `hoge_raad`, `raad_van_state`, `centrale_raad_van_beroep`, "
-        "`college_van_beroep_bedrijfsleven`, `parket`, `gerechtshof`, `rechtbank`, … "
-        "(`/api/stats/coverage` lists those present).",
+        description="The tier, the Type of the court in the Instanties value list: "
+        "`hoge_raad`, `raad_van_state`, `parket`, `gerechtshof`, `rechtbank`, "
+        "`andere_instantie`, … (`/api/stats/coverage` lists those present).",
+    )
+    court_kind: str | None = Field(
+        default=None,
+        description="The kind of court within the tier (`ambtenarengerecht`; a tier of "
+        "one kind of court is its own kind).",
     )
     date: str | None = Field(description="Date of the judgment, YYYY-MM-DD.")
     display_name: str | None
@@ -366,6 +357,7 @@ class ArticleCitedByItem(QualifierFields):
                 ecli=props.get("ecli"),
                 court=props.get("court_code"),
                 tier=props.get("tier"),
+                court_kind=props.get("court_kind"),
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
             ),
@@ -521,16 +513,6 @@ class ArticleExplanationsResponse(BaseModel):
     items: list[ArticleExplanationDTO]
 
 
-class ArticleInFluxResponse(BaseModel):
-    """In-flux status for an article."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    article_id: str
-    in_flux: bool
-    open_dossier_count: int
-
-
 class ArticleVersionDTO(BaseModel):
     """One dated version of an article, with the publication that produced it."""
 
@@ -543,7 +525,7 @@ class ArticleVersionDTO(BaseModel):
         description="`Artikel 287`, or the heading of an article without a number.",
     )
     valid_from: str | None = None
-    valid_until: str | None = None
+    valid_until: str | None = Field(None, description=VALID_UNTIL)
     current: bool = False
     official_url: str | None = Field(
         None,

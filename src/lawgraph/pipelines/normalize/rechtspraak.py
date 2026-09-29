@@ -15,7 +15,7 @@ from lawgraph.core.judgments import (
     case_number_keys,
     compose_display_name,
     decision_kind,
-    derive_court_tier,
+    derive_court,
     extract_judgment_text,
     extract_rdf_metadata,
     extract_sections,
@@ -114,14 +114,15 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         kop = kop_lines(root)
         props["parties"] = read_parties(kop, subjects)
 
-        court_code, tier = derive_court_tier(ecli, props.get("court"))
+        court_code, tier, court_kind = derive_court(ecli, props.get("court"))
         props["court_code"] = court_code
         props["tier"] = tier
+        props["court_kind"] = court_kind
         props["decision_kind"] = decision_kind(
             document_type=judgment_meta.get("document_type"),
             procedure=judgment_meta.get("type"),
             kop=kop,
-            tier=tier,
+            court_kind=court_kind,
             subjects=subjects,
         )
         props["names"] = judgment_names(ecli)
@@ -148,7 +149,8 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         (``_link_translations``)."""
         if summary and is_english(summary):
             props["summary_en"] = summary
-        elif summary:
+        else:
+            # null clears what an earlier run stored ("kopje volgt", now a placeholder)
             props["summary"] = summary
 
     def _remember_translation(self, key: str, props: dict[str, Any]) -> None:
