@@ -236,9 +236,8 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
             },
         )
         assert list(dangling) == []
-        listed = client.get("/api/documents", params={"limit": 100}).json()
-        assert listed["total"] == 3
-        assert all(item["kind"] for item in listed["items"])
+        kinds = list(store.query("FOR d IN documents RETURN d.props.kind"))
+        assert len(kinds) == 3 and all(kinds)
     finally:
         app.dependency_overrides.pop(get_store, None)
 
