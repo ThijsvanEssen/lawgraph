@@ -239,7 +239,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.40.0",
+    version="0.41.0",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
