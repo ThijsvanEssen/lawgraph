@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.aliases import InstrumentAliasMap, normalize_instrument_id
 from lawgraph.core.citations import number_shape
+from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.progress import Progress
@@ -261,7 +262,8 @@ class SemanticPipelineBase(PipelineBase):
         """Map each ECLI to a judgment node id, stubbing the ones not in the corpus.
 
         One lookup for the whole set; a judgment cited from outside the corpus
-        gets a stub so the citation edge still has both endpoints.
+        gets a stub so the citation edge still has both endpoints. A malformed ECLI
+        (``core.ecli.is_valid_ecli``) gets none and stays unmapped.
         """
         by_ecli: dict[str, str] = {}
         for row in semantic_queries.judgment_ids_by_ecli(self.store, sorted(eclis)):
@@ -270,7 +272,7 @@ class SemanticPipelineBase(PipelineBase):
                 by_ecli[ecli] = node_id
 
         for ecli in eclis:
-            if ecli in by_ecli:
+            if ecli in by_ecli or not is_valid_ecli(ecli):
                 continue
             node = self.store.ensure_stub_node(
                 COLLECTION_JUDGMENTS,

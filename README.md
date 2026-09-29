@@ -92,7 +92,8 @@ lawgraph semantic all --since 7d
 | `src/lawgraph/core/` | pure logic and shared definitions (models, props, relation catalogue, BWB XML, citations) |
 | `src/lawgraph/db/` | `ArangoStore`, bulk `NodeWriter` / `EdgeWriter`, schema, indexes, search views |
 | `src/lawgraph/api/` | FastAPI app: `routes/`, `queries/`, `schemas/` |
-| `src/lawgraph/commands/` | sequences of phases (`bootstrap`, `expand-graph`) and reports (`check`, `gaps`) |
+| `src/lawgraph/commands/` | sequences of phases (`bootstrap`, `expand-graph`), reports (`check`, `gaps`, `verify`) `ministries`, `courts` and `code-families` (build the ministry, court and code tables) and `curated` (the lists kept by hand) |
+| `src/lawgraph/data/` | tables built from official sources and committed (`ministries.json`, `courts.json`, `code_families.json`); `curated/` what no source gives, kept with `lawgraph curated` (party colours, left-right order, judgment names, decision kinds, courts outside the value list, ministry keys, order, successions and aliases) |
 | `src/lawgraph/config/` | `constants.py` (every name), `settings.py` (every environment value; loads `.env`) |
 | `tests/` | offline test suite (fake store, real XML fixtures) |
 
@@ -147,9 +148,8 @@ Open:
 
 - Of the BWB WTI files only the official abbreviations are ingested (as
   `instruments.props.short_title`); the amendment log and `grondslag-voor` are not.
-- Rechtspraak is loaded for the chosen courts (default: Hoge Raad, Raad van State, the hoven)
-  inside the window; a judgment of another court arrives only when a loaded record cites it
-  (`expand-graph`). Citations between judgments are read from the text; of the structured
+- Rechtspraak is loaded for every court inside the window (`--court` narrows it); an older
+  judgment arrives only when a loaded record cites it (`expand-graph`). Citations between judgments are read from the text; of the structured
   metadata only `dcterms:relation` is used (for `APPEAL_OF`), LiDO is not.
 - EUR-Lex implementation data (`eur`) is not evaluated.
 - Not covered: CVDR (local regulations) and the Omgevingswet API.

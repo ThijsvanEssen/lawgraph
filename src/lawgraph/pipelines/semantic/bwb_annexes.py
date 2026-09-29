@@ -30,7 +30,7 @@ SEMANTIC_SOURCE = ANNEX_EDGE_SOURCE
 
 
 class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
-    """Extract annex nodes from BWB XML and link referencing articles."""
+    """Link the articles that name an annex to it (SCOPED_BY)."""
 
     def run(self) -> PipelineResult:
         result = PipelineResult()

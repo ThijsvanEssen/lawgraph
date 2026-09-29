@@ -1,4 +1,4 @@
-"""The document endpoints: the index and one document's text."""
+"""The document endpoint: one document's text."""
 
 from __future__ import annotations
 
@@ -7,18 +7,6 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-
-_ROW = {
-    "key": "abc123",
-    "title": "Memorie van Toelichting",
-    "kind": "Memorie van toelichting",
-    "date": "2024-03-01",
-    "external_id": "some-uuid",
-    "source": "tk",
-    "labels": ["TK"],
-    "has_text": True,
-    "linked_articles": 3,
-}
 
 _DOCUMENT = {
     "_id": "documents/abc123",
@@ -68,16 +56,12 @@ class _Collection:
 class _Store:
     def __init__(self, doc: dict | None = None) -> None:
         self._doc = doc
-        self.asked: list[tuple[str, dict]] = []
 
     def collection(self, name: str) -> _Collection:
         return _Collection(self._doc)
 
     def query(self, aql, bind_vars=None):
-        self.asked.append((aql, bind_vars or {}))
-        if "document_id" in (bind_vars or {}):
-            return [_LINKS]
-        return [{"total": 41, "items": [_ROW]}]
+        return [_LINKS]
 
 
 def _client(store: _Store) -> TestClient:
@@ -89,41 +73,6 @@ def _client(store: _Store) -> TestClient:
 def _clear_override():
     yield
     app.dependency_overrides.pop(get_store, None)
-
-
-def test_the_index_returns_english_rows() -> None:
-    body = _client(_Store()).get("/api/documents").json()
-    assert body["total"] == 41  # what matches, not what this page holds
-    assert body["items"][0]["kind"] == "Memorie van toelichting"
-    assert body["items"][0]["date"] == "2024-03-01"
-    assert body["items"][0]["linked_articles"] == 3
-    assert body["items"][0]["chamber"] == "TK"
-    assert body["items"][0]["source"] == "tk"
-    assert body["items"][0]["is_explanatory"] is True
-
-
-def test_the_index_passes_its_page_and_filters_on() -> None:
-    store = _Store()
-    _client(store).get("/api/documents?limit=5&offset=10&chamber=ek")
-    ((_, bind),) = store.asked
-    assert bind["limit"] == 5 and bind["offset"] == 10 and bind["chamber"] == "EK"
-
-
-def test_the_dossier_filter_takes_a_dossier_number(monkeypatch) -> None:
-    store = _Store()
-    monkeypatch.setattr(
-        "lawgraph.api.routes.documents.get_dossier_by_number",
-        lambda store, number: {"_id": "dossiers/36000"} if number == "36000" else None,
-    )
-    client = _client(store)
-
-    assert client.get("/api/documents?dossier=36000").json()["total"] == 41
-    assert store.asked[0][1]["dossier_id"] == "dossiers/36000"
-
-    unknown = client.get("/api/documents?dossier=99999").json()
-    assert unknown == {"total": 0, "items": []}
-    assert len(store.asked) == 1  # an unknown dossier asks nothing more
-    assert client.get("/api/documents?dossier=abc").status_code == 422
 
 
 def test_an_unknown_document_is_a_404() -> None:

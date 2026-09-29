@@ -33,8 +33,8 @@ from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
 from lawgraph.db import ArangoStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.nodes import (
+    NO_FILTER,
     NeighborFilter,
-    get_node_facets,
     get_node_neighborhood,
     get_node_with_neighbors,
 )
@@ -173,12 +173,23 @@ def client(store: ArangoStore) -> Iterator[TestClient]:
     app.dependency_overrides.pop(get_store, None)
 
 
+def _facets(
+    store: ArangoStore, key: str, filters: NeighborFilter = NO_FILTER
+) -> list[Any]:
+    """The facets of the buckets of an instrument: its edges counted per relation,
+    direction and neighbour collection."""
+    data = get_node_with_neighbors(
+        store, COLLECTION_INSTRUMENTS, key, filters=filters, limit=1
+    )
+    return [bucket.facet for bucket in data.buckets]
+
+
 def _counts(facets: list[Any]) -> dict[tuple[str | None, str, str], int]:
     return {(f.relation, f.direction, f.collection): f.count for f in facets}
 
 
 def test_facets_count_per_relation_direction_and_collection(small: ArangoStore) -> None:
-    facets = get_node_facets(small, COLLECTION_INSTRUMENTS, "focal")
+    facets = _facets(small, "focal")
 
     assert _counts(facets) == {
         (RELATION_AMENDS, "outbound", "instruments"): 1,
@@ -232,14 +243,14 @@ def test_facets_count_per_relation_direction_and_collection(small: ArangoStore) 
 def test_facets_take_every_filter(
     small: ArangoStore, filters: NeighborFilter, expected: set[tuple[str, str, str]]
 ) -> None:
-    facets = get_node_facets(small, COLLECTION_INSTRUMENTS, "focal", filters=filters)
+    facets = _facets(small, "focal", filters)
     assert {(f.relation, f.direction, f.collection) for f in facets} == expected
 
 
 def test_a_node_without_edges_has_no_facets_and_no_buckets(small: ArangoStore) -> None:
-    assert get_node_facets(small, COLLECTION_ARTICLES, "a44")[0].count == 1
+    a44 = get_node_with_neighbors(small, COLLECTION_ARTICLES, "a44")
+    assert a44.buckets[0].facet.count == 1
     _write(small, COLLECTION_INSTRUMENTS, [_node(NodeType.INSTRUMENT, "alone")])
-    assert get_node_facets(small, COLLECTION_INSTRUMENTS, "alone") == []
     assert get_node_with_neighbors(small, COLLECTION_INSTRUMENTS, "alone").buckets == []
 
 
@@ -343,8 +354,6 @@ def test_the_neighbours_of_a_page_obey_the_filter_and_its_totals_count_the_rest(
     data = get_node_with_neighbors(
         small, COLLECTION_INSTRUMENTS, "focal", filters=filters, limit=200
     )
-    facets = get_node_facets(small, COLLECTION_INSTRUMENTS, "focal", filters=filters)
-    assert [b.facet for b in data.buckets] == facets
     for bucket in data.buckets:
         assert len(bucket.entries) == bucket.facet.count
         for entry in bucket.entries:
@@ -396,7 +405,6 @@ def test_the_versions_and_annexes_can_be_explored(
             neighbour,
         )
         assert bucket["total"] == 1 and len(bucket["items"]) == 1
-        assert client.get(f"/api/nodes/{collection}/{key}/facets").json()["total"] == 1
         assert (
             client.get(f"/api/nodes/{collection}/{key}/neighborhood").status_code == 200
         )
@@ -444,9 +452,9 @@ def test_the_route_pages_filters_and_describes_the_edge(
     articles = next(b for b in everything["buckets"] if b["collection"] == "articles")
     assert len(articles["items"]) == 30 and articles["next_offset"] == 30  # the default
 
-    facets = client.get("/api/nodes/instruments/focal/facets?direction=outbound").json()
-    assert facets["total"] == 3
-    assert {(f["relation"], f["type"]) for f in facets["items"]} == {
+    outbound = client.get("/api/nodes/instruments/focal?direction=outbound").json()
+    assert outbound["neighbors"]["total"] == 3
+    assert {(b["relation"], b["type"]) for b in outbound["neighbors"]["buckets"]} == {
         ("AMENDS", "instrument"),
         ("IMPLEMENTS", "instrument"),
         ("REFERS_TO", "instrument"),
@@ -463,7 +471,7 @@ def test_the_route_pages_filters_and_describes_the_edge(
         "status=gone",
     ],
 )
-@pytest.mark.parametrize("path", ["", "/facets", "/neighborhood"])
+@pytest.mark.parametrize("path", ["", "/neighborhood"])
 def test_the_route_refuses_what_does_not_exist(
     client: TestClient, path: str, query: str
 ) -> None:
@@ -571,61 +579,6 @@ def test_the_neighbourhood_response_follows_the_filters(
     assert {e["relation"] for e in body["edges"]} == {"PART_OF"}
 
 
-# ── the graph layers ────────────────────────────────────────────────────────────────────
-
-
-def test_the_global_graph_keeps_the_node_types_and_relations_asked_for(
-    small: ArangoStore,
-) -> None:
-    from lawgraph.db.queries.graph import get_global_graph
-
-    everything = get_global_graph(small)
-    assert len(everything.instruments) == 5 and len(everything.articles) == ARTICLES
-    assert len(everything.judgments) == JUDGMENTS + 1
-    assert {e.relation_type for e in everything.edges} == {
-        RELATION_PART_OF,
-        RELATION_REFERS_TO,
-        RELATION_AMENDS,
-        RELATION_IMPLEMENTS,
-    }
-
-    no_judgments = get_global_graph(small, node_types=("instrument", "article"))
-    assert no_judgments.judgments == []
-    assert {e.relation_type for e in no_judgments.edges} == {
-        RELATION_PART_OF,
-        RELATION_REFERS_TO,  # focal -> cited
-        RELATION_AMENDS,
-        RELATION_IMPLEMENTS,
-    }
-    assert all(e.from_id.split("/")[0] != "judgments" for e in no_judgments.edges)
-
-    only_judgments = get_global_graph(small, node_types=("judgment",))
-    assert only_judgments.instruments == [] and only_judgments.articles == []
-    assert [e.relation_type for e in only_judgments.edges] == []  # jz -> a00 needs both
-
-    part_of = get_global_graph(small, relations=(RELATION_PART_OF,))
-    assert {e.relation_type for e in part_of.edges} == {RELATION_PART_OF}
-    assert len(part_of.edges) == ARTICLES  # the annex is no node of this graph
-
-
-def test_the_instrument_layer_returns_only_the_relations_asked_for(
-    small: ArangoStore,
-) -> None:
-    from lawgraph.db.queries.graph import get_instrument_layer_graph
-
-    every = get_instrument_layer_graph(small)
-    assert {e.relation_type for e in every.edges} == {
-        RELATION_REFERS_TO,
-        RELATION_AMENDS,
-        RELATION_IMPLEMENTS,
-    }
-    amends = get_instrument_layer_graph(small, relations=(RELATION_AMENDS,))
-    assert [(e.relation_type, e.to_id) for e in amends.edges] == [
-        (RELATION_AMENDS, f"{COLLECTION_INSTRUMENTS}/amends")
-    ]
-    assert len(amends.instruments) == len(every.instruments) == 5
-
-
 # ── a hub ───────────────────────────────────────────────────────────────────────────────
 
 HUB = f"{COLLECTION_INSTRUMENTS}/hub"
@@ -681,7 +634,7 @@ def test_a_hub_with_tens_of_thousands_of_edges_is_counted_and_paged_in_the_datab
     _seed_hub(store)
     _memory_limited(store, MEMORY_LIMIT)
 
-    facets = get_node_facets(store, COLLECTION_INSTRUMENTS, "hub")
+    facets = _facets(store, "hub")
     assert _counts(facets) == {
         (RELATION_PART_OF, "inbound", "articles"): HUB_ARTICLES,
         (RELATION_REFERS_TO, "inbound", "judgments"): HUB_JUDGMENTS,

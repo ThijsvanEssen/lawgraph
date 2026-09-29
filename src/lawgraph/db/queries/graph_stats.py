@@ -4,6 +4,7 @@ counts them (a dry run) or writes the keys. Each ``refresh_*`` returns the numbe
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, cast
 
 from lawgraph.config.constants import (
@@ -19,14 +20,9 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.courts import COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
 from lawgraph.core.judgment_names import CURATED_NAMES
-from lawgraph.core.judgments import (
-    KIND_OF_TIER,
-    PREFIX_LENGTHS,
-    TIER_OF_COURT,
-    TIER_OF_OTHER_COURT,
-    TIER_OF_PREFIX,
-)
+from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db.counting import Store
 
 # Each entry below is one query body that selects the stale documents, plus a
@@ -80,14 +76,13 @@ FOR doc IN {COLLECTION_JUDGMENTS}
     LET ecli = doc.props.ecli != null ? doc.props.ecli : doc._key
     LET ecli_parts = SPLIT(ecli, ':')
     LET court_code = LENGTH(ecli_parts) >= 3 ? UPPER(ecli_parts[2]) : null
-    // ``core.judgments.court_tier``: the code, else its longest known prefix
-    LET tier = court_code == null ? null : (
-        court_code == 'XX' AND HAS(@tier_of_other_court, doc.props.court || '')
-            ? @tier_of_other_court[doc.props.court] : NOT_NULL(
-            @tier_of_court[court_code],
-            {", ".join(f"@tier_of_prefix[LEFT(court_code, {n})]" for n in PREFIX_LENGTHS)}
-        )
+    // ``core.courts.court_of``: the court of the code; of code XX the one its name names
+    LET court = court_code == null ? null : (
+        court_code == 'XX' AND HAS(@other_court_by_name, doc.props.court || '')
+            ? @other_court_by_name[doc.props.court] : @court_by_code[court_code]
     )
+    LET tier = court == null ? null : court.tier
+    LET court_kind = court == null ? null : court.court_kind
     LET date_eff = (
         doc.props.judgment_metadata != null AND doc.props.judgment_metadata.date != null
             ? doc.props.judgment_metadata.date :
@@ -101,13 +96,15 @@ FOR doc IN {COLLECTION_JUDGMENTS}
             RETURN 1
     )
     // A loaded judgment has both from `normalize`; a stub from its ECLI: the kind of its
-    // tier (``core.judgments.KIND_OF_TIER``), the names of ``core.judgment_names``.
+    // kind of court (``core.judgments.KIND_OF_COURT_KIND``), the names of
+    // ``core.judgment_names``.
     LET decision_kind = doc.props.decision_kind != null ? doc.props.decision_kind
-        : @kind_of_tier[tier]
+        : @kind_of_court_kind[court_kind]
     LET names = doc.props.stub == true ? @curated_names[UPPER(ecli)]
         : doc.props.names
     FILTER doc.props.court_code != court_code
         OR doc.props.tier != tier
+        OR doc.props.court_kind != court_kind
         OR doc.props.date_eff != date_eff
         OR doc.props.inbound_citation_count != inbound_cnt
         OR doc.props.decision_kind != decision_kind
@@ -134,18 +131,22 @@ LET open_activity_map = MERGE(
     FOR e IN {COLLECTION_EDGES}
         FILTER e.relation == @about
         FILTER open_dossier_map[e._to] == true
-        RETURN {{ [e._from]: true }}
+        COLLECT activity = e._from INTO dossier_ids = e._to
+        RETURN {{ [activity]: dossier_ids }}
 )
 LET counts = (
     FOR e IN {COLLECTION_EDGES}
         FILTER e.relation == @led_by
-        FILTER open_activity_map[e._from] == true
-        COLLECT committee = e._to WITH COUNT INTO cnt
-        RETURN {{ id: committee, count: cnt }}
+        FILTER open_activity_map[e._from] != null
+        FOR dossier_id IN open_activity_map[e._from]
+            COLLECT committee = e._to INTO led = dossier_id
+            RETURN {{ id: committee, count: COUNT_UNIQUE(led) }}
 )
 LET count_map = MERGE(FOR x IN counts RETURN {{ [x.id]: x.count }})
 FOR doc IN {COLLECTION_COMMITTEES}
-    LET active_dossier_count = count_map[doc._id] != null ? count_map[doc._id] : 0
+    LET dissolved = doc.props.ended_on != null AND doc.props.ended_on <= @today
+    LET active_dossier_count = dissolved || count_map[doc._id] == null
+        ? 0 : count_map[doc._id]
     FILTER doc.props.active_dossier_count != active_dossier_count
 """
 
@@ -180,6 +181,10 @@ def refresh_instruments(store: Store, *, dry_run: bool) -> int:
     )
 
 
+def _tiers(courts: dict[str, Court]) -> dict[str, dict[str, str]]:
+    return {k: {"tier": c.tier, "court_kind": c.court_kind} for k, c in courts.items()}
+
+
 def refresh_judgments(store: Store, *, dry_run: bool) -> int:
     return _run(
         store,
@@ -187,16 +192,16 @@ def refresh_judgments(store: Store, *, dry_run: bool) -> int:
         _update_tail(
             COLLECTION_JUDGMENTS,
             "doc",
-            "court_code: court_code, tier: tier, date_eff: date_eff,"
+            "court_code: court_code, tier: tier, court_kind: court_kind,"
+            " date_eff: date_eff,"
             " inbound_citation_count: inbound_cnt, decision_kind: decision_kind,"
             " names: names",
         ),
         {
             "inbound_rels": [RELATION_REFERS_TO],
-            "tier_of_court": TIER_OF_COURT,
-            "tier_of_prefix": TIER_OF_PREFIX,
-            "tier_of_other_court": TIER_OF_OTHER_COURT,
-            "kind_of_tier": KIND_OF_TIER,
+            "court_by_code": _tiers(COURT_BY_CODE),
+            "other_court_by_name": _tiers(OTHER_COURT_BY_NAME),
+            "kind_of_court_kind": KIND_OF_COURT_KIND,
             "curated_names": {e: list(n) for e, n in CURATED_NAMES.items()},
         },
         dry_run=dry_run,
@@ -220,6 +225,10 @@ def refresh_committees(store: Store, *, dry_run: bool) -> int:
         _update_tail(
             COLLECTION_COMMITTEES, "doc", "active_dossier_count: active_dossier_count"
         ),
-        {"about": RELATION_ABOUT, "led_by": RELATION_LED_BY},
+        {
+            "about": RELATION_ABOUT,
+            "led_by": RELATION_LED_BY,
+            "today": dt.date.today().isoformat(),
+        },
         dry_run=dry_run,
     )

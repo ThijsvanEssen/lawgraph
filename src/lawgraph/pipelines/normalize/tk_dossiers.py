@@ -204,6 +204,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             },
             source=EDGE_SOURCE,
         )
+        tk_members.name_members_by_their_votes(
+            store, normalized["members"], normalized["votes"]
+        )
 
         # Once the edges exist, each dossier's documents can be walked to
         # derive its title and stage, so reads stay O(1).

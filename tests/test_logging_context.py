@@ -188,11 +188,6 @@ def test_the_sources_command_lists_every_pipeline_under_its_source(capsys) -> No
     blocks = {b.split()[0]: b for b in capsys.readouterr().out.split("\n\n")[1:]}
     for pipeline in ALL_PIPELINES:
         assert pipeline.address in blocks[pipeline.source]
-    content = next(
-        line for line in blocks["tk"].splitlines() if "retrieve tk-content" in line
-    )
-    assert "[manual: not in retrieve all]" in content
-    assert "manual" not in blocks["staatscourant"]
     assert "semantic rechtspraak-citations" in blocks["rechtspraak"]
 
 

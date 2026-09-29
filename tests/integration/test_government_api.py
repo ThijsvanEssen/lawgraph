@@ -19,13 +19,11 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
     RAW_KIND_RIJKSOVERHEID_CABINET,
-    RAW_KIND_WIKIDATA_CABINET,
     RELATION_ABOUT,
     RELATION_AUTHORED,
     RELATION_PART_OF,
     RELATION_SERVED_IN,
     SOURCE_RIJKSOVERHEID,
-    SOURCE_WIKIDATA,
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import (
@@ -37,16 +35,6 @@ from lawgraph.db import (
 )
 
 PAGES = Path(__file__).parents[1] / "fixtures" / "rijksoverheid"
-# A cabinet before the first page: from Wikidata, name and period only.
-RUTTE_IV = {
-    "id": "Q110111120",
-    "name": "kabinet-Rutte IV",
-    "from_date": "2022-01-10",
-    "from_date_precision": 11,
-    "to_date": "2024-07-02",
-    "to_date_precision": 11,
-    "previous": [],
-}
 
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
@@ -201,14 +189,6 @@ def _seed(store: ArangoStore) -> None:
                     },
                 )
             )
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_WIKIDATA,
-                kind=RAW_KIND_WIKIDATA_CABINET,
-                external_id=RUTTE_IV["id"],
-                payload_json=RUTTE_IV,
-            )
-        )
 
 
 def _client(store: ArangoStore) -> TestClient:
@@ -252,32 +232,20 @@ def test_cabinets_their_bewindspersonen_and_commitments(
         ).json()
         overdue = client.get("/api/commitments?overdue=true").json()
         by_dossier = client.get("/api/commitments?dossier=37022").json()
-        dossiers = client.get("/api/dossiers/open?ministry=fin").json()
-        initiatives = client.get("/api/dossiers/open?initiative=true").json()
+        dossiers = client.get("/api/dossiers?status=open&ministry=fin").json()
+        initiatives = client.get("/api/dossiers?status=open&initiative=true").json()
         missing = client.get("/api/cabinets/nope").status_code
         unknown_ministry = client.get("/api/commitments?ministry=nope").status_code
     finally:
         app.dependency_overrides.pop(get_store, None)
 
-    assert [c["key"] for c in cabinets] == ["jetten", "schoof", "rutte_iv"]
+    assert [c["key"] for c in cabinets] == ["jetten", "schoof"]
     assert cabinets[0]["prime_minister"] == {
         "key": "jetten",
         "name": "Rob Arnoldus Adrianus Jetten",
     }
     assert (cabinets[0]["bills"], cabinets[0]["commitments"]) == (1, 2)
     assert cabinets[0]["members"] >= 25
-    # before the first page: Wikidata, name and period only
-    assert (
-        cabinets[2]["source"]["name"],
-        cabinets[2]["phases"],
-        cabinets[2]["parties"],
-    ) == (
-        "wikidata",
-        [],
-        [],
-    )
-    assert cabinets[2]["to_date"] == "2024-07-02"
-
     # the phases of Schoof, and its seats: a stand-in between two holders
     assert schoof["demissionary_from"] == "2025-06-03"
     assert [(p["kind"], p["from_date"]) for p in schoof["phases"]] == [

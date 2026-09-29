@@ -28,7 +28,6 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RAW_KIND_BWB_TOESTAND,
-    RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_ECHR_JUDGMENT,
     RAW_KIND_EK_KAMERSTUK,
     RAW_KIND_EU_CELEX,
@@ -89,8 +88,6 @@ NORMALIZED_SHARE = 0.9
 # Sources of which several records make one node, and how many nodes their records make:
 # HUDOC holds a judgment once per language, and ``normalize echr`` keeps one of them.
 NODES_OF_RECORDS = {SOURCE_ECHR: checks.count_echr_judgments_in_raw}
-# Kinds that are only there after a manual command; their absence says nothing.
-OPTIONAL_KINDS = {RAW_KIND_BWB_TOESTAND_ALL, RAW_KIND_TK_KAMERSTUK_XML}
 
 
 @dataclass
@@ -119,6 +116,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     _check_derived(store, report)
     _check_papers(store, raw, report)
     _check_cases(store, report)
+    _check_curated(store, report)
     return report
 
 
@@ -162,7 +160,7 @@ def _check_raw(raw: dict[tuple[str, str], int], report: Report) -> None:
             count = raw.get((source, kind), 0)
             if count:
                 report.note(f"raw {source}/{kind}: {count:,}")
-            elif kind not in OPTIONAL_KINDS:
+            else:
                 report.problem(
                     f"raw {source}/{kind}: no records. Was it retrieved, and did the source "
                     "answer what was asked?"
@@ -302,6 +300,21 @@ def _check_cases(store: ArangoStore, report: Report) -> None:
         )
     elif total:
         report.note(f"cases: {counts[True]:,} of {total:,} name a dossier")
+
+
+def _check_curated(store: ArangoStore, report: Report) -> None:
+    """The lists kept by hand (``lawgraph curated check --db``): a mistake in one would
+    otherwise show only in what it feeds."""
+    from lawgraph.commands.curated import check as curated_problems
+    from lawgraph.commands.curated import database_notes, database_problems
+
+    found = curated_problems() + database_problems(store)
+    for problem in found:
+        report.problem(f"curated {problem}")
+    for note in database_notes(store):
+        report.note(f"curated {note}")
+    if not found:
+        report.note("curated: every list is in order")
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:

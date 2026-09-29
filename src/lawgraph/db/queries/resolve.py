@@ -11,6 +11,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_COMMITMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
@@ -233,6 +234,19 @@ def _dossier_targets(
     ]
 
 
+def _commitment(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
+    """A toezegging by its number."""
+    aql = f"""
+    FOR doc IN {COLLECTION_COMMITMENTS}
+        FILTER doc.props.number == @number
+        SORT doc._key
+        LIMIT 1
+        RETURN {{ id: doc._id, key: doc._key, display_name: {_DEFAULT_NAME} }}
+    """
+    rows = store.query(aql, {"number": notation.identifier})
+    return [_target(row, "commitment", CONFIDENCE_IDENTIFIER) for row in rows]
+
+
 def _dossier(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
     return _dossier_targets(_dossiers(store, notation), notation)
 
@@ -288,6 +302,8 @@ def _candidates(store: ArangoStore, q: str) -> tuple[list[dict[str, Any]], str |
         return _dossier(store, notation), None
     if notation.kind == "document":
         return _document(store, notation), None
+    if notation.kind == "commitment":
+        return _commitment(store, notation), None
     return _identified(store, notation), None
 
 

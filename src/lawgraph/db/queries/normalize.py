@@ -288,6 +288,31 @@ def government_signatures(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
+def government_signatures_by_month(store: Store) -> Iterator[dict[str, Any]]:
+    """The signatures as a minister or state secretary of every Tweede Kamer person:
+    ``{key, function, first, last}`` per person, function and month."""
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == @authored AND e.meta.capacity == @government
+        LET m = DOCUMENT(e._from)
+        FILTER @tk IN m.labels
+        LET d = DOCUMENT(e._to)
+        FILTER d.props.date != null
+        COLLECT key = m._key, function = e.meta.function,
+                month = SUBSTRING(d.props.date, 0, 7)
+            AGGREGATE first = MIN(d.props.date), last = MAX(d.props.date)
+        RETURN {{key, function, first, last}}
+    """
+    return store.query(
+        aql,
+        {
+            "authored": RELATION_AUTHORED,
+            "government": CAPACITY_GOVERNMENT,
+            "tk": CHAMBER_TK,
+        },
+    )
+
+
 def labelled_members(store: Store, label: str) -> Iterator[str]:
     """The keys of the members with *label* (``Rijksoverheid``: a bewindspersoon only
     Rijksoverheid knows)."""

@@ -37,7 +37,7 @@ step retrieve bwb-history $GRONDWET $AWB $SR $BW $WOM $UAVG $PROCESKOSTEN
 step retrieve tk --since 14d
 step retrieve tk-dossiers --since 14d
 for number in $DOSSIERS; do step retrieve tk-dossiers --dossier-number "$number"; done
-step retrieve rechtspraak --since 14d
+step retrieve rechtspraak --since 14d --court hr --court rvs --court hoven
 step retrieve staatscourant --since 14d
 step retrieve echr --respondent NLD --max-records 25
 step retrieve eerstekamer --since 60d --max-records 200

@@ -102,7 +102,7 @@ keer genest. 3b\* is een scan of aggregatie over heel `edges`.
 - **Buurtweergave**: `/api/nodes/{c}/{k}/neighborhood`, de enige traversal (diepte 1 tot 4,
   cap 1.000, `PRUNE`, `uniqueVertices: 'global'`, `bfs: true`; `api/queries/nodes.py`).
   **Categorie 3a: belangrijk voor de front-end, maar één query.**
-- **Zwaar maar gecachet**: `/api/graph/*`, `/api/nodes/heat` en `/api/nodes/in-flux` (3b\*,
+- **Zwaar maar gecachet**: `/api/nodes/heat` en `/api/nodes/in-flux` (3b\*,
   scans over alle edges met een TTL-cache), en `/api/stats`.
 - **Batch**: alle pipelines. Vooral categorie 2 (raw records per `(source, kind)` en
   `fetched_at`, props-joins) en bulk-upserts.
@@ -145,7 +145,7 @@ waarde zit meer in **ArangoSearch** (deelwoorden en BM25) dan in de graph-engine
 
 | Groeibron | Soort groei | Grootte per eenheid (ongecompr.) |
 |---|---|---|
-| Keuze van de bouw: `--window` (standaard 730 dagen of `all`), rechtbanken (`--court`, standaard `hr`, `rvs`, `hoven`), `bwb-history`, `tk-content --kind` | **eenmalige sprong**, verreweg de grootste factor | zie hieronder |
+| Keuze van de bouw: `--window` (standaard 730 dagen of `all`), gerechten (`--court`, standaard alle), `tk-content --kind` | **eenmalige sprong**, verreweg de grootste factor | zie hieronder |
 | Nieuwe uitspraken | continu: 71.300 gepubliceerd in 2025, alle gerechten ([jaarverslag Rechtspraak 2025](https://www.rechtspraak.nl/organisatie-en-contact/organisatie/raad-voor-de-rechtspraak/nieuws/2026/04/jaarverslag-rechtspraak-15-miljoen-beslissingen-in-2025)) **[bron]** | 24 KB ruw + ongeveer 38 KB node **[gemeten]** + edges |
 | Nieuwe Kamerstukken met tekst | continu | 238 KB ruw + ongeveer 180 KB node **[gemeten]** |
 | Nieuwe BWB-toestanden | continu; een nieuwe toestand van een grote wet kost MB's | gem. 80 KB (44.000 huidige toestanden = 3,5 GB **[code]**); grote wetten 3,2 MB **[gemeten]** |
@@ -163,8 +163,10 @@ aantallen per bron (in september 2026 bij de bronnen geteld: 148.287 BWB-toestan
 712.000 TK-documenten, 341.000 zaken en 100.000 activiteiten). "Op schijf" = ongecomprimeerd / 3
 (gemeten verhouding), plus indexen.
 
-- **S1, standaardbouw**: `bootstrap` met de standaardinstellingen, zoals de database van
-  21-09-2026 (165.000 uitspraken, 2,8 miljoen edges).
+- **S1, standaardbouw**: `bootstrap` zoals de database van 21-09-2026 (165.000 uitspraken,
+  2,8 miljoen edges; Hoge Raad, Raad van State en hoven, zonder historische toestanden). De
+  standaardbouw haalt inmiddels alle gerechten, `bwb-history` en `tk-content` en ligt dus
+  tussen S1 en S2.
 - **S2, volledige historie**: `--window all`, alle gerechten, `retrieve bwb-history` en de
   tekst van alle Kamerstukken.
 
