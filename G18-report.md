@@ -17,7 +17,7 @@ A series is the connected pairs. Each judgment in it gets `series_id` (the lowes
 
 **The examples:**
 
-- ECLI:NL:GHAMS:2026:2678/2679/2680 are **already caught**: series `ECLI:NL:GHAMS:2026:2673` of 5, with 2673 and 2676 (the Martinair freight pilots against KLM). Side finding: the text of 2679 names case number 200.344.457/01, which is 2680's number, while its metadata says 200.343.752. It may be a double publication by the court.
+- ECLI:NL:GHAMS:2026:2678/2679/2680 are **already caught**: series `ECLI:NL:GHAMS:2026:2673` of 5, with 2673 and 2676 (the Martinair freight pilots against KLM).
 - ECLI:NL:HR:2022:969/970 are **not caught**: Jaccard 0.34, summaries 66% the same. These are not parallel cases in the same words. They are co-defendants (a member and the stichting of the Hells Angels Haarlem chapter) with shared overwegingen on art. 140 Sr. The court links them explicitly: "Samenhang met 21/01312, …". That is a different relation (connected cases), not a series.
 
 ## Precision of the current rule (hand-checked)
@@ -83,6 +83,25 @@ Counts are over the whole of lawgraph_small. "New links" are pairs that join jud
 - **Jaccard 0.3 to 0.4, false positive:** RBZWB:2024:5360/5361 (two WOZ cases from one firm of representatives).
 - **Short texts below 0.85, false positives:** HR:2026:1373/1372, 1420/1419, 1365/1364, 1451/1468, HR:2024:332/337, RVS:2026:5275/5273, 4844/4891, 2601/2631.
 - **Explicit links:** 407 case numbers are named after "Samenhang met". Only 126 resolve to a judgment of the same day in the database; many are "(niet gepubliceerd)". Of the 143 explicit same-day pairs, only 9 are pairs under the current rule.
+
+## Are "Samenhang met" and "Zie ook" structured metadata?
+
+**No. They are free text in the inhoudsindicatie only.**
+
+I read the raw rs-content records in lawgraph_small (read-only).
+
+- **HR:2022:969 and 970:** their `rdf:Description` has two links, each a `dcterms:relation` with `rdfs:label="Formele relatie"`. One points to the conclusion (`psi:type=…/conclusie`, e.g. ECLI:NL:PHR:2022:376 for 969). The other points to the judgment under appeal (`psi:type=…/cassatie`, `psi:aanleg=…/eerdereAanleg`, e.g. ECLI:NL:GHAMS:2021:644 for 969). Neither names the other. "Samenhang met 21/01312, …" is a `<para>` inside `<inhoudsindicatie>`.
+- **GHDHA:2025:1538:** the same pattern. "Zie ook: ECLI:NL:GHDHA:2025:1539, …" is a `<para>` in the inhoudsindicatie. Its only `dcterms:relation` elements are `hogerBeroep`/`eerdereAanleg` links to the Rechtbank Rotterdam.
+- **All 14,446 records:** every `dcterms:relation` is a "Formele relatie". Its `psi:type` is one of: conclusie, cassatie, hogerBeroep, conclusieVoorCassatie, tussenuitspraak, prejudicieleVraag, verwijzing, terugverwijzing, sprongcassatie, herziening, herstel, verzet, nadereConclusie, and a few inachtneming… types. Each has `psi:aanleg` eerdereAanleg or latereAanleg. These all point up or down the chain of instances, never sideways to a sister case. The other RDF links are `dcterms:references` ("Wetsverwijzing", 6,897, never an ECLI), `dcterms:replaces` ("Vervangt", the old LJN) and `dcterms:isReplacedBy`. No element or `psi:type` marks connected or parallel cases.
+
+A parked `RELATED_CASE` would therefore have to parse the summary text: case numbers after "Samenhang met", ECLIs after "Zie ook". It cannot read metadata.
+
+## Note: possible double publication, GHAMS:2026:2679 and 2680
+
+- **Case numbers:** the metadata of ECLI:NL:GHAMS:2026:2679 gives case number 200.343.752, and 2680 gives 200.344.457. But the kop of 2679's text reads "zaaknummer : 200.344.457/01", which is 2680's number. The two carry the same rechtbank case number (10071067 CV EXPL 22-11108).
+- **Texts:** 16,177 and 16,172 words, 543 paragraphs each. Of those, 387 are identical, and the rest differ only in the numbering of the anonymised appellants ("[appellant 19]" against "[appellant 20]").
+- **Reading:** either the court published one arrest twice under two ECLIs with a wrong metadata case number, or 2679 is the arrest in 200.343.752 with a kop copied from 2680.
+- **Effect:** the series rule does not see it, because it compares the metadata `case_number_keys`, which differ. Both stay in series ECLI:NL:GHAMS:2026:2673. Worth reporting to the court, or checking against rechtspraak.nl, before relying on 2679.
 
 ## Recommendation
 
