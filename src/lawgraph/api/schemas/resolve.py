@@ -6,7 +6,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-MatchKind = Literal["article", "instrument", "judgment", "dossier", "document"]
+MatchKind = Literal[
+    "article", "instrument", "judgment", "dossier", "document", "commitment"
+]
 
 
 class ResolveMatch(BaseModel):

@@ -39,6 +39,7 @@ from lawgraph.api.schemas.dossiers import (
     DossierTrack,
     timeline_entry,
 )
+from lawgraph.core.law_names import laws_in_title
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.dossiers import (
     DossierFilters,
@@ -53,6 +54,7 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_relations,
     get_dossier_timeline,
     get_dossiers,
+    get_laws_named,
     get_recent_dossiers,
 )
 
@@ -318,6 +320,9 @@ def get_dossier(
         counts=count_dossier_members(store, dossier["_id"]),
         hub=get_dossier_hub(store, dossier["_id"]),
         relations=relations,
+        laws_named=get_laws_named(
+            store, laws_in_title((dossier.get("props") or {}).get("title"))
+        ),
     )
 
 

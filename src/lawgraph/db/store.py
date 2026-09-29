@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
+    COLLECTION_PIPELINE_STATE,
     COLLECTION_RAW_SOURCES,
     DOCUMENT_COLLECTIONS,
 )
@@ -64,6 +65,9 @@ def edge_key(from_id: str, relation: str, to_id: str) -> str:
 #
 # ``{old}`` is the stored document: ``OLD`` in the UPDATE, and the document looked up before
 # it in the bulk upsert, which leaves a document alone when the update would change nothing.
+# What the API does not serve: a write here leaves ``data_version`` as it is.
+_NOT_SERVED = frozenset({COLLECTION_RAW_SOURCES, COLLECTION_PIPELINE_STATE})
+
 _NODE_UPSERT_UPDATE = """
     type: doc.type,
     labels: UNIQUE(APPEND({old}.labels, doc.labels)),
@@ -257,6 +261,15 @@ class ArangoStore:
     def collection(self, name: str) -> Any:
         """Return the collection handle for *name*. Raises KeyError if unknown."""
         return self._collections[name]
+
+    def data_version(self) -> str:
+        """A stamp of what the API serves: it changes with every write to a collection of
+        the graph (the revision ArangoDB keeps per collection), and not with a retrieve."""
+        digest = hashlib.sha1(usedforsecurity=False)
+        for name in sorted(self._collections):
+            if name not in _NOT_SERVED:
+                digest.update(f"{name}:{self._collections[name].revision()};".encode())
+        return digest.hexdigest()[:16]
 
     # ── Size ───────────────────────────────────────────────────────────────────
 

@@ -252,11 +252,18 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
         "Memorie van toelichting": 1,
         "Voorstel van wet": 1,
     }
-    # the publication that changed the law (canoniek) and the paper that proposes to (voorgesteld)
-    assert {(i["bwb_id"], i["relation"], i["status"]) for i in hub["instruments"]} == {
-        (LAW, "amends", "canoniek"),
-        (LAW, "amends", "voorgesteld"),
-    }
+    # one item for the law: the publication that changed it (canoniek) and the paper that
+    # proposes to (voorgesteld)
+    (law,) = hub["instruments"]
+    assert (law["bwb_id"], law["relation"], law["status"]) == (
+        LAW,
+        "amends",
+        "canoniek",
+    )
+    assert law["links"] == [
+        {"relation": "amends", "status": "canoniek"},
+        {"relation": "amends", "status": "voorgesteld"},
+    ]
     assert [(c["slug"], c["role"]) for c in hub["committees"]] == [("kgg", "lead")]
     assert hub["senate"] == {"document_count": 0, "first_date": None}
 

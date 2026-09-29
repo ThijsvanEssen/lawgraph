@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -89,12 +89,28 @@ class FactionDetailDTO(BaseModel):
     props: dict[str, Any] | None = None
 
 
-class CommitteeDTO(BaseModel):
-    """A parliamentary committee.
+CommitteeKind = Literal[
+    "vast", "algemeen", "tijdelijk", "enquete", "delegatie", "overig"
+]
 
-    ``kind`` distinguishes standing ('vast'), temporary ('tijdelijk'),
-    special ('bijzonder') and inquiry ('parlementaire_enquete') committees.
-    """
+
+def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:
+    props = doc.get("props") or {}
+    return {
+        "id": doc["_id"],
+        "key": doc["_key"],
+        "name": props.get("name"),
+        "abbreviation": props.get("abbreviation"),
+        "slug": props.get("slug"),
+        "kind": props.get("kind"),
+        "started_on": props.get("started_on"),
+        "ended_on": props.get("ended_on"),
+        "active_dossier_count": int(props.get("active_dossier_count") or 0),
+    }
+
+
+class CommitteeDTO(BaseModel):
+    """A parliamentary committee."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -102,24 +118,27 @@ class CommitteeDTO(BaseModel):
     key: str
     name: str | None = None
     abbreviation: str | None = None
-    slug: str | None = None
-    kind: str | None = None
-    active_dossier_count: int = 0
+    slug: str | None = Field(
+        None,
+        description="Its own: of committees that share an abbreviation the one sitting "
+        "now (else the one that ended last) has it bare, the others with the year they "
+        "started, `ez-2010`.",
+    )
+    kind: CommitteeKind | None = Field(
+        None,
+        description="`vast`, `algemeen`, `tijdelijk`, `enquete` (enquête or "
+        "ondervraging), `delegatie` (contact groups and international assemblies) or "
+        "`overig`.",
+    )
+    started_on: str | None = None
+    ended_on: str | None = Field(None, description="Null while it sits.")
+    active_dossier_count: int = Field(
+        0, description="The open dossiers it leads an activity about; none once ended."
+    )
 
     @classmethod
-    def from_document(
-        cls, doc: dict[str, Any], *, active_dossier_count: int = 0
-    ) -> CommitteeDTO:
-        props = doc.get("props") or {}
-        return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            name=props.get("name"),
-            abbreviation=props.get("abbreviation"),
-            slug=props.get("slug"),
-            kind=props.get("type"),
-            active_dossier_count=active_dossier_count,
-        )
+    def from_document(cls, doc: dict[str, Any]) -> CommitteeDTO:
+        return cls(**_committee_fields(doc))
 
 
 class FactionDTO(BaseModel):
@@ -338,21 +357,9 @@ class CommitteeWithMembersDTO(CommitteeDTO):
     members: list[MemberDTO] = []
 
     @classmethod
-    def from_document(
-        cls, doc: dict[str, Any], *, active_dossier_count: int = 0
-    ) -> CommitteeWithMembersDTO:
-        props = doc.get("props") or {}
-        stored = props.get("active_dossier_count")
+    def from_document(cls, doc: dict[str, Any]) -> CommitteeWithMembersDTO:
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            name=props.get("name"),
-            abbreviation=props.get("abbreviation"),
-            slug=props.get("slug"),
-            kind=props.get("type"),
-            active_dossier_count=(
-                stored if stored is not None else active_dossier_count
-            ),
+            **_committee_fields(doc),
             members=[MemberDTO.from_document(m) for m in doc.get("members") or []],
         )
 
@@ -361,7 +368,7 @@ class CommitteeDetailDTO(CommitteeDTO):
     """A committee with its members and a page of the dossiers it leads.
 
     ``dossiers`` is one page; ``dossier_total`` counts every dossier that matches the
-    ``status`` filter, and ``active_dossier_count`` the open ones whatever the filter.
+    ``status`` filter.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -374,20 +381,12 @@ class CommitteeDetailDTO(CommitteeDTO):
 
     @classmethod
     def from_detail_document(cls, doc: dict[str, Any]) -> CommitteeDetailDTO:
-        props = doc.get("props") or {}
-        dossiers = [
-            DossierSummaryDTO.from_document(d) for d in doc.get("dossiers") or []
-        ]
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            name=props.get("name"),
-            abbreviation=props.get("abbreviation"),
-            slug=props.get("slug"),
-            kind=props.get("type"),
-            active_dossier_count=int(doc.get("open_dossier_count") or 0),
+            **_committee_fields(doc),
             members=[MemberDTO.from_document(m) for m in doc.get("members") or []],
-            dossiers=dossiers,
+            dossiers=[
+                DossierSummaryDTO.from_document(d) for d in doc.get("dossiers") or []
+            ],
             dossier_total=int(doc.get("dossier_total") or 0),
         )
 

@@ -399,6 +399,7 @@ class CommitmentProps(_CommonProps):
     expected_resolution: str | None = None
     status: str | None = None
     activity_number: str | None = None
+    number: str | None = None  # "TZ202603-130", how the Kamer cites it
     # who made it (``semantic government``): the member, the post and ministry of their
     # role, and the cabinet in office on the day
     member_key: str | None = None
@@ -417,6 +418,11 @@ class CommitteeProps(_CommonProps):
     name: str | None = None
     abbreviation: str | None = None
     slug: str | None = None
+    kind: str | None = None
+    started_on: str | None = None
+    ended_on: str | None = None
+    # the open dossiers it leads, none once dissolved (``semantic graph-list-stats``)
+    active_dossier_count: int | None = None
 
 
 # ---------------------------------------------------------------------------

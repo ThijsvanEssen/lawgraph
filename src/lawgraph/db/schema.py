@@ -440,6 +440,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_DECISIONS, ["props.dossier_numbers[*]"], False),
         (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
         (COLLECTION_COMMITMENTS, ["props.status"], False),
+        (COLLECTION_COMMITMENTS, ["props.number"], False),
         # who made it and under which cabinet (``semantic tk-government``)
         (COLLECTION_COMMITMENTS, ["props.member_key"], False),
         (COLLECTION_COMMITMENTS, ["props.cabinet"], False),

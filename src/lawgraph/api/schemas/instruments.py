@@ -11,6 +11,7 @@ from lawgraph.api.schemas.annexes import AnnexListItem
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
     OFFICIAL_URL,
+    VALID_UNTIL,
     ArticleRelationDTO,
     DossierRefDTO,
     JudgmentSummaryDTO,
@@ -464,7 +465,7 @@ class InstrumentVersionDTO(BaseModel):
     key: str
     bwb_id: str
     valid_from: str | None = None
-    valid_until: str | None = None
+    valid_until: str | None = Field(None, description=VALID_UNTIL)
     current: bool = False
     state_url: str | None = None
     official_url: str | None = Field(
@@ -509,7 +510,7 @@ class InstrumentArticleVersionDTO(BaseModel):
     bwb_id: str
     article_number: str
     valid_from: str | None = None
-    valid_until: str | None = None
+    valid_until: str | None = Field(None, description=VALID_UNTIL)
     current: bool = False
     official_url: str | None = Field(
         None, description="This version on wetten.overheid.nl (JCI with ``g``)."

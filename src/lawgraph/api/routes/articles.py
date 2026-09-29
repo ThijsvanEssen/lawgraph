@@ -32,6 +32,7 @@ from lawgraph.api.schemas.common import (
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key, parse_arango_id
+from lawgraph.core.notation import native_article_number
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -65,6 +66,7 @@ def get_article_detail(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleDetailResponse:
     """Return an article plus its instrument and mentioning judgments."""
+    article_number = native_article_number(bwb_id, article_number)
     try:
         data = get_article_with_relations(store, bwb_id, article_number)
     except ValueError as err:
@@ -146,6 +148,7 @@ def get_article_relationships(
     article_number: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleRelationshipsResponse:
+    article_number = native_article_number(bwb_id, article_number)
     article_key = make_node_key(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{article_key}"
     relationship_data = get_article_relationship_data(store, article_id)
@@ -194,6 +197,7 @@ def get_article_cited_by_passages(
         ),
     ] = None,
 ) -> ArticleCitedByResponse:
+    article_number = native_article_number(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
     if not store.has_node(COLLECTION_ARTICLES, parse_arango_id(article_id)[1]):
         raise HTTPException(status_code=404, detail="Article not found")
@@ -229,6 +233,7 @@ def get_article_version_history(
     article_number: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleHistoryResponse:
+    article_number = native_article_number(bwb_id, article_number)
     try:
         data = get_article_history(store, bwb_id, article_number)
     except ValueError as err:
@@ -266,6 +271,7 @@ def get_legislative_history(
     article_number: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleLegislativeHistoryResponse:
+    article_number = native_article_number(bwb_id, article_number)
     article_key = make_node_key(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{article_key}"
     raw_entries = get_article_legislative_history(
@@ -285,16 +291,14 @@ def get_legislative_history(
     summary="Explanatory documents of an article",
     description=(
         "The documents that explain this article: every EXPLAINS edge that points "
-        "at the article, at one of its versions or at its instrument. Newest "
-        "first, the article-level explanations (`target` `article` and "
-        "`article_version`) before those of the instrument. An explanation of "
+        "at the article (`target` `article`) or at one of its versions (`target` "
+        "`article_version`); an explanation of the law as a whole is no evidence "
+        "about this article and is not listed. Newest first. An explanation of "
         "`scope` `dossier` is written per dossier: the memorandum explains all "
         "the changes of the dossier; of `scope` `article` the memorandum names "
         "the section about this article in `section_anchor` (the `id` of a "
         "section of the document; `GET /api/documents/{key}/passages` gives its "
-        "text). An `instrument` explanation exists only for a dossier whose law "
-        "changed no articles, so it is no evidence about this article; filter on "
-        "`target`. One document appears once per level. `total` counts all "
+        "text). One document appears once per level. `total` counts all "
         "explanations, independent of `limit` and `offset`. Returns an empty list "
         "for an unknown article — never a 404."
     ),
@@ -307,6 +311,7 @@ def get_explained_by(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ArticleExplanationsResponse:
+    article_number = native_article_number(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
     page = get_article_explanations(
         store, bwb_id, article_number, limit=limit, offset=offset
@@ -334,6 +339,7 @@ def get_in_flux(
     article_number: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleInFluxResponse:
+    article_number = native_article_number(bwb_id, article_number)
     article_key = make_node_key(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{article_key}"
     result = get_article_in_flux(store, bwb_id, article_number, article_id=article_id)

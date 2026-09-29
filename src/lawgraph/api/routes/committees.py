@@ -81,12 +81,7 @@ _faction_dossiers_cache: TTLCache[tuple[str, int, int], ActorDossiersResponse] =
 def list_committees(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> list[CommitteeDTO]:
-    return [
-        CommitteeDTO.from_document(
-            doc, active_dossier_count=doc.get("active_dossier_count") or 0
-        )
-        for doc in get_committees(store)
-    ]
+    return [CommitteeDTO.from_document(doc) for doc in get_committees(store)]
 
 
 @router.get(

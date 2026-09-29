@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    VALID_UNTIL,
     ArticleCitationSpan,
     ArticleRelationDTO,
     InstrumentSummaryDTO,
@@ -543,7 +544,7 @@ class ArticleVersionDTO(BaseModel):
         description="`Artikel 287`, or the heading of an article without a number.",
     )
     valid_from: str | None = None
-    valid_until: str | None = None
+    valid_until: str | None = Field(None, description=VALID_UNTIL)
     current: bool = False
     official_url: str | None = Field(
         None,
