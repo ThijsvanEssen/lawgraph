@@ -1,5 +1,5 @@
-"""Article endpoints: detail, relationships, legislative history, explanatory
-documents, version history and in-flux state."""
+"""Article endpoints: detail with its relationships, legislative history, explanatory
+documents and version history."""
 
 from __future__ import annotations
 
@@ -272,21 +272,6 @@ class ScopeArticleReference(BaseModel):
         )
 
 
-class ArticleRelationshipsResponse(BaseModel):
-    """Response for GET /api/articles/{bwb_id}/{article_number}/relationships."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    article_id: str
-    upstream_dependencies: list[ArticleRelationshipWithType] = Field(
-        default_factory=list
-    )
-    downstream_implications: list[ArticleRelationshipWithType] = Field(
-        default_factory=list
-    )
-    scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
-
-
 class ArticleDetailResponse(BaseModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}."""
 
@@ -520,16 +505,6 @@ class ArticleExplanationsResponse(BaseModel):
         ..., description="All explanations, independent of ``limit`` and ``offset``."
     )
     items: list[ArticleExplanationDTO]
-
-
-class ArticleInFluxResponse(BaseModel):
-    """In-flux status for an article."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    article_id: str
-    in_flux: bool
-    open_dossier_count: int
 
 
 class ArticleVersionDTO(BaseModel):

@@ -109,7 +109,6 @@ def test_an_explanation_says_what_it_points_at_and_how_far_it_reaches() -> None:
 def test_every_document_answer_says_its_chamber_source_and_kind() -> None:
     schemas = SPEC["components"]["schemas"]
     for name in (
-        "DocumentSummaryDTO",
         "DocumentTextResponse",
         "DossierDocumentDTO",
         "TimelineDocumentBody",
@@ -163,7 +162,6 @@ def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> N
     filters = {"relations", "node_types", "direction", "status"}
     node = "/api/nodes/{collection}/{key}"
     assert _parameters(node) == filters | {"limit", "offset"}
-    assert _parameters(f"{node}/facets") == filters
     assert _parameters(f"{node}/neighborhood") == filters | {"depth", "cap"}
 
     schemas = SPEC["components"]["schemas"]
@@ -179,23 +177,6 @@ def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> N
         "next_offset",
         "items",
     }
-    assert set(schemas["NodeFacetDTO"]["properties"]) == {
-        "relation",
-        "direction",
-        "collection",
-        "type",
-        "count",
-    }
-
-
-def test_the_graph_routes_that_can_be_narrowed_say_so() -> None:
-    assert _parameters("/api/graph/global") == {
-        "node_types",
-        "relations",
-        "max_judgments",
-    }
-    assert _parameters("/api/graph/instruments") == {"relations"}
-    assert _parameters("/api/graph/judgments") == {"max_judgments", "include_stubs"}
 
 
 def _properties(name: str) -> set[str]:

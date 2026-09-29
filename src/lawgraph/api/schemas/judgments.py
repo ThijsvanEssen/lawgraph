@@ -348,6 +348,11 @@ class JudgmentFacets(BaseModel):
         default_factory=list,
         description="Per tier, most first; counted without the `tier` filter.",
     )
+    source: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per source (`rechtspraak`, `echr`), most first; counted without "
+        "the `source` filter.",
+    )
     year: list[JudgmentFacetCount] = Field(
         default_factory=list,
         description="Per year of `date` (`2024`), oldest first after null (no date); "

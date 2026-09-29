@@ -31,8 +31,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
 from lawgraph.db.queries.decisions import DecisionFilters, get_decisions
-from lawgraph.db.queries.documents import get_document_links, list_documents
-from lawgraph.db.queries.dossiers import get_dossier_timeline
+from lawgraph.db.queries.documents import get_document_links
+from lawgraph.db.queries.dossiers import get_dossier_documents, get_dossier_timeline
 
 DOSSIER = f"{COLLECTION_DOSSIERS}/36000"
 LONG_TEXT = "Artikel 5 wordt gewijzigd. " * 400
@@ -311,60 +311,18 @@ def _keys(page: dict[str, Any]) -> list[str]:
     return [row["key"] for row in page["items"]]
 
 
-def test_the_document_index_counts_its_matches_and_pages(database: str) -> None:
-    store = ArangoStore()
-    _build(store)
-    everything = {"q": None, "kind": None, "chamber": None, "source": None}
-
-    page = list_documents(store, **everything, dossier_id=None, limit=2, offset=0)
-    assert page["total"] == 4 and len(page["items"]) == 2
-    rest = list_documents(store, **everything, dossier_id=None, limit=2, offset=2)
-    assert rest["total"] == 4
-    assert sorted(_keys(page) + _keys(rest)) == ["ek_1", "motie", "mvt", "other"]
-
-    ek = list_documents(
-        store, **{**everything, "chamber": "ek"}, dossier_id=None, limit=1, offset=0
-    )
-    assert ek["total"] == 1 and _keys(ek) == ["ek_1"]
-    assert ek["items"][0]["labels"] == ["EersteKamer", "EK"]
-    assert ek["items"][0]["source"] == "eerstekamer"
-    assert ek["items"][0]["has_text"] is False
-
-    filtered = list_documents(
-        store, **{**everything, "kind": "Motie"}, dossier_id=None, limit=10, offset=0
-    )
-    assert filtered["total"] == 1 and _keys(filtered) == ["motie"]
-    assert list_documents(
-        store, **{**everything, "q": "zzz"}, dossier_id=None, limit=10, offset=0
-    ) == {"total": 0, "items": []}
-
-
-def test_the_document_index_of_a_dossier_takes_direct_and_case_documents(
+def test_the_documents_of_a_dossier_are_direct_and_through_a_case(
     database: str,
 ) -> None:
     store = ArangoStore()
     _build(store)
-    everything = {"q": None, "kind": None, "chamber": None, "source": None}
 
-    page = list_documents(store, **everything, dossier_id=DOSSIER, limit=2, offset=0)
+    page = get_dossier_documents(store, DOSSIER, limit=2, offset=0)
     assert page["total"] == 3  # the memorandum, the motion via its case, the EK paper
     assert _keys(page) == ["ek_1", "motie"]  # newest first, two of three
-    rest = list_documents(store, **everything, dossier_id=DOSSIER, limit=2, offset=2)
+    rest = get_dossier_documents(store, DOSSIER, limit=2, offset=2)
     assert _keys(rest) == ["mvt"] and rest["total"] == 3
-
-    both = {**everything, "chamber": "EK"}
-    only_ek = list_documents(store, **both, dossier_id=DOSSIER, limit=10, offset=0)
-    assert only_ek["total"] == 1 and _keys(only_ek) == ["ek_1"]
-    assert (
-        list_documents(
-            store,
-            **everything,
-            dossier_id=f"{COLLECTION_DOSSIERS}/36001",
-            limit=10,
-            offset=0,
-        )["total"]
-        == 1
-    )
+    assert get_dossier_documents(store, f"{COLLECTION_DOSSIERS}/36001")["total"] == 1
 
 
 def test_a_document_links_to_its_dossiers_and_what_it_explains(

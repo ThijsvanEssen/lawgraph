@@ -43,9 +43,10 @@ logger = get_logger(__name__)
         "A paginated list of judgments with filters on court (the ECLI court "
         "code), tier (the college: hoge_raad, raad_van_state, "
         "centrale_raad_van_beroep, parket, gerechtshof, rechtbank, tuchtcollege, …), "
-        "area of law (`subject`), date range and a minimum citation count. `facets` "
-        "counts the judgments under the filters per `tier` (without the tier filter) "
-        "and per year of `date` (without `from` and `to`)."
+        "area of law (`subject`), source, date range and a minimum citation count. "
+        "`facets` counts the judgments under the filters per `tier` (without the tier "
+        "filter), per `source` (without the source filter) and per year of `date` "
+        "(without `from` and `to`)."
     ),
     tags=["judgments"],
 )
@@ -68,7 +69,7 @@ def list_judgments(
     ] = None,
     source: Annotated[
         str | None,
-        Query(description="Filter op bron, e.g. 'rechtspraak', 'echr', 'cjeu'"),
+        Query(description="The source, e.g. 'rechtspraak', 'echr'."),
     ] = None,
     date_from: Annotated[
         str | None,

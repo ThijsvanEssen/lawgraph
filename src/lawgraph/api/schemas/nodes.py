@@ -146,27 +146,6 @@ class NodeNeighborsDTO(BaseModel):
     buckets: list[NeighborBucketDTO] = Field(default_factory=list)
 
 
-class NodeFacetDTO(BaseModel):
-    """How many edges of a node share a relation, a direction and a neighbour collection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    relation: str | None
-    direction: Literal["outbound", "inbound"]
-    collection: str
-    type: str
-    count: int
-
-
-class NodeFacetsResponse(BaseModel):
-    """Response for GET /api/nodes/{collection}/{key}/facets."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    items: list[NodeFacetDTO]
-    total: int
-
-
 class NodeGraphResponse(BaseModel):
     """Response for GET /api/nodes/{collection}/{key}."""
 

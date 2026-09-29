@@ -349,21 +349,6 @@ class MemberDetailDTO(MemberDTO):
         )
 
 
-class CommitteeWithMembersDTO(CommitteeDTO):
-    """A committee and its members, without the dossiers payload."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    members: list[MemberDTO] = []
-
-    @classmethod
-    def from_document(cls, doc: dict[str, Any]) -> CommitteeWithMembersDTO:
-        return cls(
-            **_committee_fields(doc),
-            members=[MemberDTO.from_document(m) for m in doc.get("members") or []],
-        )
-
-
 class CommitteeDetailDTO(CommitteeDTO):
     """A committee with its members and a page of the dossiers it leads.
 

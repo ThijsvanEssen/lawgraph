@@ -1,4 +1,4 @@
-"""API tests for the /api/annexes and instrument cross-law endpoints."""
+"""API tests for the /api/annexes endpoint."""
 
 from __future__ import annotations
 
@@ -83,64 +83,3 @@ def test_annex_detail_404(monkeypatch):
     )
     response = client.get("/api/annexes/unknown")
     assert response.status_code == 404
-
-
-def test_annexes_list_shared_across_laws(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.annexes.list_annexes",
-        lambda store, **kwargs: (
-            [
-                {
-                    "annex": _ANNEX,
-                    "referencing_laws": ["BWBR0099999", "BWBR0088888"],
-                }
-            ],
-            1,
-        ),
-    )
-    response = client.get("/api/annexes?shared_across_laws=true")
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["total"] == 1
-    item = payload["annexes"][0]
-    assert item["referencing_laws"] == ["BWBR0099999", "BWBR0088888"]
-
-
-def test_cross_law_dependencies(monkeypatch):
-    edge = {
-        "_key": "x1",
-        "semantic_type": "scope_limitation",
-        "explanation": None,
-        "confidence": 0.8,
-    }
-    monkeypatch.setattr(
-        "lawgraph.api.routes.instruments.get_cross_law_dependencies",
-        lambda store, bwb_id, limit: [
-            {"edge": edge, "source_article": _ARTICLE, "target": _OTHER_ARTICLE}
-        ],
-    )
-    response = client.get("/api/instruments/BWBR0099999/cross-law-dependencies")
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["bwb_id"] == "BWBR0099999"
-    dep = payload["dependencies"][0]
-    assert dep["source_article"]["bwb_id"] == "BWBR0099999"
-    assert dep["target_article"]["bwb_id"] == "BWBR0088888"
-    assert dep["semantic_type"] == "scope_limitation"
-
-
-def test_shared_annexes_for_law(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.instruments.get_shared_annexes_for_law",
-        lambda store, bwb_id: [
-            {
-                "annex": _ANNEX,
-                "referencing_laws": ["BWBR0099999", "BWBR0088888"],
-            }
-        ],
-    )
-    response = client.get("/api/instruments/BWBR0099999/shared-annexes")
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["bwb_id"] == "BWBR0099999"
-    assert payload["annexes"][0]["annex"]["display_name"] == "Vitale sectoren"

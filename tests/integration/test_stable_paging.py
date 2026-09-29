@@ -77,8 +77,7 @@ def _nodes() -> list[Node]:
     "path",
     [
         "/api/decisions",
-        "/api/documents",
-        "/api/dossiers/open",
+        "/api/dossiers?status=open",
         "/api/dossiers",
         "/api/dossiers?sort=title",
         "/api/members?include_all=true",

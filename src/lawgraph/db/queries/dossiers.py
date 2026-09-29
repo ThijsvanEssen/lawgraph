@@ -551,33 +551,6 @@ def get_dossier_documents(
     return rows[0] if rows else {"total": 0, "items": []}
 
 
-def get_documents_for_dossiers(
-    store: ArangoStore,
-    dossier_ids: list[str],
-    *,
-    per_dossier_limit: int = 8,
-) -> dict[str, list[dict[str, Any]]]:
-    """Top-N documents per dossier in one round trip, keyed by dossier ``_id``."""
-    if not dossier_ids:
-        return {}
-    body = f"""
-        LET items = (
-            FOR document IN all_documents
-                SORT document.props.date DESC
-                LIMIT @per_dossier_limit
-                {_DOSSIER_DOCUMENT_ROW}
-        )
-        RETURN {{ dossier_id: dossier_id, items: items }}
-    """
-    aql = f"FOR dossier_id IN @ids\n{_dossier_documents_aql(body)}"
-    bind = {
-        "ids": dossier_ids,
-        "per_dossier_limit": per_dossier_limit,
-        "part_of": RELATION_PART_OF,
-    }
-    return {row["dossier_id"]: row["items"] for row in store.query(aql, bind)}
-
-
 _DOSSIER_HUB_BODY = f"""
     LET legislated_by = (
         FOR e IN {COLLECTION_EDGES}
@@ -1115,19 +1088,6 @@ def get_recent_dossiers(
         RETURN dossier
     """
     return list(store.query(aql, bind))
-
-
-def get_dossier_number_to_id_map(
-    store: ArangoStore, numbers: list[str]
-) -> dict[str, str]:
-    """Dossier number (``36558``, ``37020-XV``) -> dossier ``_id``, for those that exist."""
-    by_key = {make_node_key(number): number for number in numbers}
-    existing = store.existing_keys(COLLECTION_DOSSIERS, set(by_key))
-    return {
-        number: f"{COLLECTION_DOSSIERS}/{key}"
-        for key, number in by_key.items()
-        if key in existing
-    }
 
 
 def count_dossier_members(store: ArangoStore, dossier_id: str) -> dict[str, int]:
