@@ -1,0 +1,234 @@
+{
+ "about": "By hand: what no official source gives about the ministries. `ministries`: our key of each ministry name, in protocol order (the order of the Rijksoverheid, a former name right after its successor); the name ties the key to the name TOOI or the cabinet pages use. `successions`: the name that followed a name before TOOI (before about 2010), which no source states. `aliases`: other ways the sources write a name. `lawgraph ministries build` makes data/ministries.json from TOOI, the cabinet pages and this file.",
+ "ministries": [
+  {
+   "key": "az",
+   "name": "Algemene Zaken"
+  },
+  {
+   "key": "aok",
+   "name": "Algemene Oorlogvoering van het Koninkrijk"
+  },
+  {
+   "key": "bz",
+   "name": "Buitenlandse Zaken"
+  },
+  {
+   "key": "jenv",
+   "name": "Justitie en Veiligheid"
+  },
+  {
+   "key": "venj",
+   "name": "Veiligheid en Justitie"
+  },
+  {
+   "key": "justitie",
+   "name": "Justitie"
+  },
+  {
+   "key": "bzk",
+   "name": "Binnenlandse Zaken en Koninkrijksrelaties"
+  },
+  {
+   "key": "biza",
+   "name": "Binnenlandse Zaken"
+  },
+  {
+   "key": "bzbpbo",
+   "name": "Binnenlandse Zaken, Bezitsvorming en Publiekrechtelijke Bedrijfsorganisatie"
+  },
+  {
+   "key": "ocw",
+   "name": "Onderwijs, Cultuur en Wetenschap"
+  },
+  {
+   "key": "ow",
+   "name": "Onderwijs en Wetenschappen"
+  },
+  {
+   "key": "okw",
+   "name": "Onderwijs, Kunsten en Wetenschappen"
+  },
+  {
+   "key": "fin",
+   "name": "Financiën"
+  },
+  {
+   "key": "def",
+   "name": "Defensie"
+  },
+  {
+   "key": "oorlog",
+   "name": "Oorlog"
+  },
+  {
+   "key": "marine",
+   "name": "Marine"
+  },
+  {
+   "key": "ienw",
+   "name": "Infrastructuur en Waterstaat"
+  },
+  {
+   "key": "ienm",
+   "name": "Infrastructuur en Milieu"
+  },
+  {
+   "key": "venw",
+   "name": "Verkeer en Waterstaat"
+  },
+  {
+   "key": "vene",
+   "name": "Verkeer en Energie"
+  },
+  {
+   "key": "owen",
+   "name": "Openbare Werken en Wederopbouw"
+  },
+  {
+   "key": "ezk",
+   "name": "Economische Zaken en Klimaat"
+  },
+  {
+   "key": "ez",
+   "name": "Economische Zaken"
+  },
+  {
+   "key": "eli",
+   "name": "Economische Zaken, Landbouw en Innovatie"
+  },
+  {
+   "key": "hn",
+   "name": "Handel en Nijverheid"
+  },
+  {
+   "key": "kgg",
+   "name": "Klimaat en Groene Groei"
+  },
+  {
+   "key": "lvvn",
+   "name": "Landbouw, Visserij, Voedselzekerheid en Natuur"
+  },
+  {
+   "key": "lnv",
+   "name": "Landbouw, Natuur en Voedselkwaliteit"
+  },
+  {
+   "key": "lnbv",
+   "name": "Landbouw, Natuurbeheer en Visserij"
+  },
+  {
+   "key": "lenv",
+   "name": "Landbouw en Visserij"
+  },
+  {
+   "key": "lvv",
+   "name": "Landbouw, Visserij en Voedselvoorziening"
+  },
+  {
+   "key": "szw",
+   "name": "Sociale Zaken en Werkgelegenheid"
+  },
+  {
+   "key": "sz",
+   "name": "Sociale Zaken"
+  },
+  {
+   "key": "szv",
+   "name": "Sociale Zaken en Volksgezondheid"
+  },
+  {
+   "key": "vws",
+   "name": "Volksgezondheid, Welzijn en Sport"
+  },
+  {
+   "key": "wvc",
+   "name": "Welzijn, Volksgezondheid en Cultuur"
+  },
+  {
+   "key": "vm",
+   "name": "Volksgezondheid en Milieuhygiëne"
+  },
+  {
+   "key": "crm",
+   "name": "Cultuur, Recreatie en Maatschappelijk Werk"
+  },
+  {
+   "key": "mw",
+   "name": "Maatschappelijk Werk"
+  },
+  {
+   "key": "vro",
+   "name": "Volkshuisvesting en Ruimtelijke Ordening"
+  },
+  {
+   "key": "vb",
+   "name": "Volkshuisvesting en Bouwnijverheid"
+  },
+  {
+   "key": "wv",
+   "name": "Wederopbouw en Volkshuisvesting"
+  },
+  {
+   "key": "vrom",
+   "name": "Volkshuisvesting, Ruimtelijke Ordening en Milieubeheer"
+  },
+  {
+   "key": "aenm",
+   "name": "Asiel en Migratie"
+  },
+  {
+   "key": "scheepvaart",
+   "name": "Scheepvaart"
+  },
+  {
+   "key": "ogd",
+   "name": "Overzeese Gebiedsdelen"
+  },
+  {
+   "key": "uor",
+   "name": "Uniezaken en Overzeese Rijksdelen"
+  },
+  {
+   "key": "or",
+   "name": "Overzeese Rijksdelen"
+  },
+  {
+   "key": "zo",
+   "name": "Zaken Overzee"
+  }
+ ],
+ "successions": {
+  "aok": "az",
+  "biza": "bzk",
+  "bzbpbo": "biza",
+  "ow": "ocw",
+  "okw": "ow",
+  "oorlog": "def",
+  "marine": "def",
+  "vene": "venw",
+  "owen": "venw",
+  "hn": "ez",
+  "lnbv": "lnv",
+  "lenv": "lnbv",
+  "lvv": "lenv",
+  "sz": "szw",
+  "szv": "sz",
+  "wvc": "vws",
+  "vm": "wvc",
+  "crm": "wvc",
+  "mw": "crm",
+  "vb": "vro",
+  "wv": "vb"
+ },
+ "aliases": {
+  "Volkshuisvesting, Ruimtelijke Ordening en Milieu": "vrom",
+  "Landbouw Visserij Voedselzekerheid en Natuur": "lvvn",
+  "Algemene Oorlogvoering": "aok",
+  "Algemene Oorlogsvoering": "aok",
+  "Onderwijs, Cultuur en Wetenschappen": "ocw",
+  "OCenW": "ocw",
+  "VenW": "venw",
+  "WVC": "wvc"
+ }
+}

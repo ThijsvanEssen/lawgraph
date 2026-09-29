@@ -7,7 +7,11 @@ in full: a cabinet no page names any more is removed.
 A holder of a post (``Drs. S.Th.M. (Sophie) Hermans (VVD)``) is matched to one Tweede Kamer
 person (``core.government``): a member of parliament by surname, initials and age, told
 apart by the faction of their party where two fit; a minister who never sat in parliament
-(a TK person without name or date) by the papers they signed. The member gets
+(a TK person without name or date) by the papers they signed; a holder neither finds, by
+surname, party and what one member signed in government while they held a post. A post
+whose function names no ministry gets it from the official sources
+(``core.post_ministries``: the Tweede Kamer's signatures and commitments, the Staatscourant
+records of ``retrieve staatscourant-posts``), or none. The member gets
 ``government_functions`` (their posts, oldest first), ``government_name`` (the name as
 Rijksoverheid writes it) and ``known_as`` (the first name it gives in brackets with the
 surname: ``Sophie Hermans``; null when it gives none). A holder who matches nobody becomes
@@ -25,7 +29,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterator
 from typing import Any
 
@@ -34,19 +38,36 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     LABEL_RIJKSOVERHEID,
     RAW_KIND_RIJKSOVERHEID_CABINET,
+    RAW_KIND_STCRT_POST_CREATORS,
     RELATION_SERVED_IN,
     SOURCE_RIJKSOVERHEID,
+    SOURCE_STAATSCOURANT,
 )
 from lawgraph.core.cabinet_posts import SEAT_PRIME_MINISTER
 from lawgraph.core.cabinet_sources import NO_PARTY, build_cabinets
 from lawgraph.core.cabinets import faction_of
-from lawgraph.core.government import match_holder, match_signatory
+from lawgraph.core.government import match_by_function, match_holder, match_signatory
 from lawgraph.core.logging import get_logger
+from lawgraph.core.ministries import POST_DEPUTY_PRIME_MINISTER
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.core.raw_records import meta
+from lawgraph.core.post_ministries import (
+    SOURCE_PAGE,
+    SOURCE_TK_COMMITMENTS,
+    SOURCE_TK_SIGNATURES,
+    commitment_counts,
+    post_ministry,
+    signature_counts,
+    staatscourant_counts,
+)
+from lawgraph.core.post_ministries import (
+    SOURCE_STAATSCOURANT as FROM_STAATSCOURANT,
+)
+from lawgraph.core.raw_records import meta, payload_json
 from lawgraph.core.rijksoverheid import parse_page, split_name
 from lawgraph.db.edges import EdgeWriter, make_edge_doc
+from lawgraph.db.queries import government as government_queries
 from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.store import ArangoStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -68,7 +89,11 @@ POST_FIELDS = (
     "to_date_source",
     "corrected",
     "acting",
+    "acting_reason",
     "acting_basis",
+    "acting_other_seat",
+    "ministry_source",
+    "ministry_missing",
     "party",
     "overlaps_with",
     "absent",
@@ -100,6 +125,8 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         super().__init__(store=store)
         # (member key, cabinet key) -> the posts held in it, for ``build_edges``
         self._served: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        # member key -> their signatures in government, per function and month
+        self._signed: dict[str, list[dict[str, Any]]] | None = None
 
     def fetch_raw(
         self, *, since: dt.datetime | None = None
@@ -131,6 +158,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         factions = list(normalize_queries.faction_names(self.store))
         cabinets = build_cabinets(pages, lambda text: party_of(text, factions))
         member_of, own = self._members_of(cabinets)
+        self._resolve_ministries(cabinets, member_of)
         posts = self._posts_by_member(cabinets, member_of)
         nodes = [self._cabinet(c, member_of) for c in cabinets]
         nodes += [self._member(key, held, own) for key, held in posts.items()]
@@ -172,6 +200,10 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         member_of = _one_person_each(claims, holders)
         rest = [h for k, h in holders.items() if k not in member_of]
         member_of.update(self._match_signatories(rest))
+        by_function = self._match_by_function(
+            [h for k, h in holders.items() if k not in member_of], members
+        )
+        member_of.update(by_function)
         own: set[str] = set()
         for key, holder in holders.items():
             if key not in member_of:
@@ -184,9 +216,11 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
                 )
         logger.info(
             "Rijksoverheid: %d holders (initials, surname and party), %d matched to a "
-            "Tweede Kamer person; %d members of their own.",
+            "Tweede Kamer person (%d by what they signed in government); %d members of "
+            "their own.",
             len(holders),
             len(holders) - sum(1 for k in holders if member_of[k] in own),
+            len(by_function),
             len(own),
         )
         return member_of, own
@@ -206,6 +240,84 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             if holder is not None:
                 claims[member].append(holder)
         return _one_person_each(claims, {h["id"]: h for h in holders})
+
+    def _match_by_function(
+        self, holders: list[dict[str, Any]], members: list[dict[str, Any]]
+    ) -> dict[str, str]:
+        """Holder -> member key, for the holders no name matched: by surname, party and
+        what the member signed in government while the holder held a post
+        (``match_by_function``)."""
+        if not holders:
+            return {}
+        signed = self._signatures()
+        found = {}
+        for holder in holders:
+            member = match_by_function(holder, members, signed)
+            if member is not None:
+                found[holder["id"]] = member
+                logger.info(
+                    "Rijksoverheid: %s matched to member %s by what they signed.",
+                    holder["name"],
+                    member,
+                )
+        return found
+
+    def _signatures(self) -> dict[str, list[dict[str, Any]]]:
+        """Member key -> their signatures in government, per function and month."""
+        if self._signed is None:
+            self._signed = defaultdict(list)
+            for row in normalize_queries.government_signatures_by_month(self.store):
+                self._signed[row["key"]].append(row)
+        return self._signed
+
+    # ── The ministry of a post ───────────────────────────────────────────────
+
+    def _resolve_ministries(
+        self, cabinets: list[dict[str, Any]], member_of: dict[str, str]
+    ) -> None:
+        """Give every post whose function names no ministry the ministry the official
+        sources give it (``core.post_ministries``), with ``ministry_source``; a post they
+        give none keeps ``ministry`` null, with ``ministry_missing``."""
+        signed = self._signatures()
+        commitments = list(government_queries.commitment_makers(self.store))
+        records = {
+            r["external_id"]: payload_json(r)
+            for r in self.store.with_payloads(
+                raw_queries.iter_raw_records(
+                    self.store,
+                    source=SOURCE_STAATSCOURANT,
+                    kinds=[RAW_KIND_STCRT_POST_CREATORS],
+                    since_iso=None,
+                    batch_size=200,
+                )
+            )
+        }
+        found: Counter[str] = Counter()
+        for cabinet in cabinets:
+            for post in cabinet["posts"]:
+                post["ministry_source"] = SOURCE_PAGE if post["ministry"] else None
+                post["ministry_missing"] = None
+                if post["ministry"] or post["post"] == POST_DEPUTY_PRIME_MINISTER:
+                    continue
+                surname = split_name(post["name"])["surname"]
+                evidence = {
+                    SOURCE_TK_SIGNATURES: signature_counts(
+                        post, signed.get(member_of[holder_id(post)], ())
+                    ),
+                    SOURCE_TK_COMMITMENTS: commitment_counts(
+                        post, surname, commitments
+                    ),
+                    FROM_STAATSCOURANT: staatscourant_counts(post, records),
+                }
+                ministry, source, missing = post_ministry(evidence)
+                post["ministry"] = ministry
+                post["ministry_source"] = source
+                post["ministry_missing"] = missing
+                found[source or missing or ""] += 1
+        logger.info(
+            "Rijksoverheid: posts whose function names no ministry: %s.",
+            ", ".join(f"{n} {what}" for what, n in sorted(found.items())) or "none",
+        )
 
     # ── Nodes ────────────────────────────────────────────────────────────────
 
@@ -361,7 +473,8 @@ def holder_id(post: dict[str, Any]) -> str:
 
 
 def holder_records(cabinets: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Holder id -> ``{id, person, name, surname, letters, days, factions, posts}``: what
+    """Holder id -> ``{id, person, name, surname, initials, letters, days, factions, posts}``:
+    what
     ``match_holder`` and ``match_signatory`` read."""
     holders: dict[str, dict[str, Any]] = {}
     for cabinet in cabinets:
@@ -375,6 +488,7 @@ def holder_records(cabinets: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
                     "person": post["person"],
                     "name": post["name"],
                     "surname": parts["surname"],
+                    "initials": parts["initials"],
                     "letters": parts["letters"],
                     "days": [],
                     "factions": [],

@@ -276,7 +276,14 @@ def test_sources_on_one_server_share_a_lane() -> None:
     assert lanes["tk"] == lanes["tk-dossiers"]
     assert lanes["bwb"] == lanes["bwb-history"] == registry.LANE_BWB
     assert lanes["rechtspraak"] == lanes["rechtspraak-instanties"]
-    koop = {"staatsblad", "staatscourant", "eerstekamer", "verdragenbank", "tk-content"}
+    koop = {
+        "staatsblad",
+        "staatscourant",
+        "eerstekamer",
+        "verdragenbank",
+        "tk-content",
+        "staatscourant-posts",
+    }
     assert {lanes[name] for name in koop} == {registry.LANE_KOOP_REPOSITORY}
     assert len(set(lanes.values())) == len(lanes) - 1 - 1 - 1 - (len(koop) - 1)
 
@@ -309,6 +316,7 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("verdragenbank", koop, ()),
         ("tooi", "tooi", ()),
         ("rijksoverheid", "rijksoverheid", ()),
+        ("staatscourant-posts", koop, ("rijksoverheid",)),
     ]
 
 

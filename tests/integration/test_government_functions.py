@@ -11,10 +11,13 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
+    COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
     RAW_KIND_RIJKSOVERHEID_CABINET,
+    RAW_KIND_STCRT_POST_CREATORS,
     RELATION_AUTHORED,
     SOURCE_RIJKSOVERHEID,
+    SOURCE_STAATSCOURANT,
 )
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import (
@@ -134,7 +137,7 @@ def test_a_member_gets_the_posts_of_the_holder_with_their_surname_and_initials(
     ] == [
         (
             "rutte_iv",
-            "ezk/minister_zonder_portefeuille/klimaat-en-energie",
+            "-/minister_zonder_portefeuille/klimaat-en-energie",
             "2022-01-10",
             "2026-02-23",
             D66,
@@ -236,3 +239,135 @@ def test_a_minister_outside_parliament_is_found_by_signatures(
         "D.M. van Weel",
     )
     assert van_weel["government_functions"][0]["seat"] == "jenv/minister"
+
+
+# ── The ministry of a post whose function names none ─────────────────────────
+
+HOOGERVORST = "27b6eea7_b816_4d7c_b7dd_7f982a10a8b7"
+ACHAHBAR = "achahbar"
+
+
+def _signed(store: ArangoStore, member: str, key: str, day: str, function: str) -> None:
+    with NodeWriter(store) as writer:
+        writer.add(
+            Node(
+                collection=COLLECTION_DOCUMENTS,
+                type=NodeType.DOCUMENT,
+                key=key,
+                labels=["TK"],
+                props={"date": day},
+            )
+        )
+    with EdgeWriter(store, what=None) as edges:
+        edges.add(
+            f"{COLLECTION_MEMBERS}/{member}",
+            f"{COLLECTION_DOCUMENTS}/{key}",
+            RELATION_AUTHORED,
+            source="test",
+            meta={"function": function, "capacity": "bewindspersoon"},
+        )
+
+
+def test_a_post_gets_its_ministry_from_the_official_sources(
+    database: str, cli: Any
+) -> None:
+    store = ArangoStore()
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                Node(
+                    collection=COLLECTION_FACTIONS,
+                    type=NodeType.FACTION,
+                    key="vvd",
+                    labels=["TK"],
+                    props={"name": "VVD", "abbreviation": "VVD"},
+                ),
+                # the Tweede Kamer writes his initials without dots
+                _member(
+                    HOOGERVORST,
+                    "Johannes Franciscus Hoogervorst",
+                    "Hoogervorst",
+                    "1956-04-19",
+                    initials="JF",
+                    faction_memberships=[{"faction_key": "vvd"}],
+                ),
+                _member(ACHAHBAR, "Nora Achahbar", "Achahbar", "1982-01-01"),
+            ]
+        )
+    # a state secretary with a portfolio of her own signs as staatssecretaris van Financiën
+    _signed(
+        store, ACHAHBAR, "toeslagen", "2024-10-01", "staatssecretaris van Financiën"
+    )
+    # J.H. Hoogervorst on the page is J.F. in the Tweede Kamer: he signed as the minister
+    _signed(
+        store,
+        HOOGERVORST,
+        "vws",
+        "2004-03-02",
+        "minister van Volksgezondheid, Welzijn en Sport",
+    )
+    store_pages(
+        store,
+        {
+            "kabinet-balkenende-ii": page(
+                "Balkenende II",
+                "27 mei 2003",
+                (
+                    "Minister van Volksgezondheid, Welzijn en Sport",
+                    ["drs. J.H. Hoogervorst (VVD)"],
+                ),
+            ),
+            "kabinet-rutte-iv": page(
+                "Rutte IV",
+                "10 januari 2022",
+                ("Minister voor Klimaat en Energie", ["R.A.A. (Rob) Jetten (D66)"]),
+            ),
+            "kabinet-schoof": page(
+                "Schoof",
+                "2 juli 2024",
+                ("Staatssecretaris Herstel en Toeslagen", ["N. (Nora) Achahbar (NSC)"]),
+                ("Minister zonder Portefeuille", ["A.B. Iemand (VVD)"]),
+            ),
+        },
+    )
+    # the publications naming the Minister voor Klimaat en Energie (retrieve
+    # staatscourant-posts)
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_STAATSCOURANT,
+                kind=RAW_KIND_STCRT_POST_CREATORS,
+                external_id="minister voor klimaat en energie|2022-01-10|2024-07-02",
+                payload_json={
+                    "creators": {
+                        "Ministerie van Economische Zaken en Klimaat": 63,
+                        "Ministerie van Infrastructuur en Waterstaat": 3,
+                    }
+                },
+            )
+        )
+
+    done = cli("normalize", "rijksoverheid")
+
+    posts = {
+        row["function"]: row
+        for row in store.query(
+            "FOR m IN members FOR f IN m.props.government_functions OR [] "
+            "RETURN MERGE(f, {member: m._key})"
+        )
+    }
+    found = {
+        function: (p["ministry"], p["ministry_source"], p["ministry_missing"])
+        for function, p in posts.items()
+    }
+    assert found == {
+        "Minister van Volksgezondheid, Welzijn en Sport": ("vws", "page", None),
+        "Minister voor Klimaat en Energie": ("ezk", "staatscourant", None),
+        "Staatssecretaris Herstel en Toeslagen": ("fin", "tk_signatures", None),
+        "Minister zonder Portefeuille": (None, None, "no_source"),
+    }
+    # matched by what he signed, not made a member of his own
+    assert posts["Minister van Volksgezondheid, Welzijn en Sport"]["member"] == (
+        HOOGERVORST
+    )
+    assert "(1 by what they signed in government)" in done.stderr

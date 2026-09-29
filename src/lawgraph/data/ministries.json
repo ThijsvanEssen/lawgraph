@@ -1,5 +1,5 @@
 {
- "about": "The ministries of the Netherlands, in protocol order, built by `lawgraph ministries build` from TOOI (rwc_ministeries_compleet) and the Rijksoverheid cabinet pages. Each period says its source: tooi and rijksoverheid are written again by every build; by hand are the key, the order, a name no source knows, and a succession marked successor_source hand.",
+ "about": "The ministries: every name TOOI knows, and before TOOI the names the posts on the Rijksoverheid cabinet pages use, with the keys, order and successions of data/curated/ministries.json. Made by `lawgraph ministries build`; see core/ministry_sources.py.",
  "sources": {
   "tooi": {
    "url": "https://identifier.overheid.nl/tooi/set/rwc_ministeries_compleet/6",
@@ -38,7 +38,7 @@
      "successor": "az",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -129,7 +129,7 @@
      "successor": "bzk",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -145,7 +145,7 @@
      "successor": "biza",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -176,7 +176,7 @@
      "successor": "ocw",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -192,7 +192,7 @@
      "successor": "ow",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -238,7 +238,7 @@
      "successor": "def",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -254,7 +254,7 @@
      "successor": "def",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -315,7 +315,7 @@
      "successor": "venw",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -331,22 +331,7 @@
      "successor": "venw",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
-    }
-   ]
-  },
-  {
-   "key": "opw",
-   "name": "Openbare Werken",
-   "abbreviation": null,
-   "tooi": null,
-   "periods": [
-    {
-     "from": null,
-     "until": null,
-     "successor": "venw",
-     "basis": null,
-     "source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -428,22 +413,7 @@
      "successor": "ez",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
-    }
-   ]
-  },
-  {
-   "key": "ahn",
-   "name": "Arbeid, Handel en Nijverheid",
-   "abbreviation": null,
-   "tooi": null,
-   "periods": [
-    {
-     "from": null,
-     "until": null,
-     "successor": "hn",
-     "basis": null,
-     "source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -511,7 +481,7 @@
      "successor": "lnv",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -527,7 +497,7 @@
      "successor": "lnbv",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -543,7 +513,7 @@
      "successor": "lenv",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -574,7 +544,7 @@
      "successor": "szw",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -590,22 +560,7 @@
      "successor": "sz",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
-    }
-   ]
-  },
-  {
-   "key": "arbeid",
-   "name": "Arbeid",
-   "abbreviation": null,
-   "tooi": null,
-   "periods": [
-    {
-     "from": null,
-     "until": null,
-     "successor": "sz",
-     "basis": null,
-     "source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -636,7 +591,7 @@
      "successor": "vws",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -652,7 +607,7 @@
      "successor": "wvc",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -668,7 +623,7 @@
      "successor": "wvc",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -684,7 +639,7 @@
      "successor": "crm",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -715,7 +670,7 @@
      "successor": "vro",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },
@@ -731,7 +686,7 @@
      "successor": "vb",
      "basis": null,
      "source": "rijksoverheid",
-     "successor_source": "hand"
+     "successor_source": "curated"
     }
    ]
   },

@@ -1,8 +1,7 @@
 """The ministries from the official sources: TOOI since 2010, the cabinet pages before.
 
 ``data/ministries.json`` holds the ministries ``core.ministries`` reads. ``build_ministries``
-makes it from what the sources say, on top of the previous table (its keys, order and the
-successions no source gives):
+makes it from what the sources say, with the curated keys, order and successions:
 
 - **TOOI** (``rwc_ministeries_compleet``, KOOP): every ministry since about 2010 with its
   code (``mnre1045``), abbreviation, begin and end, its former names (``HistorischeVersie``
@@ -16,8 +15,9 @@ successions no source gives):
   period from its first post; it ends the day before its successor's first post where its
   last post ends that day (a handover the pages show), else its end stays unknown.
 
-What no source gives stays as the previous table has it, marked ``hand``: the key, the
-protocol order, and a succession before 2010 (Oorlog and Marine by Defensie).
+What no source gives is curated in ``data/curated/ministries.json``: our key of each name,
+the protocol order, a succession before 2010 (Oorlog and Marine by Defensie) and the other
+ways the sources write a name. A curated name no source names is left out.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from typing import Any
 
 SOURCE_TOOI = "tooi"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
-SOURCE_HAND = "hand"
+SOURCE_CURATED = "curated"
 
 
 def _plain(text: str | None) -> str:
@@ -254,54 +254,46 @@ def page_period(
     }
 
 
-def _hand_period(
-    old: dict[str, Any], spans: dict[str, tuple[str, str | None, set[str]]]
-) -> dict[str, Any]:
-    """The period of a name TOOI does not know: from the pages, with the succession the
-    previous table has (no source gives it before 2010)."""
-    successor = next(
-        (p["successor"] for p in old["periods"] if p.get("successor")), None
-    )
-    period = page_period(old["key"], successor, spans)
-    if period is None:
-        return {
-            "from": None,
-            "until": None,
-            "successor": successor,
-            "basis": None,
-            "source": SOURCE_HAND,
-        }
-    if successor:
-        period["successor_source"] = SOURCE_HAND
-    return period
-
-
 def build_ministries(
-    previous: list[dict[str, Any]],
+    curated: dict[str, Any],
     tooi: list[dict[str, Any]],
     cabinets: Iterable[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """The ministry table from the sources, in the order of *previous*; a name new to it
-    comes at the end. *previous* are the entries of ``data/ministries.json``; *tooi* the
-    items of the TOOI value list; *cabinets* those of ``core.cabinet_sources``."""
-    by_name = {_plain(m["name"]): m["key"] for m in previous}
-    taken = {m["key"] for m in previous}
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """``(table, dropped)``: the ministry table from the sources, and the curated keys no
+    source names (so left out).
+
+    *curated* is ``data/curated/ministries.json``: the keys in protocol order and the
+    successions before TOOI; *tooi* the items of the TOOI value list; *cabinets* those of
+    ``core.cabinet_sources``. A name TOOI knows gets its periods from TOOI; one it does not
+    know, from the posts under it on the cabinet pages, with the curated successor
+    (``successor_source`` ``curated``); one neither names is dropped. A TOOI name the curated
+    list lacks comes at the end, keyed by its abbreviation."""
+    order = curated["ministries"]
+    successions = curated.get("successions") or {}
+    by_name = {_plain(m["name"]): m["key"] for m in order}
+    taken = {m["key"] for m in order}
     official = tooi_periods(tooi, by_name, taken)
     spans = page_spans(cabinets)
-    table = []
-    for old in previous:
-        key = old["key"]
+    table, dropped = [], []
+    for entry in order:
+        key = entry["key"]
         if key in official:
             table.append({"key": key, **official.pop(key)})
-        else:
-            table.append(
-                {
-                    "key": key,
-                    "name": old["name"],
-                    "abbreviation": old.get("abbreviation"),
-                    "tooi": None,
-                    "periods": [_hand_period(old, spans)],
-                }
-            )
+            continue
+        period = page_period(key, successions.get(key), spans)
+        if period is None:
+            dropped.append(key)
+            continue
+        if period["successor"]:
+            period["successor_source"] = SOURCE_CURATED
+        table.append(
+            {
+                "key": key,
+                "name": entry["name"],
+                "abbreviation": None,
+                "tooi": None,
+                "periods": [period],
+            }
+        )
     table += [{"key": key, **entry} for key, entry in official.items()]
-    return table
+    return table, dropped

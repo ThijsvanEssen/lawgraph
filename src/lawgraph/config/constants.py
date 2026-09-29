@@ -217,6 +217,8 @@ RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
 RAW_KIND_BWB_WTI_GENERAL = "bwb-wti-algemene-informatie-xml"
 RAW_KIND_STB_AMVB = "stb-amvb-xml"
 RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
+# How many publications of each ministry name a cabinet post (external id: the query).
+RAW_KIND_STCRT_POST_CREATORS = "stcrt-post-creators-json"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_VERDRAG = "verdrag-json"
@@ -251,7 +253,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_BWB_WTI_GENERAL,
     ),
     SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
-    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING,),
+    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING, RAW_KIND_STCRT_POST_CREATORS),
     SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
     SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
