@@ -43,6 +43,7 @@ FeedKind = Literal[
 ]
 PersonRole = Literal["indiener", "medeindiener", "bewindspersoon"]
 PublicationSeries = Literal["stb", "stcrt", "trb"]
+ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 
 _OUTCOME = {True: "aangenomen", False: "verworpen"}
 
@@ -63,7 +64,16 @@ class FeedDossierDTO(BaseModel):
     number: str = Field(..., description="The label: ``36600-VII``, a path segment.")
     title: str | None = None
     short_title: str | None = Field(
-        None, description="The parentheses that end the title; null without."
+        None,
+        description="The name it goes by: of a budget its chapter and year, else the "
+        "parentheses that end its title, else the citation title its bill gives itself, "
+        "the Kamer gives the bill's case, or of the one law the bill changes; null "
+        "without.",
+    )
+    short_title_basis: ShortTitleBasis | None = Field(
+        None,
+        description="Where ``short_title`` comes from: ``title``, ``citation``, ``case`` "
+        "or ``amended_law`` (then it names the law changed, not the bill).",
     )
 
 
@@ -241,7 +251,7 @@ class FeedItemDTO(BaseModel):
         dossier = row.get("dossier")
         title = _title(kind, props, row)
         persons = _persons(kind, row)
-        short = short_title(dossier.get("title")) if dossier else None
+        short, basis = _dossier_short_title(dossier) if dossier else (None, None)
         return cls(
             id=row["id"],
             kind=kind,
@@ -250,7 +260,17 @@ class FeedItemDTO(BaseModel):
             summary=_summary(kind, props, row),
             subkind=_subkind(kind, props),
             node=FeedNodeDTO(collection=collection, key=key),
-            dossier=(FeedDossierDTO(**dossier, short_title=short) if dossier else None),
+            dossier=(
+                FeedDossierDTO(
+                    key=dossier["key"],
+                    number=dossier["number"],
+                    title=dossier.get("title"),
+                    short_title=short,
+                    short_title_basis=basis,
+                )
+                if dossier
+                else None
+            ),
             persons=persons,
             headline=FeedHeadlineDTO(
                 surname=next(
@@ -467,12 +487,16 @@ class FeedResponse(BaseModel):
 
 
 class FeedDossierCountDTO(BaseModel):
+    """The events of one kind in one dossier on a day."""
+
     model_config = ConfigDict(extra="forbid")
 
+    kind: FeedKind
     number: str
     key: str | None = None
     title: str | None = None
     short_title: str | None = None
+    short_title_basis: ShortTitleBasis | None = None
     count: int
 
 
@@ -496,7 +520,9 @@ class FeedDayDTO(BaseModel):
     total: int = 0
     kinds: list[FacetCountDTO] = Field(default_factory=list)
     dossiers: list[FeedDossierCountDTO] = Field(
-        default_factory=list, description="Per first dossier of an event, most first."
+        default_factory=list,
+        description="Per kind (in the order of a day) and first dossier of an event, "
+        "most first within a kind.",
     )
     votes: list[FeedVoteCountDTO] = Field(default_factory=list)
 
@@ -517,6 +543,10 @@ class FeedSummaryResponse(BaseModel):
     )
     items_truncated: bool = Field(
         False, description="More events qualified than ``limit``."
+    )
+    data_as_of: dict[str, DataAsOfDTO] = Field(
+        default_factory=dict,
+        description="Per source: how current the graph is, as in `GET /api/stats`.",
     )
 
     @classmethod
@@ -571,13 +601,31 @@ def _dossier_count(
     count: dict[str, Any], titles: dict[str, dict[str, Any]]
 ) -> FeedDossierCountDTO:
     dossier = titles.get(count["number"]) or {}
+    short, basis = _dossier_short_title(dossier)
     return FeedDossierCountDTO(
+        kind=count["kind"],
         number=count["number"],
         key=dossier.get("key"),
         title=dossier.get("title"),
-        short_title=short_title(dossier.get("title")),
+        short_title=short,
+        short_title_basis=basis,
         count=count["count"],
     )
+
+
+def _dossier_short_title(
+    dossier: dict[str, Any],
+) -> tuple[str | None, ShortTitleBasis | None]:
+    """The short title of a dossier and where it comes from: its title (a budget, the
+    parentheses that end a bill's title: ``title``), else the name its bill goes by in
+    official data (``official_short``: the citation title in the bill, ``citation``; of
+    its case, ``case``; of the one law it changes, ``amended_law``); None without."""
+    own = short_title(dossier.get("title"))
+    if own:
+        return own, "title"
+    official = dossier.get("official_short") or {}
+    basis = official.get("basis")
+    return official.get("title"), basis if basis in get_args(ShortTitleBasis) else None
 
 
 _ATOM = "http://www.w3.org/2005/Atom"

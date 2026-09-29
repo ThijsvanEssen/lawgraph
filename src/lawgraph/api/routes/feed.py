@@ -132,11 +132,15 @@ def _page(
         else None,
         total=raw.get("total"),
         facets=FeedFacetsDTO(**raw["facets"]) if raw.get("facets") else None,
-        data_as_of={
-            source: DataAsOfDTO(**row)
-            for source, row in cached_data_as_of(store).items()
-        },
+        data_as_of=_data_as_of(store),
     )
+
+
+def _data_as_of(store: ArangoStore) -> dict[str, DataAsOfDTO]:
+    """How current each source is, as ``GET /api/stats`` says."""
+    return {
+        source: DataAsOfDTO(**row) for source, row in cached_data_as_of(store).items()
+    }
 
 
 _Cursor = Annotated[
@@ -319,6 +323,15 @@ def get_feed_summary_route(
             "is shown one by one.",
         ),
     ] = 10,
+    few: Annotated[
+        int,
+        Query(
+            ge=0,
+            le=50,
+            description="Every vote of a day with at most this many votes on "
+            "anything but a bill is shown one by one.",
+        ),
+    ] = 2,
     limit: Annotated[
         int, Query(ge=1, le=500, description="Events shown one by one, at most.")
     ] = 100,
@@ -326,7 +339,9 @@ def get_feed_summary_route(
     last = until or dt.date.today()
     first = last - dt.timedelta(days=days - 1)
     filters = replace(scope, since=first.isoformat(), until=last.isoformat())
-    raw = get_feed_summary(store, filters, margin=margin, limit=limit)
-    return FeedSummaryResponse.from_raw(
+    raw = get_feed_summary(store, filters, margin=margin, few=few, limit=limit)
+    summary = FeedSummaryResponse.from_raw(
         raw, since=first, until=last, margin=margin, limit=limit
     )
+    summary.data_as_of = _data_as_of(store)
+    return summary
