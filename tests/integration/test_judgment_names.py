@@ -116,6 +116,8 @@ def test_the_names_of_landmark_judgments_and_of_a_stub(client: TestClient) -> No
     assert stub is not None
     assert stub.props["names"] == ["Lindenbaum/Cohen"]
     assert stub.props["decision_kind"] == "arrest"
+    # graph-list-stats gives a stub its tier and kind of court from the court table
+    assert (stub.props["tier"], stub.props["court_kind"]) == ("hoge_raad", "hoge_raad")
 
 
 @pytest.mark.parametrize(

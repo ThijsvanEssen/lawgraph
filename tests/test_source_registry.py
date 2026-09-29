@@ -137,8 +137,8 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
     names = {p.name for p in PIPELINES["retrieve"]}
     rows = {
         "retrieve": names,
-        # "the same without TOOI"
-        "normalize": names - {"tooi"},
+        # "the same without TOOI and RECHTSPRAAK_INSTANTIES"
+        "normalize": names - {"tooi", "rechtspraak-instanties"},
         "semantic": {p.name for p in PIPELINES["semantic"]},
     }
     for phase in ("retrieve", "semantic"):

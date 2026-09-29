@@ -307,9 +307,14 @@ class CitedByJudgment(BaseModel):
     ecli: str | None
     court: str | None = Field(description="ECLI court code, `HR`, `RBAMS`.")
     tier: str | None = Field(
-        description="The college: `hoge_raad`, `raad_van_state`, `centrale_raad_van_beroep`, "
-        "`college_van_beroep_bedrijfsleven`, `parket`, `gerechtshof`, `rechtbank`, … "
-        "(`/api/stats/coverage` lists those present).",
+        description="The tier, the Type of the court in the Instanties value list: "
+        "`hoge_raad`, `raad_van_state`, `parket`, `gerechtshof`, `rechtbank`, "
+        "`andere_instantie`, … (`/api/stats/coverage` lists those present).",
+    )
+    court_kind: str | None = Field(
+        default=None,
+        description="The kind of court within the tier (`ambtenarengerecht`; a tier of "
+        "one kind of court is its own kind).",
     )
     date: str | None = Field(description="Date of the judgment, YYYY-MM-DD.")
     display_name: str | None
@@ -352,6 +357,7 @@ class ArticleCitedByItem(QualifierFields):
                 ecli=props.get("ecli"),
                 court=props.get("court_code"),
                 tier=props.get("tier"),
+                court_kind=props.get("court_kind"),
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
             ),

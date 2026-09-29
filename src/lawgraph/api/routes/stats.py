@@ -13,7 +13,7 @@ from lawgraph.api.schemas.stats import (
     JudgmentCoverageResponse,
     StatsResponse,
 )
-from lawgraph.core.judgments import TIERS
+from lawgraph.core.courts import TIERS, court_of
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.stats import get_db_stats, get_judgment_coverage
 
@@ -47,6 +47,12 @@ def _span(rows: list[CoverageCourtDTO]) -> tuple[str | None, str | None]:
     return (min(firsts) if firsts else None, max(lasts) if lasts else None)
 
 
+def _kind(row: dict) -> str | None:
+    """The kind of court of a coverage row, from the court table (no read of a judgment)."""
+    found = court_of(row.get("court_code"), row.get("court"))
+    return found.court_kind if found else None
+
+
 @router.get(
     "/coverage",
     response_model=JudgmentCoverageResponse,
@@ -65,7 +71,7 @@ def get_coverage(
 ) -> JudgmentCoverageResponse:
     data = get_judgment_coverage(store)
     courts = sorted(
-        (CoverageCourtDTO(**row) for row in data["courts"]),
+        (CoverageCourtDTO(**row, court_kind=_kind(row)) for row in data["courts"]),
         key=lambda c: (-c.count, c.court_code or ""),
     )
     tiers = []

@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import Tier
+from lawgraph.api.params import CourtKind, Tier
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -41,12 +41,15 @@ logger = get_logger(__name__)
     summary="Paginated list of judgments",
     description=(
         "A paginated list of judgments with filters on court (the ECLI court "
-        "code), tier (the college: hoge_raad, raad_van_state, "
-        "centrale_raad_van_beroep, parket, gerechtshof, rechtbank, tuchtcollege, …), "
-        "area of law (`subject`), source, date range and a minimum citation count. "
+        "code), tier (the Type of the court in the Instanties value list of the "
+        "Rechtspraak: hoge_raad, raad_van_state, gerechtshof, rechtbank, tuchtcollege, "
+        "andere_instantie, koninkrijksinstantie, …), court_kind (the kind of court "
+        "within the tier: ambtenarengerecht, raad_van_beroep, gerecht_in_eerste_aanleg, "
+        "…), area of law (`subject`), source, date range and a minimum citation count. "
         "`facets` counts the judgments under the filters per `tier` (without the tier "
-        "filter), per `source` (without the source filter) and per year of `date` "
-        "(without `from` and `to`)."
+        "and court_kind filters), per `court_kind` (without its own filter), per "
+        "`source` (without the source filter) and per year of `date` (without `from` "
+        "and `to`)."
     ),
     tags=["judgments"],
 )
@@ -64,7 +67,14 @@ def list_judgments(
     tier: Annotated[
         Tier | None,
         Query(
-            description="The college: `hoge_raad`, `raad_van_state`, `gerechtshof`, …"
+            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …"
+        ),
+    ] = None,
+    court_kind: Annotated[
+        CourtKind | None,
+        Query(
+            description="The kind of court: `ambtenarengerecht`, `raad_van_beroep`, "
+            "`hoge_raad`, …"
         ),
     ] = None,
     source: Annotated[
@@ -102,6 +112,7 @@ def list_judgments(
         q=q,
         court=court,
         tier=tier.value if tier else None,
+        court_kind=court_kind.value if court_kind else None,
         source=source,
         subject=(subject or "").strip() or None,
         date_from=date_from,
