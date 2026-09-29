@@ -40,7 +40,11 @@ from lawgraph.db.queries.instrument_links import (
     get_eu_links,
     get_international_links,
 )
-from lawgraph.db.queries.instrument_scope import resolve_instrument, scope_of_node
+from lawgraph.db.queries.instrument_scope import (
+    resolve_instrument,
+    same_treaty,
+    scope_of_node,
+)
 from lawgraph.db.queries.instruments import (
     INSTRUMENT_SORTS,
     get_articles,
@@ -122,8 +126,9 @@ def _instrument_or_404(store: ArangoStore, identifier: str) -> dict:
     description=(
         "The instrument named by its BWB id (`BWBR0001854`), its CELEX number "
         "(`32016L0680`) or its node key (`echr_convention`, `verdrag_012345`): "
-        "identifiers, names, jurisdiction, kind, dates and article count. 404 for an "
-        "unknown instrument."
+        "identifiers, names, jurisdiction, kind, dates and article count, and for a "
+        "treaty the other instruments with its treaty number (`same_treaty`). 404 for "
+        "an unknown instrument."
     ),
     tags=["instruments"],
 )
@@ -131,7 +136,8 @@ def get_instrument(
     identifier: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> InstrumentDetailDTO:
-    return InstrumentDetailDTO.from_document(_instrument_or_404(store, identifier))
+    doc = _instrument_or_404(store, identifier)
+    return InstrumentDetailDTO.from_document(doc, same_treaty=same_treaty(store, doc))
 
 
 def _international_link(
@@ -308,7 +314,7 @@ def get_instrument_dossiers_route(
                 dossier_number=_props(d)["label"],
                 title=_props(d).get("title"),
                 display_name=_props(d).get("display_name"),
-                stage=_props(d).get("current_stage"),
+                current_phase=_props(d).get("current_phase"),
                 opened_on=_props(d).get("opened_on"),
                 closed=_props(d).get("closed"),
                 via=row["via"],

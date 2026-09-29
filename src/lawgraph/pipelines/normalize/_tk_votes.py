@@ -59,6 +59,32 @@ def read_votes(raw_records: Iterable[dict[str, Any]]) -> Votes:
     return votes
 
 
+def merge_votes(votes: Votes, more: Votes) -> None:
+    """Add the rows of *more* to *votes*, for the decisions *votes* has none of."""
+    for decision_id, casts in more.by_decision.items():
+        if decision_id not in votes.by_decision:
+            votes.by_decision[decision_id] = casts
+            votes.decisions[decision_id] = more.decisions.get(decision_id, {})
+    votes.faction_labels |= more.faction_labels
+    votes.rows += more.rows
+
+
+def add_decisions(votes: Votes, payloads: Iterable[dict[str, Any]]) -> int:
+    """Add the Besluit records no vote row carries (a hamerstuk: ``Stemmen - zonder
+    stemming aannemen``) as decisions without votes; one with votes keeps the Besluit its
+    rows carry. How many were added."""
+    added = 0
+    for payload in payloads:
+        decision_id = str(payload.get("Id") or "")
+        if not decision_id or tk_records.is_deleted(payload):
+            continue
+        if decision_id not in votes.by_decision:
+            votes.by_decision[decision_id] = []
+            votes.decisions[decision_id] = payload
+            added += 1
+    return added
+
+
 def normalize_decisions(store: Store, votes: Votes) -> dict[str, Node]:
     """Decision nodes, keyed by TK ``Besluit_Id``."""
     nodes: dict[str, Node] = {}

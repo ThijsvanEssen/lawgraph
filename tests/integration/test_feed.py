@@ -209,7 +209,7 @@ def _nodes() -> list[Node]:
             decision_text="Aangenomen.",
             primary_case_id=MOTION_CASE,
             dossier_numbers=["37001-VII"],
-            kind="motie",
+            kind="Motie",
             vote_kind="faction",
             tally={"Voor": 80, "Tegen": 70},
             passed=True,
@@ -466,7 +466,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "vote_kind": "faction",
         "tally": {"Voor": 80, "Tegen": 70},
     }
-    assert vote["subkind"] == "motie"
+    assert vote["subkind"] == "Motie"
     assert vote["summary"] == "Aangenomen."
     # the signatures of the motion it decided
     assert [p["key"] for p in vote["persons"]] == [BAKKER_KEY]
@@ -757,7 +757,7 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
         "votes": [],
     }
     assert days["2026-05-12"]["votes"] == [
-        {"subkind": "motie", "outcome": "aangenomen", "count": 1}
+        {"subkind": "Motie", "outcome": "aangenomen", "count": 1}
     ]
     may_first = days["2026-05-01"]
     assert may_first["total"] == 2

@@ -57,6 +57,22 @@ def resolve_instrument(store: ArangoStore, identifier: str) -> dict[str, Any] | 
     return _ensure_doc(store.collection(COLLECTION_INSTRUMENTS).get(key))
 
 
+def same_treaty(store: ArangoStore, doc: dict[str, Any]) -> list[dict[str, Any]]:
+    """The other instruments with the treaty number of *doc*: the Verdragenbank record of a
+    BWB treaty, the BWB text of a Verdragenbank treaty; by key. Empty for an instrument
+    without a treaty number."""
+    number = (doc.get("props") or {}).get("treaty_number")
+    if not number:
+        return []
+    aql = f"""
+        FOR i IN {COLLECTION_INSTRUMENTS}
+            FILTER i.props.treaty_number == @number AND i._key != @key
+            SORT i._key
+            RETURN i
+        """
+    return list(store.query(aql, {"number": number, "key": doc["_key"]}))
+
+
 def scope_of_node(doc: dict[str, Any]) -> InstrumentScope | None:
     """The scope of a resolved instrument; ``None`` when its articles carry no identifier."""
     props = doc.get("props") or {}

@@ -9,8 +9,8 @@ The pipeline is the order in which the nodes must exist:
 Node building lives next door, one module per part of the model:
 ``tk_members`` (committees, members, factions), ``tk_votes`` (decisions and
 the votes on them) and ``tk_cases`` (activities, commitments, documents and
-what they are about). The dossier itself — its title, its stage, when it opened —
-is what this module keeps; whether and how it ended is ``semantic tk-dossier-outcomes``.
+what they are about). The dossier itself — its title, its kind and phases, when it
+opened — is what this module keeps; whether and how it ended is ``semantic tk-dossier-outcomes``.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
     RAW_KIND_TK_ACTIVITEIT,
+    RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
@@ -40,11 +41,9 @@ from lawgraph.config.constants import (
 from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import (
-    classify_track_kind,
     dossier_display_name,
-    dossier_stages,
+    phase_props,
     select_title,
-    stage_props,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -65,6 +64,7 @@ RAW_KINDS = [
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_STEMMING,
+    RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_TOEZEGGING,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_PERSOON,
@@ -120,6 +120,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
     ) -> dict[str, Any]:
         store = self.store
         votes = tk_votes.read_votes(raw[RAW_KIND_TK_STEMMING])
+        self._add_bill_decisions(votes, raw[RAW_KIND_TK_BESLUIT])
         vote_labels = votes.faction_labels
         if self._incremental:
             # The factions are written again with the spellings votes gave them: those of
@@ -147,6 +148,30 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         normalized["decisions"] = tk_votes.normalize_decisions(store, votes)
         self._refresh_case_kinds(normalized["activities"])
         return normalized
+
+    def _add_bill_decisions(
+        self, votes: tk_votes.Votes, raw_records: Iterable[dict[str, Any]]
+    ) -> None:
+        """Add the Besluiten on bills, also those without votes (a hamerstuk). An
+        incremental run first reads the stored vote rows of those its window holds no
+        rows of, so a Besluit that changed does not lose its votes."""
+        payloads = [self._payload_json(raw) for raw in raw_records]
+        if self._incremental:
+            unseen = [
+                decision_id
+                for payload in payloads
+                if (decision_id := str(payload.get("Id") or ""))
+                and decision_id not in votes.by_decision
+            ]
+            if unseen:
+                tk_votes.merge_votes(
+                    votes,
+                    tk_votes.read_votes(
+                        raw_queries.vote_rows_of_decisions(self.store, unseen)
+                    ),
+                )
+        added = tk_votes.add_decisions(votes, payloads)
+        logger.info("Added %d decisions on bills without votes.", added)
 
     def build_edges(
         self,
@@ -209,8 +234,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
 
         # Once the edges exist, each dossier's documents can be walked to
-        # derive its title and stage, so reads stay O(1).
-        self._backfill_titles_and_stages(normalized["dossiers"])
+        # derive its title and phases, so reads stay O(1).
+        self._backfill_titles_and_phases(normalized["dossiers"])
 
     def _stored_faction_aliases(self) -> set[str]:
         return set(normalize_queries.faction_aliases(self.store))
@@ -301,10 +326,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
     def _refresh_case_kinds(self, activity_nodes: dict[str, Node]) -> None:
         """Roll the ``Zaak.Soort`` values reachable per dossier onto the dossier.
 
-        That list feeds both the kind-of-dossier and the stage classifier in
-        the backfill, which is the only writer of ``current_stage``,
-        ``track_kind`` and ``stages_present``; writing them here too would
-        blank the previous answer for the span between the two steps.
+        That list feeds the kind of the dossier in the backfill, which is the only
+        writer of ``kind``, ``phases`` and ``current_phase``; writing them here too
+        would blank the previous answer for the span between the two steps.
         """
         wanted: dict[str, set[str]] = {}
         for node in activity_nodes.values():
@@ -341,15 +365,15 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             "Refreshed case_kinds on %d of %d dossiers.", len(changed), len(wanted)
         )
 
-    def _backfill_titles_and_stages(self, dossier_nodes: dict[str, Node]) -> None:
-        """Persist title, stages and opening date on each dossier from what it links to.
+    def _backfill_titles_and_phases(self, dossier_nodes: dict[str, Node]) -> None:
+        """Persist title, kind, phases and opening date on each dossier from what it links
+        to.
 
         A dossier with no title of its own takes the first voorstel-van-wet or
         MvT title it links to, recording the provenance in ``title_source``.
-        ``stages_present`` is every recognised stage with at least one signal,
-        in chronological order, and ``current_stage`` is the last of them
-        (``afgehandeld`` once ``semantic tk-dossier-outcomes`` closed it).
-        ``opened_on`` is the date of its first document or activity.
+        ``kind``, ``kind_basis``, ``phases`` and ``current_phase`` are those of
+        :func:`~lawgraph.core.dossier_stages.phase_props`. ``opened_on`` is the date of its
+        first document or activity.
         """
         nodes = _unique(dossier_nodes)
         if not nodes:
@@ -358,15 +382,15 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         signals = self._dossier_signals(
             [f"{COLLECTION_DOSSIERS}/{node.key}" for node in nodes]
         )
-        titles = stages = 0
+        titles = phases = 0
         for node in nodes:
             row = signals.get(f"{COLLECTION_DOSSIERS}/{node.key}") or {}
             titles += self._apply_title(node, row.get("docs") or [])
-            stages += self._apply_stages(node, row)
+            phases += self._apply_phases(node, row)
 
         self._upsert_nodes(nodes)
         logger.info(
-            "Backfilled a title on %d dossiers and stages on %d.", titles, stages
+            "Backfilled a title on %d dossiers and phases on %d.", titles, phases
         )
 
     def _dossier_signals(self, dossier_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -395,34 +419,18 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         return 1
 
     @staticmethod
-    def _apply_stages(node: Node, row: dict[str, Any]) -> int:
+    def _apply_phases(node: Node, row: dict[str, Any]) -> int:
         docs = row.get("docs") or []
         activities = row.get("activities") or []
-        decisions = row.get("decisions") or []
-        # Refreshed in the database by _refresh_case_kinds, not on this node.
-        case_kinds = list(row.get("case_kinds") or [])
-        # Whether it is closed is the answer of ``semantic tk-dossier-outcomes``, as stored.
-        closed = bool(row.get("closed"))
-
-        track_kind = classify_track_kind(
-            case_kinds,
-            title=node.props.get("title"),
-            document_kinds=[doc.get("kind") or "" for doc in docs],
-            number=node.props.get("number"),
-        )
-        stages = dossier_stages(
-            track_kind,
+        props = phase_props(
+            list(row.get("case_kinds") or []),
             docs,
             activities,
-            decisions,
-            case_kinds,
-            closed=closed,
-            outcome=row.get("outcome"),
+            row.get("decisions") or [],
         )
         dated = [d["date"] for d in docs + activities if d.get("date")]
         opened_on = min(dated) if dated else row.get("opened_on")
 
-        props = {**stage_props(stages), "track_kind": track_kind}
         unchanged = all(node.props.get(name) == value for name, value in props.items())
         node.props.update(props)
         node.props["opened_on"] = opened_on

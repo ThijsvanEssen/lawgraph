@@ -181,6 +181,7 @@ def get_decisions(
                 external_id: decision.props.decision_id,
                 dossier_numbers: decision.props.dossier_numbers,
                 kind: decision.props.kind,
+                decision_kind: decision.props.decision_kind,
                 passed: decision.props.passed,
                 chamber: decision.props.chamber,
                 vote_kind: decision.props.vote_kind,

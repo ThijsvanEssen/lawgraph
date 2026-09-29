@@ -23,8 +23,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import ArangoStore
 
-# The track of a bill the government brings in.
-TRACK_BILL = "wetsvoorstel"
+# The kind (Zaak.Soort) of a bill the government brings in.
+KIND_BILL = "Wetgeving"
 
 
 def _name(member: str) -> str:
@@ -45,7 +45,7 @@ def get_cabinets(store: ArangoStore) -> list[dict[str, Any]]:
     LET bill_counts = MERGE(
         FOR d IN {COLLECTION_DOSSIERS}
             FILTER d.props.cabinet != null AND d.props.initiative == false
-            FILTER d.props.track_kind == @bill
+            FILTER d.props.kind == @bill
             COLLECT cabinet = d.props.cabinet WITH COUNT INTO n
             RETURN {{ [cabinet]: n }}
     )
@@ -72,7 +72,7 @@ def get_cabinets(store: ArangoStore) -> list[dict[str, Any]]:
             commitments: commitment_counts[cabinet._key] OR 0
         }}
     """
-    return list(store.query(aql, {"bill": TRACK_BILL, "served_in": RELATION_SERVED_IN}))
+    return list(store.query(aql, {"bill": KIND_BILL, "served_in": RELATION_SERVED_IN}))
 
 
 def get_cabinet(store: ArangoStore, key: str) -> dict[str, Any] | None:
@@ -90,7 +90,7 @@ def get_cabinet(store: ArangoStore, key: str) -> dict[str, Any] | None:
     LET bill_count = LENGTH(
         FOR d IN {COLLECTION_DOSSIERS}
             FILTER d.props.cabinet == cabinet._key AND d.props.initiative == false
-            FILTER d.props.track_kind == @bill
+            FILTER d.props.kind == @bill
             RETURN 1
     )
     LET commitment_count = LENGTH(
@@ -126,7 +126,7 @@ def get_cabinet(store: ArangoStore, key: str) -> dict[str, Any] | None:
                 dossiers: LENGTH(signed),
                 bills: LENGTH(
                     FOR id IN signed
-                        FILTER DOCUMENT(id).props.track_kind == @bill
+                        FILTER DOCUMENT(id).props.kind == @bill
                         RETURN 1
                 ),
                 open_commitments: LENGTH(
@@ -155,7 +155,7 @@ def get_cabinet(store: ArangoStore, key: str) -> dict[str, Any] | None:
         "authored": RELATION_AUTHORED,
         "government": CAPACITY_GOVERNMENT,
         "part_of": RELATION_PART_OF,
-        "bill": TRACK_BILL,
+        "bill": KIND_BILL,
         "open": COMMITMENT_OPEN,
     }
     rows = list(store.query(aql, bind))
