@@ -645,6 +645,14 @@ def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     assert entry == {"alternate": f"{SITE_URL}/explore?focus=decisions/stemming_1"}
 
 
+def test_the_feed_and_its_atom_are_sent_compressed(client: TestClient) -> None:
+    gzip = {"Accept-Encoding": "gzip"}
+    for path in ("/api/feed", "/api/feed.atom"):
+        response = client.get(path, headers=gzip)
+        assert response.status_code == 200
+        assert response.headers["content-encoding"] == "gzip", path
+
+
 def test_a_cursor_or_kind_that_is_none_is_422(client: TestClient) -> None:
     assert client.get("/api/feed?cursor=nonsense").status_code == 422
     assert client.get("/api/feed?kind=motie,roddel").status_code == 422
