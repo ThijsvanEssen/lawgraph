@@ -562,7 +562,7 @@ def activity(payload: Payload) -> Record | None:
         "case_ids": case_ids(cases),
         "dossier_numbers": dossier_numbers(cases),
         "case_kinds_by_dossier": case_kinds_by_dossier(cases),
-        "display_name": f"{date or '?'} — {description or kind}",
+        "display_name": activity_display_name(date, description or kind),
         "number": str(payload.get("Nummer") or ""),
     }
 
@@ -755,24 +755,36 @@ def document(payload: Payload) -> Record | None:
     }
 
 
+def activity_display_name(date: str | None, subject: str | None) -> str:
+    """``Digitale grondrechten en data-ethiek (2027-02-11)``: the subject, then the day."""
+    subject = subject or "Activiteit"
+    return f"{subject} ({date})" if date else subject
+
+
+def _starts_with_kind(title: str, kind: str) -> bool:
+    """Whether *title* names its own kind ("Motie van de leden …" for a Motie)."""
+    return bool(kind) and title.lower().startswith(kind.split(" (")[0].lower())
+
+
 def document_display_name(
     dossier_number: str | None,
     sequence: Any,
     kind: str,
     title: str,
 ) -> str:
-    """``Kamerstuk 29684, nr. 7 — Motie: <title>``."""
+    """``Kamerstuk 29684, nr. 7. Amendement: <title>``, or ``Kamerstuk 29684, nr. 7: Motie
+    van de leden …`` when the title names its kind. No dash: it is a heading."""
     if dossier_number and (sequence or 0) > 0:
         name = f"Kamerstuk {dossier_number}, nr. {sequence}"
     elif dossier_number:
         name = f"Kamerstuk {dossier_number}"
     else:
-        name = kind or "Document"
-    if kind:
-        name += f" — {kind}"
-    if title and title != kind:
-        name += f": {title[:120]}"
-    return name
+        name = ""
+    if not title or title == kind:
+        return f"{name}. {kind}" if name and kind else name or kind or "Document"
+    if _starts_with_kind(title, kind) or not kind:
+        return f"{name}: {title[:120]}" if name else title[:120]
+    return f"{name}. {kind}: {title[:120]}" if name else f"{kind}: {title[:120]}"
 
 
 # ── Stemming / Besluit (Decision and its votes) ──────────────────────────────
@@ -915,17 +927,22 @@ def decision_display_name(
     case_count: int,
     subject: str,
 ) -> str:
-    """``Motie 2024Z17945 — <subject>``, distinct per sibling on an Agendapunt.
+    """``Motie 2024Z17945: <subject>``, or the subject alone when it names its kind
+    ("Motie van de leden …"); distinct per sibling on an Agendapunt. No dash: it is a
+    heading.
 
     The outcome is left out: the frontend renders it as a badge.
     """
+    kind = str((primary or {}).get("Soort") or "")
+    if subject and _starts_with_kind(subject, kind):
+        return subject
     if primary and primary.get("Nummer"):
-        head = f"{primary.get('Soort') or 'Stemming'} {primary['Nummer']}"
+        head = f"{kind or 'Stemming'} {primary['Nummer']}"
     elif order is not None and case_count:
         head = f"Stemming {order}/{case_count}"
     else:
         head = "Stemming"
-    return f"{head} — {subject}" if subject else head
+    return f"{head}: {subject}" if subject else head
 
 
 def _int_or_none(value: Any) -> int | None:

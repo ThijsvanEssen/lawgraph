@@ -280,7 +280,7 @@ def test_activity_reads_its_subject_and_status() -> None:
     )
     assert props["agenda_title"] == "Digitale grondrechten en data-ethiek"
     assert props["status"] == "Gepland"
-    assert props["display_name"] == "2027-02-11 — Digitale grondrechten en data-ethiek"
+    assert props["display_name"] == "Digitale grondrechten en data-ethiek (2027-02-11)"
 
 
 def test_commitment_reads_the_minister_and_maps_the_status() -> None:
@@ -348,7 +348,8 @@ def test_document_reads_its_cases_dossiers_and_signatories() -> None:
     assert props["dossier_numbers"] == ["29684"]
     assert props["sequence"] == 7
     assert [a["person_id"] for a in props["actors"]] == ["p-1"]
-    assert props["display_name"].startswith("Kamerstuk 29684, nr. 7 — Amendement")
+    assert props["display_name"].startswith("Kamerstuk 29684, nr. 7")
+    assert " — " not in props["display_name"]
 
 
 def test_a_document_keeps_the_number_tweedekamer_nl_knows_it_by_and_no_link() -> None:
@@ -529,7 +530,7 @@ def test_a_decision_names_the_case_it_decided() -> None:
     assert props["subject"] == "Wijziging van de Visserijwet 1963"
     assert (
         props["display_name"]
-        == "Wetgeving 2026Z03557 — Wijziging van de Visserijwet 1963"
+        == "Wetgeving 2026Z03557: Wijziging van de Visserijwet 1963"
     )
     # The day of the vote, not the day the row was last edited.
     assert props["date"] == "2026-09-22"
@@ -740,3 +741,45 @@ def test_the_submitters_of_a_motion_are_its_signatories_the_indiener_first() -> 
     ]
     # the first signatory of a letter is no indiener
     assert tk_records.submitters("Brief regering", actors) == []
+
+
+@pytest.mark.parametrize(
+    ("dossier", "sequence", "kind", "title", "name"),
+    [
+        (
+            "29684",
+            7,
+            "Amendement",
+            "Over de huur",
+            "Kamerstuk 29684, nr. 7. Amendement: Over de huur",
+        ),
+        (
+            "29684",
+            8,
+            "Motie",
+            "Motie van de leden Jansen over de huur",
+            "Kamerstuk 29684, nr. 8: Motie van de leden Jansen over de huur",
+        ),
+        (
+            "29684",
+            1,
+            "Brief regering",
+            "Brief regering",
+            "Kamerstuk 29684, nr. 1. Brief regering",
+        ),
+        (None, 0, "Motie", "Motie van het lid Jansen", "Motie van het lid Jansen"),
+    ],
+)
+def test_a_document_name_is_a_heading_without_a_dash(
+    dossier: str | None, sequence: int, kind: str, title: str, name: str
+) -> None:
+    assert tk_records.document_display_name(dossier, sequence, kind, title) == name
+
+
+def test_a_vote_on_a_motion_is_named_by_the_motion() -> None:
+    primary = {"Soort": "Motie", "Nummer": "2026Z17941"}
+    subject = "Motie van de leden Jansen en De Vries over de huur"
+    assert tk_records.decision_display_name(primary, 1, 1, subject) == subject
+    assert tk_records.decision_display_name(primary, 1, 1, "Over de huur") == (
+        "Motie 2026Z17941: Over de huur"
+    )
