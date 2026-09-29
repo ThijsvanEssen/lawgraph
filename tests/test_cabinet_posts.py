@@ -376,3 +376,36 @@ def test_a_holder_who_held_another_seat_throughout_stood_in() -> None:
 
 def test_without_pages_there_are_no_cabinets() -> None:
     assert build_cabinets([], lambda text: None) == []
+
+
+def test_the_holders_of_one_heading_who_follow_one_another_hold_one_seat() -> None:
+    # Schoof: the page lists Idsinga under "Staatssecretaris Fiscaliteit, Belastingdienst en
+    # Douane", his line naming the post as it was then
+    fiscaliteit = _held(
+        "schoof", "-/staatssecretaris/fiscaliteit-belastingdienst-en-douane"
+    )
+    assert [p[0] for p in fiscaliteit] == [
+        "fl idsinga",
+        "t van oostenbruggen",
+        "ehj heijnen",
+    ]
+    (idsinga,) = [p for p in _cabinet("schoof")["posts"] if p["person"] == "fl idsinga"]
+    assert idsinga["also_named"] == ["staatssecretaris Fiscaliteit en Belastingdienst"]
+    seats = {p["seat"] for p in _cabinet("schoof")["posts"]}
+    assert "-/staatssecretaris/fiscaliteit-en-belastingdienst" not in seats
+    assert "-/staatssecretaris/toeslagen-en-douane" not in seats
+    assert "-/staatssecretaris/buitenlandse-handel" not in seats
+
+
+def test_the_holders_of_one_heading_at_the_same_time_hold_seats_of_their_own() -> None:
+    # Schoof: Szabó and Van Marum, both "Staatssecretaris van Binnenlandse Zaken en
+    # Koninkrijksrelaties", from the same day
+    seats = {
+        p["seat"]
+        for p in _cabinet("schoof")["posts"]
+        if p["person"] in ("fz szabo", "e van marum")
+    }
+    assert {
+        "bzk/staatssecretaris/digitalisering-en-koninkrijksrelaties",
+        "bzk/staatssecretaris/herstel-groningen",
+    } <= seats

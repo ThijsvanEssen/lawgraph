@@ -527,6 +527,51 @@ def _page_query(plan: _Plan) -> str:
     }}"""
 
 
+def _official_short(label: str) -> str:
+    """AQL: the name the bill of the dossier labelled *label* goes by, from official data
+    only: the citation title its own text gives ("Deze wet wordt aangehaald als: …"), the
+    citation title the Kamer gives its case, or the citation title of the one Dutch law it
+    changes; ``{title, basis}`` with ``basis`` ``citation``, ``case`` or ``amended_law``,
+    null when none of them is there."""
+    return f"""FIRST(
+                FOR paper IN {COLLECTION_DOCUMENTS}
+                    FILTER {label} != null AND {label} IN paper.props.dossier_numbers[*]
+                    FILTER paper.props.kind IN {json.dumps(list(DOCUMENT_KINDS[EVENT_BILL]))}
+                    SORT paper.props.date, paper._key
+                    LIMIT 1
+                    LET cited = REGEX_MATCHES(
+                        paper.props.text OR "",
+                        "wordt aangehaald als:?\\s*([^.\\n]{{3,150}})\\.", true
+                    )
+                    LET case_title = FIRST(
+                        FOR case_id IN paper.props.case_ids OR []
+                            LET c = DOCUMENT(CONCAT(
+                                "{COLLECTION_CASES}/", SUBSTITUTE(LOWER(case_id), "-", "_")
+                            ))
+                            FILTER c.props.citation_title != null
+                            RETURN c.props.citation_title
+                    )
+                    LET laws = UNIQUE(
+                        FOR e IN {COLLECTION_EDGES}
+                            FILTER e._from == paper._id
+                            FILTER e.relation IN [
+                                "{RELATION_AMENDS}", "{RELATION_INTRODUCES}",
+                                "{RELATION_REPEALS}"
+                            ]
+                            LET target = PARSE_IDENTIFIER(e._to)
+                            RETURN target.collection == "{COLLECTION_ARTICLES}"
+                                ? LOWER(DOCUMENT(e._to).props.bwb_id) : target.key
+                    )
+                    LET law = LENGTH(laws) == 1
+                        ? DOCUMENT({COLLECTION_INSTRUMENTS}, laws[0]) : null
+                    RETURN cited[1] != null ? {{ title: TRIM(cited[1]), basis: "citation" }}
+                        : case_title != null ? {{ title: case_title, basis: "case" }}
+                        : law.props.bwb_id != null AND law.props.citation_title != null
+                            ? {{ title: law.props.citation_title, basis: "amended_law" }}
+                        : null
+            )"""
+
+
 # The signatures of an event on the page, by its kind.
 _VOTE_SIGNATURES = _DECIDED_PERSONS.replace("{guard}", f'row.kind == "{EVENT_VOTE}"')
 _BILL_SIGNATURES = _BILL_PERSONS.replace(
@@ -548,7 +593,12 @@ _ITEMS = f"""
                 FOR d IN {COLLECTION_DOSSIERS}
                     FILTER d.props.label != null AND d.props.label == row.dossier
                     LIMIT 1
-                    RETURN {{ key: d._key, number: d.props.label, title: d.props.title }}
+                    RETURN {{
+                        key: d._key,
+                        number: d.props.label,
+                        title: d.props.title,
+                        official_short: {_official_short("row.dossier")}
+                    }}
             )
             LET signatures = {_SIGNATURES}
             LET instrument = row.kind == "{EVENT_COMMENCEMENT}"
@@ -680,15 +730,15 @@ def feed_query(
 
 
 # The events a summary shows one by one: a bill submitted, a commitment, a commencement, a
-# vote on a bill and a vote whose margin is at most @margin.
+# vote on a bill, a vote whose margin is at most @margin, and every vote of a quiet day.
 _HIGHLIGHT = (
     f'row.kind IN ["{EVENT_BILL}", "{EVENT_COMMITMENT}", "{EVENT_COMMENCEMENT}"]'
-    f' OR (row.kind == "{EVENT_VOTE}"'
-    f' AND (row.vote.subkind == "{EVENT_BILL}" OR row.vote.margin <= @margin))'
+    f' OR (row.kind == "{EVENT_VOTE}" AND (row.vote.subkind == "{EVENT_BILL}"'
+    " OR row.vote.margin <= @margin OR row.date IN quiet_days))"
 )
 
-# Per day of the window: the events per kind, per dossier and, of the votes, per subkind
-# and outcome; the title of every dossier counted; and the events shown one by one.
+# Per day of the window: the events per kind, per kind and dossier and, of the votes, per
+# subkind and outcome; the title of every dossier counted; and the events shown one by one.
 _SUMMARY = f"""
     LET matching = (FOR row IN rows{{dimensions}} RETURN row)
     LET days = (
@@ -707,9 +757,10 @@ _SUMMARY = f"""
                 dossiers: (
                     FOR r IN group
                         FILTER r.dossier != null
-                        COLLECT number = r.dossier WITH COUNT INTO count
-                        SORT count DESC, number
-                        RETURN {{ number, count }}
+                        COLLECT kind = r.kind, rank = r.rank, number = r.dossier
+                            WITH COUNT INTO count
+                        SORT rank, count DESC, number
+                        RETURN {{ kind, number, count }}
                 ),
                 votes: (
                     FOR r IN group
@@ -730,7 +781,20 @@ _SUMMARY = f"""
                     RETURN x
             )
             FILTER d != null
-            RETURN {{ number, key: d._key, title: d.props.title }}
+            RETURN {{
+                number,
+                key: d._key,
+                title: d.props.title,
+                official_short: {_official_short("number")}
+            }}
+    )
+    // the days with at most @few votes on anything but a bill: each of them is shown
+    LET quiet_days = (
+        FOR row IN matching
+            FILTER row.kind == "{EVENT_VOTE}" AND row.vote.subkind != "{EVENT_BILL}"
+            COLLECT date = row.date WITH COUNT INTO count
+            FILTER count <= @few
+            RETURN date
     )
     LET page = (
         FOR row IN matching
@@ -742,7 +806,7 @@ _SUMMARY = f"""
 
 
 def summary_query(
-    filters: FeedFilters, *, margin: int = 10, limit: int = 100
+    filters: FeedFilters, *, margin: int = 10, few: int = 2, limit: int = 100
 ) -> tuple[str, dict[str, Any]]:
     """The AQL of a summary of the days from ``filters.since`` to ``filters.until`` and its
     bind variables: per day the counts (``days``), the titles of the dossiers counted, and
@@ -752,6 +816,7 @@ def summary_query(
         "until": filters.until or _NO_END,
         "page_size": limit + 1,
         "margin": margin,
+        "few": few,
     }
     plan = _Plan(
         filters=filters,
@@ -771,10 +836,15 @@ def summary_query(
 
 
 def get_feed_summary(
-    store: ArangoStore, filters: FeedFilters, *, margin: int = 10, limit: int = 100
+    store: ArangoStore,
+    filters: FeedFilters,
+    *,
+    margin: int = 10,
+    few: int = 2,
+    limit: int = 100,
 ) -> dict[str, Any]:
     """``days``, ``dossiers`` and ``items`` of ``summary_query``."""
-    aql, bind = summary_query(filters, margin=margin, limit=limit)
+    aql, bind = summary_query(filters, margin=margin, few=few, limit=limit)
     rows = list(store.query(aql, bind))
     return (
         cast(dict[str, Any], rows[0])
