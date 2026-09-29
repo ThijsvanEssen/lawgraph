@@ -143,12 +143,36 @@ def _party_colors(entries: Entries) -> list[str]:
     return found
 
 
-def _order(entries: Entries) -> list[str]:
-    return [
-        f"{key}: not a faction key"
-        for key in entries
-        if not re.match(r"^[a-z0-9_]+$", key)
-    ]
+def _seating_entries() -> tuple[Callable[..., Entries], Callable[..., None]]:
+    """The factions of the seating plan, keyed by faction key, written in order of angle."""
+    read, write = _records("factions", "key")
+
+    def sorted_write(document: dict[str, Any], entries: Entries) -> None:
+        write(
+            document,
+            dict(sorted(entries.items(), key=lambda e: (e[1] or {}).get("angle", 999))),
+        )
+
+    return read, sorted_write
+
+
+def _seating(entries: Entries) -> list[str]:
+    found = []
+    for key, value in entries.items():
+        angle = (value or {}).get("angle")
+        if not re.match(r"^[a-z0-9_]+$", key):
+            found.append(f"{key}: not a faction key")
+        if not isinstance(angle, int | float) or not 0 <= angle <= 180:
+            found.append(f"{key}: angle {angle!r} is no number from 0 to 180")
+        if not (value or {}).get("abbreviation"):
+            found.append(f"{key}: needs an abbreviation")
+    source = LISTS["seating"].document().get("source") or {}
+    dated = str(source.get("dated"))
+    if not source.get("url") or not re.match(r"^\d{4}-\d{2}-\d{2}$", dated):
+        found.append(
+            "source: needs the url and the date (dated: YYYY-MM-DD) of the plan"
+        )
+    return found
 
 
 def _judgment_names(entries: Entries) -> list[str]:
@@ -256,12 +280,11 @@ LISTS: dict[str, CuratedList] = {
             _party_colors,
         ),
         _list(
-            "left-right",
-            "left_right.json",
-            "faction keys, left to right as they sit in the chamber",
-            _keys("order"),
-            _order,
-            ordered=True,
+            "seating",
+            "seating.json",
+            "faction key -> {abbreviation, angle}: where it sits, after the TK plan",
+            _seating_entries(),
+            _seating,
         ),
         _list(
             "judgment-names",

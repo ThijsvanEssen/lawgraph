@@ -2,8 +2,8 @@
 
 ``data/curated/party_colors.json`` gives each party its house colour and the other names the
 sources give it (``GL-PvdA`` and ``PRO`` for GroenLinks-PvdA, ``CU`` for ChristenUnie);
-``data/curated/left_right.json`` the factions left to right as they sit in the chamber. No
-official source gives either; ``lawgraph curated`` keeps them.
+``data/curated/seating.json`` where each faction sits in the plenary hall, taken over from
+the plan of the Tweede Kamer (a drawing, no data). ``lawgraph curated`` keeps both.
 """
 
 from __future__ import annotations
@@ -18,8 +18,15 @@ PARTY_COLORS: dict[str, str] = {name: v["color"] for name, v in _PARTIES.items()
 PARTY_ALIASES: dict[str, str] = {
     alias: name for name, v in _PARTIES.items() for alias in v.get("aliases") or []
 }
-# faction keys, left to right
-LEFT_TO_RIGHT: tuple[str, ...] = tuple(LISTS["left-right"].entries())
+# faction keys in the order they sit, from the chair's left (the angle of the plan)
+SEATING: tuple[str, ...] = tuple(
+    key
+    for key, _ in sorted(
+        LISTS["seating"].entries().items(), key=lambda e: e[1]["angle"]
+    )
+)
+# the plan the seating is taken from: {title, dated, url, page, read_on, method}
+SEATING_SOURCE: dict[str, str] = LISTS["seating"].document()["source"]
 
 
 def party_color(*names: str | None) -> str | None:
