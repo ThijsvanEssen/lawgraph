@@ -246,6 +246,7 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "ecli",
         "court",
         "tier",
+        "court_kind",
         "date",
         "display_name",
     } == _properties("CitedByJudgment")

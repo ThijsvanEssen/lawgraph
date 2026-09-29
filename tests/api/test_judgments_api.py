@@ -268,7 +268,11 @@ _LIST_ROW = {
 def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch):
     asked: list[tuple[JudgmentFilters, dict]] = []
     facets = {
-        "tier": [{"value": "hoge_raad", "count": 7}, {"value": None, "count": 1}],
+        "tier": [
+            {"value": "andere_instantie", "count": 7},
+            {"value": None, "count": 1},
+        ],
+        "court_kind": [{"value": "ambtenarengerecht", "count": 7}],
         "source": [{"value": "rechtspraak", "count": 8}, {"value": "echr", "count": 2}],
         "year": [{"value": None, "count": 1}, {"value": "2020", "count": 7}],
     }
@@ -280,11 +284,19 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
     monkeypatch.setattr("lawgraph.api.routes.judgments.get_judgments_list", fake)
     body = client.get(
         "/api/judgments",
-        params={"subject": " Strafrecht ", "tier": "hoge_raad", "from": "2020-01-01"},
+        params={
+            "subject": " Strafrecht ",
+            "tier": "andere_instantie",
+            "court_kind": "ambtenarengerecht",
+            "from": "2020-01-01",
+        },
     ).json()
 
     assert asked[0][0] == JudgmentFilters(
-        tier="hoge_raad", subject="Strafrecht", date_from="2020-01-01"
+        tier="andere_instantie",
+        court_kind="ambtenarengerecht",
+        subject="Strafrecht",
+        date_from="2020-01-01",
     )
     assert asked[0][1] == {"sort": "date_desc", "limit": 50, "offset": 0}
     assert body["total"] == 8
@@ -300,7 +312,12 @@ def test_a_judgment_without_subjects_lists_none(monkeypatch):
     )
     body = client.get("/api/judgments").json()
     assert body["items"][0]["subjects"] == []
-    assert body["facets"] == {"tier": [], "source": [], "year": []}
+    assert body["facets"] == {
+        "tier": [],
+        "court_kind": [],
+        "source": [],
+        "year": [],
+    }
 
 
 def test_a_translation_serves_both_summaries_its_original_names_and_kind():

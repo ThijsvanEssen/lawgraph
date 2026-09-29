@@ -154,7 +154,7 @@ def get_article_cited_by_passages(
     tier: Annotated[
         Tier | None,
         Query(
-            description="The college: `hoge_raad`, `raad_van_state`, `gerechtshof`, …"
+            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …"
         ),
     ] = None,
     lid: Annotated[

@@ -208,6 +208,8 @@ RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
 # The XML of a Kamerstuk in the KOOP repository (source ``tk``, external id ``kst-<dossier>-<n>``).
 RAW_KIND_TK_KAMERSTUK_XML = "tk-kamerstuk-xml"
 RAW_KIND_RS_CONTENT = "rs-content"
+# The Instanties value list of the Rechtspraak (external id: Instanties).
+RAW_KIND_RS_INSTANTIES = "rs-instanties-xml"
 RAW_KIND_EU_CELEX = "eu-celex-html"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
 RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
@@ -241,7 +243,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_FRACTIEZETELPERSOON,
         RAW_KIND_TK_KAMERSTUK_XML,
     ),
-    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT,),
+    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT, RAW_KIND_RS_INSTANTIES),
     SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),
     SOURCE_BWB: (
         RAW_KIND_BWB_TOESTAND,

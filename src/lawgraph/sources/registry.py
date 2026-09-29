@@ -45,6 +45,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_eerstekamer,
     retrieve_eurlex,
     retrieve_rechtspraak,
+    retrieve_rechtspraak_instanties,
     retrieve_rijksoverheid,
     retrieve_staatsblad,
     retrieve_staatscourant,
@@ -319,6 +320,13 @@ RETRIEVE: list[Pipeline] = [
         ),
         argv_for_all=_windowed_argv,
         fills_gaps=True,
+    ),
+    _pipeline(
+        retrieve_rechtspraak_instanties,
+        "The Instanties value list of the Rechtspraak (every court an ECLI names); "
+        "`lawgraph courts build` makes data/courts.json from it.",
+        argv_for_all=_no_argv,
+        lane="rechtspraak",  # the server of `retrieve rechtspraak`
     ),
     _pipeline(
         retrieve_eurlex,

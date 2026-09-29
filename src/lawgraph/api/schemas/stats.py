@@ -47,9 +47,14 @@ class CoverageCourtDTO(BaseModel):
     source: str | None = Field(None, description="`rechtspraak` or `echr`.")
     tier: str | None = Field(
         None,
-        description="`hoge_raad`, `parket` (the conclusions of the Parket bij de Hoge Raad), "
-        "`raad_van_state`, `centrale_raad_van_beroep`, `gerechtshof`, `rechtbank`, … one per "
-        "college (``core.judgments.TIERS``).",
+        description="The Type of the court in the Instanties value list: `hoge_raad`, "
+        "`parket` (the conclusions of the Parket bij de Hoge Raad), `raad_van_state`, "
+        "`gerechtshof`, `rechtbank`, `andere_instantie`, … (``core.courts.TIERS``).",
+    )
+    court_kind: str | None = Field(
+        None,
+        description="The kind of court within the tier (`ambtenarengerecht`); a tier of "
+        "one kind of court is its own kind.",
     )
     court_code: str | None = Field(None, description="The court in the ECLI: `GHAMS`.")
     court: str | None = Field(None, description="Its name: Gerechtshof Amsterdam.")
@@ -85,6 +90,7 @@ class JudgmentCoverageResponse(BaseModel):
     tiers: list[CoverageTierDTO] = Field(
         ...,
         description="Per tier: the highest courts first, the parket, the courts of first "
-        "instance and appeal, the other colleges, the EHRM last.",
+        "instance and appeal, the disciplinary tribunals, the other colleges, the "
+        "Caribbean part, then the courts outside the Netherlands, the EHRM last.",
     )
     courts: list[CoverageCourtDTO] = Field(..., description="Per court, most first.")

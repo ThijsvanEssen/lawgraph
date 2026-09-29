@@ -8,7 +8,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
-| Rechtspraak | `rechtspraak` | `rechtspraak` | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series` |
+| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-citations`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-series` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |

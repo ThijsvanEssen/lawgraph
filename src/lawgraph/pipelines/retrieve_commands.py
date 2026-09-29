@@ -24,6 +24,9 @@ from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
+from lawgraph.pipelines.retrieve.rechtspraak_instanties import (
+    RechtspraakInstantiesRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.rijksoverheid import RijksoverheidRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
@@ -362,3 +365,10 @@ def retrieve_tooi(argv: list[str] | None = None) -> PipelineResult:
         description="Retrieve the TOOI value list of every ministry (KOOP)."
     ).parse_args(argv)
     return TooiRetrievePipeline(ArangoStore()).run()
+
+
+def retrieve_rechtspraak_instanties(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve the Instanties value list of the Rechtspraak (every court)."
+    ).parse_args(argv)
+    return RechtspraakInstantiesRetrievePipeline(ArangoStore()).run()

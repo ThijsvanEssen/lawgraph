@@ -239,8 +239,9 @@ renumbering; each version has a `versie-id`.
 A Rechtspraak judgment carries its header (`court`, `date`, `case_number`, `judgment_metadata`
 with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `related_eclis`
 (earlier instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion),
-`subjects`; `court_code`, `tier`, `date_eff` and `case_number_keys`, the case numbers as compared,
-derived), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`.
+`subjects`; `court_code`, `tier` (the `Type` of its court in the Instanties list), `court_kind`
+(the kind of court within it), `date_eff` and `case_number_keys`, the case numbers as compared,
+derived; see [Courts](pipelines.md#courts)), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`.
 
 `summary` is the inhoudsindicatie, in Dutch; null for a placeholder ("kopje volgt", "-", empty). The Rechtspraak publishes a few judgments in an
 English translation too, under an ECLI of their own (ECLI:NL:HR:2019:2007 beside
@@ -254,7 +255,7 @@ loaded.
 `beslissing` (the kantonrechter on a Wahv appeal, a wraking, the notariskamer), `conclusie` or
 `prejudiciële beslissing` (`core.judgments.decision_kind`; the rule is in
 [pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
-A stub has the kind its tier gives.
+A stub has the kind its kind of court gives (`data/curated/decision_kinds.json`).
 
 `names` is what lawyers call the judgment (`Haviltex`, `Urgenda`, `Lindenbaum/Cohen`), from the
 curated list of landmark cases in `core/judgment_names.py`; empty for most judgments, null on a
@@ -455,7 +456,7 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title` |
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
-| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, stub)`, `(court_code, date_eff, tier, stub, source)`, `(tier, date_eff, stub, source)` and `(date_eff, tier, stub, source)`: the index of each filter of `/api/judgments` holds the tier, the source, the date and `stub` (the list leaves stubs out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
+| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, court_kind, stub)`, `(court_code, date_eff, tier, court_kind, stub, source)`, `(tier, court_kind, date_eff, stub, source)`, `(court_kind, date_eff, stub, source)` and `(date_eff, tier, court_kind, stub, source)`: the index of each filter of `/api/judgments` holds the tier, the kind of court, the source, the date and `stub` (the list leaves stubs out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
 | `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on (`dossiers` `props.order`, `props.label` (a number prefix as a range), `props.opened_on`; `dossiers` and `commitments` also `props.cabinet`, `props.ministry`; `commitments` `props.member_key`); the date of each kind of event of `/api/feed`, not sparse, so a page is read newest first from the index: `documents` `(props.kind, props.date)`, `commitments` `props.made_on`, `instruments` `(props.kind, props.date_published)`, `instrument_versions` `props.valid_from` |
 | `members` | `props.government_functions[*].cabinet_key` (`GET /api/members?cabinet=`) |
 | `raw_sources` | `(source, kind)` |

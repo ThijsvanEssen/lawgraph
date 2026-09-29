@@ -278,6 +278,18 @@ class JudgmentDetailResponse(BaseModel):
     metadata: dict[str, Any] | None
 
 
+_TIER = (
+    "The coarse tier: the Type of the court in the Instanties value list of the "
+    "Rechtspraak (`hoge_raad`, `gerechtshof`, `rechtbank`, `tuchtcollege`, "
+    "`andere_instantie`, `koninkrijksinstantie`, …), or `kroon`, `hvj_eu`, `ehrm`."
+)
+_COURT_KIND = (
+    "The kind of court within the tier, from its official name (`ambtenarengerecht`, "
+    "`raad_van_beroep`, `gerecht_in_eerste_aanleg`, …); a tier of one kind of court "
+    "is its own kind (`hoge_raad`)."
+)
+
+
 class JudgmentListItemDTO(BaseModel):
     """Row in the paginated /api/judgments list."""
 
@@ -289,7 +301,8 @@ class JudgmentListItemDTO(BaseModel):
     ecli: str | None
     display_name: str | None
     court: str | None
-    tier: str | None
+    tier: str | None = Field(default=None, description=_TIER)
+    court_kind: str | None = Field(default=None, description=_COURT_KIND)
     date: str | None
     summary: str | None
     names: list[str] = Field(default_factory=list, description=_NAMES)
@@ -318,6 +331,7 @@ class JudgmentListItemDTO(BaseModel):
             display_name=row.get("display_name") or ecli,
             court=row.get("court_code"),
             tier=row.get("tier"),
+            court_kind=row.get("court_kind"),
             date=row.get("date"),
             summary=row.get("summary"),
             names=row.get("names") or [],
@@ -346,7 +360,13 @@ class JudgmentFacets(BaseModel):
 
     tier: list[JudgmentFacetCount] = Field(
         default_factory=list,
-        description="Per tier, most first; counted without the `tier` filter.",
+        description="Per tier, most first; counted without the `tier` and "
+        "`court_kind` filters.",
+    )
+    court_kind: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per kind of court, most first; counted without the `court_kind` "
+        "filter (within a chosen `tier`).",
     )
     source: list[JudgmentFacetCount] = Field(
         default_factory=list,
