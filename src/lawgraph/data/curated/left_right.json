@@ -1,0 +1,23 @@
+{
+ "about": "By hand: where each faction sits in the chamber, left to right, by faction key; a faction not listed sits at the right end. No machine-readable source places parties. `lawgraph curated set left-right`; GET /api/parliament/seats.",
+ "order": [
+  "sp",
+  "pro",
+  "groenlinks_pvda",
+  "pvdd",
+  "denk",
+  "volt",
+  "d66",
+  "50plus",
+  "cda",
+  "christenunie",
+  "lid_keijzer",
+  "vvd",
+  "sgp",
+  "bbb",
+  "ja21",
+  "fvd",
+  "pvv",
+  "groep_markuszower"
+ ]
+}

@@ -13,7 +13,12 @@ from lawgraph.api.schemas.parliament import (
     ParliamentSeatsResponse,
     PartyColorsResponse,
 )
-from lawgraph.config.constants import PARTY_COLORS
+from lawgraph.core.parties import (
+    LEFT_TO_RIGHT,
+    PARTY_ALIASES,
+    PARTY_COLORS,
+    party_color,
+)
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.committees import get_factions
 
@@ -21,38 +26,9 @@ router = APIRouter()
 
 TOTAL_PARLIAMENT_SEATS: int = 150
 
-# Where each party sits, left to right, in the chamber. Keyed by faction node
-# key. Parties not listed fall to the right end. Kept by hand: there is no
-# machine-readable source for political ideology.
-_LEFT_TO_RIGHT: tuple[str, ...] = (
-    "sp",
-    "pro",
-    "groenlinks_pvda",
-    "pvdd",
-    "denk",
-    "volt",
-    "d66",
-    "50plus",
-    "cda",
-    "christenunie",
-    "lid_keijzer",
-    "vvd",
-    "sgp",
-    "bbb",
-    "ja21",
-    "fvd",
-    "pvv",
-    "groep_markuszower",
-)
-_ORDER = {key: index for index, key in enumerate(_LEFT_TO_RIGHT)}
-_COLORS = {name.lower(): color for name, color in PARTY_COLORS.items()}
-
-
-def _color(abbreviation: str | None, name: str | None) -> str | None:
-    for candidate in (abbreviation, name):
-        if candidate and (hit := _COLORS.get(candidate.lower())):
-            return hit
-    return None
+# Where each faction sits, left to right (``data/curated/left_right.json``); a faction not
+# listed sits at the right end.
+_ORDER = {key: index for index, key in enumerate(LEFT_TO_RIGHT)}
 
 
 @router.get(
@@ -70,7 +46,7 @@ def get_seats(
 ) -> ParliamentSeatsResponse:
     items: list[FactionSeatsDTO] = []
     assigned = 0
-    unplaced = len(_LEFT_TO_RIGHT)
+    unplaced = len(LEFT_TO_RIGHT)
 
     for doc in get_factions(store, active=True):
         props = doc.get("props") or {}
@@ -90,7 +66,7 @@ def get_seats(
                 abbreviation=props.get("abbreviation"),
                 name=props.get("name"),
                 seats=seats,
-                color=_color(props.get("abbreviation"), props.get("name")),
+                color=party_color(props.get("abbreviation"), props.get("name")),
                 order=order,
             )
         )
@@ -113,10 +89,18 @@ party_router = APIRouter()
     response_model=PartyColorsResponse,
     summary="Party colours",
     description=(
-        "Party abbreviation to hex colour, from the parties' own house "
-        "styles, for rendering vote chips."
+        "Party to hex colour, from the parties' own house styles, for rendering vote "
+        "chips: `colors` by every name and alias (matched without regard to case), "
+        "`aliases` another name of a party -> its name in `colors`. Kept by hand "
+        "(`lawgraph curated set party-colors`): no official source gives them."
     ),
     tags=["parties"],
 )
 def get_party_colors() -> PartyColorsResponse:
-    return PartyColorsResponse(colors=dict(PARTY_COLORS))
+    return PartyColorsResponse(
+        colors={
+            **PARTY_COLORS,
+            **{alias: PARTY_COLORS[name] for alias, name in PARTY_ALIASES.items()},
+        },
+        aliases=dict(PARTY_ALIASES),
+    )
