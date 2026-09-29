@@ -204,9 +204,11 @@ def link_members_to_factions(
     writer = EdgeWriter(store, what="faction seat edges")
     timeline: dict[str, list[dict[str, Any]]] = {}
     written: set[str] = set()
+    changed: dict[str, str] = {}  # faction key -> the day one of its seats last changed
 
     for raw in seat_raws:
-        parsed = tk_records.seat_holding(payload_json(raw))
+        payload = payload_json(raw)
+        parsed = tk_records.seat_holding(payload)
         if parsed is None:
             continue
         person_id, faction_id, period = parsed
@@ -214,6 +216,9 @@ def link_members_to_factions(
         faction_node = faction_nodes.get(faction_id)
         if not (member_node and faction_node):
             continue
+        day = tk_records.seat_changed_on(payload)
+        if day and faction_node.key and day > changed.get(faction_node.key, ""):
+            changed[faction_node.key] = day
 
         edge = make_edge_doc(
             member_node.arango_id or "",
@@ -242,6 +247,7 @@ def link_members_to_factions(
         else 0
     )
     _write_timelines(store, member_nodes, timeline)
+    _write_seat_changes(store, faction_nodes, changed)
     logger.info(
         "Linked %d members to factions (%d with a timeline); removed %d seats no "
         "longer given.",
@@ -278,6 +284,21 @@ def _write_timelines(
         updated.append(node.to_document())
     if updated:
         store.bulk_insert_or_update_nodes(COLLECTION_MEMBERS, updated)
+
+
+def _write_seat_changes(
+    store: Store, faction_nodes: dict[str, Node], changed: dict[str, str]
+) -> None:
+    """``seats_changed_on`` on each faction: the day one of its seats last changed
+    (``lawgraph check`` holds the date of the curated seating plan against it)."""
+    updated = []
+    for node in {n.key: n for n in faction_nodes.values()}.values():
+        day = changed.get(node.key or "")
+        if day and node.props.get("seats_changed_on") != day:
+            node.props["seats_changed_on"] = day
+            updated.append(node.to_document())
+    if updated:
+        store.bulk_insert_or_update_nodes(COLLECTION_FACTIONS, updated)
 
 
 def _write(store: Store, nodes: Any) -> None:

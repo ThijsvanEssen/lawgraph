@@ -12,11 +12,13 @@ from lawgraph.api.schemas.parliament import (
     FactionSeatsDTO,
     ParliamentSeatsResponse,
     PartyColorsResponse,
+    SeatingPlanDTO,
 )
 from lawgraph.core.parties import (
-    LEFT_TO_RIGHT,
     PARTY_ALIASES,
     PARTY_COLORS,
+    SEATING,
+    SEATING_SOURCE,
     party_color,
 )
 from lawgraph.db import ArangoStore
@@ -26,9 +28,9 @@ router = APIRouter()
 
 TOTAL_PARLIAMENT_SEATS: int = 150
 
-# Where each faction sits, left to right (``data/curated/left_right.json``); a faction not
-# listed sits at the right end.
-_ORDER = {key: index for index, key in enumerate(LEFT_TO_RIGHT)}
+# Where each faction sits, from the chair's left (``data/curated/seating.json``, after the plan
+# of the Tweede Kamer); a faction the plan does not place sits at the right end.
+_ORDER = {key: index for index, key in enumerate(SEATING)}
 
 
 @router.get(
@@ -36,8 +38,10 @@ _ORDER = {key: index for index, key in enumerate(LEFT_TO_RIGHT)}
     response_model=ParliamentSeatsResponse,
     summary="Current seat composition of the Tweede Kamer",
     description=(
-        "The seated parties with their seat counts, ordered left to right as "
-        "they sit in the chamber — enough to render a hemicycle."
+        "The seated parties with their seat counts, in the order they sit in the "
+        "plenary hall from the chair's left (the plan of the Tweede Kamer, kept with "
+        "`lawgraph curated set seating`; a faction it does not place sits at the right "
+        "end) — enough to render a hemicycle. `seating_plan` names the plan."
     ),
     tags=["parliament"],
 )
@@ -46,7 +50,7 @@ def get_seats(
 ) -> ParliamentSeatsResponse:
     items: list[FactionSeatsDTO] = []
     assigned = 0
-    unplaced = len(LEFT_TO_RIGHT)
+    unplaced = len(SEATING)
 
     for doc in get_factions(store, active=True):
         props = doc.get("props") or {}
@@ -78,6 +82,9 @@ def get_seats(
         assigned_seats=assigned,
         as_of=dt.date.today().isoformat(),
         factions=items,
+        seating_plan=SeatingPlanDTO(
+            **{k: SEATING_SOURCE[k] for k in ("title", "dated", "url", "page")}
+        ),
     )
 
 

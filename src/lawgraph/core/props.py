@@ -542,6 +542,8 @@ class FactionProps(_CommonProps):
     active_from: str | None = None
     active_until: str | None = None
     seats: int | None = None
+    # the day one of its seats last changed (FractieZetel.GewijzigdOp)
+    seats_changed_on: str | None = None
     active: bool | None = None
 
 

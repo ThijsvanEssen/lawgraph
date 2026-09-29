@@ -84,7 +84,10 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
             {
                 "Id": uid(1, 5),
                 "Persoon_Id": KROL,
-                "FractieZetel": {"Fractie_Id": OLD_50PLUS},
+                "FractieZetel": {
+                    "Fractie_Id": OLD_50PLUS,
+                    "GewijzigdOp": "2017-03-23T09:00:00+01:00",
+                },
                 "Van": "2012-09-20T00:00:00+02:00",
                 "TotEnMet": "2017-03-22T00:00:00+01:00",
                 "Functie": "Lid",
@@ -115,6 +118,8 @@ def test_every_record_of_a_faction_is_that_faction(database: str, cli: Any) -> N
     assert faction.props["active_from"] == "2012-09-20"
     assert faction.props["active"] is True
     assert sorted(faction.props["external_ids"]) == sorted([OLD_50PLUS, NEW_50PLUS])
+    # the day one of its seats last changed (the seating plan is held against it)
+    assert faction.props["seats_changed_on"] == "2017-03-23"
 
     app.dependency_overrides[get_store] = lambda: store
     try:
