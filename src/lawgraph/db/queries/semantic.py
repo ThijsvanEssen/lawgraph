@@ -1180,3 +1180,18 @@ def remove_edges_from(
             )
         )
     return removed
+
+
+def remove_unreached_judgment_stubs(store: Store) -> int:
+    """Remove the stub judgments no edge reaches or leaves any more: a stub stands in for a
+    judgment something links, and one nothing links is left from an earlier run. How many
+    went."""
+    aql = f"""
+    FOR j IN {COLLECTION_JUDGMENTS}
+        FILTER j.props.stub == true
+        FILTER LENGTH(FOR e IN {COLLECTION_EDGES} FILTER e._to == j._id LIMIT 1 RETURN 1) == 0
+        FILTER LENGTH(FOR e IN {COLLECTION_EDGES} FILTER e._from == j._id LIMIT 1 RETURN 1) == 0
+        REMOVE j IN {COLLECTION_JUDGMENTS}
+        RETURN 1
+    """
+    return sum(store.query(aql))

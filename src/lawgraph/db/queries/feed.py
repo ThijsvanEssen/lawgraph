@@ -15,6 +15,7 @@ order from its index and stops after one page.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -42,12 +43,15 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import KIND_PUBLICATION as INSTRUMENT_KIND_PUBLICATION
 from lawgraph.core.feed import (
     DOCUMENT_KINDS,
+    EVENT_BILL,
     EVENT_COMMENCEMENT,
     EVENT_COMMITMENT,
     EVENT_PUBLICATION,
     EVENT_VOTE,
+    EXPLANATORY_MEMORANDUM,
     FEED_KINDS,
     FIRST_SIGNATORY,
+    KIND_RANK,
     FeedCursor,
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
@@ -117,6 +121,7 @@ class _Source:
     persons: str | None
     title: str
     ministry: str | None = None
+    vote: str = "null"
 
 
 _DOSSIER_NUMBERS = "n.props.dossier_numbers OR []"
@@ -134,6 +139,7 @@ _COMMITMENT_DOSSIERS = f"""(
 _COMMITMENT_PERSONS = f"""[{{
             member_key: n.props.member_key,
             name: n.props.minister_name,
+            function: n.props.minister_role,
             role: "{FIRST_SIGNATORY}",
             capacity: "{CAPACITY_GOVERNMENT}"
         }}]"""
@@ -157,7 +163,27 @@ _DECIDED_PERSONS = f"""(FIRST(
         ) OR [])"""
 
 
+# The signatures of a bill: its own, else those of the first memorie van toelichting of its
+# dossier, which the source signs where it leaves the voorstel itself unsigned. ``{label}``
+# is the bill's first dossier label.
+_BILL_PERSONS = f"""(LENGTH(n.props.actors) > 0 ? n.props.actors : (FIRST(
+            FOR o IN {COLLECTION_DOCUMENTS}
+                FILTER {{guard}}
+                FILTER {{label}} != null AND {{label}} IN o.props.dossier_numbers[*]
+                FILTER STARTS_WITH(o.props.kind, "{EXPLANATORY_MEMORANDUM}")
+                FILTER LENGTH(o.props.actors) > 0
+                SORT o.props.date, o._key
+                LIMIT 1
+                RETURN o.props.actors
+        ) OR []))"""
+
+
 def _document_source(kind: str, document_kinds: tuple[str, ...]) -> _Source:
+    persons = "n.props.actors OR []"
+    if kind == EVENT_BILL:
+        persons = _BILL_PERSONS.replace("{guard}", "true").replace(
+            "{label}", "labels[0]"
+        )
     return _Source(
         kind=kind,
         collection=COLLECTION_DOCUMENTS,
@@ -169,7 +195,7 @@ def _document_source(kind: str, document_kinds: tuple[str, ...]) -> _Source:
             f' AND POSITION(n.labels, "{CHAMBER_TK}")'
         ),
         dossiers=_DOSSIER_NUMBERS,
-        persons="n.props.actors OR []",
+        persons=persons,
         title="n.props.subject OR n.props.title",
     )
 
@@ -196,6 +222,12 @@ _SOURCES: dict[str, _Source] = {
             dossiers=_DOSSIER_NUMBERS,
             persons=_DECIDED_PERSONS.replace("{guard}", "true"),
             title="n.props.subject",
+            # what was voted on, the outcome, and the difference in seats (in members on
+            # a roll-call) between for and against
+            vote=(
+                "{ subkind: n.props.kind, passed: n.props.passed, margin: ABS("
+                "(n.props.tally.Voor OR 0) - (n.props.tally.Tegen OR 0)) }"
+            ),
         ),
         _Source(
             kind=EVENT_PUBLICATION,
@@ -360,6 +392,27 @@ _FACTIONS = f"""UNIQUE(
             )"""
 
 
+# The order of the feed: newest day first, within a day by the rank of the kind
+# (``core.feed.DAY_ORDER``), then by id.
+_ORDER = "row.date DESC, row.rank, row.id"
+
+
+def _after_cursor(source: _Source, cursor: FeedCursor) -> str:
+    """The events of *source* on the cursor's day that come after it: all when its kind
+    ranks after the cursor's, none when before, those with a greater id when the same. A
+    ternary, not an OR: ArangoDB 3.12 splits such an OR into two ranges of the index and
+    loses events of the cursor's day."""
+    rank = KIND_RANK[source.kind]
+    later = (
+        "true"
+        if rank > cursor.rank
+        else "false"
+        if rank < cursor.rank
+        else "n._id > @cursor_id"
+    )
+    return f"(n.props.{source.date} == @cursor_date ? {later} : true)"
+
+
 def _rows_query(source: _Source, plan: _Plan, index: int) -> str:
     """``LET rows_<index> = (...)``: the light rows of one kind, ``{kind, id, date,
     dossier, ministry, factions}``. Without facets a kind reads one page, newest first,
@@ -390,10 +443,8 @@ def _rows_query(source: _Source, plan: _Plan, index: int) -> str:
                 f" AND {date} < cabinet_until"
             )
         if plan.cursor is not None:
-            # a ternary, not an OR: ArangoDB 3.12 splits that OR into two ranges of the
-            # index and loses the events of the cursor's day after it
-            head.append(f"({date} == @cursor_date ? n._id < @cursor_id : true)")
-        order = f"\n{indent}SORT {date} DESC, n._id DESC\n{indent}LIMIT @page_size"
+            head.append(_after_cursor(source, plan.cursor))
+        order = f"\n{indent}SORT {date} DESC, n._id\n{indent}LIMIT @page_size"
         if not tail:
             early, order = order, ""
     body = "".join(f"\n{indent}{let}" for let in lets)
@@ -402,11 +453,13 @@ def _rows_query(source: _Source, plan: _Plan, index: int) -> str:
         FOR n IN {source.collection}{_where(head, indent)}{early}{body}
             LET row = {{
                 kind: "{source.kind}",
+                rank: {KIND_RANK[source.kind]},
                 id: n._id,
                 date: {date},
                 dossier: labels[0],
                 ministry: {source.ministry or "first_dossier.ministry"},
-                factions: {factions}
+                factions: {factions},
+                vote: {source.vote}
             }}{_where(tail, indent)}{order}
             RETURN row
     )"""
@@ -445,15 +498,16 @@ def _facet(plan: _Plan, name: str) -> str:
 def _page_query(plan: _Plan) -> str:
     """``LET page``, and with facets ``total`` and ``facets``."""
     if not plan.facets:
-        return """
-    LET page = (FOR row IN rows SORT row.date DESC, row.id DESC LIMIT @page_size RETURN row)
+        return f"""
+    LET page = (FOR row IN rows SORT {_ORDER} LIMIT @page_size RETURN row)
     LET total = null
     LET facets = null"""
     after = ""
     if plan.cursor is not None:
         after = (
-            "\n            FILTER row.date < @cursor_date"
-            " OR (row.date == @cursor_date AND row.id < @cursor_id)"
+            "\n            FILTER row.date < @cursor_date OR (row.date == @cursor_date"
+            " AND (row.rank > @cursor_rank"
+            " OR (row.rank == @cursor_rank AND row.id > @cursor_id)))"
         )
     facets = ",\n        ".join(f"{name}: {_facet(plan, name)}" for name in _DIMENSIONS)
     return f"""
@@ -463,7 +517,7 @@ def _page_query(plan: _Plan) -> str:
     )
     LET page = (
         FOR row IN matching{after}
-            SORT row.date DESC, row.id DESC
+            SORT {_ORDER}
             LIMIT @page_size
             RETURN row
     )
@@ -475,8 +529,12 @@ def _page_query(plan: _Plan) -> str:
 
 # The signatures of an event on the page, by its kind.
 _VOTE_SIGNATURES = _DECIDED_PERSONS.replace("{guard}", f'row.kind == "{EVENT_VOTE}"')
+_BILL_SIGNATURES = _BILL_PERSONS.replace(
+    "{guard}", f'row.kind == "{EVENT_BILL}"'
+).replace("{label}", "row.dossier")
 _SIGNATURES = f"""row.kind == "{EVENT_COMMITMENT}" ? {_COMMITMENT_PERSONS}
                 : row.kind == "{EVENT_VOTE}" ? {_VOTE_SIGNATURES}
+                : row.kind == "{EVENT_BILL}" ? {_BILL_SIGNATURES}
                 : (n.props.actors OR [])"""
 
 # The page, read in full: the node's props, its first dossier, the cabinet on its date, the
@@ -493,8 +551,6 @@ _ITEMS = f"""
                     RETURN {{ key: d._key, number: d.props.label, title: d.props.title }}
             )
             LET signatures = {_SIGNATURES}
-            LET member = n.props.member_key != null
-                ? DOCUMENT({COLLECTION_MEMBERS}, n.props.member_key) : null
             LET instrument = row.kind == "{EVENT_COMMENCEMENT}"
                 ? DOCUMENT({COLLECTION_INSTRUMENTS}, LOWER(n.props.bwb_id)) : null
             LET changed_articles = LENGTH(
@@ -538,13 +594,18 @@ _ITEMS = f"""
                 text: row.kind == "{EVENT_COMMITMENT}" ? n.props.text : null,
                 persons: (
                     FOR p IN signatures OR []
-                        RETURN MERGE(p, {{ faction: faction_of[p.faction_id] }})
+                        // a member's key is its TK GUID made a node key (lower case, _)
+                        LET key = p.member_key OR (p.person_id != null
+                            ? SUBSTITUTE(LOWER(p.person_id), "-", "_") : null)
+                        LET person = key != null
+                            ? DOCUMENT({COLLECTION_MEMBERS}, key) : null
+                        RETURN MERGE(p, {{
+                            member_key: key,
+                            member_name: person.props.name OR person.props.known_as
+                                OR person.props.government_name,
+                            faction: faction_of[p.faction_id]
+                        }})
                 ),
-                member: member != null ? {{
-                    key: member._key,
-                    name: member.props.name OR member.props.known_as
-                        OR member.props.government_name
-                }} : null,
                 instrument: instrument != null ? {{
                     key: instrument._key,
                     title: instrument.props.citation_title OR instrument.props.title,
@@ -555,8 +616,27 @@ _ITEMS = f"""
                 changed_instruments: changed_instruments
             }}
     )
-    RETURN {{ items: items, total: total, facets: facets }}
 """
+
+
+def _rows_of(filters: FeedFilters, plan: _Plan, *, facets: bool) -> str:
+    """The AQL that reads ``rows``: the preamble and the light rows of every kind read."""
+    preamble = _PREAMBLE
+    if filters.cabinet:
+        preamble += _CABINET_PERIOD
+    if filters.member:
+        preamble += _MEMBER_PERSON
+    sources = _kinds_to_read(filters, facets=facets)
+    rows = "".join(_rows_query(s, plan, i) for i, s in enumerate(sources))
+    union = ", ".join(f"rows_{i}" for i in range(len(sources)))
+    return preamble + rows + f"\n    LET rows = FLATTEN([{union}], 1)"
+
+
+def _used(aql: str, bind: dict[str, Any]) -> dict[str, Any]:
+    """The bind variables *aql* reads: ArangoDB refuses one it does not use (the cursor's
+    rank and id are only read by the kinds and the page that need them)."""
+    used = set(re.findall(r"@(\w+)", aql))
+    return {name: value for name, value in bind.items() if name in used}
 
 
 def feed_query(
@@ -586,25 +666,121 @@ def feed_query(
     if cursor is not None:
         bind["cursor_date"] = cursor.date
         bind["cursor_id"] = cursor.id
+        bind["cursor_rank"] = cursor.rank
         if not facets:
             # A kind reads no row after the cursor's date from its index.
             bind["until"] = min(bind["until"], cursor.date)
-    preamble = _PREAMBLE
-    if filters.cabinet:
-        preamble += _CABINET_PERIOD
-    if filters.member:
-        preamble += _MEMBER_PERSON
-    sources = _kinds_to_read(filters, facets=facets)
-    rows = "".join(_rows_query(s, plan, i) for i, s in enumerate(sources))
-    union = ", ".join(f"rows_{i}" for i in range(len(sources)))
     aql = (
-        preamble
-        + rows
-        + f"\n    LET rows = FLATTEN([{union}], 1)"
+        _rows_of(filters, plan, facets=facets)
         + _page_query(plan)
         + _ITEMS
+        + "\n    RETURN { items: items, total: total, facets: facets }"
     )
-    return aql, bind
+    return aql, _used(aql, bind)
+
+
+# The events a summary shows one by one: a bill submitted, a commitment, a commencement, a
+# vote on a bill and a vote whose margin is at most @margin.
+_HIGHLIGHT = (
+    f'row.kind IN ["{EVENT_BILL}", "{EVENT_COMMITMENT}", "{EVENT_COMMENCEMENT}"]'
+    f' OR (row.kind == "{EVENT_VOTE}"'
+    f' AND (row.vote.subkind == "{EVENT_BILL}" OR row.vote.margin <= @margin))'
+)
+
+# Per day of the window: the events per kind, per dossier and, of the votes, per subkind
+# and outcome; the title of every dossier counted; and the events shown one by one.
+_SUMMARY = f"""
+    LET matching = (FOR row IN rows{{dimensions}} RETURN row)
+    LET days = (
+        FOR row IN matching
+            COLLECT date = row.date INTO group = row
+            SORT date DESC
+            RETURN {{
+                date: date,
+                total: LENGTH(group),
+                kinds: (
+                    FOR r IN group
+                        COLLECT value = r.kind WITH COUNT INTO count
+                        SORT count DESC, value
+                        RETURN {{ value, count }}
+                ),
+                dossiers: (
+                    FOR r IN group
+                        FILTER r.dossier != null
+                        COLLECT number = r.dossier WITH COUNT INTO count
+                        SORT count DESC, number
+                        RETURN {{ number, count }}
+                ),
+                votes: (
+                    FOR r IN group
+                        FILTER r.vote != null
+                        COLLECT subkind = r.vote.subkind, passed = r.vote.passed
+                            WITH COUNT INTO count
+                        SORT count DESC, subkind, passed
+                        RETURN {{ subkind, passed, count }}
+                )
+            }}
+    )
+    LET dossier_titles = (
+        FOR number IN UNIQUE(matching[* FILTER CURRENT.dossier != null].dossier)
+            LET d = FIRST(
+                FOR x IN {COLLECTION_DOSSIERS}
+                    FILTER x.props.label != null AND x.props.label == number
+                    LIMIT 1
+                    RETURN x
+            )
+            FILTER d != null
+            RETURN {{ number, key: d._key, title: d.props.title }}
+    )
+    LET page = (
+        FOR row IN matching
+            FILTER {_HIGHLIGHT}
+            SORT {_ORDER}
+            LIMIT @page_size
+            RETURN row
+    )"""
+
+
+def summary_query(
+    filters: FeedFilters, *, margin: int = 10, limit: int = 100
+) -> tuple[str, dict[str, Any]]:
+    """The AQL of a summary of the days from ``filters.since`` to ``filters.until`` and its
+    bind variables: per day the counts (``days``), the titles of the dossiers counted, and
+    up to ``limit + 1`` events shown one by one (``items``)."""
+    bind: dict[str, Any] = {
+        "since": filters.since or "0",
+        "until": filters.until or _NO_END,
+        "page_size": limit + 1,
+        "margin": margin,
+    }
+    plan = _Plan(
+        filters=filters,
+        facets=True,  # every row of the window is counted
+        shared=_shared_filters(filters, bind),
+        dimensions=_dimension_filters(filters, bind),
+        cursor=None,
+    )
+    dimensions = _where(list(plan.dimensions.values()), " " * 12)
+    aql = (
+        _rows_of(filters, plan, facets=True)
+        + _SUMMARY.replace("{dimensions}", dimensions)
+        + _ITEMS
+        + "\n    RETURN { days: days, dossiers: dossier_titles, items: items }"
+    )
+    return aql, _used(aql, bind)
+
+
+def get_feed_summary(
+    store: ArangoStore, filters: FeedFilters, *, margin: int = 10, limit: int = 100
+) -> dict[str, Any]:
+    """``days``, ``dossiers`` and ``items`` of ``summary_query``."""
+    aql, bind = summary_query(filters, margin=margin, limit=limit)
+    rows = list(store.query(aql, bind))
+    return (
+        cast(dict[str, Any], rows[0])
+        if rows
+        else {"days": [], "dossiers": [], "items": []}
+    )
 
 
 def get_feed(

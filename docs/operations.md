@@ -12,7 +12,7 @@ the same values; a variable already set in the process environment wins over `.e
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `ARANGO_URL` | `http://localhost:8529` | server |
-| `ARANGO_DB_NAME` | `lawgraph` | database; created on first use when it is missing, together with its collections, indexes and views |
+| `ARANGO_DB_NAME` | `lawgraph` | database; created on first use when it is missing, together with its collections, indexes and views; an index the schema (`db/schema.py`) no longer makes stays until it is dropped by hand |
 | `ARANGO_USER` | `root` | user |
 | `ARANGO_PASSWORD` | empty | password |
 | `ARANGO_ROOT_PASSWORD` | none | read by `docker-compose.yml` for the root password of the container; set it equal to `ARANGO_PASSWORD` |
@@ -69,6 +69,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
+| `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to |
 
 ### Logging and tests
 

@@ -22,7 +22,8 @@ A node is a document `{_key, type, labels, props}`:
   unknown fields are rejected. Upserts merge props (shallow), so several pipelines can add
   fields to one node.
 - `stub: true` marks a placeholder created because something referred to it before its own
-  source was ingested.
+  source was ingested. A stub judgment has a valid ECLI (`core/ecli.is_valid_ecli`) and an edge
+  at it; `semantic rechtspraak-citations` removes one that has none.
 
 Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
 store), `topics` (schema only; nothing writes it), `pipeline_state` (one document per phase:
@@ -459,7 +460,7 @@ Defined in `db/schema.py`, created when `ArangoStore` starts.
 | `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
 | `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
 | `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, court_kind, stub)`, `(court_code, date_eff, tier, court_kind, stub, source)`, `(tier, court_kind, date_eff, stub, source)`, `(court_kind, date_eff, stub, source)` and `(date_eff, tier, court_kind, stub, source)`: the index of each filter of `/api/judgments` holds the tier, the kind of court, the source, the date and `stub` (the list leaves stubs out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
-| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on (`dossiers` `props.order`, `props.label` (a number prefix as a range), `props.opened_on`; `dossiers` and `commitments` also `props.cabinet`, `props.ministry`; `commitments` `props.member_key`); the date of each kind of event of `/api/feed`, not sparse, so a page is read newest first from the index: `documents` `(props.kind, props.date)`, `commitments` `props.made_on`, `instruments` `(props.kind, props.date_published)`, `instrument_versions` `props.valid_from` |
+| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on (`dossiers` `props.order`, `props.label` (a number prefix as a range), `props.opened_on`; `dossiers` and `commitments` also `props.cabinet`, `props.ministry`; `commitments` `props.member_key`); the date of each kind of event of `/api/feed`, not sparse, so a page is read newest first from the index: `documents` `(props.kind, props.date)` and `props.dossier_numbers[*]` (the memorie van toelichting of a bill's dossier), `commitments` `props.made_on`, `instruments` `(props.kind, props.date_published)`, `instrument_versions` `props.valid_from` |
 | `members` | `props.government_functions[*].cabinet_key` (`GET /api/members?cabinet=`) |
 | `raw_sources` | `(source, kind)` |
 | `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)` |
