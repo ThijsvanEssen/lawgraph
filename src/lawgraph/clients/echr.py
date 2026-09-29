@@ -3,11 +3,15 @@
 API: https://hudoc.echr.coe.int/app/query/results
 Docs: https://www.echr.coe.int/Documents/HUDOC_instruction_ENG.pdf
 
-Paginates via start/length parameters. Filters by respondent country (NLD).
+Paginates via start/length parameters. Filters by respondent country (NLD). The text of a
+judgment is the DOCX HUDOC converts it to (``/app/conversion/docx/``), of which its main part,
+``word/document.xml``, is kept: the paragraphs with their Word styles.
 """
 
 from __future__ import annotations
 
+import io
+import zipfile
 from typing import Any
 
 from lawgraph.clients.base import BaseClient
@@ -25,6 +29,8 @@ _SELECT = (
     "originatingbody,kpdate,respondent,importance,applicability,article,conclusion"
 )
 _ECLIS_PER_QUERY = 20
+# The part of a DOCX that holds its body.
+_DOCX_BODY = "word/document.xml"
 
 
 class EchrClient(BaseClient):
@@ -138,3 +144,20 @@ class EchrClient(BaseClient):
                 if ecli and (ecli not in found or english):
                     found[ecli] = judgment
         return list(found.values())
+
+    def fetch_document_xml(self, item_id: str) -> str:
+        """The ``word/document.xml`` of the DOCX of item *item_id* (``001-252192``).
+
+        A failing request raises (HUDOC answers HTTP 500 for an unknown item); an answer
+        that is no DOCX raises ``ValueError``.
+        """
+        resp = self._get_raw_with_retry(
+            "/app/conversion/docx/",
+            params={"library": "ECHR", "id": item_id, "filename": f"{item_id}.docx"},
+            timeout=120,
+        )
+        try:
+            with zipfile.ZipFile(io.BytesIO(resp.content)) as docx:
+                return docx.read(_DOCX_BODY).decode("utf-8")
+        except (zipfile.BadZipFile, KeyError, UnicodeDecodeError) as exc:
+            raise ValueError(f"HUDOC {item_id}: no DOCX ({exc})") from exc

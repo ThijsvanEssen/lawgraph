@@ -793,13 +793,31 @@ number and addition, 0.95, `meta.chamber = EK`.
 **Provides.** HUDOC judgments (`ECHR_HUDOC_BASE`, `/app/query/results`), filtered by
 respondent (`--respondent`, default `NLD`) and collection `JUDGMENTS`, 100 per request with
 0.5 s between requests. Fields: application number, name, item id, date, respondent,
-importance, cited articles, conclusion, originating body.
+importance, cited articles, conclusion, originating body. HUDOC holds a judgment once per
+language and translation, each an item of its own with the same ECLI. The text of an item is
+the DOCX HUDOC converts it to (`/app/conversion/docx/?library=ECHR&id=<itemid>`; HTTP 500 for
+an unknown item), of which the main part, `word/document.xml`, is stored: the paragraphs with
+the Word styles of the Court's templates, which the HTML conversion replaces with generated
+class names. Terms (the Court's "Copyright and disclaimer", `echr.coe.int/copyright-and-disclaimer`,
+read 29 September 2026): its texts may be reproduced free of charge for private use or for
+information and education, with the source acknowledged (`© ECHR-CEDH`); other use, commercial
+use in particular, needs its written permission. The electronic texts are subject to editorial
+revision; the signed original in the Court's archives is authentic.
 
 **Retrieve.** `--since` (`kpdate >=`), `--max-records` (default 10,000); `--mode full`
-reads up to 50,000.
+reads up to 50,000 and fetches every text again; `--mode gaps` the judgments cited by ECLI,
+against any state (the English item, else the French one). After the judgments, every run
+fetches the text of each stored or fetched judgment that has none: of its English item, else
+its French one (none for a judgment in neither), 0.5 s apart. An item HUDOC has no DOCX for is
+remembered as missing. The 200 judgments against the Netherlands take about 100 s the first
+time (on average 170 KB of XML, 22 KB compressed, the largest about 1 MB); a daily run fetches
+only the texts of new judgments.
 
-**Normalize.** Judgment per item (`echr_<itemid>`; `appno`, `title`, `date`, `articles`,
-`conclusion`, `importance`); no judgment text.
+**Normalize.** Judgment per judgment: by its ECLI (the node a Dutch judgment that cites it
+has), else by item (`echr_<itemid>`); the English item's record, else the French one's, else
+another; `appno`, `title`, `date`, `articles`, `conclusion`, `importance`. A text record adds
+`text` and `paragraphs` to the node of its `meta.ecli` (see [data model](data-model.md),
+"Judgment").
 
 **Semantic `echr`.** Creates the instrument `EVRM` (`echr_convention`, `bwb_id`
 `ECHR-CONVENTION`) and one article per cited Convention article (`echr_convention_<n>`);
