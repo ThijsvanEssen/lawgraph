@@ -67,10 +67,12 @@ they are out of date. Do not edit inside the markers.
 | `BASED_ON` | Instrument | Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble. |
 | `IMPLEMENTS` | Instrument | Instrument | A national instrument whose text names the CELEX number of an EU act; not a transposition claim, and not per article. |
 | `LEGISLATED_IN` | Instrument | Dossier | The parliamentary dossier in which an instrument was legislated (BWB `dossierref`). |
-| `REFERS_TO` | Article / Document / Judgment | Article / Instrument / Judgment | A text refers to an article, instrument or judgment: the reference is in the text, never only in metadata (a judgment's earlier instance or conclusion is `APPEAL_OF` or `ADVISES_ON`). The source node says who refers; article → article edges also carry a `semantic_type`. |
+| `REFERS_TO` | Article / Document / Judgment | Article / Instrument / Judgment | A text refers to an article, instrument or judgment: the reference is in the text, never only in metadata (a judgment's earlier instance or conclusion is `APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, `CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The source node says who refers; article → article edges also carry a `semantic_type`. |
 | `EXPLAINS` | Document | ArticleVersion / Article / Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed. Written per dossier: every MvT and NvT of a dossier explains everything its law changed; an MvT edge carries `meta.section_anchor` when one of its sections is about that article. |
-| `APPEAL_OF` | Judgment | Judgment | An appeal or cassation judgment → the judgment it appeals. |
-| `ADVISES_ON` | Judgment | Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case: the formal relation of either (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
+| `APPEAL_OF` | Judgment | Judgment | An appeal or cassation judgment → the judgment it appeals: an earlier instance its metadata names (`meta.basis` `formal_relation`), else the decision its text says it appeals, by date and case number (`appeal_text`). |
+| `CONTINUES` | Judgment | Judgment | A judgment → an earlier one of the same court in the same case (an interim judgment followed by the final one): an earlier instance its metadata names that shares its court and case number. |
+| `REFERRED_BY` | Judgment | Judgment | A decision after referral (verwijzing) → the ruling of the Hoge Raad that set aside the earlier decision and sent the case to it: an earlier instance its metadata names that is a Hoge Raad ruling (not a preliminary ruling). |
+| `ADVISES_ON` | Judgment | Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case, one way only: the formal relation of either, when the side it calls the conclusion is one (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
 | `ANSWERS` | Judgment | Judgment | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
@@ -263,8 +265,15 @@ curated list of landmark cases (`data/curated/judgment_names.json`, `lawgraph cu
 stub without one. The open data carries no names: see [pipelines](pipelines.md#rechtspraak).
 
 The judgments of one case are tied by `APPEAL_OF` (an appeal to the judgment it appeals),
-`ADVISES_ON` (a conclusion to its judgment) and `ANSWERS` (a preliminary ruling to the decision
-that asked its questions); `docs/pipelines.md`, Rechtspraak, says how each is found.
+`CONTINUES` (a judgment to an earlier one of the same court in the same case), `REFERRED_BY` (a
+decision after referral to the Hoge Raad ruling that sent the case back), `ADVISES_ON` (a
+conclusion to its judgment) and `ANSWERS` (a preliminary ruling to the decision that asked its
+questions); `docs/pipelines.md`, Rechtspraak, says how each is found. Two judgments tied so
+have no `REFERS_TO` between them, even when one names the other in its text.
+
+`unresolved_appeal_targets` lists the decisions an appeal says in its text it appeals that are
+not loaded (`court` and `case_number` as written, `date` ISO; `case_number` null when the text
+gives none); null when there are none.
 
 Parallel cases a court decided on one day in (nearly) the same words form a series: each
 judgment of it has `series_id`, the lowest ECLI in the series, and `series_size`; outside a

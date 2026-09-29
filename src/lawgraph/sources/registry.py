@@ -525,15 +525,11 @@ SEMANTIC: list[Pipeline] = [
         "REFERS_TO: links ECHR judgments to Convention articles.",
     ),
     _pipeline(
-        RechtspraakCitationsSemanticPipeline,
-        (
-            "ECLI references between judgments: REFERS_TO; cited judgments that are not loaded "
-            "become stubs."
-        ),
-    ),
-    _pipeline(
         RechtspraakAppealSemanticPipeline,
-        "APPEAL_OF from appeal and cassation judgments to the earlier proceedings.",
+        (
+            "APPEAL_OF, CONTINUES and REFERRED_BY from a judgment to the earlier judgments "
+            "of its case; the decision an appeal names but is not loaded."
+        ),
     ),
     _pipeline(
         RechtspraakConclusionsSemanticPipeline,
@@ -542,6 +538,13 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         RechtspraakReferralsSemanticPipeline,
         "ANSWERS from a preliminary ruling to the decision that asked its questions.",
+    ),
+    _pipeline(
+        RechtspraakCitationsSemanticPipeline,
+        (
+            "ECLI references between judgments: REFERS_TO, none between judgments the steps "
+            "above tie; cited judgments that are not loaded become stubs."
+        ),
     ),
     _pipeline(
         RechtspraakSeriesSemanticPipeline,
