@@ -179,6 +179,8 @@ RAW_KIND_TK_ZAAK = "tk-zaak"
 RAW_KIND_TK_DOSSIER = "tk-dossier"
 RAW_KIND_TK_ACTIVITEIT = "tk-activiteit"
 RAW_KIND_TK_STEMMING = "tk-stemming"
+# A Besluit "Stemmen - ..." on the zaak of a bill, also one without votes (a hamerstuk).
+RAW_KIND_TK_BESLUIT = "tk-besluit"
 RAW_KIND_TK_TOEZEGGING = "tk-toezegging"
 RAW_KIND_TK_COMMISSIE = "tk-commissie"
 RAW_KIND_TK_PERSOON = "tk-persoon"
@@ -217,6 +219,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_DOSSIER,
         RAW_KIND_TK_ACTIVITEIT,
         RAW_KIND_TK_STEMMING,
+        RAW_KIND_TK_BESLUIT,
         RAW_KIND_TK_TOEZEGGING,
         RAW_KIND_TK_COMMISSIE,
         RAW_KIND_TK_PERSOON,

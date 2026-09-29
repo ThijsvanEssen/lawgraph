@@ -16,49 +16,46 @@ from lawgraph.core.tk_links import tk_url
 # budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
 DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
 
-# Stage names are the Dutch legislative vocabulary the classifier speaks.
-DossierStage = Literal[
-    "wetsvoorstel",
-    "mvt",
-    "advies_rvs",
-    "verslag",
-    "nota_naar_aanleiding_van_verslag",
-    "amendementen",
-    "behandeling",
-    "stemming",
-    "afgehandeld",
-]
-
 TitleSource = Literal["dossier", "document", "activiteit"]
 
 SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
 
-DossierOutcome = Literal["aangenomen", "verworpen", "ingetrokken"]
+DossierOutcome = Literal["aangenomen", "verworpen"]
 
-DossierTrack = Literal[
-    "wetsvoorstel",
-    "initiatiefwetsvoorstel",
-    "begroting",
-    "verdrag",
-    "initiatiefnota",
-    "nota",
-    "structuurvisie",
-    "verantwoording",
-    "eu",
-    "interparlementair",
-    "kamer",
-    "beleid",
-]
+KindBasis = Literal["case", "document"]
 
 
-def _stage(value: Any) -> DossierStage | None:
-    """A recognised stage, or null when the classifier found none."""
-    return value if value in get_args(DossierStage) else None
+class DossierPhaseDTO(BaseModel):
+    """A phase of the bar of a bill."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        ..., description="The phase, as the curated list ``phases`` names it."
+    )
+    done: bool = Field(
+        ...,
+        description="A paper, an activity that took place or a decision on the bill "
+        "marks it.",
+    )
+    date: str | None = Field(
+        None, description="The first date of those; null for none."
+    )
 
 
-def _stages(values: Any) -> list[DossierStage]:
-    valid = get_args(DossierStage)
-    return [v for v in (values or []) if v in valid]
+class TkDecisionDTO(BaseModel):
+    """The last decision of the Tweede Kamer on the bill of a dossier."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = Field(
+        ...,
+        description="``BesluitSoort`` as the Kamer writes it: ``Stemmen - aangenomen``, "
+        "``Stemmen - zonder stemming aannemen`` (a hamerstuk), ``Stemmen - verworpen``, "
+        "``Stemmen - uitstellen``, ...",
+    )
+    text: str | None = Field(None, description="``BesluitTekst``: ``Aangenomen.``")
+    date: str | None = None
 
 
 class TimelineCommitteeDTO(BaseModel):
@@ -326,21 +323,17 @@ class DossierDocumentsResponse(BaseModel):
 class DossierSummaryDTO(BaseModel):
     """A dossier in a list.
 
-    ``track`` is what kind of dossier this is — a bill (wetsvoorstel,
-    initiatiefwetsvoorstel, begroting, verdrag), an initiatiefnota, a ``nota`` of the
-    government (the Miljoenennota, the Voorjaars- and Najaarsnota, the Financieel
-    Jaarverslag van het Rijk), a ``structuurvisie``, ``verantwoording`` (a
-    beleidsdoorlichting, the reports on a big project), ``eu`` (an EU Council, the fiches on
-    Commission proposals), ``interparlementair`` (an assembly the Kamer sends a delegation
-    to), ``kamer`` (the Kamer's own: a committee report, its code of conduct) or ``beleid``
-    (the letters and motions on a subject) — and does not change as it progresses. It
-    comes from what the dossier is, never from what is filed under it. ``current_stage`` is the
-    latest stage seen on its documents and activities; ``stages`` lists every
-    stage with at least one signal, in chronological order. Only a bill (a
-    wetsvoorstel, initiatiefwetsvoorstel, begroting or verdrag) passes stages;
-    any other dossier has none until it is ``afgehandeld``. A closed dossier has
-    an ``outcome``: ``aangenomen`` (its law was published), ``ingetrokken`` (its
-    bill was withdrawn) or ``verworpen`` (the Tweede Kamer voted the bill down).
+    ``kind`` is what the dossier is, as the Tweede Kamer names it: the ``Zaak.Soort`` of
+    the zaak that is the dossier itself (``Wetgeving``, ``Initiatiefwetgeving``,
+    ``Begroting``, ``Verdrag``, ``Initiatiefnota``, ``PKB/Structuurvisie``), else, from a
+    ``Voorstel van wet`` among its papers, ``Wetgeving`` or ``Initiatiefwetgeving``; null
+    for a dossier of letters and motions. ``kind_basis`` says which (``case``,
+    ``document``). A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has
+    ``phases``: every phase of the curated list in its order, each done when a paper, an
+    activity or a decision of the Kamer marks it; ``current_phase`` is the done phase with
+    the latest date. A closed dossier has an ``outcome``: ``aangenomen`` (its law was
+    published) or ``verworpen`` (the Tweede Kamer voted the bill down); ``tk_decision`` is
+    the last decision of the Kamer on the bill.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -368,29 +361,28 @@ class DossierSummaryDTO(BaseModel):
         "``Verzamelwet gegevensbescherming``; null when the title has none.",
     )
     title_source: TitleSource | None = None
-    track: DossierTrack | None = None
-    current_stage: DossierStage | None = None
-    stages: list[DossierStage] = Field(default_factory=list)
-    stages_complete: bool = Field(
-        True,
-        description="Whether every stage the bill passed on its way to "
-        "``current_stage`` has a document, an activity or a vote in the graph: the stages "
-        "in ``stages`` before it and ``current_stage`` itself, and those every bill of its "
-        "track passes (``wetsvoorstel``, ``mvt`` and ``advies_rvs`` of a bill; "
-        "``wetsvoorstel`` and ``mvt`` of a budget; ``advies_rvs`` of a treaty; and "
-        "``stemming`` once a bill or budget was aangenomen or verworpen; an ``Eindtekst`` "
-        "counts as the vote). False means the graph lacks papers of the dossier: a stage between "
-        "two listed ones was passed but is not in the data. True for a dossier that is no "
-        "bill. ``stages_missing`` names the stages.",
+    kind: str | None = Field(
+        None,
+        description="``Zaak.Soort`` as the Kamer writes it: ``Wetgeving``, "
+        "``Initiatiefwetgeving``, ``Begroting``, ``Verdrag``, ``Initiatiefnota``, "
+        "``PKB/Structuurvisie``; null for none.",
     )
-    stages_missing: list[DossierStage] = Field(
-        default_factory=list,
-        description="The stages the bill passed without a dated document, activity or vote "
-        "in the graph, in stage order: ``stemming`` on a law published without a vote on "
-        "record. Empty when ``stages_complete``.",
+    kind_basis: KindBasis | None = Field(
+        None,
+        description="``case``: a zaak of the dossier gives the kind; ``document``: its "
+        "``Voorstel van wet`` (no zaak of the bill in the graph).",
+    )
+    phases: list[DossierPhaseDTO] | None = Field(
+        None,
+        description="Of a ``Wetgeving``, ``Initiatiefwetgeving`` or ``Begroting``: every "
+        "phase of the bar in order; null for another kind.",
+    )
+    current_phase: str | None = Field(
+        None, description="The done phase with the latest date; null for none."
     )
     closed: bool = False
     outcome: DossierOutcome | None = None
+    tk_decision: TkDecisionDTO | None = None
     opened_on: str | None = None
     closed_on: str | None = None
     ministry: MinistryKey | None = Field(
@@ -435,8 +427,8 @@ class DossierFacetsDTO(BaseModel):
 
     status: list[FacetCountDTO] = Field(default_factory=list)
     outcome: list[FacetCountDTO] = Field(default_factory=list)
-    track: list[FacetCountDTO] = Field(default_factory=list)
-    stage: list[FacetCountDTO] = Field(default_factory=list)
+    kind: list[FacetCountDTO] = Field(default_factory=list)
+    phase: list[FacetCountDTO] = Field(default_factory=list)
     ministry: list[FacetCountDTO] = Field(default_factory=list)
 
 
@@ -661,17 +653,17 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "title": props.get("title"),
         "short_title": short_title(props.get("title")),
         "title_source": props.get("title_source"),
-        "track": props.get("track_kind") or "beleid",
-        "current_stage": _stage(props.get("current_stage")),
-        "stages": _stages(props.get("stages_present")),
-        "stages_complete": props.get("stages_complete") is not False,
-        "stages_missing": _stages(props.get("stages_missing")),
+        "kind": props.get("kind"),
+        "kind_basis": props.get("kind_basis"),
+        "phases": props.get("phases"),
+        "current_phase": props.get("current_phase"),
         "closed": bool(props.get("closed")),
         "outcome": (
             props.get("outcome")
             if props.get("outcome") in get_args(DossierOutcome)
             else None
         ),
+        "tk_decision": props.get("tk_decision"),
         "opened_on": props.get("opened_on"),
         "closed_on": props.get("closed_on"),
         "ministry": props.get("ministry"),

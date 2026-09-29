@@ -76,7 +76,7 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
     """What is wrong with the lists (one of them with *name*); with *db* also against the
     database."""
     found = [p for p in problems() if name is None or p.startswith(f"{name}: ")]
-    if db and name in (None, "seating"):
+    if db and name in (None, "seating", "phases"):
         from lawgraph.db import ArangoStore
 
         store = ArangoStore()
@@ -116,11 +116,13 @@ def database_problems(store: Any) -> list[str]:
 
 
 def database_notes(store: Any) -> list[str]:
-    """What the database tells of the seating plan without making it wrong: a seat that
-    changed after the plan's date (a replacement within a faction leaves the seating as it
-    is), and a key of the plan no faction in the database has (a typo, or a faction a
-    partial database does not hold)."""
+    """What the database tells of the lists without making them wrong: of the seating plan
+    a seat that changed after the plan's date (a replacement within a faction leaves the
+    seating as it is), and a key of the plan no faction in the database has (a typo, or a
+    faction a partial database does not hold); of the phases a value of the Kamer no record
+    in the database has (a typo, a spelling the Kamer changed, or a partial database)."""
     from lawgraph.db.queries.committees import get_factions
+    from lawgraph.db.queries.dossiers import tk_values
 
     factions = get_factions(store)
     known = {doc["_key"] for doc in factions}
@@ -143,6 +145,14 @@ def database_notes(store: Any) -> list[str]:
             f"seating: a seat changed on {changed}, after the plan of {dated} (the seating "
             "changes only when the numbers of seats do)"
         )
+    in_use = tk_values(store)
+    for phase, value in LISTS["phases"].entries().items():
+        for part in ("documents", "activities", "decisions"):
+            notes += [
+                f"phases: {phase}: no record in the database has the {part[:-1]} {v!r}"
+                for v in (value or {}).get(part) or []
+                if in_use[part] and v not in in_use[part]
+            ]
     return notes
 
 

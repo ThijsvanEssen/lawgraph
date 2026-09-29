@@ -1,0 +1,66 @@
+{
+ "about": "By hand: the phase bar of a bill, the one order the Tweede Kamer does not give as data. Each phase names the exact values of the Tweede Kamer that mark it: a `Document.Soort` of a paper of the dossier, an `Activiteit.Soort` of an activity about it that took place, a `BesluitSoort` of a decision on the dossier's own zaak. A phase is done only when one of them is there. Only a dossier of kind Wetgeving, Initiatiefwetgeving or Begroting has phases. `lawgraph curated check --db` names a value no record in the database has (a new spelling of the Kamer is then a value to add).",
+ "phases": [
+  {
+   "name": "Voorstel van wet",
+   "documents": [
+    "Voorstel van wet",
+    "Voorstel van wet (initiatiefvoorstel)",
+    "Voorstel van wet (tweede lezing)"
+   ]
+  },
+  {
+   "name": "Memorie van toelichting",
+   "documents": [
+    "Memorie van toelichting",
+    "Memorie van toelichting (initiatiefvoorstel)"
+   ]
+  },
+  {
+   "name": "Advies Raad van State",
+   "documents": [
+    "Advies Afdeling advisering Raad van State",
+    "Advies Afdeling advisering Raad van State en Nader rapport",
+    "Advies Afdeling advisering Raad van State en Reactie van de initiatiefnemer(s)"
+   ]
+  },
+  {
+   "name": "Verslag",
+   "documents": [
+    "Verslag (initiatief)wetsvoorstel (nader)"
+   ]
+  },
+  {
+   "name": "Nota n.a.v. het verslag",
+   "documents": [
+    "Nota n.a.v. het (nader/tweede nader/enz.) verslag"
+   ]
+  },
+  {
+   "name": "Nota van wijziging / Amendement",
+   "documents": [
+    "Nota van wijziging",
+    "Nota van wijziging (initiatiefvoorstel)",
+    "Amendement",
+    "Amendement (gewijzigd/nader/vervangend)"
+   ]
+  },
+  {
+   "name": "Stemmingen",
+   "activities": [
+    "Hamerstukken"
+   ],
+   "decisions": [
+    "Stemmen - aangenomen",
+    "Stemmen - verworpen",
+    "Stemmen - zonder stemming aannemen"
+   ]
+  },
+  {
+   "name": "Eindtekst",
+   "documents": [
+    "Eindtekst"
+   ]
+  }
+ ]
+}

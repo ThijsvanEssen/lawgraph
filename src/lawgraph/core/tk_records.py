@@ -18,7 +18,7 @@ from typing import Any
 
 from lawgraph.config.constants import SOURCE_TK
 from lawgraph.core.dossier_numbers import dossier_order
-from lawgraph.core.dossier_stages import classify_case_kind, dossier_display_name
+from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_date
 from lawgraph.core.values import first_str
@@ -37,24 +37,6 @@ VOTE_AGAINST = "Tegen"
 
 VOTE_KIND_MEMBER = "member"
 VOTE_KIND_FACTION = "faction"
-
-# What a decision decided on, from the Zaak.Soort of its case: the stage
-# ``classify_case_kind`` gives that Soort, named for the thing voted on.
-DECISION_KIND_MOTION = "motie"
-DECISION_KIND_AMENDMENT = "amendement"
-DECISION_KIND_BILL = "wetsvoorstel"
-DECISION_KIND_OTHER = "overig"
-DECISION_KINDS: tuple[str, ...] = (
-    DECISION_KIND_MOTION,
-    DECISION_KIND_AMENDMENT,
-    DECISION_KIND_BILL,
-    DECISION_KIND_OTHER,
-)
-_DECISION_KIND_BY_STAGE = {
-    "behandeling": DECISION_KIND_MOTION,
-    "amendementen": DECISION_KIND_AMENDMENT,
-    "wetsvoorstel": DECISION_KIND_BILL,
-}
 
 # Activiteit.Voortouwafkorting of an activity of the Kamer as a whole: a plenary debate, the
 # votes, the regeling van werkzaamheden. Its Voortouwcommissie_Id names a Commissie record
@@ -948,6 +930,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "subject": subject,
         "agenda_item_subject": agenda_item.get("Onderwerp") or "",
         "decision_text": decision_text,
+        "decision_kind": decision.get("BesluitSoort") or None,
         "decision_order": order,
         "meeting_kind": agenda_item.get("Vergadering_Soort") or "",
         "case_ids": case_ids(cases),
@@ -955,7 +938,9 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "primary_case_kind": (primary.get("Soort") or None) if primary else None,
         "kind": decision_kind(primary, listed),
         "dossier_numbers": dossier_numbers(cases),
-        "vote_kind": VOTE_KIND_MEMBER if roll_call else VOTE_KIND_FACTION,
+        "vote_kind": (VOTE_KIND_MEMBER if roll_call else VOTE_KIND_FACTION)
+        if votes
+        else None,
         "tally": tally,
         "voters": voters,
         "passed": decision_passed(decision, tally),
@@ -963,30 +948,31 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     }
 
 
-def decision_kind(primary: Payload | None, listed: list[Payload]) -> str:
-    """``motie``, ``amendement``, ``wetsvoorstel`` or ``overig``: the Soort of the case decided.
+def decision_kind(primary: Payload | None, listed: list[Payload]) -> str | None:
+    """What was decided on: the ``Zaak.Soort`` of the case decided (``Motie``,
+    ``Amendement``, ``Wetgeving``, ...), as the Kamer writes it.
 
     Without a primary case, the cases on the Agendapunt answer when they are all of one
-    kind: an Agendapunt of moties alone decides a motie, whichever it is.
+    Soort: an Agendapunt of moties alone decides a motie, whichever it is. None otherwise.
     """
     cases = [primary] if primary else listed
-    kinds = {
-        _DECISION_KIND_BY_STAGE.get(classify_case_kind(case.get("Soort")) or "")
-        for case in cases
-    }
-    kind = kinds.pop() if len(kinds) == 1 else None
-    return kind or DECISION_KIND_OTHER
+    kinds = {case.get("Soort") or None for case in cases}
+    return kinds.pop() if len(kinds) == 1 else None
 
 
-def decision_passed(decision: Payload, tally: dict[str, int]) -> bool:
-    """Whether the decision carried: the source says so, or the tally does."""
+def decision_passed(decision: Payload, tally: dict[str, int]) -> bool | None:
+    """Whether the decision carried: the source says so (``Stemmen - aangenomen``,
+    ``Stemmen - zonder stemming aannemen``, ``Stemmen - verworpen``), or the tally of its
+    votes does; None for a decision that is no vote (``Stemmen - uitstellen``)."""
     kind = (
         decision.get("BesluitSoort") or decision.get("StemmingsSoort") or ""
     ).lower()
-    if "aangenomen" in kind:
+    if "aangenomen" in kind or "aannemen" in kind:
         return True
     if "verworpen" in kind:
         return False
+    if not tally:
+        return None
     return tally.get(VOTE_FOR, 0) > tally.get(VOTE_AGAINST, 0)
 
 

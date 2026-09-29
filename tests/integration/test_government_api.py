@@ -91,9 +91,9 @@ def _seed(store: ArangoStore) -> None:
                     number="37022",
                     label="37022",
                     title="Belastingplan 2027",
-                    track_kind="wetsvoorstel",
+                    kind="Wetgeving",
                     opened_on="2026-09-15",
-                    current_stage="mvt",
+                    current_phase="Memorie van toelichting",
                 ),
                 _node(
                     COLLECTION_DOSSIERS,
@@ -102,9 +102,9 @@ def _seed(store: ArangoStore) -> None:
                     number="37100",
                     label="37100",
                     title="Initiatiefwet",
-                    track_kind="initiatiefwetsvoorstel",
+                    kind="Initiatiefwetgeving",
                     opened_on="2026-05-01",
-                    current_stage="wetsvoorstel",
+                    current_phase="Voorstel van wet",
                 ),
                 _node(
                     COLLECTION_DOCUMENTS, NodeType.DOCUMENT, "bill", date="2026-09-15"
@@ -312,13 +312,13 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     assert [d["number"] for d in dossiers["items"]] == ["37022"]
     assert dossiers["items"][0]["ministry"] == "fin"
     assert dossiers["items"][0]["cabinet"] == "jetten"
-    # each dimension counted without its own filter: the initiative stays in the track facet
+    # each dimension counted without its own filter: the initiative stays in the kind facet
     assert {f["value"]: f["count"] for f in dossiers["facets"]["ministry"]} == {
         None: 1,
         "fin": 1,
     }
-    assert {f["value"]: f["count"] for f in dossiers["facets"]["track"]} == {
-        "wetsvoorstel": 1
+    assert {f["value"]: f["count"] for f in dossiers["facets"]["kind"]} == {
+        "Wetgeving": 1
     }
     assert [d["number"] for d in initiatives["items"]] == ["37100"]
     assert (missing, unknown_ministry) == (404, 422)

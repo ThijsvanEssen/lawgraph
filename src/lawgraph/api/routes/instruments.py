@@ -308,7 +308,7 @@ def get_instrument_dossiers_route(
                 dossier_number=_props(d)["label"],
                 title=_props(d).get("title"),
                 display_name=_props(d).get("display_name"),
-                stage=_props(d).get("current_stage"),
+                current_phase=_props(d).get("current_phase"),
                 opened_on=_props(d).get("opened_on"),
                 closed=_props(d).get("closed"),
                 via=row["via"],

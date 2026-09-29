@@ -129,9 +129,9 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
     dossiers = store.db.collection("dossiers")
     budget, nota = dossiers.get("37020_xv")["props"], dossiers.get("37020")["props"]
     assert budget["case_kinds"] == ["Begroting"]
-    assert budget["current_stage"] is not None
+    assert budget["kind"] == "Begroting"
     assert not nota.get("case_kinds")
-    assert nota["current_stage"] is None
+    assert nota.get("kind") is None and nota.get("phases") is None
 
     # The API names the chapter by its label, and finds it by that label.
     app.dependency_overrides[get_store] = lambda: store
@@ -174,7 +174,7 @@ def _get(client: TestClient, path: str, **params: Any) -> Any:
 def _api_names_the_chapter_by_its_label(client: TestClient) -> None:
     chapter = _get(client, "/api/dossiers/37020-XV")
     assert (chapter["key"], chapter["number"]) == ("37020_xv", "37020-XV")
-    assert chapter["current_stage"] is not None
+    assert chapter["kind"] == "Begroting"
     nota = _get(client, "/api/dossiers/37020")
     assert (nota["key"], nota["number"]) == ("37020", "37020")
     # Every label the graph holds opens its dossier.
