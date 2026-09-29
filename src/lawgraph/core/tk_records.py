@@ -21,6 +21,7 @@ from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.dossier_stages import classify_case_kind, dossier_display_name
 from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_date
+from lawgraph.core.values import first_str
 
 Payload = dict[str, Any]
 Record = tuple[str, dict[str, Any]]
@@ -70,6 +71,17 @@ PLENARY_VOORTOUW = "TK"
 
 _COMMITMENT_TEXT_FIELDS = ("Tekst", "TekstAlgemeen", "TekstBrief")
 
+# The Soort prefixes of a paper named by its own Onderwerp (see ``is_motion_or_amendment``).
+_OWN_SUBJECT_KINDS = ("motie", "amendement")
+
+# DocumentActor.Relatie of who submits a motie or amendement -> the role we give them.
+SUBMITTER_FIRST = "indiener"
+SUBMITTER_CO = "medeindiener"
+_SUBMITTER_ROLES = {
+    "Eerste ondertekenaar": SUBMITTER_FIRST,
+    "Mede ondertekenaar": SUBMITTER_CO,
+}
+
 
 def _dicts(value: Any) -> Iterator[Payload]:
     """Yield the dicts in *value*, which TK gives as a list, a dict or null."""
@@ -92,6 +104,21 @@ def _text(payload: Payload, *fields: str) -> str:
 
 def _external_id(payload: Payload) -> str:
     return str(payload.get("Id") or "")
+
+
+def is_deleted(payload: Payload) -> bool:
+    """Whether the Kamer deleted the record: it then holds its id and nothing else."""
+    return payload.get("Verwijderd") is True
+
+
+def is_motion_or_amendment(kind: str | None) -> bool:
+    """A ``Soort`` of a motie or amendement, also a changed one (``Motie (gewijzigd/nader)``,
+    ``Amendement (gewijzigd/nader/vervangend)``), of a Document or a Zaak.
+
+    Its ``Titel`` is the title of its dossier; its ``Onderwerp`` is its own: ``Motie van het
+    lid Faber over …``.
+    """
+    return (kind or "").lower().startswith(_OWN_SUBJECT_KINDS)
 
 
 def _distinct(values: Iterable[str]) -> list[str]:
@@ -156,6 +183,40 @@ def case_kinds_by_dossier(cases: Iterable[Payload]) -> dict[str, list[str]]:
         number: _distinct(kind for n, kind in pairs if n == number)
         for number in numbers
     }
+
+
+def case(payload: Payload) -> Record | None:
+    """Node key and props for a Zaak record; ``None`` without an id or when deleted.
+
+    A motie or amendement is named by its ``Onderwerp``: its ``Titel`` is the dossier's, the
+    same for every motie on it.
+    """
+    external_id = first_str(
+        [payload.get("Id"), payload.get("ZaakId"), payload.get("ZaakNummer")],
+        skip_blank=True,
+    )
+    if external_id is None or is_deleted(payload):
+        return None
+    kind = payload.get("Soort") or None
+    own = _text(payload, "Onderwerp") if is_motion_or_amendment(kind) else ""
+    title = own or _text(payload, "Titel", "ZaakTitel", "Onderwerp")
+    props: dict[str, Any] = {
+        "source": SOURCE_TK,
+        "external_id": external_id,
+        "number": str(payload.get("Nummer") or payload.get("ZaakNummer") or ""),
+        "kind": kind,
+        # The dossiers this case belongs to; the dossier pipeline turns them into PART_OF
+        # edges once the dossier nodes exist.
+        "dossier_numbers": dossier_numbers([payload]),
+        # What `semantic tk-dossier-relations` lifts to RELATED_TO edges between dossiers.
+        "related_cases": related_cases(payload),
+    }
+    if title:
+        props["title"] = title
+    if payload.get("Citeertitel"):
+        props["citation_title"] = payload["Citeertitel"]
+    props["display_name"] = title or f"Zaak {external_id}"
+    return make_node_key(external_id), props
 
 
 def related_cases(payload: Payload) -> list[dict[str, Any]]:
@@ -611,20 +672,65 @@ def document_actors(payload: Payload) -> list[dict[str, Any]]:
     return actors
 
 
+def submitters(
+    kind: str | None, actors: Iterable[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Who submitted a motie or amendement, the indiener first: ``name``, ``faction``,
+    ``member_key`` (their Member node, when the source names the person) and ``role``
+    (``indiener`` or ``medeindiener``). Empty for any other kind of paper, whose first
+    signatory is no indiener.
+
+    *actors* are the signatures ``document_actors`` reads.
+    """
+    if not is_motion_or_amendment(kind):
+        return []
+    rows = [
+        {
+            "name": actor.get("name") or "",
+            "faction": actor.get("faction") or None,
+            "member_key": (
+                make_node_key(str(actor["person_id"]))
+                if actor.get("person_id")
+                else None
+            ),
+            "role": _SUBMITTER_ROLES[actor.get("role") or ""],
+        }
+        for actor in actors
+        if (actor.get("role") or "") in _SUBMITTER_ROLES
+    ]
+    return sorted(rows, key=lambda row: row["role"] != SUBMITTER_FIRST)
+
+
+def document_title(payload: Payload, cases: list[Payload]) -> str:
+    """The title of a Document: its ``Titel``, but the own subject of a motie or amendement.
+
+    The ``Titel`` of a motie or amendement is its dossier's; what names it is its
+    ``Onderwerp``, else the ``Onderwerp`` of its Zaak.
+    """
+    kind = payload.get("Soort") or ""
+    if is_motion_or_amendment(kind):
+        own = _text(payload, "Onderwerp") or next(
+            (subject for c in cases if (subject := _text(c, "Onderwerp"))), ""
+        )
+        if own:
+            return own
+    return _text(payload, "Titel", "Onderwerp") or kind
+
+
 def document(payload: Payload) -> Record | None:
-    """Node key and props for a Document (Kamerstuk) record.
+    """Node key and props for a Document (Kamerstuk) record; ``None`` when deleted.
 
     A Document carries no dossier number of its own; it reaches dossiers
     through Zaak → Kamerstukdossier, and one document may reach several.
     """
     external_id = _external_id(payload)
-    if not external_id:
+    if not external_id or is_deleted(payload):
         return None
 
     cases = list(_dicts(payload.get("Zaak")))
     dossiers = dossier_numbers(cases)
     kind = payload.get("Soort") or ""
-    title = payload.get("Titel") or payload.get("Onderwerp") or kind
+    title = document_title(payload, cases)
     sequence = payload.get("Volgnummer")  # -1 marks a non-Kamerstuk
 
     return make_node_key(external_id), {
@@ -637,6 +743,11 @@ def document(payload: Payload) -> Record | None:
         "sequence": sequence if (sequence or 0) > 0 else None,
         "kind": kind,
         "title": title,
+        # The Titel of a motie or amendement: the title of the dossier it was submitted on,
+        # which says which law an amendement changes (``semantic tk-amends``).
+        "dossier_title": (
+            _text(payload, "Titel") or None if is_motion_or_amendment(kind) else None
+        ),
         "subject": payload.get("Onderwerp") or "",
         "date": iso_date(payload.get("Datum") or payload.get("DatumRegistratie")),
         "session_year": payload.get("Vergaderjaar") or "",

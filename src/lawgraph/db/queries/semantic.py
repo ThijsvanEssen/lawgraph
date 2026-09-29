@@ -763,8 +763,8 @@ def tk_documents(store: Store, ids: list[str] | None) -> Iterator[dict[str, Any]
 def tk_document_titles(
     store: Store, since_date: str | None
 ) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer documents with their title, those of *since_date* or later when it is
-    given."""
+    """The Tweede Kamer documents with their title and, of a motie or amendement, the title of
+    its dossier; those of *since_date* or later when it is given."""
     since_filter = ""
     bind_vars: dict[str, Any] | None = None
     if since_date is not None:
@@ -775,7 +775,7 @@ def tk_document_titles(
         f"FOR doc IN {COLLECTION_DOCUMENTS}\n"
         '    FILTER "TK" IN doc.labels\n'
         f"    {since_filter}\n"
-        f"    RETURN {slim('doc', 'title', 'display_name')}"
+        f"    RETURN {slim('doc', 'title', 'dossier_title', 'display_name')}"
     )
     return store.query(aql, bind_vars)
 

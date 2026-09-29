@@ -89,7 +89,13 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store, what=None)
         documents = self._load_tk_documents(since=since)
         for doc_node in self._track(documents, "TK documents"):
-            title = doc_node.props.get("title") or doc_node.props.get("display_name")
+            # A motie or amendement is named by its own subject; the dossier's title says
+            # which law the bill it was submitted on changes.
+            title = (
+                doc_node.props.get("dossier_title")
+                or doc_node.props.get("title")
+                or doc_node.props.get("display_name")
+            )
             hits = detect_amends_instrument(
                 str(title) if title else None, instrument_aliases
             )

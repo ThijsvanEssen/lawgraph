@@ -175,14 +175,15 @@ def stub_treaty_ids(store: Store) -> Iterator[Any]:
 # ── Kamerstukken ─────────────────────────────────────────────────────────────
 
 
-def papers_with_dossier(store: Store, kind: str) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer papers whose kind contains *kind* (lower case), with a sequence
-    number and a dossier that has a number: ``{key, title, number, suffix, sequence,
-    date}``."""
+def papers_with_dossier(store: Store, kinds: list[str]) -> Iterator[dict[str, Any]]:
+    """The Tweede Kamer papers whose kind contains one of *kinds* (lower case), with a
+    sequence number and a dossier that has a number: ``{key, title, number, suffix,
+    sequence, date}``."""
     aql = f"""
     FOR pub IN {COLLECTION_DOCUMENTS}
       FILTER "TK" IN pub.labels
-      FILTER CONTAINS(LOWER(pub.props.kind || ""), @kind)
+      LET kind = LOWER(pub.props.kind || "")
+      FILTER LENGTH(FOR word IN @kinds FILTER CONTAINS(kind, word) LIMIT 1 RETURN 1) > 0
       FILTER pub.props.sequence != null
       LET dossier = FIRST(
         FOR e IN {COLLECTION_EDGES}
@@ -202,7 +203,7 @@ def papers_with_dossier(store: Store, kind: str) -> Iterator[dict[str, Any]]:
         date: pub.props.date
       }}
     """
-    return store.query(aql, {"kind": kind, "part_of": RELATION_PART_OF})
+    return store.query(aql, {"kinds": kinds, "part_of": RELATION_PART_OF})
 
 
 def existing_raw_keys(
