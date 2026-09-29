@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from collections.abc import Mapping, Sequence
 
-from lawgraph.config.constants import CODE_FAMILIES
+from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.xml import collapse_ws, iter_named
 
 GENERAL_INFO_START = "<algemene-informatie"

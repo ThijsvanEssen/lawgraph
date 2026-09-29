@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, cast
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLES,
     COLLECTION_CABINETS,
@@ -15,12 +18,21 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    COLLECTION_RAW_SOURCES,
     COLLECTION_TOPICS,
+    SOURCE_BWB,
+    SOURCE_EERSTEKAMER,
+    SOURCE_RECHTSPRAAK,
+    SOURCE_STAATSBLAD,
+    SOURCE_STAATSCOURANT,
+    SOURCE_TK,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
+from lawgraph.core.cache import TTLCache
 from lawgraph.db import ArangoStore
 
 _NODE_COLLECTIONS = (
@@ -132,3 +144,73 @@ def get_judgment_coverage(store: ArangoStore) -> dict[str, Any]:
         "courts": list(store.query(aql)),
         "stubs": next(iter(store.query(stubs)), 0),
     }
+
+
+# The newest dated record of a source, on or before today: what the graph holds of it, read
+# from one index each. A source without an entry has only its last retrieve.
+_NEWEST: dict[str, str] = {
+    SOURCE_TK: f"""
+        FOR n IN {COLLECTION_DOCUMENTS}
+            FILTER POSITION(n.labels, "{CHAMBER_TK}") AND n.props.date <= @today
+            SORT n.props.date DESC LIMIT 1 RETURN n.props.date""",
+    SOURCE_EERSTEKAMER: f"""
+        FOR n IN {COLLECTION_DOCUMENTS}
+            FILTER POSITION(n.labels, "{CHAMBER_EK}") AND n.props.date <= @today
+            SORT n.props.date DESC LIMIT 1 RETURN n.props.date""",
+    SOURCE_RECHTSPRAAK: f"""
+        FOR n IN {COLLECTION_JUDGMENTS}
+            FILTER n.props.date_eff <= @today
+            SORT n.props.date_eff DESC LIMIT 1 RETURN n.props.date_eff""",
+    SOURCE_STAATSBLAD: f"""
+        FOR n IN {COLLECTION_INSTRUMENTS}
+            FILTER n.props.kind == "{KIND_PUBLICATION}" AND n.props.publication_kind == "Stb"
+            FILTER n.props.date_published <= @today
+            SORT n.props.date_published DESC LIMIT 1 RETURN n.props.date_published""",
+    SOURCE_STAATSCOURANT: f"""
+        FOR n IN {COLLECTION_INSTRUMENTS}
+            FILTER n.props.kind == "{KIND_PUBLICATION}"
+                AND n.props.publication_kind == "Stcrt"
+            FILTER n.props.date_published <= @today
+            SORT n.props.date_published DESC LIMIT 1 RETURN n.props.date_published""",
+    SOURCE_BWB: f"""
+        FOR n IN {COLLECTION_INSTRUMENT_VERSIONS}
+            FILTER n.props.valid_from <= @today
+            SORT n.props.valid_from DESC LIMIT 1 RETURN n.props.valid_from""",
+}
+
+
+_data_as_of_cache: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=4, ttl=60.0)
+
+
+def cached_data_as_of(store: ArangoStore) -> dict[str, Any]:
+    """``get_data_as_of``, read at most once a minute per database (``/api/stats`` and every
+    page of the feed carry it)."""
+    key = str(store.db.name)
+    hit = _data_as_of_cache.get(key)
+    if isinstance(hit, dict):
+        return hit
+    value = get_data_as_of(store)
+    _data_as_of_cache.set(key, value)
+    return value
+
+
+def get_data_as_of(store: ArangoStore, *, today: str | None = None) -> dict[str, Any]:
+    """Per source the graph holds records of: ``retrieved_at``, the moment its newest raw
+    record was fetched (the last retrieve that brought something), and ``newest``, the date
+    of its newest dated record on or before *today* (null for a source without one)."""
+    today = today or dt.date.today().isoformat()
+    aql = f"""
+    FOR r IN {COLLECTION_RAW_SOURCES}
+        COLLECT source = r.source AGGREGATE retrieved_at = MAX(r.fetched_at)
+        SORT source
+        RETURN {{ source, retrieved_at }}
+    """
+    result: dict[str, Any] = {}
+    for row in store.query(aql):
+        newest = None
+        if row["source"] in _NEWEST:
+            newest = next(
+                iter(store.query(_NEWEST[row["source"]], {"today": today})), None
+            )
+        result[row["source"]] = {"retrieved_at": row["retrieved_at"], "newest": newest}
+    return result

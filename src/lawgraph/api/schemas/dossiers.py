@@ -321,20 +321,6 @@ class DossierDocumentsResponse(BaseModel):
     items: list[DossierDocumentDTO]
 
 
-class DossierDocumentsBulkResponse(BaseModel):
-    """Response for GET /api/dossiers/documents/bulk."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    items: dict[str, list[DossierDocumentDTO]] = Field(
-        ...,
-        description=(
-            "Map keyed by dossier number; each value is that dossier's "
-            "documents, most recent first."
-        ),
-    )
-
-
 class DossierSummaryDTO(BaseModel):
     """A dossier in a list.
 
@@ -456,15 +442,24 @@ DossierInstrumentRelation = Literal["legislated_in", "amends", "introduces", "re
 DossierInstrumentStatus = Literal["canoniek", "voorgesteld"]
 
 
-class DossierInstrumentDTO(BaseModel):
-    """An instrument a dossier is tied to, and how.
+class DossierInstrumentLinkDTO(BaseModel):
+    """One way a dossier is tied to an instrument."""
 
-    ``relation`` is ``legislated_in`` (the instrument came out of this dossier) or
-    ``amends``, ``introduces``, ``repeals`` (the dossier changes it, resolved from the
-    article or instrument that is changed to the parent instrument). ``status`` is
-    ``canoniek`` for what an amending publication enacted and ``voorgesteld`` for what a
-    bill of the dossier proposes. An instrument with several relations or statuses
-    appears once per combination.
+    model_config = ConfigDict(extra="forbid")
+
+    relation: DossierInstrumentRelation
+    status: DossierInstrumentStatus
+
+
+class DossierInstrumentDTO(BaseModel):
+    """An instrument a dossier is tied to, once, and every way it is.
+
+    ``links`` holds each ``relation`` (``legislated_in``: the instrument came out of this
+    dossier; ``amends``, ``introduces``, ``repeals``: the dossier changes it, resolved from
+    the article or instrument that is changed to the parent instrument) with its
+    ``status`` (``canoniek`` for what an amending publication enacted, ``voorgesteld`` for
+    what a bill of the dossier proposes). ``relation`` and ``status`` are the first link:
+    the enacted one before the proposed.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -477,6 +472,40 @@ class DossierInstrumentDTO(BaseModel):
     jurisdiction: str | None = Field(None, description="``nl`` or ``eu``.")
     relation: DossierInstrumentRelation
     status: DossierInstrumentStatus
+    links: list[DossierInstrumentLinkDTO] = Field(default_factory=list)
+
+
+def merge_instruments(rows: list[dict[str, Any]]) -> list[DossierInstrumentDTO]:
+    """The hub rows (one per instrument, relation and status) as one item per instrument,
+    in the order of their first row; an enacted link before a proposed one."""
+    merged: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        item = merged.setdefault(row["id"], {**row, "links": []})
+        link = {"relation": row["relation"], "status": row["status"]}
+        if link not in item["links"]:
+            item["links"].append(link)
+    items = []
+    for item in merged.values():
+        item["links"].sort(key=lambda link: link["status"] != "canoniek")
+        item["relation"], item["status"] = (
+            item["links"][0]["relation"],
+            item["links"][0]["status"],
+        )
+        items.append(DossierInstrumentDTO(**item))
+    return items
+
+
+class DossierLawNamedDTO(BaseModel):
+    """A law the title of a dossier names, and whether the graph holds it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        ..., description="As the title writes it: `Wetboek van Strafvordering`."
+    )
+    loaded: bool = Field(..., description="Whether the graph holds the law.")
+    key: str | None = Field(None, description="The instrument key when it does.")
+    bwb_id: str | None = None
 
 
 class DossierCommitteeDTO(TimelineCommitteeDTO):
@@ -559,7 +588,15 @@ class DossierDetailResponse(DossierSummaryDTO):
         default_factory=list,
         description=(
             "Instruments legislated in, amended, introduced or repealed by the "
-            "dossier, one item per instrument, relation and status."
+            "dossier, one item per instrument with every link."
+        ),
+    )
+    laws_named: list[DossierLawNamedDTO] = Field(
+        default_factory=list,
+        description=(
+            "The laws the title names (`Wetboek van Strafrecht`, `Vreemdelingenwet 2000`), "
+            "each with whether the graph holds it: a law the dossier changes that is not "
+            "loaded has no instrument above."
         ),
     )
     committees: list[DossierCommitteeDTO] = Field(
@@ -592,6 +629,7 @@ class DossierDetailResponse(DossierSummaryDTO):
         counts: dict[str, int] | None = None,
         hub: dict[str, Any] | None = None,
         relations: list[dict[str, Any]] | None = None,
+        laws_named: list[dict[str, Any]] | None = None,
     ) -> DossierDetailResponse:
         counts = counts or {}
         hub = hub or {}
@@ -601,9 +639,8 @@ class DossierDetailResponse(DossierSummaryDTO):
             activity_count=counts.get("activities", 0),
             decision_count=counts.get("decisions", 0),
             commitment_count=counts.get("commitments", 0),
-            instruments=[
-                DossierInstrumentDTO(**i) for i in hub.get("instruments") or []
-            ],
+            instruments=merge_instruments(hub.get("instruments") or []),
+            laws_named=[DossierLawNamedDTO(**law) for law in laws_named or []],
             committees=[DossierCommitteeDTO(**c) for c in hub.get("committees") or []],
             documents_by_kind=dict(hub.get("documents_by_kind") or {}),
             senate=DossierSenateDTO(**(hub.get("senate") or {})),

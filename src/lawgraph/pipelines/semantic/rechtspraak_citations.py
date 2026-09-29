@@ -8,6 +8,10 @@ edge only: a Hoge Raad ruling that names the arrest under cassation and the conc
 footnote does not cite them. The procedural steps run before this one. The edges of a judgment
 are derived in full each time it is read: one its text no longer supports (made by an earlier
 rule) is removed.
+
+The ECLIs are read by ``core.ecli.cited_eclis``: a malformed one is repaired where the text shows
+what was meant (a split LJN, NL and the court swapped, a range) and dropped otherwise, so it
+makes no stub. A stub judgment no edge reaches any more goes at the end.
 """
 
 from __future__ import annotations
@@ -23,7 +27,7 @@ from lawgraph.config.constants import (
     RELATION_REFERRED_BY,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.identifiers import find_eclis
+from lawgraph.core.ecli import cited_eclis
 from lawgraph.core.judgments import body_text, parse_judgment
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
@@ -67,6 +71,8 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
         logger.info("Removed %d citations the text does not name.", removed)
+        stubs = semantic_queries.remove_unreached_judgment_stubs(self.store)
+        logger.info("Removed %d stub judgments no edge reaches.", stubs)
         return result
 
     def _collect_references(
@@ -86,7 +92,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 continue
             read.append(judgment.arango_id)
             source_ecli = str(judgment.props["ecli"]).upper()
-            for ecli in find_eclis(text):
+            for ecli in cited_eclis(text):
                 if ecli == source_ecli:
                     continue
                 pending.append((judgment.arango_id, ecli))

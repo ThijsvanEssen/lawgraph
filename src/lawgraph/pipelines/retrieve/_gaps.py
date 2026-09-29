@@ -10,6 +10,7 @@ shows what a run would fetch.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Sequence
 from typing import Any, cast
 
 from lawgraph.config.constants import (
@@ -134,15 +135,18 @@ def eurlex_gaps(store: Store) -> list[str]:
     return cast(list[str], list(gap_queries.unretrieved_celex_refs(store)))
 
 
-def kamerstuk_gaps(store: Store, kind: str = "toelichting") -> list[dict[str, Any]]:
-    """The Tweede Kamer papers whose *kind* contains a word, and whose XML was not retrieved.
+def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> list[dict[str, Any]]:
+    """The Tweede Kamer papers whose kind contains one of *kinds*, and whose XML was not
+    retrieved.
 
     Each has the dossier it is part of (a paper without one or without a number in it has no
     address in the repository and is left out) and its ``identifier``, ``kst-<dossier>-<n>``.
     Those the repository answered HTTP 404 for not long ago are left out too, so the report
     of ``lawgraph gaps`` names exactly what a run fetches.
     """
-    papers = list(gap_queries.papers_with_dossier(store, kind.lower()))
+    papers = list(
+        gap_queries.papers_with_dossier(store, [kind.lower() for kind in kinds])
+    )
     for paper in papers:
         paper["identifier"] = kamerstuk_identifier(
             paper["number"], paper.get("suffix"), paper["sequence"]

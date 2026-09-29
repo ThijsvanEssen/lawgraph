@@ -3,8 +3,7 @@
 Sources name a cabinet in several ways (``Kabinet-Balkenende II (2003-2006)``, ``Kabinet
 Balkenende I (2002-2003)``, ``kabinet-Rutte III``); ``cabinet_name`` writes all of them as
 ``kabinet-<name>``, and ``cabinet_key`` makes the node key from it (``balkenende_ii``,
-``den_uyl``). ``wikidata_period`` reads the period of a cabinet Wikidata knows before 1945,
-often only by a year.
+``den_uyl``).
 """
 
 from __future__ import annotations
@@ -76,22 +75,3 @@ def cabinet_on(day: str | None, cabinets: Iterable[dict[str, Any]]) -> str | Non
         and (not c.get("to_date") or day <= c["to_date"])
     ]
     return max(held)[1] if held else None
-
-
-# Wikidata's wikibase:timePrecision, as a cabinet node names it.
-PRECISION_NAMES = {11: "day", 10: "month", 9: "year"}
-
-
-def wikidata_period(record: dict[str, Any]) -> dict[str, Any]:
-    """``{from_date, from_date_precision, to_date, to_date_precision}`` of a Wikidata
-    cabinet as Wikidata gives it: a date it lacks stays ``None``, a year stays a year
-    (dated the first of January). Nothing is taken from the cabinets around it: Wikidata
-    lacks some, so the next start is not this end."""
-    period: dict[str, Any] = {}
-    for field in ("from_date", "to_date"):
-        day = record.get(field)
-        period[field] = day
-        period[f"{field}_precision"] = (
-            PRECISION_NAMES.get(record.get(f"{field}_precision") or 0) if day else None
-        )
-    return period

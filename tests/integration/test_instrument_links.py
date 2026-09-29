@@ -278,12 +278,6 @@ def test_the_sub_routes_answer_for_an_eu_act(store: ArangoStore) -> None:
     assert [a["article_number"] for a in articles["items"]] == ["1", "10"]
     assert articles["items"][0]["celex"] == DIRECTIVE
 
-    citations = client.get(f"/api/instruments/{DIRECTIVE}/citations").json()
-    assert citations["article_count"] == 2
-    edges = {(e["from"], e["direction"]) for e in citations["edges"]}
-    assert ("judgments/ecli_nl_hr_2020_1", "in") in edges
-    assert ("articles/bwbr0009001_2", "in") in edges
-
     judgments = client.get(f"/api/instruments/{DIRECTIVE}/judgments").json()
     assert judgments["total"] == 1
     assert judgments["items"][0]["cited_articles"][0]["key"] == "32016l0680_1"
@@ -293,7 +287,7 @@ def test_the_sub_routes_answer_for_an_eu_act(store: ArangoStore) -> None:
         (REGULATION, 1)
     ]
 
-    for suffix in ("dossiers", "amended-by", "cross-law-dependencies"):
+    for suffix in ("dossiers", "amended-by"):
         answer = client.get(f"/api/instruments/{DIRECTIVE}/{suffix}")
         assert answer.status_code == 200, suffix
 

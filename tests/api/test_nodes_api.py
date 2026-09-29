@@ -141,37 +141,7 @@ def test_get_node_graph_defaults_to_thirty_per_bucket_and_no_filter(monkeypatch)
     assert seen == {"filters": NeighborFilter(), "limit": 30, "offset": 0}
 
 
-def test_get_node_facets_returns_counts(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.nodes.get_node_facets",
-        lambda store, collection, key, **kwargs: [
-            NeighborFacet(RELATION_PART_OF, "inbound", "articles", 31),
-            NeighborFacet(RELATION_REFERS_TO, "outbound", "judgments", 4),
-        ],
-    )
-    body = client.get("/api/nodes/instruments/x/facets").json()
-    assert body == {
-        "items": [
-            {
-                "relation": "PART_OF",
-                "direction": "inbound",
-                "collection": "articles",
-                "type": "article",
-                "count": 31,
-            },
-            {
-                "relation": "REFERS_TO",
-                "direction": "outbound",
-                "collection": "judgments",
-                "type": "judgment",
-                "count": 4,
-            },
-        ],
-        "total": 35,
-    }
-
-
-@pytest.mark.parametrize("path", ["", "/facets", "/neighborhood"])
+@pytest.mark.parametrize("path", ["", "/neighborhood"])
 @pytest.mark.parametrize(
     "query",
     [
@@ -192,10 +162,9 @@ def test_the_page_of_a_bucket_is_bounded(query):
     assert client.get(f"/api/nodes/instruments/x?{query}").status_code == 422
 
 
-def test_unknown_collection_is_a_400_for_facets_and_neighborhood():
-    for path in ("/facets", "/neighborhood"):
-        response = client.get(f"/api/nodes/raw_sources/x{path}")
-        assert response.status_code == 400
+def test_unknown_collection_is_a_400_for_the_neighborhood():
+    response = client.get("/api/nodes/raw_sources/x/neighborhood")
+    assert response.status_code == 400
 
 
 def test_neighbor_dto_takes_the_edge_as_it_is():

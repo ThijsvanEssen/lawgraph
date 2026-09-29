@@ -2,13 +2,11 @@
 made them.
 
 The pages are the Rijksoverheid pages of every cabinet since 1945 (``fixtures/rijksoverheid``,
-read on 25 September 2026); the cabinets before them are the Wikidata records
-(``fixtures/wikidata_cabinets.json``).
+read on 25 September 2026).
 """
 
 from __future__ import annotations
 
-import json
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -18,8 +16,9 @@ import pytest
 from lawgraph.core.cabinet_checks import violations
 from lawgraph.core.cabinet_phases import PHASE_KINDS
 from lawgraph.core.cabinet_posts import (
+    ACTING_HELD_OTHER_SEAT,
+    ACTING_SOURCE,
     BASIS_AI,
-    BASIS_RULE,
     CORRECTED_BY_PREDECESSOR,
     CORRECTED_BY_SUCCESSOR,
     SEAT_DEPUTY,
@@ -43,10 +42,7 @@ def _cabinets() -> tuple[dict[str, Any], ...]:
         }
         for path in sorted((FIXTURES / "rijksoverheid").glob("*.html"))
     ]
-    wikidata = json.loads((FIXTURES / "wikidata_cabinets.json").read_text())
-    return tuple(
-        build_cabinets(pages, wikidata, lambda text: {"short": text, "faction": None})
-    )
+    return tuple(build_cabinets(pages, lambda text: {"short": text, "faction": None}))
 
 
 def _cabinet(key: str) -> dict[str, Any]:
@@ -66,28 +62,13 @@ def _held(key: str, seat: str) -> list[tuple[str, str, str | None, bool]]:
 
 def test_every_cabinet_is_there_once_and_follows_the_one_before() -> None:
     cabinets = _cabinets()
-    # the 57 of Wikidata, less one: Rijksoverheid describes Biesheuvel I and II as one
-    assert len(cabinets) == 56
+    # 32 pages since 1945: Rijksoverheid describes Biesheuvel I and II as one cabinet
+    assert len(cabinets) == 32
     assert len({c["key"] for c in cabinets}) == len(cabinets)
     for before, after in zip(cabinets, cabinets[1:], strict=False):
         assert after["previous"] == before["key"]
-    # Wikidata lacks some cabinets and knows others only by a year (Colijn V and De Geer
-    # II both "1939"); since 1945 one follows the other
-    official = [c for c in cabinets if c["source"]["name"] == "rijksoverheid"]
-    for before, after in zip(official, official[1:], strict=False):
         assert before["to_date"] == after["from_date"], after["key"]
-    # since 1945 only the cabinet in office has no end; before, an end Wikidata lacks is null
-    assert [
-        c["key"]
-        for c in cabinets
-        if c["to_date"] is None and c["source"]["name"] == "rijksoverheid"
-    ] == ["jetten"]
-    by_key = {c["key"]: c for c in cabinets}
-    assert (by_key["thorbecke_ii"]["to_date"], by_key["de_geer_ii"]["to_date"]) != (
-        "1873-08-27",
-        "1939-01-01",
-    )
-    assert by_key["colijn_v"]["to_date"] != "1945-02-23"
+    assert [c["key"] for c in cabinets if c["to_date"] is None] == ["jetten"]
 
 
 @pytest.mark.parametrize("cabinet", _cabinets(), ids=lambda c: c["key"])
@@ -95,13 +76,11 @@ def test_every_cabinet_meets_the_rules(cabinet: dict[str, Any]) -> None:
     assert violations(cabinet, cabinet["posts"]) == []
 
 
-def test_every_cabinet_since_1945_has_posts_and_phases_and_none_before() -> None:
+def test_every_cabinet_has_posts_and_phases() -> None:
     for cabinet in _cabinets():
-        official = cabinet["source"]["name"] == "rijksoverheid"
-        assert bool(cabinet["posts"]) == official, cabinet["key"]
-        assert bool(cabinet["phases"]) == official, cabinet["key"]
+        assert cabinet["posts"] and cabinet["phases"], cabinet["key"]
         assert all(p["kind"] in (*PHASE_KINDS, None) for p in cabinet["phases"])
-    assert _cabinet("schermerhorn_drees")["previous"] == "gerbrandy_iii"
+    assert _cabinet("schermerhorn_drees")["previous"] is None
 
 
 def test_every_post_names_a_holder_a_seat_and_mostly_a_party() -> None:
@@ -129,9 +108,10 @@ def test_schoof_stand_ins_end_where_the_next_holder_begins() -> None:
         for p in _cabinet("schoof")["posts"]
         if p["person"] == "stm hermans" and p["acting"]
     ]
-    assert {p["acting_basis"] for p in hermans} == {
-        f"{BASIS_RULE} (Minister van Klimaat en Groene Groei)"
-    }
+    assert {
+        (p["acting_reason"], p["acting_basis"], p["acting_other_seat"]["function"])
+        for p in hermans
+    } == {(ACTING_HELD_OTHER_SEAT, None, "Minister van Klimaat en Groene Groei")}
 
 
 def test_schoof_phases() -> None:
@@ -149,7 +129,7 @@ def test_schoof_phases() -> None:
 def test_schoof_keeps_the_overlap_the_source_gives() -> None:
     # Rijksoverheid lists Keijzer as minister voor Asiel en Migratie from 19 June 2025,
     # while Van Hijum held that post until 22 August 2025.
-    seat = "aenm/minister_zonder_portefeuille/asiel-en-migratie"
+    seat = "-/minister_zonder_portefeuille/asiel-en-migratie"
     overlapping = {
         p["person"]: p["overlaps_with"]
         for p in _cabinet("schoof")["posts"]
@@ -245,13 +225,16 @@ def test_an_ai_line_is_a_stand_in_between_two_holders() -> None:
         for p in _cabinet("cals")["posts"]
         if p["person"] == "i samkalden" and p["acting"]
     ]
-    assert samkalden["acting_basis"] == BASIS_AI
+    assert (samkalden["acting_reason"], samkalden["acting_basis"]) == (
+        ACTING_SOURCE,
+        BASIS_AI,
+    )
 
 
 def test_a_holder_listed_after_one_who_resigned_starts_when_that_one_left() -> None:
     # Biesheuvel: De Brauw resigned 20 July 1972; "Deze taken werden vervolgens opgedragen
     # aan: mr. C. van Veen" without a day
-    seat = "ocw/minister_zonder_portefeuille/wetenschapsbeleid-en-het-wetenschappelijk-onderwijs"
+    seat = "-/minister_zonder_portefeuille/wetenschapsbeleid-en-het-wetenschappelijk-onderwijs"
     (van_veen,) = [
         p
         for p in _cabinet("biesheuvel")["posts"]
@@ -386,14 +369,43 @@ def test_a_holder_who_held_another_seat_throughout_stood_in() -> None:
     (standing,) = [
         p for p in posts if p["seat"] == "def/minister" and p["person"] == "ab vast"
     ]
-    assert standing["acting"] and standing["acting_basis"].startswith(BASIS_RULE)
+    assert standing["acting"] and standing["acting_reason"] == ACTING_HELD_OTHER_SEAT
     # whoever follows no one, or leaves no one to follow, did not stand in
     assert not any(p["acting"] for p in posts if p["person"] != "ab vast")
 
 
-def test_without_pages_every_cabinet_comes_from_wikidata() -> None:
-    wikidata = json.loads((FIXTURES / "wikidata_cabinets.json").read_text())
-    cabinets = build_cabinets([], wikidata, lambda text: None)
-    assert len(cabinets) == len(wikidata)
-    assert not any(c["posts"] or c["phases"] for c in cabinets)
-    assert build_cabinets([], [], lambda text: None) == []
+def test_without_pages_there_are_no_cabinets() -> None:
+    assert build_cabinets([], lambda text: None) == []
+
+
+def test_the_holders_of_one_heading_who_follow_one_another_hold_one_seat() -> None:
+    # Schoof: the page lists Idsinga under "Staatssecretaris Fiscaliteit, Belastingdienst en
+    # Douane", his line naming the post as it was then
+    fiscaliteit = _held(
+        "schoof", "-/staatssecretaris/fiscaliteit-belastingdienst-en-douane"
+    )
+    assert [p[0] for p in fiscaliteit] == [
+        "fl idsinga",
+        "t van oostenbruggen",
+        "ehj heijnen",
+    ]
+    (idsinga,) = [p for p in _cabinet("schoof")["posts"] if p["person"] == "fl idsinga"]
+    assert idsinga["also_named"] == ["staatssecretaris Fiscaliteit en Belastingdienst"]
+    seats = {p["seat"] for p in _cabinet("schoof")["posts"]}
+    assert "-/staatssecretaris/fiscaliteit-en-belastingdienst" not in seats
+    assert "-/staatssecretaris/toeslagen-en-douane" not in seats
+    assert "-/staatssecretaris/buitenlandse-handel" not in seats
+
+
+def test_the_holders_of_one_heading_at_the_same_time_hold_seats_of_their_own() -> None:
+    # Schoof: Szabó and Van Marum, both "Staatssecretaris van Binnenlandse Zaken en
+    # Koninkrijksrelaties", from the same day
+    seats = {
+        p["seat"]
+        for p in _cabinet("schoof")["posts"]
+        if p["person"] in ("fz szabo", "e van marum")
+    }
+    assert {
+        "bzk/staatssecretaris/digitalisering-en-koninkrijksrelaties",
+        "bzk/staatssecretaris/herstel-groningen",
+    } <= seats

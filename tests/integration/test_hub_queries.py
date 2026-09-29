@@ -371,7 +371,8 @@ def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(
 
     everything = get_committee_detail(store, "a", limit=2)
     assert everything is not None
-    assert everything["dossier_total"] == 5 and everything["open_dossier_count"] == 3
+    # the open ones are counted once, by ``semantic graph-list-stats`` (test_committees)
+    assert everything["dossier_total"] == 5
     assert [d["_key"] for d in everything["dossiers"]] == [
         "37004",
         "37003",
@@ -383,7 +384,7 @@ def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(
 
     closed = get_committee_detail(store, "a", status="closed")
     assert closed is not None
-    assert closed["dossier_total"] == 2 and closed["open_dossier_count"] == 3
+    assert closed["dossier_total"] == 2
     assert {d["_key"] for d in closed["dossiers"]} == {"37003", "37004"}
 
     opened = get_committee_detail(store, "a", status="open")

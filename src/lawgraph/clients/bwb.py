@@ -184,14 +184,35 @@ class BWBClient(BaseClient):
                 break
         return total
 
-    def enumerate_all_ids(
+    def enumerate_toestanden(
         self,
         *,
         types: tuple[str, ...] = BWB_INSTRUMENT_TYPES,
         max_records: int = 150_000,
-    ) -> list[str]:
-        """Every BWBR id of the SRU catalogue, in the order of ``enumerate_latest``."""
-        return list(self.enumerate_latest(types=types, max_records=max_records))
+    ) -> dict[str, list[ToestandMeta]]:
+        """Every toestand of every regulation, by BWBR id, one SRU query per ``dcterms.type``.
+
+        The SRU service at zoekservice.overheid.nl returns one record per *toestand*
+        (version), so a regulation has as many records as it has toestanden. Type values are
+        case-sensitive (``AMvB``, ``ministeriele-regeling``). A service error
+        (``<diagnostic>``) raises instead of silently yielding an empty listing.
+
+        ``max_records`` is a safety cap per type on *records* (not ids).
+        """
+        by_id: dict[str, list[ToestandMeta]] = {}
+        for doc_type in types:
+            logger.info("Enumerating BWB toestanden for type=%s", doc_type)
+            toestanden = self._toestanden_of_type(doc_type, max_records)
+            for meta in toestanden.values():
+                by_id.setdefault(meta["bwb_id"], []).append(meta)
+            logger.info(
+                "Enumerated %d unique BWB IDs so far (type=%s done, %d toestanden).",
+                len(by_id),
+                doc_type,
+                len(toestanden),
+            )
+        logger.info("BWB enumeration complete: %d unique IDs total.", len(by_id))
+        return by_id
 
     def enumerate_latest(
         self,
@@ -199,38 +220,19 @@ class BWBClient(BaseClient):
         types: tuple[str, ...] = BWB_INSTRUMENT_TYPES,
         max_records: int = 150_000,
     ) -> dict[str, ToestandMeta]:
-        """The current toestand of every regulation, one SRU query per ``dcterms.type``.
+        """The current toestand of every regulation, picked from ``enumerate_toestanden``.
 
-        The listing already holds every toestand of every regulation, so the current one
-        (``_newer``) is picked while it is read: asking the SRU for it again per regulation
-        (``latest_toestand``) is one request per regulation that tells nothing new.
-
-        The SRU service at zoekservice.overheid.nl returns one record per
-        *toestand* (version), so many pages repeat the same BWBR id; the result
-        is de-duplicated. Type values are case-sensitive (``AMvB``,
-        ``ministeriele-regeling``). A service error (``<diagnostic>``) raises
-        instead of silently yielding an empty list.
-
-        ``max_records`` is a safety cap per type on *records* (not ids).
+        The listing already holds every toestand of every regulation, so asking the SRU for
+        the current one per regulation (``latest_toestand``) is one request per regulation
+        that tells nothing new.
         """
-        latest: dict[str, ToestandMeta] = {}
-
-        for doc_type in types:
-            logger.info("Enumerating BWB IDs for type=%s", doc_type)
-            toestanden = self._toestanden_of_type(doc_type, max_records)
-            for meta in toestanden.values():
-                known = latest.get(meta["bwb_id"])
-                if known is None or _newer(meta, known):
-                    latest[meta["bwb_id"]] = meta
-            logger.info(
-                "Enumerated %d unique BWB IDs so far (type=%s done, %d toestanden).",
-                len(latest),
-                doc_type,
-                len(toestanden),
-            )
-
-        logger.info("BWB enumeration complete: %d unique IDs total.", len(latest))
-        return latest
+        today = dt.date.today()
+        return {
+            bwb_id: max(toestanden, key=lambda meta: _currency(meta, today))
+            for bwb_id, toestanden in self.enumerate_toestanden(
+                types=types, max_records=max_records
+            ).items()
+        }
 
     def search_toestanden(self, bwb_id: str) -> list[ToestandMeta]:
         """Search the BWB SRU endpoint for all available toestanden for a BWBR ID."""

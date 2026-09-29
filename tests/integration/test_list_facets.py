@@ -157,7 +157,13 @@ def test_the_decisions_are_filtered_and_counted_per_kind_outcome_and_day(
 
 
 def _judgment(
-    number: int, tier: str, court: str, date: str | None, subjects: list[str]
+    number: int,
+    tier: str,
+    court: str,
+    date: str | None,
+    subjects: list[str],
+    court_kind: str | None = None,
+    source: str = "rechtspraak",
 ) -> Node:
     ecli = f"ECLI:NL:{court}:2020:{number}"
     return Node(
@@ -168,8 +174,9 @@ def _judgment(
         props={
             "ecli": ecli,
             "display_name": ecli,
-            "source": "rechtspraak",
+            "source": source,
             "tier": tier,
+            "court_kind": court_kind or tier,
             "court_code": court,
             "date_eff": date,
             "subjects": subjects,
@@ -192,6 +199,22 @@ def _build_judgments(store: ArangoStore) -> None:
             ["Bestuursrecht; Belastingrecht", "Strafrecht"],
         ),
         _judgment(5, "gerechtshof", "GHAMS", None, ["Bestuursrecht"]),
+        _judgment(
+            6,
+            "andere_instantie",
+            "AGAMS",
+            "1990-03-01",
+            ["Bestuursrecht"],
+            court_kind="ambtenarengerecht",
+        ),
+        _judgment(
+            7,
+            "andere_instantie",
+            "RVBAMS",
+            "1990-04-01",
+            ["Bestuursrecht"],
+            court_kind="raad_van_beroep",
+        ),
     ]
     with NodeWriter(store) as writer:
         writer.add_all(nodes)
@@ -204,14 +227,16 @@ def test_the_judgments_carry_their_subjects_and_are_counted_per_tier_and_year(
     _build_judgments(store)
 
     everything = _get(store, "/api/judgments")
-    assert everything["total"] == 5
+    assert everything["total"] == 7
     assert everything["facets"]["tier"] == [
+        {"value": "andere_instantie", "count": 2},
         {"value": "hoge_raad", "count": 2},
         {"value": "rechtbank", "count": 2},
         {"value": "gerechtshof", "count": 1},
     ]
     assert everything["facets"]["year"] == [
         {"value": None, "count": 1},
+        {"value": "1990", "count": 2},
         {"value": "2023", "count": 1},
         {"value": "2024", "count": 3},
     ]
@@ -231,9 +256,57 @@ def test_the_judgments_carry_their_subjects_and_are_counted_per_tier_and_year(
     assert narrowed["total"] == 2
     assert _counts(narrowed["facets"]["tier"]) == {"rechtbank": 2}
     assert _counts(narrowed["facets"]["year"]) == {"2024": 2}
+    # the kinds of court within a tier; another tier drops the kind chosen
+    other = _get(
+        store, "/api/judgments", tier="andere_instantie", court_kind="raad_van_beroep"
+    )
+    assert [row["key"] for row in other["items"]] == ["j7"]
+    assert other["items"][0]["court_kind"] == "raad_van_beroep"
+    assert _counts(other["facets"]["court_kind"]) == {
+        "ambtenarengerecht": 1,
+        "raad_van_beroep": 1,
+    }
+    assert _counts(other["facets"]["tier"])["hoge_raad"] == 2
     in_2024 = _get(store, "/api/judgments", **{"from": "2024-01-01"})
     assert _counts(in_2024["facets"]["tier"]) == {"hoge_raad": 1, "rechtbank": 2}
-    assert _counts(in_2024["facets"]["year"]) == {None: 1, "2023": 1, "2024": 3}
+    assert _counts(in_2024["facets"]["year"]) == {
+        None: 1,
+        "1990": 2,
+        "2023": 1,
+        "2024": 3,
+    }
+
+
+def test_the_judgments_are_counted_per_source_without_the_source_filter(
+    database: str,
+) -> None:
+    store = ArangoStore()
+    _build_judgments(store)
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                _judgment(6, "ehrm", "ECHR", "2024-03-01", [], source="echr"),
+                _judgment(7, "ehrm", "ECHR", "2023-03-01", [], source="echr"),
+            ]
+        )
+
+    everything = _get(store, "/api/judgments")
+    assert everything["facets"]["source"] == [
+        {"value": "rechtspraak", "count": 5},
+        {"value": "echr", "count": 2},
+    ]
+    # one call gives the page of one source and the total of the other
+    dutch = _get(store, "/api/judgments", source="rechtspraak", limit=1)
+    assert dutch["total"] == 5 and len(dutch["items"]) == 1
+    assert _counts(dutch["facets"]["source"]) == {"rechtspraak": 5, "echr": 2}
+    assert _counts(dutch["facets"]["tier"]) == {
+        "hoge_raad": 2,
+        "rechtbank": 2,
+        "gerechtshof": 1,
+    }
+    # the facet keeps the other filters
+    in_2024 = _get(store, "/api/judgments", **{"from": "2024-01-01"})
+    assert _counts(in_2024["facets"]["source"]) == {"rechtspraak": 3, "echr": 1}
 
 
 def _plans(store: ArangoStore, filters: JudgmentFilters) -> dict[str, list[dict]]:
@@ -249,7 +322,7 @@ def _plans(store: ArangoStore, filters: JudgmentFilters) -> dict[str, list[dict]
     aql, bind_vars = captured[0]
     # each facet on its own: the same loop, returning its count
     plans: dict[str, list[dict]] = {}
-    for name in ("by_tier", "by_year"):
+    for name in ("by_tier", "by_court_kind", "by_source", "by_year"):
         body = aql.split(f"LET {name} = (", 1)[1].split("\n    )", 1)[0]
         used = {k: v for k, v in bind_vars.items() if f"@{k}" in body}
         plans[name] = store.db.aql.explain(body, bind_vars=used)["nodes"]
@@ -265,6 +338,8 @@ def test_the_judgment_facets_read_an_index_and_no_judgment(database: str) -> Non
     for filters in (
         JudgmentFilters(),
         JudgmentFilters(tier="rechtbank"),
+        JudgmentFilters(court_kind="ambtenarengerecht"),
+        JudgmentFilters(tier="andere_instantie", court_kind="ambtenarengerecht"),
         JudgmentFilters(date_from="2024-01-01", date_to="2024-12-31"),
         JudgmentFilters(court="RBAMS"),
         JudgmentFilters(court="RBAMS", tier="rechtbank", date_from="2024-01-01"),

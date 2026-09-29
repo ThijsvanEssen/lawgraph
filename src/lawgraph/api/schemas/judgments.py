@@ -22,11 +22,13 @@ DecisionKind = Literal[
     "vonnis",
     "beschikking",
     "uitspraak",
+    "beslissing",
     "conclusie",
     "prejudiciële beslissing",
 ]
 _DECISION_KIND = (
-    "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, "
+    "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` "
+    "(the kantonrechter on an appeal against a traffic fine), "
     "`conclusie` or `prejudiciële beslissing`. From the metadata and the kop where they "
     "tell, else from the court and the area of law; null when nothing does."
 )
@@ -163,6 +165,12 @@ class JudgmentParty(BaseModel):
         "`Gedaagde`, `Verzoeker`, `Verweerder`, `Appellant`, `Geïntimeerde`, "
         "`Belanghebbende`, `Opposant`, `Wederpartij`; `Partij` when none applies."
     )
+    roles: list[str] = Field(
+        default_factory=list,
+        description="Every role the judgment names for the party, in its order: "
+        "`Geïntimeerde` and `Appellant` for one that is geïntimeerde in principaal and "
+        "appellante in incidenteel hoger beroep. `[role]` when it names none.",
+    )
     role_stated: bool = Field(
         description="True when the judgment names the role (a role line, a role behind "
         "the name, an anonymised name that is a role: `[verdachte]`); false when it is "
@@ -174,7 +182,8 @@ class JudgmentParty(BaseModel):
     )
     alias: str | None = Field(
         default=None,
-        description='What the judgment calls the party: `EBN` for "hierna: EBN".',
+        description='What the judgment calls the party: `EBN` for "hierna: EBN", `KLM` '
+        'for "geïntimeerden worden hierna KLM respectievelijk VNV genoemd".',
     )
     representatives: list[JudgmentRepresentative] = Field(default_factory=list)
 
@@ -291,6 +300,18 @@ class JudgmentDetailResponse(BaseModel):
     metadata: dict[str, Any] | None
 
 
+_TIER = (
+    "The coarse tier: the Type of the court in the Instanties value list of the "
+    "Rechtspraak (`hoge_raad`, `gerechtshof`, `rechtbank`, `tuchtcollege`, "
+    "`andere_instantie`, `koninkrijksinstantie`, …), or `kroon`, `hvj_eu`, `ehrm`."
+)
+_COURT_KIND = (
+    "The kind of court within the tier, from its official name (`ambtenarengerecht`, "
+    "`raad_van_beroep`, `gerecht_in_eerste_aanleg`, …); a tier of one kind of court "
+    "is its own kind (`hoge_raad`)."
+)
+
+
 class JudgmentListItemDTO(BaseModel):
     """Row in the paginated /api/judgments list."""
 
@@ -302,7 +323,8 @@ class JudgmentListItemDTO(BaseModel):
     ecli: str | None
     display_name: str | None
     court: str | None
-    tier: str | None
+    tier: str | None = Field(default=None, description=_TIER)
+    court_kind: str | None = Field(default=None, description=_COURT_KIND)
     date: str | None
     summary: str | None
     names: list[str] = Field(default_factory=list, description=_NAMES)
@@ -331,6 +353,7 @@ class JudgmentListItemDTO(BaseModel):
             display_name=row.get("display_name") or ecli,
             court=row.get("court_code"),
             tier=row.get("tier"),
+            court_kind=row.get("court_kind"),
             date=row.get("date"),
             summary=row.get("summary"),
             names=row.get("names") or [],
@@ -359,7 +382,18 @@ class JudgmentFacets(BaseModel):
 
     tier: list[JudgmentFacetCount] = Field(
         default_factory=list,
-        description="Per tier, most first; counted without the `tier` filter.",
+        description="Per tier, most first; counted without the `tier` and "
+        "`court_kind` filters.",
+    )
+    court_kind: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per kind of court, most first; counted without the `court_kind` "
+        "filter (within a chosen `tier`).",
+    )
+    source: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per source (`rechtspraak`, `echr`), most first; counted without "
+        "the `source` filter.",
     )
     year: list[JudgmentFacetCount] = Field(
         default_factory=list,

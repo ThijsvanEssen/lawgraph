@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AUTHORED,
+    RELATION_MEMBER_OF,
     RELATION_PART_OF,
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
@@ -163,8 +164,8 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                             id: doc._id,
                             kind: doc.props.kind,
                             date: doc.props.date,
-                            title: (doc.props.title != null ? doc.props.title
-                                    : doc.props.display_name)
+                            title: NOT_NULL(doc.props.dossier_title, doc.props.title,
+                                            doc.props.display_name)
                         }"""
     aql = f"""
         FOR dossier_id IN @dossier_ids
@@ -287,6 +288,31 @@ def government_signatures(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
+def government_signatures_by_month(store: Store) -> Iterator[dict[str, Any]]:
+    """The signatures as a minister or state secretary of every Tweede Kamer person:
+    ``{key, function, first, last}`` per person, function and month."""
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == @authored AND e.meta.capacity == @government
+        LET m = DOCUMENT(e._from)
+        FILTER @tk IN m.labels
+        LET d = DOCUMENT(e._to)
+        FILTER d.props.date != null
+        COLLECT key = m._key, function = e.meta.function,
+                month = SUBSTRING(d.props.date, 0, 7)
+            AGGREGATE first = MIN(d.props.date), last = MAX(d.props.date)
+        RETURN {{key, function, first, last}}
+    """
+    return store.query(
+        aql,
+        {
+            "authored": RELATION_AUTHORED,
+            "government": CAPACITY_GOVERNMENT,
+            "tk": CHAMBER_TK,
+        },
+    )
+
+
 def labelled_members(store: Store, label: str) -> Iterator[str]:
     """The keys of the members with *label* (``Rijksoverheid``: a bewindspersoon only
     Rijksoverheid knows)."""
@@ -318,6 +344,78 @@ def remove_nodes_except(store: Store, collection: str, keep: list[str]) -> int:
         RETURN 1
     """
     return sum(store.query(aql, {"keep": keep}))
+
+
+# Keys removed in one query.
+_REMOVE_CHUNK = 5000
+
+
+def remove_nodes(store: Store, collection: str, keys: list[str]) -> int:
+    """Remove the nodes *keys* of *collection* with every edge at them; how many nodes went.
+    A key without a node is passed over."""
+    removed = 0
+    for start in range(0, len(keys), _REMOVE_CHUNK):
+        chunk = keys[start : start + _REMOVE_CHUNK]
+        edges = f"""
+        FOR key IN @keys
+            LET id = CONCAT(@collection, "/", key)
+            FOR e IN UNION_DISTINCT(
+                (FOR out IN {COLLECTION_EDGES} FILTER out._from == id RETURN out._key),
+                (FOR inn IN {COLLECTION_EDGES} FILTER inn._to == id RETURN inn._key)
+            )
+                REMOVE e IN {COLLECTION_EDGES} OPTIONS {{ ignoreErrors: true }}
+        """
+        list(store.query(edges, {"keys": chunk, "collection": collection}))
+        nodes = f"""
+        FOR n IN {collection}
+            FILTER n._key IN @keys
+            REMOVE n IN {collection}
+            RETURN 1
+        """
+        removed += sum(store.query(nodes, {"keys": chunk}))
+    return removed
+
+
+def remove_nodes_of_records(
+    store: Store, collection: str, record_ids: list[str]
+) -> int:
+    """Remove the nodes of *collection* made of the TK records *record_ids* alone (every id
+    in ``props.external_ids``, else ``props.external_id``, is one of them), with every edge
+    at them; how many nodes went. For a record the Kamer deleted: a node keyed by a label
+    (a dossier number, a faction abbreviation) cannot be found by the record's id."""
+    if not record_ids:
+        return 0
+    aql = f"""
+    FOR n IN {collection}
+        FILTER n.props.external_id IN @ids
+            OR LENGTH(INTERSECTION(n.props.external_ids || [], @ids)) > 0
+        FILTER LENGTH(MINUS(n.props.external_ids || [n.props.external_id], @ids)) == 0
+        RETURN n._key
+    """
+    keys = list(store.query(aql, {"ids": record_ids}))
+    return remove_nodes(store, collection, keys)
+
+
+def remove_seat_edges_except(store: Store, source: str, keep: list[str]) -> int:
+    """Remove the MEMBER_OF edges of *source* from a member to a faction whose key is not in
+    *keep*; how many went. For the seats one run derives in full: a seat the Kamer deleted
+    names neither its member nor its faction."""
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == @relation AND e.source == @source
+        FILTER STARTS_WITH(e._from, @members) AND STARTS_WITH(e._to, @factions)
+        FILTER e._key NOT IN @keep
+        REMOVE e IN {COLLECTION_EDGES}
+        RETURN 1
+    """
+    bind = {
+        "relation": RELATION_MEMBER_OF,
+        "source": source,
+        "members": f"{COLLECTION_MEMBERS}/",
+        "factions": f"{COLLECTION_FACTIONS}/",
+        "keep": keep,
+    }
+    return sum(store.query(aql, bind))
 
 
 def remove_members(store: Store, keys: list[str]) -> int:

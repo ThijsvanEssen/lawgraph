@@ -12,6 +12,8 @@ from lawgraph.core.logging import get_logger
 logger = get_logger(__name__)
 
 OWMS_TERMS = "http://standaarden.overheid.nl/owms/terms/"
+# Every court an ECLI can name: code, official name, Type and days (``core.court_sources``).
+INSTANTIES_LIST = "Waardelijst/Instanties"
 INDEX_PAGE_SIZE = 1000
 
 
@@ -29,6 +31,15 @@ class RechtspraakClient(BaseClient):
             base_url=RECHTSPRAAK_BASE_URL,
             session=session,
         )
+
+    def instanties(self) -> tuple[str, str]:
+        """``(url, xml)`` of the Instanties value list. Raises when it lists no court."""
+        xml = self._get_text(INSTANTIES_LIST)
+        if "<Instantie>" not in xml:
+            raise RuntimeError(
+                f"{INSTANTIES_LIST} lists no court: the list has changed."
+            )
+        return self._build_url(INSTANTIES_LIST), xml
 
     def iter_index(
         self,
