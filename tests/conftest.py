@@ -42,14 +42,20 @@ def patch_route_stores(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def remove_edges_from(edges: dict[str, dict], bind: dict) -> Iterator[int]:
-    """What ``semantic_queries.remove_edges_from`` does, on *edges* (key -> edge)."""
+    """What ``semantic_queries.remove_edges_from`` does, on *edges* (key -> edge); with
+    ``relations`` bound, what ``remove_edges_to`` does."""
+    end, relations = (
+        ("_to", bind["relations"])
+        if "relations" in bind
+        else ("_from", [bind["relation"]])
+    )
     gone = [
         key
         for key, edge in edges.items()
-        if edge["_from"] in bind["ids"]
-        and edge.get("relation") == bind["relation"]
+        if edge[end] in bind["ids"]
+        and edge.get("relation") in relations
         and edge.get("source") == bind["source"]
-        and key not in bind["keep"].get(edge["_from"], [])
+        and key not in bind["keep"].get(edge[end], [])
     ]
     for key in gone:
         del edges[key]

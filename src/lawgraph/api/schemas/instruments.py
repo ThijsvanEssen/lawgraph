@@ -3,7 +3,7 @@ versions."""
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,7 +16,6 @@ from lawgraph.api.schemas.common import (
     address_of,
 )
 from lawgraph.config.constants import (
-    EDGE_SOURCE_BWB_IMPLEMENTS,
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
 )
@@ -630,18 +629,20 @@ class LinkedInstrumentDTO(BaseModel):
         )
 
 
-# What an IMPLEMENTS edge rests on, by the pipeline that wrote it.
-IMPLEMENTS_BASES: dict[str, Literal["celex_named_in_text"]] = {
-    EDGE_SOURCE_BWB_IMPLEMENTS: "celex_named_in_text"
-}
+# What an IMPLEMENTS edge rests on (`meta.bases`).
+ImplementsBasis = Literal["national_implementing_measure", "considerans"]
+IMPLEMENTS_BASES: tuple[ImplementsBasis, ...] = get_args(ImplementsBasis)
 
 
 class EuLinkDTO(BaseModel):
-    """An `IMPLEMENTS` edge between a national regulation and an EU act.
+    """An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.
 
-    The edge means that the text of the regulation names the CELEX number of the EU act
-    (`basis`). It does not say that the regulation transposes the act, nor which articles
-    do: it links instruments, not articles, and its `confidence` is that of a text match.
+    `IMPLEMENTS` rests on an implementation source (`bases`): EUR-Lex lists the publication
+    as a national implementing measure of the act, or it enacted or changed the regulation
+    (`national_implementing_measure`, `meta.publications`), or the considerans of the
+    regulation says it implements the act (`considerans`). It links instruments: no source
+    names the article that implements. `REFERS_TO`: the text of the regulation names the
+    CELEX number of an act it does not implement.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -655,31 +656,33 @@ class EuLinkDTO(BaseModel):
     )
     relation: str = RELATION_IMPLEMENTS
     confidence: float | None = None
-    basis: Literal["celex_named_in_text"] | None = Field(
-        None,
+    bases: list[ImplementsBasis] = Field(
+        default_factory=list,
         description=(
-            "What the edge rests on: `celex_named_in_text`, the text of the regulation "
-            "names the CELEX number of the act. Not a transposition signal."
+            "What an `IMPLEMENTS` edge rests on: `national_implementing_measure` (EUR-Lex) "
+            "and/or `considerans`; empty for `REFERS_TO`."
         ),
     )
     source: str | None = Field(
-        None,
-        description="The pipeline that wrote the edge (`bwb-implements-directive`).",
+        None, description="The pipeline that wrote the edge (`bwb-implements`)."
     )
     meta: dict[str, Any] = Field(
-        default_factory=dict, description="Edge evidence as stored (`celex`)."
+        default_factory=dict,
+        description="Edge evidence as stored (`celex`, `bases`, `publications`).",
     )
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> EuLinkDTO:
         """Build from an ``{instrument, edge}`` query row."""
         edge = row.get("edge") or {}
+        meta = edge.get("meta") or {}
         return cls(
             instrument=LinkedInstrumentDTO.from_document(row["instrument"]),
+            relation=edge.get("relation") or RELATION_IMPLEMENTS,
             confidence=edge.get("confidence"),
-            basis=IMPLEMENTS_BASES.get(edge.get("source") or ""),
+            bases=[b for b in meta.get("bases") or [] if b in IMPLEMENTS_BASES],
             source=edge.get("source"),
-            meta=edge.get("meta") or {},
+            meta=meta,
         )
 
 
@@ -723,18 +726,34 @@ class InstrumentEuLinksResponse(BaseModel):
 
     instrument: LinkedInstrumentDTO
     implements: list[EuLinkDTO] = Field(
-        default_factory=list,
-        description="EU acts whose CELEX number the text of this instrument names.",
+        default_factory=list, description="EU acts this instrument implements."
     )
     implements_total: int = Field(
         ..., description="Absolute number of `implements`, independent of `limit`."
     )
     implemented_by: list[EuLinkDTO] = Field(
         default_factory=list,
-        description="National regulations whose text names the CELEX number of this act.",
+        description="National publications and regulations that implement this act.",
     )
     implemented_by_total: int = Field(
         ..., description="Absolute number of `implemented_by`, independent of `limit`."
+    )
+    mentions: list[EuLinkDTO] = Field(
+        default_factory=list,
+        description=(
+            "EU acts whose CELEX number the text of this regulation names and that it "
+            "does not implement (`REFERS_TO`)."
+        ),
+    )
+    mentions_total: int = Field(
+        ..., description="Absolute number of `mentions`, independent of `limit`."
+    )
+    mentioned_by: list[EuLinkDTO] = Field(
+        default_factory=list,
+        description="Regulations that name this act and do not implement it.",
+    )
+    mentioned_by_total: int = Field(
+        ..., description="Absolute number of `mentioned_by`, independent of `limit`."
     )
     international: list[InternationalLinkDTO] = Field(
         default_factory=list,

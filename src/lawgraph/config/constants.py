@@ -167,8 +167,11 @@ CHAMBER_EK = "EK"
 # contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.
 EXPLANATORY_KIND_MARKER = "toelichting"
 
-# The edge `source` of IMPLEMENTS: the regulation's text names the EU act's CELEX number.
-EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements-directive"
+# The edge `source` of IMPLEMENTS (and of the REFERS_TO from a regulation to an EU act its
+# text names without implementing it), with the basis of an IMPLEMENTS edge in its `meta`.
+EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements"
+IMPLEMENTS_BASIS_NIM = "national_implementing_measure"
+IMPLEMENTS_BASIS_CONSIDERANS = "considerans"
 
 # International instruments the graph has a name for: BWB treaties carry a BWBV id, the
 # Convention of the ECHR a pseudo id of its own (its articles carry it as `props.bwb_id`).
@@ -193,6 +196,8 @@ RAW_KIND_RS_CONTENT = "rs-content"
 # The Instanties value list of the Rechtspraak (external id: Instanties).
 RAW_KIND_RS_INSTANTIES = "rs-instanties-xml"
 RAW_KIND_EU_CELEX = "eu-celex-html"
+# A national implementing measure of the Netherlands in CELLAR (external id: its document id).
+RAW_KIND_EU_NIM = "eu-nim-json"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
 RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
 # The ``<algemene-informatie>`` element of a WTI file (official abbreviations), not the file.
@@ -228,7 +233,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_KAMERSTUK_XML,
     ),
     SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT, RAW_KIND_RS_INSTANTIES),
-    SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),
+    SOURCE_EURLEX: (RAW_KIND_EU_CELEX, RAW_KIND_EU_NIM),
     SOURCE_BWB: (
         RAW_KIND_BWB_TOESTAND,
         RAW_KIND_BWB_TOESTAND_ALL,

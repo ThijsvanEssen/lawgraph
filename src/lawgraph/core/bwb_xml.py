@@ -28,6 +28,7 @@ from typing import Any
 
 from lawgraph.config.constants import SOURCE_BWB
 from lawgraph.core.annex_xml import AnnexXml, parse_annexes
+from lawgraph.core.eu_citations import implemented_acts
 from lawgraph.core.identifiers import (
     find_celex_ids,
     has_possible_year,
@@ -38,21 +39,25 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
 from lawgraph.core.xml import find_descendant, iter_named, local_name, text_of
 
-# ``effect`` values on an article version, mapped to what the version did.
+# ``effect`` values on an article version, mapped to what the version did. A
+# ``tekstplaatsing`` places the text of the article again (the Grondwet as a whole after a
+# revision, Stb. 2019, 33): a republication, which changes no text of its own.
 EFFECT_INTRODUCES = "introduces"
 EFFECT_AMENDS = "amends"
 EFFECT_REPEALS = "repeals"
+EFFECT_REPUBLISHES = "republishes"
 _EFFECT_KIND = {
     "nieuw": EFFECT_INTRODUCES,
     "wijziging": EFFECT_AMENDS,
-    "tekstplaatsing-wijziging": EFFECT_AMENDS,
-    "tekstplaatsing-vernummering": EFFECT_AMENDS,
+    "tekstplaatsing-wijziging": EFFECT_REPUBLISHES,
+    "tekstplaatsing-vernummering": EFFECT_REPUBLISHES,
     "vervallen": EFFECT_REPEALS,
 }
 
 
 def effect_kind(effect: str | None) -> str | None:
-    """``introduces`` / ``amends`` / ``repeals`` for a BWB ``effect``, else None."""
+    """``introduces`` / ``amends`` / ``repeals`` / ``republishes`` for a BWB ``effect``,
+    else None."""
     return _EFFECT_KIND.get(effect or "")
 
 
@@ -302,6 +307,8 @@ class ToestandXml:
     enacted: Publication | None = None
     enacted_in_force: str | None = None
     basis: tuple[BasisRef, ...] = ()
+    # the EU acts its considerans says it implements (CELEX numbers), see ``implemented_acts``
+    implements: tuple[str, ...] = ()
     articles: tuple[ArticleXml, ...] = field(default_factory=tuple)
     annexes: tuple[AnnexXml, ...] = ()
 
@@ -846,6 +853,17 @@ def _basis(root: ET.Element) -> tuple[BasisRef, ...]:
     return tuple(found.values())
 
 
+def _implemented(root: ET.Element) -> tuple[str, ...]:
+    """The EU acts the clauses of the ``considerans`` say the regulation implements."""
+    clauses = [
+        " ".join(_flatten(para).text.split())
+        for considerans in iter_named(root, "considerans")
+        for para in considerans.iter()
+        if local_name(para.tag) == "considerans.al"
+    ]
+    return tuple(implemented_acts(clauses))
+
+
 # ── entry point ──────────────────────────────────────────────────────────────
 
 
@@ -873,6 +891,7 @@ def parse_toestand(xml_text: str) -> ToestandXml:
         enacted=enacted,
         enacted_in_force=enacted_in_force,
         basis=_basis(root),
+        implements=_implemented(root),
         articles=articles,
         annexes=parse_annexes(root),
     )
@@ -913,9 +932,12 @@ def instrument_props(
 ) -> dict[str, Any]:
     """Props of the Instrument node for a regulation.
 
-    ``basis`` and ``celex_refs`` are what the semantic steps link from (BASED_ON,
-    IMPLEMENTS): kept here, where the toestand is parsed anyway, so they do not read and
-    parse every toestand again. Both are always written: an empty list replaces a stale one.
+    ``basis``, ``celex_refs`` (the EU acts the text names) and ``implements_celex`` (those
+    its considerans says it implements) are what the semantic steps link from (BASED_ON,
+    IMPLEMENTS, REFERS_TO): kept here, where the toestand is parsed anyway, so they do not
+    read and parse every toestand again. They are always written: an empty list replaces a
+    stale one. ``enacted_publication`` is the id of the publication that enacted it
+    (``stb-2018-144``).
 
     ``date_signed``, ``date_published``, ``date_in_force`` and ``dossier_numbers`` are those
     of the regulation as it was enacted (``ToestandXml.enacted``), always written (null or
@@ -931,6 +953,7 @@ def instrument_props(
                 for r in toestand.basis
             ],
             "celex_refs": sorted(set(celex_refs)),
+            "implements_celex": sorted(toestand.implements),
             "source": SOURCE_BWB,
             "bwb_id": bwb_id,
             "title": title,
@@ -948,6 +971,7 @@ def instrument_props(
         "date_published": enacted.published if enacted else None,
         "date_in_force": toestand.enacted_in_force,
         "dossier_numbers": list(enacted.dossiers) if enacted else [],
+        "enacted_publication": (enacted.identifier or None) if enacted else None,
     }
 
 

@@ -72,6 +72,7 @@ FOR v IN {COLLECTION_ARTICLE_VERSIONS}
         current: v.props.current,
         last_seen: v.props.last_seen,
         effect: v.props.effect,
+        digest: v.props.content_digest,
         text_start: SUBSTRING(v.props.text, 0, 60),
         title: v.props.instrument_citation_title
     }}
