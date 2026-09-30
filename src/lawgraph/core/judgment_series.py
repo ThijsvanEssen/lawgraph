@@ -23,7 +23,7 @@ SAMPLE_RATE = 8
 
 # Pair thresholds (text Jaccard of the sampled shingles).
 TEXT_JACCARD = 0.85
-LONG_TEXT_JACCARD = 0.7
+LONG_TEXT_JACCARD = 0.5
 LONG_TEXT_WORDS = 600
 # The same summary lowers the bar, when it is not a template.
 SUMMARY_JACCARD = 0.97
