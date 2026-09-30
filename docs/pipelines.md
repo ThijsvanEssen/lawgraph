@@ -263,8 +263,9 @@ aannemen` for a hamerstuk, `Stemmen - uitstellen`, …), with its `BesluitTekst`
 names the bill (`ek_rejected`), with the vote `Verworpen` of that day as its vote (else the list
 as its source); otherwise `Aangenomen` by its latest vote `Aangenomen`; none when neither (a
 bill with only a motion voted down). `{outcome, date, method, source_url, retrieved_on}`, as the
-Kamer writes them. The vote chosen gets `bill_decision: true`, the other votes of the Eerste
-Kamer about the dossier `false`.
+Kamer writes them. The vote chosen gets `bill_decision: true` and `kind`, the kind of the
+dossier (the list of the Eerste Kamer names none); the other votes of the Eerste Kamer about
+the dossier `bill_decision: false` and no `kind`.
 
 It walks every dossier on every run, since a law published today closes a dossier whose own
 record did not change, and writes only the dossiers whose answer changed. It runs after

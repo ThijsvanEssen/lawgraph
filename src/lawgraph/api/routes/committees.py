@@ -16,6 +16,7 @@ GET /api/factions/{key}/touched-instruments  — the laws a party changes most
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -28,6 +29,9 @@ from lawgraph.api.schemas.committees import (
     CommitteeActivityDTO,
     CommitteeDetailDTO,
     CommitteeDTO,
+    EkFactionVoteDTO,
+    EkFactionVotesResponse,
+    EkSourceDTO,
     FactionDetailDTO,
     FactionDTO,
     MemberDetailDTO,
@@ -38,7 +42,9 @@ from lawgraph.api.schemas.committees import (
     TouchedInstrumentsResponse,
 )
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
+from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
 from lawgraph.core.cache import _MISSING, TTLCache
+from lawgraph.core.eerstekamer_votes import VOTES_PATH
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.committees import (
     get_actor_dossiers,
@@ -46,6 +52,7 @@ from lawgraph.db.queries.committees import (
     get_committee_activities,
     get_committee_detail,
     get_committees,
+    get_ek_faction_votes,
     get_ek_members,
     get_factions,
     get_member_votes,
@@ -200,7 +207,7 @@ def list_members(
         ek = get_ek_members(
             store, party=party, active=active, q=q, limit=limit, offset=offset
         )
-        return [MemberDTO.from_document(d) for d in ek]
+        return [_as_ek_member(MemberDTO.from_document(d)) for d in ek]
     docs = get_members(
         store,
         party=party,
@@ -386,6 +393,62 @@ def list_faction_dossiers(
 
 
 @factions_router.get(
+    "/{key}/votes",
+    response_model=EkFactionVotesResponse,
+    summary="How a faction of the Eerste Kamer voted",
+    description=(
+        "The votes of the Eerste Kamer that name this faction (its list of votes on "
+        "bills, since June 2015), newest first, with the faction's choice as the list "
+        "names it (``voor``, ``tegen``, ``aantekening gevraagd``) and the counts per "
+        "choice. ``bill_decision`` tells the vote on the bill from one on a motion on it. "
+        "Only a faction of the Eerste Kamer (``chamber`` ``EK``): the Tweede Kamer's "
+        "votes per faction are ``/api/decisions?party=``."
+    ),
+    tags=["factions"],
+)
+def list_faction_votes(
+    key: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    date_from: Annotated[
+        dt.date | None, Query(alias="from", description="On or after, YYYY-MM-DD.")
+    ] = None,
+    date_to: Annotated[
+        dt.date | None, Query(alias="to", description="On or before, YYYY-MM-DD.")
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> EkFactionVotesResponse:
+    node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
+    if node.props.get("chamber") != "EK":
+        raise HTTPException(
+            status_code=422,
+            detail="Only a faction of the Eerste Kamer; for the Tweede Kamer use "
+            "/api/decisions?party=.",
+        )
+    raw = get_ek_faction_votes(
+        store,
+        node.props.get("abbreviation") or "",
+        date_from=date_from.isoformat() if date_from else None,
+        date_to=date_to.isoformat() if date_to else None,
+        limit=limit,
+        offset=offset,
+    )
+    return EkFactionVotesResponse(
+        faction_key=key,
+        total=int(raw.get("total") or 0),
+        counts=raw.get("counts") or {},
+        items=[EkFactionVoteDTO(**item) for item in raw.get("items") or []],
+        source=EkSourceDTO(
+            url=EERSTEKAMER_SITE.rstrip("/") + VOTES_PATH,
+            retrieved_on=None,  # each vote has its own day of reading
+            composition_date=None,
+            data_since=None,
+            attribution=EK_ATTRIBUTION,
+        ),
+    )
+
+
+@factions_router.get(
     "/{key}/touched-instruments",
     response_model=TouchedInstrumentsResponse,
     summary="The laws this faction changes most",
@@ -402,6 +465,19 @@ def list_faction_touched_instruments(
 ) -> TouchedInstrumentsResponse:
     node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
     return _touched_instruments(store, node.arango_id or "", limit)
+
+
+def _as_ek_member(member: MemberDTO) -> MemberDTO:
+    """A member in the list of the Eerste Kamer: ``party`` the abbreviation of its faction
+    there, ``active`` whether the last snapshot shows it."""
+    if member.ek is None:
+        return member
+    return member.model_copy(
+        update={
+            "party": member.ek.abbreviation,
+            "active": member.ek.observed_until is None,
+        }
+    )
 
 
 def _node_or_404(store: ArangoStore, collection: str, key: str, label: str) -> Any:

@@ -8,6 +8,7 @@ from typing import Any, cast
 from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_COMMITTEES,
+    COLLECTION_DECISIONS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
@@ -608,3 +609,63 @@ def get_actor_dossiers(
         bind["member_of"] = RELATION_MEMBER_OF
     rows = list(store.query(aql, bind))
     return cast(dict[str, Any], rows[0]) if rows else {"total": 0, "items": []}
+
+
+def get_ek_faction_votes(
+    store: ArangoStore,
+    abbreviation: str,
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """How a faction of the Eerste Kamer voted, by its name as the list of votes writes it
+    (*abbreviation*): ``{total, counts, items}``, newest first. ``counts`` per choice
+    (``voor``, ``tegen``, ``aantekening gevraagd``) over every vote that names it."""
+    aql = f"""
+    LET voted = (
+        FOR d IN {COLLECTION_DECISIONS}
+            FILTER d.props.chamber == @ek
+            FILTER @from == null OR d.props.date >= @from
+            FILTER @to == null OR d.props.date <= @to
+            LET choice = @name IN (d.props.factions_for OR []) ? "voor"
+                : @name IN (d.props.factions_against OR []) ? "tegen"
+                : @name IN (d.props.factions_noted OR []) ? "aantekening gevraagd"
+                : null
+            FILTER choice != null
+            RETURN {{ d, choice }}
+    )
+    LET counts = MERGE(
+        FOR v IN voted
+            COLLECT choice = v.choice WITH COUNT INTO n
+            RETURN {{ [choice]: n }}
+    )
+    LET items = (
+        FOR v IN voted
+            SORT v.d.props.date DESC, v.d._key
+            LIMIT @offset, @limit
+            RETURN {{
+                decision_id: v.d._id,
+                decision_key: v.d._key,
+                date: v.d.props.date,
+                subject: v.d.props.subject,
+                dossier_numbers: v.d.props.dossier_numbers OR [],
+                result: v.d.props.result,
+                method: v.d.props.method,
+                bill_decision: v.d.props.bill_decision,
+                choice: v.choice
+            }}
+    )
+    RETURN {{ total: LENGTH(voted), counts, items }}
+    """
+    bind = {
+        "ek": CHAMBER_EK,
+        "name": abbreviation,
+        "from": date_from,
+        "to": date_to,
+        "limit": limit,
+        "offset": offset,
+    }
+    row = next(iter(store.query(aql, bind)), None)
+    return row or {"total": 0, "counts": {}, "items": []}
