@@ -21,9 +21,10 @@ Post = StrEnum("Post", {post: post for post in POSTS})  # type: ignore[misc]
 
 
 def parse_choices(
-    value: str | None, allowed: Collection[str], name: str
+    value: str | None, allowed: Collection[str] | None, name: str
 ) -> tuple[str, ...] | None:
-    """A comma-separated parameter as a tuple, None when absent; 422 for a value not allowed."""
+    """A comma-separated parameter as a tuple, None when absent; 422 for a value not
+    *allowed* (None: any value, a value of the source that is not listed)."""
     if value is None:
         return None
     chosen = tuple(
@@ -31,13 +32,13 @@ def parse_choices(
     )
     if not chosen:
         return None
-    unknown = [part for part in chosen if part not in allowed]
+    unknown = [part for part in chosen if allowed is not None and part not in allowed]
     if unknown:
         raise HTTPException(
             status_code=422,
             detail=(
                 f"unknown {name}: {', '.join(unknown)}; "
-                f"allowed: {', '.join(sorted(allowed))}"
+                f"allowed: {', '.join(sorted(allowed or ()))}"
             ),
         )
     return chosen

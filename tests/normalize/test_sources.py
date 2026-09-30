@@ -283,7 +283,7 @@ def test_one_node_per_record_pipelines_stream_and_keep_nothing():
     for cls, large_payloads in (
         (StaatsbladNormalizePipeline, True),
         (StaatscourantNormalizePipeline, True),
-        (ECHRNormalizePipeline, False),
+        (ECHRNormalizePipeline, True),
         (EerstekamerNormalizePipeline, False),
         (VerdragenbankNormalizePipeline, False),
     ):

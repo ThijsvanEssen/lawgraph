@@ -19,7 +19,6 @@ COLLECTION_COMMITTEES = "committees"
 COLLECTION_MEMBERS = "members"
 COLLECTION_FACTIONS = "factions"
 COLLECTION_CABINETS = "cabinets"
-COLLECTION_TOPICS = "topics"
 COLLECTION_RAW_SOURCES = "raw_sources"
 COLLECTION_ANNEXES = "annexes"
 COLLECTION_PIPELINE_STATE = "pipeline_state"  # until when each phase is complete
@@ -33,7 +32,6 @@ DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
     COLLECTION_JUDGMENTS,
-    COLLECTION_TOPICS,
     COLLECTION_RAW_SOURCES,
     COLLECTION_DOSSIERS,
     COLLECTION_ACTIVITIES,
@@ -182,6 +180,8 @@ RAW_KIND_TK_ZAAK = "tk-zaak"
 RAW_KIND_TK_DOSSIER = "tk-dossier"
 RAW_KIND_TK_ACTIVITEIT = "tk-activiteit"
 RAW_KIND_TK_STEMMING = "tk-stemming"
+# A Besluit "Stemmen - ..." on the zaak of a bill, also one without votes (a hamerstuk).
+RAW_KIND_TK_BESLUIT = "tk-besluit"
 RAW_KIND_TK_TOEZEGGING = "tk-toezegging"
 RAW_KIND_TK_COMMISSIE = "tk-commissie"
 RAW_KIND_TK_PERSOON = "tk-persoon"
@@ -203,6 +203,8 @@ RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
 # How many publications of each ministry name a cabinet post (external id: the query).
 RAW_KIND_STCRT_POST_CREATORS = "stcrt-post-creators-json"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
+# The ``word/document.xml`` of the DOCX HUDOC serves of a judgment (external id: its item id).
+RAW_KIND_ECHR_TEXT = "echr-judgment-docx-xml"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_VERDRAG = "verdrag-json"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
@@ -220,6 +222,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_DOSSIER,
         RAW_KIND_TK_ACTIVITEIT,
         RAW_KIND_TK_STEMMING,
+        RAW_KIND_TK_BESLUIT,
         RAW_KIND_TK_TOEZEGGING,
         RAW_KIND_TK_COMMISSIE,
         RAW_KIND_TK_PERSOON,
@@ -237,7 +240,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     ),
     SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
     SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING, RAW_KIND_STCRT_POST_CREATORS),
-    SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
+    SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT, RAW_KIND_ECHR_TEXT),
     SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),

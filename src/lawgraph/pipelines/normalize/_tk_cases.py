@@ -31,6 +31,7 @@ from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store
 from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.pipelines.normalize._tk_deleted import Deleted
 
 logger = get_logger(__name__)
 
@@ -259,12 +260,11 @@ def _write_nodes(
     node an earlier run wrote of it is removed, with its edges.
     """
     nodes: dict[str, Node] = {}
-    deleted: list[str] = []
+    deleted = Deleted(collection)
     with NodeWriter(store) as writer:
         for raw in raw_records:
             payload = payload_json(raw)
-            if tk_records.is_deleted(payload) and payload.get("Id"):
-                deleted.append(make_node_key(str(payload["Id"])))
+            if deleted(payload):
                 continue
             parsed = read(payload)
             if parsed is None:
@@ -279,8 +279,8 @@ def _write_nodes(
             )
             writer.add(node)
             nodes[props["external_id"]] = link_node(node)
-    if deleted:
-        removed = normalize_queries.remove_nodes(store, collection, deleted)
+    removed = deleted.remove(store)
+    if removed:
         logger.info("Removed %d %s the Kamer deleted.", removed, collection)
     return nodes
 
