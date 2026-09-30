@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.core.documents import chamber_of
+
 _KIND = (
     "What was decided on: the ``Zaak.Soort`` of the case it decided (``primary_case_kind``), "
     "or the one Soort of the cases on its agenda item, as the Kamer writes it: ``Motie``, "
@@ -73,7 +75,11 @@ class DecisionDTO(BaseModel):
         description="The ``Zaak.Soort`` of the case it decided: ``Wetgeving`` on the vote on "
         "a bill itself, ``Amendement`` or ``Motie`` on the others.",
     )
-    chamber: str | None = None
+    dossier_numbers: list[str] = Field(
+        default_factory=list,
+        description="The dossiers of the cases it decided (``36774``, ``37020-XV``).",
+    )
+    chamber: str | None = Field(None, description="'TK' or 'EK'.")
     result: str | None = Field(None, description=_RESULT)
     method: str | None = Field(None, description=_METHOD)
     bill_decision: bool | None = Field(None, description=_BILL_DECISION)
@@ -108,7 +114,8 @@ class DecisionDTO(BaseModel):
             kind=props.get("kind"),
             decision_kind=props.get("decision_kind"),
             primary_case_kind=props.get("primary_case_kind"),
-            chamber=props.get("chamber"),
+            dossier_numbers=props.get("dossier_numbers") or [],
+            chamber=props.get("chamber") or chamber_of(doc.get("labels")),
             result=props.get("result"),
             method=props.get("method"),
             bill_decision=props.get("bill_decision"),

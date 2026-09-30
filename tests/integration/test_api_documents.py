@@ -425,6 +425,8 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "kind": "Memorie van toelichting",
         "title": "Memorie van toelichting mvt",
         "sequence": 3,
+        # the dossier its sequence is a number of: this seed stores none
+        "dossier_number": None,
         "session_year": "2024-2025",
         # made from the document number, never stored
         "tk_url": "https://www.tweedekamer.nl/kamerstukken/detail"

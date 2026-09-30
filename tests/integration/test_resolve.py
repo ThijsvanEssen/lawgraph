@@ -105,6 +105,7 @@ def store(database: str) -> ArangoStore:
         sequence=3,
         kind="Voorstel van wet",
         dossier_numbers=["36327"],
+        dossier_number="36327",
         display_name="Kamerstuk 36327, nr. 3",
     )
     _put(

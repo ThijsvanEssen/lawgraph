@@ -10,6 +10,7 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
@@ -18,7 +19,6 @@ from lawgraph.config.constants import (
     COLLECTION_RAW_SOURCES,
     RAW_KIND_EU_CELEX,
     RELATION_ANSWERS,
-    RELATION_PART_OF,
     SOURCE_BWB,
     SOURCE_EURLEX,
 )
@@ -176,34 +176,25 @@ def stub_treaty_ids(store: Store) -> Iterator[Any]:
 
 
 def papers_with_dossier(store: Store, kinds: list[str]) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer papers whose kind contains one of *kinds* (lower case), with a
-    sequence number and a dossier that has a number: ``{key, title, number, suffix,
+    """The Tweede Kamer papers whose kind contains one of *kinds* (lower case), with the
+    dossier they are numbered in and their number there: ``{key, title, number, suffix,
     sequence, date}``."""
     aql = f"""
     FOR pub IN {COLLECTION_DOCUMENTS}
       FILTER "TK" IN pub.labels
+      FILTER pub.props.dossier_number != null AND pub.props.sequence != null
       LET kind = LOWER(pub.props.kind || "")
       FILTER LENGTH(FOR word IN @kinds FILTER CONTAINS(kind, word) LIMIT 1 RETURN 1) > 0
-      FILTER pub.props.sequence != null
-      LET dossier = FIRST(
-        FOR e IN {COLLECTION_EDGES}
-          FILTER e._from == pub._id AND e.relation == @part_of
-          FILTER STARTS_WITH(e._to, "{COLLECTION_DOSSIERS}/")
-          FOR d IN {COLLECTION_DOSSIERS}
-            FILTER d._id == e._to
-            RETURN d
-      )
-      FILTER dossier != null AND dossier.props.number != null
       RETURN {{
         key: pub._key,
         title: pub.props.title || pub.props.display_name || pub._key,
-        number: dossier.props.number,
-        suffix: dossier.props.suffix,
+        number: pub.props.dossier_number,
+        suffix: pub.props.dossier_suffix,
         sequence: pub.props.sequence,
         date: pub.props.date
       }}
     """
-    return store.query(aql, {"kinds": kinds, "part_of": RELATION_PART_OF})
+    return store.query(aql, {"kinds": kinds})
 
 
 def existing_raw_keys(
@@ -261,3 +252,42 @@ def dossiers_with_numbers(store: Store, numbers: list[str]) -> set[str]:
         RETURN number
     """
     return set(store.query(aql, {"numbers": numbers}))
+
+
+def dossiers_named_by_papers(store: Store) -> list[str]:
+    """The dossier labels (``36996``, ``31700-VI``) that a Tweede Kamer paper or case is part
+    of and that no dossier has."""
+    aql = f"""
+    LET named = UNIQUE(UNION(
+        (FOR doc IN {COLLECTION_DOCUMENTS}
+            FILTER "TK" IN doc.labels
+            FOR label IN doc.props.dossier_numbers || []
+                RETURN label),
+        (FOR c IN {COLLECTION_CASES}
+            FOR label IN c.props.dossier_numbers || []
+                RETURN label)
+    ))
+    FOR label IN named
+        FILTER LENGTH(
+            FOR d IN {COLLECTION_DOSSIERS} FILTER d.props.label == label LIMIT 1 RETURN 1
+        ) == 0
+        SORT label
+        RETURN label
+    """
+    return list(store.query(aql))
+
+
+def dossiers_missing_papers(store: Store) -> list[str]:
+    """The numbers of the dossiers that lack a paper below the highest number the graph has
+    of them: nr. 48 of the Wmcz 2018 without nr. 1 to 47. Each paper counts in the dossier
+    it is numbered in, a chapter of a budget (``36600-XV``) on its own."""
+    aql = f"""
+    FOR doc IN {COLLECTION_DOCUMENTS}
+        FILTER "TK" IN doc.labels
+        FILTER doc.props.dossier_number != null AND doc.props.sequence != null
+        COLLECT number = doc.props.dossier_number, suffix = doc.props.dossier_suffix
+        AGGREGATE held = COUNT_UNIQUE(doc.props.sequence), last = MAX(doc.props.sequence)
+        FILTER held < last
+        RETURN DISTINCT number
+    """
+    return list(store.query(aql))
