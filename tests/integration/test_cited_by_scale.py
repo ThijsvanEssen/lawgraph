@@ -136,19 +136,22 @@ def test_a_much_cited_article_lists_its_passages_within_the_memory_of_a_query(
     store.query = limited  # type: ignore[method-assign]
 
     started = time.monotonic()
-    rows, total = get_article_cited_by(store, ARTICLE, limit=50)
+    cited_by = get_article_cited_by(store, ARTICLE, limit=50)
     took = time.monotonic() - started
+    rows = cited_by.rows
 
-    assert total == JUDGMENTS * MENTIONS and len(rows) == 50
+    assert cited_by.total == JUDGMENTS * MENTIONS and len(rows) == 50
+    assert cited_by.judgment_total == JUDGMENTS
     dates = [row["judgment"]["props"]["date_eff"] for row in rows]
     assert dates == sorted(dates, reverse=True) and dates[0].startswith("2024-")
     assert set(rows[0]["mention"]) >= {"paragraph_id", "snippet", "start", "end"}
     assert took < 10, f"{took:.1f}s"
 
-    rows, total = get_article_cited_by(
+    cited_by = get_article_cited_by(
         store, ARTICLE, court="hr", lid="2", limit=10, offset=100
     )
-    assert total == (JUDGMENTS // 3 + 1) * 1 and len(rows) == 10
+    rows = cited_by.rows
+    assert cited_by.total == (JUDGMENTS // 3 + 1) * 1 and len(rows) == 10
     assert {r["judgment"]["props"]["court_code"] for r in rows} == {"HR"}
 
     # The edges of the article are read through their index, each judgment through its own.

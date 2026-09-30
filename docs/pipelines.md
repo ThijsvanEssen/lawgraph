@@ -8,7 +8,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
-| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-citations`, `rechtspraak-series` |
+| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
@@ -330,8 +330,9 @@ HA ZA 16-256` is `c/19/117301/haza16-256`), `procedure` as `judgment_metadata.ty
 judgment, or the judgment of a conclusion), and as `related_eclis` the judgments of the earlier
 instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:relation` that is not
 a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
-`summary`, `uitspraak` as `text` and as `paragraphs` (the kop, heading, subheading, body; see the
-paragraph props in the data model), and the parties its kop names as `parties` (data model,
+`summary`, `uitspraak` (of a conclusion: `conclusie`) as `text` and as `paragraphs` (the kop,
+heading, subheading, body; see the paragraph props in the data model), `isReplacedBy` (an ECLI)
+as `replaced_by`, and the parties its kop names as `parties` (data model,
 Judgment). Every judgment normalized before `parties` existed gets them from a run of
 `normalize rechtspraak` without `--since`; run `semantic rechtspraak` after it, since the kop is
 one paragraph now and the `p-<n>` ids after it moved. The XML itself stays in the payload store. `court_code` is the ECLI court
@@ -409,8 +410,9 @@ One `REFERS_TO` edge per judgment and article, its `confidence` the strongest me
 `end`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `snippet`, `confidence`),
 `meta.mention_count` how many there are: an edge keeps the first 100 and counts the rest. The
 lid, onderdelen and aanhef are read from the qualifier with `core/qualifiers.py`, as `semantic
-bwb` and `semantic tk` do. Text of a judgment outside `uitspraak` (the `inhoudsindicatie`) is not
-read. `--since` takes the judgments retrieved from then on.
+bwb` and `semantic tk` do. Text of a judgment outside its `paragraphs` (the `inhoudsindicatie`)
+is not read. The edges of a judgment are derived in full each time it is read: one its text no
+longer makes goes. `--since` takes the judgments retrieved from then on.
 
 **Semantic `rechtspraak-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the text of
 each judgment, the `<uitspraak>` and `<conclusie>` the court or advocate-general wrote (from
@@ -430,7 +432,16 @@ edge reaches or leaves. No `REFERS_TO` is written between two judgments that `AP
 `CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` tie (either way): a Hoge Raad ruling that
 names the arrest under cassation and the conclusion in a footnote does not cite them. It runs
 after the steps that make those edges. `semantic graph-list-stats` recounts
-`inbound_citation_count` after it.
+`inbound_citation_count` and `outbound_citation_count` after it.
+
+**Semantic `rechtspraak-duplicates`.** The Rechtspraak published many old arresten again under a
+new ECLI (HR:1985:BH3435, BV4163 and BV4180 are AW8335); the old publication has no text and its
+`dcterms:isReplacedBy` (`replaced_by`) names the new one. That is the signal, not the court, date
+and case number: a republication may carry another date or number, or the code of another
+court. A publication whose replacing one is loaded (followed to the last that is) gets
+`SAME_AS` to it and `same_as`, its ECLI; `/api/judgments` leaves it out and `graph-list-stats`
+counts its citations with the one kept. One whose replacing publication is not loaded stands
+alone. Derived in full each run.
 
 **Semantic `rechtspraak-appeal`.** Judgments whose `judgment_metadata.type` contains `hoger
 beroep`, `cassatie` or `verwijzing` (`core/appeals.py`). To each of their `related_eclis`

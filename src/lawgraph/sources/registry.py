@@ -86,6 +86,9 @@ from lawgraph.pipelines.semantic.rechtspraak_citations import (
 from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
     RechtspraakConclusionsSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.rechtspraak_duplicates import (
+    RechtspraakDuplicatesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.rechtspraak_referrals import (
     RechtspraakReferralsSemanticPipeline,
 )
@@ -553,6 +556,13 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         RechtspraakReferralsSemanticPipeline,
         "ANSWERS from a preliminary ruling to the decision that asked its questions.",
+    ),
+    _pipeline(
+        RechtspraakDuplicatesSemanticPipeline,
+        (
+            "SAME_AS from a publication of a decision to the one that replaces it "
+            "(dcterms:isReplacedBy); the lists show the decision once."
+        ),
     ),
     _pipeline(
         RechtspraakCitationsSemanticPipeline,

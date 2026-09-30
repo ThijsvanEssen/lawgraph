@@ -22,6 +22,7 @@ from lawgraph.core.judgments import (
     is_english,
     kop_lines,
     parse_judgment,
+    replacing_ecli,
     translated_case_number,
 )
 from lawgraph.core.logging import get_logger
@@ -100,6 +101,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
             for field in ("court", "date", "case_number"):
                 if field in judgment_meta:
                     props[field] = judgment_meta[field]
+            props["replaced_by"] = replacing_ecli(judgment_meta.get("replaced_by"))
             for field in ("related_eclis", "conclusion_eclis"):
                 if judgment_meta.get(field):
                     props[field] = judgment_meta[field]

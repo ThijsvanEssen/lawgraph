@@ -386,6 +386,10 @@ class ArticleCitedByResponse(BaseModel):
     total: int = Field(
         description="Every passage that matches the filters, independent of `limit`."
     )
+    judgment_total: int = Field(
+        description="The judgments those passages are in: a judgment that cites the "
+        "article in three places is three passages and one judgment."
+    )
 
 
 class LegislativeHistoryEntry(BaseModel):
