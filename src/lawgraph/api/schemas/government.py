@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
-from lawgraph.api.schemas.common import FacetCountDTO
+from lawgraph.api.schemas.common import END_OF_OFFICE, FacetCountDTO
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
@@ -95,8 +95,8 @@ class CabinetPhaseDTO(BaseModel):
         description="Null for the stretch after elections held while the cabinet was in "
         "office, when the source gives no day of its resignation.",
     )
-    from_date: str | None = None
-    to_date: str | None = None
+    from_date: str | None = Field(None, description="The day it began.")
+    to_date: str | None = Field(None, description=END_OF_OFFICE)
     label: str | None = Field(None, description="The source's own words.")
     source: SourceRefDTO | None = None
 
@@ -109,7 +109,11 @@ class CabinetSummaryDTO(BaseModel):
     key: str = Field(..., description="``rutte_iv``, ``den_uyl``.")
     name: str = Field(..., description="``kabinet-Rutte IV``.")
     from_date: str | None = Field(None, description="The day of its beëdiging.")
-    to_date: str | None = Field(None, description="Null while in office.")
+    to_date: str | None = Field(
+        None,
+        description=END_OF_OFFICE
+        + " For a cabinet: the day of the beëdiging of the next one.",
+    )
     previous: str | None = Field(None, description="The key of the cabinet before it.")
     prime_minister: PersonRefDTO | None = None
     parties: list[PartyRefDTO] = Field(
@@ -185,8 +189,8 @@ class CabinetPostDTO(BaseModel):
     )
     seat: str | None = None
     portfolio: str | None = None
-    from_date: str | None = None
-    to_date: str | None = None
+    from_date: str | None = Field(None, description="The day it began.")
+    to_date: str | None = Field(None, description=END_OF_OFFICE)
     from_date_source: str | None = Field(
         None, description="The start the source gives; null when it gives none."
     )
