@@ -16,6 +16,7 @@ from lawgraph.core.dossier_stages import (
     dossier_kind,
     dossier_phases,
     last_decision,
+    opened_on,
     outcome_props,
     phase_props,
     select_title,
@@ -305,3 +306,44 @@ def test_outcome_props_records_the_outcome() -> None:
         "tk_decision": {"kind": "k"},
         "ek_outcome": None,
     }
+
+
+# ── opened on ─────────────────────────────────────────────────────────────────
+
+
+def _paper(kind: str, date: str, sequence: int | None, own: list | None) -> dict:
+    return {"kind": kind, "date": date, "sequence": sequence, "own": own}
+
+
+def test_a_dossier_opens_with_nr_1_of_its_own_numbering() -> None:
+    docs = [
+        # a paper of another dossier on a case of this one, older than nr. 1
+        _paper("Brief regering", "2025-01-01", 1, ["36000", None]),
+        _paper("Memorie van toelichting", "2025-06-25", 3, ["36774", None]),
+        _paper("Voorstel van wet", "2025-06-25", 2, ["36774", None]),
+        _paper("Koninklijke boodschap", "2025-06-25", 1, ["36774", None]),
+    ]
+    assert opened_on("36774", "", docs, []) == ("2025-06-25", "first_paper")
+
+
+def test_a_budget_chapter_opens_with_nr_1_of_the_chapter() -> None:
+    docs = [
+        _paper("Voorstel van wet", "2026-09-15", 1, ["37020", "XV"]),
+        _paper("Brief regering", "2026-09-10", 1, ["37020", None]),
+    ]
+    assert opened_on("37020", "XV", docs, []) == ("2026-09-15", "first_paper")
+
+
+def test_without_nr_1_the_royal_message_then_the_earliest_record() -> None:
+    royal = _paper("Koninklijke boodschap", "2025-06-24", None, None)
+    later = _paper("Memorie van toelichting", "2025-06-25", 3, ["36774", None])
+    assert opened_on("36774", None, [later, royal], []) == (
+        "2025-06-24",
+        "royal_message",
+    )
+    activity = {"kind": "Procedurevergadering", "date": "2025-07-01"}
+    assert opened_on("36774", None, [later], [activity]) == (
+        "2025-06-25",
+        "earliest_record",
+    )
+    assert opened_on("36774", None, [], []) == (None, None)

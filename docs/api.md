@@ -127,7 +127,10 @@ vote, or the list of rejected bills), `retrieved_on`, and `attribution` (`EK_ATT
 source to name with it); null when the Eerste Kamer has not decided; its outcome closes the
 dossier: `aangenomen` or `verworpen` on the day of the vote, a Staatsblad publication dating an
 adopted law),
-`opened_on` and `closed_on`. A
+`opened_on` (the day it opened, as the Kamer dates its papers: of nr. 1 of its own numbering,
+the paper whose own dossier (`Document.Kamerstukdossier`) it is; else of its Koninklijke
+boodschap; else of its first paper or activity) with `opened_on_basis` (`first_paper`,
+`royal_message`, `earliest_record`), and `closed_on`. A
 `subject` filter takes a number (`37035`: every dossier of that
 number), a dossier (`37035-XXII`, `37035 xxii`) or words of the title.
 
