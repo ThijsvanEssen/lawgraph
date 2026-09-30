@@ -361,8 +361,8 @@ class DossierSummaryDTO(BaseModel):
     for a dossier of letters and motions. ``kind_basis`` says which (``case``,
     ``document``). A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has
     ``phases``: every phase of the curated list in its order, each done when a paper, an
-    activity or a decision of the Kamer marks it; ``current_phase`` is the done phase with
-    the latest date. A closed dossier has an ``outcome``: ``aangenomen`` (its law was
+    activity or a decision of the Kamer marks it; ``current_phase`` is the furthest done
+    phase in that order. A closed dossier has an ``outcome``: ``aangenomen`` (its law was
     published, or the Eerste Kamer adopted it) or ``verworpen`` (a chamber voted the bill
     down); ``tk_decision`` is the last decision of the Tweede Kamer on the bill and
     ``ek_outcome`` its outcome in the Eerste Kamer.
@@ -410,7 +410,10 @@ class DossierSummaryDTO(BaseModel):
         "phase of the bar in order; null for another kind.",
     )
     current_phase: str | None = Field(
-        None, description="The done phase with the latest date; null for none."
+        None,
+        description="The furthest done phase in the order of ``phases`` (not the one with "
+        "the latest date: the Kamer may date a paper by the day it was received); null for "
+        "none.",
     )
     closed: bool = False
     outcome: DossierOutcome | None = None

@@ -114,8 +114,9 @@ zaak; `document`: its voorstel van wet), `phases` (of a `Wetgeving`, `Initiatief
 het verslag`, `Nota van wijziging / Amendement`, `Stemmingen`, `Eindtekst`, each `{name, done,
 date}`: done when a paper of the dossier, an activity about it that took place or a decision on
 its own zaak has a value of the Kamer the list names for it, `date` the first date of those),
-`current_phase` (the done phase with the latest date, the later in the order on a tie; null for
-none), `closed`, `outcome`, `tk_decision` (the last decision of the Kamer on its bill: `kind`
+`current_phase` (the furthest done phase in the order of the list, not the one with the latest
+date: the Kamer may date a paper by the day it was received, 36937 its Nota n.a.v. het verslag
+four days after the bill passed; null for none), `closed`, `outcome`, `tk_decision` (the last decision of the Kamer on its bill: `kind`
 its `BesluitSoort`, `Stemmen - aangenomen`, `Stemmen - zonder stemming aannemen` for a
 hamerstuk, `Stemmen - verworpen`, `Stemmen - uitstellen`, …; `text`, `date`; null for none),
 `ek_outcome` (the outcome of the bill in the Eerste Kamer, as eerstekamer.nl gives it:

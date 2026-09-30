@@ -406,10 +406,9 @@ def test_the_timeline_marks_what_came_after_the_closing(store: ArangoStore) -> N
             "Eindtekst",
         ]
         detail = client.get(f"/api/dossiers/{ENACTED}").json()
-        assert (detail["kind"], detail["current_phase"]) == (
-            "Wetgeving",
-            "Voorstel van wet",
-        )
+        # the furthest phase done, not the latest date: its voorstel is dated after its
+        # Eindtekst
+        assert (detail["kind"], detail["current_phase"]) == ("Wetgeving", "Eindtekst")
 
         pending = client.get(f"/api/dossiers/{PENDING}/timeline").json()["entries"]
         assert pending and not any(e["after_closure"] for e in pending)
