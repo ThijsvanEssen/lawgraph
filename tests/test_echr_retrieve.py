@@ -301,3 +301,56 @@ def test_the_text_of_a_judgment_is_merged_into_the_node_of_its_ecli() -> None:
     assert props["title"] == "CASE OF BEUMER v. THE NETHERLANDS"
     assert props["text"].startswith("SECOND SECTION\n\nCASE OF BEUMER")
     assert props["paragraphs"][15]["id"] == "par-1"
+
+
+def _http_error(status: int) -> requests.HTTPError:
+    return requests.HTTPError(
+        f"{status} Server Error", response=SimpleNamespace(status_code=status)
+    )
+
+
+def test_a_text_hudoc_answers_http_500_for_is_skipped_and_remembered() -> None:
+    """HUDOC answers HTTP 500, run after run, for an item it cannot convert (001-208029):
+    one such document is no failure of the run."""
+    client = _client([{"results": []}], [])
+
+    def cannot_convert(item_id: str) -> str:
+        raise _http_error(500)
+
+    client.fetch_document_xml = cannot_convert  # type: ignore[method-assign]
+    store = _StoredBefore()
+    result = ECHRRetrievePipeline(store=store, client=client).run(respondent="NLD")
+
+    assert result.errors == [] and result.skipped == 1
+    (missing,) = store.stored
+    assert (missing["kind"], missing["external_id"]) == (
+        "echr-judgment-docx-xml-missing",
+        "001-10",
+    )
+    assert missing["meta"]["status"] == 500
+
+
+def test_http_500_for_every_text_is_the_host_and_fails_the_run() -> None:
+    class ManyStored(_Store):
+        def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list:
+            if "payload_json.languageisocode" in aql:
+                return [
+                    {
+                        "item_id": f"001-{n}",
+                        "ecli": f"ECLI:CE:ECHR:2000:{n}",
+                        "language": "ENG",
+                    }
+                    for n in range(40)
+                ]
+            return []
+
+    client = _client([{"results": []}], [])
+
+    def down(item_id: str) -> str:
+        raise _http_error(500)
+
+    client.fetch_document_xml = down  # type: ignore[method-assign]
+    result = ECHRRetrievePipeline(store=ManyStored(), client=client).run(
+        respondent="NLD"
+    )
+    assert result.errors and "seems to be down" in result.errors[0]
