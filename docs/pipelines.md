@@ -476,10 +476,10 @@ decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fet
 day (`date_eff`) with the same `document_type`, compared per court and day, one day in memory.
 A text is its lower-case word 8-shingles, one in eight kept by CRC-32; two judgments are a pair
 when they share no case number key, neither summary says `gerectificeerd` or `rectificatie`,
-and the Jaccard of their shingles is at least 0.85, or 0.7 when both texts have 600 words or
-more, or 0.5 (0.3 for two such long texts) when their summaries share at least 97% of their
-words and the summary is not a template (the same summary on three dates or more: `kopje
-volgt`, `HR: 81.1 RO.`). A series is the judgments that pairs connect: `series_id` (its lowest
+and the Jaccard of their shingles is at least 0.85, or 0.5 when both texts have 600 words or
+more (each long parallel case tells its own facts and parties), or 0.5 (0.3 for two such long
+texts) when their summaries share at least 97% of their words and the summary is not a
+template (the same summary on three dates or more: `kopje volgt`, `HR: 81.1 RO.`). A series is the judgments that pairs connect: `series_id` (its lowest
 ECLI) and `series_size` on each; a judgment in no series has both null. `--since` groups
 only the days of the judgments retrieved from then on.
 

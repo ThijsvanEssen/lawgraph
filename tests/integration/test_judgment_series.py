@@ -204,3 +204,40 @@ def test_parallel_cases_are_a_series_and_rectifications_and_templates_are_not(
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-series")
     assert all(value == (None, None) for value in _series(store).values())
+
+
+# ECLI:NL:RVS:2026:5181 and 5185: two faunaschade appeals the Afdeling decided on one day,
+# each with its own farm, amounts and summary; about half their shingles are shared.
+RVS = ("Raad van State", "2026-09-02")
+FAUNA = _words(8, 2500)
+
+
+def test_long_parallel_cases_with_their_own_facts_are_a_series(
+    database: str, cli: Any
+) -> None:
+    store = ArangoStore()
+    _store_raw(
+        store,
+        {
+            "ECLI:NL:RVS:2026:5181": _xml(
+                "ECLI:NL:RVS:2026:5181",
+                *RVS,
+                "202500133/1/A2",
+                "Faunaschade. Veehouderij in Zuidoostbeemster.",
+                _vary(FAUNA, 32, 1),
+            ),
+            "ECLI:NL:RVS:2026:5185": _xml(
+                "ECLI:NL:RVS:2026:5185",
+                *RVS,
+                "202500113/1/A2",
+                "Faunaschade. Melkveehouderij in Wijdewormer; hoger beroep van beide.",
+                _vary(FAUNA, 32, 2),
+            ),
+        },
+    )
+    cli("normalize", "rechtspraak")
+    cli("semantic", "rechtspraak-series")
+    assert _series(store) == {
+        "ECLI:NL:RVS:2026:5181": ("ECLI:NL:RVS:2026:5181", 2),
+        "ECLI:NL:RVS:2026:5185": ("ECLI:NL:RVS:2026:5181", 2),
+    }
