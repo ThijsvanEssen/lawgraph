@@ -32,7 +32,7 @@ table: a short title is the law's, another alias only when one law claims it (`W
 Wetboek van Strafrecht's, `BW` no single book's). An EU act or treaty whose source gives no
 abbreviation gets one from `src/lawgraph/data/curated/instrument_abbreviations.json`
 (`lawgraph curated set instrument-abbreviations`: `AVG` for Verordening (EU) 2016/679), for an
-instrument in the graph only; the EVRM of `semantic echr` has `EVRM` as its alias. The same
+instrument in the graph only; the EVRM is the BWB treaty `BWBV0001000`. The same
 table serves `/api/resolve` and the search. A code split over books
 (`src/lawgraph/data/code_families.json`, `core/code_families.CODE_FAMILIES`: the Burgerlijk
 Wetboek, book 1 to 10 and 7A, each its own BWB id; see the code families under BWB) resolves through the book in the article number: `artikel 6:162 BW` cites
@@ -847,12 +847,16 @@ reads up to 50,000.
 **Normalize.** Judgment per item (`echr_<itemid>`; `appno`, `title`, `date`, `articles`,
 `conclusion`, `importance`); no judgment text.
 
-**Semantic `echr`.** Writes the instrument `EVRM` (`echr_convention`, `bwb_id`
-`ECHR-CONVENTION`, alias `EVRM`, so "art. 8 EVRM" in a Dutch text cites it; the Convention
-loaded from the BWB, `BWBV0001000`, has `EVRM` as its short title and takes the abbreviation
-over) and one article per cited Convention article (`echr_convention_<n>`);
-`REFERS_TO` from judgment to article at 0.95, and from judgment to a BWB instrument named in
-the `conclusion` at 0.80.
+**Semantic `echr`.** `REFERS_TO` from a judgment to the articles of the Convention it
+applies, at 0.95, and to a BWB instrument whose id its `conclusion` names, at 0.80. The
+Convention is the BWB treaty `BWBV0001000`, whose articles are numbered as HUDOC numbers them:
+HUDOC's `8;8-1;8-2;41;P1-1` is article 8 (`meta.leden` `["1", "2"]`, `meta.hudoc_articles` the
+field as HUDOC gave it) and article 41; `P1-1`, an article of a Protocol, is of a treaty of its
+own and not linked. A Dutch judgment that cites "art. 8 EVRM" reaches the same article. While
+`BWBV0001000` is not loaded its cited articles are stubs (`bwbv0001000_8`, `bwb_id` and
+`article_number`), as the cited articles of any law that is not loaded, and `retrieve bwb
+--bwb-id BWBV0001000` loads it. The edges of a judgment are derived in full: one it no longer
+supports is removed.
 
 ## Verdragenbank
 

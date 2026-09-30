@@ -79,8 +79,8 @@ def test_an_abbreviation_is_of_the_one_law_that_claims_it() -> None:
         # every book of the BW lists BW; a digit starts the number of a citation
         {"bwb_id": "BWBR0005289", "short_title": "BW6", "aliases": ["BW", "6 BW"]},
         {"bwb_id": "BWBR0005290", "short_title": "BW7", "aliases": ["BW", "7 BW"]},
-        # a pseudo instrument whose alias a law's short title claims as well
-        {"bwb_id": "ECHR-CONVENTION", "aliases": ["EVRM", "X"]},
+        # an instrument whose alias a law's short title claims as well
+        {"bwb_id": "BWBV0009999", "aliases": ["EVRM", "X"]},
         {"bwb_id": "BWBV0001000", "short_title": "EVRM"},
         {"bwb_id": "BWBR0000001", "aliases": ["X"]},  # an alias two laws claim
         {

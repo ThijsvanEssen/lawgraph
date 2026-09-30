@@ -517,7 +517,7 @@ class InstrumentDetailDTO(BaseModel):
     bwb_id: str | None = Field(
         None,
         description=(
-            "BWB id of a Dutch regulation or treaty; `ECHR-CONVENTION` for the "
+            "BWB id of a Dutch regulation or treaty; `BWBV0001000` for the "
             "Convention of the ECHR."
         ),
     )

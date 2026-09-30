@@ -1,124 +1,41 @@
-"""Tests for the ECHR citations semantic pipeline."""
+"""The Convention articles an ECHR judgment applies, as HUDOC names them.
+
+The pipeline itself runs against the test server: ``tests/integration/test_echr_convention.py``.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import ECHR_CONVENTION_ID, RELATION_REFERS_TO
-from lawgraph.core.models import Node, make_node_key
-from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline
+import pytest
+
+from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline, convention_articles
 
 
-class _FakeStore:
-    def __init__(
-        self,
-        *,
-        judgment_rows: list[dict[str, Any]],
-        instrument_rows: list[dict[str, Any]] | None = None,
-    ) -> None:
-        self._judgment_rows = judgment_rows
-        self._instrument_rows = instrument_rows or []
-        self._nodes: dict[str, Node] = {}
-        self.edges: dict[str, dict[str, Any]] = {}
-
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
-        if "judgments" in aql:
-            return list(self._judgment_rows)
-        if "instruments" in aql:
-            return list(self._instrument_rows)
-        return []
-
-    def get_node(self, collection: str, key: str) -> Node | None:
-        return self._nodes.get(f"{collection}/{key}")
-
-    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
-        assert node.key is not None
-        node_id = f"{node.collection}/{node.key}"
-        created = node_id not in self._nodes
-        self._nodes[node_id] = node
-        return node, created
-
-    def insert_or_update_edge(self, doc: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-        k = doc["_key"]
-        created = k not in self.edges
-        self.edges[k] = dict(doc)
-        return self.edges[k], created
-
-    def bulk_insert_or_update_edges(self, docs: list[dict]) -> tuple[int, int]:
-        created, updated = 0, 0
-        for doc in docs:
-            was_new = doc["_key"] not in self.edges
-            self.edges[doc["_key"]] = dict(doc)
-            if was_new:
-                created += 1
-            else:
-                updated += 1
-        return created, updated
+@pytest.mark.parametrize(
+    ("labels", "expected"),
+    [
+        (["8;8-1;8-2;41"], {"8": ["1", "2"], "41": []}),
+        (["5;5-1;5-1-f;41"], {"5": ["1"], "41": []}),
+        # articles applied together, and one paragraph named twice
+        (["8;8-1;8-2;13;13+8-1"], {"8": ["1", "2"], "13": []}),
+        (["6;6+6-3-c;6-1;6-3"], {"6": ["3", "1"]}),
+        # an article of a Protocol is of a treaty of its own
+        (["P1-1;P1-1-1;14"], {"14": []}),
+        ("3", {"3": []}),
+        ([], {}),
+        (None, {}),
+    ],
+)
+def test_the_articles_and_their_paragraphs(
+    labels: Any, expected: dict[str, list[str]]
+) -> None:
+    assert convention_articles(labels) == expected
 
 
-def test_pipeline_links_convention_articles() -> None:
-    store = _FakeStore(
-        judgment_rows=[
-            {
-                "j_id": "judgments/j1",
-                "j_key": "j1",
-                "articles": ["6", "8"],
-                "conclusion": None,
-            }
-        ]
-    )
-    pipeline = ECHRSemanticPipeline(store=store)
-    result = pipeline.run()
+def test_without_judgments_nothing_is_written() -> None:
+    class _Store:
+        def query(self, aql: str, bind_vars: dict | None = None) -> list[Any]:
+            return []
 
-    assert result.created == 2
-    relations = {e["relation"] for e in store.edges.values()}
-    assert RELATION_REFERS_TO in relations
-
-
-def test_pipeline_creates_mentions_instrument_for_bwb_in_conclusion() -> None:
-    bwb_id = "BWBR0001854"
-    inst_key = make_node_key(bwb_id)
-    store = _FakeStore(
-        judgment_rows=[
-            {
-                "j_id": "judgments/j2",
-                "j_key": "j2",
-                "articles": [],
-                "conclusion": f"De wet ({bwb_id}) is geschonden.",
-            }
-        ],
-        instrument_rows=[{"_key": inst_key, "props": {"bwb_id": bwb_id}}],
-    )
-    pipeline = ECHRSemanticPipeline(store=store)
-    result = pipeline.run()
-
-    assert result.created >= 1
-    relations = {e["relation"] for e in store.edges.values()}
-    assert RELATION_REFERS_TO in relations
-
-
-def test_pipeline_returns_empty_when_no_judgments() -> None:
-    store = _FakeStore(judgment_rows=[])
-    pipeline = ECHRSemanticPipeline(store=store)
-    result = pipeline.run()
-    assert result.created == 0
-
-
-def test_the_convention_is_a_treaty_with_articles_that_carry_its_id() -> None:
-    store = _FakeStore(
-        judgment_rows=[
-            {
-                "j_id": "judgments/j1",
-                "j_key": "j1",
-                "articles": ["8"],
-                "conclusion": None,
-            }
-        ]
-    )
-    ECHRSemanticPipeline(store=store).run()
-
-    convention = store._nodes[f"instruments/{make_node_key(ECHR_CONVENTION_ID)}"]
-    assert convention.props["kind"] == "verdrag"
-    assert convention.props["bwb_id"] == ECHR_CONVENTION_ID
-    article = store._nodes[f"articles/{make_node_key(ECHR_CONVENTION_ID, '8')}"]
-    assert article.props["bwb_id"] == ECHR_CONVENTION_ID
+    assert ECHRSemanticPipeline(store=_Store()).run().created == 0

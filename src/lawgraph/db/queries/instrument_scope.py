@@ -1,10 +1,10 @@
 """The instrument a URL names, and which articles belong to it.
 
 An instrument is named by its BWB id (`BWBR0001854`), its CELEX number (`32016L0680`) or its
-node key (`bwbr0001854`, `32016l0680`, `echr_convention`). The articles of a BWB regulation
+node key (`bwbr0001854`, `32016l0680`, `bwbv0001000`). The articles of a BWB regulation
 carry `props.bwb_id`, those of an EU act `props.celex`; both are indexed, so the articles of
-an instrument are read by the identifying prop and not through `PART_OF` (which the articles
-of the ECHR Convention lack, and which costs an edge lookup per article).
+an instrument are read by the identifying prop and not through `PART_OF` (which a stub
+article lacks, and which costs an edge lookup per article).
 
 `scope_of` is pure: the instrument sub-routes use it without a lookup, so an identifier that
 matches nothing answers an empty list, as before. `resolve_instrument` is the lookup for the
@@ -38,7 +38,7 @@ class InstrumentScope:
 def scope_of(identifier: str) -> InstrumentScope:
     """A CELEX number scopes by `props.celex`; anything else by `props.bwb_id`.
 
-    An identifier that is neither (a treaty key, `ECHR-CONVENTION`) is a `bwb_id` to the
+    An identifier that is neither (a treaty key such as `verdrag_012345`) is a `bwb_id` to the
     articles that carry one, and matches nothing otherwise.
     """
     value = identifier.strip().upper()

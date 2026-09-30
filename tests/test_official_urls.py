@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from lawgraph.core.official_urls import article_url, instrument_url, publication_url
+from lawgraph.core.official_urls import (
+    article_url,
+    instrument_url,
+    judgment_url,
+    publication_url,
+)
 
 
 def test_a_bwb_regulation_and_its_articles_are_on_wetten_overheid_nl() -> None:
@@ -24,8 +29,8 @@ def test_a_bwb_regulation_and_its_articles_are_on_wetten_overheid_nl() -> None:
         "https://wetten.overheid.nl/BWBR0001840"
     )
     # not the BWB
-    assert instrument_url({"bwb_id": "ECHR-CONVENTION"}) is None
-    assert article_url("ECHR-CONVENTION", "8") is None
+    assert instrument_url({"bwb_id": "NOT-A-BWB-ID"}) is None
+    assert article_url("NOT-A-BWB-ID", "8") is None
 
 
 def test_eu_acts_treaties_and_publications_have_their_own_sites() -> None:
@@ -50,3 +55,14 @@ def test_eu_acts_treaties_and_publications_have_their_own_sites() -> None:
     # zoek.officielebekendmakingen.nl begins in 1995
     assert publication_url({"id": "stb-1988-157", "year": 1988}) is None
     assert instrument_url({}) is None
+
+
+def test_a_judgment_is_on_rechtspraak_nl_or_hudoc() -> None:
+    assert judgment_url({"source": "echr", "external_id": "001-208058"}) == (
+        "https://hudoc.echr.coe.int/eng?i=001-208058"
+    )
+    assert judgment_url({"source": "rechtspraak", "ecli": "ECLI:NL:HR:2019:1278"}) == (
+        "https://uitspraken.rechtspraak.nl/details?id=ECLI:NL:HR:2019:1278"
+    )
+    assert judgment_url({"ecli": "ECLI:BE:GHANT:2020:1"}) is None  # a foreign stub
+    assert judgment_url({"source": "echr"}) is None
