@@ -127,6 +127,14 @@ document number (`kamerstukken/detail?id=2026D44984&did=2026D44984`) or the acti
 `debat_en_vergadering/commissievergaderingen/details?id=…` for any other). It is null when the node
 has no such number, as an Eerste Kamer paper, whose page is its `url`.
 
+The end of a cabinet, of a phase of a cabinet and of a post in it (`to_date`, in
+`/api/cabinets`, in a cabinet's `phases` and seats, and in a member's `government_functions`)
+is the day of the change as Rijksoverheid gives it: the day the next cabinet, phase or holder
+takes office. A period runs from `from_date` up to, not including, `to_date` (half-open, as the
+validity of an article version); `to_date` is the `from_date` of what follows (in every change
+of cabinet since 1945, and for a post whenever a successor took over the same day). `to_date` is
+null while it lasts.
+
 | Path | Returns |
 |------|---------|
 | `GET /api/dossiers` | every dossier, open and closed; `status` (`open`, `closed`, `all`, default `all`), `outcome`, `kind` (comma-separated, of those above), `number` (the start of the label: `36264` gives that dossier and its chapters, `37020-` the chapters of 37020), `committee` (slug), `subject` (a number, a dossier such as `37035-XXII`, or words of the title, which holds the short title: `Verzamelwet gegevensbescherming`), `phase` (the current one), `has_phase` (all listed phases done), `ministry`, `initiative`, `opened_from`, `opened_to` (dates), `sort` (`number`: in the order of the Kamer, no suffix, numeric suffixes by value, budget chapters by value with their letter, then the rest (`props.order`); `opened_on` and `closed_on` newest first; `title`; ties by key; default `number` with a `number` filter, else `opened_on`), `limit`, `offset`; `total` counts every match. `facets`: per `status`, `outcome`, `kind`, `phase` and `ministry` a list of `{value, count}` under the current filters, each dimension counted without its own filter, the largest first (`value` null counts the dossiers without one). Every dossier summary in the API carries `short_title` (a budget by its chapter and year, `Begroting Defensie 2027`, a change of it also by its nota, `Suppletoire begroting gemeentefonds 2026 (Miljoenennota)`, a slotwet as `Slotwet Defensie 2025`; else the parentheses that end the title), and `ministry` (of the bewindspersoon who signed its earliest signed document first), `initiative` (a Kamerlid signed first) and `cabinet` (in office then), null when unknown |

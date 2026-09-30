@@ -102,11 +102,18 @@ is_named_by_subject`, `own_subject`); a bill and the papers on it keep their `Ti
 exist.
 
 A TK record the Kamer deleted (`Verwijderd`) holds its id and nothing else. `normalize tk` and
-`normalize tk-dossiers` make no case, activity, commitment, document, dossier, member or faction
-of it, and remove the node an earlier run made, with its edges (a dossier or faction by the
-record id it holds; a faction goes when all its records are deleted). A deleted
-FractieZetelPersoon names neither member nor faction: a run that reads every seat (not
-`--since`) removes the seat edges they no longer give.
+`normalize tk-dossiers` make nothing of it, and each normalizer removes, through one shared
+`Deleted` (`pipelines/normalize/_tk_deleted.py`), what an earlier run made of it alone: the
+node keyed by the record id (case, activity, commitment, document, committee, member), the node
+that holds it in `props.external_id(s)` (a dossier, a faction: a faction goes when all its
+records are deleted), or the edge that holds it in `meta.record_ids` (the `VOTED` edge of a
+Stemming, the `MEMBER_OF` edge of a FractieZetelPersoon), each with the edges at a node that
+goes. A deleted Stemming names no decision; its edge does, so a run `--since` also reads the
+rows and the `tk-besluit` record of that decision. A decision whose Besluit is deleted (its
+`tk-besluit` record, or the Besluit a row carries), or on which no live vote is left and no
+`tk-besluit` record, goes with its edges; a decision that keeps votes gets its tally and `VOTED`
+edges from its live rows alone, and one that keeps only its `tk-besluit` record stays without
+votes.
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `fetched_at`), turns each into text and sections with `core/kamerstuk_xml.py` and writes them
