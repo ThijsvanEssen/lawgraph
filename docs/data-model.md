@@ -545,6 +545,5 @@ What the graph deliberately does not hold, because no official source gives it:
   adopted. Consolidated versions are not fetched, so an EU article has no `article_versions`
   and does not show the changes of a later act.
 - **Withdrawal of a bill.** The Tweede Kamer records no withdrawal as data of the bill or its
-  case. `ingetrokken` rests only on the subject of the letter that withdraws it (see
-  [pipelines](pipelines.md), `tk-dossier-outcomes`); a bill withdrawn without such a letter in
-  the dossier stays open.
+  case (its zaak keeps `Status` `Vrijgegeven`), so there is no outcome `ingetrokken`: a
+  withdrawn bill stays open (see [pipelines](pipelines.md), `tk-dossier-outcomes`).
