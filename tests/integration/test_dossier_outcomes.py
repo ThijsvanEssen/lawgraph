@@ -9,11 +9,14 @@ AVG, law since Stb. 2018, 144, says false). The records below have the fields th
   enacted.
 * 37014 (Wet weerbare waarden) is pending: an amendment on it was voted down, which does not
   end the bill.
-* 36680 was withdrawn by letter; 36999 was voted down by the Tweede Kamer.
+* 36680 was withdrawn by letter: no record of the Kamer says so, so it stays open.
+* 36999 was voted down by the Tweede Kamer.
+* 36928 passed as a hamerstuk: a Besluit ``Stemmen - zonder stemming aannemen`` on its zaak
+  without a single vote, fetched as a Besluit on a bill (``tk-besluit``); open, awaiting the
+  Eerste Kamer, with the decision of the Kamer as ``tk_decision``.
 
-Closing a dossier recomputes its stages: while open, 35786 showed only its bill and missed
-nothing; closed, it passed every stage a bill passes, and only its adopted text (``Eindtekst``)
-shows the vote. Its timeline marks what came after the closing, and a meeting still planned.
+The phases of a bill are what its papers and the decisions on it mark. The timeline marks
+what came after the closing, and a meeting still planned.
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_TK_ACTIVITEIT,
+    RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_STEMMING,
@@ -41,6 +45,7 @@ from tests.integration.seed import FIXTURES, uid
 
 GRONDWET = "BWBR0001840"
 ENACTED, PENDING, WITHDRAWN, REJECTED = "35786", "37014", "36680", "36999"
+HAMMERED = "36928"
 
 
 def _dossier(number: str, title: str) -> dict[str, Any]:
@@ -128,6 +133,23 @@ def _votes(
         }
 
 
+def _hamerstuk(number: str, case: dict[str, Any]) -> dict[str, Any]:
+    """A Besluit on the bill without votes, as ``fetch_bill_decisions`` expands it."""
+    return {
+        "Id": uid(int(number), 7),
+        "BesluitSoort": "Stemmen - zonder stemming aannemen",
+        "BesluitTekst": "Wetsvoorstel zonder stemming aangenomen.",
+        "AgendapuntZaakBesluitVolgorde": 1,
+        "Verwijderd": False,
+        "Zaak": [case],
+        "Agendapunt": {
+            "Onderwerp": case["Onderwerp"],
+            "Activiteit": {"Soort": "Hamerstukken", "Datum": "2026-06-25T10:15:00"},
+            "Zaak": [case],
+        },
+    }
+
+
 def _planned_meeting(number: str, case: dict[str, Any]) -> dict[str, Any]:
     """A procedure meeting on the dossier, announced after it closed and never held."""
     return {
@@ -147,6 +169,7 @@ def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
         PENDING: "Voorstel van wet van de leden Keijzer en Schilder (Wet weerbare waarden)",
         WITHDRAWN: "Wijziging van de Wet kinderopvang",
         REJECTED: "Wijziging van de Wegenwet",
+        HAMMERED: "Wijziging van de Wet op de rechterlijke organisatie",
     }
     for number, title in titles.items():
         yield RAW_KIND_TK_DOSSIER, _dossier(number, title)
@@ -197,6 +220,8 @@ def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
                 (RAW_KIND_TK_STEMMING, row)
                 for row in _votes(number, 7, bill, "verworpen", "2025-03-11")
             )
+        if number == HAMMERED:
+            yield RAW_KIND_TK_BESLUIT, _hamerstuk(number, bill)
 
 
 @pytest.fixture()
@@ -243,10 +268,14 @@ def _dossier_props(store: ArangoStore) -> dict[str, dict[str, Any]]:
         row["number"]: row
         for row in store.query(
             "FOR d IN dossiers RETURN MERGE(KEEP(d.props, 'number', 'closed', 'outcome', "
-            "'closed_on', 'opened_on', 'current_stage', 'stages_present', "
-            "'stages_complete', 'stages_missing'), {})"
+            "'closed_on', 'opened_on', 'kind', 'kind_basis', 'phases', 'current_phase', "
+            "'tk_decision'), {})"
         )
     }
+
+
+def _done(props: dict[str, Any]) -> list[str]:
+    return [p["name"] for p in props.get("phases") or [] if p["done"]]
 
 
 def _outcome(props: dict[str, Any]) -> tuple[Any, ...]:
@@ -260,22 +289,33 @@ def test_a_dossier_is_closed_by_what_the_graph_holds(
 
     # Stb. 2022, 332 was published on 30 August 2022.
     assert _outcome(dossiers[ENACTED]) == (True, "aangenomen", "2022-08-30")
-    assert dossiers[ENACTED]["current_stage"] == "afgehandeld"
-    assert dossiers[ENACTED]["stages_present"][-1] == "afgehandeld"
-    # Closed, it passed the memorandum and the advice, which the graph lacks; its
-    # adopted text shows the vote. Open, it missed nothing: the step recomputed it.
-    assert dossiers[ENACTED]["stages_complete"] is False
-    assert dossiers[ENACTED]["stages_missing"] == ["mvt", "advies_rvs"]
-    assert dossiers[REJECTED]["stages_missing"] == ["mvt", "advies_rvs"]
-    assert dossiers[WITHDRAWN]["stages_missing"] == ["mvt", "advies_rvs"]
-    # Open, at the vote on its amendment.
-    assert dossiers[PENDING]["current_stage"] == "stemming"
-    assert dossiers[PENDING]["stages_missing"] == ["mvt", "advies_rvs"]
-    assert _outcome(dossiers[WITHDRAWN]) == (True, "ingetrokken", "2025-06-02")
+    assert _done(dossiers[ENACTED]) == ["Voorstel van wet", "Eindtekst"]
     assert _outcome(dossiers[REJECTED]) == (True, "verworpen", "2025-03-11")
-    # A rejected amendment is not the end of the bill.
+    assert _done(dossiers[REJECTED]) == ["Voorstel van wet", "Stemmingen"]
+    assert dossiers[REJECTED]["current_phase"] == "Stemmingen"
+    assert dossiers[REJECTED]["tk_decision"] == {
+        "kind": "Stemmen - verworpen",
+        "text": "Verworpen.",
+        "date": "2025-03-11",
+    }
+    # A withdrawal is read from nothing: the Kamer records none.
+    assert _outcome(dossiers[WITHDRAWN]) == (False, None, None)
+    # A rejected amendment is not the end of the bill, and no vote on the bill itself.
     assert _outcome(dossiers[PENDING]) == (False, None, None)
-    assert dossiers[PENDING]["current_stage"] != "afgehandeld"
+    assert (dossiers[PENDING]["kind"], dossiers[PENDING]["kind_basis"]) == (
+        "Initiatiefwetgeving",
+        "case",
+    )
+    assert _done(dossiers[PENDING]) == ["Voorstel van wet"]
+    assert dossiers[PENDING]["tk_decision"] is None
+    # A hamerstuk: adopted by the Tweede Kamer without votes, open for the Eerste Kamer.
+    assert _outcome(dossiers[HAMMERED]) == (False, None, None)
+    assert dossiers[HAMMERED]["tk_decision"] == {
+        "kind": "Stemmen - zonder stemming aannemen",
+        "text": "Wetsvoorstel zonder stemming aangenomen.",
+        "date": "2026-06-25",
+    }
+    assert dossiers[HAMMERED]["current_phase"] == "Stemmingen"
     # Opened on its first document, which the record does not say either.
     assert dossiers[PENDING]["opened_on"] == "2024-01-10"
 
@@ -288,13 +328,21 @@ def test_a_dossier_is_closed_by_what_the_graph_holds(
     assert "0 changed" in done.stderr + done.stdout
 
 
-def test_the_api_lists_only_the_pending_dossier_as_open(store: ArangoStore) -> None:
+def test_the_api_lists_the_dossiers_that_did_not_end_as_open(
+    store: ArangoStore,
+) -> None:
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
         open_page = client.get("/api/dossiers?status=open").json()
-        assert [item["number"] for item in open_page["items"]] == [PENDING]
-        assert open_page["total"] == 1
+        assert {item["number"] for item in open_page["items"]} == {
+            PENDING,
+            WITHDRAWN,
+            HAMMERED,
+        }
+        hammered = client.get(f"/api/dossiers/{HAMMERED}").json()
+        assert hammered["tk_decision"]["kind"] == "Stemmen - zonder stemming aannemen"
+        assert hammered["current_phase"] == "Stemmingen"
 
         enacted = client.get(f"/api/dossiers/{ENACTED}").json()
         assert (enacted["closed"], enacted["outcome"], enacted["closed_on"]) == (
@@ -312,7 +360,7 @@ def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(
     store: ArangoStore,
 ) -> None:
     """A vote on the bill itself says ``Wetgeving``, one on an amendment ``Amendement``;
-    the withdrawal letter carries the kinds of its cases."""
+    a letter carries the kinds of its cases."""
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
@@ -358,10 +406,9 @@ def test_the_timeline_marks_what_came_after_the_closing(store: ArangoStore) -> N
             "Eindtekst",
         ]
         detail = client.get(f"/api/dossiers/{ENACTED}").json()
-        assert (detail["stages_complete"], detail["stages_missing"]) == (
-            False,
-            ["mvt", "advies_rvs"],
-        )
+        # the furthest phase done, not the latest date: its voorstel is dated after its
+        # Eindtekst
+        assert (detail["kind"], detail["current_phase"]) == ("Wetgeving", "Eindtekst")
 
         pending = client.get(f"/api/dossiers/{PENDING}/timeline").json()["entries"]
         assert pending and not any(e["after_closure"] for e in pending)

@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
+from lawgraph.api.schemas.common import END_OF_OFFICE
 from lawgraph.api.schemas.dossiers import DossierSummaryDTO, SigningCapacity
 
 
@@ -154,7 +155,10 @@ class FactionDTO(BaseModel):
     active: bool = True
     seats: int | None = None
     active_from: str | None = None
-    active_until: str | None = None
+    active_until: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
     member_count: int = 0
 
     @classmethod
@@ -191,7 +195,10 @@ class FactionMembershipDTO(BaseModel):
     abbreviation: str | None = None
     aliases: list[str] = []
     from_date: str | None = None
-    to_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
     role: str | None = None
 
 
@@ -234,8 +241,8 @@ class GovernmentFunctionDTO(BaseModel):
     )
     acting: bool = Field(False, description="A stand-in (ad interim).")
     party: PartyRefDTO | None = Field(None, description="The party during this post.")
-    from_date: str | None = None
-    to_date: str | None = Field(None, description="Null while the post is held.")
+    from_date: str | None = Field(None, description="The day it began.")
+    to_date: str | None = Field(None, description=END_OF_OFFICE)
 
 
 def government_functions_of(props: dict[str, Any]) -> list[GovernmentFunctionDTO]:
@@ -287,7 +294,10 @@ class MemberDTO(BaseModel):
         description="The posts held in a cabinet (from Rijksoverheid), oldest first.",
     )
     from_date: str | None = None
-    to_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> MemberDTO:

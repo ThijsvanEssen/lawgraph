@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.schemas.articles import ArticleExplanationDTO
 from lawgraph.db.queries.articles import ArticleCitationEntry, ArticleDetailData
+from lawgraph.db.queries.instruments import LawOnADate
 
 client = TestClient(app)
 
@@ -246,7 +247,7 @@ def test_the_articles_on_a_date_are_paged_with_a_preview(monkeypatch):
 
     def fake(store, bwb_id, at_date, *, limit, offset):
         asked.append((bwb_id, at_date, limit, offset))
-        return [version], 41
+        return LawOnADate(items=[version], total=41, first_version_from="2002-04-01")
 
     monkeypatch.setattr("lawgraph.api.routes.instruments.get_articles_at", fake)
     body = client.get(
@@ -258,11 +259,13 @@ def test_the_articles_on_a_date_are_paged_with_a_preview(monkeypatch):
     assert body["total"] == 41 and body["at_date"] == "2024-01-01"
     (article,) = body["items"]
     assert article["text_preview"] == "Hij"
-    assert article["text"] == version["props"]["text"]
+    assert article["text"] is None  # the preview was asked for
     assert article["official_url"]
+    assert body["first_version_from"] == "2002-04-01"
 
-    client.get("/api/instruments/BWBR0001854/articles/at/2024-01-01")
+    whole = client.get("/api/instruments/BWBR0001854/articles/at/2024-01-01").json()
     assert asked[1][2:] == (2000, 0)  # the defaults of /articles
+    assert whole["items"][0]["text"] == version["props"]["text"]
 
 
 def test_the_articles_on_a_date_bound_their_page_and_preview():

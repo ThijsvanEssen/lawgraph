@@ -133,6 +133,7 @@ def test_the_law_on_a_date_is_paged_in_the_order_of_the_document_with_previews(
 ) -> None:
     whole = _get(client, f"/api/instruments/{LAW}/articles/at/2026-01-01")
     everything = [a["key"] for a in whole["items"]]
+    texts = {a["key"]: a["text"] for a in whole["items"]}
     assert whole["total"] == len(everything) > 2
 
     pages: list[str] = []
@@ -144,7 +145,8 @@ def test_the_law_on_a_date_is_paged_in_the_order_of_the_document_with_previews(
         )
         assert page["total"] == whole["total"] and len(page["items"]) <= 2
         for article in page["items"]:
-            text = article["text"]
+            text = texts[article["key"]]
+            assert article["text"] is None  # only the preview was asked for
             assert article["text_preview"] == (text[:12] if text else None)
         pages += [a["key"] for a in page["items"]]
     assert pages == everything

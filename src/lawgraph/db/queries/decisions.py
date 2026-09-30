@@ -187,8 +187,13 @@ def get_decisions(
                 external_id: decision.props.decision_id,
                 dossier_numbers: decision.props.dossier_numbers,
                 kind: decision.props.kind,
+                decision_kind: decision.props.decision_kind,
                 passed: decision.props.passed,
-                chamber: FIRST(FOR chamber IN @chambers FILTER chamber IN decision.labels RETURN chamber),
+                chamber: decision.props.chamber
+                    || FIRST(FOR chamber IN @chambers FILTER chamber IN decision.labels RETURN chamber),
+                result: decision.props.result,
+                method: decision.props.method,
+                bill_decision: decision.props.bill_decision,
                 vote_kind: decision.props.vote_kind,
                 tally: tally,
                 voters: voters

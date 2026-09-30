@@ -79,6 +79,29 @@ def test_member_joins_the_name_parts() -> None:
     assert "party" not in props
 
 
+def test_a_member_of_old_is_named_by_initials_and_surname() -> None:
+    _, props = tk_records.member({"Id": "p-1", "Initialen": "WB", "Achternaam": "Buma"})
+    assert (props["name"], props["full_name"]) == ("W.B. Buma", "W.B. Buma")
+    _, props = tk_records.member(
+        {"Id": "p-2", "Initialen": "S.", "Achternaam": "Dekker"}
+    )
+    assert props["name"] == "S. Dekker"
+
+
+def test_an_ended_faction_has_no_seats() -> None:
+    record = {
+        "Id": "f-1",
+        "Afkorting": "Nieuw Sociaal Contract",
+        "DatumActief": "2023-12-05",
+        "DatumInactief": "2025-11-11",
+        "AantalZetels": 19,
+    }
+    _, props = tk_records.faction(record, [])  # type: ignore[misc]
+    assert (props["active"], props["seats"]) == (False, 0)
+    _, props = tk_records.faction({**record, "DatumInactief": None}, [])  # type: ignore[misc]
+    assert props["seats"] == 19
+
+
 def test_seat_holding_reads_the_period_and_the_faction() -> None:
     assert tk_records.seat_holding(
         {
@@ -154,7 +177,7 @@ def test_dossier_without_a_title_leaves_it_open_for_the_backfill() -> None:
     _, _, props = tk_records.dossier({"Id": "d-1", "Nummer": 36000})
     assert props["title"] is None
     assert props["title_source"] is None
-    assert "current_stage" not in props
+    assert "current_phase" not in props
 
 
 def test_a_dossier_record_says_nothing_of_how_far_it_got() -> None:
@@ -170,7 +193,7 @@ def test_a_dossier_record_says_nothing_of_how_far_it_got() -> None:
             "HoogsteVolgnummer": 101,
         }
     )
-    for derived in ("closed", "closed_on", "opened_on", "outcome", "current_stage"):
+    for derived in ("closed", "closed_on", "opened_on", "outcome", "current_phase"):
         assert derived not in props
 
 
@@ -185,40 +208,53 @@ def test_a_document_and_a_decision_keep_the_kind_of_their_case() -> None:
 
 
 @pytest.mark.parametrize(
-    ("soort", "kind"),
-    [
-        ("Motie", "motie"),
-        ("Amendement", "amendement"),
-        ("Wetgeving", "wetsvoorstel"),
-        ("Initiatiefwetgeving", "wetsvoorstel"),
-        ("Begroting", "wetsvoorstel"),
-        ("Brief regering", "overig"),
-        (None, "overig"),
-    ],
+    "soort", ["Motie", "Amendement", "Wetgeving", "Begroting", "Brief regering", None]
 )
 def test_a_decision_takes_its_kind_from_the_soort_of_its_case(
-    soort: str | None, kind: str
+    soort: str | None,
 ) -> None:
     decision = {"Zaak": [{"Id": "z-1", "Soort": soort}], "Agendapunt": []}
     _, props = tk_records.decision("b-1", decision, [])
-    assert props["kind"] == kind
+    assert props["kind"] == soort
 
 
 def test_a_decision_kind_ignores_the_subject() -> None:
     motion = {"Id": "z-1", "Soort": "Motie", "Onderwerp": "Wijziging van de Wet"}
     _, props = tk_records.decision("b-1", {"Zaak": [motion]}, [])
-    assert props["kind"] == "motie"
+    assert props["kind"] == "Motie"
 
 
 def test_without_its_own_case_the_kind_is_that_of_an_agenda_item_of_one_kind() -> None:
     motions = [{"Id": "z-1", "Soort": "Motie"}, {"Id": "z-2", "Soort": "Motie"}]
     _, props = tk_records.decision("b-1", {"Agendapunt": [{"Zaak": motions}]}, [])
-    assert (props["primary_case_id"], props["kind"]) == (None, "motie")
+    assert (props["primary_case_id"], props["kind"]) == (None, "Motie")
     mixed = [*motions, {"Id": "z-3", "Soort": "Amendement"}]
     _, props = tk_records.decision("b-1", {"Agendapunt": [{"Zaak": mixed}]}, [])
-    assert props["kind"] == "overig"
+    assert props["kind"] is None
     _, props = tk_records.decision("b-1", {}, [])
-    assert props["kind"] == "overig"
+    assert props["kind"] is None
+
+
+def test_a_hamerstuk_is_a_decision_that_passed_without_votes() -> None:
+    bill = {"Id": "z-1", "Soort": "Wetgeving"}
+    _, props = tk_records.decision(
+        "b-1",
+        {
+            "Zaak": [bill],
+            "BesluitSoort": "Stemmen - zonder stemming aannemen",
+            "BesluitTekst": "Wetsvoorstel zonder stemming aangenomen.",
+        },
+        [],
+    )
+    assert props["decision_kind"] == "Stemmen - zonder stemming aannemen"
+    assert (props["passed"], props["vote_kind"], props["tally"]) == (True, None, {})
+
+
+def test_a_postponement_is_no_vote() -> None:
+    _, props = tk_records.decision(
+        "b-1", {"Zaak": [], "BesluitSoort": "Stemmen - uitstellen"}, []
+    )
+    assert (props["decision_kind"], props["passed"]) == ("Stemmen - uitstellen", None)
 
 
 def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:

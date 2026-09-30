@@ -289,6 +289,20 @@ def get_factions(
     return list(store.query(aql, bind))
 
 
+def get_seats_on(store: ArangoStore, day: str) -> dict[str, int]:
+    """Faction key -> the seats its members held on *day* (YYYY-MM-DD), from their
+    ``faction_memberships``: a member is one seat of a faction, whatever their role."""
+    aql = f"""
+    FOR member IN {COLLECTION_MEMBERS}
+        FOR m IN (member.props.faction_memberships OR [])
+            FILTER m.from_date != null AND m.from_date <= @day
+            FILTER m.to_date == null OR m.to_date >= @day
+            COLLECT faction = m.faction_key INTO held = member._key
+            RETURN {{faction, seats: COUNT_DISTINCT(held)}}
+    """
+    return {row["faction"]: row["seats"] for row in store.query(aql, {"day": day})}
+
+
 def get_member_votes(
     store: ArangoStore, member_id: str, *, limit: int = 100
 ) -> list[dict[str, Any]]:

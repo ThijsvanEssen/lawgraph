@@ -1,5 +1,5 @@
-"""What kind of dossier a dossier is comes from what it is: its own bill, its title. Not from
-its neighbours' cases, and not from what is filed under it."""
+"""What kind of dossier a dossier is comes from what it is: the Zaak.Soort of its own zaak.
+Not from its neighbours' cases, and not from what is filed under it."""
 
 from __future__ import annotations
 
@@ -94,17 +94,17 @@ def test_a_vote_on_many_dossiers_gives_each_only_the_kinds_of_its_own_cases(
         _dossier(store, n) for n in (36001, 36002, 36003, 36004, 22112)
     )
     assert bill["case_kinds"] == ["Initiatiefwetgeving"]
-    assert bill["track_kind"] == "initiatiefwetsvoorstel"
-    assert bill["current_stage"] == "stemming"
+    assert (bill["kind"], bill["kind_basis"]) == ("Initiatiefwetgeving", "case")
+    # a Stemmingen activity is about every dossier on its agenda: it marks no phase
+    assert [p["name"] for p in bill["phases"] if p["done"]] == []
+    assert bill["current_phase"] is None
     assert budget["case_kinds"] == ["Begroting", "Motie"]
-    assert budget["track_kind"] == "begroting"
+    assert budget["kind"] == "Begroting"
     assert policy["case_kinds"] == ["Motie"]
-    # A motion filed under a dossier does not make it a motion.
-    assert policy["track_kind"] == "beleid"
-    # The stages are those of a bill: a policy dossier has none.
-    assert policy["current_stage"] is None
-    assert policy["stages_present"] == []
+    # A motion filed under a dossier does not make it a motion, and no own name is given
+    # to a dossier of letters and motions: it has no kind, and no phases.
+    assert (policy["kind"], policy["kind_basis"]) == (None, None)
+    assert policy["phases"] is None and policy["current_phase"] is None
     assert nota["case_kinds"] == ["Brief regering", "Motie"]
-    assert nota["track_kind"] == "nota"
-    assert nota["current_stage"] is None and nota["stages_present"] == []
-    assert eu["track_kind"] == "eu"
+    assert (nota["kind"], nota["phases"]) == (None, None)
+    assert eu["kind"] is None

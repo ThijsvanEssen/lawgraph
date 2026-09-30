@@ -18,7 +18,7 @@ from typing import Any
 
 from lawgraph.config.constants import SOURCE_TK
 from lawgraph.core.dossier_numbers import dossier_order
-from lawgraph.core.dossier_stages import classify_case_kind, dossier_display_name
+from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_date
 from lawgraph.core.values import first_str
@@ -37,24 +37,6 @@ VOTE_AGAINST = "Tegen"
 
 VOTE_KIND_MEMBER = "member"
 VOTE_KIND_FACTION = "faction"
-
-# What a decision decided on, from the Zaak.Soort of its case: the stage
-# ``classify_case_kind`` gives that Soort, named for the thing voted on.
-DECISION_KIND_MOTION = "motie"
-DECISION_KIND_AMENDMENT = "amendement"
-DECISION_KIND_BILL = "wetsvoorstel"
-DECISION_KIND_OTHER = "overig"
-DECISION_KINDS: tuple[str, ...] = (
-    DECISION_KIND_MOTION,
-    DECISION_KIND_AMENDMENT,
-    DECISION_KIND_BILL,
-    DECISION_KIND_OTHER,
-)
-_DECISION_KIND_BY_STAGE = {
-    "behandeling": DECISION_KIND_MOTION,
-    "amendementen": DECISION_KIND_AMENDMENT,
-    "wetsvoorstel": DECISION_KIND_BILL,
-}
 
 # Activiteit.Voortouwafkorting of an activity of the Kamer as a whole: a plenary debate, the
 # votes, the regeling van werkzaamheden. Its Voortouwcommissie_Id names a Commissie record
@@ -442,9 +424,12 @@ def member(payload: Payload) -> Record | None:
     if not external_id or is_deleted(payload):
         return None
     surname = f"{payload.get('Tussenvoegsel') or ''} {payload.get('Achternaam') or ''}"
-    full_name = " ".join(f"{payload.get('Voornamen') or ''} {surname}".split())
+    # a member of old the Kamer knows by initials alone: ``W.B. Buma`` (1807-1848)
+    initials = _dotted_initials(_text(payload, "Initialen"))
+    first = payload.get("Voornamen") or initials
+    full_name = " ".join(f"{first} {surname}".split())
     # the name a person goes by: ``Ard van der Steur``, not ``Gerard Adriaan van der Steur``
-    called = payload.get("Roepnaam") or payload.get("Voornamen") or ""
+    called = payload.get("Roepnaam") or first
     name = " ".join(f"{called} {surname}".split())
     props: dict[str, Any] = {
         "external_id": external_id,
@@ -456,9 +441,16 @@ def member(payload: Payload) -> Record | None:
     }
     if name:
         # a Persoon the Kamer gives no name (a record it withholds) keeps the name its
-        # roll-call votes gave (``_tk_members.name_members_by_their_votes``)
+        # roll-call votes and signatures gave (``_tk_members.name_nameless_members``)
         props["name"] = props["display_name"] = name
     return make_node_key(external_id), props
+
+
+def _dotted_initials(initials: str) -> str:
+    """``W.B.`` of ``WB``: the Kamer writes the initials of members of old without dots."""
+    if not initials or "." in initials:
+        return initials
+    return "".join(f"{letter}." for letter in initials if letter.isalpha())
 
 
 def seat_holding(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
@@ -548,7 +540,8 @@ def faction(
         "aliases": aliases,
         "active_from": min(starts) if starts else None,
         "active_until": None if active else max(e for e in ends if e),
-        "seats": payload.get("AantalZetels"),
+        # the Kamer keeps the seats a faction had on its record after it ended
+        "seats": payload.get("AantalZetels") if active else 0,
         "active": active,
         "display_name": abbreviation or name,
     }
@@ -889,6 +882,12 @@ class VoteCast:
     faction_label: str
     changed_at: str | None
     actor_name: str | None = None  # "Nobel, J.N.J.": who voted, as the row names them
+    record_id: str | None = None  # the Stemming ``Id``, which its VOTED edge keeps
+
+
+def decision_key(decision_id: str) -> str:
+    """The node key of the decision on the Besluit *decision_id* (see ``decision``)."""
+    return make_node_key("decision", decision_id)
 
 
 def vote(payload: Payload) -> VoteCast | None:
@@ -909,6 +908,7 @@ def vote(payload: Payload) -> VoteCast | None:
         actor_name=(payload.get("ActorNaam") or "").strip() or None
         if person_id
         else None,
+        record_id=str(payload.get("Id") or "") or None,
     )
 
 
@@ -964,6 +964,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "subject": subject,
         "agenda_item_subject": agenda_item.get("Onderwerp") or "",
         "decision_text": decision_text,
+        "decision_kind": decision.get("BesluitSoort") or None,
         "decision_order": order,
         "meeting_kind": agenda_item.get("Vergadering_Soort") or "",
         "case_ids": case_ids(cases),
@@ -971,7 +972,9 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "primary_case_kind": (primary.get("Soort") or None) if primary else None,
         "kind": decision_kind(primary, listed),
         "dossier_numbers": dossier_numbers(cases),
-        "vote_kind": VOTE_KIND_MEMBER if roll_call else VOTE_KIND_FACTION,
+        "vote_kind": (VOTE_KIND_MEMBER if roll_call else VOTE_KIND_FACTION)
+        if votes
+        else None,
         "tally": tally,
         "voters": voters,
         "passed": decision_passed(decision, tally),
@@ -979,30 +982,31 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     }
 
 
-def decision_kind(primary: Payload | None, listed: list[Payload]) -> str:
-    """``motie``, ``amendement``, ``wetsvoorstel`` or ``overig``: the Soort of the case decided.
+def decision_kind(primary: Payload | None, listed: list[Payload]) -> str | None:
+    """What was decided on: the ``Zaak.Soort`` of the case decided (``Motie``,
+    ``Amendement``, ``Wetgeving``, ...), as the Kamer writes it.
 
     Without a primary case, the cases on the Agendapunt answer when they are all of one
-    kind: an Agendapunt of moties alone decides a motie, whichever it is.
+    Soort: an Agendapunt of moties alone decides a motie, whichever it is. None otherwise.
     """
     cases = [primary] if primary else listed
-    kinds = {
-        _DECISION_KIND_BY_STAGE.get(classify_case_kind(case.get("Soort")) or "")
-        for case in cases
-    }
-    kind = kinds.pop() if len(kinds) == 1 else None
-    return kind or DECISION_KIND_OTHER
+    kinds = {case.get("Soort") or None for case in cases}
+    return kinds.pop() if len(kinds) == 1 else None
 
 
-def decision_passed(decision: Payload, tally: dict[str, int]) -> bool:
-    """Whether the decision carried: the source says so, or the tally does."""
+def decision_passed(decision: Payload, tally: dict[str, int]) -> bool | None:
+    """Whether the decision carried: the source says so (``Stemmen - aangenomen``,
+    ``Stemmen - zonder stemming aannemen``, ``Stemmen - verworpen``), or the tally of its
+    votes does; None for a decision that is no vote (``Stemmen - uitstellen``)."""
     kind = (
         decision.get("BesluitSoort") or decision.get("StemmingsSoort") or ""
     ).lower()
-    if "aangenomen" in kind:
+    if "aangenomen" in kind or "aannemen" in kind:
         return True
     if "verworpen" in kind:
         return False
+    if not tally:
+        return None
     return tally.get(VOTE_FOR, 0) > tally.get(VOTE_AGAINST, 0)
 
 
