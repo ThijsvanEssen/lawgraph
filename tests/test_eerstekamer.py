@@ -169,7 +169,8 @@ def test_a_paper_becomes_a_document_with_its_dossier_number() -> None:
     assert node.props["date"] == "2026-06-30"
     assert node.props["session_year"] == "2025-2026"
     assert node.props["subject"].startswith("Wijziging van de Wet openbare lichamen")
-    assert node.props["display_name"].startswith("EK 36867, nr. C: Verslag")
+    # the Eerste Kamer numbers its papers by letter, without "nr." (Kamerstukken I 36867, C)
+    assert node.props["display_name"].startswith("Kamerstuk I 36867, C: Verslag")
     assert result.skipped == 0 and len(nodes) == 4
 
 
@@ -188,7 +189,7 @@ def test_a_budget_chapter_is_split_off_the_dossier_number() -> None:
     assert node.props["dossier_suffix"] == "VII"
     # The label a Tweede Kamer document names the same dossier by.
     assert node.props["dossier_numbers"] == ["35925-VII"]
-    assert node.props["display_name"].startswith("EK 35925 VII")
+    assert node.props["display_name"].startswith("Kamerstuk I 35925 VII: ")
 
 
 @pytest.mark.parametrize(

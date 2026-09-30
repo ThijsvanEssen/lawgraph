@@ -129,11 +129,14 @@ _OPENERS: tuple[tuple[re.Pattern[str], str | None, str], ...] = tuple(
         ),
         (
             r"\b(?:van|door)\s*:\s*$|"
-            r"\b(?:tussen|in\s+de\s+zaak\s+van|betreffende|ten\s+aanzien\s+van)\s*:?\s*$",
+            r"\b(?:tussen|inzake|in\s+de\s+zaak\s+van|betreffende|ten\s+aanzien\s+van)"
+            r"\s*:?\s*$",
             None,
             "open",
         ),
-        (r"^(?:van|door|tussen)$", None, "open"),
+        # "Conclusie inzake: [verdachte]", "CONCLUSIE inzake: Stichting X,"
+        (r"\binzake\s*:", None, "open"),
+        (r"^(?:van|door|tussen|in\s+de\s+zaak\s*:?)$", None, "open"),
         (r"\btegen\s*:?\s*$", None, "against"),
     )
 )
@@ -190,6 +193,7 @@ _NOT_A_NAME = re.compile(
     r"domicilie|procederend|in\s+persoon|niet\s+verschenen|voormeld|h\.o\.d\.n|"
     r"handelend|voorheen|in\s+(?:zijn|haar)\s+hoedanigheid|ten\s+deze|tevens|"
     r"postbus|beiden?\b|allen\b|alsmede\b|die\b|verschenen|(?:te|uit|in)\s+[\[A-Z’']|"
+    r"edelhoogachtba|parket\b|"
     r"(?:proces)?advoca(?:at|ten)\b|gemachtigden?\b|"
     r"(?:uitspraak|arrest|vonnis|beschikking|proces-verbaal)\b|"
     r"de\s+(?:moeder|vader|man|vrouw|ouders?|minderjarigen?|grootmoeder|grootvader|"

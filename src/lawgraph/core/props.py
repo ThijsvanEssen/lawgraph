@@ -188,7 +188,7 @@ class JudgmentParagraphProps(_StrictBase):
 
     id: str  # ``rov-5.3``, ``kop-5``, ``p-12``: unique in the judgment, for deep links
     number: str | None = None  # as printed, without its closing dot: "5.3"
-    kind: Literal["heading", "subheading", "body"]
+    kind: Literal["heading", "subheading", "body", "signature"]
     text: str
 
 
@@ -254,6 +254,9 @@ class JudgmentProps(_CommonProps):
     paragraphs: list[JudgmentParagraphProps] | None = None
     # read from the kop; [] when it names none, absent when not read yet
     parties: list[JudgmentPartyProps] | None = None
+    # a conclusion: the advocate-general who wrote it, as its kop names them
+    # (``core.judgments.advocate_general``)
+    advocate_general: str | None = None
     court: str | None = None
     case_number: str | None = None
     # ``case_number`` split and written as compared (``core.judgments.case_number_keys``)

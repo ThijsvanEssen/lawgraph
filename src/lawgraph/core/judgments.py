@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -577,6 +578,7 @@ def same_case_number(named: str, other: str | None) -> bool:
 KIND_HEADING = "heading"
 KIND_SUBHEADING = "subheading"
 KIND_BODY = "body"
+KIND_SIGNATURE = "signature"
 
 # "5.3 text", "12. text": digits, a dot or a dotted number, then a space. A number alone
 # ("1 februari 2013") is not one: a date opens a sentence too.
@@ -591,7 +593,8 @@ _LINE_ELEMENTS = {"para", "bridgehead", "title", "row"}
 # verloop van de procedure", "Procesverloop", "Onderzoek van de zaak", "SAMENVATTING").
 _SECTION_HEADING = re.compile(
     r"^(?:\d{1,2}(?:\.\d{1,2})*\.?\s*|[IVX]{1,4}[.)]?\s+|[A-Z][.)]\s*)?(?:"
-    r"(?:het\s+)?proces-?verloop|procesgang|(?:de\s+)?(?:\w+\s+)?procedure\b|"
+    r"(?:het\s+)?proces-?verloop|(?:de\s+)?procesgang|(?:het\s+)?cassatieberoep$|"
+    r"(?:de\s+)?(?:\w+\s+)?procedure\b|"
     r"(?:het\s+)?(?:verdere?\s+)?verloop\s+van\s+(?:de|het)\b|(?:de\s+)?loop\s+van\s+het\s+geding|"
     r"(?:het\s+)?ontstaan\s+en\s+(?:de\s+)?loop\b|"
     r"(?:het\s+)?onderzoek\s+(?:van\s+de\s+zaak|ter\s+(?:terecht)?zitting|op\s+de\s+)|"
@@ -601,13 +604,18 @@ _SECTION_HEADING = re.compile(
     r"waar\s+gaat\s+(?:de(?:ze)?\s+zaak|het)\s+over|(?:de\s+)?zaak\s+in\s+het\s+kort|"
     r"verzoek\s+en\s+verweer|(?:de\s+)?uitgangspunten|(?:de\s+)?zitting$|"
     r"(?:het\s+)?vonnis\s+waarvan\s+beroep|(?:de\s+)?beslissing\s+van\s+de\s+kantonrechter|"
-    r"(?:het\s+|de\s+)?(?:bestreden|aangevallen)\s+(?:vonnis|arrest|uitspra(?:ak|ken)|"
-    r"beschikking|besluit)|(?:het\s+)?geding$|inhoudsopgave|"
+    r"(?:het\s+|de\s+)?(?:bestreden|aangevallen)\s+(?:vonnis|arrest|"
+    r"(?:eind)?uitspra(?:ak|ken)|beschikking|besluit)|(?:het\s+)?geding$|inhoudsopgave|"
+    r"(?:de\s+)?(?:uitspraak|beschikking)\s+van\s+(?:het\s+hof|de\s+rechtbank)$|"
     r"(?:de\s+)?inhoud\s+van\s+het\s+(?:verzoek|klaagschrift|beroep)|"
-    r"(?:het\s+|de\s+)?(?:eerdere\s+)?tussen(?:arrest|vonnis|uitspraak|beschikking)$"
+    r"(?:het\s+|de\s+)?(?:eerdere\s+)?tussen(?:arrest|vonnis|uitspraak|beschikking)$|"
+    r"(?:lijst\s+van\s+)?(?:gebruikte\s+)?afkortingen$"
     r")",
     re.IGNORECASE,
 )
+# The element a conclusion writes its kop in: the kop ends with it, if no heading ends it
+# before (a list of abbreviations can close it).
+_KOP_ELEMENTS = frozenset({"conclusie.info"})
 # The kop names parties, a hundred in a mass claim, but tells no story: text before the
 # first heading with more lines of prose than this is no kop (old judgments put their
 # first heading late, or not at all).
@@ -678,14 +686,19 @@ def is_section_heading(line: str) -> bool:
 
 def _read_kop(uitspraak: ET.Element) -> tuple[list[str], set[int]]:
     """``(lines, elements)`` of the kop: every line before the first section heading, and
-    the ids of the elements that print them. Nothing when no heading ends it, or only
-    after more than ``KOP_MAX_PROSE_LINES`` lines of prose: a judgment without headings has
-    no kop to tell apart.
+    the ids of the elements that print them. When no heading ends it, or only after more
+    than ``KOP_MAX_PROSE_LINES`` lines of prose, the ``<conclusie.info>`` of a conclusion
+    is its kop, and a judgment has none: without headings there is no kop to tell apart.
     """
+    info = next((c for c in uitspraak if local_name(c.tag) in _KOP_ELEMENTS), None)
+    in_info = {id(e) for e in _line_elements(info)} if info is not None else set()
     lines: list[str] = []
     elements: set[int] = set()
+    info_kop: tuple[list[str], set[int]] = ([], set())
     prose = 0
     for element in _line_elements(uitspraak):
+        if not info_kop[0] and elements & in_info and id(element) not in in_info:
+            info_kop = (list(lines), set(elements))  # the end of the info
         printed = _printed_lines(element)
         if printed and is_section_heading(printed[0]):
             return lines, elements
@@ -694,7 +707,7 @@ def _read_kop(uitspraak: ET.Element) -> tuple[list[str], set[int]]:
             break
         lines.extend(printed)
         elements.add(id(element))
-    return [], set()
+    return info_kop
 
 
 def kop_lines(root: ET.Element) -> list[str]:
@@ -704,12 +717,80 @@ def kop_lines(root: ET.Element) -> list[str]:
     return _read_kop(uitspraak)[0] if uitspraak is not None else []
 
 
+# ── the advocate-general of a conclusion ─────────────────────────────────────
+#
+# A conclusion names who wrote it above its parties, a surname with initials or "mr.":
+# "T. Hartlief" on a line of its own below CONCLUSIE, "mr. P.J. Wattel" above
+# "Advocaat-Generaal", "Zaaknr: 18/04298 (Prejudicieel) mr. Wattel", "Conclusie van den
+# Advocaat-Generaal Mr. Besier."; the signature at the end gives only the office.
+
+_INITIALS = r"(?:(?:[A-Z]|IJ|Th|Chr|Ph)\.\s?)+"
+_PARTICLE = r"(?:van|de|der|den|ten|ter|het|in\s+'t|'t)"
+# A word that follows a name on its line and is no part of it: "Mr. T.N.B.M. Spronken
+# Conclusie inzake:", "D.J.C. Aben Vordering tot cassatie".
+_AFTER_NAME = (
+    r"(?:conclusie|nadere|aanvullende|vordering|zitting|datum|advocaat|procureur|"
+    r"raadsheer|staatsraad|parket|en)"
+)
+_SURNAME = (
+    rf"(?:{_PARTICLE}\s+)*[A-Z][\w'’]+"
+    rf"(?:(?:-|\s+)(?!(?i:{_AFTER_NAME})\b)(?:{_PARTICLE}[\s-]+)*[A-Z][\w'’]+)*"
+)
+_PERSON = rf"(?:{_INITIALS})?\s*{_SURNAME}"
+# All of a line: "T. Hartlief", "mr. Wattel", "F.F. Langemeijer en M.H. Wissink".
+_NAME_LINE = re.compile(
+    rf"^(?:(?P<mr>(?i:mr)\.?)\s*)?(?P<name>(?P<initials>{_INITIALS})?\s*{_SURNAME}"
+    rf"(?:\s+en\s+{_PERSON})?)\.?$"
+)
+_NAME_IN_LINE = re.compile(rf"\b(?i:mr)\.?\s+(?P<name>{_PERSON})")
+# At the end of a line, with initials: "Zaaknr :26/00083 R.H. de Bock".
+_NAME_ENDS_LINE = re.compile(rf"\s(?P<name>{_INITIALS}\s*{_SURNAME})\.?$")
+# Where the parties begin: a name after it is theirs, or their lawyer's. Not "inzake
+# prejudiciële vraag", which says what the conclusion is on.
+_PARTIES_BEGIN = re.compile(
+    r"\b(?:inzake|in\s+de\s+za(?:ak|ken)|tussen)\b(?!\s+prejudici)", re.IGNORECASE
+)
+OPENING_LINES = 20
+
+
+def _name_in(line: str) -> str | None:
+    """The name of a person *line* gives: all of it with initials or "mr." in front, one
+    behind "mr." in it, or one with initials that ends it."""
+    whole = _NAME_LINE.match(line.strip())
+    if whole and (whole["mr"] or whole["initials"]):
+        return whole["name"].strip()
+    found = _NAME_IN_LINE.search(line) or _NAME_ENDS_LINE.search(line.rstrip())
+    return found["name"].strip() if found else None
+
+
+def advocate_general(root: ET.Element) -> str | None:
+    """The advocate-general (or procureur-generaal) who wrote a conclusion, as its first
+    ``OPENING_LINES`` lines name them before its parties: "T. Hartlief", "P.J. Wattel", or
+    only the surname ("Wattel") where the conclusion gives no more; two who wrote it
+    together as one ("F.F. Langemeijer en M.H. Wissink"). Prose before the parties names
+    no one, and more than ``KOP_MAX_PROSE_LINES`` lines of it end the search. ``None``
+    when they name no one."""
+    body = next(iter(_bodies(root)), None)
+    if body is None:
+        return None
+    lines = (line for e in _line_elements(body) for line in _printed_lines(e))
+    prose = 0
+    for line in list(itertools.islice(lines, OPENING_LINES)):
+        begin = _PARTIES_BEGIN.search(line)
+        head = line[: begin.start()] if begin else line
+        if len(head) <= PROSE_LINE_CHARS and (name := _name_in(head)):
+            return name
+        prose += len(line) > PROSE_LINE_CHARS
+        if begin or prose > KOP_MAX_PROSE_LINES:
+            return None
+    return None
+
+
 class _Sections:
     """The paragraphs of an ``<uitspraak>``, in reading order."""
 
     def __init__(self, kop: set[int]) -> None:
-        self.entries: list[dict[str, Any]] = []
-        self._seen: dict[str, int] = {}
+        self.entries: list[dict[str, Any]] = []  # named once all are read (_name)
         self._kop = kop  # the elements read into the kop
 
     def add(self, kind: str, number: str | None, text: str) -> None:
@@ -717,16 +798,9 @@ class _Sections:
         number = number.rstrip(".") if number else number
         if not text and not number:
             return
-        slug = _slug(number) if number else ""
-        if slug:
-            base = f"{'rov' if kind == KIND_BODY else 'kop'}-{slug}"
-        else:
-            number, base = None, f"p-{len(self.entries) + 1}"
-        self._seen[base] = self._seen.get(base, 0) + 1
-        paragraph_id = base if self._seen[base] == 1 else f"{base}_{self._seen[base]}"
-        self.entries.append(
-            {"id": paragraph_id, "number": number, "kind": kind, "text": text}
-        )
+        if number and not _slug(number):
+            number = None
+        self.entries.append({"number": number, "kind": kind, "text": text})
 
     def unnumbered(self, kind: str, text: str) -> None:
         """A paragraph that may open with its number."""
@@ -743,7 +817,7 @@ class _Sections:
                 self.section(child, depth)
             elif name == "paragroup":
                 self.paragroup(child, depth)
-            elif name in ("uitspraak.info", "parablock"):
+            elif name in ("uitspraak.info", "conclusie.info", "parablock"):
                 # the kop, when a court writes the judgment in it, or a run of paragraphs
                 self.walk(child, depth)
             elif name == "bridgehead":
@@ -770,21 +844,119 @@ class _Sections:
         if number is None:
             self.walk(group, depth)
             return
-        own: list[str] = []
+        own: list[ET.Element] = []
         for child in group:
             name = local_name(child.tag)
             if name in ("paragroup", "section"):
-                self.flush(number, own)
+                self.flush(number, own, depth)
                 (self.paragroup if name == "paragroup" else self.section)(child, depth)
             elif name not in _NOT_TEXT and id(child) not in self._kop:
-                own.append(_unit_text(child, self._kop))
-        self.flush(number, own)
+                own.append(child)
+        self.flush(number, own, depth)
 
-    def flush(self, number: str, own: list[str]) -> None:
-        text = "\n\n".join(t for t in own if t)
+    def flush(self, number: str, own: list[ET.Element], depth: int) -> None:
+        """The own paragraphs of a numbered unit as one; a heading they end with ("faalt."
+        and then "Slotsom" in italics) is a paragraph of its own after it."""
+        texts = [
+            (child, text) for child in own if (text := _unit_text(child, self._kop))
+        ]
         own.clear()
-        if text:
-            self.add(KIND_BODY, number, text)
+        heading = None
+        if len(texts) > 1 and _is_heading_line(texts[-1][0]):
+            heading = texts.pop()[1]
+        if texts:
+            self.add(KIND_BODY, number, "\n\n".join(text for _, text in texts))
+        if heading:
+            self.add(KIND_HEADING if depth == 0 else KIND_SUBHEADING, None, heading)
+
+
+# A heading a numbered unit ends with is no longer than this.
+HEADING_LINE_CHARS = 80
+
+
+def _is_heading_line(element: ET.Element) -> bool:
+    """Is *element* a heading set as a paragraph: one short line, all of it in emphasis,
+    that ends in no punctuation ("Slotsom" in italics)?"""
+    paras = [p for p in iter_named(element, "para") if _flat(p)]
+    if len(paras) != 1 or (paras[0].text or "").strip():
+        return False
+    children = list(paras[0])
+    text = _flat(paras[0])
+    return (
+        bool(children)
+        and all(
+            local_name(c.tag) == "emphasis" and not (c.tail or "").strip()
+            for c in children
+        )
+        and len(text) <= HEADING_LINE_CHARS
+        and not text.endswith((".", ",", ";", ":", "?", "!", "”", '"'))
+    )
+
+
+def _unquote_headings(entries: list[dict[str, Any]]) -> None:
+    """A run of numbered headings that goes back in the numbering, after which the
+    numbering goes on where it was ("6", then "3 Proceskosten" and "4 Beslissing", then
+    "7"): the headings of a decision the text quotes, whose sections the XML closes the
+    text's own section with. They are text of the quote: a ``body`` paragraph, the number
+    in front of its text. Numbering that starts again (1, 2, 1, 2, 3) is left as it is."""
+    last = 0  # the last number of the text's own headings
+    run: list[dict[str, Any]] = []
+    for entry in entries:
+        number = entry["number"] or ""
+        if entry["kind"] != KIND_HEADING or not number.isdigit():
+            continue
+        if int(number) <= last:
+            run.append(entry)
+            continue
+        if run and int(number) == last + 1 != int(run[-1]["number"]) + 1:
+            for quoted in run:
+                quoted["kind"] = KIND_BODY
+                quoted["text"] = f"{quoted['number']} {quoted['text']}"
+                quoted["number"] = None
+        run, last = [], int(number)
+
+
+# The signature of the Parket at the end of a conclusion: "De Procureur-Generaal bij de",
+# "Hoge Raad der Nederlanden", "A-G" (or "Advocaat-Generaal", "Plv.").
+_SIGNATURE_OPENS = re.compile(r"^de\s+procureur-generaal\b", re.IGNORECASE)
+SIGNATURE_OPENING_CHARS = 80
+SIGNATURE_LINE_CHARS = 40
+SIGNATURE_MAX_LINES = 4
+
+
+def _mark_signature(entries: list[dict[str, Any]]) -> None:
+    """The closing lines of a conclusion that sign it: from the last short line that opens
+    with "De Procureur-Generaal" to the end, when no more than ``SIGNATURE_MAX_LINES``
+    short lines without a number follow it (a bold "AG" is read as a heading); kind
+    ``signature``."""
+    tail: list[dict[str, Any]] = []
+    for entry in reversed(entries):
+        text = entry["text"]
+        if entry["number"]:
+            return
+        if len(text) <= SIGNATURE_OPENING_CHARS and _SIGNATURE_OPENS.match(text):
+            for signed in [entry, *tail]:
+                signed["kind"] = KIND_SIGNATURE
+            return
+        if len(text) > SIGNATURE_LINE_CHARS or len(tail) == SIGNATURE_MAX_LINES:
+            return
+        tail.append(entry)
+
+
+def _name(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """*entries* with their ``id`` (see ``extract_sections``)."""
+    seen: dict[str, int] = {}
+    named = []
+    for position, entry in enumerate(entries, start=1):
+        number = entry["number"]
+        if number:
+            base = f"{'rov' if entry['kind'] == KIND_BODY else 'kop'}-{_slug(number)}"
+        else:
+            base = f"p-{position}"
+        seen[base] = seen.get(base, 0) + 1
+        paragraph_id = base if seen[base] == 1 else f"{base}_{seen[base]}"
+        named.append({"id": paragraph_id, **entry})
+    return named
 
 
 def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
@@ -792,7 +964,8 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     text}`` each.
 
     ``kind`` is ``heading`` (a section or a bridgehead), ``subheading`` (a nested one, or
-    the kop) or ``body``. The kop (``_read_kop``), when the judgment has one, is the first
+    the kop), ``body`` or ``signature`` (the closing lines that sign a conclusion,
+    ``_mark_signature``). The kop (``_read_kop``), when the judgment has one, is the first
     paragraph: a ``subheading`` of its lines, a blank line between. A numbered unit
     (``<paragroup>``) is one ``body`` paragraph however many ``<para>`` it holds, and each
     nested unit another: the text of "5.3" does not contain "5.3.1". ``number`` is the
@@ -812,7 +985,9 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     sections = _Sections(kop)
     sections.add(KIND_SUBHEADING, None, "\n\n".join(lines))
     sections.walk(uitspraak)
-    return sections.entries
+    _unquote_headings(sections.entries)
+    _mark_signature(sections.entries)
+    return _name(sections.entries)
 
 
 # ── Atom index pages ─────────────────────────────────────────────────────────

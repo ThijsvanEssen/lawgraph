@@ -45,6 +45,7 @@ def _conclusion() -> str:
         + "<dcterms:type>Conclusie</dcterms:type></rdf:Description></rdf:RDF>"
         "<inhoudsindicatie><para>Cassatie; bestuursrecht.</para></inhoudsindicatie>"
         "<conclusie><para>PROCUREUR-GENERAAL BIJ DE HOGE RAAD DER NEDERLANDEN</para>"
+        "<para>CONCLUSIE</para><para>R.J. Koopman</para>"
         "<section><title><nr>1</nr>Inleiding</title><paragroup><nr>1.1</nr>"
         "<para>De advocaat-generaal concludeert tot verwerping van het beroep.</para>"
         "</paragroup></section></conclusie></open-rechtspraak>"
@@ -133,6 +134,7 @@ def test_a_conclusion_has_its_text_and_paragraphs(client: TestClient) -> None:
     judgment = client.get(f"/api/judgments/{CONCLUSION}").json()["judgment"]
 
     assert judgment["decision_kind"] == "conclusie"
+    assert judgment["advocate_general"] == "R.J. Koopman"
     assert [(p["number"], p["text"]) for p in judgment["paragraphs"][-2:]] == [
         ("1", "Inleiding"),
         ("1.1", "De advocaat-generaal concludeert tot verwerping van het beroep."),
@@ -189,3 +191,28 @@ def test_the_publications_of_one_decision_are_linked_and_counted_once(
     # one whose replacing publication is not loaded stands alone
     orphan = client.get(f"/api/judgments/{ORPHAN}").json()
     assert (orphan["judgment"]["same_as"], orphan["same_as"]) == (None, [])
+
+
+def test_the_stats_count_a_decision_once_and_its_replaced_publications_apart(
+    client: TestClient,
+) -> None:
+    listed = client.get("/api/judgments", params={"limit": 1}).json()["total"]
+    stats = client.get("/api/stats").json()
+    coverage = client.get("/api/stats/coverage").json()
+
+    assert stats["nodes"]["judgments"] == coverage["total"] == listed
+    assert sum(tier["count"] for tier in coverage["tiers"]) == listed
+    assert stats["replaced"] == {"judgments": len(REPLACED)}
+    assert coverage["replaced"] == len(REPLACED)
+
+
+def test_a_publication_names_the_one_that_replaces_it_loaded_or_not(
+    client: TestClient,
+) -> None:
+    def replaced_by(ecli: str) -> str | None:
+        judgment = client.get(f"/api/judgments/{ecli}").json()["judgment"]
+        return judgment["replaced_by"]
+
+    assert replaced_by(REPLACED[0]) == KEPT
+    assert replaced_by(ORPHAN) == "ECLI:NL:HR:2003:AF2343"
+    assert replaced_by(KEPT) is None

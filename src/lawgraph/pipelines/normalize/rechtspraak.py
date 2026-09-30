@@ -12,6 +12,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.judgment_names import judgment_names
 from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.judgments import (
+    KIND_CONCLUSIE,
+    advocate_general,
     case_number_keys,
     compose_display_name,
     decision_kind,
@@ -127,6 +129,8 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
             court_kind=court_kind,
             subjects=subjects,
         )
+        if props["decision_kind"] == KIND_CONCLUSIE:
+            props["advocate_general"] = advocate_general(root)
         props["names"] = judgment_names(ecli)
         jm_date = judgment_meta.get("date") if isinstance(judgment_meta, dict) else None
         props["date_eff"] = (

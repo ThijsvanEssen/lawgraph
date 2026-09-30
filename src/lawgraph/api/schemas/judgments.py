@@ -81,6 +81,19 @@ class JudgmentDTO(BaseNodeDTO):
         "(the Rechtspraak published many old arresten again under a new ECLI), the ECLI "
         "of the one kept; the lists show the decision by that one. Null otherwise.",
     )
+    replaced_by: str | None = Field(
+        default=None,
+        description="The ECLI of the publication that replaces this one "
+        "(`dcterms:isReplacedBy`), loaded or not: `same_as` when it is loaded, a "
+        "publication not in the graph otherwise. Null for most.",
+    )
+    advocate_general: str | None = Field(
+        default=None,
+        description="For a conclusion, the advocate-general (or procureur-generaal) who "
+        "wrote it, as its kop names them: `T. Hartlief`, `P.J. Wattel`, or only the "
+        "surname (`Wattel`) where the kop gives no more. Null for a judgment, and for a "
+        "conclusion whose kop names no one.",
+    )
     unresolved_appeal_targets: list["AppealTarget"] = Field(
         default_factory=list,
         description='The decisions an appeal says in its text it appeals ("tegen de '
@@ -141,6 +154,8 @@ class JudgmentDTO(BaseNodeDTO):
             series_id=props.get("series_id"),
             series_size=props.get("series_size"),
             same_as=props.get("same_as"),
+            replaced_by=props.get("replaced_by"),
+            advocate_general=props.get("advocate_general"),
             unresolved_appeal_targets=[
                 AppealTarget(**t) for t in props.get("unresolved_appeal_targets") or []
             ],
@@ -249,7 +264,10 @@ class JudgmentParagraph(BaseModel):
         "`text`. Null for a paragraph without one.",
     )
     kind: str | None = Field(
-        default=None, description="`heading`, `subheading` or `body`."
+        default=None,
+        description="`heading`, `subheading` (a nested heading, or the kop: the first "
+        "paragraph), `body` or `signature` (the closing lines that sign a conclusion: "
+        "`De Procureur-Generaal bij de`, `Hoge Raad der Nederlanden`, `A-G`).",
     )
     text: str
     citations: list[ArticleCitationSpan] = Field(

@@ -264,7 +264,8 @@ with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `re
 (earlier instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion),
 `subjects`; `court_code`, `tier` (the `Type` of its court in the Instanties list), `court_kind`
 (the kind of court within it), `date_eff` and `case_number_keys`, the case numbers as compared,
-derived; see [Courts](pipelines.md#courts)), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`.
+derived; see [Courts](pipelines.md#courts)), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`;
+a conclusion also `advocate_general`.
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
 `articles`, `conclusion`, `importance` and, from the DOCX of its English item (else its French
@@ -317,18 +318,30 @@ series both are null (`semantic rechtspraak-series`). A series has no edges.
 
 A publication of a decision that another publication replaces (`dcterms:isReplacedBy`, kept as
 `replaced_by`) is `SAME_AS` the one kept when that is loaded, and has its ECLI as `same_as`
-(`semantic rechtspraak-duplicates`); the lists leave it out. `inbound_citation_count` counts
+(`semantic rechtspraak-duplicates`); the lists leave it out, and `/api/stats` and
+`/api/stats/coverage` count it apart (`replaced`), so every count of judgments counts the decision
+once. One whose replacement is not loaded has `replaced_by` and no `same_as`, and is counted. `inbound_citation_count` counts
 the judgments that cite a judgment or a publication `SAME_AS` it, each once;
 `outbound_citation_count` the judgments it cites.
 
 `paragraphs` is the `<uitspraak>` (of a conclusion: the `<conclusie>`) in reading order, a list of `{id, number, kind, text}`. `kind` is
-`heading` (a section or a bridgehead), `subheading` (a nested section, or the kop) or `body`.
+`heading` (a section or a bridgehead), `subheading` (a nested section, or the kop), `body` or
+`signature`.
 The kop is every line before the first section heading (`Procesverloop`, `De procedure`,
 `Onderzoek van de zaak`, `1 Het verloop van het geding`, ...): court, case number, date and
 parties, whether the court writes them in an `<uitspraak.info>`, in bridgeheads, in loose
 paragraphs or in sections titled with a party name. It is the first paragraph, a `subheading` of
 its lines with a blank line between (a `<?linebreak?>` starts a line too); a judgment without a
-heading, or with more than four lines of prose before it, has none.
+heading, or with more than four lines of prose before it, has none. A conclusion writes its kop in
+a `<conclusie.info>`; when no heading ends the kop (or a list of abbreviations), the end of that
+element does.
+A numbered unit that ends in a heading (its last line alone, all of it in emphasis, short and
+without closing punctuation: "Slotsom") has that heading as a paragraph of its own after it. A run
+of numbered headings that goes back in the numbering, after which the numbering goes on where it
+was (6, then 3 and 4, then 7), is the headings of a decision the text quotes: `body` paragraphs,
+the number in front of the text. The closing lines of a conclusion, from the last short line that
+opens with "De Procureur-Generaal" to the end ("Hoge Raad der Nederlanden", "A-G"; at most four
+short lines after it), are `signature`.
 A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
 its own text: the text of `5.3` does not hold `5.3.1`. Where the XML has no such structure a
 `<para>` is a paragraph, and a number that its text opens with (`1.    Bij het besluit`) is its
@@ -337,6 +350,12 @@ none, and is not part of `text`. `id` names the paragraph in deep links and ment
 unique in the judgment: `rov-5.3` for a numbered `body` paragraph (a consideration, cited as
 "rov. 5.3"), `kop-5` for a numbered heading, `p-<n>` (its position) for a paragraph without a
 number; a number that repeats one before it gets `_<n>`, its occurrence (`rov-1_2`).
+
+`advocate_general` is, for a conclusion, who wrote it, as the lines before its parties name them
+(`core.judgments.advocate_general`): a line of initials and a surname (`T. Hartlief`), or a name
+behind "mr." (`mr. P.J. Wattel`, "Zaaknr: 18/04298 (Prejudicieel) mr. Wattel": `Wattel`), two
+together as one ("F.F. Langemeijer en M.H. Wissink"); null when they name no one. The signature
+at the end gives only the office.
 
 `parties` is what the kop names, in its order (`core/judgment_parties.py`), a list of `{name,
 role, role_stated, side, alias, representatives}`; empty when the kop names none, absent on a
