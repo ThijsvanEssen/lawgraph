@@ -547,3 +547,23 @@ def test_seats_are_reported_per_faction(monkeypatch) -> None:
     # the order follows the plan of the Tweede Kamer, which the answer names
     assert body["seating_plan"]["dated"] == "2026-06-01"
     assert "wie-zit-waar" in body["seating_plan"]["page"]
+
+
+def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "lawgraph.api.routes.parliament.get_factions",
+        lambda store, **kwargs: [_FACTION],
+    )
+    asked: list[str] = []
+
+    def seats_on(store, day):
+        asked.append(day)
+        return {"vvd": 33}
+
+    monkeypatch.setattr("lawgraph.api.routes.parliament.get_seats_on", seats_on)
+    body = client.get("/api/parliament/seats?date=2010-10-10").json()
+    assert asked == ["2010-10-10"]
+    assert body["as_of"] == "2010-10-10"
+    assert [(f["key"], f["seats"]) for f in body["factions"]] == [("vvd", 33)]
+    assert body["assigned_seats"] == 33
+    assert client.get("/api/parliament/seats?date=gisteren").status_code == 422
