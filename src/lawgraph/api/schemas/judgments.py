@@ -69,6 +69,12 @@ class JudgmentDTO(BaseNodeDTO):
     series_size: int | None = Field(
         default=None, description="How many judgments the series has."
     )
+    same_as: str | None = Field(
+        default=None,
+        description="For a publication of a decision that another publication replaces "
+        "(the Rechtspraak published many old arresten again under a new ECLI), the ECLI "
+        "of the one kept; the lists show the decision by that one. Null otherwise.",
+    )
     unresolved_appeal_targets: list["AppealTarget"] = Field(
         default_factory=list,
         description='The decisions an appeal says in its text it appeals ("tegen de '
@@ -127,6 +133,7 @@ class JudgmentDTO(BaseNodeDTO):
             decision_kind=props.get("decision_kind"),
             series_id=props.get("series_id"),
             series_size=props.get("series_size"),
+            same_as=props.get("same_as"),
             unresolved_appeal_targets=[
                 AppealTarget(**t) for t in props.get("unresolved_appeal_targets") or []
             ],
@@ -322,7 +329,16 @@ class JudgmentDetailResponse(BaseModel):
         description="The same articles, each with the passages of the judgment that cite "
         "it: paragraphs, the lid or onderdeel named, a snippet.",
     )
-    cited_judgments: list[JudgmentSummaryDTO] = Field(default_factory=list)
+    cited_judgments: list[JudgmentSummaryDTO] = Field(
+        default_factory=list,
+        description="The judgments its text cites by ECLI (`REFERS_TO`), newest first; "
+        "not the earlier instances or the conclusion its metadata names.",
+    )
+    same_as: list[JudgmentSummaryDTO] = Field(
+        default_factory=list,
+        description="The other publications of the same decision (`SAME_AS`): for the one "
+        "kept those it replaces, for a replaced one the one kept. Empty for most.",
+    )
     series: list[JudgmentSummaryDTO] = Field(
         default_factory=list,
         description="The other judgments of its series (`judgment.series_id`), in the "
@@ -367,8 +383,15 @@ class JudgmentListItemDTO(BaseModel):
         "as written: `Strafrecht`, `Bestuursrecht; Belastingrecht`. Empty when it gives "
         "none.",
     )
-    inbound_citation_count: int | None
-    outbound_citation_count: int | None = None
+    inbound_citation_count: int | None = Field(
+        description="The judgments that cite it, or another publication of the same "
+        "decision, each once."
+    )
+    outbound_citation_count: int | None = Field(
+        default=None,
+        description="The judgments its text cites (`cited_judgments` of the detail); null "
+        "before `semantic graph-list-stats` counted them.",
+    )
     series_id: str | None = None
     series_size: int | None = None
 
@@ -392,6 +415,7 @@ class JudgmentListItemDTO(BaseModel):
             source=source,
             subjects=row.get("subjects") or [],
             inbound_citation_count=int(inbound) if inbound is not None else None,
+            outbound_citation_count=row.get("outbound_citation_count"),
             series_id=row.get("series_id"),
             series_size=row.get("series_size"),
         )

@@ -11,7 +11,7 @@ GET /api/parties/colors                — party colours for the frontend
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Any, Literal, get_args
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
@@ -28,12 +28,11 @@ from lawgraph.api.schemas.dossiers import (
     DossierMutationNode,
     DossierMutationsResponse,
     DossierOutcome,
-    DossierStage,
     DossierSummaryDTO,
     DossierTimelineResponse,
-    DossierTrack,
     timeline_entry,
 )
+from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.dossiers import (
@@ -80,6 +79,9 @@ def _dossier_or_404(store: ArangoStore, number: str) -> dict[str, Any]:
     return dossier
 
 
+_PHASE_NAMES = tuple(p.name for p in PHASES)
+
+
 class _ListParams:
     """The filters, order and page of a dossier list, as query parameters."""
 
@@ -90,10 +92,11 @@ class _ListParams:
             Query(description="Open dossiers, closed ones (with an outcome) or both."),
         ] = "all",
         outcome: Annotated[DossierOutcome | None, Query()] = None,
-        track: Annotated[
+        kind: Annotated[
             str | None,
             Query(
-                description="Comma-separated tracks, e.g. ``wetsvoorstel,begroting``."
+                description="Comma-separated kinds (``Zaak.Soort``), e.g. "
+                f"``Wetgeving,Begroting``; one of {', '.join(CARRYING_KINDS)}."
             ),
         ] = None,
         number: Annotated[
@@ -106,18 +109,18 @@ class _ListParams:
         ] = None,
         committee: Annotated[str | None, Query(description="Committee slug.")] = None,
         subject: Subject = None,
-        stage: Annotated[
-            DossierStage | None,
-            Query(
-                description="The dossier's latest recognised stage. To filter on a stage "
-                "being present at all, use ``has_stage``."
-            ),
-        ] = None,
-        has_stage: Annotated[
+        phase: Annotated[
             str | None,
             Query(
-                description="Comma-separated stages; only dossiers that have all of them, "
-                "e.g. ``mvt,advies_rvs``."
+                description="The dossier's current phase, e.g. ``Verslag``. To filter on "
+                "a phase being done at all, use ``has_phase``."
+            ),
+        ] = None,
+        has_phase: Annotated[
+            str | None,
+            Query(
+                description="Comma-separated phases; only dossiers that have done all of "
+                "them, e.g. ``Memorie van toelichting,Advies Raad van State``."
             ),
         ] = None,
         ministry: Annotated[
@@ -149,9 +152,9 @@ class _ListParams:
         self.filters = DossierFilters(
             status=None if status == "all" else status,
             outcome=outcome,
-            tracks=parse_choices(track, get_args(DossierTrack), "track"),
-            stage=stage,
-            has_stage=parse_choices(has_stage, get_args(DossierStage), "has_stage"),
+            kinds=parse_choices(kind, CARRYING_KINDS, "kind"),
+            phase=(parse_choices(phase, _PHASE_NAMES, "phase") or (None,))[0],
+            has_phase=parse_choices(has_phase, _PHASE_NAMES, "has_phase"),
             ministry=ministry.value if ministry else None,
             initiative=initiative,
             number=number,

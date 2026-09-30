@@ -29,6 +29,12 @@ from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
+from lawgraph.pipelines.normalize.eerstekamer_composition import (
+    EerstekamerCompositionNormalizePipeline,
+)
+from lawgraph.pipelines.normalize.eerstekamer_votes import (
+    EerstekamerVotesNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.normalize.rijksoverheid import RijksoverheidNormalizePipeline
@@ -43,7 +49,10 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_bwb_history,
     retrieve_echr,
     retrieve_eerstekamer,
+    retrieve_eerstekamer_composition,
+    retrieve_eerstekamer_votes,
     retrieve_eurlex,
+    retrieve_eurlex_nim,
     retrieve_rechtspraak,
     retrieve_rechtspraak_instanties,
     retrieve_rijksoverheid,
@@ -81,6 +90,9 @@ from lawgraph.pipelines.semantic.rechtspraak_citations import (
 )
 from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
     RechtspraakConclusionsSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.rechtspraak_duplicates import (
+    RechtspraakDuplicatesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.rechtspraak_referrals import (
     RechtspraakReferralsSemanticPipeline,
@@ -133,6 +145,9 @@ _CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR"}
 # Retrieve pipelines that share a server run one after the other.
 LANE_TWEEDE_KAMER = "tweede_kamer"
 LANE_KOOP_REPOSITORY = "koop_repository"  # repository.overheid.nl: SRU and publications
+LANE_EERSTEKAMER_SITE = (
+    "eerstekamer_site"  # www.eerstekamer.nl: its votes and composition
+)
 LANE_BWB = (
     "bwb"  # zoekservice.overheid.nl and repository.officiele-overheidspublicaties.nl
 )
@@ -339,6 +354,15 @@ RETRIEVE: list[Pipeline] = [
         fills_gaps=True,
     ),
     _pipeline(
+        retrieve_eurlex_nim,
+        (
+            "The Dutch national implementing measures of EU acts (CELLAR SPARQL): those "
+            "changed in the window, all with --mode full."
+        ),
+        argv_for_all=_windowed_argv,
+        lane="eurlex",  # the server of `retrieve eurlex`
+    ),
+    _pipeline(
         retrieve_bwb,
         (
             "Dutch legislation: the current toestand XML and the WTI abbreviations of every "
@@ -378,6 +402,20 @@ RETRIEVE: list[Pipeline] = [
         "Eerste Kamer Kamerstukken from the KOOP SRU (no votes).",
         argv_for_all=_windowed_argv,
         lane=LANE_KOOP_REPOSITORY,
+    ),
+    _pipeline(
+        retrieve_eerstekamer_votes,
+        "The votes of the Eerste Kamer on bills (since June 2015) and the list of the "
+        "bills it rejected (since 1996), from eerstekamer.nl.",
+        argv_for_all=_windowed_argv,
+        lane=LANE_EERSTEKAMER_SITE,
+    ),
+    _pipeline(
+        retrieve_eerstekamer_composition,
+        "The factions (with their seats and boards) and committees of the Eerste Kamer "
+        "and who sits in them, as eerstekamer.nl shows them today.",
+        argv_for_all=_no_argv,
+        lane=LANE_EERSTEKAMER_SITE,
     ),
     _pipeline(
         retrieve_echr,
@@ -461,6 +499,16 @@ NORMALIZE: list[Pipeline] = [
         "Kamerstukken as documents, with the dossier number and its addition.",
     ),
     _pipeline(
+        EerstekamerCompositionNormalizePipeline,
+        "The factions, committees and members of the Eerste Kamer as its pages show them "
+        "on the day they were read; periods as observed.",
+    ),
+    _pipeline(
+        EerstekamerVotesNormalizePipeline,
+        "The votes of the Eerste Kamer on bills as decisions about their dossiers; the "
+        "day each rejected bill was rejected on its dossier.",
+    ),
+    _pipeline(
         ECHRNormalizePipeline,
         "Judgments as nodes.",
     ),
@@ -540,6 +588,13 @@ SEMANTIC: list[Pipeline] = [
         "ANSWERS from a preliminary ruling to the decision that asked its questions.",
     ),
     _pipeline(
+        RechtspraakDuplicatesSemanticPipeline,
+        (
+            "SAME_AS from a publication of a decision to the one that replaces it "
+            "(dcterms:isReplacedBy); the lists show the decision once."
+        ),
+    ),
+    _pipeline(
         RechtspraakCitationsSemanticPipeline,
         (
             "ECLI references between judgments: REFERS_TO, none between judgments the steps "
@@ -556,7 +611,12 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         BWBImplementsSemanticPipeline,
-        "IMPLEMENTS from a regulation to the EU acts its text names.",
+        (
+            "IMPLEMENTS to an EU act from the publications EUR-Lex lists as its national "
+            "implementing measures, the regulations they enacted or changed, and the "
+            "regulations whose considerans says they implement it; REFERS_TO for the other "
+            "EU acts a regulation names."
+        ),
     ),
     _pipeline(
         TKAmendmentArticlesSemanticPipeline,
@@ -586,7 +646,8 @@ SEMANTIC: list[Pipeline] = [
         TKDossierOutcomesSemanticPipeline,
         (
             "Whether each dossier is closed and how it ended: the publication of its law, "
-            "the withdrawal of its bill or the vote that rejected it."
+            "the vote of the Tweede Kamer that rejected its bill, or the outcome in the "
+            "Eerste Kamer; and the last decision of each chamber on its bill."
         ),
     ),
     _pipeline(

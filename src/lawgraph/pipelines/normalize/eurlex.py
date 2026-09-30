@@ -7,7 +7,7 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    RAW_SOURCE_KINDS,
+    RAW_KIND_EU_CELEX,
     RELATION_PART_OF,
     SOURCE_EURLEX,
 )
@@ -39,7 +39,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
         """Stream the EUR-Lex CELEX html dumps from raw_sources (whole acts: 20 at a time)."""
         return self._iter_raw_sources(
             source=SOURCE_EURLEX,
-            kinds=list(RAW_SOURCE_KINDS[SOURCE_EURLEX]),
+            kinds=[RAW_KIND_EU_CELEX],
             since=since,
         )
 

@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from typing import get_args
-
 import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.schemas.decisions import DecisionKind
-from lawgraph.core.tk_records import DECISION_KINDS
 from lawgraph.db.queries.decisions import DecisionFilters
 
 client = TestClient(app)
@@ -24,9 +20,10 @@ _DOSSIER = {
         "label": "36000",
         "title": "Testwet",
         "title_source": "dossier",
-        "current_stage": "wetsvoorstel",
-        "stages_present": ["wetsvoorstel"],
-        "track_kind": "wetsvoorstel",
+        "kind": "Wetgeving",
+        "kind_basis": "case",
+        "phases": [{"name": "Voorstel van wet", "done": True, "date": "2024-01-01"}],
+        "current_phase": "Voorstel van wet",
         "closed": False,
         "opened_on": "2024-01-01",
         "closed_on": None,
@@ -65,7 +62,8 @@ _DECISION = {
     "subject": "Motie over wachtlijsten",
     "external_id": "b-1",
     "dossier_numbers": ["36000"],
-    "kind": "motie",
+    "kind": "Motie",
+    "decision_kind": "Stemmen - aangenomen",
     "passed": True,
     "chamber": None,
     "vote_kind": "faction",
@@ -108,7 +106,8 @@ def test_open_dossiers_are_wrapped_in_a_total_and_items(monkeypatch) -> None:
     assert body["total"] == 1
     assert body["items"][0]["number"] == "36000"
     assert body["items"][0]["title"] == "Testwet"
-    assert body["items"][0]["current_stage"] == "wetsvoorstel"
+    assert body["items"][0]["kind"] == "Wetgeving"
+    assert body["items"][0]["current_phase"] == "Voorstel van wet"
     assert body["items"][0]["closed"] is False
 
 
@@ -189,6 +188,7 @@ _TIMELINE_ROWS = [
             "kind": "Memorie van toelichting",
             "title": "MvT",
             "sequence": 3,
+            "dossier_number": "36000",
             "session_year": "2024-2025",
             "document_number": "2025D00003",
             "source": "tk",
@@ -272,6 +272,7 @@ def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
         "kind": "Memorie van toelichting",
         "title": "MvT",
         "sequence": 3,
+        "dossier_number": "36000",
         "session_year": "2024-2025",
         "tk_url": _MVT_PAGE,
         "url": None,
@@ -311,7 +312,7 @@ def test_a_plenary_activity_has_no_committee() -> None:
 def test_committees_are_listed_with_english_field_names(monkeypatch) -> None:
     monkeypatch.setattr(
         "lawgraph.api.routes.committees.get_committees",
-        lambda store: [_COMMITTEE],
+        lambda store, **kwargs: [_COMMITTEE],
     )
     body = client.get("/api/committees").json()
     assert body[0]["abbreviation"] == "VWS"
@@ -386,7 +387,7 @@ def test_decisions_are_listed_with_their_tally(monkeypatch) -> None:
     assert body["total"] == 1
     assert body["items"][0]["tally"] == {"Voor": 76, "Tegen": 74}
     assert body["items"][0]["vote_kind"] == "faction"
-    assert body["items"][0]["kind"] == "motie"
+    assert body["items"][0]["kind"] == "Motie"
     assert body["facets"] == {"kind": [], "passed": [], "days": []}
 
 
@@ -415,7 +416,7 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
     response = client.get(
         "/api/decisions",
         params={
-            "kind": "motie, amendement",
+            "kind": "Motie, Amendement",
             "from": "2024-01-01",
             "to": "2024-12-31",
             "q": "  Wachtlijsten ",
@@ -425,7 +426,7 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
     )
     assert response.status_code == 200
     assert asked[0] == DecisionFilters(
-        kinds=("motie", "amendement"),
+        kinds=("Motie", "Amendement"),
         party="VVD",
         choice="Tegen",
         date_from="2024-01-01",
@@ -437,7 +438,6 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
 @pytest.mark.parametrize(
     "params",
     [
-        {"kind": "motion"},
         {"vote": "voor"},  # how, without whom
         {"party": "VVD", "vote": "onthouden"},
         {"from": "2024-13-01"},
@@ -450,7 +450,7 @@ def test_a_decision_filter_it_cannot_read_is_a_422(monkeypatch, params) -> None:
 
 def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
     facets = {
-        "kind": [{"value": "motie", "count": 3}, {"value": None, "count": 1}],
+        "kind": [{"value": "Motie", "count": 3}, {"value": None, "count": 1}],
         "passed": [{"value": True, "count": 3}, {"value": None, "count": 1}],
         "days": [{"date": "2024-10-16", "count": 4, "passed": 3}],
     }
@@ -463,10 +463,6 @@ def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
         },
     )
     assert client.get("/api/decisions").json()["facets"] == facets
-
-
-def test_the_decision_kinds_of_the_api_are_those_normalize_stores() -> None:
-    assert get_args(DecisionKind) == DECISION_KINDS
 
 
 def test_a_decisions_document_carries_its_links(monkeypatch) -> None:
@@ -553,3 +549,23 @@ def test_seats_are_reported_per_faction(monkeypatch) -> None:
     # the order follows the plan of the Tweede Kamer, which the answer names
     assert body["seating_plan"]["dated"] == "2026-06-01"
     assert "wie-zit-waar" in body["seating_plan"]["page"]
+
+
+def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "lawgraph.api.routes.parliament.get_factions",
+        lambda store, **kwargs: [_FACTION],
+    )
+    asked: list[str] = []
+
+    def seats_on(store, day):
+        asked.append(day)
+        return {"vvd": 33}
+
+    monkeypatch.setattr("lawgraph.api.routes.parliament.get_seats_on", seats_on)
+    body = client.get("/api/parliament/seats?date=2010-10-10").json()
+    assert asked == ["2010-10-10"]
+    assert body["as_of"] == "2010-10-10"
+    assert [(f["key"], f["seats"]) for f in body["factions"]] == [("vvd", 33)]
+    assert body["assigned_seats"] == 33
+    assert client.get("/api/parliament/seats?date=gisteren").status_code == 422

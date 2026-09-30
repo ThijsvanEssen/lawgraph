@@ -447,7 +447,7 @@ def _search_dossiers(
     bind_vars: dict[str, Any] = {**tok_bind, "limit": limit}
     kind_clause = ""
     if kinds:
-        kind_clause = "FILTER LOWER(doc.props.current_stage) IN @kind_filter"
+        kind_clause = "FILTER LOWER(doc.props.kind) IN @kind_filter"
         bind_vars["kind_filter"] = [k.lower() for k in kinds]
     aql = f"""
     FOR doc IN search_dossiers
@@ -462,7 +462,8 @@ def _search_dossiers(
             snippet: doc.props.label,
             extra: {{
                 number: doc.props.label,
-                current_stage: doc.props.current_stage,
+                kind: doc.props.kind,
+                current_phase: doc.props.current_phase,
                 closed: doc.props.closed,
                 outcome: doc.props.outcome
             }}

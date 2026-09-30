@@ -3,7 +3,7 @@ versions."""
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,11 +16,12 @@ from lawgraph.api.schemas.common import (
     address_of,
 )
 from lawgraph.config.constants import (
-    EDGE_SOURCE_BWB_IMPLEMENTS,
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
 )
 from lawgraph.core.official_urls import article_url, instrument_url
+
+TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
 
 # What `bwb_id` holds in the answer of an instrument route: the identifier of the request.
 _REQUESTED = (
@@ -38,6 +39,27 @@ class InstrumentArticleBreadcrumbDTO(BaseModel):
     type: str | None = None
     label: str | None = None
     title: str | None = None
+
+
+def breadcrumb_dtos(raw: Any) -> list[InstrumentArticleBreadcrumbDTO]:
+    """The stored ``breadcrumb`` of an article or an article version as DTOs."""
+    return [
+        InstrumentArticleBreadcrumbDTO(
+            type=c.get("type"), label=c.get("label"), title=c.get("title")
+        )
+        for c in raw or []
+        if isinstance(c, dict)
+    ]
+
+
+def breadcrumb_on(props: dict[str, Any], day: str) -> Any:
+    """The stored breadcrumb of an article version on *day*: the last of its
+    ``breadcrumb_changes`` from on or before *day*, else its ``breadcrumb``."""
+    crumbs = props.get("breadcrumb")
+    for change in props.get("breadcrumb_changes") or []:
+        if (change.get("from") or "") <= day:
+            crumbs = change.get("breadcrumb")
+    return crumbs
 
 
 class InstrumentArticleNodeDTO(BaseModel):
@@ -91,14 +113,6 @@ class InstrumentArticleNodeDTO(BaseModel):
     ) -> InstrumentArticleNodeDTO:
         props = doc.get("props") or {}
         text = props.get("text") or ""
-        raw_crumbs = props.get("breadcrumb") or []
-        crumbs = [
-            InstrumentArticleBreadcrumbDTO(
-                type=c.get("type"), label=c.get("label"), title=c.get("title")
-            )
-            for c in raw_crumbs
-            if isinstance(c, dict)
-        ]
         return cls(
             id=doc["_id"],
             key=doc["_key"],
@@ -110,7 +124,7 @@ class InstrumentArticleNodeDTO(BaseModel):
             address=address_of(doc),
             display_name=props.get("display_name"),
             official_url=article_url(props.get("bwb_id"), props.get("article_number")),
-            breadcrumb=crumbs,
+            breadcrumb=breadcrumb_dtos(props.get("breadcrumb")),
             stub=bool(props.get("stub", False)),
             repealed=bool(props.get("repealed")),
             last_article_number=props.get("last_article_number"),
@@ -198,7 +212,9 @@ class InstrumentDossierItem(BaseModel):
     dossier_number: str = Field(..., description="The dossier's label, e.g. 37020-XV.")
     title: str | None = None
     display_name: str | None = None
-    stage: str | None = None
+    current_phase: str | None = Field(
+        None, description="The current phase of the dossier's bill (``phases``)."
+    )
     opened_on: str | None = None
     closed: bool | None = None
     via: Literal["instrument", "amending_publication"] = Field(
@@ -447,34 +463,58 @@ class InstrumentVersionsResponse(BaseModel):
 
 
 class InstrumentArticleVersionDTO(BaseModel):
-    """One historical version of a single BWB article."""
+    """One historical version of a single BWB article, in its place on the day asked for."""
 
     model_config = ConfigDict(extra="forbid")
 
     key: str
     bwb_id: str
     article_number: str
+    label: str | None = Field(
+        None,
+        description="`Artikel 1:3`, or the heading of an article without a number.",
+    )
+    heading: str | None = Field(
+        None,
+        description="The title of its kop (`Definities`); most articles have none.",
+    )
+    breadcrumb: list[InstrumentArticleBreadcrumbDTO] = Field(
+        [],
+        description="The divisions the article stood in on the day asked for, outermost "
+        "first: those of the toestand of that day.",
+    )
     valid_from: str | None = None
     valid_until: str | None = Field(None, description=VALID_UNTIL)
     current: bool = False
     official_url: str | None = Field(
         None, description="This version on wetten.overheid.nl (JCI with ``g``)."
     )
-    text: str | None = None
+    text: str | None = Field(
+        None, description="The whole text; null when it was not asked for."
+    )
     text_preview: str | None = Field(
-        None, description="The first ``text_preview_chars`` characters of ``text``."
+        None, description="The first ``text_preview_chars`` characters of the text."
     )
 
     @classmethod
     def from_document(
-        cls, doc: dict[str, Any], *, text_preview_chars: int = 160
+        cls,
+        doc: dict[str, Any],
+        *,
+        on: str,
+        text_preview_chars: int = TEXT_PREVIEW_CHARS,
+        include_text: bool = True,
     ) -> InstrumentArticleVersionDTO:
+        """The version *doc* with its breadcrumb *on* that day."""
         props = doc.get("props") or {}
         text = props.get("text") or None
         return cls(
             key=doc["_key"],
             bwb_id=props.get("bwb_id", ""),
             article_number=props.get("article_number", ""),
+            label=props.get("label"),
+            heading=props.get("heading"),
+            breadcrumb=breadcrumb_dtos(breadcrumb_on(props, on)),
             valid_from=props.get("valid_from"),
             valid_until=props.get("valid_until"),
             current=bool(props.get("current", False)),
@@ -483,7 +523,7 @@ class InstrumentArticleVersionDTO(BaseModel):
                 props.get("article_number"),
                 on=props.get("valid_from"),
             ),
-            text=text,
+            text=text if include_text else None,
             text_preview=text[:text_preview_chars] if text else None,
         )
 
@@ -499,6 +539,12 @@ class InstrumentArticlesAtResponse(BaseModel):
         ...,
         description="Every article in force on ``at_date``, independent of ``limit`` "
         "and ``offset``.",
+    )
+    first_version_from: str | None = Field(
+        None,
+        description="The start of the first toestand of the law the source gives (the "
+        "oldest ``valid_from`` of its versions). Before it the source gives no law: the "
+        "route is empty, also where an article's own ``valid_from`` is older.",
     )
     items: list[InstrumentArticleVersionDTO]
 
@@ -563,13 +609,24 @@ class InstrumentDetailDTO(BaseModel):
     version_date_in_force: str | None = Field(
         None, description="BWB: the start of the version in force (its toestand)."
     )
-    treaty_number: str | None = None
+    treaty_number: str | None = Field(
+        None,
+        description="A treaty: its Verdragenbank id (six digits), which the BWB text of the "
+        "treaty names too (`wetgeving@verdragnummer`).",
+    )
     in_force: bool | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
     official_url: str | None = Field(None, description=OFFICIAL_URL)
+    same_treaty: list[LinkedInstrumentDTO] = Field(
+        default_factory=list,
+        description="The other instruments with its treaty number: the Verdragenbank "
+        "record of a BWB treaty, the BWB text of a Verdragenbank treaty.",
+    )
 
     @classmethod
-    def from_document(cls, doc: dict[str, Any]) -> InstrumentDetailDTO:
+    def from_document(
+        cls, doc: dict[str, Any], *, same_treaty: list[dict[str, Any]] | None = None
+    ) -> InstrumentDetailDTO:
         props = doc.get("props") or {}
         return cls(
             id=doc["_id"],
@@ -598,6 +655,9 @@ class InstrumentDetailDTO(BaseModel):
             in_force=props.get("in_force"),
             dossier_numbers=[str(n) for n in props.get("dossier_numbers") or []],
             official_url=instrument_url(props),
+            same_treaty=[
+                LinkedInstrumentDTO.from_document(other) for other in same_treaty or []
+            ],
         )
 
 
@@ -630,18 +690,20 @@ class LinkedInstrumentDTO(BaseModel):
         )
 
 
-# What an IMPLEMENTS edge rests on, by the pipeline that wrote it.
-IMPLEMENTS_BASES: dict[str, Literal["celex_named_in_text"]] = {
-    EDGE_SOURCE_BWB_IMPLEMENTS: "celex_named_in_text"
-}
+# What an IMPLEMENTS edge rests on (`meta.bases`).
+ImplementsBasis = Literal["national_implementing_measure", "considerans"]
+IMPLEMENTS_BASES: tuple[ImplementsBasis, ...] = get_args(ImplementsBasis)
 
 
 class EuLinkDTO(BaseModel):
-    """An `IMPLEMENTS` edge between a national regulation and an EU act.
+    """An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.
 
-    The edge means that the text of the regulation names the CELEX number of the EU act
-    (`basis`). It does not say that the regulation transposes the act, nor which articles
-    do: it links instruments, not articles, and its `confidence` is that of a text match.
+    `IMPLEMENTS` rests on an implementation source (`bases`): EUR-Lex lists the publication
+    as a national implementing measure of the act, or it enacted or changed the regulation
+    (`national_implementing_measure`, `meta.publications`), or the considerans of the
+    regulation says it implements the act (`considerans`). It links instruments: no source
+    names the article that implements. `REFERS_TO`: the text of the regulation names the
+    CELEX number of an act it does not implement.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -655,31 +717,33 @@ class EuLinkDTO(BaseModel):
     )
     relation: str = RELATION_IMPLEMENTS
     confidence: float | None = None
-    basis: Literal["celex_named_in_text"] | None = Field(
-        None,
+    bases: list[ImplementsBasis] = Field(
+        default_factory=list,
         description=(
-            "What the edge rests on: `celex_named_in_text`, the text of the regulation "
-            "names the CELEX number of the act. Not a transposition signal."
+            "What an `IMPLEMENTS` edge rests on: `national_implementing_measure` (EUR-Lex) "
+            "and/or `considerans`; empty for `REFERS_TO`."
         ),
     )
     source: str | None = Field(
-        None,
-        description="The pipeline that wrote the edge (`bwb-implements-directive`).",
+        None, description="The pipeline that wrote the edge (`bwb-implements`)."
     )
     meta: dict[str, Any] = Field(
-        default_factory=dict, description="Edge evidence as stored (`celex`)."
+        default_factory=dict,
+        description="Edge evidence as stored (`celex`, `bases`, `publications`).",
     )
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> EuLinkDTO:
         """Build from an ``{instrument, edge}`` query row."""
         edge = row.get("edge") or {}
+        meta = edge.get("meta") or {}
         return cls(
             instrument=LinkedInstrumentDTO.from_document(row["instrument"]),
+            relation=edge.get("relation") or RELATION_IMPLEMENTS,
             confidence=edge.get("confidence"),
-            basis=IMPLEMENTS_BASES.get(edge.get("source") or ""),
+            bases=[b for b in meta.get("bases") or [] if b in IMPLEMENTS_BASES],
             source=edge.get("source"),
-            meta=edge.get("meta") or {},
+            meta=meta,
         )
 
 
@@ -723,18 +787,34 @@ class InstrumentEuLinksResponse(BaseModel):
 
     instrument: LinkedInstrumentDTO
     implements: list[EuLinkDTO] = Field(
-        default_factory=list,
-        description="EU acts whose CELEX number the text of this instrument names.",
+        default_factory=list, description="EU acts this instrument implements."
     )
     implements_total: int = Field(
         ..., description="Absolute number of `implements`, independent of `limit`."
     )
     implemented_by: list[EuLinkDTO] = Field(
         default_factory=list,
-        description="National regulations whose text names the CELEX number of this act.",
+        description="National publications and regulations that implement this act.",
     )
     implemented_by_total: int = Field(
         ..., description="Absolute number of `implemented_by`, independent of `limit`."
+    )
+    mentions: list[EuLinkDTO] = Field(
+        default_factory=list,
+        description=(
+            "EU acts whose CELEX number the text of this regulation names and that it "
+            "does not implement (`REFERS_TO`)."
+        ),
+    )
+    mentions_total: int = Field(
+        ..., description="Absolute number of `mentions`, independent of `limit`."
+    )
+    mentioned_by: list[EuLinkDTO] = Field(
+        default_factory=list,
+        description="Regulations that name this act and do not implement it.",
+    )
+    mentioned_by_total: int = Field(
+        ..., description="Absolute number of `mentioned_by`, independent of `limit`."
     )
     international: list[InternationalLinkDTO] = Field(
         default_factory=list,

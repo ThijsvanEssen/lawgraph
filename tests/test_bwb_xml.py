@@ -10,6 +10,7 @@ from lawgraph.core.bwb_xml import (
     EFFECT_AMENDS,
     EFFECT_INTRODUCES,
     EFFECT_REPEALS,
+    EFFECT_REPUBLISHES,
     effect_kind,
     instrument_props,
     parse_jci,
@@ -77,7 +78,8 @@ def test_article_identity_and_version_fields(grondwet) -> None:
     assert art7.valid_from == "2018-12-21"
     assert art7.source == "Stb.2019-33"
     assert art7.effect == "tekstplaatsing-wijziging"
-    assert effect_kind(art7.effect) == EFFECT_AMENDS
+    assert effect_kind(art7.effect) == EFFECT_REPUBLISHES  # the Grondwet placed again
+    assert effect_kind("wijziging") == EFFECT_AMENDS
 
 
 def test_article_documents_and_their_dossiers(grondwet) -> None:
@@ -369,3 +371,23 @@ def test_a_numbered_article_keeps_the_title_of_its_kop_as_its_heading() -> None:
     assert props["breadcrumb"] == [
         {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Algemene bepalingen"}
     ]
+
+
+def test_a_treaty_names_its_verdragenbank_id() -> None:
+    """``wetgeving@verdragnummer`` is the id of the treaty in the Verdragenbank."""
+    from lawgraph.core.bwb_xml import instrument_props, parse_toestand
+
+    treaty = parse_toestand(
+        '<toestand bwb-id="BWBV0001000" inwerkingtreding="1998-11-01">'
+        '<wetgeving soort="verdrag" verdragnummer="005132"><intitule>Verdrag tot '
+        "bescherming van de rechten van de mens</intitule></wetgeving></toestand>"
+    )
+    law = parse_toestand(
+        '<toestand bwb-id="BWBR0001854" inwerkingtreding="2020-01-01">'
+        '<wetgeving soort="wet"><intitule>Wetboek van Strafrecht</intitule></wetgeving>'
+        "</toestand>"
+    )
+    assert treaty.treaty_number == "005132"
+    assert instrument_props(treaty, "BWBV0001000")["treaty_number"] == "005132"
+    assert law.treaty_number is None
+    assert "treaty_number" not in instrument_props(law, "BWBR0001854")

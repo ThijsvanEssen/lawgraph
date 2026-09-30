@@ -75,18 +75,15 @@ def _run_all() -> _GraphStore:
     return store
 
 
-def test_amending_publication_amends_the_current_article() -> None:
+def test_a_republication_amends_no_article() -> None:
     store = _run_all()
 
+    # every version of artikel 7 is placed by the republication Stb. 2019, 33
     art7 = f"articles/{make_node_key(GRONDWET, '7')}"
-    stb_2019_33 = f"instruments/{publication_key('stb-2019-33')}"
-    amends = [e for e in _edges(store, "AMENDS") if e["_to"] == art7]
-
-    assert [e["_from"] for e in amends] == [stb_2019_33]
-    assert amends[0]["meta"]["effect"] == "tekstplaatsing-wijziging"
-    assert (
-        amends[0]["meta"]["effective_date"] == "2002-03-21"
-    )  # earliest version (fabricated old one)
+    assert [e for e in _edges(store, "AMENDS") if e["_to"] == art7] == []
+    assert f"instruments/{publication_key('stb-2019-33')}" not in {
+        e["_from"] for e in store.edges.values()
+    }
 
 
 def test_new_and_repealed_articles_get_their_own_relations() -> None:

@@ -15,6 +15,7 @@ from lawgraph.core.mentions import ArticleMentions, find_mentions
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
+from lawgraph.db.queries import semantic as semantic_queries
 
 from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
@@ -39,9 +40,10 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
 
     One edge per judgment and article; ``meta.mentions`` has every place in the judgment that
     cites the article (``core.mentions``): the paragraph, the span in its text, the lid or
-    onderdeel it names. A citation of a law that is not in the graph (``artikel 392 Rv``) has
-    no article to point at: the judgment keeps it in ``props.unresolved_citations``, written
-    only when it changed.
+    onderdeel it names. The edges of a judgment are derived in full each time it is read:
+    one its text no longer makes (an earlier rule, an earlier text) goes. A citation of a law
+    that is not in the graph (``artikel 392 Rv``) has no article to point at: the judgment
+    keeps it in ``props.unresolved_citations``, written only when it changed.
     """
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
@@ -64,8 +66,11 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
         )
 
         edges = EdgeWriter(self.store, what=None)
+        read: list[str] = []
+        kept: dict[str, set[str]] = {}
         with NodeWriter(self.store) as nodes:
             for judgment, paragraphs in self._judgment_paragraphs(since_iso):
+                read.append(str(judgment.arango_id))
                 unresolved: list[dict[str, Any]] = []
                 for cited in find_mentions(paragraphs, detect).values():
                     if cited.unknown_law:
@@ -74,20 +79,24 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
                     article = self._resolve_article(cited)
                     if article is None:
                         continue
-                    edges.add_doc(
-                        self._make_edge_doc(
-                            from_node=judgment,
-                            to_node=article,
-                            relation=RELATION_REFERS_TO,
-                            source=SEMANTIC_SOURCE,
-                            confidence=cited.confidence,
-                            meta=cited.meta(),
-                        )
+                    doc = self._make_edge_doc(
+                        from_node=judgment,
+                        to_node=article,
+                        relation=RELATION_REFERS_TO,
+                        source=SEMANTIC_SOURCE,
+                        confidence=cited.confidence,
+                        meta=cited.meta(),
                     )
+                    if doc:
+                        edges.add_doc(doc)
+                        kept.setdefault(doc["_from"], set()).add(doc["_key"])
                 self._keep_unresolved(judgment, unresolved, nodes, result)
 
         edges.flush_into(result)
-
+        removed = semantic_queries.remove_edges_from(
+            self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
+        )
+        logger.info("Removed %d article citations the text no longer makes.", removed)
         return result
 
     @staticmethod

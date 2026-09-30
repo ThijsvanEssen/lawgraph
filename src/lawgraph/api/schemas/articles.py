@@ -400,6 +400,10 @@ class ArticleCitedByResponse(BaseModel):
     total: int = Field(
         description="Every passage that matches the filters, independent of `limit`."
     )
+    judgment_total: int = Field(
+        description="The judgments those passages are in: a judgment that cites the "
+        "article in three places is three passages and one judgment."
+    )
 
 
 class LegislativeHistoryEntry(BaseModel):
@@ -556,7 +560,10 @@ class ArticleVersionDTO(BaseModel):
     effect: str | None = Field(None, description="Raw BWB effect of this version.")
     change: str | None = Field(
         None,
-        description="Normalised effect: 'introduces', 'amends', 'repeals' or null.",
+        description=(
+            "Normalised effect: 'introduces', 'amends', 'repeals', 'republishes' (the text "
+            "placed again, unchanged: a republication, as of the Grondwet) or null."
+        ),
     )
     source_publication: str | None = None
     amended_by: PublicationDTO | None = Field(

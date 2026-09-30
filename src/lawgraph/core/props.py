@@ -37,7 +37,6 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
-    COLLECTION_TOPICS,
 )
 
 
@@ -72,7 +71,6 @@ class InstrumentProps(_CommonProps):
     kind: str | None = None
     lang: str | None = None
     meta: dict[str, Any] | None = None
-    topics: list[str] | None = None
     external_id: str | None = None
     uri: str | None = None
     title_nl: str | None = None
@@ -97,6 +95,12 @@ class InstrumentProps(_CommonProps):
     # what the toestand says the semantic steps link from (BASED_ON, IMPLEMENTS)
     basis: list[dict[str, Any]] | None = None  # "Gelet op": bwb_id, article, doc, text
     celex_refs: list[str] | None = None  # the EU acts the text names
+    implements_celex: list[str] | None = (
+        None  # those its considerans says it implements
+    )
+    enacted_publication: str | None = (
+        None  # the publication that enacted it: stb-2018-144
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +174,8 @@ class ArticleVersionProps(_CommonProps):
     source_publication: str | None = None  # bron, e.g. "Stb.2019-33"
     origin_publication: dict[str, Any] | None = None  # Publication.to_dict()
     commencement_publication: dict[str, Any] | None = None
+    # label, heading, place and text: equal for a version that only repeats the one before
+    content_digest: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +274,14 @@ class JudgmentProps(_CommonProps):
     court_kind: str | None = None
     date_eff: str | None = None
     inbound_citation_count: int | None = None
+    # the judgments its text cites (``semantic graph-list-stats``)
+    outbound_citation_count: int | None = None
+    # ``dcterms:isReplacedBy``: the ECLI of the publication of the same decision that
+    # replaces this one
+    replaced_by: str | None = None
+    # that publication, when it is loaded (``semantic rechtspraak-duplicates``): this one
+    # is ``SAME_AS`` it and left out of the lists
+    same_as: str | None = None
     # parallel cases of one court and day (``semantic rechtspraak-series``): the lowest
     # ECLI of the series and how many judgments it has
     series_id: str | None = None
@@ -347,14 +361,26 @@ class DossierProps(_CommonProps):
     title_source: str | None = None
     closed: bool | None = None
     opened_on: str | None = None
+    # where ``opened_on`` comes from: first_paper (nr. 1 of its own numbering),
+    # royal_message (its Koninklijke boodschap) or earliest_record
+    opened_on_basis: str | None = None
     closed_on: str | None = None
-    current_stage: str | None = None
     case_kinds: list[str] | None = None
-    stages_present: list[str] | None = None
-    stages_complete: bool | None = None
-    stages_missing: list[str] | None = None
-    track_kind: str | None = None
+    # what it is (the Zaak.Soort of its own zaak, ``core.dossier_stages.dossier_kind``) and
+    # where that comes from (``case`` or ``document``)
+    kind: str | None = None
+    kind_basis: str | None = None
+    # of a bill: every phase of the curated list, ``{name, done, date}``, and the latest
+    phases: list | None = None
+    current_phase: str | None = None
     outcome: str | None = None
+    # the last decision of the Kamer on its bill: ``{kind (BesluitSoort), text, date}``
+    tk_decision: dict | None = None
+    # the Eerste Kamer: the day it rejected the bill (its list of rejected bills: ``{date,
+    # source_url, retrieved_on}``), and its outcome ``{outcome, date, method, source_url,
+    # retrieved_on}``
+    ek_rejected: dict | None = None
+    ek_outcome: dict | None = None
     # who brought the dossier in (``semantic government``): the ministry (``core.ministries``)
     # of the first bewindspersoon to sign its earliest document, or ``initiative`` when a
     # Kamerlid signed first; the cabinet in office on that day
@@ -397,6 +423,9 @@ class DecisionProps(_CommonProps):
     subject: str | None = None
     agenda_item_subject: str | None = None
     decision_text: str | None = None
+    # BesluitSoort as the Kamer writes it: Stemmen - aangenomen, Stemmen - zonder stemming
+    # aannemen, Stemmen - uitstellen, ...
+    decision_kind: str | None = None
     decision_order: int | None = None
     meeting_kind: str | None = None
     case_ids: list[str] | None = None
@@ -412,11 +441,25 @@ class DecisionProps(_CommonProps):
     voters: dict[str, int] | None = None
     passed: bool | None = None
     external_id: str | None = None
-    # motie, amendement, wetsvoorstel or overig: from primary_case_kind
-    # (``tk_records.decision_kind``)
+    # what was decided on: the Zaak.Soort of the primary case, or the one Soort of the
+    # cases on its Agendapunt (``tk_records.decision_kind``)
     kind: str | None = None
-    # no source sets it: the Eerste Kamer has no votes here; the API still returns it
+    # ``TK``, or ``EK`` for a vote of the Eerste Kamer (``normalize eerstekamer-votes``)
     chamber: str | None = None
+    # of a vote of the Eerste Kamer, as eerstekamer.nl writes them: the outcome it shows
+    # (Aangenomen, Verworpen), how it was decided (Hamerstuk, Stemming bij zitten en opstaan,
+    # aangenomen), the factions for, against and that asked to have their vote recorded, the
+    # pages of the bill and of the report, and the day it was read; whether it is the vote
+    # that decided the bill (``semantic tk-dossier-outcomes``)
+    result: str | None = None
+    method: str | None = None
+    factions_for: list[str] | None = None
+    factions_against: list[str] | None = None
+    factions_noted: list[str] | None = None
+    bill_url: str | None = None
+    source_url: str | None = None
+    retrieved_on: str | None = None
+    bill_decision: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -459,6 +502,16 @@ class CommitteeProps(_CommonProps):
     ended_on: str | None = None
     # the open dossiers it leads, none once dissolved (``semantic graph-list-stats``)
     active_dossier_count: int | None = None
+    # of the Eerste Kamer (``normalize eerstekamer-composition``): ``EK``; the page on
+    # eerstekamer.nl and the day it was read; the first day a snapshot showed it and the
+    # first that no longer did (not the day it began or ended)
+    chamber: str | None = None
+    url: str | None = None
+    retrieved_on: str | None = None
+    observed_from: str | None = None
+    observed_until: str | None = None
+    data_since: str | None = None  # the day of the first snapshot of the Eerste Kamer
+    title: str | None = None  # the heading of its page: Commissie voor Financiën (FIN)
 
 
 # ---------------------------------------------------------------------------
@@ -528,6 +581,10 @@ class MemberProps(_CommonProps):
     government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
     known_as: str | None = None  # "Sophie Hermans": the first name Rijksoverheid gives
     government_functions: list[GovernmentFunctionProps] | None = None
+    # a member of the Eerste Kamer (``normalize eerstekamer-composition``): the name as its
+    # page writes it, its page, its faction (key and abbreviation), the days served
+    # (Anciënniteit), the place of residence, and the days it was first and last observed
+    ek: dict | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -575,19 +632,17 @@ class FactionProps(_CommonProps):
     # the day one of its seats last changed (FractieZetel.GewijzigdOp)
     seats_changed_on: str | None = None
     active: bool | None = None
-
-
-# ---------------------------------------------------------------------------
-# topics
-# ---------------------------------------------------------------------------
-
-
-class TopicProps(_CommonProps):
-    id: str | None = None
-    slug: str | None = None
-    name: str | None = None
-    description: str | None = None
-    tags: list[str] | None = None
+    # of the Eerste Kamer (``normalize eerstekamer-composition``): ``EK``; the page on
+    # eerstekamer.nl and the day it was read; the first day a snapshot showed it and the
+    # first that no longer did (not the day it began or ended)
+    chamber: str | None = None
+    url: str | None = None
+    retrieved_on: str | None = None
+    observed_from: str | None = None
+    observed_until: str | None = None
+    data_since: str | None = None  # the day of the first snapshot of the Eerste Kamer
+    # its board: ``{function, name, member (key), since}`` as the page gives it
+    board: list | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -654,7 +709,6 @@ COLLECTION_SCHEMAS: dict[str, type[_StrictBase]] = {
     COLLECTION_MEMBERS: MemberProps,
     COLLECTION_FACTIONS: FactionProps,
     COLLECTION_CABINETS: CabinetProps,
-    COLLECTION_TOPICS: TopicProps,
     COLLECTION_CASES: CaseProps,
     COLLECTION_ANNEXES: AnnexProps,
 }

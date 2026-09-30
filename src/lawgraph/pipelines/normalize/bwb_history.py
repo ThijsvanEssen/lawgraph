@@ -5,7 +5,10 @@ Model:
 * an **Article** is one identity (BWB ``stam-id``) that keeps its identity across
   versions and renumbering;
 * an **ArticleVersion** exists once per real change (``stam-id`` + ``versie-id``),
-  not once per toestand — a toestand only *repeats* the versions still valid;
+  not once per toestand — a toestand only *repeats* the versions still valid. A version
+  that republishes the label, heading, place and text of the version before it (a
+  republication gives every article of the Grondwet a new ``versie-id``) is no change: it is
+  merged into that version, which then holds on until the next change (``merged_versions``);
 * ``valid_from`` is the article's own ``inwerking`` date and ``valid_until`` is
   the ``valid_from`` of the next version of the same article (null = current),
   so "the instrument on date X" is a date query and needs no membership edges.
@@ -50,12 +53,14 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_xml import (
+    EFFECT_REPUBLISHES,
     ArticleXml,
     ToestandXml,
     article_display_name,
     article_label,
     article_version_key,
     article_version_props,
+    effect_kind,
     historical_article_key,
     instrument_props,
     parse_toestand,
@@ -65,6 +70,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.pipelines.normalize._bwb_places import Crumbs, Places
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -158,6 +164,43 @@ def _identity(version: dict[str, Any]) -> tuple[str, str]:
     return version["bwb_id"], f"n{version.get('number') or version['key']}"
 
 
+def content_digest(article: ArticleXml) -> str:
+    """What makes two versions of an article the same: label, heading, place and text."""
+    return text_digest(
+        "\x1f".join(
+            [
+                article.label or "",
+                article.heading or "",
+                article.path or "",
+                article.text,
+            ]
+        )
+    )
+
+
+def merged_versions(versions: Iterable[dict[str, Any]]) -> dict[str, str]:
+    """The republications that repeat the version before them, each with the key of the
+    first version of its run: ``{absorbed key: surviving key}``.
+
+    *versions* are ``{key, bwb_id, stam_id, number, valid_from, effect, digest}``. Only a
+    republication (effect ``tekstplaatsing-*``) is merged: an amendment the BWB records is a
+    change even where the text shows none (a reference that points elsewhere now). A version
+    without a digest is never merged.
+    """
+    chains: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for version in versions:
+        chains[_identity(version)].append(version)
+    absorbed: dict[str, str] = {}
+    for chain in chains.values():
+        chain.sort(key=lambda v: (v.get("valid_from") or "", v["key"]))
+        for earlier, version in zip(chain, chain[1:], strict=False):
+            if effect_kind(version.get("effect")) != EFFECT_REPUBLISHES:
+                continue
+            if version.get("digest") and version.get("digest") == earlier.get("digest"):
+                absorbed[version["key"]] = absorbed.get(earlier["key"], earlier["key"])
+    return absorbed
+
+
 def valid_until_by_key(
     versions: Iterable[dict[str, Any]],
     starts: dict[str, list[str]] | None = None,
@@ -210,6 +253,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
     def __init__(self, *, store: ArangoStore) -> None:
         super().__init__(store=store)
+        self._incremental = False  # a run with --since: it adds to what is stored
 
     def fetch_raw(
         self,
@@ -217,6 +261,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         since: dt.datetime | None = None,
     ) -> Iterator[dict[str, Any]]:
         """Stream the raw historical toestanden (each is a large XML document)."""
+        self._incremental = since is not None
         return self._iter_raw_sources(
             source=SOURCE_BWB, kinds=[RAW_KIND_BWB_TOESTAND_ALL], since=since
         )
@@ -235,6 +280,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         announced: set[str] = set()  # versions written as a placeholder only
         last_seen: dict[str, str] = {}  # version -> the latest toestand holding it
         written: WrittenVersions = defaultdict(list)
+        places = Places()
         by_text = _FirstSeen()  # the versions of articles without a versie-id
 
         with NodeWriter(self.store) as writer:
@@ -252,6 +298,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                     )
                 )
                 instrument_versions.append((bwb_id, version_key))
+                self._place(places, bwb_id, start_date, toestand)
 
                 for position, article in enumerate(toestand.articles):
                     key = self._version_key(article, bwb_id)
@@ -295,7 +342,22 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             "instrument_versions": instrument_versions,
             "written": written,
             "last_seen": last_seen,
+            "places": places,
         }
+
+    def _place(
+        self, places: Places, bwb_id: str, start_date: str, toestand: ToestandXml
+    ) -> None:
+        """Add the versions of a toestand, in its order, to *places*; a run with --since
+        first reads what an earlier run stored for the law."""
+        if self._incremental and bwb_id not in places:
+            places.seed(bwb_id, normalize_queries.stored_places(self.store, bwb_id))
+        versions: list[tuple[str, Crumbs]] = []
+        for article in toestand.articles:
+            key = self._version_key(article, bwb_id)
+            if key is not None:
+                versions.append((key, article.breadcrumb))
+        places.add(bwb_id, start_date, versions)
 
     def _parse_record(
         self, record: dict[str, Any]
@@ -353,6 +415,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
     ) -> Node:
         props = article_version_props(article, bwb_id, citation_title, position)
         props.setdefault("valid_from", start_date)
+        props["content_digest"] = content_digest(article)
         props["current"] = (
             True  # until a later version is found (finalised in build_edges)
         )
@@ -397,7 +460,9 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
         for bwb_ids in chunked(sorted(seed), _INSTRUMENT_CHUNK):
             self._ensure_instruments(bwb_ids, seed)
-            self._finalise_chunk(bwb_ids, written, normalized["last_seen"], writer)
+            self._finalise_chunk(
+                bwb_ids, written, normalized["last_seen"], normalized["places"], writer
+            )
 
         writer.flush()
         logger.info(
@@ -426,12 +491,17 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         bwb_ids: list[str],
         written: WrittenVersions,
         last_seen: dict[str, str],
+        places: Places,
         writer: EdgeWriter,
     ) -> None:
         versions = list(normalize_queries.article_versions(self.store, bwb_ids))
+        positions: dict[str, int] = {}
+        for bwb_id in bwb_ids:
+            positions.update(places.positions(bwb_id))
         for v in versions:
             v["last_seen"] = max(v.get("last_seen") or "", last_seen.get(v["key"], ""))
             v["lapsed"] = is_lapsed(v.get("effect"), v.get("text_start"))
+        versions, raised = self._merge(versions)
         starts = normalize_queries.toestand_starts(self.store, bwb_ids)
         expected = valid_until_by_key(versions, starts)
         self._write_valid_until(
@@ -441,9 +511,14 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 if v.get("valid_until") != expected[v["key"]]
                 or v.get("current") is not (expected[v["key"]] is None)
                 or v["key"] in last_seen
+                or v["key"] in raised
+                or v.get("position") != positions.get(v["key"], v.get("position"))
             ],
             expected,
+            positions,
+            places,
         )
+        kept = {v["key"] for v in versions}
 
         article_by_identity = {
             (a["bwb_id"], a["stam_id"]): a["key"]
@@ -455,7 +530,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         historical: list[Node] = []
         for bwb_id in bwb_ids:
             for version_key, stam_id in written.get(bwb_id, []):
-                if not stam_id:
+                if not stam_id or version_key not in kept:
                     continue
                 article_key = article_by_identity.get((bwb_id, stam_id))
                 if article_key is None:
@@ -472,6 +547,27 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                     source=EDGE_SOURCE,
                 )
         self._upsert_nodes(historical)
+
+    def _merge(
+        self, versions: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], set[str]]:
+        """Remove the versions that repeat the version before them (with their edges); the
+        surviving version is seen as long as the last of them. Returns the versions left
+        and the keys of those whose ``last_seen`` went up."""
+        absorbed = merged_versions(versions)
+        if not absorbed:
+            return versions, set()
+        by_key = {v["key"]: v for v in versions}
+        raised: set[str] = set()
+        for key, survivor_key in absorbed.items():
+            survivor = by_key[survivor_key]
+            if (by_key[key]["last_seen"] or "") > (survivor["last_seen"] or ""):
+                survivor["last_seen"] = by_key[key]["last_seen"]
+                raised.add(survivor_key)
+        normalize_queries.remove_nodes(
+            self.store, COLLECTION_ARTICLE_VERSIONS, sorted(absorbed)
+        )
+        return [v for v in versions if v["key"] not in absorbed], raised
 
     @staticmethod
     def _newest_per_identity(
@@ -514,9 +610,14 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         )
 
     def _write_valid_until(
-        self, stale: list[dict[str, Any]], expected: dict[str, str | None]
+        self,
+        stale: list[dict[str, Any]],
+        expected: dict[str, str | None],
+        positions: dict[str, int],
+        places: Places,
     ) -> None:
-        """Write ``valid_until`` and ``current`` of the versions where either differs.
+        """Write ``valid_until`` and ``current`` of the versions where either differs, and
+        the place of the versions read in this run or moved by them (``_bwb_places``).
 
         Phase 1 writes every version it reads as current, also one that a later version
         already ended, so ``current`` is checked on its own.
@@ -530,9 +631,18 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                     "valid_until": expected[v["key"]],
                     "current": expected[v["key"]] is None,
                     "last_seen": v["last_seen"] or None,
+                    **_place_props(v["key"], positions, places),
                 },
             }
             for v in stale
         ]
         for block in chunked(docs, 500):
             self.store.bulk_insert_or_update_nodes(COLLECTION_ARTICLE_VERSIONS, block)
+
+
+def _place_props(key: str, positions: dict[str, int], places: Places) -> dict[str, Any]:
+    """``position`` and the breadcrumbs of a version, where this run knows them."""
+    props: dict[str, Any] = places.breadcrumbs(key) or {}
+    if key in positions:
+        props["position"] = positions[key]
+    return props

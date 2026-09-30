@@ -50,6 +50,8 @@ All default to the public endpoints; no key is required.
 | `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
 | `VERDRAGENBANK_SRU` | `https://repository.overheid.nl/sru` |
 | `RIJKSOVERHEID_BASE` | `https://www.rijksoverheid.nl` |
+| `EERSTEKAMER_SITE` | `https://www.eerstekamer.nl` |
+| `EK_ATTRIBUTION` | `Eerste Kamer der Staten-Generaal, www.eerstekamer.nl`: how the API names the source of what it takes over from eerstekamer.nl (`ek_outcome.attribution`), next to the page and the day |
 | `TOOI_BASE` | `https://identifier.overheid.nl` |
 
 ### Pipelines
@@ -100,16 +102,19 @@ and exits 1 when any of them failed.
 |---------|---------|
 | `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 8). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb` and `bwb-history`. Full passes the mode to `bwb` and `bwb-history` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties`) are always read in full. `tk-content`, `eurlex`, `staatsblad`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties` and `staatscourant-posts` take nothing (`eurlex` fetches the acts already in the graph, `tk-content` the papers without stored XML, `staatscourant-posts` the posts of the stored cabinet pages whose function names no ministry). `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `rechtspraak` and `rechtspraak-instanties`; `bwb` and then `bwb-history`; `tk-content`, `staatsblad`, `staatscourant`, `eerstekamer`, `verdragenbank` and `staatscourant-posts`) run one after the other, and `--jobs 1` runs every source in turn. A source that reads what another stored starts when that one has ended, last on its own server so the others do not wait with it: `tk-content` after `tk-dossiers` (its papers are the documents that step stored), `staatsblad` after `bwb` (it reads the stored toestanden), `staatscourant-posts` after `rijksoverheid` (it reads the stored cabinet pages) |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
-| `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` (only that dossier and its documents, whatever their date: the backfill of an old dossier); `--mode gaps`: every dossier the graph names and lacks (the dossiers of the publications that amended or brought into force a version of an article or a regulation, and the first reading a change in the Grondwet in its second reading refers to), with its documents; a number the Tweede Kamer has no dossier of is remembered (`tk-dossier-missing`) for 30 days |
-| `retrieve tk-content` | `--mode gaps` (the only mode: the papers of `--kind` of which no XML is stored, less those the repository answered HTTP 404 for not long ago), `--kind` (repeatable; default `toelichting`, `motie` and `amendement`; `--kind ""` every paper with a dossier and a number), `--dry-run` |
+| `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` (only that dossier and its documents, whatever their date: the backfill of an old dossier); `--mode gaps`: every dossier the graph names and lacks (the dossiers of the publications that amended or brought into force a version of an article or a regulation, the first reading a change in the Grondwet in its second reading refers to, and the dossiers the Tweede Kamer papers and cases are part of) or lacks papers of (a number below the highest it has), each fetched with all its documents; a number the Tweede Kamer has no dossier of (`tk-dossier-missing`), or not all papers of (`tk-document-missing`), is remembered for 30 days |
+| `retrieve tk-content` | `--mode gaps` (the only mode: the papers of `--kind` of which no XML is stored, less those the repository answered HTTP 404 for not long ago), `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet` and `nota van wijziging`; `--kind ""` every paper numbered in a dossier), `--dry-run` |
 | `retrieve rechtspraak` | `--court` (repeatable; default `all`, every court of the index; an ECLI court code such as `HR` or a tier such as `gerechtshof` narrows it), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
 | `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
+| `retrieve eurlex-nim` | `--mode incremental\|full` (full: every measure), `--since` (default `30d`: the measures CELLAR changed since then), `--country NLD` |
 | `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
 | `retrieve bwb-history` | optional BWB ids (default: every regulation of which the current toestand is stored), `--mode incremental` (default: the toestanden not stored yet) or `full` (every one again) |
 | `retrieve staatsblad` | `--mode from-graph\|full` |
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--max-records` |
 | `retrieve eerstekamer` | `--mode`, `--since`, `--max-records` |
+| `retrieve eerstekamer-composition` | none: every run reads the whole composition (about 40 pages) |
+| `retrieve eerstekamer-votes` | `--mode` (`full`: the whole list of votes, 106 pages), `--since` (the days of votes from then on; the list of rejected bills is read whole every run) |
 | `retrieve verdragenbank` | `--mode full\|gaps`, `--max-records` |
 
 ### normalize
@@ -133,7 +138,7 @@ passed to the pipelines that accept it and the others run in full.
 | `staatscourant` | `--since`: publications dated since then |
 | `rechtspraak-appeal` | none |
 | `tk-amends` | `--since`: documents dated since then |
-| `bwb-implements` | none (reads the regulations that name an EU act) |
+| `bwb-implements` | none (every regulation that names or implements an EU act, and every retrieved national implementing measure, on every run) |
 | `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `bwb-relation-types` | none |
 | `tk-dossier-outcomes` | none (every dossier on every run) |
 | `tk-government` | none (every commitment and dossier on every run) |
@@ -142,7 +147,8 @@ passed to the pipelines that accept it and the others run in full.
 
 The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
 `bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-appeal`,
-`rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-citations`, `rechtspraak-series`,
+`rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-duplicates`,
+`rechtspraak-citations`, `rechtspraak-series`,
 `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-dossier-relations`, `tk-mvt`,
 `tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-outcomes`, `tk-government`,
 `graph-list-stats`.
@@ -159,8 +165,8 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph code-families build\|check [--output FILE]` | builds `src/lawgraph/data/code_families.json` (the codes whose books are regulations of their own: `BW`) from the stored WTI records and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve bwb` and commit the file |
 | `lawgraph courts build\|check [--output FILE]` | builds `src/lawgraph/data/courts.json` from the stored Instanties list of the Rechtspraak and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve rechtspraak-instanties`, commit the file, and run `semantic graph-list-stats` when a tier or kind changed |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-dossiers`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
-| `lawgraph curated list [LIST]`, `check [LIST] [--db]`, `set LIST KEY [JSON] [--after KEY \| --first]`, `remove LIST KEY` | the lists kept by hand in `src/lawgraph/data/curated/` (`core/curated.py`): party colours, the seating plan of the plenary hall (after the plan of the Tweede Kamer, with its url and date), the names of landmark judgments, the kinds of decision, the courts outside the value list, the ministry keys, order, successions and aliases, the abbreviations of instruments whose source gives none (`instrument-abbreviations`, keyed by BWB id or CELEX number). `set` writes a change only when the list stays in order; commit what it changes |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks (and checks the curated lists, `lawgraph curated check --db`: also a seated faction the seating plan does not place, and a faction whose number of seats differs from the plan's, and an abbreviated instrument no node of the graph is; a seat that changed after the plan is a note): does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph curated list [LIST]`, `check [LIST] [--db]`, `set LIST KEY [JSON] [--after KEY \| --first]`, `remove LIST KEY` | the lists kept by hand in `src/lawgraph/data/curated/` (`core/curated.py`): party colours, the seating plan of the plenary hall (after the plan of the Tweede Kamer, with its url and date), the phases of a bill (the one order the Kamer does not give, each phase with the exact values of the Kamer that mark it), the names of landmark judgments, the kinds of decision, the courts outside the value list, the ministry keys, order, successions and aliases, the abbreviations of instruments whose source gives none (`instrument-abbreviations`, keyed by BWB id or CELEX number). `set` writes a change only when the list stays in order; commit what it changes |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks (and checks the curated lists, `lawgraph curated check --db`: also a seated faction the seating plan does not place, and a faction whose number of seats differs from the plan's, and an abbreviated instrument no node of the graph is; a seat that changed after the plan, and a value of a phase no record in the database has, are notes): does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, how many BWB treaties have a Verdragenbank record by their `treaty_number` (none carrying one is a problem), do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
@@ -171,9 +177,9 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
 | Phase | Pipelines |
 |-------|-----------|
-| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
-| `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES` and `STAATSCOURANT_POSTS` (`lawgraph ministries build`, `lawgraph courts build` and `normalize rijksoverheid` read them) |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_DOSSIER_RELATIONS`, `GRAPH_LIST_STATS` |
+| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
+| `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM` and `STAATSCOURANT_POSTS` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements` and `normalize rijksoverheid` read them) |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_DOSSIER_RELATIONS`, `GRAPH_LIST_STATS` |
 
 ## Runs
 

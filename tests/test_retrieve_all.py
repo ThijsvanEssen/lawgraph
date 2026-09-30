@@ -191,7 +191,14 @@ def recorded(monkeypatch) -> dict[str, list[str]]:
     return argvs
 
 
-PRODUCING = ("tk", "rechtspraak", "staatscourant", "eerstekamer", "echr")
+PRODUCING = (
+    "tk",
+    "rechtspraak",
+    "staatscourant",
+    "eerstekamer",
+    "eerstekamer-votes",
+    "echr",
+)
 
 
 def test_the_window_reaches_the_sources_that_keep_producing(
@@ -276,6 +283,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
     assert lanes["tk"] == lanes["tk-dossiers"]
     assert lanes["bwb"] == lanes["bwb-history"] == registry.LANE_BWB
     assert lanes["rechtspraak"] == lanes["rechtspraak-instanties"]
+    assert lanes["eurlex"] == lanes["eurlex-nim"]
     koop = {
         "staatsblad",
         "staatscourant",
@@ -285,7 +293,8 @@ def test_sources_on_one_server_share_a_lane() -> None:
         "staatscourant-posts",
     }
     assert {lanes[name] for name in koop} == {registry.LANE_KOOP_REPOSITORY}
-    assert len(set(lanes.values())) == len(lanes) - 1 - 1 - 1 - (len(koop) - 1)
+    assert lanes["eerstekamer-votes"] == lanes["eerstekamer-composition"]
+    assert len(set(lanes.values())) == len(lanes) - 1 - 1 - 1 - 1 - 1 - (len(koop) - 1)
 
 
 def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
@@ -307,11 +316,14 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("rechtspraak", "rechtspraak", ()),
         ("rechtspraak-instanties", "rechtspraak", ()),  # after rechtspraak in its lane
         ("eurlex", "eurlex", ()),
+        ("eurlex-nim", "eurlex", ()),  # after eurlex in its lane
         ("bwb", bwb, ()),
         ("bwb-history", bwb, ()),  # after bwb in the same lane
         ("staatsblad", koop, ("bwb",)),
         ("staatscourant", koop, ()),
         ("eerstekamer", koop, ()),
+        ("eerstekamer-votes", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-composition", registry.LANE_EERSTEKAMER_SITE, ()),
         ("echr", "echr", ()),
         ("verdragenbank", koop, ()),
         ("tooi", "tooi", ()),
@@ -354,7 +366,7 @@ def test_bootstrap_loads_a_two_year_window(monkeypatch) -> None:
         "--window",
         "730d",
         "--jobs",
-        "8",  # one job per server
+        "9",  # one job per server
     ]
 
 
@@ -426,7 +438,7 @@ def test_by_default_every_server_has_its_own_job() -> None:
     from lawgraph.pipelines.orchestration import DEFAULT_RETRIEVE_JOBS
 
     lanes = {p.lane_id for p in registry.PIPELINES["retrieve"]}
-    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 8
+    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 9
 
 
 def test_an_interrupt_stops_the_other_lanes_too() -> None:

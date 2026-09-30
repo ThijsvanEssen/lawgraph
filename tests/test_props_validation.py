@@ -199,7 +199,7 @@ def test_from_document_bypasses_validation():
 def test_unknown_collection_no_schema_passes():
     node = Node(
         collection="some_future_collection",
-        type=NodeType.TOPIC,
+        type=NodeType.MEMBER,
         props={"anything": "goes"},
     )
     assert node.props["anything"] == "goes"

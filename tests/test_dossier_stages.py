@@ -1,22 +1,24 @@
-"""Dossier stage and title derivation — one implementation for API and pipeline."""
+"""A dossier's kind, phases, title and outcome — one implementation for API and pipeline."""
 
 from __future__ import annotations
 
 import pytest
 
+from lawgraph.core.curated import LISTS, problems
 from lawgraph.core.dossier_stages import (
-    OPEN,
+    CARRYING_KINDS,
+    LEGISLATIVE_KINDS,
+    PHASES,
     DossierOutcome,
-    accumulate_stage_signals,
-    classify_activity_kind,
-    classify_document_kind,
-    classify_track_kind,
+    current_phase,
     derive_outcome,
     dossier_display_name,
-    dossier_stages,
-    is_withdrawal_letter,
+    dossier_kind,
+    dossier_phases,
+    last_decision,
+    opened_on,
     outcome_props,
-    pick_current_stage,
+    phase_props,
     select_title,
 )
 
@@ -25,55 +27,174 @@ def _doc(kind: str, date: str | None = None, title: str | None = None) -> dict:
     return {"kind": kind, "date": date, "title": title}
 
 
-def test_stages_are_ordered_chronologically_and_latest_is_current() -> None:
-    signals = accumulate_stage_signals(
-        docs=[
-            _doc("Voorstel van wet", "2020-01-01"),
-            _doc("Memorie van toelichting", "2020-01-05"),
-            _doc("Verslag", "2020-03-01"),
+def _done(phases: list[dict] | None) -> list[str]:
+    return [p["name"] for p in phases or [] if p["done"]]
+
+
+# ── kind ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("kind", CARRYING_KINDS)
+def test_the_kind_is_the_soort_of_the_dossiers_own_zaak(kind: str) -> None:
+    assert dossier_kind(["Motie", kind, "Brief regering"], []) == (kind, "case")
+
+
+def test_a_zaak_wins_over_the_papers() -> None:
+    assert dossier_kind(["Begroting"], ["Voorstel van wet"]) == ("Begroting", "case")
+
+
+@pytest.mark.parametrize(
+    ("documents", "kind"),
+    [
+        (["Motie", "Voorstel van wet"], "Wetgeving"),
+        (["Voorstel van wet (tweede lezing)"], "Wetgeving"),
+        (["Voorstel van wet (initiatiefvoorstel)"], "Initiatiefwetgeving"),
+    ],
+)
+def test_without_a_zaak_a_voorstel_van_wet_makes_it_a_bill(
+    documents: list[str], kind: str
+) -> None:
+    assert dossier_kind(["Motie"], documents) == (kind, "document")
+
+
+def test_a_dossier_of_letters_and_motions_has_no_kind() -> None:
+    assert dossier_kind(["Motie", "Brief regering"], ["Brief regering"]) == (None, None)
+    # a paper whose Soort only begins with the words is no bill
+    assert dossier_kind([], ["Voorstel van wetenschap"]) == (None, None)
+
+
+# ── phases ────────────────────────────────────────────────────────────────────
+
+
+def test_the_phases_are_the_curated_list_in_its_order() -> None:
+    names = [p.name for p in PHASES]
+    assert names == list(LISTS["phases"].entries())
+    assert (names[0], names[-1]) == ("Voorstel van wet", "Eindtekst")
+    assert not [p for p in problems() if p.startswith("phases: ")]
+
+
+def test_a_phase_is_done_only_when_a_record_of_the_kamer_marks_it() -> None:
+    phases = dossier_phases(
+        "Wetgeving",
+        [
+            _doc("Voorstel van wet", "2024-01-10"),
+            _doc("Memorie van toelichting", "2024-01-10"),
+            _doc("Verslag (initiatief)wetsvoorstel (nader)", "2024-03-01"),
+            # a report of a debate is no Verslag of the bill
+            _doc("Verslag van een commissiedebat", "2024-02-01"),
         ],
-        activities=[],
-        decisions=[],
-        case_kinds=[],
+        [],
+        [],
+    )
+    assert _done(phases) == ["Voorstel van wet", "Memorie van toelichting", "Verslag"]
+    assert [p["name"] for p in phases or []] == [p.name for p in PHASES]
+    advice = next(p for p in phases or [] if p["name"] == "Advies Raad van State")
+    assert advice == {"name": "Advies Raad van State", "done": False, "date": None}
+
+
+def test_a_phase_takes_its_first_date() -> None:
+    phases = dossier_phases(
+        "Wetgeving",
+        [_doc("Amendement", "2024-05-02"), _doc("Nota van wijziging", "2024-04-01")],
+        [],
+        [],
+    )
+    name = "Nota van wijziging / Amendement"
+    phase = next(p for p in phases or [] if p["name"] == name)
+    assert phase == {"name": name, "done": True, "date": "2024-04-01"}
+
+
+def test_the_decisions_on_the_bill_itself_mark_the_stemmingen() -> None:
+    motion = {"decision_kind": "Stemmen - aangenomen", "case_kind": "Motie"}
+    postponed = {"decision_kind": "Stemmen - uitstellen", "case_kind": "Wetgeving"}
+    assert _done(dossier_phases("Wetgeving", [], [], [motion, postponed])) == []
+    hamerstuk = {
+        "decision_kind": "Stemmen - zonder stemming aannemen",
+        "case_kind": "Wetgeving",
+        "date": "2024-06-25",
+    }
+    assert _done(dossier_phases("Wetgeving", [], [], [hamerstuk])) == ["Stemmingen"]
+
+
+def test_an_activity_marks_a_phase_only_when_it_took_place() -> None:
+    held = {"kind": "Hamerstukken", "date": "2024-06-25", "status": "Uitgevoerd"}
+    planned = {**held, "status": "Gepland"}
+    assert _done(dossier_phases("Wetgeving", [], [held], [])) == ["Stemmingen"]
+    assert _done(dossier_phases("Wetgeving", [], [planned], [])) == []
+
+
+@pytest.mark.parametrize(
+    "kind", ["Verdrag", "Initiatiefnota", "PKB/Structuurvisie", None]
+)
+def test_only_a_bill_has_phases(kind: str | None) -> None:
+    assert kind not in LEGISLATIVE_KINDS
+    assert (
+        dossier_phases(kind, [_doc("Voorstel van wet", "2024-01-01")], [], []) is None
     )
 
-    fase, stages = pick_current_stage(signals, closed=False)
 
-    assert stages == ["wetsvoorstel", "mvt", "verslag"]
-    assert fase == "verslag"
-
-
-def test_a_vote_implies_the_stemming_stage_with_its_dates() -> None:
-    signals = accumulate_stage_signals(
-        docs=[_doc("Voorstel van wet", "2020-01-01")],
-        activities=[],
-        decisions=[{"date": "2020-06-01"}, {"date": "2020-05-01"}],
-        case_kinds=[],
+def test_the_current_phase_is_the_furthest_done_one_in_the_order() -> None:
+    phases = dossier_phases(
+        "Begroting",
+        [
+            _doc("Voorstel van wet", "2024-09-17"),
+            _doc("Memorie van toelichting", "2024-09-17"),
+            _doc("Amendement", "2024-11-01"),
+        ],
+        [],
+        [],
     )
-
-    assert signals.first["stemming"] == "2020-05-01"
-    assert signals.last["stemming"] == "2020-06-01"
-    assert pick_current_stage(signals, closed=False)[0] == "stemming"
-
-
-def test_zaak_roll_up_counts_without_a_date() -> None:
-    signals = accumulate_stage_signals([], [], [], ["Wetgeving"])
-
-    assert signals.any_signal and signals.first == {"wetsvoorstel": ""}
+    assert current_phase(phases) == "Nota van wijziging / Amendement"
+    assert current_phase((phases or [])[:2]) == "Memorie van toelichting"
+    assert current_phase(None) is None
+    assert current_phase(dossier_phases("Wetgeving", [], [], [])) is None
 
 
-def test_a_closed_dossier_is_afgehandeld_and_gets_that_stage_once() -> None:
-    signals = accumulate_stage_signals([_doc("Verslag", "2020-01-01")], [], [], [])
+def test_a_paper_the_kamer_dates_late_does_not_turn_the_bill_back() -> None:
+    """36937 passed as a hamerstuk on 2026-09-17; its Nota n.a.v. het verslag (registered on
+    2026-08-14) has the Document.Datum 2026-09-21, the day it was received."""
+    hamerstuk = {
+        "decision_kind": "Stemmen - zonder stemming aannemen",
+        "case_kind": "Wetgeving",
+        "date": "2026-09-17",
+    }
+    phases = dossier_phases(
+        "Wetgeving",
+        [
+            _doc("Voorstel van wet", "2026-04-24"),
+            _doc("Memorie van toelichting", "2026-04-24"),
+            _doc(
+                "Advies Afdeling advisering Raad van State en Nader rapport",
+                "2026-04-24",
+            ),
+            _doc("Verslag (initiatief)wetsvoorstel (nader)", "2026-06-17"),
+            _doc("Eindtekst", "2026-09-17"),
+            _doc("Nota n.a.v. het (nader/tweede nader/enz.) verslag", "2026-09-21"),
+        ],
+        [],
+        [hamerstuk],
+    )
+    assert current_phase(phases) == "Eindtekst"
+    nota = next(p for p in phases or [] if p["name"] == "Nota n.a.v. het verslag")
+    assert nota["date"] == "2026-09-21"  # the date stays the Kamer's
 
-    fase, stages = pick_current_stage(signals, closed=True)
 
-    assert (fase, stages) == ("afgehandeld", ["verslag", "afgehandeld"])
+def test_phase_props_records_kind_and_phases() -> None:
+    props = phase_props(["Wetgeving"], [_doc("Voorstel van wet", "2024-01-01")], [], [])
+    assert (props["kind"], props["kind_basis"], props["current_phase"]) == (
+        "Wetgeving",
+        "case",
+        "Voorstel van wet",
+    )
+    assert phase_props([], [_doc("Motie")], [], []) == {
+        "kind": None,
+        "kind_basis": None,
+        "phases": None,
+        "current_phase": None,
+    }
 
 
-def test_no_evidence_gives_no_stage_and_leaves_the_fallback_to_the_caller() -> None:
-    signals = accumulate_stage_signals([_doc("Onbekende soort")], [], [], [])
-
-    assert pick_current_stage(signals, closed=False) == (None, [])
+# ── title ─────────────────────────────────────────────────────────────────────
 
 
 def test_a_stored_title_is_kept() -> None:
@@ -113,465 +234,116 @@ def test_display_name_includes_the_toevoeging() -> None:
     assert dossier_display_name("36554", None, "Wet") == "Kamerstukdossier 36554: Wet"
 
 
-@pytest.mark.parametrize(
-    ("kind", "stage"),
-    [
-        ("Verslag", "verslag"),
-        ("Verslag (initiatief)wetsvoorstel (nader)", "verslag"),
-        (
-            "Nota n.a.v. het (nader/tweede nader/enz.) verslag",
-            "nota_naar_aanleiding_van_verslag",
-        ),
-        ("Nota van wijziging", "amendementen"),
-        ("Motie (gewijzigd/nader)", "behandeling"),
-        ("Nader rapport", "advies_rvs"),
-        # Reports of a meeting, a policy memo and the minutes of a procedure meeting
-        # say nothing about where a bill stands.
-        ("Verslag van een commissiedebat", None),
-        ("Inbreng verslag schriftelijk overleg", None),
-        ("Jaarverslag", None),
-        ("Initiatiefnota", None),
-        ("Nota van toelichting", None),
-        ("Besluitenlijst procedurevergadering", None),
-    ],
-)
-def test_a_document_kind_marks_a_stage_of_a_bill_or_none(
-    kind: str, stage: str | None
-) -> None:
-    assert classify_document_kind(kind) == stage
-
-
-def test_a_debate_on_a_bill_is_its_treatment_not_its_start() -> None:
-    assert classify_activity_kind("Plenair debat (wetgeving)") == "behandeling"
-    assert classify_activity_kind("Notaoverleg") is None
-    assert classify_activity_kind("Stemmingen") == "stemming"
-
-
-@pytest.mark.parametrize(
-    ("case_kinds", "document_kinds", "track"),
-    [
-        (["Begroting", "Brief regering", "Motie"], [], "begroting"),
-        (["Initiatiefnota"], [], "initiatiefnota"),
-        (["Verdrag"], [], "verdrag"),
-        (["Wetgeving", "Motie"], [], "wetsvoorstel"),
-        ([], ["Voorstel van wet (initiatiefvoorstel)"], "initiatiefwetsvoorstel"),
-        ([], ["Voorstel van wet"], "wetsvoorstel"),
-        # What is filed under a dossier does not make it a motion or a letter.
-        (["Brief regering", "Motie"], [], "beleid"),
-        (["Brief regering"], [], "beleid"),
-        (["Brief regering", "PKB/Structuurvisie"], [], "structuurvisie"),
-        ([], [], None),
-    ],
-)
-def test_the_track_follows_the_dossiers_own_cases_and_documents(
-    case_kinds: list[str], document_kinds: list[str], track: str | None
-) -> None:
-    assert classify_track_kind(case_kinds, document_kinds=document_kinds) == track
-
-
-@pytest.mark.parametrize(
-    ("title", "track"),
-    [
-        # 37020: the motions of the Algemene Politieke Beschouwingen are filed under it
-        ("Nota over de toestand van ’s Rijks Financiën", "nota"),
-        ("Voorjaarsnota 2026", "nota"),
-        ("Najaarsnota 2025", "nota"),
-        ("Financieel Jaarverslag van het Rijk 2025", "nota"),
-        ("Defensienota 2024 - Sterk, slim en samen", "nota"),
-        ("Homogene Groep Internationale samenwerking 2027 (HGIS-nota 2027)", "nota"),
-        # a bill or a budget whose title names a nota is a bill or a budget
-        (
-            "Wijziging van de begrotingsstaten van het Ministerie van Financiën (IXB) voor "
-            "het jaar 2026 (wijziging samenhangende met de Voorjaarsnota)",
-            "begroting",
-        ),
-        ("Jaarverslag en slotwet Ministerie van Defensie 2007", "begroting"),
-        ("Initiatiefnota van het lid Omtzigt over goed bestuur", "initiatiefnota"),
-        # a bill or a treaty with no case or document of its own on record
-        (
-            "Regels voor de financiële dienstverlening (Wet financiële dienstverlening)",
-            "wetsvoorstel",
-        ),
-        ("Wijziging Omgevingswet en enige andere wetten", "wetsvoorstel"),
-        (
-            "Goedkeuring van het op 26 mei 2023 te Belle Plaine tot stand gekomen Verdrag",
-            "wetsvoorstel",
-        ),
-        ("Enige wijzigingen in de Pensioenwet", "wetsvoorstel"),
-        (
-            "Verklaring dat er grond bestaat een voorstel in overweging te nemen tot "
-            "verandering in de Grondwet",
-            "wetsvoorstel",
-        ),
-        (
-            "Verdrag tussen de regering van het Koninkrijk der Nederlanden en de regering van "
-            "het Hasjemitisch Koninkrijk Jordanië",
-            "verdrag",
-        ),
-        (
-            "Protocollen en Verdragen van de Wereldpostunie; Dubai, 19 sept 2025",
-            "verdrag",
-        ),
-        (
-            "Wijzigingen van de Bijlage bij het Internationaal Verdrag ter voorkoming van "
-            "verontreiniging door schepen",
-            "verdrag",
-        ),
-        ("Structuurvisie Windenergie op Zee (SV WoZ)", "structuurvisie"),
-        ("Planologische Kernbeslissing Nota Mobiliteit", "structuurvisie"),
-        ("Beleidsdoorlichting Defensie", "verantwoording"),
-        ("Jaarrapportage procedureregeling Grote Projecten", "verantwoording"),
-        ("EU-voorstellen: Omnibus I (CSRD & CSDDD) COM (2025) 80", "eu"),
-        ("JBZ-Raad", "eu"),
-        ("Nederlands EU-voorzitterschap", "eu"),
-        ("Parlementaire Assemblée van de NAVO", "interparlementair"),
-        ("Interparlementair Koninkrijksoverleg", "interparlementair"),
-        ("Verslag van een werkbezoek aan Brussel door een delegatie", "kamer"),
-        ("Gedragscode Leden van de Tweede Kamer der Staten-Generaal", "kamer"),
-        # the letters and motions of a policy area, also on laws or treaties
-        ("Jeugdzorg", "beleid"),
-        ("Jaarverslag van de Nationale ombudsman over 2015", "beleid"),
-        ("Wet- en regelgeving financiële markten", "beleid"),
-        ("ILO-verdragen", "beleid"),
-        ("Herziening Zorgstelsel", "beleid"),
-    ],
-)
-def test_the_track_of_a_dossier_that_is_no_bill_comes_from_its_title(
-    title: str, track: str
-) -> None:
-    assert classify_track_kind(["Brief regering", "Motie"], title=title) == track
-
-
-def test_the_eu_series_are_known_by_their_number() -> None:
-    council = "Raad Algemene Zaken en Raad Buitenlandse Zaken"
-    assert (
-        classify_track_kind(["Brief regering"], title=council, number="21501") == "eu"
-    )
-    assert classify_track_kind(["Brief regering"], title=council) == "beleid"
-
-
-def test_a_dossier_known_only_by_its_title_has_a_track() -> None:
-    assert (
-        classify_track_kind([], title="Regels omtrent meeteenheden") == "wetsvoorstel"
-    )
-    assert classify_track_kind([], title="Jeugdzorg") is None
-
-
-def _stages(track: str, docs, case_kinds, closed: bool) -> tuple:
-    found = dossier_stages(track, docs, [], [], case_kinds, closed=closed)
-    return found.current, found.present
-
-
-def test_a_dossier_that_is_no_bill_has_no_stage_until_it_is_closed() -> None:
-    docs = [_doc("Motie", "2026-01-01"), _doc("Verslag", "2026-02-01")]
-
-    assert _stages("beleid", docs, ["Motie"], closed=False) == (None, [])
-    assert _stages("nota", docs, ["Motie"], closed=False) == (None, [])
-    assert _stages("initiatiefnota", docs, [], closed=True) == (
-        "afgehandeld",
-        ["afgehandeld"],
-    )
-    assert _stages("begroting", docs, [], closed=False) == (
-        "verslag",
-        ["behandeling", "verslag"],
-    )
-
-
-def _passed_bill() -> list[dict]:
-    return [
-        _doc("Voorstel van wet", "2024-01-01"),
-        _doc("Memorie van toelichting", "2024-01-01"),
-        _doc("Advies Afdeling advisering Raad van State", "2024-01-01"),
-        _doc("Verslag", "2024-03-01"),
-    ]
-
-
-def test_a_bill_with_a_paper_for_every_stage_it_passed_is_complete() -> None:
-    found = dossier_stages(
-        "wetsvoorstel",
-        _passed_bill(),
-        [],
-        [{"date": "2024-06-01", "passed": True}],
-        ["Wetgeving"],
-        closed=True,
-        outcome="aangenomen",
-    )
-    assert found.current == "afgehandeld"
-    assert found.complete is True
-
-
-def test_an_adopted_bill_without_its_memorandum_or_vote_is_incomplete() -> None:
-    # 36264 in a test database: the bill, a nota and amendments known only from the kinds
-    # of its cases, and its law published.
-    docs = [_doc("Voorstel van wet", "2022-12-21")]
-    cases = ["Wetgeving", "Nota n.a.v. het verslag", "Amendement"]
-    found = dossier_stages(
-        "wetsvoorstel", docs, [], [], cases, closed=True, outcome="aangenomen"
-    )
-    assert found.present == [
-        "nota_naar_aanleiding_van_verslag",
-        "amendementen",
-        "wetsvoorstel",
-        "afgehandeld",
-    ]
-    assert found.complete is False
-
-    everything = dossier_stages(
-        "wetsvoorstel",
-        [
-            *_passed_bill(),
-            _doc("Nota n.a.v. het verslag", "2024-04-01"),
-            _doc("Amendement", "2024-05-01"),
-        ],
-        [],
-        [{"date": "2024-06-01", "passed": True}],
-        cases,
-        closed=True,
-        outcome="aangenomen",
-    )
-    assert everything.complete is True
-
-
-def test_a_withdrawn_bill_needs_no_vote() -> None:
-    found = dossier_stages(
-        "wetsvoorstel", _passed_bill(), [], [], [], closed=True, outcome="ingetrokken"
-    )
-    assert found.complete is True
-
-
-def test_a_bill_under_way_needs_the_stages_up_to_its_current_one() -> None:
-    docs = [_doc("Voorstel van wet", "2024-01-01"), _doc("Verslag", "2024-03-01")]
-    found = dossier_stages("wetsvoorstel", docs, [], [], [], closed=False)
-    assert found.current == "verslag"
-    assert found.complete is False  # no memorandum, no advice
-    assert dossier_stages(
-        "wetsvoorstel", _passed_bill(), [], [], [], closed=False
-    ).complete
-
-
-def test_an_activity_that_did_not_take_place_marks_no_stage() -> None:
-    docs = _passed_bill()
-    held = {
-        "kind": "Plenair debat (wetgeving)",
-        "date": "2024-05-01",
-        "status": "Uitgevoerd",
-    }
-    for status in ("Gepland", "Geannuleerd", "Verplaatst", "Vervallen"):
-        found = dossier_stages(
-            "wetsvoorstel", docs, [{**held, "status": status}], [], [], closed=False
-        )
-        assert "behandeling" not in found.present, status
-    assert (
-        "behandeling"
-        in dossier_stages("wetsvoorstel", docs, [held], [], [], closed=False).present
-    )
-
-
-def test_a_dossier_that_is_no_bill_is_complete() -> None:
-    assert dossier_stages("beleid", [], [], [], ["Motie"], closed=True).complete
-
-
-# ── how a dossier ended ──────────────────────────────────────────────────────
-
-
-def _letter(subject: str, kind: str = "Brief regering", case_kinds=None) -> dict:
-    return {
-        "kind": kind,
-        "subject": subject,
-        "date": "2025-06-02",
-        "case_kinds": ["Wetgeving", kind] if case_kinds is None else case_kinds,
-    }
-
-
-def _vote(date: str, passed: bool) -> dict:
-    return {"date": date, "passed": passed}
+# ── outcome ───────────────────────────────────────────────────────────────────
 
 
 def test_a_published_law_closes_its_dossier_on_the_first_publication() -> None:
     outcome = derive_outcome(
         [
-            {"date_published": "2018-05-16", "date_signed": "2018-05-16"},
-            {"date_published": None, "date_signed": "2018-05-09"},
-            {},  # a regulation that names the dossier, without publication dates
+            {"date_published": "2024-07-01", "date_signed": "2024-06-20"},
+            {"date_published": "2024-05-01"},
         ],
         [],
-        [_vote("2018-03-13", True)],
     )
-    assert outcome == DossierOutcome(True, "aangenomen", "2018-05-09")
+    assert outcome == DossierOutcome(True, "aangenomen", "2024-05-01")
 
 
 def test_a_law_legislated_by_a_regulation_alone_has_no_closing_date() -> None:
-    assert derive_outcome([{}], [], []) == DossierOutcome(True, "aangenomen", None)
-
-
-@pytest.mark.parametrize(
-    ("subject", "kind"),
-    [
-        ("Brief houdende intrekking van het wetsvoorstel", "Brief regering"),
-        ("Brief houdende intrekking van het voorstel", "Brief lid / fractie"),
-        (
-            "Brief houdende overname en intrekking van het wetsvoorstel",
-            "Brief lid / fractie",
-        ),
-        (
-            "Brief van het lid Becker houdende overname van de verdediging en intrekking "
-            "van het initiatiefvoorstel",
-            "Brief lid / fractie",
-        ),
-        (
-            "Intrekking wetsvoorstel wijziging van de Algemene Ouderdomswet",
-            "Brief regering",
-        ),
-    ],
-)
-def test_a_letter_that_withdraws_the_bill_closes_the_dossier(
-    subject: str, kind: str
-) -> None:
-    outcome = derive_outcome([], [_letter(subject, kind)], [_vote("2025-01-01", True)])
-    assert outcome == DossierOutcome(True, "ingetrokken", "2025-06-02")
-
-
-@pytest.mark.parametrize(
-    "letter",
-    [
-        _letter("Voornemen tot intrekken van het wetsvoorstel"),
-        _letter("Herroeping aankondiging intrekking wetsvoorstel bevoorrechting"),
-        _letter("Brief houdende verzoek tot intrekking van het wetsvoorstel"),
-        _letter("Beweegredenen voor het niet intrekken van het wetsvoorstel"),
-        # a bill that repeals a law is not withdrawn
-        _letter(
-            "Brief over het voorstel tot intrekking van de Wet op de lijkbezorging"
-        ),
-        # a letter of a committee, and a letter on another case than the bill
-        _letter(
-            "Intrekking wetsvoorstel Wet ruimte",
-            kind="Brief commissie aan bewindspersoon",
-        ),
-        _letter("Intrekking wetsvoorstel 35722", case_kinds=["Brief regering"]),
-        # a motion that asks for it
-        _letter("Motie over het intrekken van het wetsvoorstel", kind="Motie"),
-    ],
-)
-def test_a_letter_about_a_withdrawal_does_not_withdraw(letter: dict) -> None:
-    assert not is_withdrawal_letter(letter)
-    assert derive_outcome([], [letter], []) == OPEN
+    assert derive_outcome([{}], []) == DossierOutcome(True, "aangenomen", None)
 
 
 def test_the_last_vote_on_the_bill_decides_a_rejection() -> None:
-    rejected = derive_outcome(
-        [], [], [_vote("2024-01-10", True), _vote("2024-02-20", False)]
+    passed = {"date": "2024-03-01", "passed": True}
+    rejected = {"date": "2024-04-01", "passed": False}
+    outcome = derive_outcome([], [passed, rejected])
+    assert (outcome.closed, outcome.outcome, outcome.closed_on) == (
+        True,
+        "verworpen",
+        "2024-04-01",
     )
-    assert rejected == DossierOutcome(True, "verworpen", "2024-02-20")
-    # Passed by the Tweede Kamer: it waits for the Eerste Kamer and the Staatsblad.
-    assert derive_outcome([], [], [_vote("2024-02-20", True)]) == OPEN
-
-
-def test_a_dossier_without_evidence_is_open() -> None:
-    assert derive_outcome([], [], []) == OPEN
-
-
-def test_closing_a_dossier_recomputes_its_stages() -> None:
-    # 35786 in a test database: open, the stages up to ``behandeling`` complete; closed as
-    # aangenomen, it passed ``stemming`` too, and no vote is on record.
-    docs = [*_passed_bill(), _doc("Motie", "2024-05-01")]
-    open_ = dossier_stages("wetsvoorstel", docs, [], [], [], closed=False)
-    assert (open_.current, open_.complete) == ("behandeling", True)
-
-    enacted = DossierOutcome(True, "aangenomen", "2022-08-30")
-    stages = dossier_stages(
-        "wetsvoorstel", docs, [], [], [], closed=True, outcome=enacted.outcome
+    assert (
+        derive_outcome([], [{**passed, "date": "2024-05-01"}, rejected]).closed is False
     )
-    assert outcome_props(enacted, stages) == {
+
+
+def test_a_bill_without_publication_or_rejection_is_open() -> None:
+    assert derive_outcome([], []) == DossierOutcome(False)
+    # a postponement is no vote, and no withdrawal is read from anything
+    postponed = {
+        "date": "2024-04-01",
+        "passed": None,
+        "decision_kind": "Stemmen - uitstellen",
+    }
+    assert derive_outcome([], [postponed]).closed is False
+
+
+def test_the_last_decision_of_the_kamer_is_kept_as_it_writes_it() -> None:
+    decisions = [
+        {"date": "2024-06-18", "decision_kind": "Stemmen - uitstellen"},
+        {
+            "date": "2024-06-25",
+            "decision_kind": "Stemmen - zonder stemming aannemen",
+            "decision_text": "Wetsvoorstel zonder stemming aangenomen.",
+        },
+        {"date": "2024-07-01", "passed": True},  # no BesluitSoort
+    ]
+    decision = {
+        "kind": "Stemmen - zonder stemming aannemen",
+        "text": "Wetsvoorstel zonder stemming aangenomen.",
+        "date": "2024-06-25",
+    }
+    assert last_decision(decisions) == decision
+    assert derive_outcome([], decisions).tk_decision == decision
+    assert last_decision([]) is None
+
+
+def test_outcome_props_records_the_outcome() -> None:
+    outcome = DossierOutcome(True, "aangenomen", "2024-05-01", {"kind": "k"})
+    assert outcome_props(outcome) == {
         "closed": True,
         "outcome": "aangenomen",
-        "closed_on": "2022-08-30",
-        "current_stage": "afgehandeld",
-        "stages_present": [
-            "wetsvoorstel",
-            "mvt",
-            "advies_rvs",
-            "verslag",
-            "behandeling",
-            "afgehandeld",
-        ],
-        "stages_complete": False,
-        "stages_missing": ["stemming"],
-    }
-
-    reopened = dossier_stages("wetsvoorstel", docs, [], [], [], closed=False)
-    assert outcome_props(OPEN, reopened) == {
-        "closed": False,
-        "outcome": None,
-        "closed_on": None,
-        "current_stage": "behandeling",
-        "stages_present": [
-            "wetsvoorstel",
-            "mvt",
-            "advies_rvs",
-            "verslag",
-            "behandeling",
-        ],
-        "stages_complete": True,
-        "stages_missing": [],
+        "closed_on": "2024-05-01",
+        "tk_decision": {"kind": "k"},
+        "ek_outcome": None,
     }
 
 
-# ── the stages a track requires ──────────────────────────────────────────────
+# ── opened on ─────────────────────────────────────────────────────────────────
 
 
-def test_a_treaty_needs_the_advice_but_no_bill_memorandum_or_vote() -> None:
-    # 37013 in a test database: submitted for tacit approval with a letter and the advice.
+def _paper(kind: str, date: str, sequence: int | None, own: list | None) -> dict:
+    return {"kind": kind, "date": date, "sequence": sequence, "own": own}
+
+
+def test_a_dossier_opens_with_nr_1_of_its_own_numbering() -> None:
     docs = [
-        _doc("Brief regering", "2026-08-25"),
-        _doc(
-            "Advies Afdeling advisering Raad van State en Nader rapport", "2026-08-25"
-        ),
+        # a paper of another dossier on a case of this one, older than nr. 1
+        _paper("Brief regering", "2025-01-01", 1, ["36000", None]),
+        _paper("Memorie van toelichting", "2025-06-25", 3, ["36774", None]),
+        _paper("Voorstel van wet", "2025-06-25", 2, ["36774", None]),
+        _paper("Koninklijke boodschap", "2025-06-25", 1, ["36774", None]),
     ]
-    found = dossier_stages("verdrag", docs, [], [], ["Verdrag"], closed=False)
-    assert (found.current, found.missing) == ("advies_rvs", [])
-    approved = dossier_stages(
-        "verdrag", docs, [], [], ["Verdrag"], closed=True, outcome="aangenomen"
-    )
-    assert approved.complete
-    without_advice = [_doc("Motie", "2026-09-01"), docs[0]]
-    assert dossier_stages(
-        "verdrag", without_advice, [], [], [], closed=False
-    ).missing == ["advies_rvs"]
+    assert opened_on("36774", "", docs, []) == ("2025-06-25", "first_paper")
 
 
-def test_a_budget_needs_no_advice_of_the_raad_van_state() -> None:
+def test_a_budget_chapter_opens_with_nr_1_of_the_chapter() -> None:
     docs = [
-        _doc("Voorstel van wet", "2026-06-01"),
-        _doc("Memorie van toelichting", "2026-06-01"),
-        _doc("Verslag", "2026-06-20"),
+        _paper("Voorstel van wet", "2026-09-15", 1, ["37020", "XV"]),
+        _paper("Brief regering", "2026-09-10", 1, ["37020", None]),
     ]
-    assert dossier_stages("begroting", docs, [], [], [], closed=False).complete
-    found = dossier_stages("wetsvoorstel", docs, [], [], [], closed=False)
-    assert found.missing == ["advies_rvs"]
-    assert dossier_stages("begroting", docs[:1], [], [], [], closed=False).missing == []
-    assert dossier_stages(
-        "begroting", [docs[0], docs[2]], [], [], [], closed=False
-    ).missing == ["mvt"]
+    assert opened_on("37020", "XV", docs, []) == ("2026-09-15", "first_paper")
 
 
-def test_the_text_as_adopted_counts_as_the_vote() -> None:
-    assert classify_document_kind("Eindtekst") == "stemming"
-    # 34851 in a test database: a hamerstuk, no vote on record, its adopted text is.
-    docs = [*_passed_bill(), _doc("Eindtekst", "2018-03-13")]
-    found = dossier_stages(
-        "wetsvoorstel", docs, [], [], [], closed=True, outcome="aangenomen"
+def test_without_nr_1_the_royal_message_then_the_earliest_record() -> None:
+    royal = _paper("Koninklijke boodschap", "2025-06-24", None, None)
+    later = _paper("Memorie van toelichting", "2025-06-25", 3, ["36774", None])
+    assert opened_on("36774", None, [later, royal], []) == (
+        "2025-06-24",
+        "royal_message",
     )
-    assert found.missing == []
-    found = dossier_stages(
-        "wetsvoorstel", _passed_bill(), [], [], [], closed=True, outcome="aangenomen"
+    activity = {"kind": "Procedurevergadering", "date": "2025-07-01"}
+    assert opened_on("36774", None, [later], [activity]) == (
+        "2025-06-25",
+        "earliest_record",
     )
-    assert found.missing == ["stemming"]
-
-
-def test_the_missing_stages_are_in_stage_order() -> None:
-    docs = [_doc("Amendement", "2024-05-01")]
-    found = dossier_stages(
-        "wetsvoorstel", docs, [], [], ["Wetgeving"], closed=True, outcome="verworpen"
-    )
-    assert found.missing == ["wetsvoorstel", "mvt", "advies_rvs", "stemming"]
-    assert not found.complete
+    assert opened_on("36774", None, [], []) == (None, None)

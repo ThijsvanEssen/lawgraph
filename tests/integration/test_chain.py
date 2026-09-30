@@ -161,13 +161,14 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
     aql = """
     FOR e IN edges
         FILTER e._from == "instruments/bwbr0001950"
-        FILTER e.relation IN ["BASED_ON", "IMPLEMENTS"]
+        FILTER e.relation IN ["BASED_ON", "IMPLEMENTS", "REFERS_TO"]
         RETURN [e.relation, e._to]
     """
+    # the text names the GDPR, and nothing says it implements it: a reference
     assert sorted(store.query(aql)) == [
         ["BASED_ON", "articles/bwbr0001947_125"],
         ["BASED_ON", "articles/bwbr0001947_133"],
-        ["IMPLEMENTS", "instruments/32016r0679"],
+        ["REFERS_TO", "instruments/32016r0679"],
     ]
 
 

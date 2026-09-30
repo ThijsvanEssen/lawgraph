@@ -286,3 +286,14 @@ class FacetCountDTO(BaseModel):
 
     value: str | None = Field(None, description="Null counts the items without one.")
     count: int
+
+
+# How the end of a post, a cabinet or a phase of it is dated, as Rijksoverheid dates it: the
+# day of the change, on which the successor takes office. A period is ``from_date`` up to,
+# not including, ``to_date`` (half-open, as the validity of an article version).
+END_OF_OFFICE = (
+    "The day it ended, as Rijksoverheid gives it: the day of the change, on which the next "
+    "cabinet (holder, phase) takes office; so the period runs from ``from_date`` up to, not "
+    "including, ``to_date``, and ``to_date`` is the ``from_date`` of what follows. Null "
+    "while it lasts."
+)

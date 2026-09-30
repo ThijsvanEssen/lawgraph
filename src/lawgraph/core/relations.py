@@ -135,8 +135,11 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "IMPLEMENTS",
         (_I,),
         (_I,),
-        "A national instrument whose text names the CELEX number of an EU act; "
-        "not a transposition claim, and not per article.",
+        "A national instrument implements an EU act, by an implementation source "
+        "(`meta.bases`): a publication EUR-Lex lists as a national implementing measure of "
+        "the act, and the regulations it enacted or changed (`national_implementing_measure`, "
+        "`meta.publications`), or a regulation whose considerans says it implements the act "
+        "(`considerans`). Not per article: no source names the implementing article.",
     ),
     RelationSpec(
         "LEGISLATED_IN",
@@ -148,14 +151,15 @@ RELATIONS: tuple[RelationSpec, ...] = (
     # ── references and explanation ───────────────────────────────────────────
     RelationSpec(
         "REFERS_TO",
-        (_A, _DOC, _J),
+        (_A, _DOC, _J, _I),
         (_A, _I, _J),
         "A text refers to an article, instrument or judgment: the reference is in the "
         "text, never only in metadata (a judgment's earlier instance or conclusion is "
         "`APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, "
         "`CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The "
         "source node says who refers; article → "
-        "article edges also carry a `semantic_type`.",
+        "article edges also carry a `semantic_type`. From an instrument: a regulation "
+        "whose text names the CELEX number of an EU act it does not `IMPLEMENTS`.",
     ),
     RelationSpec(
         "EXPLAINS",
@@ -207,6 +211,14 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "questions: the earlier instance its metadata names (`meta.basis` "
         "`formal_relation`), else the ECLI or the case number and date its text names "
         "(`referral_text`).",
+    ),
+    RelationSpec(
+        "SAME_AS",
+        (_J,),
+        (_J,),
+        "A publication of a decision → the publication of the same decision that replaces "
+        "it (an old arrest published again under a new ECLI): the ECLI its metadata names "
+        "as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept.",
     ),
     RelationSpec(
         "SCOPED_BY",

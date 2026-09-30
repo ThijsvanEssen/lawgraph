@@ -193,6 +193,39 @@ class TKClient(BaseClient):
             logger.info("Fetching all Stemming records")
         return self._skip_paged_get("Stemming", params=params, page_size=top)
 
+    def fetch_bill_decisions(
+        self,
+        case_kinds: tuple[str, ...],
+        since: dt.datetime | None = None,
+        top: int = 250,
+    ) -> Iterable[dict[str, Any]]:
+        """Fetch the Besluit records ``Stemmen - ...`` on a zaak of one of *case_kinds* (a
+        bill, a budget), as ``fetch_stemmingen`` expands them: also those without a vote
+        (``Stemmen - zonder stemming aannemen``, a hamerstuk), which no Stemming carries."""
+        zaak = (
+            "Zaak("
+            "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
+            "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)"
+            ")"
+        )
+        kinds = " or ".join(f"z/Soort eq '{kind}'" for kind in case_kinds)
+        odata_filter = f"startswith(BesluitSoort,'Stemmen') and Zaak/any(z:{kinds})"
+        if since is not None:
+            since_string = odata_datetime(since)
+            odata_filter += f" and ApiGewijzigdOp ge {since_string}"
+            logger.info(
+                "Fetching the Besluiten on bills modified since %s", since_string
+            )
+        else:
+            logger.info("Fetching every Besluit on a bill")
+        params: dict[str, Any] = {
+            "$filter": odata_filter,
+            "$expand": (
+                f"{zaak},Agendapunt($expand=Activiteit($select=Id,Datum,Soort),{zaak})"
+            ),
+        }
+        return self._skip_paged_get("Besluit", params=params, page_size=top)
+
     def fetch_toezeggingen(
         self,
         since: dt.datetime | None = None,
@@ -237,7 +270,11 @@ class TKClient(BaseClient):
         *keyword_fields* so the API never returns the records we would discard.
         """
         params: dict[str, Any] = {
+            # The Kamerstukdossier of the Document itself is the one it is numbered in (at
+            # most one; none for a paper that is no Kamerstuk); those of its cases are every
+            # dossier it is about.
             "$expand": (
+                "Kamerstukdossier($select=Id,Nummer,Toevoeging),"
                 "Zaak($select=Id,Soort,Titel,Onderwerp,Nummer;"
                 "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)),"
                 "DocumentActor($select=Id,ActorNaam,ActorFractie,Functie,Relatie,Persoon_Id,Fractie_Id)"
@@ -248,8 +285,12 @@ class TKClient(BaseClient):
             since_string = odata_datetime(since)
             filters.append(f"ApiGewijzigdOp ge {since_string}")
         if dossier_number is not None:
+            # Numbered in the dossier, or part of a case of it (a nader rapport is only the
+            # latter; a few papers only the former).
+            number = f"k:k/Nummer eq {int(dossier_number)}"
             filters.append(
-                f"Zaak/any(z:z/Kamerstukdossier/any(k:k/Nummer eq {int(dossier_number)}))"
+                f"(Kamerstukdossier/any({number}) "
+                f"or Zaak/any(z:z/Kamerstukdossier/any({number})))"
             )
         if keywords and keyword_fields:
             filters.append(_build_contains_filter(keyword_fields, keywords))
