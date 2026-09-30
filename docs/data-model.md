@@ -424,7 +424,7 @@ Votes: TK returns one row per voter per `Besluit`. A roll-call (`Hoofdelijk`) na
 member, so its `VOTED` edges start at the member; any other vote is cast per faction and the
 edge starts at the faction. The decision carries `vote_kind` (`member` or `faction`), `tally`
 (seats per choice, members per choice on a roll-call), `voters` (how many cast each choice)
-and `passed`; each edge carries `meta.choice` and `meta.seats` (the seats of the faction; 1 for a member on a roll-call, whose row carries the size of the faction). The API derives a member's
+and `passed`; each edge carries `meta.choice`, `meta.seats` (the seats of the faction; 1 for a member on a roll-call, whose row carries the size of the faction) and `meta.record_ids` (the Stemming it is made of). The API derives a member's
 non-roll-call votes from the faction they belonged to at the time, using
 `members.props.faction_memberships`.
 
@@ -449,7 +449,8 @@ van State as its vice-president. So each signature keeps what it was signed as:
   ombudsman). No minister or staatssecretaris signs for a faction in the source.
 
 `MEMBER_OF` edges run from a member to a committee (`meta` = the seat's period) and to a
-faction (`meta.from_date`, `meta.to_date`, `meta.role`). Edge keys are one per pair, so a
+faction (`meta.from_date`, `meta.to_date`, `meta.role`, `meta.record_ids`: the
+FractieZetelPersoon records it is made of). Edge keys are one per pair, so a
 member who leaves and rejoins keeps one edge with the latest period; the full timeline is in
 `members.props.faction_memberships`.
 

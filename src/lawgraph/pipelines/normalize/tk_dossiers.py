@@ -54,6 +54,7 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
+from lawgraph.pipelines.normalize._tk_deleted import Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
 logger = get_logger(__name__)
@@ -94,24 +95,63 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             for kind in RAW_KINDS
         }
         if since is not None:
-            raw[RAW_KIND_TK_STEMMING] = self._rows_of_decisions_voted_since(since)
+            # A deleted row names no decision; the VOTED edge it made does, so the rows and
+            # the Besluit of that decision are read again too.
+            since_iso = iso_timestamp(since)
+            deleted = list(
+                raw_queries.deleted_records_since(
+                    self.store, RAW_KIND_TK_STEMMING, since_iso
+                )
+            )
+            voted_on = [
+                row["decision_id"]
+                for row in normalize_queries.decisions_of_vote_records(
+                    self.store, [str(self._payload_json(r).get("Id")) for r in deleted]
+                )
+                if row["decision_id"]
+            ]
+            raw[RAW_KIND_TK_STEMMING] = self._rows_of_decisions_voted_since(
+                since_iso, voted_on, deleted
+            )
+            raw[RAW_KIND_TK_BESLUIT] = self._besluiten(
+                raw[RAW_KIND_TK_BESLUIT], voted_on
+            )
         return raw
 
     def _rows_of_decisions_voted_since(
-        self, since: dt.datetime
+        self,
+        since_iso: str | None,
+        voted_on: list[str],
+        deleted: list[dict[str, Any]],
     ) -> Iterator[dict[str, Any]]:
-        """Every Stemming row of the decisions that have a row in the window.
+        """Every Stemming row of the decisions that have a row in the window or that a
+        *deleted* row of the window was on (*voted_on*), and those deleted rows.
 
         A decision is its rows together (the tally, who voted): one corrected vote must
         not turn it into a decision of one.
         """
-        decisions = raw_queries.decisions_voted_since(self.store, iso_timestamp(since))
+        decisions = sorted(
+            set(raw_queries.decisions_voted_since(self.store, since_iso))
+            | set(voted_on)
+        )
         progress = Progress(f"{RAW_KIND_TK_STEMMING} records")
         yield from progress.track(
             raw_queries.vote_rows_of_decisions(self.store, decisions)
             if decisions
             else ()
         )
+        yield from deleted
+
+    def _besluiten(
+        self, window: Iterable[dict[str, Any]], voted_on: list[str]
+    ) -> Iterator[dict[str, Any]]:
+        """The Besluit records of the window, and those of the decisions *voted_on*: a
+        Besluit whose votes were all deleted stays a decision."""
+        yield from window
+        if voted_on:
+            yield from self.store.with_payloads(
+                raw_queries.tk_records_of(self.store, RAW_KIND_TK_BESLUIT, voted_on)
+            )
 
     def normalize_nodes(
         self,
@@ -146,6 +186,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             "votes": votes.by_decision,
         }
         normalized["decisions"] = tk_votes.normalize_decisions(store, votes)
+        tk_votes.remove_deleted_votes(store, votes, normalized["decisions"])
         self._refresh_case_kinds(normalized["activities"])
         return normalized
 
@@ -155,7 +196,11 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """Add the Besluiten on bills, also those without votes (a hamerstuk). An
         incremental run first reads the stored vote rows of those its window holds no
         rows of, so a Besluit that changed does not lose its votes."""
-        payloads = [self._payload_json(raw) for raw in raw_records]
+        payloads = [
+            payload
+            for raw in raw_records
+            if not votes.struck(payload := self._payload_json(raw))
+        ]
         if self._incremental:
             unseen = [
                 decision_id
@@ -171,6 +216,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                     ),
                 )
         added = tk_votes.add_decisions(votes, payloads)
+        votes.drop_struck()  # a Besluit record the Kamer deleted, and its decision
         logger.info("Added %d decisions on bills without votes.", added)
 
     def build_edges(
@@ -217,7 +263,6 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             normalized["members"],
             normalized["factions"],
             source=EDGE_SOURCE,
-            complete=not self._incremental,
         )
         tk_votes.link_votes(
             store,
@@ -264,11 +309,10 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """Kamerstukdossier nodes, keyed by TK ``Id`` *and* by dossier number; the node of a
         dossier the Kamer deleted is removed."""
         nodes: dict[str, Node] = {}
-        deleted: list[str] = []
+        deleted = Deleted(COLLECTION_DOSSIERS, key=None)  # keyed by the dossier number
         for raw in raw_records:
             payload = self._payload_json(raw)
-            if tk_records.is_deleted(payload):
-                deleted.append(str(payload.get("Id") or ""))
+            if deleted(payload):
                 continue
             parsed = tk_records.dossier(payload)
             if parsed is None:
@@ -286,9 +330,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
 
         unique = _unique(nodes)
         self._upsert_nodes(unique)
-        removed = normalize_queries.remove_nodes_of_records(
-            self.store, COLLECTION_DOSSIERS, deleted
-        )
+        removed = deleted.remove(self.store)
         logger.info(
             "Normalized %d dossiers; removed %d the Kamer deleted.",
             len(unique),
