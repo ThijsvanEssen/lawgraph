@@ -154,14 +154,14 @@ def dossier_phases(
 
 
 def current_phase(phases: list[dict[str, Any]] | None) -> str | None:
-    """The done phase with the latest date, the later in the order on a tie; None when none
-    is done."""
-    done = [
-        (p.get("date") or "", i, p["name"])
-        for i, p in enumerate(phases or [])
-        if p["done"]
-    ]
-    return max(done)[2] if done else None
+    """The furthest done phase in the order of the list; None when none is done.
+
+    Not the one with the latest date: the date of a paper is the ``Document.Datum`` the Kamer
+    gives it, which may be the day it was received rather than made (the Nota n.a.v. het
+    verslag of 36937 is dated four days after the bill passed as a hamerstuk).
+    """
+    done = [p["name"] for p in phases or [] if p["done"]]
+    return done[-1] if done else None
 
 
 def phase_props(
@@ -215,15 +215,21 @@ OUTCOME_ENACTED = "aangenomen"
 OUTCOME_REJECTED = "verworpen"
 
 
+# The outcome of a bill in the Eerste Kamer, as it writes it.
+EK_ADOPTED = "Aangenomen"
+EK_REJECTED = "Verworpen"
+
+
 @dataclass(frozen=True)
 class DossierOutcome:
-    """Whether a dossier is closed, how it ended and on which date, and the last decision
-    of the Kamer on its bill."""
+    """Whether a dossier is closed, how it ended and on which date, the last decision of
+    the Tweede Kamer on its bill, and its outcome in the Eerste Kamer."""
 
     closed: bool
     outcome: str | None = None
     closed_on: str | None = None
     tk_decision: dict[str, Any] | None = None
+    ek_outcome: dict[str, Any] | None = None
 
 
 def last_decision(bill_decisions: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -241,23 +247,74 @@ def last_decision(bill_decisions: list[dict[str, Any]]) -> dict[str, Any] | None
     }
 
 
+def ek_outcome(
+    votes: list[dict[str, Any]], rejected: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """``{outcome, date, method, source_url, retrieved_on, decision}`` of a bill in the
+    Eerste Kamer, as it writes them, from its votes (``normalize eerstekamer-votes``) and its
+    list of rejected bills (*rejected*: ``{date, source_url, retrieved_on}``); None when
+    neither decides it.
+
+    The list of votes names a vote on a motion on a bill by the bill, so a vote
+    ``Verworpen`` does not reject the bill: only the list of rejected bills does, with the
+    vote ``Verworpen`` of that day as its vote when there is one. Otherwise the bill was
+    adopted by its latest vote ``Aangenomen``. ``decision`` is the id of that vote.
+    """
+    if rejected and rejected.get("date"):
+        day = rejected["date"]
+        vote = next(
+            (
+                v
+                for v in votes
+                if v.get("result") == EK_REJECTED and v.get("date") == day
+            ),
+            None,
+        )
+        return {
+            "outcome": EK_REJECTED,
+            "date": day,
+            "method": (vote or {}).get("method"),
+            "source_url": (vote or {}).get("source_url") or rejected.get("source_url"),
+            "retrieved_on": (vote or {}).get("retrieved_on")
+            or rejected.get("retrieved_on"),
+            "decision": (vote or {}).get("id"),
+        }
+    adopted = [v for v in votes if v.get("result") == EK_ADOPTED]
+    if not adopted:
+        return None
+    vote = max(adopted, key=lambda v: (v.get("date") or "", v.get("id") or ""))
+    return {
+        "outcome": EK_ADOPTED,
+        "date": vote.get("date"),
+        "method": vote.get("method"),
+        "source_url": vote.get("source_url"),
+        "retrieved_on": vote.get("retrieved_on"),
+        "decision": vote.get("id"),
+    }
+
+
 def derive_outcome(
-    publications: list[dict[str, Any]], bill_decisions: list[dict[str, Any]]
+    publications: list[dict[str, Any]],
+    bill_decisions: list[dict[str, Any]],
+    ek: dict[str, Any] | None = None,
 ) -> DossierOutcome:
     """How a dossier ended, from what the graph holds about it.
 
     * ``aangenomen``: an instrument is ``LEGISLATED_IN`` the dossier — the Staatsblad
       publication of the law, or a regulation whose metadata names the dossier. Closed on
       the first publication date (``date_published``, else ``date_signed``).
+    * ``verworpen`` or ``aangenomen``: the outcome of the bill in the Eerste Kamer (*ek*,
+      :func:`ek_outcome`). Closed on the day of that vote.
     * ``verworpen``: the last vote of the Tweede Kamer on the bill itself (a decision on
       its own zaak, of one of ``LEGISLATIVE_KINDS``, not on an amendment or a motion) did
       not pass. Closed on the date of that vote.
 
-    Otherwise the dossier is open: a bill the Tweede Kamer passed still waits for the
-    Eerste Kamer and the Staatsblad, a withdrawn bill has no record of the Kamer that says
-    so, and a dossier without a bill has no end in the graph.
+    Otherwise the dossier is open: a bill the Tweede Kamer passed waits for the Eerste
+    Kamer, a withdrawn bill has no record of the Kamer that says so, and a dossier without a
+    bill has no end in the graph.
     """
     decision = last_decision(bill_decisions)
+    shown = {k: v for k, v in ek.items() if k != "decision"} if ek else None
     if publications:
         dates = [
             date
@@ -268,8 +325,11 @@ def derive_outcome(
             )
         ]
         return DossierOutcome(
-            True, OUTCOME_ENACTED, min(dates) if dates else None, decision
+            True, OUTCOME_ENACTED, min(dates) if dates else None, decision, shown
         )
+    if ek:
+        outcome = OUTCOME_REJECTED if ek["outcome"] == EK_REJECTED else OUTCOME_ENACTED
+        return DossierOutcome(True, outcome, ek.get("date"), decision, shown)
     votes = [d for d in bill_decisions if isinstance(d.get("passed"), bool)]
     if votes:
         last = max(votes, key=lambda vote: vote.get("date") or "")
@@ -285,4 +345,5 @@ def outcome_props(outcome: DossierOutcome) -> dict[str, Any]:
         "outcome": outcome.outcome,
         "closed_on": outcome.closed_on,
         "tk_decision": outcome.tk_decision,
+        "ek_outcome": outcome.ek_outcome,
     }

@@ -184,6 +184,9 @@ def get_decisions(
                 decision_kind: decision.props.decision_kind,
                 passed: decision.props.passed,
                 chamber: decision.props.chamber,
+                result: decision.props.result,
+                method: decision.props.method,
+                bill_decision: decision.props.bill_decision,
                 vote_kind: decision.props.vote_kind,
                 tally: tally,
                 voters: voters

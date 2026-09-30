@@ -206,6 +206,10 @@ RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 # The ``word/document.xml`` of the DOCX HUDOC serves of a judgment (external id: its item id).
 RAW_KIND_ECHR_TEXT = "echr-judgment-docx-xml"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
+# One day of the list of votes on bills of eerstekamer.nl (external id: the date), and the list
+# of the bills the Eerste Kamer rejected (external id: its path, both pages in one record).
+RAW_KIND_EK_VOTES_DAY = "ek-votes-day-html"
+RAW_KIND_EK_REJECTED = "ek-rejected-html"
 RAW_KIND_VERDRAG = "verdrag-json"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
@@ -241,7 +245,11 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
     SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING, RAW_KIND_STCRT_POST_CREATORS),
     SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT, RAW_KIND_ECHR_TEXT),
-    SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
+    SOURCE_EERSTEKAMER: (
+        RAW_KIND_EK_KAMERSTUK,
+        RAW_KIND_EK_VOTES_DAY,
+        RAW_KIND_EK_REJECTED,
+    ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
     SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES,),
@@ -272,6 +280,8 @@ HOST_MIN_INTERVAL: dict[str, float] = {
     "repository.officiele-overheidspublicaties.nl": 0.1,
     # a page at a time with a pause: 33 pages, read seldom
     "www.rijksoverheid.nl": 2.0,
+    # the lists of eerstekamer.nl: 106 pages of votes, read seldom
+    "www.eerstekamer.nl": 2.0,
 }
 
 # ── Rechtspraak courts ────────────────────────────────────────────────────────

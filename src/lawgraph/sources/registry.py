@@ -29,6 +29,9 @@ from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
+from lawgraph.pipelines.normalize.eerstekamer_votes import (
+    EerstekamerVotesNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.normalize.rijksoverheid import RijksoverheidNormalizePipeline
@@ -43,6 +46,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_bwb_history,
     retrieve_echr,
     retrieve_eerstekamer,
+    retrieve_eerstekamer_votes,
     retrieve_eurlex,
     retrieve_rechtspraak,
     retrieve_rechtspraak_instanties,
@@ -383,6 +387,12 @@ RETRIEVE: list[Pipeline] = [
         lane=LANE_KOOP_REPOSITORY,
     ),
     _pipeline(
+        retrieve_eerstekamer_votes,
+        "The votes of the Eerste Kamer on bills (since June 2015) and the list of the "
+        "bills it rejected (since 1996), from eerstekamer.nl.",
+        argv_for_all=_windowed_argv,
+    ),
+    _pipeline(
         retrieve_echr,
         "European Court of Human Rights judgments against the Netherlands (HUDOC).",
         argv_for_all=_windowed_argv,
@@ -462,6 +472,11 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         EerstekamerNormalizePipeline,
         "Kamerstukken as documents, with the dossier number and its addition.",
+    ),
+    _pipeline(
+        EerstekamerVotesNormalizePipeline,
+        "The votes of the Eerste Kamer on bills as decisions about their dossiers; the "
+        "day each rejected bill was rejected on its dossier.",
     ),
     _pipeline(
         ECHRNormalizePipeline,
@@ -596,7 +611,8 @@ SEMANTIC: list[Pipeline] = [
         TKDossierOutcomesSemanticPipeline,
         (
             "Whether each dossier is closed and how it ended: the publication of its law, "
-            "the withdrawal of its bill or the vote that rejected it."
+            "the vote of the Tweede Kamer that rejected its bill, or the outcome in the "
+            "Eerste Kamer; and the last decision of each chamber on its bill."
         ),
     ),
     _pipeline(

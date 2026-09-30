@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_links import tk_url
 
@@ -40,6 +41,36 @@ class DossierPhaseDTO(BaseModel):
     )
     date: str | None = Field(
         None, description="The first date of those; null for none."
+    )
+
+
+class EkOutcomeDTO(BaseModel):
+    """The outcome of the bill of a dossier in the Eerste Kamer, as eerstekamer.nl gives it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: Literal["Aangenomen", "Verworpen"] = Field(
+        ..., description="As the Eerste Kamer shows it."
+    )
+    date: str | None = Field(None, description="The day of the vote.")
+    method: str | None = Field(
+        None,
+        description="How it was decided, as the report names it: ``Hamerstuk``, "
+        "``Stemming bij zitten en opstaan, aangenomen``, ``Hoofdelijke stemming, "
+        "verworpen``; null for a rejection known from the list of rejected bills alone "
+        "(before June 2015).",
+    )
+    source_url: str | None = Field(
+        None,
+        description="The page it was taken over from: the report of the vote, or the list "
+        "of rejected bills.",
+    )
+    retrieved_on: str | None = Field(None, description="The day it was taken over.")
+    attribution: str = Field(
+        ...,
+        description="The source to name with it (``EK_ATTRIBUTION``), with ``source_url`` "
+        "and ``retrieved_on``: the terms of eerstekamer.nl allow reuse with the source "
+        "and the day it was taken over.",
     )
 
 
@@ -330,10 +361,11 @@ class DossierSummaryDTO(BaseModel):
     for a dossier of letters and motions. ``kind_basis`` says which (``case``,
     ``document``). A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has
     ``phases``: every phase of the curated list in its order, each done when a paper, an
-    activity or a decision of the Kamer marks it; ``current_phase`` is the done phase with
-    the latest date. A closed dossier has an ``outcome``: ``aangenomen`` (its law was
-    published) or ``verworpen`` (the Tweede Kamer voted the bill down); ``tk_decision`` is
-    the last decision of the Kamer on the bill.
+    activity or a decision of the Kamer marks it; ``current_phase`` is the furthest done
+    phase in that order. A closed dossier has an ``outcome``: ``aangenomen`` (its law was
+    published, or the Eerste Kamer adopted it) or ``verworpen`` (a chamber voted the bill
+    down); ``tk_decision`` is the last decision of the Tweede Kamer on the bill and
+    ``ek_outcome`` its outcome in the Eerste Kamer.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -378,11 +410,15 @@ class DossierSummaryDTO(BaseModel):
         "phase of the bar in order; null for another kind.",
     )
     current_phase: str | None = Field(
-        None, description="The done phase with the latest date; null for none."
+        None,
+        description="The furthest done phase in the order of ``phases`` (not the one with "
+        "the latest date: the Kamer may date a paper by the day it was received); null for "
+        "none.",
     )
     closed: bool = False
     outcome: DossierOutcome | None = None
     tk_decision: TkDecisionDTO | None = None
+    ek_outcome: EkOutcomeDTO | None = None
     opened_on: str | None = None
     closed_on: str | None = None
     ministry: MinistryKey | None = Field(
@@ -664,6 +700,11 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
             else None
         ),
         "tk_decision": props.get("tk_decision"),
+        "ek_outcome": (
+            {**props["ek_outcome"], "attribution": EK_ATTRIBUTION}
+            if props.get("ek_outcome")
+            else None
+        ),
         "opened_on": props.get("opened_on"),
         "closed_on": props.get("closed_on"),
         "ministry": props.get("ministry"),

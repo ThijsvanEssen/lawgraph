@@ -132,7 +132,7 @@ def test_only_a_bill_has_phases(kind: str | None) -> None:
     )
 
 
-def test_the_current_phase_is_the_done_one_with_the_latest_date() -> None:
+def test_the_current_phase_is_the_furthest_done_one_in_the_order() -> None:
     phases = dossier_phases(
         "Begroting",
         [
@@ -144,10 +144,38 @@ def test_the_current_phase_is_the_done_one_with_the_latest_date() -> None:
         [],
     )
     assert current_phase(phases) == "Nota van wijziging / Amendement"
-    # on one day, the later in the order
     assert current_phase((phases or [])[:2]) == "Memorie van toelichting"
     assert current_phase(None) is None
     assert current_phase(dossier_phases("Wetgeving", [], [], [])) is None
+
+
+def test_a_paper_the_kamer_dates_late_does_not_turn_the_bill_back() -> None:
+    """36937 passed as a hamerstuk on 2026-09-17; its Nota n.a.v. het verslag (registered on
+    2026-08-14) has the Document.Datum 2026-09-21, the day it was received."""
+    hamerstuk = {
+        "decision_kind": "Stemmen - zonder stemming aannemen",
+        "case_kind": "Wetgeving",
+        "date": "2026-09-17",
+    }
+    phases = dossier_phases(
+        "Wetgeving",
+        [
+            _doc("Voorstel van wet", "2026-04-24"),
+            _doc("Memorie van toelichting", "2026-04-24"),
+            _doc(
+                "Advies Afdeling advisering Raad van State en Nader rapport",
+                "2026-04-24",
+            ),
+            _doc("Verslag (initiatief)wetsvoorstel (nader)", "2026-06-17"),
+            _doc("Eindtekst", "2026-09-17"),
+            _doc("Nota n.a.v. het (nader/tweede nader/enz.) verslag", "2026-09-21"),
+        ],
+        [],
+        [hamerstuk],
+    )
+    assert current_phase(phases) == "Eindtekst"
+    nota = next(p for p in phases or [] if p["name"] == "Nota n.a.v. het verslag")
+    assert nota["date"] == "2026-09-21"  # the date stays the Kamer's
 
 
 def test_phase_props_records_kind_and_phases() -> None:
@@ -275,4 +303,5 @@ def test_outcome_props_records_the_outcome() -> None:
         "outcome": "aangenomen",
         "closed_on": "2024-05-01",
         "tk_decision": {"kind": "k"},
+        "ek_outcome": None,
     }
