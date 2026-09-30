@@ -400,8 +400,10 @@ ruff format --check src tests
 mypy                                  # src, configured in pyproject.toml
 ```
 
-The suite uses an in-memory fake store and real XML fixtures (`tests/fixtures/`); no unit test
-executes AQL, but one file, `tests/test_aql_validity.py`, is different: `ALLOW_DB_TESTS=1` has a
+The suite uses real XML fixtures (`tests/fixtures/`) and replaces the database by patching the
+functions of `db/queries/` the code calls (a fake store keeps only the bulk writes and lookups);
+no unit test runs or reads a query (`tests/test_conventions.py`), what a query does is tested in
+`tests/integration`. One file, `tests/test_aql_validity.py`, is different: `ALLOW_DB_TESTS=1` has a
 real ArangoDB validate every static query (a scratch database of its own; it defaults to
 `ARANGO_URL` from `.env`, so normally your local dev server, unless you export
 `LAWGRAPH_TEST_ARANGO_URL`).
@@ -444,8 +446,8 @@ covers the Kamerstuk XML pipeline specifically; `test_series_end_to_end` seeds o
 chain (a law, an amendment, its memorandum, two judgments) and walks every route it touches,
 dossier to judgment, once.
 
-The unit suite outside `tests/integration/` is laid out as: `tests/api/` (routes, against a
-fake store), `tests/normalize/` and `tests/semantic/` (one file per source or detector),
+The unit suite outside `tests/integration/` is laid out as: `tests/api/` (routes, with the
+query functions they call patched), `tests/normalize/` and `tests/semantic/` (one file per source or detector),
 `tests/test_*.py` (clients, core helpers, bulk writers, registry, naming, conventions, relation
 catalogue, props). CI (`.github/workflows`) runs `mypy` and
 `pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format,
