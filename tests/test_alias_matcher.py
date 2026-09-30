@@ -79,8 +79,8 @@ def test_an_abbreviation_is_of_the_one_law_that_claims_it() -> None:
         # every book of the BW lists BW; a digit starts the number of a citation
         {"bwb_id": "BWBR0005289", "short_title": "BW6", "aliases": ["BW", "6 BW"]},
         {"bwb_id": "BWBR0005290", "short_title": "BW7", "aliases": ["BW", "7 BW"]},
-        # a pseudo instrument whose alias a law's short title claims as well
-        {"bwb_id": "ECHR-CONVENTION", "aliases": ["EVRM", "X"]},
+        # an instrument whose alias a law's short title claims as well
+        {"bwb_id": "BWBV0009999", "aliases": ["EVRM", "X"]},
         {"bwb_id": "BWBV0001000", "short_title": "EVRM"},
         {"bwb_id": "BWBR0000001", "aliases": ["X"]},  # an alias two laws claim
         {
@@ -93,13 +93,25 @@ def test_an_abbreviation_is_of_the_one_law_that_claims_it() -> None:
     codes = code_aliases(rows, {"32016R0679": ["AVG"], "32000R0001": ["NIET"]})
 
     assert codes == {
-        "SR": "BWBR0001854",
-        "WVS": "BWBR0001854",
-        "WVSR": "BWBR0001854",
+        "Sr": "BWBR0001854",
+        "WvS": "BWBR0001854",
+        "WvSr": "BWBR0001854",
         "BW6": "BWBR0005289",
         "BW7": "BWBR0005290",
         "EVRM": "BWBV0001000",
-        "ALGEMENE VERORDENING GEGEVENSBESCHERMING": "32016R0679",
+        "Algemene verordening gegevensbescherming": "32016R0679",
+        "AVG": "32016R0679",
+    }
+
+
+def test_an_abbreviation_of_the_source_wins_over_a_curated_one() -> None:
+    rows = [
+        {"bwb_id": "BWBR0000001", "aliases": ["ABC"]},
+        {"celex": "32016R0679", "short_title": "Algemene verordening"},
+    ]
+    assert code_aliases(rows, {"32016R0679": ["ABC", "AVG"]}) == {
+        "ABC": "BWBR0000001",
+        "Algemene verordening": "32016R0679",
         "AVG": "32016R0679",
     }
 

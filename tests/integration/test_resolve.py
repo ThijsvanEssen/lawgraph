@@ -26,10 +26,6 @@ from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries import search as search_module
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
 from lawgraph.db.queries.search import search_all
-from lawgraph.pipelines.semantic.echr import (
-    _ensure_echr_article,
-    _ensure_echr_convention_instrument,
-)
 
 SR, GW, AWB, BW6 = "BWBR0001854", "BWBR0001840", "BWBR0005537", "BWBR0005289"
 GDPR = "32016R0679"
@@ -269,10 +265,9 @@ def test_an_article_without_a_law_that_only_one_law_has(store: ArangoStore) -> N
 
 
 def _treaty_and_eu_act(store: ArangoStore) -> None:
-    """The EVRM as ``semantic echr`` writes it, and the AVG with the short title of
+    """The EVRM as ``normalize bwb`` writes it, and the AVG with the short title of
     EUR-Lex; its abbreviation is the one ``curated instrument-abbreviations`` keeps."""
-    convention = _ensure_echr_convention_instrument(store)
-    _ensure_echr_article(store, convention, "8")
+    _evrm(store)
     _put(
         store,
         COLLECTION_INSTRUMENTS,
@@ -289,8 +284,8 @@ def _treaty_and_eu_act(store: ArangoStore) -> None:
 @pytest.mark.parametrize(
     ("query", "key"),
     [
-        ("art. 8 EVRM", "echr_convention_8"),
-        ("artikel 8, eerste lid, van het EVRM", "echr_convention_8"),
+        ("art. 8 EVRM", "bwbv0001000_8"),
+        ("artikel 8, eerste lid, van het EVRM", "bwbv0001000_8"),
         ("art. 6 AVG", "32016r0679_6"),
         ("artikel 6, eerste lid, AVG", "32016r0679_6"),
     ],
@@ -306,7 +301,7 @@ def test_an_article_of_a_treaty_or_eu_act_by_its_abbreviation(
 
 def test_a_treaty_or_eu_act_by_its_abbreviation(store: ArangoStore) -> None:
     _treaty_and_eu_act(store)
-    for query, key in (("EVRM", "echr_convention"), ("AVG", "32016r0679")):
+    for query, key in (("EVRM", "bwbv0001000"), ("AVG", "32016r0679")):
         answer = resolve(store, query)
         assert (answer["kind"], answer["match"]["key"]) == ("instrument", key), query
         assert answer["confidence"] == 0.9
@@ -510,3 +505,35 @@ def test_search_one_article_hit_costs_no_query_of_its_own(store: ArangoStore) ->
     search_all(store, q="Tekst artikel", types=["articles"], limit=10)
     article_queries = [q for q in queries if "search_articles" in q or "articles" in q]
     assert len(article_queries) <= 2
+
+
+def _evrm(store: ArangoStore) -> None:
+    """The ECHR Convention as ``normalize bwb`` writes BWBV0001000: EVRM from its WTI."""
+    store.bulk_insert_or_update_nodes(
+        COLLECTION_INSTRUMENTS,
+        [
+            {
+                "_key": "bwbv0001000",
+                "type": "instrument",
+                "labels": [],
+                "props": {
+                    "bwb_id": "BWBV0001000",
+                    "title": "Verdrag tot bescherming van de rechten van de mens en de "
+                    "fundamentele vrijheden",
+                    "short_title": "EVRM",
+                    "aliases": ["EVRM"],
+                },
+            }
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        COLLECTION_ARTICLES,
+        [
+            {
+                "_key": "bwbv0001000_8",
+                "type": "article",
+                "labels": [],
+                "props": {"bwb_id": "BWBV0001000", "article_number": "8"},
+            }
+        ],
+    )

@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
     RAW_KIND_ECHR_JUDGMENT,
     SOURCE_BWB,
@@ -46,6 +47,16 @@ def count_echr_judgments_in_raw(store: Store) -> int:
         """
     bind_vars = {"source": SOURCE_ECHR, "kind": RAW_KIND_ECHR_JUDGMENT}
     return next(iter(store.query(aql, bind_vars)), 0)
+
+
+def echr_article_fields(store: Store) -> Iterator[Any]:
+    """The ``articles`` field of every ECHR judgment that has one, as HUDOC gave it."""
+    aql = f"""
+        FOR j IN {COLLECTION_JUDGMENTS}
+            FILTER j.props.source == @source AND j.props.articles != null
+            RETURN j.props.articles
+        """
+    return store.query(aql, {"source": SOURCE_ECHR})
 
 
 def dangling_edges(store: Store) -> Iterator[dict[str, Any]]:

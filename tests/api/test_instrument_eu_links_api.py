@@ -58,7 +58,7 @@ _DIRECTIVE = {
         ("BWBR0001854", "bwb_id", "BWBR0001854"),
         ("bwbr0001854", "bwb_id", "BWBR0001854"),
         ("BWBV0001000", "bwb_id", "BWBV0001000"),
-        ("ECHR-CONVENTION", "bwb_id", "ECHR-CONVENTION"),
+        ("verdrag_012345", "bwb_id", "VERDRAG_012345"),
         ("32016L0680", "celex", "32016L0680"),
         ("32016l0680", "celex", "32016L0680"),
         ("32002F0584", "celex", "32002F0584"),

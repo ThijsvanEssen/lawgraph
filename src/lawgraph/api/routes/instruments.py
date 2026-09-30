@@ -125,7 +125,7 @@ def _instrument_or_404(store: ArangoStore, identifier: str) -> dict:
     summary="One instrument",
     description=(
         "The instrument named by its BWB id (`BWBR0001854`), its CELEX number "
-        "(`32016L0680`) or its node key (`echr_convention`, `verdrag_012345`): "
+        "(`32016L0680`) or its node key (`bwbv0001000`, `verdrag_012345`): "
         "identifiers, names, jurisdiction, kind, dates and article count, and for a "
         "treaty the other instruments with its treaty number (`same_treaty`). 404 for "
         "an unknown instrument."

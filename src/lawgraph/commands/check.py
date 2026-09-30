@@ -117,6 +117,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     _check_treaties(store, report)
     _check_papers(store, raw, report)
     _check_cases(store, report)
+    _check_protocols(store, report)
     _check_curated(store, report)
     return report
 
@@ -322,6 +323,25 @@ def _check_cases(store: ArangoStore, report: Report) -> None:
         )
     elif total:
         report.note(f"cases: {counts[True]:,} of {total:,} name a dossier")
+
+
+def _check_protocols(store: ArangoStore, report: Report) -> None:
+    """The articles of a Protocol to the ECHR Convention that ECHR judgments apply: they are
+    not linked (``semantic echr``), which only this says."""
+    from lawgraph.pipelines.semantic.echr import protocol_articles
+
+    per_judgment = [
+        protocol_articles(field) for field in checks.echr_article_fields(store)
+    ]
+    named = [articles for articles in per_judgment if articles]
+    if named:
+        distinct = sorted({a for articles in named for a in articles})
+        report.note(
+            f"echr: {sum(map(len, named)):,} articles of a Protocol in {len(named):,} "
+            f"judgments are not linked ({', '.join(distinct[:10])}"
+            f"{', …' if len(distinct) > 10 else ''}): a Protocol is a treaty of its own, "
+            "and no source maps its number to a BWB id"
+        )
 
 
 def _check_curated(store: ArangoStore, report: Report) -> None:

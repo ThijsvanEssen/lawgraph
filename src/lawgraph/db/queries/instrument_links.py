@@ -6,9 +6,9 @@ acts a regulation's text names without implementing them are `REFERS_TO` edges o
 step between the two instruments. The international links are
 `REFERS_TO` edges: from articles of the instrument to a BWB treaty (`BWBV...`), an article
 of it, or an instrument of another treaty, and from ECHR judgments (`semantic echr`) to the
-instrument or to its articles. Nothing else in the graph links a Dutch text to a treaty:
-Verdragenbank treaties and the articles of the ECHR Convention have no inbound link from a
-Dutch article.
+instrument or to its articles; the ECHR Convention is the BWB treaty BWBV0001000. Nothing else
+in the graph links a Dutch text to a treaty: Verdragenbank treaties have no inbound link from
+a Dutch article.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from lawgraph.config.constants import (
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    ECHR_CONVENTION_ID,
     EDGE_SOURCE_BWB_IMPLEMENTS,
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
@@ -32,12 +31,11 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.instrument_scope import InstrumentScope
 
-# The keys of the articles of a treaty: BWB treaties by their BWBV id, the ECHR Convention by
-# its pseudo id. The prefix keeps the edges of a large statute from being looked up one by
-# one; the kind of the instrument is what decides in the end.
+# The keys of the articles of a treaty: BWB treaties, the ECHR Convention among them, by their
+# BWBV id. The prefix keeps the edges of a large statute from being looked up one by one; the
+# kind of the instrument is what decides in the end.
 _TREATY_ARTICLE_PREFIXES = [
     f"{COLLECTION_ARTICLES}/{make_node_key(BWB_TREATY_ID_PREFIX)}",
-    f"{COLLECTION_ARTICLES}/{make_node_key(ECHR_CONVENTION_ID)}_",
 ]
 
 

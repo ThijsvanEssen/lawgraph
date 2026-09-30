@@ -15,6 +15,7 @@ from lawgraph.api.schemas.common import (
 from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
 from lawgraph.core.identifiers import ecli_source
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention
+from lawgraph.core.official_urls import judgment_url
 
 # ``core.judgments.DECISION_KINDS``
 DecisionKind = Literal[
@@ -45,6 +46,11 @@ class JudgmentDTO(BaseNodeDTO):
 
     ecli: str | None
     source: str | None = None
+    official_url: str | None = Field(
+        default=None,
+        description="The judgment on its official site: uitspraken.rechtspraak.nl by its "
+        "ECLI, HUDOC by its item id for one of the ECHR; null for a stub of another court.",
+    )
     summary: str | None = Field(
         description="The inhoudsindicatie, in Dutch. For an English translation the "
         "inhoudsindicatie of the judgment it translates; null while that is not loaded."
@@ -126,6 +132,7 @@ class JudgmentDTO(BaseNodeDTO):
             **base.model_dump(),
             ecli=ecli,
             source=source,
+            official_url=judgment_url({**props, "source": source}),
             summary=props.get("summary"),
             summary_en=props.get("summary_en"),
             translation_of=props.get("translation_of"),

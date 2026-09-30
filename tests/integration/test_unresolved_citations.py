@@ -1,10 +1,11 @@
 """The citations of a judgment that name a law by an abbreviation: the real ``normalize
 rechtspraak`` and ``semantic rechtspraak`` and the API on their answer.
 
-The EVRM (the instrument ``semantic echr`` writes) and the AVG (an EU act with the short
-title EUR-Lex gives, and the abbreviation of ``curated instrument-abbreviations``) are in the
-graph: their articles are cited. The Rv and the Sv are not: the judgment keeps those
-citations as ``unresolved_citations``, until the law is loaded.
+The EVRM (the BWB treaty BWBV0001000, abbreviated EVRM in its WTI) and the AVG (an EU act
+with the short title EUR-Lex gives, and the abbreviation of ``curated
+instrument-abbreviations``) are in the graph: their articles are cited. The Rv and the Sv
+are not: the judgment keeps those citations as ``unresolved_citations``, until the law is
+loaded.
 """
 
 from __future__ import annotations
@@ -24,11 +25,8 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
-from lawgraph.pipelines.semantic.echr import (
-    _ensure_echr_article,
-    _ensure_echr_convention_instrument,
-)
 from tests.integration.test_judgment_mentions import _judgment_xml
+from tests.integration.test_resolve import _evrm
 
 ECLI = "ECLI:NL:HR:2019:1278"
 GDPR = "32016R0679"
@@ -48,8 +46,7 @@ def _put(store: ArangoStore, collection: str, key: str, **props: Any) -> None:
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore, Any]]:
     store = ArangoStore()
-    convention = _ensure_echr_convention_instrument(store)
-    _ensure_echr_article(store, convention, "8")
+    _evrm(store)
     _put(
         store,
         COLLECTION_INSTRUMENTS,
@@ -102,7 +99,7 @@ def test_an_abbreviated_treaty_and_eu_act_in_the_graph_are_cited(
     client: tuple[TestClient, ArangoStore, Any],
 ) -> None:
     _, store, _ = client
-    assert _cited(store) == {"echr_convention_8", "32016r0679_6"}
+    assert _cited(store) == {"bwbv0001000_8", "32016r0679_6"}
 
 
 def test_a_citation_of_a_law_not_in_the_graph_is_kept_on_the_judgment(
