@@ -1,4 +1,5 @@
-"""Client for eerstekamer.nl: its list of votes on bills and its list of rejected bills.
+"""Client for eerstekamer.nl: its list of votes on bills, its list of rejected bills, and
+the pages of its factions and committees.
 
 The Eerste Kamer publishes its votes only on its website; its terms allow reuse, also
 commercial, with the source and the day it was taken over. ``robots.txt`` allows these
@@ -13,7 +14,7 @@ from collections.abc import Iterator
 
 from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.settings import EERSTEKAMER_SITE
-from lawgraph.core import eerstekamer_votes
+from lawgraph.core import eerstekamer_composition, eerstekamer_votes
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -52,6 +53,21 @@ class EerstekamerSiteClient(BaseClient):
             pages.append((url, page))
             path = eerstekamer_votes.next_rejected_page(page, seen)
         return pages
+
+    def composition_pages(self) -> Iterator[tuple[str, str, str]]:
+        """``(path, url, html)`` of the lists of factions and committees and of the page of
+        every faction and committee they name."""
+        for path, entries in (
+            (eerstekamer_composition.FACTIONS_PATH, eerstekamer_composition.factions),
+            (
+                eerstekamer_composition.COMMITTEES_PATH,
+                eerstekamer_composition.committees,
+            ),
+        ):
+            listing = self._page(self.url(path))
+            yield path, self.url(path), listing
+            for entry in entries(listing):
+                yield entry.path, self.url(entry.path), self._page(self.url(entry.path))
 
     def _page(self, url: str) -> str:
         response = self._get_raw_absolute_with_retry(

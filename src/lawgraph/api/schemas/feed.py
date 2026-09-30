@@ -473,6 +473,10 @@ class FeedFacetsDTO(BaseModel):
     ministry: list[FacetCountDTO] = Field(default_factory=list)
     faction: list[FacetCountDTO] = Field(default_factory=list)
     cabinet: list[FacetCountDTO] = Field(default_factory=list)
+    chamber: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="``TK``, ``EK``; null for a publication or a commencement.",
+    )
 
 
 class FeedResponse(BaseModel):

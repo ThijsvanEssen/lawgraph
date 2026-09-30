@@ -312,7 +312,7 @@ def test_a_plenary_activity_has_no_committee() -> None:
 def test_committees_are_listed_with_english_field_names(monkeypatch) -> None:
     monkeypatch.setattr(
         "lawgraph.api.routes.committees.get_committees",
-        lambda store: [_COMMITTEE],
+        lambda store, **kwargs: [_COMMITTEE],
     )
     body = client.get("/api/committees").json()
     assert body[0]["abbreviation"] == "VWS"
