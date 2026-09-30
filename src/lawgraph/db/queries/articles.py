@@ -460,6 +460,16 @@ def get_article_explanations(
     return rows[0] if rows else {"total": 0, "items": []}
 
 
+@dataclass(frozen=True)
+class CitedBy:
+    """A page of the passages that cite an article: ``{judgment, mention}`` rows, the
+    passages that match the filters and the judgments they are in."""
+
+    rows: list[dict[str, Any]]
+    total: int
+    judgment_total: int
+
+
 def get_article_cited_by(
     store: ArangoStore,
     article_id: str,
@@ -469,11 +479,11 @@ def get_article_cited_by(
     lid: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> tuple[list[dict[str, Any]], int]:
+) -> CitedBy:
     """The passages of judgments that cite an article: one row per mention, newest first.
 
-    ``(rows, total)`` with ``{judgment, mention}`` rows; ``total`` counts every mention that
-    passes the filters, whatever the page. Filters: the ``court`` (ECLI court code) and
+    ``total`` counts every mention that passes the filters, whatever the page, and
+    ``judgment_total`` the judgments they are in. Filters: the ``court`` (ECLI court code) and
     ``tier`` of the judgment, and a ``lid`` number that the mention names.
 
     A much cited article has thousands of judgments (Sr 287, Awb 6:2) and a judgment is
@@ -514,6 +524,8 @@ def get_article_cited_by(
     )
     RETURN {{
         total: LENGTH(hits),
+        // one edge per judgment and article
+        judgment_total: COUNT_DISTINCT(hits[*].edge),
         items: (
             FOR hit IN page
                 LET e = DOCUMENT(hit.edge)
@@ -546,5 +558,9 @@ def get_article_cited_by(
         "limit": limit,
         "offset": offset,
     }
-    answer = next(iter(store.query(aql, bind)), None) or {"total": 0, "items": []}
-    return list(answer["items"]), int(answer["total"])
+    answer = next(iter(store.query(aql, bind)), None) or {}
+    return CitedBy(
+        rows=list(answer.get("items") or []),
+        total=int(answer.get("total") or 0),
+        judgment_total=int(answer.get("judgment_total") or 0),
+    )

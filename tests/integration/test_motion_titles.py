@@ -67,6 +67,7 @@ def _document(number: int, kind: str, subject: str, signatures: list) -> dict:
         "Datum": "2026-09-10T00:00:00+02:00",
         "Volgnummer": 1300 + number,
         "Verwijderd": False,
+        "Kamerstukdossier": [DOSSIER],
         # The Zaak as the Document expansion gives it: without its Onderwerp.
         "Zaak": [
             {
@@ -280,11 +281,12 @@ def test_the_text_of_a_motion_is_retrieved_by_default(database: str, cli: Any) -
 
     repository = _Repository()
     TKContentRetrievePipeline(store=store, client=repository).run()  # type: ignore[arg-type]
-    # The moties and amendementen are asked for, the letter is not.
+    # The moties, the amendementen and the bill are asked for, the letter is not.
     assert sorted(repository.fetched) == [
         "kst-29279-1301",
         "kst-29279-1302",
         "kst-29279-1304",
+        "kst-29279-1306",
     ]
     cli("normalize", "tk-content")
 

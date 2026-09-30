@@ -41,6 +41,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION as INSTRUMENT_KIND_PUBLICATION
+from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.feed import (
     DOCUMENT_EVENTS,
     EVENT_BILL,
@@ -54,11 +55,7 @@ from lawgraph.core.feed import (
     KIND_RANK,
     FeedCursor,
 )
-from lawgraph.core.tk_records import (
-    CAPACITY_GOVERNMENT,
-    CAPACITY_MEMBER,
-    DECISION_KIND_BILL,
-)
+from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import ArangoStore
 
 # The instruments a publication names at most.
@@ -79,6 +76,7 @@ _ITEM_PROPS = (
     "passed",
     "tally",
     "vote_kind",
+    "chamber",
     "citation_title",
     "publication_kind",
     "publication_year",
@@ -106,6 +104,7 @@ class FeedFilters:
     member: str | None = None
     faction: str | None = None
     q: str | None = None
+    chamber: str | None = None  # TK, EK
 
 
 @dataclass(frozen=True)
@@ -126,6 +125,7 @@ class _Source:
     title: str
     ministry: str | None = None
     vote: str = "null"
+    chamber: str = '"TK"'  # AQL: the chamber of the event; null for neither
 
 
 _DOSSIER_NUMBERS = "n.props.dossier_numbers OR []"
@@ -228,14 +228,21 @@ _SOURCES: dict[str, _Source] = {
             kind=EVENT_VOTE,
             collection=COLLECTION_DECISIONS,
             date="date",
-            where="IS_BOOL(n.props.passed)",  # read by date, not by the outcome
+            # read by date, not by the outcome; of the Eerste Kamer only the vote that
+            # decided the bill (its list names a vote on a motion by the bill too)
+            where=(
+                'IS_BOOL(n.props.passed) AND (n.props.chamber != "EK"'
+                " OR n.props.bill_decision == true)"
+            ),
             dossiers=_DOSSIER_NUMBERS,
             persons=_DECIDED_PERSONS.replace("{guard}", "true"),
             title="n.props.subject",
             # what was voted on, the outcome, and the difference in seats (in members on
             # a roll-call) between for and against
+            chamber='n.props.chamber OR "TK"',
             vote=(
-                "{ subkind: n.props.kind, passed: n.props.passed, margin: ABS("
+                '{ subkind: n.props.kind, chamber: n.props.chamber OR "TK", '
+                "passed: n.props.passed, margin: ABS("
                 "(n.props.tally.Voor OR 0) - (n.props.tally.Tegen OR 0)) }"
             ),
         ),
@@ -247,6 +254,7 @@ _SOURCES: dict[str, _Source] = {
             dossiers=_DOSSIER_NUMBERS,
             persons=None,
             title="n.props.citation_title",
+            chamber="null",
         ),
         _Source(
             kind=EVENT_COMMENCEMENT,
@@ -255,6 +263,7 @@ _SOURCES: dict[str, _Source] = {
             where="true",
             dossiers="[]",
             persons=None,
+            chamber="null",
             title=(
                 f"FIRST(FOR i IN {COLLECTION_INSTRUMENTS}"
                 " FILTER i._key == LOWER(n.props.bwb_id)"
@@ -264,8 +273,12 @@ _SOURCES: dict[str, _Source] = {
     )
 }
 
+# The kinds that are no event of either chamber: a filter on the chamber leaves them out.
+_NO_CHAMBER = (EVENT_PUBLICATION, EVENT_COMMENCEMENT)
+CHAMBER_EK = "EK"
+
 # The dimensions that are counted as facets; each is a filter on ``row`` too.
-_DIMENSIONS = ("kind", "ministry", "faction", "cabinet")
+_DIMENSIONS = ("kind", "ministry", "faction", "cabinet", "chamber")
 
 # What every request reads first: factions by the ids of their Fractie records and the
 # cabinets, newest first. (A map of every dossier would be copied for each row that reads
@@ -327,6 +340,9 @@ def _dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> dict[str, 
     if filters.faction:
         clauses["faction"] = "@faction IN row.factions"
         bind["faction"] = filters.faction
+    if filters.chamber:
+        clauses["chamber"] = "row.chamber == @chamber"
+        bind["chamber"] = filters.chamber
     if filters.cabinet:
         clauses["cabinet"] = (
             "cabinet_from != null AND row.date >= cabinet_from"
@@ -366,6 +382,12 @@ def _kinds_to_read(filters: FeedFilters, *, facets: bool) -> list[_Source]:
         sources = [s for s in sources if s.persons is not None]
     if filters.faction:
         sources = [s for s in sources if s.kind != EVENT_COMMITMENT]
+    if facets:  # every chamber is counted; ``row.chamber`` keeps the one asked for
+        return sources
+    if filters.chamber == CHAMBER_EK:
+        sources = [s for s in sources if s.kind == EVENT_VOTE]
+    elif filters.chamber:
+        sources = [s for s in sources if s.kind not in _NO_CHAMBER]
     return sources
 
 
@@ -431,6 +453,8 @@ def _rows_query(source: _Source, plan: _Plan, index: int) -> str:
     date = f"n.props.{source.date}"
     indent = " " * 12
     head = [f"{date} >= @since AND {date} <= @until", source.where]
+    if plan.filters.chamber and source.kind == EVENT_VOTE and not plan.facets:
+        head.append('(n.props.chamber OR "TK") == @chamber')
     lets = [f"LET labels = {source.dossiers}"]
     if source.dossiers != "[]" and (source.ministry is None or plan.filters.q):
         lets.append(f"LET first_dossier = {_FIRST_DOSSIER}")
@@ -469,7 +493,8 @@ def _rows_query(source: _Source, plan: _Plan, index: int) -> str:
                 dossier: labels[0],
                 ministry: {source.ministry or "first_dossier.ministry"},
                 factions: {factions},
-                vote: {source.vote}
+                vote: {source.vote},
+                chamber: {source.chamber}
             }}{_where(tail, indent)}{order}
             RETURN row
     )"""
@@ -494,6 +519,7 @@ def _facet(plan: _Plan, name: str) -> str:
         "kind": "row.kind",
         "ministry": "row.ministry",
         "faction": "LENGTH(row.factions) > 0 ? row.factions : [null]",
+        "chamber": "row.chamber",
     }[name]
     loop = f"\n            FOR faction IN {value}" if name == "faction" else ""
     collect = "value = faction" if name == "faction" else f"value = {value}"
@@ -743,7 +769,8 @@ def feed_query(
 # vote on a bill, a vote whose margin is at most @margin, and every vote of a quiet day.
 _HIGHLIGHT = (
     f'row.kind IN ["{EVENT_BILL}", "{EVENT_COMMITMENT}", "{EVENT_COMMENCEMENT}"]'
-    f' OR (row.kind == "{EVENT_VOTE}" AND (row.vote.subkind == "{DECISION_KIND_BILL}"'
+    f' OR (row.kind == "{EVENT_VOTE}" AND (row.vote.chamber == "{CHAMBER_EK}"'
+    f" OR row.vote.subkind IN {json.dumps(list(LEGISLATIVE_KINDS))}"
     " OR row.vote.margin <= @margin OR row.date IN quiet_days))"
 )
 
@@ -775,10 +802,10 @@ _SUMMARY = f"""
                 votes: (
                     FOR r IN group
                         FILTER r.vote != null
-                        COLLECT subkind = r.vote.subkind, passed = r.vote.passed
-                            WITH COUNT INTO count
-                        SORT count DESC, subkind, passed
-                        RETURN {{ subkind, passed, count }}
+                        COLLECT chamber = r.vote.chamber, subkind = r.vote.subkind,
+                            passed = r.vote.passed WITH COUNT INTO count
+                        SORT count DESC, chamber, subkind, passed
+                        RETURN {{ chamber, subkind, passed, count }}
                 )
             }}
     )
@@ -801,7 +828,8 @@ _SUMMARY = f"""
     // the days with at most @few votes on anything but a bill: each of them is shown
     LET quiet_days = (
         FOR row IN matching
-            FILTER row.kind == "{EVENT_VOTE}" AND row.vote.subkind != "{DECISION_KIND_BILL}"
+            FILTER row.kind == "{EVENT_VOTE}" AND row.vote.chamber != "{CHAMBER_EK}"
+            FILTER row.vote.subkind NOT IN {json.dumps(list(LEGISLATIVE_KINDS))}
             COLLECT date = row.date WITH COUNT INTO count
             FILTER count <= @few
             RETURN date

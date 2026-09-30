@@ -307,7 +307,9 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
     (edge,) = _explains(store).values()
     assert edge["from"] == f"documents/{MVT_KEY}"
     assert edge["to"] == "article_versions/bwbr0044234_av_4402_7"
-    assert (edge["source"], edge["confidence"]) == (SEMANTIC_SOURCE_SECTIONS, 0.85)
+    # the text under the heading names the article with its law, in a law the dossier
+    # changed: a body_named_law match (``core.mvt_articles.CONFIDENCE_OF_MATCH``)
+    assert (edge["source"], edge["confidence"]) == (SEMANTIC_SOURCE_SECTIONS, 0.65)
     anchor = edge["meta"]["section_anchor"]
     assert edge["meta"]["heading"] == "Artikel I"
 
@@ -321,7 +323,7 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
     )
     assert item["target"] == "article_version"
     assert item["scope"] == "article" and item["section_anchor"] == anchor
-    assert item["confidence"] == 0.85
+    assert item["confidence"] == 0.65
 
     # the section the edge names is a section of the document, and its text the passage
     document = _get(client, f"/api/documents/{MVT_KEY}")
@@ -344,7 +346,7 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
         passage["text"] == document["text"][section["char_start"] : section["char_end"]]
     )
     assert passage["text"].startswith("Artikel I\nDit wetsvoorstel beoogt artikel 2")
-    assert (passage["match_type"], passage["confidence"]) == ("body_named_law", 0.85)
+    assert (passage["match_type"], passage["confidence"]) == ("body_named_law", 0.65)
     for other in ("1", "3"):  # articles the law has and no section names
         assert _get(
             client, f"/api/documents/{MVT_KEY}/passages", bwb_id=LAW, article=other

@@ -259,9 +259,13 @@ def _document(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
     wanted = notation.suffix or ""
     exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
     body = """
-        // the tail of the documents query of a dossier: the paper with this number
+        // the tail of the documents query of a dossier: the paper with this number in it
+        // (a paper of one of its cases may have that number in another dossier)
+        LET dossier = DOCUMENT(dossier_id).props
         FOR document IN all_documents
-            FILTER (@sequence != null AND document.props.sequence == @sequence)
+            FILTER (@sequence != null AND document.props.sequence == @sequence
+                    AND TO_STRING(document.props.dossier_number) == dossier.number
+                    AND (document.props.dossier_suffix || "") == (dossier.suffix || ""))
                 OR UPPER(document.props.number) == @text
             LIMIT @limit
             RETURN {

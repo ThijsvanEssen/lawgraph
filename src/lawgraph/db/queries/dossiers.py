@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal, cast
 
 from lawgraph.config.constants import (
@@ -34,17 +34,13 @@ from lawgraph.config.constants import (
     RELATION_REVISES,
     RELATION_SECOND_READING_OF,
 )
-from lawgraph.core.documents import chamber_of, is_explanatory
+from lawgraph.core.documents import chamber_of, is_explanatory, numbered_in
 from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
-from lawgraph.core.dossier_stages import (
-    ACTIVITY_PLANNED,
-    classify_track_kind,
-    dossier_stages,
-    select_title,
-)
+from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import normalize as normalize_queries
 
 # Edges that put an article in flux, and the one that only explains it. The
 # frontend renders the two as separate overlays.
@@ -82,6 +78,8 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "kind",
         "title",
         "sequence",
+        "dossier_number",
+        "dossier_suffix",
         "session_year",
         "document_number",
         "url",
@@ -90,6 +88,9 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
     "activity": ["kind", "agenda_title", "number", "status"],
     "decision": [
         "subject",
+        "chamber",
+        "result",
+        "method",
         "passed",
         "vote_kind",
         "tally",
@@ -123,32 +124,21 @@ class DossierEnrichment:
 
     title: str | None = None
     title_source: str | None = None
-    current_stage: str | None = None
-    stages_present: list[str] = field(default_factory=list)
-    stages_complete: bool = True
-    stages_missing: list[str] = field(default_factory=list)
-    track_kind: str | None = None
     opened_on: str | None = None
 
 
 def enrich_dossier_docs(
     store: ArangoStore, dossiers: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Fill the title and stage props a dossier is missing from its documents.
+    """Fill the title (and opening date) of a dossier without one from its documents.
 
-    The normalize pipeline writes ``stages_present`` (empty for a dossier that is no
-    bill) on every dossier it touches, so the expensive walk only fires for a dossier
-    it has not reached yet, or one without a title.
+    Its kind and phases are written by ``normalize tk-dossiers`` alone: a dossier without
+    them has none.
     """
-    incomplete = any(
-        not (props := doc.get("props") or {}).get("title")
-        or props.get("stages_present") is None
-        for doc in dossiers
-    )
-    if not incomplete:
+    if all((doc.get("props") or {}).get("title") for doc in dossiers):
         for doc in dossiers:
             props = doc.setdefault("props", {})
-            if props.get("title") and not props.get("title_source"):
+            if not props.get("title_source"):
                 props["title_source"] = "dossier"
         return dossiers
 
@@ -163,14 +153,6 @@ def enrich_dossier_docs(
             props["title_source"] = enrichment.title_source
         elif props.get("title") and not props.get("title_source"):
             props["title_source"] = "dossier"
-        if props.get("stages_present") is None:
-            props["stages_present"] = enrichment.stages_present
-            props["stages_complete"] = enrichment.stages_complete
-            props["stages_missing"] = enrichment.stages_missing
-        if props.get("current_stage") is None and enrichment.current_stage:
-            props["current_stage"] = enrichment.current_stage
-        if not props.get("track_kind") and enrichment.track_kind:
-            props["track_kind"] = enrichment.track_kind
         if not props.get("opened_on") and enrichment.opened_on:
             props["opened_on"] = enrichment.opened_on
     return dossiers
@@ -179,109 +161,27 @@ def enrich_dossier_docs(
 def _enrich_dossiers(
     store: ArangoStore, dossiers: list[dict[str, Any]]
 ) -> dict[str, DossierEnrichment]:
-    """Title and stage signals for a batch of dossiers, in one query."""
+    """Title and opening date for a batch of dossiers, from the signals ``normalize
+    tk-dossiers`` reads."""
     if not dossiers:
         return {}
-
-    aql = f"""
-    FOR dossier_id IN @dossier_ids
-        LET direct = (
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == dossier_id AND e.relation == @part_of
-                FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
-                LET document = DOCUMENT(e._from)
-                FILTER document != null
-                RETURN document
+    rows = {
+        row["dossier_id"]: row
+        for row in normalize_queries.dossier_signals(
+            store, [d["_id"] for d in dossiers]
         )
-        LET via_case = (
-            FOR e1 IN {COLLECTION_EDGES}
-                FILTER e1._to == dossier_id AND e1.relation == @part_of
-                FILTER STARTS_WITH(e1._from, '{COLLECTION_CASES}/')
-                FOR e2 IN {COLLECTION_EDGES}
-                    FILTER e2._to == e1._from AND e2.relation == @part_of
-                    FILTER STARTS_WITH(e2._from, '{COLLECTION_DOCUMENTS}/')
-                    LET document = DOCUMENT(e2._from)
-                    FILTER document != null
-                    RETURN document
-        )
-        LET subjects = (
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == dossier_id AND e.relation == @about
-                LET node = DOCUMENT(e._from)
-                FILTER node != null
-                RETURN node
-        )
-        RETURN {{
-            dossier_id: dossier_id,
-            docs: (
-                FOR document IN UNIQUE(APPEND(direct, via_case))
-                    RETURN {{
-                        kind: document.props.kind,
-                        date: document.props.date,
-                        title: (document.props.title != null
-                                ? document.props.title
-                                : document.props.display_name)
-                    }}
-            ),
-            activities: (
-                FOR node IN subjects
-                    FILTER STARTS_WITH(node._id, '{COLLECTION_ACTIVITIES}/')
-                    RETURN {{
-                        kind: node.props.kind,
-                        date: node.props.date,
-                        status: node.props.status
-                    }}
-            ),
-            decisions: (
-                FOR node IN subjects
-                    FILTER STARTS_WITH(node._id, '{COLLECTION_DECISIONS}/')
-                    RETURN {{date: node.props.date, passed: node.props.passed}}
-            )
-        }}
-    """
-    bind = {
-        "dossier_ids": [d["_id"] for d in dossiers],
-        "part_of": RELATION_PART_OF,
-        "about": RELATION_ABOUT,
     }
-    rows = {row["dossier_id"]: row for row in store.query(aql, bind)}
-
     enriched: dict[str, DossierEnrichment] = {}
     for dossier in dossiers:
-        props = dossier.get("props") or {}
         row = rows.get(dossier["_id"]) or {}
         docs = row.get("docs") or []
-        activities = row.get("activities") or []
-        decisions = row.get("decisions") or []
-        case_kinds = list(props.get("case_kinds") or [])
-
+        props = dossier.get("props") or {}
         title, title_source = select_title(props, docs)
-        track_kind = classify_track_kind(
-            case_kinds,
-            title=title or props.get("title"),
-            document_kinds=[doc.get("kind") or "" for doc in docs],
-            number=props.get("number"),
+        day, _ = opened_on(
+            props.get("number"), props.get("suffix"), docs, row.get("activities") or []
         )
-        stages = dossier_stages(
-            track_kind,
-            docs,
-            activities,
-            decisions,
-            case_kinds,
-            closed=bool(props.get("closed")),
-            outcome=props.get("outcome"),
-        )
-        dated = [d["date"] for d in docs + activities if d.get("date")]
-
         enriched[dossier["_id"]] = DossierEnrichment(
-            title=title,
-            title_source=title_source,
-            current_stage=stages.current,
-            stages_present=stages.present,
-            stages_complete=stages.complete,
-            stages_missing=stages.missing,
-            track_kind=track_kind,
-            opened_on=min(dated) if dated else None,
+            title=title, title_source=title_source, opened_on=day
         )
     return enriched
 
@@ -467,6 +367,9 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "kind": props.get("kind"),
         "title": props.get("title"),
         "sequence": props.get("sequence"),
+        "dossier_number": numbered_in(
+            props.get("dossier_number"), props.get("dossier_suffix")
+        ),
         "session_year": props.get("session_year"),
         "date": props.get("date"),
         "tk_url": tk_url(NodeType.DOCUMENT.value, props),
@@ -486,6 +389,8 @@ _DOSSIER_DOCUMENT_ROW = """
                 title: (document.props.title != null ? document.props.title
                         : document.props.display_name),
                 sequence: document.props.sequence,
+                dossier_number: document.props.dossier_number,
+                dossier_suffix: document.props.dossier_suffix,
                 session_year: document.props.session_year,
                 date: document.props.date,
                 document_number: document.props.document_number,
@@ -880,8 +785,8 @@ def _relation_order(row: dict[str, Any]) -> tuple[Any, ...]:
 _DOSSIER_FACETS = {
     "status": 'dossier.props.closed == true ? "closed" : "open"',
     "outcome": "dossier.props.outcome",
-    "track": 'dossier.props.track_kind OR "beleid"',
-    "stage": "dossier.props.current_stage",
+    "kind": "dossier.props.kind",
+    "phase": "dossier.props.current_phase",
     "ministry": "dossier.props.ministry",
 }
 
@@ -900,9 +805,9 @@ class DossierFilters:
 
     status: str | None = None  # open, closed
     outcome: str | None = None
-    tracks: tuple[str, ...] | None = None
-    stage: str | None = None
-    has_stage: tuple[str, ...] | None = None
+    kinds: tuple[str, ...] | None = None
+    phase: str | None = None
+    has_phase: tuple[str, ...] | None = None
     ministry: str | None = None
     initiative: bool | None = None
     number: str | None = None  # a prefix of the label: 36264, 37020-
@@ -922,8 +827,8 @@ def _dossier_filters(
     for name, value, clause in (
         ("status", filters.status, f"({_DOSSIER_FACETS['status']}) == @status"),
         ("outcome", filters.outcome, "dossier.props.outcome == @outcome"),
-        ("track", filters.tracks, f"({_DOSSIER_FACETS['track']}) IN @track"),
-        ("stage", filters.stage, "dossier.props.current_stage == @stage"),
+        ("kind", filters.kinds, "dossier.props.kind IN @kind"),
+        ("phase", filters.phase, "dossier.props.current_phase == @phase"),
         ("ministry", filters.ministry, "dossier.props.ministry == @ministry"),
     ):
         if value:
@@ -938,9 +843,11 @@ def _dossier_filters(
         bind["number_end"] = filters.number + "\uffff"
     if filters.subject:
         shared.append(_subject_filter(filters.subject, bind))
-    if filters.has_stage:
-        shared.append("@has_stage ALL IN (dossier.props.stages_present OR [])")
-        bind["has_stage"] = list(filters.has_stage)
+    if filters.has_phase:
+        shared.append(
+            "@has_phase ALL IN (dossier.props.phases OR [])[* FILTER CURRENT.done].name"
+        )
+        bind["has_phase"] = list(filters.has_phase)
     if filters.initiative is not None:
         shared.append("dossier.props.initiative == @initiative")
         bind["initiative"] = filters.initiative
@@ -1117,3 +1024,18 @@ def get_laws_named(store: ArangoStore, names: list[str]) -> list[dict[str, Any]]
         }}
     """
     return list(store.query(aql, {"names": names}))
+
+
+def tk_values(store: ArangoStore) -> dict[str, set[str]]:
+    """The values of the Tweede Kamer the database holds that a phase can name:
+    ``documents`` (``Document.Soort``), ``activities`` (``Activiteit.Soort``) and
+    ``decisions`` (``BesluitSoort``)."""
+    aql = f"""
+    RETURN {{
+        documents: (FOR d IN {COLLECTION_DOCUMENTS} RETURN DISTINCT d.props.kind),
+        activities: (FOR a IN {COLLECTION_ACTIVITIES} RETURN DISTINCT a.props.kind),
+        decisions: (FOR d IN {COLLECTION_DECISIONS} RETURN DISTINCT d.props.decision_kind)
+    }}
+    """
+    row = next(iter(store.query(aql)), None) or {}
+    return {part: {v for v in row.get(part) or [] if v} for part in row}

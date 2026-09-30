@@ -1,7 +1,9 @@
 """Links of an instrument to EU acts and to international law: `IMPLEMENTS`, treaties, ECHR.
 
 `IMPLEMENTS` is written between two instruments by `semantic bwb-implements`, from a
-regulation to every EU act whose CELEX number its text names. The international links are
+publication or regulation to an EU act it implements by an implementation source; the EU
+acts a regulation's text names without implementing them are `REFERS_TO` edges of the same
+step between the two instruments. The international links are
 `REFERS_TO` edges: from articles of the instrument to a BWB treaty (`BWBV...`), an article
 of it, or an instrument of another treaty, and from ECHR judgments (`semantic echr`) to the
 instrument or to its articles; the ECHR Convention is the BWB treaty BWBV0001000. Nothing else
@@ -20,6 +22,7 @@ from lawgraph.config.constants import (
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    EDGE_SOURCE_BWB_IMPLEMENTS,
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
     SOURCE_ECHR,
@@ -38,12 +41,17 @@ _TREATY_ARTICLE_PREFIXES = [
 
 @dataclass
 class EuLinksData:
-    """`IMPLEMENTS` rows (`{instrument, edge}`) in both directions, with absolute totals."""
+    """`IMPLEMENTS` rows (`{instrument, edge}`) in both directions, and the `REFERS_TO` rows
+    of the EU acts a regulation names (`mentions`, `mentioned_by`), with absolute totals."""
 
     implements: list[dict[str, Any]]
     implements_total: int
     implemented_by: list[dict[str, Any]]
     implemented_by_total: int
+    mentions: list[dict[str, Any]]
+    mentions_total: int
+    mentioned_by: list[dict[str, Any]]
+    mentioned_by_total: int
 
 
 @dataclass
@@ -58,7 +66,8 @@ class InternationalLinksData:
 
 # The edge, as far as the API answers it, and an article, in AQL.
 _EDGE_OF_ROW = (
-    "{ confidence: r.edge.confidence, source: r.edge.source, meta: r.edge.meta }"
+    "{ relation: r.edge.relation, confidence: r.edge.confidence, source: r.edge.source,"
+    " meta: r.edge.meta }"
 )
 _EDGE_OF_E = "{ confidence: e.confidence, source: e.source, meta: e.meta }"
 
@@ -70,57 +79,74 @@ def _article_ref(var: str) -> str:
     )
 
 
+def _eu_side(name: str, end: str, other: str, relation: str) -> str:
+    """AQL of the rows of one side of `eu-links`: the edges of *relation* whose *end* is the
+    instrument, with the instrument at their *other* end, highest confidence first."""
+    source = "FILTER e.source == @source" if relation == "@mentions" else ""
+    return f"""
+    LET {name}_all = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e.{end} == @id AND e.relation == {relation}
+            {source}
+            FILTER STARTS_WITH(e.{other}, '{COLLECTION_INSTRUMENTS}/')
+            LET other = DOCUMENT(e.{other})
+            FILTER other != null
+            RETURN {{ instrument: other, edge: e }}
+    )
+    LET {name} = (
+        FOR r IN {name}_all
+            SORT r.edge.confidence DESC, r.instrument._key ASC
+            LIMIT @limit
+            RETURN {{ instrument: r.instrument, edge: {_EDGE_OF_ROW} }}
+    )
+    """
+
+
 def get_eu_links(
     store: ArangoStore, instrument_id: str, *, limit: int = 500
 ) -> EuLinksData:
-    """The `IMPLEMENTS` edges out of and into an instrument, one query.
+    """The `IMPLEMENTS` edges out of and into an instrument, and the `REFERS_TO` edges of
+    `semantic bwb-implements` (the EU acts a regulation names), one query.
 
-    Each row is `{instrument, edge}`: the instrument at the other end and `{confidence,
-    source, meta}` of the edge. Highest confidence first.
+    Each row is `{instrument, edge}`: the instrument at the other end and `{relation,
+    confidence, source, meta}` of the edge. Highest confidence first.
     """
-    aql = f"""
-    LET implements = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from == @id AND e.relation == @relation
-            LET other = DOCUMENT(e._to)
-            FILTER other != null
-            RETURN {{ instrument: other, edge: e }}
+    sides = (
+        ("implements", "_from", "_to", "@implements"),
+        ("implemented_by", "_to", "_from", "@implements"),
+        ("mentions", "_from", "_to", "@mentions"),
+        ("mentioned_by", "_to", "_from", "@mentions"),
     )
-    LET implemented_by = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to == @id AND e.relation == @relation
-            LET other = DOCUMENT(e._from)
-            FILTER other != null
-            RETURN {{ instrument: other, edge: e }}
+    lets = "".join(_eu_side(*side) for side in sides)
+    fields = ", ".join(
+        f"{name}: {name}, {name}_total: LENGTH({name}_all)" for name, *_ in sides
     )
-    RETURN {{
-        implements_total: LENGTH(implements),
-        implements: (
-            FOR r IN implements
-                SORT r.edge.confidence DESC, r.instrument._key ASC
-                LIMIT @limit
-                RETURN {{ instrument: r.instrument, edge: {_EDGE_OF_ROW} }}
-        ),
-        implemented_by_total: LENGTH(implemented_by),
-        implemented_by: (
-            FOR r IN implemented_by
-                SORT r.edge.confidence DESC, r.instrument._key ASC
-                LIMIT @limit
-                RETURN {{ instrument: r.instrument, edge: {_EDGE_OF_ROW} }}
-        )
-    }}
-    """
-    rows = list(
-        store.query(
-            aql, {"id": instrument_id, "relation": RELATION_IMPLEMENTS, "limit": limit}
-        )
-    )
+    aql = f"{lets} RETURN {{ {fields} }}"
+    bind = {
+        "id": instrument_id,
+        "implements": RELATION_IMPLEMENTS,
+        "mentions": RELATION_REFERS_TO,
+        "source": EDGE_SOURCE_BWB_IMPLEMENTS,
+        "limit": limit,
+    }
+    rows = list(store.query(aql, bind))
     row = rows[0] if rows else {}
+
+    def rows_of(name: str) -> list[dict[str, Any]]:
+        return list(row.get(name) or [])
+
+    def total_of(name: str) -> int:
+        return int(row.get(f"{name}_total") or 0)
+
     return EuLinksData(
-        implements=list(row.get("implements") or []),
-        implements_total=int(row.get("implements_total") or 0),
-        implemented_by=list(row.get("implemented_by") or []),
-        implemented_by_total=int(row.get("implemented_by_total") or 0),
+        implements=rows_of("implements"),
+        implements_total=total_of("implements"),
+        implemented_by=rows_of("implemented_by"),
+        implemented_by_total=total_of("implemented_by"),
+        mentions=rows_of("mentions"),
+        mentions_total=total_of("mentions"),
+        mentioned_by=rows_of("mentioned_by"),
+        mentioned_by_total=total_of("mentioned_by"),
     )
 
 

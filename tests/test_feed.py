@@ -447,7 +447,7 @@ def test_a_summary_has_every_day_of_its_window() -> None:
                     "date": "2026-05-02",
                     "total": 1,
                     "kinds": [],
-                    "votes": [{"subkind": "wetsvoorstel", "passed": False, "count": 1}],
+                    "votes": [{"subkind": "Wetgeving", "passed": False, "count": 1}],
                     "dossiers": [{"kind": "Motie", "number": "36600-VII", "count": 1}],
                 }
             ],

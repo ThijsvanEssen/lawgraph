@@ -57,7 +57,6 @@ De verhouding tussen die twee is 2,9 tot 3,5 **[gemeten]**.
 | `watches` | document | opgeslagen watches (enige gebruikersdata) | geen | verwijst naar node-id | 0 | kern (klein) |
 | `pipeline_state` | document | "last complete run" per fase | geen | geen | 2 | kern (klein) |
 | `edge_status_log` | document | auditlog; niets schrijft er nu in | geen | verwijst naar edge-key | 0 | bulk (klein) |
-| `topics` | document | alleen schema; niets schrijft er in | geen | geen | 0 | vervalt |
 
 **Indexen** **[code]**: ruim 50 persistent indexes, onder meer array-indexen op `labels[*]`
 en `props.dossier_numbers[*]`, unieke sparse indexen op `bwb_id`, `celex` en `ecli`, en op

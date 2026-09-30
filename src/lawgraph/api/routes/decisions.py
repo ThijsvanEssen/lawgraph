@@ -22,7 +22,7 @@ from lawgraph.api.schemas.decisions import (
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
 from lawgraph.api.schemas.dossiers import DOSSIER_NUMBER_PATTERN
-from lawgraph.core.tk_records import DECISION_KINDS, VOTE_AGAINST, VOTE_FOR
+from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
@@ -58,8 +58,8 @@ def list_decisions(
     kind: Annotated[
         str | None,
         Query(
-            description="Comma-separated: `motie`, `amendement`, `wetsvoorstel`, "
-            "`overig`."
+            description="Comma-separated kinds (``Zaak.Soort`` as the Kamer writes it): "
+            "``Motie``, ``Amendement``, ``Wetgeving``, ..."
         ),
     ] = None,
     passed: Annotated[
@@ -98,7 +98,7 @@ def list_decisions(
     if vote is not None and not party:
         raise HTTPException(status_code=422, detail="`vote` needs a `party`.")
     filters = DecisionFilters(
-        kinds=parse_choices(kind, DECISION_KINDS, "kind"),
+        kinds=parse_choices(kind, None, "kind"),
         passed=passed,
         party=party,
         choice=_VOTE_CHOICES[vote] if vote else None,

@@ -1,8 +1,9 @@
 # src/lawgraph/clients/eu.py
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from functools import partial
+from typing import Any
 
 from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.settings import EURLEX_BASE_URL, EURLEX_SPARQL_ENDPOINT
@@ -11,7 +12,11 @@ from lawgraph.core.logging import get_logger
 logger = get_logger(__name__)
 
 _CDM = "http://publications.europa.eu/ontology/cdm#"
+_CMR = "http://publications.europa.eu/ontology/cdm/cmr#"
+_COUNTRY = "http://publications.europa.eu/resource/authority/country/"
 _PAGE_SIZE = 500
+# What a national implementing measure says, by the name of its SPARQL variable.
+_MEASURE_FIELDS = ("journal", "number", "date", "type", "title")
 
 
 class EUClient(BaseClient):
@@ -131,9 +136,9 @@ class EUClient(BaseClient):
                 f"PREFIX cdm: <{_CDM}> "
                 "SELECT DISTINCT ?celex WHERE { "
                 "?eu_act cdm:resource_legal_id_celex ?celex . "
-                "?nim cdm:national_implementation_measure_implements ?eu_act ; "
-                "cdm:national_implementation_measure_country "
-                f"<http://publications.europa.eu/resource/authority/country/{country_code}> . "
+                "?nim cdm:measure_national_implementing_implements_resource_legal ?eu_act ; "
+                "cdm:measure_national_implementing_implemented_by_country "
+                f"<{_COUNTRY}{country_code}> . "
                 "} "
                 f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
             ),
@@ -149,6 +154,35 @@ class EUClient(BaseClient):
             country_code,
         )
         return all_ids
+
+    def national_measures(
+        self, *, country_code: str = "NLD", since: str | None = None
+    ) -> Iterator[dict[str, Any]]:
+        """The national implementing measures of a country in CELLAR, a page of measures
+        per request, ordered by their document id: ``{id, modified, celex, journal, number,
+        date, type, title}``, ``celex`` the EU acts the measure implements. *since*
+        (``YYYY-MM-DD``) keeps the measures CELLAR changed on or after that day.
+
+        Paged by key (the last document id), not by offset: the endpoint answers HTTP 500
+        from offset 10000 on. A page that fails raises: a list cut off must not pass for
+        the whole.
+        """
+        last = ""
+        while True:
+            resp = self._get_raw_absolute_with_retry(
+                EURLEX_SPARQL_ENDPOINT,
+                params={
+                    "query": _measures_sparql(country_code, since, last),
+                    "format": "application/sparql-results+json",
+                },
+                timeout=120,
+            )
+            bindings = resp.json().get("results", {}).get("bindings", [])
+            measures = _measures(bindings)
+            yield from measures
+            if len(measures) < _PAGE_SIZE:
+                return
+            last = max(measure["id"] for measure in measures)
 
     def enumerate_cjeu_ids(
         self,
@@ -268,6 +302,55 @@ class EUClient(BaseClient):
 
 
 # ── the SPARQL of one page; ``partial`` fixes all but the offset ─────────────
+
+
+def _measures_sparql(country_code: str, since: str | None, after: str) -> str:
+    """A page of measures (with every act each implements) whose id sorts after *after*."""
+    window = (
+        f'FILTER(?modified >= "{since}T00:00:00"^^<http://www.w3.org/2001/XMLSchema#dateTime>) '
+        if since
+        else ""
+    )
+    optional = " ".join(
+        f"OPTIONAL {{ ?m cdm:{predicate} ?{name} }}"
+        for name, predicate in (
+            ("journal", "measure_national_implementing_name_official_journal"),
+            ("number", "measure_national_implementing_number_official_journal"),
+            ("date", "measure_national_implementing_date_official_journal"),
+            ("type", "measure_national_implementing_type_act"),
+            ("title", "work_title"),
+        )
+    )
+    return (
+        f"PREFIX cdm: <{_CDM}> PREFIX cmr: <{_CMR}> "
+        "SELECT ?id ?modified ?celex ?journal ?number ?date ?type ?title WHERE { "
+        "{ SELECT ?m ?id ?modified WHERE { "
+        "?m cdm:measure_national_implementing_implemented_by_country "
+        f"<{_COUNTRY}{country_code}> ; "
+        "cdm:work_id_document ?id ; cmr:lastModificationDate ?modified . "
+        f'{window}FILTER(STR(?id) > "{after}") '
+        f"}} ORDER BY ?id LIMIT {_PAGE_SIZE} }} "
+        "OPTIONAL { ?m cdm:measure_national_implementing_implements_resource_legal ?act . "
+        "?act cdm:resource_legal_id_celex ?celex } "
+        f"{optional} }} ORDER BY ?id"
+    )
+
+
+def _measures(bindings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One dict per measure from the rows of a page (a row per act and value)."""
+    by_id: dict[str, dict[str, Any]] = {}
+    for row in bindings:
+        values = {name: cell.get("value") for name, cell in row.items()}
+        measure = by_id.setdefault(
+            values["id"],
+            {"id": values["id"], "modified": values.get("modified"), "celex": []},
+        )
+        if values.get("celex") and values["celex"] not in measure["celex"]:
+            measure["celex"].append(values["celex"])
+        for name in _MEASURE_FIELDS:
+            if values.get(name) and not measure.get(name):
+                measure[name] = values[name].strip()
+    return list(by_id.values())
 
 
 def _acts_of_type_sparql(cdm_type: str, offset: int) -> str:

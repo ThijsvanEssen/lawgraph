@@ -114,6 +114,11 @@ class FeedVoteDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    chamber: Literal["TK", "EK"] = Field(
+        "TK",
+        description="The chamber that voted; of the Eerste Kamer only the vote that decided "
+        "the bill is an event.",
+    )
     passed: bool | None = None
     outcome: Literal["aangenomen", "verworpen"] | None = None
     vote_kind: Literal["member", "faction"] | None = Field(
@@ -214,8 +219,8 @@ class FeedItemDTO(BaseModel):
     subkind: str | None = Field(
         None,
         description="What the source calls it: the document kind (``Motie (gewijzigd/"
-        "nader)``), for a vote what was voted on (``motie``, ``amendement``, "
-        "``wetsvoorstel``, ``overig``); null for the other kinds.",
+        "nader)``), for a vote what was voted on (the ``Zaak.Soort``: ``Motie``, "
+        "``Amendement``, ``Wetgeving``, ...); null for the other kinds.",
     )
     node: FeedNodeDTO
     dossier: FeedDossierDTO | None = Field(
@@ -413,6 +418,7 @@ def _official_url(kind: str, props: dict[str, Any]) -> str | None:
 def _vote(props: dict[str, Any]) -> FeedVoteDTO:
     passed = props.get("passed")
     return FeedVoteDTO(
+        chamber=props.get("chamber") or "TK",
         passed=passed,
         outcome=_OUTCOME.get(passed) if isinstance(passed, bool) else None,  # type: ignore[arg-type]
         vote_kind=props.get("vote_kind"),
@@ -467,6 +473,10 @@ class FeedFacetsDTO(BaseModel):
     ministry: list[FacetCountDTO] = Field(default_factory=list)
     faction: list[FacetCountDTO] = Field(default_factory=list)
     cabinet: list[FacetCountDTO] = Field(default_factory=list)
+    chamber: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="``TK``, ``EK``; null for a publication or a commencement.",
+    )
 
 
 class FeedResponse(BaseModel):
@@ -504,9 +514,11 @@ class FeedDossierCountDTO(BaseModel):
 class FeedVoteCountDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    chamber: Literal["TK", "EK"] = "TK"
     subkind: str | None = Field(
         None,
-        description="What was voted on: ``motie``, ``amendement``, ``wetsvoorstel``.",
+        description="What was voted on, the ``Zaak.Soort``: ``Motie``, ``Amendement``, "
+        "``Wetgeving``, ...",
     )
     outcome: Literal["aangenomen", "verworpen"] | None = None
     count: int
@@ -576,6 +588,7 @@ class FeedSummaryResponse(BaseModel):
                     ],
                     votes=[
                         FeedVoteCountDTO(
+                            chamber=v.get("chamber") or "TK",
                             subkind=v.get("subkind"),
                             outcome=_OUTCOME.get(v["passed"])  # type: ignore[arg-type]
                             if isinstance(v.get("passed"), bool)

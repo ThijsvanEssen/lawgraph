@@ -119,6 +119,7 @@ def tk_records(documents: int) -> Iterator[tuple[str, str, dict[str, Any]]]:
             "Datum": "2025-03-04T00:00:00+01:00",
             "Volgnummer": number % 400 + 1,
             "Zaak": [zaak],
+            "Kamerstukdossier": zaak["Kamerstukdossier"],
             "DocumentActor": [
                 {
                     "Id": uid(number, 4),

@@ -19,7 +19,6 @@ COLLECTION_COMMITTEES = "committees"
 COLLECTION_MEMBERS = "members"
 COLLECTION_FACTIONS = "factions"
 COLLECTION_CABINETS = "cabinets"
-COLLECTION_TOPICS = "topics"
 COLLECTION_RAW_SOURCES = "raw_sources"
 COLLECTION_ANNEXES = "annexes"
 COLLECTION_PIPELINE_STATE = "pipeline_state"  # until when each phase is complete
@@ -33,7 +32,6 @@ DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
     COLLECTION_JUDGMENTS,
-    COLLECTION_TOPICS,
     COLLECTION_RAW_SOURCES,
     COLLECTION_DOSSIERS,
     COLLECTION_ACTIVITIES,
@@ -77,6 +75,7 @@ RELATION_CONTINUES = "CONTINUES"
 RELATION_REFERRED_BY = "REFERRED_BY"
 RELATION_ADVISES_ON = "ADVISES_ON"
 RELATION_ANSWERS = "ANSWERS"
+RELATION_SAME_AS = "SAME_AS"
 RELATION_SCOPED_BY = "SCOPED_BY"
 RELATION_ABOUT = "ABOUT"
 RELATION_LED_BY = "LED_BY"
@@ -167,8 +166,11 @@ CHAMBER_EK = "EK"
 # contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.
 EXPLANATORY_KIND_MARKER = "toelichting"
 
-# The edge `source` of IMPLEMENTS: the regulation's text names the EU act's CELEX number.
-EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements-directive"
+# The edge `source` of IMPLEMENTS (and of the REFERS_TO from a regulation to an EU act its
+# text names without implementing it), with the basis of an IMPLEMENTS edge in its `meta`.
+EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements"
+IMPLEMENTS_BASIS_NIM = "national_implementing_measure"
+IMPLEMENTS_BASIS_CONSIDERANS = "considerans"
 
 # International instruments the graph has a name for: BWB treaties carry a BWBV id. The
 # Convention of the ECHR is one of them: the treaty whose articles ECHR judgments apply.
@@ -181,6 +183,8 @@ RAW_KIND_TK_ZAAK = "tk-zaak"
 RAW_KIND_TK_DOSSIER = "tk-dossier"
 RAW_KIND_TK_ACTIVITEIT = "tk-activiteit"
 RAW_KIND_TK_STEMMING = "tk-stemming"
+# A Besluit "Stemmen - ..." on the zaak of a bill, also one without votes (a hamerstuk).
+RAW_KIND_TK_BESLUIT = "tk-besluit"
 RAW_KIND_TK_TOEZEGGING = "tk-toezegging"
 RAW_KIND_TK_COMMISSIE = "tk-commissie"
 RAW_KIND_TK_PERSOON = "tk-persoon"
@@ -193,6 +197,8 @@ RAW_KIND_RS_CONTENT = "rs-content"
 # The Instanties value list of the Rechtspraak (external id: Instanties).
 RAW_KIND_RS_INSTANTIES = "rs-instanties-xml"
 RAW_KIND_EU_CELEX = "eu-celex-html"
+# A national implementing measure of the Netherlands in CELLAR (external id: its document id).
+RAW_KIND_EU_NIM = "eu-nim-json"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
 RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
 # The ``<algemene-informatie>`` element of a WTI file (official abbreviations), not the file.
@@ -202,7 +208,16 @@ RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
 # How many publications of each ministry name a cabinet post (external id: the query).
 RAW_KIND_STCRT_POST_CREATORS = "stcrt-post-creators-json"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
+# The ``word/document.xml`` of the DOCX HUDOC serves of a judgment (external id: its item id).
+RAW_KIND_ECHR_TEXT = "echr-judgment-docx-xml"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
+# One day of the list of votes on bills of eerstekamer.nl (external id: the date), and the list
+# of the bills the Eerste Kamer rejected (external id: its path, both pages in one record).
+RAW_KIND_EK_VOTES_DAY = "ek-votes-day-html"
+RAW_KIND_EK_REJECTED = "ek-rejected-html"
+# A page of eerstekamer.nl on its composition: the lists of factions and committees and the
+# page of each (external id: its path); every run reads them all again.
+RAW_KIND_EK_COMPOSITION = "ek-composition-html"
 RAW_KIND_VERDRAG = "verdrag-json"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
@@ -219,6 +234,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_DOSSIER,
         RAW_KIND_TK_ACTIVITEIT,
         RAW_KIND_TK_STEMMING,
+        RAW_KIND_TK_BESLUIT,
         RAW_KIND_TK_TOEZEGGING,
         RAW_KIND_TK_COMMISSIE,
         RAW_KIND_TK_PERSOON,
@@ -228,7 +244,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_KAMERSTUK_XML,
     ),
     SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT, RAW_KIND_RS_INSTANTIES),
-    SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),
+    SOURCE_EURLEX: (RAW_KIND_EU_CELEX, RAW_KIND_EU_NIM),
     SOURCE_BWB: (
         RAW_KIND_BWB_TOESTAND,
         RAW_KIND_BWB_TOESTAND_ALL,
@@ -236,8 +252,13 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     ),
     SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
     SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING, RAW_KIND_STCRT_POST_CREATORS),
-    SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
-    SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
+    SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT, RAW_KIND_ECHR_TEXT),
+    SOURCE_EERSTEKAMER: (
+        RAW_KIND_EK_KAMERSTUK,
+        RAW_KIND_EK_VOTES_DAY,
+        RAW_KIND_EK_REJECTED,
+        RAW_KIND_EK_COMPOSITION,
+    ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
     SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES,),
@@ -268,6 +289,8 @@ HOST_MIN_INTERVAL: dict[str, float] = {
     "repository.officiele-overheidspublicaties.nl": 0.1,
     # a page at a time with a pause: 33 pages, read seldom
     "www.rijksoverheid.nl": 2.0,
+    # the lists of eerstekamer.nl: 106 pages of votes, read seldom
+    "www.eerstekamer.nl": 2.0,
 }
 
 # ── Rechtspraak courts ────────────────────────────────────────────────────────

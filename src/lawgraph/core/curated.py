@@ -283,6 +283,27 @@ def _aliases(entries: Entries) -> list[str]:
     ]
 
 
+_PHASE_PARTS = ("documents", "activities", "decisions")
+
+
+def _phases(entries: Entries) -> list[str]:
+    found = []
+    seen: dict[str, str] = {}
+    for name, value in entries.items():
+        value = value or {}
+        if set(value) - set(_PHASE_PARTS):
+            found.append(f"{name}: only {', '.join(_PHASE_PARTS)}")
+        values = [v for part in _PHASE_PARTS for v in value.get(part) or []]
+        if not values:
+            found.append(f"{name}: needs a value of the Kamer that marks it")
+        for v in values:
+            if not isinstance(v, str) or not v or v != v.strip():
+                found.append(f"{name}: {v!r} is no trimmed value")
+            elif seen.setdefault(v, name) != name:
+                found.append(f"{v}: marks both {seen[v]} and {name}")
+    return found
+
+
 # ── The lists ────────────────────────────────────────────────────────────────
 
 
@@ -314,6 +335,14 @@ LISTS: dict[str, CuratedList] = {
             "faction key -> {abbreviation, angle, seats}: where it sits, after the TK plan",
             _seating_entries(),
             _seating,
+        ),
+        _list(
+            "phases",
+            "phases.json",
+            "phase -> {documents, activities, decisions}: the phase bar of a bill, in order",
+            _records("phases", "name"),
+            _phases,
+            ordered=True,
         ),
         _list(
             "judgment-names",

@@ -32,6 +32,13 @@ DIRECTIVE = "32016L0680"
 TREATY = "BWBV0009001"
 
 
+_IMPLEMENTS_META = {
+    "celex": DIRECTIVE,
+    "bases": ["considerans", "national_implementing_measure"],
+    "publications": ["stb-2018-401"],
+}
+
+
 def _node(collection: str, key: str, **props: Any) -> dict[str, Any]:
     labels = props.pop("labels", [])
     return {"_key": key, "type": collection[:-1], "labels": labels, "props": props}
@@ -144,15 +151,16 @@ def _seed(store: ArangoStore) -> None:
             "instruments/32016l0680",
             RELATION_IMPLEMENTS,
             source=EDGE_SOURCE_BWB_IMPLEMENTS,
-            confidence=0.75,
-            meta={"celex": DIRECTIVE},
+            confidence=1.0,
+            meta=_IMPLEMENTS_META,
         ),
+        # the Besluit only names the directive
         make_edge_doc(
             "instruments/bwbr0009002",
             "instruments/32016l0680",
-            RELATION_IMPLEMENTS,
+            RELATION_REFERS_TO,
             source=EDGE_SOURCE_BWB_IMPLEMENTS,
-            confidence=0.75,
+            confidence=1.0,
             meta={"celex": DIRECTIVE},
         ),
         make_edge_doc(
@@ -305,16 +313,24 @@ def test_eu_links_between_a_regulation_and_an_eu_act(store: ArangoStore) -> None
     link = up["implements"][0]
     assert link["instrument"]["celex"] == DIRECTIVE
     assert link["instrument"]["key"] == "32016l0680"
-    assert (link["relation"], link["confidence"]) == ("IMPLEMENTS", 0.75)
-    assert link["basis"] == "celex_named_in_text"
-    assert link["source"] == "bwb-implements-directive"
-    assert link["meta"] == {"celex": DIRECTIVE}
+    assert (link["relation"], link["confidence"]) == ("IMPLEMENTS", 1.0)
+    assert link["bases"] == ["considerans", "national_implementing_measure"]
+    assert link["source"] == "bwb-implements"
+    assert link["meta"] == _IMPLEMENTS_META
     assert "articles" not in link
+    assert up["mentions"] == [] and up["mentions_total"] == 0
 
     down = client.get(f"/api/instruments/{DIRECTIVE}/eu-links?limit=1").json()
     assert down["implements"] == []
-    assert down["implemented_by_total"] == 2 and len(down["implemented_by"]) == 1
+    assert down["implemented_by_total"] == 1
     assert down["implemented_by"][0]["instrument"]["bwb_id"] == REGULATION
+    assert down["mentioned_by_total"] == 1
+    (mention,) = down["mentioned_by"]
+    assert mention["instrument"]["bwb_id"] == OTHER_REGULATION
+    assert (mention["relation"], mention["bases"]) == ("REFERS_TO", [])
+
+    other = client.get(f"/api/instruments/{OTHER_REGULATION}/eu-links").json()
+    assert other["implements_total"] == 0 and other["mentions_total"] == 1
 
 
 def test_international_links_hold_treaties_and_echr_judgments(
