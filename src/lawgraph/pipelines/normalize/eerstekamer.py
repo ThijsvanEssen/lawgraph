@@ -84,7 +84,9 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
         )
         title = payload.get("document_title") or payload.get("title") or ""
         dossier = " ".join(part for part in (dossier_number, dossier_suffix) if part)
-        display_name = f"EK {dossier}, nr. {number}: {title}" if dossier else title
+        # by letter, without "nr.": Kamerstukken I 36867, C
+        paper = ", ".join(part for part in (f"Kamerstuk I {dossier}", number) if part)
+        display_name = f"{paper}: {title}" if dossier else title
 
         props: dict[str, Any] = {
             "source": SOURCE_EERSTEKAMER,
