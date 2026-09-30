@@ -75,6 +75,19 @@ def _stub_count(store: ArangoStore, collection: str) -> int:
     return cast(int, next(iter(store.query(aql)), 0))
 
 
+def _replaced_count(store: ArangoStore) -> int:
+    """The publications of a decision that another loaded publication replaces (``SAME_AS``
+    the one kept, ``semantic rechtspraak-duplicates``): the lists show the decision once, by
+    the one kept. A stub is never one: counted from the sparse index alone."""
+    aql = f"""
+    FOR doc IN {COLLECTION_JUDGMENTS}
+        FILTER doc.props.same_as != null
+        COLLECT WITH COUNT INTO n
+        RETURN n
+    """
+    return cast(int, next(iter(store.query(aql)), 0))
+
+
 def _publication_count(store: ArangoStore) -> int:
     aql = f"""
     FOR doc IN {COLLECTION_INSTRUMENTS}
@@ -87,12 +100,16 @@ def _publication_count(store: ArangoStore) -> int:
 
 
 def get_db_stats(store: ArangoStore) -> dict[str, Any]:
-    """Document counts per collection (without stubs), stub counts, edge counts per
-    relation, and source breakdowns."""
+    """Document counts per collection (without stubs, and a decision published twice
+    once), stub counts, the replaced publications, edge counts per relation, and source
+    breakdowns."""
     stubs = {name: _stub_count(store, name) for name in _STUB_COLLECTIONS}
     publications = _publication_count(store)
+    replaced = {COLLECTION_JUDGMENTS: _replaced_count(store)}
     nodes = {
-        name: cast(int, store.collection(name).count()) - stubs.get(name, 0)
+        name: cast(int, store.collection(name).count())
+        - stubs.get(name, 0)
+        - replaced.get(name, 0)
         for name in _NODE_COLLECTIONS
     }
     # an instrument node of a publication (Stb. 2019, 33) is no regulation: counted apart
@@ -101,6 +118,7 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
     return {
         "nodes": nodes,
         "stubs": stubs,
+        "replaced": replaced,
         "edges": {
             "total": store.edges.count(),
             "by_relation": _count_by(store, COLLECTION_EDGES, "relation"),
@@ -120,9 +138,11 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
 
 def get_judgment_coverage(store: ArangoStore) -> dict[str, Any]:
     """The judgments the graph holds (not the stubs of judgments it only knows as cited),
-    per source, court tier and court, with the first and last date of each; and how many
-    stubs there are. Every field it reads is in one index of ``db/schema.py``, so it
-    counts without reading a judgment."""
+    per source, court tier and court, with the first and last date of each; how many
+    stubs there are; and per court the publications another loaded one replaces
+    (``replaced``), which the lists leave out. Every field the per-court count reads is in
+    one index of ``db/schema.py``, so it counts without reading a judgment; the replaced
+    publications, a few, are read by their own index."""
     aql = f"""
     FOR j IN {COLLECTION_JUDGMENTS}
         FILTER j.props.stub == false
@@ -138,9 +158,17 @@ def get_judgment_coverage(store: ArangoStore) -> dict[str, Any]:
         COLLECT WITH COUNT INTO n
         RETURN n
     """
+    replaced = f"""
+    FOR j IN {COLLECTION_JUDGMENTS}
+        FILTER j.props.same_as != null
+        COLLECT source = j.props.source, tier = j.props.tier,
+                court_code = j.props.court_code WITH COUNT INTO count
+        RETURN {{source, tier, court_code, count}}
+    """
     return {
         "courts": list(store.query(aql)),
         "stubs": next(iter(store.query(stubs)), 0),
+        "replaced": list(store.query(replaced)),
     }
 
 

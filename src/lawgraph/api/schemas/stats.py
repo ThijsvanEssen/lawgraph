@@ -43,12 +43,21 @@ class StatsResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nodes: dict[str, int] = Field(
-        ..., description="Documents per collection, without stubs."
+        ...,
+        description="Documents per collection, without stubs; `judgments` without the "
+        "`replaced` publications, the `total` of `/api/judgments`.",
     )
     stubs: dict[str, int] = Field(
         default_factory=dict,
         description="Per collection that has them (instruments, articles, judgments): the "
         "nodes known only because something refers to them, without a text of their own.",
+    )
+    replaced: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per collection that has them (judgments): the publications of a "
+        "decision that another loaded publication replaces (`SAME_AS`, the Rechtspraak "
+        "published many old arresten again under a new ECLI). `nodes` counts the decision "
+        "once, by the one kept, as `/api/judgments` does.",
     )
     edges: EdgeStatsDTO
     by_source: dict[str, dict[str, int]] = {}
@@ -98,8 +107,9 @@ class CoverageTierDTO(BaseModel):
 class JudgmentCoverageResponse(BaseModel):
     """Which judgments the graph holds: a count of case law is a count of this selection.
 
-    ``total`` counts the judgments whose text is loaded; ``stubs`` the judgments known only
-    because a loaded text cites them (they cite nothing themselves).
+    ``total`` counts the judgments whose text is loaded, a decision published twice once
+    (the ``total`` of ``/api/judgments``); ``stubs`` the judgments known only because a
+    loaded text cites them (they cite nothing themselves).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -108,6 +118,11 @@ class JudgmentCoverageResponse(BaseModel):
     first_date: str | None = None
     last_date: str | None = None
     stubs: int = Field(..., description="Cited judgments whose text is not loaded.")
+    replaced: int = Field(
+        0,
+        description="Publications of a decision that another loaded publication replaces "
+        "(`SAME_AS`); not in `total`, the tiers or the courts.",
+    )
     tiers: list[CoverageTierDTO] = Field(
         ...,
         description="Per tier: the highest courts first, the parket, the courts of first "

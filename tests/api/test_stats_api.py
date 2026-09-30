@@ -77,3 +77,30 @@ def test_coverage_counts_per_court_and_per_tier(monkeypatch) -> None:
         "2026-09-22",
     )
     assert [c["court_code"] for c in body["courts"]] == ["RVS", "HR", "GHARL", "GHAMS"]
+
+
+def _replaced(tier, code, count):
+    return {"source": "rechtspraak", "tier": tier, "court_code": code, "count": count}
+
+
+def test_coverage_counts_a_decision_published_twice_once(monkeypatch) -> None:
+    """The publications another loaded one replaces are counted apart, as the list does."""
+    monkeypatch.setattr(
+        "lawgraph.api.routes.stats.get_judgment_coverage",
+        lambda store: {
+            "courts": [
+                _court("hoge_raad", "HR", 30, "1916-02-14", "2026-09-22"),
+                _court("andere_instantie", "XX", 2, "2000-06-27", "2000-06-27"),
+            ],
+            "stubs": 18,
+            "replaced": [
+                _replaced("hoge_raad", "HR", 3),
+                _replaced("andere_instantie", "XX", 2),
+            ],
+        },
+    )
+    body = client.get("/api/stats/coverage").json()
+
+    assert (body["total"], body["replaced"]) == (27, 5)
+    assert [(c["court_code"], c["count"]) for c in body["courts"]] == [("HR", 27)]
+    assert [t["tier"] for t in body["tiers"]] == ["hoge_raad"]
