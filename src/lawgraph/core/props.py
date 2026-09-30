@@ -343,6 +343,9 @@ class DossierProps(_CommonProps):
     title_source: str | None = None
     closed: bool | None = None
     opened_on: str | None = None
+    # where ``opened_on`` comes from: first_paper (nr. 1 of its own numbering),
+    # royal_message (its Koninklijke boodschap) or earliest_record
+    opened_on_basis: str | None = None
     closed_on: str | None = None
     case_kinds: list[str] | None = None
     # what it is (the Zaak.Soort of its own zaak, ``core.dossier_stages.dossier_kind``) and

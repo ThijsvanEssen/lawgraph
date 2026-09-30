@@ -181,6 +181,50 @@ def phase_props(
     }
 
 
+# ── When a dossier opened ─────────────────────────────────────────────────────
+
+# Document.Soort of the royal message that brings a government bill to the Kamer.
+ROYAL_MESSAGE_DOCUMENT = "Koninklijke boodschap"
+
+OPENED_BY_FIRST_PAPER = "first_paper"
+OPENED_BY_ROYAL_MESSAGE = "royal_message"
+OPENED_BY_EARLIEST_RECORD = "earliest_record"
+
+
+def opened_on(
+    number: str | None,
+    suffix: str | None,
+    docs: list[dict[str, Any]],
+    activities: list[dict[str, Any]],
+) -> tuple[str | None, str | None]:
+    """``(opened_on, basis)`` of a dossier: the date of nr. 1 of its own numbering (a paper
+    whose own dossier, ``Document.Kamerstukdossier``, is this one, with ``sequence`` 1),
+    else of its Koninklijke boodschap, else of its earliest paper or activity; the date is
+    the one the Kamer gives. ``(None, None)`` without any dated record."""
+    own = [number, suffix or None]
+    first = [
+        d["date"]
+        for d in docs
+        if d.get("date") and d.get("sequence") == 1 and _own(d) == own
+    ]
+    if first:
+        return min(first), OPENED_BY_FIRST_PAPER
+    royal = [
+        d["date"]
+        for d in docs
+        if d.get("date") and (d.get("kind") or "").startswith(ROYAL_MESSAGE_DOCUMENT)
+    ]
+    if royal:
+        return min(royal), OPENED_BY_ROYAL_MESSAGE
+    dated = [r["date"] for r in docs + activities if r.get("date")]
+    return (min(dated), OPENED_BY_EARLIEST_RECORD) if dated else (None, None)
+
+
+def _own(doc: dict[str, Any]) -> list[str | None] | None:
+    own = doc.get("own")
+    return [str(own[0]), own[1] or None] if own else None
+
+
 # ── The title of a dossier ────────────────────────────────────────────────────
 
 
