@@ -28,12 +28,14 @@ Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
 `instruments.props.short_title` and `aliases` and law names through instrument titles;
 `normalize bwb` writes both from the official abbreviations in the BWB WTI files (see BWB
 below), `normalize eurlex` the short title of an EU act. `core/aliases.code_aliases` makes the
-table: a short title is the law's, another alias only when one law claims it (`WvSr` is the
-Wetboek van Strafrecht's, `BW` no single book's). An EU act or treaty whose source gives no
-abbreviation gets one from `src/lawgraph/data/curated/instrument_abbreviations.json`
-(`lawgraph curated set instrument-abbreviations`: `AVG` for Verordening (EU) 2016/679), for an
-instrument in the graph only; the EVRM is the BWB treaty `BWBV0001000`. The same
-table serves `/api/resolve` and the search. A code split over books
+table. The sources rank: short titles, then the other abbreviations of the source (the WTI's),
+then the curated ones; the first that has an abbreviation decides, and it is a law's only when
+one law has it there (`WvSr` is the Wetboek van Strafrecht's, `BW` no single book's). An EU act
+or treaty whose source gives no abbreviation gets one from
+`src/lawgraph/data/curated/instrument_abbreviations.json` (`lawgraph curated set
+instrument-abbreviations`: `AVG` for Verordening (EU) 2016/679), for an instrument in the graph
+only; the EVRM is the BWB treaty `BWBV0001000`. The same table serves `/api/resolve`, the
+search, and the instrument-level matches of `semantic tk`. A code split over books
 (`src/lawgraph/data/code_families.json`, `core/code_families.CODE_FAMILIES`: the Burgerlijk
 Wetboek, book 1 to 10 and 7A, each its own BWB id; see the code families under BWB) resolves through the book in the article number: `artikel 6:162 BW` cites
 article `162` of book 6 (`BWBR0005289`, key `bwbr0005289_162`), whichever books are loaded, so a
@@ -170,6 +172,7 @@ in a document is kept.
 | `BWBR...` id | instrument | 0.75 |
 | `Richtlijn` or `Verordening YYYY/N` (CELEX derived) | instrument | 0.65 |
 | an instrument's title or citation title appears | instrument | 0.60 |
+| an abbreviation of an instrument, as written (`EVRM`, `AVG`, `Boek 7 BW`: short title, WTI abbreviations, curated; see the Overview), not as the law of an article citation (`art. 8 EVRM` cites the article) | instrument | 0.60 |
 
 Every hit becomes a `REFERS_TO` edge to the article or instrument; a missing article is resolved
 as the Overview says (a stub from 0.85); instruments are never created. Edges
@@ -857,6 +860,11 @@ own and not linked. A Dutch judgment that cites "art. 8 EVRM" reaches the same a
 `article_number`), as the cited articles of any law that is not loaded, and `retrieve bwb
 --bwb-id BWBV0001000` loads it. The edges of a judgment are derived in full: one it no longer
 supports is removed.
+
+**Known limits.** An article of a Protocol to the Convention (`P1-1`, `P4-2`) is not linked:
+a Protocol is a treaty of its own, and neither HUDOC nor the BWB maps its number to a BWB id.
+`lawgraph check` counts them, and `semantic echr` logs how many it left out. A map of Protocol
+to BWB id would be a curated list (`lawgraph curated`).
 
 ## Verdragenbank
 

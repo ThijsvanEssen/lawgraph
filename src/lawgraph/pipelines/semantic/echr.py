@@ -43,23 +43,43 @@ CONFIDENCE_CONCLUSION = 0.80
 
 # One article as HUDOC writes it: "8", "8-1", "5-1-f", "35-3-a"; a Protocol's starts with "P".
 _HUDOC_ARTICLE_RE = re.compile(r"^(?P<number>\d+[a-z]?)(?:-(?P<paragraph>\d+))?")
+# An article of a Protocol: "P1-1", "P1-1-1" (its paragraph), "P4-2".
+_PROTOCOL_ARTICLE_RE = re.compile(r"^(?P<article>P\d+-\d+[a-z]?)")
+
+
+def _items(labels: list[str] | str | None) -> list[str]:
+    """The articles HUDOC names, one per item: ``8;8-1;13+8`` is ``8``, ``8-1``, ``13``, ``8``."""
+    if isinstance(labels, str):
+        labels = [labels]
+    return [
+        item.strip() for label in labels or [] for item in re.split(r"[;+]", str(label))
+    ]
+
+
+def protocol_articles(labels: list[str] | str | None) -> list[str]:
+    """The articles of a Protocol HUDOC names, without their paragraphs, in its order:
+    ``["8;P1-1;P1-1-1;P4-2"]`` is ``["P1-1", "P4-2"]``. They are not linked: a Protocol is a
+    treaty of its own, and no source maps its number to a BWB id."""
+    found: list[str] = []
+    for item in _items(labels):
+        match = _PROTOCOL_ARTICLE_RE.match(item)
+        if match and match["article"] not in found:
+            found.append(match["article"])
+    return found
 
 
 def convention_articles(labels: list[str] | str | None) -> dict[str, list[str]]:
     """Article number -> the paragraphs named of it, in the order HUDOC names the articles:
     ``["8;8-1;8-2;41;P1-1"]`` is ``{"8": ["1", "2"], "41": []}``."""
-    if isinstance(labels, str):
-        labels = [labels]
     found: dict[str, list[str]] = {}
-    for label in labels or []:
-        for item in re.split(r"[;+]", str(label)):
-            match = _HUDOC_ARTICLE_RE.match(item.strip())
-            if not match:  # a Protocol ("P1-1"), or nothing
-                continue
-            paragraphs = found.setdefault(match["number"], [])
-            paragraph = match["paragraph"]
-            if paragraph and paragraph not in paragraphs:
-                paragraphs.append(paragraph)
+    for item in _items(labels):
+        match = _HUDOC_ARTICLE_RE.match(item)
+        if not match:  # a Protocol ("P1-1"), or nothing
+            continue
+        paragraphs = found.setdefault(match["number"], [])
+        paragraph = match["paragraph"]
+        if paragraph and paragraph not in paragraphs:
+            paragraphs.append(paragraph)
     return found
 
 
@@ -80,6 +100,12 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store, what=None)
         kept: dict[str, set[str]] = {}
         read: list[str] = []
+        protocols = sum(len(protocol_articles(row.get("articles"))) for row in rows)
+        if protocols:
+            logger.info(
+                "ECHR citations: %d articles of a Protocol not linked (no BWB id).",
+                protocols,
+            )
         for row in rows:
             if not row.get("j_id"):
                 result.skipped += 1

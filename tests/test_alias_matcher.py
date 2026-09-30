@@ -93,13 +93,25 @@ def test_an_abbreviation_is_of_the_one_law_that_claims_it() -> None:
     codes = code_aliases(rows, {"32016R0679": ["AVG"], "32000R0001": ["NIET"]})
 
     assert codes == {
-        "SR": "BWBR0001854",
-        "WVS": "BWBR0001854",
-        "WVSR": "BWBR0001854",
+        "Sr": "BWBR0001854",
+        "WvS": "BWBR0001854",
+        "WvSr": "BWBR0001854",
         "BW6": "BWBR0005289",
         "BW7": "BWBR0005290",
         "EVRM": "BWBV0001000",
-        "ALGEMENE VERORDENING GEGEVENSBESCHERMING": "32016R0679",
+        "Algemene verordening gegevensbescherming": "32016R0679",
+        "AVG": "32016R0679",
+    }
+
+
+def test_an_abbreviation_of_the_source_wins_over_a_curated_one() -> None:
+    rows = [
+        {"bwb_id": "BWBR0000001", "aliases": ["ABC"]},
+        {"celex": "32016R0679", "short_title": "Algemene verordening"},
+    ]
+    assert code_aliases(rows, {"32016R0679": ["ABC", "AVG"]}) == {
+        "ABC": "BWBR0000001",
+        "Algemene verordening": "32016R0679",
         "AVG": "32016R0679",
     }
 

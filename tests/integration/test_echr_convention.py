@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.commands.check import check
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
@@ -187,3 +188,25 @@ def test_an_echr_judgment_links_to_hudoc(
     assert dutch["official_url"] == (
         "https://uitspraken.rechtspraak.nl/details?id=ECLI:NL:HR:2019:1278"
     )
+
+
+def test_the_check_counts_the_protocol_articles_that_are_not_linked(
+    database: str,
+) -> None:
+    store = ArangoStore()
+    _echr_judgment(store)  # 8;8-1;8-2;41;P1-1
+    _put(
+        store,
+        COLLECTION_JUDGMENTS,
+        "echr_001_2",
+        source=SOURCE_ECHR,
+        external_id="001-2",
+        articles=["P1-1;P1-1-1;P4-2;6"],
+    )
+
+    report = check(store, edges=False)
+
+    assert (
+        "echr: 3 articles of a Protocol in 2 judgments are not linked (P1-1, P4-2): "
+        "a Protocol is a treaty of its own, and no source maps its number to a BWB id"
+    ) in report.notes
