@@ -458,7 +458,15 @@ class DossierSummaryDTO(BaseModel):
     outcome: DossierOutcome | None = None
     tk_decision: TkDecisionDTO | None = None
     ek_outcome: EkOutcomeDTO | None = None
-    opened_on: str | None = None
+    opened_on: str | None = Field(
+        None,
+        description="The day it opened, as the Kamer dates its papers: of nr. 1 of its own "
+        "numbering, else of its Koninklijke boodschap, else of its first paper or activity "
+        "(``opened_on_basis``).",
+    )
+    opened_on_basis: (
+        Literal["first_paper", "royal_message", "earliest_record"] | None
+    ) = None
     closed_on: str | None = None
     ministry: MinistryKey | None = Field(
         None,
@@ -745,6 +753,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
             else None
         ),
         "opened_on": props.get("opened_on"),
+        "opened_on_basis": props.get("opened_on_basis"),
         "closed_on": props.get("closed_on"),
         "ministry": props.get("ministry"),
         "initiative": props.get("initiative"),

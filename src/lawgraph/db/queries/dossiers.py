@@ -36,7 +36,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.documents import chamber_of, is_explanatory, numbered_in
 from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
-from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, select_title
+from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db import ArangoStore
@@ -175,14 +175,13 @@ def _enrich_dossiers(
     for dossier in dossiers:
         row = rows.get(dossier["_id"]) or {}
         docs = row.get("docs") or []
-        title, title_source = select_title(dossier.get("props") or {}, docs)
-        dated = [
-            d["date"] for d in docs + (row.get("activities") or []) if d.get("date")
-        ]
+        props = dossier.get("props") or {}
+        title, title_source = select_title(props, docs)
+        day, _ = opened_on(
+            props.get("number"), props.get("suffix"), docs, row.get("activities") or []
+        )
         enriched[dossier["_id"]] = DossierEnrichment(
-            title=title,
-            title_source=title_source,
-            opened_on=min(dated) if dated else None,
+            title=title, title_source=title_source, opened_on=day
         )
     return enriched
 

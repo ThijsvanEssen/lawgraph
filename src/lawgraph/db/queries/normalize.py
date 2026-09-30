@@ -198,7 +198,11 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                             title: NOT_NULL(doc.props.dossier_title, doc.props.title,
                                             doc.props.display_name),
                             case_kinds: LENGTH(doc.props.dossier_numbers) == 1
-                                ? doc.props.case_kinds : []
+                                ? doc.props.case_kinds : [],
+                            own: doc.props.dossier_number != null
+                                ? [doc.props.dossier_number, doc.props.dossier_suffix]
+                                : null,
+                            sequence: doc.props.sequence
                         }"""
     aql = f"""
         FOR dossier_id IN @dossier_ids
