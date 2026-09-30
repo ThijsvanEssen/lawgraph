@@ -95,6 +95,12 @@ class InstrumentProps(_CommonProps):
     # what the toestand says the semantic steps link from (BASED_ON, IMPLEMENTS)
     basis: list[dict[str, Any]] | None = None  # "Gelet op": bwb_id, article, doc, text
     celex_refs: list[str] | None = None  # the EU acts the text names
+    implements_celex: list[str] | None = (
+        None  # those its considerans says it implements
+    )
+    enacted_publication: str | None = (
+        None  # the publication that enacted it: stb-2018-144
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +174,8 @@ class ArticleVersionProps(_CommonProps):
     source_publication: str | None = None  # bron, e.g. "Stb.2019-33"
     origin_publication: dict[str, Any] | None = None  # Publication.to_dict()
     commencement_publication: dict[str, Any] | None = None
+    # label, heading, place and text: equal for a version that only repeats the one before
+    content_digest: str | None = None
 
 
 # ---------------------------------------------------------------------------

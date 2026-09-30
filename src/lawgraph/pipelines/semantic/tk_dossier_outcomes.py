@@ -62,7 +62,9 @@ class TKDossierOutcomesSemanticPipeline(SemanticPipelineBase):
                 props = outcome_props(outcome)
                 if any(stored.get(name) != value for name, value in props.items()):
                     changed.append(_node(row["key"], NodeType.DOSSIER, props))
-                votes += _bill_decisions(row.get("ek_votes") or [], ek)
+                votes += _bill_decisions(
+                    row.get("ek_votes") or [], ek, stored.get("kind")
+                )
             if changed:
                 self.store.bulk_insert_or_update_nodes(COLLECTION_DOSSIERS, changed)
             if votes:
@@ -83,13 +85,17 @@ def _node(key: str, node_type: NodeType, props: dict[str, Any]) -> dict[str, Any
 
 
 def _bill_decisions(
-    votes: list[dict[str, Any]], ek: dict[str, Any] | None
+    votes: list[dict[str, Any]], ek: dict[str, Any] | None, kind: str | None
 ) -> list[dict[str, Any]]:
-    """The votes of the Eerste Kamer whose ``bill_decision`` changes: true for the one that
-    decided the bill, false for the others (a motion)."""
+    """The votes of the Eerste Kamer whose ``bill_decision`` or ``kind`` changes:
+    ``bill_decision`` true for the one that decided the bill, false for the others (a
+    motion); ``kind`` the kind of the dossier (its ``Zaak.Soort``: the list of the Eerste
+    Kamer names none) for the one that decided the bill, none for the others."""
     chosen = (ek or {}).get("decision")
-    return [
-        _node(vote["id"].split("/", 1)[1], NodeType.DECISION, {"bill_decision": wanted})
-        for vote in votes
-        if vote.get("bill_decision") != (wanted := vote["id"] == chosen)
-    ]
+    changed = []
+    for vote in votes:
+        decided = vote["id"] == chosen
+        props = {"bill_decision": decided, "kind": kind if decided else None}
+        if any(vote.get(name) != value for name, value in props.items()):
+            changed.append(_node(vote["id"].split("/", 1)[1], NodeType.DECISION, props))
+    return changed

@@ -73,12 +73,14 @@ def view_and_collection_size(
 
 
 def count_regulations_without_derived_props(store: Store) -> int:
-    """BWB regulations (not stubs, not publications) without ``basis`` or ``celex_refs``."""
+    """BWB regulations (not stubs, not publications) without ``basis``, ``celex_refs`` or
+    ``implements_celex``."""
     aql = f"""
     FOR regulation IN {COLLECTION_INSTRUMENTS}
         FILTER regulation.props.source == @source AND regulation.props.stub != true
         FILTER "Publication" NOT IN regulation.labels
         FILTER regulation.props.basis == null OR regulation.props.celex_refs == null
+            OR regulation.props.implements_celex == null
         COLLECT WITH COUNT INTO n
         RETURN n
     """

@@ -9,6 +9,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 |--------|----------|-----------|----------|
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
+| EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
@@ -181,7 +182,8 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
 | `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument title; any other paper on the bill's dossier, a motie too, amends nothing. A document the step reads loses the `AMENDS` edges of the step it no longer gets | 0.85 |
-| `IMPLEMENTS` (Instrument to Instrument) | CELEX `3YYYY[CLRDF]NNNN` in the BWB XML of an instrument (`props.celex_refs`, kept by `normalize bwb`); both instruments must exist; naming the number is all the edge says (`meta.celex`), not that the regulation transposes the act | 0.75 |
+| `IMPLEMENTS` (Instrument to Instrument) | an implementation source (`meta.bases`): EUR-Lex lists the publication as a national implementing measure of the act (`retrieve eurlex-nim`): from the publication when the graph has it, and from every regulation it enacted (`props.enacted_publication`) or made an article version of (`national_implementing_measure`, `meta.publications`); or the considerans of the regulation implements the act (`considerans`: "ter uitvoering van", "te implementeren", "om te zetten", the "Gelet op" of an order; an act cited in the title of the implemented one, up to its reference in the Official Journal, is not implemented; `props.implements_celex`, kept by `normalize bwb`). Not per article: a measure names no article, and what it changed may be more than the implementation. Both instruments must exist; the edges are derived in full on every run | 1.0 |
+| `REFERS_TO` (Instrument to Instrument) | an EU act whose CELEX number the BWB XML of a regulation names (`props.celex_refs`) and that it does not implement (`meta.celex`) | 1.0 |
 
 **Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by
 `normalize tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
@@ -261,8 +263,9 @@ aannemen` for a hamerstuk, `Stemmen - uitstellen`, …), with its `BesluitTekst`
 names the bill (`ek_rejected`), with the vote `Verworpen` of that day as its vote (else the list
 as its source); otherwise `Aangenomen` by its latest vote `Aangenomen`; none when neither (a
 bill with only a motion voted down). `{outcome, date, method, source_url, retrieved_on}`, as the
-Kamer writes them. The vote chosen gets `bill_decision: true`, the other votes of the Eerste
-Kamer about the dossier `false`.
+Kamer writes them. The vote chosen gets `bill_decision: true` and `kind`, the kind of the
+dossier (the list of the Eerste Kamer names none); the other votes of the Eerste Kamer about
+the dossier `bill_decision: false` and no `kind`.
 
 It walks every dossier on every run, since a law published today closes a dossier whose own
 record did not change, and writes only the dossiers whose answer changed. It runs after
@@ -508,9 +511,9 @@ server (`https://publications.europa.eu/resource/celex/<CELEX>`, content negotia
 language, redirects followed, 60 s timeout). CELEX numbers are enumerated by SPARQL
 (`EURLEX_SPARQL_ENDPOINT`, pages of 500). That endpoint is not a complete list: it has no
 entry for many recent acts (about 150 directives for 2010, 1 for 2016; the GDPR is missing),
-it answers HTTP 500 from offset 10000 (a failing page raises), and it holds no national
-implementation measures. Acts are therefore fetched by the CELEX numbers that loaded records
-refer to (`retrieve eurlex --mode gaps`, `expand-graph`), not by listing them.
+and it answers HTTP 500 from offset 10000 (a failing page raises). Acts are therefore
+fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mode gaps`,
+`expand-graph`), not by listing them.
 
 **Retrieve `--mode`.**
 
@@ -518,7 +521,7 @@ refer to (`retrieve eurlex --mode gaps`, `expand-graph`), not by listing them.
 |------|-----------------------|
 | `incremental` (default) | those of instruments already in the graph, or `--celex` (repeatable) |
 | `full` | the directives SPARQL lists, without corrigenda; `--type` (repeatable: `directive`, `regulation`, `decision`) chooses other types, at most 10000 per type. Not part of `retrieve all` |
-| `nim` | acts with national implementation measures for `--country` (default `NLD`); the endpoint holds none, so this is an error |
+| `nim` | the acts that have national implementing measures of `--country` (default `NLD`) |
 | `cjeu` | judgments that cite acts in the graph |
 | `com` | Commission proposals for acts in the graph |
 
@@ -657,6 +660,17 @@ a book of it (`BW` with `BW Boek 6`): the book is the number of that abbreviatio
 the code keeps the spelling most regulations give it. So the families follow the WTI; nothing
 is kept by hand. A book whose WTI record is not stored is not in its family.
 
+**Retrieve `eurlex-nim`.** The national implementing measures of `--country` (default
+`NLD`, about 7,400) from CELLAR SPARQL, those CELLAR changed since `--since` (default 30 days;
+`--mode full`: all), paged by document id (500 measures a page). One record per measure
+(`eu-nim-json`, external id its CELLAR document id): `celex` (the acts it implements),
+`journal`, `number`, `date` (of the journal), `type`, `title`, `modified`. `core/eurlex_nim`
+reads the publication a measure is: the Staatsblad or Staatscourant (without a journal: a wet
+is in the Staatsblad, a ministeriële regeling in the Staatscourant), its number (also
+`178/2002`, `2025, 449`, `stb-2025-449`) and the year of the date, else the year the title
+gives the number ("Staatsblad 1992, nr. 329"). About 4,800 of the 7,400 measures name one; the
+rest (`Administrative measures`, no number, a placeholder date `1001-01-01`) none.
+
 **Normalize `bwb-history`.** Reads every stored toestand once and writes:
 
 - an InstrumentVersion per toestand and an ArticleVersion per `(stam_id, versie_id)` (a
@@ -664,6 +678,11 @@ is kept by hand. A book whose WTI record is not stored is not in its family.
   `commencement_publication`; an article without a `versie-id` (an article of a bijlage) has
   an ArticleVersion per text (its number and a digest of its text), which begins in the first
   toestand holding that text, also over incremental runs;
+- one version for a republication (effect `tekstplaatsing-*`) with the label, heading, place
+  and text (`content_digest`) of the version before it: a republication gives every article of
+  the Grondwet a new `versie-id` and changes nothing. It is removed with its edges, and the
+  version before it holds on until the next change. An amendment whose text shows no change
+  (a reference that points elsewhere now) stays a version;
 - `valid_until` and `current`, recomputed from the database in chunks of 200 regulations, so
   incremental runs stay correct: a version is `current` exactly when nothing follows it, also
   after a re-run has written it again. Every period is half-open (`valid_until` is the first day
@@ -710,10 +729,12 @@ which `normalize bwb` keeps when it parses the toestand; no XML is read again.
    merging the dossier numbers of every version that mentions it;
 2. resolves each `(bwb_id, stam_id)` to its Article, one query per chunk;
 3. writes `Instrument(publication) -> AMENDS | INTRODUCES | REPEALS -> Article` from the
-   version `effect` (`nieuw` introduces; `wijziging`, `tekstplaatsing-wijziging` and
-   `tekstplaatsing-vernummering` amend; `vervallen` repeals), confidence 1.0, `meta` =
-   `effective_date`, `article_version`, `effect`, `source_publication`; one edge per
-   publication, article and kind, with the earliest effective date;
+   version `effect` (`nieuw` introduces; `wijziging` amends; `vervallen` repeals), confidence
+   1.0, `meta` = `effective_date`, `article_version`, `effect`, `source_publication`; one edge
+   per publication, article and kind, with the earliest effective date. A republication
+   (`tekstplaatsing-wijziging`, `tekstplaatsing-vernummering`: the Grondwet placed again as a
+   whole, Stb. 2019, 33) changes nothing and has no edge; the edges of the step into an article
+   that it no longer derives are removed;
 4. writes `LEGISLATED_IN` from each publication and each regulation to the dossiers of
    `dossier_numbers` that exist (key = the plain dossier number), and removes its
    `LEGISLATED_IN` from a regulation to a dossier the regulation no longer lists.

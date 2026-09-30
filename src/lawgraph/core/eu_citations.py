@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, Literal
 
 from lawgraph.core.citations import CitationHit, format_celex, make_snippet
-from lawgraph.core.identifiers import BWB_ID_PATTERN
+from lawgraph.core.identifiers import BWB_ID_PATTERN, has_possible_year
 
 EUInstrumentKind = Literal["directive", "regulation", "decision", "framework_decision"]
 HitRecorder = Callable[[CitationHit], None]
@@ -175,3 +175,95 @@ def collect_bwb_id_hits(text: str, confidence: float, record: HitRecorder) -> No
                 end=match.end(),
             )
         )
+
+
+# ---------------------------------------------------------------------------
+# The EU acts a considerans says the regulation implements
+# ---------------------------------------------------------------------------
+
+# An EU act as Dutch legislation cites it, in the notation of every era: "Richtlijn
+# 95/46/EG", "richtlijn nr. 2004/17/EG", "Verordening (EEG) nr. 1408/71", "Verordening (EU)
+# 2016/679", "Gedelegeerde Verordening (EU) 2017/565", "Kaderbesluit 2008/977/JBZ".
+_ACT_KINDS: dict[str, EUInstrumentKind] = {
+    "richtlijn": "directive",
+    "verordening": "regulation",
+    "besluit": "decision",
+    "beschikking": "decision",
+    "kaderbesluit": "framework_decision",
+}
+_DOMAIN = r"(?:EU|EG|EEG|EGKS|Euratom|JBZ|GBVB)"
+EU_ACT_PATTERN = re.compile(
+    r"\b(?:gedelegeerde\s+|uitvoerings-?)?"
+    r"(?P<kind>kaderbesluit|richtlijn|verordening|beschikking|besluit)\s+"
+    r"(?:nr\.?\s*)?"
+    rf"(?:\({_DOMAIN}(?:,\s*{_DOMAIN})*\)\s*)?"
+    r"(?P<nr>nr\.?\s*)?"
+    r"(?P<first>\d{2,4})/(?P<second>\d{1,4})"
+    rf"(?:/{_DOMAIN})?\b",
+    re.IGNORECASE,
+)
+# A clause that implements: "ter uitvoering van", "te implementeren", "geïmplementeerd",
+# "uitvoering te geven aan", "uit te voeren", "omzetting", and the "Gelet op" of an order in
+# council or a ministerial regulation, which names the act it implements.
+_IMPLEMENTING_CLAUSE = re.compile(
+    r"mplement|uitvoering\s+(?:van|te\s+geven|gegeven|geeft)|uit\s+te\s+voeren|omzet"
+    r"|om\s+te\s+zetten|^\s*gelet\s+op",
+    re.IGNORECASE,
+)
+# The reference to the Official Journal that closes the title of a cited act.
+_JOURNAL_REFERENCE = re.compile(r"\((?:PbEU|PbEG|PB|Pb)\b[^()]*\)")
+# The words in a title that name another act: "tot intrekking van Richtlijn 95/46/EG".
+_ACT_IN_TITLE = re.compile(
+    r"(?:wijziging|intrekking|aanvulling|vervanging|codificatie)\s+van\s+"
+    r"(?:(?:de|het)\s+)?(?:\S+\s+\S+\s*(?:en|,)\s+)?$",
+    re.IGNORECASE,
+)
+
+
+def eu_act_celex(match: re.Match[str]) -> str | None:
+    """The CELEX number of an act matched by :data:`EU_ACT_PATTERN`, or None.
+
+    A regulation before 2015 has its number first ("nr. 1408/71"), any other act its year;
+    a year of two digits is one of the twentieth century.
+    """
+    kind = _ACT_KINDS[match["kind"].lower()]
+    first, second = match["first"], match["second"]
+    year, number = (
+        (second, first) if kind == "regulation" and match["nr"] else (first, second)
+    )
+    if len(year) == 2:
+        year = f"19{year}"
+    if len(year) != 4:
+        return None
+    celex = format_celex(kind, year, number)
+    return celex if has_possible_year(celex) else None
+
+
+def implemented_acts(clauses: Iterable[str]) -> list[str]:
+    """The CELEX numbers of the EU acts the *clauses* of a considerans say the regulation
+    implements, in order.
+
+    A clause counts when it implements (``ter uitvoering van``, ``te implementeren``,
+    ``Gelet op`` …). An act cited in the title of another ("tot intrekking van Richtlijn
+    95/46/EG") is not implemented: the title of a cited act runs to its reference in the
+    Official Journal ("(PbEU 2016, L 119)"), and without one an act named after "wijziging
+    van" or "intrekking van" is part of a title.
+    """
+    found: dict[str, None] = {}
+    for clause in clauses:
+        if not _IMPLEMENTING_CLAUSE.search(clause):
+            continue
+        title_end = -1
+        for match in EU_ACT_PATTERN.finditer(clause):
+            if match.start() < title_end:
+                continue  # in the title of the act before it
+            if _ACT_IN_TITLE.search(
+                clause[max(0, match.start() - 120) : match.start()]
+            ):
+                continue
+            celex = eu_act_celex(match)
+            if celex:
+                found.setdefault(celex)
+            journal = _JOURNAL_REFERENCE.search(clause, match.end())
+            title_end = journal.end() if journal else -1
+    return list(found)
