@@ -15,9 +15,9 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_CASES, RAW_KIND_TK_ZAAK, SOURCE_TK
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import NodeWriter
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.pipelines.normalize._tk_deleted import Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -55,11 +55,10 @@ class TKNormalizePipeline(NormalizePipelineBase):
         """Case nodes, keyed by the Zaak identifier documents refer to; the node of a Zaak
         the Kamer deleted is removed."""
         writer = NodeWriter(self.store)
-        deleted: list[str] = []
+        deleted = Deleted(COLLECTION_CASES)
         for raw in raw_records:
             payload = self._payload_json(raw)
-            if tk_records.is_deleted(payload) and payload.get("Id"):
-                deleted.append(make_node_key(str(payload["Id"])))
+            if deleted(payload):
                 continue
             parsed = tk_records.case(payload)
             if parsed is None:
@@ -80,7 +79,7 @@ class TKNormalizePipeline(NormalizePipelineBase):
             )
 
         writer.flush()
-        removed = normalize_queries.remove_nodes(self.store, COLLECTION_CASES, deleted)
+        removed = deleted.remove(self.store)
         logger.info(
             "Normalized %d TK cases; removed %d the Kamer deleted.",
             writer.written,
