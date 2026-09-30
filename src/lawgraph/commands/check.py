@@ -260,8 +260,9 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
     behind = checks.count_regulations_without_derived_props(store)
     if behind:
         report.problem(
-            f"{behind:,} BWB regulations carry no `basis` / `celex_refs`: BASED_ON and "
-            "IMPLEMENTS are read from them. Run `lawgraph normalize bwb`, then "
+            f"{behind:,} BWB regulations carry no `basis` / `celex_refs` / "
+            "`implements_celex`: BASED_ON and IMPLEMENTS are read from them. Run "
+            "`lawgraph normalize bwb`, then "
             "`lawgraph semantic all`."
         )
     else:

@@ -10,6 +10,7 @@ from lawgraph.core.bwb_xml import (
     EFFECT_AMENDS,
     EFFECT_INTRODUCES,
     EFFECT_REPEALS,
+    EFFECT_REPUBLISHES,
     effect_kind,
     instrument_props,
     parse_jci,
@@ -77,7 +78,8 @@ def test_article_identity_and_version_fields(grondwet) -> None:
     assert art7.valid_from == "2018-12-21"
     assert art7.source == "Stb.2019-33"
     assert art7.effect == "tekstplaatsing-wijziging"
-    assert effect_kind(art7.effect) == EFFECT_AMENDS
+    assert effect_kind(art7.effect) == EFFECT_REPUBLISHES  # the Grondwet placed again
+    assert effect_kind("wijziging") == EFFECT_AMENDS
 
 
 def test_article_documents_and_their_dossiers(grondwet) -> None:

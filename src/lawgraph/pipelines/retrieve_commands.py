@@ -27,6 +27,7 @@ from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
+from lawgraph.pipelines.retrieve.eurlex_nim import EurlexNimRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak_instanties import (
     RechtspraakInstantiesRetrievePipeline,
@@ -179,6 +180,20 @@ def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
     if args.mode == "com":
         return pipeline.run_com(celex_ids=known_celex, lang=args.lang)
     return pipeline.run(celex_ids=known_celex, lang=args.lang)
+
+
+def retrieve_eurlex_nim(argv: list[str] | None = None) -> PipelineResult:
+    parser = argparse.ArgumentParser(
+        description="Retrieve the national implementing measures of EUR-Lex (CELLAR)."
+    )
+    parser.add_argument("--country", default="NLD")
+    add_since_argument(parser, default="30d")
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+
+    pipeline = EurlexNimRetrievePipeline(ArangoStore())
+    since = None if args.mode == "full" else _date(args.since)
+    return pipeline.run(country_code=args.country, since=since)
 
 
 def retrieve_eerstekamer(argv: list[str] | None = None) -> PipelineResult:

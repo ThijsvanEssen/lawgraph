@@ -146,7 +146,7 @@ def test_effect_decides_the_relation_and_edge_carries_the_version() -> None:
 
     result = _run(store)
 
-    assert result.created == 4
+    assert result.created == 3  # a republication (tekstplaatsing) amends nothing
     (intro,) = _edges(store, RELATION_INTRODUCES)
     assert intro["_from"] == f"instruments/{publication_key('stb-2019-1')}"
     assert intro["_to"] == _art("1")
@@ -156,7 +156,7 @@ def test_effect_decides_the_relation_and_edge_carries_the_version() -> None:
         "effect": "nieuw",
         "source_publication": "Stb.2019-1",
     }
-    assert {e["_to"] for e in _edges(store, RELATION_AMENDS)} == {_art("2"), _art("3")}
+    assert {e["_to"] for e in _edges(store, RELATION_AMENDS)} == {_art("2")}
     assert [e["_to"] for e in _edges(store, RELATION_REPEALS)] == [_art("4")]
     assert all(e["confidence"] == 1.0 for e in store.edges.values())
 

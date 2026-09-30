@@ -52,6 +52,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_eerstekamer_composition,
     retrieve_eerstekamer_votes,
     retrieve_eurlex,
+    retrieve_eurlex_nim,
     retrieve_rechtspraak,
     retrieve_rechtspraak_instanties,
     retrieve_rijksoverheid,
@@ -353,6 +354,15 @@ RETRIEVE: list[Pipeline] = [
         fills_gaps=True,
     ),
     _pipeline(
+        retrieve_eurlex_nim,
+        (
+            "The Dutch national implementing measures of EU acts (CELLAR SPARQL): those "
+            "changed in the window, all with --mode full."
+        ),
+        argv_for_all=_windowed_argv,
+        lane="eurlex",  # the server of `retrieve eurlex`
+    ),
+    _pipeline(
         retrieve_bwb,
         (
             "Dutch legislation: the current toestand XML and the WTI abbreviations of every "
@@ -601,7 +611,12 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         BWBImplementsSemanticPipeline,
-        "IMPLEMENTS from a regulation to the EU acts its text names.",
+        (
+            "IMPLEMENTS to an EU act from the publications EUR-Lex lists as its national "
+            "implementing measures, the regulations they enacted or changed, and the "
+            "regulations whose considerans says they implement it; REFERS_TO for the other "
+            "EU acts a regulation names."
+        ),
     ),
     _pipeline(
         TKAmendmentArticlesSemanticPipeline,
