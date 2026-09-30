@@ -16,6 +16,7 @@ from typing import Any, cast
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
     RAW_KIND_RS_CONTENT,
+    RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_RECHTSPRAAK,
@@ -139,8 +140,8 @@ def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> list[dict[str, Any]]:
     """The Tweede Kamer papers whose kind contains one of *kinds*, and whose XML was not
     retrieved.
 
-    Each has the dossier it is part of (a paper without one or without a number in it has no
-    address in the repository and is left out) and its ``identifier``, ``kst-<dossier>-<n>``.
+    Each has the dossier it is numbered in (a paper that is no Kamerstuk has no address in
+    the repository and is left out) and its ``identifier``, ``kst-<dossier>-<n>``.
     Those the repository answered HTTP 404 for not long ago are left out too, so the report
     of ``lawgraph gaps`` names exactly what a run fetches.
     """
@@ -201,10 +202,14 @@ def verdragenbank_gaps(store: Store) -> list[str]:
 
 
 def tk_dossier_gaps(store: Store) -> list[str]:
-    """The dossier numbers the graph names and has no dossier of: those of the publications
-    that amended or brought into force a version of an article, and the first readings a
-    change in the Grondwet refers to in its second. A number the Tweede Kamer did not have
-    not long ago is left out."""
+    """The numbers of the dossiers the graph names and has not, or has not in full.
+
+    Named: by the publications that amended or brought into force a version of an article,
+    by a change in the Grondwet in its second reading (the first), and by the Tweede Kamer
+    papers and cases that are part of it. Not in full: a dossier that lacks a paper below
+    the highest number it has. A number the Tweede Kamer did not have, or had no more
+    papers of, not long ago is left out.
+    """
     named = gap_queries.dossiers_named_by_publications(store)
     cited = {
         number
@@ -212,13 +217,25 @@ def tk_dossier_gaps(store: Store) -> list[str]:
         for number in first_reading_dossiers(memorandum["text"])
     }
     cited -= gap_queries.dossiers_with_numbers(store, sorted(cited))
-    numbers = sorted(set(named) | cited)
+    by_papers = {
+        label.split("-", 1)[0] for label in gap_queries.dossiers_named_by_papers(store)
+    }
+    incomplete = gap_queries.dossiers_missing_papers(store)
+    numbers = sorted(
+        n for n in set(named) | cited | by_papers | set(incomplete) if n.isdigit()
+    )
+    candidates = [{"identifier": number} for number in numbers]
     waiting = _with_raw_record(
         store,
-        [{"identifier": number} for number in numbers],
+        candidates,
         RAW_KIND_TK_DOSSIER + RAW_KIND_MISSING_SUFFIX,
+        retry_ahead=True,
+    ) | _with_raw_record(
+        store,
+        candidates,
+        RAW_KIND_TK_DOCUMENT + RAW_KIND_MISSING_SUFFIX,
         retry_ahead=True,
     )
     return _capped(
-        [n for n in numbers if n not in waiting], "dossiers named, not loaded"
+        [n for n in numbers if n not in waiting], "dossiers named or incomplete"
     )
