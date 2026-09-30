@@ -20,6 +20,9 @@ from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
+from lawgraph.pipelines.retrieve.eerstekamer_votes import (
+    EerstekamerVotesRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak_instanties import (
@@ -187,6 +190,18 @@ def retrieve_eerstekamer(argv: list[str] | None = None) -> PipelineResult:
     pipeline = EerstekamerRetrievePipeline(ArangoStore())
     since = None if args.mode == "full" else _date(args.since)
     return pipeline.run(since=since, limit=args.max_records)
+
+
+def retrieve_eerstekamer_votes(argv: list[str] | None = None) -> PipelineResult:
+    parser = argparse.ArgumentParser(
+        description="Retrieve the votes of the Eerste Kamer on bills and the list of the "
+        "bills it rejected (eerstekamer.nl)."
+    )
+    add_since_argument(parser)
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+    since = None if args.mode == "full" or args.since is None else args.since.date()
+    return EerstekamerVotesRetrievePipeline(ArangoStore()).run(since=since)
 
 
 def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:

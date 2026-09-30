@@ -13,7 +13,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer` | `eerstekamer` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes` | `eerstekamer`, `eerstekamer-votes` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | `tk-government` |
@@ -246,17 +246,23 @@ read from the graph (`core/dossier_stages.derive_outcome`); the first rule that 
 | `outcome` | Evidence | `closed_on` |
 |-----------|----------|-------------|
 | `aangenomen` | an instrument is `LEGISLATED_IN` the dossier: the Staatsblad publication of its law, or a regulation whose BWB metadata names the dossier (`semantic bwb-amendments`) | the first `date_published` (else `date_signed`) of those publications; none when only a regulation names it |
-| `verworpen` | the last vote on the bill's own case (`primary_case_kind` `Wetgeving`, `Initiatiefwetgeving` or `Begroting`, not an amendment or a motion) did not pass | the date of that vote |
+| `verworpen`, `aangenomen` | its outcome in the Eerste Kamer (`ek_outcome`, below) | the day of that vote |
+| `verworpen` | the last vote of the Tweede Kamer on the bill's own case (`primary_case_kind` `Wetgeving`, `Initiatiefwetgeving` or `Begroting`, not an amendment or a motion) did not pass | the date of that vote |
 
-Anything else is open (`closed: false`): a bill the Tweede Kamer passed still waits for the Eerste
-Kamer and the Staatsblad, and a dossier without a bill (a budget chapter, a policy dossier) has no
-end the graph can see. The Eerste Kamer votes are not loaded, so a bill it rejected stays open.
-No record of the Kamer says a bill was withdrawn (its zaak keeps `Status` `Vrijgegeven`; only a
+Anything else is open (`closed: false`): a bill the Tweede Kamer passed that the Eerste Kamer has
+not voted on, and a dossier without a bill (a budget chapter, a policy dossier), which has no end
+the graph can see. No record of the Kamer says a bill was withdrawn (its zaak keeps `Status` `Vrijgegeven`; only a
 free text now and then says so), so a withdrawn bill stays open too.
 
 Next to the outcome it writes `tk_decision`: the last decision on the bill's own case with a
 `BesluitSoort`, as the Kamer writes it (`Stemmen - aangenomen`, `Stemmen - zonder stemming
-aannemen` for a hamerstuk, `Stemmen - uitstellen`, …), with its `BesluitTekst` and date.
+aannemen` for a hamerstuk, `Stemmen - uitstellen`, …), with its `BesluitTekst` and date; and
+`ek_outcome` (`core/dossier_stages.ek_outcome`): `Verworpen` when the list of rejected bills
+names the bill (`ek_rejected`), with the vote `Verworpen` of that day as its vote (else the list
+as its source); otherwise `Aangenomen` by its latest vote `Aangenomen`; none when neither (a
+bill with only a motion voted down). `{outcome, date, method, source_url, retrieved_on}`, as the
+Kamer writes them. The vote chosen gets `bill_decision: true`, the other votes of the Eerste
+Kamer about the dossier `false`.
 
 It walks every dossier on every run, since a law published today closes a dossier whose own
 record did not change, and writes only the dossiers whose answer changed. It runs after
@@ -781,9 +787,8 @@ that of a post still held on every run. After `retrieve rijksoverheid`, on the K
 own. Per paper: identifier (`kst-<dossier>-<letter>`, some `kst-<number>`), own title
 (`documenttitel`), dossier title, kind (`subrubriek`), number in the dossier (`ondernummer`),
 date, session year, dossier number and the page on zoek.officielebekendmakingen.nl. Papers
-before about 2007 have no kind and no own title in the source. Not loaded: votes and their
-outcome (aanvaard, verworpen, per fractie): they exist only as prose in the Handelingen and as
-HTML on eerstekamer.nl, and the plenary reports and PDFs are not fetched.
+before about 2007 have no kind and no own title in the source. The votes come from
+eerstekamer.nl (`eerstekamer-votes`, below); the plenary reports and PDFs are not fetched.
 
 **Retrieve `--mode`.** `incremental` (default): `--since` on `dt.modified`; `full`: everything.
 `--max-records` stops early. The SRU record is stored as `ek-kamerstuk-json`.
@@ -796,6 +801,33 @@ papers) sets neither. No edges here.
 
 **Semantic `eerstekamer`.** `PART_OF` from the paper to the Tweede Kamer dossier with the same
 number and addition, 0.95, `meta.chamber = EK`.
+
+**Retrieve `eerstekamer-votes`.** The Eerste Kamer publishes its votes only on its website
+(no open data; its terms allow reuse, also commercial, with the source and the day it was taken
+over; `robots.txt` allows these pages). `clients/eerstekamer_site.py` reads, a page every two
+seconds with the `Concordans` User-Agent:
+
+- `/stemmingen_per_vergaderdag?filter=wetsvoorstellen`: every vote on a bill since June 2015
+  (2,650 on 2026-09-30), newest first, 25 to a page, grouped by the day of the meeting; a day
+  that runs over a page starts the next one again (`(vervolg)`). One record per day
+  (`ek-votes-day-html`, external id the date), from one page or two. `--since` stops at the
+  first page that ends before it; `--mode full` reads the whole list (106 pages).
+- `/verworpen_in_de_eerste_kamer`: every rejected bill since 1996 (two pages), stored whole on
+  every run (`ek-rejected-html`).
+
+**Normalize `eerstekamer-votes`.** `core/eerstekamer_votes.py` reads the structure of the pages,
+never a sentence. Each vote becomes a decision `ek_<date>_<label>_<n>` (the n-th on that bill
+that day), labels `EK`, `chamber` `EK`: `result` (the outcome the Kamer shows, the `alt` of its
+image: `Aangenomen`, `Verworpen`), `passed`, `method` (the text of the link to the report:
+`Hamerstuk`, `Stemming bij zitten en opstaan, aangenomen`, `Hoofdelijke stemming, verworpen`,
+`Algemene stemmen`, `Zonder stemmen`), `factions_for`, `factions_against`, `factions_noted`
+(`aantekening gevraagd`), `subject` (the bill's name), `dossier_numbers` (the number as the
+Tweede Kamer labels it: `36.600 VII` is `36600-VII`, `36.455 (R2188)` is `36455-(R2188)`),
+`bill_url`, `source_url` (the part of the report) and `retrieved_on`; `ABOUT` the dossier. The
+list names a vote on a motion on a bill by the bill (33.348, 15 December 2015: the bill adopted,
+a motion rejected), which nothing on it tells apart. A rejected bill gives its dossier
+`ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
+of that day rejects is logged.
 
 ## ECHR
 
@@ -1114,7 +1146,8 @@ uses a name before its first period keeps that name.
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
-| semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`) and `normalize tk-dossiers` (documents, decisions and their edges to the dossier) |
+| semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
+| normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them |

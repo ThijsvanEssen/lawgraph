@@ -461,6 +461,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "short_title": None,
     }
     assert vote["vote"] == {
+        "chamber": "TK",
         "passed": True,
         "outcome": "aangenomen",
         "vote_kind": "faction",
@@ -757,7 +758,7 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
         "votes": [],
     }
     assert days["2026-05-12"]["votes"] == [
-        {"subkind": "Motie", "outcome": "aangenomen", "count": 1}
+        {"chamber": "TK", "subkind": "Motie", "outcome": "aangenomen", "count": 1}
     ]
     may_first = days["2026-05-01"]
     assert may_first["total"] == 2
