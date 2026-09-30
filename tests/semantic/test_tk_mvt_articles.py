@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.config.constants import RELATION_AMENDS, RELATION_EXPLAINS
 from lawgraph.core.mvt_articles import CONFIDENCE_OF_MATCH, MATCH_BODY_NAMED_LAW
 from lawgraph.core.relations import BY_NAME
+from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
     SEMANTIC_SOURCE_SECTIONS,
@@ -71,17 +74,20 @@ ROW = {
 class _FakeStore(_BaseFakeStore):
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         super().__init__()
-        self._rows = rows
-        self.queries: list[str] = []
-
-    def query(
-        self, aql: str, bind_vars: dict | None = None, **_: Any
-    ) -> list[dict[str, Any]]:
-        self.queries.append(aql)
-        return list(self._rows)
+        self.rows = rows
 
     def get_node(self, collection: str, key: str) -> dict | None:
         return None
+
+
+@pytest.fixture(autouse=True)
+def _memoranda(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``memoranda_with_sections`` answers with the rows of the store."""
+    monkeypatch.setattr(
+        semantic_tk,
+        "memoranda_with_sections",
+        lambda store, **_: iter(list(store.rows)),
+    )
 
 
 def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:

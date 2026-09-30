@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import edge_key as _sha1_edge_key
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import eu as semantic_eu
 from lawgraph.pipelines.semantic.eurlex import (
     EurlexSemanticPipeline,
     detect_eu_citations,
@@ -51,23 +55,21 @@ class _FakeStore(_BaseFakeStore):
         self._instruments = instruments
         self._articles = articles
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
-        if "FOR inst IN instruments" in aql:
-            # Return alias rows for _load_code_aliases / _load_instrument_aliases.
-            rows = []
-            for doc in self._instruments.values():
-                props = doc.get("props", {})
-                rows.append(
-                    {
-                        "bwb_id": props.get("bwb_id"),
-                        "celex": props.get("celex"),
-                        "title": props.get("title"),
-                        "citation_title": props.get("citation_title"),
-                        "short_title": props.get("short_title"),
-                    }
-                )
-            return rows
-        return list(self._documents)
+    def alias_rows(self) -> list[dict[str, Any]]:
+        """The names and ids of the instruments, as the alias queries return them."""
+        rows = []
+        for doc in self._instruments.values():
+            props = doc.get("props", {})
+            rows.append(
+                {
+                    "bwb_id": props.get("bwb_id"),
+                    "celex": props.get("celex"),
+                    "title": props.get("title"),
+                    "citation_title": props.get("citation_title"),
+                    "short_title": props.get("short_title"),
+                }
+            )
+        return rows
 
     def get_node(self, collection: str, key: str) -> Node | None:
         docs = self._instruments if collection == "instruments" else self._articles
@@ -84,6 +86,16 @@ class _FakeStore(_BaseFakeStore):
         created = key not in self.edges
         self.edges[key] = dict(doc)
         return self.edges[key], created
+
+
+@pytest.fixture(autouse=True)
+def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The alias queries and the EU articles answer from the fake store."""
+    for name in ("code_alias_rows", "instrument_alias_rows"):
+        monkeypatch.setattr(semantic_bwb, name, lambda store: iter(store.alias_rows()))
+    monkeypatch.setattr(
+        semantic_eu, "eu_articles", lambda store: iter(list(store._documents))
+    )
 
 
 def test_detect_eu_citations_richtlijn_article() -> None:

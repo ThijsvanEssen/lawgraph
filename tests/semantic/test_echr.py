@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline, convention_articles
 
 
@@ -33,9 +34,7 @@ def test_the_articles_and_their_paragraphs(
     assert convention_articles(labels) == expected
 
 
-def test_without_judgments_nothing_is_written() -> None:
-    class _Store:
-        def query(self, aql: str, bind_vars: dict | None = None) -> list[Any]:
-            return []
+def test_without_judgments_nothing_is_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(semantic_rechtspraak, "echr_judgments", lambda store: iter([]))
 
-    assert ECHRSemanticPipeline(store=_Store()).run().created == 0
+    assert ECHRSemanticPipeline(store=object()).run().created == 0

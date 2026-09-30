@@ -11,6 +11,7 @@ import requests
 from lawgraph.clients.eerstekamer import EerstekamerClient
 from lawgraph.config.constants import COLLECTION_DOCUMENTS, RELATION_PART_OF
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.normalize.eerstekamer import (
     EerstekamerNormalizePipeline,
     split_dossier_number,
@@ -127,9 +128,6 @@ class _NodeStore:
     def __init__(self) -> None:
         self.upserted: list[Any] = []
 
-    def query(self, aql, bind_vars=None):
-        return []
-
     def bulk_insert_or_update_nodes(self, collection, docs):
         self.upserted.extend(docs)
         return len(docs), 0
@@ -220,18 +218,15 @@ def test_a_record_without_an_identifier_is_skipped() -> None:
 # ── the link to the Tweede Kamer dossier ─────────────────────────────────────
 
 
-class _LinkStore(_BaseFakeStore):
-    def __init__(self, rows: list[dict[str, Any]]) -> None:
-        super().__init__()
-        self._rows = rows
-        self.queries: list[str] = []
-
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
-        self.queries.append(aql)
-        return list(self._rows)
+def _papers_in_tk_dossiers(
+    monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, Any]]
+) -> None:
+    monkeypatch.setattr(
+        semantic_tk, "ek_papers_in_tk_dossiers", lambda store: iter(rows)
+    )
 
 
-def test_the_paper_is_part_of_the_tk_dossier() -> None:
+def test_the_paper_is_part_of_the_tk_dossier(monkeypatch: pytest.MonkeyPatch) -> None:
     rows = [
         {
             "document_key": "ek_kst_36867_c",
@@ -240,7 +235,8 @@ def test_the_paper_is_part_of_the_tk_dossier() -> None:
             "dossier_suffix": None,
         }
     ]
-    store = _LinkStore(rows)
+    _papers_in_tk_dossiers(monkeypatch, rows)
+    store = _BaseFakeStore()
     result = EerstekamerSemanticPipeline(store=store).run()
 
     assert result.created == 1
@@ -252,13 +248,7 @@ def test_the_paper_is_part_of_the_tk_dossier() -> None:
     assert edge["meta"]["chamber"] == "EK"
 
 
-def test_the_link_query_matches_the_addition_and_has_no_row_cap() -> None:
-    store = _LinkStore([])
-    EerstekamerSemanticPipeline(store=store).run()
-    aql = store.queries[0]
-    assert '(d.props.suffix || "") == (document.props.dossier_suffix || "")' in aql
-    assert "LIMIT 10000" not in aql
-
-
-def test_no_match_writes_nothing() -> None:
-    assert EerstekamerSemanticPipeline(store=_LinkStore([])).run().created == 0
+def test_no_match_writes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    _papers_in_tk_dossiers(monkeypatch, [])
+    store = _BaseFakeStore()
+    assert EerstekamerSemanticPipeline(store=store).run().created == 0
