@@ -68,7 +68,7 @@ def test_env_example_lists_only_variables_that_are_read() -> None:
 
 
 def test_view_comparison_ignores_server_defaults_and_analyzer_order() -> None:
-    from lawgraph.db.schema import _indexed_fields
+    from lawgraph.db.schema_arango import _indexed_fields
 
     def link(analyzers: list[str], **server_defaults: object) -> dict:
         fields = {"props": {"fields": {"name": {"analyzers": analyzers}}}}
@@ -82,7 +82,7 @@ def test_view_comparison_ignores_server_defaults_and_analyzer_order() -> None:
 
 
 def test_a_dotted_view_field_indexes_a_field_of_every_element_of_an_array() -> None:
-    from lawgraph.db.schema import _indexed_fields, _nested_fields
+    from lawgraph.db.schema_arango import _indexed_fields, _nested_fields
 
     spec = {"heading": ["text_nl"], "breadcrumb.title": ["text_nl"]}
     nested = _nested_fields(spec)

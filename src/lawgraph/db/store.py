@@ -46,7 +46,7 @@ from lawgraph.db.payloads import (
     encode,
     open_payload_store,
 )
-from lawgraph.db.schema import ensure_schema
+from lawgraph.db.schema_arango import ensure_schema
 
 logger = get_logger(__name__)
 

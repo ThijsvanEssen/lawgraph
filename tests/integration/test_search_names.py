@@ -27,7 +27,7 @@ from lawgraph.db.queries.search import (
     SCORE_WORDS,
     search_all,
 )
-from lawgraph.db.schema import _VIEW_SPECS, _indexed_fields, _nested_fields
+from lawgraph.db.schema_arango import _VIEW_SPECS, _indexed_fields, _nested_fields
 from tests.integration.seed import wait_for_views
 
 SR = "BWBR0001854"
