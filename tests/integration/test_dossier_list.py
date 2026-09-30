@@ -42,38 +42,36 @@ DOSSIERS = [
         "36264",
         "",
         title=TITLE,
-        track_kind="wetsvoorstel",
+        kind="Wetgeving",
         opened_on="2023-01-10",
         closed=True,
         closed_on="2026-06-26",
         outcome="aangenomen",
     ),
-    _dossier(
-        "37020", "", title="Miljoenennota", track_kind="nota", opened_on="2026-09-15"
-    ),
+    _dossier("37020", "", title="Miljoenennota", kind=None, opened_on="2026-09-15"),
     _dossier(
         "37020",
         "XV",
         title="Begroting SZW",
-        track_kind="begroting",
+        kind="Begroting",
         opened_on="2026-09-15",
     ),
     _dossier(
         "37020",
         "IIA",
         title="Begroting Staten-Generaal",
-        track_kind="begroting",
+        kind="Begroting",
         opened_on="2026-09-15",
     ),
     _dossier(
         "35000",
         "",
-        title="Ingetrokken wet",
-        track_kind="wetsvoorstel",
+        title="Verworpen wet",
+        kind="Wetgeving",
         opened_on="2018-01-01",
         closed=True,
         closed_on="2019-01-01",
-        outcome="ingetrokken",
+        outcome="verworpen",
     ),
 ]
 
@@ -98,7 +96,8 @@ def test_every_dossier_can_be_listed_found_and_ordered(database: str) -> None:
         budget = _get(client, "/api/dossiers", number="37020")
         by_title = _get(client, "/api/dossiers", sort="title", limit=2)
         still_open = _get(client, "/api/dossiers", status="open")
-        bad = client.get("/api/dossiers", params={"has_stage": "nope"}).status_code
+        bad = client.get("/api/dossiers", params={"has_phase": "nope"}).status_code
+        budgets = _get(client, "/api/dossiers", kind="Begroting")
     finally:
         app.dependency_overrides.pop(get_store, None)
 
@@ -126,3 +125,9 @@ def test_every_dossier_can_be_listed_found_and_ordered(database: str) -> None:
     assert by_title["total"] == 5
     assert still_open["total"] == 3
     assert bad == 422
+    assert budgets["total"] == 2
+    assert {f["value"]: f["count"] for f in budgets["facets"]["kind"]} == {
+        "Begroting": 2,
+        "Wetgeving": 2,
+        None: 1,
+    }

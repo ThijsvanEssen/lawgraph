@@ -137,7 +137,8 @@ def _build_relationship_dtos(
         "One row per passage: a judgment and the paragraph in it that cites the article, "
         "with the lid, onderdeel or aanhef it names, a snippet and the confidence of the "
         "detection. Newest judgment first. `court` (ECLI court code), `tier` and `lid` "
-        "(a lid number the passage names) filter; `total` counts all passages that match. "
+        "(a lid number the passage names) filter; `total` counts all passages that match, "
+        "`judgment_total` the judgments they are in. "
         "404 when the article is unknown."
     ),
     tags=["articles"],
@@ -169,7 +170,7 @@ def get_article_cited_by_passages(
     article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
     if not store.has_node(COLLECTION_ARTICLES, parse_arango_id(article_id)[1]):
         raise HTTPException(status_code=404, detail="Article not found")
-    rows, total = get_article_cited_by(
+    cited_by = get_article_cited_by(
         store,
         article_id,
         court=court,
@@ -178,8 +179,15 @@ def get_article_cited_by_passages(
         limit=limit,
         offset=offset,
     )
-    items = [item for row in rows if (item := ArticleCitedByItem.from_row(row))]
-    return ArticleCitedByResponse(article_id=article_id, items=items, total=total)
+    items = [
+        item for row in cited_by.rows if (item := ArticleCitedByItem.from_row(row))
+    ]
+    return ArticleCitedByResponse(
+        article_id=article_id,
+        items=items,
+        total=cited_by.total,
+        judgment_total=cited_by.judgment_total,
+    )
 
 
 @router.get(

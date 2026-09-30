@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import replace
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -83,6 +83,14 @@ def scope_filters(
             max_length=200,
         ),
     ] = None,
+    chamber: Annotated[
+        Literal["TK", "EK"] | None,
+        Query(
+            description="``EK``: the votes of the Eerste Kamer; ``TK``: the events of the "
+            "Tweede Kamer (its papers, votes and commitments). Publications and "
+            "commencements belong to neither."
+        ),
+    ] = None,
 ) -> FeedFilters:
     """The filters of every feed route but its dates."""
     return FeedFilters(
@@ -93,6 +101,7 @@ def scope_filters(
         member=member or None,
         faction=faction or None,
         q=(q or "").strip() or None,
+        chamber=chamber,
     )
 
 
@@ -231,6 +240,7 @@ _KIND_PLURALS = {
     "inwerkingtreding": "inwerkingtredingen",
     "Brief regering": "brieven van de regering",
 }
+_CHAMBERS = {"TK": "Tweede Kamer", "EK": "Eerste Kamer"}
 _SITE_PARAMETERS = {
     "kinds": "soort",
     "since": "van",
@@ -241,6 +251,7 @@ _SITE_PARAMETERS = {
     "member": "persoon",
     "faction": "fractie",
     "q": "q",
+    "chamber": "kamer",
 }
 
 
@@ -273,6 +284,8 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
     """``Concordans``, and what the filters keep: ``Concordans: moties, dossier 36600``. A
     person and a faction are named as the page names them."""
     parts = []
+    if filters.chamber:
+        parts.append(_CHAMBERS[filters.chamber])
     if filters.kinds:
         parts.append(" en ".join(_KIND_PLURALS[kind] for kind in filters.kinds))
     if filters.dossier:

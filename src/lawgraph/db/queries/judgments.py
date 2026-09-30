@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
+    RELATION_SAME_AS,
     TEXT_ANALYZER,
 )
 from lawgraph.core.identifiers import find_eclis
@@ -33,7 +34,10 @@ class JudgmentArticleRelation:
 class JudgmentDetailData:
     judgment: dict[str, Any]
     articles: list[JudgmentArticleRelation]
+    # the judgments it cites (REFERS_TO), as slim documents
     cited_judgments: list[dict[str, Any]] = field(default_factory=list)
+    # the other publications of the same decision (SAME_AS, either way), as slim documents
+    same_as: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     # the other judgments of its series (``props.series_id``), as slim documents
     series: list[dict[str, Any]] = field(default_factory=list)
@@ -93,6 +97,12 @@ def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetail
     return JudgmentDetailData(
         judgment=judgment_doc,
         articles=article_relations,
+        cited_judgments=_linked_judgments(
+            store, judgment_doc["_id"], RELATION_REFERS_TO, both_ways=False
+        ),
+        same_as=_linked_judgments(
+            store, judgment_doc["_id"], RELATION_SAME_AS, both_ways=True
+        ),
         metadata=metadata,
         series=[
             doc
@@ -102,6 +112,39 @@ def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetail
         if series_id
         else [],
     )
+
+
+def _linked_judgments(
+    store: ArangoStore, judgment_id: str, relation: str, *, both_ways: bool
+) -> list[dict[str, Any]]:
+    """The judgments an edge of *relation* leads to from *judgment_id* (and, *both_ways*,
+    leads from to it), each with its ``_id``, ``_key`` and the ``display_name`` and
+    ``ecli`` of its props, newest first. Joined through the primary index: a judgment is
+    its text, and ``DOCUMENT()`` would read it whole."""
+    aql = f"""
+    LET targets = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._from == @jid AND e.relation == @relation
+            FILTER STARTS_WITH(e._to, '{COLLECTION_JUDGMENTS}/')
+            RETURN e._to
+    )
+    LET sources = @both_ways ? (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == @jid AND e.relation == @relation
+            RETURN e._from
+    ) : []
+    FOR id IN UNION_DISTINCT(targets, sources)
+        FOR j IN {COLLECTION_JUDGMENTS}
+            FILTER j._id == id
+            SORT j.props.date_eff DESC, j.props.ecli
+            RETURN {{
+                _id: j._id,
+                _key: j._key,
+                props: {{ display_name: j.props.display_name, ecli: j.props.ecli }}
+            }}
+    """
+    bind = {"jid": judgment_id, "relation": relation, "both_ways": both_ways}
+    return list(store.query(aql, bind))
 
 
 def get_series_members(store: ArangoStore, series_id: str) -> list[dict[str, Any]]:
@@ -158,6 +201,9 @@ def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> dict[st
     if not filters.include_stubs:
         # a judgment known only because something cites it: no date, court or text
         clauses["stubs"] = "FILTER doc.props.stub != true"
+    if not filters.ecli:
+        # a publication of a decision that another one replaces: the decision is listed once
+        clauses["duplicates"] = "FILTER doc.props.same_as == null"
     if filters.ecli:
         clauses["ecli"] = "FILTER doc.props.ecli == @ecli"
         bind["ecli"] = filters.ecli
@@ -290,6 +336,7 @@ def get_judgments_list(
                 source: props.source,
                 subjects: props.subjects,
                 inbound_citation_count: props.inbound_citation_count,
+                outbound_citation_count: props.outbound_citation_count,
                 series_id: props.series_id,
                 series_size: props.series_size
             }}
@@ -326,12 +373,15 @@ def get_judgments_list(
     )
     """
 
-    # Total: cheap when unfiltered (the collection count, less the stubs by their sparse
-    # index); otherwise a separate count-only pass that never materialises documents.
-    if not tokens and set(clauses) == {"stubs"}:
+    # Total: cheap when unfiltered (the collection count, less the stubs and the replaced
+    # publications, each by its index); otherwise a separate count-only pass that never
+    # materialises documents.
+    if not tokens and set(clauses) == {"stubs", "duplicates"}:
         aql += f"""
     LET total = COLLECTION_COUNT('{COLLECTION_JUDGMENTS}') - LENGTH(
         FOR doc IN {COLLECTION_JUDGMENTS} FILTER doc.props.stub == true RETURN 1
+    ) - LENGTH(
+        FOR doc IN {COLLECTION_JUDGMENTS} FILTER doc.props.same_as != null RETURN 1
     )
     """
     elif tokens or clauses:

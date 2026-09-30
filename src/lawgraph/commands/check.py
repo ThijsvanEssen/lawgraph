@@ -114,6 +114,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
         _check_edges(store, report)
     _check_views(store, report)
     _check_derived(store, report)
+    _check_treaties(store, report)
     _check_papers(store, raw, report)
     _check_cases(store, report)
     _check_curated(store, report)
@@ -266,6 +267,26 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
         )
     else:
         report.note("derived: every BWB regulation carries its basis and EU acts")
+
+
+def _check_treaties(store: ArangoStore, report: Report) -> None:
+    """A BWB treaty names its Verdragenbank id (``treaty_number``), which joins it to its
+    Verdragenbank record; a treaty normalized before it was read carries none."""
+    counts = checks.bwb_treaties_by_match(store)
+    total = sum(counts.values())
+    if not total:
+        return
+    if counts.get("unnumbered") == total:
+        report.problem(
+            f"none of the {total:,} BWB treaties carries its treaty number. Run "
+            "`lawgraph normalize bwb`."
+        )
+        return
+    report.note(
+        f"treaties: {counts.get('matched', 0):,} of {total:,} BWB treaties have a "
+        f"Verdragenbank record, {counts.get('unmatched', 0):,} name a number it does not "
+        f"have, {counts.get('unnumbered', 0):,} name none"
+    )
 
 
 def _check_papers(

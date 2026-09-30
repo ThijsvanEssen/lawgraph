@@ -100,6 +100,13 @@ VERDRAGENBANK_SRU_ENDPOINT = os.getenv(
     "VERDRAGENBANK_SRU", "https://repository.overheid.nl/sru"
 )
 RIJKSOVERHEID_BASE = os.getenv("RIJKSOVERHEID_BASE", "https://www.rijksoverheid.nl")
+# The website of the Eerste Kamer: its list of votes on bills and of rejected bills.
+EERSTEKAMER_SITE = os.getenv("EERSTEKAMER_SITE", "https://www.eerstekamer.nl")
+# How the API names the Eerste Kamer as the source of what it takes over from its website
+# (its terms allow reuse with the source and the day it was taken over).
+EK_ATTRIBUTION = os.getenv(
+    "EK_ATTRIBUTION", "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+)
 TOOI_BASE = os.getenv("TOOI_BASE", "https://identifier.overheid.nl")
 
 # ── Pipelines ─────────────────────────────────────────────────────────────────

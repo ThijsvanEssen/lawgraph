@@ -87,12 +87,15 @@ def extract_judgment_text(root: ET.Element) -> tuple[str | None, str | None]:
         summary = None
     if summary:
         summary = summary.replace(LINE_BREAK, "\n")
-    parts = [
-        text_of(el, " ").replace(LINE_BREAK, "\n")
-        for el in iter_named(root, "uitspraak")
-    ]
+    parts = [text_of(el, " ").replace(LINE_BREAK, "\n") for el in _bodies(root)]
     full_text = "\n\n".join(p for p in parts if p) or None
     return summary, full_text
+
+
+def _bodies(root: ET.Element) -> list[ET.Element]:
+    """The ``<uitspraak>`` elements of a judgment, or the ``<conclusie>`` of a conclusion of
+    an advocate-general (which has no ``<uitspraak>``)."""
+    return list(iter_named(root, "uitspraak")) or list(iter_named(root, "conclusie"))
 
 
 def body_text(root: ET.Element) -> str:
@@ -147,6 +150,8 @@ _METADATA_FIELDS = {
     "zaaknummer": "case_number",
     "procedure": "type",
     "type": "document_type",  # dcterms:type: "Uitspraak" or "Conclusie"
+    # the publication of the same decision that replaces this one ("Vervangen door")
+    "isReplacedBy": "replaced_by",
 }
 
 DOCUMENT_TYPE_CONCLUSION = "Conclusie"
@@ -158,6 +163,14 @@ PROCEDURE_PRELIMINARY_RULING = "Prejudiciële beslissing"
 CONCLUSION_BENCH = {"PHR": "HR"}
 # Courts that publish nothing but conclusions.
 CONCLUSION_ONLY_COURTS = frozenset(CONCLUSION_BENCH)
+
+
+def replacing_ecli(value: str | None) -> str | None:
+    """The ECLI of ``dcterms:isReplacedBy``: the publication of the same decision that
+    replaces this one (an arrest published again under a new ECLI). None when it names
+    none, or no ECLI."""
+    ecli = (value or "").strip().upper()
+    return ecli if ecli.startswith("ECLI:") else None
 
 
 def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
@@ -685,8 +698,9 @@ def _read_kop(uitspraak: ET.Element) -> tuple[list[str], set[int]]:
 
 
 def kop_lines(root: ET.Element) -> list[str]:
-    """The lines of the kop of the first ``<uitspraak>`` (see ``_read_kop``)."""
-    uitspraak = first_named(root, "uitspraak")
+    """The lines of the kop of the first ``<uitspraak>`` or ``<conclusie>`` (see
+    ``_read_kop``)."""
+    uitspraak = next(iter(_bodies(root)), None)
     return _read_kop(uitspraak)[0] if uitspraak is not None else []
 
 
@@ -774,7 +788,8 @@ class _Sections:
 
 
 def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
-    """The paragraphs of the first ``<uitspraak>``: ``{id, number, kind, text}`` each.
+    """The paragraphs of the first ``<uitspraak>`` (or ``<conclusie>``): ``{id, number, kind,
+    text}`` each.
 
     ``kind`` is ``heading`` (a section or a bridgehead), ``subheading`` (a nested one, or
     the kop) or ``body``. The kop (``_read_kop``), when the judgment has one, is the first
@@ -790,7 +805,7 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     ``_<n>``, its occurrence (``rov-1_2``: the judgments of some courts number their
     procedure and their considerations from 1 each).
     """
-    uitspraak = first_named(root, "uitspraak")
+    uitspraak = next(iter(_bodies(root)), None)
     if uitspraak is None:
         return []
     lines, kop = _read_kop(uitspraak)

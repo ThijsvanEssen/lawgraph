@@ -20,7 +20,9 @@ judgments
     props.court_kind     — the kind of court within the tier ('ambtenarengerecht',
                            'gerecht_in_eerste_aanleg'; a tier of one kind: the tier)
     props.date_eff       — effective judgment date
-    props.inbound_citation_count — count of inbound REFERS_TO edges
+    props.inbound_citation_count — the judgments that cite it (REFERS_TO), or a
+                           publication of the same decision it keeps (SAME_AS), each once
+    props.outbound_citation_count — the judgments it cites (REFERS_TO)
     props.decision_kind  — of a judgment without one (a stub): the kind its kind of
                            court gives (``core.judgments.KIND_OF_COURT_KIND``)
     props.names          — of a stub: its names in ``core.judgment_names``

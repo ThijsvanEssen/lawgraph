@@ -210,7 +210,7 @@ def _the_api_shows_the_relations_with_their_direction(client: TestClient) -> Non
     ]
     assert change["relations"][0]["rule"] == "begrotingswijziging"
     assert change["relations"][1]["nota"] == "miljoenennota"
-    assert change["track"] == "begroting" and change["same_number_count"] == 2
+    assert change["kind"] == "Begroting" and change["same_number_count"] == 2
 
     budget = _get(client, "/api/dossiers/36800-XXII")
     assert _relations(budget) == [
@@ -221,7 +221,7 @@ def _the_api_shows_the_relations_with_their_direction(client: TestClient) -> Non
     assert (related["cases"], related["case_kinds"]) == (1, ["Brief regering → Motie"])
 
     nota = _get(client, "/api/dossiers/37020")
-    assert nota["track"] == "nota"
+    assert nota["kind"] is None
     assert [(r, d) for r, d, _ in _relations(nota)] == [("accompanies", "incoming")] * 3
 
     # The node response has the same edges, with their direction.

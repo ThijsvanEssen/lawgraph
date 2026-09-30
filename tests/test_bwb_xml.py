@@ -371,3 +371,23 @@ def test_a_numbered_article_keeps_the_title_of_its_kop_as_its_heading() -> None:
     assert props["breadcrumb"] == [
         {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Algemene bepalingen"}
     ]
+
+
+def test_a_treaty_names_its_verdragenbank_id() -> None:
+    """``wetgeving@verdragnummer`` is the id of the treaty in the Verdragenbank."""
+    from lawgraph.core.bwb_xml import instrument_props, parse_toestand
+
+    treaty = parse_toestand(
+        '<toestand bwb-id="BWBV0001000" inwerkingtreding="1998-11-01">'
+        '<wetgeving soort="verdrag" verdragnummer="005132"><intitule>Verdrag tot '
+        "bescherming van de rechten van de mens</intitule></wetgeving></toestand>"
+    )
+    law = parse_toestand(
+        '<toestand bwb-id="BWBR0001854" inwerkingtreding="2020-01-01">'
+        '<wetgeving soort="wet"><intitule>Wetboek van Strafrecht</intitule></wetgeving>'
+        "</toestand>"
+    )
+    assert treaty.treaty_number == "005132"
+    assert instrument_props(treaty, "BWBV0001000")["treaty_number"] == "005132"
+    assert law.treaty_number is None
+    assert "treaty_number" not in instrument_props(law, "BWBR0001854")

@@ -191,7 +191,14 @@ def recorded(monkeypatch) -> dict[str, list[str]]:
     return argvs
 
 
-PRODUCING = ("tk", "rechtspraak", "staatscourant", "eerstekamer", "echr")
+PRODUCING = (
+    "tk",
+    "rechtspraak",
+    "staatscourant",
+    "eerstekamer",
+    "eerstekamer-votes",
+    "echr",
+)
 
 
 def test_the_window_reaches_the_sources_that_keep_producing(
@@ -314,6 +321,7 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("staatsblad", koop, ("bwb",)),
         ("staatscourant", koop, ()),
         ("eerstekamer", koop, ()),
+        ("eerstekamer-votes", "eerstekamer-votes", ()),
         ("echr", "echr", ()),
         ("verdragenbank", koop, ()),
         ("tooi", "tooi", ()),
@@ -356,7 +364,7 @@ def test_bootstrap_loads_a_two_year_window(monkeypatch) -> None:
         "--window",
         "730d",
         "--jobs",
-        "8",  # one job per server
+        "9",  # one job per server
     ]
 
 
@@ -428,7 +436,7 @@ def test_by_default_every_server_has_its_own_job() -> None:
     from lawgraph.pipelines.orchestration import DEFAULT_RETRIEVE_JOBS
 
     lanes = {p.lane_id for p in registry.PIPELINES["retrieve"]}
-    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 8
+    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 9
 
 
 def test_an_interrupt_stops_the_other_lanes_too() -> None:

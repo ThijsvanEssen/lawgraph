@@ -359,6 +359,10 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_JUDGMENTS, ["props.case_number_keys[*]"], False, False),
         # the judgments of one series (``semantic rechtspraak-series``)
         (COLLECTION_JUDGMENTS, ["props.series_id"], False, True),
+        # the publications a later one replaces, and those SAME_AS the one kept
+        # (``semantic rechtspraak-duplicates``); the lists leave the latter out
+        (COLLECTION_JUDGMENTS, ["props.replaced_by"], False, True),
+        (COLLECTION_JUDGMENTS, ["props.same_as"], False, True),
         # What `/api/stats` counts per value is not sparse, so the count walks the index
         # and sees the documents without a value too; sparse, each count read every document.
         # It holds the tier, the kind of court and the date for the facets of
@@ -371,6 +375,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
                 "props.tier",
                 "props.court_kind",
                 "props.stub",
+                "props.same_as",
             ],
             False,
             False,
@@ -402,8 +407,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_INSTRUMENTS, ["props.article_count"], False, False),
         # `/api/judgments` counts per tier, per kind of court, per source and per year of
         # `date_eff` under the filters (`queries/judgments.py`): each filter's index holds
-        # all four and `stub` (the list leaves the stubs out), so a count reads the index
-        # alone, not the judgments.
+        # all four, `stub` and `same_as` (the list leaves the stubs and the replaced
+        # publications out), so a count reads the index alone, not the judgments.
         (
             COLLECTION_JUDGMENTS,
             [
@@ -412,6 +417,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
                 "props.date_eff",
                 "props.stub",
                 "props.source",
+                "props.same_as",
             ],
             False,
             False,
@@ -425,6 +431,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
                 "props.court_kind",
                 "props.stub",
                 "props.source",
+                "props.same_as",
             ],
             False,
             False,
@@ -437,6 +444,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
                 "props.court_kind",
                 "props.stub",
                 "props.source",
+                "props.same_as",
             ],
             False,
             False,
@@ -444,7 +452,13 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         # `/api/judgments?court_kind=` and its facets
         (
             COLLECTION_JUDGMENTS,
-            ["props.court_kind", "props.date_eff", "props.stub", "props.source"],
+            [
+                "props.court_kind",
+                "props.date_eff",
+                "props.stub",
+                "props.source",
+                "props.same_as",
+            ],
             False,
             False,
         ),
@@ -457,6 +471,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_INSTRUMENTS, ["props.stub"], False, True),
         # Title-sort key for /api/instruments default list.
         (COLLECTION_INSTRUMENTS, ["props.citation_title"], False, False),
+        # one treaty in the BWB and in the Verdragenbank (`same_treaty` of an instrument)
+        (COLLECTION_INSTRUMENTS, ["props.treaty_number"], False),
         (COLLECTION_DOCUMENTS, ["props.kind"], False),
         (COLLECTION_DOCUMENTS, ["props.date"], False),
         (COLLECTION_DOCUMENTS, ["props.dossier_number"], False),
@@ -503,6 +519,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         (COLLECTION_EDGES, ["status", "relation"], False),
         # edges confidence — for semantic filtering by confidence threshold
         (COLLECTION_EDGES, ["confidence"], False),
+        # the TK records an edge is made of (a vote, a seat), which a deleted one takes along
+        (COLLECTION_EDGES, ["meta.record_ids[*]"], False),
         # Semantic relationship type layer — equality filters only, so sparse
         # is fine and skips the (large) majority of unclassified edges.
         (COLLECTION_EDGES, ["semantic_type"], False),

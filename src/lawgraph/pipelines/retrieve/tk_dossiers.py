@@ -4,6 +4,7 @@ Fetches and stores raw records for:
   - Kamerstukdossier
   - Activiteit (debates/hearings)
   - Stemming (votes, one record per fractie per motion)
+  - Besluit "Stemmen - ..." on a bill or a budget, also without a vote (a hamerstuk)
   - Toezegging (ministerial commitments)
   - Commissie (parliamentary committees)
   - Persoon (parliamentary members)
@@ -22,6 +23,7 @@ from typing import Any
 from lawgraph.clients.tk import TKClient
 from lawgraph.config.constants import (
     RAW_KIND_TK_ACTIVITEIT,
+    RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
@@ -32,6 +34,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
+from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
@@ -70,14 +73,15 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
         Args:
             since: Only fetch records modified since this datetime.
                    Pass None for a full refresh.
-            decisions_since: Override ``since`` for Stemming only.
+            decisions_since: Override ``since`` for Stemming and Besluit only.
                    Use to limit the very large Stemming dataset to a window.
             documents_since: Override ``since`` for Document only.
                    Recommended: pass '730d' (2 years) as a starting window;
                    a full fetch is ~400K+ records.
             skip_members: Skip the Persoon and Fractie fetches (slow, only
                 needed periodically).
-            skip_decisions: Skip the Stemming fetch entirely.
+            skip_decisions: Skip the Stemming fetch, and that of the Besluiten on bills,
+                entirely.
             skip_documents: Skip the Document (Kamerstuk) fetch entirely.
             dossier_number: Targeted backfill — fetch only the Kamerstukdossier
                 with this number and the Documents that link to it, ignoring
@@ -130,6 +134,14 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                 RAW_KIND_TK_STEMMING,
                 "Id",
                 lambda: self.client.fetch_stemmingen(since=vote_since),
+            )
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_BESLUIT,
+                "Id",
+                lambda: self.client.fetch_bill_decisions(
+                    LEGISLATIVE_KINDS, since=vote_since
+                ),
             )
         self._fetch_and_store(
             result,

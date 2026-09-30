@@ -213,6 +213,14 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "(`referral_text`).",
     ),
     RelationSpec(
+        "SAME_AS",
+        (_J,),
+        (_J,),
+        "A publication of a decision → the publication of the same decision that replaces "
+        "it (an old arrest published again under a new ECLI): the ECLI its metadata names "
+        "as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept.",
+    ),
+    RelationSpec(
         "SCOPED_BY",
         (_A,),
         (_ANNEX,),

@@ -297,6 +297,8 @@ class BasisRef:
 class ToestandXml:
     bwb_id: str | None
     kind: str | None  # wetgeving@soort: wet, amvb, …
+    # wetgeving@verdragnummer of a treaty: its Verdragenbank id, six digits ("005132")
+    treaty_number: str | None
     title: str | None  # citation title, else the official title
     official_title: str | None
     citation_title: str | None
@@ -884,6 +886,9 @@ def parse_toestand(xml_text: str) -> ToestandXml:
     return ToestandXml(
         bwb_id=root.get("bwb-id"),
         kind=wetgeving.get("soort") if wetgeving is not None else None,
+        treaty_number=(wetgeving.get("verdragnummer") or None)
+        if wetgeving is not None
+        else None,
         title=_title(root, "citeertitel") or _title(root, "intitule"),
         official_title=_title(root, "intitule"),
         citation_title=_title(root, "citeertitel"),
@@ -961,6 +966,7 @@ def instrument_props(
             "citation_title": toestand.citation_title,
             "display_name": title,
             "kind": toestand.kind,
+            "treaty_number": toestand.treaty_number,
             "jurisdiction": "nl",
             "version_date_in_force": toestand.valid_from,
         }

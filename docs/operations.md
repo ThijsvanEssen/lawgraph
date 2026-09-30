@@ -50,6 +50,8 @@ All default to the public endpoints; no key is required.
 | `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
 | `VERDRAGENBANK_SRU` | `https://repository.overheid.nl/sru` |
 | `RIJKSOVERHEID_BASE` | `https://www.rijksoverheid.nl` |
+| `EERSTEKAMER_SITE` | `https://www.eerstekamer.nl` |
+| `EK_ATTRIBUTION` | `Eerste Kamer der Staten-Generaal, www.eerstekamer.nl`: how the API names the source of what it takes over from eerstekamer.nl (`ek_outcome.attribution`), next to the page and the day |
 | `TOOI_BASE` | `https://identifier.overheid.nl` |
 
 ### Pipelines
@@ -111,6 +113,7 @@ and exits 1 when any of them failed.
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--max-records` |
 | `retrieve eerstekamer` | `--mode`, `--since`, `--max-records` |
+| `retrieve eerstekamer-votes` | `--mode` (`full`: the whole list of votes, 106 pages), `--since` (the days of votes from then on; the list of rejected bills is read whole every run) |
 | `retrieve verdragenbank` | `--mode full\|gaps`, `--max-records` |
 
 ### normalize
@@ -143,7 +146,8 @@ passed to the pipelines that accept it and the others run in full.
 
 The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
 `bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-appeal`,
-`rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-citations`, `rechtspraak-series`,
+`rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-duplicates`,
+`rechtspraak-citations`, `rechtspraak-series`,
 `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-dossier-relations`, `tk-mvt`,
 `tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-outcomes`, `tk-government`,
 `graph-list-stats`.
@@ -160,8 +164,8 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph code-families build\|check [--output FILE]` | builds `src/lawgraph/data/code_families.json` (the codes whose books are regulations of their own: `BW`) from the stored WTI records and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve bwb` and commit the file |
 | `lawgraph courts build\|check [--output FILE]` | builds `src/lawgraph/data/courts.json` from the stored Instanties list of the Rechtspraak and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve rechtspraak-instanties`, commit the file, and run `semantic graph-list-stats` when a tier or kind changed |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-dossiers`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
-| `lawgraph curated list [LIST]`, `check [LIST] [--db]`, `set LIST KEY [JSON] [--after KEY \| --first]`, `remove LIST KEY` | the lists kept by hand in `src/lawgraph/data/curated/` (`core/curated.py`): party colours, the seating plan of the plenary hall (after the plan of the Tweede Kamer, with its url and date), the names of landmark judgments, the kinds of decision, the courts outside the value list, the ministry keys, order, successions and aliases. `set` writes a change only when the list stays in order; commit what it changes |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks (and checks the curated lists, `lawgraph curated check --db`: also a seated faction the seating plan does not place, and a faction whose number of seats differs from the plan's; a seat that changed after the plan is a note): does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph curated list [LIST]`, `check [LIST] [--db]`, `set LIST KEY [JSON] [--after KEY \| --first]`, `remove LIST KEY` | the lists kept by hand in `src/lawgraph/data/curated/` (`core/curated.py`): party colours, the seating plan of the plenary hall (after the plan of the Tweede Kamer, with its url and date), the phases of a bill (the one order the Kamer does not give, each phase with the exact values of the Kamer that mark it), the names of landmark judgments, the kinds of decision, the courts outside the value list, the ministry keys, order, successions and aliases. `set` writes a change only when the list stays in order; commit what it changes |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks (and checks the curated lists, `lawgraph curated check --db`: also a seated faction the seating plan does not place, and a faction whose number of seats differs from the plan's; a seat that changed after the plan, and a value of a phase no record in the database has, are notes): does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, how many BWB treaties have a Verdragenbank record by their `treaty_number` (none carrying one is a problem), do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
@@ -172,9 +176,9 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
 | Phase | Pipelines |
 |-------|-----------|
-| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
+| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
 | `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM` and `STAATSCOURANT_POSTS` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements` and `normalize rijksoverheid` read them) |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_DOSSIER_RELATIONS`, `GRAPH_LIST_STATS` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_DOSSIER_RELATIONS`, `GRAPH_LIST_STATS` |
 
 ## Runs
 
