@@ -29,6 +29,9 @@ from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
+from lawgraph.pipelines.normalize.eerstekamer_composition import (
+    EerstekamerCompositionNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.eerstekamer_votes import (
     EerstekamerVotesNormalizePipeline,
 )
@@ -46,6 +49,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_bwb_history,
     retrieve_echr,
     retrieve_eerstekamer,
+    retrieve_eerstekamer_composition,
     retrieve_eerstekamer_votes,
     retrieve_eurlex,
     retrieve_rechtspraak,
@@ -140,6 +144,9 @@ _CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR"}
 # Retrieve pipelines that share a server run one after the other.
 LANE_TWEEDE_KAMER = "tweede_kamer"
 LANE_KOOP_REPOSITORY = "koop_repository"  # repository.overheid.nl: SRU and publications
+LANE_EERSTEKAMER_SITE = (
+    "eerstekamer_site"  # www.eerstekamer.nl: its votes and composition
+)
 LANE_BWB = (
     "bwb"  # zoekservice.overheid.nl and repository.officiele-overheidspublicaties.nl
 )
@@ -391,6 +398,14 @@ RETRIEVE: list[Pipeline] = [
         "The votes of the Eerste Kamer on bills (since June 2015) and the list of the "
         "bills it rejected (since 1996), from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
+        lane=LANE_EERSTEKAMER_SITE,
+    ),
+    _pipeline(
+        retrieve_eerstekamer_composition,
+        "The factions (with their seats and boards) and committees of the Eerste Kamer "
+        "and who sits in them, as eerstekamer.nl shows them today.",
+        argv_for_all=_no_argv,
+        lane=LANE_EERSTEKAMER_SITE,
     ),
     _pipeline(
         retrieve_echr,
@@ -472,6 +487,11 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         EerstekamerNormalizePipeline,
         "Kamerstukken as documents, with the dossier number and its addition.",
+    ),
+    _pipeline(
+        EerstekamerCompositionNormalizePipeline,
+        "The factions, committees and members of the Eerste Kamer as its pages show them "
+        "on the day they were read; periods as observed.",
     ),
     _pipeline(
         EerstekamerVotesNormalizePipeline,

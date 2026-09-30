@@ -13,7 +13,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer`, `eerstekamer-votes` | `eerstekamer`, `eerstekamer-votes` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition` | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | none |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | `tk-government` |
@@ -839,6 +839,23 @@ list names a vote on a motion on a bill by the bill (33.348, 15 December 2015: t
 a motion rejected), which nothing on it tells apart. A rejected bill gives its dossier
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
 of that day rejects is logged.
+
+**Retrieve `eerstekamer-composition`.** The pages of eerstekamer.nl on who sits where today:
+`/fracties` (every faction with its seats), `/commissies` (every committee), and the page of each
+(`/fractie/<slug>`: its board and members; `/commissies/<slug>`: its members with faction and
+role), about 40 pages, one record each (`ek-composition-html`, external id the path, `read_on`).
+The site gives today's composition only, so every run reads it all: a snapshot.
+
+**Normalize `eerstekamer-composition`.** `core/eerstekamer_composition.py` reads the pages'
+structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
+<name> (sinds <date>)`), never a sentence. The snapshot is dated by the `read_on` of
+`/fracties`. A faction `ek_<slug>` with its seats and board, a committee `ek_<slug>`, and a
+member for every person on a faction page: the member of the Tweede Kamer born that day whose
+surname ends the name as the Eerste Kamer writes it, when exactly one is, else one of its own
+`ek_<slug>`; a member keeps the node it was first given. `MEMBER_OF` from the member to its
+faction and committees (`meta.chamber` `EK`, `role` in a committee). Periods are as observed:
+`observed_from` the day of the first snapshot that shows a faction, committee, membership or
+seat, `observed_until` the day of the first that no longer does.
 
 ## ECHR
 

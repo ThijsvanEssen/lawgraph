@@ -135,5 +135,10 @@ def test_the_api_shows_the_eerste_kamer(store: ArangoStore) -> None:
         assert {i["vote"]["chamber"] for i in feed["items"]} == {"EK"}
         # only the votes that decided a bill the graph holds: 36791 and 36880
         assert len(feed["items"]) == 2
+        assert {f["value"]: f["count"] for f in feed["facets"]["chamber"]} == {"EK": 2}
+        timeline = client.get("/api/dossiers/36791/timeline").json()["entries"]
+        vote = next(e for e in timeline if e["node_type"] == "decision")
+        assert (vote["body"]["chamber"], vote["body"]["result"]) == ("EK", "Aangenomen")
+        assert vote["body"]["method"] == "Stemming bij zitten en opstaan, aangenomen"
     finally:
         app.dependency_overrides.pop(get_store, None)

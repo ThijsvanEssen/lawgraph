@@ -88,6 +88,9 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
     "activity": ["kind", "agenda_title", "number", "status"],
     "decision": [
         "subject",
+        "chamber",
+        "result",
+        "method",
         "passed",
         "vote_kind",
         "tally",

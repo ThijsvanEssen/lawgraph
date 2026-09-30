@@ -35,6 +35,10 @@ class DossierPhaseDTO(BaseModel):
     name: str = Field(
         ..., description="The phase, as the curated list ``phases`` names it."
     )
+    chamber: Literal["TK", "EK"] = Field(
+        "TK",
+        description="The chamber of the phase: the bar is that of the Tweede Kamer.",
+    )
     done: bool = Field(
         ...,
         description="A paper, an activity that took place or a decision on the bill "
@@ -204,6 +208,19 @@ class TimelineDecisionBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     subject: str | None = None
+    chamber: Literal["TK", "EK"] = Field(
+        "TK",
+        description="The chamber that decided: ``EK`` for a vote of the Eerste Kamer.",
+    )
+    result: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: ``Aangenomen``, ``Verworpen`` as it shows it.",
+    )
+    method: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: how it was decided, as its report names it "
+        "(``Hamerstuk``, ``Stemming bij zitten en opstaan, aangenomen``).",
+    )
     passed: bool | None = None
     vote_kind: str | None = None
     tally: dict[str, int] = Field(default_factory=dict)
@@ -319,6 +336,9 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
     elif node_type == "decision":
         common["body"] = {
             "subject": body.get("subject"),
+            "chamber": body.get("chamber") or "TK",
+            "result": body.get("result"),
+            "method": body.get("method"),
             "passed": body.get("passed"),
             "vote_kind": body.get("vote_kind"),
             "tally": body.get("tally") or {},
