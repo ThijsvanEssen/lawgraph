@@ -207,7 +207,7 @@ def list_members(
         ek = get_ek_members(
             store, party=party, active=active, q=q, limit=limit, offset=offset
         )
-        return [MemberDTO.from_document(d) for d in ek]
+        return [_as_ek_member(MemberDTO.from_document(d)) for d in ek]
     docs = get_members(
         store,
         party=party,
@@ -465,6 +465,19 @@ def list_faction_touched_instruments(
 ) -> TouchedInstrumentsResponse:
     node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
     return _touched_instruments(store, node.arango_id or "", limit)
+
+
+def _as_ek_member(member: MemberDTO) -> MemberDTO:
+    """A member in the list of the Eerste Kamer: ``party`` the abbreviation of its faction
+    there, ``active`` whether the last snapshot shows it."""
+    if member.ek is None:
+        return member
+    return member.model_copy(
+        update={
+            "party": member.ek.abbreviation,
+            "active": member.ek.observed_until is None,
+        }
+    )
 
 
 def _node_or_404(store: ArangoStore, collection: str, key: str, label: str) -> Any:
