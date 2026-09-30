@@ -42,6 +42,7 @@ from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import (
     dossier_display_name,
+    opened_on,
     phase_props,
     select_title,
 )
@@ -425,8 +426,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         A dossier with no title of its own takes the first voorstel-van-wet or
         MvT title it links to, recording the provenance in ``title_source``.
         ``kind``, ``kind_basis``, ``phases`` and ``current_phase`` are those of
-        :func:`~lawgraph.core.dossier_stages.phase_props`. ``opened_on`` is the date of its
-        first document or activity.
+        :func:`~lawgraph.core.dossier_stages.phase_props`. ``opened_on`` is the date of
+        nr. 1 of its own numbering, else of its Koninklijke boodschap, else of its first
+        document or activity (``opened_on_basis`` says which).
         """
         nodes = _unique(dossier_nodes)
         if not nodes:
@@ -481,12 +483,14 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             activities,
             row.get("decisions") or [],
         )
-        dated = [d["date"] for d in docs + activities if d.get("date")]
-        opened_on = min(dated) if dated else row.get("opened_on")
+        day, basis = opened_on(
+            node.props.get("number"), node.props.get("suffix"), docs, activities
+        )
+        props["opened_on"] = day or row.get("opened_on")
+        props["opened_on_basis"] = basis if day else row.get("opened_on_basis")
 
         unchanged = all(node.props.get(name) == value for name, value in props.items())
         node.props.update(props)
-        node.props["opened_on"] = opened_on
         return 0 if unchanged else 1
 
 

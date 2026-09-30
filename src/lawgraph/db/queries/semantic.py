@@ -18,7 +18,9 @@ from lawgraph.config.constants import (
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_RAW_SOURCES,
     EXPLANATORY_KIND_MARKER,
+    RAW_KIND_EU_NIM,
     RELATION_ABOUT,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
@@ -31,6 +33,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
     SOURCE_ECHR,
     SOURCE_EERSTEKAMER,
+    SOURCE_EURLEX,
     SOURCE_RECHTSPRAAK,
     SOURCE_STAATSBLAD,
     SOURCE_STAATSCOURANT,
@@ -510,15 +513,73 @@ def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(aql)
 
 
-def celex_references(store: Store) -> Iterator[list[Any]]:
-    """``[bwb_id, celex_refs]`` of the BWB regulations that name an EU act."""
+def eu_references(store: Store) -> Iterator[dict[str, Any]]:
+    """``{bwb_id, named, implements}`` of the BWB regulations that name an EU act or whose
+    considerans says they implement one (CELEX numbers)."""
     aql = f"""
         FOR regulation IN {COLLECTION_INSTRUMENTS}
             FILTER regulation.props.source == @source
             FILTER LENGTH(regulation.props.celex_refs) > 0
-            RETURN [regulation.props.bwb_id, regulation.props.celex_refs]
+                OR LENGTH(regulation.props.implements_celex) > 0
+            RETURN {{
+                bwb_id: regulation.props.bwb_id,
+                named: regulation.props.celex_refs || [],
+                implements: regulation.props.implements_celex || []
+            }}
         """
     return store.query(aql, {"source": SOURCE_BWB})
+
+
+def national_measures(store: Store) -> Iterator[Any]:
+    """The national implementing measures of EUR-Lex as retrieved (``payload_json``)."""
+    aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind AND r.payload_json != null
+            RETURN r.payload_json
+        """
+    return store.query(aql, {"source": SOURCE_EURLEX, "kind": RAW_KIND_EU_NIM})
+
+
+def regulations_of_publications(
+    store: Store, publications: list[str]
+) -> Iterator[list[str]]:
+    """``[publication id, bwb_id]`` for every regulation one of *publications* enacted
+    (``props.enacted_publication``) or made a version of an article of (its origin)."""
+    aql = f"""
+        FOR pair IN UNION_DISTINCT(
+            (
+                FOR regulation IN {COLLECTION_INSTRUMENTS}
+                    FILTER regulation.props.source == @source
+                    FILTER regulation.props.enacted_publication IN @publications
+                    RETURN [regulation.props.enacted_publication, regulation.props.bwb_id]
+            ),
+            (
+                FOR v IN {COLLECTION_ARTICLE_VERSIONS}
+                    FILTER v.props.origin_publication.id IN @publications
+                    COLLECT publication = v.props.origin_publication.id,
+                        bwb_id = v.props.bwb_id
+                    RETURN [publication, bwb_id]
+            )
+        )
+            RETURN pair
+        """
+    return store.query(aql, {"source": SOURCE_BWB, "publications": publications})
+
+
+def remove_edges_of_source_except(
+    store: Store, relation: str, source: str, keep: list[str]
+) -> int:
+    """Remove the edges of *relation* made by *source* whose key is not in *keep*: for edges
+    one pipeline derives in full on every run. How many went."""
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == @relation AND e.source == @source
+        FILTER e._key NOT IN @keep
+        REMOVE e IN {COLLECTION_EDGES}
+        RETURN 1
+    """
+    bind = {"relation": relation, "source": source, "keep": keep}
+    return sum(store.query(aql, bind))
 
 
 _BASIS_AQL = f"""
@@ -1193,7 +1254,7 @@ FOR dossier_id IN @dossier_ids
         {{ id: decision._id }},
         KEEP(
           decision.props, "date", "result", "method", "source_url", "retrieved_on",
-          "bill_decision"
+          "bill_decision", "kind"
         )
       )
   )
@@ -1201,7 +1262,7 @@ FOR dossier_id IN @dossier_ids
     key: dossier._key,
     props: KEEP(
       dossier.props, "closed", "closed_on", "outcome", "tk_decision", "ek_outcome",
-      "ek_rejected"
+      "ek_rejected", "kind"
     ),
     publications: publications,
     bill_decisions: bill_decisions,
@@ -1300,6 +1361,44 @@ def remove_edges_from(
                 {
                     "ids": ids,
                     "relation": relation,
+                    "source": source,
+                    "keep": {i: sorted(keep[i]) for i in ids if i in keep},
+                },
+            )
+        )
+    return removed
+
+
+def remove_edges_to(
+    store: Store,
+    relations: list[str],
+    source: str,
+    to_ids: list[str],
+    keep: dict[str, set[str]],
+    *,
+    chunk: int = 5000,
+) -> int:
+    """Remove the edges of *relations* made by *source* into any of *to_ids* whose key is
+    not in *keep* (per node id): the counterpart of ``remove_edges_from`` for a pipeline that
+    derives the edges into a node in full. How many went."""
+    aql = f"""
+    FOR id IN @ids
+        LET kept = @keep[id] OR []
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == id AND e.relation IN @relations AND e.source == @source
+            FILTER e._key NOT IN kept
+            REMOVE e IN {COLLECTION_EDGES}
+            RETURN 1
+    """
+    removed = 0
+    for start in range(0, len(to_ids), chunk):
+        ids = to_ids[start : start + chunk]
+        removed += sum(
+            store.query(
+                aql,
+                {
+                    "ids": ids,
+                    "relations": relations,
                     "source": source,
                     "keep": {i: sorted(keep[i]) for i in ids if i in keep},
                 },

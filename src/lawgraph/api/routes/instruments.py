@@ -172,11 +172,13 @@ def _international_link(
     response_model=InstrumentEuLinksResponse,
     summary="EU and international links of an instrument",
     description=(
-        "`implements`: EU acts whose CELEX number the text of this instrument names. "
-        "`implemented_by`: national regulations that name the CELEX number of this EU "
-        "act. Both are `IMPLEMENTS` edges between instruments, written from a CELEX "
-        "number named in the text (`basis`): not a transposition relation, not per "
-        "article. `international`: treaties (BWB treaties) that articles of this "
+        "`implements`: EU acts this instrument implements; `implemented_by`: the national "
+        "publications and regulations that implement this EU act. Both are `IMPLEMENTS` "
+        "edges between instruments with what they rest on (`bases`): EUR-Lex lists the "
+        "publication as a national implementing measure, or the considerans says so; not "
+        "per article. `mentions` and `mentioned_by`: the same for an EU act a regulation "
+        "names by CELEX number without implementing it (`REFERS_TO`). `international`: "
+        "treaties (BWB treaties) that articles of this "
         "instrument refer to, and ECHR judgments that refer to it or to its articles, "
         "each with the evidence of its edge; the graph holds no other links to treaties "
         "or to the articles of the ECHR Convention from Dutch text. The instrument is "
@@ -204,6 +206,10 @@ def get_instrument_eu_links(
         implements_total=eu.implements_total,
         implemented_by=[EuLinkDTO.from_row(r) for r in eu.implemented_by],
         implemented_by_total=eu.implemented_by_total,
+        mentions=[EuLinkDTO.from_row(r) for r in eu.mentions],
+        mentions_total=eu.mentions_total,
+        mentioned_by=[EuLinkDTO.from_row(r) for r in eu.mentioned_by],
+        mentioned_by_total=eu.mentioned_by_total,
         international=links[:limit],
         international_total=international.treaties_total
         + international.judgments_total,

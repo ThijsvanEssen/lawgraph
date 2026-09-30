@@ -125,6 +125,7 @@ class _Source:
     title: str
     ministry: str | None = None
     vote: str = "null"
+    chamber: str = '"TK"'  # AQL: the chamber of the event; null for neither
 
 
 _DOSSIER_NUMBERS = "n.props.dossier_numbers OR []"
@@ -238,6 +239,7 @@ _SOURCES: dict[str, _Source] = {
             title="n.props.subject",
             # what was voted on, the outcome, and the difference in seats (in members on
             # a roll-call) between for and against
+            chamber='n.props.chamber OR "TK"',
             vote=(
                 '{ subkind: n.props.kind, chamber: n.props.chamber OR "TK", '
                 "passed: n.props.passed, margin: ABS("
@@ -252,6 +254,7 @@ _SOURCES: dict[str, _Source] = {
             dossiers=_DOSSIER_NUMBERS,
             persons=None,
             title="n.props.citation_title",
+            chamber="null",
         ),
         _Source(
             kind=EVENT_COMMENCEMENT,
@@ -260,6 +263,7 @@ _SOURCES: dict[str, _Source] = {
             where="true",
             dossiers="[]",
             persons=None,
+            chamber="null",
             title=(
                 f"FIRST(FOR i IN {COLLECTION_INSTRUMENTS}"
                 " FILTER i._key == LOWER(n.props.bwb_id)"
@@ -274,7 +278,7 @@ _NO_CHAMBER = (EVENT_PUBLICATION, EVENT_COMMENCEMENT)
 CHAMBER_EK = "EK"
 
 # The dimensions that are counted as facets; each is a filter on ``row`` too.
-_DIMENSIONS = ("kind", "ministry", "faction", "cabinet")
+_DIMENSIONS = ("kind", "ministry", "faction", "cabinet", "chamber")
 
 # What every request reads first: factions by the ids of their Fractie records and the
 # cabinets, newest first. (A map of every dossier would be copied for each row that reads
@@ -336,6 +340,9 @@ def _dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> dict[str, 
     if filters.faction:
         clauses["faction"] = "@faction IN row.factions"
         bind["faction"] = filters.faction
+    if filters.chamber:
+        clauses["chamber"] = "row.chamber == @chamber"
+        bind["chamber"] = filters.chamber
     if filters.cabinet:
         clauses["cabinet"] = (
             "cabinet_from != null AND row.date >= cabinet_from"
@@ -349,10 +356,6 @@ def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
     """The filters that hold for every facet, on the variables of a kind's loop:
     ``labels`` (of its dossiers), ``persons``, ``title`` and ``first_dossier``."""
     clauses: list[str] = []
-    if filters.chamber:
-        bind["chamber"] = (
-            filters.chamber
-        )  # read by the kinds of a chamber (_rows_query)
     if filters.dossier:
         clauses.append("LENGTH(labels[* FILTER STARTS_WITH(CURRENT, @dossier)]) > 0")
         bind["dossier"] = filters.dossier
@@ -379,6 +382,8 @@ def _kinds_to_read(filters: FeedFilters, *, facets: bool) -> list[_Source]:
         sources = [s for s in sources if s.persons is not None]
     if filters.faction:
         sources = [s for s in sources if s.kind != EVENT_COMMITMENT]
+    if facets:  # every chamber is counted; ``row.chamber`` keeps the one asked for
+        return sources
     if filters.chamber == CHAMBER_EK:
         sources = [s for s in sources if s.kind == EVENT_VOTE]
     elif filters.chamber:
@@ -448,7 +453,7 @@ def _rows_query(source: _Source, plan: _Plan, index: int) -> str:
     date = f"n.props.{source.date}"
     indent = " " * 12
     head = [f"{date} >= @since AND {date} <= @until", source.where]
-    if plan.filters.chamber and source.kind == EVENT_VOTE:
+    if plan.filters.chamber and source.kind == EVENT_VOTE and not plan.facets:
         head.append('(n.props.chamber OR "TK") == @chamber')
     lets = [f"LET labels = {source.dossiers}"]
     if source.dossiers != "[]" and (source.ministry is None or plan.filters.q):
@@ -488,7 +493,8 @@ def _rows_query(source: _Source, plan: _Plan, index: int) -> str:
                 dossier: labels[0],
                 ministry: {source.ministry or "first_dossier.ministry"},
                 factions: {factions},
-                vote: {source.vote}
+                vote: {source.vote},
+                chamber: {source.chamber}
             }}{_where(tail, indent)}{order}
             RETURN row
     )"""
@@ -513,6 +519,7 @@ def _facet(plan: _Plan, name: str) -> str:
         "kind": "row.kind",
         "ministry": "row.ministry",
         "faction": "LENGTH(row.factions) > 0 ? row.factions : [null]",
+        "chamber": "row.chamber",
     }[name]
     loop = f"\n            FOR faction IN {value}" if name == "faction" else ""
     collect = "value = faction" if name == "faction" else f"value = {value}"

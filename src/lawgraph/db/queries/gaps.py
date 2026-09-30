@@ -121,8 +121,8 @@ def unanswered_preliminary_rulings(
 
 
 def unretrieved_celex_refs(store: Store) -> Iterator[Any]:
-    """The EU acts BWB regulations name (``props.celex_refs``) that were not retrieved,
-    sorted."""
+    """The EU acts BWB regulations name (``props.celex_refs``) or implement by their
+    considerans (``props.implements_celex``) that were not retrieved, sorted."""
     aql = f"""
     LET retrieved = (
       FOR r IN {COLLECTION_RAW_SOURCES}
@@ -130,8 +130,10 @@ def unretrieved_celex_refs(store: Store) -> Iterator[Any]:
         RETURN UPPER(r.external_id)
     )
     FOR inst IN {COLLECTION_INSTRUMENTS}
-      FILTER inst.props.celex_refs != null
-      FOR celex IN inst.props.celex_refs
+      FILTER inst.props.celex_refs != null OR inst.props.implements_celex != null
+      FOR celex IN UNION_DISTINCT(
+          inst.props.celex_refs || [], inst.props.implements_celex || []
+      )
         FILTER celex NOT IN retrieved
         COLLECT named = celex
         SORT named

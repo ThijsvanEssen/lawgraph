@@ -8,7 +8,8 @@ pipelines), nothing is guessed:
   vervallen). The publication is an ``Instrument``; the edge goes from it to the
   article identity the version belongs to (``stam-id``), as
   ``AMENDS`` / ``INTRODUCES`` / ``REPEALS`` carrying the effective date and the
-  article version;
+  article version. A republication (``tekstplaatsing``) changes nothing and has no edge;
+  the edges of this step into an article that it no longer derives go;
 * a publication (and a regulation) lists the parliamentary dossier(s) of the bill
   behind it, which becomes ``LEGISLATED_IN`` (instrument → dossier) when that
   dossier is in the graph.
@@ -116,12 +117,14 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         super().__init__(store=store)
         # publication key -> dossier numbers already written this run
         self._known_dossiers: dict[str, set[str]] = {}
+        self._removed = 0  # amendment edges no longer derived
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
         nodes = NodeWriter(self.store)
         edges = EdgeWriter(self.store, what=None)
         self._known_dossiers = {}
+        self._removed = 0
 
         rows = self._track(
             semantic_queries.amending_article_versions(self.store), "article versions"
@@ -131,7 +134,11 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         self._link_regulation_dossiers(edges)
 
         edges.flush_into(result)
-        logger.info("%d publications.", len(self._known_dossiers))
+        logger.info(
+            "%d publications; removed %d amendments no longer derived.",
+            len(self._known_dossiers),
+            self._removed,
+        )
         return result
 
     # ---------------------------------------------------------------- versions
@@ -145,8 +152,11 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
     ) -> None:
         chunk = _Chunk()
         wanted: dict[tuple[str, str], list[tuple[dict[str, Any], str]]] = {}
+        seen: set[tuple[str, str]] = set()
         for row in rows:
             self._collect_documents(row, chunk)
+            if row.get("bwb_id") and row.get("stam_id"):
+                seen.add((str(row["bwb_id"]), str(row["stam_id"])))
             classified = self._classify(row)
             if classified is None:
                 result.skipped += 1
@@ -154,7 +164,8 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
             pair, kind = classified
             wanted.setdefault(pair, []).append((row, kind))
 
-        targets = self._resolve_articles(set(wanted))
+        # every article of the chunk: also one whose versions no longer make an edge
+        targets = self._resolve_articles(seen)
         for pair, versions in wanted.items():
             if pair not in targets:
                 result.skipped += len(versions)
@@ -163,16 +174,26 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                 self._keep_earliest(chunk, row, pair, kind)
 
         to_link = self._write_documents(chunk, nodes)
-        self._write_amendments(chunk, targets, edges)
+        kept = self._write_amendments(chunk, targets, edges)
         self._write_dossier_links(to_link, edges)
+        self._removed += semantic_queries.remove_edges_to(
+            self.store,
+            list(_RELATION_OF_KIND.values()),
+            SEMANTIC_SOURCE,
+            [f"{COLLECTION_ARTICLES}/{key}" for key in targets.values()],
+            kept,
+        )
 
     @staticmethod
     def _classify(row: dict[str, Any]) -> tuple[tuple[str, str], str] | None:
-        """``((bwb_id, stam_id), kind)`` when the version has an origin and a known effect."""
+        """``((bwb_id, stam_id), kind)`` when the version has an origin and an effect that
+        changes the article (not a republication)."""
         origin = row.get("origin")
         kind = effect_kind(row.get("effect"))
         bwb_id, stam_id = row.get("bwb_id"), row.get("stam_id")
-        if not (isinstance(origin, dict) and origin.get("id") and kind):
+        if not (isinstance(origin, dict) and origin.get("id")):
+            return None
+        if kind not in _RELATION_OF_KIND:
             return None
         if not (bwb_id and stam_id):
             return None
@@ -261,16 +282,25 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         chunk: _Chunk,
         targets: dict[tuple[str, str], str],
         edges: EdgeWriter,
-    ) -> None:
+    ) -> dict[str, set[str]]:
+        """Write the amendments; the keys of the edges per article id."""
+        kept: dict[str, set[str]] = {}
         for (publication, pair, kind), amendment in chunk.amendments.items():
+            source_id = _instrument_id(publication)
+            target_id = f"{COLLECTION_ARTICLES}/{targets[pair]}"
+            relation = _RELATION_OF_KIND[kind]
             edges.add(
-                _instrument_id(publication),
-                f"{COLLECTION_ARTICLES}/{targets[pair]}",
-                _RELATION_OF_KIND[kind],
+                source_id,
+                target_id,
+                relation,
                 source=SEMANTIC_SOURCE,
                 confidence=1.0,
                 meta=amendment.meta(),
             )
+            kept.setdefault(target_id, set()).add(
+                edge_key(source_id, relation, target_id)
+            )
+        return kept
 
     def _link_regulation_dossiers(self, edges: EdgeWriter) -> None:
         """Regulation → dossier from ``props.dossier_numbers`` (streamed, in chunks); the
