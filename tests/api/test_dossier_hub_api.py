@@ -72,9 +72,6 @@ class _MockStore:
     def get_node(self, collection: str, key: str) -> Any:
         return None
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> Any:
-        return iter([])
-
 
 @pytest.fixture(autouse=True)
 def _mock_store() -> Any:
@@ -96,6 +93,17 @@ def _dossier_routes(monkeypatch: pytest.MonkeyPatch, hub: dict[str, Any]) -> Non
     monkeypatch.setattr(
         "lawgraph.api.routes.dossiers.get_dossier_hub",
         lambda store, dossier_id: hub,
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.enrich_dossier_docs",
+        lambda store, dossiers: dossiers,
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_relations",
+        lambda store, dossier_id: [],
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_laws_named", lambda store, names: []
     )
 
 

@@ -25,7 +25,7 @@ from lawgraph.db import ArangoStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries import search as search_module
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
-from lawgraph.db.queries.search import search_all
+from lawgraph.db.queries.search import SCORE_IDENTIFIER, SCORE_WORDS, search_all
 
 SR, GW, AWB, BW6 = "BWBR0001854", "BWBR0001840", "BWBR0005537", "BWBR0005289"
 GDPR = "32016R0679"
@@ -474,6 +474,37 @@ def test_search_articles_carry_the_title_of_their_law_also_for_eu_acts(
     extra = eu["articles"][0]["extra"]
     assert extra["celex"] == GDPR and extra["bwb_id"] is None
     assert extra["instrument_title"] == "Algemene verordening gegevensbescherming"
+
+
+@pytest.mark.parametrize(
+    ("query", "key"),
+    [
+        ("Art. 1 Grondwet", "bwbr0001840_1"),
+        ("Sr 287", "bwbr0001854_287"),
+        ("artikel 287 Sr", "bwbr0001854_287"),
+        ("art. 6:162 BW", "bwbr0005289_162"),  # the book picks the regulation
+    ],
+)
+def test_search_a_citation_finds_its_article_first_with_the_top_score(
+    store: ArangoStore, query: str, key: str
+) -> None:
+    hits = search_all(store, q=query, types=["articles"], limit=5)["articles"]
+    assert hits[0]["key"] == key
+    assert hits[0]["score"] == SCORE_IDENTIFIER
+    assert hits[0]["extra"]["instrument_title"]
+
+
+def test_search_an_article_without_law_looks_at_every_law_with_that_number(
+    store: ArangoStore,
+) -> None:
+    hits = search_all(store, q="artikel 1", types=["articles"], limit=5)["articles"]
+    precise = [h["key"] for h in hits if h["score"] == SCORE_IDENTIFIER]
+    assert precise == ["bwbr0001840_1", "bwbr0001854_1", "bwbr0005537_1"]
+
+
+def test_search_falls_back_to_text_for_free_form_queries(store: ArangoStore) -> None:
+    hits = search_all(store, q="Tekst", types=["articles"], limit=10)["articles"]
+    assert hits and {h["score"] for h in hits} == {SCORE_WORDS}
 
 
 def test_search_orders_by_score_and_documents_carry_their_dossier(

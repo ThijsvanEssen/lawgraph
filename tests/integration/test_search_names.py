@@ -201,3 +201,27 @@ def test_the_views_as_the_server_returns_them_match_their_definition(
             for collection, fields in _VIEW_SPECS[view].items()
         }
         assert _indexed_fields(links) == _indexed_fields(wanted)
+
+
+def test_a_word_in_the_heading_outweighs_the_same_word_in_the_text(
+    database: str,
+) -> None:
+    """Only the best hits make the page: the heading is boosted over the text, so the
+    article whose kop is the word comes before articles whose text repeats it."""
+    store = ArangoStore()
+    _put_articles(store)
+    for number in ("2", "3", "4"):
+        _put(
+            store,
+            COLLECTION_ARTICLES,
+            make_node_key(UAVG, number),
+            bwb_id=UAVG,
+            article_number=number,
+            label=f"Artikel {number}",
+            display_name=f"Artikel {number} Uitvoeringswet AVG",
+            text="De definities van artikel 1. " + "Definities. " * 20,
+        )
+    wait_for_views(store, {"search_articles": 5})
+
+    hits = search_all(store, q="definities", types=["articles"], limit=1)
+    assert [h["key"] for h in hits["articles"]] == [make_node_key(UAVG, "1")]

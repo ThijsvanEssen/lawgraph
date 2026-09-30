@@ -1,20 +1,20 @@
 """Article history, amended-by and instrument dossiers (AMENDS / LEGISLATED_IN model).
 
-The fake store answers by looking at the collection an AQL statement reads, records
-every ``query`` call, and lets the tests assert that the query count per request is
-constant.
+The query functions are replaced by stand-ins that record what the route asked for; how
+the versions, amending publications and dossiers are found is in
+``tests/integration/test_relation_history.py``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Generator
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
+from lawgraph.db.queries.articles import ArticleHistoryData
+from lawgraph.db.queries.instruments import AmendedByData
 
 client = TestClient(app)
 
@@ -68,72 +68,74 @@ def _version(
     }
 
 
-class _Collection:
-    def __init__(self, doc: dict[str, Any] | None) -> None:
-        self._doc = doc
+def _history(
+    monkeypatch: pytest.MonkeyPatch,
+    article: dict[str, Any] | None,
+    versions: list[dict[str, Any]] | None = None,
+    dossier_titles: dict[str, str | None] | None = None,
+) -> list[tuple[str, str]]:
+    """Stand in for ``get_article_history``; returns the (law, article) pairs asked for."""
+    asked: list[tuple[str, str]] = []
 
-    def get(self, key: str) -> dict[str, Any] | None:
-        return self._doc
+    def get_article_history(
+        store: Any, bwb_id: str, article_number: str
+    ) -> ArticleHistoryData:
+        asked.append((bwb_id, article_number))
+        if article is None:
+            raise ValueError("article not found")
+        return ArticleHistoryData(
+            article=article,
+            versions=versions or [],
+            dossier_titles=dossier_titles or {},
+        )
 
-
-class FakeStore:
-    """Dispatches on the collection named in the AQL; counts ``query`` calls."""
-
-    def __init__(
-        self,
-        *,
-        article: dict[str, Any] | None = None,
-        versions: list[dict[str, Any]] | None = None,
-        dossier_rows: list[dict[str, Any]] | None = None,
-        aggregate_rows: list[dict[str, Any]] | None = None,
-    ) -> None:
-        self.articles = _Collection(article)
-        self.versions = versions or []
-        self.dossier_rows = dossier_rows or []
-        self.aggregate_rows = aggregate_rows or []
-        self.calls: list[tuple[str, dict[str, Any]]] = []
-
-    def query(self, aql: str, bind_vars: dict[str, Any] | None = None):
-        bind = bind_vars or {}
-        self.calls.append((aql, bind))
-        if "FOR v IN article_versions" in aql:
-            return self.versions
-        if "FOR d IN dossiers" in aql:
-            keys = set(bind["keys"])
-            return [r for r in self.dossier_rows if r["key"] in keys]
-        return self.aggregate_rows
+    monkeypatch.setattr(
+        "lawgraph.api.routes.articles.get_article_history", get_article_history
+    )
+    return asked
 
 
-@pytest.fixture
-def use_store() -> Generator[Any, None, None]:
-    def _install(store: FakeStore) -> FakeStore:
-        app.dependency_overrides[get_store] = lambda: store
-        return store
+def _amended_by(
+    monkeypatch: pytest.MonkeyPatch, data: AmendedByData
+) -> list[dict[str, Any]]:
+    """Stand in for ``get_instrument_amended_by``; returns the calls it got."""
+    asked: list[dict[str, Any]] = []
 
-    yield _install
-    app.dependency_overrides.pop(get_store, None)
+    def get_instrument_amended_by(
+        store: Any, identifier: str, *, limit: int, offset: int
+    ) -> AmendedByData:
+        asked.append({"identifier": identifier, "limit": limit, "offset": offset})
+        return data
+
+    monkeypatch.setattr(
+        "lawgraph.api.routes.instruments.get_instrument_amended_by",
+        get_instrument_amended_by,
+    )
+    return asked
 
 
 # ── GET /api/articles/{bwb_id}/{article_number}/history ─────────────────────
 
 
-def test_history_returns_versions_with_documents_and_dossier_titles(use_store):
-    store = use_store(
-        FakeStore(
-            article=_article(),
-            versions=[
-                _version(0, effect="nieuw", dossiers=["35786"]),
-                _version(1, effect="wijziging"),
-                _version(2, effect="vervallen"),
-                _version(3, effect="onbekend"),
-            ],
-            dossier_rows=[{"key": "35786", "title": "Wijziging Burgerlijk Wetboek"}],
-        )
+def test_history_returns_versions_with_documents_and_dossier_titles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked = _history(
+        monkeypatch,
+        _article(),
+        versions=[
+            _version(0, effect="nieuw", dossiers=["35786"]),
+            _version(1, effect="wijziging"),
+            _version(2, effect="vervallen"),
+            _version(3, effect="onbekend"),
+        ],
+        dossier_titles={"35786": "Wijziging Burgerlijk Wetboek"},
     )
 
     response = client.get(f"/api/articles/{BWB}/287/history")
 
     assert response.status_code == 200
+    assert asked == [(BWB, "287")]
     body = response.json()
     assert body["bwb_id"] == BWB
     assert body["article_number"] == "287"
@@ -153,67 +155,46 @@ def test_history_returns_versions_with_documents_and_dossier_titles(use_store):
         {"number": "35786", "key": "35786", "title": "Wijziging Burgerlijk Wetboek"}
     ]
     assert first["commencement"]["id"] == "stb-2019-100"
-    # the version query filters on the stable identity
-    versions_aql, bind = store.calls[0]
-    assert "v.props.stam_id == @identity" in versions_aql
-    assert bind == {"bwb_id": BWB, "identity": "stam-1"}
 
 
-def test_history_unknown_article_is_404(use_store):
-    store = use_store(FakeStore(article=None))
+def test_history_unknown_article_is_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    asked = _history(monkeypatch, None)
 
     response = client.get(f"/api/articles/{BWB}/999/history")
 
     assert response.status_code == 404
-    assert store.calls == []
+    assert asked == [(BWB, "999")]
 
 
-def test_history_without_stam_id_falls_back_to_article_number(use_store):
-    store = use_store(FakeStore(article=_article(stam_id=None), versions=[_version(1)]))
+def test_history_without_stam_id_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    _history(monkeypatch, _article(stam_id=None), versions=[_version(1)])
 
     response = client.get(f"/api/articles/{BWB}/287/history")
 
     assert response.status_code == 200
     assert response.json()["stam_id"] is None
-    aql, bind = store.calls[0]
-    assert "v.props.article_number == @identity" in aql
-    assert "stam_id" not in aql
-    assert bind["identity"] == "287"
+    assert [v["key"] for v in response.json()["versions"]] == ["v1"]
 
 
-def test_history_without_versions_or_dossiers_skips_the_dossier_lookup(use_store):
-    store = use_store(FakeStore(article=_article(), versions=[]))
+def test_history_without_versions_is_an_empty_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _history(monkeypatch, _article(), versions=[])
 
     response = client.get(f"/api/articles/{BWB}/287/history")
 
     assert response.status_code == 200
     assert response.json()["versions"] == []
-    assert len(store.calls) == 1  # no dossier query when nothing names a dossier
 
 
-def test_history_unknown_dossier_title_is_null(use_store):
-    use_store(FakeStore(article=_article(), versions=[_version(1, dossiers=["12345"])]))
+def test_history_unknown_dossier_title_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    _history(monkeypatch, _article(), versions=[_version(1, dossiers=["12345"])])
 
     body = client.get(f"/api/articles/{BWB}/287/history").json()
 
     assert body["versions"][0]["amended_by"]["dossiers"] == [
         {"number": "12345", "key": "12345", "title": None}
     ]
-
-
-def test_history_query_count_is_constant(use_store):
-    def run(n_versions: int) -> int:
-        versions = [_version(i, dossiers=[str(30000 + i)]) for i in range(n_versions)]
-        rows = [{"key": str(30000 + i), "title": f"t{i}"} for i in range(n_versions)]
-        store = use_store(
-            FakeStore(article=_article(), versions=versions, dossier_rows=rows)
-        )
-        response = client.get(f"/api/articles/{BWB}/287/history")
-        assert response.status_code == 200
-        assert len(response.json()["versions"]) == n_versions
-        return len(store.calls)
-
-    assert run(2) == run(40) == 2  # versions + one bulk dossier lookup
 
 
 # ── GET /api/instruments/{bwb_id}/amended-by ────────────────────────────────
@@ -250,19 +231,22 @@ def _aggregate(number: int, **counts: Any) -> dict[str, Any]:
     return row
 
 
-def test_amended_by_maps_rows_and_dossier_titles(use_store):
-    store = use_store(
-        FakeStore(
-            aggregate_rows=[
-                {"total": 7, "items": [_aggregate(33), _aggregate(12, repeals=4)]}
-            ],
-            dossier_rows=[{"key": "35786", "title": "Klimaatwet"}],
-        )
+def test_amended_by_maps_rows_and_dossier_titles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked = _amended_by(
+        monkeypatch,
+        AmendedByData(
+            items=[_aggregate(33), _aggregate(12, repeals=4)],
+            total=7,
+            dossier_titles={"35786": "Klimaatwet"},
+        ),
     )
 
     response = client.get(f"/api/instruments/{BWB}/amended-by?limit=2&offset=5")
 
     assert response.status_code == 200
+    assert asked == [{"identifier": BWB, "limit": 2, "offset": 5}]
     body = response.json()
     assert body["bwb_id"] == BWB
     assert body["total"] == 7  # absolute count, not len(items)
@@ -282,58 +266,24 @@ def test_amended_by_maps_rows_and_dossier_titles(use_store):
     assert item["articles_affected"] == 3
     assert item["first_effective_date"] == "2019-07-01"
     assert body["items"][1]["repeals"] == 4
-    aggregate_bind = store.calls[0][1]
-    assert aggregate_bind["bwb"] == BWB
-    assert aggregate_bind["limit"] == 2
-    assert aggregate_bind["offset"] == 5
-    assert set(aggregate_bind["mutations"]) == {"AMENDS", "INTRODUCES", "REPEALS"}
 
 
-def test_amended_by_empty(use_store):
-    store = use_store(FakeStore(aggregate_rows=[{"total": 0, "items": []}]))
+def test_amended_by_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    _amended_by(monkeypatch, AmendedByData(items=[], total=0, dossier_titles={}))
 
     response = client.get(f"/api/instruments/{BWB}/amended-by")
 
     assert response.status_code == 200
     assert response.json() == {"bwb_id": BWB, "total": 0, "items": []}
-    assert len(store.calls) == 1  # no dossier lookup for an empty page
 
 
-def test_amended_by_no_rows_at_all(use_store):
-    use_store(FakeStore(aggregate_rows=[]))
-
-    response = client.get(f"/api/instruments/{BWB}/amended-by")
-
-    assert response.status_code == 200
-    assert response.json()["items"] == []
-
-
-def test_amended_by_rejects_bad_pagination(use_store):
-    use_store(FakeStore())
+def test_amended_by_rejects_bad_pagination(monkeypatch: pytest.MonkeyPatch) -> None:
+    asked = _amended_by(
+        monkeypatch, AmendedByData(items=[], total=0, dossier_titles={})
+    )
     assert client.get(f"/api/instruments/{BWB}/amended-by?limit=0").status_code == 422
     assert client.get(f"/api/instruments/{BWB}/amended-by?offset=-1").status_code == 422
-
-
-def test_amended_by_query_count_is_constant(use_store):
-    def run(n: int) -> int:
-        items = [
-            {**_aggregate(i), "instrument": _amending(i, dossier_numbers=[str(i)])}
-            for i in range(1, n + 1)
-        ]
-        store = use_store(
-            FakeStore(
-                aggregate_rows=[{"total": n, "items": items}],
-                dossier_rows=[
-                    {"key": str(i), "title": f"t{i}"} for i in range(1, n + 1)
-                ],
-            )
-        )
-        response = client.get(f"/api/instruments/{BWB}/amended-by")
-        assert response.status_code == 200
-        assert len(response.json()["items"]) == n
-        return len(store.calls)
-
-    assert run(2) == run(40) == 2  # one aggregate + one bulk dossier lookup
+    assert asked == []
 
 
 # ── GET /api/instruments/{bwb_id}/dossiers (LEGISLATED_IN) ──────────────────
@@ -352,89 +302,67 @@ def _dossier(number: str, opened: str) -> dict[str, Any]:
     }
 
 
-def test_instrument_dossiers_report_how_they_are_linked(use_store):
-    store = use_store(
-        FakeStore(
-            aggregate_rows=[
-                {
-                    "total": 3,
-                    "items": [
-                        {
-                            "dossier": _dossier("111", "2020-01-01"),
-                            "direct": True,
-                            "publications": [{"key": "stb-2019-1", "published": "x"}],
-                        },
-                        {
-                            "dossier": _dossier("222", "2019-01-01"),
-                            "direct": False,
-                            "publications": [
-                                {
-                                    "key": "stb-2018-5",
-                                    "identifier": "stb-2018-5",
-                                    "published": "2018-03-01",
-                                },
-                                {
-                                    "key": "stb-2019-33",
-                                    "identifier": None,
-                                    "published": "2019-04-01",
-                                },
-                            ],
-                        },
-                        {
-                            "dossier": _dossier("333", "2018-01-01"),
-                            "direct": False,
-                            "publications": [],
-                        },
-                    ],
-                }
-            ]
-        )
+def _instrument_dossiers(
+    monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, Any]], total: int
+) -> list[tuple[str, int]]:
+    """Stand in for ``get_instrument_dossiers``; returns the calls it got."""
+    asked: list[tuple[str, int]] = []
+
+    def get_instrument_dossiers(
+        store: Any, identifier: str, *, limit: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        asked.append((identifier, limit))
+        return rows, total
+
+    monkeypatch.setattr(
+        "lawgraph.api.routes.instruments.get_instrument_dossiers",
+        get_instrument_dossiers,
+    )
+    return asked
+
+
+def test_instrument_dossiers_report_how_they_are_linked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked = _instrument_dossiers(
+        monkeypatch,
+        [
+            {
+                "dossier": _dossier("111", "2020-01-01"),
+                "via": "instrument",
+                "publication": None,
+            },
+            {
+                "dossier": _dossier("222", "2019-01-01"),
+                "via": "amending_publication",
+                "publication": "stb-2019-33",
+            },
+        ],
+        total=3,
     )
 
     response = client.get(f"/api/instruments/{BWB}/dossiers")
 
     assert response.status_code == 200
+    assert [identifier for identifier, _ in asked] == [BWB]
     body = response.json()
-    assert body["total"] == 3
+    assert body["total"] == 3  # absolute count, not len(items)
     by_number = {i["dossier_number"]: i for i in body["items"]}
     assert by_number["111"]["via"] == "instrument"
     assert by_number["111"]["publication"] is None
     assert by_number["222"]["via"] == "amending_publication"
-    assert by_number["222"]["publication"] == "stb-2019-33"  # newest, key fallback
-    assert by_number["333"]["via"] == "amending_publication"
-    assert by_number["333"]["publication"] is None
+    assert by_number["222"]["publication"] == "stb-2019-33"
+    assert by_number["111"]["id"] == "dossiers/111"
     assert by_number["111"]["title"] == "Dossier 111"
     assert by_number["111"]["opened_on"] == "2020-01-01"
-    aql, bind = store.calls[0]
-    assert bind["legislated_in"] == "LEGISLATED_IN"
-    assert bind["instrument_id"] == f"instruments/{BWB.lower()}"  # make_node_key
-    assert len(store.calls) == 1
 
 
-def test_instrument_dossiers_empty(use_store):
-    use_store(FakeStore(aggregate_rows=[{"total": 0, "items": []}]))
+def test_instrument_dossiers_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    _instrument_dossiers(monkeypatch, [], total=0)
 
     body = client.get(f"/api/instruments/{BWB}/dossiers").json()
 
     assert body == {"bwb_id": BWB, "total": 0, "items": []}
-
-
-def test_instrument_dossiers_query_count_is_constant(use_store):
-    def run(n: int) -> int:
-        items = [
-            {
-                "dossier": _dossier(str(i), "2020-01-01"),
-                "direct": False,
-                "publications": [{"key": f"stb-2019-{i}", "published": "2019"}],
-            }
-            for i in range(n)
-        ]
-        store = use_store(FakeStore(aggregate_rows=[{"total": n, "items": items}]))
-        response = client.get(f"/api/instruments/{BWB}/dossiers")
-        assert len(response.json()["items"]) == n
-        return len(store.calls)
-
-    assert run(1) == run(30) == 1
 
 
 # ── OpenAPI ─────────────────────────────────────────────────────────────────
