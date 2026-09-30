@@ -154,14 +154,14 @@ def dossier_phases(
 
 
 def current_phase(phases: list[dict[str, Any]] | None) -> str | None:
-    """The done phase with the latest date, the later in the order on a tie; None when none
-    is done."""
-    done = [
-        (p.get("date") or "", i, p["name"])
-        for i, p in enumerate(phases or [])
-        if p["done"]
-    ]
-    return max(done)[2] if done else None
+    """The furthest done phase in the order of the list; None when none is done.
+
+    Not the one with the latest date: the date of a paper is the ``Document.Datum`` the Kamer
+    gives it, which may be the day it was received rather than made (the Nota n.a.v. het
+    verslag of 36937 is dated four days after the bill passed as a hamerstuk).
+    """
+    done = [p["name"] for p in phases or [] if p["done"]]
+    return done[-1] if done else None
 
 
 def phase_props(
