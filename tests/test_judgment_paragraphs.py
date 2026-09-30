@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from lawgraph.core.judgments import (
+    advocate_general,
     extract_judgment_text,
     extract_sections,
     parse_judgment,
@@ -214,3 +215,172 @@ def test_text_before_a_late_first_heading_is_no_kop() -> None:
     )
 
     assert [p["kind"] for p in paragraphs] == ["body"] * 6
+
+
+# A conclusion of the Parket bij de Hoge Raad: its kop in a <conclusie.info>, the name of
+# the advocate-general in it, and the signature of the Parket at the end.
+
+
+def test_the_kop_of_a_conclusion_is_its_conclusie_info() -> None:
+    """PHR 2023:1042: "1 Overzicht" is no heading that ends a kop; the <conclusie.info> ends
+    it, before the list of abbreviations."""
+    kop, heading = _fixture("rechtspraak_phr_2023_1042.xml")[:2]
+
+    assert kop["kind"] == "subheading"
+    assert kop["text"].split("\n\n")[:4] == [
+        "PROCUREUR-GENERAAL",
+        "BIJ DE",
+        "HOGE RAAD DER NEDERLANDEN",
+        "Nummer 22/04592",
+    ]
+    assert kop["text"].endswith("Waterschap De Dommel")
+    assert heading["text"].startswith("Gebruikte afkortingen")
+
+
+def test_the_headings_of_a_decision_a_conclusion_quotes_are_not_its_own() -> None:
+    """PHR 2023:1042 quotes an arrest whose "3 Proceskosten" and "4 Beslissing" stand as
+    sections between its own 6 and 7."""
+    paragraphs = _fixture("rechtspraak_phr_2023_1042.xml")
+
+    headings = [p["number"] for p in paragraphs if p["kind"] == "heading"]
+    assert headings == ["6", "7", "11"]
+    quoted = [p for p in paragraphs if p["text"] in ("3 Proceskosten", "4 Beslissing")]
+    assert [(p["kind"], p["number"]) for p in quoted] == [("body", None)] * 2
+
+
+def test_numbering_that_starts_again_keeps_its_headings() -> None:
+    paragraphs = _paragraphs(
+        "<uitspraak>"
+        + "".join(
+            f"<section><title><nr>{n}</nr>Deel</title><para>Tekst.</para></section>"
+            for n in (1, 2, 1, 2, 3)
+        )
+        + "</uitspraak>"
+    )
+
+    headings = [p["number"] for p in paragraphs if p["kind"] == "heading"]
+    assert headings == ["1", "2", "1", "2", "3"]
+
+
+def test_a_heading_at_the_end_of_a_numbered_unit_is_a_paragraph_of_its_own() -> None:
+    """PHR 2020:453, 3.70: "Subonderdeel 2.6 faalt." and then the heading "Slotsom" in
+    italics, in the same <paragroup>."""
+    paragraphs = _fixture("rechtspraak_phr_2020_453.xml")
+    at = next(i for i, p in enumerate(paragraphs) if p["number"] == "3.70")
+
+    assert paragraphs[at]["text"] == "Subonderdeel 2.6 faalt."
+    assert (paragraphs[at + 1]["kind"], paragraphs[at + 1]["text"]) == (
+        "subheading",
+        "Slotsom",
+    )
+    assert paragraphs[at + 2]["number"] == "3.71"
+
+
+def test_emphasis_in_a_sentence_or_a_sentence_in_emphasis_is_no_heading() -> None:
+    paragraphs = _paragraphs(
+        "<uitspraak><section><title><nr>3</nr>Beoordeling</title>"
+        "<paragroup><nr>3.1</nr><para>Het hof oordeelt.</para>"
+        "<para><emphasis>Dit is geen kop</emphasis> maar tekst.</para>"
+        "<para><emphasis>Een zin in cursief.</emphasis></para></paragroup>"
+        "</section></uitspraak>"
+    )
+
+    assert [p["kind"] for p in paragraphs] == ["heading", "body"]
+
+
+@pytest.mark.parametrize(
+    ("name", "signature"),
+    [
+        (
+            "rechtspraak_phr_2020_453.xml",
+            ["De Procureur-Generaal bij de", "Hoge Raad der Nederlanden", "A-G"],
+        ),
+        (
+            "rechtspraak_phr_2023_1042.xml",
+            [
+                "De Procureur-Generaal bij de",
+                "Hoge Raad der Nederlanden",
+                "Advocaat-Generaal",
+            ],
+        ),
+    ],
+)
+def test_the_closing_lines_of_a_conclusion_are_its_signature(
+    name: str, signature: list[str]
+) -> None:
+    paragraphs = _fixture(name)
+
+    assert [p["text"] for p in paragraphs if p["kind"] == "signature"] == signature
+    assert paragraphs[-4]["kind"] == "body"  # "De conclusie strekt tot ..."
+    JudgmentProps.model_validate({"paragraphs": paragraphs})
+
+
+def test_a_procureur_generaal_in_the_text_is_no_signature() -> None:
+    paragraphs = _paragraphs(
+        "<conclusie><para>Het hof oordeelde.</para><para>De Procureur-Generaal bij de "
+        "Hoge Raad heeft gevorderd dat het arrest wordt vernietigd, omdat het hof het "
+        "verweer niet heeft besproken.</para><para>Slot.</para></conclusie>"
+    )
+
+    assert [p["kind"] for p in paragraphs] == ["body", "body", "body"]
+
+
+@pytest.mark.parametrize(
+    ("lines", "name"),
+    [
+        # 2020 on: the name alone below CONCLUSIE
+        (
+            ["PROCUREUR-GENERAAL", "Zitting 8 mei 2020", "CONCLUSIE", "T. Hartlief"]
+            + ["In de zaak", "1. Maatschap [eiseres 1]"],
+            "T. Hartlief",
+        ),
+        (
+            ["CONCLUSIE", "P.H.P.H.M.C. van Kempen", "In de zaak"],
+            "P.H.P.H.M.C. van Kempen",
+        ),
+        (
+            ["CONCLUSIE", "E.M. Wesseling-van Gent", "In de zaak"],
+            "E.M. Wesseling-van Gent",
+        ),
+        # with "mr.", on the line of the case number or on a line of its own
+        (
+            ["Zaaknr: 18/04298 (Prejudicieel) mr. Wattel"]
+            + ["Datum: 10 mei 2019 Conclusie inzake:", "1. [eiseres 1]"],
+            "Wattel",
+        ),
+        (
+            ["Procureur-Generaal bij de Hoge Raad der Nederlanden", "mr. P.J. Wattel"]
+            + ["Advocaat-Generaal", "Conclusie van 14 oktober 2015 inzake:"],
+            "P.J. Wattel",
+        ),
+        (["MR. R.L.H. IJZERMAN", "ADVOCAAT-GENERAAL"], "R.L.H. IJZERMAN"),
+        (
+            ["Nr. 17/03609 Zitting: 23 april 2019 Mr. T.N.B.M. Spronken Conclusie "]
+            + ["inzake: [verdachte]"],
+            "T.N.B.M. Spronken",
+        ),
+        (["Rolnr.: C01/096", "Conclusie mr J. Spier", "inzake", "[Eiser]"], "J. Spier"),
+        (["Conclusie van den Advocaat-Generaal Mr. Besier."], "Besier"),
+        (
+            ["Mr De Vries Lentsch-Kostense", "Conclusie inzake"],
+            "De Vries Lentsch-Kostense",
+        ),
+        # not after the parties begin: a lawyer or a curator is no advocate-general
+        (["Conclusie inzake:", "[eiser]", "advocaat: mr. K. Aantjes"], None),
+        (["Conclusie inzake", "Mr. P.G. GILHUIS q.q."], None),
+        (["HOGE RAAD DER NEDERLANDEN", "Derde Kamer A", "L."], None),
+    ],
+)
+def test_the_advocate_general_is_named_in_the_opening_lines_of_a_conclusion(
+    lines: list[str], name: str | None
+) -> None:
+    body = "".join(f"<para>{line}</para>" for line in lines)
+    root = parse_judgment(f"<open><conclusie>{body}</conclusie></open>")
+
+    assert advocate_general(root) == name
+
+
+def test_the_advocate_general_of_a_real_conclusion() -> None:
+    root = parse_judgment((FIXTURES / "rechtspraak_phr_2020_453.xml").read_text())
+
+    assert advocate_general(root) == "T. Hartlief"

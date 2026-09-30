@@ -114,6 +114,20 @@ def _brief(parties: list[dict[str, Any]]) -> list[str]:
             "rechtspraak_rbdha_2026_12077.xml",
             ["Verzoeker: [naam 1]", "Belanghebbende: [naam 2]"],
         ),
+        # conclusions: "In de zaak" alone on its line opens the parties
+        (
+            "rechtspraak_phr_2020_453.xml",
+            [
+                "Eiser: Maatschap [eiseres 1]",
+                "Eiser: [eiser 2]",
+                "Eiser: [eiser 3]",
+                "Verweerder: [verweerster]",
+            ],
+        ),
+        (
+            "rechtspraak_phr_2023_1042.xml",
+            ["Appellant: [X]", "Verweerder: Waterschap De Dommel"],
+        ),
     ],
 )
 def test_the_parties_and_their_roles(name: str, expected: list[str]) -> None:
@@ -303,6 +317,29 @@ def test_a_role_the_judgment_does_not_state(
     subjects: list[str] | None, lines: tuple[str, ...], expected: list[str]
 ) -> None:
     assert _read(*lines, subjects=subjects) == expected
+
+
+@pytest.mark.parametrize(
+    ("lines", "expected"),
+    [
+        # PHR 2019:496: the opener at the end of a line of the kop
+        (
+            ("Datum: 10 mei 2019 Conclusie inzake:", "1. [eiseres 1]", "tegen")
+            + ("1. Maatschap Groningen", "Edelhoogachtbaar College,"),
+            ["Eiser: [eiseres 1]", "Verweerder: Maatschap Groningen"],
+        ),
+        # the party on the line of the opener
+        (("Nr. 18/01798 B Conclusie inzake: [klager]",), ["Klager: [klager]"]),
+        (
+            ("Parket, 4 september 1998", "In de zaak:", "[verzoeker]"),
+            ["Verzoeker: [verzoeker]"],
+        ),
+    ],
+)
+def test_the_opener_of_a_conclusion(
+    lines: tuple[str, ...], expected: list[str]
+) -> None:
+    assert _read(*lines, subjects=["Civiel recht"]) == expected
 
 
 def test_a_kop_without_parties_has_none() -> None:

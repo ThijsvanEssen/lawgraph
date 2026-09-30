@@ -332,8 +332,8 @@ instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:rela
 a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
 `summary`, `uitspraak` (of a conclusion: `conclusie`) as `text` and as `paragraphs` (the kop,
 heading, subheading, body; see the paragraph props in the data model), `isReplacedBy` (an ECLI)
-as `replaced_by`, and the parties its kop names as `parties` (data model,
-Judgment). Every judgment normalized before `parties` existed gets them from a run of
+as `replaced_by`, the parties its kop names as `parties`, and of a conclusion the
+advocate-general its opening lines name as `advocate_general` (data model, Judgment). Every judgment normalized before `parties` existed gets them from a run of
 `normalize rechtspraak` without `--since`; run `semantic rechtspraak` after it, since the kop is
 one paragraph now and the `p-<n>` ids after it moved. The XML itself stays in the payload store. `court_code` is the ECLI court
 segment. The court table (`src/lawgraph/data/courts.json`, `core/courts.court_of`, whose table
