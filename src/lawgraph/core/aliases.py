@@ -1,11 +1,61 @@
-"""Instrument alias tables: law name -> ``(bwb_id, celex)``."""
+"""Instrument alias tables: law name -> ``(bwb_id, celex)``, abbreviation -> law id."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.curated import LISTS
+
 InstrumentAliasMap = dict[str, tuple[str | None, str | None]]
+
+
+def curated_abbreviations() -> dict[str, list[str]]:
+    """Law id -> the abbreviations kept by hand for it (``curated instrument-abbreviations``)."""
+    return {
+        law_id.upper(): list((value or {}).get("abbreviations") or [])
+        for law_id, value in LISTS["instrument-abbreviations"].entries().items()
+    }
+
+
+def code_aliases(
+    rows: Iterable[Mapping[str, Any]],
+    curated: Mapping[str, Sequence[str]] | None = None,
+) -> dict[str, str]:
+    """Abbreviation (upper case) -> the BWB id or CELEX number of the one law it stands for.
+
+    *rows* are ``{bwb_id, celex, short_title, aliases}`` of the instruments in the graph;
+    *curated* adds abbreviations by law id (``curated instrument-abbreviations``), for the
+    laws among *rows* only. A short title comes first: an abbreviation that is the short
+    title of one law is that law's, whatever other laws list it among their aliases (the
+    WTI abbreviations, ``WvSr`` beside ``Sr``). Of the other abbreviations only those that
+    one law claims count. A code whose books are regulations of their own (``BW``) and an
+    alias that starts with a digit (``6 BW``: the number of a citation stands there) are no
+    abbreviation of one law.
+    """
+    short: dict[str, set[str]] = {}
+    other: dict[str, set[str]] = {}
+    for row in rows:
+        law_id = normalize_instrument_id(row.get("bwb_id") or row.get("celex"))
+        if not law_id:
+            continue
+        names = [*(row.get("aliases") or []), *(curated or {}).get(law_id, [])]
+        for tier, candidates in ((short, [row.get("short_title")]), (other, names)):
+            for name in candidates:
+                key = str(name or "").strip().upper()
+                if key and not key[0].isdigit() and key not in CODE_FAMILIES:
+                    tier.setdefault(key, set()).add(law_id)
+    found: dict[str, str] = {}
+    for tier in (short, other):
+        for key, laws in tier.items():
+            if key not in found and len(laws) == 1:
+                found[key] = next(iter(laws))
+    return {
+        key: law
+        for key, law in found.items()
+        if len(short.get(key, ())) <= 1  # a short title two laws share is no one's
+    }
 
 
 def normalize_instrument_id(value: Any) -> str | None:

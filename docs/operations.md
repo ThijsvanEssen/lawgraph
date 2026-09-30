@@ -59,7 +59,7 @@ All default to the public endpoints; no key is required.
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
-| `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION=0.8` |
+| `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION_WINDOW=0.7` |
 | `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | unset | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
 
 ### API
@@ -165,8 +165,8 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph code-families build\|check [--output FILE]` | builds `src/lawgraph/data/code_families.json` (the codes whose books are regulations of their own: `BW`) from the stored WTI records and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve bwb` and commit the file |
 | `lawgraph courts build\|check [--output FILE]` | builds `src/lawgraph/data/courts.json` from the stored Instanties list of the Rechtspraak and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve rechtspraak-instanties`, commit the file, and run `semantic graph-list-stats` when a tier or kind changed |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-dossiers`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
-| `lawgraph curated list [LIST]`, `check [LIST] [--db]`, `set LIST KEY [JSON] [--after KEY \| --first]`, `remove LIST KEY` | the lists kept by hand in `src/lawgraph/data/curated/` (`core/curated.py`): party colours, the seating plan of the plenary hall (after the plan of the Tweede Kamer, with its url and date), the phases of a bill (the one order the Kamer does not give, each phase with the exact values of the Kamer that mark it), the names of landmark judgments, the kinds of decision, the courts outside the value list, the ministry keys, order, successions and aliases. `set` writes a change only when the list stays in order; commit what it changes |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks (and checks the curated lists, `lawgraph curated check --db`: also a seated faction the seating plan does not place, and a faction whose number of seats differs from the plan's; a seat that changed after the plan, and a value of a phase no record in the database has, are notes): does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, how many BWB treaties have a Verdragenbank record by their `treaty_number` (none carrying one is a problem), do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph curated list [LIST]`, `check [LIST] [--db]`, `set LIST KEY [JSON] [--after KEY \| --first]`, `remove LIST KEY` | the lists kept by hand in `src/lawgraph/data/curated/` (`core/curated.py`): party colours, the seating plan of the plenary hall (after the plan of the Tweede Kamer, with its url and date), the phases of a bill (the one order the Kamer does not give, each phase with the exact values of the Kamer that mark it), the names of landmark judgments, the kinds of decision, the courts outside the value list, the ministry keys, order, successions and aliases, the abbreviations of instruments whose source gives none (`instrument-abbreviations`, keyed by BWB id or CELEX number). `set` writes a change only when the list stays in order; commit what it changes |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks (and checks the curated lists, `lawgraph curated check --db`: also a seated faction the seating plan does not place, and a faction whose number of seats differs from the plan's, and an abbreviated instrument no node of the graph is; a seat that changed after the plan, and a value of a phase no record in the database has, are notes): does every raw kind of the registry hold records, does every source with raw records have nodes, does every edge have both its nodes, does every search view hold what its collection holds, does every BWB regulation carry its `basis` and `celex_refs`, how many BWB treaties have a Verdragenbank record by their `treaty_number` (none carrying one is a problem), do cases name their dossier, is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB` with its license limit not reached. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
@@ -226,9 +226,13 @@ regulation `bwb` stored since. Incremental `retrieve tk-content` fetches the pap
 no XML is stored; a paper the repository has no XML for yet is asked for again after 3 days
 when it is younger than a week (the XML follows the PDF within about two working days), else
 after 30.
-Law abbreviations (`instruments.props.short_title`, used by the citation detectors) come from
-the WTI records that `retrieve bwb` stores and are written by `normalize bwb`, so run both
-before `semantic`. `normalize bwb --since` still re-evaluates the short title of every
+Law abbreviations (`instruments.props.short_title` and `aliases`, used by the citation
+detectors) come from the WTI records that `retrieve bwb` stores and are written by `normalize
+bwb`, so run both before `semantic`. A law is only cited once it is loaded: `retrieve bwb
+--mode full` enumerates every regulation and treaty of the BWB; an incremental build needs
+its ids in `BWB_IDS` (the Wetboek van Strafvordering `BWBR0001903`, Rv `BWBR0001827`, Wet RO
+`BWBR0001830`, AWR `BWBR0002320`, Vw 2000 `BWBR0011823`, the EVRM `BWBV0001000`). The laws
+judgments cite that are not loaded are in `judgments.props.unresolved_citations`. `normalize bwb --since` still re-evaluates the short title of every
 regulation, because an abbreviation claimed by a newly loaded regulation stops being unique.
 Incremental `retrieve eurlex` re-fetches the CELEX numbers of the instruments already in the
 graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML.

@@ -121,6 +121,20 @@ def test_a_judgment_name_needs_an_ecli_and_a_ministry_alias_a_ministry(
     ).errors
 
 
+def test_an_abbreviation_needs_the_id_of_an_instrument(copy: Path) -> None:
+    for law_id in ("AVG", "32016r0679", "3201R0679", "BWBR00018"):
+        assert command.main(
+            ["set", "instrument-abbreviations", law_id, '{"abbreviations": ["X"]}']
+        ).errors, law_id
+    # an abbreviation that another instrument has already
+    assert command.main(
+        ["set", "instrument-abbreviations", "32016R0680", '{"abbreviations": ["AVG"]}']
+    ).errors
+    assert not command.main(
+        ["set", "instrument-abbreviations", "32016R0680", '{"abbreviations": ["RHD"]}']
+    ).errors
+
+
 def test_place() -> None:
     entries = {"a": 1, "b": 2}
     assert place(entries, "b", 3) == {"a": 1, "b": 3}

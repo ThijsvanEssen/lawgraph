@@ -64,13 +64,17 @@ def detect_in_text(
     *,
     extra: Callable[[str, Callable[[CitationHit], None]], None] | None = None,
     every_occurrence: bool = False,
+    unknown_laws: bool = False,
 ) -> list[CitationHit]:
     """Article hits of *extractor* plus the EU hits (and *extra* ones).
 
     Once per citation, or with *every_occurrence* once per place in the text that cites it
-    (each hit carries its ``start`` and ``end``).
+    (each hit carries its ``start`` and ``end``). With *unknown_laws* also the citations of
+    laws the extractor does not know (``CitationHit.unknown_law``).
     """
-    hits = extractor.extract(text, every_occurrence=every_occurrence)
+    hits = extractor.extract(
+        text, every_occurrence=every_occurrence, unknown_laws=unknown_laws
+    )
     seen = {hit_identity(h) for h in hits}
 
     def record(hit: CitationHit) -> None:

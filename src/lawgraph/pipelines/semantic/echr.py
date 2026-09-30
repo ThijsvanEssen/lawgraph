@@ -36,11 +36,13 @@ SEMANTIC_SOURCE = "echr-citation-linker"
 
 
 def _ensure_echr_convention_instrument(store: Any) -> Node:
-    """Get or create a stub instrument node for the ECHR Convention."""
+    """The instrument node of the ECHR Convention, written with its names on every run.
+
+    ``EVRM`` is its abbreviation (``aliases``), so "art. 8 EVRM" in a Dutch text cites it.
+    The Convention loaded from the BWB (``BWBV0001000``) has it as its short title from its
+    WTI, and a short title wins over an alias (``core.aliases.code_aliases``).
+    """
     key = make_node_key(ECHR_CONVENTION_ID)
-    existing = store.get_node(COLLECTION_INSTRUMENTS, key)
-    if existing is not None:
-        return existing
     node = Node(
         collection=COLLECTION_INSTRUMENTS,
         type=NodeType.INSTRUMENT,
@@ -50,6 +52,7 @@ def _ensure_echr_convention_instrument(store: Any) -> Node:
             "bwb_id": ECHR_CONVENTION_ID,
             "title": "Europees Verdrag voor de Rechten van de Mens (EVRM)",
             "citation_title": "EVRM",
+            "aliases": ["EVRM"],
             "jurisdiction": "eu",
             "kind": "verdrag",
             "display_name": "EVRM",

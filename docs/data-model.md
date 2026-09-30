@@ -132,9 +132,11 @@ tk-mvt-articles` (a section that is about the article; `source` `mvt-section-lin
 
 | Field | Meaning |
 |-------|---------|
-| `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end` and `match_type` are that section's |
+| `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end`, `match_type`, `changed` and `explanation` are that section's |
 | `match_type` | `heading_target`, `body_named_law`, `own_number` or `inferred_law` (`docs/pipelines.md`) |
-| `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `confidence` |
+| `changed` | whether the dossier changed the article, which corroborates the match |
+| `explanation` | what the match rests on, in Dutch |
+| `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `changed`, `confidence`, `explanation` |
 
 `char_start`/`char_end` are offsets into `props.text` of the Document.
 
@@ -144,9 +146,11 @@ says that two articles are linked, `semantic_type` says what the link means.
 | Field | Values |
 |-------|--------|
 | `semantic_type` | `conditional_requirement`, `scope_limitation`, `prerequisite_procedure`, `definitional_reference`, `limiting_exception`, `cross_reference`, `delegated_discretion`; null for unclassified edges |
-| `explanation` | the pattern that decided the type, in words |
+| `explanation` | the phrase that decided the type and where it stood, in words |
 | `updated_at` | when the classification last changed |
-| `meta.semantic_pattern`, `meta.semantic_confidence` | audit trail of the extraction |
+| `meta.semantic_pattern` | the pattern and where its phrase stood: `limiting_exception_adjacent`, `definitional_reference_window`, `cross_reference_fallback` |
+| `meta.semantic_confidence` | the share of classifications by that pattern a hand check found right (0.25 to 0.9); the edge's `confidence` (1.0) is that the reference exists |
+| `meta.linked_article` | the key of the article the link of the XML points at, when the words of the reference name another (`semantic bwb`) |
 
 ## Instrument
 
@@ -302,7 +306,10 @@ have no `REFERS_TO` between them, even when one names the other in its text.
 
 `unresolved_appeal_targets` lists the decisions an appeal says in its text it appeals that are
 not loaded (`court` and `case_number` as written, `date` ISO; `case_number` null when the text
-gives none); null when there are none.
+gives none); null when there are none. `unresolved_citations` lists the articles a judgment
+cites of laws that are not in the graph (`semantic rechtspraak`): `law` and `article_number` as
+written, `raw_match` and `qualifier` of the first citation, `leden`, `onderdelen`, `aanhef`,
+`paragraph_ids`, `mention_count`; null when there are none.
 
 Parallel cases a court decided on one day in (nearly) the same words form a series: each
 judgment of it has `series_id`, the lowest ECLI in the series, and `series_size`; outside a

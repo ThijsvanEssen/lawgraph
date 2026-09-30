@@ -8,10 +8,8 @@ from typing import Any
 from lawgraph.config.constants import RELATION_AMENDS, RELATION_INTRODUCES
 from lawgraph.core.kamerstuk_xml import parse_kamerstuk
 from lawgraph.core.mvt_articles import (
-    CONFIDENCE_BODY_NAMED_LAW,
-    CONFIDENCE_HEADING_TARGET,
-    CONFIDENCE_INFERRED_LAW,
-    CONFIDENCE_OWN_NUMBER,
+    CONFIDENCE_OF_MATCH,
+    CONFIDENCE_UNCHANGED,
     MATCH_BODY_NAMED_LAW,
     MATCH_HEADING_TARGET,
     MATCH_INFERRED_LAW,
@@ -108,7 +106,7 @@ def test_a_new_law_names_its_own_article_by_number() -> None:
         ("s-1", NEW_LAW, "4", MATCH_OWN_NUMBER),
         ("s-1", NEW_LAW, "5", MATCH_OWN_NUMBER),
     ]
-    assert refs[0].confidence == CONFIDENCE_OWN_NUMBER
+    assert refs[0].confidence == CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER]
     assert (refs[0].char_start, refs[0].char_end) == (
         0,
         len(paper.sections[0]["heading"]) + 1 + len("Dit artikel regelt de aanvraag."),
@@ -154,7 +152,7 @@ def test_the_target_in_the_heading_names_the_article() -> None:
         ("s-0", WONINGWET, "1a", MATCH_HEADING_TARGET),
         ("s-1", WONINGWET, "3", MATCH_HEADING_TARGET),
     ]
-    assert refs[0].confidence == CONFIDENCE_HEADING_TARGET
+    assert refs[0].confidence == CONFIDENCE_OF_MATCH[MATCH_HEADING_TARGET]
 
 
 def test_a_target_without_a_law_that_is_known_is_no_target() -> None:
@@ -205,7 +203,7 @@ def test_the_body_names_the_article_of_a_law_of_the_dossier() -> None:
     refs = find_references(text, sections, laws)
 
     assert _found(refs) == [("s-6", KLIMAATFONDS, "2", MATCH_BODY_NAMED_LAW)]
-    assert refs[0].confidence == CONFIDENCE_BODY_NAMED_LAW
+    assert refs[0].confidence == CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW]
     # Artikel II (inwerkingtreding) names no article
     assert "s-7" not in {r.section_id for r in refs}
 
@@ -219,7 +217,6 @@ def test_a_number_without_a_law_is_of_the_only_law_the_dossier_changes() -> None
         ("s-16", "23", MATCH_INFERRED_LAW),
     }
     assert all(r.bwb_id == WONINGWET for r in refs)
-    assert CONFIDENCE_INFERRED_LAW < CONFIDENCE_BODY_NAMED_LAW
 
     # with two laws it is not known which one: only what names its law is left
     two = [Law(WONINGWET, ("Woningwet",)), Law(AWB, ("Awb",))]
@@ -400,6 +397,10 @@ def test_a_reference_points_at_the_version_the_change_created() -> None:
 
     assert set(explained) == {article_id(WONINGWET, "3"), "article_versions/v_2"}
     assert explained["article_versions/v_2"] == [refs[0]]
+    assert refs[0].changed and refs[0].explanation == (
+        "De tekst onder de kop 'heading' noemt het artikel met zijn wet; het dossier "
+        "wijzigt het artikel."
+    )
 
 
 def test_an_article_that_was_not_changed_is_a_target_when_the_heading_states_it() -> (
@@ -416,6 +417,14 @@ def test_an_article_that_was_not_changed_is_a_target_when_the_heading_states_it(
 
     # 8 is only mentioned in the text; 7 does not exist
     assert list(explained) == [article_id(WONINGWET, "9")]
+    # the dossier did not change 9: the heading alone says it, which is often wrong
+    (stated,) = explained[article_id(WONINGWET, "9")]
+    assert not stated.changed
+    assert stated.confidence == CONFIDENCE_UNCHANGED[MATCH_HEADING_TARGET]
+    assert stated.confidence < CONFIDENCE_OF_MATCH[MATCH_HEADING_TARGET]
+    assert stated.explanation == (
+        "De kop 'heading' noemt het artikel; het dossier wijzigt het artikel niet."
+    )
 
 
 def test_numbers_are_compared_as_articles_are_stored() -> None:

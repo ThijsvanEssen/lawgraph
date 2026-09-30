@@ -23,6 +23,9 @@ from lawgraph.core.qualifiers import Qualifier, parse_qualifier
 # (a ruling on a single provision) keeps the first ones; ``mention_count`` is the whole number.
 MAX_MENTIONS_PER_EDGE = 100
 
+# (bwb_id, celex, article_number, unknown_law): one article a judgment cites.
+MentionKey = tuple[str | None, str | None, str | None, str | None]
+
 # Between two paragraphs of the text the detector reads: it is read as one text, so that
 # "die wet" and "(hierna: de Awb)" reach across paragraphs as they do in the judgment.
 # A citation that runs over the break is no citation of either paragraph and is left out.
@@ -97,7 +100,11 @@ def _text(value: Any) -> str | None:
 
 @dataclass
 class ArticleMentions:
-    """Everything one judgment says about one article."""
+    """Everything one judgment says about one article.
+
+    The article of a law that is not in the graph has no id: *unknown_law* is the law as the
+    judgment writes it (``Rv``).
+    """
 
     bwb_id: str | None
     celex: str | None
@@ -107,6 +114,7 @@ class ArticleMentions:
     mentions: list[Mention] = field(default_factory=list)
     count: int = 0  # all of them
     confidence: float = 0.0  # the strongest
+    unknown_law: str | None = None
 
     def add(self, mention: Mention) -> None:
         self.count += 1
@@ -122,17 +130,34 @@ class ArticleMentions:
             "mentions": [mention.to_dict() for mention in self.mentions],
         }
 
+    def unresolved(self) -> dict[str, Any]:
+        """A citation of a law that is not in the graph, as the judgment keeps it
+        (``props.unresolved_citations``): the law and article as written, and the first
+        mention's text and qualifier."""
+        first = self.mentions[0]
+        stored: dict[str, Any] = {
+            "law": self.unknown_law,
+            "article_number": self.article_number,
+            "raw_match": first.raw_match,
+            **first.parts.to_dict(),
+            "paragraph_ids": list(dict.fromkeys(m.paragraph_id for m in self.mentions)),
+            "mention_count": self.count,
+        }
+        if first.qualifier:
+            stored["qualifier"] = first.qualifier
+        return stored
+
 
 def find_mentions(
     paragraphs: Sequence[Mapping[str, Any]],
     detect: Callable[[str], Iterable[CitationHit]],
-) -> dict[tuple[str | None, str | None, str | None], ArticleMentions]:
+) -> dict[MentionKey, ArticleMentions]:
     """The articles a judgment cites, each with the places that cite it.
 
     *paragraphs* are the ``{id, number, text}`` of ``core.judgments.extract_sections``;
     *detect* reads a text and returns a hit for every citation, with its ``start`` and
     ``end`` (``detect_in_text(..., every_occurrence=True)``). The keys are
-    ``(bwb_id, celex, article_number)``, in the order of first citation.
+    ``(bwb_id, celex, article_number, unknown_law)``, in the order of first citation.
     """
     texts = [str(paragraph.get("text") or "") for paragraph in paragraphs]
     starts: list[int] = []
@@ -141,7 +166,7 @@ def find_mentions(
         starts.append(position)
         position += len(text) + len(_BREAK)
 
-    found: dict[tuple[str | None, str | None, str | None], ArticleMentions] = {}
+    found: dict[MentionKey, ArticleMentions] = {}
     for hit in detect(_BREAK.join(texts)):
         if hit.start is None or hit.end is None:
             continue
@@ -151,7 +176,7 @@ def find_mentions(
         if start >= len(text) or end > len(text):  # in the break, or over it
             continue
         paragraph = paragraphs[index]
-        key = (hit.bwb_id, hit.celex, hit.article_number)
+        key = (hit.bwb_id, hit.celex, hit.article_number, hit.unknown_law)
         target = found.get(key)
         if target is None:
             target = found[key] = ArticleMentions(
@@ -159,6 +184,7 @@ def find_mentions(
                 celex=hit.celex,
                 article_number=hit.article_number,
                 reason=hit_reason(hit),
+                unknown_law=hit.unknown_law,
             )
         target.add(
             Mention(

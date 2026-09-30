@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -41,35 +41,53 @@ from lawgraph.core.kamerstuk_xml import (
 )
 from lawgraph.core.models import make_node_key
 
-# How a section came to name an article. The confidences are a first estimate, not measured:
-# there is no set of labelled sections to calibrate them on.
+# How a section came to name an article, and whether the dossier changed that article. The
+# confidence is the share a hand check found right: 10 random edges per kind in lawgraph_small
+# (2026-09-29). A change of the article by the dossier corroborates what the paper says; a
+# heading that names an article the dossier did not change mostly names an article of another
+# law than the one it is taken for (the heading says "Wft", the dossier changes Boek 2 BW).
 #
 # ``own_number``: in a new law the toelichting of "Artikel 5" is about article 5 of that law.
-# The heading is the whole evidence and it is a convention, so it is the surest of the
-# structural rules, but a nota van wijziging can insert articles and shift the numbers, and the
-# graph does not say so.
+# The heading is the whole evidence, and it is a convention; 10 of 10 right.
 MATCH_OWN_NUMBER = "own_number"
-CONFIDENCE_OWN_NUMBER = 0.8
 # ``heading_target``: the heading itself says which article it explains ("Artikel I, onderdeel
 # B (artikel 1a)", "Onderdeel A (artikel 3 van de Woningwet)"): the author's own statement.
+# 10 of 10 right where the dossier changed the article, about 3 of 10 where it did not.
 MATCH_HEADING_TARGET = "heading_target"
-CONFIDENCE_HEADING_TARGET = 0.9
 # ``body_named_law``: the text under the heading says "artikel N van de <Law>" and the law is
 # one the dossier changed. The text may also refer to an article it does not explain, but the
-# article must be one the dossier changed as well.
+# article must be one the dossier changed as well; 6 or 7 of 10 right.
 MATCH_BODY_NAMED_LAW = "body_named_law"
-CONFIDENCE_BODY_NAMED_LAW = 0.85
 # ``inferred_law``: an article number without a law ("de wijziging van artikel 2"), of the law
-# the enclosing heading names or of the only law the dossier changes. Two guesses in a row.
+# the enclosing heading names or of the only law the dossier changes; only the opening of the
+# text is read, and the article must be one the dossier changed: 8 of 10 right.
 MATCH_INFERRED_LAW = "inferred_law"
-CONFIDENCE_INFERRED_LAW = 0.7
 
+# The confidence of each kind of match where the dossier changed the article.
 CONFIDENCE_OF_MATCH = {
-    MATCH_OWN_NUMBER: CONFIDENCE_OWN_NUMBER,
-    MATCH_HEADING_TARGET: CONFIDENCE_HEADING_TARGET,
-    MATCH_BODY_NAMED_LAW: CONFIDENCE_BODY_NAMED_LAW,
-    MATCH_INFERRED_LAW: CONFIDENCE_INFERRED_LAW,
+    MATCH_OWN_NUMBER: 0.95,
+    MATCH_HEADING_TARGET: 0.95,
+    MATCH_BODY_NAMED_LAW: 0.65,
+    MATCH_INFERRED_LAW: 0.8,
 }
+# ... and where it did not: only a stated match points at an article the dossier left alone.
+CONFIDENCE_UNCHANGED = {
+    MATCH_OWN_NUMBER: 0.95,
+    MATCH_HEADING_TARGET: 0.3,
+}
+
+# What a match rests on, in words.
+_RESTS_ON = {
+    MATCH_OWN_NUMBER: "de kop '{heading}' is een artikel van de nieuwe wet",
+    MATCH_HEADING_TARGET: "de kop '{heading}' noemt het artikel",
+    MATCH_BODY_NAMED_LAW: "de tekst onder de kop '{heading}' noemt het artikel met zijn wet",
+    MATCH_INFERRED_LAW: (
+        "de tekst onder de kop '{heading}' noemt het artikelnummer; de wet is die van de "
+        "kop of de enige die het dossier wijzigt"
+    ),
+}
+# The most of a heading an explanation quotes.
+_HEADING_CHARS = 80
 
 # What a heading states, against what a sentence in the body may mention in passing: a target
 # that the dossier did not change is still one when the heading names it.
@@ -128,10 +146,23 @@ class Reference:
     bwb_id: str
     number: str
     match_type: str
+    changed: bool = True  # the dossier changed the article (``explained_targets``)
 
     @property
     def confidence(self) -> float:
-        return CONFIDENCE_OF_MATCH[self.match_type]
+        if self.changed:
+            return CONFIDENCE_OF_MATCH[self.match_type]
+        return CONFIDENCE_UNCHANGED[self.match_type]
+
+    @property
+    def explanation(self) -> str:
+        """What the match rests on: the section, and whether the dossier changed it."""
+        heading = " ".join(self.heading.split())
+        if len(heading) > _HEADING_CHARS:
+            heading = heading[: _HEADING_CHARS - 1] + "…"
+        rests_on = _RESTS_ON[self.match_type].format(heading=heading)
+        changed = "wijzigt het artikel" if self.changed else "wijzigt het artikel niet"
+        return f"{rests_on[:1].upper()}{rests_on[1:]}; het dossier {changed}."
 
 
 def number_key(number: str) -> str:
@@ -356,7 +387,8 @@ def explained_targets(
     """The references of each node they point at: ``{node id: [references]}``.
 
     A reference points at the versions and articles the dossier changed with that number, or,
-    when the section states the article itself (its heading), at the article when it exists.
+    when the section states the article itself (its heading), at the article when it exists;
+    the reference then says the dossier did not change it (``changed``).
     """
     changed: dict[tuple[str, str], list[Change]] = {}
     for change in changes:
@@ -376,6 +408,7 @@ def explained_targets(
                 for key in _number_keys(reference.number)
             ]
             targets = {c for c in candidates if article_exists(c)}
+            reference = replace(reference, changed=False)
         for target in sorted(targets):
             explained.setdefault(target, []).append(reference)
     return explained

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import RELATION_AMENDS, RELATION_EXPLAINS
-from lawgraph.core.mvt_articles import CONFIDENCE_OF_MATCH
+from lawgraph.core.mvt_articles import CONFIDENCE_OF_MATCH, MATCH_BODY_NAMED_LAW
 from lawgraph.core.relations import BY_NAME
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
@@ -95,7 +95,11 @@ def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
     assert edge["_from"] == "documents/mvt-1"
     assert edge["_to"] == "article_versions/bwbr0005068_stam2_v2"
     assert edge["source"] == SEMANTIC_SOURCE_SECTIONS
-    assert edge["confidence"] == 0.85
+    assert edge["confidence"] == CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW] < 1
+    assert edge["meta"]["explanation"] == (
+        "De tekst onder de kop 'Onderdeel A' noemt het artikel met zijn wet; het dossier "
+        "wijzigt het artikel."
+    )
     meta = edge["meta"]
     assert meta["section_anchor"] == "s-1"  # the first of two equally sure sections
     assert meta["match_type"] == "body_named_law" and meta["heading"] == "Onderdeel A"

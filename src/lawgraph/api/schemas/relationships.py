@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.api.schemas.common import ArticleRelationDTO
+from lawgraph.api.schemas.common import (
+    SEMANTIC_CONFIDENCE,
+    SEMANTIC_PATTERN,
+    ArticleRelationDTO,
+    semantic_fields,
+)
 
 
 class RelationshipDTO(BaseModel):
@@ -19,8 +24,18 @@ class RelationshipDTO(BaseModel):
     to_id: str
     relation: str
     semantic_type: str | None = None
-    explanation: str | None = None
-    confidence: float | None = None
+    explanation: str | None = Field(
+        default=None,
+        description="What `semantic_type` rests on: the trigger phrase and where it stood.",
+    )
+    confidence: float | None = Field(
+        default=None,
+        description="That the reference exists: 1.0 for a link of the BWB XML.",
+    )
+    semantic_confidence: float | None = Field(
+        default=None, description=SEMANTIC_CONFIDENCE
+    )
+    semantic_pattern: str | None = Field(default=None, description=SEMANTIC_PATTERN)
     source_article: ArticleRelationDTO | None = None
     target_article: ArticleRelationDTO | None = None
 
@@ -40,6 +55,7 @@ class RelationshipDTO(BaseModel):
             semantic_type=edge.get("semantic_type"),
             explanation=edge.get("explanation"),
             confidence=edge.get("confidence"),
+            **semantic_fields(edge),
             source_article=(
                 ArticleRelationDTO.from_documents(source_article, None)
                 if source_article

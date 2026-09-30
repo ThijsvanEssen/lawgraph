@@ -219,6 +219,21 @@ class JudgmentAppealTargetProps(_StrictBase):
     case_number: str | None = None  # as the text writes it: "24/6811"
 
 
+class JudgmentUnresolvedCitationProps(_StrictBase):
+    """A citation of a law that is not in the graph (``semantic rechtspraak``,
+    ``core.mentions.ArticleMentions.unresolved``)."""
+
+    law: str  # as the text writes it: "Rv", "Vw 2000"
+    article_number: str
+    raw_match: str  # the first citation: "art. 392 Rv"
+    qualifier: str | None = None  # of the first citation: "derde lid"
+    leden: list[str] = []
+    onderdelen: list[str] = []
+    aanhef: bool = False
+    paragraph_ids: list[str] = []
+    mention_count: int = 1
+
+
 class JudgmentProps(_CommonProps):
     ecli: str | None = None
     source_kind: str | None = None
@@ -250,6 +265,9 @@ class JudgmentProps(_CommonProps):
     # the decisions an appeal names in its text that are not loaded
     # (``semantic rechtspraak-appeal``); null when there are none
     unresolved_appeal_targets: list[JudgmentAppealTargetProps] | None = None
+    # the citations of laws that are not in the graph (``semantic rechtspraak``), in reading
+    # order; null when there are none
+    unresolved_citations: list[JudgmentUnresolvedCitationProps] | None = None
     court_code: str | None = None
     # the coarse tier (the Type of the Instanties list) and the kind of court within it
     tier: str | None = None

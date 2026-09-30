@@ -17,6 +17,8 @@ class _FakeStore(_BaseFakeStore):
         self._articles = articles
 
     def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
+        if "REMOVE" in aql:  # the edges a run no longer derives: none stored here
+            return []
         if "RETURN DISTINCT" in aql and "bwb_id" in aql and not bind_vars:
             seen = set()
             result = []
@@ -92,7 +94,9 @@ def _create_pipeline(
     )
 
 
-def _ref(bwb_id: str | None, article: str | None, text: str = "artikel 24c") -> dict:
+def _ref(bwb_id: str | None, article: str | None, text: str | None = None) -> dict:
+    """A reference whose words name the article it links, unless *text* says otherwise."""
+    text = text or f"artikel {article or '24c'}"
     return {
         "kind": "extref",
         "bwb_id": bwb_id,
@@ -213,6 +217,26 @@ def test_structured_references_skip_self_incomplete_and_unknown_targets() -> Non
     assert result.created == 1
     (edge,) = store.edges.values()
     assert edge["_to"].endswith(make_node_key("BWBR0001854", "24c"))
+
+
+def test_the_words_of_a_reference_win_over_a_link_to_another_article() -> None:
+    store = _structured_store([_ref("BWBR0001854", "24", "artikel 24c")])
+
+    _create_pipeline(store).run()
+
+    (edge,) = store.edges.values()
+    assert edge["_to"].endswith(make_node_key("BWBR0001854", "24c"))
+    assert edge["meta"]["linked_article"] == make_node_key("BWBR0001854", "24")
+
+
+def test_the_link_counts_when_the_graph_lacks_the_article_the_words_name() -> None:
+    store = _structured_store([_ref("BWBR0001854", "24c", "artikel 24clid 1")])
+
+    _create_pipeline(store).run()
+
+    (edge,) = store.edges.values()
+    assert edge["_to"].endswith(make_node_key("BWBR0001854", "24c"))
+    assert "linked_article" not in edge["meta"]
 
 
 def test_store_citations_records_the_structured_references() -> None:

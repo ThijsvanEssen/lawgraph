@@ -165,6 +165,8 @@ def get_document_article_passages(
             text=text[row["char_start"] : row["char_end"]],
             confidence=row["confidence"],
             match_type=row["match_type"],
+            changed=row.get("changed"),
+            explanation=row.get("explanation"),
         )
         for row in rows
     ]

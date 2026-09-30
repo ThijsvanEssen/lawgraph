@@ -64,7 +64,12 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
     assert _edge_keys(store) == first_edges
 
     report = check(store)
-    assert [p for p in report.problems if not p.startswith("raw ")] == []
+    # the seed has no EU act: the curated abbreviation of the AVG names nothing here
+    assert [
+        p
+        for p in report.problems
+        if not p.startswith(("raw ", "curated instrument-abbreviations: "))
+    ] == []
 
 
 def test_check_says_when_a_source_was_retrieved_and_never_normalized(
