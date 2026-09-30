@@ -15,6 +15,7 @@ from lawgraph.api.schemas.common import (
 from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
 from lawgraph.core.identifiers import ecli_source
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention
+from lawgraph.core.official_urls import judgment_url
 
 # ``core.judgments.DECISION_KINDS``
 DecisionKind = Literal[
@@ -45,6 +46,11 @@ class JudgmentDTO(BaseNodeDTO):
 
     ecli: str | None
     source: str | None = None
+    official_url: str | None = Field(
+        default=None,
+        description="The judgment on its official site: uitspraken.rechtspraak.nl by its "
+        "ECLI, HUDOC by its item id for one of the ECHR; null for a stub of another court.",
+    )
     summary: str | None = Field(
         description="The inhoudsindicatie, in Dutch. For an English translation the "
         "inhoudsindicatie of the judgment it translates; null while that is not loaded."
@@ -94,6 +100,12 @@ class JudgmentDTO(BaseNodeDTO):
         'uitspraak van de rechtbank Gelderland van 9 juli 2025 in zaak nr. 24/6811") that '
         "are not loaded; one that is loaded is its `APPEAL_OF` edge. Empty for most.",
     )
+    unresolved_citations: list["UnresolvedCitation"] = Field(
+        default_factory=list,
+        description="The articles the judgment cites of laws that are not in the graph "
+        '("art. 392 Rv"): mentioned, not in the network. One per law and article, in '
+        "reading order. Empty when it cites none, or before `semantic rechtspraak` read it.",
+    )
     paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
     parties: list["JudgmentParty"] | None = Field(
         default=None,
@@ -133,6 +145,7 @@ class JudgmentDTO(BaseNodeDTO):
             **base.model_dump(),
             ecli=ecli,
             source=source,
+            official_url=judgment_url({**props, "source": source}),
             summary=props.get("summary"),
             summary_en=props.get("summary_en"),
             translation_of=props.get("translation_of"),
@@ -145,6 +158,9 @@ class JudgmentDTO(BaseNodeDTO):
             advocate_general=props.get("advocate_general"),
             unresolved_appeal_targets=[
                 AppealTarget(**t) for t in props.get("unresolved_appeal_targets") or []
+            ],
+            unresolved_citations=[
+                UnresolvedCitation(**c) for c in props.get("unresolved_citations") or []
             ],
             paragraphs=paragraphs,
             parties=None if parties is None else [JudgmentParty(**p) for p in parties],
@@ -162,6 +178,28 @@ class AppealTarget(BaseModel):
         default=None,
         description="As the text writes it: `24/6811`; null when it gives none.",
     )
+
+
+class UnresolvedCitation(QualifierFields):
+    """An article a judgment cites of a law that is not in the graph."""
+
+    law: str = Field(
+        description="The law as the judgment writes it: `Rv`, `Sv`, `Vw 2000`, `Opiumwet`."
+    )
+    article_number: str = Field(description="As cited: `392`, `3.5`, `1:6p`.")
+    raw_match: str = Field(
+        description="The text of the first citation: `art. 392, eerste lid, Rv`."
+    )
+    qualifier: str | None = Field(
+        default=None,
+        description="The qualifier of the first citation as written: `eerste lid`. "
+        "`leden`, `onderdelen` and `aanhef` are what it names.",
+    )
+    paragraph_ids: list[str] = Field(
+        default_factory=list,
+        description="The paragraphs that cite it (`JudgmentParagraph.paragraph_id`).",
+    )
+    mention_count: int = Field(description="How often the judgment cites it.")
 
 
 class JudgmentRepresentative(BaseModel):

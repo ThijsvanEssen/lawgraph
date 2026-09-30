@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
+from collections.abc import Mapping
 from typing import Any, Callable, Iterable
 
 from lawgraph.config.constants import (
@@ -13,12 +15,15 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.aliases import AliasMatcher, InstrumentAliasMap
 from lawgraph.core.citations import (
+    ARTICLE_HEAD_RE,
+    LAW_CONNECTOR_RE,
     CitationHit,
     DutchCitationExtractor,
     coerce_text,
     hit_reason,
     make_snippet,
 )
+from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.qualifiers import parse_qualifier
@@ -42,29 +47,80 @@ STUB_CONFIDENCE = 0.85
 
 
 class NamedActs:
-    """The law names of the graph, matched against a text in one pass (``AliasMatcher``)."""
+    """The laws of the graph a text names: by a name (title or citation title), matched in
+    one pass without regard to case (``AliasMatcher``), or by an abbreviation
+    (``core.aliases.code_aliases``: the short title, the WTI abbreviations, the curated ones),
+    matched as written: "EVRM" is the Convention, "evrm" nothing. An abbreviation that is
+    the law of an article citation ("art. 8 EVRM") belongs to that citation, which cites the
+    article; only one that stands alone names the law."""
 
-    def __init__(self, aliases: InstrumentAliasMap) -> None:
+    def __init__(
+        self, aliases: InstrumentAliasMap, codes: Mapping[str, str] | None = None
+    ) -> None:
         self._targets = [
             (bwb_id, celex) for bwb_id, celex in aliases.values() if bwb_id or celex
         ]
         self._matcher = AliasMatcher(
             label for label, (bwb_id, celex) in aliases.items() if bwb_id or celex
         )
+        self._codes = dict(codes or {})
+        self._code_re = (
+            re.compile(
+                r"(?<![\w-])(?:"
+                + "|".join(
+                    re.escape(code)
+                    for code in sorted(self._codes, key=len, reverse=True)
+                )
+                + r")(?![\w-])"
+            )
+            if self._codes
+            else None
+        )
 
     def collect_hits(self, text: str, record: Callable[[CitationHit], None]) -> None:
         for order, start, end in self._matcher.first_matches(text):
             bwb_id, celex = self._targets[order]
-            record(
-                CitationHit(
-                    kind="instrument",
-                    bwb_id=bwb_id,
-                    celex=celex,
-                    confidence=0.6,
-                    raw_match=text[start:end],
-                    snippet=make_snippet(text, (start, end)),
-                )
-            )
+            record(_instrument_hit(text, start, end, bwb_id, celex))
+        if self._code_re is None:
+            return
+        seen: set[str] = set()
+        for match in self._code_re.finditer(text):
+            law_id = self._codes[match.group(0)]
+            if law_id in seen or _ends_a_citation_head(text, match.start()):
+                continue
+            seen.add(law_id)
+            celex = law_id if parse_celex(law_id) else None
+            bwb_id = None if celex else law_id
+            record(_instrument_hit(text, match.start(), match.end(), bwb_id, celex))
+
+
+# How far back an article citation may start before the law it names.
+_HEAD_REACH = 200
+
+
+def _ends_a_citation_head(text: str, start: int) -> bool:
+    """Whether the law at *start* is the law of an article citation: an article head
+    (``artikel 8, eerste lid,``) and its connector (``van het``) end right there."""
+    offset = max(0, start - _HEAD_REACH)
+    window = text[offset:start]
+    for head in ARTICLE_HEAD_RE.finditer(window):
+        connector = LAW_CONNECTOR_RE.match(window, head.end())
+        if connector is not None and connector.end() == len(window):
+            return True
+    return False
+
+
+def _instrument_hit(
+    text: str, start: int, end: int, bwb_id: str | None, celex: str | None
+) -> CitationHit:
+    return CitationHit(
+        kind="instrument",
+        bwb_id=bwb_id,
+        celex=celex,
+        confidence=0.6,
+        raw_match=text[start:end],
+        snippet=make_snippet(text, (start, end)),
+    )
 
 
 def detect_tk_citations(
@@ -79,7 +135,7 @@ def detect_tk_citations(
     return _collect_tk_hits(
         text,
         build_extractor(code_aliases, instrument_aliases),
-        NamedActs(instrument_aliases),
+        NamedActs(instrument_aliases, code_aliases),
     )
 
 
@@ -112,7 +168,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
             )
 
         extractor = build_extractor(code_aliases, instrument_aliases)
-        named_acts = NamedActs(instrument_aliases)
+        named_acts = NamedActs(instrument_aliases, code_aliases)
 
         logger.info(
             "Processing TK documents for semantic linking (since=%s).",

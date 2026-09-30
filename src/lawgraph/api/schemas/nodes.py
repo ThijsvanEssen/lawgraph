@@ -27,6 +27,7 @@ DROP_PROPS_KEYS_GRAPH = (
     "raw_data",
     "raw",  # documents carry the source TK payload here
     "entries",  # annexes carry their table rows here
+    "unresolved_citations",
 )
 
 

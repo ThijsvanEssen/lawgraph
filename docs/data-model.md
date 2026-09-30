@@ -98,8 +98,7 @@ they are out of date. Do not edit inside the markers.
 | `instruments` (EU) | `32016l0680` (`celex`) |
 | `instruments` (Verdragenbank treaty) | `verdrag_<id>` |
 | `instruments` (amending publication) | `stb_2019_33` (publication identifier) |
-| `instruments` (ECHR Convention) | `echr_convention` |
-| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`; an article without a number `<bwb_id>_stam_<stam_id>`: `bwbr0001840_stam_16464063`); EU `<celex>_<article_number>`; historical `<bwb_id>_<number>_stam_<stam_id>`; ECHR `echr_convention_<n>` |
+| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`; an article without a number `<bwb_id>_stam_<stam_id>`: `bwbr0001840_stam_16464063`); EU `<celex>_<article_number>`; historical `<bwb_id>_<number>_stam_<stam_id>` |
 | `instrument_versions` | `<bwb_id>_<valid_from>` |
 | `article_versions` | `<bwb_id>_av_<stam_id>_<versie_id>` |
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
@@ -132,9 +131,11 @@ tk-mvt-articles` (a section that is about the article; `source` `mvt-section-lin
 
 | Field | Meaning |
 |-------|---------|
-| `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end` and `match_type` are that section's |
+| `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end`, `match_type`, `changed` and `explanation` are that section's |
 | `match_type` | `heading_target`, `body_named_law`, `own_number` or `inferred_law` (`docs/pipelines.md`) |
-| `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `confidence` |
+| `changed` | whether the dossier changed the article, which corroborates the match |
+| `explanation` | what the match rests on, in Dutch |
+| `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `changed`, `confidence`, `explanation` |
 
 `char_start`/`char_end` are offsets into `props.text` of the Document.
 
@@ -144,9 +145,11 @@ says that two articles are linked, `semantic_type` says what the link means.
 | Field | Values |
 |-------|--------|
 | `semantic_type` | `conditional_requirement`, `scope_limitation`, `prerequisite_procedure`, `definitional_reference`, `limiting_exception`, `cross_reference`, `delegated_discretion`; null for unclassified edges |
-| `explanation` | the pattern that decided the type, in words |
+| `explanation` | the phrase that decided the type and where it stood, in words |
 | `updated_at` | when the classification last changed |
-| `meta.semantic_pattern`, `meta.semantic_confidence` | audit trail of the extraction |
+| `meta.semantic_pattern` | the pattern and where its phrase stood: `limiting_exception_adjacent`, `definitional_reference_window`, `cross_reference_fallback` |
+| `meta.semantic_confidence` | the share of classifications by that pattern a hand check found right (0.25 to 0.9); the edge's `confidence` (1.0) is that the reference exists |
+| `meta.linked_article` | the key of the article the link of the XML points at, when the words of the reference name another (`semantic bwb`) |
 
 ## Instrument
 
@@ -174,7 +177,8 @@ statutes made by the legislator:
   87/102/EEG`, `Richtlijn 95/46/EG`, `Verordening (EU) nr. 1093/2010`, `Verordening (EU)
   2016/679`), `short_title` the name between brackets that ends the title
   (`Datagovernanceverordening`), `display_name` the citation title.
-- The Convention of the ECHR (`echr_convention`): kind `verdrag`, `bwb_id` `ECHR-CONVENTION`, which its articles carry too.
+- The Convention of the ECHR is the BWB treaty `BWBV0001000` (`bwbv0001000`, articles
+  `bwbv0001000_<n>`), abbreviated `EVRM` in its WTI; ECHR judgments cite its articles.
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`
   `publicatie` (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
   `date_published`, `dossier_numbers`; `citation_title` is their name, `Stb. 2019, 33`); they
@@ -303,7 +307,10 @@ have no `REFERS_TO` between them, even when one names the other in its text.
 
 `unresolved_appeal_targets` lists the decisions an appeal says in its text it appeals that are
 not loaded (`court` and `case_number` as written, `date` ISO; `case_number` null when the text
-gives none); null when there are none.
+gives none); null when there are none. `unresolved_citations` lists the articles a judgment
+cites of laws that are not in the graph (`semantic rechtspraak`): `law` and `article_number` as
+written, `raw_match` and `qualifier` of the first citation, `leden`, `onderdelen`, `aanhef`,
+`paragraph_ids`, `mention_count`; null when there are none.
 
 Parallel cases a court decided on one day in (nearly) the same words form a series: each
 judgment of it has `series_id`, the lowest ECLI in the series, and `series_size`; outside a

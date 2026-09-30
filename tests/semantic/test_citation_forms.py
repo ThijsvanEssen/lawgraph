@@ -249,3 +249,58 @@ def test_internal_references_and_unknown_documents_are_not_hits(text) -> None:
 
 def test_without_any_law_registered_nothing_is_found() -> None:
     assert DutchCitationExtractor(code_aliases={}).extract("artikel 5 Sr") == []
+
+
+# ── laws the registry does not know ──────────────────────────────────────────
+
+
+def _unknown(text: str) -> list[tuple[str | None, str | None]]:
+    extractor = DutchCitationExtractor({"Sr": SR})
+    return [
+        (h.unknown_law, h.article_number)
+        for h in extractor.extract(text, unknown_laws=True)
+        if h.bwb_id is None
+    ]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("De klacht over art. 392 Rv faalt.", [("Rv", "392")]),
+        (
+            "artikel 81 RO en artikel 25, lid 5, van de AWR",
+            [("RO", "81"), ("AWR", "25")],
+        ),
+        ("artikel 85, eerste lid, van de Vw 2000", [("Vw 2000", "85")]),
+        ("artikel 2, eerste lid, onder C, Opiumwet", [("Opiumwet", "2")]),
+        ("artikel 7 van de Huisvestingswet 2014", [("Huisvestingswet 2014", "7")]),
+    ],
+)
+def test_a_law_that_is_not_known_is_kept_as_written(
+    text: str, expected: list[tuple[str, str]]
+) -> None:
+    assert _unknown(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "artikel 5 Onze Minister",  # the start of a sentence, not a law
+        "art. 18 van de Invoeringswet Boeken 3, 5 en 6",  # the first word of a long name
+        "artikel 3 Rijkswet op het Nederlanderschap",
+        "artikel 3 Wet op de rechterlijke organisatie",  # a name of several words
+        "ARTIKEL 5 EN 6",
+        "artikel 12 Sr",  # a known law
+        "artikel 3 van die wet",
+    ],
+)
+def test_what_is_no_law_or_a_known_one_is_not_kept(text: str) -> None:
+    assert _unknown(text) == []
+
+
+def test_unknown_laws_are_only_read_when_asked() -> None:
+    extractor = DutchCitationExtractor({"Sr": SR})
+    text = "art. 392 Rv en artikel 12 Sr"
+    assert extractor.extract(text) == [
+        h for h in extractor.extract(text, unknown_laws=True) if h.unknown_law is None
+    ]

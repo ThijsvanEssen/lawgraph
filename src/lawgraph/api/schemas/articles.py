@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    SEMANTIC_CONFIDENCE,
+    SEMANTIC_PATTERN,
     VALID_UNTIL,
     ArticleCitationSpan,
     ArticleRelationDTO,
@@ -17,6 +19,7 @@ from lawgraph.api.schemas.common import (
     PublicationDTO,
     QualifierFields,
     address_of,
+    semantic_fields,
 )
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
 from lawgraph.config.constants import (
@@ -204,8 +207,18 @@ class ArticleRelationshipWithType(QualifierFields):
     relation: str
     target_article: ArticleRelationDTO
     semantic_type: str | None = None
-    explanation: str | None = None
-    confidence: float | None = None
+    explanation: str | None = Field(
+        default=None,
+        description="What `semantic_type` rests on: the trigger phrase and where it stood.",
+    )
+    confidence: float | None = Field(
+        default=None,
+        description="That the reference exists: 1.0 for a link of the BWB XML.",
+    )
+    semantic_confidence: float | None = Field(
+        default=None, description=SEMANTIC_CONFIDENCE
+    )
+    semantic_pattern: str | None = Field(default=None, description=SEMANTIC_PATTERN)
     start: int | None = Field(
         None,
         description="Offset of the reference in the text of the referring article.",
@@ -231,6 +244,7 @@ class ArticleRelationshipWithType(QualifierFields):
             semantic_type=edge.get("semantic_type"),
             explanation=edge.get("explanation"),
             confidence=edge.get("confidence"),
+            **semantic_fields(edge),
             start=start if isinstance(start, int) else None,
             end=end if isinstance(end, int) else None,
             text=text if isinstance(text, str) else None,

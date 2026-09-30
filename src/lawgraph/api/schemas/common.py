@@ -42,6 +42,32 @@ VALID_UNTIL = (
 )
 
 
+SEMANTIC_CONFIDENCE = (
+    "How sure `semantic_type` is: the share of classifications by the same trigger "
+    "phrase, in the same place, that a hand check found right (0.25 to 0.9). Null when "
+    "the reference has no type."
+)
+SEMANTIC_PATTERN = (
+    "The pattern that gave `semantic_type` and where its phrase stood: "
+    "`limiting_exception_adjacent`, `definitional_reference_window`, "
+    "`cross_reference_fallback`, …"
+)
+
+
+def semantic_fields(edge: dict[str, Any]) -> dict[str, Any]:
+    """``semantic_confidence`` and ``semantic_pattern`` of a classified reference edge
+    (``semantic bwb-relation-types`` keeps them in its ``meta``)."""
+    meta = edge.get("meta") or {}
+    confidence = meta.get("semantic_confidence")
+    pattern = meta.get("semantic_pattern")
+    return {
+        "semantic_confidence": (
+            float(confidence) if isinstance(confidence, (int, float)) else None
+        ),
+        "semantic_pattern": pattern if isinstance(pattern, str) else None,
+    }
+
+
 class QualifierFields(BaseModel):
     """Which parts of the cited article a reference names: "eerste lid, onder a"."""
 

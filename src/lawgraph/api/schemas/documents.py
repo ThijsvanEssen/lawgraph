@@ -212,12 +212,26 @@ class PassageDTO(BaseModel):
     char_start: int
     char_end: int
     text: str = Field(description="`text[char_start:char_end]` of the document.")
-    confidence: float = Field(description="Uncalibrated: 0.7 to 0.9, see `match_type`.")
+    confidence: float = Field(
+        description="The share of such matches a hand check found right (0.3 to 0.95), "
+        "by `match_type` and `changed`."
+    )
     match_type: str = Field(
         description=(
             "How the section names the article: `heading_target`, `body_named_law`, "
             "`own_number` or `inferred_law`."
         )
+    )
+    changed: bool | None = Field(
+        default=None,
+        description="Whether the dossier changed the article, which corroborates the "
+        "match; a heading naming an article the dossier left alone is often of another "
+        "law. Null for a link made before this was recorded.",
+    )
+    explanation: str | None = Field(
+        default=None,
+        description="What the match rests on, in Dutch: the heading, and whether the "
+        "dossier changed the article.",
     )
 
 
@@ -239,3 +253,88 @@ def readable_sections(text: str | None, sections: Any) -> list[SectionDTO]:
         for section in sections
         if isinstance(section, dict) and section.get("char_end", 0) <= len(text)
     ]
+
+
+class DocumentListItemDTO(BaseModel):
+    """A paper of a chamber in the list: its metadata, no text."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    chamber: Literal["TK", "EK"] | None = None
+    kind: str | None = Field(
+        None, description="As the chamber writes it: ``Memorie van toelichting``."
+    )
+    dossier_number: str | None = Field(
+        None,
+        description="The dossier it is numbered in (its own; null for a paper that is no "
+        "Kamerstuk): ``36791``.",
+    )
+    dossier_suffix: str | None = Field(
+        None, description="The addition to that number: ``XV`` of ``37020 XV``."
+    )
+    dossier_numbers: list[str] = Field(
+        default_factory=list, description="Every dossier it is part of, as labels."
+    )
+    number: str | None = Field(
+        None,
+        description="Its number in the dossier: of the Tweede Kamer the nr. (``5``), of "
+        "the Eerste Kamer the letter (``C``); null for none.",
+    )
+    date: str | None = None
+    title: str | None = None
+    session_year: str | None = Field(
+        None,
+        description="The session year as the source writes it (``2025-2026``): with the "
+        "chamber, dossier and number the citation, Kamerstukken I 2025/26, 36791, C.",
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> DocumentListItemDTO:
+        sequence = row.get("sequence")
+        number = row.get("number") if row.get("chamber") == "EK" else None
+        if row.get("chamber") == "TK" and sequence:
+            number = str(sequence)
+        return cls(
+            id=row["id"],
+            key=row["key"],
+            chamber=row.get("chamber"),
+            kind=row.get("kind"),
+            dossier_number=row.get("dossier_number"),
+            dossier_suffix=row.get("dossier_suffix"),
+            dossier_numbers=row.get("dossier_numbers") or [],
+            number=number,
+            date=row.get("date"),
+            title=row.get("title"),
+            session_year=row.get("session_year"),
+        )
+
+
+class DocumentFacetsDTO(BaseModel):
+    """The papers under the filters, per kind (without the kind filter) and per chamber
+    (without the chamber filter), the largest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: list[DocumentFacetCountDTO] = Field(default_factory=list)
+    chamber: list[DocumentFacetCountDTO] = Field(default_factory=list)
+
+
+class DocumentFacetCountDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value: str | None = None
+    count: int
+
+
+class DocumentListResponse(BaseModel):
+    """A page of the papers of the chambers, newest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int | None = Field(
+        None, description="Every match, whatever the page; null with ``facets=false``."
+    )
+    items: list[DocumentListItemDTO] = []
+    facets: DocumentFacetsDTO | None = None

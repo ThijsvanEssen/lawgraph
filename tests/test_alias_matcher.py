@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import time
 
-from lawgraph.core.aliases import AliasMatcher
+from lawgraph.core.aliases import AliasMatcher, code_aliases, curated_abbreviations
 
 LABELS = [
     "Wegenwet",
@@ -64,3 +64,57 @@ def test_cost_does_not_grow_with_the_number_of_labels() -> None:
 
     assert many.first_matches(text) == few.first_matches(text)
     assert cost(many) < 5 * cost(few) + 0.05
+
+
+# ── abbreviations ─────────────────────────────────────────────────────────────
+
+
+def test_an_abbreviation_is_of_the_one_law_that_claims_it() -> None:
+    rows = [
+        {
+            "bwb_id": "BWBR0001854",
+            "short_title": "Sr",
+            "aliases": ["Sr", "WvS", "WvSr"],
+        },
+        # every book of the BW lists BW; a digit starts the number of a citation
+        {"bwb_id": "BWBR0005289", "short_title": "BW6", "aliases": ["BW", "6 BW"]},
+        {"bwb_id": "BWBR0005290", "short_title": "BW7", "aliases": ["BW", "7 BW"]},
+        # an instrument whose alias a law's short title claims as well
+        {"bwb_id": "BWBV0009999", "aliases": ["EVRM", "X"]},
+        {"bwb_id": "BWBV0001000", "short_title": "EVRM"},
+        {"bwb_id": "BWBR0000001", "aliases": ["X"]},  # an alias two laws claim
+        {
+            "celex": "32016R0679",
+            "short_title": "Algemene verordening gegevensbescherming",
+        },
+    ]
+
+    # a curated abbreviation counts for a law in the graph only
+    codes = code_aliases(rows, {"32016R0679": ["AVG"], "32000R0001": ["NIET"]})
+
+    assert codes == {
+        "Sr": "BWBR0001854",
+        "WvS": "BWBR0001854",
+        "WvSr": "BWBR0001854",
+        "BW6": "BWBR0005289",
+        "BW7": "BWBR0005290",
+        "EVRM": "BWBV0001000",
+        "Algemene verordening gegevensbescherming": "32016R0679",
+        "AVG": "32016R0679",
+    }
+
+
+def test_an_abbreviation_of_the_source_wins_over_a_curated_one() -> None:
+    rows = [
+        {"bwb_id": "BWBR0000001", "aliases": ["ABC"]},
+        {"celex": "32016R0679", "short_title": "Algemene verordening"},
+    ]
+    assert code_aliases(rows, {"32016R0679": ["ABC", "AVG"]}) == {
+        "ABC": "BWBR0000001",
+        "Algemene verordening": "32016R0679",
+        "AVG": "32016R0679",
+    }
+
+
+def test_the_curated_abbreviations_are_read_by_law_id() -> None:
+    assert "AVG" in curated_abbreviations()["32016R0679"]

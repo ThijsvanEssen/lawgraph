@@ -12,6 +12,8 @@
 - A publication in the Staatsblad, Staatscourant or Tractatenblad is on
   zoek.officielebekendmakingen.nl by its identifier (``stb-2022-332``), from 1995, when that
   site begins.
+- A judgment of a Dutch court is on uitspraken.rechtspraak.nl by its ECLI; one of the ECHR on
+  HUDOC by its item id (``001-208058``), which ``normalize echr`` keeps as ``external_id``.
 """
 
 from __future__ import annotations
@@ -19,13 +21,17 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from lawgraph.config.constants import SOURCE_ECHR
+
 WETTEN = "https://wetten.overheid.nl"
 EUR_LEX = "https://eur-lex.europa.eu/legal-content/NL/TXT/?uri=CELEX:{celex}"
 OFFICIELE_BEKENDMAKINGEN = "https://zoek.officielebekendmakingen.nl/{identifier}.html"
+RECHTSPRAAK = "https://uitspraken.rechtspraak.nl/details?id={ecli}"
+HUDOC = "https://hudoc.echr.coe.int/eng?i={itemid}"
 # The first year zoek.officielebekendmakingen.nl holds.
 FIRST_PUBLICATION_YEAR = 1995
 
-# A regulation of the BWB (not the pseudo-id ``ECHR-CONVENTION``).
+# A regulation or treaty of the BWB.
 _BWB_ID = re.compile(r"^BWB[RV]\d{7}$")
 # An article number the JCI can address: "7", "7:658", "1.1", "12a", "5.2.3a".
 _JCI_NUMBER = re.compile(r"^[0-9][0-9A-Za-z.:]*$")
@@ -70,3 +76,16 @@ def publication_url(publication: dict[str, Any] | None) -> str | None:
     if not isinstance(year, int) or year < FIRST_PUBLICATION_YEAR:
         return None
     return OFFICIELE_BEKENDMAKINGEN.format(identifier=publication["id"])
+
+
+def judgment_url(props: dict[str, Any]) -> str | None:
+    """The official page of a judgment (its props): HUDOC for one of the ECHR, by its item id;
+    uitspraken.rechtspraak.nl for one with a Dutch ECLI; None for anything else (a stub of
+    a foreign court)."""
+    if props.get("source") == SOURCE_ECHR:
+        itemid = props.get("external_id")
+        return HUDOC.format(itemid=itemid) if itemid else None
+    ecli = str(props.get("ecli") or "")
+    return (
+        RECHTSPRAAK.format(ecli=ecli) if ecli.upper().startswith("ECLI:NL:") else None
+    )

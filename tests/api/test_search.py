@@ -169,7 +169,10 @@ _LAWS = [
     },
     {"law_id": "BWBR0005289", "names": ["BW6", None, "Burgerlijk Wetboek Boek 6"]},
 ]
-_CODES = [["Sr", "BWBR0001854"], ["BW6", "BWBR0005289"]]
+_CODES = [
+    {"short_title": "Sr", "bwb_id": "BWBR0001854"},
+    {"short_title": "BW6", "bwb_id": "BWBR0005289"},
+]
 
 
 class _StubStore:
@@ -184,7 +187,7 @@ class _StubStore:
         self.queries.append((aql, bind))
         if "names: [i.props.short_title" in aql:
             return list(_LAWS)
-        if "RETURN [i.props.short_title" in aql:
+        if "aliases: inst.props.aliases" in aql:
             return list(_CODES)
         if "@keys" in aql:
             return [a for a in self._articles if a["key"] in bind["keys"]]
@@ -256,7 +259,7 @@ def test_the_laws_are_read_once_for_many_searches():
     reads = [
         aql
         for aql, _ in store.queries
-        if "names: [i.props.short_title" in aql or "RETURN [i.props.short_title" in aql
+        if "names: [i.props.short_title" in aql or "aliases: inst.props.aliases" in aql
     ]
     assert len(reads) == 2  # the abbreviations and the names, once each
 

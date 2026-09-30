@@ -1,0 +1,12 @@
+{
+ "about": "By hand: the abbreviation lawyers cite an instrument by where its own source gives none. A BWB regulation or treaty has its abbreviations in its WTI (`afkortingen`) and needs no entry; EUR-Lex gives an EU act a short title in words (`algemene verordening gegevensbescherming`), never the abbreviation. An entry is keyed by the BWB id or CELEX number of the instrument and counts only while that instrument is in the graph; a source abbreviation of another instrument wins over it. `lawgraph curated set instrument-abbreviations`.",
+ "instruments": [
+  {
+   "id": "32016R0679",
+   "abbreviations": [
+    "AVG"
+   ],
+   "note": "Verordening (EU) 2016/679, algemene verordening gegevensbescherming"
+  }
+ ]
+}

@@ -1,17 +1,22 @@
 """Document endpoints.
 
+GET /api/documents        — the papers of the chambers, newest first, with facets
 GET /api/documents/{key}  — one document with its text, its sections and what it explains
 GET /api/documents/{key}/passages — the passages of a memorandum that explain an article
 """
 
 from __future__ import annotations
 
-from typing import Annotated
+import datetime as dt
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import parse_choices
 from lawgraph.api.schemas.documents import (
+    DocumentListItemDTO,
+    DocumentListResponse,
     DocumentPassagesResponse,
     DocumentTextResponse,
     PassageDTO,
@@ -22,9 +27,67 @@ from lawgraph.db.queries.documents import (
     get_document,
     get_document_links,
     get_document_passages,
+    list_documents,
 )
 
 router = APIRouter()
+
+
+@router.get(
+    "",
+    response_model=DocumentListResponse,
+    summary="The papers of the chambers",
+    description=(
+        "The papers of the Tweede Kamer and the Eerste Kamer, newest first, with their "
+        "metadata (no text): ``chamber``, ``kind``, ``dossier_number`` (the dossier it is "
+        "numbered in), ``number`` (the nr., or the letter of the Eerste Kamer), ``date``, "
+        "``title`` and ``session_year``. ``facets`` counts per ``kind`` and ``chamber``, "
+        "each without its own filter; ``facets=false`` reads one page only."
+    ),
+    tags=["documents"],
+)
+def list_chamber_documents(
+    store: Annotated[ArangoStore, Depends(get_store)],
+    chamber: Annotated[
+        Literal["TK", "EK"] | None, Query(description="One chamber; both by default.")
+    ] = None,
+    kind: Annotated[
+        str | None,
+        Query(description="Comma-separated kinds, as the chamber writes them."),
+    ] = None,
+    dossier: Annotated[
+        str | None,
+        Query(
+            description="A dossier label (``36791``, ``37020-XV``): the papers part of it.",
+            pattern=r"^\d+(-[A-Za-z0-9()]+)?$",
+        ),
+    ] = None,
+    date_from: Annotated[
+        dt.date | None, Query(alias="from", description="On or after, YYYY-MM-DD.")
+    ] = None,
+    date_to: Annotated[
+        dt.date | None, Query(alias="to", description="On or before, YYYY-MM-DD.")
+    ] = None,
+    facets: Annotated[bool, Query(description="Count per kind and chamber.")] = True,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> DocumentListResponse:
+    raw = list_documents(
+        store,
+        chambers=(chamber,) if chamber else ("TK", "EK"),
+        kinds=parse_choices(kind, None, "kind"),
+        dossier=dossier,
+        date_from=date_from.isoformat() if date_from else None,
+        date_to=date_to.isoformat() if date_to else None,
+        limit=limit,
+        offset=offset,
+        facets=facets,
+    )
+    return DocumentListResponse(
+        total=raw.get("total"),
+        items=[DocumentListItemDTO.from_row(row) for row in raw.get("items") or []],
+        facets=raw.get("facets"),
+    )
 
 
 @router.get(
@@ -102,6 +165,8 @@ def get_document_article_passages(
             text=text[row["char_start"] : row["char_end"]],
             confidence=row["confidence"],
             match_type=row["match_type"],
+            changed=row.get("changed"),
+            explanation=row.get("explanation"),
         )
         for row in rows
     ]

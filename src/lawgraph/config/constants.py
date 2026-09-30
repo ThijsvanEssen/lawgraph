@@ -172,10 +172,10 @@ EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements"
 IMPLEMENTS_BASIS_NIM = "national_implementing_measure"
 IMPLEMENTS_BASIS_CONSIDERANS = "considerans"
 
-# International instruments the graph has a name for: BWB treaties carry a BWBV id, the
-# Convention of the ECHR a pseudo id of its own (its articles carry it as `props.bwb_id`).
+# International instruments the graph has a name for: BWB treaties carry a BWBV id. The
+# Convention of the ECHR is one of them: the treaty whose articles ECHR judgments apply.
 BWB_TREATY_ID_PREFIX = "BWBV"
-ECHR_CONVENTION_ID = "ECHR-CONVENTION"
+ECHR_CONVENTION_BWB_ID = "BWBV0001000"
 
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 

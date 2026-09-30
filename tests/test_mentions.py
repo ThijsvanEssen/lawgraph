@@ -45,7 +45,7 @@ def test_a_repeated_citation_is_a_mention_at_each_place() -> None:
         [_paragraph("rov-5.3", text, "5.3")], _detect
     ).items()
 
-    assert key == ("BWBR0001854", None, "287")
+    assert key == ("BWBR0001854", None, "287", None)
     assert (
         cited.count == 2 and cited.confidence == 0.95 and cited.reason == "bwb_article"
     )
@@ -72,10 +72,10 @@ def test_each_mention_is_placed_in_its_own_paragraph() -> None:
     found = find_mentions(paragraphs, _detect)
 
     assert list(found) == [
-        ("BWBR0001854", None, "287"),
-        ("BWBR0001854", None, "36f"),
+        ("BWBR0001854", None, "287", None),
+        ("BWBR0001854", None, "36f", None),
     ]
-    sr287 = found[("BWBR0001854", None, "287")]
+    sr287 = found[("BWBR0001854", None, "287", None)]
     assert [(m.paragraph_id, m.paragraph_number) for m in sr287.mentions] == [
         ("rov-1", "1"),
         ("rov-2", "2"),
@@ -103,7 +103,7 @@ def test_a_law_named_before_is_the_law_meant_in_the_next_paragraph() -> None:
         _detect,
     )
 
-    second = found[("BWBR0005537", None, "8:30")]
+    second = found[("BWBR0005537", None, "8:30", None)]
     assert second.mentions[0].paragraph_id == "p-2"
     assert second.confidence == 0.7
 
