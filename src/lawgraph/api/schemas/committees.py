@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.api.schemas.dossiers import DossierSummaryDTO
+from lawgraph.api.params import MinistryKey, Post
+from lawgraph.api.schemas.common import END_OF_OFFICE
+from lawgraph.api.schemas.dossiers import DossierSummaryDTO, SigningCapacity
+from lawgraph.config.settings import EK_ATTRIBUTION
 
 
 class MemberVoteDTO(BaseModel):
@@ -88,37 +91,122 @@ class FactionDetailDTO(BaseModel):
     props: dict[str, Any] | None = None
 
 
-class CommitteeDTO(BaseModel):
-    """A parliamentary committee.
+CommitteeKind = Literal[
+    "vast", "algemeen", "tijdelijk", "enquete", "delegatie", "overig"
+]
 
-    ``kind`` distinguishes standing ('vast'), temporary ('tijdelijk'),
-    special ('bijzonder') and inquiry ('parlementaire_enquete') committees.
-    """
+
+_OBSERVED_FROM = (
+    "Of the Eerste Kamer: the day a snapshot of eerstekamer.nl first showed it (not the day "
+    "it began: the site gives no start as data); null for the Tweede Kamer."
+)
+_OBSERVED_UNTIL = (
+    "Of the Eerste Kamer: the day of the first snapshot that no longer showed it (not the "
+    "day it ended); null while it is shown."
+)
+
+
+class EkSourceDTO(BaseModel):
+    """Where something of the Eerste Kamer was taken over from, to name with it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str | None = Field(None, description="Its page on eerstekamer.nl.")
+    retrieved_on: str | None = Field(None, description="The day it was read.")
+    composition_date: str | None = Field(
+        None,
+        description="The day of the composition shown: the snapshot it was last seen in "
+        "(``stand``).",
+    )
+    data_since: str | None = Field(
+        None,
+        description="The day of the first snapshot the graph holds: nothing before it is "
+        "known.",
+    )
+    attribution: str = Field(
+        ..., description="The source to name (``EK_ATTRIBUTION``)."
+    )
+
+
+def ek_source(props: dict[str, Any]) -> EkSourceDTO | None:
+    """The source of something of the Eerste Kamer; None for the Tweede Kamer."""
+    if props.get("chamber") != "EK":
+        return None
+    return EkSourceDTO(
+        url=props.get("url"),
+        retrieved_on=props.get("retrieved_on"),
+        composition_date=props.get("retrieved_on"),
+        data_since=props.get("data_since"),
+        attribution=EK_ATTRIBUTION,
+    )
+
+
+def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:
+    props = doc.get("props") or {}
+    return {
+        "chamber": props.get("chamber") or "TK",
+        "observed_from": props.get("observed_from"),
+        "observed_until": props.get("observed_until"),
+        "source": ek_source(props),
+        "id": doc["_id"],
+        "key": doc["_key"],
+        "name": props.get("name"),
+        "abbreviation": props.get("abbreviation"),
+        "slug": props.get("slug"),
+        "kind": props.get("kind"),
+        "started_on": props.get("started_on"),
+        "ended_on": props.get("ended_on"),
+        "active_dossier_count": int(props.get("active_dossier_count") or 0),
+    }
+
+
+class CommitteeDTO(BaseModel):
+    """A parliamentary committee."""
 
     model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
+    chamber: Literal["TK", "EK"] = "TK"
     name: str | None = None
     abbreviation: str | None = None
-    slug: str | None = None
-    kind: str | None = None
-    active_dossier_count: int = 0
+    observed_from: str | None = Field(None, description=_OBSERVED_FROM)
+    observed_until: str | None = Field(None, description=_OBSERVED_UNTIL)
+    source: EkSourceDTO | None = Field(
+        None, description="Of the Eerste Kamer: the page it was read from."
+    )
+    slug: str | None = Field(
+        None,
+        description="Its own: of committees that share an abbreviation the one sitting "
+        "now (else the one that ended last) has it bare, the others with the year they "
+        "started, `ez-2010`.",
+    )
+    kind: CommitteeKind | None = Field(
+        None,
+        description="`vast`, `algemeen`, `tijdelijk`, `enquete` (enquête or "
+        "ondervraging), `delegatie` (contact groups and international assemblies) or "
+        "`overig`.",
+    )
+    started_on: str | None = None
+    ended_on: str | None = Field(None, description="Null while it sits.")
+    active_dossier_count: int = Field(
+        0, description="The open dossiers it leads an activity about; none once ended."
+    )
 
     @classmethod
-    def from_document(
-        cls, doc: dict[str, Any], *, active_dossier_count: int = 0
-    ) -> CommitteeDTO:
-        props = doc.get("props") or {}
-        return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            name=props.get("name"),
-            abbreviation=props.get("abbreviation"),
-            slug=props.get("slug"),
-            kind=props.get("type"),
-            active_dossier_count=active_dossier_count,
-        )
+    def from_document(cls, doc: dict[str, Any]) -> CommitteeDTO:
+        return cls(**_committee_fields(doc))
+
+
+class FactionBoardSeatDTO(BaseModel):
+    """A seat on the board of a faction of the Eerste Kamer, as its page gives it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    function: str = Field(..., description="``fractievoorzitter``, ``penningmeester``.")
+    name: str | None = None
+    member: str | None = Field(None, description="The member key.")
+    since: str | None = Field(None, description="The day the page gives: ``sinds``.")
 
 
 class FactionDTO(BaseModel):
@@ -128,13 +216,25 @@ class FactionDTO(BaseModel):
 
     id: str
     key: str
+    chamber: Literal["TK", "EK"] = "TK"
+    observed_from: str | None = Field(None, description=_OBSERVED_FROM)
+    observed_until: str | None = Field(None, description=_OBSERVED_UNTIL)
+    board: list[FactionBoardSeatDTO] = Field(
+        default_factory=list, description="Of the Eerste Kamer: its board."
+    )
+    source: EkSourceDTO | None = Field(
+        None, description="Of the Eerste Kamer: the page it was read from."
+    )
     name: str | None = None
     abbreviation: str | None = None
     aliases: list[str] = []
     active: bool = True
     seats: int | None = None
     active_from: str | None = None
-    active_until: str | None = None
+    active_until: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
     member_count: int = 0
 
     @classmethod
@@ -157,7 +257,50 @@ class FactionDTO(BaseModel):
             active_from=props.get("active_from"),
             active_until=props.get("active_until"),
             member_count=member_count,
+            chamber=props.get("chamber") or "TK",
+            observed_from=props.get("observed_from"),
+            observed_until=props.get("observed_until"),
+            board=[FactionBoardSeatDTO(**b) for b in props.get("board") or []],
+            source=ek_source(props),
         )
+
+
+class EkFactionVoteDTO(BaseModel):
+    """How a faction of the Eerste Kamer voted on one vote of its list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision_id: str
+    decision_key: str
+    date: str | None = None
+    subject: str | None = None
+    dossier_numbers: list[str] = []
+    result: str | None = Field(None, description="``Aangenomen``, ``Verworpen``.")
+    method: str | None = None
+    bill_decision: bool | None = Field(
+        None,
+        description="Whether it is the vote that decided the bill (else a vote on a "
+        "motion on it).",
+    )
+    choice: Literal["voor", "tegen", "aantekening gevraagd"] = Field(
+        ..., description="As the list of the Eerste Kamer names the faction's vote."
+    )
+
+
+class EkFactionVotesResponse(BaseModel):
+    """The votes of a faction of the Eerste Kamer, newest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    faction_key: str
+    total: int = Field(..., description="The votes that name the faction.")
+    counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per choice (``voor``, ``tegen``, ``aantekening gevraagd``), over "
+        "every vote that names the faction.",
+    )
+    items: list[EkFactionVoteDTO] = []
+    source: EkSourceDTO
 
 
 class FactionMembershipDTO(BaseModel):
@@ -171,8 +314,93 @@ class FactionMembershipDTO(BaseModel):
     abbreviation: str | None = None
     aliases: list[str] = []
     from_date: str | None = None
-    to_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
     role: str | None = None
+
+
+class PartyRefDTO(BaseModel):
+    """A party as the source writes it (``VVD``, ``partijloos``), and its faction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    short: str | None = None
+    faction: str | None = Field(
+        None,
+        description="The faction key; null for a party the TK data has no faction of.",
+    )
+
+
+class GovernmentFunctionDTO(BaseModel):
+    """A post held in a cabinet, as Rijksoverheid names it, and normalised."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    function: str | None = Field(
+        None,
+        description="The post as Rijksoverheid names it: Minister voor Klimaat en Energie.",
+    )
+    cabinet: str | None = Field(None, description="The cabinet: kabinet-Rutte IV.")
+    cabinet_key: str | None = Field(
+        None, description="The cabinet node (``GET /api/cabinets/{key}``)."
+    )
+    post: Post | None = None
+    ministry: MinistryKey | None = Field(
+        None,
+        description="The ministry the post falls under (``GET /api/ministries``); a "
+        "minister without portfolio under the ministry the post is placed under.",
+    )
+    seat: str | None = Field(
+        None,
+        description="The seat the post is held in: ministry, post and the portfolio the "
+        "source names (``ienw/minister``, ``jenv/staatssecretaris/rechtsbescherming``); "
+        "``#2`` for a second seat the source does not name.",
+    )
+    acting: bool = Field(False, description="A stand-in (ad interim).")
+    party: PartyRefDTO | None = Field(None, description="The party during this post.")
+    from_date: str | None = Field(None, description="The day it began.")
+    to_date: str | None = Field(None, description=END_OF_OFFICE)
+
+
+def government_functions_of(props: dict[str, Any]) -> list[GovernmentFunctionDTO]:
+    return [
+        GovernmentFunctionDTO(
+            function=f.get("function"),
+            cabinet=f.get("cabinet"),
+            cabinet_key=f.get("cabinet_key"),
+            post=f.get("post"),
+            ministry=f.get("ministry"),
+            seat=f.get("seat"),
+            acting=bool(f.get("acting")),
+            party=f.get("party"),
+            from_date=f.get("from_date"),
+            to_date=f.get("to_date"),
+        )
+        for f in props.get("government_functions") or []
+    ]
+
+
+class EkMembershipDTO(BaseModel):
+    """A member's seat in the Eerste Kamer, as eerstekamer.nl shows it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(
+        None, description="As the Kamer writes it: mr. B.O. Dittrich."
+    )
+    faction: str | None = Field(None, description="The key of its faction (``ek_…``).")
+    abbreviation: str | None = None
+    seniority_days: int | None = Field(
+        None,
+        description="``Anciënniteit``: the days served in the Eerste Kamer, earlier terms "
+        "included; no start date.",
+    )
+    residence: str | None = None
+    observed_from: str | None = Field(None, description=_OBSERVED_FROM)
+    observed_until: str | None = Field(None, description=_OBSERVED_UNTIL)
+    source: EkSourceDTO
 
 
 class MemberDTO(BaseModel):
@@ -189,12 +417,37 @@ class MemberDTO(BaseModel):
 
     id: str
     key: str
-    name: str | None = None
+    name: str | None = Field(
+        None,
+        description="The name they go by: ``Ard van der Steur`` (``Persoon.Roepnaam``); "
+        "for a minister who never sat in parliament, as Rijksoverheid gives it.",
+    )
+    full_name: str | None = Field(
+        None,
+        description="``Gerard Adriaan van der Steur``; null when the TK gives none.",
+    )
     party: str | None = None
     active: bool = False
     faction_memberships: list[FactionMembershipDTO] = []
+    government_functions: list[GovernmentFunctionDTO] = Field(
+        default_factory=list,
+        description="The posts held in a cabinet (from Rijksoverheid), oldest first.",
+    )
+    ek: EkMembershipDTO | None = Field(
+        None, description="Their seat in the Eerste Kamer; null for none ever observed."
+    )
+    role: str | None = Field(
+        None,
+        description="In a committee of the Eerste Kamer: the role its page gives "
+        "(``voorzitter``, ``ondervoorzitter``).",
+    )
+    observed_from: str | None = Field(None, description=_OBSERVED_FROM)
+    observed_until: str | None = Field(None, description=_OBSERVED_UNTIL)
     from_date: str | None = None
-    to_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> MemberDTO:
@@ -217,39 +470,61 @@ class MemberDTO(BaseModel):
         return cls(
             id=doc["_id"],
             key=doc["_key"],
-            name=props.get("name"),
+            # a minister who never sat in parliament has a TK person without a name
+            name=props.get("name")
+            or props.get("known_as")
+            or props.get("government_name"),
+            full_name=props.get("full_name"),
             party=party or props.get("party"),
             active=bool(open_memberships),
             faction_memberships=memberships,
+            government_functions=government_functions_of(props),
+            ek=_ek(props.get("ek")),
+            role=doc.get("role"),
+            observed_from=doc.get("observed_from"),
+            observed_until=doc.get("observed_until"),
             from_date=doc.get("from_date"),
             to_date=doc.get("to_date"),
         )
 
 
-class CommitteeWithMembersDTO(CommitteeDTO):
-    """A committee and its members, without the dossiers payload."""
+def _ek(ek: dict[str, Any] | None) -> EkMembershipDTO | None:
+    if not ek:
+        return None
+    return EkMembershipDTO(
+        **{k: ek.get(k) for k in EkMembershipDTO.model_fields if k != "source"},
+        source=EkSourceDTO(
+            url=ek.get("url"),
+            retrieved_on=ek.get("retrieved_on"),
+            composition_date=ek.get("retrieved_on"),
+            data_since=ek.get("data_since"),
+            attribution=EK_ATTRIBUTION,
+        ),
+    )
 
-    model_config = ConfigDict(extra="forbid")
 
-    members: list[MemberDTO] = []
+class MemberDetailDTO(MemberDTO):
+    """A member with the posts they held in government.
+
+    ``government_functions`` come from Rijksoverheid (every post in a cabinet since 1945),
+    oldest first; empty for a member who held none. A bewindspersoon is matched to a member
+    of parliament by surname, initials and age, a minister who never sat in parliament by
+    the papers they signed; one the Tweede Kamer has no person for is a member of their own
+    (key ``rijksoverheid_<initials>_<surname>``).
+    """
+
+    birth_date: str | None = None
+    government_name: str | None = Field(
+        None, description="The name as Rijksoverheid writes it: S.Th.M. Hermans."
+    )
 
     @classmethod
-    def from_document(
-        cls, doc: dict[str, Any], *, active_dossier_count: int = 0
-    ) -> CommitteeWithMembersDTO:
+    def from_document(cls, doc: dict[str, Any]) -> MemberDetailDTO:
         props = doc.get("props") or {}
-        stored = props.get("active_dossier_count")
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            name=props.get("name"),
-            abbreviation=props.get("abbreviation"),
-            slug=props.get("slug"),
-            kind=props.get("type"),
-            active_dossier_count=(
-                stored if stored is not None else active_dossier_count
-            ),
-            members=[MemberDTO.from_document(m) for m in doc.get("members") or []],
+            **MemberDTO.from_document(doc).model_dump(),
+            birth_date=props.get("birth_date"),
+            government_name=props.get("government_name"),
         )
 
 
@@ -257,7 +532,7 @@ class CommitteeDetailDTO(CommitteeDTO):
     """A committee with its members and a page of the dossiers it leads.
 
     ``dossiers`` is one page; ``dossier_total`` counts every dossier that matches the
-    ``status`` filter, and ``active_dossier_count`` the open ones whatever the filter.
+    ``status`` filter.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -270,20 +545,12 @@ class CommitteeDetailDTO(CommitteeDTO):
 
     @classmethod
     def from_detail_document(cls, doc: dict[str, Any]) -> CommitteeDetailDTO:
-        props = doc.get("props") or {}
-        dossiers = [
-            DossierSummaryDTO.from_document(d) for d in doc.get("dossiers") or []
-        ]
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            name=props.get("name"),
-            abbreviation=props.get("abbreviation"),
-            slug=props.get("slug"),
-            kind=props.get("type"),
-            active_dossier_count=int(doc.get("open_dossier_count") or 0),
+            **_committee_fields(doc),
             members=[MemberDTO.from_document(m) for m in doc.get("members") or []],
-            dossiers=dossiers,
+            dossiers=[
+                DossierSummaryDTO.from_document(d) for d in doc.get("dossiers") or []
+            ],
             dossier_total=int(doc.get("dossier_total") or 0),
         )
 
@@ -299,7 +566,14 @@ class CommitteeActivityDTO(BaseModel):
     kind: str | None = Field(
         None, description="The source's ``Soort``, e.g. Commissiedebat."
     )
-    agenda_title: str | None = None
+    agenda_title: str | None = Field(
+        None, description="The subject of the activity (``Activiteit.Onderwerp``)."
+    )
+    status: str | None = Field(
+        None,
+        description="``Activiteit.Status``: ``Gepland``, ``Uitgevoerd``, ``Geannuleerd``, "
+        "``Verplaatst``, ``Vervallen``.",
+    )
     dossier_numbers: list[str] = Field(
         default_factory=list, description="Dossiers on the agenda of the activity."
     )
@@ -320,13 +594,24 @@ class ActorDossierDTO(DossierSummaryDTO):
     """A dossier a member or faction authored documents in.
 
     ``roles`` are the distinct ``AUTHORED`` roles as the source wrote them
-    (``Eerste ondertekenaar``, ``Mede ondertekenaar``, ...); ``document_count`` the distinct
-    documents authored in the dossier.
+    (``Eerste ondertekenaar``, ``Mede ondertekenaar``, ...); ``functions`` and ``capacities``
+    what they signed as, which changes over time (a Kamerlid who became minister-president);
+    ``document_count`` the distinct documents authored in the dossier.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     roles: list[str] = Field(default_factory=list)
+    functions: list[str] = Field(
+        default_factory=list,
+        description="The distinct functions signed in, as the source writes them "
+        "('Tweede Kamerlid', 'minister-president').",
+    )
+    capacities: list[SigningCapacity] = Field(
+        default_factory=list,
+        description="The distinct capacities signed in: 'kamerlid', 'bewindspersoon', "
+        "'overig'.",
+    )
     document_count: int = 0
 
     @classmethod
@@ -334,6 +619,8 @@ class ActorDossierDTO(DossierSummaryDTO):
         return cls(
             **DossierSummaryDTO.from_document(row["dossier"]).model_dump(),
             roles=list(row.get("roles") or []),
+            functions=list(row.get("functions") or []),
+            capacities=list(row.get("capacities") or []),
             document_count=int(row.get("document_count") or 0),
         )
 

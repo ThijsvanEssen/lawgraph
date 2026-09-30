@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import CourtKind, Tier
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -15,6 +16,7 @@ from lawgraph.api.schemas.judgments import (
     JudgmentCitedArticle,
     JudgmentDetailResponse,
     JudgmentDTO,
+    JudgmentFacets,
     JudgmentListItemDTO,
     JudgmentListResponse,
     mentions_of,
@@ -24,6 +26,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.judgments import (
     JudgmentArticleRelation,
+    JudgmentFilters,
     get_judgment_with_relations,
     get_judgments_list,
 )
@@ -38,8 +41,15 @@ logger = get_logger(__name__)
     summary="Paginated list of judgments",
     description=(
         "A paginated list of judgments with filters on court (the ECLI court "
-        "code), tier (hoge_raad / gerechtshof / rechtbank / bijzonder), date "
-        "range and a minimum citation count."
+        "code), tier (the Type of the court in the Instanties value list of the "
+        "Rechtspraak: hoge_raad, raad_van_state, gerechtshof, rechtbank, tuchtcollege, "
+        "andere_instantie, koninkrijksinstantie, …), court_kind (the kind of court "
+        "within the tier: ambtenarengerecht, raad_van_beroep, gerecht_in_eerste_aanleg, "
+        "…), area of law (`subject`), source, date range and a minimum citation count. "
+        "`facets` counts the judgments under the filters per `tier` (without the tier "
+        "and court_kind filters), per `court_kind` (without its own filter), per "
+        "`source` (without the source filter) and per year of `date` (without `from` "
+        "and `to`)."
     ),
     tags=["judgments"],
 )
@@ -55,12 +65,21 @@ def list_judgments(
         Query(description="ECLI court code, e.g. 'HR', 'RBAMS', 'GHARL'"),
     ] = None,
     tier: Annotated[
-        Literal["hoge_raad", "gerechtshof", "rechtbank", "bijzonder"] | None,
-        Query(),
+        Tier | None,
+        Query(
+            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …"
+        ),
+    ] = None,
+    court_kind: Annotated[
+        CourtKind | None,
+        Query(
+            description="The kind of court: `ambtenarengerecht`, `raad_van_beroep`, "
+            "`hoge_raad`, …"
+        ),
     ] = None,
     source: Annotated[
         str | None,
-        Query(description="Filter op bron, e.g. 'rechtspraak', 'echr', 'cjeu'"),
+        Query(description="The source, e.g. 'rechtspraak', 'echr'."),
     ] = None,
     date_from: Annotated[
         str | None,
@@ -70,26 +89,44 @@ def list_judgments(
         str | None,
         Query(alias="to", description="Upper bound on judgment date, YYYY-MM-DD"),
     ] = None,
+    subject: Annotated[
+        str | None,
+        Query(
+            description="An area of law, one of `subjects` as written: `Strafrecht`, "
+            "`Bestuursrecht; Belastingrecht`."
+        ),
+    ] = None,
     cited_by_min: Annotated[int | None, Query(ge=0)] = None,
+    include_stubs: Annotated[
+        bool,
+        Query(
+            description="Also the judgments known only because something cites them "
+            "(no date, court or text)."
+        ),
+    ] = False,
     sort: Annotated[
         Literal["date_desc", "date_asc", "citation_count"], Query()
     ] = "date_desc",
 ) -> JudgmentListResponse:
-    data = get_judgments_list(
-        store,
+    filters = JudgmentFilters(
         q=q,
         court=court,
-        tier=tier,
+        tier=tier.value if tier else None,
+        court_kind=court_kind.value if court_kind else None,
         source=source,
+        subject=(subject or "").strip() or None,
         date_from=date_from,
         date_to=date_to,
         cited_by_min=cited_by_min,
-        sort=sort,
-        limit=limit,
-        offset=offset,
+        include_stubs=include_stubs,
     )
+    data = get_judgments_list(store, filters, sort=sort, limit=limit, offset=offset)
     items = [JudgmentListItemDTO.from_document(row) for row in data.get("items", [])]
-    return JudgmentListResponse(items=items, total=int(data.get("total", 0)))
+    return JudgmentListResponse(
+        items=items,
+        total=int(data.get("total", 0)),
+        facets=JudgmentFacets(**(data.get("facets") or {})),
+    )
 
 
 @router.get(
@@ -144,6 +181,8 @@ def get_judgment_detail(
         articles=articles,
         cited_articles=cited_articles,
         cited_judgments=cited_judgments,
+        same_as=[JudgmentSummaryDTO.from_document(doc) for doc in data.same_as],
+        series=[JudgmentSummaryDTO.from_document(doc) for doc in data.series],
         metadata=data.metadata or None,
     )
 

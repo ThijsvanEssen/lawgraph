@@ -8,6 +8,7 @@ from typing import Any, cast
 from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_COMMITTEES,
+    COLLECTION_DECISIONS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
@@ -32,126 +33,41 @@ _GUID_NAME = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 _CURRENT_MEMBERSHIP = (
     "FILTER NOT HAS(e.meta, 'to_date') OR e.meta.to_date == null"
     " OR e.meta.to_date >= @today"
+    # a seat of the Eerste Kamer ends where a snapshot no longer shows it
+    "\n                FILTER e.meta.observed_until == null"
 )
 
+# The chamber a faction, committee or member list is of: the Eerste Kamer's carry
+# ``chamber`` ``EK`` (``normalize eerstekamer-composition``), the Tweede Kamer's none.
+CHAMBER_EK = "EK"
 
-def get_committees(store: ArangoStore) -> list[dict[str, Any]]:
-    """Every committee with the number of open dossiers it leads.
 
-    ``active_dossier_count`` is precomputed on the node; the fallback derives
-    it for the committees that lack it in one pass over the edges rather than
-    one traversal per committee.
-    """
-    rows = list(
-        store.query(
-            f"""
-        FOR committee IN {COLLECTION_COMMITTEES}
-            LET name = committee.props.name
-            FILTER name != null AND name != ""
-            FILTER NOT REGEX_TEST(name, "{_GUID_NAME}", true)
-            SORT name ASC
-            RETURN MERGE(committee, {{
-                active_dossier_count: committee.props.active_dossier_count
-            }})
-    """
-        )
+def _chamber(var: str, chamber: str) -> str:
+    """AQL: *var* (a faction or committee) is of *chamber* (``TK`` or ``EK``)."""
+    return (
+        f'{var}.props.chamber {"==" if chamber == CHAMBER_EK else "!="} "{CHAMBER_EK}"'
     )
-    missing = [r["_id"] for r in rows if r.get("active_dossier_count") is None]
-    if not missing:
-        return rows
-
-    counts = _open_dossier_counts(store, missing)
-    for row in rows:
-        if row.get("active_dossier_count") is None:
-            row["active_dossier_count"] = counts.get(row["_id"], 0)
-    return rows
 
 
-def _open_dossier_counts(
-    store: ArangoStore, committee_ids: list[str]
-) -> dict[str, int]:
-    """Open dossiers per committee, counted in one pass over two hash maps."""
+def get_committees(store: ArangoStore, *, chamber: str = "TK") -> list[dict[str, Any]]:
+    """Every committee of *chamber* with a name, by name; of the Eerste Kamer only those
+    the last snapshot shows. ``props.active_dossier_count`` is what ``semantic
+    graph-list-stats`` counted."""
     aql = f"""
-    LET open_dossiers = MERGE(
-        FOR dossier IN {COLLECTION_DOSSIERS}
-            FILTER dossier.props.closed != true
-            RETURN {{ [dossier._id]: true }}
-    )
-    LET open_activities = MERGE(
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == @about
-            FILTER open_dossiers[e._to] == true
-            RETURN {{ [e._from]: true }}
-    )
-    LET counts = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == @led_by
-            FILTER e._to IN @committee_ids
-            FILTER open_activities[e._from] == true
-            COLLECT committee = e._to WITH COUNT INTO total
-            RETURN {{ id: committee, count: total }}
-    )
-    RETURN MERGE(FOR row IN counts RETURN {{ [row.id]: row.count }})
-    """
-    bind = {
-        "committee_ids": committee_ids,
-        "about": RELATION_ABOUT,
-        "led_by": RELATION_LED_BY,
-    }
-    counts: dict[str, int] = {}
-    for row in store.query(aql, bind):
-        if isinstance(row, dict):
-            counts.update(row)
-    return counts
-
-
-def get_committees_with_members(store: ArangoStore) -> list[dict[str, Any]]:
-    """Every committee with its current members inlined — one round trip.
-
-    The parliamentary layer draws a halo of members around each committee;
-    fetching them per committee would be 130 round trips.
-    """
-    aql = f"""
-    LET today = DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd")
-    LET committee_ids = (FOR c IN {COLLECTION_COMMITTEES} RETURN c._id)
-    LET seats = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == @member_of AND e._to IN committee_ids
-            FILTER NOT HAS(e.meta, "to_date") OR e.meta.to_date == null
-                OR e.meta.to_date >= today
-            RETURN {{ member: e._from, committee: e._to }}
-    )
-    LET member_docs = MERGE(
-        FOR id IN UNIQUE(seats[*].member)
-            LET member = DOCUMENT(id)
-            FILTER member != null
-            RETURN {{ [member._id]: member }}
-    )
-    LET members_by_committee = MERGE(
-        FOR seat IN seats
-            COLLECT committee = seat.committee INTO group = seat.member
-            RETURN {{ [committee]: (
-                FOR id IN UNIQUE(group)
-                    LET member = member_docs[id]
-                    FILTER member != null
-                    SORT member.props.name ASC
-                    RETURN member
-            ) }}
-    )
     FOR committee IN {COLLECTION_COMMITTEES}
+        FILTER {_chamber("committee", chamber)}
+        FILTER committee.props.observed_until == null
         LET name = committee.props.name
         FILTER name != null AND name != ""
         FILTER NOT REGEX_TEST(name, "{_GUID_NAME}", true)
-        SORT name ASC
-        RETURN MERGE(committee, {{
-            members: members_by_committee[committee._id] != null
-                ? members_by_committee[committee._id] : []
-        }})
+        SORT name ASC, committee._key ASC
+        RETURN committee
     """
-    return list(store.query(aql, {"member_of": RELATION_MEMBER_OF}))
+    return list(store.query(aql))
 
 
-# A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as ``/dossiers/open``).
+# A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as
+# ``/dossiers?status=open``).
 _DOSSIER_CLOSED = "dossier.props.closed == true"
 
 
@@ -169,8 +85,7 @@ def get_committee_detail(
     Accepts the committee's ``slug`` or its ``_key``. With *current_only* the
     members are those whose seat has no end date, or an end date still ahead.
     *status* (``open`` or ``closed``) keeps the dossiers of that state, newest
-    first; ``dossier_total`` counts them all, ``open_dossier_count`` the open ones
-    whatever the filter.
+    first; ``dossier_total`` counts them all.
     """
     aql = f"""
     FOR committee IN {COLLECTION_COMMITTEES}
@@ -186,7 +101,10 @@ def get_committee_detail(
                 SORT member.props.name ASC
                 RETURN MERGE(member, {{
                     from_date: e.meta.from_date,
-                    to_date: e.meta.to_date
+                    to_date: e.meta.to_date,
+                    role: e.meta.role,
+                    observed_from: e.meta.observed_from,
+                    observed_until: e.meta.observed_until
                 }})
         )
 
@@ -220,8 +138,7 @@ def get_committee_detail(
         RETURN MERGE(committee, {{
             members: members,
             dossiers: dossiers,
-            dossier_total: LENGTH(matching),
-            open_dossier_count: LENGTH(FOR row IN led_dossiers FILTER NOT row.closed RETURN 1)
+            dossier_total: LENGTH(matching)
         }})
     """
     bind: dict[str, Any] = {
@@ -270,6 +187,7 @@ def get_committee_activities(
                         date: activity.props.date,
                         kind: activity.props.kind,
                         agenda_title: activity.props.agenda_title,
+                        status: activity.props.status,
                         dossier_numbers: activity.props.dossier_numbers OR []
                     }}
             )
@@ -286,6 +204,12 @@ def get_committee_activities(
     return None
 
 
+# The name a member goes by; a TK person without one: the name Rijksoverheid gives.
+_MEMBER_NAME = (
+    "member.props.name OR member.props.known_as OR member.props.government_name"
+)
+
+
 def get_members(
     store: ArangoStore,
     *,
@@ -293,20 +217,28 @@ def get_members(
     active: bool | None = None,
     q: str | None = None,
     include_all: bool = False,
+    government: bool = False,
+    cabinet: str | None = None,
     limit: int = 500,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
-    """Members of parliament, newest name order.
+    """Members of parliament, in name order; never a record without a name.
 
     Restricted to people who ever held a seat; *include_all* also returns the
-    ministers and other people the TK Persoon endpoint exposes. *party*
-    matches the current party or any abbreviation, name or alias in the
-    member's faction timeline.
+    ministers and other people the TK Persoon endpoint exposes. *government* keeps
+    those who held a post in a cabinet, *cabinet* those who held one in that cabinet
+    (both whether they sat in parliament or not). *party* matches the current party or
+    any abbreviation, name or alias in the member's faction timeline.
     """
-    filters: list[str] = []
+    filters: list[str] = [f"({_MEMBER_NAME}) NOT IN [null, '']"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
 
-    if not include_all:
+    if government:
+        filters.append("LENGTH(member.props.government_functions) > 0")
+    if cabinet:
+        filters.append("@cabinet IN member.props.government_functions[*].cabinet_key")
+        bind["cabinet"] = cabinet
+    if not (include_all or government or cabinet):
         filters.append("LENGTH(member.props.faction_memberships) > 0")
     if party:
         filters.append(
@@ -319,7 +251,7 @@ def get_members(
         )
         bind["party"] = party.strip().lower()
     if q:
-        filters.append("CONTAINS(LOWER(member.props.name), @q)")
+        filters.append(f"CONTAINS(LOWER({_MEMBER_NAME}), @q)")
         bind["q"] = q.strip().lower()
 
     where = ("FILTER " + " AND ".join(filters)) if filters else ""
@@ -332,7 +264,41 @@ def get_members(
                 LIMIT 1 RETURN 1
         ) > 0
         FILTER @active == null OR seated == @active
-        SORT member.props.name ASC
+        SORT {_MEMBER_NAME} ASC, member._key
+        LIMIT @offset, @limit
+        RETURN member
+    """
+    return list(store.query(aql, bind))
+
+
+def get_ek_members(
+    store: ArangoStore,
+    *,
+    party: str | None = None,
+    active: bool | None = None,
+    q: str | None = None,
+    limit: int = 500,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """The members of the Eerste Kamer (``props.ek``), in name order: those the last
+    snapshot shows (*active*), those it no longer does, or both. *party* matches the
+    abbreviation of their faction."""
+    filters = ["member.props.ek != null"]
+    bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
+    if party:
+        filters.append("LOWER(member.props.ek.abbreviation) == @party")
+        bind["party"] = party.strip().lower()
+    if q:
+        filters.append(
+            f"CONTAINS(LOWER({_MEMBER_NAME}), @q) OR CONTAINS(LOWER(member.props.ek.name), @q)"
+        )
+        bind["q"] = q.strip().lower()
+    aql = f"""
+    FOR member IN {COLLECTION_MEMBERS}
+        FILTER {" AND ".join(f"({f})" for f in filters)}
+        LET seated = member.props.ek.observed_until == null
+        FILTER @active == null OR seated == @active
+        SORT {_MEMBER_NAME} ASC, member._key
         LIMIT @offset, @limit
         RETURN member
     """
@@ -344,10 +310,15 @@ def get_factions(
     *,
     active: bool | None = None,
     q: str | None = None,
+    chamber: str = "TK",
 ) -> list[dict[str, Any]]:
-    """Every parliamentary party with its member count, seated ones first."""
+    """Every parliamentary party of *chamber* with its member count (of the Eerste Kamer:
+    the members the last snapshot shows), seated ones first."""
     bind: dict[str, Any] = {"member_of": RELATION_MEMBER_OF}
-    filters = ["faction.props.name != null AND faction.props.name != ''"]
+    filters = [
+        "faction.props.name != null AND faction.props.name != ''",
+        _chamber("faction", chamber),
+    ]
     if active is not None:
         filters.append("faction.props.active == @active")
         bind["active"] = active
@@ -363,6 +334,7 @@ def get_factions(
         FOR e IN {COLLECTION_EDGES}
             FILTER e.relation == @member_of
             FILTER STARTS_WITH(e._to, "{COLLECTION_FACTIONS}/")
+            FILTER e.meta.observed_until == null
             COLLECT faction_id = e._to WITH COUNT INTO total
             RETURN {{ [faction_id]: total }}
     )
@@ -375,6 +347,20 @@ def get_factions(
         }})
     """
     return list(store.query(aql, bind))
+
+
+def get_seats_on(store: ArangoStore, day: str) -> dict[str, int]:
+    """Faction key -> the seats its members held on *day* (YYYY-MM-DD), from their
+    ``faction_memberships``: a member is one seat of a faction, whatever their role."""
+    aql = f"""
+    FOR member IN {COLLECTION_MEMBERS}
+        FOR m IN (member.props.faction_memberships OR [])
+            FILTER m.from_date != null AND m.from_date <= @day
+            FILTER m.to_date == null OR m.to_date >= @day
+            COLLECT faction = m.faction_key INTO held = member._key
+            RETURN {{faction, seats: COUNT_DISTINCT(held)}}
+    """
+    return {row["faction"]: row["seats"] for row in store.query(aql, {"day": day})}
 
 
 def get_member_votes(
@@ -569,7 +555,9 @@ def get_actor_dossiers(
                 RETURN {{
                     dossier_id: dossier_id,
                     document_id: authored._to,
-                    role: authored.meta.role
+                    role: authored.meta.role,
+                    function: authored.meta.function,
+                    capacity: authored.meta.capacity
                 }}
     )
     LET grouped = (
@@ -584,6 +572,18 @@ def get_actor_dossiers(
                         FILTER role != null AND role != ""
                         SORT role
                         RETURN role
+                ),
+                functions: (
+                    FOR function IN UNIQUE(group[*].function)
+                        FILTER function != null AND function != ""
+                        SORT function
+                        RETURN function
+                ),
+                capacities: (
+                    FOR capacity IN UNIQUE(group[*].capacity)
+                        FILTER capacity != null
+                        SORT capacity
+                        RETURN capacity
                 ),
                 document_count: LENGTH(UNIQUE(group[*].document_id))
             }}
@@ -609,3 +609,63 @@ def get_actor_dossiers(
         bind["member_of"] = RELATION_MEMBER_OF
     rows = list(store.query(aql, bind))
     return cast(dict[str, Any], rows[0]) if rows else {"total": 0, "items": []}
+
+
+def get_ek_faction_votes(
+    store: ArangoStore,
+    abbreviation: str,
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """How a faction of the Eerste Kamer voted, by its name as the list of votes writes it
+    (*abbreviation*): ``{total, counts, items}``, newest first. ``counts`` per choice
+    (``voor``, ``tegen``, ``aantekening gevraagd``) over every vote that names it."""
+    aql = f"""
+    LET voted = (
+        FOR d IN {COLLECTION_DECISIONS}
+            FILTER d.props.chamber == @ek
+            FILTER @from == null OR d.props.date >= @from
+            FILTER @to == null OR d.props.date <= @to
+            LET choice = @name IN (d.props.factions_for OR []) ? "voor"
+                : @name IN (d.props.factions_against OR []) ? "tegen"
+                : @name IN (d.props.factions_noted OR []) ? "aantekening gevraagd"
+                : null
+            FILTER choice != null
+            RETURN {{ d, choice }}
+    )
+    LET counts = MERGE(
+        FOR v IN voted
+            COLLECT choice = v.choice WITH COUNT INTO n
+            RETURN {{ [choice]: n }}
+    )
+    LET items = (
+        FOR v IN voted
+            SORT v.d.props.date DESC, v.d._key
+            LIMIT @offset, @limit
+            RETURN {{
+                decision_id: v.d._id,
+                decision_key: v.d._key,
+                date: v.d.props.date,
+                subject: v.d.props.subject,
+                dossier_numbers: v.d.props.dossier_numbers OR [],
+                result: v.d.props.result,
+                method: v.d.props.method,
+                bill_decision: v.d.props.bill_decision,
+                choice: v.choice
+            }}
+    )
+    RETURN {{ total: LENGTH(voted), counts, items }}
+    """
+    bind = {
+        "ek": CHAMBER_EK,
+        "name": abbreviation,
+        "from": date_from,
+        "to": date_to,
+        "limit": limit,
+        "offset": offset,
+    }
+    row = next(iter(store.query(aql, bind)), None)
+    return row or {"total": 0, "counts": {}, "items": []}

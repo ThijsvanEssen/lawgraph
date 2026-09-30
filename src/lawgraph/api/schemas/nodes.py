@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.core.models import TYPE_OF_COLLECTION
+from lawgraph.core.tk_links import tk_url
 
 # Props a node response leaves out by default: none (the graph views drop the large ones).
 _DROP_PROPS_KEYS: tuple[str, ...] = ()
@@ -20,11 +21,13 @@ _DROP_PROPS_KEYS: tuple[str, ...] = ()
 DROP_PROPS_KEYS_GRAPH = (
     "text",
     "paragraphs",
+    "parties",
     "subjects",
     "judgment_metadata",
     "raw_data",
     "raw",  # documents carry the source TK payload here
     "entries",  # annexes carry their table rows here
+    "unresolved_citations",
 )
 
 
@@ -43,6 +46,9 @@ def _build_node_payload(
     sanitized = {
         key: value for key, value in props.items() if key not in (drop_props_keys or ())
     }
+    link = tk_url(doc.get("type"), props)
+    if link:
+        sanitized["tk_url"] = link
     return {
         "id": doc["_id"],
         "key": doc["_key"],
@@ -139,27 +145,6 @@ class NodeNeighborsDTO(BaseModel):
 
     total: int
     buckets: list[NeighborBucketDTO] = Field(default_factory=list)
-
-
-class NodeFacetDTO(BaseModel):
-    """How many edges of a node share a relation, a direction and a neighbour collection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    relation: str | None
-    direction: Literal["outbound", "inbound"]
-    collection: str
-    type: str
-    count: int
-
-
-class NodeFacetsResponse(BaseModel):
-    """Response for GET /api/nodes/{collection}/{key}/facets."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    items: list[NodeFacetDTO]
-    total: int
 
 
 class NodeGraphResponse(BaseModel):

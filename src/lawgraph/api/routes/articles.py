@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import Tier
 from lawgraph.api.schemas.articles import (
     ArticleCitedByItem,
     ArticleCitedByResponse,
@@ -12,9 +13,7 @@ from lawgraph.api.schemas.articles import (
     ArticleExplanationDTO,
     ArticleExplanationsResponse,
     ArticleHistoryResponse,
-    ArticleInFluxResponse,
     ArticleLegislativeHistoryResponse,
-    ArticleRelationshipsResponse,
     ArticleRelationshipWithType,
     ArticleSummaryDTO,
     ArticleVersionDTO,
@@ -31,13 +30,13 @@ from lawgraph.api.schemas.common import (
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key, parse_arango_id
+from lawgraph.core.notation import native_article_number
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
     get_article_cited_by,
     get_article_explanations,
     get_article_history,
-    get_article_in_flux,
     get_article_legislative_history,
     get_article_with_relations,
 )
@@ -64,6 +63,7 @@ def get_article_detail(
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleDetailResponse:
     """Return an article plus its instrument and mentioning judgments."""
+    article_number = native_article_number(bwb_id, article_number)
     try:
         data = get_article_with_relations(store, bwb_id, article_number)
     except ValueError as err:
@@ -130,34 +130,6 @@ def _build_relationship_dtos(
 
 
 @router.get(
-    "/{bwb_id}/{article_number}/relationships",
-    response_model=ArticleRelationshipsResponse,
-    summary="Semantic relationships of an article",
-    description=(
-        "Upstream dependencies (outgoing references), downstream implications "
-        "(incoming references) and annex scopes, each with its semantic type, "
-        "explanation, expert badge and community votes."
-    ),
-    tags=["articles"],
-)
-def get_article_relationships(
-    bwb_id: str,
-    article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> ArticleRelationshipsResponse:
-    article_key = make_node_key(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{article_key}"
-    relationship_data = get_article_relationship_data(store, article_id)
-    upstream, downstream, scope = _build_relationship_dtos(relationship_data)
-    return ArticleRelationshipsResponse(
-        article_id=article_id,
-        upstream_dependencies=upstream,
-        downstream_implications=downstream,
-        scope_articles=scope,
-    )
-
-
-@router.get(
     "/{bwb_id}/{article_number}/cited-by",
     response_model=ArticleCitedByResponse,
     summary="Passages of judgments that cite an article",
@@ -165,7 +137,8 @@ def get_article_relationships(
         "One row per passage: a judgment and the paragraph in it that cites the article, "
         "with the lid, onderdeel or aanhef it names, a snippet and the confidence of the "
         "detection. Newest judgment first. `court` (ECLI court code), `tier` and `lid` "
-        "(a lid number the passage names) filter; `total` counts all passages that match. "
+        "(a lid number the passage names) filter; `total` counts all passages that match, "
+        "`judgment_total` the judgments they are in. "
         "404 when the article is unknown."
     ),
     tags=["articles"],
@@ -180,7 +153,10 @@ def get_article_cited_by_passages(
         str | None, Query(description="ECLI court code, e.g. 'HR', 'RBAMS'")
     ] = None,
     tier: Annotated[
-        Literal["hoge_raad", "gerechtshof", "rechtbank", "bijzonder"] | None, Query()
+        Tier | None,
+        Query(
+            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …"
+        ),
     ] = None,
     lid: Annotated[
         str | None,
@@ -190,20 +166,28 @@ def get_article_cited_by_passages(
         ),
     ] = None,
 ) -> ArticleCitedByResponse:
+    article_number = native_article_number(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
     if not store.has_node(COLLECTION_ARTICLES, parse_arango_id(article_id)[1]):
         raise HTTPException(status_code=404, detail="Article not found")
-    rows, total = get_article_cited_by(
+    cited_by = get_article_cited_by(
         store,
         article_id,
         court=court,
-        tier=tier,
+        tier=tier.value if tier else None,
         lid=lid,
         limit=limit,
         offset=offset,
     )
-    items = [item for row in rows if (item := ArticleCitedByItem.from_row(row))]
-    return ArticleCitedByResponse(article_id=article_id, items=items, total=total)
+    items = [
+        item for row in cited_by.rows if (item := ArticleCitedByItem.from_row(row))
+    ]
+    return ArticleCitedByResponse(
+        article_id=article_id,
+        items=items,
+        total=cited_by.total,
+        judgment_total=cited_by.judgment_total,
+    )
 
 
 @router.get(
@@ -225,6 +209,7 @@ def get_article_version_history(
     article_number: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleHistoryResponse:
+    article_number = native_article_number(bwb_id, article_number)
     try:
         data = get_article_history(store, bwb_id, article_number)
     except ValueError as err:
@@ -247,11 +232,13 @@ def get_article_version_history(
     response_model=ArticleLegislativeHistoryResponse,
     summary="Legislative history of an article",
     description=(
-        "Every dossier and document that introduced, changed or proposes to "
-        "change this article, covering both enacted (`canoniek`) and proposed "
-        "(`voorgesteld`) changes, and what refers to it. The "
-        "explanatory documents are at `explained-by`. Returns an empty list when "
-        "there is no history — never a 404."
+        "The dossiers that introduced, amended or repealed this article, or propose "
+        "to: one entry per change and dossier, with the amending publication "
+        "(enacted, `canoniek`) or the bill (proposed, `voorgesteld`) that carries "
+        "it; proposed first, then newest first. What only cites the article "
+        "(a judgment, another article) is not history. The explanatory documents "
+        "are at `explained-by`. Returns an empty list when there is no history — "
+        "never a 404."
     ),
     tags=["articles"],
 )
@@ -260,6 +247,7 @@ def get_legislative_history(
     article_number: str,
     store: Annotated[ArangoStore, Depends(get_store)],
 ) -> ArticleLegislativeHistoryResponse:
+    article_number = native_article_number(bwb_id, article_number)
     article_key = make_node_key(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{article_key}"
     raw_entries = get_article_legislative_history(
@@ -279,16 +267,14 @@ def get_legislative_history(
     summary="Explanatory documents of an article",
     description=(
         "The documents that explain this article: every EXPLAINS edge that points "
-        "at the article, at one of its versions or at its instrument. Newest "
-        "first, the article-level explanations (`target` `article` and "
-        "`article_version`) before those of the instrument. An explanation of "
+        "at the article (`target` `article`) or at one of its versions (`target` "
+        "`article_version`); an explanation of the law as a whole is no evidence "
+        "about this article and is not listed. Newest first. An explanation of "
         "`scope` `dossier` is written per dossier: the memorandum explains all "
         "the changes of the dossier; of `scope` `article` the memorandum names "
         "the section about this article in `section_anchor` (the `id` of a "
         "section of the document; `GET /api/documents/{key}/passages` gives its "
-        "text). An `instrument` explanation exists only for a dossier whose law "
-        "changed no articles, so it is no evidence about this article; filter on "
-        "`target`. One document appears once per level. `total` counts all "
+        "text). One document appears once per level. `total` counts all "
         "explanations, independent of `limit` and `offset`. Returns an empty list "
         "for an unknown article — never a 404."
     ),
@@ -301,6 +287,7 @@ def get_explained_by(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ArticleExplanationsResponse:
+    article_number = native_article_number(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
     page = get_article_explanations(
         store, bwb_id, article_number, limit=limit, offset=offset
@@ -309,32 +296,6 @@ def get_explained_by(
         article_id=article_id,
         total=page["total"],
         items=[ArticleExplanationDTO.from_row(row) for row in page["items"]],
-    )
-
-
-@router.get(
-    "/{bwb_id}/{article_number}/in-flux",
-    response_model=ArticleInFluxResponse,
-    summary="In-flux status of an article",
-    description=(
-        "A cheap check whether one or more open bills currently target this "
-        "article. Returns a flag and the number of open dossiers. Aggressively "
-        "cached — always 200, never 404."
-    ),
-    tags=["articles"],
-)
-def get_in_flux(
-    bwb_id: str,
-    article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> ArticleInFluxResponse:
-    article_key = make_node_key(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{article_key}"
-    result = get_article_in_flux(store, bwb_id, article_number, article_id=article_id)
-    return ArticleInFluxResponse(
-        article_id=article_id,
-        in_flux=result.get("in_flux", False),
-        open_dossier_count=result.get("open_dossier_count", 0),
     )
 
 

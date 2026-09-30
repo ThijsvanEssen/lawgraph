@@ -32,6 +32,13 @@ DIRECTIVE = "32016L0680"
 TREATY = "BWBV0009001"
 
 
+_IMPLEMENTS_META = {
+    "celex": DIRECTIVE,
+    "bases": ["considerans", "national_implementing_measure"],
+    "publications": ["stb-2018-401"],
+}
+
+
 def _node(collection: str, key: str, **props: Any) -> dict[str, Any]:
     labels = props.pop("labels", [])
     return {"_key": key, "type": collection[:-1], "labels": labels, "props": props}
@@ -82,12 +89,11 @@ def _seed(store: ArangoStore) -> None:
             ),
             _node(
                 "instruments",
-                "echr_convention",
-                bwb_id="ECHR-CONVENTION",
-                title="EVRM",
+                "bwbv0001000",
+                bwb_id="BWBV0001000",
+                title="Verdrag tot bescherming van de rechten van de mens",
                 kind="verdrag",
-                jurisdiction="eu",
-                labels=["ECHR", "Convention"],
+                jurisdiction="int",
             ),
             _node(
                 "instruments", "verdrag_77", title="Losse verdrag", jurisdiction="int"
@@ -107,8 +113,8 @@ def _seed(store: ArangoStore) -> None:
             _node("articles", "bwbv0009001_5", bwb_id=TREATY, article_number="5"),
             _node(
                 "articles",
-                "echr_convention_8",
-                bwb_id="ECHR-CONVENTION",
+                "bwbv0001000_8",
+                bwb_id="BWBV0001000",
                 article_number="8",
             ),
         ],
@@ -145,15 +151,16 @@ def _seed(store: ArangoStore) -> None:
             "instruments/32016l0680",
             RELATION_IMPLEMENTS,
             source=EDGE_SOURCE_BWB_IMPLEMENTS,
-            confidence=0.75,
-            meta={"celex": DIRECTIVE},
+            confidence=1.0,
+            meta=_IMPLEMENTS_META,
         ),
+        # the Besluit only names the directive
         make_edge_doc(
             "instruments/bwbr0009002",
             "instruments/32016l0680",
-            RELATION_IMPLEMENTS,
+            RELATION_REFERS_TO,
             source=EDGE_SOURCE_BWB_IMPLEMENTS,
-            confidence=0.75,
+            confidence=1.0,
             meta={"celex": DIRECTIVE},
         ),
         make_edge_doc(
@@ -179,19 +186,19 @@ def _seed(store: ArangoStore) -> None:
         # ECHR judgments: to a Convention article, and to the regulation as a whole
         make_edge_doc(
             "judgments/echr_001_1",
-            "articles/echr_convention_8",
+            "articles/bwbv0001000_8",
             refers,
             source="echr-citation-linker",
             confidence=0.95,
-            meta={"article": "8", "instrument": "EVRM"},
+            meta={"leden": ["1"]},
         ),
         make_edge_doc(
             "judgments/echr_001_2",
-            "articles/echr_convention_8",
+            "articles/bwbv0001000_8",
             refers,
             source="echr-citation-linker",
             confidence=0.95,
-            meta={"article": "8", "instrument": "EVRM"},
+            meta={"leden": ["1"]},
         ),
         make_edge_doc(
             "judgments/echr_001_2",
@@ -237,8 +244,8 @@ def test_the_resolver_names_an_instrument_by_bwb_id_celex_or_key(
         ("bwbr0009001", "bwbr0009001"),
         (DIRECTIVE, "32016l0680"),
         ("32016l0680", "32016l0680"),
-        ("ECHR-CONVENTION", "echr_convention"),
-        ("echr_convention", "echr_convention"),
+        ("BWBV0001000", "bwbv0001000"),
+        ("bwbv0001000", "bwbv0001000"),
         ("verdrag_77", "verdrag_77"),
     ]:
         found = resolve_instrument(store, identifier)
@@ -278,12 +285,6 @@ def test_the_sub_routes_answer_for_an_eu_act(store: ArangoStore) -> None:
     assert [a["article_number"] for a in articles["items"]] == ["1", "10"]
     assert articles["items"][0]["celex"] == DIRECTIVE
 
-    citations = client.get(f"/api/instruments/{DIRECTIVE}/citations").json()
-    assert citations["article_count"] == 2
-    edges = {(e["from"], e["direction"]) for e in citations["edges"]}
-    assert ("judgments/ecli_nl_hr_2020_1", "in") in edges
-    assert ("articles/bwbr0009001_2", "in") in edges
-
     judgments = client.get(f"/api/instruments/{DIRECTIVE}/judgments").json()
     assert judgments["total"] == 1
     assert judgments["items"][0]["cited_articles"][0]["key"] == "32016l0680_1"
@@ -293,7 +294,7 @@ def test_the_sub_routes_answer_for_an_eu_act(store: ArangoStore) -> None:
         (REGULATION, 1)
     ]
 
-    for suffix in ("dossiers", "amended-by", "cross-law-dependencies"):
+    for suffix in ("dossiers", "amended-by"):
         answer = client.get(f"/api/instruments/{DIRECTIVE}/{suffix}")
         assert answer.status_code == 200, suffix
 
@@ -312,16 +313,24 @@ def test_eu_links_between_a_regulation_and_an_eu_act(store: ArangoStore) -> None
     link = up["implements"][0]
     assert link["instrument"]["celex"] == DIRECTIVE
     assert link["instrument"]["key"] == "32016l0680"
-    assert (link["relation"], link["confidence"]) == ("IMPLEMENTS", 0.75)
-    assert link["basis"] == "celex_named_in_text"
-    assert link["source"] == "bwb-implements-directive"
-    assert link["meta"] == {"celex": DIRECTIVE}
+    assert (link["relation"], link["confidence"]) == ("IMPLEMENTS", 1.0)
+    assert link["bases"] == ["considerans", "national_implementing_measure"]
+    assert link["source"] == "bwb-implements"
+    assert link["meta"] == _IMPLEMENTS_META
     assert "articles" not in link
+    assert up["mentions"] == [] and up["mentions_total"] == 0
 
     down = client.get(f"/api/instruments/{DIRECTIVE}/eu-links?limit=1").json()
     assert down["implements"] == []
-    assert down["implemented_by_total"] == 2 and len(down["implemented_by"]) == 1
+    assert down["implemented_by_total"] == 1
     assert down["implemented_by"][0]["instrument"]["bwb_id"] == REGULATION
+    assert down["mentioned_by_total"] == 1
+    (mention,) = down["mentioned_by"]
+    assert mention["instrument"]["bwb_id"] == OTHER_REGULATION
+    assert (mention["relation"], mention["bases"]) == ("REFERS_TO", [])
+
+    other = client.get(f"/api/instruments/{OTHER_REGULATION}/eu-links").json()
+    assert other["implements_total"] == 0 and other["mentions_total"] == 1
 
 
 def test_international_links_hold_treaties_and_echr_judgments(
@@ -349,16 +358,16 @@ def test_international_links_hold_treaties_and_echr_judgments(
     }
     assert eclis == {"ECLI:CE:ECHR:2020:2"}
 
-    convention = client.get("/api/instruments/ECHR-CONVENTION/eu-links").json()
+    convention = client.get("/api/instruments/BWBV0001000/eu-links").json()
     assert convention["international_total"] == 2
     assert [i["judgment"]["ecli"] for i in convention["international"]] == [
         "ECLI:CE:ECHR:2020:2",  # same confidence: newest first
         "ECLI:CE:ECHR:2010:1",
     ]
     assert convention["international"][0]["own_article"]["article_number"] == "8"
-    assert convention["international"][0]["meta"]["instrument"] == "EVRM"
+    assert convention["international"][0]["meta"]["leden"] == ["1"]
 
-    page = client.get("/api/instruments/echr_convention/eu-links?limit=1").json()
+    page = client.get("/api/instruments/bwbv0001000/eu-links?limit=1").json()
     assert len(page["international"]) == 1 and page["international_total"] == 2
 
     # no article of an EU act refers to a treaty, and no ECHR judgment to it

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from lawgraph.core import tk_records
 from lawgraph.core.models import make_node_key
 
@@ -18,6 +20,12 @@ def test_committee_reads_name_abbreviation_and_slug() -> None:
 
 def test_committee_without_an_id_is_skipped() -> None:
     assert tk_records.committee({"NaamNL": "Naamloos"}) is None
+
+
+def test_committee_without_a_name_is_not_named_by_its_id() -> None:
+    # the record the voortouw of every plenary activity names: nothing but an id
+    record = {"Id": "38aacfcd-2cfa-4727-949d-e4270237dbbe", "NaamNL": None}
+    assert tk_records.committee(record) is None
 
 
 def test_committee_seats_collect_every_period_per_person() -> None:
@@ -69,6 +77,29 @@ def test_member_joins_the_name_parts() -> None:
     assert props["display_name"] == "Mark van der Berg"
     # Party is not read here: it comes from the dated seat timeline.
     assert "party" not in props
+
+
+def test_a_member_of_old_is_named_by_initials_and_surname() -> None:
+    _, props = tk_records.member({"Id": "p-1", "Initialen": "WB", "Achternaam": "Buma"})
+    assert (props["name"], props["full_name"]) == ("W.B. Buma", "W.B. Buma")
+    _, props = tk_records.member(
+        {"Id": "p-2", "Initialen": "S.", "Achternaam": "Dekker"}
+    )
+    assert props["name"] == "S. Dekker"
+
+
+def test_an_ended_faction_has_no_seats() -> None:
+    record = {
+        "Id": "f-1",
+        "Afkorting": "Nieuw Sociaal Contract",
+        "DatumActief": "2023-12-05",
+        "DatumInactief": "2025-11-11",
+        "AantalZetels": 19,
+    }
+    _, props = tk_records.faction(record, [])  # type: ignore[misc]
+    assert (props["active"], props["seats"]) == (False, 0)
+    _, props = tk_records.faction({**record, "DatumInactief": None}, [])  # type: ignore[misc]
+    assert props["seats"] == 19
 
 
 def test_seat_holding_reads_the_period_and_the_faction() -> None:
@@ -146,7 +177,7 @@ def test_dossier_without_a_title_leaves_it_open_for_the_backfill() -> None:
     _, _, props = tk_records.dossier({"Id": "d-1", "Nummer": 36000})
     assert props["title"] is None
     assert props["title_source"] is None
-    assert "current_stage" not in props
+    assert "current_phase" not in props
 
 
 def test_a_dossier_record_says_nothing_of_how_far_it_got() -> None:
@@ -162,7 +193,7 @@ def test_a_dossier_record_says_nothing_of_how_far_it_got() -> None:
             "HoogsteVolgnummer": 101,
         }
     )
-    for derived in ("closed", "closed_on", "opened_on", "outcome", "current_stage"):
+    for derived in ("closed", "closed_on", "opened_on", "outcome", "current_phase"):
         assert derived not in props
 
 
@@ -174,6 +205,56 @@ def test_a_document_and_a_decision_keep_the_kind_of_their_case() -> None:
     assert document["case_kinds"] == ["Wetgeving"]
     _, decision = tk_records.decision("b-1", {"Zaak": [bill]}, [])
     assert decision["primary_case_kind"] == "Wetgeving"
+
+
+@pytest.mark.parametrize(
+    "soort", ["Motie", "Amendement", "Wetgeving", "Begroting", "Brief regering", None]
+)
+def test_a_decision_takes_its_kind_from_the_soort_of_its_case(
+    soort: str | None,
+) -> None:
+    decision = {"Zaak": [{"Id": "z-1", "Soort": soort}], "Agendapunt": []}
+    _, props = tk_records.decision("b-1", decision, [])
+    assert props["kind"] == soort
+
+
+def test_a_decision_kind_ignores_the_subject() -> None:
+    motion = {"Id": "z-1", "Soort": "Motie", "Onderwerp": "Wijziging van de Wet"}
+    _, props = tk_records.decision("b-1", {"Zaak": [motion]}, [])
+    assert props["kind"] == "Motie"
+
+
+def test_without_its_own_case_the_kind_is_that_of_an_agenda_item_of_one_kind() -> None:
+    motions = [{"Id": "z-1", "Soort": "Motie"}, {"Id": "z-2", "Soort": "Motie"}]
+    _, props = tk_records.decision("b-1", {"Agendapunt": [{"Zaak": motions}]}, [])
+    assert (props["primary_case_id"], props["kind"]) == (None, "Motie")
+    mixed = [*motions, {"Id": "z-3", "Soort": "Amendement"}]
+    _, props = tk_records.decision("b-1", {"Agendapunt": [{"Zaak": mixed}]}, [])
+    assert props["kind"] is None
+    _, props = tk_records.decision("b-1", {}, [])
+    assert props["kind"] is None
+
+
+def test_a_hamerstuk_is_a_decision_that_passed_without_votes() -> None:
+    bill = {"Id": "z-1", "Soort": "Wetgeving"}
+    _, props = tk_records.decision(
+        "b-1",
+        {
+            "Zaak": [bill],
+            "BesluitSoort": "Stemmen - zonder stemming aannemen",
+            "BesluitTekst": "Wetsvoorstel zonder stemming aangenomen.",
+        },
+        [],
+    )
+    assert props["decision_kind"] == "Stemmen - zonder stemming aannemen"
+    assert (props["passed"], props["vote_kind"], props["tally"]) == (True, None, {})
+
+
+def test_a_postponement_is_no_vote() -> None:
+    _, props = tk_records.decision(
+        "b-1", {"Zaak": [], "BesluitSoort": "Stemmen - uitstellen"}, []
+    )
+    assert (props["decision_kind"], props["passed"]) == ("Stemmen - uitstellen", None)
 
 
 def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:
@@ -210,7 +291,35 @@ def test_a_plenary_activity_has_no_lead_committee() -> None:
     assert props["committee_id"] is None
 
 
-def test_commitment_reads_the_minister_and_maps_the_status() -> None:
+def test_the_kamer_as_voortouw_is_no_lead_committee() -> None:
+    _, props = tk_records.activity(
+        {
+            "Id": "a-1",
+            "Soort": "Plenair debat (wetgeving)",
+            "Voortouwcommissie_Id": "38aacfcd-2cfa-4727-949d-e4270237dbbe",
+            "Voortouwafkorting": "TK",
+            "Voortouwnaam": "TK",
+        }
+    )
+    assert props["committee_id"] is None
+
+
+def test_activity_reads_its_subject_and_status() -> None:
+    _, props = tk_records.activity(
+        {
+            "Id": "a-1",
+            "Soort": "Commissiedebat",
+            "Onderwerp": "Digitale grondrechten en data-ethiek",
+            "Status": "Gepland",
+            "Datum": "2027-02-11T10:00:00+01:00",
+        }
+    )
+    assert props["agenda_title"] == "Digitale grondrechten en data-ethiek"
+    assert props["status"] == "Gepland"
+    assert props["display_name"] == "Digitale grondrechten en data-ethiek (2027-02-11)"
+
+
+def test_commitment_reads_the_minister_and_the_status() -> None:
     _, props = tk_records.commitment(
         {
             "Id": "t-1",
@@ -223,32 +332,19 @@ def test_commitment_reads_the_minister_and_maps_the_status() -> None:
             "Aanmaakdatum": "2024-12-16T15:01:11.847+01:00",
         }
     )
-    assert props["status"] == "open"
+    assert props["status"] == "Openstaand"
     assert props["minister_name"] == "Wiersma, F.M."
     assert props["activity_number"] == "2024A05766"
     assert props["made_on"] == "2024-12-16"
 
 
-def test_statuses_seen_in_the_real_data_are_not_reported_as_open() -> None:
-    """The retrieve run warned about these two: they used to fall back to "open"."""
-    _, partly = tk_records.commitment({"Id": "t-3", "Status": "Deels Afgedaan"})
-    _, lapsed = tk_records.commitment({"Id": "t-4", "Status": "Vervallen"})
-    assert (partly["status"], lapsed["status"]) == ("partly_done", "lapsed")
-    assert not tk_records.unknown_commitment_statuses(
-        [{"Status": "Deels Afgedaan"}, {"Status": "Vervallen"}]
-    )
-
-
-def test_an_unfulfilled_commitment_keeps_that_apart_from_done() -> None:
-    _, done = tk_records.commitment({"Id": "t-1", "Status": "Nagekomen"})
-    _, failed = tk_records.commitment({"Id": "t-2", "Status": "Niet nagekomen"})
-    assert (done["status"], failed["status"]) == ("done", "unfulfilled")
-
-
-def test_unknown_commitment_statuses_are_reported() -> None:
-    assert tk_records.unknown_commitment_statuses(
-        [{"Status": "Openstaand"}, {"Status": "Iets nieuws"}, {}]
-    ) == {"Iets nieuws"}
+def test_a_commitment_keeps_the_status_the_kamer_gives_it() -> None:
+    statuses = ("Deels Afgedaan", "Vervallen", "Nagekomen", "Niet nagekomen", "Iets")
+    kept = [
+        tk_records.commitment({"Id": "t", "Status": s})[1]["status"] for s in statuses
+    ]
+    assert tuple(kept) == statuses
+    assert tk_records.commitment({"Id": "t"})[1]["status"] is None
 
 
 def test_document_reads_its_cases_dossiers_and_signatories() -> None:
@@ -259,7 +355,11 @@ def test_document_reads_its_cases_dossiers_and_signatories() -> None:
             "Titel": "Amendement over iets",
             "Volgnummer": 7,
             "Datum": "2024-03-01T00:00:00",
-            "Zaak": [{"Id": "z-1", "Kamerstukdossier": [{"Nummer": 29684}]}],
+            "Zaak": [
+                {"Id": "z-1", "Kamerstukdossier": [{"Nummer": 29684}]},
+                {"Id": "z-2", "Kamerstukdossier": [{"Nummer": 31058}]},
+            ],
+            "Kamerstukdossier": [{"Nummer": 29684, "Toevoeging": None}],
             "DocumentActor": [
                 {
                     "Persoon_Id": "p-1",
@@ -271,11 +371,106 @@ def test_document_reads_its_cases_dossiers_and_signatories() -> None:
             ],
         }
     )
-    assert props["case_ids"] == ["z-1"]
-    assert props["dossier_numbers"] == ["29684"]
+    assert props["case_ids"] == ["z-1", "z-2"]
+    assert props["dossier_numbers"] == ["29684", "31058"]
+    # It is part of both and numbered in one.
+    assert (props["dossier_number"], props["dossier_suffix"]) == ("29684", None)
     assert props["sequence"] == 7
     assert [a["person_id"] for a in props["actors"]] == ["p-1"]
-    assert props["display_name"].startswith("Kamerstuk 29684, nr. 7 — Amendement")
+    assert props["display_name"].startswith("Kamerstuk 29684, nr. 7")
+    assert " — " not in props["display_name"]
+
+
+def test_a_document_keeps_the_number_tweedekamer_nl_knows_it_by_and_no_link() -> None:
+    _, props = tk_records.document(
+        {"Id": "a0ec76e1-44ff-49d3-924b-2a4a8af4698c", "DocumentNummer": "2026D44984"}
+    )
+    assert props["document_number"] == "2026D44984"
+    # the link is derived when a response is built (core.tk_links), never stored
+    assert "tk_url" not in props
+    _, activity = tk_records.activity({"Id": "a-1", "Nummer": "2026A02571"})
+    assert activity["number"] == "2026A02571" and "tk_url" not in activity
+
+
+def test_a_case_keeps_the_cases_the_kamer_relates_it_to_with_their_dossiers() -> None:
+    related = tk_records.related_cases(
+        {
+            "Id": "z-brief",
+            "Soort": "Brief regering",
+            "GerelateerdNaar": [
+                {
+                    "Id": "z-motie",
+                    "Soort": "Motie",
+                    "Verwijderd": False,
+                    "Kamerstukdossier": [{"Nummer": 36800, "Toevoeging": "V"}],
+                },
+                {"Id": "z-weg", "Soort": "Motie", "Verwijderd": True},
+                {"Id": "z-los", "Soort": "Brief commissie", "Kamerstukdossier": []},
+            ],
+        }
+    )
+    assert related == [
+        {"id": "z-motie", "kind": "Motie", "dossier_numbers": ["36800-V"]},
+        {"id": "z-los", "kind": "Brief commissie", "dossier_numbers": []},
+    ]
+    assert tk_records.related_cases({"Id": "z-1"}) == []
+
+
+@pytest.mark.parametrize(
+    ("function", "faction", "capacity"),
+    [
+        # R.A.A. Jetten, 2026: no faction, the government
+        ("minister-president", None, "bewindspersoon"),
+        ("minister van Algemene Zaken", None, "bewindspersoon"),
+        # and before, as a member of the Kamer and as a minister
+        ("Tweede Kamerlid", "f-d66", "kamerlid"),
+        ("minister voor Klimaat en Energie", None, "bewindspersoon"),
+        ("staatssecretaris van Financiën", None, "bewindspersoon"),
+        ("viceminister-president", None, "bewindspersoon"),
+        # S. van Haersma Buma, 2026: a former member, now for the Raad van State
+        ("vicepresident van de Raad van State", None, "overig"),
+        # Aruba's minister is no member of the Dutch government
+        ("gevolmachtigde minister van Aruba", None, "overig"),
+        ("griffier", None, "overig"),
+        ("president van de Algemene Rekenkamer", None, "overig"),
+        # a member who chairs a committee still signs for a faction
+        ("voorzitter van de vaste commissie voor Financiën", "f-vvd", "kamerlid"),
+        (None, None, "overig"),
+    ],
+)
+def test_the_capacity_of_a_signature_follows_its_function_and_faction(
+    function: str | None, faction: str | None, capacity: str
+) -> None:
+    assert tk_records.signing_capacity(function, faction) == capacity
+
+
+def test_a_signatory_keeps_the_function_they_signed_in() -> None:
+    _, props = tk_records.document(
+        {
+            "Id": "doc-1",
+            "Soort": "Brief regering",
+            "DocumentActor": [
+                {
+                    "Persoon_Id": "p-jetten",
+                    "ActorNaam": "R.A.A. Jetten",
+                    "Functie": "minister-president",
+                    "Relatie": "Eerste ondertekenaar",
+                },
+                {
+                    "Persoon_Id": "p-lid",
+                    "ActorNaam": "Lid",
+                    "ActorFractie": "VVD",
+                    "Fractie_Id": "f-vvd",
+                    "Functie": "Tweede Kamerlid",
+                    "Relatie": "Mede ondertekenaar",
+                },
+            ],
+        }
+    )
+    assert [(a["function"], a["capacity"]) for a in props["actors"]] == [
+        ("minister-president", "bewindspersoon"),
+        ("Tweede Kamerlid", "kamerlid"),
+    ]
 
 
 def test_a_non_kamerstuk_document_has_no_volgnummer() -> None:
@@ -321,6 +516,8 @@ def test_a_roll_call_counts_members_not_faction_sizes() -> None:
     assert props["vote_kind"] == "member"
     assert props["tally"] == {"Voor": 2, "Tegen": 1}
     assert props["passed"] is True
+    # each member's vote weighs one seat, not the size of the faction (K4)
+    assert [cast.seats for cast in votes] == [1, 1, 1]
 
 
 def test_the_outcome_falls_back_to_the_tally_when_the_source_is_silent() -> None:
@@ -364,7 +561,7 @@ def test_a_decision_names_the_case_it_decided() -> None:
     assert props["subject"] == "Wijziging van de Visserijwet 1963"
     assert (
         props["display_name"]
-        == "Wetgeving 2026Z03557 — Wijziging van de Visserijwet 1963"
+        == "Wetgeving 2026Z03557: Wijziging van de Visserijwet 1963"
     )
     # The day of the vote, not the day the row was last edited.
     assert props["date"] == "2026-09-22"
@@ -403,7 +600,239 @@ def test_a_vote_cast_is_a_slotted_object_with_shared_strings() -> None:
 
 
 def test_a_document_says_which_source_it_is_from() -> None:
-    """Every other source does; without it `/api/documents?source=tk` found none of the
+    """Every other source does; without it a filter on `source=tk` found none of the
     126,710 papers and `/api/stats` counted them as unknown."""
     _, props = tk_records.document({"Id": "doc-1", "Soort": "Motie"})  # type: ignore[misc]
     assert props["source"] == "tk"
+
+
+_DOSSIER_TITLE = "Rechtsstaat en Rechtsorde"
+
+
+@pytest.mark.parametrize(
+    ("kind", "subject", "case_subject", "title", "dossier_title"),
+    [
+        # a motie or amendement is named by its own Onderwerp, stripped
+        (
+            "Motie",
+            "Motie van het lid Faber over fouilleren ",
+            None,
+            "Motie van het lid Faber over fouilleren",
+            _DOSSIER_TITLE,
+        ),
+        (
+            "Amendement (gewijzigd/nader/vervangend)",
+            "Amendement van het lid Ergin",
+            None,
+            "Amendement van het lid Ergin",
+            _DOSSIER_TITLE,
+        ),
+        # without one, by the Onderwerp of its Zaak; without that, by its Titel
+        (
+            "Motie (gewijzigd/nader)",
+            None,
+            "Gewijzigde motie van het lid Kostić",
+            "Gewijzigde motie van het lid Kostić",
+            _DOSSIER_TITLE,
+        ),
+        ("Motie", None, None, _DOSSIER_TITLE, _DOSSIER_TITLE),
+        # so is a letter or the report of a debate
+        (
+            "Brief regering",
+            "Voortgang aanpak ondermijning",
+            None,
+            "Voortgang aanpak ondermijning",
+            _DOSSIER_TITLE,
+        ),
+        (
+            "Verslag van een commissiedebat",
+            "Verslag van een commissiedebat, gehouden op 1 juli 2026, over mkb",
+            None,
+            "Verslag van een commissiedebat, gehouden op 1 juli 2026, over mkb",
+            _DOSSIER_TITLE,
+        ),
+        # an Onderwerp that only repeats the kind names nothing
+        ("Mededeling", "Mededeling", None, _DOSSIER_TITLE, _DOSSIER_TITLE),
+        # a bill and the papers on it keep their Titel: their Onderwerp is their kind
+        ("Voorstel van wet", "Voorstel van wet", None, _DOSSIER_TITLE, None),
+        (
+            "Memorie van toelichting",
+            "Memorie van toelichting",
+            None,
+            _DOSSIER_TITLE,
+            None,
+        ),
+        ("Geleidende brief", "Geleidende brief", None, _DOSSIER_TITLE, None),
+    ],
+)
+def test_a_paper_is_named_by_its_own_subject(
+    kind: str,
+    subject: str | None,
+    case_subject: str | None,
+    title: str,
+    dossier_title: str | None,
+) -> None:
+    _, props = tk_records.document(  # type: ignore[misc]
+        {
+            "Id": "d-1",
+            "Soort": kind,
+            "Titel": _DOSSIER_TITLE,
+            "Onderwerp": subject,
+            "Zaak": [{"Id": "z-1", "Soort": "Motie", "Onderwerp": case_subject}],
+        }
+    )
+    assert (props["title"], props["dossier_title"]) == (title, dossier_title)
+
+
+def test_the_case_of_a_motion_is_named_by_its_subject_and_a_bill_by_its_title() -> None:
+    key, props = tk_records.case(  # type: ignore[misc]
+        {
+            "Id": "z-1",
+            "Nummer": "2026Z18284",
+            "Soort": "Motie",
+            "Titel": _DOSSIER_TITLE,
+            "Onderwerp": "Motie van het lid Faber over fouilleren ",
+        }
+    )
+    assert key == "z_1"
+    assert props["title"] == "Motie van het lid Faber over fouilleren"
+    assert props["display_name"] == props["title"]
+    assert (props["number"], props["kind"]) == ("2026Z18284", "Motie")
+
+    _, bill = tk_records.case(  # type: ignore[misc]
+        {
+            "Id": "z-2",
+            "Soort": "Wetgeving",
+            "Titel": "Wijziging van de Wegenwet",
+            "Onderwerp": "Wijziging van de Wegenwet in verband met wegen",
+        }
+    )
+    assert bill["title"] == "Wijziging van de Wegenwet"
+    assert tk_records.case({"Soort": "Motie"}) is None
+
+
+def test_a_record_the_kamer_deleted_is_no_node() -> None:
+    deleted = {
+        "Id": "d-1",
+        "Soort": None,
+        "Titel": None,
+        "Verwijderd": True,
+        "Zaak": [],
+    }
+    assert tk_records.is_deleted(deleted)
+    assert tk_records.document(deleted) is None
+    assert tk_records.case(deleted) is None
+    assert tk_records.member(deleted) is None
+    assert tk_records.dossier({**deleted, "Nummer": 36101}) is None
+    assert tk_records.faction({**deleted, "Afkorting": "OUD"}, []) is None
+    assert (
+        tk_records.seat_holding(
+            {**deleted, "Persoon_Id": "p-1", "FractieZetel": {"Fractie_Id": "f-1"}}
+        )
+        is None
+    )
+    assert not tk_records.is_deleted({"Id": "d-2", "Verwijderd": False})
+
+
+def test_a_deleted_record_of_a_faction_is_not_one_of_its_records() -> None:
+    current = {"Id": "f-2", "Afkorting": "50PLUS", "DatumActief": "2025-11-12"}
+    deleted = {"Id": "f-1", "Verwijderd": True}
+    _, props = tk_records.faction(current, [], [deleted, current])  # type: ignore[misc]
+    assert props["external_ids"] == ["f-2"]
+
+
+def test_the_submitters_of_a_motion_are_its_signatories_the_indiener_first() -> None:
+    actors = tk_records.document_actors(
+        {
+            "DocumentActor": [
+                {
+                    "Persoon_Id": "p-2",
+                    "ActorNaam": "I. Ellian",
+                    "ActorFractie": "VVD",
+                    "Relatie": "Mede ondertekenaar",
+                },
+                {"ActorNaam": "Griffier", "Relatie": "Afzender"},
+                {
+                    "Persoon_Id": "p-1",
+                    "ActorNaam": "M. Faber",
+                    "ActorFractie": "PVV",
+                    "Relatie": "Eerste ondertekenaar",
+                },
+            ]
+        }
+    )
+    assert tk_records.submitters("Motie", actors) == [
+        {"name": "M. Faber", "faction": "PVV", "member_key": "p_1", "role": "indiener"},
+        {
+            "name": "I. Ellian",
+            "faction": "VVD",
+            "member_key": "p_2",
+            "role": "medeindiener",
+        },
+    ]
+    # the first signatory of a letter is no indiener
+    assert tk_records.submitters("Brief regering", actors) == []
+
+
+@pytest.mark.parametrize(
+    ("dossier", "sequence", "kind", "title", "name"),
+    [
+        (
+            "29684",
+            7,
+            "Amendement",
+            "Over de huur",
+            "Kamerstuk 29684, nr. 7. Amendement: Over de huur",
+        ),
+        (
+            "29684",
+            8,
+            "Motie",
+            "Motie van de leden Jansen over de huur",
+            "Kamerstuk 29684, nr. 8: Motie van de leden Jansen over de huur",
+        ),
+        (
+            "29684",
+            1,
+            "Brief regering",
+            "Brief regering",
+            "Kamerstuk 29684, nr. 1. Brief regering",
+        ),
+        (None, 0, "Motie", "Motie van het lid Jansen", "Motie van het lid Jansen"),
+    ],
+)
+def test_a_document_name_is_a_heading_without_a_dash(
+    dossier: str | None, sequence: int, kind: str, title: str, name: str
+) -> None:
+    assert tk_records.document_display_name(dossier, sequence, kind, title) == name
+
+
+def test_a_vote_on_a_motion_is_named_by_the_motion() -> None:
+    primary = {"Soort": "Motie", "Nummer": "2026Z17941"}
+    subject = "Motie van de leden Jansen en De Vries over de huur"
+    assert tk_records.decision_display_name(primary, 1, 1, subject) == subject
+    assert tk_records.decision_display_name(primary, 1, 1, "Over de huur") == (
+        "Motie 2026Z17941: Over de huur"
+    )
+
+
+def test_a_paper_numbered_in_no_dossier_is_no_kamerstuk() -> None:
+    """A nader rapport sent along with a bill: part of its case, numbered nowhere."""
+    _, props = tk_records.document(
+        {
+            "Id": "doc-2",
+            "Soort": "Nader rapport",
+            "Onderwerp": "Nader rapport",
+            "Volgnummer": -1,
+            "Zaak": [
+                {
+                    "Id": "z-1",
+                    "Kamerstukdossier": [{"Nummer": 37020, "Toevoeging": "XV"}],
+                }
+            ],
+            "Kamerstukdossier": [],
+        }
+    )
+    assert props["dossier_numbers"] == ["37020-XV"]
+    assert (props["dossier_number"], props["sequence"]) == (None, None)
+    assert not props["display_name"].startswith("Kamerstuk")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,6 +15,28 @@ from lawgraph.api.schemas.common import (
 from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
 from lawgraph.core.identifiers import ecli_source
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention
+from lawgraph.core.official_urls import judgment_url
+
+# ``core.judgments.DECISION_KINDS``
+DecisionKind = Literal[
+    "arrest",
+    "vonnis",
+    "beschikking",
+    "uitspraak",
+    "beslissing",
+    "conclusie",
+    "prejudiciële beslissing",
+]
+_DECISION_KIND = (
+    "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` "
+    "(the kantonrechter on an appeal against a traffic fine), "
+    "`conclusie` or `prejudiciële beslissing`. From the metadata and the kop where they "
+    "tell, else from the court and the area of law; null when nothing does."
+)
+_NAMES = (
+    "What lawyers call the judgment: `Haviltex`, `Urgenda`, "
+    "`Lindenbaum/Cohen`. From a curated list of landmark cases; empty for most."
+)
 
 
 class JudgmentDTO(BaseNodeDTO):
@@ -24,8 +46,73 @@ class JudgmentDTO(BaseNodeDTO):
 
     ecli: str | None
     source: str | None = None
-    summary: str | None
+    official_url: str | None = Field(
+        default=None,
+        description="The judgment on its official site: uitspraken.rechtspraak.nl by its "
+        "ECLI, HUDOC by its item id for one of the ECHR; null for a stub of another court.",
+    )
+    summary: str | None = Field(
+        description="The inhoudsindicatie, in Dutch. For an English translation the "
+        "inhoudsindicatie of the judgment it translates; null while that is not loaded."
+    )
+    summary_en: str | None = Field(
+        default=None,
+        description="An English inhoudsindicatie: that of the judgment itself when it is "
+        "an English translation, else that of its translation. Null when there is none.",
+    )
+    translation_of: str | None = Field(
+        default=None,
+        description="For an English translation, the ECLI of the Dutch judgment it "
+        "translates (the authentic text); null otherwise.",
+    )
+    names: list[str] = Field(default_factory=list, description=_NAMES)
+    decision_kind: DecisionKind | None = Field(default=None, description=_DECISION_KIND)
+    series_id: str | None = Field(
+        default=None,
+        description="The series of parallel cases the judgment is one of (the same court, "
+        "day and, nearly, text): the lowest ECLI in it. Null outside a series.",
+    )
+    series_size: int | None = Field(
+        default=None, description="How many judgments the series has."
+    )
+    same_as: str | None = Field(
+        default=None,
+        description="For a publication of a decision that another publication replaces "
+        "(the Rechtspraak published many old arresten again under a new ECLI), the ECLI "
+        "of the one kept; the lists show the decision by that one. Null otherwise.",
+    )
+    replaced_by: str | None = Field(
+        default=None,
+        description="The ECLI of the publication that replaces this one "
+        "(`dcterms:isReplacedBy`), loaded or not: `same_as` when it is loaded, a "
+        "publication not in the graph otherwise. Null for most.",
+    )
+    advocate_general: str | None = Field(
+        default=None,
+        description="For a conclusion, the advocate-general (or procureur-generaal) who "
+        "wrote it, as its kop names them: `T. Hartlief`, `P.J. Wattel`, or only the "
+        "surname (`Wattel`) where the kop gives no more. Null for a judgment, and for a "
+        "conclusion whose kop names no one.",
+    )
+    unresolved_appeal_targets: list["AppealTarget"] = Field(
+        default_factory=list,
+        description='The decisions an appeal says in its text it appeals ("tegen de '
+        'uitspraak van de rechtbank Gelderland van 9 juli 2025 in zaak nr. 24/6811") that '
+        "are not loaded; one that is loaded is its `APPEAL_OF` edge. Empty for most.",
+    )
+    unresolved_citations: list["UnresolvedCitation"] = Field(
+        default_factory=list,
+        description="The articles the judgment cites of laws that are not in the graph "
+        '("art. 392 Rv"): mentioned, not in the network. One per law and article, in '
+        "reading order. Empty when it cites none, or before `semantic rechtspraak` read it.",
+    )
     paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
+    parties: list["JudgmentParty"] | None = Field(
+        default=None,
+        description="The parties the kop of the judgment names, in its order. Null when "
+        "the judgment was normalized before parties were read; empty when the kop names "
+        "none.",
+    )
 
     @classmethod
     def from_document(
@@ -53,13 +140,112 @@ class JudgmentDTO(BaseNodeDTO):
         ]
         ecli = props.get("ecli")
         source = props.get("source") or ecli_source(ecli)
+        parties = props.get("parties")
         return cls(
             **base.model_dump(),
             ecli=ecli,
             source=source,
+            official_url=judgment_url({**props, "source": source}),
             summary=props.get("summary"),
+            summary_en=props.get("summary_en"),
+            translation_of=props.get("translation_of"),
+            names=props.get("names") or [],
+            decision_kind=props.get("decision_kind"),
+            series_id=props.get("series_id"),
+            series_size=props.get("series_size"),
+            same_as=props.get("same_as"),
+            replaced_by=props.get("replaced_by"),
+            advocate_general=props.get("advocate_general"),
+            unresolved_appeal_targets=[
+                AppealTarget(**t) for t in props.get("unresolved_appeal_targets") or []
+            ],
+            unresolved_citations=[
+                UnresolvedCitation(**c) for c in props.get("unresolved_citations") or []
+            ],
             paragraphs=paragraphs,
+            parties=None if parties is None else [JudgmentParty(**p) for p in parties],
         )
+
+
+class AppealTarget(BaseModel):
+    """A decision an appeal names in its text that is not loaded."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    court: str = Field(description="As the text writes it: `rechtbank Gelderland`.")
+    date: str = Field(description="ISO date of the decision.")
+    case_number: str | None = Field(
+        default=None,
+        description="As the text writes it: `24/6811`; null when it gives none.",
+    )
+
+
+class UnresolvedCitation(QualifierFields):
+    """An article a judgment cites of a law that is not in the graph."""
+
+    law: str = Field(
+        description="The law as the judgment writes it: `Rv`, `Sv`, `Vw 2000`, `Opiumwet`."
+    )
+    article_number: str = Field(description="As cited: `392`, `3.5`, `1:6p`.")
+    raw_match: str = Field(
+        description="The text of the first citation: `art. 392, eerste lid, Rv`."
+    )
+    qualifier: str | None = Field(
+        default=None,
+        description="The qualifier of the first citation as written: `eerste lid`. "
+        "`leden`, `onderdelen` and `aanhef` are what it names.",
+    )
+    paragraph_ids: list[str] = Field(
+        default_factory=list,
+        description="The paragraphs that cite it (`JudgmentParagraph.paragraph_id`).",
+    )
+    mention_count: int = Field(description="How often the judgment cites it.")
+
+
+class JudgmentRepresentative(BaseModel):
+    """Who acts for a party, as the kop names them ("advocaat: mr. X")."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(description="As written: `mr. H.J.W. Alt`.")
+    role: Literal["advocaat", "gemachtigde"]
+
+
+class JudgmentParty(BaseModel):
+    """A party of a judgment, read from its kop."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        description="As the judgment writes it, anonymised where the source is: "
+        "`[eiser]`, `MAATSCHAP GRONINGEN`. Without its legal form, place or role."
+    )
+    role: str = Field(
+        description="`Verdachte`, `Betrokkene`, `Klager`, `Veroordeelde`, `Eiser`, "
+        "`Gedaagde`, `Verzoeker`, `Verweerder`, `Appellant`, `Geïntimeerde`, "
+        "`Belanghebbende`, `Opposant`, `Wederpartij`; `Partij` when none applies."
+    )
+    roles: list[str] = Field(
+        default_factory=list,
+        description="Every role the judgment names for the party, in its order: "
+        "`Geïntimeerde` and `Appellant` for one that is geïntimeerde in principaal and "
+        "appellante in incidenteel hoger beroep. `[role]` when it names none.",
+    )
+    role_stated: bool = Field(
+        description="True when the judgment names the role (a role line, a role behind "
+        "the name, an anonymised name that is a role: `[verdachte]`); false when it is "
+        "derived from the area of law and the side."
+    )
+    side: Literal["first", "second", "other"] = Field(
+        description="The side of the case: `first` before `tegen` or `en`, `second` after "
+        "it, `other` for an interested party (belanghebbende)."
+    )
+    alias: str | None = Field(
+        default=None,
+        description='What the judgment calls the party: `EBN` for "hierna: EBN", `KLM` '
+        'for "geïntimeerden worden hierna KLM respectievelijk VNV genoemd".',
+    )
+    representatives: list[JudgmentRepresentative] = Field(default_factory=list)
 
 
 class JudgmentParagraph(BaseModel):
@@ -78,7 +264,10 @@ class JudgmentParagraph(BaseModel):
         "`text`. Null for a paragraph without one.",
     )
     kind: str | None = Field(
-        default=None, description="`heading`, `subheading` or `body`."
+        default=None,
+        description="`heading`, `subheading` (a nested heading, or the kop: the first "
+        "paragraph), `body` or `signature` (the closing lines that sign a conclusion: "
+        "`De Procureur-Generaal bij de`, `Hoge Raad der Nederlanden`, `A-G`).",
     )
     text: str
     citations: list[ArticleCitationSpan] = Field(
@@ -165,8 +354,34 @@ class JudgmentDetailResponse(BaseModel):
         description="The same articles, each with the passages of the judgment that cite "
         "it: paragraphs, the lid or onderdeel named, a snippet.",
     )
-    cited_judgments: list[JudgmentSummaryDTO] = Field(default_factory=list)
+    cited_judgments: list[JudgmentSummaryDTO] = Field(
+        default_factory=list,
+        description="The judgments its text cites by ECLI (`REFERS_TO`), newest first; "
+        "not the earlier instances or the conclusion its metadata names.",
+    )
+    same_as: list[JudgmentSummaryDTO] = Field(
+        default_factory=list,
+        description="The other publications of the same decision (`SAME_AS`): for the one "
+        "kept those it replaces, for a replaced one the one kept. Empty for most.",
+    )
+    series: list[JudgmentSummaryDTO] = Field(
+        default_factory=list,
+        description="The other judgments of its series (`judgment.series_id`), in the "
+        "order of their ECLI numbers; empty outside a series.",
+    )
     metadata: dict[str, Any] | None
+
+
+_TIER = (
+    "The coarse tier: the Type of the court in the Instanties value list of the "
+    "Rechtspraak (`hoge_raad`, `gerechtshof`, `rechtbank`, `tuchtcollege`, "
+    "`andere_instantie`, `koninkrijksinstantie`, …), or `kroon`, `hvj_eu`, `ehrm`."
+)
+_COURT_KIND = (
+    "The kind of court within the tier, from its official name (`ambtenarengerecht`, "
+    "`raad_van_beroep`, `gerecht_in_eerste_aanleg`, …); a tier of one kind of court "
+    "is its own kind (`hoge_raad`)."
+)
 
 
 class JudgmentListItemDTO(BaseModel):
@@ -180,12 +395,30 @@ class JudgmentListItemDTO(BaseModel):
     ecli: str | None
     display_name: str | None
     court: str | None
-    tier: str | None
+    tier: str | None = Field(default=None, description=_TIER)
+    court_kind: str | None = Field(default=None, description=_COURT_KIND)
     date: str | None
     summary: str | None
+    names: list[str] = Field(default_factory=list, description=_NAMES)
+    decision_kind: DecisionKind | None = Field(default=None, description=_DECISION_KIND)
     source: str | None = None
-    inbound_citation_count: int | None
-    outbound_citation_count: int | None = None
+    subjects: list[str] = Field(
+        default_factory=list,
+        description="The areas of law the source gives it (Rechtspraak `dcterms:subject`), "
+        "as written: `Strafrecht`, `Bestuursrecht; Belastingrecht`. Empty when it gives "
+        "none.",
+    )
+    inbound_citation_count: int | None = Field(
+        description="The judgments that cite it, or another publication of the same "
+        "decision, each once."
+    )
+    outbound_citation_count: int | None = Field(
+        default=None,
+        description="The judgments its text cites (`cited_judgments` of the detail); null "
+        "before `semantic graph-list-stats` counted them.",
+    )
+    series_id: str | None = None
+    series_size: int | None = None
 
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> JudgmentListItemDTO:
@@ -199,11 +432,54 @@ class JudgmentListItemDTO(BaseModel):
             display_name=row.get("display_name") or ecli,
             court=row.get("court_code"),
             tier=row.get("tier"),
+            court_kind=row.get("court_kind"),
             date=row.get("date"),
             summary=row.get("summary"),
+            names=row.get("names") or [],
+            decision_kind=row.get("decision_kind"),
             source=source,
+            subjects=row.get("subjects") or [],
             inbound_citation_count=int(inbound) if inbound is not None else None,
+            outbound_citation_count=row.get("outbound_citation_count"),
+            series_id=row.get("series_id"),
+            series_size=row.get("series_size"),
         )
+
+
+class JudgmentFacetCount(BaseModel):
+    """How many of the judgments have one value."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str | None
+    count: int
+
+
+class JudgmentFacets(BaseModel):
+    """The judgments under the filters, counted; each without its own filter."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tier: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per tier, most first; counted without the `tier` and "
+        "`court_kind` filters.",
+    )
+    court_kind: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per kind of court, most first; counted without the `court_kind` "
+        "filter (within a chosen `tier`).",
+    )
+    source: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per source (`rechtspraak`, `echr`), most first; counted without "
+        "the `source` filter.",
+    )
+    year: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per year of `date` (`2024`), oldest first after null (no date); "
+        "counted without `from` and `to`.",
+    )
 
 
 class JudgmentListResponse(BaseModel):
@@ -213,3 +489,4 @@ class JudgmentListResponse(BaseModel):
 
     items: list[JudgmentListItemDTO]
     total: int
+    facets: JudgmentFacets = Field(default_factory=JudgmentFacets)

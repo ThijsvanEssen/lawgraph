@@ -6,7 +6,11 @@ import xml.etree.ElementTree as ET
 
 from lawgraph.config.constants import SCOPE_TYPE_DISCRETIONARY, SCOPE_TYPE_FIXED
 from lawgraph.core.annex_xml import annex_node_key, annex_props, parse_annexes
-from lawgraph.pipelines.semantic._annex_detect import detect_annex_references
+from lawgraph.pipelines.semantic._annex_detect import (
+    annex_name,
+    detect_annex_name,
+    detect_annex_references,
+)
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
 
 
@@ -59,6 +63,20 @@ def test_deduplicates_labels():
 
 def test_empty_text():
     assert detect_annex_references("") == []
+
+
+def test_the_name_of_an_annex_is_its_title_without_the_articles_it_belongs_to():
+    title = "Bevoegdheidsregeling bestuursrechtspraak (artikelen 8:5, 8:6 en 8:7)"
+    assert annex_name(title) == "Bevoegdheidsregeling bestuursrechtspraak"
+    assert annex_name("Tabel") is None  # one word is no name to look for
+    assert annex_name(None) is None
+
+
+def test_an_article_names_an_annex_by_its_name():
+    text = "een besluit als bedoeld in artikel 1 van de bij deze wet behorende Regeling x y."
+    hit = detect_annex_name(text, "Regeling x y")
+    assert hit is not None and text[hit.start : hit.end] == "Regeling x y"
+    assert detect_annex_name("De Regeling x yz.", "Regeling x y") is None
 
 
 def test_node_key_is_deterministic():

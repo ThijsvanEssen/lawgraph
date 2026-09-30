@@ -28,7 +28,6 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RAW_KIND_BWB_TOESTAND,
-    RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_ECHR_JUDGMENT,
     RAW_KIND_EK_KAMERSTUK,
     RAW_KIND_EU_CELEX,
@@ -89,8 +88,6 @@ NORMALIZED_SHARE = 0.9
 # Sources of which several records make one node, and how many nodes their records make:
 # HUDOC holds a judgment once per language, and ``normalize echr`` keeps one of them.
 NODES_OF_RECORDS = {SOURCE_ECHR: checks.count_echr_judgments_in_raw}
-# Kinds that are only there after a manual command; their absence says nothing.
-OPTIONAL_KINDS = {RAW_KIND_BWB_TOESTAND_ALL, RAW_KIND_TK_KAMERSTUK_XML}
 
 
 @dataclass
@@ -117,8 +114,11 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
         _check_edges(store, report)
     _check_views(store, report)
     _check_derived(store, report)
+    _check_treaties(store, report)
     _check_papers(store, raw, report)
     _check_cases(store, report)
+    _check_protocols(store, report)
+    _check_curated(store, report)
     return report
 
 
@@ -162,7 +162,7 @@ def _check_raw(raw: dict[tuple[str, str], int], report: Report) -> None:
             count = raw.get((source, kind), 0)
             if count:
                 report.note(f"raw {source}/{kind}: {count:,}")
-            elif kind not in OPTIONAL_KINDS:
+            else:
                 report.problem(
                     f"raw {source}/{kind}: no records. Was it retrieved, and did the source "
                     "answer what was asked?"
@@ -261,12 +261,33 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
     behind = checks.count_regulations_without_derived_props(store)
     if behind:
         report.problem(
-            f"{behind:,} BWB regulations carry no `basis` / `celex_refs`: BASED_ON and "
-            "IMPLEMENTS are read from them. Run `lawgraph normalize bwb`, then "
+            f"{behind:,} BWB regulations carry no `basis` / `celex_refs` / "
+            "`implements_celex`: BASED_ON and IMPLEMENTS are read from them. Run "
+            "`lawgraph normalize bwb`, then "
             "`lawgraph semantic all`."
         )
     else:
         report.note("derived: every BWB regulation carries its basis and EU acts")
+
+
+def _check_treaties(store: ArangoStore, report: Report) -> None:
+    """A BWB treaty names its Verdragenbank id (``treaty_number``), which joins it to its
+    Verdragenbank record; a treaty normalized before it was read carries none."""
+    counts = checks.bwb_treaties_by_match(store)
+    total = sum(counts.values())
+    if not total:
+        return
+    if counts.get("unnumbered") == total:
+        report.problem(
+            f"none of the {total:,} BWB treaties carries its treaty number. Run "
+            "`lawgraph normalize bwb`."
+        )
+        return
+    report.note(
+        f"treaties: {counts.get('matched', 0):,} of {total:,} BWB treaties have a "
+        f"Verdragenbank record, {counts.get('unmatched', 0):,} name a number it does not "
+        f"have, {counts.get('unnumbered', 0):,} name none"
+    )
 
 
 def _check_papers(
@@ -302,6 +323,40 @@ def _check_cases(store: ArangoStore, report: Report) -> None:
         )
     elif total:
         report.note(f"cases: {counts[True]:,} of {total:,} name a dossier")
+
+
+def _check_protocols(store: ArangoStore, report: Report) -> None:
+    """The articles of a Protocol to the ECHR Convention that ECHR judgments apply: they are
+    not linked (``semantic echr``), which only this says."""
+    from lawgraph.pipelines.semantic.echr import protocol_articles
+
+    per_judgment = [
+        protocol_articles(field) for field in checks.echr_article_fields(store)
+    ]
+    named = [articles for articles in per_judgment if articles]
+    if named:
+        distinct = sorted({a for articles in named for a in articles})
+        report.note(
+            f"echr: {sum(map(len, named)):,} articles of a Protocol in {len(named):,} "
+            f"judgments are not linked ({', '.join(distinct[:10])}"
+            f"{', …' if len(distinct) > 10 else ''}): a Protocol is a treaty of its own, "
+            "and no source maps its number to a BWB id"
+        )
+
+
+def _check_curated(store: ArangoStore, report: Report) -> None:
+    """The lists kept by hand (``lawgraph curated check --db``): a mistake in one would
+    otherwise show only in what it feeds."""
+    from lawgraph.commands.curated import check as curated_problems
+    from lawgraph.commands.curated import database_notes, database_problems
+
+    found = curated_problems() + database_problems(store)
+    for problem in found:
+        report.problem(f"curated {problem}")
+    for note in database_notes(store):
+        report.note(f"curated {note}")
+    if not found:
+        report.note("curated: every list is in order")
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:

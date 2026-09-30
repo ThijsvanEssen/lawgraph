@@ -99,11 +99,19 @@ ECHR_HUDOC_BASE_URL = os.getenv("ECHR_HUDOC_BASE", "https://hudoc.echr.coe.int")
 VERDRAGENBANK_SRU_ENDPOINT = os.getenv(
     "VERDRAGENBANK_SRU", "https://repository.overheid.nl/sru"
 )
+RIJKSOVERHEID_BASE = os.getenv("RIJKSOVERHEID_BASE", "https://www.rijksoverheid.nl")
+# The website of the Eerste Kamer: its list of votes on bills and of rejected bills.
+EERSTEKAMER_SITE = os.getenv("EERSTEKAMER_SITE", "https://www.eerstekamer.nl")
+# How the API names the Eerste Kamer as the source of what it takes over from its website
+# (its terms allow reuse with the source and the day it was taken over).
+EK_ATTRIBUTION = os.getenv(
+    "EK_ATTRIBUTION", "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+)
+TOOI_BASE = os.getenv("TOOI_BASE", "https://identifier.overheid.nl")
 
 # ── Pipelines ─────────────────────────────────────────────────────────────────
 
 BWB_IDS = _env_list("BWB_IDS")
-EURLEX_MAX_ARTICLE_NUMBER = int(os.getenv("EURLEX_MAX_ARTICLE_NUMBER", "200"))
 
 
 def skip_step(phase: str, pipeline_name: str) -> bool:
@@ -142,3 +150,5 @@ API_RATE_LIMIT_PERIOD = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
 API_TRUSTED_PROXIES = frozenset(_env_list("LAWGRAPH_TRUSTED_PROXIES"))
 API_CACHE_TTL = float(os.getenv("LAWGRAPH_CACHE_TTL", "60"))
 API_CACHE_MAXSIZE = int(os.getenv("LAWGRAPH_CACHE_MAXSIZE", "512"))
+# The front end (Concordans) the Atom feed links its pages to, without a trailing slash.
+SITE_URL = os.getenv("LAWGRAPH_SITE_URL", "http://localhost:5173").rstrip("/")

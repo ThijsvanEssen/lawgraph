@@ -4,6 +4,7 @@ Fetches and stores raw records for:
   - Kamerstukdossier
   - Activiteit (debates/hearings)
   - Stemming (votes, one record per fractie per motion)
+  - Besluit "Stemmen - ..." on a bill or a budget, also without a vote (a hamerstuk)
   - Toezegging (ministerial commitments)
   - Commissie (parliamentary committees)
   - Persoon (parliamentary members)
@@ -16,11 +17,13 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Callable, Iterable, Iterator
+from functools import partial
 from typing import Any
 
 from lawgraph.clients.tk import TKClient
 from lawgraph.config.constants import (
     RAW_KIND_TK_ACTIVITEIT,
+    RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
@@ -31,10 +34,16 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
+from lawgraph.core import tk_records
+from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
-from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
+from lawgraph.pipelines.retrieve.base import (
+    RetrievePipelineBase,
+    RetrieveRecord,
+    missing_record,
+)
 
 logger = get_logger(__name__)
 
@@ -65,14 +74,15 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
         Args:
             since: Only fetch records modified since this datetime.
                    Pass None for a full refresh.
-            decisions_since: Override ``since`` for Stemming only.
+            decisions_since: Override ``since`` for Stemming and Besluit only.
                    Use to limit the very large Stemming dataset to a window.
             documents_since: Override ``since`` for Document only.
                    Recommended: pass '730d' (2 years) as a starting window;
                    a full fetch is ~400K+ records.
             skip_members: Skip the Persoon and Fractie fetches (slow, only
                 needed periodically).
-            skip_decisions: Skip the Stemming fetch entirely.
+            skip_decisions: Skip the Stemming fetch, and that of the Besluiten on bills,
+                entirely.
             skip_documents: Skip the Document (Kamerstuk) fetch entirely.
             dossier_number: Targeted backfill — fetch only the Kamerstukdossier
                 with this number and the Documents that link to it, ignoring
@@ -126,6 +136,14 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                 "Id",
                 lambda: self.client.fetch_stemmingen(since=vote_since),
             )
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_BESLUIT,
+                "Id",
+                lambda: self.client.fetch_bill_decisions(
+                    LEGISLATIVE_KINDS, since=vote_since
+                ),
+            )
         self._fetch_and_store(
             result,
             RAW_KIND_TK_TOEZEGGING,
@@ -173,6 +191,42 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
         )
         return result
 
+    def run_gaps(self, numbers: list[str]) -> PipelineResult:
+        """Fetch the dossiers with these *numbers* (every suffix of each) and all their
+        documents. A number the Tweede Kamer has no dossier of (``tk-dossier-missing``), or
+        whose papers it has not all either (``tk-document-missing``: nr. 2 to 10 of a
+        dossier of before its records begin), is remembered, so it is not asked for again
+        for a while."""
+        return self._store_all(self._gap_records(numbers), what="dossiers named")
+
+    def _gap_records(self, numbers: list[str]) -> Iterator[RetrieveRecord]:
+        for number in numbers:
+            dossiers = list(
+                self._records(
+                    RAW_KIND_TK_DOSSIER,
+                    "Id",
+                    partial(self.client.fetch_dossiers, since=None, number=int(number)),
+                )
+            )
+            if not dossiers:
+                yield missing_record(SOURCE_TK, RAW_KIND_TK_DOSSIER, number, status=200)
+                continue
+            yield from dossiers
+            numbered: dict[str, set[int]] = {}
+            for record in self._records(
+                RAW_KIND_TK_DOCUMENT,
+                "Id",
+                partial(
+                    self.client.fetch_documents, since=None, dossier_number=int(number)
+                ),
+            ):
+                _count_number(numbered, number, record.payload_json or {})
+                yield record
+            if any(len(held) < max(held) for held in numbered.values()):
+                yield missing_record(
+                    SOURCE_TK, RAW_KIND_TK_DOCUMENT, number, status=200
+                )
+
     def _fetch_and_store(
         self,
         result: PipelineResult,
@@ -208,3 +262,13 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                 external_id=external_id,
                 payload_json=record,
             )
+
+
+def _count_number(numbered: dict[str, set[int]], number: str, payload: Any) -> None:
+    """Add the number of the paper *payload* to *numbered* (per suffix) when it is a
+    Kamerstuk of dossier *number*."""
+    own = tk_records.own_dossier(payload)
+    sequence = payload.get("Volgnummer")
+    if own is None or own[0] != number or not isinstance(sequence, int) or sequence < 1:
+        return
+    numbered.setdefault(own[1] or "", set()).add(sequence)

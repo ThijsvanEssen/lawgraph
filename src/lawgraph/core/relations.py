@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
     COLLECTION_COMMITTEES,
@@ -55,6 +56,7 @@ CONCEPTS: dict[str, str] = {
     "Commitment": COLLECTION_COMMITMENTS,
     "Member": COLLECTION_MEMBERS,
     "Faction": COLLECTION_FACTIONS,
+    "Cabinet": COLLECTION_CABINETS,
     "Committee": COLLECTION_COMMITTEES,
 }
 _CONCEPT_OF = {collection: concept for concept, collection in CONCEPTS.items()}
@@ -82,6 +84,7 @@ _DEC = COLLECTION_DECISIONS
 _COMMIT = COLLECTION_COMMITMENTS
 _MEMBER = COLLECTION_MEMBERS
 _FACTION = COLLECTION_FACTIONS
+_CABINET = COLLECTION_CABINETS
 _COMMITTEE = COLLECTION_COMMITTEES
 
 RELATIONS: tuple[RelationSpec, ...] = (
@@ -132,8 +135,11 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "IMPLEMENTS",
         (_I,),
         (_I,),
-        "A national instrument whose text names the CELEX number of an EU act; "
-        "not a transposition claim, and not per article.",
+        "A national instrument implements an EU act, by an implementation source "
+        "(`meta.bases`): a publication EUR-Lex lists as a national implementing measure of "
+        "the act, and the regulations it enacted or changed (`national_implementing_measure`, "
+        "`meta.publications`), or a regulation whose considerans says it implements the act "
+        "(`considerans`). Not per article: no source names the implementing article.",
     ),
     RelationSpec(
         "LEGISLATED_IN",
@@ -145,10 +151,15 @@ RELATIONS: tuple[RelationSpec, ...] = (
     # ── references and explanation ───────────────────────────────────────────
     RelationSpec(
         "REFERS_TO",
-        (_A, _DOC, _J),
+        (_A, _DOC, _J, _I),
         (_A, _I, _J),
-        "A text refers to an article, instrument or judgment. The source node says "
-        "who refers; article → article edges also carry a `semantic_type`.",
+        "A text refers to an article, instrument or judgment: the reference is in the "
+        "text, never only in metadata (a judgment's earlier instance or conclusion is "
+        "`APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, "
+        "`CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The "
+        "source node says who refers; article → "
+        "article edges also carry a `semantic_type`. From an instrument: a regulation "
+        "whose text names the CELEX number of an EU act it does not `IMPLEMENTS`.",
     ),
     RelationSpec(
         "EXPLAINS",
@@ -163,7 +174,51 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "APPEAL_OF",
         (_J,),
         (_J,),
-        "An appeal or cassation judgment → the judgment it appeals.",
+        "An appeal or cassation judgment → the judgment it appeals: an earlier instance "
+        "its metadata names (`meta.basis` `formal_relation`), else the decision its text "
+        "says it appeals, by date and case number (`appeal_text`).",
+    ),
+    RelationSpec(
+        "CONTINUES",
+        (_J,),
+        (_J,),
+        "A judgment → an earlier one of the same court in the same case (an interim "
+        "judgment followed by the final one): an earlier instance its metadata names that "
+        "shares its court and case number.",
+    ),
+    RelationSpec(
+        "REFERRED_BY",
+        (_J,),
+        (_J,),
+        "A decision after referral (verwijzing) → the ruling of the Hoge Raad that set "
+        "aside the earlier decision and sent the case to it: an earlier instance its "
+        "metadata names that is a Hoge Raad ruling (not a preliminary ruling).",
+    ),
+    RelationSpec(
+        "ADVISES_ON",
+        (_J,),
+        (_J,),
+        "The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court "
+        "itself) → the judgment in its case, one way only: the formal relation of either, "
+        "when the side it calls the conclusion is one (`meta.basis` `formal_relation`), "
+        "else a case number the two share (`case_number`).",
+    ),
+    RelationSpec(
+        "ANSWERS",
+        (_J,),
+        (_J,),
+        "A preliminary ruling (prejudiciële beslissing) → the decision that asked its "
+        "questions: the earlier instance its metadata names (`meta.basis` "
+        "`formal_relation`), else the ECLI or the case number and date its text names "
+        "(`referral_text`).",
+    ),
+    RelationSpec(
+        "SAME_AS",
+        (_J,),
+        (_J,),
+        "A publication of a decision → the publication of the same decision that replaces "
+        "it (an old arrest published again under a new ECLI): the ECLI its metadata names "
+        "as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept.",
     ),
     RelationSpec(
         "SCOPED_BY",
@@ -198,11 +253,48 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "Membership of a committee or faction, with from/to dates and role.",
     ),
     RelationSpec(
+        "SERVED_IN",
+        (_MEMBER,),
+        (_CABINET,),
+        "The posts a member held in a cabinet, one edge per member and cabinet, "
+        "`meta.posts` as in the member's `government_functions`.",
+    ),
+    RelationSpec(
         "AUTHORED",
         (_MEMBER,),
         (_DOC, _CASE),
         "A person signed or submitted a document or case; `role` says how "
-        "(first signatory, co-signatory, minister, …).",
+        "(first signatory, co-signatory, …), `function` as what (`Functie`) and "
+        "`capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`).",
+    ),
+    RelationSpec(
+        "RELATED_TO",
+        (_DOSSIER,),
+        (_DOSSIER,),
+        "The Kamer relates a case of this dossier to a case of the other "
+        "(`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it "
+        "answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them.",
+    ),
+    RelationSpec(
+        "REVISES",
+        (_DOSSIER,),
+        (_DOSSIER,),
+        "A supplementary budget or a slotwet revises the budget of its chapter and year "
+        "(`meta.rule`: `begrotingswijziging` or `slotwet`).",
+    ),
+    RelationSpec(
+        "ACCOMPANIES",
+        (_DOSSIER,),
+        (_DOSSIER,),
+        "A budget change is submitted with the Voorjaarsnota, Najaarsnota or "
+        "Miljoenennota (`meta.nota`) that its title names.",
+    ),
+    RelationSpec(
+        "SECOND_READING_OF",
+        (_DOSSIER,),
+        (_DOSSIER,),
+        "A change in the Grondwet in its second reading → the dossier of its first reading, "
+        "to whose papers its memorandum refers for the explanation (Kamerstukken 35 418).",
     ),
     RelationSpec(
         "VOTED",

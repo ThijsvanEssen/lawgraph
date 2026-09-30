@@ -16,9 +16,13 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    RELATION_AMENDS,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
+    RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
+    RELATION_REFERS_TO,
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import Node, NodeType
@@ -193,7 +197,7 @@ def _summary(page: dict[str, Any]) -> list[tuple[str, str, str | None]]:
     ]
 
 
-def test_an_article_is_explained_through_itself_its_versions_and_its_instrument(
+def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
     database: str,
 ) -> None:
     store = ArangoStore()
@@ -207,12 +211,12 @@ def test_an_article_is_explained_through_itself_its_versions_and_its_instrument(
         ("nvt_2023", ARTICLE, None),
         ("mvt_anchor", ARTICLE, None),  # without a passage before with one
         ("mvt_anchor", AV_OLD, "artikel-5"),
-        ("ek_nota", ARTICLE, None),  # no date: last of the article-level ones
-        ("mvt_law", INSTRUMENT, None),  # instrument level after all of those
+        ("ek_nota", ARTICLE, None),  # no date: last
     ]
-    assert page["total"] == 7
-    # the document of another article is nowhere
-    assert "mvt_other" not in [row["key"] for row in page["items"]]
+    assert page["total"] == 6
+    # the document of another article is nowhere, nor one that explains only the law:
+    # it says nothing about this article
+    assert {"mvt_other", "mvt_law"}.isdisjoint(row["key"] for row in page["items"])
 
 
 def test_a_row_carries_what_the_dto_needs(database: str) -> None:
@@ -235,10 +239,6 @@ def test_a_row_carries_what_the_dto_needs(database: str) -> None:
     assert passage.article_version_key == "av_5_old"
     assert by_key[("mvt_anchor", None)].scope == "dossier"
 
-    law = by_key[("mvt_law", None)]
-    assert law.target == "instrument" and law.article_version_key is None
-    assert law.document.dossier_number == "36001"
-
     ek = by_key[("ek_nota", None)]
     assert ek.document.chamber == "EK" and ek.document.dossier_number is None
     assert ek.document.date is None
@@ -253,9 +253,9 @@ def test_the_page_is_cut_and_the_total_is_not(database: str) -> None:
     rest = _explanations(store, limit=3, offset=3)
     last = _explanations(store, limit=3, offset=6)
 
-    assert first["total"] == rest["total"] == last["total"] == 7
+    assert first["total"] == rest["total"] == last["total"] == 6
     assert _summary(first) + _summary(rest) + _summary(last) == everything
-    assert _explanations(store, offset=50) == {"total": 7, "items": []}
+    assert _explanations(store, offset=50) == {"total": 6, "items": []}
 
 
 def test_an_unknown_article_has_no_explanations(database: str) -> None:
@@ -278,20 +278,109 @@ def test_an_article_of_another_identity_is_not_explained_by_the_versions_of_this
 
     assert _summary(other) == [
         ("mvt_other", AV_OTHER, None),
-        ("mvt_law", INSTRUMENT, None),
     ]
 
 
-def test_the_legislative_history_no_longer_lists_the_explanations(
+def test_the_legislative_history_is_the_dossiers_that_changed_the_article(
     database: str,
 ) -> None:
     store = ArangoStore()
     _build(store)
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                _node(
+                    COLLECTION_INSTRUMENTS,
+                    NodeType.INSTRUMENT,
+                    "stb_2024_7",
+                    ["BWB"],
+                    publication_kind="Stb",
+                    date_published="2024-02-01",
+                    display_name="Stb. 2024, 7",
+                    dossier_numbers=["36001"],  # the same dossier as its edge
+                ),
+                # a publication whose dossier is not known
+                _node(
+                    COLLECTION_INSTRUMENTS,
+                    NodeType.INSTRUMENT,
+                    "stb_1990_1",
+                    ["BWB"],
+                    publication_kind="Stb",
+                    date_published="1990-01-01",
+                ),
+                # a publication that names a dossier the graph does not hold
+                _node(
+                    COLLECTION_INSTRUMENTS,
+                    NodeType.INSTRUMENT,
+                    "stb_1984_91",
+                    ["BWB"],
+                    publication_kind="Stb",
+                    date_signed="1984-03-10",
+                    dossier_numbers=["17524"],
+                ),
+                _node(
+                    COLLECTION_JUDGMENTS,
+                    NodeType.JUDGMENT,
+                    "ecli_nl_hr_2025_1",
+                    ["Rechtspraak"],
+                    ecli="ECLI:NL:HR:2025:1",
+                    date="2025-01-01",
+                ),
+            ]
+        )
+    edges = EdgeWriter(store, what=None)
+    stb = f"{COLLECTION_INSTRUMENTS}/stb_2024_7"
+    edges.add(stb, ARTICLE, RELATION_AMENDS, source="test")
+    edges.add(stb, DOSSIER_36001, RELATION_LEGISLATED_IN, source="test")
+    for publication in ("stb_1990_1", "stb_1984_91"):
+        edges.add(
+            f"{COLLECTION_INSTRUMENTS}/{publication}",
+            ARTICLE,
+            RELATION_AMENDS,
+            source="test",
+        )
+    # what only cites the article is not its history
+    edges.add(
+        f"{COLLECTION_JUDGMENTS}/ecli_nl_hr_2025_1",
+        ARTICLE,
+        RELATION_REFERS_TO,
+        source="test",
+    )
+    edges.add(
+        f"{COLLECTION_ARTICLES}/bwbr0002_6", ARTICLE, RELATION_REFERS_TO, source="test"
+    )
+    edges.flush()
 
     entries = get_article_legislative_history(store, BWB, "5")
 
-    assert [e["document_id"] for e in entries] == [f"{COLLECTION_DOCUMENTS}/mvt_2024"]
-    assert entries[0]["dossier_number"] == "36000"
+    assert [
+        (e["dossier_number"], e["document_id"], e["change"], e["kind"], e["date"])
+        for e in entries
+    ] == [
+        # the bill that introduces it (the explanations of its dossier are no entries)
+        (
+            "36000",
+            f"{COLLECTION_DOCUMENTS}/mvt_2024",
+            "introduces",
+            "Memorie van toelichting",
+            "2024-05-01",
+        ),
+        # the publication that amended it, in the dossier it was legislated in
+        ("36001", stb, "amends", "Stb", "2024-02-01"),
+        # one that names a dossier the graph does not hold (the one without is none)
+        (
+            "17524",
+            f"{COLLECTION_INSTRUMENTS}/stb_1984_91",
+            "amends",
+            "Stb",
+            "1984-03-10",
+        ),
+    ]
+    assert [e["dossier_id"] for e in entries] == [
+        f"{COLLECTION_DOSSIERS}/36000",
+        DOSSIER_36001,
+        None,
+    ]
 
 
 # 2,400 explanatory documents of 120 KB: 288 MB, more than the 256 MiB a query may use on
@@ -378,15 +467,17 @@ def test_the_explanations_of_an_article_read_no_document_but_the_page(
     _build_at_scale(real)
     store: Any = _Recording(real)
 
+    explained = DOCUMENTS - DOCUMENTS // 4  # every fourth explains only the law
     page = get_article_explanations(store, BWB, "5", limit=50, offset=0)
-    rest = get_article_explanations(store, BWB, "5", limit=50, offset=DOCUMENTS - 100)
+    rest = get_article_explanations(store, BWB, "5", limit=50, offset=explained - 50)
 
-    assert page["total"] == rest["total"] == DOCUMENTS
+    assert page["total"] == rest["total"] == explained
     assert len(page["items"]) == 50 and len(rest["items"]) == 50
-    first = {ArticleExplanationDTO.from_row(r).target for r in page["items"]}
-    last = {ArticleExplanationDTO.from_row(r).target for r in rest["items"]}
-    assert first == {"article_version"}
-    assert last == {"instrument"}  # 1,800 of the article, then the instrument's
+    targets = {
+        ArticleExplanationDTO.from_row(r).target
+        for r in [*page["items"], *rest["items"]]
+    }
+    assert targets == {"article_version"}
     assert all("text" not in row for row in page["items"])
 
     aql, bind = next((a, b) for a, b in store.asked if "@explains" in a)

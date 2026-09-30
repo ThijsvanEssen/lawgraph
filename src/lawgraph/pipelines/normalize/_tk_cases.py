@@ -31,6 +31,7 @@ from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store
 from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.pipelines.normalize._tk_deleted import Deleted
 
 logger = get_logger(__name__)
 
@@ -54,21 +55,13 @@ def normalize_commitments(
     store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Toezegging nodes, keyed by TK ``Id``."""
-    unknown: set[str] = set()
-
-    def read(payload: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
-        unknown.update(tk_records.unknown_commitment_statuses([payload]))
-        return tk_records.commitment(payload)
-
     nodes = _write_nodes(
         store,
         raw_records,  # walked once: a second walk is a second read of every record
-        read,
+        tk_records.commitment,
         COLLECTION_COMMITMENTS,
         NodeType.COMMITMENT,
     )
-    if unknown:
-        logger.warning("Toezegging statuses not in the status map: %s", sorted(unknown))
     logger.info("Normalized %d commitments.", len(nodes))
     return nodes
 
@@ -216,7 +209,11 @@ def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) 
                 node.arango_id,
                 RELATION_AUTHORED,
                 source=source,
-                meta={"role": actor.get("role") or ""},
+                meta={
+                    "role": actor.get("role") or "",
+                    "function": actor.get("function"),
+                    "capacity": actor.get("capacity"),
+                },
             )
     writer.flush()
     logger.info("Wrote %d AUTHORED edges.", writer.added)
@@ -259,11 +256,17 @@ def _write_nodes(
     """Write the node of every raw record as it is read; keep a ``link_node`` per TK ``Id``.
 
     With 130K documents the full nodes are over a gigabyte; the edges need a few props.
+    A record the Kamer deleted (``Verwijderd``, its id and nothing else) is no node: the
+    node an earlier run wrote of it is removed, with its edges.
     """
     nodes: dict[str, Node] = {}
+    deleted = Deleted(collection)
     with NodeWriter(store) as writer:
         for raw in raw_records:
-            parsed = read(payload_json(raw))
+            payload = payload_json(raw)
+            if deleted(payload):
+                continue
+            parsed = read(payload)
             if parsed is None:
                 continue
             key, props = parsed
@@ -276,6 +279,9 @@ def _write_nodes(
             )
             writer.add(node)
             nodes[props["external_id"]] = link_node(node)
+    removed = deleted.remove(store)
+    if removed:
+        logger.info("Removed %d %s the Kamer deleted.", removed, collection)
     return nodes
 
 

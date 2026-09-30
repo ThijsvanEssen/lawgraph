@@ -11,13 +11,14 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_COMMITMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
 )
 from lawgraph.core.models import collection_from_id, make_node_key
-from lawgraph.core.notation import LawMatch, Notation
+from lawgraph.core.notation import LawMatch, Notation, NotationParser
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.dossiers import _dossier_documents_aql
 from lawgraph.db.queries.search import load_notation_parser
@@ -170,6 +171,37 @@ def _articles_without_law(
     return [_target(row, "article", confidence) for row in rows]
 
 
+def _headed_article(
+    store: ArangoStore, q: str, parser: NotationParser
+) -> list[dict[str, Any]]:
+    """An article without a number, named by its heading and its law ("Algemene bepaling
+    Grondwet"): the end of *q* names a law by its abbreviation or its name, the start is
+    the heading of one of its articles, in any case."""
+    words = q.split()
+    for split in range(1, len(words)):
+        heading, law = " ".join(words[:split]), " ".join(words[split:])
+        law_ids = [
+            m.law_id for m in parser.law_matches(law) if m.tier in ("code", "title")
+        ]
+        if not law_ids:
+            continue
+        aql = f"""
+        FOR law_id IN @law_ids
+            FOR doc IN {COLLECTION_ARTICLES}
+                FILTER law_id != null AND (doc.props.bwb_id == law_id OR doc.props.celex == law_id)
+                FILTER doc.props.article_number == null AND doc.props.label != null
+                FILTER LOWER(doc.props.label) == @heading
+                RETURN {{
+                    id: doc._id, key: doc._key,
+                    display_name: {_DEFAULT_NAME}
+                }}
+        """
+        rows = list(store.query(aql, {"law_ids": law_ids, "heading": heading.lower()}))
+        if rows:
+            return _capped([_target(r, "article", CONFIDENCE_CITATION) for r in rows])
+    return []
+
+
 # ── dossiers and papers ───────────────────────────────────────────────────────
 
 
@@ -202,6 +234,19 @@ def _dossier_targets(
     ]
 
 
+def _commitment(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
+    """A toezegging by its number."""
+    aql = f"""
+    FOR doc IN {COLLECTION_COMMITMENTS}
+        FILTER doc.props.number == @number
+        SORT doc._key
+        LIMIT 1
+        RETURN {{ id: doc._id, key: doc._key, display_name: {_DEFAULT_NAME} }}
+    """
+    rows = store.query(aql, {"number": notation.identifier})
+    return [_target(row, "commitment", CONFIDENCE_IDENTIFIER) for row in rows]
+
+
 def _dossier(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
     return _dossier_targets(_dossiers(store, notation), notation)
 
@@ -214,9 +259,13 @@ def _document(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
     wanted = notation.suffix or ""
     exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
     body = """
-        // the tail of the documents query of a dossier: the paper with this number
+        // the tail of the documents query of a dossier: the paper with this number in it
+        // (a paper of one of its cases may have that number in another dossier)
+        LET dossier = DOCUMENT(dossier_id).props
         FOR document IN all_documents
-            FILTER (@sequence != null AND document.props.sequence == @sequence)
+            FILTER (@sequence != null AND document.props.sequence == @sequence
+                    AND TO_STRING(document.props.dossier_number) == dossier.number
+                    AND (document.props.dossier_suffix || "") == (dossier.suffix || ""))
                 OR UPPER(document.props.number) == @text
             LIMIT @limit
             RETURN {
@@ -249,13 +298,16 @@ def _candidates(store: ArangoStore, q: str) -> tuple[list[dict[str, Any]], str |
     parser = load_notation_parser(store)
     notation = parser.parse(q)
     if notation is None:
-        return _laws_named(store, parser.law_matches(q)), None
+        headed = _headed_article(store, q, parser)
+        return headed or _laws_named(store, parser.law_matches(q)), None
     if notation.kind == "article":
         return _articles(store, notation), notation.qualifier
     if notation.kind == "dossier":
         return _dossier(store, notation), None
     if notation.kind == "document":
         return _document(store, notation), None
+    if notation.kind == "commitment":
+        return _commitment(store, notation), None
     return _identified(store, notation), None
 
 

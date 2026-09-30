@@ -1,8 +1,8 @@
 """Citations of a code that is split over books: ``artikel 6:162 BW``.
 
-Every book of the Burgerlijk Wetboek claims ``BW`` as abbreviation, so only ``BW1``,
-``BW2``, ... are registered as codes. The book in front of the colon picks the regulation
-and is not part of the stored article number.
+Every book of the Burgerlijk Wetboek is a regulation of its own (``CODE_FAMILIES``). The
+book in front of the colon picks the regulation and is not part of the stored article
+number, whichever books are loaded.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from lawgraph.pipelines.semantic.tk import detect_tk_citations
 BW3 = "BWBR0005291"
 BW6 = "BWBR0005289"
 BW7 = "BWBR0005290"
-BW7A = "BWBR0005292"
+BW7A = "BWBR0006000"
 CODES = {"BW3": BW3, "BW6": BW6, "BW7": BW7, "BW7A": BW7A, "Sr": "BWBR0001854"}
 
 
@@ -73,9 +73,15 @@ def test_other_codes_are_unaffected() -> None:
     assert _hits("artikel 36e Sr") == [("BWBR0001854", "36e")]
 
 
-def test_a_registered_family_code_wins() -> None:
-    codes = {**CODES, "BW": "BWBR0009999"}
-    assert _hits("artikel 6:162 BW", codes) == [("BWBR0009999", "6:162")]
+def test_a_known_family_splits_even_when_registered_as_a_code() -> None:
+    # Only Boek 7 loaded, whose short title was "BW": 6:162 is still book 6.
+    codes = {"BW": BW7, "Sr": "BWBR0001854"}
+    assert _hits("artikel 6:162 BW", codes) == [(BW6, "162")]
+    assert _hits("artikel 7:658 BW", codes) == [(BW7, "658")]
+
+
+def test_a_book_that_is_not_loaded_still_has_its_own_regulation() -> None:
+    assert _hits("artikel 3:40 BW", {"Sr": "BWBR0001854"}) == [(BW3, "40")]
 
 
 def test_the_tk_detector_resolves_the_family() -> None:

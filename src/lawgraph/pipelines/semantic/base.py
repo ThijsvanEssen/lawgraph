@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from lawgraph.config.constants import (
@@ -9,7 +10,14 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_CANONIEK,
 )
-from lawgraph.core.aliases import InstrumentAliasMap, normalize_instrument_id
+from lawgraph.core.aliases import (
+    InstrumentAliasMap,
+    code_aliases,
+    curated_abbreviations,
+    normalize_instrument_id,
+)
+from lawgraph.core.citations import number_shape
+from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.progress import Progress
@@ -43,6 +51,15 @@ _TARGET_TYPES = {
 }
 
 
+@dataclass(frozen=True)
+class _LawArticles:
+    """What the loaded articles of one law tell about a number cited of it."""
+
+    shapes: frozenset[str]  # ``core.citations.number_shape`` of its current articles
+    stubs: frozenset[str]  # keys of its stub articles
+    historical: dict[str, str]  # last number -> key of an article no longer in force
+
+
 # Judgments are tens of KB each: fewer per cursor batch than the default 1000.
 JUDGMENT_BATCH_SIZE = 100
 
@@ -57,6 +74,72 @@ class SemanticPipelineBase(PipelineBase):
         super().__init__(store=store)
         # (collection, key) -> lightweight Node, or None when known to be absent.
         self._node_cache: dict[tuple[str, str], Node | None] = {}
+        # law id -> what its loaded articles say (``_law``), read once per law and run.
+        self._laws: dict[str, _LawArticles | None] = {}
+
+    def _cited_article(
+        self,
+        law_id: str,
+        number: str,
+        *,
+        celex: bool,
+        confidence: float,
+        min_confidence: float,
+    ) -> Node | None:
+        """The article a citation of *number* of a law points at, or ``None``.
+
+        The article with that number (a stub of a loaded law only when the rules below
+        would make it); else, of a law whose articles are loaded, the
+        historical article that last had it (a repealed or renumbered article, cited by
+        a text from before), and nothing for a number of a shape the law never uses
+        (``140.1 Sr``). Else a stub, when the citation is sure enough: an article of a law
+        that is not loaded, or one the loaded text lacks.
+        """
+        key = make_node_key(law_id, number)
+        node = self._lookup_node(COLLECTION_ARTICLES, key)
+        law = self._law(law_id, "celex" if celex else "bwb_id")
+        if node is not None and (law is None or key not in law.stubs):
+            return node
+        if law is not None:
+            historical = law.historical.get(number)
+            if historical is not None:
+                return self._lookup_node(COLLECTION_ARTICLES, historical)
+            if number_shape(number) not in law.shapes:
+                return None
+        if node is not None:  # a stub made before: the rules above keep it
+            return node
+        if confidence < min_confidence:
+            return None
+        props: dict[str, Any] = {
+            ("celex" if celex else "bwb_id"): law_id,
+            "article_number": number,
+        }
+        node = self.store.ensure_stub_node(
+            COLLECTION_ARTICLES, key, NodeType.ARTICLE, props=props
+        )
+        self._remember_node(node)
+        return node
+
+    def _law(self, law_id: str, field: str) -> _LawArticles | None:
+        """The shapes and the historical numbers of a law's articles; ``None`` when
+        none of its articles is loaded (only stubs, or nothing)."""
+        if law_id not in self._laws:
+            rows = list(semantic_queries.law_articles(self.store, field, law_id))
+            current = [r["number"] for r in rows if r["number"] and not r["stub"]]
+            self._laws[law_id] = (
+                _LawArticles(
+                    shapes=frozenset(number_shape(n) for n in current),
+                    stubs=frozenset(r["key"] for r in rows if r["stub"]),
+                    historical={
+                        r["last_number"]: r["key"]
+                        for r in rows
+                        if r["last_number"] and not r["number"]
+                    },
+                )
+                if current
+                else None
+            )
+        return self._laws[law_id]
 
     def _resolve_instrument(
         self, *, bwb_id: str | None = None, celex: str | None = None
@@ -184,7 +267,8 @@ class SemanticPipelineBase(PipelineBase):
         """Map each ECLI to a judgment node id, stubbing the ones not in the corpus.
 
         One lookup for the whole set; a judgment cited from outside the corpus
-        gets a stub so the citation edge still has both endpoints.
+        gets a stub so the citation edge still has both endpoints. A malformed ECLI
+        (``core.ecli.is_valid_ecli``) gets none and stays unmapped.
         """
         by_ecli: dict[str, str] = {}
         for row in semantic_queries.judgment_ids_by_ecli(self.store, sorted(eclis)):
@@ -193,7 +277,7 @@ class SemanticPipelineBase(PipelineBase):
                 by_ecli[ecli] = node_id
 
         for ecli in eclis:
-            if ecli in by_ecli:
+            if ecli in by_ecli or not is_valid_ecli(ecli):
                 continue
             node = self.store.ensure_stub_node(
                 COLLECTION_JUDGMENTS,
@@ -234,11 +318,10 @@ class SemanticPipelineBase(PipelineBase):
         return index
 
     def _load_code_aliases(self) -> CodeMapping:
-        """Build short_title → bwb_id/celex map from instruments in the graph."""
-        return self._load_alias_index(
-            semantic_queries.code_alias_rows(self.store),
-            "short_title",
-            ("bwb_id", "celex"),
+        """Abbreviation → bwb_id/celex of the instruments in the graph
+        (``core.aliases.code_aliases``)."""
+        return code_aliases(
+            semantic_queries.code_alias_rows(self.store), curated_abbreviations()
         )
 
     def _load_instrument_aliases(self) -> InstrumentAliasMap:

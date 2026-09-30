@@ -1,0 +1,2381 @@
+{
+ "about": "The courts an ECLI names, as the Instanties value list of the Rechtspraak gives them. Made by `lawgraph courts build`; see core/court_sources.py. The courts it does not hold are in curated/courts_outside.json.",
+ "sources": {
+  "rechtspraak": {
+   "url": "https://data.rechtspraak.nl/Waardelijst/Instanties",
+   "read_on": "2026-09-29"
+  }
+ },
+ "courts": [
+  {
+   "code": "AGSGR",
+   "name": "Ambtenarengerecht 's-Gravenhage",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "AGSHE",
+   "name": "Ambtenarengerecht 's-Hertogenbosch",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "AGAMS",
+   "name": "Ambtenarengerecht Amsterdam",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "AGARN",
+   "name": "Ambtenarengerecht Arnhem",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "AGGRO",
+   "name": "Ambtenarengerecht Groningen",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "AGHAA",
+   "name": "Ambtenarengerecht Haarlem",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "AGROE",
+   "name": "Ambtenarengerecht Roermond",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "AGROT",
+   "name": "Ambtenarengerecht Rotterdam",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "AGUTR",
+   "name": "Ambtenarengerecht Utrecht",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "AGZWO",
+   "name": "Ambtenarengerecht Zwolle",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "ambtenarengerecht",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "CVBSTUF",
+   "name": "College van Beroep Studiefinanciering",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "college_van_beroep_studiefinanciering",
+   "from": "1950-01-01",
+   "until": "2000-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "CBHO",
+   "name": "College van Beroep voor het hoger onderwijs",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "college_van_beroep_voor_het_hoger_onderwijs",
+   "from": "1950-01-01",
+   "until": "2022-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "RVAB",
+   "name": "Raad van Arbitrage in Bouwgeschillen",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_arbitrage_in_bouwgeschillen",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "RVBSGR",
+   "name": "Raad van beroep 's-Gravenhage",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBSHE",
+   "name": "Raad van beroep 's-Hertogenbosch",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBALK",
+   "name": "Raad van beroep Alkmaar",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBAMS",
+   "name": "Raad van beroep Amsterdam",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBARN",
+   "name": "Raad van beroep Arnhem",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBBRE",
+   "name": "Raad van beroep Breda",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBGRO",
+   "name": "Raad van beroep Groningen",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBHAA",
+   "name": "Raad van beroep Haarlem",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1950-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBLEE",
+   "name": "Raad van beroep Leeuwarden",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBLDN",
+   "name": "Raad van beroep Leiden",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBMID",
+   "name": "Raad van beroep Middelburg",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBROE",
+   "name": "Raad van beroep Roermond",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1950-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBROT",
+   "name": "Raad van beroep Rotterdam",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBTIL",
+   "name": "Raad van beroep Tilburg",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1950-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBUTR",
+   "name": "Raad van beroep Utrecht",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RVBZWO",
+   "name": "Raad van beroep Zwolle",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_van_beroep",
+   "from": "1913-01-01",
+   "until": "1992-07-01",
+   "owms_term": null
+  },
+  {
+   "code": "RSJ",
+   "name": "Raad voor Strafrechtstoepassing en Jeugdbescherming",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "raad_voor_strafrechtstoepassing_en_jeugdbescherming",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "DETARCO",
+   "name": "Tariefcommissie",
+   "type": "AndereGerechtelijkeInstantie",
+   "tier": "andere_instantie",
+   "court_kind": "tariefcommissie",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "GHSGR",
+   "name": "Gerechtshof 's-Gravenhage",
+   "type": "Gerechtshof",
+   "tier": "gerechtshof",
+   "court_kind": "gerechtshof",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Gerechtshof_'s-Gravenhage"
+  },
+  {
+   "code": "GHSHE",
+   "name": "Gerechtshof 's-Hertogenbosch",
+   "type": "Gerechtshof",
+   "tier": "gerechtshof",
+   "court_kind": "gerechtshof",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": "Gerechtshof_'s-Hertogenbosch"
+  },
+  {
+   "code": "GHAMS",
+   "name": "Gerechtshof Amsterdam",
+   "type": "Gerechtshof",
+   "tier": "gerechtshof",
+   "court_kind": "gerechtshof",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": "Gerechtshof_Amsterdam"
+  },
+  {
+   "code": "GHARN",
+   "name": "Gerechtshof Arnhem",
+   "type": "Gerechtshof",
+   "tier": "gerechtshof",
+   "court_kind": "gerechtshof",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Gerechtshof_Arnhem"
+  },
+  {
+   "code": "GHARL",
+   "name": "Gerechtshof Arnhem-Leeuwarden",
+   "type": "Gerechtshof",
+   "tier": "gerechtshof",
+   "court_kind": "gerechtshof",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "Gerechtshof_Arnhem-Leeuwarden"
+  },
+  {
+   "code": "GHDHA",
+   "name": "Gerechtshof Den Haag",
+   "type": "Gerechtshof",
+   "tier": "gerechtshof",
+   "court_kind": "gerechtshof",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "Gerechtshof_Den_Haag"
+  },
+  {
+   "code": "GHLEE",
+   "name": "Gerechtshof Leeuwarden",
+   "type": "Gerechtshof",
+   "tier": "gerechtshof",
+   "court_kind": "gerechtshof",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Gerechtshof_Leeuwarden"
+  },
+  {
+   "code": "KTGSGR",
+   "name": "Kantongerecht 's-Gravenhage",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGSHE",
+   "name": "Kantongerecht 's-Hertogenbosch",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGALK",
+   "name": "Kantongerecht Alkmaar",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGALM",
+   "name": "Kantongerecht Almelo",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGAAR",
+   "name": "Kantongerecht Alphen aan den Rijn",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGAMF",
+   "name": "Kantongerecht Amersfoort",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGAMS",
+   "name": "Kantongerecht Amsterdam",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGAPD",
+   "name": "Kantongerecht Apeldoorn",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGAPP",
+   "name": "Kantongerecht Appingedam",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGARN",
+   "name": "Kantongerecht Arnhem",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGASS",
+   "name": "Kantongerecht Assen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGBEE",
+   "name": "Kantongerecht Beetsterzwaag",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGBOZ",
+   "name": "Kantongerecht Bergen op Zoom",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGBER",
+   "name": "Kantongerecht Bergum",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGBOL",
+   "name": "Kantongerecht Bolsward",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGBOX",
+   "name": "Kantongerecht Boxmeer",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGBRE",
+   "name": "Kantongerecht Breda",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGBRN",
+   "name": "Kantongerecht Breukelen-Nijenrode",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGBRI",
+   "name": "Kantongerecht Brielle",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGDEL",
+   "name": "Kantongerecht Delft",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGDHD",
+   "name": "Kantongerecht Den Helder",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGDEV",
+   "name": "Kantongerecht Deventer",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGDOR",
+   "name": "Kantongerecht Dordrecht",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGEIN",
+   "name": "Kantongerecht Eindhoven",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGELS",
+   "name": "Kantongerecht Elst",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGEMM",
+   "name": "Kantongerecht Emmen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGENS",
+   "name": "Kantongerecht Enschede",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGGEL",
+   "name": "Kantongerecht Geldermalsen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGGOE",
+   "name": "Kantongerecht Goes",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGGOO",
+   "name": "Kantongerecht Goor",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGGRC",
+   "name": "Kantongerecht Gorinchem",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGGOU",
+   "name": "Kantongerecht Gouda",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGGNL",
+   "name": "Kantongerecht Groenlo",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGGRO",
+   "name": "Kantongerecht Groningen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGGUL",
+   "name": "Kantongerecht Gulpen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGHAA",
+   "name": "Kantongerecht Haarlem",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGHMM",
+   "name": "Kantongerecht Haarlemmermeer",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "KTGHAR",
+   "name": "Kantongerecht Harderwijk",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGHRV",
+   "name": "Kantongerecht Heerenveen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGHRL",
+   "name": "Kantongerecht Heerlen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGHMD",
+   "name": "Kantongerecht Helmond",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGHIL",
+   "name": "Kantongerecht Hilversum",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGHFD",
+   "name": "Kantongerecht Hoofddorp",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1950-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGHOO",
+   "name": "Kantongerecht Hoogeveen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGHRN",
+   "name": "Kantongerecht Hoorn",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGKAM",
+   "name": "Kantongerecht Kampen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGLEE",
+   "name": "Kantongerecht Leeuwarden",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGLDN",
+   "name": "Kantongerecht Leiden",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGLLY",
+   "name": "Kantongerecht Lelystad",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1950-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGLMM",
+   "name": "Kantongerecht Lemmer",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGMAA",
+   "name": "Kantongerecht Maastricht",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGMED",
+   "name": "Kantongerecht Medemblik",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGMEP",
+   "name": "Kantongerecht Meppel",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGMID",
+   "name": "Kantongerecht Middelburg",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGNMG",
+   "name": "Kantongerecht Nijmegen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGOMM",
+   "name": "Kantongerecht Ommen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGOND",
+   "name": "Kantongerecht Onderdendam",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGOOS",
+   "name": "Kantongerecht Oostburg",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGOBL",
+   "name": "Kantongerecht Oud-Beijerland",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGPAR",
+   "name": "Kantongerecht Paramaribo",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1965-01-01",
+   "owms_term": null
+  },
+  {
+   "code": "KTGPUR",
+   "name": "Kantongerecht Purmerend",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGRID",
+   "name": "Kantongerecht Ridderkerk",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGROE",
+   "name": "Kantongerecht Roermond",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGROT",
+   "name": "Kantongerecht Rotterdam",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGSCH",
+   "name": "Kantongerecht Schiedam",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGSOO",
+   "name": "Kantongerecht Schoonhoven",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGSIT",
+   "name": "Kantongerecht Sittard",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGSLI",
+   "name": "Kantongerecht Sliedrecht",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGSNK",
+   "name": "Kantongerecht Sneek",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGSOM",
+   "name": "Kantongerecht Sommelsdijk",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGSTW",
+   "name": "Kantongerecht Steenwijk",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGTRB",
+   "name": "Kantongerecht Terborg",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGTRN",
+   "name": "Kantongerecht Terneuzen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGTHO",
+   "name": "Kantongerecht Tholen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "KTGTIE",
+   "name": "Kantongerecht Tiel",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGTIL",
+   "name": "Kantongerecht Tilburg",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGUTR",
+   "name": "Kantongerecht Utrecht",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGVEE",
+   "name": "Kantongerecht Veendam",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1950-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGVEN",
+   "name": "Kantongerecht Venlo",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGWAG",
+   "name": "Kantongerecht Wageningen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGWRT",
+   "name": "Kantongerecht Weert",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGWIN",
+   "name": "Kantongerecht Winschoten",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGWOE",
+   "name": "Kantongerecht Woerden",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "1933-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGZAA",
+   "name": "Kantongerecht Zaandam",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGZEV",
+   "name": "Kantongerecht Zevenbergen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGZIE",
+   "name": "Kantongerecht Zierikzee",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1950-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGZUI",
+   "name": "Kantongerecht Zuidbroek",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGZUT",
+   "name": "Kantongerecht Zutphen",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "KTGZWO",
+   "name": "Kantongerecht Zwolle",
+   "type": "Kantongerecht",
+   "tier": "kantongerecht",
+   "court_kind": "kantongerecht",
+   "from": "1913-01-01",
+   "until": "2001-12-31",
+   "owms_term": null
+  },
+  {
+   "code": "OCHM",
+   "name": "Constitutioneel Hof Sint Maarten",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "constitutioneel_hof",
+   "from": "2010-10-10",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "OGHACMB",
+   "name": "Gemeenschappelijk Hof van Justitie van Aruba, Curaçao, Sint Maarten en van Bonaire, Sint Eustatius en Saba",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gemeenschappelijk_hof_van_justitie",
+   "from": "2010-10-10",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "OGHNAA",
+   "name": "Gemeenschappelijk Hof van Justitie van de Nederlandse Antillen en Aruba",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gemeenschappelijk_hof_van_justitie",
+   "from": "1950-01-01",
+   "until": "2010-10-09",
+   "owms_term": null
+  },
+  {
+   "code": "OGAACMB",
+   "name": "Gerecht in Ambtenarenzaken van Aruba, Curaçao, Sint Maarten en van Bonaire, Sint Eustatius en Saba",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gerecht_in_ambtenarenzaken",
+   "from": "2010-10-10",
+   "until": null,
+   "owms_term": "Gerecht_in_Ambtenarenzaken_van_Aruba_Curacao_Sint_Maarten_en_van_Bonaire_Sint_Eustatius_en_Saba"
+  },
+  {
+   "code": "OGANA",
+   "name": "Gerecht in Ambtenarenzaken van de Nederlandse Antillen",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gerecht_in_ambtenarenzaken",
+   "from": "1950-01-01",
+   "until": "2010-10-09",
+   "owms_term": null
+  },
+  {
+   "code": "OGEAB",
+   "name": "Gerecht in Eerste Aanleg Bonaire",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gerecht_in_eerste_aanleg",
+   "from": "1950-01-01",
+   "until": "2010-10-09",
+   "owms_term": null
+  },
+  {
+   "code": "OGEAA",
+   "name": "Gerecht in Eerste Aanleg van Aruba",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gerecht_in_eerste_aanleg",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "OGEABES",
+   "name": "Gerecht in eerste aanleg van Bonaire, Sint Eustatius en Saba",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gerecht_in_eerste_aanleg",
+   "from": "2010-10-10",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "OGEAC",
+   "name": "Gerecht in eerste aanleg van Curaçao",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gerecht_in_eerste_aanleg",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "OGEANA",
+   "name": "Gerecht in Eerste Aanleg van de Nederlandse Antillen",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gerecht_in_eerste_aanleg",
+   "from": "1950-01-01",
+   "until": "2012-10-09",
+   "owms_term": null
+  },
+  {
+   "code": "OGEAM",
+   "name": "Gerecht in eerste aanleg van Sint Maarten",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "gerecht_in_eerste_aanleg",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": null
+  },
+  {
+   "code": "OHJNA",
+   "name": "Hof van Justitie van de Nederlandse Antillen",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "hof_van_justitie",
+   "from": "1913-01-01",
+   "until": "2000-01-01",
+   "owms_term": null
+  },
+  {
+   "code": "ORBANAA",
+   "name": "Raad van Beroep in Ambtenarenzaken (Nederlandse Antillen en Aruba)",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "raad_van_beroep_in_ambtenarenzaken",
+   "from": "1950-01-01",
+   "until": "2010-10-09",
+   "owms_term": null
+  },
+  {
+   "code": "ORBAACM",
+   "name": "Raad van Beroep in Ambtenarenzaken van Aruba, Curaçao, Sint Maarten en van Bonaire, Sint Eustatius en Saba",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "raad_van_beroep_in_ambtenarenzaken",
+   "from": "2010-10-10",
+   "until": null,
+   "owms_term": "Raad_van_Beroep_in_Ambtenarenzaken_van_Aruba_Curacao_Sint_Maarten_en_van_Bonaire_Sint_Eustatius_en_Saba"
+  },
+  {
+   "code": "ORBBNAA",
+   "name": "Raad van Beroep voor Belastingzaken (Nederlandse Antillen en Aruba)",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "raad_van_beroep_voor_belastingzaken",
+   "from": "1950-01-01",
+   "until": "2010-10-09",
+   "owms_term": null
+  },
+  {
+   "code": "ORBBACM",
+   "name": "Raad van Beroep voor Belastingzaken van Aruba, Curaçao, Sint Maarten en van Bonaire, Sint Eustatius en Saba",
+   "type": "Koninkrijksinstantie",
+   "tier": "koninkrijksinstantie",
+   "court_kind": "raad_van_beroep_voor_belastingzaken",
+   "from": "2010-10-10",
+   "until": null,
+   "owms_term": "Raad_van_Beroep_voor_Belastingzaken_van_Aruba_Curacao_Sint_Maarten_en_van_Bonaire_Sint_Eustatius_en_Saba"
+  },
+  {
+   "code": "PHR",
+   "name": "Parket bij de Hoge Raad",
+   "type": "Parket",
+   "tier": "parket",
+   "court_kind": "parket",
+   "from": "1838-01-01",
+   "until": null,
+   "owms_term": "Parket_bij_de_Hoge_Raad"
+  },
+  {
+   "code": "RBSGR",
+   "name": "Rechtbank 's-Gravenhage",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_s-Gravenhage"
+  },
+  {
+   "code": "RBSHE",
+   "name": "Rechtbank 's-Hertogenbosch",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_'s-Hertogenbosch"
+  },
+  {
+   "code": "RBALK",
+   "name": "Rechtbank Alkmaar",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Alkmaar"
+  },
+  {
+   "code": "RBALM",
+   "name": "Rechtbank Almelo",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Almelo"
+  },
+  {
+   "code": "RBAMS",
+   "name": "Rechtbank Amsterdam",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": "Rechtbank_Amsterdam"
+  },
+  {
+   "code": "RBARN",
+   "name": "Rechtbank Arnhem",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Arnhem"
+  },
+  {
+   "code": "RBASS",
+   "name": "Rechtbank Assen",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Assen"
+  },
+  {
+   "code": "RBBRE",
+   "name": "Rechtbank Breda",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Breda"
+  },
+  {
+   "code": "RBDHA",
+   "name": "Rechtbank Den Haag",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "Rechtbank_Den_Haag"
+  },
+  {
+   "code": "RBDOR",
+   "name": "Rechtbank Dordrecht",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Dordrecht"
+  },
+  {
+   "code": "RBGEL",
+   "name": "Rechtbank Gelderland",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-04-01",
+   "until": null,
+   "owms_term": "Rechtbank_Gelderland"
+  },
+  {
+   "code": "RBGRO",
+   "name": "Rechtbank Groningen",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Groningen"
+  },
+  {
+   "code": "RBHAA",
+   "name": "Rechtbank Haarlem",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Haarlem"
+  },
+  {
+   "code": "RBHRV",
+   "name": "Rechtbank Heerenveen",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "1966-01-01",
+   "owms_term": null
+  },
+  {
+   "code": "RBLEE",
+   "name": "Rechtbank Leeuwarden",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Leeuwarden"
+  },
+  {
+   "code": "RBLIM",
+   "name": "Rechtbank Limburg",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "Rechtbank_Limburg"
+  },
+  {
+   "code": "RBMAA",
+   "name": "Rechtbank Maastricht",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Maastricht"
+  },
+  {
+   "code": "RBMID",
+   "name": "Rechtbank Middelburg",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Middelburg"
+  },
+  {
+   "code": "RBMNE",
+   "name": "Rechtbank Midden-Nederland",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "Rechtbank_Midden-Nederland"
+  },
+  {
+   "code": "RBNHO",
+   "name": "Rechtbank Noord-Holland",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "Rechtbank_Noord-Holland"
+  },
+  {
+   "code": "RBNNE",
+   "name": "Rechtbank Noord-Nederland",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "Rechtbank_Noord-Nederland"
+  },
+  {
+   "code": "RBOBR",
+   "name": "Rechtbank Oost-Brabant",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "Rechtbank_Oost-Brabant"
+  },
+  {
+   "code": "RBONE",
+   "name": "Rechtbank Oost-Nederland",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-01-01",
+   "until": "2013-03-31",
+   "owms_term": "Rechtbank_Oost-Nederland"
+  },
+  {
+   "code": "RBOVE",
+   "name": "Rechtbank Overijssel",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-04-01",
+   "until": null,
+   "owms_term": "Rechtbank_Overijssel"
+  },
+  {
+   "code": "RBROE",
+   "name": "Rechtbank Roermond",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Roermond"
+  },
+  {
+   "code": "RBROT",
+   "name": "Rechtbank Rotterdam",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": "Rechtbank_Rotterdam"
+  },
+  {
+   "code": "RBTIE",
+   "name": "Rechtbank Tiel",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "1966-01-01",
+   "owms_term": null
+  },
+  {
+   "code": "RBUTR",
+   "name": "Rechtbank Utrecht",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Utrecht"
+  },
+  {
+   "code": "RBWIN",
+   "name": "Rechtbank Winschoten",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "1966-01-01",
+   "owms_term": null
+  },
+  {
+   "code": "RBZWB",
+   "name": "Rechtbank Zeeland-West-Brabant",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "Rechtbank_Zeeland-West-Brabant"
+  },
+  {
+   "code": "RBZIE",
+   "name": "Rechtbank Zierikzee",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "1966-01-01",
+   "owms_term": null
+  },
+  {
+   "code": "RBZUT",
+   "name": "Rechtbank Zutphen",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Zutphen"
+  },
+  {
+   "code": "RBZWO",
+   "name": "Rechtbank Zwolle",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "1913-01-01",
+   "until": "2004-06-30",
+   "owms_term": "Rechtbank_Zwolle"
+  },
+  {
+   "code": "RBZLY",
+   "name": "Rechtbank Zwolle-Lelystad",
+   "type": "Rechtbank",
+   "tier": "rechtbank",
+   "court_kind": "rechtbank",
+   "from": "2004-07-01",
+   "until": "2012-12-31",
+   "owms_term": "Rechtbank_Zwolle-Lelystad"
+  },
+  {
+   "code": "TACAKN",
+   "name": "Accountantskamer NIVRA",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tacakn"
+  },
+  {
+   "code": "TCMT",
+   "name": "Centraal Medisch Tuchtcollege",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1913-01-01",
+   "until": "1997-12-31",
+   "owms_term": "tcmt"
+  },
+  {
+   "code": "TGZCTG",
+   "name": "Centraal Tuchtcollege voor de Gezondheidszorg",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1997-12-01",
+   "until": null,
+   "owms_term": "tgzctg"
+  },
+  {
+   "code": "TAHVD",
+   "name": "Hof van Discipline",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tahvd"
+  },
+  {
+   "code": "IAR",
+   "name": "Instituut voor Agrarisch Recht",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "2016-01-01",
+   "until": null,
+   "owms_term": "iar"
+  },
+  {
+   "code": "TNOKSGR",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen 's-Gravenhage",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnoksgr"
+  },
+  {
+   "code": "TNOKSHE",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen 's-Hertogenbosch",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokshe"
+  },
+  {
+   "code": "TNOKALK",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Alkmaar",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokalk"
+  },
+  {
+   "code": "TNOKALM",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Almelo",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokalm"
+  },
+  {
+   "code": "TNOKAMS",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Amsterdam",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokams"
+  },
+  {
+   "code": "TNOKARN",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Arnhem",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokarn"
+  },
+  {
+   "code": "TNOKASS",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Assen",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokass"
+  },
+  {
+   "code": "TNOKBRE",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Breda",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokbre"
+  },
+  {
+   "code": "TNOKDOR",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Dordrecht",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokdor"
+  },
+  {
+   "code": "TNOKGRO",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Groningen",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokgro"
+  },
+  {
+   "code": "TNOKHAA",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Haarlem",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokhaa"
+  },
+  {
+   "code": "TNOKLEE",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Leeuwarden",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnoklee"
+  },
+  {
+   "code": "TNOKMAA",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Maastricht",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokmaa"
+  },
+  {
+   "code": "TNOKMID",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Middelburg",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokmid"
+  },
+  {
+   "code": "TNOKROE",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Roermond",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokroe"
+  },
+  {
+   "code": "TNOKROT",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Rotterdam",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokrot"
+  },
+  {
+   "code": "TNOKUTR",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Utrecht",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokutr"
+  },
+  {
+   "code": "TNOKZUT",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Zutphen",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokzut"
+  },
+  {
+   "code": "TNOKZLY",
+   "name": "Kamer van Toezicht over de notarissen en kandidaat-notarissen Zwolle-Lelystad",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tnokzly"
+  },
+  {
+   "code": "TGDKG",
+   "name": "Kamer voor Gerechtsdeurwaarders",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tgdkg"
+  },
+  {
+   "code": "TNORSHE",
+   "name": "Kamer voor het notariaat in het ressort 's-Hertogenbosch",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "tnorshe"
+  },
+  {
+   "code": "TNORAMS",
+   "name": "Kamer voor het notariaat in het ressort Amsterdam",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "tnorams"
+  },
+  {
+   "code": "TNORARL",
+   "name": "Kamer voor het notariaat in het ressort Arnhem-Leeuwarden",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "tnorarl"
+  },
+  {
+   "code": "TNORDHA",
+   "name": "Kamer voor het notariaat in het ressort Den Haag",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "tnordha"
+  },
+  {
+   "code": "TADRSGR",
+   "name": "Raad van Discipline 's-Gravenhage",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tadrsgr"
+  },
+  {
+   "code": "TADRSHE",
+   "name": "Raad van Discipline 's-Hertogenbosch",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tadrshe"
+  },
+  {
+   "code": "TADRAMS",
+   "name": "Raad van Discipline Amsterdam",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tadrams"
+  },
+  {
+   "code": "TADRARN",
+   "name": "Raad van Discipline Arnhem",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tadrarn"
+  },
+  {
+   "code": "TADRARL",
+   "name": "Raad van Discipline Arnhem-Leeuwarden",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "2013-01-01",
+   "until": null,
+   "owms_term": "tadrarl"
+  },
+  {
+   "code": "TADRLEE",
+   "name": "Raad van Discipline Leeuwarden",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2012-12-31",
+   "owms_term": "tadrlee"
+  },
+  {
+   "code": "TRMTSGR",
+   "name": "Regionaal Medisch Tuchtcollege 's Gravenhage",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1930-07-01",
+   "until": "1997-11-30",
+   "owms_term": "trmtsgr"
+  },
+  {
+   "code": "TRMTAMS",
+   "name": "Regionaal Medisch Tuchtcollege Amsterdam (v/h Medisch tuchtcollege Amsterdam)",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1930-07-01",
+   "until": "1997-11-30",
+   "owms_term": "trmtams"
+  },
+  {
+   "code": "TGZRSGR",
+   "name": "Regionaal Tuchtcollege voor de Gezondheidszorg 's-Gravenhage",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1997-12-01",
+   "until": "2022-03-31",
+   "owms_term": "tgzrsgr"
+  },
+  {
+   "code": "TGZRSHE",
+   "name": "Regionaal Tuchtcollege voor de Gezondheidszorg 's-Hertogenbosch",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "2022-01-01",
+   "until": null,
+   "owms_term": "tgzrshe"
+  },
+  {
+   "code": "TGZRAMS",
+   "name": "Regionaal Tuchtcollege voor de Gezondheidszorg Amsterdam",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1997-12-01",
+   "until": null,
+   "owms_term": "tgzrams"
+  },
+  {
+   "code": "TGZREIN",
+   "name": "Regionaal Tuchtcollege voor de Gezondheidszorg Eindhoven",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1997-12-01",
+   "until": "2021-12-31",
+   "owms_term": "tgzrein"
+  },
+  {
+   "code": "TGZRGRO",
+   "name": "Regionaal Tuchtcollege voor de Gezondheidszorg Groningen",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1997-12-01",
+   "until": "2022-03-31",
+   "owms_term": "tgzrgro"
+  },
+  {
+   "code": "TGZRZWO",
+   "name": "Regionaal Tuchtcollege voor de Gezondheidszorg Zwolle",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1997-12-01",
+   "until": null,
+   "owms_term": "tgzrzwo"
+  },
+  {
+   "code": "TBPSKAL",
+   "name": "Skal-Tuchtgerecht",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tbpskal"
+  },
+  {
+   "code": "TLOTL",
+   "name": "Tuchtcollege loodsen",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tlotl"
+  },
+  {
+   "code": "TSCTS",
+   "name": "Tuchtcollege voor de Scheepvaart",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tscts"
+  },
+  {
+   "code": "TBBBKD",
+   "name": "Tuchtgerecht Bloembollenkeuringsdienst",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tbbbkd"
+  },
+  {
+   "code": "TGFKCB",
+   "name": "Tuchtgerecht Kwaliteits-Controle-Bureau",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tgfkcb"
+  },
+  {
+   "code": "TAKTPA",
+   "name": "Tuchtgerecht Productschap Akkerbouw",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2015-12-31",
+   "owms_term": "taktpa"
+  },
+  {
+   "code": "TPETPVE",
+   "name": "Tuchtgerecht Productschap Pluimvee en Eieren",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2015-12-31",
+   "owms_term": "tpetpve"
+  },
+  {
+   "code": "TVVTPVV",
+   "name": "Tuchtgerecht Productschap Vee en Vlees",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2015-12-31",
+   "owms_term": "tvvtpvv"
+  },
+  {
+   "code": "TVSTPV",
+   "name": "Tuchtgerecht Productschap Vis",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": "2015-12-31",
+   "owms_term": "tvstpv"
+  },
+  {
+   "code": "TDIVBC",
+   "name": "Veterinair Beroepscollege",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tdivbc"
+  },
+  {
+   "code": "TDIVTC",
+   "name": "Veterinair Tuchtcollege",
+   "type": "TuchtrechtelijkeInstantie",
+   "tier": "tuchtcollege",
+   "court_kind": "tuchtcollege",
+   "from": "1950-01-01",
+   "until": null,
+   "owms_term": "tdivtc"
+  },
+  {
+   "code": "CBB",
+   "name": "College van Beroep voor het bedrijfsleven",
+   "type": "TypeCBb",
+   "tier": "college_van_beroep_bedrijfsleven",
+   "court_kind": "college_van_beroep_bedrijfsleven",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": "College_van_Beroep_voor_het_bedrijfsleven"
+  },
+  {
+   "code": "CRVB",
+   "name": "Centrale Raad van Beroep",
+   "type": "TypeCRvB",
+   "tier": "centrale_raad_van_beroep",
+   "court_kind": "centrale_raad_van_beroep",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": "Centrale_Raad_van_Beroep"
+  },
+  {
+   "code": "HR",
+   "name": "Hoge Raad",
+   "type": "TypeHr",
+   "tier": "hoge_raad",
+   "court_kind": "hoge_raad",
+   "from": "1838-01-01",
+   "until": null,
+   "owms_term": "Hoge_Raad_der_Nederlanden"
+  },
+  {
+   "code": "RVS",
+   "name": "Raad van State",
+   "type": "TypeRvS",
+   "tier": "raad_van_state",
+   "court_kind": "raad_van_state",
+   "from": "1913-01-01",
+   "until": null,
+   "owms_term": "Raad_van_State"
+  },
+  {
+   "code": "XX",
+   "name": "Buitenlandse instanties",
+   "type": "http://psi.rechtspraak.nl/buitenlandseInstantie",
+   "tier": "buitenlandse_instantie",
+   "court_kind": "buitenlandse_instantie",
+   "from": null,
+   "until": null,
+   "owms_term": null
+  }
+ ]
+}

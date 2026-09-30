@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
     COLLECTION_COMMITTEES,
@@ -24,11 +25,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
-    COLLECTION_TOPICS,
 )
-from lawgraph.core.logging import get_logger
-
-logger = get_logger(__name__)
 
 # Collections in which a pipeline creates a stub for a record it has not loaded.
 STUB_COLLECTIONS = frozenset(
@@ -87,7 +84,6 @@ class NodeType(str, Enum):
     CASE = "case"  # TK Zaak: any item the Tweede Kamer handles
     DOCUMENT = "document"  # kamerstuk, MvT, amendment, motion, advice
     JUDGMENT = "judgment"  # case law (Rechtspraak, Hoge Raad, CJEU, ECHR)
-    TOPIC = "topic"  # semantic topic node
     # Parliamentary entities
     DOSSIER = "dossier"  # kamerstukdossier: numbered file of documents around one bill
     ACTIVITY = "activity"  # debate or hearing
@@ -96,6 +92,7 @@ class NodeType(str, Enum):
     COMMITTEE = "committee"  # parliamentary committee
     MEMBER = "member"  # member of parliament or minister
     FACTION = "faction"  # parliamentary party / political group
+    CABINET = "cabinet"  # a Dutch cabinet since 1945 (kabinet), from Rijksoverheid
     INSTRUMENT_VERSION = "instrument_version"  # dated version of an instrument
     ARTICLE_VERSION = "article_version"  # dated version of an article
     ANNEX = "annex"  # annex (bijlage) of an instrument
@@ -118,8 +115,8 @@ COLLECTION_OF_TYPE: dict[NodeType, str] = {
     NodeType.COMMITMENT: COLLECTION_COMMITMENTS,
     NodeType.MEMBER: COLLECTION_MEMBERS,
     NodeType.FACTION: COLLECTION_FACTIONS,
+    NodeType.CABINET: COLLECTION_CABINETS,
     NodeType.COMMITTEE: COLLECTION_COMMITTEES,
-    NodeType.TOPIC: COLLECTION_TOPICS,
 }
 TYPE_OF_COLLECTION: dict[str, NodeType] = {
     collection: node_type for node_type, collection in COLLECTION_OF_TYPE.items()
@@ -190,22 +187,15 @@ class Node:
     def from_document(cls, collection: str, doc: dict[str, Any]) -> Node:
         """Deserialise a raw ArangoDB document — bypasses props validation."""
         key = doc.get("_key")
-        if "type" not in doc:
-            logger.warning(
-                "Document %r in collection %r has no 'type' field; defaulting to TOPIC",
-                key,
-                collection,
-            )
-        type_str = doc.get("type", NodeType.TOPIC.value)
+        # One type per collection, so the collection says the type when the document does not.
         try:
-            node_type = NodeType(type_str)
-        except ValueError:
-            logger.warning(
-                "Unknown node type %r in collection %r; treating as TOPIC",
-                type_str,
-                collection,
-            )
-            node_type = NodeType.TOPIC
+            node_type = NodeType(doc["type"])
+        except (KeyError, ValueError):
+            if collection not in TYPE_OF_COLLECTION:
+                raise ValueError(
+                    f"Document {key!r} in collection {collection!r} has no known type"
+                ) from None
+            node_type = TYPE_OF_COLLECTION[collection]
         labels = list(doc.get("labels", []))
 
         props_field = doc.get("props")

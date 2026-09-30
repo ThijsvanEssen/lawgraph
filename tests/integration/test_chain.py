@@ -64,7 +64,12 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
     assert _edge_keys(store) == first_edges
 
     report = check(store)
-    assert [p for p in report.problems if not p.startswith("raw ")] == []
+    # the seed has no EU act: the curated abbreviation of the AVG names nothing here
+    assert [
+        p
+        for p in report.problems
+        if not p.startswith(("raw ", "curated instrument-abbreviations: "))
+    ] == []
 
 
 def test_check_says_when_a_source_was_retrieved_and_never_normalized(
@@ -156,13 +161,14 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
     aql = """
     FOR e IN edges
         FILTER e._from == "instruments/bwbr0001950"
-        FILTER e.relation IN ["BASED_ON", "IMPLEMENTS"]
+        FILTER e.relation IN ["BASED_ON", "IMPLEMENTS", "REFERS_TO"]
         RETURN [e.relation, e._to]
     """
+    # the text names the GDPR, and nothing says it implements it: a reference
     assert sorted(store.query(aql)) == [
         ["BASED_ON", "articles/bwbr0001947_125"],
         ["BASED_ON", "articles/bwbr0001947_133"],
-        ["IMPLEMENTS", "instruments/32016r0679"],
+        ["REFERS_TO", "instruments/32016r0679"],
     ]
 
 

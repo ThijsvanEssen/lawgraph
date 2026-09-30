@@ -1,0 +1,37 @@
+{
+ "about": "By hand: the kind of decision a kind of court gives when neither the metadata nor the kop names one (core.judgments.decision_kind). Every administrative college gives an uitspraak; a kind of court not here (the Kroon, a foreign court, the Caribbean courts of appeal and the constitutional court, the arbitration board) is left without a kind. `procedures`: the kind a procedure (psi:procedure) names where the kop does not. `general_courts`: the kinds of court of every area of law, which give an uitspraak in administrative law.",
+ "kinds": {
+  "hoge_raad": "arrest",
+  "gerechtshof": "arrest",
+  "rechtbank": "vonnis",
+  "kantongerecht": "vonnis",
+  "gerecht_in_eerste_aanleg": "vonnis",
+  "parket": "conclusie",
+  "ehrm": "arrest",
+  "hvj_eu": "arrest",
+  "raad_van_state": "uitspraak",
+  "centrale_raad_van_beroep": "uitspraak",
+  "college_van_beroep_bedrijfsleven": "uitspraak",
+  "tuchtcollege": "uitspraak",
+  "ambtenarengerecht": "uitspraak",
+  "college_van_beroep_voor_het_hoger_onderwijs": "uitspraak",
+  "college_van_beroep_studiefinanciering": "uitspraak",
+  "gerecht_in_ambtenarenzaken": "uitspraak",
+  "raad_van_beroep": "uitspraak",
+  "raad_van_beroep_in_ambtenarenzaken": "uitspraak",
+  "raad_van_beroep_voor_belastingzaken": "uitspraak",
+  "raad_voor_strafrechtstoepassing_en_jeugdbescherming": "uitspraak",
+  "tariefcommissie": "uitspraak"
+ },
+ "procedures": {
+  "Beschikking": "beschikking",
+  "Tussenbeschikking": "beschikking",
+  "Raadkamer": "beschikking",
+  "Rekestprocedure": "beschikking"
+ },
+ "general_courts": [
+  "gerecht_in_eerste_aanleg",
+  "gerechtshof",
+  "rechtbank"
+ ]
+}

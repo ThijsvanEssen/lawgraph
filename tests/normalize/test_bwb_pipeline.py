@@ -10,6 +10,7 @@ from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
+from tests.conftest import remove_edges_from
 from tests.normalize.test_bwb import GRONDWET, XML, _older, _record, _Store
 
 
@@ -47,10 +48,12 @@ class _GraphStore(_Store):
             ]
         if "IS_ARRAY(i.props.dossier_numbers)" in aql:
             return [
-                {"key": k, "dossiers": d["props"]["dossier_numbers"]}
+                {"key": k, "dossiers": d["props"].get("dossier_numbers") or []}
                 for k, d in self.nodes.get("instruments", {}).items()
-                if d["props"].get("dossier_numbers")
+                if d["props"].get("bwb_id")
             ]
+        if "REMOVE e IN edges" in aql:
+            return remove_edges_from(self.edges, bind)
         return super().query(aql, bind_vars, **kw)
 
 
@@ -72,18 +75,15 @@ def _run_all() -> _GraphStore:
     return store
 
 
-def test_amending_publication_amends_the_current_article() -> None:
+def test_a_republication_amends_no_article() -> None:
     store = _run_all()
 
+    # every version of artikel 7 is placed by the republication Stb. 2019, 33
     art7 = f"articles/{make_node_key(GRONDWET, '7')}"
-    stb_2019_33 = f"instruments/{publication_key('stb-2019-33')}"
-    amends = [e for e in _edges(store, "AMENDS") if e["_to"] == art7]
-
-    assert [e["_from"] for e in amends] == [stb_2019_33]
-    assert amends[0]["meta"]["effect"] == "tekstplaatsing-wijziging"
-    assert (
-        amends[0]["meta"]["effective_date"] == "2002-03-21"
-    )  # earliest version (fabricated old one)
+    assert [e for e in _edges(store, "AMENDS") if e["_to"] == art7] == []
+    assert f"instruments/{publication_key('stb-2019-33')}" not in {
+        e["_from"] for e in store.edges.values()
+    }
 
 
 def test_new_and_repealed_articles_get_their_own_relations() -> None:
@@ -104,10 +104,14 @@ def test_publication_instruments_carry_their_metadata_and_dossiers() -> None:
         f"instruments/{publication_key('stb-2018-493')}",
         f"dossiers/{make_node_key('34716')}",
     ) in legislated
+    # the revision of 2022 is legislated in 35786, not the Grondwet (of 1840) itself
     assert (
-        f"instruments/{make_node_key(GRONDWET)}",
+        f"instruments/{publication_key('stb-2022-332')}",
         f"dossiers/{make_node_key('35786')}",
     ) in legislated
+    assert not any(
+        src == f"instruments/{make_node_key(GRONDWET)}" for src, _ in legislated
+    )
 
 
 def test_every_amendment_targets_an_existing_article() -> None:

@@ -281,3 +281,17 @@ def test_tk_pipeline_reads_the_footnotes_of_a_kamerstuk_too() -> None:
         },
     )
     assert TKSemanticPipeline(store=store).run().created == 1
+
+
+def test_an_abbreviation_names_its_law_as_written() -> None:
+    codes = {"EVRM": "BWBV0001000", "AVG": "32016R0679"}
+
+    hits = detect_tk_citations("Dit past binnen het EVRM en de AVG.", codes, {})
+
+    named = {(h.kind, h.bwb_id, h.celex) for h in hits}
+    assert ("instrument", "BWBV0001000", None) in named
+    assert ("instrument", None, "32016R0679") in named
+    assert not detect_tk_citations("evrm en avg in kleine letters", codes, {})
+    # the law of an article citation: the article is cited, not the law besides
+    cited = detect_tk_citations("Zie artikel 8, eerste lid, van het EVRM.", codes, {})
+    assert [h.kind for h in cited] == ["article"]

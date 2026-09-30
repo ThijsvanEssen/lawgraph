@@ -4,7 +4,11 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.schemas.judgments import JudgmentDTO
-from lawgraph.db.queries.judgments import JudgmentArticleRelation, JudgmentDetailData
+from lawgraph.db.queries.judgments import (
+    JudgmentArticleRelation,
+    JudgmentDetailData,
+    JudgmentFilters,
+)
 
 client = TestClient(app)
 
@@ -74,6 +78,35 @@ def test_get_judgment_detail_returns_linked_articles(monkeypatch):
     assert article["id"].startswith("articles")
     assert article["display_name"] == "Artikel 287"
     assert article["instrument"] is not None
+
+
+def test_get_judgment_detail_names_its_series(monkeypatch):
+    """A judgment of a series carries its id and size, and the other judgments in it."""
+    judgment = {
+        **_JUDGMENT_DOC,
+        "props": {
+            **_JUDGMENT_DOC["props"],
+            "series_id": "ECLI:NL:HR:2020:122",
+            "series_size": 2,
+        },
+    }
+    other = {
+        "_id": "judgments/ecli_nl_hr_2020_122",
+        "_key": "ecli_nl_hr_2020_122",
+        "props": {"display_name": "HR 2020/122", "ecli": "ECLI:NL:HR:2020:122"},
+    }
+    monkeypatch.setattr(
+        "lawgraph.api.routes.judgments.get_judgment_with_relations",
+        lambda store, ecli: JudgmentDetailData(
+            judgment=judgment, articles=[], series=[other]
+        ),
+    )
+
+    payload = client.get("/api/judgments/ECLI:NL:HR:2020:123").json()
+
+    assert payload["judgment"]["series_id"] == "ECLI:NL:HR:2020:122"
+    assert payload["judgment"]["series_size"] == 2
+    assert [j["ecli"] for j in payload["series"]] == ["ECLI:NL:HR:2020:122"]
 
 
 # ── the passages of the judgment that cite an article ───────────────────────
@@ -219,3 +252,108 @@ def test_a_cited_article_without_mentions_keeps_the_confidence_of_its_edge(
     assert cited["confidence"] == 0.95 and cited["snippet"] is None
     assert cited["leden"] == []
     assert all(p["citations"] == [] for p in body["judgment"]["paragraphs"])
+
+
+_LIST_ROW = {
+    "_id": "judgments/ecli_nl_hr_2020_123",
+    "_key": "ecli_nl_hr_2020_123",
+    "ecli": "ECLI:NL:HR:2020:123",
+    "tier": "hoge_raad",
+    "date": "2020-01-02",
+    "subjects": ["Bestuursrecht; Belastingrecht"],
+    "inbound_citation_count": 4,
+}
+
+
+def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch):
+    asked: list[tuple[JudgmentFilters, dict]] = []
+    facets = {
+        "tier": [
+            {"value": "andere_instantie", "count": 7},
+            {"value": None, "count": 1},
+        ],
+        "court_kind": [{"value": "ambtenarengerecht", "count": 7}],
+        "source": [{"value": "rechtspraak", "count": 8}, {"value": "echr", "count": 2}],
+        "year": [{"value": None, "count": 1}, {"value": "2020", "count": 7}],
+    }
+
+    def fake(store, filters, **kwargs):
+        asked.append((filters, kwargs))
+        return {"total": 8, "items": [_LIST_ROW], "facets": facets}
+
+    monkeypatch.setattr("lawgraph.api.routes.judgments.get_judgments_list", fake)
+    body = client.get(
+        "/api/judgments",
+        params={
+            "subject": " Strafrecht ",
+            "tier": "andere_instantie",
+            "court_kind": "ambtenarengerecht",
+            "from": "2020-01-01",
+        },
+    ).json()
+
+    assert asked[0][0] == JudgmentFilters(
+        tier="andere_instantie",
+        court_kind="ambtenarengerecht",
+        subject="Strafrecht",
+        date_from="2020-01-01",
+    )
+    assert asked[0][1] == {"sort": "date_desc", "limit": 50, "offset": 0}
+    assert body["total"] == 8
+    assert body["items"][0]["subjects"] == ["Bestuursrecht; Belastingrecht"]
+    assert body["facets"] == facets
+
+
+def test_a_judgment_without_subjects_lists_none(monkeypatch):
+    row = {k: v for k, v in _LIST_ROW.items() if k != "subjects"}
+    monkeypatch.setattr(
+        "lawgraph.api.routes.judgments.get_judgments_list",
+        lambda store, filters, **kwargs: {"total": 1, "items": [row]},
+    )
+    body = client.get("/api/judgments").json()
+    assert body["items"][0]["subjects"] == []
+    assert body["facets"] == {
+        "tier": [],
+        "court_kind": [],
+        "source": [],
+        "year": [],
+    }
+
+
+def test_a_translation_serves_both_summaries_its_original_names_and_kind():
+    doc = {
+        **_JUDGMENT_DOC,
+        "props": {
+            **_JUDGMENT_DOC["props"],
+            "summary": "Klimaatzaak Urgenda. Mensenrechten.",
+            "summary_en": "Climate case Urgenda. Human rights.",
+            "translation_of": "ECLI:NL:HR:2019:2006",
+            "names": ["Urgenda"],
+            "decision_kind": "arrest",
+        },
+    }
+
+    judgment = JudgmentDTO.from_document(doc)
+
+    assert judgment.summary == "Klimaatzaak Urgenda. Mensenrechten."
+    assert judgment.summary_en == "Climate case Urgenda. Human rights."
+    assert judgment.translation_of == "ECLI:NL:HR:2019:2006"
+    assert judgment.names == ["Urgenda"] and judgment.decision_kind == "arrest"
+
+
+def test_a_judgment_without_names_or_kind_has_none():
+    judgment = JudgmentDTO.from_document(_JUDGMENT_DOC)
+
+    assert judgment.names == [] and judgment.decision_kind is None
+    assert judgment.summary_en is None and judgment.translation_of is None
+
+
+def test_the_judgment_list_carries_names_and_kind(monkeypatch):
+    row = {**_LIST_ROW, "names": ["Haviltex"], "decision_kind": "arrest"}
+    monkeypatch.setattr(
+        "lawgraph.api.routes.judgments.get_judgments_list",
+        lambda store, filters, **kwargs: {"total": 1, "items": [row, _LIST_ROW]},
+    )
+    first, second = client.get("/api/judgments").json()["items"]
+    assert (first["names"], first["decision_kind"]) == (["Haviltex"], "arrest")
+    assert (second["names"], second["decision_kind"]) == ([], None)

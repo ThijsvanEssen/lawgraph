@@ -1,5 +1,5 @@
-"""Article endpoints: detail, relationships, legislative history, explanatory
-documents, version history and in-flux state."""
+"""Article endpoints: detail with its relationships, legislative history, explanatory
+documents and version history."""
 
 from __future__ import annotations
 
@@ -8,46 +8,54 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import (
+    ARTICLE_ADDRESS,
+    SEMANTIC_CONFIDENCE,
+    SEMANTIC_PATTERN,
+    VALID_UNTIL,
     ArticleCitationSpan,
     ArticleRelationDTO,
     InstrumentSummaryDTO,
     JudgmentSummaryDTO,
     PublicationDTO,
     QualifierFields,
+    address_of,
+    semantic_fields,
 )
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
-    COLLECTION_INSTRUMENTS,
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_arango_id
+from lawgraph.core.official_urls import article_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
 
-ExplanationTarget = Literal["article", "article_version", "instrument"]
+ExplanationTarget = Literal["article", "article_version"]
 ExplanationScope = Literal["dossier", "article"]
 
 _TARGET_OF_COLLECTION: dict[str, ExplanationTarget] = {
     COLLECTION_ARTICLES: "article",
     COLLECTION_ARTICLE_VERSIONS: "article_version",
-    COLLECTION_INSTRUMENTS: "instrument",
 }
 
 
 class ArticlePartDTO(BaseModel):
-    """A lid, an onderdeel or an aanhef of an article, as a span of its `text`."""
+    """A lid, an onderdeel, an aanhef or a tekst of an article, as a span of its `text`.
+
+    The parts and the printed numbers between them cover the whole text."""
 
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(
         description="Where the part sits: `aanhef`, `lid-2`, `lid-2-aanhef`, `lid-2-onder-a`, "
         "`onder-a` (an article without leden), `lid-2-onder-a-onder-1` (an onderdeel "
-        "inside an onderdeel). Unique within the article."
+        "inside an onderdeel), `tekst-1` (a paragraph outside the other parts, such as a line "
+        "between the lists of an article of a bijlage). Unique within the article."
     )
-    kind: str = Field(description="`aanhef`, `lid` or `onderdeel`.")
+    kind: str = Field(description="`aanhef`, `lid`, `onderdeel` or `tekst`.")
     number: str | None = Field(
         description="The number as printed: `2`, `2a`, `a`, `1°`; null for an aanhef "
         "or an item without one."
@@ -140,8 +148,27 @@ class ArticleSummaryDTO(BaseModel):
     id: str
     key: str
     bwb_id: str | None
-    article_number: str | None
+    article_number: str | None = Field(
+        None,
+        description="Null for an article with only a heading, and for a repealed one.",
+    )
+    label: str | None = Field(
+        None,
+        description="`Artikel 287`, or the heading of an article without a number "
+        "(`Algemene bepaling`).",
+    )
+    heading: str | None = Field(
+        None,
+        description="The title of its kop (`Definities`); most articles have none.",
+    )
+    address: str = Field(..., description=ARTICLE_ADDRESS)
+    repealed: bool = False
     display_name: str | None
+    official_url: str | None = Field(
+        None,
+        description="The article in force on wetten.overheid.nl (its JCI); the "
+        "regulation for an article without a number the JCI can address.",
+    )
     text: str | None
     parts: list[ArticlePartDTO] = Field(
         default_factory=list,
@@ -160,7 +187,12 @@ class ArticleSummaryDTO(BaseModel):
             key=doc["_key"],
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
+            label=props.get("label"),
+            heading=props.get("heading"),
+            address=address_of(doc),
+            repealed=bool(props.get("repealed")),
             display_name=props.get("display_name"),
+            official_url=article_url(props.get("bwb_id"), props.get("article_number")),
             text=props.get("text"),
             parts=parts_from_props(props),
         )
@@ -175,8 +207,18 @@ class ArticleRelationshipWithType(QualifierFields):
     relation: str
     target_article: ArticleRelationDTO
     semantic_type: str | None = None
-    explanation: str | None = None
-    confidence: float | None = None
+    explanation: str | None = Field(
+        default=None,
+        description="What `semantic_type` rests on: the trigger phrase and where it stood.",
+    )
+    confidence: float | None = Field(
+        default=None,
+        description="That the reference exists: 1.0 for a link of the BWB XML.",
+    )
+    semantic_confidence: float | None = Field(
+        default=None, description=SEMANTIC_CONFIDENCE
+    )
+    semantic_pattern: str | None = Field(default=None, description=SEMANTIC_PATTERN)
     start: int | None = Field(
         None,
         description="Offset of the reference in the text of the referring article.",
@@ -202,6 +244,7 @@ class ArticleRelationshipWithType(QualifierFields):
             semantic_type=edge.get("semantic_type"),
             explanation=edge.get("explanation"),
             confidence=edge.get("confidence"),
+            **semantic_fields(edge),
             start=start if isinstance(start, int) else None,
             end=end if isinstance(end, int) else None,
             text=text if isinstance(text, str) else None,
@@ -246,21 +289,6 @@ class ScopeArticleReference(BaseModel):
         )
 
 
-class ArticleRelationshipsResponse(BaseModel):
-    """Response for GET /api/articles/{bwb_id}/{article_number}/relationships."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    article_id: str
-    upstream_dependencies: list[ArticleRelationshipWithType] = Field(
-        default_factory=list
-    )
-    downstream_implications: list[ArticleRelationshipWithType] = Field(
-        default_factory=list
-    )
-    scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
-
-
 class ArticleDetailResponse(BaseModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}."""
 
@@ -296,7 +324,14 @@ class CitedByJudgment(BaseModel):
     ecli: str | None
     court: str | None = Field(description="ECLI court code, `HR`, `RBAMS`.")
     tier: str | None = Field(
-        description="`hoge_raad`, `gerechtshof`, `rechtbank` or `bijzonder`."
+        description="The tier, the Type of the court in the Instanties value list: "
+        "`hoge_raad`, `raad_van_state`, `parket`, `gerechtshof`, `rechtbank`, "
+        "`andere_instantie`, … (`/api/stats/coverage` lists those present).",
+    )
+    court_kind: str | None = Field(
+        default=None,
+        description="The kind of court within the tier (`ambtenarengerecht`; a tier of "
+        "one kind of court is its own kind).",
     )
     date: str | None = Field(description="Date of the judgment, YYYY-MM-DD.")
     display_name: str | None
@@ -339,6 +374,7 @@ class ArticleCitedByItem(QualifierFields):
                 ecli=props.get("ecli"),
                 court=props.get("court_code"),
                 tier=props.get("tier"),
+                court_kind=props.get("court_kind"),
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
             ),
@@ -364,21 +400,40 @@ class ArticleCitedByResponse(BaseModel):
     total: int = Field(
         description="Every passage that matches the filters, independent of `limit`."
     )
+    judgment_total: int = Field(
+        description="The judgments those passages are in: a judgment that cites the "
+        "article in three places is three passages and one judgment."
+    )
 
 
 class LegislativeHistoryEntry(BaseModel):
-    """One entry in the legislative history of an article."""
+    """One change of an article in one dossier: the dossier, and the amending publication
+    (enacted) or the bill (proposed) that made or proposes the change."""
 
     model_config = ConfigDict(extra="forbid")
 
-    dossier_id: str | None = None
-    dossier_number: str | None = None
+    dossier_id: str | None = Field(
+        None,
+        description="Arango _id of the dossier; null when the publication names a dossier "
+        "that is not in the graph.",
+    )
+    dossier_number: str
     dossier_title: str | None = None
-    date: str | None = None
-    kind: str | None = None
-    status: str | None = None
+    date: str | None = Field(
+        None, description="Of the bill, or the publication date of the publication."
+    )
+    kind: str | None = Field(
+        None,
+        description="Document kind of a bill, publication kind (`Stb`) of a publication.",
+    )
+    change: Literal["amends", "introduces", "repeals"]
+    status: str | None = Field(
+        None, description="`canoniek` (enacted) or `voorgesteld` (proposed)."
+    )
     summary: str | None = None
-    document_id: str | None = None
+    document_id: str = Field(
+        ..., description="Arango _id of the publication or the bill."
+    )
 
 
 class ArticleLegislativeHistoryResponse(BaseModel):
@@ -414,10 +469,9 @@ class ArticleExplanationDTO(BaseModel):
     target: ExplanationTarget = Field(
         ...,
         description=(
-            "What the edge points at: the 'article', one of its versions "
-            "('article_version') or its 'instrument'. An 'instrument' explanation "
-            "is written only when the dossier's law changed no articles at all, so "
-            "it says nothing about this article in particular."
+            "What the edge points at: the 'article' or one of its versions "
+            "('article_version'). An explanation of the article's law as a whole is "
+            "none of this article, and is not listed."
         ),
     )
     target_id: str = Field(
@@ -480,16 +534,6 @@ class ArticleExplanationsResponse(BaseModel):
     items: list[ArticleExplanationDTO]
 
 
-class ArticleInFluxResponse(BaseModel):
-    """In-flux status for an article."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    article_id: str
-    in_flux: bool
-    open_dossier_count: int
-
-
 class ArticleVersionDTO(BaseModel):
     """One dated version of an article, with the publication that produced it."""
 
@@ -497,9 +541,18 @@ class ArticleVersionDTO(BaseModel):
 
     key: str
     article_number: str | None = None
+    label: str | None = Field(
+        None,
+        description="`Artikel 287`, or the heading of an article without a number.",
+    )
     valid_from: str | None = None
-    valid_until: str | None = None
+    valid_until: str | None = Field(None, description=VALID_UNTIL)
     current: bool = False
+    official_url: str | None = Field(
+        None,
+        description="This version on wetten.overheid.nl: the JCI with ``g`` its "
+        "``valid_from``.",
+    )
     text: str | None = None
     parts: list[ArticlePartDTO] = Field(
         default_factory=list, description="As on the article: spans of `text`."
@@ -507,7 +560,10 @@ class ArticleVersionDTO(BaseModel):
     effect: str | None = Field(None, description="Raw BWB effect of this version.")
     change: str | None = Field(
         None,
-        description="Normalised effect: 'introduces', 'amends', 'repeals' or null.",
+        description=(
+            "Normalised effect: 'introduces', 'amends', 'repeals', 'republishes' (the text "
+            "placed again, unchanged: a republication, as of the Grondwet) or null."
+        ),
     )
     source_publication: str | None = None
     amended_by: PublicationDTO | None = Field(
@@ -526,9 +582,15 @@ class ArticleVersionDTO(BaseModel):
         return cls(
             key=doc["_key"],
             article_number=props.get("article_number"),
+            label=props.get("label"),
             valid_from=props.get("valid_from"),
             valid_until=props.get("valid_until"),
             current=bool(props.get("current", False)),
+            official_url=article_url(
+                props.get("bwb_id"),
+                props.get("article_number"),
+                on=props.get("valid_from"),
+            ),
             text=props.get("text"),
             parts=parts_from_props(props),
             effect=effect,

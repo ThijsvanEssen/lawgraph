@@ -7,12 +7,9 @@ import itertools
 from collections.abc import Iterator, Sequence
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
-from lawgraph.config.constants import (
-    RAW_KIND_RS_CONTENT,
-    RECHTSPRAAK_COURT_GROUPS,
-    RECHTSPRAAK_COURTS,
-    SOURCE_RECHTSPRAAK,
-)
+from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.core.courts import owms_terms
+from lawgraph.core.judgments import Referral
 from lawgraph.core.logging import get_logger
 from lawgraph.db import ArangoStore
 
@@ -31,16 +28,10 @@ logger = get_logger(__name__)
 
 
 def resolve_courts(names: Sequence[str]) -> list[str]:
-    """OWMS terms of court names or groups (``hr``, ``rvs``, ``hoven``); unknown names raise."""
-    terms: list[str] = []
-    for name in names:
-        for key in RECHTSPRAAK_COURT_GROUPS.get(name, (name,)):
-            if key not in RECHTSPRAAK_COURTS:
-                known = sorted({*RECHTSPRAAK_COURTS, *RECHTSPRAAK_COURT_GROUPS})
-                raise ValueError(f"unknown court {name!r}; known: {', '.join(known)}")
-            if RECHTSPRAAK_COURTS[key] not in terms:
-                terms.append(RECHTSPRAAK_COURTS[key])
-    return terms
+    """OWMS terms of courts (an ECLI code: ``HR``, ``GHAMS``) or tiers (``gerechtshof``), from
+    the court table (``core.courts.owms_terms``); unknown names raise. ``all`` is every court:
+    no terms, so the index is not filtered by court."""
+    return owms_terms(names)
 
 
 class RechtspraakRetrievePipeline(RetrievePipelineBase):
@@ -52,6 +43,30 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.rs = rs_client or RechtspraakClient()
 
+    def _referring_decisions(
+        self, referrals: Sequence[Referral]
+    ) -> dict[str, dt.datetime | None]:
+        """The decisions *referrals* name, from the index of each referral date (every
+        court: the text names the court in words), by case number; one request per date."""
+        found: dict[str, dt.datetime | None] = {}
+        for date in sorted({r.date for r in referrals if r.date}):
+            day = dt.date.fromisoformat(date)
+            entries = list(self.rs.iter_index(date_from=day, date_to=day))
+            for referral in (r for r in referrals if r.date == date):
+                found.update(
+                    (entry.ecli, entry.updated)
+                    for entry in entries
+                    if referral.names(entry.case_numbers)
+                )
+        if referrals:
+            logger.info(
+                "Rechtspraak: %d referrals of preliminary rulings, %d decisions found in "
+                "the index of their dates.",
+                len(referrals),
+                len(found),
+            )
+        return found
+
     def fetch(  # type: ignore[override]
         self,
         *,
@@ -60,6 +75,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         date_to: dt.date | None = None,
         modified_from: dt.datetime | None = None,
         eclis: Sequence[str] | None = None,
+        referrals: Sequence[Referral] | None = None,
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
         """Yield the content of each judgment as it is downloaded.
@@ -67,9 +83,14 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         *courts* (names as in ``resolve_courts``) selects judgments through the index, by
         decision date when *date_from* is given; a judgment already stored and not changed
         since is skipped. *eclis* are fetched as they are, unless stored in the last 24 hours.
+        *referrals* (by case number and date) are looked up in the index of their date.
         """
         stored = self._stored_at(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT)
         todo: dict[str, dt.datetime | None] = {}
+        for ecli, updated in self._referring_decisions(referrals or []).items():
+            have = stored.get(ecli)
+            if not (have and updated and have >= updated):
+                todo[ecli] = updated
 
         if courts:
             skipped = 0

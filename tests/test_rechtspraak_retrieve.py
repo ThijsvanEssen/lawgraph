@@ -11,8 +11,7 @@ import pytest
 import requests
 
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
-from lawgraph.config.constants import RECHTSPRAAK_COURT_GROUPS
-from lawgraph.core.judgments import IndexEntry, parse_index
+from lawgraph.core.judgments import IndexEntry, Referral, parse_index
 from lawgraph.pipelines.retrieve.rechtspraak import (
     RechtspraakRetrievePipeline,
     resolve_courts,
@@ -112,6 +111,14 @@ def test_without_dates_the_whole_history_is_asked_for() -> None:
     assert "date" not in calls[0]["params"]
 
 
+def test_without_courts_every_court_is_asked_for() -> None:
+    calls: list[dict] = []
+    day = dt.date(2021, 1, 15)
+    list(_client([_page(0)], calls).iter_index(date_from=day, date_to=day))
+    assert "creator" not in calls[0]["params"]
+    assert calls[0]["params"]["date"] == ["2021-01-15", "2021-01-15"]
+
+
 def test_every_page_is_read_until_a_short_one() -> None:
     calls: list[dict] = []
     client = _client(
@@ -141,19 +148,33 @@ def test_a_failing_page_raises_after_the_earlier_ones_were_yielded() -> None:
 # ── which courts ─────────────────────────────────────────────────────────────
 
 
-def test_short_names_and_groups_resolve_to_owms_terms() -> None:
-    assert resolve_courts(["hr", "rvs"]) == [
+def test_codes_and_tiers_resolve_to_the_owms_terms_of_the_court_table() -> None:
+    assert resolve_courts(["HR", "rvs"]) == [
         "Hoge_Raad_der_Nederlanden",
         "Raad_van_State",
     ]
-    hoven = resolve_courts(["hoven"])
+    hoven = resolve_courts(["gerechtshof"])
     assert "Gerechtshof_Amsterdam" in hoven and "Gerechtshof_'s-Hertogenbosch" in hoven
-    assert len(hoven) == len(RECHTSPRAAK_COURT_GROUPS["hoven"])
+    # the courts of appeal before 2013 too: the index keeps their judgments
+    assert "Gerechtshof_Leeuwarden" in hoven and len(hoven) == 7
+
+
+def test_a_court_the_index_cannot_be_filtered_by_or_an_unknown_name_raises() -> None:
+    with pytest.raises(ValueError, match="cannot be filtered"):
+        resolve_courts(["XX"])  # the foreign courts: no OWMS term
+    with pytest.raises(ValueError, match="unknown court"):
+        resolve_courts(["hoven"])
+
+
+def test_all_is_every_court_so_no_filter_at_all() -> None:
+    """The rechtbanken and every other court of the index are in it, none left out."""
+    assert resolve_courts(["all"]) == []
+    assert resolve_courts(["HR", "all"]) == []
 
 
 def test_a_court_is_listed_once() -> None:
     assert (
-        resolve_courts(["hr", "hr", "hoven", "gh-amsterdam"]).count(
+        resolve_courts(["HR", "hr", "gerechtshof", "GHAMS"]).count(
             "Gerechtshof_Amsterdam"
         )
         == 1
@@ -161,8 +182,8 @@ def test_a_court_is_listed_once() -> None:
 
 
 def test_an_unknown_court_is_named_with_the_known_ones() -> None:
-    with pytest.raises(ValueError, match="unknown court 'rechtbank'.*hr"):
-        resolve_courts(["rechtbank"])
+    with pytest.raises(ValueError, match="unknown court 'nope'.*gerechtshof"):
+        resolve_courts(["nope"])
 
 
 # ── the pipeline ─────────────────────────────────────────────────────────────
@@ -178,7 +199,9 @@ class _Rs:
         self.fetched: list[str] = []
         self.late: list[IndexEntry] = []  # what only the modified listing names
 
-    def iter_index(self, *, courts, date_from=None, date_to=None, modified_from=None):
+    def iter_index(
+        self, *, courts=(), date_from=None, date_to=None, modified_from=None
+    ):
         call = {"courts": courts, "from": date_from, "to": date_to}
         if modified_from is not None:
             call["modified_from"] = modified_from
@@ -230,10 +253,18 @@ def test_every_judgment_of_the_index_is_downloaded_and_stored() -> None:
 def test_the_courts_and_dates_reach_the_index() -> None:
     rs = _Rs([])
     pipeline, _ = _pipeline(rs)
-    pipeline.run(courts=["hr", "hoven"], date_from=dt.date(2024, 9, 20))
+    pipeline.run(courts=["hr", "gerechtshof"], date_from=dt.date(2024, 9, 20))
     call = rs.index_calls[0]
     assert call["courts"][0] == "Hoge_Raad_der_Nederlanden" and len(call["courts"]) == 8
     assert call["from"] == dt.date(2024, 9, 20)
+
+
+def test_every_court_reads_the_index_without_a_court_filter() -> None:
+    rs = _Rs([_entry("ECLI:NL:RBAMS:2025:1"), _entry("ECLI:NL:HR:2025:1")])
+    pipeline, _ = _pipeline(rs)
+    pipeline.run(courts=["all"], date_from=dt.date(2024, 9, 20))
+    assert rs.index_calls[0]["courts"] == []
+    assert rs.fetched == ["ECLI:NL:RBAMS:2025:1", "ECLI:NL:HR:2025:1"]
 
 
 def test_a_judgment_stored_after_its_last_change_is_not_downloaded_again() -> None:
@@ -292,9 +323,35 @@ def test_a_failing_index_is_an_error_and_stores_nothing() -> None:
     assert store.records == [] and "no route" in result.errors[0]
 
 
+def test_a_referral_is_found_in_the_index_of_its_date_by_case_number() -> None:
+    """ECLI:NL:HR:2021:1725 names "8527084 VZ VERZ 20-9656 van 15 januari 2021"; the
+    titles are those of the index of that day."""
+    listed = [
+        IndexEntry(
+            ecli=ecli,
+            updated=dt.datetime(2021, 2, 1, tzinfo=UTC),
+            title=f"{ecli}, Rechtbank Rotterdam, 15-01-2021, {numbers}",
+        )
+        for ecli, numbers in (
+            ("ECLI:NL:RBROT:2021:207", "8527084 VZ VERZ 20-9656"),
+            ("ECLI:NL:RBROT:2021:197", "8398405 CV EXPL 20-9220"),
+        )
+    ]
+    rs = _Rs(listed)
+    referrals = [
+        Referral(case_numbers=("8527084 VZ VERZ 20-9656",), date="2021-01-15"),
+        Referral(case_numbers=("9999999 CV EXPL 20-1",), date="2021-01-15"),
+    ]
+    pipeline, store = _pipeline(rs)
+    pipeline.run(referrals=referrals)
+    day = dt.date(2021, 1, 15)
+    assert rs.index_calls == [{"courts": (), "from": day, "to": day}]  # once per date
+    assert rs.fetched == ["ECLI:NL:RBROT:2021:207"]
+
+
 def test_an_unknown_court_is_an_error_of_the_step() -> None:
     pipeline, store = _pipeline(_Rs([]))
-    result = pipeline.run(courts=["rechtbank"])
+    result = pipeline.run(courts=["nope"])
     assert store.records == [] and "unknown court" in result.errors[0]
 
 
@@ -338,8 +395,15 @@ def cli(monkeypatch):
     return lambda argv: (retrieve_commands.retrieve_rechtspraak(argv), seen)[1]
 
 
-def test_the_default_courts_are_the_hoge_raad_raad_van_state_and_the_hoven(cli) -> None:
-    assert cli([])["courts"] == ["hr", "rvs", "hoven"]
+def test_the_default_is_every_court(cli) -> None:
+    assert cli([])["courts"] == ["all"]
+
+
+def test_court_narrows_the_default(cli) -> None:
+    assert cli(["--court", "hr", "--court", "gerechtshof"])["courts"] == [
+        "hr",
+        "gerechtshof",
+    ]
 
 
 def test_only_eclis_means_no_courts(cli) -> None:

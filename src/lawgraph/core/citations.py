@@ -32,7 +32,8 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, is_bwb_id
+from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.xml import XML_TAG_RE
 
@@ -78,6 +79,9 @@ class CitationHit:
     # ``raw_match``. Unset for a hit that was not read from a text.
     start: int | None = None
     end: int | None = None
+    # The law as the text writes it ("Rv", "Vw 2000"), for a citation of a law the registry
+    # does not know: then *bwb_id* and *celex* are unset (``extract(unknown_laws=True)``).
+    unknown_law: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -160,8 +164,9 @@ def strip_xml(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 # Article number: plain (140), with letters (36e, 189a, 126aa, 420bis), with colon or dot parts
-# (6:162, 7a:1576h, 3.26, 6.2.8, 1.1a)
-ARTICLE_NUMBER_PATTERN = r"\d+[a-z]?(?:[.:]\d+)*[a-z]{0,3}"
+# (6:162, 7a:1576h, 3.26, 6.2.8, 1.1a). The letters are lower case also where the rest of a
+# citation is matched without regard to case: in "artikel 82Sr" the "Sr" is the law.
+ARTICLE_NUMBER_PATTERN = r"\d+(?-i:[a-z])?(?:[.:]\d+)*(?-i:[a-z]{0,3})"
 
 # A code made of a family and a book, like ``BW6`` or ``BW7A``: the family (``BW``) is what
 # a citation names, the book comes from the article number (``artikel 6:162 BW``).
@@ -232,6 +237,25 @@ _HIERNA_RE = re.compile(
     r"\s*\(hierna:?\s*(?:de\s+|het\s+)?(?:te noemen\s+)?(?P<alias>[^()]{1,40}?)\s*\)",
     re.IGNORECASE,
 )
+# A law the registry does not know, as a citation writes it after the article: an
+# abbreviation (``Rv``, ``RO``, ``AWR``, ``Vw 2000``) or a name of one word (``Opiumwet``,
+# ``Vreemdelingenwet 2000``), with its year. A name of several words ("Wet op de rechterlijke
+# organisatie") has no end the text marks, so it is not read, nor is the first word of one
+# ("Invoeringswet Boeken 3, 5 en 6", "Rijkswet op het Nederlanderschap").
+_UNKNOWN_LAW_RE = re.compile(
+    r"(?P<law>(?:[A-Z][A-Za-z]*[A-Z][A-Za-z]*|[A-Z][a-z]{1,3}"
+    r"|(?P<name>[A-Z][a-z]+(?:wet|wetboek|besluit|verordening|reglement)))"
+    r"(?:\s+(?:18|19|20)\d{2})?)(?![\w-])"
+    r"(?(name)(?!\s+(?:[A-Z]|(?:op|van|tot|inzake|betreffende|houdende)\b)))"
+)
+# Words that stand after an article number without naming a law: the start of a sentence or
+# of a name of several words, a court, a part of a law, and a heading in capitals ("EN").
+_NOT_A_LAW = frozenset(
+    "AAN AARD ALLE ALS BIJ BOEK CODE DAN DAT DE DEZE DIE DIT DOOR DRIE EEN ELKE EN ER GEEN "
+    "HET HIJ HOF HR IK IN IS JO LID MET NA NOTA NU OF OM ONZE OOK OP SUB TE TEN TER TITEL "
+    "TOT TWEE UIT UW VAN VIER VOOR WET WIJ ZIJ ZO".split()
+)
+CONFIDENCE_UNKNOWN_LAW = 0.8
 _MAX_NAME_WORDS = 12
 _MIN_NAME_LENGTH = 5
 # How far back "die wet" may look for the law it means.
@@ -262,7 +286,23 @@ def parse_article_numbers(raw: str) -> list[str]:
         for p in parts
         if p.strip() and re.fullmatch(ARTICLE_NUMBER_PATTERN, p.strip(), re.IGNORECASE)
     ]
-    return result or [raw]
+    # No article is numbered with a leading zero: "047" is a typing error.
+    return [n for n in result or [raw] if not n.startswith("0")]
+
+
+def number_shape(number: str) -> str:
+    """How an article number is built: every run of digits is ``9``, every run of letters
+    ``a`` (``6:162`` is ``9:9``, ``36e`` is ``9a``, ``420bis.1`` is ``9a.9``); an article of
+    an annex (``bijlage 2 artikel 9``) is ``annex``.
+
+    A law numbers its articles in a few ways (the Awb ``9:9`` and ``9:9a``, the Omgevingswet
+    ``9.9``, the Wetboek van Strafrecht ``9``, ``9a`` and ``9a.9``), so a number of a shape
+    none of its articles has does not cite one of them: ``140.1 Sr`` (``9.9``) is article
+    140, first lid, written short.
+    """
+    if number.startswith("bijlage "):
+        return "annex"
+    return re.sub(r"[a-z]+", "a", re.sub(r"\d+", "9", number.lower()))
 
 
 def name_key(text: str) -> str:
@@ -306,10 +346,11 @@ class DutchCitationExtractor:
     that is a known name, so any number of names costs nothing per citation), by a family
     code, or by a word that points back at the law named last.
 
-    A family code is not registered itself: ``BW`` is claimed by every book of the
-    Burgerlijk Wetboek, so only ``BW1``, ``BW2``, ... are. A citation of the family
-    resolves through the book in front of the colon (``6`` → ``BW6``) and cites the
-    article number after it (``162``).
+    A family code (``CODE_FAMILIES``: ``BW``) never stands for one regulation: a citation
+    of the family resolves through the book in front of the colon (``6`` → the BWB id of
+    book 6) and cites the article number after it (``162``), whichever books are loaded
+    and whatever the registry maps the family code to. Other codes made of a family and
+    a book (``BW7A``) add their book to the family.
 
     The law registry is injected at construction time.  Adding a code alias
     to the domain config automatically makes it detectable without touching
@@ -322,7 +363,9 @@ class DutchCitationExtractor:
         name_aliases: Mapping[str, str | None] | None = None,
     ) -> None:
         self._code_map: dict[str, str] = {
-            k.strip().upper(): v.strip() for k, v in code_aliases.items() if k and v
+            k.strip().upper(): v.strip()
+            for k, v in code_aliases.items()
+            if k and v and k.strip().upper() not in CODE_FAMILIES
         }
         self._name_map: dict[str, str] = {
             name_key(k): v.strip()
@@ -348,15 +391,19 @@ class DutchCitationExtractor:
         return re.compile(rf"{prefix}(?P<key>{alternatives})(?![\w])", re.IGNORECASE)
 
     def _group_books(self) -> dict[str, dict[str, str]]:
-        """``{"BW": {"6": <BW6 id>, ...}}`` for the codes that split into family and book.
+        """``{"BW": {"6": <BW6 id>, ...}}``: the known families, and the codes that split
+        into family and book.
 
-        A family that is a registered code itself is left alone: the code wins.
+        A family that is a registered code itself is left alone (the code wins), unless it
+        is a known family; a known book keeps the id ``CODE_FAMILIES`` gives it.
         """
         books: dict[str, dict[str, str]] = {}
         for code, law_id in self._code_map.items():
             match = _BOOK_CODE_RE.match(code)
             if match and match["family"] not in self._code_map:
                 books.setdefault(match["family"], {})[match["book"]] = law_id
+        for family, known in CODE_FAMILIES.items():
+            books.setdefault(family, {}).update(known)
         return books
 
     # ── which law ─────────────────────────────────────────────────────────────
@@ -446,14 +493,18 @@ class DutchCitationExtractor:
     # ── extraction ────────────────────────────────────────────────────────────
 
     def extract(
-        self, text: str, *, every_occurrence: bool = False
+        self, text: str, *, every_occurrence: bool = False, unknown_laws: bool = False
     ) -> list[CitationHit]:
         """Return the detected Dutch article citations in *text*.
 
         An article is reported once, at its first citation, unless *every_occurrence* asks
-        for a hit per citation.
+        for a hit per citation. With *unknown_laws* a citation of a law the registry does not
+        know (``artikel 392 Rv``) is a hit as well, with the law as written in
+        ``unknown_law`` and no id.
         """
-        if not text or not (self._code_map or self._name_map or self._books):
+        if not text or not (
+            self._code_map or self._name_map or self._books or unknown_laws
+        ):
             return []
 
         hits: list[CitationHit] = []
@@ -464,6 +515,12 @@ class DutchCitationExtractor:
         for match in ARTICLE_HEAD_RE.finditer(text):
             law = self._resolve_law(text, match.end(), local, last)
             if law is None:
+                if unknown_laws:
+                    hits.extend(
+                        self._unknown_hits(
+                            text, match, None if every_occurrence else seen
+                        )
+                    )
                 continue
             self._remember_alias(text, law, local)
             span = (match.start(), law.end)
@@ -473,6 +530,41 @@ class DutchCitationExtractor:
                 hits.append(hit)
                 last = (law.end, hit.bwb_id or hit.celex or "")
         return hits
+
+    @staticmethod
+    def _unknown_hits(
+        text: str,
+        match: re.Match[str],
+        seen: set[tuple[str | None, str | None, str]] | None,
+    ) -> Iterator[CitationHit]:
+        """The articles of a citation whose law is written as a law the registry does
+        not know (``_UNKNOWN_LAW_RE``); nothing when no law is written there."""
+        if _ANAPHORA_RE.match(text, match.end()):
+            return
+        pos = LAW_CONNECTOR_RE.match(text, match.end()).end()  # type: ignore[union-attr]
+        named = _UNKNOWN_LAW_RE.match(text, pos)
+        if not named or named["law"].split()[0].upper() in _NOT_A_LAW:
+            return
+        law = named["law"]
+        qualifier = (match.group("qual") or "").strip(", ") or None
+        span = (match.start(), named.end())
+        for number in parse_article_numbers(match.group("nums") or ""):
+            key = (None, law.upper(), number)
+            if seen is not None:
+                if key in seen:
+                    continue
+                seen.add(key)
+            yield CitationHit(
+                kind="article",
+                article_number=number,
+                qualifier=qualifier,
+                confidence=CONFIDENCE_UNKNOWN_LAW,
+                raw_match=text[span[0] : span[1]],
+                snippet=make_snippet(text, span),
+                start=span[0],
+                end=span[1],
+                unknown_law=law,
+            )
 
     def _remember_alias(self, text: str, law: _Law, local: dict[str, str]) -> None:
         """Register the name a citation gives its law: ``(hierna: de Awb)``."""
@@ -497,7 +589,9 @@ class DutchCitationExtractor:
             law_id, art_num = self._apply_family(law, raw_num)
             if not law_id:
                 continue
-            is_bwb = is_bwb_id(law_id)
+            is_bwb = (
+                parse_celex(law_id) is None
+            )  # a BWB id, or the pseudo id of the EVRM
             key = (law_id if is_bwb else None, None if is_bwb else law_id, art_num)
             if seen is not None:
                 if key in seen:

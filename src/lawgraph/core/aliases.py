@@ -1,11 +1,67 @@
-"""Instrument alias tables: law name -> ``(bwb_id, celex)``."""
+"""Instrument alias tables: law name -> ``(bwb_id, celex)``, abbreviation -> law id."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.curated import LISTS
+
 InstrumentAliasMap = dict[str, tuple[str | None, str | None]]
+
+
+def curated_abbreviations() -> dict[str, list[str]]:
+    """Law id -> the abbreviations kept by hand for it (``curated instrument-abbreviations``)."""
+    return {
+        law_id.upper(): list((value or {}).get("abbreviations") or [])
+        for law_id, value in LISTS["instrument-abbreviations"].entries().items()
+    }
+
+
+def code_aliases(
+    rows: Iterable[Mapping[str, Any]],
+    curated: Mapping[str, Sequence[str]] | None = None,
+) -> dict[str, str]:
+    """Abbreviation, as its source spells it -> the BWB id or CELEX number of the one law it
+    stands for.
+
+    *rows* are ``{bwb_id, celex, short_title, aliases}`` of the instruments in the graph;
+    *curated* adds abbreviations by law id (``curated instrument-abbreviations``), for the
+    laws among *rows* only. The sources rank: a short title, then the other abbreviations of
+    the source (the WTI's, ``WvSr`` beside ``Sr``), then the curated ones. An abbreviation is
+    decided by the first of them that has it, whatever the others say, and is the law's only
+    when one law has it there. Comparison ignores case. A code whose books are regulations of
+    their own (``BW``) and an alias that starts with a digit (``6 BW``: the number of a
+    citation stands there) are no abbreviation of one law.
+    """
+    tiers: list[dict[str, dict[str, str]]] = [{}, {}, {}]  # upper -> law id -> spelling
+    for row in rows:
+        law_id = normalize_instrument_id(row.get("bwb_id") or row.get("celex"))
+        if not law_id:
+            continue
+        sources = (
+            [row.get("short_title")],
+            row.get("aliases") or [],
+            (curated or {}).get(law_id, []),
+        )
+        for tier, names in zip(tiers, sources, strict=True):
+            for name in names:
+                spelled = str(name or "").strip()
+                key = spelled.upper()
+                if key and not key[0].isdigit() and key not in CODE_FAMILIES:
+                    tier.setdefault(key, {}).setdefault(law_id, spelled)
+    found: dict[str, str] = {}
+    decided: set[str] = set()
+    for tier in tiers:
+        for key, laws in tier.items():
+            if key in decided:
+                continue
+            decided.add(key)
+            if len(laws) == 1:
+                ((law_id, spelled),) = laws.items()
+                found[spelled] = law_id
+    return found
 
 
 def normalize_instrument_id(value: Any) -> str | None:

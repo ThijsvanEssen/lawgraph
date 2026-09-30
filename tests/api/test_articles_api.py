@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.schemas.articles import ArticleExplanationDTO
 from lawgraph.db.queries.articles import ArticleCitationEntry, ArticleDetailData
+from lawgraph.db.queries.instruments import LawOnADate
 
 client = TestClient(app)
 
@@ -160,12 +161,10 @@ def test_an_explanation_on_a_version_names_the_version_and_is_dossier_wide() -> 
     }
 
 
-def test_an_explanation_on_an_article_or_an_instrument_has_no_version_key() -> None:
+def test_an_explanation_on_an_article_has_no_version_key() -> None:
     article = _explanation(target_id="articles/bwbr0002_5")
-    instrument = _explanation(target_id="instruments/bwbr0002")
 
     assert (article.target, article.article_version_key) == ("article", None)
-    assert (instrument.target, instrument.article_version_key) == ("instrument", None)
 
 
 def test_an_explanation_with_a_section_anchor_is_scoped_to_the_article() -> None:
@@ -230,3 +229,47 @@ def test_explained_by_bounds_its_page() -> None:
     for params in ({"limit": 0}, {"limit": 501}, {"offset": -1}):
         response = client.get("/api/articles/BWBR0002/5/explained-by", params=params)
         assert response.status_code == 422, params
+
+
+def test_the_articles_on_a_date_are_paged_with_a_preview(monkeypatch):
+    asked: list[tuple] = []
+    version = {
+        "_key": "bwbr0001854_av_287_1",
+        "props": {
+            "bwb_id": "BWBR0001854",
+            "article_number": "287",
+            "valid_from": "2020-01-01",
+            "valid_until": None,
+            "current": True,
+            "text": "Hij die opzettelijk een ander van het leven berooft",
+        },
+    }
+
+    def fake(store, bwb_id, at_date, *, limit, offset):
+        asked.append((bwb_id, at_date, limit, offset))
+        return LawOnADate(items=[version], total=41, first_version_from="2002-04-01")
+
+    monkeypatch.setattr("lawgraph.api.routes.instruments.get_articles_at", fake)
+    body = client.get(
+        "/api/instruments/BWBR0001854/articles/at/2024-01-01",
+        params={"limit": 1, "offset": 40, "text_preview_chars": 3},
+    ).json()
+
+    assert asked == [("BWBR0001854", "2024-01-01", 1, 40)]
+    assert body["total"] == 41 and body["at_date"] == "2024-01-01"
+    (article,) = body["items"]
+    assert article["text_preview"] == "Hij"
+    assert article["text"] is None  # the preview was asked for
+    assert article["official_url"]
+    assert body["first_version_from"] == "2002-04-01"
+
+    whole = client.get("/api/instruments/BWBR0001854/articles/at/2024-01-01").json()
+    assert asked[1][2:] == (2000, 0)  # the defaults of /articles
+    assert whole["items"][0]["text"] == version["props"]["text"]
+
+
+def test_the_articles_on_a_date_bound_their_page_and_preview():
+    path = "/api/instruments/BWBR0001854/articles/at/2024-01-01"
+    for query in ("limit=0", "limit=2001", "offset=-1", "text_preview_chars=601"):
+        assert client.get(f"{path}?{query}").status_code == 422, query
+    assert client.get(f"{path.rsplit('/', 1)[0]}/2024-13-01").status_code == 422

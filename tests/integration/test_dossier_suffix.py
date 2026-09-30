@@ -9,12 +9,14 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
+    RAW_KIND_EK_KAMERSTUK,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_STEMMING,
     RAW_KIND_TK_ZAAK,
+    SOURCE_EERSTEKAMER,
     SOURCE_TK,
 )
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
@@ -35,6 +37,12 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
     return [
         (RAW_KIND_TK_DOSSIER, {**miljoenennota, "Titel": "Miljoenennota 2027"}),
         (RAW_KIND_TK_DOSSIER, {**CHAPTER, "Titel": ZAAK["Titel"]}),
+        # A sub-series of the EU council dossier, and a Koninkrijksrijkswet.
+        (RAW_KIND_TK_DOSSIER, {"Id": uid(3, 3), "Nummer": 21501, "Toevoeging": "31"}),
+        (
+            RAW_KIND_TK_DOSSIER,
+            {"Id": uid(4, 3), "Nummer": 36956, "Toevoeging": "(R2220)"},
+        ),
         (RAW_KIND_TK_FRACTIE, {"Id": uid(1, 8), "Afkorting": "F1", "NaamNL": "F1"}),
         (RAW_KIND_TK_ZAAK, ZAAK),
         (
@@ -121,39 +129,40 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
     dossiers = store.db.collection("dossiers")
     budget, nota = dossiers.get("37020_xv")["props"], dossiers.get("37020")["props"]
     assert budget["case_kinds"] == ["Begroting"]
-    assert budget["current_stage"] is not None
+    assert budget["kind"] == "Begroting"
     assert not nota.get("case_kinds")
-    assert nota["current_stage"] is None
+    assert nota.get("kind") is None and nota.get("phases") is None
 
     # The API names the chapter by its label, and finds it by that label.
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
-        _senate_papers(store)
-        wait_for_views(store, {"search_dossiers": 2, "search_documents": 3})
+        _senate_papers(store, cli)
+        wait_for_views(store, {"search_dossiers": 4, "search_documents": 3})
         _api_names_the_chapter_by_its_label(client)
     finally:
         app.dependency_overrides.pop(get_store, None)
 
 
-def _senate_papers(store: ArangoStore) -> None:
-    """Eerste Kamer papers keep the number and the suffix of their dossier apart."""
-    store.bulk_insert_or_update_nodes(
-        "documents",
-        [
-            {
-                "_key": f"ek_{number}_{suffix}",
-                "type": "document",
-                "labels": ["EersteKamer", "EK"],
-                "props": {
-                    "title": f"Begrotingsstaat {number} {suffix}",
-                    "dossier_number": number,
-                    **({"dossier_suffix": suffix} if suffix else {}),
-                },
-            }
-            for number, suffix in (("37020", "XV"), ("37021", None))
-        ],
-    )
+def _senate_papers(store: ArangoStore, cli: Any) -> None:
+    """Eerste Kamer papers name their dossier as ``37020 XV``: normalize gives them the
+    label a Tweede Kamer paper has."""
+    with RawSourceWriter(store) as writer:
+        for number in ("37020 XV", "37021"):
+            identifier = f"kst-{number.replace(' ', '-')}-A"
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_EERSTEKAMER,
+                    kind=RAW_KIND_EK_KAMERSTUK,
+                    external_id=identifier,
+                    payload_json={
+                        "identifier": identifier,
+                        "document_title": f"Begrotingsstaat {number}",
+                        "dossier_number": number,
+                    },
+                )
+            )
+    cli("normalize", "eerstekamer")
 
 
 def _get(client: TestClient, path: str, **params: Any) -> Any:
@@ -165,19 +174,19 @@ def _get(client: TestClient, path: str, **params: Any) -> Any:
 def _api_names_the_chapter_by_its_label(client: TestClient) -> None:
     chapter = _get(client, "/api/dossiers/37020-XV")
     assert (chapter["key"], chapter["number"]) == ("37020_xv", "37020-XV")
-    assert chapter["current_stage"] is not None
+    assert chapter["kind"] == "Begroting"
     nota = _get(client, "/api/dossiers/37020")
     assert (nota["key"], nota["number"]) == ("37020", "37020")
+    # Every label the graph holds opens its dossier.
+    for label, key in (("21501-31", "21501_31"), ("36956-(R2220)", "36956_r2220")):
+        dossier = _get(client, f"/api/dossiers/{label}")
+        assert (dossier["key"], dossier["number"]) == (key, label)
 
-    bulk = _get(client, "/api/dossiers/documents/bulk", numbers="37020,37020-XV,1")
-    assert sorted(bulk["items"]) == ["37020", "37020-XV"]
-    assert [len(bulk["items"][n]) for n in ("37020", "37020-XV")] == [0, 1]
-
-    document = _get(client, "/api/documents", dossier="37020-XV")["items"]
-    assert len(document) == 1
-    links = _get(client, f"/api/documents/{document[0]['key']}")
+    # The paper of the chapter is in the chapter, not in the nota.
+    (paper,) = _get(client, "/api/dossiers/37020-XV/documents")["items"]
+    links = _get(client, f"/api/documents/{paper['key']}")
     assert links["dossier_numbers"] == ["37020-XV"]
-    assert _get(client, "/api/documents", dossier="37020")["total"] == 0
+    assert _get(client, "/api/dossiers/37020/documents")["total"] == 0
 
     assert _get(client, "/api/decisions", dossier="37020-XV")["total"] == 1
     assert _get(client, "/api/decisions", dossier="37020")["total"] == 0

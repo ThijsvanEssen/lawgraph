@@ -1,7 +1,6 @@
 """Committee, member and faction endpoints.
 
 GET /api/committees                          — every committee
-GET /api/committees/with-members             — every committee with its members
 GET /api/committees/{slug}                   — one committee in full
 GET /api/committees/{slug}/activities        — the activities it leads
 GET /api/members                             — members of parliament
@@ -17,6 +16,7 @@ GET /api/factions/{key}/touched-instruments  — the laws a party changes most
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -29,9 +29,12 @@ from lawgraph.api.schemas.committees import (
     CommitteeActivityDTO,
     CommitteeDetailDTO,
     CommitteeDTO,
-    CommitteeWithMembersDTO,
+    EkFactionVoteDTO,
+    EkFactionVotesResponse,
+    EkSourceDTO,
     FactionDetailDTO,
     FactionDTO,
+    MemberDetailDTO,
     MemberDTO,
     MemberVoteDTO,
     MemberVotesResponse,
@@ -39,7 +42,9 @@ from lawgraph.api.schemas.committees import (
     TouchedInstrumentsResponse,
 )
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
+from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
 from lawgraph.core.cache import _MISSING, TTLCache
+from lawgraph.core.eerstekamer_votes import VOTES_PATH
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.committees import (
     get_actor_dossiers,
@@ -47,7 +52,8 @@ from lawgraph.db.queries.committees import (
     get_committee_activities,
     get_committee_detail,
     get_committees,
-    get_committees_with_members,
+    get_ek_faction_votes,
+    get_ek_members,
     get_factions,
     get_member_votes,
     get_members,
@@ -57,11 +63,6 @@ from lawgraph.db.queries.dossiers import enrich_dossier_docs
 router = APIRouter()
 members_router = APIRouter()
 factions_router = APIRouter()
-
-# Committee membership changes rarely, and the bulk shape is what the
-# parliamentary layer loads first, so a short cache spares every cold click
-# the aggregation.
-_bulk_cache: TTLCache[str, Any] = TTLCache(maxsize=32)
 
 # A faction's dossiers walk every AUTHORED edge of every member it ever had, so a page
 # is worth keeping for the next click.
@@ -79,37 +80,18 @@ _faction_dossiers_cache: TTLCache[tuple[str, int, int], ActorDossiersResponse] =
 )
 def list_committees(
     store: Annotated[ArangoStore, Depends(get_store)],
+    chamber: Annotated[
+        Literal["TK", "EK"],
+        Query(
+            description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
+            "(periods as observed: ``observed_from``, ``observed_until``)."
+        ),
+    ] = "TK",
 ) -> list[CommitteeDTO]:
     return [
-        CommitteeDTO.from_document(
-            doc, active_dossier_count=doc.get("active_dossier_count") or 0
-        )
-        for doc in get_committees(store)
+        CommitteeDTO.from_document(doc)
+        for doc in get_committees(store, chamber=chamber)
     ]
-
-
-@router.get(
-    "/with-members",
-    response_model=list[CommitteeWithMembersDTO],
-    summary="All committees with their members",
-    description=(
-        "One query returns every committee with its current members. The "
-        "alternative is a separate call per committee, 130 times over."
-    ),
-    tags=["committees"],
-)
-def list_committees_with_members(
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> list[CommitteeWithMembersDTO]:
-    cached = _bulk_cache.get("with_members")
-    if cached is not _MISSING:
-        return cached  # type: ignore[return-value]
-    response = [
-        CommitteeWithMembersDTO.from_document(doc)
-        for doc in get_committees_with_members(store)
-    ]
-    _bulk_cache.set("with_members", response)
-    return response
 
 
 @router.get(
@@ -182,9 +164,12 @@ def list_committee_activities(
     response_model=list[MemberDTO],
     summary="Members of parliament",
     description=(
-        "Members of parliament, optionally filtered by party or name. By "
-        "default only people who ever held a seat; pass "
-        "``?include_all=true`` to include ministers and other non-members."
+        "Members of parliament, optionally filtered by party or name, each with the "
+        "posts they held in a cabinet (``government_functions``). By default only "
+        "people who ever held a seat; ``?include_all=true`` includes ministers and "
+        "other non-members, ``capacity=bewindspersoon`` keeps everyone who held a post "
+        "in a cabinet and ``cabinet`` those who held one in that cabinet. A record "
+        "without a name is never listed."
     ),
     tags=["members"],
 )
@@ -198,15 +183,39 @@ def list_members(
     ] = None,
     q: Annotated[str | None, Query(description="Name substring.")] = None,
     include_all: Annotated[bool, Query()] = False,
+    capacity: Annotated[
+        Literal["bewindspersoon"] | None,
+        Query(
+            description="``bewindspersoon``: only those who held a post in a cabinet."
+        ),
+    ] = None,
+    cabinet: Annotated[
+        str | None,
+        Query(description="Only those who held a post in this cabinet (key)."),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
+    chamber: Annotated[
+        Literal["TK", "EK"],
+        Query(
+            description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
+            "(periods as observed: ``observed_from``, ``observed_until``)."
+        ),
+    ] = "TK",
 ) -> list[MemberDTO]:
+    if chamber == "EK":
+        ek = get_ek_members(
+            store, party=party, active=active, q=q, limit=limit, offset=offset
+        )
+        return [_as_ek_member(MemberDTO.from_document(d)) for d in ek]
     docs = get_members(
         store,
         party=party,
         active=active,
         q=q,
         include_all=include_all,
+        government=capacity == "bewindspersoon",
+        cabinet=cabinet,
         limit=limit,
         offset=offset,
     )
@@ -215,17 +224,20 @@ def list_members(
 
 @members_router.get(
     "/{key}",
-    response_model=MemberDTO,
+    response_model=MemberDetailDTO,
     summary="Member detail",
-    description="One member of parliament or minister.",
+    description=(
+        "One member of parliament or minister, with the posts they held in a cabinet "
+        "(`government_functions`, from Rijksoverheid)."
+    ),
     tags=["members"],
 )
 def get_member(
     key: str,
     store: Annotated[ArangoStore, Depends(get_store)],
-) -> MemberDTO:
+) -> MemberDetailDTO:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    return MemberDTO.from_document(_as_document(node))
+    return MemberDetailDTO.from_document(_as_document(node))
 
 
 @members_router.get(
@@ -262,8 +274,9 @@ def list_member_votes(
     description=(
         "The dossiers in which this member signed or submitted documents "
         "(``AUTHORED``), newest opened first. Each dossier carries the roles "
-        "the member had there and the number of documents. ``total`` is the "
-        "absolute count."
+        "the member had there, the functions and capacities they signed in "
+        "(``kamerlid``, ``bewindspersoon``, ``overig``) and the number of documents. "
+        "``total`` is the absolute count."
     ),
     tags=["members"],
 )
@@ -313,10 +326,17 @@ def list_factions(
         bool | None, Query(description="Only (in)active parties.")
     ] = None,
     q: Annotated[str | None, Query(description="Name or abbreviation.")] = None,
+    chamber: Annotated[
+        Literal["TK", "EK"],
+        Query(
+            description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
+            "(periods as observed: ``observed_from``, ``observed_until``)."
+        ),
+    ] = "TK",
 ) -> list[FactionDTO]:
     return [
         FactionDTO.from_document(doc, member_count=int(doc.get("member_count") or 0))
-        for doc in get_factions(store, active=active, q=q)
+        for doc in get_factions(store, active=active, q=q, chamber=chamber)
     ]
 
 
@@ -373,6 +393,62 @@ def list_faction_dossiers(
 
 
 @factions_router.get(
+    "/{key}/votes",
+    response_model=EkFactionVotesResponse,
+    summary="How a faction of the Eerste Kamer voted",
+    description=(
+        "The votes of the Eerste Kamer that name this faction (its list of votes on "
+        "bills, since June 2015), newest first, with the faction's choice as the list "
+        "names it (``voor``, ``tegen``, ``aantekening gevraagd``) and the counts per "
+        "choice. ``bill_decision`` tells the vote on the bill from one on a motion on it. "
+        "Only a faction of the Eerste Kamer (``chamber`` ``EK``): the Tweede Kamer's "
+        "votes per faction are ``/api/decisions?party=``."
+    ),
+    tags=["factions"],
+)
+def list_faction_votes(
+    key: str,
+    store: Annotated[ArangoStore, Depends(get_store)],
+    date_from: Annotated[
+        dt.date | None, Query(alias="from", description="On or after, YYYY-MM-DD.")
+    ] = None,
+    date_to: Annotated[
+        dt.date | None, Query(alias="to", description="On or before, YYYY-MM-DD.")
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> EkFactionVotesResponse:
+    node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
+    if node.props.get("chamber") != "EK":
+        raise HTTPException(
+            status_code=422,
+            detail="Only a faction of the Eerste Kamer; for the Tweede Kamer use "
+            "/api/decisions?party=.",
+        )
+    raw = get_ek_faction_votes(
+        store,
+        node.props.get("abbreviation") or "",
+        date_from=date_from.isoformat() if date_from else None,
+        date_to=date_to.isoformat() if date_to else None,
+        limit=limit,
+        offset=offset,
+    )
+    return EkFactionVotesResponse(
+        faction_key=key,
+        total=int(raw.get("total") or 0),
+        counts=raw.get("counts") or {},
+        items=[EkFactionVoteDTO(**item) for item in raw.get("items") or []],
+        source=EkSourceDTO(
+            url=EERSTEKAMER_SITE.rstrip("/") + VOTES_PATH,
+            retrieved_on=None,  # each vote has its own day of reading
+            composition_date=None,
+            data_since=None,
+            attribution=EK_ATTRIBUTION,
+        ),
+    )
+
+
+@factions_router.get(
     "/{key}/touched-instruments",
     response_model=TouchedInstrumentsResponse,
     summary="The laws this faction changes most",
@@ -389,6 +465,19 @@ def list_faction_touched_instruments(
 ) -> TouchedInstrumentsResponse:
     node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
     return _touched_instruments(store, node.arango_id or "", limit)
+
+
+def _as_ek_member(member: MemberDTO) -> MemberDTO:
+    """A member in the list of the Eerste Kamer: ``party`` the abbreviation of its faction
+    there, ``active`` whether the last snapshot shows it."""
+    if member.ek is None:
+        return member
+    return member.model_copy(
+        update={
+            "party": member.ek.abbreviation,
+            "active": member.ek.observed_until is None,
+        }
+    )
 
 
 def _node_or_404(store: ArangoStore, collection: str, key: str, label: str) -> Any:

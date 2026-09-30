@@ -10,21 +10,27 @@ shows what a run would fetch.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Sequence
 from typing import Any, cast
 
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
     RAW_KIND_RS_CONTENT,
+    RAW_KIND_TK_DOCUMENT,
+    RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
+from lawgraph.core.dossier_numbers import first_reading_dossiers
 from lawgraph.core.identifiers import kamerstuk_identifier
+from lawgraph.core.judgments import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import Store, raw_key
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import semantic as semantic_queries
 
 logger = get_logger(__name__)
 
@@ -105,6 +111,22 @@ def rechtspraak_gaps(store: Store) -> list[str]:
     return _capped(eclis, "stub judgments")
 
 
+def unanswered_referrals(store: Store) -> list[Referral]:
+    """The referrals, by case number and date, of the preliminary rulings that answer no
+    decision in the graph: the referring decision is not loaded, and the Rechtspraak can
+    only be asked for it through the index of its date."""
+    referrals: list[Referral] = []
+    for row in gap_queries.unanswered_preliminary_rulings(
+        store, paragraphs=REFERRAL_PARAGRAPHS
+    ):
+        referrals += [
+            referral
+            for referral in read_referrals(row["paragraphs"])
+            if referral.case_numbers and referral.date and referral not in referrals
+        ]
+    return referrals
+
+
 def eurlex_gaps(store: Store) -> list[str]:
     """The EU acts BWB regulations name (``props.celex_refs``) that were not retrieved.
 
@@ -114,15 +136,18 @@ def eurlex_gaps(store: Store) -> list[str]:
     return cast(list[str], list(gap_queries.unretrieved_celex_refs(store)))
 
 
-def kamerstuk_gaps(store: Store, kind: str = "toelichting") -> list[dict[str, Any]]:
-    """The Tweede Kamer papers whose *kind* contains a word, and whose XML was not retrieved.
+def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> list[dict[str, Any]]:
+    """The Tweede Kamer papers whose kind contains one of *kinds*, and whose XML was not
+    retrieved.
 
-    Each has the dossier it is part of (a paper without one or without a number in it has no
-    address in the repository and is left out) and its ``identifier``, ``kst-<dossier>-<n>``.
+    Each has the dossier it is numbered in (a paper that is no Kamerstuk has no address in
+    the repository and is left out) and its ``identifier``, ``kst-<dossier>-<n>``.
     Those the repository answered HTTP 404 for not long ago are left out too, so the report
     of ``lawgraph gaps`` names exactly what a run fetches.
     """
-    papers = list(gap_queries.papers_with_dossier(store, kind.lower()))
+    papers = list(
+        gap_queries.papers_with_dossier(store, [kind.lower() for kind in kinds])
+    )
     for paper in papers:
         paper["identifier"] = kamerstuk_identifier(
             paper["number"], paper.get("suffix"), paper["sequence"]
@@ -174,3 +199,43 @@ def echr_gaps(store: Store) -> list[str]:
 def verdragenbank_gaps(store: Store) -> list[str]:
     """Return external IDs of stub verdrag instrument nodes."""
     return [e for e in gap_queries.stub_treaty_ids(store) if e]
+
+
+def tk_dossier_gaps(store: Store) -> list[str]:
+    """The numbers of the dossiers the graph names and has not, or has not in full.
+
+    Named: by the publications that amended or brought into force a version of an article,
+    by a change in the Grondwet in its second reading (the first), and by the Tweede Kamer
+    papers and cases that are part of it. Not in full: a dossier that lacks a paper below
+    the highest number it has. A number the Tweede Kamer did not have, or had no more
+    papers of, not long ago is left out.
+    """
+    named = gap_queries.dossiers_named_by_publications(store)
+    cited = {
+        number
+        for memorandum in semantic_queries.second_reading_memoranda(store)
+        for number in first_reading_dossiers(memorandum["text"])
+    }
+    cited -= gap_queries.dossiers_with_numbers(store, sorted(cited))
+    by_papers = {
+        label.split("-", 1)[0] for label in gap_queries.dossiers_named_by_papers(store)
+    }
+    incomplete = gap_queries.dossiers_missing_papers(store)
+    numbers = sorted(
+        n for n in set(named) | cited | by_papers | set(incomplete) if n.isdigit()
+    )
+    candidates = [{"identifier": number} for number in numbers]
+    waiting = _with_raw_record(
+        store,
+        candidates,
+        RAW_KIND_TK_DOSSIER + RAW_KIND_MISSING_SUFFIX,
+        retry_ahead=True,
+    ) | _with_raw_record(
+        store,
+        candidates,
+        RAW_KIND_TK_DOCUMENT + RAW_KIND_MISSING_SUFFIX,
+        retry_ahead=True,
+    )
+    return _capped(
+        [n for n in numbers if n not in waiting], "dossiers named or incomplete"
+    )

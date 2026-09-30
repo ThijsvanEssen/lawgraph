@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date
+from lawgraph.core.tk_records import dossier_label
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import ArangoStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -83,7 +84,9 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
         )
         title = payload.get("document_title") or payload.get("title") or ""
         dossier = " ".join(part for part in (dossier_number, dossier_suffix) if part)
-        display_name = f"EK {dossier}, nr. {number}: {title}" if dossier else title
+        # by letter, without "nr.": Kamerstukken I 36867, C
+        paper = ", ".join(part for part in (f"Kamerstuk I {dossier}", number) if part)
+        display_name = f"{paper}: {title}" if dossier else title
 
         props: dict[str, Any] = {
             "source": SOURCE_EERSTEKAMER,
@@ -99,6 +102,12 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             ("date", iso_date(payload.get("date"))),
             ("dossier_number", dossier_number),
             ("dossier_suffix", dossier_suffix),
+            (
+                "dossier_numbers",
+                [dossier_label(dossier_number, dossier_suffix)]
+                if dossier_number
+                else None,
+            ),
             ("url", payload.get("url")),
         ):
             if value:

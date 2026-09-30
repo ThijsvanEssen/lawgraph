@@ -3,6 +3,7 @@ writes, marked with the key it asks for."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -16,12 +17,18 @@ OPERATIONS = [
     for method, operation in operations.items()
 ]
 WRITING = {"POST", "PUT", "PATCH", "DELETE"}
+# What a route may answer instead of JSON: a document of a standard format.
+DOCUMENT_TYPES = {"application/atom+xml"}
 
 
 def _answer_schema(operation: dict[str, Any]) -> dict[str, Any] | None:
-    """The JSON schema of the 2xx answer; ``None`` for an answer without a body (204)."""
+    """The JSON schema of the 2xx answer; ``None`` for an answer without a body (204) or
+    one that is a document of a standard format (the Atom feed)."""
     for status in ("200", "201"):
         content = operation["responses"].get(status, {}).get("content")
+        if content and "application/json" not in content:
+            assert set(content) <= DOCUMENT_TYPES, set(content)
+            return None
         if content:
             return content["application/json"].get("schema") or {}
     return None
@@ -46,6 +53,11 @@ def test_the_api_only_reads() -> None:
     ]
     assert writing == []
     assert "securitySchemes" not in SPEC.get("components", {})
+    # Nor does a description promise what the writes made: badges, votes, watches.
+    text = json.dumps(SPEC).lower()
+    assert [
+        word for word in ("expert badge", "community", "watch") if word in text
+    ] == []
 
 
 def test_a_timeline_entry_is_typed_by_its_node_and_carries_no_free_body() -> None:
@@ -82,7 +94,7 @@ def test_an_explanation_says_what_it_points_at_and_how_far_it_reaches() -> None:
         "article_version_key",
         "confidence",
     } <= set(explanation)
-    assert explanation["target"]["enum"] == ["article", "article_version", "instrument"]
+    assert explanation["target"]["enum"] == ["article", "article_version"]
     assert explanation["scope"]["enum"] == ["dossier", "article"]
     assert "section_anchor" in explanation
     document = schemas["ExplainingDocumentDTO"]["properties"]
@@ -97,7 +109,6 @@ def test_an_explanation_says_what_it_points_at_and_how_far_it_reaches() -> None:
 def test_every_document_answer_says_its_chamber_source_and_kind() -> None:
     schemas = SPEC["components"]["schemas"]
     for name in (
-        "DocumentSummaryDTO",
         "DocumentTextResponse",
         "DossierDocumentDTO",
         "TimelineDocumentBody",
@@ -151,7 +162,6 @@ def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> N
     filters = {"relations", "node_types", "direction", "status"}
     node = "/api/nodes/{collection}/{key}"
     assert _parameters(node) == filters | {"limit", "offset"}
-    assert _parameters(f"{node}/facets") == filters
     assert _parameters(f"{node}/neighborhood") == filters | {"depth", "cap"}
 
     schemas = SPEC["components"]["schemas"]
@@ -167,23 +177,6 @@ def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> N
         "next_offset",
         "items",
     }
-    assert set(schemas["NodeFacetDTO"]["properties"]) == {
-        "relation",
-        "direction",
-        "collection",
-        "type",
-        "count",
-    }
-
-
-def test_the_graph_routes_that_can_be_narrowed_say_so() -> None:
-    assert _parameters("/api/graph/global") == {
-        "node_types",
-        "relations",
-        "max_judgments",
-    }
-    assert _parameters("/api/graph/instruments") == {"relations"}
-    assert _parameters("/api/graph/judgments") == {"max_judgments", "include_stubs"}
 
 
 def _properties(name: str) -> set[str]:
@@ -232,7 +225,9 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         >= parameters["limit"]["schema"]["default"]
     )
     assert parameters["offset"]["schema"]["minimum"] == 0
-    assert {"article_id", "items", "total"} == _properties("ArticleCitedByResponse")
+    assert {"article_id", "items", "total", "judgment_total"} == _properties(
+        "ArticleCitedByResponse"
+    )
     assert {
         "judgment",
         "paragraph_id",
@@ -253,6 +248,7 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "ecli",
         "court",
         "tier",
+        "court_kind",
         "date",
         "display_name",
     } == _properties("CitedByJudgment")

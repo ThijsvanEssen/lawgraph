@@ -55,3 +55,23 @@ def test_the_backfill_of_a_dossier_stores_the_dossier_and_its_documents() -> Non
         ("tk-document", "doc-1"),
         ("tk-document", "doc-2"),
     ]
+
+
+class _SomeUnknown(_Client):
+    def fetch_dossiers(self, since: Any = None, number: int | None = None) -> Any:
+        self.asked.append(("dossiers", {"since": since, "number": number}))
+        return iter([] if number == 19952 else [{"Id": f"dossier-{number}"}])
+
+
+def test_the_gaps_are_fetched_and_an_unknown_number_is_remembered() -> None:
+    store, client = _Store(), _SomeUnknown()
+    result = TKDossiersRetrievePipeline(store=store, client=client).run_gaps(  # type: ignore[arg-type]
+        ["19952", "35790"]
+    )
+    assert result.errors == []
+    assert store.stored == [
+        ("tk-dossier-missing", "19952"),  # asked again once it is due
+        ("tk-dossier", "dossier-35790"),
+        ("tk-document", "doc-1"),
+        ("tk-document", "doc-2"),
+    ]

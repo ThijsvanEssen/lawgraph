@@ -13,107 +13,16 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     RELATION_EXPLAINS,
     RELATION_PART_OF,
-    RELATION_REFERS_TO,
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries.dossiers import _dossier_documents_aql
 
 
 def get_document(store: ArangoStore, key: str) -> dict[str, Any] | None:
     """One document by key (keys are lowercased at ingest)."""
     doc = store.collection(COLLECTION_DOCUMENTS).get(key.lower())
     return doc if isinstance(doc, dict) else None
-
-
-def list_documents(
-    store: ArangoStore,
-    *,
-    q: str | None,
-    kind: str | None,
-    chamber: str | None,
-    source: str | None,
-    dossier_id: str | None,
-    limit: int,
-    offset: int,
-) -> dict[str, Any]:
-    """A page of document rows, and how many documents match in all.
-
-    Each row carries the number of articles the document links to, computed for the
-    page only. ``total`` is a separate count that materialises no document. With
-    *dossier_id* the documents are those of that dossier, PART_OF it directly or
-    through a case, as ``get_dossier_documents`` finds them.
-    """
-    filters: list[str] = []
-    bind: dict[str, Any] = {
-        "limit": limit,
-        "offset": offset,
-        "linking": [RELATION_REFERS_TO, RELATION_EXPLAINS],
-    }
-
-    if chamber:
-        filters.append("FILTER @chamber IN document.labels")
-        bind["chamber"] = chamber.upper()
-    if source:
-        filters.append("FILTER document.props.source == @source")
-        bind["source"] = source
-    if kind:
-        filters.append("FILTER document.props.kind == @kind")
-        bind["kind"] = kind
-    if q:
-        filters.append(
-            "FILTER CONTAINS(LOWER(document.props.title), LOWER(@q))"
-            " OR CONTAINS(LOWER(document.props.kind), LOWER(@q))"
-        )
-        bind["q"] = q
-
-    where = chr(10).join(f"    {f}" for f in filters)
-    if dossier_id:
-        bind["dossier_id"] = dossier_id
-        bind["part_of"] = RELATION_PART_OF
-        documents = "all_documents"
-    else:
-        documents = COLLECTION_DOCUMENTS
-    total = (
-        f"LENGTH(FOR document IN {documents}\n{where}\n    RETURN 1)"
-        if filters or dossier_id
-        else f"COLLECTION_COUNT('{COLLECTION_DOCUMENTS}')"
-    )
-    page = f"""
-LET total = {total}
-LET items = (
-    FOR document IN {documents}
-    {where}
-    SORT document.props.date DESC, document.props.title ASC
-    LIMIT @offset, @limit
-    LET linked = LENGTH(
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from == document._id
-            FILTER e.relation IN @linking
-            RETURN 1
-    )
-    RETURN {{
-        key: document._key,
-        title: document.props.title,
-        kind: document.props.kind,
-        date: document.props.date,
-        external_id: document.props.external_id,
-        source: document.props.source,
-        labels: document.labels,
-        has_text: document.props.text != null,
-        linked_articles: linked
-    }}
-)
-RETURN {{ total: total, items: items }}
-"""
-    aql = (
-        f"LET dossier_id = @dossier_id\n{_dossier_documents_aql(page)}"
-        if dossier_id
-        else page
-    )
-    rows = list(store.query(aql, bind_vars=bind))
-    return rows[0] if rows else {"total": 0, "items": []}
 
 
 def get_document_links(store: ArangoStore, document_id: str) -> dict[str, Any]:
@@ -220,3 +129,104 @@ def get_document_passages(
             if known is None or section["confidence"] > known["confidence"]:
                 best[section["section_anchor"]] = section
     return list(best.values())
+
+
+# The chambers a paper can be of: its label (``TK``; ``EK`` with ``EersteKamer``).
+_CHAMBERS = ("TK", "EK")
+_CHAMBER_OF = '"EK" IN doc.labels ? "EK" : "TK" IN doc.labels ? "TK" : null'
+
+
+def list_documents(
+    store: ArangoStore,
+    *,
+    chambers: tuple[str, ...] = _CHAMBERS,
+    kinds: tuple[str, ...] | None = None,
+    dossier: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    facets: bool = True,
+) -> dict[str, Any]:
+    """The papers of the chambers, newest first: ``{total, items, facets}``.
+
+    *dossier* is a dossier label (``36791``, ``37020-XV``): the papers ``PART_OF`` it
+    (its own and those of its cases). ``facets`` counts per ``kind`` (under the other
+    filters) and per ``chamber`` (under the other filters); ``facets=False`` gives
+    ``null`` for ``total`` and ``facets``.
+    """
+    bind: dict[str, Any] = {
+        "chambers": list(chambers),
+        "limit": limit,
+        "offset": offset,
+    }
+    # always a range on the date: the index on it then reads a page newest first (a paper
+    # without a date is not listed)
+    shared = [
+        "doc.props.date >= @from AND doc.props.date <= @to",
+        "LENGTH(INTERSECTION(doc.labels, @all_chambers)) > 0",
+    ]
+    bind.update(
+        all_chambers=list(_CHAMBERS), **{"from": date_from or "0", "to": date_to or "9"}
+    )
+    if dossier:
+        shared.append("@dossier IN doc.props.dossier_numbers")
+        bind["dossier"] = dossier
+    by_chamber = "LENGTH(INTERSECTION(doc.labels, @chambers)) > 0"
+    by_kind = "doc.props.kind IN @kinds"
+    if kinds:
+        bind["kinds"] = list(kinds)
+    where = " AND ".join(f"({c})" for c in shared)
+    kind_clause = f" AND {by_kind}" if kinds else ""
+    item = f"""{{
+                id: doc._id,
+                key: doc._key,
+                chamber: {_CHAMBER_OF},
+                kind: doc.props.kind,
+                dossier_number: doc.props.dossier_number,
+                dossier_suffix: doc.props.dossier_suffix,
+                dossier_numbers: doc.props.dossier_numbers OR [],
+                sequence: doc.props.sequence,
+                number: doc.props.number,
+                date: doc.props.date,
+                title: NOT_NULL(doc.props.title, doc.props.display_name),
+                session_year: doc.props.session_year
+            }}"""
+    counted = ""
+    if facets:
+        counted = f"""
+    LET kind_counts = (
+        FOR doc IN {COLLECTION_DOCUMENTS}
+            FILTER {where} AND {by_chamber}
+            COLLECT value = doc.props.kind WITH COUNT INTO count
+            SORT count DESC, value
+            RETURN {{ value, count }}
+    )
+    LET chamber_counts = (
+        FOR doc IN {COLLECTION_DOCUMENTS}
+            FILTER {where}{kind_clause}
+            COLLECT value = {_CHAMBER_OF} WITH COUNT INTO count
+            SORT count DESC, value
+            RETURN {{ value, count }}
+    )
+    LET total = LENGTH(
+        FOR doc IN {COLLECTION_DOCUMENTS}
+            FILTER {where} AND {by_chamber}{kind_clause}
+            RETURN 1
+    )"""
+    aql = f"""{counted}
+    LET items = (
+        FOR doc IN {COLLECTION_DOCUMENTS}
+            FILTER {where} AND {by_chamber}{kind_clause}
+            SORT doc.props.date DESC, doc._key
+            LIMIT @offset, @limit
+            RETURN {item}
+    )
+    RETURN {{
+        items,
+        total: {"total" if facets else "null"},
+        facets: {"{ kind: kind_counts, chamber: chamber_counts }" if facets else "null"}
+    }}
+    """
+    row = next(iter(store.query(aql, bind)), None)
+    return row or {"items": [], "total": 0, "facets": None}

@@ -252,11 +252,18 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
         "Memorie van toelichting": 1,
         "Voorstel van wet": 1,
     }
-    # the publication that changed the law (canoniek) and the paper that proposes to (voorgesteld)
-    assert {(i["bwb_id"], i["relation"], i["status"]) for i in hub["instruments"]} == {
-        (LAW, "amends", "canoniek"),
-        (LAW, "amends", "voorgesteld"),
-    }
+    # one item for the law: the publication that changed it (canoniek) and the paper that
+    # proposes to (voorgesteld)
+    (law,) = hub["instruments"]
+    assert (law["bwb_id"], law["relation"], law["status"]) == (
+        LAW,
+        "amends",
+        "canoniek",
+    )
+    assert law["links"] == [
+        {"relation": "amends", "status": "canoniek"},
+        {"relation": "amends", "status": "voorgesteld"},
+    ]
     assert [(c["slug"], c["role"]) for c in hub["committees"]] == [("kgg", "lead")]
     assert hub["senate"] == {"document_count": 0, "first_date": None}
 
@@ -267,18 +274,12 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
     assert (hub["closed"], hub["outcome"]) == (True, "aangenomen")
 
     # every document carries its chamber, source and whether it explains, wherever it is listed
-    listed = {
-        "/api/documents": _get(client, "/api/documents", dossier=DOSSIER)["items"],
-        f"/api/dossiers/{DOSSIER}/documents": _get(
-            client, f"/api/dossiers/{DOSSIER}/documents"
-        )["items"],
-    }
-    for path, items in listed.items():
-        by_key = {d["key"]: d for d in items}
-        assert set(by_key) == {MVT_KEY, WET_KEY}, path
-        assert (by_key[MVT_KEY]["chamber"], by_key[MVT_KEY]["source"]) == ("TK", "tk")
-        assert by_key[MVT_KEY]["is_explanatory"] is True, path
-        assert by_key[WET_KEY]["is_explanatory"] is False, path
+    items = _get(client, f"/api/dossiers/{DOSSIER}/documents")["items"]
+    by_key = {d["key"]: d for d in items}
+    assert set(by_key) == {MVT_KEY, WET_KEY}
+    assert (by_key[MVT_KEY]["chamber"], by_key[MVT_KEY]["source"]) == ("TK", "tk")
+    assert by_key[MVT_KEY]["is_explanatory"] is True
+    assert by_key[WET_KEY]["is_explanatory"] is False
 
     entries = _get(client, f"/api/dossiers/{DOSSIER}/timeline")["entries"]
     assert sorted(e["node_type"] for e in entries) == [
@@ -306,7 +307,9 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
     (edge,) = _explains(store).values()
     assert edge["from"] == f"documents/{MVT_KEY}"
     assert edge["to"] == "article_versions/bwbr0044234_av_4402_7"
-    assert (edge["source"], edge["confidence"]) == (SEMANTIC_SOURCE_SECTIONS, 0.85)
+    # the text under the heading names the article with its law, in a law the dossier
+    # changed: a body_named_law match (``core.mvt_articles.CONFIDENCE_OF_MATCH``)
+    assert (edge["source"], edge["confidence"]) == (SEMANTIC_SOURCE_SECTIONS, 0.65)
     anchor = edge["meta"]["section_anchor"]
     assert edge["meta"]["heading"] == "Artikel I"
 
@@ -320,7 +323,7 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
     )
     assert item["target"] == "article_version"
     assert item["scope"] == "article" and item["section_anchor"] == anchor
-    assert item["confidence"] == 0.85
+    assert item["confidence"] == 0.65
 
     # the section the edge names is a section of the document, and its text the passage
     document = _get(client, f"/api/documents/{MVT_KEY}")
@@ -343,7 +346,7 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
         passage["text"] == document["text"][section["char_start"] : section["char_end"]]
     )
     assert passage["text"].startswith("Artikel I\nDit wetsvoorstel beoogt artikel 2")
-    assert (passage["match_type"], passage["confidence"]) == ("body_named_law", 0.85)
+    assert (passage["match_type"], passage["confidence"]) == ("body_named_law", 0.65)
     for other in ("1", "3"):  # articles the law has and no section names
         assert _get(
             client, f"/api/documents/{MVT_KEY}/passages", bwb_id=LAW, article=other
@@ -432,10 +435,10 @@ def test_what_a_reader_types_resolves_and_every_node_has_its_facets(
     found = _get(client, "/api/search", q="art 2 klimaatfonds", types="articles")
     assert found["results"]["articles"][0]["key"] == "bwbr0044234_2"
 
-    # the facets of the memorandum count what the series wrote around it
-    facets = _get(client, f"/api/nodes/documents/{MVT_KEY}/facets")["items"]
+    # the buckets of the memorandum count what the series wrote around it
+    buckets = _get(client, f"/api/nodes/documents/{MVT_KEY}")["neighbors"]["buckets"]
     counted = {
-        (f["relation"], f["direction"], f["collection"]): f["count"] for f in facets
+        (b["relation"], b["direction"], b["collection"]): b["total"] for b in buckets
     }
     assert counted[("EXPLAINS", "outbound", "article_versions")] == 1
     assert counted[("PART_OF", "outbound", "dossiers")] == 1

@@ -24,6 +24,11 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import article_version_key
 from lawgraph.core.kamerstuk_xml import parse_kamerstuk
 from lawgraph.core.models import make_node_key
+from lawgraph.core.mvt_articles import (
+    CONFIDENCE_OF_MATCH,
+    MATCH_BODY_NAMED_LAW,
+    MATCH_OWN_NUMBER,
+)
 from lawgraph.db import ArangoStore, make_edge_doc
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
@@ -230,8 +235,13 @@ def _by_target(store: ArangoStore, document: str) -> dict[str, dict[str, Any]]:
 def _check_the_result(store: ArangoStore, ids: dict[str, str]) -> None:
     klimaat = _by_target(store, ids["klimaat_doc"])
     named = klimaat[ids["klimaat_2"]]
-    assert (named["source"], named["confidence"]) == (SEMANTIC_SOURCE_SECTIONS, 0.85)
+    assert (named["source"], named["confidence"]) == (
+        SEMANTIC_SOURCE_SECTIONS,
+        CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW],
+    )
     assert named["meta"]["match_type"] == "body_named_law"
+    assert named["meta"]["changed"] is True
+    assert named["meta"]["explanation"].endswith("het dossier wijzigt het artikel.")
     assert named["meta"]["heading"] == "Artikel I" and named["meta"]["section_anchor"]
     assert [s["section_anchor"] for s in named["meta"]["sections"]] == [
         named["meta"]["section_anchor"]
@@ -247,7 +257,10 @@ def _check_the_result(store: ArangoStore, ids: dict[str, str]) -> None:
     new = _by_target(store, ids["new_doc"])
     for number in ("1", "2"):
         edge = new[ids[f"new_{number}"]]
-        assert (edge["source"], edge["confidence"]) == (SEMANTIC_SOURCE_SECTIONS, 0.8)
+        assert (edge["source"], edge["confidence"]) == (
+            SEMANTIC_SOURCE_SECTIONS,
+            CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER],
+        )
         assert edge["meta"]["match_type"] == "own_number"
         assert edge["meta"]["heading"] == f"Artikel {number}"
     # the article no change edge names: an edge only the sections know of
@@ -319,7 +332,9 @@ def test_the_api_reads_the_passages_of_an_article_back(database: str, cli: Any) 
     assert (
         passage["heading"] == "Artikel I" and passage["match_type"] == "body_named_law"
     )
-    assert passage["confidence"] == 0.85
+    assert passage["confidence"] == CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW]
+    assert passage["changed"] is True
+    assert passage["explanation"].startswith("De tekst onder de kop 'Artikel I'")
     assert passage["text"].startswith("Artikel I\nDit wetsvoorstel beoogt artikel 2")
     assert passage["level"] == 2
 

@@ -11,7 +11,11 @@ from typing import Any
 
 import pytest
 
-from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_JUDGMENTS
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_JUDGMENTS,
+)
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.search import search_all
@@ -45,7 +49,18 @@ def store(database: str) -> ArangoStore:
         display_name="ECLI:NL:HR:2021:1",
         summary="Ontslag op staande voet; de rechten van de werknemer uit de wetten.",
     )
-    wait_for_views(store, {"search_articles": 1, "search_judgments": 1})
+    _put(
+        store,
+        COLLECTION_DOCUMENTS,
+        "amendement_36000_12",
+        title="Amendement van het lid Jansen over de huurovereenkomst",
+        kind="Amendement",
+        sequence=12,
+        dossier_numbers=["36000"],
+    )
+    wait_for_views(
+        store, {"search_articles": 1, "search_judgments": 1, "search_documents": 1}
+    )
     return store
 
 
@@ -71,3 +86,8 @@ def test_a_judgment_is_found_by_another_form_of_the_words_of_its_summary(
 
 def test_a_word_that_is_not_there_finds_nothing(store: ArangoStore) -> None:
     assert _keys(store, "belastingen", "articles") == []
+
+
+def test_a_document_hit_has_its_number_in_the_dossier(store: ArangoStore) -> None:
+    (hit,) = search_all(store, q="huurovereenkomst", types=["documents"])["documents"]
+    assert (hit["extra"]["dossier_number"], hit["extra"]["sequence"]) == ("36000", 12)

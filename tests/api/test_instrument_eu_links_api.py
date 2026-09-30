@@ -16,7 +16,11 @@ from lawgraph.api.schemas.instruments import (
     InstrumentDetailDTO,
     InstrumentEuLinksResponse,
 )
-from lawgraph.config.constants import EDGE_SOURCE_BWB_IMPLEMENTS
+from lawgraph.config.constants import (
+    EDGE_SOURCE_BWB_IMPLEMENTS,
+    IMPLEMENTS_BASIS_CONSIDERANS,
+    IMPLEMENTS_BASIS_NIM,
+)
 from lawgraph.db.queries.instrument_links import EuLinksData, InternationalLinksData
 from lawgraph.db.queries.instrument_scope import (
     InstrumentScope,
@@ -54,7 +58,7 @@ _DIRECTIVE = {
         ("BWBR0001854", "bwb_id", "BWBR0001854"),
         ("bwbr0001854", "bwb_id", "BWBR0001854"),
         ("BWBV0001000", "bwb_id", "BWBV0001000"),
-        ("ECHR-CONVENTION", "bwb_id", "ECHR-CONVENTION"),
+        ("verdrag_012345", "bwb_id", "VERDRAG_012345"),
         ("32016L0680", "celex", "32016L0680"),
         ("32016l0680", "celex", "32016L0680"),
         ("32002F0584", "celex", "32002F0584"),
@@ -89,31 +93,40 @@ def test_the_detail_dto_reads_a_node() -> None:
     assert dto.stub is False
 
 
+_META = {
+    "celex": "32016L0680",
+    "bases": ["considerans", "national_implementing_measure"],
+    "publications": ["stb-2018-401"],
+}
+
+
 def test_the_eu_link_says_what_it_rests_on() -> None:
     row = {
         "instrument": _DIRECTIVE,
         "edge": {
-            "confidence": 0.75,
+            "relation": "IMPLEMENTS",
+            "confidence": 1.0,
             "source": EDGE_SOURCE_BWB_IMPLEMENTS,
-            "meta": {"celex": "32016L0680"},
+            "meta": _META,
         },
     }
     link = EuLinkDTO.from_row(row)
-    assert link.basis == "celex_named_in_text" and link.relation == "IMPLEMENTS"
-    assert link.instrument.celex == "32016L0680" and link.meta == {
-        "celex": "32016L0680"
-    }
-    assert IMPLEMENTS_BASES == {EDGE_SOURCE_BWB_IMPLEMENTS: "celex_named_in_text"}
+    assert link.bases == ["considerans", "national_implementing_measure"]
+    assert link.relation == "IMPLEMENTS"
+    assert link.instrument.celex == "32016L0680" and link.meta == _META
+    assert set(IMPLEMENTS_BASES) == {IMPLEMENTS_BASIS_NIM, IMPLEMENTS_BASIS_CONSIDERANS}
 
-    unknown = EuLinkDTO.from_row({**row, "edge": {"source": "somebody-else"}})
-    assert unknown.basis is None and unknown.confidence is None
+    mention = EuLinkDTO.from_row(
+        {**row, "edge": {"relation": "REFERS_TO", "meta": {"celex": "32016L0680"}}}
+    )
+    assert mention.relation == "REFERS_TO" and mention.bases == []
+    assert mention.confidence is None
 
 
 def test_the_eu_link_has_no_articles_field() -> None:
     assert "articles" not in EuLinkDTO.model_fields
     assert "articles" not in InstrumentEuLinksResponse.model_fields
     assert "IMPLEMENTS" in (EuLinkDTO.__doc__ or "")
-    assert "transposition signal" in (EuLinkDTO.model_fields["basis"].description or "")
 
 
 def _stub(monkeypatch: pytest.MonkeyPatch, doc: dict[str, Any] | None) -> None:
@@ -145,12 +158,17 @@ def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
         row = {
             "instrument": _REGULATION,
             "edge": {
-                "confidence": 0.75,
+                "relation": "IMPLEMENTS",
+                "confidence": 1.0,
                 "source": EDGE_SOURCE_BWB_IMPLEMENTS,
-                "meta": {"celex": "32016L0680"},
+                "meta": _META,
             },
         }
-        return EuLinksData([], 0, [row], 7)
+        mention = {
+            "instrument": _REGULATION,
+            "edge": {"relation": "REFERS_TO", "meta": {"celex": "32016L0680"}},
+        }
+        return EuLinksData([], 0, [row], 7, [], 0, [mention], 3)
 
     def international(
         store: Any, instrument_id: str, scope: Any, *, limit: int
@@ -190,7 +208,9 @@ def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
     assert body["implements"] == [] and body["implements_total"] == 0
     assert body["implemented_by_total"] == 7
     assert body["implemented_by"][0]["instrument"]["bwb_id"] == "BWBR0001854"
-    assert body["implemented_by"][0]["basis"] == "celex_named_in_text"
+    assert body["implemented_by"][0]["bases"] == _META["bases"]
+    assert body["mentioned_by_total"] == 3
+    assert body["mentioned_by"][0]["relation"] == "REFERS_TO"
     assert body["international_total"] == 45  # absolute; the list is cut at `limit`
     kinds = [i["kind"] for i in body["international"]]
     assert kinds == ["treaty", "echr_judgment"]
@@ -238,8 +258,5 @@ def test_the_routes_are_in_the_schema() -> None:
     assert "/api/instruments/{identifier}/eu-links" in paths
     schemas = app.openapi()["components"]["schemas"]
     assert "articles" not in schemas["EuLinkDTO"]["properties"]
-    assert (
-        "transposition signal"
-        in schemas["EuLinkDTO"]["properties"]["basis"]["description"]
-    )
+    assert "considerans" in schemas["EuLinkDTO"]["properties"]["bases"]["description"]
     assert schemas["InstrumentArticlesResponse"]["properties"]["bwb_id"]["description"]

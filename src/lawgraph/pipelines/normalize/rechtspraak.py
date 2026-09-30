@@ -9,17 +9,28 @@ from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.judgment_names import judgment_names
+from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.judgments import (
+    KIND_CONCLUSIE,
+    advocate_general,
+    case_number_keys,
     compose_display_name,
-    derive_court_tier,
+    decision_kind,
+    derive_court,
     extract_judgment_text,
     extract_rdf_metadata,
     extract_sections,
+    is_english,
+    kop_lines,
     parse_judgment,
+    replacing_ecli,
+    translated_case_number,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, NodeWriter
+from lawgraph.db.queries import normalize as normalize_queries
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -67,7 +78,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
             return None, None
 
         try:
-            root = parse_judgment(payload_text)  # once, for the three extractors below
+            root = parse_judgment(payload_text)  # once, for the extractors below
         except ValueError as exc:
             self._unreadable.append(f"{ecli} ({exc})")
             return None, None
@@ -82,8 +93,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
             props["meta"] = meta
 
         summary, text = extract_judgment_text(root)
-        if summary:
-            props["summary"] = summary
+        self._set_summary(props, summary)
         if text:
             props["text"] = text
 
@@ -93,31 +103,115 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
             for field in ("court", "date", "case_number"):
                 if field in judgment_meta:
                     props[field] = judgment_meta[field]
-            if judgment_meta.get("related_eclis"):
-                props["related_eclis"] = judgment_meta["related_eclis"]
+            props["replaced_by"] = replacing_ecli(judgment_meta.get("replaced_by"))
+            for field in ("related_eclis", "conclusion_eclis"):
+                if judgment_meta.get(field):
+                    props[field] = judgment_meta[field]
+            if keys := case_number_keys(judgment_meta.get("case_number")):
+                props["case_number_keys"] = keys
         if subjects:
             props["subjects"] = subjects
 
         sections = extract_sections(root)
         if sections:
             props["paragraphs"] = sections
+        kop = kop_lines(root)
+        props["parties"] = read_parties(kop, subjects)
 
-        court_code, tier = derive_court_tier(ecli)
+        court_code, tier, court_kind = derive_court(ecli, props.get("court"))
         props["court_code"] = court_code
         props["tier"] = tier
+        props["court_kind"] = court_kind
+        props["decision_kind"] = decision_kind(
+            document_type=judgment_meta.get("document_type"),
+            procedure=judgment_meta.get("type"),
+            kop=kop,
+            court_kind=court_kind,
+            subjects=subjects,
+        )
+        if props["decision_kind"] == KIND_CONCLUSIE:
+            props["advocate_general"] = advocate_general(root)
+        props["names"] = judgment_names(ecli)
         jm_date = judgment_meta.get("date") if isinstance(judgment_meta, dict) else None
         props["date_eff"] = (
             jm_date or (meta.get("date") if meta else None) or props.get("date")
         )
         props["display_name"] = compose_display_name(props)
+        key = make_node_key(ecli)
         node = Node(
             collection=COLLECTION_JUDGMENTS,
             type=NodeType.JUDGMENT,
-            key=make_node_key(ecli),
+            key=key,
             labels=["Rechtspraak"],
             props=props,
         )
+        self._remember_translation(key, props)
         return ecli, node
+
+    @staticmethod
+    def _set_summary(props: dict[str, Any], summary: str | None) -> None:
+        """The inhoudsindicatie as ``summary``; an English one (a translation) as
+        ``summary_en``, ``summary`` then that of the judgment it translates
+        (``_link_translations``)."""
+        if summary and is_english(summary):
+            props["summary_en"] = summary
+        else:
+            # null clears what an earlier run stored ("kopje volgt", now a placeholder)
+            props["summary"] = summary
+
+    def _remember_translation(self, key: str, props: dict[str, Any]) -> None:
+        """Note a translation, to link to the judgment it translates once all are written."""
+        original_number = translated_case_number(props.get("case_number"))
+        case_keys = case_number_keys(original_number)
+        if props.get("summary_en") and case_keys:
+            self._translations.append(
+                {
+                    "key": key,
+                    "court_code": props.get("court_code"),
+                    "date": props.get("date_eff"),
+                    "case_key": case_keys[0],
+                    "summary_en": props["summary_en"],
+                }
+            )
+
+    def _link_translations(self) -> int:
+        """Give each translation of this run the Dutch summary of the judgment it translates
+        (same court, day and case number) and that judgment its English summary."""
+        if not self._translations:
+            return 0
+        lookup = [
+            {k: row[k] for k in ("key", "court_code", "date", "case_key")}
+            for row in self._translations
+        ]
+        originals = {
+            found["key"]: found["original"]
+            for found in normalize_queries.translated_judgments(self.store, lookup)
+        }
+        updates: list[dict[str, Any]] = []
+        for row in self._translations:
+            original = originals.get(row["key"]) or {}
+            # without the judgment it translates, no summary (not an English one)
+            updates.append(
+                {
+                    "key": row["key"],
+                    "props": {
+                        "summary": original.get("summary"),
+                        "translation_of": original.get("ecli"),
+                    },
+                }
+            )
+            if original:
+                updates.append(
+                    {"key": original["key"], "props": {"summary_en": row["summary_en"]}}
+                )
+        linked = len(originals)
+        normalize_queries.update_judgment_props(self.store, updates)
+        logger.info(
+            "Linked %d of %d English translation(s) to the judgment they translate.",
+            linked,
+            len(self._translations),
+        )
+        return linked
 
     def normalize_nodes(
         self,
@@ -127,6 +221,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         """Convert Rechtspraak content payloads into judgment nodes, one batch at a time."""
         count = 0
         self._unreadable: list[str] = []
+        self._translations: list[dict[str, Any]] = []
         with NodeWriter(self.store) as writer:
             for raw_entry in raw.get("content", []):
                 ecli, node = self._build_content_node(raw_entry)
@@ -135,6 +230,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                     count += 1
                 else:
                     result.skipped += 1
+        self._link_translations()
 
         if self._unreadable:
             logger.warning(

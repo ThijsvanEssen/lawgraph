@@ -7,6 +7,7 @@ and ``explanation``, written by ``semantic bwb-relation-types``.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -18,7 +19,6 @@ from lawgraph.config.constants import (
     RELATION_SCOPED_BY,
 )
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries.instrument_scope import scope_of
 
 # Relations that participate in the semantic relationship layer between articles.
 ARTICLE_RELATIONS: tuple[str, ...] = (RELATION_REFERS_TO,)
@@ -96,114 +96,61 @@ def get_article_relationship_data(
 def search_relationships(
     store: ArangoStore,
     *,
-    semantic_type: str | None = None,
+    semantic_types: Collection[str] | None = None,
+    exclude_types: Collection[str] | None = None,
     bwb_id: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Return classified edges filtered by semantic_type and/or source-article law.
+    """Classified edges, filtered by semantic type and by the law of the source article.
 
-    Returns (rows, total). Each row: {edge, source_article, target}.
+    *semantic_types* keeps the edges of any of those types, *exclude_types* drops the edges
+    of those; both may be given. Returns ``(rows, total)``, each row
+    ``{edge, source_article, target}``.
     """
     filters = ["edge.semantic_type != null"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset}
-    if semantic_type:
-        filters.append("edge.semantic_type == @semantic_type")
-        bind["semantic_type"] = semantic_type
+    if semantic_types:
+        filters.append("edge.semantic_type IN @semantic_types")
+        bind["semantic_types"] = sorted(semantic_types)
+    if exclude_types:
+        filters.append("edge.semantic_type NOT IN @exclude_types")
+        bind["exclude_types"] = sorted(exclude_types)
 
     if bwb_id:
         # Drive from the article index, not a full edge scan.
         bind["bwb_id"] = bwb_id
-        aql = f"""
-        // The matches are kept as ids: every classified edge of a law with its article
-        // (text included) is hundreds of MB to count them and show fifty.
-        LET matches = (
+        matches = f"""
             FOR art IN {COLLECTION_ARTICLES}
                 FILTER art.props.bwb_id == @bwb_id
                 FOR edge IN {COLLECTION_EDGES}
                     FILTER edge._from == art._id
                     FILTER {" AND ".join(filters)}
-                    RETURN edge._id
-        )
-        LET total = LENGTH(matches)
-        LET page = (
-            FOR edge_id IN matches
-                LIMIT @offset, @limit
-                LET edge = DOCUMENT(edge_id)
-                LET source_article = DOCUMENT(edge._from)
-                LET target = DOCUMENT(edge._to)
-                FILTER source_article != null AND target != null
-                RETURN {{ edge: edge, source_article: source_article, target: target }}
-        )
-        RETURN {{ rows: page, total: total }}
-        """
+                    RETURN edge._id"""
     else:
-        aql = f"""
-        LET matches = (
+        matches = f"""
             FOR edge IN {COLLECTION_EDGES}
                 FILTER {" AND ".join(filters)}
-                RETURN edge._id
-        )
-        LET total = LENGTH(matches)
-        LET page = (
-            FOR edge_id IN matches
-                LIMIT @offset, @limit
-                LET edge = DOCUMENT(edge_id)
-                LET source_article = DOCUMENT(edge._from)
-                LET target = DOCUMENT(edge._to)
-                FILTER source_article != null AND target != null
-                RETURN {{ edge: edge, source_article: source_article, target: target }}
-        )
-        RETURN {{ rows: page, total: total }}
-        """
+                RETURN edge._id"""
+    aql = f"""
+    // The matches are kept as ids: every classified edge of a law with its article
+    // (text included) is hundreds of MB to count them and show fifty.
+    LET matches = ({matches}
+    )
+    LET total = LENGTH(matches)
+    LET page = (
+        FOR edge_id IN matches
+            SORT edge_id
+            LIMIT @offset, @limit
+            LET edge = DOCUMENT(edge_id)
+            LET source_article = DOCUMENT(edge._from)
+            LET target = DOCUMENT(edge._to)
+            FILTER source_article != null AND target != null
+            RETURN {{ edge: edge, source_article: source_article, target: target }}
+    )
+    RETURN {{ rows: page, total: total }}
+    """
     result = list(store.query(aql, bind))
     if result:
         return list(result[0].get("rows") or []), int(result[0].get("total") or 0)
     return [], 0
-
-
-def get_cross_law_dependencies(
-    store: ArangoStore,
-    identifier: str,
-    *,
-    limit: int = 200,
-) -> list[dict[str, Any]]:
-    """Return article references from a BWB id or CELEX number into articles of other laws.
-
-    Each row: {edge, source_article, target}. Driven by the
-    (props.bwb_id, props.article_number) or (props.celex, props.article_number) index on
-    ``articles``. The other law of a BWB regulation is a BWB regulation; the other law of
-    an EU act is a BWB regulation or another EU act.
-    """
-    scope = scope_of(identifier)
-    other_law = (
-        "target.props.bwb_id != null AND target.props.bwb_id != @bwb_id"
-        if scope.prop == "bwb_id"
-        else (
-            "(target.props.bwb_id != null OR target.props.celex != null)"
-            " AND target.props.celex != @bwb_id"
-        )
-    )
-    aql = f"""
-    FOR art IN {COLLECTION_ARTICLES}
-        FILTER art.props.{scope.prop} == @bwb_id
-        FOR edge IN {COLLECTION_EDGES}
-            FILTER edge._from == art._id
-            FILTER edge.relation IN @relations
-            FILTER STARTS_WITH(edge._to, '{COLLECTION_ARTICLES}/')
-            LET target = DOCUMENT(edge._to)
-            FILTER target != null
-            FILTER {other_law}
-            LIMIT @limit
-            RETURN {{ edge: edge, source_article: art, target: target }}
-    """
-    return list(
-        store.query(
-            aql,
-            {
-                "bwb_id": scope.value,
-                "relations": list(ARTICLE_RELATIONS),
-                "limit": limit,
-            },
-        )
-    )

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal, cast
 
 from lawgraph.config.constants import (
@@ -22,6 +21,7 @@ from lawgraph.config.constants import (
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
     RELATION_ABOUT,
+    RELATION_ACCOMPANIES,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
@@ -29,16 +29,18 @@ from lawgraph.config.constants import (
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
+    RELATION_RELATED_TO,
     RELATION_REPEALS,
+    RELATION_REVISES,
+    RELATION_SECOND_READING_OF,
 )
-from lawgraph.core.documents import chamber_of, is_explanatory
-from lawgraph.core.dossier_stages import (
-    classify_track_kind,
-    dossier_stages,
-    select_title,
-)
-from lawgraph.core.models import make_node_key
+from lawgraph.core.documents import chamber_of, is_explanatory, numbered_in
+from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
+from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
+from lawgraph.core.models import NodeType, make_node_key
+from lawgraph.core.tk_links import tk_url
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries import normalize as normalize_queries
 
 # Edges that put an article in flux, and the one that only explains it. The
 # frontend renders the two as separate overlays.
@@ -59,6 +61,14 @@ HUB_INSTRUMENT_RELATIONS = (
     RELATION_REPEALS,
 )
 
+# The relations between two dossiers, in the order the detail lists them.
+DOSSIER_RELATIONS = (
+    RELATION_REVISES,
+    RELATION_ACCOMPANIES,
+    RELATION_RELATED_TO,
+    RELATION_SECOND_READING_OF,
+)
+
 _DICTUM_EXCERPT_CHARS = 280
 
 # The props of a timeline node that its entry shows, per node type. A document's
@@ -68,20 +78,26 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "kind",
         "title",
         "sequence",
+        "dossier_number",
+        "dossier_suffix",
         "session_year",
-        "tk_url",
+        "document_number",
         "url",
         "source",
     ],
-    "activity": ["kind", "agenda_title", "number"],
+    "activity": ["kind", "agenda_title", "number", "status"],
     "decision": [
         "subject",
+        "chamber",
+        "result",
+        "method",
         "passed",
         "vote_kind",
         "tally",
         "voters",
         "decision_id",
         "primary_case_id",
+        "primary_case_kind",
     ],
     "commitment": [
         "text",
@@ -108,30 +124,21 @@ class DossierEnrichment:
 
     title: str | None = None
     title_source: str | None = None
-    current_stage: str | None = None
-    stages_present: list[str] = field(default_factory=list)
-    track_kind: str | None = None
     opened_on: str | None = None
 
 
 def enrich_dossier_docs(
     store: ArangoStore, dossiers: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Fill the title and stage props a dossier is missing from its documents.
+    """Fill the title (and opening date) of a dossier without one from its documents.
 
-    The normalize pipeline writes ``stages_present`` (empty for a dossier that is no
-    bill) on every dossier it touches, so the expensive walk only fires for a dossier
-    it has not reached yet, or one without a title.
+    Its kind and phases are written by ``normalize tk-dossiers`` alone: a dossier without
+    them has none.
     """
-    incomplete = any(
-        not (props := doc.get("props") or {}).get("title")
-        or props.get("stages_present") is None
-        for doc in dossiers
-    )
-    if not incomplete:
+    if all((doc.get("props") or {}).get("title") for doc in dossiers):
         for doc in dossiers:
             props = doc.setdefault("props", {})
-            if props.get("title") and not props.get("title_source"):
+            if not props.get("title_source"):
                 props["title_source"] = "dossier"
         return dossiers
 
@@ -146,12 +153,6 @@ def enrich_dossier_docs(
             props["title_source"] = enrichment.title_source
         elif props.get("title") and not props.get("title_source"):
             props["title_source"] = "dossier"
-        if props.get("stages_present") is None:
-            props["stages_present"] = enrichment.stages_present
-        if props.get("current_stage") is None and enrichment.current_stage:
-            props["current_stage"] = enrichment.current_stage
-        if not props.get("track_kind") and enrichment.track_kind:
-            props["track_kind"] = enrichment.track_kind
         if not props.get("opened_on") and enrichment.opened_on:
             props["opened_on"] = enrichment.opened_on
     return dossiers
@@ -160,101 +161,27 @@ def enrich_dossier_docs(
 def _enrich_dossiers(
     store: ArangoStore, dossiers: list[dict[str, Any]]
 ) -> dict[str, DossierEnrichment]:
-    """Title and stage signals for a batch of dossiers, in one query."""
+    """Title and opening date for a batch of dossiers, from the signals ``normalize
+    tk-dossiers`` reads."""
     if not dossiers:
         return {}
-
-    aql = f"""
-    FOR dossier_id IN @dossier_ids
-        LET direct = (
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == dossier_id AND e.relation == @part_of
-                FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
-                LET document = DOCUMENT(e._from)
-                FILTER document != null
-                RETURN document
+    rows = {
+        row["dossier_id"]: row
+        for row in normalize_queries.dossier_signals(
+            store, [d["_id"] for d in dossiers]
         )
-        LET via_case = (
-            FOR e1 IN {COLLECTION_EDGES}
-                FILTER e1._to == dossier_id AND e1.relation == @part_of
-                FILTER STARTS_WITH(e1._from, '{COLLECTION_CASES}/')
-                FOR e2 IN {COLLECTION_EDGES}
-                    FILTER e2._to == e1._from AND e2.relation == @part_of
-                    FILTER STARTS_WITH(e2._from, '{COLLECTION_DOCUMENTS}/')
-                    LET document = DOCUMENT(e2._from)
-                    FILTER document != null
-                    RETURN document
-        )
-        LET subjects = (
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == dossier_id AND e.relation == @about
-                LET node = DOCUMENT(e._from)
-                FILTER node != null
-                RETURN node
-        )
-        RETURN {{
-            dossier_id: dossier_id,
-            docs: (
-                FOR document IN UNIQUE(APPEND(direct, via_case))
-                    RETURN {{
-                        kind: document.props.kind,
-                        date: document.props.date,
-                        title: (document.props.title != null
-                                ? document.props.title
-                                : document.props.display_name)
-                    }}
-            ),
-            activities: (
-                FOR node IN subjects
-                    FILTER STARTS_WITH(node._id, '{COLLECTION_ACTIVITIES}/')
-                    RETURN {{kind: node.props.kind, date: node.props.date}}
-            ),
-            decisions: (
-                FOR node IN subjects
-                    FILTER STARTS_WITH(node._id, '{COLLECTION_DECISIONS}/')
-                    RETURN {{date: node.props.date, passed: node.props.passed}}
-            )
-        }}
-    """
-    bind = {
-        "dossier_ids": [d["_id"] for d in dossiers],
-        "part_of": RELATION_PART_OF,
-        "about": RELATION_ABOUT,
     }
-    rows = {row["dossier_id"]: row for row in store.query(aql, bind)}
-
     enriched: dict[str, DossierEnrichment] = {}
     for dossier in dossiers:
-        props = dossier.get("props") or {}
         row = rows.get(dossier["_id"]) or {}
         docs = row.get("docs") or []
-        activities = row.get("activities") or []
-        decisions = row.get("decisions") or []
-        case_kinds = list(props.get("case_kinds") or [])
-
+        props = dossier.get("props") or {}
         title, title_source = select_title(props, docs)
-        track_kind = classify_track_kind(
-            case_kinds,
-            title=title or props.get("title"),
-            document_kinds=[doc.get("kind") or "" for doc in docs],
+        day, _ = opened_on(
+            props.get("number"), props.get("suffix"), docs, row.get("activities") or []
         )
-        current_stage, stages_present = dossier_stages(
-            track_kind,
-            docs,
-            activities,
-            decisions,
-            case_kinds,
-            closed=bool(props.get("closed")),
-        )
-        dated = [d["date"] for d in docs + activities if d.get("date")]
-
         enriched[dossier["_id"]] = DossierEnrichment(
-            title=title,
-            title_source=title_source,
-            current_stage=current_stage,
-            stages_present=stages_present,
-            track_kind=track_kind,
-            opened_on=min(dated) if dated else None,
+            title=title, title_source=title_source, opened_on=day
         )
     return enriched
 
@@ -275,6 +202,7 @@ def get_dossier_timeline(
     *,
     order: Literal["desc", "asc"] = "desc",
     kind_filter: list[str] | None = None,
+    include_planned: bool = True,
     limit: int = 200,
 ) -> list[dict[str, Any]]:
     """Everything that happened in a dossier, in date order.
@@ -284,7 +212,9 @@ def get_dossier_timeline(
     ``_TIMELINE_BODY_PROPS``) and the node's ``labels``; an activity row also its
     lead committee (``committee``, null for plenary), looked up for the page only.
     A decision entry carries the motion or amendment it decided on, with its
-    dictum excerpt and signatories.
+    dictum excerpt and signatories. ``after_closure`` marks a row dated after the day
+    the dossier closed (``closed_on``), ``planned`` an activity still ``Gepland``; without
+    *include_planned* those are left out.
     """
     bind: dict[str, Any] = {
         "dossier_id": dossier_id,
@@ -293,6 +223,8 @@ def get_dossier_timeline(
         "about": RELATION_ABOUT,
         "led_by": RELATION_LED_BY,
         "body_props": _TIMELINE_BODY_PROPS,
+        "planned_status": ACTIVITY_PLANNED,
+        "include_planned": include_planned,
     }
     kind_clause = ""
     if kind_filter:
@@ -313,6 +245,7 @@ def get_dossier_timeline(
             FILTER node != null
             RETURN node
     )
+    LET closed_on = DOCUMENT(@dossier_id).props.closed_on
     FOR node IN dossier_nodes
         LET entry = {{
             date: (node.props.date != null ? node.props.date
@@ -322,13 +255,14 @@ def get_dossier_timeline(
                    : node.type == 'decision' ? 'Stemming'
                    : node.type == 'commitment' ? 'Toezegging' : 'Document'),
             title: node.props.display_name,
-            tk_url: node.props.tk_url,
             body: KEEP(node.props, @body_props[node.type]),
             labels: node.labels,
             node_id: node._id,
-            node_type: node.type
+            node_type: node.type,
+            planned: node.type == 'activity' AND node.props.status == @planned_status
         }}
         FILTER entry.date != null
+        FILTER @include_planned OR NOT entry.planned
         {kind_clause}
         SORT entry.date {"DESC" if order == "desc" else "ASC"}
         LIMIT @limit
@@ -344,7 +278,11 @@ def get_dossier_timeline(
                     name: lead.props.name
                 }}
         ) : null
-        RETURN MERGE(entry, {{ committee: committee }})
+        RETURN MERGE(entry, {{
+            committee: committee,
+            after_closure: closed_on != null
+                AND LEFT(entry.date, 10) > LEFT(closed_on, 10)
+        }})
     """
     rows = list(store.query(aql, bind))
     _attach_decision_documents(store, dossier_id, rows)
@@ -419,6 +357,8 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
                 "party": actor.get("faction"),
                 "role": role,
                 "source_role": actor.get("role") or "",
+                "function": actor.get("function"),
+                "capacity": actor.get("capacity"),
             }
         )
     return {
@@ -427,9 +367,12 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "kind": props.get("kind"),
         "title": props.get("title"),
         "sequence": props.get("sequence"),
+        "dossier_number": numbered_in(
+            props.get("dossier_number"), props.get("dossier_suffix")
+        ),
         "session_year": props.get("session_year"),
         "date": props.get("date"),
-        "tk_url": props.get("tk_url"),
+        "tk_url": tk_url(NodeType.DOCUMENT.value, props),
         "source": props.get("source"),
         "chamber": chamber_of(document.get("labels")),
         "is_explanatory": is_explanatory(props.get("kind")),
@@ -446,9 +389,11 @@ _DOSSIER_DOCUMENT_ROW = """
                 title: (document.props.title != null ? document.props.title
                         : document.props.display_name),
                 sequence: document.props.sequence,
+                dossier_number: document.props.dossier_number,
+                dossier_suffix: document.props.dossier_suffix,
                 session_year: document.props.session_year,
                 date: document.props.date,
-                tk_url: document.props.tk_url,
+                document_number: document.props.document_number,
                 display_name: document.props.display_name,
                 source: document.props.source,
                 labels: document.labels
@@ -493,7 +438,7 @@ def get_dossier_documents(
     body = f"""
         LET items = (
             FOR document IN all_documents
-                SORT document.props.date DESC
+                SORT document.props.date DESC, document._key
                 LIMIT @offset, @limit
                 {_DOSSIER_DOCUMENT_ROW}
         )
@@ -508,33 +453,6 @@ def get_dossier_documents(
     }
     rows = list(store.query(aql, bind))
     return rows[0] if rows else {"total": 0, "items": []}
-
-
-def get_documents_for_dossiers(
-    store: ArangoStore,
-    dossier_ids: list[str],
-    *,
-    per_dossier_limit: int = 8,
-) -> dict[str, list[dict[str, Any]]]:
-    """Top-N documents per dossier in one round trip, keyed by dossier ``_id``."""
-    if not dossier_ids:
-        return {}
-    body = f"""
-        LET items = (
-            FOR document IN all_documents
-                SORT document.props.date DESC
-                LIMIT @per_dossier_limit
-                {_DOSSIER_DOCUMENT_ROW}
-        )
-        RETURN {{ dossier_id: dossier_id, items: items }}
-    """
-    aql = f"FOR dossier_id IN @ids\n{_dossier_documents_aql(body)}"
-    bind = {
-        "ids": dossier_ids,
-        "per_dossier_limit": per_dossier_limit,
-        "part_of": RELATION_PART_OF,
-    }
-    return {row["dossier_id"]: row["items"] for row in store.query(aql, bind)}
 
 
 _DOSSIER_HUB_BODY = f"""
@@ -795,42 +713,159 @@ class _MutationGraph:
         }
 
 
-def get_open_dossiers(
-    store: ArangoStore,
-    *,
-    committee_slug: str | None = None,
-    subject: str | None = None,
-    stage: str | None = None,
-    has_stage: list[str] | None = None,
-    limit: int = 100,
-    offset: int = 0,
-) -> dict[str, Any]:
-    """A page of the dossiers that are still open.
+def _subject_filter(subject: str, bind: dict[str, Any]) -> str:
+    """The AQL condition on ``dossier`` for a subject: a number, a label or title text.
 
-    ``has_stage`` keeps only dossiers whose ``stages_present`` contains every
-    stage listed. The committee filter resolves that committee's dossiers once
-    as a set, rather than traversing per dossier row.
+    ``37035`` matches every dossier of that number, ``37035-XXII`` that one dossier, any other
+    text the titles that contain it.
     """
-    filters = ["dossier.props.closed != true"]
-    bind: dict[str, Any] = {"limit": limit, "offset": offset}
-
-    if stage:
-        filters.append("dossier.props.current_stage == @stage")
-        bind["stage"] = stage
-    if subject:
-        filters.append("CONTAINS(LOWER(dossier.props.title), LOWER(@subject))")
+    parsed = parse_dossier_query(subject)
+    if parsed is None:
         bind["subject"] = subject
-    if has_stage:
-        filters.append("@has_stage ALL IN (dossier.props.stages_present OR [])")
-        bind["has_stage"] = has_stage
+        return "CONTAINS(LOWER(dossier.props.title), LOWER(@subject))"
+    number, suffix = parsed
+    bind["subject_number"] = number
+    if suffix is None:
+        return "dossier.props.number == @subject_number"
+    bind["subject_suffix"] = suffix
+    return (
+        "dossier.props.number == @subject_number"
+        " AND UPPER(dossier.props.suffix) == @subject_suffix"
+    )
 
-    committee_pre = ""
-    committee_filter = ""
-    if committee_slug:
-        bind["committee_slug"] = committee_slug
+
+def get_dossier_relations(store: ArangoStore, dossier_id: str) -> list[dict[str, Any]]:
+    """The ``REVISES``, ``ACCOMPANIES`` and ``RELATED_TO`` edges between this dossier and
+    others, with the other dossier and the direction.
+
+    Ordered by relation (``DOSSIER_RELATIONS``), outgoing before incoming, and then by the
+    other dossier's number and suffix.
+    """
+    aql = f"""
+    LET outgoing = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._from == @dossier_id AND e.relation IN @relations
+            FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+            RETURN {{ edge: e, other: e._to, direction: "outgoing" }}
+    )
+    LET incoming = (
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == @dossier_id AND e.relation IN @relations
+            FILTER STARTS_WITH(e._from, '{COLLECTION_DOSSIERS}/')
+            RETURN {{ edge: e, other: e._from, direction: "incoming" }}
+    )
+    FOR row IN APPEND(outgoing, incoming)
+        LET dossier = DOCUMENT(row.other)
+        FILTER dossier != null
+        RETURN {{
+            relation: row.edge.relation,
+            direction: row.direction,
+            meta: row.edge.meta,
+            dossier: dossier
+        }}
+    """
+    bind = {"dossier_id": dossier_id, "relations": list(DOSSIER_RELATIONS)}
+    rows = list(store.query(aql, bind))
+    return sorted(rows, key=_relation_order)
+
+
+def _relation_order(row: dict[str, Any]) -> tuple[Any, ...]:
+    props = row["dossier"].get("props") or {}
+    number = str(props.get("number") or "")
+    return (
+        DOSSIER_RELATIONS.index(row["relation"]),
+        row["direction"] != "outgoing",
+        int(number) if number.isdigit() else 0,
+        suffix_sort_key(props.get("suffix")),
+    )
+
+
+# The dimensions the dossier lists count as facets: the prop each counts, without a value
+# counted as its default. ``status`` is ``open`` or ``closed``.
+_DOSSIER_FACETS = {
+    "status": 'dossier.props.closed == true ? "closed" : "open"',
+    "outcome": "dossier.props.outcome",
+    "kind": "dossier.props.kind",
+    "phase": "dossier.props.current_phase",
+    "ministry": "dossier.props.ministry",
+}
+
+# The orders of a dossier list; each ends in the key, so a page never repeats a row.
+DOSSIER_SORTS = {
+    "number": "dossier.props.order ASC",
+    "opened_on": "dossier.props.opened_on DESC",
+    "closed_on": "dossier.props.closed_on DESC",
+    "title": "LOWER(dossier.props.title) ASC",
+}
+
+
+@dataclass(frozen=True)
+class DossierFilters:
+    """What a dossier list keeps; None keeps everything."""
+
+    status: str | None = None  # open, closed
+    outcome: str | None = None
+    kinds: tuple[str, ...] | None = None
+    phase: str | None = None
+    has_phase: tuple[str, ...] | None = None
+    ministry: str | None = None
+    initiative: bool | None = None
+    number: str | None = None  # a prefix of the label: 36264, 37020-
+    subject: str | None = None
+    committee_slug: str | None = None
+    opened_from: str | None = None
+    opened_to: str | None = None
+
+
+def _dossier_filters(
+    filters: DossierFilters, bind: dict[str, Any]
+) -> tuple[list[str], dict[str, str]]:
+    """The AQL conditions on ``dossier``: those that hold for every facet, and those of a
+    facet dimension by its name (a facet is counted without its own)."""
+    own: dict[str, str] = {}
+    shared: list[str] = []
+    for name, value, clause in (
+        ("status", filters.status, f"({_DOSSIER_FACETS['status']}) == @status"),
+        ("outcome", filters.outcome, "dossier.props.outcome == @outcome"),
+        ("kind", filters.kinds, "dossier.props.kind IN @kind"),
+        ("phase", filters.phase, "dossier.props.current_phase == @phase"),
+        ("ministry", filters.ministry, "dossier.props.ministry == @ministry"),
+    ):
+        if value:
+            own[name] = clause
+            bind[name] = list(value) if isinstance(value, tuple) else value
+    if filters.number:
+        # a prefix as a range, so the index on the label answers it
+        shared.append(
+            "dossier.props.label >= @number AND dossier.props.label < @number_end"
+        )
+        bind["number"] = filters.number
+        bind["number_end"] = filters.number + "\uffff"
+    if filters.subject:
+        shared.append(_subject_filter(filters.subject, bind))
+    if filters.has_phase:
+        shared.append(
+            "@has_phase ALL IN (dossier.props.phases OR [])[* FILTER CURRENT.done].name"
+        )
+        bind["has_phase"] = list(filters.has_phase)
+    if filters.initiative is not None:
+        shared.append("dossier.props.initiative == @initiative")
+        bind["initiative"] = filters.initiative
+    if filters.opened_from:
+        shared.append("dossier.props.opened_on >= @opened_from")
+        bind["opened_from"] = filters.opened_from
+    if filters.opened_to:
+        shared.append("dossier.props.opened_on <= @opened_to")
+        bind["opened_to"] = filters.opened_to
+    if filters.committee_slug:
+        shared.append("dossier._id IN committee_dossier_ids")
+        bind["committee_slug"] = filters.committee_slug
         bind["led_by"] = RELATION_LED_BY
         bind["about"] = RELATION_ABOUT
-        committee_pre = f"""
+    return shared, own
+
+
+_COMMITTEE_DOSSIERS = f"""
     LET committee = FIRST(
         FOR c IN {COLLECTION_COMMITTEES}
             FILTER c.props.slug == @committee_slug LIMIT 1 RETURN c
@@ -843,65 +878,62 @@ def get_open_dossiers(
                 FILTER STARTS_WITH(subject._to, '{COLLECTION_DOSSIERS}/')
                 RETURN subject._to
     ) : []
-        """
-        committee_filter = "FILTER dossier._id IN committee_dossier_ids"
+"""
 
-    where = "\n            ".join(f"FILTER {f}" for f in filters)
+
+def get_dossiers(
+    store: ArangoStore,
+    filters: DossierFilters,
+    *,
+    sort: str = "opened_on",
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """A page of the dossiers *filters* keeps, in the order *sort* (``DOSSIER_SORTS``),
+    with ``total`` and ``facets``: per ``status``, ``outcome``, ``track``, ``stage`` (the
+    current one) and ``ministry`` the number of dossiers per value under the other filters,
+    each dimension counted without its own filter.
+
+    The committee filter resolves that committee's dossiers once as a set, rather than
+    traversing per dossier row.
+    """
+    bind: dict[str, Any] = {"limit": limit, "offset": offset}
+    shared, own = _dossier_filters(filters, bind)
+
+    def where(*clauses: str) -> str:
+        return "\n            ".join(f"FILTER {c}" for c in clauses)
+
+    every = where(*shared, *own.values())
+    facets = ",\n        ".join(
+        f"""{name}: (
+            FOR dossier IN {COLLECTION_DOSSIERS}
+                {where(*shared, *(c for n, c in own.items() if n != name))}
+                COLLECT value = {expression} WITH COUNT INTO n
+                SORT n DESC, value
+                RETURN {{ value, count: n }}
+        )"""
+        for name, expression in _DOSSIER_FACETS.items()
+    )
     aql = f"""
-    {committee_pre}
+    {_COMMITTEE_DOSSIERS if filters.committee_slug else ""}
     LET total = LENGTH(
         FOR dossier IN {COLLECTION_DOSSIERS}
-            {where}
-            {committee_filter}
+            {every}
             RETURN 1
     )
     LET items = (
         FOR dossier IN {COLLECTION_DOSSIERS}
-            {where}
-            {committee_filter}
-            SORT dossier.props.opened_on DESC
+            {every}
+            SORT {DOSSIER_SORTS[sort]}, dossier._key
             LIMIT @offset, @limit
             RETURN dossier
     )
-    RETURN {{ total: total, items: items }}
+    RETURN {{ total: total, items: items, facets: {{
+        {facets}
+    }} }}
     """
     rows = list(store.query(aql, bind))
-    return rows[0] if rows else {"total": 0, "items": []}
-
-
-def get_recent_dossiers(
-    store: ArangoStore, *, days: int = 30, limit: int = 50
-) -> list[dict[str, Any]]:
-    """Dossiers with an activity in the last *days* days."""
-    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).strftime(
-        "%Y-%m-%d"
-    )
-    aql = f"""
-    FOR activity IN {COLLECTION_ACTIVITIES}
-        FILTER activity.props.date >= @cutoff
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from == activity._id AND e.relation == @about
-            FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
-            LET dossier = DOCUMENT(e._to)
-            FILTER dossier != null
-            LIMIT @limit
-            RETURN DISTINCT dossier
-    """
-    bind = {"cutoff": cutoff, "limit": limit, "about": RELATION_ABOUT}
-    return list(store.query(aql, bind))
-
-
-def get_dossier_number_to_id_map(
-    store: ArangoStore, numbers: list[str]
-) -> dict[str, str]:
-    """Dossier number (``36558``, ``37020-XV``) -> dossier ``_id``, for those that exist."""
-    by_key = {make_node_key(number): number for number in numbers}
-    existing = store.existing_keys(COLLECTION_DOSSIERS, set(by_key))
-    return {
-        number: f"{COLLECTION_DOSSIERS}/{key}"
-        for key, number in by_key.items()
-        if key in existing
-    }
+    return rows[0] if rows else {"total": 0, "items": [], "facets": {}}
 
 
 def count_dossier_members(store: ArangoStore, dossier_id: str) -> dict[str, int]:
@@ -955,3 +987,55 @@ def get_dossier_titles(
         RETURN {{ key: d._key, title: d.props.title }}
     """
     return {row["key"]: row.get("title") for row in store.query(aql, {"keys": keys})}
+
+
+def get_laws_named(store: ArangoStore, names: list[str]) -> list[dict[str, Any]]:
+    """``{name, loaded, key, bwb_id}`` of each law *names* holds (the laws a dossier title
+    names), found by the citation title, title or short title of an instrument; else by
+    the one citation title the name begins (a name the title cut at "in")."""
+    if not names:
+        return []
+    aql = f"""
+    FOR name IN @names
+        LET lower = LOWER(name)
+        LET exact = FIRST(
+            FOR i IN {COLLECTION_INSTRUMENTS}
+                FILTER i.props.stub != true
+                FILTER LOWER(i.props.citation_title) == lower
+                    OR LOWER(i.props.title) == lower
+                    OR LOWER(i.props.short_title) == lower
+                SORT i._key
+                LIMIT 1
+                RETURN i
+        )
+        LET begun = exact != null ? [] : (
+            FOR i IN {COLLECTION_INSTRUMENTS}
+                FILTER i.props.stub != true
+                FILTER STARTS_WITH(LOWER(i.props.citation_title), CONCAT(lower, " "))
+                LIMIT 2
+                RETURN i
+        )
+        LET found = exact != null ? exact : (LENGTH(begun) == 1 ? begun[0] : null)
+        RETURN {{
+            name,
+            loaded: found != null,
+            key: found._key,
+            bwb_id: found.props.bwb_id
+        }}
+    """
+    return list(store.query(aql, {"names": names}))
+
+
+def tk_values(store: ArangoStore) -> dict[str, set[str]]:
+    """The values of the Tweede Kamer the database holds that a phase can name:
+    ``documents`` (``Document.Soort``), ``activities`` (``Activiteit.Soort``) and
+    ``decisions`` (``BesluitSoort``)."""
+    aql = f"""
+    RETURN {{
+        documents: (FOR d IN {COLLECTION_DOCUMENTS} RETURN DISTINCT d.props.kind),
+        activities: (FOR a IN {COLLECTION_ACTIVITIES} RETURN DISTINCT a.props.kind),
+        decisions: (FOR d IN {COLLECTION_DECISIONS} RETURN DISTINCT d.props.decision_kind)
+    }}
+    """
+    row = next(iter(store.query(aql)), None) or {}
+    return {part: {v for v in row.get(part) or [] if v} for part in row}

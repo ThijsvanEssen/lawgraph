@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:PHR:2020:453</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2023-06-06T15:41:32</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2020-05-08</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Parket_bij_de_Hoge_Raad" scheme="overheid.RechterlijkeMacht">Parket bij de Hoge Raad</dcterms:creator>
+      <dcterms:date rdfs:label="Datum genomen">2020-05-08</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">19/03069</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/conclusie">Conclusie</dcterms:type>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#civielRecht">Civiel recht</dcterms:subject>
+      <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:HR:2020:1308" psi:type="http://psi.rechtspraak.nl/conclusie" psi:aanleg="http://psi.rechtspraak.nl/latereAanleg" psi:gevolg="http://psi.rechtspraak.nl/gevolg#gevolgd">Arrest Hoge Raad: ECLI:NL:HR:2020:1308, Gevolgd</dcterms:relation>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+          <rdf:li>JBPr 2020/76 met annotatie van Wiersma, H.W.</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:PHR:2020:453">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:PHR:2020:453</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2020-07-16T18:31:21</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2020-06-08</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:PHR:2020:453 Parket bij de Hoge Raad , 08-05-2020 / 19/03069</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:PHR:2020:453:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <para>Procesrecht. Beroepsaansprakelijkheid advocaat. Vordering tot schadevergoeding wegens tekortkoming. Verdeling stelplicht en bewijslast ten aanzien van causaal verband; art. 150 Rv. Te hoge eisen gesteld aan stel- en motiveringsplicht bij beroep op schadebeperkingsplicht?</para>
+    </inhoudsindicatie>
+  <conclusie id="ECLI:NL:PHR:2020:453:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <conclusie.info>
+    <para />
+    <parablock>
+      <para>PROCUREUR-GENERAAL</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>BIJ DE</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>HOGE RAAD DER NEDERLANDEN</para>
+    </parablock>
+    <para />
+    <para />
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">Nummer	</emphasis>19/03069</para>
+      <para>
+        <emphasis role="bold">Zitting </emphasis>8 mei 2020</para>
+    </parablock>
+    <para />
+    <para />
+    <parablock>
+      <para>CONCLUSIE </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>T. Hartlief</para>
+    </parablock>
+    <para />
+    <para />
+    <parablock>
+      <para>In de zaak</para>
+    </parablock>
+    <para>1. Maatschap [eiseres 1]</para>
+    <para>2. [eiser 2]</para>
+    <para>3. [eiser 3]</para>
+    <parablock>
+      <para>(hierna gezamenlijk aangeduid als: “ [eisers] ”, eiser 2 wordt hierna aangeduid als: “ [eiser 2] ”)</para>
+      <para />
+    </parablock>
+    <para>tegen</para>
+    <para />
+    <parablock>
+      <para>
+        [verweerster]
+      </para>
+      <para>(hierna: “ [verweerster] ”)</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Een door [verweerster] verhuurd pand is door brand verwoest. Een onderhuurder zou zich schuldig hebben gemaakt aan hennepteelt. [eiser 2] is door [verweerster] ingeschakeld om de door de brand veroorzaakte schade te verhalen. In deze beroepsaansprakelijkheidszaak wordt [eiser 2] verweten dat hij de zaak heeft laten liggen met als gevolg dat de rechtsvorderingen van [verweerster] met betrekking tot (verhaal van) de brandschade zijn verjaard en wordt hij tot vergoeding van de aldus door [verweerster] geleden schade aangesproken. [eiser 2] heeft erkend dat, voor zover het gaat om het aanspreken van de onderhuurder, sprake is van een beroepsfout. [eisers] bestrijden echter dat [verweerster] als gevolg van die fout schade heeft geleden. Een procedure tegen de onderhuurder zou volgens [eisers] kansloos zijn geweest. De rechtbank heeft op dit spoor de schadevergoedingsvordering afgewezen. Het hof heeft de schadevergoedingsvordering echter in hoger beroep toegewezen. Volgens het hof zou een procedure tegen de onderhuurder succesvol zijn geweest. Het verweer van [eisers] in dit verband dat een veroordeling van de onderhuurder onverhaalbaar zou zijn geweest, heeft het hof als een zelfstandig verweer aangemerkt en vervolgens afgewezen omdat [eisers] daartoe onvoldoende hebben gesteld. Het hof heeft uiteindelijk zowel vergoeding ter zake van door [verweerster] gemaakte sloop- en herbouwkosten als wegens door haar gederfde huur toegewezen. Het cassatieberoep van [eisers] is in de eerste plaats gericht tegen de kwalificatie door het hof van het door [eisers] gevoerde onverhaalbaarheidsverweer: in plaats van een zelfstandig verweer zou het een betwisting van stellingen van [verweerster] zijn. Ook nemen [eisers] de door het hof toegewezen vergoeding ter zake van gederfde huur onder vuur. </para>
+    </parablock>
+    <para />
+  </conclusie.info>
+  <section>
+    <title>
+      <nr>3</nr>Bespreking van het cassatiemiddel </title>
+    <paragroup>
+      <nr>3.67</nr>
+      <para>Bij de beantwoording van de vraag of de benadeelde zijn schadebeperkingsplicht heeft geschonden, is, als gezegd, bepalend of van de benadeelde in de gegeven omstandigheden redelijkerwijs kon worden gevergd dat hij schadebeperkende maatregelen zou treffen. Pas bij een bevestigende beantwoording van die vraag kan worden geconcludeerd dat het achterwege laten van het treffen van maatregelen aan de benadeelde moet worden toegerekend.<footnote-ref linkend="_3c1c9f14-dbeb-46ff-9ecc-60fc9ed48e6b" /></para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.68</nr>
+      <para>Op zich hebben [eisers] het gelijk aan hun zijde waar zij in dit subonderdeel betogen dat de schadebeperkingsplicht niet enkel ziet op verwijtbaar gedrag van de benadeelde maar ook op omstandigheden die in zijn risicosfeer liggen. Desalniettemin kan dit [eisers] niet baten. Het hof heeft niet miskend dat het bij de beoordeling van de schadebeperkingsplicht niet alleen aankomt op verwijtbaar gedrag van de benadeelde. Uit rov. 6.11.3. volgt dat het hof heeft getoetst of van [verweerster] in redelijkheid kon worden verwacht dat zij eerder tot herbouwen van het pand overging. Het hof heeft daarbij het verweer van [verweerster] dat zij toentertijd geen financiële middelen had om het pand te slopen en te herbouwen, besproken. Daarbij heeft het hof geoordeeld dat [eisers] , gelet op het verweer van [verweerster] , niet heeft gesteld dat en hoe [verweerster] <emphasis role="italic">desondanks</emphasis> de sloop en de herbouw van het pand op andere wijze had kunnen financieren, zodat zij op die manier de schade door het niet kunnen verhuren van het pand had kunnen beperken. Alles bijeengenomen kan van dit oordeel moeilijk worden gezegd dat het hof enkel verwijtbaar gedrag in aanmerking heeft willen nemen en evenmin dat het hof ten onrechte geen toepassing aan art. 25 Rv heeft gegeven. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.69</nr>
+      <para>Van een ontoereikende motivering is evenmin sprake. Het hof heeft geen aanleiding gezien om te oordelen dat het feit dat [verweerster] niet (veel) eerder tot herbouw is overgegaan, schending van de schadebeperkingsplicht oplevert. Daarbij was zij niet gehouden op te schrijven dat er geen verwijtbaarheid aan de zijde van [verweerster] was en evenmin dat er geen sprake zou zijn van andere voor haar rekening komende omstandigheden. Dat het hof bij zijn oordeel dat geen sprake is van schending van de schadebeperkingsplicht te hoge eisen aan de stelplicht van [eisers] heeft gesteld, is een ander punt. Daarover klagen [eisers] , zo bleek hiervoor, in subonderdeel 2.5 met succes. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.70</nr>
+      <para>
+        <emphasis role="underline">Subonderdeel 2.6</emphasis> faalt.</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Slotsom</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.71</nr>
+      <para>Uit het voorgaande volgt dat alleen subonderdeel 2.5 wat mij betreft slaagt en dat de overige klachten vergeefs zijn voorgesteld. </para>
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>4</nr>Conclusie</title>
+    <para />
+    <parablock>
+      <para>	De conclusie strekt tot vernietiging van het arrest van het hof ’s-Hertogenbosch van 9 april 2019 en tot verwijzing.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>De Procureur-Generaal bij de</para>
+      <para>Hoge Raad der Nederlanden</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>A-G</para>
+    </parablock>
+    <para />
+  </section>
+</conclusie>
+</open-rechtspraak>

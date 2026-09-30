@@ -8,6 +8,7 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
@@ -17,6 +18,7 @@ from lawgraph.config.constants import (
     RELATION_AMENDS,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
+    RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
@@ -246,59 +248,106 @@ def get_article_legislative_history(
     article_number: str,
     article_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Return dossiers/documents that introduced, amended, or propose to amend an article.
+    """The dossiers that introduced, amended or repealed an article, or propose to.
 
-    Each entry: {dossier_id, dossier_number, dossier_title, date, kind, status,
-    summary, document_id}. The explanatory documents are not among them: they
-    explain a dossier's changes as a whole and are found by
-    ``get_article_explanations``.
+    A change is an ``AMENDS``, ``INTRODUCES`` or ``REPEALS`` edge to the article: from an
+    amending publication (enacted, ``canoniek``), whose dossiers are those it is
+    ``LEGISLATED_IN`` and those its ``dossier_numbers`` name (a dossier that is not in the
+    graph has no ``dossier_id``), or from a bill (``voorgesteld``), whose dossier it is
+    ``PART_OF``, directly or through its case. One entry per change and dossier; a change
+    without a dossier is none, and what only cites the article (a judgment, another article)
+    is no change.
+
+    Each entry: {dossier_id, dossier_number, dossier_title, date, kind, change, status,
+    summary, document_id}; proposed changes first, then newest first. The explanatory
+    documents are found by ``get_article_explanations``.
     """
     if article_id is None:
-        article_key = make_node_key(bwb_id, article_number)
-        article_id = f"{COLLECTION_ARTICLES}/{article_key}"
+        article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
 
-    # Every edge pointing at this article that says something about its text.
-    mutation_relations = [
-        RELATION_AMENDS,
-        RELATION_INTRODUCES,
-        RELATION_REPEALS,
-        RELATION_REFERS_TO,
-    ]
     aql = f"""
     FOR edge IN {COLLECTION_EDGES}
         FILTER edge._to == @article_id
-        FILTER edge.relation IN @relations
-        LET doc = DOCUMENT(edge._from)
-        FILTER doc != null
-        LET dossier = FIRST(
+        FILTER edge.relation IN @changes
+        LET source = DOCUMENT(edge._from)
+        FILTER source != null
+        LET direct = (
             FOR e2 IN {COLLECTION_EDGES}
-                FILTER e2._from == edge._from AND e2.relation == '{RELATION_PART_OF}'
+                FILTER e2._from == edge._from
+                FILTER e2.relation IN [@part_of, @legislated_in]
                 FILTER STARTS_WITH(e2._to, '{COLLECTION_DOSSIERS}/')
-                LET d = DOCUMENT(e2._to)
-                FILTER d != null
-                LIMIT 1 RETURN d
+                RETURN PARSE_IDENTIFIER(e2._to).key
         )
-        SORT edge.status == '{EDGE_STATUS_VOORGESTELD}' ? 0 : 1, doc.props.date DESC
+        LET through_case = (
+            FOR e2 IN {COLLECTION_EDGES}
+                FILTER e2._from == edge._from AND e2.relation == @part_of
+                FILTER STARTS_WITH(e2._to, '{COLLECTION_CASES}/')
+                FOR e3 IN {COLLECTION_EDGES}
+                    FILTER e3._from == e2._to AND e3.relation == @part_of
+                    FILTER STARTS_WITH(e3._to, '{COLLECTION_DOSSIERS}/')
+                    RETURN PARSE_IDENTIFIER(e3._to).key
+        )
         RETURN {{
-            dossier_id: (dossier != null ? dossier._id : null),
-            dossier_number: (dossier != null ? dossier.props.label : null),
-            dossier_title: (dossier != null ? dossier.props.title : null),
-            date: doc.props.date,
-            kind: doc.props.kind,
+            dossier_keys: UNION_DISTINCT(direct, through_case),
+            numbers: IS_SAME_COLLECTION('{COLLECTION_INSTRUMENTS}', source)
+                ? (source.props.dossier_numbers OR []) : [],
+            date: NOT_NULL(
+                source.props.date, source.props.date_published, source.props.date_signed
+            ),
+            kind: NOT_NULL(source.props.kind, source.props.publication_kind),
+            change: LOWER(edge.relation),
             status: edge.status,
-            summary: doc.props.display_name,
-            document_id: doc._id
+            summary: source.props.display_name,
+            document_id: source._id
         }}
     """
-    return list(
+    changes = list(
         store.query(
             aql,
             {
                 "article_id": article_id,
-                "relations": mutation_relations,
+                "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
+                "part_of": RELATION_PART_OF,
+                "legislated_in": RELATION_LEGISLATED_IN,
             },
         )
     )
+    # A number names the dossier whose key it makes; one lookup for every dossier.
+    for change in changes:
+        change["numbers"] = {make_node_key(n): n for n in change["numbers"]}
+        change["dossier_keys"] += [
+            key for key in change["numbers"] if key not in change["dossier_keys"]
+        ]
+    keys = sorted({k for change in changes for k in change["dossier_keys"]})
+    dossiers = {
+        row["key"]: row
+        for row in store.query(
+            f"""
+            FOR key IN @keys
+                LET d = DOCUMENT('{COLLECTION_DOSSIERS}', key)
+                FILTER d != null
+                RETURN {{key, id: d._id, label: d.props.label, title: d.props.title}}
+            """,
+            {"keys": keys},
+        )
+    }
+    entries = []
+    for change in changes:
+        numbers = change.pop("numbers")
+        for key in change.pop("dossier_keys"):
+            dossier = dossiers.get(key)
+            entries.append(
+                {
+                    **change,
+                    "dossier_id": dossier["id"] if dossier else None,
+                    "dossier_number": dossier["label"] if dossier else numbers[key],
+                    "dossier_title": dossier["title"] if dossier else None,
+                }
+            )
+    entries.sort(key=lambda e: e["dossier_number"] or "")
+    entries.sort(key=lambda e: e["date"] or "", reverse=True)
+    entries.sort(key=lambda e: e["status"] != EDGE_STATUS_VOORGESTELD)
+    return entries
 
 
 def get_article_explanations(
@@ -311,14 +360,13 @@ def get_article_explanations(
 ) -> dict[str, Any]:
     """A page of the documents that EXPLAIN an article, and how many there are in all.
 
-    An explanation is an EXPLAINS edge whose target is the article, one of its versions
-    (found as ``get_article_history`` finds them) or its instrument; the edge of an
-    explanatory memorandum usually points at a version. The rows say at which level
-    they matched: level 0 for the article and its versions, level 1 for the instrument
-    (an edge written only for a law that changed no articles, so no evidence about this
-    article), sorted after the first. Per document and level one edge is kept, the one
-    that says most (a version before the article, the newest version first); edges that
-    carry a ``meta.section_anchor`` are kept apart from those that do not.
+    An explanation is an EXPLAINS edge whose target is the article or one of its versions
+    (found as ``get_article_history`` finds them); the edge of an explanatory memorandum
+    usually points at a version. An edge to the article's law is no explanation of the
+    article: it is written for a law that changed no articles, and says nothing about this
+    one. Per document one edge is kept, the one that says most (a version before the
+    article, the newest version first); edges that carry a ``meta.section_anchor`` are kept
+    apart from those that do not.
 
     An unknown article has no explanations: the answer is empty. Query budget: one
     lookup of the article and one query, driven by the ``(_to, relation)`` index of
@@ -331,18 +379,12 @@ def get_article_explanations(
     identity_filter, bind = _version_identity(article, bwb_id, article_number)
     aql = f"""
     LET targets = UNION(
-        [{{ id: @article_id, level: 0, rank: 1, valid_from: null }}],
+        [{{ id: @article_id, rank: 1, valid_from: null }}],
         (
             FOR v IN {COLLECTION_ARTICLE_VERSIONS}
                 FILTER v.props.bwb_id == @bwb_id
                 {identity_filter}
-                RETURN {{ id: v._id, level: 0, rank: 0, valid_from: v.props.valid_from }}
-        ),
-        (
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._from == @article_id AND e.relation == @part_of
-                FILTER STARTS_WITH(e._to, '{COLLECTION_INSTRUMENTS}/')
-                RETURN {{ id: e._to, level: 1, rank: 0, valid_from: null }}
+                RETURN {{ id: v._id, rank: 0, valid_from: v.props.valid_from }}
         )
     )
     LET found = (
@@ -356,7 +398,6 @@ def get_article_explanations(
                     document_id: document._id,
                     key: document._key,
                     date: document.props.date,
-                    level: t.level,
                     rank: t.rank,
                     valid_from: t.valid_from,
                     target_id: t.id,
@@ -366,7 +407,7 @@ def get_article_explanations(
     )
     LET picked = (
         FOR f IN found
-            COLLECT document_id = f.document_id, level = f.level,
+            COLLECT document_id = f.document_id,
                     section_anchor = f.section_anchor INTO grouped = f
             RETURN FIRST(
                 FOR g IN grouped
@@ -377,7 +418,7 @@ def get_article_explanations(
     )
     LET items = (
         FOR p IN picked
-            SORT p.level ASC, p.date DESC, p.key ASC, p.section_anchor ASC
+            SORT p.date DESC, p.key ASC, p.section_anchor ASC
             LIMIT @offset, @limit
             LET document = DOCUMENT(p.document_id)
             LET dossier_number = FIRST(
@@ -419,27 +460,14 @@ def get_article_explanations(
     return rows[0] if rows else {"total": 0, "items": []}
 
 
-def get_article_in_flux(
-    store: ArangoStore, bwb_id: str, article_number: str, article_id: str | None = None
-) -> dict[str, Any]:
-    """In-flux status for an article: a flag plus the number of proposed edges."""
-    if article_id is None:
-        article_key = make_node_key(bwb_id, article_number)
-        article_id = f"{COLLECTION_ARTICLES}/{article_key}"
+@dataclass(frozen=True)
+class CitedBy:
+    """A page of the passages that cite an article: ``{judgment, mention}`` rows, the
+    passages that match the filters and the judgments they are in."""
 
-    aql = f"""
-    LET proposed = LENGTH(
-        FOR edge IN {COLLECTION_EDGES}
-            FILTER edge._to == @article_id
-            FILTER edge.status == '{EDGE_STATUS_VOORGESTELD}'
-            RETURN 1
-    )
-    RETURN {{ in_flux: proposed > 0, open_dossier_count: proposed }}
-    """
-    rows = list(store.query(aql, {"article_id": article_id}))
-    if rows:
-        return rows[0]
-    return {"in_flux": False, "open_dossier_count": 0}
+    rows: list[dict[str, Any]]
+    total: int
+    judgment_total: int
 
 
 def get_article_cited_by(
@@ -451,11 +479,11 @@ def get_article_cited_by(
     lid: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> tuple[list[dict[str, Any]], int]:
+) -> CitedBy:
     """The passages of judgments that cite an article: one row per mention, newest first.
 
-    ``(rows, total)`` with ``{judgment, mention}`` rows; ``total`` counts every mention that
-    passes the filters, whatever the page. Filters: the ``court`` (ECLI court code) and
+    ``total`` counts every mention that passes the filters, whatever the page, and
+    ``judgment_total`` the judgments they are in. Filters: the ``court`` (ECLI court code) and
     ``tier`` of the judgment, and a ``lid`` number that the mention names.
 
     A much cited article has thousands of judgments (Sr 287, Awb 6:2) and a judgment is
@@ -496,6 +524,8 @@ def get_article_cited_by(
     )
     RETURN {{
         total: LENGTH(hits),
+        // one edge per judgment and article
+        judgment_total: COUNT_DISTINCT(hits[*].edge),
         items: (
             FOR hit IN page
                 LET e = DOCUMENT(hit.edge)
@@ -510,6 +540,7 @@ def get_article_cited_by(
                                 display_name: j.props.display_name,
                                 court_code: j.props.court_code,
                                 tier: j.props.tier,
+                                court_kind: j.props.court_kind,
                                 date_eff: j.props.date_eff
                             }}
                         }},
@@ -527,5 +558,9 @@ def get_article_cited_by(
         "limit": limit,
         "offset": offset,
     }
-    answer = next(iter(store.query(aql, bind)), None) or {"total": 0, "items": []}
-    return list(answer["items"]), int(answer["total"])
+    answer = next(iter(store.query(aql, bind)), None) or {}
+    return CitedBy(
+        rows=list(answer.get("items") or []),
+        total=int(answer.get("total") or 0),
+        judgment_total=int(answer.get("judgment_total") or 0),
+    )

@@ -18,7 +18,9 @@ from lawgraph.config.constants import (
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_RAW_SOURCES,
     EXPLANATORY_KIND_MARKER,
+    RAW_KIND_EU_NIM,
     RELATION_ABOUT,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
@@ -27,12 +29,19 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
+    RELATION_SECOND_READING_OF,
     SOURCE_BWB,
     SOURCE_ECHR,
     SOURCE_EERSTEKAMER,
+    SOURCE_EURLEX,
     SOURCE_RECHTSPRAAK,
     SOURCE_STAATSBLAD,
     SOURCE_STAATSCOURANT,
+)
+from lawgraph.core.judgments import (
+    CONCLUSION_ONLY_COURTS,
+    DOCUMENT_TYPE_CONCLUSION,
+    PROCEDURE_PRELIMINARY_RULING,
 )
 from lawgraph.db.counting import Store
 
@@ -59,8 +68,8 @@ _CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 def judgment_paragraphs(
     store: Store, *, eclis: list[str] | None, batch_size: int
 ) -> Iterator[dict[str, Any]]:
-    """``{ecli, paragraphs}`` (as a slim document) of every Rechtspraak judgment, only those
-    of *eclis* when it is given."""
+    """``{ecli, paragraphs, unresolved_citations}`` (as a slim document) of every
+    Rechtspraak judgment, only those of *eclis* when it is given."""
     bind: dict[str, Any] = {"source": SOURCE_RECHTSPRAAK}
     recent = ""
     if eclis is not None:
@@ -70,7 +79,7 @@ def judgment_paragraphs(
         FOR j IN {COLLECTION_JUDGMENTS}
             FILTER j.props.source == @source
             {recent}
-            RETURN {slim("j", "ecli", "paragraphs")}
+            RETURN {slim("j", "ecli", "paragraphs", "unresolved_citations")}
         """
     return store.query(aql, bind, batch_size=batch_size)
 
@@ -98,19 +107,359 @@ def judgment_ids_by_ecli(store: Store, eclis: list[str]) -> Iterator[dict[str, A
 
 
 def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
-    """``{j_id, procedure_type, related_eclis}`` of every judgment that names an earlier
-    one."""
+    """``{j_id, ecli, date, case_number, case_number_keys, procedure_type,
+    related_eclis}`` of every judgment that names an earlier one."""
     aql = f"""
 FOR j IN {COLLECTION_JUDGMENTS}
   FILTER j.props.related_eclis != null
   FILTER LENGTH(j.props.related_eclis) > 0
   RETURN {{
     j_id: j._id,
+    ecli: j.props.ecli,
+    date: j.props.date_eff,
+    case_number: j.props.case_number,
+    case_number_keys: j.props.case_number_keys OR [],
     procedure_type: j.props.judgment_metadata.type,
     related_eclis: j.props.related_eclis,
   }}
 """
     return store.query(aql)
+
+
+def judgment_instances(store: Store, eclis: list[str]) -> Iterator[dict[str, Any]]:
+    """``{ecli, id, date, case_number, case_number_keys, procedure, is_conclusion}`` of the
+    judgments with these *eclis* (``core.appeals.Instance``)."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.ecli IN @eclis
+  RETURN {{
+    ecli: j.props.ecli,
+    id: j._id,
+    date: j.props.date_eff,
+    case_number: j.props.case_number,
+    case_number_keys: j.props.case_number_keys OR [],
+    procedure: j.props.judgment_metadata.type,
+    is_conclusion: j.props.judgment_metadata.document_type == @conclusion
+      OR j.props.court_code IN @conclusion_courts
+  }}
+"""
+    return store.query(
+        aql,
+        {
+            "eclis": eclis,
+            "conclusion": DOCUMENT_TYPE_CONCLUSION,
+            "conclusion_courts": sorted(CONCLUSION_ONLY_COURTS),
+        },
+    )
+
+
+def appeals_to_read(
+    store: Store, *, procedure: str, paragraphs: int
+) -> Iterator[dict[str, Any]]:
+    """``{key, j_id, ecli, read, paragraphs, unresolved_appeal_targets}`` of the appeals
+    whose metadata names no earlier instance (``read``: *procedure*, a regular expression,
+    matches their ``judgment_metadata.type``), with their first *paragraphs* paragraphs;
+    and of the judgments that carry unresolved appeal targets, so that those no longer
+    read lose them."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.source == @source
+  LET read = LENGTH(j.props.related_eclis) == 0
+    AND REGEX_TEST(j.props.judgment_metadata.type || "", @procedure, true)
+  FILTER read OR j.props.unresolved_appeal_targets != null
+  RETURN {{
+    key: j._key,
+    j_id: j._id,
+    ecli: j.props.ecli,
+    read: read,
+    paragraphs: read ? SLICE(j.props.paragraphs OR [], 0, @paragraphs)[* RETURN {{
+      text: CURRENT.text
+    }}] : [],
+    unresolved_appeal_targets: j.props.unresolved_appeal_targets
+  }}
+"""
+    return store.query(
+        aql,
+        {
+            "source": SOURCE_RECHTSPRAAK,
+            "procedure": procedure,
+            "paragraphs": paragraphs,
+        },
+    )
+
+
+def second_reading_memoranda(store: Store) -> Iterator[dict[str, Any]]:
+    """``{labels, text}`` of the explanatory memoranda that speak of a first reading, with
+    the labels of their dossiers: a change in the Grondwet in its second reading refers to
+    the papers of the first (``core.dossier_numbers.first_reading_dossiers``)."""
+    aql = f"""
+    FOR doc IN {COLLECTION_DOCUMENTS}
+        FILTER "TK" IN doc.labels AND doc.props.text != null
+        FILTER CONTAINS(LOWER(doc.props.kind || ""), @explanatory)
+        FILTER CONTAINS(LOWER(doc.props.text), "eerste lezing")
+        RETURN {{
+            labels: (
+                FOR e IN {COLLECTION_EDGES}
+                    FILTER e._from == doc._id AND e.relation == @part_of
+                    FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
+                    RETURN DOCUMENT(e._to).props.label
+            ),
+            text: doc.props.text
+        }}
+    """
+    return store.query(
+        aql, {"explanatory": EXPLANATORY_KIND_MARKER, "part_of": RELATION_PART_OF}
+    )
+
+
+def law_articles(store: Store, field: str, law_id: str) -> Iterator[dict[str, Any]]:
+    """``{key, number, last_number, stub}`` of every article of one law; *field* is
+    ``bwb_id`` or ``celex``. A historical article has only ``last_number``."""
+    aql = f"""
+FOR a IN {COLLECTION_ARTICLES}
+  FILTER a.props.@field == @law_id
+  RETURN {{
+    key: a._key,
+    number: a.props.article_number,
+    last_number: a.props.last_article_number,
+    stub: a.props.stub == true
+  }}
+"""
+    return store.query(aql, {"field": field, "law_id": law_id})
+
+
+def conclusion_rows(store: Store) -> Iterator[dict[str, Any]]:
+    """``{ecli, court_code, date, case_number, is_conclusion, conclusion_eclis,
+    case_number_keys}`` of every conclusion and of every judgment that names its
+    conclusion."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.source == @source
+  LET is_conclusion = j.props.judgment_metadata.document_type == @conclusion
+    OR j.props.court_code IN @conclusion_courts
+  FILTER is_conclusion OR LENGTH(j.props.conclusion_eclis) > 0
+  RETURN {{
+    ecli: j.props.ecli,
+    court_code: j.props.court_code,
+    date: j.props.date_eff,
+    case_number: j.props.case_number,
+    is_conclusion: is_conclusion,
+    conclusion_eclis: j.props.conclusion_eclis OR [],
+    case_number_keys: j.props.case_number_keys OR []
+  }}
+"""
+    return store.query(
+        aql,
+        {
+            "source": SOURCE_RECHTSPRAAK,
+            "conclusion": DOCUMENT_TYPE_CONCLUSION,
+            "conclusion_courts": sorted(CONCLUSION_ONLY_COURTS),
+        },
+    )
+
+
+def judgments_by_case_keys(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
+    """``{key, ecli, court_code, date, is_conclusion}`` of the judgments with one of these
+    case number *keys* (``core.judgments.case_number_keys``), one row per key they carry."""
+    aql = f"""
+FOR key IN @keys
+  FOR j IN {COLLECTION_JUDGMENTS}
+    FILTER key IN j.props.case_number_keys[*]
+    RETURN {{
+      key: key,
+      ecli: j.props.ecli,
+      court_code: j.props.court_code,
+      date: j.props.date_eff,
+      is_conclusion: j.props.judgment_metadata.document_type == @conclusion
+        OR j.props.court_code IN @conclusion_courts
+    }}
+"""
+    return store.query(
+        aql,
+        {
+            "keys": keys,
+            "conclusion": DOCUMENT_TYPE_CONCLUSION,
+            "conclusion_courts": sorted(CONCLUSION_ONLY_COURTS),
+        },
+    )
+
+
+def decisions_on_dates(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
+    """``{ecli, date, case_number}`` of the decisions (not conclusions) of these *dates*."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.date_eff IN @dates AND j.props.ecli != null
+  FILTER j.props.judgment_metadata.document_type != @conclusion
+    AND j.props.court_code NOT IN @conclusion_courts
+  RETURN {{ecli: j.props.ecli, date: j.props.date_eff, case_number: j.props.case_number}}
+"""
+    return store.query(
+        aql,
+        {
+            "dates": dates,
+            "conclusion": DOCUMENT_TYPE_CONCLUSION,
+            "conclusion_courts": sorted(CONCLUSION_ONLY_COURTS),
+        },
+    )
+
+
+def court_decisions_between(
+    store: Store, spans: list[dict[str, str]]
+) -> Iterator[dict[str, Any]]:
+    """``{court_code, ecli, date, case_number}`` of the decisions (not conclusions) of the
+    court of each span (``{court_code, start, end}``) dated from its start to its end."""
+    aql = f"""
+FOR span IN @spans
+  FOR j IN {COLLECTION_JUDGMENTS}
+    FILTER j.props.court_code == span.court_code
+    FILTER j.props.date_eff >= span.start AND j.props.date_eff <= span.end
+    FILTER j.props.judgment_metadata.document_type != @conclusion
+    RETURN DISTINCT {{
+      court_code: j.props.court_code,
+      ecli: j.props.ecli,
+      date: j.props.date_eff,
+      case_number: j.props.case_number
+    }}
+"""
+    return store.query(aql, {"spans": spans, "conclusion": DOCUMENT_TYPE_CONCLUSION})
+
+
+def preliminary_rulings(store: Store, *, paragraphs: int) -> Iterator[dict[str, Any]]:
+    """``{ecli, related_eclis, paragraphs}`` of every preliminary ruling, with its first
+    *paragraphs* paragraphs (where it says who asked its questions)."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.judgment_metadata.type == @procedure
+  RETURN {{
+    ecli: j.props.ecli,
+    related_eclis: j.props.related_eclis OR [],
+    paragraphs: SLICE(j.props.paragraphs OR [], 0, @paragraphs)
+  }}
+"""
+    return store.query(
+        aql, {"procedure": PROCEDURE_PRELIMINARY_RULING, "paragraphs": paragraphs}
+    )
+
+
+def generic_summaries(store: Store, *, min_dates: int) -> Iterator[str]:
+    """The MD5 (``core.judgment_series.summary_fingerprint``) of every Rechtspraak summary
+    written on at least *min_dates* distinct dates: templates, not summaries."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.source == @source AND j.props.summary != null
+  COLLECT fingerprint = MD5(j.props.summary)
+  AGGREGATE dates = COUNT_DISTINCT(j.props.date_eff)
+  FILTER dates >= @min_dates
+  RETURN fingerprint
+"""
+    return store.query(aql, {"source": SOURCE_RECHTSPRAAK, "min_dates": min_dates})
+
+
+# The judgments of one court on one day, read through the index that `/api/stats/coverage`
+# counts from (``db/schema.py``): every field of its prefix is fixed.
+_COURT_DAY_FILTER = """
+  FILTER j.props.stub == false AND j.props.source == @source
+"""
+
+
+def judgment_court_days(
+    store: Store, *, eclis: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
+    """``{court_code, date, tier, courts}`` of every day on which a court gave two or more
+    Rechtspraak judgments, or, with *eclis*, of the days of those judgments."""
+    bind: dict[str, Any] = {"source": SOURCE_RECHTSPRAAK}
+    of_eclis = ""
+    if eclis is not None:
+        bind["eclis"] = eclis
+        of_eclis = "FILTER j.props.ecli IN @eclis"
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  {_COURT_DAY_FILTER}
+  {of_eclis}
+  FILTER j.props.court_code != null AND j.props.date_eff != null
+  COLLECT court_code = j.props.court_code, date = j.props.date_eff
+  AGGREGATE tier = MAX(j.props.tier), courts = UNIQUE(j.props.court),
+            count = COUNT(1)
+  FILTER @eclis_given OR count > 1
+  RETURN {{court_code, date, tier, courts}}
+"""
+    bind["eclis_given"] = eclis is not None
+    return store.query(aql, bind)
+
+
+def judgments_in_series(store: Store) -> Iterator[str]:
+    """The ECLIs of the judgments that carry a ``series_id``."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.series_id != null
+  RETURN j.props.ecli
+"""
+    return store.query(aql)
+
+
+def replaced_judgments(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, key, ecli, replaced_by, same_as}`` of the judgments a later publication
+    replaces (``props.replaced_by``) and of those ``SAME_AS`` another now; each through
+    its sparse index."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  FILTER j.props.replaced_by != null OR j.props.same_as != null
+  RETURN {{
+    id: j._id,
+    key: j._key,
+    ecli: j.props.ecli,
+    replaced_by: j.props.replaced_by,
+    same_as: j.props.same_as
+  }}
+"""
+    return store.query(aql)
+
+
+def loaded_judgment_ids(store: Store, eclis: list[str]) -> Iterator[dict[str, Any]]:
+    """``{ecli, id}`` of the judgments with these *eclis* that are loaded (no stub)."""
+    aql = f"""
+FOR doc IN {COLLECTION_JUDGMENTS}
+  FILTER doc.props.ecli IN @eclis AND doc.props.stub != true
+  RETURN {{ ecli: doc.props.ecli, id: doc._id }}
+"""
+    return store.query(aql, {"eclis": eclis})
+
+
+def judgments_of_court_day(
+    store: Store,
+    *,
+    court_code: str,
+    date: str,
+    tier: str | None,
+    courts: list[str | None],
+    batch_size: int,
+) -> Iterator[dict[str, Any]]:
+    """``{key, ecli, text, summary, document_type, case_number_keys, series_id,
+    series_size}`` of the Rechtspraak judgments of one court on one day."""
+    aql = f"""
+FOR j IN {COLLECTION_JUDGMENTS}
+  {_COURT_DAY_FILTER}
+  FILTER j.props.tier == @tier AND j.props.court_code == @court_code
+  FILTER j.props.court IN @courts AND j.props.date_eff == @date
+  RETURN {{
+    key: j._key,
+    ecli: j.props.ecli,
+    text: j.props.text,
+    summary: j.props.summary,
+    document_type: j.props.judgment_metadata.document_type,
+    case_number_keys: j.props.case_number_keys OR [],
+    series_id: j.props.series_id,
+    series_size: j.props.series_size
+  }}
+"""
+    bind = {
+        "source": SOURCE_RECHTSPRAAK,
+        "court_code": court_code,
+        "date": date,
+        "tier": tier,
+        "courts": courts,
+    }
+    return store.query(aql, bind, batch_size=batch_size)
 
 
 def echr_judgments(store: Store) -> Iterator[dict[str, Any]]:
@@ -133,19 +482,23 @@ FOR j IN {COLLECTION_JUDGMENTS}
 # ── instruments ──────────────────────────────────────────────────────────────
 
 
+# The abbreviations of the instruments: ``core.aliases.code_aliases`` reads them.
+CODE_ALIAS_AQL = f"""
+    FOR inst IN {COLLECTION_INSTRUMENTS}
+        FILTER inst.props.bwb_id != null OR inst.props.celex != null
+        RETURN {{
+            short_title: inst.props.short_title,
+            aliases: inst.props.aliases,
+            bwb_id: inst.props.bwb_id,
+            celex: inst.props.celex
+        }}
+    """
+
+
 def code_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
-    """``{short_title, bwb_id, celex}`` of the instruments with a short title."""
-    aql = f"""
-        FOR inst IN {COLLECTION_INSTRUMENTS}
-            FILTER inst.props.short_title != null
-            FILTER inst.props.bwb_id != null OR inst.props.celex != null
-            RETURN {{
-                short_title: inst.props.short_title,
-                bwb_id: inst.props.bwb_id,
-                celex: inst.props.celex
-            }}
-        """
-    return store.query(aql)
+    """``{short_title, aliases, bwb_id, celex}`` of the instruments with a BWB id or a
+    CELEX number."""
+    return store.query(CODE_ALIAS_AQL)
 
 
 def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
@@ -164,15 +517,73 @@ def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(aql)
 
 
-def celex_references(store: Store) -> Iterator[list[Any]]:
-    """``[bwb_id, celex_refs]`` of the BWB regulations that name an EU act."""
+def eu_references(store: Store) -> Iterator[dict[str, Any]]:
+    """``{bwb_id, named, implements}`` of the BWB regulations that name an EU act or whose
+    considerans says they implement one (CELEX numbers)."""
     aql = f"""
         FOR regulation IN {COLLECTION_INSTRUMENTS}
             FILTER regulation.props.source == @source
             FILTER LENGTH(regulation.props.celex_refs) > 0
-            RETURN [regulation.props.bwb_id, regulation.props.celex_refs]
+                OR LENGTH(regulation.props.implements_celex) > 0
+            RETURN {{
+                bwb_id: regulation.props.bwb_id,
+                named: regulation.props.celex_refs || [],
+                implements: regulation.props.implements_celex || []
+            }}
         """
     return store.query(aql, {"source": SOURCE_BWB})
+
+
+def national_measures(store: Store) -> Iterator[Any]:
+    """The national implementing measures of EUR-Lex as retrieved (``payload_json``)."""
+    aql = f"""
+        FOR r IN {COLLECTION_RAW_SOURCES}
+            FILTER r.source == @source AND r.kind == @kind AND r.payload_json != null
+            RETURN r.payload_json
+        """
+    return store.query(aql, {"source": SOURCE_EURLEX, "kind": RAW_KIND_EU_NIM})
+
+
+def regulations_of_publications(
+    store: Store, publications: list[str]
+) -> Iterator[list[str]]:
+    """``[publication id, bwb_id]`` for every regulation one of *publications* enacted
+    (``props.enacted_publication``) or made a version of an article of (its origin)."""
+    aql = f"""
+        FOR pair IN UNION_DISTINCT(
+            (
+                FOR regulation IN {COLLECTION_INSTRUMENTS}
+                    FILTER regulation.props.source == @source
+                    FILTER regulation.props.enacted_publication IN @publications
+                    RETURN [regulation.props.enacted_publication, regulation.props.bwb_id]
+            ),
+            (
+                FOR v IN {COLLECTION_ARTICLE_VERSIONS}
+                    FILTER v.props.origin_publication.id IN @publications
+                    COLLECT publication = v.props.origin_publication.id,
+                        bwb_id = v.props.bwb_id
+                    RETURN [publication, bwb_id]
+            )
+        )
+            RETURN pair
+        """
+    return store.query(aql, {"source": SOURCE_BWB, "publications": publications})
+
+
+def remove_edges_of_source_except(
+    store: Store, relation: str, source: str, keep: list[str]
+) -> int:
+    """Remove the edges of *relation* made by *source* whose key is not in *keep*: for edges
+    one pipeline derives in full on every run. How many went."""
+    aql = f"""
+    FOR e IN {COLLECTION_EDGES}
+        FILTER e.relation == @relation AND e.source == @source
+        FILTER e._key NOT IN @keep
+        REMOVE e IN {COLLECTION_EDGES}
+        RETURN 1
+    """
+    bind = {"relation": relation, "source": source, "keep": keep}
+    return sum(store.query(aql, bind))
 
 
 _BASIS_AQL = f"""
@@ -246,6 +657,40 @@ def annex_keys(store: Store) -> Iterator[Any]:
     return store.query(f"FOR a IN {COLLECTION_ANNEXES} RETURN a._key")
 
 
+def titled_annexes(store: Store) -> Iterator[dict[str, Any]]:
+    """``{key, bwb_id, label, title}`` of every annex with a title, by key."""
+    aql = f"""
+        FOR annex IN {COLLECTION_ANNEXES}
+            FILTER annex.props.title != null AND annex.props.bwb_id != null
+            SORT annex._key
+            RETURN {{
+                key: annex._key,
+                bwb_id: annex.props.bwb_id,
+                label: annex.props.label,
+                title: annex.props.title
+            }}
+        """
+    return store.query(aql)
+
+
+def articles_naming_annexes(
+    store: Store, names: list[dict[str, Any]]
+) -> Iterator[dict[str, Any]]:
+    """Per ``{key, bwb_id, name}`` of *names*: the articles of that regulation whose text
+    contains the name, as ``{annex, article}``."""
+    aql = f"""
+        FOR n IN @names
+            FOR doc IN {COLLECTION_ARTICLES}
+                FILTER doc.props.bwb_id == n.bwb_id AND doc.props.bwb_id != null
+                FILTER doc.props.text != null AND CONTAINS(doc.props.text, n.name)
+                RETURN {{
+                    annex: n.key,
+                    article: {slim("doc", "bwb_id", "text", "article_number")}
+                }}
+        """
+    return store.query(aql, {"names": names})
+
+
 def articles_mentioning_annex(store: Store) -> Iterator[dict[str, Any]]:
     """The articles whose text contains the word "bijlage"."""
     aql = f"""
@@ -284,9 +729,12 @@ FOR a IN {COLLECTION_ARTICLES}
 
 _REGULATION_DOSSIERS_AQL = f"""
 FOR i IN {COLLECTION_INSTRUMENTS}
-  FILTER i.props.bwb_id != null AND IS_ARRAY(i.props.dossier_numbers)
-  FILTER LENGTH(i.props.dossier_numbers) > 0
-  RETURN {{key: i._key, dossiers: i.props.dossier_numbers}}
+  FILTER i.props.bwb_id != null
+  SORT i._key
+  RETURN {{
+    key: i._key,
+    dossiers: IS_ARRAY(i.props.dossier_numbers) ? i.props.dossier_numbers : []
+  }}
 """
 
 
@@ -307,7 +755,8 @@ def articles_by_identity(
 
 
 def regulation_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, dossiers}`` of the BWB regulations that list parliamentary dossiers."""
+    """``{key, dossiers}`` of every BWB regulation, with the parliamentary dossiers it
+    lists (none too: its edges to dossiers it no longer lists go)."""
     return store.query(_REGULATION_DOSSIERS_AQL)
 
 
@@ -535,8 +984,8 @@ def tk_documents(store: Store, ids: list[str] | None) -> Iterator[dict[str, Any]
 def tk_document_titles(
     store: Store, since_date: str | None
 ) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer documents with their title, those of *since_date* or later when it is
-    given."""
+    """The Tweede Kamer documents with their kind, their title and, of a paper named by its own
+    subject, the title of its dossier; those of *since_date* or later when it is given."""
     since_filter = ""
     bind_vars: dict[str, Any] | None = None
     if since_date is not None:
@@ -547,7 +996,7 @@ def tk_document_titles(
         f"FOR doc IN {COLLECTION_DOCUMENTS}\n"
         '    FILTER "TK" IN doc.labels\n'
         f"    {since_filter}\n"
-        f"    RETURN {slim('doc', 'title', 'display_name')}"
+        f"    RETURN {slim('doc', 'kind', 'title', 'dossier_title', 'display_name')}"
     )
     return store.query(aql, bind_vars)
 
@@ -614,12 +1063,19 @@ FOR document IN {COLLECTION_DOCUMENTS}
 MEMORANDUM_TARGETS_AQL = f"""
 FOR doc IN {COLLECTION_DOCUMENTS}
   FILTER CONTAINS(LOWER(doc.props.kind || ''), '{EXPLANATORY_KIND_MARKER}')
-  LET paper_dossiers = (
+  LET own_dossiers = (
     FOR e IN {COLLECTION_EDGES}
       FILTER e._from == doc._id AND e.relation == @part_of
       FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
       RETURN e._to
   )
+  // a first reading explains what its second reading made law
+  LET paper_dossiers = UNION_DISTINCT(own_dossiers, (
+    FOR dossier IN own_dossiers
+      FOR e IN {COLLECTION_EDGES}
+        FILTER e._to == dossier AND e.relation == @second_reading_of
+        RETURN e._from
+  ))
   LET legislated = (
     FOR dossier IN paper_dossiers
       FOR e IN {COLLECTION_EDGES}
@@ -651,10 +1107,12 @@ FOR doc IN {COLLECTION_DOCUMENTS}
 
 def memorandum_targets(store: Store, *, sections_source: str) -> Iterator[Any]:
     """``{document, targets}`` per explanatory memorandum: what the instrument legislated in
-    its dossier changed, less what an edge of *sections_source* already explains."""
+    its dossier (or in the second reading of its dossier) changed, less what an edge of
+    *sections_source* already explains."""
     bind_vars: dict[str, Any] = {
         "part_of": RELATION_PART_OF,
         "legislated_in": RELATION_LEGISLATED_IN,
+        "second_reading_of": RELATION_SECOND_READING_OF,
         "explains": RELATION_EXPLAINS,
         "sections_source": sections_source,
         "change_relations": list(_CHANGE_RELATIONS),
@@ -672,12 +1130,19 @@ FOR doc IN {COLLECTION_DOCUMENTS}
   FILTER doc.props.budget != true
   FILTER doc.props.structure_quality IN @qualities
   FILTER doc.props.text != null
-  LET paper_dossiers = (
+  LET own_dossiers = (
     FOR e IN {COLLECTION_EDGES}
       FILTER e._from == doc._id AND e.relation == @part_of
       FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
       RETURN e._to
   )
+  // a first reading explains what its second reading made law
+  LET paper_dossiers = UNION_DISTINCT(own_dossiers, (
+    FOR dossier IN own_dossiers
+      FOR e IN {COLLECTION_EDGES}
+        FILTER e._to == dossier AND e.relation == @second_reading_of
+        RETURN e._from
+  ))
   LET legislated = (
     FOR dossier IN paper_dossiers
       FOR e IN {COLLECTION_EDGES}
@@ -733,11 +1198,13 @@ def memoranda_with_sections(
 ) -> Iterator[dict[str, Any]]:
     """Per memorandum of a structure quality in *qualities*: its text and sections, the
     laws its dossier legislated (``own``), the articles they changed and the names of the
-    laws involved."""
+    laws involved. The dossier of a first reading of a change in the Grondwet counts with
+    the dossier of its second reading, in which the change was made law."""
     bind_vars: dict[str, Any] = {
         "qualities": qualities,
         "part_of": RELATION_PART_OF,
         "legislated_in": RELATION_LEGISLATED_IN,
+        "second_reading_of": RELATION_SECOND_READING_OF,
         "change_relations": list(_CHANGE_RELATIONS),
     }
     return store.query(_MEMORANDA_WITH_SECTIONS_AQL, bind_vars, batch_size=batch_size)
@@ -770,53 +1237,40 @@ FOR dossier_id IN @dossier_ids
         date_signed: instrument.props.date_signed
       }}
   )
-  LET papers = UNION_DISTINCT(
-    (
-      FOR e IN {COLLECTION_EDGES}
-        FILTER e._to == dossier_id AND e.relation == @part_of
-        FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
-        RETURN e._from
-    ),
-    (
-      FOR e1 IN {COLLECTION_EDGES}
-        FILTER e1._to == dossier_id AND e1.relation == @part_of
-        FILTER STARTS_WITH(e1._from, '{COLLECTION_CASES}/')
-        FOR e2 IN {COLLECTION_EDGES}
-          FILTER e2._to == e1._from AND e2.relation == @part_of
-          FILTER STARTS_WITH(e2._from, '{COLLECTION_DOCUMENTS}/')
-          RETURN e2._from
-    )
-  )
-  LET letters = (
-    FOR id IN papers
-      LET paper = DOCUMENT(id)
-      FILTER paper != null
-      FILTER LIKE(paper.props.kind, "brief%", true)
-      FILTER CONTAINS(LOWER(paper.props.subject), "intrekking")
-      RETURN {{
-        kind: paper.props.kind,
-        subject: paper.props.subject,
-        date: paper.props.date,
-        case_kinds: paper.props.case_kinds
-      }}
-  )
-  LET bill_votes = (
+  LET bill_decisions = (
     FOR e IN {COLLECTION_EDGES}
       FILTER e._to == dossier_id AND e.relation == @about
       FILTER STARTS_WITH(e._from, '{COLLECTION_DECISIONS}/')
       LET decision = DOCUMENT(e._from)
       FILTER decision != null
       FILTER decision.props.primary_case_kind IN @bill_case_kinds
-      RETURN {{ date: decision.props.date, passed: decision.props.passed }}
+      RETURN KEEP(
+        decision.props, "date", "passed", "decision_kind", "decision_text"
+      )
+  )
+  LET ek_votes = (
+    FOR e IN {COLLECTION_EDGES}
+      FILTER e._to == dossier_id AND e.relation == @about
+      FILTER STARTS_WITH(e._from, '{COLLECTION_DECISIONS}/')
+      LET decision = DOCUMENT(e._from)
+      FILTER decision != null AND decision.props.chamber == "EK"
+      RETURN MERGE(
+        {{ id: decision._id }},
+        KEEP(
+          decision.props, "date", "result", "method", "source_url", "retrieved_on",
+          "bill_decision", "kind"
+        )
+      )
   )
   RETURN {{
     key: dossier._key,
     props: KEEP(
-      dossier.props, "closed", "closed_on", "outcome", "current_stage", "stages_present"
+      dossier.props, "closed", "closed_on", "outcome", "tk_decision", "ek_outcome",
+      "ek_rejected", "kind"
     ),
     publications: publications,
-    letters: letters,
-    bill_votes: bill_votes
+    bill_decisions: bill_decisions,
+    ek_votes: ek_votes
   }}
 """
 
@@ -824,14 +1278,149 @@ FOR dossier_id IN @dossier_ids
 def dossier_outcome_signals(
     store: Store, dossier_ids: list[str], *, bill_case_kinds: list[str]
 ) -> Iterator[dict[str, Any]]:
-    """``{key, props, publications, letters, bill_votes}`` per dossier of *dossier_ids*: the
-    instruments ``LEGISLATED_IN`` it, the letters on it that name a withdrawal, the votes on
-    a case of one of *bill_case_kinds*, and the outcome props it holds now."""
+    """``{key, props, publications, bill_decisions, ek_votes}`` per dossier of
+    *dossier_ids*: the instruments ``LEGISLATED_IN`` it, the decisions on a case of one of
+    *bill_case_kinds*, the votes of the Eerste Kamer about it, and the outcome props it
+    holds now."""
     bind_vars: dict[str, Any] = {
         "dossier_ids": dossier_ids,
         "legislated_in": RELATION_LEGISLATED_IN,
-        "part_of": RELATION_PART_OF,
         "about": RELATION_ABOUT,
         "bill_case_kinds": bill_case_kinds,
     }
     return store.query(_DOSSIER_OUTCOME_SIGNALS_AQL, bind_vars)
+
+
+def dossier_refs(store: Store) -> Iterator[dict[str, Any]]:
+    """``{label, number, suffix, title}`` of every dossier: what the relation rules read."""
+    return store.query(
+        f"""
+        FOR dossier IN {COLLECTION_DOSSIERS}
+            RETURN KEEP(dossier.props, "label", "number", "suffix", "title")
+        """
+    )
+
+
+def related_cases(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, kind, dossier_numbers, related_cases}`` of every case the Kamer relates to
+    another."""
+    return store.query(
+        f"""
+        FOR case IN {COLLECTION_CASES}
+            FILTER LENGTH(case.props.related_cases) > 0
+            RETURN {{
+                id: case.props.external_id,
+                kind: case.props.kind,
+                dossier_numbers: case.props.dossier_numbers,
+                related_cases: case.props.related_cases
+            }}
+        """
+    )
+
+
+def procedural_neighbours(
+    store: Store, ids: list[str], relations: list[str], *, chunk: int = 5000
+) -> Iterator[list[str]]:
+    """``[id, other]`` for every edge of *relations* between a node of *ids* and another,
+    either way."""
+    aql = f"""
+    FOR id IN @ids
+        FOR e IN {COLLECTION_EDGES}
+            FILTER (e._from == id OR e._to == id) AND e.relation IN @relations
+            RETURN [id, e._from == id ? e._to : e._from]
+    """
+    for start in range(0, len(ids), chunk):
+        yield from store.query(
+            aql, {"ids": ids[start : start + chunk], "relations": relations}
+        )
+
+
+def remove_edges_from(
+    store: Store,
+    relation: str,
+    source: str,
+    from_ids: list[str],
+    keep: dict[str, set[str]],
+    *,
+    chunk: int = 5000,
+) -> int:
+    """Remove the edges of *relation* made by *source* from any of *from_ids* whose key is
+    not in *keep* (per node id): a pipeline that derives the edges of a node in full removes
+    those it no longer derives. How many went."""
+    aql = f"""
+    FOR id IN @ids
+        LET kept = @keep[id] OR []
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._from == id AND e.relation == @relation AND e.source == @source
+            FILTER e._key NOT IN kept
+            REMOVE e IN {COLLECTION_EDGES}
+            RETURN 1
+    """
+    removed = 0
+    for start in range(0, len(from_ids), chunk):
+        ids = from_ids[start : start + chunk]
+        removed += sum(
+            store.query(
+                aql,
+                {
+                    "ids": ids,
+                    "relation": relation,
+                    "source": source,
+                    "keep": {i: sorted(keep[i]) for i in ids if i in keep},
+                },
+            )
+        )
+    return removed
+
+
+def remove_edges_to(
+    store: Store,
+    relations: list[str],
+    source: str,
+    to_ids: list[str],
+    keep: dict[str, set[str]],
+    *,
+    chunk: int = 5000,
+) -> int:
+    """Remove the edges of *relations* made by *source* into any of *to_ids* whose key is
+    not in *keep* (per node id): the counterpart of ``remove_edges_from`` for a pipeline that
+    derives the edges into a node in full. How many went."""
+    aql = f"""
+    FOR id IN @ids
+        LET kept = @keep[id] OR []
+        FOR e IN {COLLECTION_EDGES}
+            FILTER e._to == id AND e.relation IN @relations AND e.source == @source
+            FILTER e._key NOT IN kept
+            REMOVE e IN {COLLECTION_EDGES}
+            RETURN 1
+    """
+    removed = 0
+    for start in range(0, len(to_ids), chunk):
+        ids = to_ids[start : start + chunk]
+        removed += sum(
+            store.query(
+                aql,
+                {
+                    "ids": ids,
+                    "relations": relations,
+                    "source": source,
+                    "keep": {i: sorted(keep[i]) for i in ids if i in keep},
+                },
+            )
+        )
+    return removed
+
+
+def remove_unreached_judgment_stubs(store: Store) -> int:
+    """Remove the stub judgments no edge reaches or leaves any more: a stub stands in for a
+    judgment something links, and one nothing links is left from an earlier run. How many
+    went."""
+    aql = f"""
+    FOR j IN {COLLECTION_JUDGMENTS}
+        FILTER j.props.stub == true
+        FILTER LENGTH(FOR e IN {COLLECTION_EDGES} FILTER e._to == j._id LIMIT 1 RETURN 1) == 0
+        FILTER LENGTH(FOR e IN {COLLECTION_EDGES} FILTER e._from == j._id LIMIT 1 RETURN 1) == 0
+        REMOVE j IN {COLLECTION_JUDGMENTS}
+        RETURN 1
+    """
+    return sum(store.query(aql))

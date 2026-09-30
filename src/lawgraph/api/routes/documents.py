@@ -1,34 +1,34 @@
 """Document endpoints.
 
-GET /api/documents        — the document index
+GET /api/documents        — the papers of the chambers, newest first, with facets
 GET /api/documents/{key}  — one document with its text, its sections and what it explains
 GET /api/documents/{key}/passages — the passages of a memorandum that explain an article
 """
 
 from __future__ import annotations
 
-from typing import Annotated
+import datetime as dt
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import parse_choices
 from lawgraph.api.schemas.documents import (
+    DocumentListItemDTO,
     DocumentListResponse,
     DocumentPassagesResponse,
-    DocumentSummaryDTO,
     DocumentTextResponse,
     PassageDTO,
     readable_sections,
 )
-from lawgraph.api.schemas.dossiers import DOSSIER_NUMBER_PATTERN
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.documents import (
     get_document,
     get_document_links,
     get_document_passages,
+    list_documents,
 )
-from lawgraph.db.queries.documents import list_documents as query_documents
-from lawgraph.db.queries.dossiers import get_dossier_by_number
 
 router = APIRouter()
 
@@ -36,56 +36,57 @@ router = APIRouter()
 @router.get(
     "",
     response_model=DocumentListResponse,
-    summary="Document index",
+    summary="The papers of the chambers",
     description=(
-        "Documents across every source, with metadata only — no text. Backs "
-        "the document index page. ``total`` is the absolute number of matches, "
-        "independent of ``limit`` and ``offset``. ``dossier`` keeps the documents "
-        "of one dossier, linked directly or through a case; an unknown dossier "
-        "matches nothing."
+        "The papers of the Tweede Kamer and the Eerste Kamer, newest first, with their "
+        "metadata (no text): ``chamber``, ``kind``, ``dossier_number`` (the dossier it is "
+        "numbered in), ``number`` (the nr., or the letter of the Eerste Kamer), ``date``, "
+        "``title`` and ``session_year``. ``facets`` counts per ``kind`` and ``chamber``, "
+        "each without its own filter; ``facets=false`` reads one page only."
     ),
     tags=["documents"],
 )
-def list_documents(
+def list_chamber_documents(
     store: Annotated[ArangoStore, Depends(get_store)],
-    q: Annotated[str | None, Query(description="Filter on title and kind.")] = None,
-    kind: Annotated[
-        str | None, Query(description="Document kind, exact match.")
+    chamber: Annotated[
+        Literal["TK", "EK"] | None, Query(description="One chamber; both by default.")
     ] = None,
-    chamber: Annotated[str | None, Query(description="'TK' or 'EK'.")] = None,
-    source: Annotated[
+    kind: Annotated[
         str | None,
-        Query(description="Source, e.g. 'tk', 'eerstekamer', 'staatscourant'."),
+        Query(description="Comma-separated kinds, as the chamber writes them."),
     ] = None,
     dossier: Annotated[
         str | None,
         Query(
-            description="Dossier number, e.g. 29684.",
-            pattern=DOSSIER_NUMBER_PATTERN,
+            description="A dossier label (``36791``, ``37020-XV``): the papers part of it.",
+            pattern=r"^\d+(-[A-Za-z0-9()]+)?$",
         ),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+    date_from: Annotated[
+        dt.date | None, Query(alias="from", description="On or after, YYYY-MM-DD.")
+    ] = None,
+    date_to: Annotated[
+        dt.date | None, Query(alias="to", description="On or before, YYYY-MM-DD.")
+    ] = None,
+    facets: Annotated[bool, Query(description="Count per kind and chamber.")] = True,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DocumentListResponse:
-    dossier_id = None
-    if dossier:
-        found = get_dossier_by_number(store, dossier)
-        if found is None:
-            return DocumentListResponse(total=0, items=[])
-        dossier_id = found["_id"]
-    raw = query_documents(
+    raw = list_documents(
         store,
-        q=q,
-        kind=kind,
-        chamber=chamber,
-        source=source,
-        dossier_id=dossier_id,
+        chambers=(chamber,) if chamber else ("TK", "EK"),
+        kinds=parse_choices(kind, None, "kind"),
+        dossier=dossier,
+        date_from=date_from.isoformat() if date_from else None,
+        date_to=date_to.isoformat() if date_to else None,
         limit=limit,
         offset=offset,
+        facets=facets,
     )
     return DocumentListResponse(
-        total=int(raw.get("total") or 0),
-        items=[DocumentSummaryDTO.from_row(row) for row in raw.get("items") or []],
+        total=raw.get("total"),
+        items=[DocumentListItemDTO.from_row(row) for row in raw.get("items") or []],
+        facets=raw.get("facets"),
     )
 
 
@@ -164,6 +165,8 @@ def get_document_article_passages(
             text=text[row["char_start"] : row["char_end"]],
             confidence=row["confidence"],
             match_type=row["match_type"],
+            changed=row.get("changed"),
+            explanation=row.get("explanation"),
         )
         for row in rows
     ]

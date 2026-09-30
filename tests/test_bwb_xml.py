@@ -10,7 +10,9 @@ from lawgraph.core.bwb_xml import (
     EFFECT_AMENDS,
     EFFECT_INTRODUCES,
     EFFECT_REPEALS,
+    EFFECT_REPUBLISHES,
     effect_kind,
+    instrument_props,
     parse_jci,
     parse_toestand,
 )
@@ -38,13 +40,34 @@ def test_instrument_metadata(grondwet) -> None:
     assert grondwet.citation_title == "Grondwet"
     assert grondwet.official_title.startswith("Grondwet voor het Koninkrijk")
     assert grondwet.title == "Grondwet"  # citation title wins, as before
-    assert grondwet.valid_from == "2022-07-06"
+    assert grondwet.valid_from == "2023-02-22"  # the start of the toestand
 
 
-def test_instrument_level_publication_carries_the_dossier(grondwet) -> None:
-    assert grondwet.origin.identifier == "stb-2022-332"
-    assert grondwet.origin.dossiers == ("35786",)
-    assert grondwet.origin.signed == "2022-07-06"
+def test_the_enactment_is_read_from_the_intitule(grondwet) -> None:
+    # the Grondwet itself, not the revision of 2022 its current version names
+    assert grondwet.enacted is not None
+    assert (grondwet.enacted.identifier, grondwet.enacted.signed) == (
+        "stb-1840-54",
+        "1840-09-04",
+    )
+    assert grondwet.enacted_in_force == "1840-09-12"
+    props = instrument_props(grondwet, "BWBR0001840")
+    assert (props["date_signed"], props["date_in_force"]) == (
+        "1840-09-04",
+        "1840-09-12",
+    )
+    assert props["date_published"] is None  # the source does not say it
+    assert props["version_date_in_force"] == "2023-02-22"
+
+
+def test_the_dossier_of_a_regulation_is_that_of_the_bill_that_enacted_it(
+    grondwet,
+) -> None:
+    # the <wetgeving> of the Awb names Stb. 2012, 682 of dossier 32450, a later change
+    awb = parse_toestand((FIXTURES / "bwb_awb_annexes_toestand.xml").read_text())
+    assert instrument_props(awb, "BWBR0005537")["dossier_numbers"] == ["21221"]
+    # the Grondwet of 1840 names no dossier: an empty list replaces a stale one
+    assert instrument_props(grondwet, "BWBR0001840")["dossier_numbers"] == []
 
 
 def test_article_identity_and_version_fields(grondwet) -> None:
@@ -55,7 +78,8 @@ def test_article_identity_and_version_fields(grondwet) -> None:
     assert art7.valid_from == "2018-12-21"
     assert art7.source == "Stb.2019-33"
     assert art7.effect == "tekstplaatsing-wijziging"
-    assert effect_kind(art7.effect) == EFFECT_AMENDS
+    assert effect_kind(art7.effect) == EFFECT_REPUBLISHES  # the Grondwet placed again
+    assert effect_kind("wijziging") == EFFECT_AMENDS
 
 
 def test_article_documents_and_their_dossiers(grondwet) -> None:
@@ -261,7 +285,109 @@ def test_the_breadcrumb_is_a_prop_of_the_article() -> None:
     from lawgraph.core.bwb_xml import article_props
 
     article = next(a for a in parse_toestand(_STRUCTURED).articles if a.number == "1:9")
-    props = article_props(article, "BWBR0005537", "Algemene wet bestuursrecht")
+    props = article_props(article, "BWBR0005537", "Algemene wet bestuursrecht", 0)
     assert props["breadcrumb"] == [
         {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Inleidende bepalingen"}
     ]
+
+
+_ANNEXES = """<toestand bwb-id="BWBR0005537"><wetgeving soort="wet"><wet-besluit><wettekst>
+<artikel label="Artikel 1"><kop><label>Artikel</label><nr>1</nr></kop><al>Van de wet.</al></artikel>
+</wettekst>
+<bijlage bwb-ng-variabel-deel="/Bijlage2" label="Bijlage 2"><kop><label>Bijlage</label><nr>2</nr>
+<titel>Bevoegdheidsregeling bestuursrechtspraak</titel></kop>
+<divisie label="Hoofdstuk 4"><kop><titel>Hoger beroep</titel></kop>
+<artikel label="Artikel 1"><kop><nr>1</nr></kop><al>Van bijlage 2, zie
+<extref doc="jci1.3:c:BWBR0005537&amp;bijlage=3&amp;artikel=1">artikel 1 van bijlage 3</extref>.
+</al></artikel>
+</divisie></bijlage>
+<bijlage label="Bijlage 3"><artikel label="Artikel 1"><kop><nr>1</nr></kop>
+<al>Van bijlage 3.</al></artikel></bijlage>
+</wet-besluit></wetgeving></toestand>"""
+
+
+def test_an_article_of_an_annex_names_its_annex() -> None:
+    from lawgraph.core.bwb_xml import article_label, parse_jci, parse_toestand
+
+    articles = parse_toestand(_ANNEXES).articles
+
+    assert [a.number for a in articles] == [
+        "1",
+        "bijlage 2 artikel 1",
+        "bijlage 3 artikel 1",
+    ]
+    in_annex = articles[1]
+    assert [(c.type, c.label) for c in in_annex.breadcrumb] == [
+        ("bijlage", "Bijlage 2"),
+        ("divisie", "Hoofdstuk 4"),
+    ]
+    assert in_annex.references[0].article == "bijlage 3 artikel 1"
+    assert parse_jci("jci1.3:c:BWBR0005537&bijlage=2&z=2026-08-15").article is None
+    assert article_label("bijlage 2 artikel 9") == "Artikel 9 van bijlage 2"
+    assert article_label("287") == "Artikel 287"
+
+
+def test_an_article_without_a_number_is_named_by_its_heading() -> None:
+    from lawgraph.core.bwb_xml import parse_toestand
+
+    xml = """<toestand bwb-id="BWBR0001840"><wetgeving soort="wet"><wet-besluit><wettekst>
+    <artikel stam-id="16464063" versie-id="28844682" inwerking="2022-08-30" effect="nieuw">
+      <kop><titel status="officieel">Algemene bepaling</titel></kop>
+      <al>De Grondwet waarborgt de grondrechten en de democratische rechtsstaat.</al>
+    </artikel>
+    <artikel stam-id="1" label="Artikel 1"><kop><label>Artikel</label><nr>1</nr></kop>
+      <al>Allen die zich in Nederland bevinden.</al></artikel>
+    <artikel stam-id="2988423" label="Slotartikel"><kop><label>Slotartikel</label></kop>
+      <al>Deze wet kan worden aangehaald als: Overgangswet nieuw Burgerlijk Wetboek.</al>
+    </artikel></wettekst></wet-besluit></wetgeving></toestand>"""
+    articles = parse_toestand(xml).articles
+
+    assert [(a.number, a.label, a.heading) for a in articles] == [
+        (None, "Algemene bepaling", "Algemene bepaling"),
+        ("1", "Artikel 1", None),
+        (None, "Slotartikel", None),
+    ]
+    assert articles[0].text.startswith("De Grondwet waarborgt")
+
+
+def test_a_numbered_article_keeps_the_title_of_its_kop_as_its_heading() -> None:
+    from lawgraph.core.bwb_xml import article_props, parse_toestand
+
+    xml = """<toestand bwb-id="BWBR0040940"><wetgeving soort="wet"><wet-besluit><wettekst>
+    <hoofdstuk><kop><label>Hoofdstuk</label><nr>1</nr><titel>Algemene bepalingen</titel></kop>
+    <artikel stam-id="1" label="Artikel 1"><kop><label>Artikel</label><nr>1</nr>
+      <titel status="officieel">Definities</titel></kop>
+      <al>In deze wet wordt verstaan onder: ...</al></artikel>
+    </hoofdstuk></wettekst></wet-besluit></wetgeving></toestand>"""
+    article = parse_toestand(xml).articles[0]
+
+    assert (article.number, article.label, article.heading) == (
+        "1",
+        "Artikel 1",
+        "Definities",
+    )
+    props = article_props(article, "BWBR0040940", "Uitvoeringswet AVG", 0)
+    assert props["heading"] == "Definities"
+    assert props["breadcrumb"] == [
+        {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Algemene bepalingen"}
+    ]
+
+
+def test_a_treaty_names_its_verdragenbank_id() -> None:
+    """``wetgeving@verdragnummer`` is the id of the treaty in the Verdragenbank."""
+    from lawgraph.core.bwb_xml import instrument_props, parse_toestand
+
+    treaty = parse_toestand(
+        '<toestand bwb-id="BWBV0001000" inwerkingtreding="1998-11-01">'
+        '<wetgeving soort="verdrag" verdragnummer="005132"><intitule>Verdrag tot '
+        "bescherming van de rechten van de mens</intitule></wetgeving></toestand>"
+    )
+    law = parse_toestand(
+        '<toestand bwb-id="BWBR0001854" inwerkingtreding="2020-01-01">'
+        '<wetgeving soort="wet"><intitule>Wetboek van Strafrecht</intitule></wetgeving>'
+        "</toestand>"
+    )
+    assert treaty.treaty_number == "005132"
+    assert instrument_props(treaty, "BWBV0001000")["treaty_number"] == "005132"
+    assert law.treaty_number is None
+    assert "treaty_number" not in instrument_props(law, "BWBR0001854")

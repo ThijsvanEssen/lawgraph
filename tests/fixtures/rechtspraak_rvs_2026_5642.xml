@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+  <rdf:RDF>
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:RVS:2026:5642</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-09-23T10:32:15</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-09-23</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Raad_van_State" scheme="overheid.RechterlijkeMacht">Raad van State</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2026-09-23</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">202504659/1/V6</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#hogerBeroep">Hoger beroep</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#bestuursrecht">Bestuursrecht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RVS:2026:5642">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RVS:2026:5642</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-09-23T10:16:42</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-09-23</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:RVS:2026:5642 Raad van State , 23-09-2026 / 202504659/1/V6</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:RVS:2026:5642:INH" lang="nl" xml:space="preserve">(ingekort)</inhoudsindicatie>
+  <uitspraak xml:space="preserve" lang="nl" id="ECLI:NL:RVS:2026:5642:DOC">
+  <parablock>
+    <para>202504659/1/V6.</para>
+    <para>Datum uitspraak: 23 september 2026</para>
+    <para>AFDELING</para>
+    <para>BESTUURSRECHTSPRAAK</para>
+    <para>Uitspraak op de hoger beroepen van:</para>
+    <para>1. de minister van Sociale Zaken en Werkgelegenheid</para>
+    <para>2. [appellant], gevestigd in [woonplaats]</para>
+    <para>appellanten,</para>
+    <para>tegen de uitspraak van de rechtbank Gelderland van 9 juli 2025 in zaak nr. 24/6811 in het geding tussen:</para>
+    <para>[appellant]</para>
+    <para>en</para>
+    <para>de minister.</para>
+    <para>Procesverloop</para>
+    <para>Bij besluit van 27 maart 2024 heeft de minister [appellant] een boete opgelegd van € 18.000,00 wegens vier overtredingen van artikel 2, eerste lid, van de Wet arbeid vreemdelingen (Wav).</para>
+    <para>Bij besluit van 19 augustus 2024 heeft de minister het door [appellant] daartegen gemaakte bezwaar ongegrond verklaard.</para>
+    <para>Bij uitspraak van 9 juli 2025 heeft de rechtbank het door [appellant] daartegen ingestelde beroep gegrond verklaard, dat besluit vernietigd, het besluit van 27 maart 2024 herroepen, beide voor zover de boete is vastgesteld op € 18.000,00, de boete vastgesteld op € 14.000,00 en bepaald dat de uitspraak in de plaats treedt van het vernietigde deel van het besluit van 19 augustus 2024.</para>
+    <para>Tegen deze uitspraak heeft de minister hoger beroep ingesteld.</para>
+    <para>[appellant] heeft een schriftelijke uiteenzetting gegeven en incidenteel hoger beroep ingesteld.</para>
+    <para>De minister heeft een zienswijze naar voren gebracht.</para>
+    <para>De Afdeling heeft de zaak op een zitting behandeld op 2 juni 2026, waar [appellant], vertegenwoordigd door mr. E.T.P. Scheers, advocaat in Maastricht, en de minister, vertegenwoordigd door mr. Y.D.R. Mandel en mr. J.J.A. Huisman, zijn verschenen.</para>
+    <para>Overwegingen</para>
+    <para>Inleiding</para>
+    <para>1. In het op ambtseed opgemaakte boeterapport van 12 januari 2024 staat het volgende. Arbeidsinspecteurs van de Nederlandse Arbeidsinspectie hebben [appellant] geselecteerd voor onderzoek voor de periode van 17 augustus 2022 tot en met 16 augustus 2023 omdat bij haar in die periode buitenlandse studenten werkten. De arbeidsinspecteurs hebben toen vier overtredingen van artikel 2, eerste lid, van de Wav geconstateerd. Het gaat om de volgende betrokkenen:</para>
+    <para>- (betrokkene 1);</para>
+    </parablock>
+</uitspraak>
+</open-rechtspraak>

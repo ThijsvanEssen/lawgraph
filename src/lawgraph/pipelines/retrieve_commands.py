@@ -6,9 +6,8 @@ import argparse
 import datetime as dt
 
 from lawgraph.config.constants import (
-    RECHTSPRAAK_COURT_GROUPS,
-    RECHTSPRAAK_COURTS,
     RECHTSPRAAK_DEFAULT_COURTS,
+    RECHTSPRAAK_EVERY_COURT,
     RECHTSPRAAK_MODIFIED_WINDOW_DAYS,
     RECHTSPRAAK_PUBLICATION_LAG_DAYS,
 )
@@ -21,13 +20,31 @@ from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
+from lawgraph.pipelines.retrieve.eerstekamer_composition import (
+    EerstekamerCompositionRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.eerstekamer_votes import (
+    EerstekamerVotesRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
+from lawgraph.pipelines.retrieve.eurlex_nim import EurlexNimRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
+from lawgraph.pipelines.retrieve.rechtspraak_instanties import (
+    RechtspraakInstantiesRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.rijksoverheid import RijksoverheidRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
+from lawgraph.pipelines.retrieve.staatscourant_posts import (
+    StaatscourantPostsRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
-from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_content import (
+    DEFAULT_KINDS,
+    TKContentRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
+from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
 
 _TK_EPOCH = dt.datetime(1995, 1, 1, tzinfo=dt.timezone.utc)
@@ -80,15 +97,23 @@ def retrieve_bwb(argv: list[str] | None = None) -> PipelineResult:
 
 def retrieve_bwb_history(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
-        description="Retrieve every historical BWB toestand."
+        description="Retrieve the historical BWB toestanden that are not stored yet."
     )
-    parser.add_argument("bwb_ids", nargs="*", help="Default: all regulations.")
+    parser.add_argument(
+        "bwb_ids",
+        nargs="*",
+        help="Default: every regulation of which the current toestand is stored.",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["incremental", "full"],
+        default="incremental",
+        help="incremental: only the toestanden not stored yet; full: every one again.",
+    )
     args = parser.parse_args(argv)
 
     pipeline = BWBRetrievePipeline(store=ArangoStore())
-    if args.bwb_ids:
-        return pipeline.run_history(bwb_ids=args.bwb_ids)
-    return pipeline.run_history_full()
+    return pipeline.run_history(bwb_ids=args.bwb_ids, refetch=args.mode == "full")
 
 
 def retrieve_echr(argv: list[str] | None = None) -> PipelineResult:
@@ -157,6 +182,20 @@ def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
     return pipeline.run(celex_ids=known_celex, lang=args.lang)
 
 
+def retrieve_eurlex_nim(argv: list[str] | None = None) -> PipelineResult:
+    parser = argparse.ArgumentParser(
+        description="Retrieve the national implementing measures of EUR-Lex (CELLAR)."
+    )
+    parser.add_argument("--country", default="NLD")
+    add_since_argument(parser, default="30d")
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+
+    pipeline = EurlexNimRetrievePipeline(ArangoStore())
+    since = None if args.mode == "full" else _date(args.since)
+    return pipeline.run(country_code=args.country, since=since)
+
+
 def retrieve_eerstekamer(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve the Eerste Kamer Kamerstukken (KOOP SRU)."
@@ -171,6 +210,26 @@ def retrieve_eerstekamer(argv: list[str] | None = None) -> PipelineResult:
     return pipeline.run(since=since, limit=args.max_records)
 
 
+def retrieve_eerstekamer_votes(argv: list[str] | None = None) -> PipelineResult:
+    parser = argparse.ArgumentParser(
+        description="Retrieve the votes of the Eerste Kamer on bills and the list of the "
+        "bills it rejected (eerstekamer.nl)."
+    )
+    add_since_argument(parser)
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+    since = None if args.mode == "full" or args.since is None else args.since.date()
+    return EerstekamerVotesRetrievePipeline(ArangoStore()).run(since=since)
+
+
+def retrieve_eerstekamer_composition(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve the factions and committees of the Eerste Kamer as they are "
+        "today (eerstekamer.nl): a snapshot of about 40 pages."
+    ).parse_args(argv)
+    return EerstekamerCompositionRetrievePipeline(ArangoStore()).run()
+
+
 def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve Rechtspraak judgments of chosen courts, by decision date."
@@ -179,8 +238,9 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
         "--court",
         action="append",
         metavar="NAME",
-        help="Court or group to read (repeatable): "
-        f"{', '.join(sorted({*RECHTSPRAAK_COURTS, *RECHTSPRAAK_COURT_GROUPS}))}. "
+        help="Court to read (repeatable): an ECLI court code (HR, RVS, GHAMS), a tier "
+        "of the court table (gerechtshof, rechtbank, ...: every court of it), or "
+        f"{RECHTSPRAAK_EVERY_COURT} for every court of the index (the rechtbanken too). "
         f"Default: {', '.join(RECHTSPRAAK_DEFAULT_COURTS)}; none when only --ecli is given.",
     )
     parser.add_argument(
@@ -191,9 +251,12 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
 
     store = ArangoStore()
-    if args.mode == GAPS:  # the cited judgments, of whatever court
-        eclis = _gaps.rechtspraak_gaps(store)
-        return RechtspraakRetrievePipeline(store).run(courts=[], eclis=eclis)
+    if args.mode == GAPS:  # the cited and the referring judgments, of whatever court
+        return RechtspraakRetrievePipeline(store).run(
+            courts=[],
+            eclis=_gaps.rechtspraak_gaps(store),
+            referrals=_gaps.unanswered_referrals(store),
+        )
 
     courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
     date_from = modified_from = None
@@ -258,7 +321,12 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     parser = argparse.ArgumentParser(
         description="Retrieve the XML of Tweede Kamer documents."
     )
-    parser.add_argument("--kind", default="toelichting")
+    parser.add_argument(
+        "--kind",
+        action="append",
+        help="A word of the kind of paper to fetch (repeatable; default: "
+        f'{", ".join(DEFAULT_KINDS)}; "" for every paper).',
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--mode",
@@ -269,7 +337,7 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
 
     pipeline = TKContentRetrievePipeline(store=ArangoStore())
-    return pipeline.run(kind_filter=args.kind, dry_run=args.dry_run)
+    return pipeline.run(kinds=args.kind or DEFAULT_KINDS, dry_run=args.dry_run)
 
 
 def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
@@ -289,9 +357,22 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument("--skip-decisions", action="store_true")
     parser.add_argument("--skip-documents", action="store_true")
     parser.add_argument("--dossier-number", type=int, default=None, metavar="N")
+    parser.add_argument(
+        "--mode",
+        choices=["window", GAPS],
+        default="window",
+        help="gaps: the dossiers the graph names and lacks (those of the publications that "
+        "changed an article, and the first reading of a change in the Grondwet), with "
+        "their documents; the other options are then not used.",
+    )
     args = parser.parse_args(argv)
 
-    return TKDossiersRetrievePipeline(store=ArangoStore()).run(
+    store = ArangoStore()
+    if args.mode == GAPS:
+        return TKDossiersRetrievePipeline(store=store).run_gaps(
+            _gaps.tk_dossier_gaps(store)
+        )
+    return TKDossiersRetrievePipeline(store=store).run(
         since=args.since,
         decisions_since=args.decisions_since,
         documents_since=args.documents_since,
@@ -320,3 +401,32 @@ def retrieve_verdragenbank(argv: list[str] | None = None) -> PipelineResult:
     if args.mode == GAPS and not _gaps.verdragenbank_gaps(store):
         return PipelineResult()
     return VerdragenbankRetrievePipeline(store).run(max_records=args.max_records)
+
+
+def retrieve_rijksoverheid(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve the page of every cabinet since 1945 from rijksoverheid.nl."
+    ).parse_args(argv)
+    return RijksoverheidRetrievePipeline(ArangoStore()).run()
+
+
+def retrieve_tooi(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve the TOOI value list of every ministry (KOOP)."
+    ).parse_args(argv)
+    return TooiRetrievePipeline(ArangoStore()).run()
+
+
+def retrieve_rechtspraak_instanties(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve the Instanties value list of the Rechtspraak (every court)."
+    ).parse_args(argv)
+    return RechtspraakInstantiesRetrievePipeline(ArangoStore()).run()
+
+
+def retrieve_staatscourant_posts(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve per cabinet post whose function names no ministry which "
+        "ministries issued the publications naming it (KOOP SRU)."
+    ).parse_args(argv)
+    return StaatscourantPostsRetrievePipeline(ArangoStore()).run()

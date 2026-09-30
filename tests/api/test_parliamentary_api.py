@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.db.queries.decisions import DecisionFilters
 
 client = TestClient(app)
 
@@ -19,9 +20,10 @@ _DOSSIER = {
         "label": "36000",
         "title": "Testwet",
         "title_source": "dossier",
-        "current_stage": "wetsvoorstel",
-        "stages_present": ["wetsvoorstel"],
-        "track_kind": "wetsvoorstel",
+        "kind": "Wetgeving",
+        "kind_basis": "case",
+        "phases": [{"name": "Voorstel van wet", "done": True, "date": "2024-01-01"}],
+        "current_phase": "Voorstel van wet",
         "closed": False,
         "opened_on": "2024-01-01",
         "closed_on": None,
@@ -36,8 +38,8 @@ _COMMITTEE = {
         "name": "Vaste commissie voor Volksgezondheid",
         "abbreviation": "VWS",
         "slug": "vws",
+        "active_dossier_count": 3,
     },
-    "active_dossier_count": 3,
 }
 
 _FACTION = {
@@ -60,6 +62,8 @@ _DECISION = {
     "subject": "Motie over wachtlijsten",
     "external_id": "b-1",
     "dossier_numbers": ["36000"],
+    "kind": "Motie",
+    "decision_kind": "Stemmen - aangenomen",
     "passed": True,
     "chamber": None,
     "vote_kind": "faction",
@@ -89,15 +93,21 @@ def _mock_store():
 
 
 def test_open_dossiers_are_wrapped_in_a_total_and_items(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_open_dossiers",
-        lambda store, **kwargs: {"total": 1, "items": [_DOSSIER]},
-    )
-    body = client.get("/api/dossiers/open").json()
+    asked = []
+
+    def get_dossiers(store, filters, **kwargs):
+        asked.append(filters.status)
+        return {"total": 1, "items": [_DOSSIER]}
+
+    monkeypatch.setattr("lawgraph.api.routes.dossiers.get_dossiers", get_dossiers)
+    body = client.get("/api/dossiers?status=open").json()
+    assert client.get("/api/dossiers").status_code == 200
+    assert asked == ["open", None]  # all by default
     assert body["total"] == 1
     assert body["items"][0]["number"] == "36000"
     assert body["items"][0]["title"] == "Testwet"
-    assert body["items"][0]["current_stage"] == "wetsvoorstel"
+    assert body["items"][0]["kind"] == "Wetgeving"
+    assert body["items"][0]["current_phase"] == "Voorstel van wet"
     assert body["items"][0]["closed"] is False
 
 
@@ -138,7 +148,7 @@ _DOCUMENT_ROW = {
     "sequence": 3,
     "session_year": "2024-2025",
     "date": "2025-01-10",
-    "tk_url": "https://tk.example/mvt",
+    "document_number": "2025D00003",
     "display_name": "MvT",
     "source": "tk",
     "labels": ["TK"],
@@ -158,35 +168,29 @@ def test_the_documents_of_a_dossier_say_their_chamber_and_kind(monkeypatch) -> N
             "items": [_DOCUMENT_ROW, {**ek, "kind": "Verslag"}],
         },
     )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_number_to_id_map",
-        lambda store, numbers: {"36000": "dossiers/36000"},
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_documents_for_dossiers",
-        lambda store, ids, **kwargs: {"dossiers/36000": [_DOCUMENT_ROW]},
-    )
     listed = client.get("/api/dossiers/36000/documents").json()["items"]
     assert [(d["chamber"], d["source"], d["is_explanatory"]) for d in listed] == [
         ("TK", "tk", True),
         ("EK", "eerstekamer", False),
     ]
-    bulk = client.get("/api/dossiers/documents/bulk?numbers=36000").json()
-    assert bulk["items"]["36000"][0] == listed[0]  # every list of documents agrees
 
+
+_MVT_PAGE = (
+    "https://www.tweedekamer.nl/kamerstukken/detail?id=2025D00003&did=2025D00003"
+)
 
 _TIMELINE_ROWS = [
     {
         "date": "2025-01-10",
         "kind": "Memorie van toelichting",
         "title": "MvT",
-        "tk_url": "https://tk.example/mvt",
         "body": {
             "kind": "Memorie van toelichting",
             "title": "MvT",
             "sequence": 3,
+            "dossier_number": "36000",
             "session_year": "2024-2025",
-            "tk_url": "https://tk.example/mvt",
+            "document_number": "2025D00003",
             "source": "tk",
         },
         "labels": ["TK"],
@@ -198,8 +202,11 @@ _TIMELINE_ROWS = [
         "date": "2025-03-06",
         "kind": "Commissiedebat",
         "title": "Debat",
-        "tk_url": None,
-        "body": {"kind": "Commissiedebat", "agenda_title": "2025-03-06 - Debat"},
+        "body": {
+            "kind": "Commissiedebat",
+            "agenda_title": "2025-03-06 - Debat",
+            "number": "2025A00001",
+        },
         "labels": ["TK"],
         "node_id": "activities/a1",
         "node_type": "activity",
@@ -209,7 +216,6 @@ _TIMELINE_ROWS = [
         "date": "2025-03-08",
         "kind": "Stemming",
         "title": "Stemming",
-        "tk_url": None,
         "body": {
             "subject": "Motie",
             "passed": True,
@@ -238,7 +244,6 @@ _TIMELINE_ROWS = [
         "date": "2025-03-11",
         "kind": "Toezegging",
         "title": "Toezegging",
-        "tk_url": None,
         "body": {"text": "De minister zegt toe.", "status": "open"},
         "labels": ["TK"],
         "node_id": "commitments/t1",
@@ -267,10 +272,18 @@ def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
         "kind": "Memorie van toelichting",
         "title": "MvT",
         "sequence": 3,
+        "dossier_number": "36000",
         "session_year": "2024-2025",
-        "tk_url": "https://tk.example/mvt",
+        "tk_url": _MVT_PAGE,
         "url": None,
     }
+    # The pages on tweedekamer.nl follow from the numbers, never from a stored link.
+    assert document["tk_url"] == _MVT_PAGE
+    assert activity["tk_url"] == (
+        "https://www.tweedekamer.nl/debat_en_vergadering/commissievergaderingen/"
+        "details?id=2025A00001"
+    )
+    assert decision["tk_url"] is None and commitment["tk_url"] is None
     assert "committee" not in document
     assert activity["committee"] == {
         "key": "ienw",
@@ -299,7 +312,7 @@ def test_a_plenary_activity_has_no_committee() -> None:
 def test_committees_are_listed_with_english_field_names(monkeypatch) -> None:
     monkeypatch.setattr(
         "lawgraph.api.routes.committees.get_committees",
-        lambda store: [_COMMITTEE],
+        lambda store, **kwargs: [_COMMITTEE],
     )
     body = client.get("/api/committees").json()
     assert body[0]["abbreviation"] == "VWS"
@@ -368,25 +381,88 @@ def test_factions_are_listed_with_seats_and_member_count(monkeypatch) -> None:
 def test_decisions_are_listed_with_their_tally(monkeypatch) -> None:
     monkeypatch.setattr(
         "lawgraph.api.routes.decisions.get_decisions",
-        lambda store, **kwargs: {"total": 1, "items": [_DECISION]},
+        lambda store, filters, **kwargs: {"total": 1, "items": [_DECISION]},
     )
     body = client.get("/api/decisions").json()
     assert body["total"] == 1
     assert body["items"][0]["tally"] == {"Voor": 76, "Tegen": 74}
     assert body["items"][0]["vote_kind"] == "faction"
+    assert body["items"][0]["kind"] == "Motie"
+    assert body["facets"] == {"kind": [], "passed": [], "days": []}
 
 
-def test_decisions_are_filtered_by_dossier(monkeypatch) -> None:
-    asked: list[dict] = []
+def _asking(monkeypatch) -> list[DecisionFilters]:
+    asked: list[DecisionFilters] = []
 
-    def fake(store, **kwargs):
-        asked.append(kwargs)
+    def fake(store, filters, **kwargs):
+        asked.append(filters)
         return {"total": 1, "items": [_DECISION]}
 
     monkeypatch.setattr("lawgraph.api.routes.decisions.get_decisions", fake)
+    return asked
+
+
+def test_decisions_are_filtered_by_dossier(monkeypatch) -> None:
+    asked = _asking(monkeypatch)
     assert client.get("/api/decisions?dossier=36000").json()["total"] == 1
-    assert asked[0]["dossier"] == "36000"
+    assert asked[0].dossier == "36000"
     assert client.get("/api/decisions?dossier=x").status_code == 422
+
+
+def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
+    monkeypatch,
+) -> None:
+    asked = _asking(monkeypatch)
+    response = client.get(
+        "/api/decisions",
+        params={
+            "kind": "Motie, Amendement",
+            "from": "2024-01-01",
+            "to": "2024-12-31",
+            "q": "  Wachtlijsten ",
+            "party": "VVD",
+            "vote": "tegen",
+        },
+    )
+    assert response.status_code == 200
+    assert asked[0] == DecisionFilters(
+        kinds=("Motie", "Amendement"),
+        party="VVD",
+        choice="Tegen",
+        date_from="2024-01-01",
+        date_to="2024-12-31",
+        q="Wachtlijsten",
+    )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"vote": "voor"},  # how, without whom
+        {"party": "VVD", "vote": "onthouden"},
+        {"from": "2024-13-01"},
+    ],
+)
+def test_a_decision_filter_it_cannot_read_is_a_422(monkeypatch, params) -> None:
+    _asking(monkeypatch)
+    assert client.get("/api/decisions", params=params).status_code == 422
+
+
+def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
+    facets = {
+        "kind": [{"value": "Motie", "count": 3}, {"value": None, "count": 1}],
+        "passed": [{"value": True, "count": 3}, {"value": None, "count": 1}],
+        "days": [{"date": "2024-10-16", "count": 4, "passed": 3}],
+    }
+    monkeypatch.setattr(
+        "lawgraph.api.routes.decisions.get_decisions",
+        lambda store, filters, **kwargs: {
+            "total": 4,
+            "items": [_DECISION],
+            "facets": facets,
+        },
+    )
+    assert client.get("/api/decisions").json()["facets"] == facets
 
 
 def test_a_decisions_document_carries_its_links(monkeypatch) -> None:
@@ -470,3 +546,26 @@ def test_seats_are_reported_per_faction(monkeypatch) -> None:
     assert body["factions"][0]["abbreviation"] == "VVD"
     assert body["factions"][0]["seats"] == 24
     assert body["factions"][0]["color"].startswith("#")
+    # the order follows the plan of the Tweede Kamer, which the answer names
+    assert body["seating_plan"]["dated"] == "2026-06-01"
+    assert "wie-zit-waar" in body["seating_plan"]["page"]
+
+
+def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "lawgraph.api.routes.parliament.get_factions",
+        lambda store, **kwargs: [_FACTION],
+    )
+    asked: list[str] = []
+
+    def seats_on(store, day):
+        asked.append(day)
+        return {"vvd": 33}
+
+    monkeypatch.setattr("lawgraph.api.routes.parliament.get_seats_on", seats_on)
+    body = client.get("/api/parliament/seats?date=2010-10-10").json()
+    assert asked == ["2010-10-10"]
+    assert body["as_of"] == "2010-10-10"
+    assert [(f["key"], f["seats"]) for f in body["factions"]] == [("vvd", 33)]
+    assert body["assigned_seats"] == 33
+    assert client.get("/api/parliament/seats?date=gisteren").status_code == 422

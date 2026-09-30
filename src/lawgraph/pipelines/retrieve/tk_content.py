@@ -1,13 +1,16 @@
 """Pipeline that fetches the XML of Tweede Kamer papers and stores it in raw_sources.
 
-Only papers whose kind contains a substring (default ``toelichting``) qualify: the ones that
-feed the memorandum context (``tk-mvt``, ``tk-amendment-articles``), not the whole corpus.
+Only papers whose kind contains one of a few words qualify (by default ``toelichting``,
+``motie``, ``amendement``, ``voorstel van wet`` and ``nota van wijziging``): the memoranda
+that feed the memorandum context (``tk-mvt``, ``tk-amendment-articles``), the moties and
+amendementen, and the bill and its changes, whose text is what they say; not the whole
+corpus.
 The Tweede Kamer's own API serves only a PDF; the KOOP repository has the same paper as
 structured XML, filed under its dossier. ``normalize tk-content`` reads the XML from the
 raw records.
 
 Flow:
-    1. The papers of the graph that have a dossier and a number in it and no raw XML yet
+    1. The papers of the graph that are numbered in a dossier and have no raw XML yet
        (``_gaps.kamerstuk_gaps``)
     2. Build the identifier ``kst-<dossier>-<number>`` and fetch its XML
     3. Store it unchanged, keyed by the identifier; an answer of HTTP 404 becomes a record
@@ -19,7 +22,7 @@ from __future__ import annotations
 
 import datetime as dt
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import Any
 
 from lawgraph.clients.kamerstuk import KamerstukClient
@@ -38,8 +41,14 @@ from lawgraph.pipelines.retrieve.base import (
 
 logger = get_logger(__name__)
 
-# kind substrings that qualify a publication for fetching
-_DEFAULT_KIND_FILTER = "toelichting"
+# The words of a kind that qualify a paper for fetching, by default.
+DEFAULT_KINDS = (
+    "toelichting",
+    "motie",
+    "amendement",
+    "voorstel van wet",
+    "nota van wijziging",
+)
 
 # A new paper is first published as a PDF only ("Onopgemaakt"); its XML follows within about
 # two working days. A paper this young that the repository has no XML for yet is asked for
@@ -50,8 +59,8 @@ _FRESH_FOR_DAYS = 7
 class TKContentRetrievePipeline(RetrievePipelineBase):
     """Fetch the XML of Tweede Kamer papers and store it.
 
-    Only papers whose ``props.kind`` contains *kind_filter* (case-insensitive) and of which no
-    XML is stored yet are processed.
+    Only papers whose ``props.kind`` contains one of the *kinds* (case-insensitive) and of
+    which no XML is stored yet are processed.
     """
 
     def __init__(
@@ -66,25 +75,23 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
     def run(  # type: ignore[override]
         self,
         *,
-        kind_filter: str = _DEFAULT_KIND_FILTER,
+        kinds: Sequence[str] = DEFAULT_KINDS,
         dry_run: bool = False,
     ) -> PipelineResult:
         """Fetch the XML of every qualifying paper that has none stored.
 
         Args:
-            kind_filter: Case-insensitive substring matched against ``props.kind``.
+            kinds: Case-insensitive substrings matched against ``props.kind``.
             dry_run: When True, log what would happen but make no changes.
         """
-        papers = _gaps.kamerstuk_gaps(self.store, kind_filter)
+        papers = _gaps.kamerstuk_gaps(self.store, kinds)
         if not papers:
-            logger.info(
-                "No papers without XML found for kind filter '%s'.", kind_filter
-            )
+            logger.info("No papers without XML found for kinds %s.", list(kinds))
             return PipelineResult()
         logger.info(
-            "Fetching the XML of %d papers (kind contains '%s')%s.",
+            "Fetching the XML of %d papers (kind contains one of %s)%s.",
             len(papers),
-            kind_filter,
+            list(kinds),
             " — DRY RUN" if dry_run else "",
         )
         return self._store_all(self._fetch_papers(papers, dry_run), what="papers")

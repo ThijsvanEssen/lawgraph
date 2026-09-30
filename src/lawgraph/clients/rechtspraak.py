@@ -12,6 +12,8 @@ from lawgraph.core.logging import get_logger
 logger = get_logger(__name__)
 
 OWMS_TERMS = "http://standaarden.overheid.nl/owms/terms/"
+# Every court an ECLI can name: code, official name, Type and days (``core.court_sources``).
+INSTANTIES_LIST = "Waardelijst/Instanties"
 INDEX_PAGE_SIZE = 1000
 
 
@@ -30,16 +32,25 @@ class RechtspraakClient(BaseClient):
             session=session,
         )
 
+    def instanties(self) -> tuple[str, str]:
+        """``(url, xml)`` of the Instanties value list. Raises when it lists no court."""
+        xml = self._get_text(INSTANTIES_LIST)
+        if "<Instantie>" not in xml:
+            raise RuntimeError(
+                f"{INSTANTIES_LIST} lists no court: the list has changed."
+            )
+        return self._build_url(INSTANTIES_LIST), xml
+
     def iter_index(
         self,
         *,
-        courts: Sequence[str],
+        courts: Sequence[str] = (),
         date_from: dt.date | None = None,
         date_to: dt.date | None = None,
         modified_from: dt.datetime | None = None,
         page_size: int = INDEX_PAGE_SIZE,
     ) -> Iterator[IndexEntry]:
-        """Yield the judgments of *courts* (OWMS terms), page by page.
+        """Yield the judgments of *courts* (OWMS terms; none: of every court), page by page.
 
         With *date_from* only the judgments decided from that date to *date_to* (default
         today); with *modified_from* those published or changed since then. For a long
@@ -51,8 +62,9 @@ class RechtspraakClient(BaseClient):
             "type": "Uitspraak",
             "return": "DOC",
             "max": str(page_size),
-            "creator": [OWMS_TERMS + court for court in courts],
         }
+        if courts:
+            params["creator"] = [OWMS_TERMS + court for court in courts]
         if date_from is not None:
             params["date"] = [
                 date_from.isoformat(),

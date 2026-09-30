@@ -30,9 +30,9 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
-from lawgraph.db.queries.decisions import get_decisions
-from lawgraph.db.queries.documents import get_document_links, list_documents
-from lawgraph.db.queries.dossiers import get_dossier_timeline
+from lawgraph.db.queries.decisions import DecisionFilters, get_decisions
+from lawgraph.db.queries.documents import get_document_links
+from lawgraph.db.queries.dossiers import get_dossier_documents, get_dossier_timeline
 
 DOSSIER = f"{COLLECTION_DOSSIERS}/36000"
 LONG_TEXT = "Artikel 5 wordt gewijzigd. " * 400
@@ -94,7 +94,7 @@ def _build(store: ArangoStore) -> None:
             "2025-01-10",
             sequence=3,
             session_year="2024-2025",
-            tk_url="https://tk.example/mvt",
+            document_number="2025D00003",
             dossier_numbers=["36000"],
         ),
         # a motion PART_OF the case only, and the case PART_OF the dossier
@@ -203,7 +203,7 @@ def _build(store: ArangoStore) -> None:
             made_on="2025-03-11",
             text="De minister zegt toe.",
             minister_name="Minister X",
-            status="open",
+            status="Openstaand",
             display_name="Toezegging",
         ),
         _node(
@@ -311,60 +311,18 @@ def _keys(page: dict[str, Any]) -> list[str]:
     return [row["key"] for row in page["items"]]
 
 
-def test_the_document_index_counts_its_matches_and_pages(database: str) -> None:
-    store = ArangoStore()
-    _build(store)
-    everything = {"q": None, "kind": None, "chamber": None, "source": None}
-
-    page = list_documents(store, **everything, dossier_id=None, limit=2, offset=0)
-    assert page["total"] == 4 and len(page["items"]) == 2
-    rest = list_documents(store, **everything, dossier_id=None, limit=2, offset=2)
-    assert rest["total"] == 4
-    assert sorted(_keys(page) + _keys(rest)) == ["ek_1", "motie", "mvt", "other"]
-
-    ek = list_documents(
-        store, **{**everything, "chamber": "ek"}, dossier_id=None, limit=1, offset=0
-    )
-    assert ek["total"] == 1 and _keys(ek) == ["ek_1"]
-    assert ek["items"][0]["labels"] == ["EersteKamer", "EK"]
-    assert ek["items"][0]["source"] == "eerstekamer"
-    assert ek["items"][0]["has_text"] is False
-
-    filtered = list_documents(
-        store, **{**everything, "kind": "Motie"}, dossier_id=None, limit=10, offset=0
-    )
-    assert filtered["total"] == 1 and _keys(filtered) == ["motie"]
-    assert list_documents(
-        store, **{**everything, "q": "zzz"}, dossier_id=None, limit=10, offset=0
-    ) == {"total": 0, "items": []}
-
-
-def test_the_document_index_of_a_dossier_takes_direct_and_case_documents(
+def test_the_documents_of_a_dossier_are_direct_and_through_a_case(
     database: str,
 ) -> None:
     store = ArangoStore()
     _build(store)
-    everything = {"q": None, "kind": None, "chamber": None, "source": None}
 
-    page = list_documents(store, **everything, dossier_id=DOSSIER, limit=2, offset=0)
+    page = get_dossier_documents(store, DOSSIER, limit=2, offset=0)
     assert page["total"] == 3  # the memorandum, the motion via its case, the EK paper
     assert _keys(page) == ["ek_1", "motie"]  # newest first, two of three
-    rest = list_documents(store, **everything, dossier_id=DOSSIER, limit=2, offset=2)
+    rest = get_dossier_documents(store, DOSSIER, limit=2, offset=2)
     assert _keys(rest) == ["mvt"] and rest["total"] == 3
-
-    both = {**everything, "chamber": "EK"}
-    only_ek = list_documents(store, **both, dossier_id=DOSSIER, limit=10, offset=0)
-    assert only_ek["total"] == 1 and _keys(only_ek) == ["ek_1"]
-    assert (
-        list_documents(
-            store,
-            **everything,
-            dossier_id=f"{COLLECTION_DOSSIERS}/36001",
-            limit=10,
-            offset=0,
-        )["total"]
-        == 1
-    )
+    assert get_dossier_documents(store, f"{COLLECTION_DOSSIERS}/36001")["total"] == 1
 
 
 def test_a_document_links_to_its_dossiers_and_what_it_explains(
@@ -410,12 +368,13 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(database: str) -> Non
     store = ArangoStore()
     _build(store)
 
-    page = get_decisions(store, dossier="36000", limit=10)
+    page = get_decisions(store, DecisionFilters(dossier="36000"), limit=10)
     assert page["total"] == 2
     assert [row["key"] for row in page["items"]] == ["stemming_2", "stemming_1"]
-    assert get_decisions(store, dossier="36001", limit=1)["total"] == 2
-    assert get_decisions(store, dossier="99999") == {"total": 0, "items": []}
-    together = get_decisions(store, dossier="36000", passed=True)
+    assert get_decisions(store, DecisionFilters(dossier="36001"), limit=1)["total"] == 2
+    nothing = get_decisions(store, DecisionFilters(dossier="99999"))
+    assert (nothing["total"], nothing["items"]) == (0, [])
+    together = get_decisions(store, DecisionFilters(dossier="36000", passed=True))
     assert together["total"] == 1
 
     aql = (
@@ -466,8 +425,12 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "kind": "Memorie van toelichting",
         "title": "Memorie van toelichting mvt",
         "sequence": 3,
+        # the dossier its sequence is a number of: this seed stores none
+        "dossier_number": None,
         "session_year": "2024-2025",
-        "tk_url": "https://tk.example/mvt",
+        # made from the document number, never stored
+        "tk_url": "https://www.tweedekamer.nl/kamerstukken/detail"
+        "?id=2025D00003&did=2025D00003",
         "url": None,
     }
     ek = entries["ek_1"].model_dump()["body"]
@@ -484,6 +447,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "kind": "Commissiedebat",
         "agenda_title": "2025-03-06 - Debat",
         "number": "2025A1",
+        "status": None,
     }
     assert entries["act_plenary"].committee is None  # type: ignore[union-attr]
 
@@ -498,7 +462,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
 
     commitment = entries["toez_1"].model_dump()["body"]
     assert commitment["minister_name"] == "Minister X"
-    assert commitment["status"] == "open"
+    assert commitment["status"] == "Openstaand"
 
 
 def test_only_an_activity_entry_has_a_committee(database: str) -> None:

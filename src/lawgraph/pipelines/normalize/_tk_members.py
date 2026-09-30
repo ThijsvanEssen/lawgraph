@@ -3,35 +3,48 @@
 Every function here takes the raw TK records for one entity and returns the
 nodes it wrote, keyed by the TK identifier the other builders join on. Reads
 and writes are bulk: one existence lookup per collection, one edge flush.
+A record the Kamer deleted (``Verwijderd``, its id and nothing else) is no node or
+edge, and what an earlier run wrote of it is removed.
 """
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
+    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
     RELATION_MEMBER_OF,
 )
-from lawgraph.core import tk_records
+from lawgraph.core import seat_periods, tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
-from lawgraph.db import EdgeWriter, NodeWriter, Store
+from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
+from lawgraph.pipelines.normalize._tk_deleted import Deleted
 
 logger = get_logger(__name__)
+
+# The FractieZetelPersoon id a seat period carries until it is written (not stored).
+_RECORD_ID = "_record_id"
 
 
 def normalize_committees(
     store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
-    """Commissie nodes, keyed by TK ``Id``."""
+    """Commissie nodes, keyed by TK ``Id``; the node of a committee the Kamer deleted is
+    removed."""
     nodes: dict[str, Node] = {}
+    deleted = Deleted(COLLECTION_COMMITTEES)
     for raw in raw_records:
-        parsed = tk_records.committee(payload_json(raw))
+        payload = payload_json(raw)
+        if deleted(payload):
+            continue
+        parsed = tk_records.committee(payload)
         if parsed is None:
             continue
         key, props = parsed
@@ -42,18 +55,26 @@ def normalize_committees(
             labels=["TK"],
             props=props,
         )
+    tk_records.unique_committee_slugs([node.props for node in nodes.values()])
     _write(store, nodes.values())
-    logger.info("Normalized %d committees.", len(nodes))
+    removed = deleted.remove(store)
+    logger.info(
+        "Normalized %d committees; removed %d the Kamer deleted.", len(nodes), removed
+    )
     return nodes
 
 
 def normalize_members(
     store: Store, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
-    """Persoon nodes, keyed by TK ``Id``."""
+    """Persoon nodes, keyed by TK ``Id``; the node of a person the Kamer deleted is removed."""
     nodes: dict[str, Node] = {}
+    deleted = Deleted(COLLECTION_MEMBERS)
     for raw in raw_records:
-        parsed = tk_records.member(payload_json(raw))
+        payload = payload_json(raw)
+        if deleted(payload):
+            continue
+        parsed = tk_records.member(payload)
         if parsed is None:
             continue
         key, props = parsed
@@ -65,7 +86,10 @@ def normalize_members(
             props=props,
         )
     _write(store, nodes.values())
-    logger.info("Normalized %d members.", len(nodes))
+    removed = deleted.remove(store)
+    logger.info(
+        "Normalized %d members; removed %d the Kamer deleted.", len(nodes), removed
+    )
     return nodes
 
 
@@ -73,44 +97,67 @@ def normalize_factions(
     store: Store,
     faction_raws: Iterable[dict[str, Any]],
     vote_labels: set[str],
+    seat_raws: Iterable[dict[str, Any]],
 ) -> dict[str, Node]:
-    """Fractie nodes, keyed by TK ``Id``.
+    """Faction nodes, by the TK ``Id`` of every Fractie record.
 
-    Several records can share one abbreviation — a party that dissolves and
-    reforms gets a fresh record — so they are deduplicated per node key before
-    anything is written, with the seated record winning. *vote_labels* are the spellings
-    votes use for a faction (``Stemming.ActorFractie``).
+    Several records can share one abbreviation: a faction that returns gets a fresh record
+    (50PLUS 2012-2021 and from 2025, Krol, Van Kooten-Arissen), and the Kamer names either
+    one on votes and seats, the old one also on a vote of today. They are one faction: one
+    node, whose props come from the seated (else the latest changed) record and whose
+    period spans them all, reached by the id of each of them. *vote_labels* are the
+    spellings votes use for a faction (``Stemming.ActorFractie``). A deleted record is none of
+    them; a faction whose every record is deleted is removed. *seat_raws* are every
+    FractieZetelPersoon record: the seats date the faction (``seat_periods.seated_bounds``).
     """
-    newest: dict[str, dict[str, Any]] = {}
+    by_key: dict[str, list[dict[str, Any]]] = {}
+    deleted = Deleted(COLLECTION_FACTIONS, key=None)  # keyed by the abbreviation
     for raw in faction_raws:
         payload = payload_json(raw)
-        label = tk_records.faction_label(payload)
-        if not label:
+        if deleted(payload):
             continue
-        key = make_node_key(label)
-        current = newest.get(key)
-        if current is None or tk_records.faction_is_current(
-            payload
-        ) > tk_records.faction_is_current(current):
-            newest[key] = payload
+        label = tk_records.faction_label(payload)
+        if label:
+            by_key.setdefault(make_node_key(label), []).append(payload)
+
+    seats: dict[str, list[seat_periods.Period]] = {}
+    for raw in seat_raws:
+        held = tk_records.seat_holding(payload_json(raw))
+        if held:
+            seats.setdefault(held[1], []).append(held[2])
 
     nodes: dict[str, Node] = {}
-    for payload in newest.values():
+    for records in by_key.values():
+        current = max(records, key=tk_records.faction_is_current)
         parsed = tk_records.faction(
-            payload, tk_records.faction_aliases(payload, vote_labels)
+            current, tk_records.faction_aliases(current, vote_labels), records
         )
         if parsed is None:
             continue
         key, props = parsed
-        nodes[props["external_id"]] = Node(
+        props["active_from"], props["active_until"] = seat_periods.seated_bounds(
+            props["active_from"],
+            props["active_until"],
+            [p for fid in props["external_ids"] for p in seats.get(fid, [])],
+        )
+        node = Node(
             collection=COLLECTION_FACTIONS,
             type=NodeType.FACTION,
             key=key,
             labels=["TK"],
             props=props,
         )
-    _write(store, nodes.values())
-    logger.info("Normalized %d factions.", len(nodes))
+        for external_id in props["external_ids"]:
+            nodes[external_id] = node
+    written = {node.key: node for node in nodes.values()}
+    _write(store, written.values())
+    removed = deleted.remove(store)
+    logger.info(
+        "Normalized %d factions (%d Fractie records); removed %d the Kamer deleted.",
+        len(written),
+        len(nodes),
+        removed,
+    )
     return nodes
 
 
@@ -166,30 +213,55 @@ def link_members_to_factions(
     """MEMBER_OF edges from Persoon to Fractie, plus the member's timeline.
 
     The edge key is deterministic per (member, faction), so someone who left
-    and rejoined a party has one edge carrying the latest period; the full
-    timeline is denormalised onto the member as ``faction_memberships`` so a
-    profile renders without a traversal.
+    and rejoined a party has one edge carrying the latest period and the ids of every
+    FractieZetelPersoon it is made of; the full timeline is denormalised onto the member
+    as ``faction_memberships`` so a profile renders without a traversal. The periods are
+    read so they hold together (``seat_periods``: an end before the start, two
+    fractievoorzitters at once). The edge of a seat the Kamer deleted goes.
     """
-    writer = EdgeWriter(store, what="faction seat edges")
+    seats: dict[str, dict[str, Any]] = {}  # edge key -> the edge
     timeline: dict[str, list[dict[str, Any]]] = {}
+    changed: dict[str, str] = {}  # faction key -> the day one of its seats last changed
+    deleted = Deleted(COLLECTION_EDGES)
 
+    holdings: list[seat_periods.Holding] = []
     for raw in seat_raws:
-        parsed = tk_records.seat_holding(payload_json(raw))
+        payload = payload_json(raw)
+        parsed = None if deleted(payload) else tk_records.seat_holding(payload)
         if parsed is None:
             continue
         person_id, faction_id, period = parsed
-        member_node = member_nodes.get(person_id)
         faction_node = faction_nodes.get(faction_id)
-        if not (member_node and faction_node):
+        if not (person_id in member_nodes and faction_node):
             continue
+        day = tk_records.seat_changed_on(payload)
+        if day and faction_node.key and day > changed.get(faction_node.key, ""):
+            changed[faction_node.key] = day
+        # The record id rides along through seat_periods, which copies a period's keys.
+        holdings.append(
+            (
+                person_id,
+                faction_id,
+                {**period, _RECORD_ID: str(payload.get("Id") or "")},
+            )
+        )
 
-        writer.add(
-            member_node.arango_id,
-            faction_node.arango_id,
+    mended = seat_periods.mend_reversed_ends(holdings)
+    held = seat_periods.split_overlapping_chairs(mended)
+    for person_id, faction_id, period in held:
+        period = dict(period)
+        record_id = period.pop(_RECORD_ID, "")
+        member_node, faction_node = member_nodes[person_id], faction_nodes[faction_id]
+        edge = make_edge_doc(
+            member_node.arango_id or "",
+            faction_node.arango_id or "",
             RELATION_MEMBER_OF,
             source=source,
             meta=period,
         )
+        ids = seats.get(edge["_key"], {}).get("meta", {}).get("record_ids", [])
+        edge["meta"]["record_ids"] = sorted({*ids, record_id} - {""})
+        seats[edge["_key"]] = edge
         timeline.setdefault(person_id, []).append(
             {
                 "faction_id": faction_node.arango_id,
@@ -201,12 +273,20 @@ def link_members_to_factions(
             }
         )
 
+    writer = EdgeWriter(store, what="faction seat edges")
+    for edge in seats.values():
+        writer.add_doc(edge)
     writer.flush()
+    removed = deleted.remove(store)
     _write_timelines(store, member_nodes, timeline)
+    _write_seat_changes(store, faction_nodes, changed)
     logger.info(
-        "Linked %d members to factions (%d with a timeline).",
+        "Linked %d members to factions (%d with a timeline); removed %d seats the "
+        "Kamer deleted; left out %d whose end lies before its start and no later seat.",
         writer.added,
         len(timeline),
+        removed,
+        len(holdings) - len(mended),
     )
 
 
@@ -239,6 +319,61 @@ def _write_timelines(
         store.bulk_insert_or_update_nodes(COLLECTION_MEMBERS, updated)
 
 
+def _write_seat_changes(
+    store: Store, faction_nodes: dict[str, Node], changed: dict[str, str]
+) -> None:
+    """``seats_changed_on`` on each faction: the day one of its seats last changed
+    (``lawgraph check`` holds the date of the curated seating plan against it)."""
+    updated = []
+    for node in {n.key: n for n in faction_nodes.values()}.values():
+        day = changed.get(node.key or "")
+        if day and node.props.get("seats_changed_on") != day:
+            node.props["seats_changed_on"] = day
+            updated.append(node.to_document())
+    if updated:
+        store.bulk_insert_or_update_nodes(COLLECTION_FACTIONS, updated)
+
+
 def _write(store: Store, nodes: Any) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(nodes)
+
+
+def name_nameless_members(
+    store: Store,
+    member_nodes: dict[str, Node],
+    votes_by_decision: dict[str, list[tk_records.VoteCast]],
+    document_nodes: dict[str, Node],
+) -> None:
+    """Give a member the Kamer gives no name (an empty Persoon record) the name the records
+    that name its Persoon_Id carry: its roll-call votes ("Nobel, J.N.J." is J.N.J. Nobel) and
+    the papers it signed (``DocumentActor``: "B.J. Bruins"), the one they carry most."""
+    nameless = {
+        person_id
+        for person_id, node in member_nodes.items()
+        if not node.props.get("name")
+    }
+    names: dict[str, Counter[str]] = {}
+    for votes in votes_by_decision.values():
+        for cast in votes:
+            if cast.person_id in nameless and cast.actor_name:
+                names.setdefault(cast.person_id, Counter())[cast.actor_name] += 1
+    for document in document_nodes.values():
+        for actor in document.props.get("actors") or []:
+            person_id = actor.get("person_id")
+            if person_id in nameless and actor.get("name"):
+                names.setdefault(person_id, Counter())[actor["name"]] += 1
+    updated = []
+    for person_id, counted in names.items():
+        name = tk_records.display_person_name(counted.most_common(1)[0][0])
+        if not name:
+            continue
+        node = member_nodes[person_id]
+        node.props["name"] = node.props["display_name"] = name
+        updated.append(node.to_document())
+    if updated:
+        store.bulk_insert_or_update_nodes(COLLECTION_MEMBERS, updated)
+    logger.info(
+        "Named %d members the Kamer gives no name by their votes and signatures.",
+        len(updated),
+    )

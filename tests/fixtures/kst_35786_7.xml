@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-35786-7/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <kamerstukkop>
+      <tekstregel inhoud="vergaderjaar">Vergaderjaar 2021-2022</tekstregel>
+      <tekstregel inhoud="kameraanduiding">Tweede Kamer der Staten-Generaal</tekstregel>
+      <tekstregel inhoud="kamernummer">2</tekstregel>
+      <tekstregel inhoud="documenttype">Kamerstukken</tekstregel>
+    </kamerstukkop>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>35 786</dossiernr>
+      </dossiernummer>
+      <titel>Verandering van de Grondwet, strekkende tot het opnemen van een algemene bepaling</titel>
+    </dossier>
+    <stuk>
+      <stuknr>Nr. <ondernummer kamer="2">7</ondernummer></stuknr>
+      <titel>MOTIE VAN HET LID VAN DER GRAAF C.S.</titel>
+      <datumtekst>Voorgesteld <datum isodatum="2022-03-30">30 maart 2022</datum></datumtekst>
+      <algemeen>
+        <vrije-tekst>
+          <tekst status="goed">
+            <al>De Kamer,</al>
+            <al>gehoord de beraadslaging,</al>
+            <al>overwegende dat de staatscommissie Grondwet in 2010 constateerde dat verschillende belangrijke mensenrechten niet in onze Grondwet zijn opgenomen;</al>
+            <al>overwegende dat de symbolische functie van de Grondwet versterkt kan worden door bepaalde fundamentele internationale mensenrechten, waaraan Nederland nu reeds is gebonden, ook in onze eigen nationale Grondwet op te nemen;</al>
+            <al>verzoekt de regering te bezien of en op welke wijze fundamentele mensenrechten die daar nu niet expliciet in zijn opgenomen, kunnen worden toegevoegd aan de Grondwet,</al>
+            <al>en gaat over tot de orde van de dag.</al>
+            <al-groep>
+              <al>Van der Graaf</al>
+              <al>Maatoug</al>
+              <al>Arib</al>
+            </al-groep>
+          </tekst>
+        </vrije-tekst>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

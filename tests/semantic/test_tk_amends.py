@@ -7,7 +7,6 @@ from typing import Any
 from lawgraph.config.constants import EDGE_STATUS_VOORGESTELD, RELATION_AMENDS
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
-from lawgraph.pipelines.semantic.bwb_implements import BWBImplementsSemanticPipeline
 from lawgraph.pipelines.semantic.tk_amends import (
     TKAmendsSemanticPipeline,
     detect_amends_instrument,
@@ -113,13 +112,18 @@ class _FakeStore(ExistingKeysFake):
         return created, updated
 
 
-def _make_pub(key: str, title: str, labels: list[str] | None = None) -> dict[str, Any]:
+def _make_pub(
+    key: str,
+    title: str,
+    labels: list[str] | None = None,
+    kind: str = "Voorstel van wet",
+) -> dict[str, Any]:
     return {
         "_key": key,
         "_id": f"documents/{key}",
         "type": NodeType.DOCUMENT.value,
         "labels": labels or ["TK"],
-        "props": {"title": title, "source": "tk"},
+        "props": {"title": title, "source": "tk", "kind": kind},
     }
 
 
@@ -171,6 +175,24 @@ def test_amends_endpoints_match_the_catalogue() -> None:
         assert edge["_to"].split("/")[0] in spec.targets
 
 
+def test_a_motion_on_the_bill_amends_nothing() -> None:
+    """A motie carries the title of the bill's dossier; only the bill and its amendementen
+    change the law."""
+    store = _amends_store()
+    store._pub_docs = [
+        _make_pub("motie", "Wijziging van het Wetboek van Strafrecht", kind="Motie"),
+        _make_pub(
+            "amendement",
+            "Wijziging van het Wetboek van Strafrecht",
+            kind="Amendement (gewijzigd/nader/vervangend)",
+        ),
+    ]
+
+    TKAmendsSemanticPipeline(store=store).run()
+
+    assert [e["_from"] for e in store.edges.values()] == ["documents/amendement"]
+
+
 def test_a_case_never_produces_an_edge() -> None:
     """Only a bill (Document) may propose a change; a Case is not an endpoint."""
     store = _amends_store()
@@ -192,31 +214,3 @@ def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
     hits = detect_amends_instrument(title, aliases)
     assert hits == [("BWBR0001948", None, 0.85)]
     assert time.perf_counter() - started < 0.5
-
-
-def test_a_regulation_implements_the_eu_acts_normalize_found_in_it() -> None:
-    """``normalize bwb`` keeps the CELEX numbers of a toestand on the regulation: the XML of
-    every toestand (3 GB, two minutes) is not read again to find them."""
-    law = Node(
-        collection="instruments",
-        type=NodeType.INSTRUMENT,
-        key=make_node_key("BWBR0040940"),
-        props={"bwb_id": "BWBR0040940", "celex_refs": ["32016R0679", "32099L9999"]},
-        _skip_validation=True,
-    )
-    gdpr = Node(
-        collection="instruments",
-        type=NodeType.INSTRUMENT,
-        key=make_node_key("32016R0679"),
-        props={"celex": "32016R0679"},
-        _skip_validation=True,
-    )
-    store = _FakeStore(
-        nodes={("instruments", law.key): law, ("instruments", gdpr.key): gdpr}
-    )
-    result = BWBImplementsSemanticPipeline(store=store).run()
-
-    assert result.created == 1  # the act that is not loaded gets no edge
-    (edge,) = store.edges.values()
-    assert edge["_from"] == law.arango_id and edge["_to"] == gdpr.arango_id
-    assert edge["meta"] == {"celex": "32016R0679"}

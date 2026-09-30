@@ -28,6 +28,7 @@ from typing import Any
 
 from lawgraph.config.constants import SOURCE_BWB
 from lawgraph.core.annex_xml import AnnexXml, parse_annexes
+from lawgraph.core.eu_citations import implemented_acts
 from lawgraph.core.identifiers import (
     find_celex_ids,
     has_possible_year,
@@ -38,21 +39,25 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
 from lawgraph.core.xml import find_descendant, iter_named, local_name, text_of
 
-# ``effect`` values on an article version, mapped to what the version did.
+# ``effect`` values on an article version, mapped to what the version did. A
+# ``tekstplaatsing`` places the text of the article again (the Grondwet as a whole after a
+# revision, Stb. 2019, 33): a republication, which changes no text of its own.
 EFFECT_INTRODUCES = "introduces"
 EFFECT_AMENDS = "amends"
 EFFECT_REPEALS = "repeals"
+EFFECT_REPUBLISHES = "republishes"
 _EFFECT_KIND = {
     "nieuw": EFFECT_INTRODUCES,
     "wijziging": EFFECT_AMENDS,
-    "tekstplaatsing-wijziging": EFFECT_AMENDS,
-    "tekstplaatsing-vernummering": EFFECT_AMENDS,
+    "tekstplaatsing-wijziging": EFFECT_REPUBLISHES,
+    "tekstplaatsing-vernummering": EFFECT_REPUBLISHES,
     "vervallen": EFFECT_REPEALS,
 }
 
 
 def effect_kind(effect: str | None) -> str | None:
-    """``introduces`` / ``amends`` / ``repeals`` for a BWB ``effect``, else None."""
+    """``introduces`` / ``amends`` / ``repeals`` / ``republishes`` for a BWB ``effect``,
+    else None."""
     return _EFFECT_KIND.get(effect or "")
 
 
@@ -65,7 +70,51 @@ class Jci:
 
     @property
     def article(self) -> str | None:
-        return self.params.get("artikel")
+        """The article as the graph numbers it: an article of an annex names its annex."""
+        article = self.params.get("artikel")
+        annex = self.params.get("bijlage")
+        return annex_article_number(annex, article) if annex and article else article
+
+
+def annex_article_number(annex: str, number: str) -> str:
+    """The number of an article of an annex: ``bijlage 2 artikel 9``.
+
+    An annex numbers its articles on its own (Bijlage 2 and Bijlage 3 of the Awb each have
+    an article 1), as the JCI does (``bijlage=2&artikel=9``), so the annex is part of the
+    number: it keeps the article apart from an article of the regulation or of another
+    annex with the same number.
+    """
+    return f"bijlage {annex} artikel {number}"
+
+
+_ANNEX_ARTICLE = re.compile(r"^bijlage (?P<annex>\S+) artikel (?P<number>.+)$")
+
+
+def article_label(number: str) -> str:
+    """``Artikel 287``; ``Artikel 9 van bijlage 2`` for an article of an annex."""
+    match = _ANNEX_ARTICLE.match(number)
+    if match:
+        return f"Artikel {match['number']} van bijlage {match['annex']}"
+    return f"Artikel {number}"
+
+
+def article_key(bwb_id: str, number: str | None, stam_id: str | None) -> str | None:
+    """The key of a current article: its number (``bwbr0001854_287``), or, for an article
+    without one (a heading only: "Algemene bepaling"), its ``stam-id``
+    (``bwbr0001840_stam_16464063``), which it keeps across versions. ``None`` without
+    either."""
+    if number:
+        return make_node_key(bwb_id, number)
+    if stam_id:
+        return historical_article_key(bwb_id, None, stam_id)
+    return None
+
+
+def article_address(bwb_id: str, key: str, number: str | None) -> str:
+    """The ``{article_number}`` segment of the article routes: the number, or for an
+    article without one the rest of its key (``stam-16464063`` works as well as
+    ``stam_16464063``), which the routes turn back into the key."""
+    return number or key.removeprefix(f"{make_node_key(bwb_id)}_")
 
 
 def parse_jci(doc: str | None) -> Jci:
@@ -110,11 +159,13 @@ class Reference:
 PART_AANHEF = "aanhef"
 PART_LID = "lid"
 PART_ONDERDEEL = "onderdeel"
+PART_TEKST = "tekst"
 
 
 @dataclass(frozen=True)
 class ArticlePart:
-    """A lid, an onderdeel or an aanhef of an article, as a span of ``ArticleXml.text``.
+    """A lid, an onderdeel, an aanhef or a tekst of an article, as a span of
+    ``ArticleXml.text``.
 
     ``text[start:end]`` is the content without its printed number (``number``: ``"2"``,
     ``"a"``, ``"1°"``, None for an aanhef or an unnumbered item). A lid or onderdeel with
@@ -122,6 +173,9 @@ class ArticlePart:
     before the parts inside it. The ``id`` says where the part sits:
 
     * ``aanhef``: the text before the onderdelen of an article without leden;
+    * ``tekst-1``, ``tekst-2``: a paragraph of an article with parts that is in none of them
+      (the lines between the lists of an article of a bijlage, a note next to the leden), so
+      that the parts and their printed numbers cover the whole text;
     * ``lid-2``, ``lid-2a``; ``lid-2-aanhef``: the text of a lid before its onderdelen;
     * ``lid-2-onder-a``, ``onder-a`` (an article without leden), ``lid-2-onder-a-onder-1`` (an
       onderdeel of an onderdeel: the id of the part it sits in, then its own).
@@ -133,7 +187,7 @@ class ArticlePart:
     """
 
     id: str
-    kind: str  # PART_AANHEF | PART_LID | PART_ONDERDEEL
+    kind: str  # PART_AANHEF | PART_LID | PART_ONDERDEEL | PART_TEKST
     number: str | None
     start: int
     end: int
@@ -207,6 +261,8 @@ DIVISIONS = frozenset(
 @dataclass(frozen=True)
 class ArticleXml:
     number: str | None
+    # "Artikel 287"; for an article without a number its heading ("Algemene bepaling")
+    label: str | None
     text: str
     stam_id: str | None
     versie_id: str | None
@@ -219,6 +275,8 @@ class ArticleXml:
     references: tuple[Reference, ...] = ()
     parts: tuple[ArticlePart, ...] = ()
     breadcrumb: tuple[Crumb, ...] = ()  # the divisions it stands in, outermost first
+    # the ``<titel>`` of its ``<kop>`` ("Definities"), numbered or not; most articles have none
+    heading: str | None = None
 
     @property
     def is_repealed(self) -> bool:
@@ -239,13 +297,20 @@ class BasisRef:
 class ToestandXml:
     bwb_id: str | None
     kind: str | None  # wetgeving@soort: wet, amvb, …
+    # wetgeving@verdragnummer of a treaty: its Verdragenbank id, six digits ("005132")
+    treaty_number: str | None
     title: str | None  # citation title, else the official title
     official_title: str | None
     citation_title: str | None
-    valid_from: str | None
-    origin: Publication | None
-    commencement: Publication | None
+    valid_from: str | None  # the start of this toestand
+    # The regulation as it was enacted: the publication in the ``meta-data`` of its
+    # ``<intitule>`` and the date it entered into force. (The ``meta-data`` of
+    # ``<wetgeving>`` names the last change to the structure of the law, not the law.)
+    enacted: Publication | None = None
+    enacted_in_force: str | None = None
     basis: tuple[BasisRef, ...] = ()
+    # the EU acts its considerans says it implements (CELEX numbers), see ``implemented_acts``
+    implements: tuple[str, ...] = ()
     articles: tuple[ArticleXml, ...] = field(default_factory=tuple)
     annexes: tuple[AnnexXml, ...] = ()
 
@@ -266,6 +331,11 @@ def publication_display_name(publication: Mapping[str, Any]) -> str:
     return str(publication.get("id") or "")
 
 
+# The kind of an instrument node that is a publication (Stb. 2019, 33), not a regulation: kept
+# out of the instrument lists and counts.
+KIND_PUBLICATION = "publicatie"
+
+
 def publication_props(publication: Mapping[str, Any]) -> dict[str, Any]:
     """Instrument props of a publication; unknown (None) values are left out.
 
@@ -275,8 +345,12 @@ def publication_props(publication: Mapping[str, Any]) -> dict[str, Any]:
     must not overwrite one written earlier. ``dossier_numbers`` is not included —
     the caller merges the dossiers of all versions naming the publication.
     """
+    name = publication_display_name(publication)
     props: dict[str, Any] = {
-        "display_name": publication_display_name(publication),
+        "display_name": name,
+        "citation_title": name,
+        "kind": KIND_PUBLICATION,
+        "jurisdiction": "nl",
         "source": SOURCE_BWB,
         "publication_kind": publication.get("kind") or None,
         "publication_year": publication.get("year"),
@@ -344,6 +418,24 @@ def _publication(element: ET.Element | None) -> Publication | None:
     )
 
 
+def _enactment(root: ET.Element) -> tuple[Publication | None, str | None]:
+    """The publication that enacted the regulation and the date it entered into force,
+    from the ``meta-data`` of its ``<intitule>`` (``oorspronkelijk`` and
+    ``inwerkingtreding.datum``); None for what it does not say."""
+    intitule = next(iter_named(root, "intitule"), None)
+    meta = _child(intitule, "meta-data") if intitule is not None else None
+    brondata = _child(meta, "brondata") if meta is not None else None
+    if brondata is None:
+        return None, None
+    commencement = _child(brondata, "inwerkingtreding")
+    in_force = (
+        _iso(_child(commencement, "inwerkingtreding.datum"))
+        if commencement is not None
+        else None
+    )
+    return _publication(_child(brondata, "oorspronkelijk")), in_force
+
+
 def _brondata(container: ET.Element) -> tuple[Publication | None, Publication | None]:
     """(originating, commencement) publication from the element's own ``meta-data``."""
     meta = _child(container, "meta-data")
@@ -368,8 +460,10 @@ class _OpenPart:
     depth: int  # 0 for a lid, 1 + the nesting for an onderdeel
 
 
-class _TextBuilder:
-    """Accumulate text and remember where references and the parts of the article sit."""
+class TextBuilder:
+    """Accumulate text and remember where references and the parts of the article sit.
+
+    Also builds the text and parts of an EU article (``core.eurlex_html``)."""
 
     def __init__(self) -> None:
         self.parts: list[str] = []
@@ -491,7 +585,30 @@ def _article_number(article: ET.Element) -> str | None:
     return None
 
 
-def _add_paragraphs(builder: _TextBuilder, paragraphs: list[ET.Element]) -> None:
+def _article_title(article: ET.Element) -> str | None:
+    """The ``<titel>`` of the ``<kop>`` of an article ("Definities"), whitespace collapsed."""
+    kop = _child(article, "kop")
+    title = " ".join(text_of(_child(kop, "titel")).split()) if kop is not None else ""
+    return title or None
+
+
+def _article_heading(article: ET.Element) -> str | None:
+    """The heading of an article without a number: the ``<titel>`` of its ``<kop>``
+    ("Algemene bepaling"), else the ``<label>`` of its ``<kop>`` or its ``label`` attribute
+    ("Slotartikel" of the Overgangswet nieuw Burgerlijk Wetboek); whitespace collapsed."""
+    kop = _child(article, "kop")
+    for text in (
+        _article_title(article) or "",
+        text_of(_child(kop, "label")) if kop is not None else "",
+        article.get("label") or "",
+    ):
+        heading = " ".join(text.split())
+        if heading:
+            return heading
+    return None
+
+
+def _add_paragraphs(builder: TextBuilder, paragraphs: list[ET.Element]) -> None:
     """Add *paragraphs* separated by a space."""
     for index, al in enumerate(paragraphs):
         if index:
@@ -512,7 +629,7 @@ def _list_items(
 
 
 def _add_item(
-    builder: _TextBuilder, li: ET.Element, body: list[ET.Element], depth: int
+    builder: TextBuilder, li: ET.Element, body: list[ET.Element], depth: int
 ) -> None:
     """Add one list item on a new line: its marker (``a.``, ``1°.``) and its paragraphs."""
     # The item before it ends here, not after the marker of this one.
@@ -525,7 +642,7 @@ def _add_item(
     _add_paragraphs(builder, body)
 
 
-def _add_lid(builder: _TextBuilder, lid: ET.Element) -> None:
+def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
     """Add one ``lid``: ``1. paragraph`` followed by its list items on new lines."""
     paragraphs = [c for c in lid if local_name(c.tag) == "al"]
     items = list(_list_items(lid))
@@ -552,7 +669,7 @@ def _add_lid(builder: _TextBuilder, lid: ET.Element) -> None:
     builder.close_from(0)
 
 
-def _add_block(builder: _TextBuilder, element: ET.Element, depth: int = 1) -> None:
+def _add_block(builder: TextBuilder, element: ET.Element, depth: int = 1) -> None:
     """Add the law text under *element* (paragraphs and list items) on new lines."""
     name = local_name(element.tag)
     if name == "meta-data":
@@ -598,29 +715,36 @@ def _article_text(
 
     Also the offsets of the leden, onderdelen and aanhef in that text, and of the references.
     An article without leden but with a list has the paragraphs before it as its aanhef."""
-    builder = _TextBuilder()
+    builder = TextBuilder()
     children = [c for c in article if local_name(c.tag) not in ("kop", "meta-data")]
     first_list = next(
         (i for i, c in enumerate(children) if local_name(c.tag) == "lijst"), None
     )
     has_leden = any(local_name(c.tag) == "lid" for c in children)
     intro: list[tuple[int, int]] = []  # spans of the paragraphs before the list
+    loose: list[tuple[int, int]] = []  # spans of the other paragraphs outside the leden
     for index, child in enumerate(children):
         start = builder.length
         if local_name(child.tag) == "lid":
             _add_lid(builder, child)
-        else:
-            _add_block(builder, child)
-            if (
-                not has_leden
-                and first_list is not None
-                and index < first_list
-                and local_name(child.tag) == "al"
-            ):
-                intro.append((start, builder.length))
+            continue
+        _add_block(builder, child)
+        if local_name(child.tag) != "al":
+            continue
+        before_list = first_list is not None and index < first_list
+        (intro if not has_leden and before_list else loose).append(
+            (start, builder.length)
+        )
     if intro and any(part.kind == PART_ONDERDEEL for part in builder.structure):
         builder.add_aanhef(intro[0][0], intro[-1][1])
+    else:
+        loose = intro + loose
     builder.close_from(0)
+    if builder.structure:
+        for number, (start, end) in enumerate(loose, start=1):
+            builder.structure.append(
+                ArticlePart(f"{PART_TEKST}-{number}", PART_TEKST, None, start, end)
+            )
     raw = builder.value()
     text = raw.strip()
     lead = len(raw) - len(raw.lstrip())
@@ -649,25 +773,50 @@ def _crumb(division: ET.Element, name: str) -> Crumb:
     return Crumb(type=name, label=label or None, title=title or None)
 
 
+def _annex_number(annex: ET.Element) -> str | None:
+    """The number of a ``<bijlage>`` as the JCI writes it: ``2`` of ``Bijlage 2``."""
+    kop = _child(annex, "kop")
+    nr = text_of(_child(kop, "nr")) if kop is not None else ""
+    if nr:
+        return nr
+    label = (annex.get("label") or "").strip()
+    rest = (
+        label[len("bijlage") :].strip() if label.lower().startswith("bijlage") else ""
+    )
+    return rest or None
+
+
 def _articles(
-    element: ET.Element, breadcrumb: tuple[Crumb, ...] = ()
+    element: ET.Element,
+    breadcrumb: tuple[Crumb, ...] = (),
+    annex: str | None = None,
 ) -> Iterator[ArticleXml]:
-    """The articles under *element* in document order, each with the divisions it is in."""
+    """The articles under *element* in document order, each with the divisions it is in
+    and, in an annex, the number of that annex."""
     for child in element:
         name = local_name(child.tag)
         if name == "artikel":
-            yield _parse_article(child, breadcrumb)
+            yield _parse_article(child, breadcrumb, annex)
+        elif name == "bijlage":
+            crumb = _crumb(child, name)
+            yield from _articles(child, (*breadcrumb, crumb), _annex_number(child))
         elif name in DIVISIONS:
-            yield from _articles(child, (*breadcrumb, _crumb(child, name)))
+            yield from _articles(child, (*breadcrumb, _crumb(child, name)), annex)
         else:
-            yield from _articles(child, breadcrumb)
+            yield from _articles(child, breadcrumb, annex)
 
 
-def _parse_article(article: ET.Element, breadcrumb: tuple[Crumb, ...]) -> ArticleXml:
+def _parse_article(
+    article: ET.Element, breadcrumb: tuple[Crumb, ...], annex: str | None
+) -> ArticleXml:
     text, refs, parts = _article_text(article)
     origin, commencement = _brondata(article)
+    number = _article_number(article)
+    if annex and number:
+        number = annex_article_number(annex, number)
     return ArticleXml(
-        number=_article_number(article),
+        number=number,
+        label=article_label(number) if number else _article_heading(article),
         text=text,
         stam_id=article.get("stam-id"),
         versie_id=article.get("versie-id"),
@@ -680,6 +829,7 @@ def _parse_article(article: ET.Element, breadcrumb: tuple[Crumb, ...]) -> Articl
         references=tuple(refs),
         parts=tuple(parts),
         breadcrumb=breadcrumb,
+        heading=_article_title(article),
     )
 
 
@@ -705,6 +855,17 @@ def _basis(root: ET.Element) -> tuple[BasisRef, ...]:
     return tuple(found.values())
 
 
+def _implemented(root: ET.Element) -> tuple[str, ...]:
+    """The EU acts the clauses of the ``considerans`` say the regulation implements."""
+    clauses = [
+        " ".join(_flatten(para).text.split())
+        for considerans in iter_named(root, "considerans")
+        for para in considerans.iter()
+        if local_name(para.tag) == "considerans.al"
+    ]
+    return tuple(implemented_acts(clauses))
+
+
 # ── entry point ──────────────────────────────────────────────────────────────
 
 
@@ -720,23 +881,22 @@ def parse_toestand(xml_text: str) -> ToestandXml:
     """Parse the XML of one toestand. Raises ``ET.ParseError`` on malformed XML."""
     root = ET.fromstring(xml_text)
     wetgeving = next(iter_named(root, "wetgeving"), None)
-    origin, commencement = (
-        _brondata(wetgeving) if wetgeving is not None else (None, None)
-    )
     articles = tuple(_articles(root))
+    enacted, enacted_in_force = _enactment(root)
     return ToestandXml(
         bwb_id=root.get("bwb-id"),
         kind=wetgeving.get("soort") if wetgeving is not None else None,
+        treaty_number=(wetgeving.get("verdragnummer") or None)
+        if wetgeving is not None
+        else None,
         title=_title(root, "citeertitel") or _title(root, "intitule"),
         official_title=_title(root, "intitule"),
         citation_title=_title(root, "citeertitel"),
-        valid_from=(
-            wetgeving.get("inwerkingtredingsdatum") if wetgeving is not None else None
-        )
-        or root.get("inwerkingtreding"),
-        origin=origin,
-        commencement=commencement,
+        valid_from=root.get("inwerkingtreding"),
+        enacted=enacted,
+        enacted_in_force=enacted_in_force,
         basis=_basis(root),
+        implements=_implemented(root),
         articles=articles,
         annexes=parse_annexes(root),
     )
@@ -777,19 +937,28 @@ def instrument_props(
 ) -> dict[str, Any]:
     """Props of the Instrument node for a regulation.
 
-    ``basis`` and ``celex_refs`` are what the semantic steps link from (BASED_ON,
-    IMPLEMENTS): kept here, where the toestand is parsed anyway, so they do not read and
-    parse every toestand again. Both are always written: an empty list replaces a stale one.
+    ``basis``, ``celex_refs`` (the EU acts the text names) and ``implements_celex`` (those
+    its considerans says it implements) are what the semantic steps link from (BASED_ON,
+    IMPLEMENTS, REFERS_TO): kept here, where the toestand is parsed anyway, so they do not
+    read and parse every toestand again. They are always written: an empty list replaces a
+    stale one. ``enacted_publication`` is the id of the publication that enacted it
+    (``stb-2018-144``).
+
+    ``date_signed``, ``date_published``, ``date_in_force`` and ``dossier_numbers`` are those
+    of the regulation as it was enacted (``ToestandXml.enacted``), always written (null or
+    empty when the toestand does not say them); ``version_date_in_force`` is the start of
+    the toestand.
     """
-    origin = toestand.origin
+    enacted = toestand.enacted
     title = toestand.title or f"BWB-regeling {bwb_id}"
-    return _drop_none(
+    props = _drop_none(
         {
             "basis": [
                 {"bwb_id": r.bwb_id, "article": r.article, "doc": r.doc, "text": r.text}
                 for r in toestand.basis
             ],
             "celex_refs": sorted(set(celex_refs)),
+            "implements_celex": sorted(toestand.implements),
             "source": SOURCE_BWB,
             "bwb_id": bwb_id,
             "title": title,
@@ -797,38 +966,47 @@ def instrument_props(
             "citation_title": toestand.citation_title,
             "display_name": title,
             "kind": toestand.kind,
+            "treaty_number": toestand.treaty_number,
             "jurisdiction": "nl",
-            "dossier_numbers": (
-                list(origin.dossiers) if origin and origin.dossiers else None
-            ),
-            "date_signed": origin.signed if origin else None,
-            "date_published": origin.published if origin else None,
-            "date_in_force": toestand.valid_from,
+            "version_date_in_force": toestand.valid_from,
         }
     )
+    return {
+        **props,
+        "date_signed": enacted.signed if enacted else None,
+        "date_published": enacted.published if enacted else None,
+        "date_in_force": toestand.enacted_in_force,
+        "dossier_numbers": list(enacted.dossiers) if enacted else [],
+        "enacted_publication": (enacted.identifier or None) if enacted else None,
+    }
 
 
-def _display_name(number: str | None, citation_title: str | None) -> str:
-    return f"Artikel {number} {citation_title or ''}".strip()
+def article_display_name(label: str | None, citation_title: str | None) -> str | None:
+    """``Artikel 287 Wetboek van Strafrecht``, ``Algemene bepaling Grondwet``."""
+    return " ".join(filter(None, (label, citation_title))) or None
 
 
 def article_props(
-    article: ArticleXml, bwb_id: str, citation_title: str | None
+    article: ArticleXml, bwb_id: str, citation_title: str | None, position: int
 ) -> dict[str, Any]:
-    """Props of the (current) Article node."""
+    """Props of the (current) Article node; *position* is its place in the toestand."""
     references = [r.to_dict() for r in article.references if r.bwb_id]
     return _drop_none(
         {
             "bwb_id": bwb_id,
             "article_number": article.number,
+            "label": article.label,
+            "heading": article.heading,
+            "position": position,
             "text": article.text,
             "instrument_citation_title": citation_title,
-            "display_name": _display_name(article.number, citation_title),
+            "display_name": article_display_name(article.label, citation_title),
             "stam_id": article.stam_id,
             "versie_id": article.versie_id,
             "valid_from": article.valid_from,
             "source_publication": article.source,
-            "repealed": True if article.is_repealed else None,
+            # always written: an upsert merges props, so a stale true must be overwritten
+            "repealed": article.is_repealed,
             "parts": [part.to_dict() for part in article.parts],
             "references": references,
             "breadcrumb": [crumb.to_dict() for crumb in article.breadcrumb] or None,
@@ -837,17 +1015,21 @@ def article_props(
 
 
 def article_version_props(
-    article: ArticleXml, bwb_id: str, citation_title: str | None
+    article: ArticleXml, bwb_id: str, citation_title: str | None, position: int
 ) -> dict[str, Any]:
-    """Props of one ArticleVersion node (``valid_until`` is filled in afterwards)."""
+    """Props of one ArticleVersion node (``valid_until`` is filled in afterwards);
+    *position* is its place in the toestand it was read from."""
     return _drop_none(
         {
             "bwb_id": bwb_id,
             "article_number": article.number,
+            "label": article.label,
+            "heading": article.heading,
+            "position": position,
             "text": article.text,
             "parts": [part.to_dict() for part in article.parts],
             "instrument_citation_title": citation_title,
-            "display_name": _display_name(article.number, citation_title),
+            "display_name": article_display_name(article.label, citation_title),
             "stam_id": article.stam_id,
             "versie_id": article.versie_id,
             "path": article.path,

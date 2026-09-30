@@ -1,0 +1,115 @@
+{
+ "about": "By hand, after the official plan: where each faction sits in the plenary hall, as the angle of its seats around the centre of the hemicycle seen from the chair (0 the chair's left, 180 its right; the median over its seats: blocks interleave, so one number per faction). Taken over from the plan of the Tweede Kamer named in `source`, which is published as a drawing only (no data: the open data has no seat position). Update it at every Presidium decision on the seating, with the new plan's url and date: `lawgraph curated set seating <key> '{\"abbreviation\": ..., \"angle\": ...}'` and edit `source` with the new plan. `seats` is the faction's number of seats on the plan (its legend). A faction with seats and no angle sits at the right end; `lawgraph check` names it, and a faction whose number of seats differs from the plan's (a split, a new faction, elections: then the Kamer draws a new plan).",
+ "source": {
+  "title": "Zetelverdeling plenaire zaal, juni 2026",
+  "dated": "2026-06-01",
+  "url": "https://www.tweedekamer.nl/sites/default/files/2026-06/zetelverdeling%20Juni%202026%20NL.pdf",
+  "page": "https://www.tweedekamer.nl/kamerleden-en-commissies/wie-zit-waar",
+  "read_on": "2026-09-29",
+  "method": "the median angle of the pixels of each faction's colour on the plan (PNG of the same page), around the centre of the hemicycle"
+ },
+ "factions": [
+  {
+   "key": "sp",
+   "abbreviation": "SP",
+   "angle": 8.6,
+   "seats": 3
+  },
+  {
+   "key": "pro",
+   "abbreviation": "PRO",
+   "angle": 15.8,
+   "seats": 20
+  },
+  {
+   "key": "50plus",
+   "abbreviation": "50PLUS",
+   "angle": 23.5,
+   "seats": 2
+  },
+  {
+   "key": "volt",
+   "abbreviation": "Volt",
+   "angle": 34.9,
+   "seats": 1
+  },
+  {
+   "key": "pvdd",
+   "abbreviation": "PvdD",
+   "angle": 38.5,
+   "seats": 3
+  },
+  {
+   "key": "d66",
+   "abbreviation": "D66",
+   "angle": 49.5,
+   "seats": 26
+  },
+  {
+   "key": "denk",
+   "abbreviation": "DENK",
+   "angle": 70.1,
+   "seats": 3
+  },
+  {
+   "key": "cda",
+   "abbreviation": "CDA",
+   "angle": 79.2,
+   "seats": 18
+  },
+  {
+   "key": "christenunie",
+   "abbreviation": "ChristenUnie",
+   "angle": 99.6,
+   "seats": 3
+  },
+  {
+   "key": "sgp",
+   "abbreviation": "SGP",
+   "angle": 99.7,
+   "seats": 3
+  },
+  {
+   "key": "vvd",
+   "abbreviation": "VVD",
+   "angle": 109.9,
+   "seats": 22
+  },
+  {
+   "key": "lid_keijzer",
+   "abbreviation": "Lid Keijzer",
+   "angle": 123.8,
+   "seats": 1
+  },
+  {
+   "key": "bbb",
+   "abbreviation": "BBB",
+   "angle": 129.1,
+   "seats": 3
+  },
+  {
+   "key": "ja21",
+   "abbreviation": "JA21",
+   "angle": 134.5,
+   "seats": 9
+  },
+  {
+   "key": "groep_markuszower",
+   "abbreviation": "Groep Markuszower",
+   "angle": 139.5,
+   "seats": 7
+  },
+  {
+   "key": "fvd",
+   "abbreviation": "FVD",
+   "angle": 158.4,
+   "seats": 7
+  },
+  {
+   "key": "pvv",
+   "abbreviation": "PVV",
+   "angle": 167.3,
+   "seats": 19
+  }
+ ]
+}

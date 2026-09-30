@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from types import MappingProxyType
-
 # ── Collection name constants ─────────────────────────────────────────────────
 
 COLLECTION_INSTRUMENTS = "instruments"
@@ -20,7 +18,7 @@ COLLECTION_COMMITMENTS = "commitments"
 COLLECTION_COMMITTEES = "committees"
 COLLECTION_MEMBERS = "members"
 COLLECTION_FACTIONS = "factions"
-COLLECTION_TOPICS = "topics"
+COLLECTION_CABINETS = "cabinets"
 COLLECTION_RAW_SOURCES = "raw_sources"
 COLLECTION_ANNEXES = "annexes"
 COLLECTION_PIPELINE_STATE = "pipeline_state"  # until when each phase is complete
@@ -34,7 +32,6 @@ DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
     COLLECTION_JUDGMENTS,
-    COLLECTION_TOPICS,
     COLLECTION_RAW_SOURCES,
     COLLECTION_DOSSIERS,
     COLLECTION_ACTIVITIES,
@@ -43,6 +40,7 @@ DOCUMENT_COLLECTIONS: tuple[str, ...] = (
     COLLECTION_COMMITTEES,
     COLLECTION_MEMBERS,
     COLLECTION_FACTIONS,
+    COLLECTION_CABINETS,
     COLLECTION_ANNEXES,
     COLLECTION_PIPELINE_STATE,
 )
@@ -73,6 +71,11 @@ RELATION_LEGISLATED_IN = "LEGISLATED_IN"
 RELATION_REFERS_TO = "REFERS_TO"
 RELATION_EXPLAINS = "EXPLAINS"
 RELATION_APPEAL_OF = "APPEAL_OF"
+RELATION_CONTINUES = "CONTINUES"
+RELATION_REFERRED_BY = "REFERRED_BY"
+RELATION_ADVISES_ON = "ADVISES_ON"
+RELATION_ANSWERS = "ANSWERS"
+RELATION_SAME_AS = "SAME_AS"
 RELATION_SCOPED_BY = "SCOPED_BY"
 RELATION_ABOUT = "ABOUT"
 RELATION_LED_BY = "LED_BY"
@@ -80,6 +83,11 @@ RELATION_MADE_IN = "MADE_IN"
 RELATION_MEMBER_OF = "MEMBER_OF"
 RELATION_AUTHORED = "AUTHORED"
 RELATION_VOTED = "VOTED"
+RELATION_RELATED_TO = "RELATED_TO"
+RELATION_REVISES = "REVISES"
+RELATION_ACCOMPANIES = "ACCOMPANIES"
+RELATION_SECOND_READING_OF = "SECOND_READING_OF"
+RELATION_SERVED_IN = "SERVED_IN"
 
 # ── Semantic relationship types ───────────────────────────────────────────────
 # Curated semantic layer stored on edges as `semantic_type`. Orthogonal to
@@ -145,6 +153,10 @@ SOURCE_STAATSCOURANT = "staatscourant"
 SOURCE_ECHR = "echr"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
+SOURCE_RIJKSOVERHEID = "rijksoverheid"
+SOURCE_TOOI = "tooi"
+# The label of a member only Rijksoverheid knows: a bewindspersoon without a Tweede Kamer person.
+LABEL_RIJKSOVERHEID = "Rijksoverheid"
 
 # The chambers of the States General, as a document or decision carries them in its labels.
 CHAMBER_TK = "TK"
@@ -154,13 +166,16 @@ CHAMBER_EK = "EK"
 # contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.
 EXPLANATORY_KIND_MARKER = "toelichting"
 
-# The edge `source` of IMPLEMENTS: the regulation's text names the EU act's CELEX number.
-EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements-directive"
+# The edge `source` of IMPLEMENTS (and of the REFERS_TO from a regulation to an EU act its
+# text names without implementing it), with the basis of an IMPLEMENTS edge in its `meta`.
+EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements"
+IMPLEMENTS_BASIS_NIM = "national_implementing_measure"
+IMPLEMENTS_BASIS_CONSIDERANS = "considerans"
 
-# International instruments the graph has a name for: BWB treaties carry a BWBV id, the
-# Convention of the ECHR a pseudo id of its own (its articles carry it as `props.bwb_id`).
+# International instruments the graph has a name for: BWB treaties carry a BWBV id. The
+# Convention of the ECHR is one of them: the treaty whose articles ECHR judgments apply.
 BWB_TREATY_ID_PREFIX = "BWBV"
-ECHR_CONVENTION_ID = "ECHR-CONVENTION"
+ECHR_CONVENTION_BWB_ID = "BWBV0001000"
 
 # ── Raw source kind identifiers ───────────────────────────────────────────────
 
@@ -168,6 +183,8 @@ RAW_KIND_TK_ZAAK = "tk-zaak"
 RAW_KIND_TK_DOSSIER = "tk-dossier"
 RAW_KIND_TK_ACTIVITEIT = "tk-activiteit"
 RAW_KIND_TK_STEMMING = "tk-stemming"
+# A Besluit "Stemmen - ..." on the zaak of a bill, also one without votes (a hamerstuk).
+RAW_KIND_TK_BESLUIT = "tk-besluit"
 RAW_KIND_TK_TOEZEGGING = "tk-toezegging"
 RAW_KIND_TK_COMMISSIE = "tk-commissie"
 RAW_KIND_TK_PERSOON = "tk-persoon"
@@ -177,16 +194,35 @@ RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
 # The XML of a Kamerstuk in the KOOP repository (source ``tk``, external id ``kst-<dossier>-<n>``).
 RAW_KIND_TK_KAMERSTUK_XML = "tk-kamerstuk-xml"
 RAW_KIND_RS_CONTENT = "rs-content"
+# The Instanties value list of the Rechtspraak (external id: Instanties).
+RAW_KIND_RS_INSTANTIES = "rs-instanties-xml"
 RAW_KIND_EU_CELEX = "eu-celex-html"
+# A national implementing measure of the Netherlands in CELLAR (external id: its document id).
+RAW_KIND_EU_NIM = "eu-nim-json"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
 RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
 # The ``<algemene-informatie>`` element of a WTI file (official abbreviations), not the file.
 RAW_KIND_BWB_WTI_GENERAL = "bwb-wti-algemene-informatie-xml"
 RAW_KIND_STB_AMVB = "stb-amvb-xml"
 RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
+# How many publications of each ministry name a cabinet post (external id: the query).
+RAW_KIND_STCRT_POST_CREATORS = "stcrt-post-creators-json"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
+# The ``word/document.xml`` of the DOCX HUDOC serves of a judgment (external id: its item id).
+RAW_KIND_ECHR_TEXT = "echr-judgment-docx-xml"
 RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
+# One day of the list of votes on bills of eerstekamer.nl (external id: the date), and the list
+# of the bills the Eerste Kamer rejected (external id: its path, both pages in one record).
+RAW_KIND_EK_VOTES_DAY = "ek-votes-day-html"
+RAW_KIND_EK_REJECTED = "ek-rejected-html"
+# A page of eerstekamer.nl on its composition: the lists of factions and committees and the
+# page of each (external id: its path); every run reads them all again.
+RAW_KIND_EK_COMPOSITION = "ek-composition-html"
 RAW_KIND_VERDRAG = "verdrag-json"
+# The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
+RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
+# The TOOI value list of every ministry (external id: rwc_ministeries_compleet).
+RAW_KIND_TOOI_MINISTRIES = "tooi-ministries-jsonld"
 
 # A document the source answered HTTP 404 for is remembered as a record of the kind it would
 # have had plus this suffix (no payload), so it is not asked for again on every run.
@@ -198,6 +234,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_DOSSIER,
         RAW_KIND_TK_ACTIVITEIT,
         RAW_KIND_TK_STEMMING,
+        RAW_KIND_TK_BESLUIT,
         RAW_KIND_TK_TOEZEGGING,
         RAW_KIND_TK_COMMISSIE,
         RAW_KIND_TK_PERSOON,
@@ -206,59 +243,31 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_FRACTIEZETELPERSOON,
         RAW_KIND_TK_KAMERSTUK_XML,
     ),
-    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT,),
-    SOURCE_EURLEX: (RAW_KIND_EU_CELEX,),
+    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT, RAW_KIND_RS_INSTANTIES),
+    SOURCE_EURLEX: (RAW_KIND_EU_CELEX, RAW_KIND_EU_NIM),
     SOURCE_BWB: (
         RAW_KIND_BWB_TOESTAND,
         RAW_KIND_BWB_TOESTAND_ALL,
         RAW_KIND_BWB_WTI_GENERAL,
     ),
     SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
-    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING,),
-    SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT,),
-    SOURCE_EERSTEKAMER: (RAW_KIND_EK_KAMERSTUK,),
+    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING, RAW_KIND_STCRT_POST_CREATORS),
+    SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT, RAW_KIND_ECHR_TEXT),
+    SOURCE_EERSTEKAMER: (
+        RAW_KIND_EK_KAMERSTUK,
+        RAW_KIND_EK_VOTES_DAY,
+        RAW_KIND_EK_REJECTED,
+        RAW_KIND_EK_COMPOSITION,
+    ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
+    SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
+    SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES,),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────
 
 # Maximum characters of a document's text scanned for citations (200 KB).
 MAX_SEMANTIC_TEXT_LENGTH = 200_000
-
-# ── Party colors ──────────────────────────────────────────────────────────────
-# Canonical brand colors for Dutch parliamentary parties.
-# Keyed by the party abbreviation as it appears in fractie.abbreviation.
-# GL-PvdA, GroenLinks, and GroenLinks-PvdA are all intentional duplicates:
-# different API versions use different abbreviations for the same merged party.
-
-PARTY_COLORS: MappingProxyType[str, str] = MappingProxyType(
-    {
-        "VVD": "#003082",
-        "D66": "#1DB954",
-        "PVV": "#002868",
-        "CDA": "#399E48",
-        "SP": "#EE1C25",
-        "PvdA": "#E63325",
-        "GroenLinks": "#46962B",
-        "GL-PvdA": "#46962B",
-        "GroenLinks-PvdA": "#46962B",
-        "ChristenUnie": "#4F95D4",
-        "Volt": "#592D82",
-        "NSC": "#1B4F72",
-        "BBB": "#9ECA3C",
-        "JA21": "#CC0000",
-        "SGP": "#FF6600",
-        "FvD": "#8B0000",
-        "FVD": "#8B0000",
-        "DENK": "#39B54A",
-        "BIJ1": "#FFCC00",
-        "50PLUS": "#8B008B",
-        "PvdD": "#4CAF50",
-        "Groep Van Haga": "#002868",
-        "Groep Markuszower": "#1F2A44",
-        "Lid Keijzer": "#999999",
-    }
-)
 
 # Longest title / display name stored on a node (longer source titles are truncated).
 MAX_TITLE_CHARS = 200
@@ -278,36 +287,18 @@ HOST_MIN_INTERVAL: dict[str, float] = {
     "gegevensmagazijn.tweedekamer.nl": 0.1,
     "zoekservice.overheid.nl": 0.1,
     "repository.officiele-overheidspublicaties.nl": 0.1,
+    # a page at a time with a pause: 33 pages, read seldom
+    "www.rijksoverheid.nl": 2.0,
+    # the lists of eerstekamer.nl: 106 pages of votes, read seldom
+    "www.eerstekamer.nl": 2.0,
 }
 
 # ── Rechtspraak courts ────────────────────────────────────────────────────────
-# Short name -> the OWMS term of the court in the Rechtspraak API (``creator``).
-RECHTSPRAAK_COURTS: dict[str, str] = {
-    "hr": "Hoge_Raad_der_Nederlanden",
-    "rvs": "Raad_van_State",
-    "crvb": "Centrale_Raad_van_Beroep",
-    "cbb": "College_van_Beroep_voor_het_bedrijfsleven",
-    "gh-amsterdam": "Gerechtshof_Amsterdam",
-    "gh-arnhem-leeuwarden": "Gerechtshof_Arnhem-Leeuwarden",
-    "gh-den-haag": "Gerechtshof_Den_Haag",
-    "gh-s-hertogenbosch": "Gerechtshof_'s-Hertogenbosch",
-    # courts of appeal before the 2013 reorganisation, for research into older years
-    "gh-arnhem": "Gerechtshof_Arnhem",
-    "gh-leeuwarden": "Gerechtshof_Leeuwarden",
-    "gh-s-gravenhage": "Gerechtshof_'s-Gravenhage",
-}
-RECHTSPRAAK_COURT_GROUPS: dict[str, tuple[str, ...]] = {
-    "hoven": (
-        "gh-amsterdam",
-        "gh-arnhem-leeuwarden",
-        "gh-den-haag",
-        "gh-s-hertogenbosch",
-        "gh-arnhem",
-        "gh-leeuwarden",
-        "gh-s-gravenhage",
-    ),
-}
-RECHTSPRAAK_DEFAULT_COURTS = ("hr", "rvs", "hoven")
+# A court to read is an ECLI code or a tier of the court table (``core.courts.owms_terms``).
+# Every court the index holds (no ``creator`` filter): the rechtbanken, the special courts
+# and those that no longer exist too.
+RECHTSPRAAK_EVERY_COURT = "all"
+RECHTSPRAAK_DEFAULT_COURTS = (RECHTSPRAAK_EVERY_COURT,)
 # Judgments are published up to weeks after the decision date; an incremental run looks this
 # far before its ``--since``.
 RECHTSPRAAK_PUBLICATION_LAG_DAYS = 30

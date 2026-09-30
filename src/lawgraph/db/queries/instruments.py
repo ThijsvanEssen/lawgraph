@@ -15,12 +15,11 @@ from lawgraph.config.constants import (
     RELATION_AMENDS,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
-    RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
     TEXT_ANALYZER,
 )
-from lawgraph.core.models import parse_arango_id
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
@@ -57,17 +56,21 @@ def get_articles(
     identifier: str,
     *,
     include_stubs: bool = False,
+    include_repealed: bool = False,
     limit: int = 2000,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
-    """All articles belonging to an instrument (BWB id or CELEX), sorted by article_number.
+    """The articles of an instrument (BWB id or CELEX) and how many there are.
 
-    Sort is a natural numeric-aware order (so 'Artikel 9' precedes 'Artikel 10'
-    and '24c' lands between '24' and '25') derived in AQL via a numeric/string
-    split on the article_number. Returns ``(items, total)``.
+    In the order of the document (``props.position``): an article with only a heading
+    where it stands, an annex after the regulation; historical articles and stubs last.
+    Without *include_repealed* only the articles in force: no historical identity and no
+    article whose current version repeals it.
     """
     scope = scope_of(identifier)
     stub_filter = "" if include_stubs else "FILTER doc.props.stub != true"
+    if not include_repealed:
+        stub_filter += " FILTER doc.props.repealed != true"
     aql = f"""
     LET filtered = (
         FOR doc IN {COLLECTION_ARTICLES}
@@ -78,12 +81,8 @@ def get_articles(
     LET total = LENGTH(filtered)
     LET items = (
         FOR doc IN filtered
-            // Natural sort: split article_number into leading int + suffix
-            LET num_str = doc.props.article_number != null ? doc.props.article_number : ""
-            LET digits = REGEX_MATCHES(num_str, "^([0-9]+)")
-            LET num_int = LENGTH(digits) > 0 ? TO_NUMBER(digits[0]) : 999999
-            LET suffix = LENGTH(digits) > 0 ? SUBSTRING(num_str, LENGTH(digits[0])) : num_str
-            SORT num_int ASC, suffix ASC
+            // the order of the document; a historical article or a stub has none: last
+            SORT doc.props.position == null, doc.props.position, doc._key
             LIMIT @offset, @limit
             RETURN doc
     )
@@ -96,120 +95,6 @@ def get_articles(
         return [], 0
     row = rows[0]
     return list(row.get("items") or []), int(row.get("total") or 0)
-
-
-def get_instrument_edges_bundle(
-    store: ArangoStore,
-    identifier: str,
-    *,
-    relations: list[str] | None = None,
-    include_part_of: bool = False,
-    max_edges: int = 20000,
-) -> dict[str, Any]:
-    """Bulk: every edge incident to any article of this instrument.
-
-    Returns a single payload the FE can use to render the legal-citation
-    graph without N+1 round-trips (``bwb_id`` is the identifier as requested,
-    a BWB id or a CELEX number):
-
-      {bwb_id, article_count, total_edges,
-       edges:[{from,to,relation,direction,meta}],
-       nodes:{<collection>: [doc, ...]}}
-
-    By default ``PART_OF`` (the article→instrument structural backbone) is
-    excluded. Pass ``include_part_of=True`` to include it.
-
-    ``relations`` is an explicit whitelist; when None, every relation except
-    PART_OF is returned.
-    """
-    scope = scope_of(identifier)
-    bind: dict[str, Any] = {"bwb": scope.value, "max_edges": max_edges}
-
-    rel_filter = ""
-    if relations:
-        bind["relations"] = relations
-        rel_filter = "FILTER e.relation IN @relations"
-    elif not include_part_of:
-        rel_filter = f"FILTER e.relation != '{RELATION_PART_OF}'"
-
-    # Split the OR (e._from IN focal_ids OR e._to IN focal_ids) into two
-    # index-friendly sub-queries so each can use the _from / _to B-tree index.
-    # Intra-instrument edges (both ends in focal_ids) appear only in out_edges;
-    # in_edges excludes them via FILTER e._from NOT IN focal_ids.
-    aql = f"""
-    LET focal_ids = (
-        FOR a IN {COLLECTION_ARTICLES}
-            FILTER a.props.{scope.prop} == @bwb
-            RETURN a._id
-    )
-    LET out_edges = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from IN focal_ids
-            {rel_filter}
-            RETURN {{
-                from: e._from,
-                to: e._to,
-                relation: e.relation,
-                direction: e._to IN focal_ids ? "intra" : "out",
-                meta: e.meta
-            }}
-    )
-    LET in_edges = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to IN focal_ids
-            FILTER e._from NOT IN focal_ids
-            {rel_filter}
-            RETURN {{
-                from: e._from,
-                to: e._to,
-                relation: e.relation,
-                direction: "in",
-                meta: e.meta
-            }}
-    )
-    LET kept_edges = SLICE(APPEND(out_edges, in_edges), 0, @max_edges)
-    LET foreign_ids = UNIQUE(
-        FOR e IN kept_edges
-            FOR id IN [e.from, e.to]
-                FILTER id NOT IN focal_ids
-                RETURN id
-    )
-    LET foreign_docs = (
-        FOR id IN foreign_ids
-            LET d = DOCUMENT(id)
-            FILTER d != null
-            RETURN d
-    )
-    RETURN {{
-        article_count: LENGTH(focal_ids),
-        edges: kept_edges,
-        foreign_docs: foreign_docs
-    }}
-    """
-    rows = list(store.query(aql, bind))
-    if not rows:
-        return {
-            "bwb_id": identifier,
-            "article_count": 0,
-            "total_edges": 0,
-            "edges": [],
-            "nodes": {},
-        }
-    row = rows[0]
-    edges = list(row.get("edges") or [])
-    nodes_by_coll: dict[str, list[dict[str, Any]]] = {}
-    for doc in row.get("foreign_docs") or []:
-        coll = parse_arango_id(doc.get("_id") or "")[0]
-        if not coll:
-            continue
-        nodes_by_coll.setdefault(coll, []).append(doc)
-    return {
-        "bwb_id": identifier,
-        "article_count": int(row.get("article_count") or 0),
-        "total_edges": len(edges),
-        "edges": edges,
-        "nodes": nodes_by_coll,
-    }
 
 
 def get_instrument_judgments(
@@ -615,6 +500,7 @@ def get_instruments_list(
         "jurisdiction": jurisdiction.lower() if jurisdiction else None,
         "kind": kind.lower() if kind else None,
         "article_count_min": article_count_min,
+        "publication": KIND_PUBLICATION,
         **tok_bind,
     }
 
@@ -633,7 +519,8 @@ def get_instruments_list(
     LET items = (
         {source}
             FILTER @jurisdiction == null OR doc.props.jurisdiction == @jurisdiction
-            FILTER @kind == null OR doc.props.kind == @kind
+            FILTER @kind == null
+                ? doc.props.kind != @publication : doc.props.kind == @kind
             FILTER @article_count_min == null
                 OR (doc.props.article_count != null
                     AND doc.props.article_count >= @article_count_min)
@@ -642,8 +529,8 @@ def get_instruments_list(
             LET props = doc.props
             LET citation_title = (
                 props.citation_title != null ? props.citation_title :
-                (props.display_name != null ? props.display_name :
-                 (props.title != null ? props.title : doc._key))
+                (props.title != null ? props.title :
+                 (props.display_name != null ? props.display_name : doc._key))
             )
             RETURN {{
                 _id: doc._id,
@@ -654,8 +541,13 @@ def get_instruments_list(
                 short_title: props.short_title,
                 kind: props.kind,
                 citation_title: citation_title,
+                display_name: props.display_name != null ? props.display_name : citation_title,
                 jurisdiction: props.jurisdiction,
-                article_count: props.article_count
+                article_count: props.article_count,
+                uri: props.uri,
+                publication_kind: props.publication_kind,
+                publication_year: props.publication_year,
+                publication_number: props.publication_number
             }}
     )
     """
@@ -670,7 +562,8 @@ def get_instruments_list(
     LET total = LENGTH(
         {count_source}
             FILTER @jurisdiction == null OR doc.props.jurisdiction == @jurisdiction
-            FILTER @kind == null OR doc.props.kind == @kind
+            FILTER @kind == null
+                ? doc.props.kind != @publication : doc.props.kind == @kind
             FILTER @article_count_min == null
                 OR (doc.props.article_count != null
                     AND doc.props.article_count >= @article_count_min)
@@ -678,7 +571,12 @@ def get_instruments_list(
     )
     """
     else:
-        aql += "LET total = COLLECTION_COUNT('instruments')\n"
+        # the collection less its publications, counted on the index of the kind
+        aql += f"""
+    LET total = COLLECTION_COUNT('{COLLECTION_INSTRUMENTS}') - LENGTH(
+        FOR doc IN {COLLECTION_INSTRUMENTS} FILTER doc.props.kind == @publication RETURN 1
+    )
+    """
 
     aql += "RETURN { total: total, items: items }\n"
 
@@ -700,62 +598,65 @@ def get_instrument_versions(
     return list(store.query(aql, {"bwb_id": bwb_id.upper()}))
 
 
+@dataclass(frozen=True)
+class LawOnADate:
+    """The articles of a law in force on a date (a page of them), how many there are, and
+    the start of the first toestand of the law."""
+
+    items: list[dict[str, Any]]
+    total: int
+    first_version_from: str | None
+
+
 def get_articles_at(
     store: ArangoStore,
     bwb_id: str,
     at_date: str,
-) -> list[dict[str, Any]]:
-    """Return all article versions valid at the given date (YYYY-MM-DD), sorted naturally."""
+    *,
+    limit: int = 2000,
+    offset: int = 0,
+) -> LawOnADate:
+    """The articles of the law in force on *at_date* (YYYY-MM-DD): the article versions
+    whose half-open period holds it, in the order of the document. A bijlage is part of the
+    law, not an article of it: the articles of a bijlage are left out.
+
+    None before the first toestand of the law: the source gives the law from there, and an
+    article's own start before it (``inwerking``) says nothing of the articles that were
+    replaced or lapsed before it."""
     aql = f"""
-    LET filtered = (
+    LET first = FIRST(
+        FOR v IN {COLLECTION_INSTRUMENT_VERSIONS}
+            FILTER v.props.bwb_id == @bwb_id
+            SORT v.props.valid_from
+            LIMIT 1
+            RETURN v.props.valid_from
+    )
+    LET filtered = first == null OR @at_date < first ? [] : (
         FOR doc IN {COLLECTION_ARTICLE_VERSIONS}
             FILTER doc.props.bwb_id == @bwb_id
             FILTER doc.props.valid_from <= @at_date
             FILTER doc.props.valid_until > @at_date OR doc.props.valid_until == null
+            FILTER NOT LIKE(doc.props.article_number OR "", "bijlage %")
             RETURN doc
     )
-    FOR doc IN filtered
-        LET num_str = doc.props.article_number != null ? doc.props.article_number : ""
-        LET digits = REGEX_MATCHES(num_str, "^([0-9]+)")
-        LET num_int = LENGTH(digits) > 0 ? TO_NUMBER(digits[0]) : 999999
-        LET suffix  = LENGTH(digits) > 0 ? SUBSTRING(num_str, LENGTH(digits[0])) : num_str
-        SORT num_int ASC, suffix ASC
-        RETURN doc
-    """
-    return list(store.query(aql, {"bwb_id": bwb_id.upper(), "at_date": at_date}))
-
-
-def get_short_titles(
-    store: ArangoStore, bwb_ids: set[str], celexes: set[str]
-) -> tuple[dict[str, str], dict[str, str]]:
-    """Map bwb_id / celex -> display short title for a set of instruments.
-
-    One bulk query for the whole set (uses the props.bwb_id / props.celex
-    indexes). Prefers ``short_title`` and falls back to ``citation_title``.
-    """
-    short_by_bwb: dict[str, str] = {}
-    short_by_celex: dict[str, str] = {}
-    if not (bwb_ids or celexes):
-        return short_by_bwb, short_by_celex
-    rows = store.query(
-        f"""
-        FOR i IN {COLLECTION_INSTRUMENTS}
-            FILTER i.props.bwb_id IN @bwbs OR i.props.celex IN @celexes
-            RETURN {{
-                bwb_id: i.props.bwb_id,
-                celex: i.props.celex,
-                short_title: i.props.short_title,
-                citation_title: i.props.citation_title
-            }}
-        """,
-        {"bwbs": list(bwb_ids), "celexes": list(celexes)},
+    LET items = (
+        FOR doc IN filtered
+            SORT doc.props.position == null, doc.props.position, doc._key
+            LIMIT @offset, @limit
+            RETURN doc
     )
-    for inst in rows:
-        short = inst.get("short_title") or inst.get("citation_title")
-        if not short:
-            continue
-        if inst.get("bwb_id"):
-            short_by_bwb[inst["bwb_id"]] = short
-        if inst.get("celex"):
-            short_by_celex[inst["celex"]] = short
-    return short_by_bwb, short_by_celex
+    RETURN {{ total: LENGTH(filtered), items: items, first: first }}
+    """
+    bind = {
+        "bwb_id": bwb_id.upper(),
+        "at_date": at_date,
+        "limit": limit,
+        "offset": offset,
+    }
+    rows = list(store.query(aql, bind))
+    row = rows[0] if rows else {}
+    return LawOnADate(
+        items=list(row.get("items") or []),
+        total=int(row.get("total") or 0),
+        first_version_from=row.get("first"),
+    )

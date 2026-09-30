@@ -2,51 +2,96 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, get_args
+from typing import Annotated, Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+from lawgraph.api.params import MinistryKey
+from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.config.settings import EK_ATTRIBUTION
+from lawgraph.core.documents import numbered_in
+from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.tk_links import tk_url
 
-# A dossier number as the API takes it: 29684, or with an addition, 29684-I.
-DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z]+)?$"
-
-# Stage names are the Dutch legislative vocabulary the classifier speaks.
-DossierStage = Literal[
-    "wetsvoorstel",
-    "mvt",
-    "advies_rvs",
-    "verslag",
-    "nota_naar_aanleiding_van_verslag",
-    "amendementen",
-    "behandeling",
-    "stemming",
-    "afgehandeld",
-]
+# A dossier number as the API takes it: 29684, or its label with the addition of a
+# budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
+DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
 
 TitleSource = Literal["dossier", "document", "activiteit"]
 
-DossierOutcome = Literal["aangenomen", "verworpen", "ingetrokken"]
+SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
 
-DossierTrack = Literal[
-    "wetsvoorstel",
-    "initiatiefwetsvoorstel",
-    "begroting",
-    "verdrag",
-    "initiatiefnota",
-    "motie",
-    "overig",
-]
+DossierOutcome = Literal["aangenomen", "verworpen"]
+
+KindBasis = Literal["case", "document"]
 
 
-def _stage(value: Any) -> DossierStage | None:
-    """A recognised stage, or null when the classifier found none."""
-    return value if value in get_args(DossierStage) else None
+class DossierPhaseDTO(BaseModel):
+    """A phase of the bar of a bill."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        ..., description="The phase, as the curated list ``phases`` names it."
+    )
+    chamber: Literal["TK", "EK"] = Field(
+        "TK",
+        description="The chamber of the phase: the bar is that of the Tweede Kamer.",
+    )
+    done: bool = Field(
+        ...,
+        description="A paper, an activity that took place or a decision on the bill "
+        "marks it.",
+    )
+    date: str | None = Field(
+        None, description="The first date of those; null for none."
+    )
 
 
-def _stages(values: Any) -> list[DossierStage]:
-    valid = get_args(DossierStage)
-    return [v for v in (values or []) if v in valid]
+class EkOutcomeDTO(BaseModel):
+    """The outcome of the bill of a dossier in the Eerste Kamer, as eerstekamer.nl gives it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: Literal["Aangenomen", "Verworpen"] = Field(
+        ..., description="As the Eerste Kamer shows it."
+    )
+    date: str | None = Field(None, description="The day of the vote.")
+    method: str | None = Field(
+        None,
+        description="How it was decided, as the report names it: ``Hamerstuk``, "
+        "``Stemming bij zitten en opstaan, aangenomen``, ``Hoofdelijke stemming, "
+        "verworpen``; null for a rejection known from the list of rejected bills alone "
+        "(before June 2015).",
+    )
+    source_url: str | None = Field(
+        None,
+        description="The page it was taken over from: the report of the vote, or the list "
+        "of rejected bills.",
+    )
+    retrieved_on: str | None = Field(None, description="The day it was taken over.")
+    attribution: str = Field(
+        ...,
+        description="The source to name with it (``EK_ATTRIBUTION``), with ``source_url`` "
+        "and ``retrieved_on``: the terms of eerstekamer.nl allow reuse with the source "
+        "and the day it was taken over.",
+    )
+
+
+class TkDecisionDTO(BaseModel):
+    """The last decision of the Tweede Kamer on the bill of a dossier."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = Field(
+        ...,
+        description="``BesluitSoort`` as the Kamer writes it: ``Stemmen - aangenomen``, "
+        "``Stemmen - zonder stemming aannemen`` (a hamerstuk), ``Stemmen - verworpen``, "
+        "``Stemmen - uitstellen``, ...",
+    )
+    text: str | None = Field(None, description="``BesluitTekst``: ``Aangenomen.``")
+    date: str | None = None
 
 
 class TimelineCommitteeDTO(BaseModel):
@@ -69,6 +114,16 @@ class TimelineSignatoryDTO(BaseModel):
     party: str | None = None
     role: str = Field(..., description="'indiener' or 'mede-indiener'.")
     source_role: str = Field("", description="The role as the source wrote it.")
+    function: str | None = Field(
+        None,
+        description="The function they signed in, as the source writes it: 'Tweede "
+        "Kamerlid', 'minister-president', 'vicepresident van de Raad van State'.",
+    )
+    capacity: SigningCapacity | None = Field(
+        None,
+        description="'bewindspersoon' (a minister or staatssecretaris), 'kamerlid' (signed "
+        "for a faction) or 'overig' (the griffier, the Raad van State, ...).",
+    )
 
 
 class DocumentEntryDTO(DocumentOrigin):
@@ -79,7 +134,13 @@ class DocumentEntryDTO(DocumentOrigin):
     kind: str | None = None
     title: str | None = None
     sequence: int | None = Field(
-        None, description="Document number within the dossier."
+        None, description="The number of the paper in ``dossier_number``."
+    )
+    dossier_number: str | None = Field(
+        None,
+        description="The dossier the paper is numbered in (``31058``, ``37020-XV``): a "
+        "paper is part of every dossier of its cases and a Kamerstuk of one. Null for a "
+        "paper that is no Kamerstuk, such as a nader rapport sent along with a bill.",
     )
     session_year: str | None = Field(None, description="Parliamentary year.")
     date: str | None = None
@@ -105,7 +166,13 @@ class TimelineDocumentBody(DocumentOrigin):
     kind: str | None = None
     title: str | None = None
     sequence: int | None = Field(
-        None, description="Document number within the dossier."
+        None, description="The number of the paper in ``dossier_number``."
+    )
+    dossier_number: str | None = Field(
+        None,
+        description="The dossier the paper is numbered in (``31058``, ``37020-XV``): a "
+        "paper is part of every dossier of its cases and a Kamerstuk of one. Null for a "
+        "paper that is no Kamerstuk, such as a nader rapport sent along with a bill.",
     )
     session_year: str | None = Field(None, description="Parliamentary year.")
     tk_url: str | None = None
@@ -119,9 +186,15 @@ class TimelineActivityBody(BaseModel):
 
     kind: str | None = Field(None, description="E.g. 'Commissiedebat'.")
     agenda_title: str | None = Field(
-        None, description="The agenda item; starts with the date."
+        None, description="The subject of the activity (``Activiteit.Onderwerp``)."
     )
     number: str | None = Field(None, description="The activity number.")
+    status: str | None = Field(
+        None,
+        description="``Activiteit.Status`` as the source writes it: ``Gepland`` (still to "
+        "come, also when its date has passed), ``Uitgevoerd``, ``Geannuleerd``, "
+        "``Verplaatst``, ``Vervallen``; null when the source gives none.",
+    )
 
 
 class TimelineDecisionBody(BaseModel):
@@ -135,11 +208,29 @@ class TimelineDecisionBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     subject: str | None = None
+    chamber: Literal["TK", "EK"] = Field(
+        "TK",
+        description="The chamber that decided: ``EK`` for a vote of the Eerste Kamer.",
+    )
+    result: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: ``Aangenomen``, ``Verworpen`` as it shows it.",
+    )
+    method: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: how it was decided, as its report names it "
+        "(``Hamerstuk``, ``Stemming bij zitten en opstaan, aangenomen``).",
+    )
     passed: bool | None = None
     vote_kind: str | None = None
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     external_id: str | None = Field(None, description="TK Besluit identifier.")
+    primary_case_kind: str | None = Field(
+        None,
+        description="The ``Zaak.Soort`` of the case it decided: ``Wetgeving`` on the vote on "
+        "a bill itself, ``Amendement`` or ``Motie`` on the others.",
+    )
     document: TimelineDocumentSummaryDTO | None = None
 
 
@@ -151,7 +242,9 @@ class TimelineCommitmentBody(BaseModel):
     text: str | None = None
     minister_name: str | None = None
     minister_role: str | None = None
-    status: str | None = Field(None, description="'open', 'done' or 'vervallen'.")
+    status: str | None = Field(
+        None, description="The Toezegging.Status of the Tweede Kamer: `Openstaand`, …"
+    )
     expected_resolution: str | None = None
 
 
@@ -165,6 +258,15 @@ class _TimelineEntry(BaseModel):
     title: str | None
     node_id: str
     tk_url: str | None = None
+    after_closure: bool = Field(
+        False,
+        description="Dated after the dossier's ``closed_on``: a follow-up letter, a debate "
+        "or procedure meeting after the law was published. False for an open dossier.",
+    )
+    planned: bool = Field(
+        False,
+        description="An activity with ``status`` ``Gepland``: announced, not (yet) held.",
+    )
 
 
 class TimelineDocumentEntry(_TimelineEntry):
@@ -209,29 +311,40 @@ _TIMELINE_ENTRY: TypeAdapter[TimelineEntryDTO] = TypeAdapter(TimelineEntryDTO)
 def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
     """The typed entry for one timeline row of ``get_dossier_timeline``."""
     body = row.get("body") or {}
+    node_type = row.get("node_type")
+    link = tk_url(node_type, body)
     common = {
         "date": row.get("date"),
         "kind": row.get("kind") or "",
         "title": row.get("title"),
         "node_id": row.get("node_id") or "",
-        "tk_url": row.get("tk_url"),
-        "node_type": row.get("node_type"),
+        "tk_url": link,
+        "node_type": node_type,
+        "after_closure": bool(row.get("after_closure")),
+        "planned": bool(row.get("planned")),
     }
-    node_type = row.get("node_type")
     if node_type == "document":
         common["body"] = {
             **{f: body.get(f) for f in ("kind", "title", "sequence", "session_year")},
-            **{f: body.get(f) for f in ("tk_url", "url")},
+            "dossier_number": numbered_in(
+                body.get("dossier_number"), body.get("dossier_suffix")
+            ),
+            "tk_url": link,
+            "url": body.get("url"),
             **origin_fields(row.get("labels"), body.get("source"), body.get("kind")),
         }
     elif node_type == "decision":
         common["body"] = {
             "subject": body.get("subject"),
+            "chamber": body.get("chamber") or "TK",
+            "result": body.get("result"),
+            "method": body.get("method"),
             "passed": body.get("passed"),
             "vote_kind": body.get("vote_kind"),
             "tally": body.get("tally") or {},
             "voters": body.get("voters") or {},
             "external_id": body.get("decision_id"),
+            "primary_case_kind": body.get("primary_case_kind"),
             "document": body.get("document"),
         }
     else:
@@ -255,9 +368,12 @@ class DossierDocumentDTO(DocumentEntryDTO):
             kind=row.get("kind"),
             title=row.get("title"),
             sequence=row.get("sequence"),
+            dossier_number=numbered_in(
+                row.get("dossier_number"), row.get("dossier_suffix")
+            ),
             session_year=row.get("session_year"),
             date=row.get("date"),
-            tk_url=row.get("tk_url"),
+            tk_url=tk_url("document", row),
             display_name=row.get("display_name"),
             **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
         )
@@ -274,31 +390,21 @@ class DossierDocumentsResponse(BaseModel):
     items: list[DossierDocumentDTO]
 
 
-class DossierDocumentsBulkResponse(BaseModel):
-    """Response for GET /api/dossiers/documents/bulk."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    items: dict[str, list[DossierDocumentDTO]] = Field(
-        ...,
-        description=(
-            "Map keyed by dossier number; each value is that dossier's "
-            "documents, most recent first."
-        ),
-    )
-
-
 class DossierSummaryDTO(BaseModel):
     """A dossier in a list.
 
-    ``track`` is what kind of dossier this is — wetsvoorstel, begroting,
-    motie — and does not change as it progresses. ``current_stage`` is the
-    latest stage seen on its documents and activities; ``stages`` lists every
-    stage with at least one signal, in chronological order. Only a bill (a
-    wetsvoorstel, initiatiefwetsvoorstel, begroting or verdrag) passes stages;
-    any other dossier has none until it is ``afgehandeld``. A closed dossier has
-    an ``outcome``: ``aangenomen`` (its law was published), ``ingetrokken`` (its
-    bill was withdrawn) or ``verworpen`` (the Tweede Kamer voted the bill down).
+    ``kind`` is what the dossier is, as the Tweede Kamer names it: the ``Zaak.Soort`` of
+    the zaak that is the dossier itself (``Wetgeving``, ``Initiatiefwetgeving``,
+    ``Begroting``, ``Verdrag``, ``Initiatiefnota``, ``PKB/Structuurvisie``), else, from a
+    ``Voorstel van wet`` among its papers, ``Wetgeving`` or ``Initiatiefwetgeving``; null
+    for a dossier of letters and motions. ``kind_basis`` says which (``case``,
+    ``document``). A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has
+    ``phases``: every phase of the curated list in its order, each done when a paper, an
+    activity or a decision of the Kamer marks it; ``current_phase`` is the furthest done
+    phase in that order. A closed dossier has an ``outcome``: ``aangenomen`` (its law was
+    published, or the Eerste Kamer adopted it) or ``verworpen`` (a chamber voted the bill
+    down); ``tk_decision`` is the last decision of the Tweede Kamer on the bill and
+    ``ek_outcome`` its outcome in the Eerste Kamer.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -309,15 +415,74 @@ class DossierSummaryDTO(BaseModel):
         ...,
         description="Kamerstuknummer, e.g. 36558, or 37020-XV for a budget chapter.",
     )
+    suffix: str | None = Field(
+        None,
+        description="The addition to the number (``Toevoeging``): ``XV`` of 37020-XV, "
+        "``31`` of 21501-31; null for a dossier without one.",
+    )
+    same_number_count: int = Field(
+        0,
+        description="How many other dossiers share the number: 24 for each dossier of a "
+        "budget of 25. ``GET /api/dossiers?number=`` lists them.",
+    )
     title: str | None = None
+    short_title: str | None = Field(
+        None,
+        description="The name a bill goes by, from the parentheses that end its title: "
+        "``Verzamelwet gegevensbescherming``; null when the title has none.",
+    )
     title_source: TitleSource | None = None
-    track: DossierTrack | None = None
-    current_stage: DossierStage | None = None
-    stages: list[DossierStage] = Field(default_factory=list)
+    kind: str | None = Field(
+        None,
+        description="``Zaak.Soort`` as the Kamer writes it: ``Wetgeving``, "
+        "``Initiatiefwetgeving``, ``Begroting``, ``Verdrag``, ``Initiatiefnota``, "
+        "``PKB/Structuurvisie``; null for none.",
+    )
+    kind_basis: KindBasis | None = Field(
+        None,
+        description="``case``: a zaak of the dossier gives the kind; ``document``: its "
+        "``Voorstel van wet`` (no zaak of the bill in the graph).",
+    )
+    phases: list[DossierPhaseDTO] | None = Field(
+        None,
+        description="Of a ``Wetgeving``, ``Initiatiefwetgeving`` or ``Begroting``: every "
+        "phase of the bar in order; null for another kind.",
+    )
+    current_phase: str | None = Field(
+        None,
+        description="The furthest done phase in the order of ``phases`` (not the one with "
+        "the latest date: the Kamer may date a paper by the day it was received); null for "
+        "none.",
+    )
     closed: bool = False
     outcome: DossierOutcome | None = None
-    opened_on: str | None = None
+    tk_decision: TkDecisionDTO | None = None
+    ek_outcome: EkOutcomeDTO | None = None
+    opened_on: str | None = Field(
+        None,
+        description="The day it opened, as the Kamer dates its papers: of nr. 1 of its own "
+        "numbering, else of its Koninklijke boodschap, else of its first paper or activity "
+        "(``opened_on_basis``).",
+    )
+    opened_on_basis: (
+        Literal["first_paper", "royal_message", "earliest_record"] | None
+    ) = None
     closed_on: str | None = None
+    ministry: MinistryKey | None = Field(
+        None,
+        description="The ministry (``GET /api/ministries``) of the bewindspersoon who "
+        "signed the earliest signed document of the dossier first; null for an initiative "
+        "or when nobody in government or parliament signed first.",
+    )
+    initiative: bool | None = Field(
+        None,
+        description="True when a Kamerlid signed the earliest signed document first, false "
+        "when a bewindspersoon did, null when neither did.",
+    )
+    cabinet: str | None = Field(
+        None,
+        description="The key of the cabinet in office when that document was signed.",
+    )
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> DossierSummaryDTO:
@@ -333,21 +498,45 @@ class DossierListResponse(BaseModel):
         ..., description="Matching dossiers, independent of limit and offset."
     )
     items: list[DossierSummaryDTO]
+    facets: DossierFacetsDTO
+
+
+class DossierFacetsDTO(BaseModel):
+    """Per dimension the number of dossiers per value under the current filters, each
+    dimension counted without its own filter (so the other values of a chosen dimension
+    keep their counts), the largest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: list[FacetCountDTO] = Field(default_factory=list)
+    outcome: list[FacetCountDTO] = Field(default_factory=list)
+    kind: list[FacetCountDTO] = Field(default_factory=list)
+    phase: list[FacetCountDTO] = Field(default_factory=list)
+    ministry: list[FacetCountDTO] = Field(default_factory=list)
 
 
 DossierInstrumentRelation = Literal["legislated_in", "amends", "introduces", "repeals"]
 DossierInstrumentStatus = Literal["canoniek", "voorgesteld"]
 
 
-class DossierInstrumentDTO(BaseModel):
-    """An instrument a dossier is tied to, and how.
+class DossierInstrumentLinkDTO(BaseModel):
+    """One way a dossier is tied to an instrument."""
 
-    ``relation`` is ``legislated_in`` (the instrument came out of this dossier) or
-    ``amends``, ``introduces``, ``repeals`` (the dossier changes it, resolved from the
-    article or instrument that is changed to the parent instrument). ``status`` is
-    ``canoniek`` for what an amending publication enacted and ``voorgesteld`` for what a
-    bill of the dossier proposes. An instrument with several relations or statuses
-    appears once per combination.
+    model_config = ConfigDict(extra="forbid")
+
+    relation: DossierInstrumentRelation
+    status: DossierInstrumentStatus
+
+
+class DossierInstrumentDTO(BaseModel):
+    """An instrument a dossier is tied to, once, and every way it is.
+
+    ``links`` holds each ``relation`` (``legislated_in``: the instrument came out of this
+    dossier; ``amends``, ``introduces``, ``repeals``: the dossier changes it, resolved from
+    the article or instrument that is changed to the parent instrument) with its
+    ``status`` (``canoniek`` for what an amending publication enacted, ``voorgesteld`` for
+    what a bill of the dossier proposes). ``relation`` and ``status`` are the first link:
+    the enacted one before the proposed.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -360,6 +549,40 @@ class DossierInstrumentDTO(BaseModel):
     jurisdiction: str | None = Field(None, description="``nl`` or ``eu``.")
     relation: DossierInstrumentRelation
     status: DossierInstrumentStatus
+    links: list[DossierInstrumentLinkDTO] = Field(default_factory=list)
+
+
+def merge_instruments(rows: list[dict[str, Any]]) -> list[DossierInstrumentDTO]:
+    """The hub rows (one per instrument, relation and status) as one item per instrument,
+    in the order of their first row; an enacted link before a proposed one."""
+    merged: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        item = merged.setdefault(row["id"], {**row, "links": []})
+        link = {"relation": row["relation"], "status": row["status"]}
+        if link not in item["links"]:
+            item["links"].append(link)
+    items = []
+    for item in merged.values():
+        item["links"].sort(key=lambda link: link["status"] != "canoniek")
+        item["relation"], item["status"] = (
+            item["links"][0]["relation"],
+            item["links"][0]["status"],
+        )
+        items.append(DossierInstrumentDTO(**item))
+    return items
+
+
+class DossierLawNamedDTO(BaseModel):
+    """A law the title of a dossier names, and whether the graph holds it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        ..., description="As the title writes it: `Wetboek van Strafvordering`."
+    )
+    loaded: bool = Field(..., description="Whether the graph holds the law.")
+    key: str | None = Field(None, description="The instrument key when it does.")
+    bwb_id: str | None = None
 
 
 class DossierCommitteeDTO(TimelineCommitteeDTO):
@@ -381,6 +604,54 @@ class DossierSenateDTO(BaseModel):
     )
 
 
+DossierRelationName = Literal[
+    "revises", "accompanies", "related_to", "second_reading_of"
+]
+
+
+class DossierRelationDTO(BaseModel):
+    """A relation between this dossier and another, and which way it points.
+
+    * ``revises``: a supplementary budget or a slotwet revises the budget of its chapter
+      and year; ``rule`` says which (``begrotingswijziging`` or ``slotwet``).
+    * ``accompanies``: a budget change is submitted with the ``nota`` its title names
+      (``voorjaarsnota``, ``najaarsnota``, ``miljoenennota``).
+    * ``related_to``: the Kamer relates a case of the one dossier to a case of the other
+      (``Zaak.GerelateerdNaar``), mostly a letter of the government to the motion it
+      answers. ``cases`` counts the pairs of cases, ``case_kinds`` names their kinds
+      (``Brief regering → Motie``).
+    * ``second_reading_of``: a change in the Grondwet in its second reading and the dossier of
+      its first reading, whose papers explain it: the memorandum of 35785 only refers to those
+      of 35418 and 35419.
+
+    ``outgoing`` means this dossier is the subject: 37035-XXII revises 36800-XXII and
+    accompanies 37020. On 36800-XXII the same ``revises`` is ``incoming``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    relation: DossierRelationName
+    direction: Literal["outgoing", "incoming"]
+    dossier: DossierSummaryDTO
+    cases: int | None = None
+    case_kinds: list[str] = Field(default_factory=list)
+    rule: Literal["begrotingswijziging", "slotwet"] | None = None
+    nota: Literal["voorjaarsnota", "najaarsnota", "miljoenennota"] | None = None
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> DossierRelationDTO:
+        meta = row.get("meta") or {}
+        return cls(
+            relation=cast(DossierRelationName, str(row["relation"]).lower()),
+            direction=row["direction"],
+            dossier=DossierSummaryDTO.from_document(row["dossier"]),
+            cases=meta.get("cases"),
+            case_kinds=list(meta.get("case_kinds") or []),
+            rule=meta.get("rule"),
+            nota=meta.get("nota"),
+        )
+
+
 class DossierDetailResponse(DossierSummaryDTO):
     """A dossier with the size of everything attached to it, and what it links to."""
 
@@ -394,7 +665,15 @@ class DossierDetailResponse(DossierSummaryDTO):
         default_factory=list,
         description=(
             "Instruments legislated in, amended, introduced or repealed by the "
-            "dossier, one item per instrument, relation and status."
+            "dossier, one item per instrument with every link."
+        ),
+    )
+    laws_named: list[DossierLawNamedDTO] = Field(
+        default_factory=list,
+        description=(
+            "The laws the title names (`Wetboek van Strafrecht`, `Vreemdelingenwet 2000`), "
+            "each with whether the graph holds it: a law the dossier changes that is not "
+            "loaded has no instrument above."
         ),
     )
     committees: list[DossierCommitteeDTO] = Field(
@@ -409,6 +688,15 @@ class DossierDetailResponse(DossierSummaryDTO):
         ),
     )
     senate: DossierSenateDTO = Field(default_factory=lambda: DossierSenateDTO())
+    relations: list[DossierRelationDTO] = Field(
+        default_factory=list,
+        description=(
+            "The dossiers this one revises, accompanies or is related to, and those that "
+            "revise, accompany or relate to it: by relation, then outgoing before incoming, "
+            "then in the order of their numbers. All dossiers of its own number are "
+            "``GET /api/dossiers?number=``."
+        ),
+    )
 
     @classmethod
     def from_document(
@@ -417,6 +705,8 @@ class DossierDetailResponse(DossierSummaryDTO):
         *,
         counts: dict[str, int] | None = None,
         hub: dict[str, Any] | None = None,
+        relations: list[dict[str, Any]] | None = None,
+        laws_named: list[dict[str, Any]] | None = None,
     ) -> DossierDetailResponse:
         counts = counts or {}
         hub = hub or {}
@@ -426,12 +716,12 @@ class DossierDetailResponse(DossierSummaryDTO):
             activity_count=counts.get("activities", 0),
             decision_count=counts.get("decisions", 0),
             commitment_count=counts.get("commitments", 0),
-            instruments=[
-                DossierInstrumentDTO(**i) for i in hub.get("instruments") or []
-            ],
+            instruments=merge_instruments(hub.get("instruments") or []),
+            laws_named=[DossierLawNamedDTO(**law) for law in laws_named or []],
             committees=[DossierCommitteeDTO(**c) for c in hub.get("committees") or []],
             documents_by_kind=dict(hub.get("documents_by_kind") or {}),
             senate=DossierSenateDTO(**(hub.get("senate") or {})),
+            relations=[DossierRelationDTO.from_row(r) for r in relations or []],
         )
 
 
@@ -441,19 +731,33 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "id": doc["_id"],
         "key": doc["_key"],
         "number": props.get("label") or "",
+        "suffix": props.get("suffix") or None,
+        "same_number_count": int(props.get("same_number_count") or 0),
         "title": props.get("title"),
+        "short_title": short_title(props.get("title")),
         "title_source": props.get("title_source"),
-        "track": props.get("track_kind") or "overig",
-        "current_stage": _stage(props.get("current_stage")),
-        "stages": _stages(props.get("stages_present")),
+        "kind": props.get("kind"),
+        "kind_basis": props.get("kind_basis"),
+        "phases": props.get("phases"),
+        "current_phase": props.get("current_phase"),
         "closed": bool(props.get("closed")),
         "outcome": (
             props.get("outcome")
             if props.get("outcome") in get_args(DossierOutcome)
             else None
         ),
+        "tk_decision": props.get("tk_decision"),
+        "ek_outcome": (
+            {**props["ek_outcome"], "attribution": EK_ATTRIBUTION}
+            if props.get("ek_outcome")
+            else None
+        ),
         "opened_on": props.get("opened_on"),
+        "opened_on_basis": props.get("opened_on_basis"),
         "closed_on": props.get("closed_on"),
+        "ministry": props.get("ministry"),
+        "initiative": props.get("initiative"),
+        "cabinet": props.get("cabinet"),
     }
 
 

@@ -1,7 +1,8 @@
 """The ``lawgraph`` command (also ``python -m lawgraph``).
 
     lawgraph <retrieve|normalize|semantic> <source|all> [options]
-    lawgraph <bootstrap|check|expand-graph|gaps> [options]
+    lawgraph <bootstrap|check|code-families|courts|curated|expand-graph|gaps|ministries|
+              verify> [options]
     lawgraph sources
 
 Sources and their order come from ``lawgraph.sources.registry``. This is the one place
@@ -15,8 +16,13 @@ import sys
 
 from lawgraph.commands.bootstrap import main as bootstrap
 from lawgraph.commands.check import main as check
+from lawgraph.commands.code_families import main as code_families
+from lawgraph.commands.courts import main as courts
+from lawgraph.commands.curated import main as curated
 from lawgraph.commands.expand_graph import main as expand_graph
 from lawgraph.commands.gaps import main as gaps
+from lawgraph.commands.ministries import main as ministries
+from lawgraph.commands.verify import main as verify
 from lawgraph.core.logging import setup_logging
 from lawgraph.pipelines.command import Command, State, run_command
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
@@ -25,8 +31,13 @@ from lawgraph.sources.registry import PHASES, PIPELINES, SOURCES, find
 _COMMANDS: dict[str, Command] = {
     "bootstrap": bootstrap,
     "check": check,
+    "code-families": code_families,
+    "courts": courts,
+    "curated": curated,
     "expand-graph": expand_graph,
     "gaps": gaps,
+    "ministries": ministries,
+    "verify": verify,
 }
 _PHASE_ALL: dict[str, Command] = {
     "retrieve": retrieve_all,
@@ -47,9 +58,7 @@ def _sources_overview() -> str:
             for pipeline in PIPELINES[phase]:
                 if pipeline.source != source:
                     continue
-                manual = phase == "retrieve" and pipeline.argv_for_all is None
-                note = " [manual: not in retrieve all]" if manual else ""
-                lines.append(f"    {pipeline.address:<34} {pipeline.description}{note}")
+                lines.append(f"    {pipeline.address:<34} {pipeline.description}")
         lines.append("")
     return "\n".join(lines).rstrip()
 

@@ -1,17 +1,15 @@
-"""Annex endpoints — detail, referenced-by, and cross-law listing."""
+"""Annex endpoint: one annex with the articles referring to it."""
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.annexes import (
     AnnexDetailResponse,
     AnnexDTO,
-    AnnexListItem,
-    AnnexListResponse,
     AnnexReferencedByItem,
 )
 from lawgraph.api.schemas.common import ArticleRelationDTO
@@ -20,7 +18,6 @@ from lawgraph.db import ArangoStore
 from lawgraph.db.queries.annexes import (
     get_annex,
     get_annex_referenced_by,
-    list_annexes,
 )
 
 router = APIRouter()
@@ -43,40 +40,6 @@ def _referenced_by_items(rows: list[dict]) -> list[AnnexReferencedByItem]:
 
 
 @router.get(
-    "",
-    response_model=AnnexListResponse,
-    summary="List annexes",
-    description=(
-        "Annexes, optionally filtered to one law (bwb_id) or limited to the "
-        "annexes used by articles of more than one law (shared_across_laws=true)."
-    ),
-    tags=["annexes"],
-)
-def get_annexes(
-    store: Annotated[ArangoStore, Depends(get_store)],
-    bwb_id: Annotated[str | None, Query()] = None,
-    shared_across_laws: Annotated[bool, Query()] = False,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
-) -> AnnexListResponse:
-    rows, total = list_annexes(
-        store,
-        bwb_id=bwb_id,
-        shared_across_laws=shared_across_laws,
-        limit=limit,
-        offset=offset,
-    )
-    items = [
-        AnnexListItem(
-            annex=AnnexDTO.from_document(row["annex"]),
-            referencing_laws=list(row.get("referencing_laws") or []),
-        )
-        for row in rows
-    ]
-    return AnnexListResponse(annexes=items, total=total, limit=limit, offset=offset)
-
-
-@router.get(
     "/{key}",
     response_model=AnnexDetailResponse,
     summary="Annex detail",
@@ -95,19 +58,3 @@ def get_annex_detail(
         annex=AnnexDTO.from_document(doc),
         referenced_by=_referenced_by_items(rows),
     )
-
-
-@router.get(
-    "/{key}/referenced-by",
-    response_model=list[AnnexReferencedByItem],
-    summary="Articles referring to this annex",
-    description="Every article, across all laws, that uses this annex as its scope.",
-    tags=["annexes"],
-)
-def get_referenced_by(
-    key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
-) -> list[AnnexReferencedByItem]:
-    if get_annex(store, key) is None:
-        raise HTTPException(status_code=404, detail="Annex not found")
-    return _referenced_by_items(get_annex_referenced_by(store, key))

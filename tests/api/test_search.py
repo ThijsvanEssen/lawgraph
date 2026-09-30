@@ -16,6 +16,7 @@ from lawgraph.db.queries.search import (
     SCORE_PREFIX,
     SCORE_TITLE,
     SCORE_WORDS,
+    build_search_clause,
     rank_hits,
     score_hit,
     tokenize_search_query,
@@ -55,6 +56,10 @@ def hit(**fields: Any) -> dict[str, Any]:
             hit(extra={"citation_title": "Wetboek van Strafrecht"}),
             SCORE_TITLE,
         ),
+        # The name of a judgment is a name of it.
+        ("urgenda", hit(extra={"names": ["Urgenda"]}), SCORE_TITLE),
+        ("Lindenbaum", hit(extra={"names": ["Lindenbaum/Cohen"]}), SCORE_PREFIX),
+        ("moord", hit(extra={"names": None}), SCORE_WORDS),
         # The start of a name; a part of one; words only.
         ("wetboek van", hit(display_name="Wetboek van Strafrecht"), SCORE_PREFIX),
         ("strafrecht", hit(display_name="Wetboek van Strafrecht"), SCORE_CONTAINS),
@@ -65,6 +70,20 @@ def hit(**fields: Any) -> dict[str, Any]:
         ),
         ("moord", hit(display_name="Wetboek van Strafrecht"), SCORE_WORDS),
         ("moord", hit(), SCORE_WORDS),
+        # The heading of an article and the aliases of a law are names of the hit.
+        ("definities", hit(extra={"heading": "Definities"}), SCORE_TITLE),
+        ("Boek 6 BW", hit(extra={"aliases": ["BW", "Boek 6 BW"]}), SCORE_TITLE),
+        ("bw", hit(extra={"aliases": ["BW", "Boek 6 BW"]}), SCORE_TITLE),
+        # The title of a division places an article without naming it.
+        (
+            "verhoging van strafbaarheid",
+            hit(
+                extra={
+                    "division_titles": ["Uitsluiting en verhoging van strafbaarheid"]
+                }
+            ),
+            SCORE_CONTAINS,
+        ),
         ("", hit(display_name="Grondwet"), SCORE_WORDS),
     ],
 )
@@ -72,6 +91,17 @@ def test_score_is_the_rank_tier_of_the_best_match(
     query: str, the_hit: dict[str, Any], score: float
 ) -> None:
     assert score_hit(query, the_hit) == score
+
+
+def test_a_boosted_field_weighs_every_way_it_matches() -> None:
+    clause, bind = build_search_clause(
+        ["noodweer"], ["heading", "text"], {"heading": 4.0}
+    )
+    assert bind == {"_tok_0": "noodweer"}
+    assert (
+        clause.count("BOOST(") == 4
+    )  # stems, prefix, identifier, ngrams of the heading
+    assert "BOOST(ANALYZER(doc.props.text" not in clause
 
 
 def test_the_tiers_are_ordered() -> None:
@@ -139,7 +169,10 @@ _LAWS = [
     },
     {"law_id": "BWBR0005289", "names": ["BW6", None, "Burgerlijk Wetboek Boek 6"]},
 ]
-_CODES = [["Sr", "BWBR0001854"], ["BW6", "BWBR0005289"]]
+_CODES = [
+    {"short_title": "Sr", "bwb_id": "BWBR0001854"},
+    {"short_title": "BW6", "bwb_id": "BWBR0005289"},
+]
 
 
 class _StubStore:
@@ -154,7 +187,7 @@ class _StubStore:
         self.queries.append((aql, bind))
         if "names: [i.props.short_title" in aql:
             return list(_LAWS)
-        if "RETURN [i.props.short_title" in aql:
+        if "aliases: inst.props.aliases" in aql:
             return list(_CODES)
         if "@keys" in aql:
             return [a for a in self._articles if a["key"] in bind["keys"]]
@@ -226,7 +259,7 @@ def test_the_laws_are_read_once_for_many_searches():
     reads = [
         aql
         for aql, _ in store.queries
-        if "names: [i.props.short_title" in aql or "RETURN [i.props.short_title" in aql
+        if "names: [i.props.short_title" in aql or "aliases: inst.props.aliases" in aql
     ]
     assert len(reads) == 2  # the abbreviations and the names, once each
 

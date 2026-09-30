@@ -79,3 +79,18 @@ def test_view_comparison_ignores_server_defaults_and_analyzer_order() -> None:
 
     assert _indexed_fields(specified) == _indexed_fields(stored)
     assert _indexed_fields(specified) != _indexed_fields(link(["text_en"]))
+
+
+def test_a_dotted_view_field_indexes_a_field_of_every_element_of_an_array() -> None:
+    from lawgraph.db.schema import _indexed_fields, _nested_fields
+
+    spec = {"heading": ["text_nl"], "breadcrumb.title": ["text_nl"]}
+    nested = _nested_fields(spec)
+    assert nested == {
+        "heading": {"analyzers": ["text_nl"]},
+        "breadcrumb": {"fields": {"title": {"analyzers": ["text_nl"]}}},
+    }
+    link = {"articles": {"fields": {"props": {"fields": nested}}}}
+    assert _indexed_fields(link) == {
+        "articles": {k: frozenset(v) for k, v in spec.items()}
+    }
