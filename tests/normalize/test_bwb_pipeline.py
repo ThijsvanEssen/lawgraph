@@ -5,64 +5,101 @@ Uses the real Grondwet fixture, so it proves the three pipelines agree on props 
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from typing import Any
+
+import pytest
+
 from lawgraph.core.bwb_xml import publication_key
 from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from tests.conftest import remove_edges_from
-from tests.normalize.test_bwb import GRONDWET, XML, _older, _record, _Store
+from tests.normalize.test_bwb import (
+    GRONDWET,
+    XML,
+    _older,
+    _record,
+    _Store,
+    patch_store_queries,
+)
 
 
-class _GraphStore(_Store):
-    """Also answers the amendments pipeline's three read queries."""
+@pytest.fixture(autouse=True)
+def _graph_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The queries of the normalize pipelines, and the amendments pipeline's three read
+    queries and its removals, answered from the nodes of the shared store."""
+    patch_store_queries(monkeypatch)
 
-    def query(self, aql: str, bind_vars: dict | None = None, **kw):
-        bind = bind_vars or {}
-        if "origin_publication" in aql:
-            rows = [
-                {
-                    "key": key,
-                    "bwb_id": d["props"].get("bwb_id"),
-                    "stam_id": d["props"].get("stam_id"),
-                    "effect": d["props"].get("effect"),
-                    "valid_from": d["props"].get("valid_from"),
-                    "source_publication": d["props"].get("source_publication"),
-                    "origin": d["props"].get("origin_publication"),
-                    "commencement": d["props"].get("commencement_publication"),
-                }
-                for key, d in self.nodes.get("article_versions", {}).items()
-                if d["props"].get("origin_publication") and d["props"].get("stam_id")
-            ]
-            return sorted(rows, key=lambda r: (r["bwb_id"], r["stam_id"]))
-        if "a.props.stam_id IN @stam_ids" in aql:
-            return [
-                {
-                    "key": k,
-                    "bwb_id": d["props"]["bwb_id"],
-                    "stam_id": d["props"].get("stam_id"),
-                }
-                for k, d in self.nodes.get("articles", {}).items()
-                if d["props"].get("bwb_id") in bind["bwb_ids"]
-                and d["props"].get("stam_id") in bind["stam_ids"]
-            ]
-        if "IS_ARRAY(i.props.dossier_numbers)" in aql:
-            return [
-                {"key": k, "dossiers": d["props"].get("dossier_numbers") or []}
-                for k, d in self.nodes.get("instruments", {}).items()
-                if d["props"].get("bwb_id")
-            ]
-        if "REMOVE e IN edges" in aql:
-            return remove_edges_from(self.edges, bind)
-        return super().query(aql, bind_vars, **kw)
+    def amending_article_versions(store: _Store) -> Iterator[dict[str, Any]]:
+        rows = [
+            {
+                "key": key,
+                "bwb_id": d["props"].get("bwb_id"),
+                "stam_id": d["props"].get("stam_id"),
+                "effect": d["props"].get("effect"),
+                "valid_from": d["props"].get("valid_from"),
+                "source_publication": d["props"].get("source_publication"),
+                "origin": d["props"].get("origin_publication"),
+                "commencement": d["props"].get("commencement_publication"),
+            }
+            for key, d in store.nodes.get("article_versions", {}).items()
+            if d["props"].get("origin_publication") and d["props"].get("stam_id")
+        ]
+        return iter(sorted(rows, key=lambda r: (r["bwb_id"], r["stam_id"])))
+
+    def articles_by_identity(
+        store: _Store, bwb_ids: list[str], stam_ids: list[str]
+    ) -> Iterator[dict[str, Any]]:
+        return iter(
+            {
+                "key": k,
+                "bwb_id": d["props"]["bwb_id"],
+                "stam_id": d["props"].get("stam_id"),
+            }
+            for k, d in store.nodes.get("articles", {}).items()
+            if d["props"].get("bwb_id") in bwb_ids
+            and d["props"].get("stam_id") in stam_ids
+        )
+
+    def regulation_dossier_numbers(store: _Store) -> Iterator[dict[str, Any]]:
+        return iter(
+            {"key": k, "dossiers": d["props"].get("dossier_numbers") or []}
+            for k, d in store.nodes.get("instruments", {}).items()
+            if d["props"].get("bwb_id")
+        )
+
+    def remove_edges_from_ids(
+        store: _Store, relation: str, source: str, ids: list[str], keep: dict
+    ) -> int:
+        bind = {"ids": ids, "relation": relation, "source": source, "keep": keep}
+        return sum(remove_edges_from(store.edges, bind))
+
+    def remove_edges_to_ids(
+        store: _Store, relations: list[str], source: str, ids: list[str], keep: dict
+    ) -> int:
+        bind = {"ids": ids, "relations": relations, "source": source, "keep": keep}
+        return sum(remove_edges_from(store.edges, bind))
+
+    for module, name, answer in (
+        (semantic_bwb, "amending_article_versions", amending_article_versions),
+        (semantic_bwb, "articles_by_identity", articles_by_identity),
+        (semantic_bwb, "regulation_dossier_numbers", regulation_dossier_numbers),
+        (semantic_edges, "remove_edges_from", remove_edges_from_ids),
+        (semantic_edges, "remove_edges_to", remove_edges_to_ids),
+    ):
+        monkeypatch.setattr(module, name, answer)
 
 
-def _edges(store: _GraphStore, relation: str) -> list[dict]:
+def _edges(store: _Store, relation: str) -> list[dict]:
     return [e for e in store.edges.values() if e["relation"] == relation]
 
 
-def _run_all() -> _GraphStore:
-    store = _GraphStore({"dossiers": {"35786": {"props": {}}, "34716": {"props": {}}}})
+def _run_all() -> _Store:
+    store = _Store({"dossiers": {"35786": {"props": {}}, "34716": {"props": {}}}})
     records = [
         _record(_older(XML), "2002-03-21", "2023-02-21"),
         _record(XML, "2023-02-22", "9999-12-31"),

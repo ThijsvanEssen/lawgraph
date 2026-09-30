@@ -7,9 +7,13 @@ a minimal FakeStore and representative raw_sources records.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
+import pytest
+
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.db.queries import raw as raw_queries
 from tests.fakes import RawSourcesFake
 
 # ---------------------------------------------------------------------------
@@ -20,9 +24,6 @@ from tests.fakes import RawSourcesFake
 class _FakeStore(RawSourcesFake):
     def __init__(self) -> None:
         self.upserted: list[Node] = []
-
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[Any]:
-        return []
 
     def insert_or_update(self, node: Node) -> tuple[Node, bool]:
         self.upserted.append(node)
@@ -258,9 +259,9 @@ def test_verdragenbank_only_a_treaty_in_force_is_in_force():
 # ---------------------------------------------------------------------------
 
 
-def test_one_node_per_record_pipelines_stream_and_keep_nothing():
-    import pytest
-
+def test_one_node_per_record_pipelines_stream_and_keep_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
     from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
     from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
@@ -271,14 +272,20 @@ def test_one_node_per_record_pipelines_stream_and_keep_nothing():
         VerdragenbankNormalizePipeline,
     )
 
-    class Streaming(_FakeStore):
-        def __init__(self) -> None:
-            super().__init__()
-            self.batch_sizes: list[int | None] = []
+    batch_sizes: list[int | None] = []
 
-        def query(self, aql, bind_vars=None, *, batch_size=None):  # type: ignore[override]
-            self.batch_sizes.append(batch_size)
-            return iter([])
+    def count_raw_records(store: Any, source: str, kinds: list[str]) -> int:
+        batch_sizes.append(None)
+        return 0
+
+    def iter_raw_records(
+        store: Any, *, batch_size: int, **_: Any
+    ) -> Iterator[dict[str, Any]]:
+        batch_sizes.append(batch_size)
+        return iter([])
+
+    monkeypatch.setattr(raw_queries, "count_raw_records", count_raw_records)
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
 
     for cls, large_payloads in (
         (StaatsbladNormalizePipeline, True),
@@ -287,13 +294,13 @@ def test_one_node_per_record_pipelines_stream_and_keep_nothing():
         (EerstekamerNormalizePipeline, False),
         (VerdragenbankNormalizePipeline, False),
     ):
-        store = Streaming()
-        pipeline = cls(store=store)
+        batch_sizes.clear()
+        pipeline = cls(store=_FakeStore())
         raw = pipeline.fetch_raw()
         assert not isinstance(raw, list), cls.__name__
         with pytest.raises(StopIteration):
             next(iter(raw))
         # XML of up to 20 MB comes 20 at a time, small JSON records 1000 at a time.
         # first the count for the progress line, then the records
-        assert store.batch_sizes == [None, 20 if large_payloads else 1000], cls.__name__
+        assert batch_sizes == [None, 20 if large_payloads else 1000], cls.__name__
         assert pipeline.normalize_nodes(iter([]), PipelineResult()) == 0
