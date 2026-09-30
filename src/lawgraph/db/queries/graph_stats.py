@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
+    RELATION_SAME_AS,
 )
 from lawgraph.core.courts import COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
 from lawgraph.core.judgment_names import CURATED_NAMES
@@ -91,10 +92,25 @@ FOR doc IN {COLLECTION_JUDGMENTS}
         (doc.props.meta != null AND doc.props.meta.date != null ? doc.props.meta.date :
          (doc.props.date != null ? doc.props.date : null))
     )
-    LET inbound_cnt = LENGTH(
+    // the judgments that cite it or a publication of the same decision it keeps (SAME_AS
+    // to it), each once
+    LET publications = APPEND([doc._id], (
+        FOR s IN {COLLECTION_EDGES}
+            FILTER s._to == doc._id AND s.relation == @same_as
+            RETURN s._from
+    ))
+    LET inbound_cnt = COUNT_DISTINCT(
+        FOR publication IN publications
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._to == publication AND e.relation IN @inbound_rels
+                FILTER STARTS_WITH(e._from, '{COLLECTION_JUDGMENTS}/')
+                RETURN e._from
+    )
+    // the judgments it cites
+    LET outbound_cnt = LENGTH(
         FOR e IN {COLLECTION_EDGES}
-            FILTER e._to == doc._id AND e.relation IN @inbound_rels
-            FILTER STARTS_WITH(e._from, '{COLLECTION_JUDGMENTS}/')
+            FILTER e._from == doc._id AND e.relation IN @inbound_rels
+            FILTER STARTS_WITH(e._to, '{COLLECTION_JUDGMENTS}/')
             RETURN 1
     )
     // A loaded judgment has both from `normalize`; a stub from its ECLI: the kind of its
@@ -109,6 +125,7 @@ FOR doc IN {COLLECTION_JUDGMENTS}
         OR doc.props.court_kind != court_kind
         OR doc.props.date_eff != date_eff
         OR doc.props.inbound_citation_count != inbound_cnt
+        OR doc.props.outbound_citation_count != outbound_cnt
         OR doc.props.decision_kind != decision_kind
         OR doc.props.names != names
 """
@@ -196,11 +213,13 @@ def refresh_judgments(store: Store, *, dry_run: bool) -> int:
             "doc",
             "court_code: court_code, tier: tier, court_kind: court_kind,"
             " date_eff: date_eff,"
-            " inbound_citation_count: inbound_cnt, decision_kind: decision_kind,"
+            " inbound_citation_count: inbound_cnt,"
+            " outbound_citation_count: outbound_cnt, decision_kind: decision_kind,"
             " names: names",
         ),
         {
             "inbound_rels": [RELATION_REFERS_TO],
+            "same_as": RELATION_SAME_AS,
             "court_by_code": _tiers(COURT_BY_CODE),
             "other_court_by_name": _tiers(OTHER_COURT_BY_NAME),
             "kind_of_court_kind": KIND_OF_COURT_KIND,

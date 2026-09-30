@@ -14,8 +14,15 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.config.constants import (
+    RAW_KIND_RS_CONTENT,
+    RELATION_REFERS_TO,
+    SOURCE_RECHTSPRAAK,
+)
+from lawgraph.db import ArangoStore, EdgeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.pipelines.semantic.rechtspraak import (
+    SEMANTIC_SOURCE as RECHTSPRAAK_LINKER,
+)
 from tests.integration.seed import seed
 
 GRONDWET = "BWBR0001840"
@@ -155,6 +162,8 @@ def test_an_article_lists_the_passages_that_cite_it_newest_judgment_first(
     body = _cited_by(client)
 
     assert body["total"] == 5 and body["article_id"] == "articles/bwbr0001840_1"
+    # five passages in three judgments
+    assert body["judgment_total"] == 3
     rows = [(i["judgment"]["ecli"], i["paragraph_id"]) for i in body["items"]]
     assert rows == [
         ("ECLI:NL:GHAMS:2021:2", "rov-4.2"),
@@ -188,7 +197,7 @@ def test_the_passages_filter_on_court_tier_and_lid_and_page_with_an_exact_total(
     assert by_tier["items"][0]["judgment"]["ecli"] == "ECLI:NL:RBAMS:2019:3"
 
     by_lid = _cited_by(client, lid="3")
-    assert by_lid["total"] == 2
+    assert (by_lid["total"], by_lid["judgment_total"]) == (2, 2)
     assert {i["judgment"]["court"] for i in by_lid["items"]} == {"HR", "GHAMS"}
     assert all(i["leden"] == ["3"] for i in by_lid["items"])
 
@@ -205,6 +214,7 @@ def test_the_passages_filter_on_court_tier_and_lid_and_page_with_an_exact_total(
         "article_id": "articles/bwbr0001840_1",
         "items": [],
         "total": 5,
+        "judgment_total": 3,
     }
 
 
@@ -217,3 +227,27 @@ def test_an_unknown_article_is_a_404_and_a_bad_filter_a_422(
         client.get(f"/api/articles/{GRONDWET}/1/cited-by?tier=zzz").status_code == 422
     )
     assert client.get(f"/api/articles/{GRONDWET}/1/cited-by?limit=0").status_code == 422
+
+
+def test_a_citation_the_text_no_longer_makes_goes(client: Any, cli: Any) -> None:
+    """An edge an earlier run made (to the wrong article, with the paragraph number of
+    then) goes when the judgment is linked again."""
+    store = ArangoStore()
+    with EdgeWriter(store, what=None) as edges:
+        edges.add(
+            "judgments/ecli_nl_hr_2020_1",
+            "articles/bwbr0001840_2",
+            RELATION_REFERS_TO,
+            source=RECHTSPRAAK_LINKER,
+            meta={
+                "mentions": [{"paragraph_id": "rov-1.1", "paragraph_number": "1.1."}]
+            },
+        )
+
+    cli("semantic", "rechtspraak")
+
+    cited = store.query(
+        "FOR e IN edges FILTER e._from == 'judgments/ecli_nl_hr_2020_1' "
+        "AND e.relation == 'REFERS_TO' RETURN e._to"
+    )
+    assert list(cited) == ["articles/bwbr0001840_1"]
