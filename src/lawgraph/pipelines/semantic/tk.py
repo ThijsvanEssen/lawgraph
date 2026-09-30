@@ -30,7 +30,7 @@ from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
@@ -226,7 +226,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
             if not recent_ids:
                 return
             ids = sorted(recent_ids)
-        for doc in semantic_queries.tk_documents(self.store, ids):
+        for doc in semantic_tk.tk_documents(self.store, ids):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)
 
     def _recent_external_ids(self, since_iso: str) -> set[str]:

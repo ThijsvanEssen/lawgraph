@@ -30,7 +30,7 @@ from lawgraph.core.time import iso_timestamp
 from lawgraph.db import Store, raw_key
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import tk as semantic_tk
 
 logger = get_logger(__name__)
 
@@ -213,7 +213,7 @@ def tk_dossier_gaps(store: Store) -> list[str]:
     named = gap_queries.dossiers_named_by_publications(store)
     cited = {
         number
-        for memorandum in semantic_queries.second_reading_memoranda(store)
+        for memorandum in semantic_tk.second_reading_memoranda(store)
         for number in first_reading_dossiers(memorandum["text"])
     }
     cited -= gap_queries.dossiers_with_numbers(store, sorted(cited))

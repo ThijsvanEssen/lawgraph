@@ -15,7 +15,7 @@ from typing import Any
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic._relation_type_patterns import (
     classify_citation_context,
 )
@@ -66,7 +66,7 @@ class BWBRelationTypesSemanticPipeline(SemanticPipelineBase):
 
     def _load_articles_with_edges(self) -> Any:
         """Stream articles with their classifiable outgoing reference edges."""
-        return semantic_queries.articles_with_classifiable_edges(self.store)
+        return semantic_bwb.articles_with_classifiable_edges(self.store)
 
     def _flush_updates(
         self,
@@ -75,6 +75,6 @@ class BWBRelationTypesSemanticPipeline(SemanticPipelineBase):
     ) -> int:
         """Write the classifications of *batch* that differ from the stored ones."""
         now = iso_timestamp(dt.datetime.now(dt.timezone.utc).replace(microsecond=0))
-        updated = semantic_queries.update_edge_classifications(self.store, batch, now)
+        updated = semantic_bwb.update_edge_classifications(self.store, batch, now)
         result.unchanged += len(batch) - updated
         return updated

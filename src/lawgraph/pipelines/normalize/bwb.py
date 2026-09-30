@@ -31,7 +31,7 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -225,7 +225,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         ]
         changed = 0
         for batch in chunked(rows, SHORT_TITLE_BATCH_SIZE):
-            changed += normalize_queries.update_abbreviations(self.store, batch)
+            changed += normalize_bwb.update_abbreviations(self.store, batch)
         # The AQL update bypasses the counting store's upsert methods, so add it here.
         result.updated += changed
         logger.info(

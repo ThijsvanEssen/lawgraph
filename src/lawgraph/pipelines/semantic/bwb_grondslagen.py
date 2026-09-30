@@ -27,7 +27,7 @@ from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
 from .base import SemanticPipelineBase
 
@@ -47,7 +47,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         edges = EdgeWriter(self.store, what=None)
-        rows = semantic_queries.regulations_with_basis(self.store)
+        rows = semantic_bwb.regulations_with_basis(self.store)
         for chunk in chunked(self._track(rows, "regulations with a basis"), _CHUNK):
             self._link_chunk(chunk, edges, result)
         edges.flush_into(result)

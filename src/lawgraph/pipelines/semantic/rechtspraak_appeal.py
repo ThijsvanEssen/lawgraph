@@ -36,7 +36,8 @@ from lawgraph.core.appeals import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter, NodeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
@@ -62,7 +63,8 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         rows = [
             row
             for row in self._track(
-                semantic_queries.judgments_with_related_eclis(self.store), "judgments"
+                semantic_rechtspraak.judgments_with_related_eclis(self.store),
+                "judgments",
             )
             if APPEAL_PROCEDURE.search(row.get("procedure_type") or "")
         ]
@@ -71,7 +73,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
 
         texts = list(
             self._track(
-                semantic_queries.appeals_to_read(
+                semantic_rechtspraak.appeals_to_read(
                     self.store,
                     procedure=APPEAL_PROCEDURE.pattern,
                     paragraphs=APPEAL_TARGET_PARAGRAPHS,
@@ -89,7 +91,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
 
         kept = self._write_edges(links, result)
         removed = sum(
-            semantic_queries.remove_edges_from(
+            semantic_edges.remove_edges_from(
                 self.store, relation, SEMANTIC_SOURCE, read, kept.get(relation, {})
             )
             for relation in RELATIONS
@@ -104,7 +106,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         known = {
             instance.ecli: instance
             for instance in map(
-                Instance.of, semantic_queries.judgment_instances(self.store, named)
+                Instance.of, semantic_rechtspraak.judgment_instances(self.store, named)
             )
         }
         links: list[Link] = []
@@ -139,7 +141,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
             {t.date for targets in named.values() for t in targets if t.case_number}
         )
         on_date: dict[str, list[dict[str, Any]]] = {}
-        for candidate in semantic_queries.decisions_on_dates(self.store, dates):
+        for candidate in semantic_rechtspraak.decisions_on_dates(self.store, dates):
             on_date.setdefault(candidate["date"], []).append(candidate)
         by_key = {row["key"]: row for row in texts}
         unresolved: dict[str, list[AppealTarget]] = {}

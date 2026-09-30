@@ -21,7 +21,8 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.store import edge_key
 from lawgraph.pipelines.semantic._bwb_references import (
     ArticleReferenceHit,
@@ -111,7 +112,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         if not articles_seen:
             logger.info("No BWB articles found for semantic linking.")
 
-        removed = semantic_queries.remove_edges_from(
+        removed = semantic_edges.remove_edges_from(
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
         logger.info(
@@ -174,7 +175,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
 
     def _load_bwb_ids_from_graph(self) -> list[str]:
         """Return all distinct BWB IDs that have article nodes in the graph."""
-        rows = semantic_queries.article_bwb_ids(self.store)
+        rows = semantic_bwb.article_bwb_ids(self.store)
         return [str(row) for row in rows if row]
 
     def _load_articles(
@@ -191,7 +192,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
             bwb_ids = [bid for bid in bwb_ids if bid in recent]
         if not bwb_ids:
             return []
-        return semantic_queries.articles_with_references(self.store, bwb_ids)
+        return semantic_bwb.articles_with_references(self.store, bwb_ids)
 
     def _recent_bwb_ids(self, since_iso: str) -> set[str]:
         """BWB IDs whose raw record was fetched at or after *since_iso*."""

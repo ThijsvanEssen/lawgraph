@@ -50,8 +50,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
-from lawgraph.db.queries import normalize as normalize_queries
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
@@ -106,7 +106,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             )
             voted_on = [
                 row["decision_id"]
-                for row in normalize_queries.decisions_of_vote_records(
+                for row in normalize_tk.decisions_of_vote_records(
                     self.store, [str(self._payload_json(r).get("Id")) for r in deleted]
                 )
                 if row["decision_id"]
@@ -295,11 +295,11 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
 
     def _stored_faction_aliases(self) -> set[str]:
-        return set(normalize_queries.faction_aliases(self.store))
+        return set(normalize_tk.faction_aliases(self.store))
 
     def _stored(self, collection: str, node_type: NodeType) -> dict[str, Node]:
         """The stored nodes of *collection* by TK ``Id``, with the props the edges read."""
-        rows = normalize_queries.nodes_by_external_id(
+        rows = normalize_tk.nodes_by_external_id(
             self.store, collection, list(tk_cases.LINK_PROPS)
         )
         return {
@@ -360,7 +360,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         rows = [
             row
             for chunk in chunked(sorted(numbers), 5000)
-            for row in normalize_queries.dossiers_of_numbers(self.store, chunk)
+            for row in normalize_tk.dossiers_of_numbers(self.store, chunk)
         ]
         per_number = Counter(row["number"] for row in rows)
         changed = [
@@ -393,7 +393,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
 
         stored: dict[str, Any] = {}
         for keys in chunked(sorted_kinds, 5000):
-            for row in normalize_queries.dossier_case_kinds(self.store, keys):
+            for row in normalize_tk.dossier_case_kinds(self.store, keys):
                 stored[row["key"]] = row["case_kinds"]
 
         if self._incremental:
@@ -452,7 +452,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """Documents, activities and decisions per dossier, in chunked queries."""
         rows: dict[str, dict[str, Any]] = {}
         for chunk in chunked(dossier_ids, _BACKFILL_CHUNK):
-            for row in normalize_queries.dossier_signals(self.store, chunk):
+            for row in normalize_tk.dossier_signals(self.store, chunk):
                 rows[row["dossier_id"]] = row
             logger.info(
                 "Collected signals for %d of %d dossiers.", len(rows), len(dossier_ids)

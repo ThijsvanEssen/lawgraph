@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
-from lawgraph.db.queries.semantic import memorandum_targets
+from lawgraph.db.queries.semantic.tk import memorandum_targets
 
 ARTICLE = f"{COLLECTION_ARTICLES}/bwbr0001840_13"
 FIRST, SECOND = f"{COLLECTION_DOSSIERS}/35418", f"{COLLECTION_DOSSIERS}/35785"

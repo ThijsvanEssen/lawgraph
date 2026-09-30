@@ -31,7 +31,7 @@ from lawgraph.core.dossier_relations import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
 
@@ -47,19 +47,17 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
         dossiers = [
             DossierRef.of(row)
-            for row in self._track(
-                semantic_queries.dossier_refs(self.store), "dossiers"
-            )
+            for row in self._track(semantic_tk.dossier_refs(self.store), "dossiers")
         ]
         keys = {make_node_key(dossier.label) for dossier in dossiers}
-        cases = self._track(semantic_queries.related_cases(self.store), "related cases")
+        cases = self._track(semantic_tk.related_cases(self.store), "related cases")
         found = (
             (RELATION_RELATED_TO, related_dossiers(cases)),
             (RELATION_REVISES, budget_amendments(dossiers)),
             (RELATION_ACCOMPANIES, accompanied_notas(dossiers)),
             (
                 RELATION_SECOND_READING_OF,
-                first_readings(semantic_queries.second_reading_memoranda(self.store)),
+                first_readings(semantic_tk.second_reading_memoranda(self.store)),
             ),
         )
 

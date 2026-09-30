@@ -21,7 +21,8 @@ from lawgraph.config.constants import COLLECTION_JUDGMENTS, RELATION_SAME_AS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter, NodeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
@@ -57,7 +58,7 @@ class RechtspraakDuplicatesSemanticPipeline(SemanticPipelineBase):
         rows = [
             row
             for row in self._track(
-                semantic_queries.replaced_judgments(self.store), "judgments"
+                semantic_rechtspraak.replaced_judgments(self.store), "judgments"
             )
             if row.get("ecli")
         ]
@@ -68,14 +69,14 @@ class RechtspraakDuplicatesSemanticPipeline(SemanticPipelineBase):
         }
         ids = {
             str(row["ecli"]).upper(): row["id"]
-            for row in semantic_queries.loaded_judgment_ids(
+            for row in semantic_rechtspraak.loaded_judgment_ids(
                 self.store, sorted(set(replaced_by.values()))
             )
         }
         kept = kept_publications(replaced_by, set(ids))
         self._write_same_as(rows, kept, result)
         edges_kept = self._write_edges(rows, kept, ids, result)
-        removed = semantic_queries.remove_edges_from(
+        removed = semantic_edges.remove_edges_from(
             self.store,
             RELATION_SAME_AS,
             SEMANTIC_SOURCE,

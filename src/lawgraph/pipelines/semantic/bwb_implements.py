@@ -39,8 +39,9 @@ from lawgraph.core.eurlex_nim import measure_publication
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, edge_key
-from lawgraph.db.queries import normalize as normalize_queries
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import eu as semantic_eu
 
 from .base import SemanticPipelineBase
 
@@ -79,7 +80,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
         named: dict[str, set[str]] = defaultdict(set)  # regulation id -> CELEX named
 
         for row in self._track(
-            semantic_queries.eu_references(self.store), "regulations naming EU acts"
+            semantic_eu.eu_references(self.store), "regulations naming EU acts"
         ):
             regulation = _regulation_id(str(row["bwb_id"]))
             named[regulation].update(row.get("named") or [])
@@ -115,7 +116,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
         or changed."""
         acts_of: dict[str, set[str]] = defaultdict(set)  # publication id -> CELEX
         measures = unresolved = 0
-        for measure in semantic_queries.national_measures(self.store):
+        for measure in semantic_eu.national_measures(self.store):
             measures += 1
             publication = measure_publication(measure)
             if publication is None:
@@ -140,7 +141,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                     self._link(
                         links, source_id, celex, IMPLEMENTS_BASIS_NIM, publication
                     )
-        for publication, bwb_id in semantic_queries.regulations_of_publications(
+        for publication, bwb_id in semantic_eu.regulations_of_publications(
             self.store, sorted(acts_of)
         ):
             for celex in acts_of[publication]:
@@ -186,7 +187,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                 written.add((source_id, celex))
         edges.flush_into(result)
         # the only writer of IMPLEMENTS: every edge it no longer derives goes
-        removed = normalize_queries.remove_edges_except(
+        removed = normalize_edges.remove_edges_except(
             self.store, RELATION_IMPLEMENTS, keep
         )
         logger.info("IMPLEMENTS: %d edges, %d no longer derived.", len(keep), removed)
@@ -220,7 +221,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                     )
                     keep.append(edge_key(source_id, RELATION_REFERS_TO, target_id))
         edges.flush_into(result)
-        removed = semantic_queries.remove_edges_of_source_except(
+        removed = semantic_edges.remove_edges_of_source_except(
             self.store, RELATION_REFERS_TO, EDGE_SOURCE_BWB_IMPLEMENTS, keep
         )
         logger.info(

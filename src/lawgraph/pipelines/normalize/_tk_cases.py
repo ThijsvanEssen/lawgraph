@@ -30,7 +30,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize._tk_deleted import Deleted
 
 logger = get_logger(__name__)
@@ -121,7 +121,7 @@ def link_cases_to_dossiers(store: Store, *, source: str) -> None:
     """
     pairs = [
         (row["id"], COLLECTION_DOSSIERS, make_node_key(str(number)))
-        for row in normalize_queries.case_dossier_numbers(store)
+        for row in normalize_tk.case_dossier_numbers(store)
         for number in row["dossier_numbers"] or []
     ]
     writer = EdgeWriter(store, what="case to dossier edges")
