@@ -481,6 +481,16 @@ class CommitteeProps(_CommonProps):
     ended_on: str | None = None
     # the open dossiers it leads, none once dissolved (``semantic graph-list-stats``)
     active_dossier_count: int | None = None
+    # of the Eerste Kamer (``normalize eerstekamer-composition``): ``EK``; the page on
+    # eerstekamer.nl and the day it was read; the first day a snapshot showed it and the
+    # first that no longer did (not the day it began or ended)
+    chamber: str | None = None
+    url: str | None = None
+    retrieved_on: str | None = None
+    observed_from: str | None = None
+    observed_until: str | None = None
+    data_since: str | None = None  # the day of the first snapshot of the Eerste Kamer
+    title: str | None = None  # the heading of its page: Commissie voor Financiën (FIN)
 
 
 # ---------------------------------------------------------------------------
@@ -550,6 +560,10 @@ class MemberProps(_CommonProps):
     government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
     known_as: str | None = None  # "Sophie Hermans": the first name Rijksoverheid gives
     government_functions: list[GovernmentFunctionProps] | None = None
+    # a member of the Eerste Kamer (``normalize eerstekamer-composition``): the name as its
+    # page writes it, its page, its faction (key and abbreviation), the days served
+    # (Anciënniteit), the place of residence, and the days it was first and last observed
+    ek: dict | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -597,6 +611,17 @@ class FactionProps(_CommonProps):
     # the day one of its seats last changed (FractieZetel.GewijzigdOp)
     seats_changed_on: str | None = None
     active: bool | None = None
+    # of the Eerste Kamer (``normalize eerstekamer-composition``): ``EK``; the page on
+    # eerstekamer.nl and the day it was read; the first day a snapshot showed it and the
+    # first that no longer did (not the day it began or ended)
+    chamber: str | None = None
+    url: str | None = None
+    retrieved_on: str | None = None
+    observed_from: str | None = None
+    observed_until: str | None = None
+    data_since: str | None = None  # the day of the first snapshot of the Eerste Kamer
+    # its board: ``{function, name, member (key), since}`` as the page gives it
+    board: list | None = None
 
 
 # ---------------------------------------------------------------------------

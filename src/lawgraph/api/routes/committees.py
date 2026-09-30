@@ -46,6 +46,7 @@ from lawgraph.db.queries.committees import (
     get_committee_activities,
     get_committee_detail,
     get_committees,
+    get_ek_members,
     get_factions,
     get_member_votes,
     get_members,
@@ -72,8 +73,18 @@ _faction_dossiers_cache: TTLCache[tuple[str, int, int], ActorDossiersResponse] =
 )
 def list_committees(
     store: Annotated[ArangoStore, Depends(get_store)],
+    chamber: Annotated[
+        Literal["TK", "EK"],
+        Query(
+            description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
+            "(periods as observed: ``observed_from``, ``observed_until``)."
+        ),
+    ] = "TK",
 ) -> list[CommitteeDTO]:
-    return [CommitteeDTO.from_document(doc) for doc in get_committees(store)]
+    return [
+        CommitteeDTO.from_document(doc)
+        for doc in get_committees(store, chamber=chamber)
+    ]
 
 
 @router.get(
@@ -177,7 +188,19 @@ def list_members(
     ] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
+    chamber: Annotated[
+        Literal["TK", "EK"],
+        Query(
+            description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
+            "(periods as observed: ``observed_from``, ``observed_until``)."
+        ),
+    ] = "TK",
 ) -> list[MemberDTO]:
+    if chamber == "EK":
+        ek = get_ek_members(
+            store, party=party, active=active, q=q, limit=limit, offset=offset
+        )
+        return [MemberDTO.from_document(d) for d in ek]
     docs = get_members(
         store,
         party=party,
@@ -296,10 +319,17 @@ def list_factions(
         bool | None, Query(description="Only (in)active parties.")
     ] = None,
     q: Annotated[str | None, Query(description="Name or abbreviation.")] = None,
+    chamber: Annotated[
+        Literal["TK", "EK"],
+        Query(
+            description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
+            "(periods as observed: ``observed_from``, ``observed_until``)."
+        ),
+    ] = "TK",
 ) -> list[FactionDTO]:
     return [
         FactionDTO.from_document(doc, member_count=int(doc.get("member_count") or 0))
-        for doc in get_factions(store, active=active, q=q)
+        for doc in get_factions(store, active=active, q=q, chamber=chamber)
     ]
 
 

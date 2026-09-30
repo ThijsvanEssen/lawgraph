@@ -215,6 +215,9 @@ RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
 # of the bills the Eerste Kamer rejected (external id: its path, both pages in one record).
 RAW_KIND_EK_VOTES_DAY = "ek-votes-day-html"
 RAW_KIND_EK_REJECTED = "ek-rejected-html"
+# A page of eerstekamer.nl on its composition: the lists of factions and committees and the
+# page of each (external id: its path); every run reads them all again.
+RAW_KIND_EK_COMPOSITION = "ek-composition-html"
 RAW_KIND_VERDRAG = "verdrag-json"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
@@ -254,6 +257,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EK_KAMERSTUK,
         RAW_KIND_EK_VOTES_DAY,
         RAW_KIND_EK_REJECTED,
+        RAW_KIND_EK_COMPOSITION,
     ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),

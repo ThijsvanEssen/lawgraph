@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_CASES,
+    COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
@@ -24,6 +25,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AUTHORED,
+    RELATION_MEMBER_OF,
     RELATION_PART_OF,
     RELATION_VOTED,
 )
@@ -518,6 +520,7 @@ def faction_names(store: Store) -> Iterator[dict[str, Any]]:
     finds the faction of a bewindspersoon's party by them)."""
     aql = f"""
     FOR f IN {COLLECTION_FACTIONS}
+        FILTER f.props.chamber != "EK"
         RETURN {{
             key: f._key,
             name: f.props.name,
@@ -579,3 +582,51 @@ def update_judgment_props(store: Store, rows: list[dict[str, Any]]) -> int:
             RETURN 1
     """
     return sum(store.query(aql, {"rows": rows}))
+
+
+# ── Eerste Kamer ─────────────────────────────────────────────────────────────
+
+
+def ek_composition(store: Store) -> dict[str, Any]:
+    """What the graph holds of the composition of the Eerste Kamer: its factions and
+    committees (``chamber`` ``EK``) with their props, the members with an ``ek`` prop, and
+    the ``MEMBER_OF`` edges into those factions and committees."""
+    aql = f"""
+    LET factions = (
+        FOR f IN {COLLECTION_FACTIONS} FILTER f.props.chamber == "EK"
+            RETURN {{ key: f._key, props: f.props }}
+    )
+    LET committees = (
+        FOR c IN {COLLECTION_COMMITTEES} FILTER c.props.chamber == "EK"
+            RETURN {{ key: c._key, props: c.props }}
+    )
+    LET members = (
+        FOR m IN {COLLECTION_MEMBERS} FILTER m.props.ek != null
+            RETURN {{ key: m._key, ek: m.props.ek }}
+    )
+    LET targets = APPEND(
+        factions[* RETURN CONCAT("{COLLECTION_FACTIONS}/", CURRENT.key)],
+        committees[* RETURN CONCAT("{COLLECTION_COMMITTEES}/", CURRENT.key)]
+    )
+    LET edges = (
+        FOR id IN targets
+            FOR e IN {COLLECTION_EDGES}
+                FILTER e._to == id AND e.relation == @member_of
+                RETURN {{ from: e._from, to: e._to, meta: e.meta }}
+    )
+    RETURN {{ factions, committees, members, edges }}
+    """
+    row = next(iter(store.query(aql, {"member_of": RELATION_MEMBER_OF})), None)
+    return row or {"factions": [], "committees": [], "members": [], "edges": []}
+
+
+def members_born_on(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
+    """``{key, family_name, birth_date}`` of the members born on one of *dates*."""
+    aql = f"""
+    FOR m IN {COLLECTION_MEMBERS}
+        FILTER m.props.birth_date IN @dates
+        RETURN {{
+            key: m._key, family_name: m.props.family_name, birth_date: m.props.birth_date
+        }}
+    """
+    return store.query(aql, {"dates": dates})

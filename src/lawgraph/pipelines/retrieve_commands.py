@@ -20,6 +20,9 @@ from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
+from lawgraph.pipelines.retrieve.eerstekamer_composition import (
+    EerstekamerCompositionRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
@@ -217,6 +220,14 @@ def retrieve_eerstekamer_votes(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
     since = None if args.mode == "full" or args.since is None else args.since.date()
     return EerstekamerVotesRetrievePipeline(ArangoStore()).run(since=since)
+
+
+def retrieve_eerstekamer_composition(argv: list[str] | None = None) -> PipelineResult:
+    argparse.ArgumentParser(
+        description="Retrieve the factions and committees of the Eerste Kamer as they are "
+        "today (eerstekamer.nl): a snapshot of about 40 pages."
+    ).parse_args(argv)
+    return EerstekamerCompositionRetrievePipeline(ArangoStore()).run()
 
 
 def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
