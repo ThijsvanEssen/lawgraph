@@ -179,6 +179,8 @@ def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: ArangoStore) ->
         dittrich = next(m for m in members if m["key"] == "dittrich")
         assert dittrich["ek"]["abbreviation"] == "D66"
         assert dittrich["ek"]["observed_from"] == "2026-09-30"
+        # in the list of the Eerste Kamer, its party and whether it sits there now
+        assert {(m["party"], m["active"]) for m in members} == {("D66", True)}
 
         seats = client.get("/api/parliament/seats", params={"chamber": "EK"}).json()
         assert (seats["chamber"], seats["total_seats"], seats["assigned_seats"]) == (

@@ -20,6 +20,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
     RAW_KIND_EK_REJECTED,
     RAW_KIND_EK_VOTES_DAY,
     SOURCE_EERSTEKAMER,
@@ -38,7 +39,12 @@ def _dossier(number: str) -> Node:
         type=NodeType.DOSSIER,
         key=number,
         labels=["TK"],
-        props={"number": number, "label": number, "title": f"Wet {number}"},
+        props={
+            "number": number,
+            "label": number,
+            "title": f"Wet {number}",
+            "kind": "Wetgeving",
+        },
     )
 
 
@@ -47,6 +53,15 @@ def store(database: str, cli: Any) -> Iterator[ArangoStore]:
     store = ArangoStore()
     with NodeWriter(store) as writer:
         writer.add_all(_dossier(n) for n in NUMBERS)
+        writer.add(
+            Node(
+                collection=COLLECTION_FACTIONS,
+                type=NodeType.FACTION,
+                key="ek_boerburgerbeweging",
+                labels=["EK"],
+                props={"chamber": "EK", "name": "BBB-fractie", "abbreviation": "BBB"},
+            )
+        )
     page = (FIXTURES / "ek_votes_page_1.html").read_text()
     day, _, fragment = ev.days(page)[0]
     with RawSourceWriter(store) as writer:
@@ -125,6 +140,19 @@ def test_the_api_shows_the_eerste_kamer(store: ArangoStore) -> None:
         votes = client.get("/api/decisions", params={"chamber": "EK"}).json()
         assert votes["total"] == 5
         rent = next(v for v in votes["items"] if v["dossier_numbers"] == ["36791"])
+        # the vote that decided the bill has the kind of its dossier
+        assert rent["kind"] == "Wetgeving"
+        bbb = client.get("/api/factions/ek_boerburgerbeweging/votes").json()
+        mine = next(v for v in bbb["items"] if v["dossier_numbers"] == ["36791"])
+        assert (mine["choice"], mine["result"], mine["bill_decision"]) == (
+            "tegen",
+            "Aangenomen",
+            True,
+        )
+        assert bbb["counts"]["tegen"] >= 1 and bbb["total"] == sum(
+            bbb["counts"].values()
+        )
+        assert client.get("/api/factions/nope/votes").status_code == 404
         assert (rent["result"], rent["bill_decision"]) == ("Aangenomen", True)
         detail = client.get(f"/api/decisions/{rent['key']}").json()
         assert detail["factions_against"] == ["BBB", "FVD"]

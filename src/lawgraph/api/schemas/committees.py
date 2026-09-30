@@ -265,6 +265,44 @@ class FactionDTO(BaseModel):
         )
 
 
+class EkFactionVoteDTO(BaseModel):
+    """How a faction of the Eerste Kamer voted on one vote of its list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision_id: str
+    decision_key: str
+    date: str | None = None
+    subject: str | None = None
+    dossier_numbers: list[str] = []
+    result: str | None = Field(None, description="``Aangenomen``, ``Verworpen``.")
+    method: str | None = None
+    bill_decision: bool | None = Field(
+        None,
+        description="Whether it is the vote that decided the bill (else a vote on a "
+        "motion on it).",
+    )
+    choice: Literal["voor", "tegen", "aantekening gevraagd"] = Field(
+        ..., description="As the list of the Eerste Kamer names the faction's vote."
+    )
+
+
+class EkFactionVotesResponse(BaseModel):
+    """The votes of a faction of the Eerste Kamer, newest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    faction_key: str
+    total: int = Field(..., description="The votes that name the faction.")
+    counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per choice (``voor``, ``tegen``, ``aantekening gevraagd``), over "
+        "every vote that names the faction.",
+    )
+    items: list[EkFactionVoteDTO] = []
+    source: EkSourceDTO
+
+
 class FactionMembershipDTO(BaseModel):
     """One stretch of a member's membership of a faction."""
 

@@ -1258,7 +1258,7 @@ FOR dossier_id IN @dossier_ids
         {{ id: decision._id }},
         KEEP(
           decision.props, "date", "result", "method", "source_url", "retrieved_on",
-          "bill_decision"
+          "bill_decision", "kind"
         )
       )
   )
@@ -1266,7 +1266,7 @@ FOR dossier_id IN @dossier_ids
     key: dossier._key,
     props: KEEP(
       dossier.props, "closed", "closed_on", "outcome", "tk_decision", "ek_outcome",
-      "ek_rejected"
+      "ek_rejected", "kind"
     ),
     publications: publications,
     bill_decisions: bill_decisions,
