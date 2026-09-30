@@ -1,6 +1,6 @@
-"""The graph reads and updates of the normalize phase: what a normalize step reads back of
-the nodes it or an earlier step wrote (article versions, stored Tweede Kamer nodes, the
-signals of a dossier) and the short titles it sets in place."""
+"""The graph reads of the normalize phase for the Tweede and Eerste Kamer and the
+government: stored cases, dossiers and members, the signals of a dossier, the
+government signatures and the composition of the Eerste Kamer."""
 
 from __future__ import annotations
 
@@ -10,8 +10,6 @@ from typing import Any
 from lawgraph.config.constants import (
     CHAMBER_TK,
     COLLECTION_ACTIVITIES,
-    COLLECTION_ARTICLE_VERSIONS,
-    COLLECTION_ARTICLES,
     COLLECTION_CASES,
     COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
@@ -19,9 +17,6 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
-    COLLECTION_INSTRUMENT_VERSIONS,
-    COLLECTION_INSTRUMENTS,
-    COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AUTHORED,
@@ -31,109 +26,6 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
 from lawgraph.db.counting import Store
-
-# ── BWB ──────────────────────────────────────────────────────────────────────
-
-
-def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
-    """Set ``short_title`` and ``aliases`` on the instruments of *rows* (``{key,
-    short_title, aliases}``) where either differs; how many changed. A null or empty
-    value removes the prop."""
-    aql = f"""
-        FOR row IN @rows
-            FOR inst IN {COLLECTION_INSTRUMENTS}
-                FILTER inst._key == row.key
-                LET aliases = LENGTH(row.aliases) > 0 ? row.aliases : null
-                FILTER inst.props.short_title != row.short_title
-                    OR inst.props.aliases != aliases
-                UPDATE inst WITH {{
-                    props: {{ short_title: row.short_title, aliases: aliases }}
-                }} IN {COLLECTION_INSTRUMENTS} OPTIONS {{ keepNull: false }}
-                RETURN 1
-        """
-    return len(list(store.query(aql, {"rows": rows})))
-
-
-_ARTICLES_AQL = f"""
-FOR a IN {COLLECTION_ARTICLES}
-    FILTER a.props.bwb_id IN @ids
-    RETURN {{key: a._key, bwb_id: a.props.bwb_id, stam_id: a.props.stam_id}}
-"""
-
-_VERSIONS_AQL = f"""
-FOR v IN {COLLECTION_ARTICLE_VERSIONS}
-    FILTER v.props.bwb_id IN @ids
-    RETURN {{
-        key: v._key,
-        bwb_id: v.props.bwb_id,
-        stam_id: v.props.stam_id,
-        number: v.props.article_number,
-        label: v.props.label,
-        valid_from: v.props.valid_from,
-        valid_until: v.props.valid_until,
-        current: v.props.current,
-        last_seen: v.props.last_seen,
-        effect: v.props.effect,
-        digest: v.props.content_digest,
-        position: v.props.position,
-        text_start: SUBSTRING(v.props.text, 0, 60),
-        title: v.props.instrument_citation_title
-    }}
-"""
-
-
-def article_identities(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
-    """``{key, bwb_id, stam_id}`` of the articles of *bwb_ids*."""
-    return store.query(_ARTICLES_AQL, {"ids": bwb_ids})
-
-
-def article_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
-    """The article versions of *bwb_ids*, with their validity and article number."""
-    return store.query(_VERSIONS_AQL, {"ids": bwb_ids})
-
-
-def stored_places(store: Store, bwb_id: str) -> Iterator[dict[str, Any]]:
-    """``{key, breadcrumb, breadcrumb_changes}`` of the article versions of *bwb_id*, in
-    their stored order (``position``)."""
-    aql = f"""
-    FOR v IN {COLLECTION_ARTICLE_VERSIONS}
-        FILTER v.props.bwb_id == @id
-        SORT v.props.position == null, v.props.position, v._key
-        RETURN {{
-            key: v._key,
-            breadcrumb: v.props.breadcrumb,
-            breadcrumb_changes: v.props.breadcrumb_changes
-        }}
-    """
-    return store.query(aql, {"id": bwb_id})
-
-
-def article_version_starts(store: Store, keys: list[str]) -> dict[str, str]:
-    """``valid_from`` of the article versions of *keys* that exist, by key."""
-    aql = f"""
-    FOR v IN {COLLECTION_ARTICLE_VERSIONS}
-        FILTER v._key IN @keys AND v.props.valid_from != null
-        RETURN [v._key, v.props.valid_from]
-    """
-    return dict(store.query(aql, {"keys": keys}))
-
-
-def toestand_starts(store: Store, bwb_ids: list[str]) -> dict[str, list[str]]:
-    """The start dates of the toestanden of each of *bwb_ids*, oldest first."""
-    aql = f"""
-    FOR v IN {COLLECTION_INSTRUMENT_VERSIONS}
-        FILTER v.props.bwb_id IN @ids
-        SORT v.props.valid_from
-        COLLECT bwb_id = v.props.bwb_id INTO starts = v.props.valid_from
-        RETURN {{ bwb_id, starts }}
-    """
-    return {
-        row["bwb_id"]: [s for s in row["starts"] if s]
-        for row in store.query(aql, {"ids": bwb_ids})
-    }
-
-
-# ── Tweede Kamer ─────────────────────────────────────────────────────────────
 
 
 def case_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
@@ -381,91 +273,6 @@ def government_members(store: Store) -> Iterator[str]:
     return store.query(aql)
 
 
-def remove_nodes_except(store: Store, collection: str, keep: list[str]) -> int:
-    """Remove the nodes of *collection* whose key is not in *keep*, for a collection one
-    pipeline derives in full; how many went."""
-    aql = f"""
-    FOR n IN {collection}
-        FILTER n._key NOT IN @keep
-        REMOVE n IN {collection}
-        RETURN 1
-    """
-    return sum(store.query(aql, {"keep": keep}))
-
-
-# Keys removed in one query.
-_REMOVE_CHUNK = 5000
-
-
-def remove_nodes(store: Store, collection: str, keys: list[str]) -> int:
-    """Remove the nodes *keys* of *collection* with every edge at them; how many nodes went.
-    A key without a node is passed over."""
-    removed = 0
-    for start in range(0, len(keys), _REMOVE_CHUNK):
-        chunk = keys[start : start + _REMOVE_CHUNK]
-        edges = f"""
-        FOR key IN @keys
-            LET id = CONCAT(@collection, "/", key)
-            FOR e IN UNION_DISTINCT(
-                (FOR out IN {COLLECTION_EDGES} FILTER out._from == id RETURN out._key),
-                (FOR inn IN {COLLECTION_EDGES} FILTER inn._to == id RETURN inn._key)
-            )
-                REMOVE e IN {COLLECTION_EDGES} OPTIONS {{ ignoreErrors: true }}
-        """
-        list(store.query(edges, {"keys": chunk, "collection": collection}))
-        nodes = f"""
-        FOR n IN {collection}
-            FILTER n._key IN @keys
-            REMOVE n IN {collection}
-            RETURN 1
-        """
-        removed += sum(store.query(nodes, {"keys": chunk}))
-    return removed
-
-
-def remove_nodes_of_records(
-    store: Store, collection: str, record_ids: list[str]
-) -> int:
-    """Remove the nodes of *collection* made of the TK records *record_ids* alone (every id
-    in ``props.external_ids``, else ``props.external_id``, is one of them), with every edge
-    at them; how many nodes went. For a record the Kamer deleted: a node keyed by a label
-    (a dossier number, a faction abbreviation) cannot be found by the record's id."""
-    if not record_ids:
-        return 0
-    aql = f"""
-    FOR n IN {collection}
-        FILTER n.props.external_id IN @ids
-            OR LENGTH(INTERSECTION(n.props.external_ids || [], @ids)) > 0
-        FILTER LENGTH(MINUS(n.props.external_ids || [n.props.external_id], @ids)) == 0
-        RETURN n._key
-    """
-    keys = list(store.query(aql, {"ids": record_ids}))
-    return remove_nodes(store, collection, keys)
-
-
-def remove_edges_of_records(store: Store, record_ids: list[str]) -> int:
-    """Remove the edges made of the TK records *record_ids* alone (every id in
-    ``meta.record_ids`` is one of them); how many went. For a record the Kamer deleted: a
-    vote or a seat names nothing but its id then."""
-    removed = 0
-    for start in range(0, len(record_ids), _REMOVE_CHUNK):
-        aql = f"""
-        LET keys = (
-            FOR id IN @ids
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER id IN e.meta.record_ids[*]
-                    FILTER LENGTH(MINUS(e.meta.record_ids, @all)) == 0
-                    RETURN DISTINCT e._key
-        )
-        FOR key IN keys
-            REMOVE key IN {COLLECTION_EDGES} OPTIONS {{ ignoreErrors: true }}
-            RETURN 1
-        """
-        chunk = record_ids[start : start + _REMOVE_CHUNK]
-        removed += sum(store.query(aql, {"ids": chunk, "all": record_ids}))
-    return removed
-
-
 def decisions_of_vote_records(
     store: Store, record_ids: list[str]
 ) -> Iterator[dict[str, Any]]:
@@ -480,23 +287,6 @@ def decisions_of_vote_records(
             RETURN DISTINCT {{key: decision._key, decision_id: decision.props.decision_id}}
     """
     return store.query(aql, {"ids": record_ids, "voted": RELATION_VOTED})
-
-
-def remove_edges_into_except(
-    store: Store, relation: str, to_ids: list[str], keep: list[str]
-) -> int:
-    """Remove the *relation* edges into *to_ids* whose key is not in *keep*; how many went.
-    For the edges of a node one run derives in full (the votes on a decision)."""
-    aql = f"""
-    FOR id IN @to_ids
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to == id AND e.relation == @relation
-            FILTER e._key NOT IN @keep
-            REMOVE e IN {COLLECTION_EDGES}
-            RETURN 1
-    """
-    bind = {"to_ids": to_ids, "relation": relation, "keep": keep}
-    return sum(store.query(aql, bind))
 
 
 def remove_members(store: Store, keys: list[str]) -> int:
@@ -533,62 +323,6 @@ def faction_names(store: Store) -> Iterator[dict[str, Any]]:
         }}
     """
     return store.query(aql)
-
-
-def remove_edges_except(store: Store, relation: str, keep: list[str]) -> int:
-    """Remove the edges of *relation* whose key is not in *keep*; how many went. For edges
-    one pipeline derives in full on every run, so an edge it no longer derives goes."""
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation == @relation AND e._key NOT IN @keep
-        REMOVE e IN {COLLECTION_EDGES}
-        RETURN 1
-    """
-    return sum(store.query(aql, {"relation": relation, "keep": keep}))
-
-
-# ── Rechtspraak ──────────────────────────────────────────────────────────────
-
-
-def translated_judgments(
-    store: Store, rows: list[dict[str, Any]]
-) -> Iterator[dict[str, Any]]:
-    """The judgment each translation of *rows* translates: ``{key, original: {key, ecli,
-    summary}}`` for every row (``{key, court_code, date, case_key}``) whose court gave, on
-    that day and under that case number, a judgment with a Dutch summary."""
-    aql = f"""
-    FOR row IN @rows
-        LET original = FIRST(
-            FOR j IN {COLLECTION_JUDGMENTS}
-                FILTER row.case_key IN j.props.case_number_keys[*]
-                FILTER j.props.court_code == row.court_code
-                FILTER j.props.date_eff == row.date
-                FILTER j._key != row.key AND j.props.summary != null
-                SORT j._key
-                LIMIT 1
-                RETURN {{key: j._key, ecli: j.props.ecli, summary: j.props.summary}}
-        )
-        FILTER original != null
-        RETURN {{key: row.key, original: original}}
-    """
-    return store.query(aql, {"rows": rows})
-
-
-def update_judgment_props(store: Store, rows: list[dict[str, Any]]) -> int:
-    """Merge ``props`` into the judgment ``key`` of each of *rows*; how many changed."""
-    aql = f"""
-    FOR row IN @rows
-        FOR j IN {COLLECTION_JUDGMENTS}
-            FILTER j._key == row.key
-            FILTER NOT MATCHES(j.props, row.props)
-            UPDATE j WITH {{ props: row.props }} IN {COLLECTION_JUDGMENTS}
-                OPTIONS {{ mergeObjects: true }}
-            RETURN 1
-    """
-    return sum(store.query(aql, {"rows": rows}))
-
-
-# ── Eerste Kamer ─────────────────────────────────────────────────────────────
 
 
 def ek_composition(store: Store) -> dict[str, Any]:

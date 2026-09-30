@@ -21,7 +21,7 @@ from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
 from .base import SemanticPipelineBase
 
@@ -45,7 +45,7 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
         # props.date is a date: compared with a timestamp, "2026-09-19" sorts before
         # "2026-09-19T06:00:00Z" and only the publications of today would match.
         since_date = since.date().isoformat() if since else None
-        rows = semantic_queries.staatscourant_instrument_matches(self.store, since_date)
+        rows = semantic_bwb.staatscourant_instrument_matches(self.store, since_date)
 
         # Strategy 3: BWBR pattern scan on full text (for publications not yet matched)
         already_matched_pubs = {r["pub_id"] for r in rows}
@@ -121,7 +121,7 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
         # stream from the cursor; only the ids are kept.
         pub_bwb_pairs: list[tuple[str, str, str]] = []  # (pub_id, pub_key, bwb_id)
         all_bwb_ids: set[str] = set()
-        publications = semantic_queries.staatscourant_texts(self.store, since_date)
+        publications = semantic_bwb.staatscourant_texts(self.store, since_date)
         for pub in self._track(publications, "publications"):
             pub_id = pub.get("pub_id")
             if pub_id in already_matched:
@@ -137,7 +137,7 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
 
         # Single batch query to resolve all bwb_ids to instruments.
         bwb_to_inst: dict[str, dict[str, str]] = {}
-        for inst_row in semantic_queries.instrument_ids_by_bwb_id(
+        for inst_row in semantic_bwb.instrument_ids_by_bwb_id(
             self.store, list(all_bwb_ids)
         ):
             bwb_key = inst_row.get("bwb_id") or ""

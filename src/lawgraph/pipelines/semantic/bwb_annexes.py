@@ -30,7 +30,7 @@ from lawgraph.core.bwb_xml import annex_article_number
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic._annex_detect import (
     AnnexReferenceHit,
     annex_name,
@@ -59,7 +59,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
 
     def _annex_keys(self) -> set[str]:
         """The annexes ``normalize bwb`` made of the toestanden (and earlier stubs)."""
-        return set(semantic_queries.annex_keys(self.store))
+        return set(semantic_bwb.annex_keys(self.store))
 
     def _link_labels(
         self, edges: EdgeWriter, result: PipelineResult, known_keys: set[str]
@@ -85,7 +85,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
         names: list[dict[str, Any]] = []
         # annex key -> how the numbers of its own articles start ("bijlage 2 artikel ")
         own_prefix: dict[str, str | None] = {}
-        for row in semantic_queries.titled_annexes(self.store):
+        for row in semantic_bwb.titled_annexes(self.store):
             name = annex_name(row.get("title"))
             if name is None:
                 continue
@@ -94,7 +94,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
             own_prefix[row["key"]] = annex_article_number(label, "") if label else None
         by_key = {n["key"]: n["name"] for n in names}
         for chunk in chunked(names, _NAMES_PER_QUERY):
-            for row in semantic_queries.articles_naming_annexes(self.store, chunk):
+            for row in semantic_bwb.articles_naming_annexes(self.store, chunk):
                 article = Node.from_document(COLLECTION_ARTICLES, row["article"])
                 number = str(article.props.get("article_number") or "")
                 prefix = own_prefix[row["annex"]]
@@ -131,7 +131,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
             edges.add_doc(edge)
 
     def _load_articles_mentioning_annex(self) -> Iterable[dict[str, Any]]:
-        return semantic_queries.articles_mentioning_annex(self.store)
+        return semantic_bwb.articles_mentioning_annex(self.store)
 
     @staticmethod
     def _annex(key: str) -> Node:

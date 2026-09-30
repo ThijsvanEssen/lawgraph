@@ -18,7 +18,7 @@ from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries.semantic import CODE_ALIAS_AQL
+from lawgraph.db.queries.semantic.bwb import CODE_ALIAS_AQL
 
 _law_cache: TTLCache[str, Any] = TTLCache(maxsize=4, ttl=60.0)
 

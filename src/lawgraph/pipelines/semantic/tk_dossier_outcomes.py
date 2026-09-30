@@ -28,7 +28,7 @@ from lawgraph.core.dossier_stages import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType, PipelineResult
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
 
@@ -44,10 +44,10 @@ class TKDossierOutcomesSemanticPipeline(SemanticPipelineBase):
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
-        ids = list(semantic_queries.dossier_ids(self.store))
+        ids = list(semantic_tk.dossier_ids(self.store))
         closed = 0
         for chunk in self._track(chunked(ids, _CHUNK), "dossier chunks"):
-            rows = semantic_queries.dossier_outcome_signals(
+            rows = semantic_tk.dossier_outcome_signals(
                 self.store, chunk, bill_case_kinds=list(LEGISLATIVE_KINDS)
             )
             changed: list[dict[str, Any]] = []

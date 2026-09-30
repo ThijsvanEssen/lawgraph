@@ -15,7 +15,7 @@ from lawgraph.core.mentions import ArticleMentions, find_mentions
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
 
 from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
@@ -93,7 +93,7 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
                 self._keep_unresolved(judgment, unresolved, nodes, result)
 
         edges.flush_into(result)
-        removed = semantic_queries.remove_edges_from(
+        removed = semantic_edges.remove_edges_from(
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
         logger.info("Removed %d article citations the text no longer makes.", removed)

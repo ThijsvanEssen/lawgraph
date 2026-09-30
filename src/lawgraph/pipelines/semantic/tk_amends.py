@@ -23,7 +23,8 @@ from lawgraph.core.aliases import InstrumentAliasMap
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
 
@@ -100,7 +101,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
                 edges.add_doc(edge_doc)
 
         edges.flush_into(result)
-        removed = semantic_queries.remove_edges_from(
+        removed = semantic_edges.remove_edges_from(
             self.store, RELATION_AMENDS, SEMANTIC_SOURCE_AMENDS, sorted(kept), kept
         )
         logger.info("Removed %d AMENDS edges no longer derived.", removed)
@@ -142,5 +143,5 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
         """The TK documents with their kind and title; a Case never proposes a change."""
         # props.date is a date; a timestamp of the same day sorts after it.
         since_date = since.date().isoformat() if since is not None else None
-        for doc in semantic_queries.tk_document_titles(self.store, since_date):
+        for doc in semantic_tk.tk_document_titles(self.store, since_date):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)

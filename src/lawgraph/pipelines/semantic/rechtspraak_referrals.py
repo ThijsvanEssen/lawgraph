@@ -18,7 +18,7 @@ from lawgraph.core.judgments import REFERRAL_PARAGRAPHS, Referral, read_referral
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
 from .base import SemanticPipelineBase
 
@@ -56,7 +56,7 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
         links: list[Link] = []
         by_text: list[tuple[str, Referral]] = []
         for row in self._track(
-            semantic_queries.preliminary_rulings(
+            semantic_rechtspraak.preliminary_rulings(
                 self.store, paragraphs=REFERRAL_PARAGRAPHS
             ),
             "preliminary rulings",
@@ -73,7 +73,7 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
                     by_text.append((ruling, referral))
 
         dates = sorted({referral.date for _, referral in by_text if referral.date})
-        candidates = list(semantic_queries.decisions_on_dates(self.store, dates))
+        candidates = list(semantic_rechtspraak.decisions_on_dates(self.store, dates))
         for ruling, referral in by_text:
             links += [
                 (ruling, referring, BASIS_TEXT)

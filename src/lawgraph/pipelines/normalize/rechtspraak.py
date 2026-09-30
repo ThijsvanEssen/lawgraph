@@ -30,7 +30,7 @@ from lawgraph.core.judgments import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import ArangoStore, NodeWriter
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -185,7 +185,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         ]
         originals = {
             found["key"]: found["original"]
-            for found in normalize_queries.translated_judgments(self.store, lookup)
+            for found in normalize_rechtspraak.translated_judgments(self.store, lookup)
         }
         updates: list[dict[str, Any]] = []
         for row in self._translations:
@@ -205,7 +205,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                     {"key": original["key"], "props": {"summary_en": row["summary_en"]}}
                 )
         linked = len(originals)
-        normalize_queries.update_judgment_props(self.store, updates)
+        normalize_rechtspraak.update_judgment_props(self.store, updates)
         logger.info(
             "Linked %d of %d English translation(s) to the judgment they translate.",
             linked,

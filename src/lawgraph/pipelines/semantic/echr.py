@@ -31,7 +31,9 @@ from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
 from .base import SemanticPipelineBase
 
@@ -90,7 +92,9 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         rows = list(
-            self._track(semantic_queries.echr_judgments(self.store), "ECHR judgments")
+            self._track(
+                semantic_rechtspraak.echr_judgments(self.store), "ECHR judgments"
+            )
         )
         if not rows:
             logger.debug("ECHR citations: no ECHR judgments found.")
@@ -130,7 +134,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                     edges.add_doc(doc)
                     kept.setdefault(row["j_id"], set()).add(doc["_key"])
         edges.flush_into(result)
-        removed = semantic_queries.remove_edges_from(
+        removed = semantic_edges.remove_edges_from(
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
         logger.info("ECHR citations: %d edges no judgment supports removed.", removed)
@@ -171,9 +175,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         if not named:
             return {}
         found: dict[str, Node] = {}
-        for doc in semantic_queries.instrument_keys_by_bwb_id(
-            self.store, sorted(named)
-        ):
+        for doc in semantic_bwb.instrument_keys_by_bwb_id(self.store, sorted(named)):
             bwb_id = str((doc.get("props") or {}).get("bwb_id") or "").upper()
             if bwb_id:
                 found[bwb_id] = Node(

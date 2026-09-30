@@ -37,7 +37,7 @@ from lawgraph.core import eerstekamer_composition as ec
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, NodeWriter
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import ArangoStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -114,7 +114,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         if shot is None:
             logger.warning("No list of factions of the Eerste Kamer is stored.")
             return {}
-        state = normalize_queries.ek_composition(self.store)
+        state = normalize_tk.ek_composition(self.store)
         shot.since = min(
             [shot.day]
             + [
@@ -152,7 +152,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         ]
         dates = sorted({p.birth_date for _, p in people if p.birth_date})
         born: dict[str, list[dict[str, Any]]] = {}
-        for row in normalize_queries.members_born_on(self.store, dates):
+        for row in normalize_tk.members_born_on(self.store, dates):
             born.setdefault(row["birth_date"], []).append(row)
         nodes: dict[str, Node] = {}
         for listed, person in people:

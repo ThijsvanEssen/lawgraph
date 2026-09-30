@@ -40,7 +40,7 @@ from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_tit
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries.normalize import tk as normalize_tk
 
 # Edges that put an article in flux, and the one that only explains it. The
 # frontend renders the two as separate overlays.
@@ -167,9 +167,7 @@ def _enrich_dossiers(
         return {}
     rows = {
         row["dossier_id"]: row
-        for row in normalize_queries.dossier_signals(
-            store, [d["_id"] for d in dossiers]
-        )
+        for row in normalize_tk.dossier_signals(store, [d["_id"] for d in dossiers])
     }
     enriched: dict[str, DossierEnrichment] = {}
     for dossier in dossiers:

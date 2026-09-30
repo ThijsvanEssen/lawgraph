@@ -214,7 +214,7 @@ def test_the_lookup_by_case_number_walks_the_index(database: str) -> None:
         return real_query(aql, bind_vars, **kw)
 
     store.query = recording  # type: ignore[method-assign]
-    from lawgraph.db.queries.semantic import judgments_by_case_keys
+    from lawgraph.db.queries.semantic.rechtspraak import judgments_by_case_keys
 
     list(judgments_by_case_keys(store, ["18/04298"]))
     ((aql, bind),) = asked

@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_wti import instrument_aliases
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.db.queries.search import (
     SCORE_CONTAINS,
     SCORE_IDENTIFIER,
@@ -102,8 +102,8 @@ def _put_instruments(store: ArangoStore) -> None:
         {"key": make_node_key(b), "short_title": s, "aliases": aliases[b]}
         for b, s in ((SR, "Sr"), (BW1, "BW1"), (BW6, "BW6"))
     ]
-    assert normalize_queries.update_abbreviations(store, rows) == 3
-    assert normalize_queries.update_abbreviations(store, rows) == 0  # nothing changed
+    assert normalize_bwb.update_abbreviations(store, rows) == 3
+    assert normalize_bwb.update_abbreviations(store, rows) == 0  # nothing changed
 
 
 @pytest.fixture()

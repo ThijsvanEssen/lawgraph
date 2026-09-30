@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
 
@@ -31,7 +31,7 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
 
-        papers = semantic_queries.ek_papers_in_tk_dossiers(self.store)
+        papers = semantic_tk.ek_papers_in_tk_dossiers(self.store)
         rows = list(self._track(papers, "Eerste Kamer papers"))
         if not rows:
             logger.info("EK dossier link: no EK stuk matches a TK dossier.")

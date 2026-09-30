@@ -34,7 +34,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import eu as semantic_eu
 
 from .base import CodeMapping, SemanticPipelineBase
 
@@ -184,10 +184,10 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
             if not recent_celex:
                 return
             celex_list = list(recent_celex)
-            for doc in semantic_queries.eu_articles_of(self.store, celex_list):
+            for doc in semantic_eu.eu_articles_of(self.store, celex_list):
                 yield Node.from_document(COLLECTION_ARTICLES, doc)
         else:
-            for doc in semantic_queries.eu_articles(self.store):
+            for doc in semantic_eu.eu_articles(self.store):
                 yield Node.from_document(COLLECTION_ARTICLES, doc)
 
     def _extract_document_text(self, document: Node) -> str | None:

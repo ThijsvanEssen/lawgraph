@@ -47,7 +47,8 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, NodeWriter, edge_key
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
 
 from .base import SemanticPipelineBase
 
@@ -127,7 +128,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         self._removed = 0
 
         rows = self._track(
-            semantic_queries.amending_article_versions(self.store), "article versions"
+            semantic_bwb.amending_article_versions(self.store), "article versions"
         )
         for rows_chunk in chunked_aligned(rows, self._CHUNK, _article_identity):
             self._process_versions(rows_chunk, nodes, edges, result)
@@ -176,7 +177,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         to_link = self._write_documents(chunk, nodes)
         kept = self._write_amendments(chunk, targets, edges)
         self._write_dossier_links(to_link, edges)
-        self._removed += semantic_queries.remove_edges_to(
+        self._removed += semantic_edges.remove_edges_to(
             self.store,
             list(_RELATION_OF_KIND.values()),
             SEMANTIC_SOURCE,
@@ -220,7 +221,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         """Article key per ``(bwb_id, stam_id)``: one query for the whole chunk."""
         if not pairs:
             return {}
-        rows = semantic_queries.articles_by_identity(
+        rows = semantic_bwb.articles_by_identity(
             self.store,
             sorted({bwb_id for bwb_id, _ in pairs}),
             sorted({stam_id for _, stam_id in pairs}),
@@ -305,7 +306,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
     def _link_regulation_dossiers(self, edges: EdgeWriter) -> None:
         """Regulation → dossier from ``props.dossier_numbers`` (streamed, in chunks); the
         edges of this pipeline from a regulation to a dossier it no longer lists go."""
-        rows: Iterable[dict[str, Any]] = semantic_queries.regulation_dossier_numbers(
+        rows: Iterable[dict[str, Any]] = semantic_bwb.regulation_dossier_numbers(
             self.store
         )
         removed = 0
@@ -313,7 +314,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
             kept = self._write_dossier_links(
                 {r["key"]: {str(d) for d in r["dossiers"] if d} for r in chunk}, edges
             )
-            removed += semantic_queries.remove_edges_from(
+            removed += semantic_edges.remove_edges_from(
                 self.store,
                 RELATION_LEGISLATED_IN,
                 SEMANTIC_SOURCE,
