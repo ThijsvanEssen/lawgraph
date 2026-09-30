@@ -275,4 +275,5 @@ def test_outcome_props_records_the_outcome() -> None:
         "outcome": "aangenomen",
         "closed_on": "2024-05-01",
         "tk_decision": {"kind": "k"},
+        "ek_outcome": None,
     }

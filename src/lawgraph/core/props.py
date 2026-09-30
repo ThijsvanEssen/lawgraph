@@ -339,6 +339,11 @@ class DossierProps(_CommonProps):
     outcome: str | None = None
     # the last decision of the Kamer on its bill: ``{kind (BesluitSoort), text, date}``
     tk_decision: dict | None = None
+    # the Eerste Kamer: the day it rejected the bill (its list of rejected bills: ``{date,
+    # source_url, retrieved_on}``), and its outcome ``{outcome, date, method, source_url,
+    # retrieved_on}``
+    ek_rejected: dict | None = None
+    ek_outcome: dict | None = None
     # who brought the dossier in (``semantic government``): the ministry (``core.ministries``)
     # of the first bewindspersoon to sign its earliest document, or ``initiative`` when a
     # Kamerlid signed first; the cabinet in office on that day
@@ -402,8 +407,22 @@ class DecisionProps(_CommonProps):
     # what was decided on: the Zaak.Soort of the primary case, or the one Soort of the
     # cases on its Agendapunt (``tk_records.decision_kind``)
     kind: str | None = None
-    # no source sets it: the Eerste Kamer has no votes here; the API still returns it
+    # ``TK``, or ``EK`` for a vote of the Eerste Kamer (``normalize eerstekamer-votes``)
     chamber: str | None = None
+    # of a vote of the Eerste Kamer, as eerstekamer.nl writes them: the outcome it shows
+    # (Aangenomen, Verworpen), how it was decided (Hamerstuk, Stemming bij zitten en opstaan,
+    # aangenomen), the factions for, against and that asked to have their vote recorded, the
+    # pages of the bill and of the report, and the day it was read; whether it is the vote
+    # that decided the bill (``semantic tk-dossier-outcomes``)
+    result: str | None = None
+    method: str | None = None
+    factions_for: list[str] | None = None
+    factions_against: list[str] | None = None
+    factions_noted: list[str] | None = None
+    bill_url: str | None = None
+    source_url: str | None = None
+    retrieved_on: str | None = None
+    bill_decision: bool | None = None
 
 
 # ---------------------------------------------------------------------------

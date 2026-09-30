@@ -1155,11 +1155,29 @@ FOR dossier_id IN @dossier_ids
         decision.props, "date", "passed", "decision_kind", "decision_text"
       )
   )
+  LET ek_votes = (
+    FOR e IN {COLLECTION_EDGES}
+      FILTER e._to == dossier_id AND e.relation == @about
+      FILTER STARTS_WITH(e._from, '{COLLECTION_DECISIONS}/')
+      LET decision = DOCUMENT(e._from)
+      FILTER decision != null AND decision.props.chamber == "EK"
+      RETURN MERGE(
+        {{ id: decision._id }},
+        KEEP(
+          decision.props, "date", "result", "method", "source_url", "retrieved_on",
+          "bill_decision"
+        )
+      )
+  )
   RETURN {{
     key: dossier._key,
-    props: KEEP(dossier.props, "closed", "closed_on", "outcome", "tk_decision"),
+    props: KEEP(
+      dossier.props, "closed", "closed_on", "outcome", "tk_decision", "ek_outcome",
+      "ek_rejected"
+    ),
     publications: publications,
-    bill_decisions: bill_decisions
+    bill_decisions: bill_decisions,
+    ek_votes: ek_votes
   }}
 """
 
@@ -1167,9 +1185,10 @@ FOR dossier_id IN @dossier_ids
 def dossier_outcome_signals(
     store: Store, dossier_ids: list[str], *, bill_case_kinds: list[str]
 ) -> Iterator[dict[str, Any]]:
-    """``{key, props, publications, bill_decisions}`` per dossier of *dossier_ids*: the
-    instruments ``LEGISLATED_IN`` it, the decisions on a case of one of *bill_case_kinds*,
-    and the outcome props it holds now."""
+    """``{key, props, publications, bill_decisions, ek_votes}`` per dossier of
+    *dossier_ids*: the instruments ``LEGISLATED_IN`` it, the decisions on a case of one of
+    *bill_case_kinds*, the votes of the Eerste Kamer about it, and the outcome props it
+    holds now."""
     bind_vars: dict[str, Any] = {
         "dossier_ids": dossier_ids,
         "legislated_in": RELATION_LEGISLATED_IN,

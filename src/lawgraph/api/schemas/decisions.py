@@ -11,6 +11,19 @@ _KIND = (
     "or the one Soort of the cases on its agenda item, as the Kamer writes it: ``Motie``, "
     "``Amendement``, ``Wetgeving``, ``Begroting``, ...; null when neither tells."
 )
+_EK = (
+    "Of a vote of the Eerste Kamer (``chamber`` ``EK``), as eerstekamer.nl writes it; null "
+    "for the Tweede Kamer."
+)
+_RESULT = "The outcome the Eerste Kamer shows: ``Aangenomen``, ``Verworpen``. " + _EK
+_METHOD = (
+    "How it was decided, as the report names it: ``Hamerstuk``, ``Stemming bij zitten en "
+    "opstaan, aangenomen``, ``Hoofdelijke stemming, verworpen``. " + _EK
+)
+_BILL_DECISION = (
+    "Whether it is the vote that decided the bill: the list of the Eerste Kamer names a "
+    "vote on a motion by its bill too. " + _EK
+)
 _DECISION_KIND = (
     "``BesluitSoort`` as the Kamer writes it: ``Stemmen - aangenomen``, ``Stemmen - "
     "verworpen``, ``Stemmen - zonder stemming aannemen`` (a hamerstuk: no votes), "
@@ -61,6 +74,20 @@ class DecisionDTO(BaseModel):
         "a bill itself, ``Amendement`` or ``Motie`` on the others.",
     )
     chamber: str | None = None
+    result: str | None = Field(None, description=_RESULT)
+    method: str | None = Field(None, description=_METHOD)
+    bill_decision: bool | None = Field(None, description=_BILL_DECISION)
+    factions_for: list[str] = Field(default_factory=list, description=_EK)
+    factions_against: list[str] = Field(default_factory=list, description=_EK)
+    factions_noted: list[str] = Field(
+        default_factory=list,
+        description="The factions that asked to have their vote recorded. " + _EK,
+    )
+    bill_url: str | None = Field(None, description=_EK)
+    source_url: str | None = Field(
+        None, description="The part of the report of the meeting. " + _EK
+    )
+    retrieved_on: str | None = Field(None, description=_EK)
     vote_kind: str | None = Field(
         None, description="``member``, ``faction``; null without votes (a hamerstuk)."
     )
@@ -82,6 +109,15 @@ class DecisionDTO(BaseModel):
             decision_kind=props.get("decision_kind"),
             primary_case_kind=props.get("primary_case_kind"),
             chamber=props.get("chamber"),
+            result=props.get("result"),
+            method=props.get("method"),
+            bill_decision=props.get("bill_decision"),
+            factions_for=props.get("factions_for") or [],
+            factions_against=props.get("factions_against") or [],
+            factions_noted=props.get("factions_noted") or [],
+            bill_url=props.get("bill_url"),
+            source_url=props.get("source_url"),
+            retrieved_on=props.get("retrieved_on"),
             vote_kind=props.get("vote_kind"),
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},
@@ -110,6 +146,9 @@ class DecisionSummaryDTO(BaseModel):
     decision_kind: str | None = Field(None, description=_DECISION_KIND)
     passed: bool | None = None
     chamber: str | None = None
+    result: str | None = Field(None, description=_RESULT)
+    method: str | None = Field(None, description=_METHOD)
+    bill_decision: bool | None = Field(None, description=_BILL_DECISION)
     vote_kind: str | None = None
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
