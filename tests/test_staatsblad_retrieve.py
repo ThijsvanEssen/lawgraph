@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 import requests
 
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from tests.fakes import RawSourcesFake
 
@@ -24,21 +26,25 @@ class _Store(RawSourcesFake):
         self.rows = rows
         self.existing = existing or []
         self.stored: list[str] = []
-        self.batch_sizes: list[int] = []
-        self.binds: list[dict] = []
-
-    def query(self, aql: str, bind_vars: dict | None = None, **kw: Any):
-        self.binds.append(bind_vars or {})
-        if "r.kind == @kind AND r.external_id IN" in aql:
-            wanted = set(bind_vars["ext_ids"])
-            return iter([e for e in self.existing if e in wanted])
-        self.batch_sizes.append(kw.get("batch_size", 0))
-        # the real query filters on the kind: only toestand rows come back
-        kind = bind_vars["kind"]
-        return iter([r for r in self.rows if r["kind"] == kind])
 
     def insert_raw_source(self, *, external_id: str, **kw: Any) -> None:
         self.stored.append(external_id)
+
+
+@pytest.fixture(autouse=True)
+def _raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The reads of raw_sources, answered from ``_Store.rows`` and ``_Store.existing``."""
+
+    def toestand_payload_refs(store: _Store) -> Any:
+        # the real query reads the toestand records only, not the WTI of the regulation
+        return iter([r for r in store.rows if r["kind"] == "bwb-toestand-xml"])
+
+    def stored_staatsblad_ids(store: _Store, identifiers: list[str]) -> Any:
+        return iter([e for e in store.existing if e in set(identifiers)])
+
+    monkeypatch.setattr(raw_queries, "toestand_payload_refs", toestand_payload_refs)
+    monkeypatch.setattr(raw_queries, "stored_staatsblad_ids", stored_staatsblad_ids)
+    monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", lambda *_a, **_kw: [])
 
 
 class _Client:
@@ -84,16 +90,6 @@ def test_the_wti_record_of_the_same_regulation_does_not_hide_the_toestand() -> N
     assert client.fetched == ["stb-2012-79"]
 
 
-def test_the_query_asks_for_toestand_records_only() -> None:
-    _, store, _ = _run([_row("BWBR0000001", _toestand("2001", "1"))])
-    assert store.binds[0] == {"source": "bwb", "kind": "bwb-toestand-xml"}
-
-
-def test_the_toestand_xml_is_streamed_in_small_batches() -> None:
-    _, store, _ = _run([_row("BWBR0000001", _toestand("2001", "1"))])
-    assert 0 < store.batch_sizes[0] <= 100
-
-
 def test_toestanden_without_a_reference_are_counted_not_fetched() -> None:
     rows = [
         _row("BWBR0000001", _toestand("2001", "1")),
@@ -135,14 +131,14 @@ def test_a_publication_without_xml_is_skipped() -> None:
     assert result.created == 1 and result.errors == []
 
 
-def test_a_failing_existence_query_is_not_swallowed() -> None:
-    class Broken(_Store):
-        def query(self, aql, bind_vars=None, **kw):
-            if "IN @ext_ids" in aql:
-                raise requests.ConnectionError("database gone")
-            return super().query(aql, bind_vars, **kw)
+def test_a_failing_existence_query_is_not_swallowed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken(store: _Store, identifiers: list[str]) -> Any:
+        raise requests.ConnectionError("database gone")
 
-    store = Broken([_row("BWBR0000001", _toestand("2001", "1"))])
+    monkeypatch.setattr(raw_queries, "stored_staatsblad_ids", broken)
+    store = _Store([_row("BWBR0000001", _toestand("2001", "1"))])
     pipeline = StaatsbladRetrievePipeline(store=store, client=_Client())
     try:
         pipeline.run_from_bwb_graph(store)

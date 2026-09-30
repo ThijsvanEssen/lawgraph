@@ -9,6 +9,7 @@ import pytest
 import requests
 
 from lawgraph.clients.eu import EUClient
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from tests.fakes import RawSourcesFake
 
@@ -91,12 +92,18 @@ class _Store(RawSourcesFake):
             recent or []
         )  # what an interrupted run stored in the last 24 hours
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[str]:
-        return list(self.recent)
-
     def insert_raw_source(self, *, external_id: str, **_kw: Any) -> None:
         self.stored.append(external_id)
         self.events.append(f"store {external_id}")
+
+
+@pytest.fixture(autouse=True)
+def _raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """What the last 24 hours stored is ``_Store.recent``; nothing is known to be missing."""
+    monkeypatch.setattr(
+        raw_queries, "ids_stored_since", lambda store, **_kw: list(store.recent)
+    )
+    monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", lambda *_a, **_kw: [])
 
 
 class _Eu:
