@@ -7,11 +7,13 @@ that would change nothing writes nothing.
 
 from __future__ import annotations
 
+import atexit
 import datetime as dt
 import hashlib
 import re
 import time
 import uuid
+import weakref
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
@@ -195,6 +197,17 @@ def _configure(conn: psycopg.Connection[Any]) -> None:
     conn.commit()
 
 
+# The stores still open: closed at exit, while the interpreter can still join the threads
+# of their pools (a pool left to its finalizer cannot, and says so on every command).
+_OPEN: weakref.WeakSet[GraphStore] = weakref.WeakSet()
+
+
+@atexit.register
+def _close_open_stores() -> None:
+    for store in list(_OPEN):
+        store.close()
+
+
 class GraphStore:
     """The PostgreSQL database of the graph: connections, reads, upserts."""
 
@@ -231,8 +244,10 @@ class GraphStore:
         self._payload_io = ThreadPoolExecutor(
             max_workers=PAYLOAD_THREADS, thread_name_prefix="payload"
         )
+        _OPEN.add(self)
 
     def close(self) -> None:
+        _OPEN.discard(self)
         self.pool.close()
         self._payload_io.shutdown(wait=False)
 
