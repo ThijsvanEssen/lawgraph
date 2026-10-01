@@ -313,7 +313,8 @@ have no `REFERS_TO` between them, even when one names the other in its text.
 `unresolved_appeal_targets` lists the decisions an appeal says in its text it appeals that are
 not loaded (`court` and `case_number` as written, `date` ISO; `case_number` null when the text
 gives none); null when there are none. `unresolved_citations` lists the articles a judgment
-cites of laws that are not in the graph (`semantic rechtspraak`): `law` and `article_number` as
+cites of laws that are not in the graph (`semantic rechtspraak`): `law` as written (or the law a
+short name the judgment defines stands for: `Aanbestedingswet` for `Aw`), `article_number` as
 written, `raw_match` and `qualifier` of the first citation, `leden`, `onderdelen`, `aanhef`,
 `paragraph_ids`, `mention_count`; null when there are none.
 

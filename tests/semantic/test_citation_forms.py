@@ -198,6 +198,23 @@ def test_a_hierna_alias_is_local_to_the_text() -> None:
     assert extractor.extract("artikel 2.8 van de Wnb") == []
 
 
+@pytest.mark.parametrize("definition", ["(Wnb)", "(verder: Wnb)", "(hierna: de Wnb)"])
+def test_a_short_name_in_parentheses_or_after_verder_defines_one_too(
+    definition: str,
+) -> None:
+    text = f"artikel 8:29 van de Algemene wet bestuursrecht {definition} en artikel 2.8 Wnb"
+    assert _ids(text) == [(AWB, "8:29"), (AWB, "2.8")]
+
+
+def test_a_word_in_parentheses_that_is_no_name_defines_nothing() -> None:
+    # "(EN)" is no abbreviation of the law; "(hierna: de Wet)" still is
+    assert _ids("artikel 1 Opiumwet (EN) en artikel 2 EN") == [(OPIUM, "1")]
+    assert _ids("artikel 1 Opiumwet (hierna: de Wet) en artikel 2 van de Wet") == [
+        (OPIUM, "1"),
+        (OPIUM, "2"),
+    ]
+
+
 def test_a_hierna_alias_does_not_replace_a_registered_code() -> None:
     text = "artikel 1 van het Wetboek van Strafvordering (hierna: Sr) en artikel 2 Sr."
     assert _ids(text) == [(SV, "1"), (SR, "2")]
@@ -296,6 +313,37 @@ def test_a_law_that_is_not_known_is_kept_as_written(
 )
 def test_what_is_no_law_or_a_known_one_is_not_kept(text: str) -> None:
     assert _unknown(text) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (  # ECLI:NL:RBNNE:2026:2437
+            "artikel 4.16 van de Aanbestedingswet (Aw) gedaan. Een aankondiging als bedoeld "
+            "in artikel 4.16 Aw en artikel 2:163c Aw.",
+            [("Aanbestedingswet", "4.16")] * 2 + [("Aanbestedingswet", "2:163c")],
+        ),
+        (
+            "artikel 6 Mededingingswet (hierna: Mw) en artikel 24 Mw",
+            [("Mededingingswet", "6"), ("Mededingingswet", "24")],
+        ),
+        # the name holds in its own text only: Aw is the Auteurswet here
+        (
+            "artikel 1 Auteurswet (Aw) en artikel 13 Aw",
+            [("Auteurswet", "1")] + [("Auteurswet", "13")],
+        ),
+        # a short name of a known law is no unknown one
+        ("artikel 5 Sr (Wsr) en artikel 7 Wsr", []),
+    ],
+)
+def test_a_name_the_text_gives_a_law_that_is_not_known_is_that_law(
+    text: str, expected: list[tuple[str, str]]
+) -> None:
+    extractor = DutchCitationExtractor({"Sr": SR})
+    hits = extractor.extract(text, every_occurrence=True, unknown_laws=True)
+    assert [(h.unknown_law, h.article_number) for h in hits if h.bwb_id is None] == (
+        expected
+    )
 
 
 def test_unknown_laws_are_only_read_when_asked() -> None:
