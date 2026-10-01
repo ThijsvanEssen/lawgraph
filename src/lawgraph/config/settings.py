@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from urllib.parse import quote
 
 from dotenv import find_dotenv, load_dotenv
 
@@ -35,8 +36,14 @@ LOG_FILE = os.getenv("LAWGRAPH_LOG_FILE")
 # ── PostgreSQL connection ─────────────────────────────────────────────────────
 
 # The server (``postgresql://user:password@host:port``) and the database on it; the store
-# creates the database when it is missing and the user may.
-DB_URL = os.getenv("LAWGRAPH_DB_URL", "postgresql://lawgraph@localhost:5432")
+# creates the database when it is missing and the user may. Without a URL: the server of
+# docker-compose.yml, with the password it was given (LAWGRAPH_DB_PASSWORD).
+DB_PASSWORD = os.getenv("LAWGRAPH_DB_PASSWORD", "")
+DB_URL = os.getenv(
+    "LAWGRAPH_DB_URL",
+    f"postgresql://lawgraph{':' + quote(DB_PASSWORD, safe='') if DB_PASSWORD else ''}"
+    "@localhost:5432",
+)
 DB_NAME = os.getenv("LAWGRAPH_DB_NAME", "lawgraph")
 # Connections of one process: the API serves this many requests at once.
 DB_POOL_SIZE = int(os.getenv("LAWGRAPH_DB_POOL_SIZE", "8"))

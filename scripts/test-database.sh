@@ -19,7 +19,7 @@
 # Eerste Kamer and treaties.
 set -u
 cd "$(dirname "$0")/.." || exit 1
-export ARANGO_DB_NAME="${1:-lawgraph_small}"
+export LAWGRAPH_DB_NAME="${1:-lawgraph_small}"
 L=.venv/bin/lawgraph
 
 GRONDWET=BWBR0001840 AWB=BWBR0005537 SR=BWBR0001854

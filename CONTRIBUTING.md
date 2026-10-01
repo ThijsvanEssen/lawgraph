@@ -5,8 +5,9 @@
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env                 # set ARANGO_PASSWORD and ARANGO_ROOT_PASSWORD
-docker compose up -d arangodb        # the database itself is created on first use
+cp .env.example .env                 # set LAWGRAPH_DB_PASSWORD
+docker volume create lawgraph_pgdata # once
+docker compose up -d postgres        # the database itself is created on first use
 ```
 
 ## Checks
@@ -22,13 +23,13 @@ pre-commit run --all-files           # ruff --fix, ruff format, whitespace and Y
 Pull requests run the same checks in CI. Fix all findings before pushing.
 
 **Integration tests** (`tests/integration/`) run the real code and the real CLI against a
-second, deliberately small ArangoDB — the unit suite above never executes a query, so what only
+second, deliberately small PostgreSQL — the unit suite above never executes a query, so what only
 a server shows (a result built in its memory, a cursor that is killed, a run restarted midway)
 stays invisible there. They need their own database, never the one `.env` points at:
 
 ```bash
 docker compose -f docker-compose.test.yml up -d
-ALLOW_DB_TESTS=1 pytest tests/integration     # a couple of minutes
+ALLOW_DB_TESTS=1 pytest tests/pg tests/integration   # some minutes, one file at a time on a small machine
 docker compose -f docker-compose.test.yml down
 ```
 
