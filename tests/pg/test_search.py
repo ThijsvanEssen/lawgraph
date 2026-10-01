@@ -179,3 +179,54 @@ def test_resolve_a_law_by_its_abbreviation(graph: ArangoStore) -> None:
     answer = resolve_queries.resolve(graph, "Sr")
     assert answer["match"]["id"] == "instruments/bwbr0001854"
     assert answer["match"]["display_name"] == "Wetboek van Strafrecht"
+
+
+def test_resolve_a_paper_of_a_dossier_directly_or_through_a_case(
+    store: ArangoStore,
+) -> None:
+    store.bulk_insert_or_update_nodes(
+        "dossiers", [_node("31746", "dossier", number="31746", title="Wet x")]
+    )
+    store.bulk_insert_or_update_nodes("cases", [_node("c1", "case")])
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node(
+                "d11",
+                "document",
+                sequence=11,
+                dossier_number="31746",
+                title="Amendement",
+            ),
+            _node(
+                "d12", "document", sequence=12, dossier_number="31746", title="Motie"
+            ),
+        ],
+    )
+
+    def part_of(key: str, source: str, target: str) -> dict[str, Any]:
+        return {
+            "_key": key,
+            "_from": source,
+            "_to": target,
+            "relation": "PART_OF",
+            "source": "test",
+            "status": "canoniek",
+            "confidence": None,
+            "meta": {},
+        }
+
+    store.bulk_insert_or_update_edges(
+        [
+            part_of("p1", "documents/d11", "dossiers/31746"),
+            part_of("p2", "cases/c1", "dossiers/31746"),
+            part_of("p3", "documents/d12", "cases/c1"),
+        ]
+    )
+    assert resolve_queries.resolve(store, "31746, nr. 11")["match"]["id"] == (
+        "documents/d11"
+    )
+    # through the case
+    assert resolve_queries.resolve(store, "31746, nr. 12")["match"]["id"] == (
+        "documents/d12"
+    )
