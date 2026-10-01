@@ -848,6 +848,10 @@ SEARCH_WORDS: dict[str, str] = {
     COLLECTION_COMMITMENTS: (
         "lower(coalesce({p}props ->> 'text', '') || ' ' || coalesce({p}props ->> 'number', ''))"
     ),
+    # a vote: what was voted on and its kind (Motie, Amendement, Wetgeving)
+    COLLECTION_DECISIONS: (
+        "lower(coalesce({p}props ->> 'subject', '') || ' ' || coalesce({p}props ->> 'kind', ''))"
+    ),
 }
 
 
