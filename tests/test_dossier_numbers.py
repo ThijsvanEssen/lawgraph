@@ -111,3 +111,16 @@ def test_the_short_title_is_what_the_title_ends_in_parentheses() -> None:
     )
     assert short_title("Begroting (2027) van SZW") is None
     assert short_title(None) is None
+
+
+def test_where_the_act_was_published_is_no_short_title() -> None:
+    from lawgraph.core.dossier_numbers import short_title
+
+    # 36810: the short title stands before where the regulation it carries out was published
+    assert short_title(
+        "Uitvoering van verordening (EU) 2022/1031 over toegang tot de aanbestedingsmarkten "
+        "van de Unie (Instrument voor Internationale Overheidsopdrachten – IIO) "
+        "(PbEU 2022, L 173)"
+    ) == ("Instrument voor Internationale Overheidsopdrachten – IIO")
+    assert short_title("Goedkeuring van het Verdrag (Trb. 2021, 52)") is None
+    assert short_title("Uitvoering van richtlijn 2019/1 (PbEU 2019, L 11)") is None

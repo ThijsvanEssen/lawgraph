@@ -50,6 +50,15 @@ def origin_fields(
     }
 
 
+def paper_number(chamber: str | None, props: dict[str, Any]) -> str | None:
+    """Its number in the dossier as its chamber numbers it: the nr. of a Tweede Kamer paper
+    (its ``sequence``), the letter of an Eerste Kamer one (its ``number``)."""
+    if chamber == "EK":
+        return props.get("number")
+    sequence = props.get("sequence")
+    return str(sequence) if chamber == "TK" and sequence else None
+
+
 class ArticleRefDTO(BaseModel):
     """An article number a heading names."""
 
@@ -292,10 +301,6 @@ class DocumentListItemDTO(BaseModel):
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> DocumentListItemDTO:
-        sequence = row.get("sequence")
-        number = row.get("number") if row.get("chamber") == "EK" else None
-        if row.get("chamber") == "TK" and sequence:
-            number = str(sequence)
         return cls(
             id=row["id"],
             key=row["key"],
@@ -304,7 +309,7 @@ class DocumentListItemDTO(BaseModel):
             dossier_number=row.get("dossier_number"),
             dossier_suffix=row.get("dossier_suffix"),
             dossier_numbers=row.get("dossier_numbers") or [],
-            number=number,
+            number=paper_number(row.get("chamber"), row),
             date=row.get("date"),
             title=row.get("title"),
             session_year=row.get("session_year"),
