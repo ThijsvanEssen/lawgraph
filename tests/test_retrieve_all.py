@@ -20,7 +20,7 @@ from lawgraph.pipelines.orchestration import (
 )
 from lawgraph.sources import registry
 from lawgraph.sources.registry import Pipeline, RetrieveCtx
-from tests.fakes import PipelineStateFake
+from tests.fakes import PipelineStateFake, patch_pipeline_state
 
 WINDOW = "2024-09-20T00:00:00+00:00"
 
@@ -176,6 +176,11 @@ def _with_retrieve_commands(monkeypatch, command_of) -> None:
     monkeypatch.setattr(
         orchestration, "PIPELINES", {**registry.PIPELINES, "retrieve": replaced}
     )
+
+
+@pytest.fixture(autouse=True)
+def _pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    patch_pipeline_state(monkeypatch)
 
 
 @pytest.fixture
