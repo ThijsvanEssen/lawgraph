@@ -343,9 +343,24 @@ def test_a_paper_is_found_through_its_dossier_and_ondernummer(
     assert answer["confidence"] == 0.95
 
 
-def test_an_eerste_kamer_paper_is_found_by_its_letter(store: GraphStore) -> None:
-    answer = resolve(store, "Kamerstuk I 35925, nr. A")
+@pytest.mark.parametrize(
+    "query", ["Kamerstuk I 35925, nr. A", "Kamerstukken I 2020/21, 35925, A"]
+)
+def test_an_eerste_kamer_paper_is_found_by_its_letter(
+    store: GraphStore, query: str
+) -> None:
+    answer = resolve(store, query)
     assert (answer["kind"], answer["match"]["key"]) == ("document", "ek_a")
+
+
+@pytest.mark.parametrize("query", ["Staatsblad 2026, 94", "Stb. 2026, 94"])
+def test_a_staatsblad_publication_is_found(store: GraphStore, query: str) -> None:
+    """BE-45: the publication is an instrument of its own."""
+    _put(store, COLLECTION_INSTRUMENTS, "stb_2026_94", kind="publicatie", year="2026")
+    answer = resolve(store, query)
+    assert (answer["kind"], answer["match"]["key"]) == ("instrument", "stb_2026_94")
+    assert answer["confidence"] == 1.0
+    assert resolve(store, "Stb. 2026, 95")["kind"] == "none"
 
 
 def test_a_paper_the_graph_lacks_is_answered_with_its_dossier(
