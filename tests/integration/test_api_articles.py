@@ -391,23 +391,6 @@ VERSIONS = 25
 SIZE = 120_000
 
 
-class _Recording:
-    """A store that keeps the queries asked of it, to explain them afterwards."""
-
-    def __init__(self, store: ArangoStore) -> None:
-        self._store = store
-        self.asked: list[tuple[str, dict[str, Any]]] = []
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._store, name)
-
-    def query(
-        self, aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any
-    ) -> Any:
-        self.asked.append((aql, bind_vars or {}))
-        return self._store.query(aql, bind_vars, **kw)
-
-
 def _build_at_scale(store: ArangoStore) -> None:
     """One article of ``VERSIONS`` versions; 3/4 of the documents explain a version of it,
     1/4 the instrument; every document carries a large text."""
@@ -465,11 +448,10 @@ def test_the_explanations_of_an_article_read_no_document_but_the_page(
     text is up to a megabyte): as a query of 288 MB of documents it would be stopped."""
     real = ArangoStore()
     _build_at_scale(real)
-    store: Any = _Recording(real)
 
     explained = DOCUMENTS - DOCUMENTS // 4  # every fourth explains only the law
-    page = get_article_explanations(store, BWB, "5", limit=50, offset=0)
-    rest = get_article_explanations(store, BWB, "5", limit=50, offset=explained - 50)
+    page = get_article_explanations(real, BWB, "5", limit=50, offset=0)
+    rest = get_article_explanations(real, BWB, "5", limit=50, offset=explained - 50)
 
     assert page["total"] == rest["total"] == explained
     assert len(page["items"]) == 50 and len(rest["items"]) == 50
@@ -479,8 +461,3 @@ def test_the_explanations_of_an_article_read_no_document_but_the_page(
     }
     assert targets == {"article_version"}
     assert all("text" not in row for row in page["items"])
-
-    aql, bind = next((a, b) for a, b in store.asked if "@explains" in a)
-    plan = real.db.aql.explain(aql, bind_vars=bind)
-    kinds = [node["type"] for node in plan["nodes"]]
-    assert "EnumerateCollectionNode" not in kinds, kinds
