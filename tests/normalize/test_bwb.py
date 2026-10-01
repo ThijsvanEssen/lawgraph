@@ -111,6 +111,7 @@ def patch_store_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         ("article_identities", article_identities),
         ("toestand_starts", lambda store, bwb_ids: {}),
         ("update_abbreviations", lambda store, rows: 0),
+        ("update_instrument_abbreviations", lambda store, rows: 0),
     ):
         monkeypatch.setattr(normalize_bwb, name, recorded(name, answer))
     monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_: 0)

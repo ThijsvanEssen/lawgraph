@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.models import Node
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 
 
 @dataclass
@@ -89,4 +89,4 @@ class CountingStore:
 
 
 # What a writer or a helper of a pipeline is handed: the store, or the store that counts.
-Store = ArangoStore | CountingStore
+Store = GraphStore | CountingStore

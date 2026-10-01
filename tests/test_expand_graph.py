@@ -9,7 +9,7 @@ from lawgraph.pipelines.command import Outcome, State, combined_result
 def _recorded(monkeypatch, counts: list[int]) -> list[tuple[str, list[str]]]:
     ran: list[tuple[str, list[str]]] = []
     records = iter(counts)
-    monkeypatch.setattr(expand_graph, "ArangoStore", lambda: object())
+    monkeypatch.setattr(expand_graph, "GraphStore", lambda: object())
     monkeypatch.setattr(expand_graph, "_count_records", lambda store: next(records))
     monkeypatch.setattr(
         expand_graph,
@@ -60,7 +60,7 @@ def test_a_failing_step_makes_the_command_fail_and_the_loop_goes_on(
     monkeypatch,
 ) -> None:
     records = iter([0, 5, 5, 5])
-    monkeypatch.setattr(expand_graph, "ArangoStore", lambda: object())
+    monkeypatch.setattr(expand_graph, "GraphStore", lambda: object())
     monkeypatch.setattr(expand_graph, "_count_records", lambda store: next(records))
     monkeypatch.setattr(
         expand_graph,

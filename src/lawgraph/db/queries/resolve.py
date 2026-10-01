@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import collection_from_id, make_node_key
 from lawgraph.core.notation import LawMatch, Notation, NotationParser
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.search import load_notation_parser
 from lawgraph.db.schema import search_column
 
@@ -87,7 +87,7 @@ def _capped(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _by_keys(
-    store: ArangoStore, collection: str, keys: list[str]
+    store: GraphStore, collection: str, keys: list[str]
 ) -> list[dict[str, Any]]:
     """The nodes with these keys, in the order of *keys*."""
     statement = sql.SQL(
@@ -103,7 +103,7 @@ def _by_keys(
 # ── identifiers and law names ─────────────────────────────────────────────────
 
 
-def _identified(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
+def _identified(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     """An ECLI, BWB id or CELEX id: the node with that key."""
     identifier = notation.identifier or ""
     if notation.kind == "ecli":
@@ -116,7 +116,7 @@ def _identified(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
     return [_target(row, kind, CONFIDENCE_IDENTIFIER) for row in rows[:1]]
 
 
-def _laws_named(store: ArangoStore, matches: list[LawMatch]) -> list[dict[str, Any]]:
+def _laws_named(store: GraphStore, matches: list[LawMatch]) -> list[dict[str, Any]]:
     """The instruments for the laws a text may name, each with the confidence of its tier."""
     keys = {make_node_key(m.law_id): m for m in matches}
     rows = _by_keys(store, COLLECTION_INSTRUMENTS, list(keys))
@@ -132,7 +132,7 @@ def _laws_named(store: ArangoStore, matches: list[LawMatch]) -> list[dict[str, A
 # ── articles ──────────────────────────────────────────────────────────────────
 
 
-def _articles(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
+def _articles(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     named = [a for a in notation.articles if a.law_id]
     if named:
         keys = [make_node_key(a.law_id, a.number) for a in named]
@@ -142,7 +142,7 @@ def _articles(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
 
 
 def _articles_without_law(
-    store: ArangoStore, numbers: list[str]
+    store: GraphStore, numbers: list[str]
 ) -> list[dict[str, Any]]:
     """The articles with this number in any law, the most cited first.
 
@@ -165,7 +165,7 @@ def _articles_without_law(
 
 
 def _headed_article(
-    store: ArangoStore, q: str, parser: NotationParser
+    store: GraphStore, q: str, parser: NotationParser
 ) -> list[dict[str, Any]]:
     """An article without a number, named by its heading and its law ("Algemene bepaling
     Grondwet"): the end of *q* names a law by its abbreviation or its name, the start is
@@ -197,7 +197,7 @@ def _headed_article(
 # ── dossiers and papers ───────────────────────────────────────────────────────
 
 
-def _dossiers(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
+def _dossiers(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     """The dossiers with this number: the one with the suffix asked for first."""
     statement = f"""
         SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name,
@@ -223,7 +223,7 @@ def _dossier_targets(
     ]
 
 
-def _commitment(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
+def _commitment(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     """A toezegging by its number."""
     statement = f"""
         SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
@@ -234,11 +234,11 @@ def _commitment(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
     return [_target(row, "commitment", CONFIDENCE_IDENTIFIER) for row in rows]
 
 
-def _dossier(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
+def _dossier(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     return _dossier_targets(_dossiers(store, notation), notation)
 
 
-def _document(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
+def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     """Paper *sequence* of a dossier, or the dossier when the graph has not that paper."""
     rows = _dossiers(store, notation)
     if not rows:
@@ -300,7 +300,7 @@ def _document(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
 # ── the answer ────────────────────────────────────────────────────────────────
 
 
-def _candidates(store: ArangoStore, q: str) -> tuple[list[dict[str, Any]], str | None]:
+def _candidates(store: GraphStore, q: str) -> tuple[list[dict[str, Any]], str | None]:
     """What the query may mean, and the qualifier (``derde lid``) of a citation."""
     parser = load_notation_parser(store)
     notation = parser.parse(q)
@@ -318,7 +318,7 @@ def _candidates(store: ArangoStore, q: str) -> tuple[list[dict[str, Any]], str |
     return _identified(store, notation), None
 
 
-def resolve(store: ArangoStore, q: str) -> dict[str, Any]:
+def resolve(store: GraphStore, q: str) -> dict[str, Any]:
     """The best match for *q* and up to ``ALTERNATIVES`` others, best first.
 
     ``kind`` and ``confidence`` are those of the match; ``qualifier`` is the ``lid`` or

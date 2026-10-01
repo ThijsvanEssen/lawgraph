@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import seed
 
 # 3,000 documents of 120 KB: 360 MB, a third of all the memory the test server has. The XML
@@ -12,7 +12,7 @@ DOCUMENTS = 3_000
 SIZE = 120_000
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     body = "x" * SIZE
     with RawSourceWriter(store) as writer:
         for number in range(DOCUMENTS):
@@ -27,7 +27,7 @@ def _seed(store: ArangoStore) -> None:
 
 
 def test_every_large_document_can_be_read_through_store_query(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     statement = "SELECT doc FROM raw_sources WHERE source = %(source)s"
     read = total = 0
@@ -41,7 +41,7 @@ def test_expand_graph_and_check_count_the_same_raw_records(database: str) -> Non
     """`expand-graph` and `check` count raw records per kind, each in its own query."""
     from lawgraph.commands import check, expand_graph
 
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=20, judgments=5, regulations=2)
 
     assert expand_graph._count_records(store) == sum(check._raw_counts(store).values())
@@ -50,7 +50,7 @@ def test_expand_graph_and_check_count_the_same_raw_records(database: str) -> Non
 # ── no silent caps ───────────────────────────────────────────────────────────
 
 
-def _nodes(store: ArangoStore, collection: str, docs: list[dict]) -> None:
+def _nodes(store: GraphStore, collection: str, docs: list[dict]) -> None:
     for start in range(0, len(docs), 5_000):
         store.bulk_insert_or_update_nodes(collection, docs[start : start + 5_000])
 
@@ -60,7 +60,7 @@ def test_the_staatscourant_text_scan_reads_every_publication(database: str) -> N
     from lawgraph.config.constants import COLLECTION_DOCUMENTS, SOURCE_STAATSCOURANT
     from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
-    store = ArangoStore()
+    store = GraphStore()
     publications = 5_001
     text = "Regeling op grond van BWBR0001854. " * 5  # longer than 100 characters
     _nodes(
@@ -88,7 +88,7 @@ def test_the_stub_judgments_are_not_capped_in_the_database(database: str) -> Non
     from lawgraph.config.constants import COLLECTION_JUDGMENTS
     from lawgraph.db.queries import gaps as gap_queries
 
-    store = ArangoStore()
+    store = GraphStore()
     stubs = 50_001
     eclis = [f"ECLI:NL:HR:2020:{n}" for n in range(stubs)]
     _nodes(

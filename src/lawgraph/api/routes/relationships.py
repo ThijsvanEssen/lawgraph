@@ -14,7 +14,7 @@ from lawgraph.api.schemas.relationships import (
 )
 from lawgraph.config.constants import SEMANTIC_RELATIONSHIP_TYPES
 from lawgraph.core.logging import get_logger
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.relationships import search_relationships
 
 router = APIRouter()
@@ -45,7 +45,7 @@ def get_relationship_types() -> dict[str, list[str]]:
     tags=["relationships"],
 )
 def search(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     type: Annotated[
         str | None,
         Query(

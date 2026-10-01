@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.test_judgment_mentions import _judgment_xml
 from tests.integration.test_resolve import _evrm
 
@@ -38,14 +38,14 @@ TEXT_1 = (
 TEXT_2 = "Anders dan artikel 350 Sv en artikel 392, eerste lid, Rv bepalen."
 
 
-def _put(store: ArangoStore, collection: str, key: str, **props: Any) -> None:
+def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
     doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
 @pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore, Any]]:
-    store = ArangoStore()
+def client(database: str, cli: Any) -> Iterator[tuple[TestClient, GraphStore, Any]]:
+    store = GraphStore()
     _evrm(store)
     _put(
         store,
@@ -85,7 +85,7 @@ def client(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore, A
         app.dependency_overrides.clear()
 
 
-def _cited(store: ArangoStore) -> set[str]:
+def _cited(store: GraphStore) -> set[str]:
     return set(
         store.query(
             "SELECT split_part(to_id, '/', 2) FROM edges "
@@ -96,14 +96,14 @@ def _cited(store: ArangoStore) -> set[str]:
 
 
 def test_an_abbreviated_treaty_and_eu_act_in_the_graph_are_cited(
-    client: tuple[TestClient, ArangoStore, Any],
+    client: tuple[TestClient, GraphStore, Any],
 ) -> None:
     _, store, _ = client
     assert _cited(store) == {"bwbv0001000_8", "32016r0679_6"}
 
 
 def test_a_citation_of_a_law_not_in_the_graph_is_kept_on_the_judgment(
-    client: tuple[TestClient, ArangoStore, Any],
+    client: tuple[TestClient, GraphStore, Any],
 ) -> None:
     api, _, _ = client
     response = api.get(f"/api/judgments/{ECLI}")
@@ -138,7 +138,7 @@ def test_a_citation_of_a_law_not_in_the_graph_is_kept_on_the_judgment(
 
 
 def test_a_law_that_is_loaded_later_takes_its_citations_over(
-    client: tuple[TestClient, ArangoStore, Any],
+    client: tuple[TestClient, GraphStore, Any],
 ) -> None:
     _, store, cli = client
     _put(

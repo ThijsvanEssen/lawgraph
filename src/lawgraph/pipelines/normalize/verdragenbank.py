@@ -24,7 +24,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 class VerdragenbankNormalizePipeline(NormalizePipelineBase):
     """Normalize Verdragenbank treaty records into Instrument nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(

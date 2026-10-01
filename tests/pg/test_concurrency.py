@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db import store as store_module
 from lawgraph.db.queries.articles import get_article_with_relations
 from lawgraph.db.queries.judgments import get_judgments_list
@@ -47,7 +47,7 @@ def _edge(key: str, source: str, target: str, relation: str) -> dict[str, Any]:
 @pytest.fixture()
 def small_pool(
     database_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[ArangoStore]:
+) -> Iterator[GraphStore]:
     server, name = database_url.rsplit("/", 1)
     monkeypatch.setattr(store_module, "DB_URL", server)
     monkeypatch.setattr(store_module, "DB_NAME", name)
@@ -55,7 +55,7 @@ def small_pool(
     monkeypatch.setattr(
         store_module, "PAYLOAD_STORE", f"file://{tmp_path / 'payloads'}"
     )
-    opened = ArangoStore()
+    opened = GraphStore()
     # A request starved of a connection fails within seconds, not after a minute.
     opened.pool.timeout = 5
     try:
@@ -64,7 +64,7 @@ def small_pool(
         opened.close()
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments", [_node("bwbr0002", "instrument", bwb_id="BWBR0002")]
     )
@@ -100,7 +100,7 @@ def _seed(store: ArangoStore) -> None:
 
 
 def test_requests_finish_on_a_pool_smaller_than_their_queries(
-    small_pool: ArangoStore,
+    small_pool: GraphStore,
 ) -> None:
     _seed(small_pool)
     routes: list[Callable[[], Any]] = [

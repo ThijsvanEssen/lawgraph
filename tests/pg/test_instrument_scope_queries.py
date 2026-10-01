@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_scope import (
     InstrumentScope,
     resolve_instrument,
@@ -19,7 +19,7 @@ def _instrument(key: str, labels: list[str] | None = None, **props: Any) -> Any:
     return {"_key": key, "type": "instrument", "labels": labels or [], "props": props}
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -35,7 +35,7 @@ def _seed(store: ArangoStore) -> None:
     )
 
 
-def test_an_instrument_by_bwb_id_celex_or_key(store: ArangoStore) -> None:
+def test_an_instrument_by_bwb_id_celex_or_key(store: GraphStore) -> None:
     _seed(store)
 
     by_bwb = resolve_instrument(store, "BWBR0009001")
@@ -56,7 +56,7 @@ def test_an_instrument_by_bwb_id_celex_or_key(store: ArangoStore) -> None:
     assert scope_of(" 32016l0680 ") == InstrumentScope("celex", "32016L0680")
 
 
-def test_the_other_records_of_a_treaty_by_key(store: ArangoStore) -> None:
+def test_the_other_records_of_a_treaty_by_key(store: GraphStore) -> None:
     _seed(store)
     treaty = resolve_instrument(store, "BWBV0009001")
     assert treaty is not None

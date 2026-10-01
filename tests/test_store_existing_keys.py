@@ -1,15 +1,15 @@
-"""ArangoStore.existing_keys: bulk existence check, chunked."""
+"""GraphStore.existing_keys: bulk existence check, chunked."""
 
 from __future__ import annotations
 
 import pytest
 
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 
 
-def _store(existing: set[str]) -> tuple[ArangoStore, list[list[str]]]:
+def _store(existing: set[str]) -> tuple[GraphStore, list[list[str]]]:
     calls: list[list[str]] = []
-    store = ArangoStore.__new__(ArangoStore)  # no database connection needed
+    store = GraphStore.__new__(GraphStore)  # no database connection needed
 
     def fake_query(aql, bind_vars=None, **_kw):
         calls.append(bind_vars["keys"])

@@ -41,7 +41,7 @@ from lawgraph.core.eerstekamer_votes import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -83,7 +83,7 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
 class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
     """The votes of the Eerste Kamer as decisions; the rejected bills on their dossiers."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:

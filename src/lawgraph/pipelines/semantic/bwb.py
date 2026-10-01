@@ -90,8 +90,8 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     continue
                 hits = self._hits_for(article, bwb_id)
                 hits_detected += len(hits)
-                if article.arango_id:
-                    read.append(article.arango_id)
+                if article.node_id:
+                    read.append(article.node_id)
                 scanned.append((article, hits))
 
             self._store_article_citations(scanned)
@@ -132,7 +132,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         """Queue the edges of one article; the keys go into *kept*."""
         for hit in hits:
             target, hit = self._resolve_article(hit)
-            if not target or not article.arango_id or not target.arango_id:
+            if not target or not article.node_id or not target.node_id:
                 continue
             edges.add_doc(
                 self._make_edge_doc(
@@ -144,8 +144,8 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     meta=self._edge_meta(hit),
                 )
             )
-            kept.setdefault(article.arango_id, set()).add(
-                edge_key(article.arango_id, RELATION_REFERS_TO, target.arango_id)
+            kept.setdefault(article.node_id, set()).add(
+                edge_key(article.node_id, RELATION_REFERS_TO, target.node_id)
             )
 
     @staticmethod

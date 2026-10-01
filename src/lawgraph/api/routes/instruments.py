@@ -34,7 +34,7 @@ from lawgraph.api.schemas.instruments import (
     InternationalLinkDTO,
     LinkedInstrumentDTO,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import props as _props
 from lawgraph.db.queries.instrument_links import (
     get_eu_links,
@@ -66,6 +66,10 @@ def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
         key=judgment.get("_key") or "",
         ecli=props.get("ecli"),
         display_name=props.get("display_name"),
+        court=props.get("court_code"),
+        tier=props.get("tier"),
+        court_kind=props.get("court_kind"),
+        date=props.get("date_eff"),
         cited_articles=[
             CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
         ],
@@ -87,7 +91,7 @@ router = APIRouter()
     tags=["instruments"],
 )
 def list_instruments(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     q: Annotated[str | None, Query(description="Free-text match")] = None,
@@ -112,7 +116,7 @@ def list_instruments(
     return InstrumentListResponse(items=items, total=int(data.get("total", 0)))
 
 
-def _instrument_or_404(store: ArangoStore, identifier: str) -> dict:
+def _instrument_or_404(store: GraphStore, identifier: str) -> dict:
     doc = resolve_instrument(store, identifier)
     if doc is None:
         raise HTTPException(status_code=404, detail="Instrument not found")
@@ -134,7 +138,7 @@ def _instrument_or_404(store: ArangoStore, identifier: str) -> dict:
 )
 def get_instrument(
     identifier: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentDetailDTO:
     doc = _instrument_or_404(store, identifier)
     return InstrumentDetailDTO.from_document(doc, same_treaty=same_treaty(store, doc))
@@ -189,7 +193,7 @@ def _international_link(
 )
 def get_instrument_eu_links(
     identifier: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentEuLinksResponse:
     doc = _instrument_or_404(store, identifier)
@@ -231,7 +235,7 @@ def get_instrument_eu_links(
 )
 def list_articles(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     include_stubs: Annotated[
         bool,
         Query(description="Include placeholder/stub articles (default: false)"),
@@ -282,7 +286,7 @@ def list_articles(
 )
 def get_instrument_judgments_route(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentJudgmentsResponse:
     rows, total = get_instrument_judgments(store, bwb_id, limit=limit)
@@ -306,7 +310,7 @@ def get_instrument_judgments_route(
 )
 def get_instrument_dossiers_route(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentDossiersResponse:
     rows, total = get_instrument_dossiers(store, bwb_id, limit=limit)
@@ -346,7 +350,7 @@ def get_instrument_dossiers_route(
 )
 def get_instrument_amended_by_route(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> AmendedByResponse:
@@ -370,7 +374,7 @@ def get_instrument_amended_by_route(
 )
 def get_instrument_related_route(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> InstrumentRelatedResponse:
     rows, total = get_instrument_related_instruments(store, bwb_id, limit=limit)
@@ -407,7 +411,7 @@ def get_instrument_related_route(
 )
 def list_instrument_versions(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentVersionsResponse:
     docs = get_instrument_versions(store, bwb_id)
     items = [InstrumentVersionDTO.from_document(d) for d in docs]
@@ -433,7 +437,7 @@ def list_instrument_versions(
 def list_articles_at(
     bwb_id: str,
     at_date: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     text_preview_chars: Annotated[
         int | None,
         Query(

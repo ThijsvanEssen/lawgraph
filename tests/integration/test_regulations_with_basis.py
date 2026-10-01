@@ -7,7 +7,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, SOURCE_BWB
 from lawgraph.core.models import NodeType
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
 BASIS = [{"doc": "jci1.3:c:BWBR0001947&artikel=125", "bwb_id": "BWBR0001947"}]
@@ -23,7 +23,7 @@ def _regulation(key: str, source: str, **props: Any) -> dict[str, Any]:
 
 
 def test_only_the_regulations_that_state_a_basis_are_read(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     store.bulk_insert_or_update_nodes(
         COLLECTION_INSTRUMENTS,
         [

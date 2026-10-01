@@ -9,7 +9,7 @@ from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
     SOURCE_BWB,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 
 
@@ -47,7 +47,7 @@ class _Sru:
         return f"<toestand start='{start}'/>"
 
 
-def _current(store: ArangoStore, *bwb_ids: str) -> None:
+def _current(store: GraphStore, *bwb_ids: str) -> None:
     """What ``retrieve bwb`` leaves: the current toestand of each regulation."""
     with RawSourceWriter(store) as writer:
         for bwb_id in bwb_ids:
@@ -62,7 +62,7 @@ def _current(store: ArangoStore, *bwb_ids: str) -> None:
             )
 
 
-def _stored(store: ArangoStore, kind: str) -> set[str]:
+def _stored(store: GraphStore, kind: str) -> set[str]:
     statement = "SELECT external_id FROM raw_sources WHERE kind = %(kind)s"
     return set(store.query(statement, {"kind": kind}))
 
@@ -70,7 +70,7 @@ def _stored(store: ArangoStore, kind: str) -> set[str]:
 def test_a_second_run_downloads_only_the_toestanden_that_are_new(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _current(store, "BWBR0000001", "BWBR0000002")
     sru = _Sru(
         {

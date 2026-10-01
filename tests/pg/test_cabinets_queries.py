@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.cabinets import (
     cabinets_with_posts,
     get_cabinet,
@@ -36,7 +36,7 @@ def _edge(key: str, source: str, target: str, relation: str, **meta: Any) -> dic
 
 
 @pytest.fixture()
-def government(store: ArangoStore) -> ArangoStore:
+def government(store: GraphStore) -> GraphStore:
     nodes = {
         "members": [
             _node("m1", name="Eelco Heinen"),
@@ -214,7 +214,7 @@ def government(store: ArangoStore) -> ArangoStore:
     return store
 
 
-def test_the_cabinets_newest_first_with_their_counts(government: ArangoStore) -> None:
+def test_the_cabinets_newest_first_with_their_counts(government: GraphStore) -> None:
     cabinets = get_cabinets(government)
     assert [c["cabinet"]["_key"] for c in cabinets] == [
         "jetten",
@@ -247,7 +247,7 @@ def test_the_cabinets_newest_first_with_their_counts(government: ArangoStore) ->
     ]
 
 
-def test_nothing_stored_nothing_listed(store: ArangoStore) -> None:
+def test_nothing_stored_nothing_listed(store: GraphStore) -> None:
     assert get_cabinets(store) == []
     assert cabinets_with_posts(store) == []
     assert get_cabinet(store, "jetten") is None
@@ -260,7 +260,7 @@ def test_nothing_stored_nothing_listed(store: ArangoStore) -> None:
 
 
 def test_a_cabinet_with_its_members_and_what_they_signed(
-    government: ArangoStore,
+    government: GraphStore,
 ) -> None:
     jetten = get_cabinet(government, "jetten")
     assert jetten is not None
@@ -314,7 +314,7 @@ def test_a_cabinet_with_its_members_and_what_they_signed(
     assert get_cabinet(government, "nope") is None
 
 
-def test_a_cabinet_without_a_start_or_an_end(store: ArangoStore) -> None:
+def test_a_cabinet_without_a_start_or_an_end(store: GraphStore) -> None:
     today = dt.date.today().isoformat()
     store.bulk_insert_or_update_nodes(
         "cabinets",
@@ -362,7 +362,7 @@ def _keys(page: dict[str, Any]) -> list[str]:
 
 
 def test_the_commitments_newest_first_with_their_facets(
-    government: ArangoStore,
+    government: GraphStore,
 ) -> None:
     page = get_commitments(government)
     assert list(page) == ["total", "items", "facets"]
@@ -404,7 +404,7 @@ def test_the_commitments_newest_first_with_their_facets(
     assert get_commitment(government, "nope") is None
 
 
-def test_each_facet_counts_without_its_own_filter(government: ArangoStore) -> None:
+def test_each_facet_counts_without_its_own_filter(government: GraphStore) -> None:
     page = get_commitments(government, status="Openstaand", ministry="fin")
     assert page["total"] == 2 and _keys(page) == ["k2", "k1"]
     assert page["facets"] == {
@@ -439,7 +439,7 @@ def test_each_facet_counts_without_its_own_filter(government: ArangoStore) -> No
     ],
 )
 def test_the_commitment_filters(
-    government: ArangoStore, filters: dict[str, Any], keys: list[str]
+    government: GraphStore, filters: dict[str, Any], keys: list[str]
 ) -> None:
     page = get_commitments(government, **filters)
     assert _keys(page) == keys
@@ -447,7 +447,7 @@ def test_the_commitment_filters(
         assert page["total"] == len(keys)
 
 
-def test_the_posts_of_every_cabinet_oldest_first(government: ArangoStore) -> None:
+def test_the_posts_of_every_cabinet_oldest_first(government: GraphStore) -> None:
     rows = cabinets_with_posts(government)
     assert [r["key"] for r in rows] == ["old", "schoof", "tie", "jetten"]
     assert all(list(r) == ["key", "props", "posts"] for r in rows)

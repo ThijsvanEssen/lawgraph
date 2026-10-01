@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
-from lawgraph.db import ArangoStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.db.queries.semantic import edges as semantic_edges
@@ -48,11 +48,11 @@ def _edge(
     }
 
 
-def _edge_keys(store: ArangoStore) -> list[str]:
+def _edge_keys(store: GraphStore) -> list[str]:
     return list(store.query("SELECT key FROM edges ORDER BY key"))
 
 
-def _node_keys(store: ArangoStore, table: str) -> list[str]:
+def _node_keys(store: GraphStore, table: str) -> list[str]:
     return list(store.query(f"SELECT key FROM {table} ORDER BY key"))
 
 
@@ -60,7 +60,7 @@ def _node_keys(store: ArangoStore, table: str) -> list[str]:
 
 
 @pytest.fixture()
-def derived(store: ArangoStore) -> ArangoStore:
+def derived(store: GraphStore) -> GraphStore:
     a, b, c = "articles/a", "articles/b", "articles/c"
     store.bulk_insert_or_update_edges(
         [
@@ -78,7 +78,7 @@ def derived(store: ArangoStore) -> ArangoStore:
 
 
 def test_remove_edges_of_source_except_keeps_the_kept_and_the_others(
-    derived: ArangoStore,
+    derived: GraphStore,
 ) -> None:
     removed = semantic_edges.remove_edges_of_source_except(
         derived, "REFERS_TO", "s", ["ab", "ca"]
@@ -89,12 +89,12 @@ def test_remove_edges_of_source_except_keeps_the_kept_and_the_others(
     )
 
 
-def test_remove_edges_of_source_except_with_nothing_kept(derived: ArangoStore) -> None:
+def test_remove_edges_of_source_except_with_nothing_kept(derived: GraphStore) -> None:
     assert semantic_edges.remove_edges_of_source_except(derived, "AMENDS", "s", []) == 2
     assert semantic_edges.remove_edges_of_source_except(derived, "AMENDS", "s", []) == 0
 
 
-def test_remove_edges_from_per_node_keep_and_chunks(derived: ArangoStore) -> None:
+def test_remove_edges_from_per_node_keep_and_chunks(derived: GraphStore) -> None:
     removed = semantic_edges.remove_edges_from(
         derived,
         "REFERS_TO",
@@ -111,7 +111,7 @@ def test_remove_edges_from_per_node_keep_and_chunks(derived: ArangoStore) -> Non
 
 
 def test_remove_edges_from_a_node_without_keep_loses_them_all(
-    derived: ArangoStore,
+    derived: GraphStore,
 ) -> None:
     assert (
         semantic_edges.remove_edges_from(derived, "REFERS_TO", "s", ["articles/c"], {})
@@ -121,7 +121,7 @@ def test_remove_edges_from_a_node_without_keep_loses_them_all(
     assert semantic_edges.remove_edges_from(derived, "REFERS_TO", "s", [], {}) == 0
 
 
-def test_remove_edges_to_per_node_keep_and_relations(derived: ArangoStore) -> None:
+def test_remove_edges_to_per_node_keep_and_relations(derived: GraphStore) -> None:
     removed = semantic_edges.remove_edges_to(
         derived,
         ["REFERS_TO", "AMENDS"],
@@ -139,7 +139,7 @@ def test_remove_edges_to_per_node_keep_and_relations(derived: ArangoStore) -> No
 
 
 @pytest.fixture()
-def tk_graph(store: ArangoStore) -> ArangoStore:
+def tk_graph(store: GraphStore) -> GraphStore:
     store.bulk_insert_or_update_nodes(
         "decisions",
         [
@@ -169,7 +169,7 @@ def tk_graph(store: ArangoStore) -> ArangoStore:
     return store
 
 
-def test_remove_nodes_takes_their_edges_along(tk_graph: ArangoStore) -> None:
+def test_remove_nodes_takes_their_edges_along(tk_graph: GraphStore) -> None:
     removed = normalize_edges.remove_nodes(tk_graph, "decisions", ["d1", "dx", "d3"])
     assert removed == 2  # dx is no node
     assert _node_keys(tk_graph, "decisions") == ["d2", "d4", "d5", "d6", "d7"]
@@ -178,20 +178,20 @@ def test_remove_nodes_takes_their_edges_along(tk_graph: ArangoStore) -> None:
 
 
 def test_remove_nodes_in_chunks(
-    tk_graph: ArangoStore, monkeypatch: pytest.MonkeyPatch
+    tk_graph: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(normalize_edges, "_REMOVE_CHUNK", 1)
     assert normalize_edges.remove_nodes(tk_graph, "decisions", ["d1", "d2"]) == 2
     assert normalize_edges.remove_nodes(tk_graph, "decisions", []) == 0
 
 
-def test_remove_nodes_except(tk_graph: ArangoStore) -> None:
+def test_remove_nodes_except(tk_graph: GraphStore) -> None:
     assert normalize_edges.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
     assert _node_keys(tk_graph, "decisions") == ["d1", "d7"]
     assert len(_edge_keys(tk_graph)) == 8  # the edges stay, as in ArangoDB
 
 
-def test_remove_nodes_of_records(tk_graph: ArangoStore) -> None:
+def test_remove_nodes_of_records(tk_graph: GraphStore) -> None:
     assert normalize_edges.remove_nodes_of_records(tk_graph, "decisions", []) == 0
     removed = normalize_edges.remove_nodes_of_records(
         tk_graph, "decisions", ["r1", "r3"]
@@ -202,7 +202,7 @@ def test_remove_nodes_of_records(tk_graph: ArangoStore) -> None:
     assert _edge_keys(tk_graph) == ["e3", "e4", "e5", "e6", "e7"]
 
 
-def test_remove_edges_of_records(tk_graph: ArangoStore) -> None:
+def test_remove_edges_of_records(tk_graph: GraphStore) -> None:
     assert normalize_edges.remove_edges_of_records(tk_graph, []) == 0
     removed = normalize_edges.remove_edges_of_records(tk_graph, ["r1", "r2", "r3"])
     # e1, e2, e4 are made of them alone; e3 names r9, e5 names 5, e6-e8 name none
@@ -211,7 +211,7 @@ def test_remove_edges_of_records(tk_graph: ArangoStore) -> None:
 
 
 def test_remove_edges_of_records_in_chunks_against_all(
-    tk_graph: ArangoStore, monkeypatch: pytest.MonkeyPatch
+    tk_graph: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(normalize_edges, "_REMOVE_CHUNK", 1)
     # e2 (r1, r2) is in two chunks and goes once; it is made of the whole list alone
@@ -219,7 +219,7 @@ def test_remove_edges_of_records_in_chunks_against_all(
     assert _edge_keys(tk_graph) == ["e3", "e4", "e5", "e6", "e7", "e8"]
 
 
-def test_remove_edges_into_except(tk_graph: ArangoStore) -> None:
+def test_remove_edges_into_except(tk_graph: GraphStore) -> None:
     removed = normalize_edges.remove_edges_into_except(
         tk_graph, "REFERS_TO", ["factions/f", "factions/g"], ["e1"]
     )
@@ -227,7 +227,7 @@ def test_remove_edges_into_except(tk_graph: ArangoStore) -> None:
     assert _edge_keys(tk_graph) == ["e1", "e2", "e6", "e7", "e8"]
 
 
-def test_remove_edges_except(tk_graph: ArangoStore) -> None:
+def test_remove_edges_except(tk_graph: GraphStore) -> None:
     tk_graph.bulk_insert_or_update_edges([_edge("x1", "a/1", "b/1", relation="AMENDS")])
     assert normalize_edges.remove_edges_except(tk_graph, "REFERS_TO", ["e2", "e8"]) == 6
     assert _edge_keys(tk_graph) == ["e2", "e8", "x1"]
@@ -237,7 +237,7 @@ def test_remove_edges_except(tk_graph: ArangoStore) -> None:
 
 
 @pytest.fixture()
-def laws(store: ArangoStore) -> ArangoStore:
+def laws(store: GraphStore) -> GraphStore:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -283,7 +283,7 @@ def laws(store: ArangoStore) -> ArangoStore:
     return store
 
 
-def test_basis_bwb_ids_most_named_first_then_by_id(laws: ArangoStore) -> None:
+def test_basis_bwb_ids_most_named_first_then_by_id(laws: GraphStore) -> None:
     # 9 named twice (once in lower case), 8 twice, 7 once; not the eurlex one
     assert list(gap_queries.basis_bwb_ids(laws)) == [
         "BWBR0000008",
@@ -292,7 +292,7 @@ def test_basis_bwb_ids_most_named_first_then_by_id(laws: ArangoStore) -> None:
     ]
 
 
-def test_loaded_bwb_ids_upper_case_without_stubs(laws: ArangoStore) -> None:
+def test_loaded_bwb_ids_upper_case_without_stubs(laws: GraphStore) -> None:
     assert set(gap_queries.loaded_bwb_ids(laws)) == {
         "BWBR0000001",
         "BWBR0000002",
@@ -301,7 +301,7 @@ def test_loaded_bwb_ids_upper_case_without_stubs(laws: ArangoStore) -> None:
     }
 
 
-def test_stub_article_counts_most_first_then_by_id(laws: ArangoStore) -> None:
+def test_stub_article_counts_most_first_then_by_id(laws: GraphStore) -> None:
     assert list(gap_queries.stub_article_counts(laws)) == [
         {"bwb_id": "BWBR0000020", "count": 2},
         {"bwb_id": "BWBR0000030", "count": 2},
@@ -309,7 +309,7 @@ def test_stub_article_counts_most_first_then_by_id(laws: ArangoStore) -> None:
     ]
 
 
-def test_instrument_titles_the_first_truthy_title(laws: ArangoStore) -> None:
+def test_instrument_titles_the_first_truthy_title(laws: GraphStore) -> None:
     assert list(gap_queries.instrument_titles(laws)) == [
         {"bwb_id": "BWBR0000001", "title": "Wet een"},
         {"bwb_id": "bwbr0000002", "title": "Wet twee"},  # "" is falsy
@@ -322,7 +322,7 @@ def test_instrument_titles_the_first_truthy_title(laws: ArangoStore) -> None:
 # ── gaps: judgments, EU acts, treaties ───────────────────────────────────────
 
 
-def test_stub_judgment_eclis(store: ArangoStore) -> None:
+def test_stub_judgment_eclis(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
@@ -345,7 +345,7 @@ def test_stub_judgment_eclis(store: ArangoStore) -> None:
     ]
 
 
-def test_unanswered_preliminary_rulings(store: ArangoStore) -> None:
+def test_unanswered_preliminary_rulings(store: GraphStore) -> None:
     ruling = {"type": PROCEDURE_PRELIMINARY_RULING}
     store.bulk_insert_or_update_nodes(
         "judgments",
@@ -379,7 +379,7 @@ def test_unanswered_preliminary_rulings(store: ArangoStore) -> None:
     ]
 
 
-def test_unretrieved_celex_refs(store: ArangoStore) -> None:
+def test_unretrieved_celex_refs(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -407,7 +407,7 @@ def test_unretrieved_celex_refs(store: ArangoStore) -> None:
     assert list(gap_queries.known_celex_ids(store)) == ["X1", "X0"]
 
 
-def test_stub_treaty_ids_in_key_order(store: ArangoStore) -> None:
+def test_stub_treaty_ids_in_key_order(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -424,7 +424,7 @@ def test_stub_treaty_ids_in_key_order(store: ArangoStore) -> None:
 # ── gaps: Kamerstukken and dossiers ──────────────────────────────────────────
 
 
-def test_papers_with_dossier(store: ArangoStore) -> None:
+def test_papers_with_dossier(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [
@@ -481,7 +481,7 @@ def test_papers_with_dossier(store: ArangoStore) -> None:
     assert list(rows[0]) == ["key", "title", "number", "suffix", "sequence", "date"]
 
 
-def test_existing_raw_keys_and_retry_after(store: ArangoStore) -> None:
+def test_existing_raw_keys_and_retry_after(store: GraphStore) -> None:
     def doc(external_id: str, **meta: Any) -> dict[str, Any]:
         return raw_source_doc(
             source=SOURCE_TK, kind="k", external_id=external_id, meta=meta
@@ -501,7 +501,7 @@ def test_existing_raw_keys_and_retry_after(store: ArangoStore) -> None:
     ) == [keys[0]]
 
 
-def test_dossier_gaps(store: ArangoStore) -> None:
+def test_dossier_gaps(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "dossiers",
         [_node("d1", number="100", label="100"), _node("d2", label="200-VI")],
@@ -536,7 +536,7 @@ def test_dossier_gaps(store: ArangoStore) -> None:
     assert gap_queries.dossiers_named_by_papers(store) == ["450-X", "500"]
 
 
-def test_dossiers_missing_papers(store: ArangoStore) -> None:
+def test_dossiers_missing_papers(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [

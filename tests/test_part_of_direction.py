@@ -69,8 +69,8 @@ def test_eu_normalize_writes_article_to_instrument() -> None:
     )
 
     (edge,) = store.edges.values()
-    assert edge["_from"] == article.arango_id
-    assert edge["_to"] == instrument.arango_id
+    assert edge["_from"] == article.node_id
+    assert edge["_to"] == instrument.node_id
 
 
 def test_part_of_endpoints_match_the_catalogue() -> None:

@@ -8,7 +8,7 @@ from lawgraph.clients.staatscourant import StaatscourantClient
 from lawgraph.config.constants import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import (
     FailureStreak,
@@ -25,7 +25,7 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for Staatscourant ministeriele regelingen XML documents."""
 
     def __init__(
-        self, store: ArangoStore, client: StaatscourantClient | None = None
+        self, store: GraphStore, client: StaatscourantClient | None = None
     ) -> None:
         super().__init__(store)
         self.client = client or StaatscourantClient()

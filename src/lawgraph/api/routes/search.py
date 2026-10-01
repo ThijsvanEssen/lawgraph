@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.search import SEARCH_TYPES, SearchResponse, SearchResultItem
 from lawgraph.core.logging import get_logger
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.search import search_all
 
 router = APIRouter()
@@ -32,7 +32,7 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
 )
 def search(
     q: Annotated[str, Query(min_length=1, description="Search term")],
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     types: Annotated[
         list[str],
         Query(description="Entity types to search"),

@@ -15,7 +15,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 BW7 = "BWBR0005290"
 # a book of the BW numbers its articles without the book, as the graph stores them
@@ -24,7 +24,7 @@ KEY = make_node_key(BW7, "231")
 
 @pytest.fixture()
 def client(database: str) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     doc = {
         "_key": KEY,
         "type": "article",

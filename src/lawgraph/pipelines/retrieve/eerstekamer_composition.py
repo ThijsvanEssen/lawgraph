@@ -14,7 +14,7 @@ from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import RAW_KIND_EK_COMPOSITION, SOURCE_EERSTEKAMER
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -24,7 +24,7 @@ class EerstekamerCompositionRetrievePipeline(RetrievePipelineBase):
     today."""
 
     def __init__(
-        self, store: ArangoStore, client: EerstekamerSiteClient | None = None
+        self, store: GraphStore, client: EerstekamerSiteClient | None = None
     ) -> None:
         super().__init__(store)
         self.client = client or EerstekamerSiteClient()

@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries import search as search_module
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
@@ -32,13 +32,13 @@ GDPR = "32016R0679"
 ECLI = "ECLI:NL:HR:2020:7"
 
 
-def _put(store: ArangoStore, collection: str, key: str, **props: Any) -> None:
+def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
     doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
 def _instrument(
-    store: ArangoStore, law_id: str, title: str, short: str | None = None, **more: Any
+    store: GraphStore, law_id: str, title: str, short: str | None = None, **more: Any
 ) -> None:
     ids = {"celex": law_id} if law_id[0].isdigit() else {"bwb_id": law_id}
     _put(
@@ -55,7 +55,7 @@ def _instrument(
 
 
 def _article(
-    store: ArangoStore, law_id: str, number: str, cited: int = 0, **more: Any
+    store: GraphStore, law_id: str, number: str, cited: int = 0, **more: Any
 ) -> None:
     ids = {"celex": law_id} if law_id[0].isdigit() else {"bwb_id": law_id}
     _put(
@@ -72,8 +72,8 @@ def _article(
 
 
 @pytest.fixture()
-def store(database: str) -> ArangoStore:
-    store = ArangoStore()
+def store(database: str) -> GraphStore:
+    store = GraphStore()
     _instrument(store, GW, "Grondwet")
     _instrument(store, SR, "Wetboek van Strafrecht", "Sr")
     _instrument(store, AWB, "Algemene wet bestuursrecht", "Awb")
@@ -143,7 +143,7 @@ def _keys(answer: dict[str, Any]) -> list[str]:
 
 
 def test_an_identifier_resolves_to_its_node_with_full_confidence(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     ecli = resolve(store, "ecli:nl:hr:2020:7")
     assert ecli["kind"] == "judgment" and ecli["confidence"] == 1.0
@@ -159,7 +159,7 @@ def test_an_identifier_resolves_to_its_node_with_full_confidence(
 
 
 def test_an_identifier_nobody_loaded_is_no_match_not_an_error(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     for query in (
         "ECLI:NL:HR:1999:1",
@@ -197,7 +197,7 @@ def test_an_identifier_nobody_loaded_is_no_match_not_an_error(
     ],
 )
 def test_an_article_of_a_named_law_is_one_key(
-    store: ArangoStore, query: str, key: str
+    store: GraphStore, query: str, key: str
 ) -> None:
     answer = resolve(store, query)
     assert answer["kind"] == "article"
@@ -207,34 +207,34 @@ def test_an_article_of_a_named_law_is_one_key(
     assert answer["alternatives"] == []
 
 
-def test_the_book_is_not_an_article_of_its_own(store: ArangoStore) -> None:
+def test_the_book_is_not_an_article_of_its_own(store: GraphStore) -> None:
     """`art. 6:162 BW` is article 162 of book 6, never article 6 of any law."""
     answer = resolve(store, "art. 6:162 BW")
     assert answer["match"]["key"] == "bwbr0005289_162"
     assert not any(k.endswith("_6") for k in _keys(answer))
 
 
-def test_the_qualifier_of_a_citation_is_returned(store: ArangoStore) -> None:
+def test_the_qualifier_of_a_citation_is_returned(store: GraphStore) -> None:
     assert resolve(store, "artikel 287, derde lid, Sr")["qualifier"] == "derde lid"
     assert resolve(store, "art. 6:162 lid 2 BW")["qualifier"] == "lid 2"
     assert resolve(store, "artikel 287 Sr")["qualifier"] is None
 
 
-def test_an_article_that_the_law_does_not_have_is_no_match(store: ArangoStore) -> None:
+def test_an_article_that_the_law_does_not_have_is_no_match(store: GraphStore) -> None:
     assert resolve(store, "artikel 999 Sr")["kind"] == "none"
     assert resolve(store, "art. 9:1 BW")["kind"] == "none"
     assert resolve(store, "artikel 5 Onbekende wet")["kind"] == "none"
 
 
 def test_an_enumeration_lists_the_other_articles_as_alternatives(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     answer = resolve(store, "artikelen 287 en 36e Sr")
     assert sorted(_keys(answer)) == ["bwbr0001854_287", "bwbr0001854_36e"]
 
 
 def test_an_article_without_a_law_is_the_most_cited_of_several(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     answer = resolve(store, "artikel 1")
     assert answer["kind"] == "article"
@@ -243,14 +243,14 @@ def test_an_article_without_a_law_is_the_most_cited_of_several(
     assert len(answer["alternatives"]) == 2 <= ALTERNATIVES
 
 
-def test_an_article_without_a_law_that_only_one_law_has(store: ArangoStore) -> None:
+def test_an_article_without_a_law_that_only_one_law_has(store: GraphStore) -> None:
     answer = resolve(store, "art. 3:4")
     assert answer["match"]["key"] == "bwbr0005537_3_4"
     assert answer["confidence"] == 0.5
     assert answer["alternatives"] == []
 
 
-def _treaty_and_eu_act(store: ArangoStore) -> None:
+def _treaty_and_eu_act(store: GraphStore) -> None:
     """The EVRM as ``normalize bwb`` writes it, and the AVG with the short title of
     EUR-Lex; its abbreviation is the one ``curated instrument-abbreviations`` keeps."""
     _evrm(store)
@@ -277,7 +277,7 @@ def _treaty_and_eu_act(store: ArangoStore) -> None:
     ],
 )
 def test_an_article_of_a_treaty_or_eu_act_by_its_abbreviation(
-    store: ArangoStore, query: str, key: str
+    store: GraphStore, query: str, key: str
 ) -> None:
     _treaty_and_eu_act(store)
     answer = resolve(store, query)
@@ -285,7 +285,7 @@ def test_an_article_of_a_treaty_or_eu_act_by_its_abbreviation(
     assert answer["confidence"] == 0.95
 
 
-def test_a_treaty_or_eu_act_by_its_abbreviation(store: ArangoStore) -> None:
+def test_a_treaty_or_eu_act_by_its_abbreviation(store: GraphStore) -> None:
     _treaty_and_eu_act(store)
     for query, key in (("EVRM", "bwbv0001000"), ("AVG", "32016r0679")):
         answer = resolve(store, query)
@@ -294,7 +294,7 @@ def test_a_treaty_or_eu_act_by_its_abbreviation(store: ArangoStore) -> None:
 
 
 def test_an_article_of_a_law_that_is_not_loaded_is_no_match(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     assert resolve(store, "art. 350 Sv")["kind"] == "none"
 
@@ -305,7 +305,7 @@ def test_an_article_of_a_law_that_is_not_loaded_is_no_match(
 @pytest.mark.parametrize(
     "query", ["36327", "Kamerstuk 36327", "36 327", "dossier 36327"]
 )
-def test_a_dossier_number_is_the_dossier(store: ArangoStore, query: str) -> None:
+def test_a_dossier_number_is_the_dossier(store: GraphStore, query: str) -> None:
     answer = resolve(store, query)
     assert (answer["kind"], answer["match"]["key"]) == ("dossier", "36327")
     assert answer["confidence"] == 0.95
@@ -313,7 +313,7 @@ def test_a_dossier_number_is_the_dossier(store: ArangoStore, query: str) -> None
 
 
 def test_a_suffix_picks_its_dossier_and_a_bare_number_lists_them(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     answer = resolve(store, "29684-I")
     assert answer["match"]["key"] == "29684_i" and answer["confidence"] == 0.95
@@ -335,7 +335,7 @@ def test_a_suffix_picks_its_dossier_and_a_bare_number_lists_them(
     ],
 )
 def test_a_paper_is_found_through_its_dossier_and_ondernummer(
-    store: ArangoStore, query: str
+    store: GraphStore, query: str
 ) -> None:
     answer = resolve(store, query)
     assert (answer["kind"], answer["match"]["key"]) == ("document", "tk-3")
@@ -343,13 +343,28 @@ def test_a_paper_is_found_through_its_dossier_and_ondernummer(
     assert answer["confidence"] == 0.95
 
 
-def test_an_eerste_kamer_paper_is_found_by_its_letter(store: ArangoStore) -> None:
-    answer = resolve(store, "Kamerstuk I 35925, nr. A")
+@pytest.mark.parametrize(
+    "query", ["Kamerstuk I 35925, nr. A", "Kamerstukken I 2020/21, 35925, A"]
+)
+def test_an_eerste_kamer_paper_is_found_by_its_letter(
+    store: GraphStore, query: str
+) -> None:
+    answer = resolve(store, query)
     assert (answer["kind"], answer["match"]["key"]) == ("document", "ek_a")
 
 
+@pytest.mark.parametrize("query", ["Staatsblad 2026, 94", "Stb. 2026, 94"])
+def test_a_staatsblad_publication_is_found(store: GraphStore, query: str) -> None:
+    """BE-45: the publication is an instrument of its own."""
+    _put(store, COLLECTION_INSTRUMENTS, "stb_2026_94", kind="publicatie", year="2026")
+    answer = resolve(store, query)
+    assert (answer["kind"], answer["match"]["key"]) == ("instrument", "stb_2026_94")
+    assert answer["confidence"] == 1.0
+    assert resolve(store, "Stb. 2026, 95")["kind"] == "none"
+
+
 def test_a_paper_the_graph_lacks_is_answered_with_its_dossier(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     answer = resolve(store, "36327-99")
     assert (answer["kind"], answer["match"]["key"]) == ("dossier", "36327")
@@ -360,7 +375,7 @@ def test_a_paper_the_graph_lacks_is_answered_with_its_dossier(
 # ── law names ─────────────────────────────────────────────────────────────────
 
 
-def test_a_law_by_exact_name_or_abbreviation(store: ArangoStore) -> None:
+def test_a_law_by_exact_name_or_abbreviation(store: GraphStore) -> None:
     for query in (
         "Wetboek van Strafrecht",
         "wetboek van strafrecht",
@@ -375,14 +390,14 @@ def test_a_law_by_exact_name_or_abbreviation(store: ArangoStore) -> None:
     assert resolve(store, "de Grondwet")["match"]["key"] == "bwbr0001840"
 
 
-def test_a_name_two_laws_share_lists_both_and_is_not_sure(store: ArangoStore) -> None:
+def test_a_name_two_laws_share_lists_both_and_is_not_sure(store: GraphStore) -> None:
     answer = resolve(store, "Besluit ruimte")
     assert sorted(_keys(answer)) == ["bwbr0009001", "bwbr0009002"]
     assert answer["confidence"] == 0.5
 
 
 def test_a_law_by_the_start_or_part_of_its_name_is_less_sure(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     prefix = resolve(store, "algemene wet")
     assert prefix["match"]["key"] == "bwbr0005537" and prefix["confidence"] == 0.6
@@ -392,7 +407,7 @@ def test_a_law_by_the_start_or_part_of_its_name_is_less_sure(
 
 
 def test_an_exact_name_comes_before_names_that_start_with_it(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _instrument(store, "BWBR0009100", "Grondwet voor het Koninkrijk der Nederlanden")
     search_module._law_cache.clear()
@@ -404,7 +419,7 @@ def test_an_exact_name_comes_before_names_that_start_with_it(
 # ── search: rank, parent title, dossier number ────────────────────────────────
 
 
-def test_search_finds_a_citation_the_old_parser_lost(store: ArangoStore) -> None:
+def test_search_finds_a_citation_the_old_parser_lost(store: GraphStore) -> None:
     hits = search_all(store, q="art. 6:162 BW", types=["articles"], limit=5)["articles"]
     assert hits[0]["key"] == "bwbr0005289_162"
     assert hits[0]["score"] == 1.0
@@ -413,7 +428,7 @@ def test_search_finds_a_citation_the_old_parser_lost(store: ArangoStore) -> None
 
 
 def test_search_articles_carry_the_title_of_their_law_also_for_eu_acts(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     hits = search_all(store, q="artikel 287 Sr", types=["articles"], limit=5)[
         "articles"
@@ -435,7 +450,7 @@ def test_search_articles_carry_the_title_of_their_law_also_for_eu_acts(
     ],
 )
 def test_search_a_citation_finds_its_article_first_with_the_top_score(
-    store: ArangoStore, query: str, key: str
+    store: GraphStore, query: str, key: str
 ) -> None:
     hits = search_all(store, q=query, types=["articles"], limit=5)["articles"]
     assert hits[0]["key"] == key
@@ -444,20 +459,20 @@ def test_search_a_citation_finds_its_article_first_with_the_top_score(
 
 
 def test_search_an_article_without_law_looks_at_every_law_with_that_number(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     hits = search_all(store, q="artikel 1", types=["articles"], limit=5)["articles"]
     precise = [h["key"] for h in hits if h["score"] == SCORE_IDENTIFIER]
     assert precise == ["bwbr0001840_1", "bwbr0001854_1", "bwbr0005537_1"]
 
 
-def test_search_falls_back_to_text_for_free_form_queries(store: ArangoStore) -> None:
+def test_search_falls_back_to_text_for_free_form_queries(store: GraphStore) -> None:
     hits = search_all(store, q="Tekst", types=["articles"], limit=10)["articles"]
     assert hits and {h["score"] for h in hits} == {SCORE_WORDS}
 
 
 def test_search_orders_by_score_and_documents_carry_their_dossier(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     articles = search_all(store, q="Tekst", types=["articles"], limit=10)["articles"]
     assert articles and all(0 < a["score"] <= 1 for a in articles)
@@ -472,7 +487,7 @@ def test_search_orders_by_score_and_documents_carry_their_dossier(
     assert papers[0]["extra"]["dossier_number"] == "35925"
 
 
-def test_search_one_article_hit_costs_no_query_of_its_own(store: ArangoStore) -> None:
+def test_search_one_article_hit_costs_no_query_of_its_own(store: GraphStore) -> None:
     """The parent title comes in the one query, not one lookup per hit."""
     queries: list[str] = []
     run = store.query
@@ -489,7 +504,7 @@ def test_search_one_article_hit_costs_no_query_of_its_own(store: ArangoStore) ->
     assert len(article_queries) <= 3
 
 
-def _evrm(store: ArangoStore) -> None:
+def _evrm(store: GraphStore) -> None:
     """The ECHR Convention as ``normalize bwb`` writes BWBV0001000: EVRM from its WTI."""
     store.bulk_insert_or_update_nodes(
         COLLECTION_INSTRUMENTS,

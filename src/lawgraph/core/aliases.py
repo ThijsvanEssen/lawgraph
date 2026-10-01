@@ -7,6 +7,7 @@ from typing import Any
 
 from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.curated import LISTS
+from lawgraph.core.identifiers import is_bwb_id
 
 InstrumentAliasMap = dict[str, tuple[str | None, str | None]]
 
@@ -17,6 +18,18 @@ def curated_abbreviations() -> dict[str, list[str]]:
         law_id.upper(): list((value or {}).get("abbreviations") or [])
         for law_id, value in LISTS["instrument-abbreviations"].entries().items()
     }
+
+
+def abbreviation_of(
+    law_id: str, short_title: str | None, curated: Mapping[str, Sequence[str]]
+) -> str | None:
+    """The abbreviation an instrument is cited by: the short title of a BWB regulation or
+    treaty (its WTI ``afkorting``, ``choose_short_titles``: EVRM), else the first one kept
+    by hand for it (``curated instrument-abbreviations``: AVG for 32016R0679; EUR-Lex gives
+    an EU act a short title in words, never an abbreviation); None without either."""
+    if short_title and is_bwb_id(law_id):
+        return short_title
+    return next(iter(curated.get(law_id.upper()) or ()), None)
 
 
 def code_aliases(

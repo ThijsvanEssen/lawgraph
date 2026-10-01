@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import uid
 
 DOSSIER = {"Id": uid(1, 3), "Nummer": 36774, "Toevoeging": None, "Titel": "Wet ACM"}
@@ -48,7 +48,7 @@ VOTE = {
 
 
 def test_a_decision_names_its_dossiers_and_its_chamber(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for kind, payload in (
             (RAW_KIND_TK_DOSSIER, DOSSIER),

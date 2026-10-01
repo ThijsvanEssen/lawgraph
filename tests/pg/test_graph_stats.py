@@ -9,7 +9,7 @@ from psycopg import sql
 
 from lawgraph.core.courts import COURT_BY_CODE
 from lawgraph.core.judgments import KIND_OF_COURT_KIND
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import graph_stats
 from lawgraph.db.store import _query
 
@@ -30,14 +30,14 @@ def _edge(key: str, source: str, target: str, relation: str) -> dict[str, Any]:
     }
 
 
-def _props(store: ArangoStore, collection: str, key: str) -> dict[str, Any]:
+def _props(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
     doc = store.get_document(collection, key)
     assert doc is not None
     return doc["props"]
 
 
 def test_instruments_count_their_articles_and_what_refers_to_them(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
@@ -72,7 +72,7 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
     assert _props(store, "instruments", "x")["jurisdiction"] == ""
 
 
-def test_judgments_get_their_court_date_and_citations(store: ArangoStore) -> None:
+def test_judgments_get_their_court_date_and_citations(store: GraphStore) -> None:
     hr = COURT_BY_CODE["HR"]
     store.bulk_insert_or_update_nodes(
         "judgments",
@@ -108,7 +108,7 @@ def test_judgments_get_their_court_date_and_citations(store: ArangoStore) -> Non
     assert graph_stats.refresh_judgments(store, dry_run=True) == 0
 
 
-def test_committees_count_the_open_dossiers_they_lead(store: ArangoStore) -> None:
+def test_committees_count_the_open_dossiers_they_lead(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "committees",
         [_node("c1", "committee"), _node("c2", "committee", ended_on="2000-01-01")],
@@ -132,7 +132,7 @@ def test_committees_count_the_open_dossiers_they_lead(store: ArangoStore) -> Non
     assert _props(store, "committees", "c2")["active_dossier_count"] == 0
 
 
-def test_articles_count_what_refers_to_and_explains_them(store: ArangoStore) -> None:
+def test_articles_count_what_refers_to_and_explains_them(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes("articles", [_node("a", "article")])
     store.bulk_insert_or_update_edges(
         [
@@ -153,7 +153,7 @@ def _scans(node: dict[str, Any]) -> Iterator[tuple[str, str, str]]:
 
 
 def test_the_citations_of_a_judgment_are_counted_through_the_edge_index(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """Per judgment the edges to it and to what is the same decision as it: one ``= ANY``
     of ids. An OR of the two read every edge for every judgment (the parity build stopped

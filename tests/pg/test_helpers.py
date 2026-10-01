@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import _helpers
 
 
@@ -24,7 +24,7 @@ def _edge(key: str, source: str, target: str, relation: str) -> dict[str, Any]:
     }
 
 
-def test_the_instrument_and_the_judgments_of_an_article(store: ArangoStore) -> None:
+def test_the_instrument_and_the_judgments_of_an_article(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments", [_doc("w", "instrument", title="W")]
     )
@@ -71,7 +71,7 @@ def test_the_instrument_and_the_judgments_of_an_article(store: ArangoStore) -> N
     ]
 
 
-def test_a_judgment_by_ecli_item_id_or_appno(store: ArangoStore) -> None:
+def test_a_judgment_by_ecli_item_id_or_appno(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "judgments",
         [

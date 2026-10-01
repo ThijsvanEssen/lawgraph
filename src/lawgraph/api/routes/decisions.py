@@ -23,7 +23,7 @@ from lawgraph.api.schemas.decisions import (
 from lawgraph.api.schemas.documents import DocumentTextResponse
 from lawgraph.api.schemas.dossiers import DOSSIER_NUMBER_PATTERN
 from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
     get_decision_detail,
@@ -54,7 +54,7 @@ _VOTE_CHOICES = {"voor": VOTE_FOR, "tegen": VOTE_AGAINST}
     tags=["decisions"],
 )
 def list_decisions(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     kind: Annotated[
         str | None,
         Query(
@@ -128,7 +128,7 @@ def list_decisions(
 )
 def get_decision(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> DecisionDTO:
     doc = get_decision_detail(store, key)
     if doc is None:
@@ -147,7 +147,7 @@ def get_decision(
 )
 def get_decision_document_route(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> DocumentTextResponse:
     decision = get_decision_detail(store, key)
     if decision is None:

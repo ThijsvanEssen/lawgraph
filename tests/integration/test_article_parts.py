@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.qualifiers import parse_qualifier
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 BWB = "BWBR9100001"
 OTHER = "BWBR9100002"
@@ -63,7 +63,7 @@ TOESTAND = f"""<?xml version='1.0' encoding='utf-8'?>
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for kind, external_id in (
             (RAW_KIND_BWB_TOESTAND, BWB),

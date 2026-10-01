@@ -70,7 +70,7 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
         kept: dict[str, set[str]] = {}
         with NodeWriter(self.store) as nodes:
             for judgment, paragraphs in self._judgment_paragraphs(since_iso):
-                read.append(str(judgment.arango_id))
+                read.append(str(judgment.node_id))
                 unresolved: list[dict[str, Any]] = []
                 for cited in find_mentions(paragraphs, detect).values():
                     if cited.unknown_law:

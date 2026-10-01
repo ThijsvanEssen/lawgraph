@@ -5,12 +5,12 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from tests.integration.seed import seed
 
 
 def _revisions(
-    store: ArangoStore, collection: str, where: str = "true"
+    store: GraphStore, collection: str, where: str = "true"
 ) -> dict[str, str]:
     """The key of every row with its ``xmin``: the transaction that wrote it last."""
     statement = f"SELECT key, xmin::text AS rev FROM {collection} WHERE {where}"
@@ -18,7 +18,7 @@ def _revisions(
 
 
 def test_a_second_run_writes_nothing_and_says_so(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=60, judgments=10, regulations=3)
     cli("normalize", "all")
     cli("semantic", "all")
@@ -43,7 +43,7 @@ def test_a_second_run_writes_nothing_and_says_so(database: str, cli: Any) -> Non
 def test_a_changed_document_is_written_and_the_rest_is_left_alone(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     docs = [
         {"_key": f"n{n}", "type": "case", "labels": ["TK"], "props": {"title": "a"}}
         for n in range(3)
@@ -83,7 +83,7 @@ def test_classifying_relations_again_writes_only_what_changed(
     from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, SOURCE_BWB
     from lawgraph.db import RawSourceWriter, raw_source_doc
 
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(

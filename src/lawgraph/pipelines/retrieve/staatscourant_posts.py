@@ -26,7 +26,7 @@ from lawgraph.core.cabinet_sources import build_cabinets
 from lawgraph.core.post_ministries import query_id, staatscourant_query
 from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.rijksoverheid import parse_page
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -36,7 +36,7 @@ class StaatscourantPostsRetrievePipeline(RetrievePipelineBase):
     """Store per post without a named ministry the creators of the publications naming it."""
 
     def __init__(
-        self, store: ArangoStore, client: StaatscourantClient | None = None
+        self, store: GraphStore, client: StaatscourantClient | None = None
     ) -> None:
         super().__init__(store)
         self.client = client or StaatscourantClient()

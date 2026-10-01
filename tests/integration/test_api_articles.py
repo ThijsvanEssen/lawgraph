@@ -26,7 +26,7 @@ from lawgraph.config.constants import (
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.articles import (
     get_article_explanations,
     get_article_legislative_history,
@@ -87,7 +87,7 @@ def _explains(edges: EdgeWriter, document: str, target: str, **fields: Any) -> N
     )
 
 
-def _build(store: ArangoStore) -> None:
+def _build(store: GraphStore) -> None:
     nodes = [
         _node(
             COLLECTION_DOSSIERS,
@@ -185,7 +185,7 @@ def _build(store: ArangoStore) -> None:
     edges.flush()
 
 
-def _explanations(store: ArangoStore, **page: int) -> dict[str, Any]:
+def _explanations(store: GraphStore, **page: int) -> dict[str, Any]:
     page = {"limit": 100, "offset": 0, **page}
     return get_article_explanations(store, BWB, "5", **page)
 
@@ -200,7 +200,7 @@ def _summary(page: dict[str, Any]) -> list[tuple[str, str, str | None]]:
 def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build(store)
 
     page = _explanations(store)
@@ -220,7 +220,7 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
 
 
 def test_a_row_carries_what_the_dto_needs(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build(store)
 
     items = [ArticleExplanationDTO.from_row(r) for r in _explanations(store)["items"]]
@@ -245,7 +245,7 @@ def test_a_row_carries_what_the_dto_needs(database: str) -> None:
 
 
 def test_the_page_is_cut_and_the_total_is_not(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build(store)
     everything = _summary(_explanations(store))
 
@@ -259,7 +259,7 @@ def test_the_page_is_cut_and_the_total_is_not(database: str) -> None:
 
 
 def test_an_unknown_article_has_no_explanations(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build(store)
 
     assert get_article_explanations(store, BWB, "99", limit=10, offset=0) == {
@@ -271,7 +271,7 @@ def test_an_unknown_article_has_no_explanations(database: str) -> None:
 def test_an_article_of_another_identity_is_not_explained_by_the_versions_of_this_one(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build(store)
 
     other = get_article_explanations(store, BWB, "6", limit=10, offset=0)
@@ -284,7 +284,7 @@ def test_an_article_of_another_identity_is_not_explained_by_the_versions_of_this
 def test_the_legislative_history_is_the_dossiers_that_changed_the_article(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build(store)
     with NodeWriter(store) as writer:
         writer.add_all(
@@ -391,7 +391,7 @@ VERSIONS = 25
 SIZE = 120_000
 
 
-def _build_at_scale(store: ArangoStore) -> None:
+def _build_at_scale(store: GraphStore) -> None:
     """One article of ``VERSIONS`` versions; 3/4 of the documents explain a version of it,
     1/4 the instrument; every document carries a large text."""
     text = "x" * SIZE
@@ -446,7 +446,7 @@ def test_the_explanations_of_an_article_read_no_document_but_the_page(
 ) -> None:
     """Counting and sorting the explanations must not materialise the documents (their
     text is up to a megabyte): as a query of 288 MB of documents it would be stopped."""
-    real = ArangoStore()
+    real = GraphStore()
     _build_at_scale(real)
 
     explained = DOCUMENTS - DOCUMENTS // 4  # every fourth explains only the law

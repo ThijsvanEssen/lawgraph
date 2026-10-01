@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import (
-    ArangoStore,
+    GraphStore,
     RawSourceWriter,
     raw_source_doc,
 )
@@ -51,7 +51,7 @@ def _roll_call_vote() -> dict[str, Any]:
     }
 
 
-def _store(store: ArangoStore, kind: str, source: str, payload: dict[str, Any]) -> None:
+def _store(store: GraphStore, kind: str, source: str, payload: dict[str, Any]) -> None:
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(
@@ -66,7 +66,7 @@ def _store(store: ArangoStore, kind: str, source: str, payload: dict[str, Any]) 
 def test_a_member_the_kamer_gives_no_name_is_named_by_its_votes(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store(store, RAW_KIND_TK_PERSOON, SOURCE_TK, EMPTY_PERSON)
     _store(store, RAW_KIND_TK_STEMMING, SOURCE_TK, _roll_call_vote())
 
@@ -111,7 +111,7 @@ def _signed_letter() -> dict[str, Any]:
 def test_a_member_the_kamer_gives_no_name_is_named_by_what_they_signed(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store(store, RAW_KIND_TK_PERSOON, SOURCE_TK, {**EMPTY_PERSON, "Id": BRUINS})
     _store(store, RAW_KIND_TK_DOCUMENT, SOURCE_TK, _signed_letter())
 
@@ -130,7 +130,7 @@ def test_a_member_of_old_known_by_initials_is_named_by_them(
 ) -> None:
     """W.B. Buma (1807-1848): the Kamer gives him initials and a surname, no first name. He
     is a person of his own, not Sybrand van Haersma Buma."""
-    store = ArangoStore()
+    store = GraphStore()
     buma = {
         "Id": BUMA,
         "Initialen": "WB",

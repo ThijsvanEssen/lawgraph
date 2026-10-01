@@ -16,7 +16,7 @@ from lawgraph.pipelines.retrieve import _gaps
 def ran(monkeypatch) -> dict[str, Any]:
     """The arguments each retrieve pipeline was run with; no store, no network."""
     seen: dict[str, Any] = {}
-    monkeypatch.setattr(retrieve_commands, "ArangoStore", lambda: object())
+    monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     for name in ("BWB", "Rechtspraak", "Eurlex", "ECHR", "Verdragenbank"):
         cls = getattr(retrieve_commands, f"{name}RetrievePipeline")
 

@@ -8,18 +8,18 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     RELATION_SCOPED_BY,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 
 
-def get_annex(store: ArangoStore, key: str) -> dict[str, Any] | None:
+def get_annex(store: GraphStore, key: str) -> dict[str, Any] | None:
     """Return an annex document by key, or None when unknown."""
     doc = store.get_document(COLLECTION_ANNEXES, key)
     return doc if isinstance(doc, dict) else None
 
 
 def get_annex_referenced_by(
-    store: ArangoStore,
+    store: GraphStore,
     key: str,
 ) -> list[dict[str, Any]]:
     """Return articles (across all laws) linked to this annex via SCOPED_BY.

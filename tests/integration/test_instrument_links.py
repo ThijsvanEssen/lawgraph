@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.db import ArangoStore, make_edge_doc
+from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.db.queries.instrument_scope import (
     resolve_instrument,
     scope_of,
@@ -42,7 +42,7 @@ def _node(collection: str, key: str, **props: Any) -> dict[str, Any]:
     return {"_key": key, "type": collection[:-1], "labels": labels, "props": props}
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -226,8 +226,8 @@ def _seed(store: ArangoStore) -> None:
 
 
 @pytest.fixture()
-def store(database: str) -> Iterator[ArangoStore]:
-    store = ArangoStore()
+def store(database: str) -> Iterator[GraphStore]:
+    store = GraphStore()
     _seed(store)
     app.dependency_overrides[get_store] = lambda: store
     yield store
@@ -235,7 +235,7 @@ def store(database: str) -> Iterator[ArangoStore]:
 
 
 def test_the_resolver_names_an_instrument_by_bwb_id_celex_or_key(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     for identifier, key in [
         (REGULATION, "bwbr0009001"),
@@ -259,7 +259,7 @@ def test_the_resolver_names_an_instrument_by_bwb_id_celex_or_key(
 
 
 def test_the_detail_of_a_regulation_an_eu_act_and_an_unknown_instrument(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     client = TestClient(app)
     regulation = client.get(f"/api/instruments/{REGULATION}").json()
@@ -275,7 +275,7 @@ def test_the_detail_of_a_regulation_an_eu_act_and_an_unknown_instrument(
     assert client.get("/api/instruments/BWBR0000000/eu-links").status_code == 404
 
 
-def test_the_sub_routes_answer_for_an_eu_act(store: ArangoStore) -> None:
+def test_the_sub_routes_answer_for_an_eu_act(store: GraphStore) -> None:
     client = TestClient(app)
 
     articles = client.get(f"/api/instruments/{DIRECTIVE}/articles").json()
@@ -301,7 +301,7 @@ def test_the_sub_routes_answer_for_an_eu_act(store: ArangoStore) -> None:
     assert client.get(f"/api/instruments/{REGULATION}/judgments").json()["total"] == 1
 
 
-def test_eu_links_between_a_regulation_and_an_eu_act(store: ArangoStore) -> None:
+def test_eu_links_between_a_regulation_and_an_eu_act(store: GraphStore) -> None:
     client = TestClient(app)
 
     up = client.get(f"/api/instruments/{REGULATION}/eu-links").json()
@@ -332,7 +332,7 @@ def test_eu_links_between_a_regulation_and_an_eu_act(store: ArangoStore) -> None
 
 
 def test_international_links_hold_treaties_and_echr_judgments(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     client = TestClient(app)
 

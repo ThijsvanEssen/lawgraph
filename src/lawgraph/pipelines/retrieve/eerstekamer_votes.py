@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import eerstekamer_votes
 from lawgraph.core.logging import get_logger
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -30,7 +30,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
     """Store the list of votes on bills per day, and the list of rejected bills."""
 
     def __init__(
-        self, store: ArangoStore, client: EerstekamerSiteClient | None = None
+        self, store: GraphStore, client: EerstekamerSiteClient | None = None
     ) -> None:
         super().__init__(store)
         self.client = client or EerstekamerSiteClient()

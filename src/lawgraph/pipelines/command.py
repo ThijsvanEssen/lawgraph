@@ -42,7 +42,7 @@ from typing import Any
 from lawgraph.core.logging import get_logger, log_step
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.watermark import LAST
 
 logger = get_logger(__name__)
@@ -106,7 +106,7 @@ class PipelineCommand:
         args = parser.parse_args(argv)
 
         extra = self.make_extra_kwargs(args) if self.make_extra_kwargs else {}
-        pipeline = self.pipeline_cls(store=ArangoStore(), **extra)
+        pipeline = self.pipeline_cls(store=GraphStore(), **extra)
         return pipeline.run(since=args.since) if self.accepts_since else pipeline.run()
 
 

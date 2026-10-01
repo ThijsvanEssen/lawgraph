@@ -66,7 +66,7 @@ def payload_store(tmp_path: Path) -> str:
 
 @pytest.fixture()
 def database(monkeypatch: pytest.MonkeyPatch, payload_store: str) -> Iterator[str]:
-    """A fresh database on the test server, and a payload store of its own; ``ArangoStore()``
+    """A fresh database on the test server, and a payload store of its own; ``GraphStore()``
     in this process uses both."""
     from lawgraph.core.cache import TTLCache
     from lawgraph.db import store as store_module

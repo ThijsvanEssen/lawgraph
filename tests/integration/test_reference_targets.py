@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 
 BW4, BW6, BW7 = "BWBR0002761", "BWBR0005289", "BWBR0005290"
@@ -51,12 +51,12 @@ def _ref(text: str, needle: str, bwb_id: str, article: str) -> dict[str, Any]:
     }
 
 
-def _put(store: ArangoStore, collection: str, key: str, **props: Any) -> None:
+def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
     doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
-def _article(store: ArangoStore, law: str, number: str, text: str = "", **more: Any):
+def _article(store: GraphStore, law: str, number: str, text: str = "", **more: Any):
     _put(
         store,
         COLLECTION_ARTICLES,
@@ -69,8 +69,8 @@ def _article(store: ArangoStore, law: str, number: str, text: str = "", **more: 
 
 
 @pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore]]:
-    store = ArangoStore()
+def client(database: str, cli: Any) -> Iterator[tuple[TestClient, GraphStore]]:
+    store = GraphStore()
     for law, title in ((BW4, "Boek 4"), (BW6, "Boek 6"), (BW7, "Boek 7")):
         _put(
             store,
@@ -120,7 +120,7 @@ def client(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore]]:
         app.dependency_overrides.clear()
 
 
-def _targets(store: ArangoStore, law: str, number: str) -> list[dict[str, Any]]:
+def _targets(store: GraphStore, law: str, number: str) -> list[dict[str, Any]]:
     return list(
         store.query(
             "SELECT split_part(to_id, '/', 2) AS \"to\", "
@@ -132,7 +132,7 @@ def _targets(store: ArangoStore, law: str, number: str) -> list[dict[str, Any]]:
 
 
 def test_the_words_of_a_reference_win_over_its_link(
-    client: tuple[TestClient, ArangoStore],
+    client: tuple[TestClient, GraphStore],
 ) -> None:
     _, store = client
     assert _targets(store, BW7, "178") == [
@@ -144,7 +144,7 @@ def test_the_words_of_a_reference_win_over_its_link(
 
 
 def test_a_type_from_a_pattern_is_not_certain_and_says_what_it_rests_on(
-    client: tuple[TestClient, ArangoStore],
+    client: tuple[TestClient, GraphStore],
 ) -> None:
     api, _ = client
     response = api.get("/api/relationships/search", params={"law": BW6})

@@ -21,7 +21,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.tk_content import DEFAULT_KINDS
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
@@ -105,7 +105,7 @@ AMENDMENTS_NOTE = _paper(5, "Nota van wijziging", 8, [BILL_31746], DOSSIER_31746
 LETTER = _paper(6, "Brief regering", 1, [LETTER_36996], DOSSIER_36996)
 
 
-def _write(store: ArangoStore, records: list[tuple[str, dict[str, Any]]]) -> None:
+def _write(store: GraphStore, records: list[tuple[str, dict[str, Any]]]) -> None:
     with RawSourceWriter(store) as writer:
         for kind, payload in records:
             writer.add(
@@ -118,7 +118,7 @@ def _write(store: ArangoStore, records: list[tuple[str, dict[str, Any]]]) -> Non
             )
 
 
-def _load(store: ArangoStore, cli: Any) -> None:
+def _load(store: GraphStore, cli: Any) -> None:
     _write(
         store,
         [
@@ -147,7 +147,7 @@ def _load(store: ArangoStore, cli: Any) -> None:
 def test_a_paper_is_numbered_in_its_own_dossier(database: str, cli: Any) -> None:
     """31746 nr. 11 is the amendement; the report beside it is 31058 nr. 11, and the nader
     rapport is no Kamerstuk at all."""
-    store = ArangoStore()
+    store = GraphStore()
     _load(store, cli)
 
     app.dependency_overrides[get_store] = lambda: store
@@ -213,7 +213,7 @@ def test_the_gaps_are_the_missing_papers_and_the_dossiers_named(
     """31746 lacks nr. 2 to 7 and 9 and 10, 31058 lacks nr. 1 to 10, and a letter names
     36996, which the graph does not hold: all three are fetched, per dossier. What the Kamer
     does not have either is not asked for again on the next run."""
-    store = ArangoStore()
+    store = GraphStore()
     _load(store, cli)
 
     assert _gaps.tk_dossier_gaps(store) == ["31058", "31746", "36996"]

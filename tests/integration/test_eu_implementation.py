@@ -34,7 +34,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
     SOURCE_EURLEX,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, make_edge_doc, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 AWB, UAVG, GW = "BWBR0005537", "BWBR0040940", "BWBR0001840"
@@ -79,7 +79,7 @@ MEASURES = [
 ]
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         for bwb_id, fixture in (
             (AWB, "bwb_awb_annexes_toestand.xml"),
@@ -143,7 +143,7 @@ def _seed(store: ArangoStore) -> None:
     )
 
 
-def _links(store: ArangoStore) -> dict[tuple[str, str, str], dict[str, Any]]:
+def _links(store: GraphStore) -> dict[tuple[str, str, str], dict[str, Any]]:
     statement = """
     SELECT from_id, to_id, relation, doc -> 'meta' AS meta FROM edges
     WHERE relation IN ('IMPLEMENTS', 'REFERS_TO') AND from_collection = 'instruments'
@@ -155,8 +155,8 @@ def _links(store: ArangoStore) -> dict[tuple[str, str, str], dict[str, Any]]:
 
 
 @pytest.fixture()
-def store(database: str, cli: Any) -> ArangoStore:
-    store = ArangoStore()
+def store(database: str, cli: Any) -> GraphStore:
+    store = GraphStore()
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
@@ -166,7 +166,7 @@ def store(database: str, cli: Any) -> ArangoStore:
 
 
 @pytest.fixture()
-def client(store: ArangoStore) -> Iterator[TestClient]:
+def client(store: GraphStore) -> Iterator[TestClient]:
     app.dependency_overrides[get_store] = lambda: store
     try:
         yield TestClient(app)
@@ -175,7 +175,7 @@ def client(store: ArangoStore) -> Iterator[TestClient]:
 
 
 def test_the_considerans_says_what_a_uitvoeringswet_implements(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     links = _links(store)
     assert links[("bwbr0040940", "IMPLEMENTS", "32016r0679")] == {
@@ -188,13 +188,13 @@ def test_the_considerans_says_what_a_uitvoeringswet_implements(
     )
 
 
-def test_an_act_named_in_the_text_is_a_reference(store: ArangoStore) -> None:
+def test_an_act_named_in_the_text_is_a_reference(store: GraphStore) -> None:
     links = _links(store)
     assert ("bwbr0005537", "IMPLEMENTS", "32012r0648") not in links
     assert links[("bwbr0005537", "REFERS_TO", "32012r0648")] == {"celex": EMIR}
 
 
-def test_a_measure_of_eur_lex_implements(store: ArangoStore) -> None:
+def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
     links = _links(store)
     # the Awb as enacted
     assert links[("bwbr0005537", "IMPLEMENTS", "32018l1972")] == {
@@ -220,7 +220,7 @@ def test_a_measure_of_eur_lex_implements(store: ArangoStore) -> None:
     )
 
 
-def test_a_second_run_changes_nothing(store: ArangoStore, cli: Any) -> None:
+def test_a_second_run_changes_nothing(store: GraphStore, cli: Any) -> None:
     before = _links(store)
     cli("semantic", "bwb-implements")
     assert _links(store) == before

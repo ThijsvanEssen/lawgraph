@@ -16,10 +16,11 @@ from lawgraph.config.constants import (
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
+from lawgraph.db.queries._helpers import chamber_sql
 
 
-def get_document(store: ArangoStore, key: str) -> dict[str, Any] | None:
+def get_document(store: GraphStore, key: str) -> dict[str, Any] | None:
     """One document by key (keys are lowercased at ingest)."""
     return store.get_document(COLLECTION_DOCUMENTS, key.lower())
 
@@ -73,7 +74,7 @@ SELECT
 """
 
 
-def get_document_links(store: ArangoStore, document_id: str) -> dict[str, Any]:
+def get_document_links(store: GraphStore, document_id: str) -> dict[str, Any]:
     """The dossiers a document is PART_OF and the articles or laws it EXPLAINS.
 
     ``dossier_numbers`` come from the PART_OF edges to dossier nodes, which both
@@ -98,7 +99,7 @@ def get_document_links(store: ArangoStore, document_id: str) -> dict[str, Any]:
 
 
 def get_document_passages(
-    store: ArangoStore, document_id: str, bwb_id: str, article_number: str
+    store: GraphStore, document_id: str, bwb_id: str, article_number: str
 ) -> list[dict[str, Any]]:
     """The sections of a document that explain an article, one row per section.
 
@@ -152,9 +153,7 @@ def get_document_passages(
 
 # The chambers a paper can be of: its label (``TK``; ``EK`` with ``EersteKamer``).
 _CHAMBERS = ("TK", "EK")
-_CHAMBER_OF = (
-    "CASE WHEN 'EK' = ANY(d.labels) THEN 'EK' WHEN 'TK' = ANY(d.labels) THEN 'TK' END"
-)
+_CHAMBER_OF = chamber_sql("d")
 
 # ``props.dossier_numbers OR []``: the value when AQL holds it true, else [].
 _NUMBERS = "d.props -> 'dossier_numbers'"
@@ -205,7 +204,7 @@ def _facet(value: str, where: str) -> str:
 
 
 def list_documents(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     chambers: tuple[str, ...] = _CHAMBERS,
     kinds: tuple[str, ...] | None = None,

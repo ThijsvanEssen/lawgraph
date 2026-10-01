@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.annexes import get_annex, get_annex_referenced_by
 from lawgraph.db.queries.relationships import (
     get_article_relationship_data,
@@ -31,7 +31,7 @@ def _edge(key: str, source: str, target: str, relation: str, **rest: Any) -> dic
 
 
 @pytest.fixture()
-def graph(store: ArangoStore) -> ArangoStore:
+def graph(store: GraphStore) -> GraphStore:
     store.bulk_insert_or_update_nodes(
         "articles",
         [
@@ -92,7 +92,7 @@ def graph(store: ArangoStore) -> ArangoStore:
     return store
 
 
-def test_an_annex_and_what_refers_to_it(graph: ArangoStore) -> None:
+def test_an_annex_and_what_refers_to_it(graph: GraphStore) -> None:
     assert get_annex(graph, "A_bijlage") == {
         "_key": "A_bijlage",
         "_id": "annexes/A_bijlage",
@@ -122,7 +122,7 @@ def test_an_annex_and_what_refers_to_it(graph: ArangoStore) -> None:
     assert get_annex_referenced_by(graph, "nope") == []
 
 
-def test_the_relationships_of_an_article(graph: ArangoStore) -> None:
+def test_the_relationships_of_an_article(graph: GraphStore) -> None:
     data = get_article_relationship_data(graph, "articles/A_1")
     assert list(data) == ["upstream", "downstream", "scope"]
     # by edge key; the edge to a missing article is left out
@@ -162,7 +162,7 @@ def test_the_relationships_of_an_article(graph: ArangoStore) -> None:
     }
 
 
-def test_search_relationships_by_edge_key(graph: ArangoStore) -> None:
+def test_search_relationships_by_edge_key(graph: GraphStore) -> None:
     rows, total = search_relationships(graph)
     # r8 counts but its target is gone, so it is not shown
     assert total == 5
@@ -174,7 +174,7 @@ def test_search_relationships_by_edge_key(graph: ArangoStore) -> None:
     assert rows[3]["source_article"]["_id"] == "judgments/ecli_x"
 
 
-def test_search_relationships_filters(graph: ArangoStore) -> None:
+def test_search_relationships_filters(graph: GraphStore) -> None:
     def keys(**kw: Any) -> tuple[list[str], int]:
         rows, total = search_relationships(graph, **kw)
         return [r["edge"]["_key"] for r in rows], total
@@ -188,7 +188,7 @@ def test_search_relationships_filters(graph: ArangoStore) -> None:
 
 
 def test_search_relationships_pages_before_dropping_missing_ends(
-    graph: ArangoStore,
+    graph: GraphStore,
 ) -> None:
     def keys(**kw: Any) -> tuple[list[str], int]:
         rows, total = search_relationships(graph, **kw)

@@ -18,7 +18,7 @@ from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.logging import get_logger, log_step
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.pipelines import watermark
 from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.command import (
@@ -168,7 +168,7 @@ def _run_phase(
     since when the run read its sources (None: all there is) when that is not ``--since``.
     The store is opened before any lane starts, which also creates the schema once.
     """
-    store = ArangoStore()
+    store = GraphStore()
     if args.since == watermark.LAST:
         try:
             args.since = watermark.since_last(store, phase)

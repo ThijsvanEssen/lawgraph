@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSBLAD,
     SOURCE_STAATSCOURANT,
 )
-from lawgraph.db import ArangoStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import eu as semantic_eu
@@ -38,20 +38,20 @@ def _edge(key: str, source: str, target: str, **doc: Any) -> dict[str, Any]:
     }
 
 
-def _props(store: ArangoStore, collection: str, key: str) -> dict[str, Any]:
+def _props(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
     doc = store.get_document(collection, key)
     assert doc is not None
     return doc["props"]
 
 
-def _edge_doc(store: ArangoStore, key: str) -> dict[str, Any]:
+def _edge_doc(store: GraphStore, key: str) -> dict[str, Any]:
     return next(store.query("SELECT doc FROM edges WHERE key = %(k)s", {"k": key}))
 
 
 # ── instruments ──────────────────────────────────────────────────────────────
 
 
-def _instruments(store: ArangoStore) -> None:
+def _instruments(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -90,7 +90,7 @@ def _instruments(store: ArangoStore) -> None:
     )
 
 
-def test_alias_rows_are_the_instruments_with_an_id_by_key(store: ArangoStore) -> None:
+def test_alias_rows_are_the_instruments_with_an_id_by_key(store: GraphStore) -> None:
     _instruments(store)
     assert list(semantic_bwb.instrument_alias_rows(store)) == [
         {"bwb_id": "BWBR1", "celex": None, "title": "Wet een", "citation_title": None},
@@ -121,7 +121,7 @@ def test_alias_rows_are_the_instruments_with_an_id_by_key(store: ArangoStore) ->
 
 
 def test_regulations_with_basis_are_bwb_with_a_non_empty_basis(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _instruments(store)
     assert list(semantic_bwb.regulations_with_basis(store)) == [
@@ -131,7 +131,7 @@ def test_regulations_with_basis_are_bwb_with_a_non_empty_basis(
     ]
 
 
-def test_instruments_by_bwb_id(store: ArangoStore) -> None:
+def test_instruments_by_bwb_id(store: GraphStore) -> None:
     _instruments(store)
     assert list(
         semantic_bwb.instrument_keys_by_bwb_id(store, ["BWBR3", "BWBR1", "X"])
@@ -146,7 +146,7 @@ def test_instruments_by_bwb_id(store: ArangoStore) -> None:
     assert list(semantic_bwb.instrument_keys_by_bwb_id(store, [])) == []
 
 
-def test_regulation_dossier_numbers_are_a_list_or_empty(store: ArangoStore) -> None:
+def test_regulation_dossier_numbers_are_a_list_or_empty(store: GraphStore) -> None:
     _instruments(store)
     assert list(semantic_bwb.regulation_dossier_numbers(store)) == [
         {"key": "bwbr1", "dossiers": []},  # a string is no list
@@ -159,7 +159,7 @@ def test_regulation_dossier_numbers_are_a_list_or_empty(store: ArangoStore) -> N
 # ── articles ─────────────────────────────────────────────────────────────────
 
 
-def _articles(store: ArangoStore) -> None:
+def _articles(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         [
@@ -220,7 +220,7 @@ def _articles(store: ArangoStore) -> None:
     )
 
 
-def test_law_articles_of_a_law_by_key(store: ArangoStore) -> None:
+def test_law_articles_of_a_law_by_key(store: GraphStore) -> None:
     _articles(store)
     assert list(semantic_bwb.law_articles(store, "bwb_id", "BWBR1")) == [
         {"key": "bwbr1_1", "number": "1", "last_number": None, "stub": False},
@@ -235,13 +235,13 @@ def test_law_articles_of_a_law_by_key(store: ArangoStore) -> None:
         semantic_bwb.law_articles(store, "props", "x")
 
 
-def test_article_bwb_ids_are_distinct_and_sorted(store: ArangoStore) -> None:
+def test_article_bwb_ids_are_distinct_and_sorted(store: GraphStore) -> None:
     _articles(store)
     assert list(semantic_bwb.article_bwb_ids(store)) == ["BWBR1", "BWBR2"]
 
 
 def test_articles_with_references_are_slim_with_props_in_byte_order(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _articles(store)
     rows = list(semantic_bwb.articles_with_references(store, ["BWBR1", "BWBR2"]))
@@ -268,7 +268,7 @@ def test_articles_with_references_are_slim_with_props_in_byte_order(
     assert list(rows[0]["props"]) == ["article_number", "bwb_id", "references"]
 
 
-def test_articles_by_identity_are_every_combination_by_key(store: ArangoStore) -> None:
+def test_articles_by_identity_are_every_combination_by_key(store: GraphStore) -> None:
     _articles(store)
     rows = list(semantic_bwb.articles_by_identity(store, ["BWBR1", "BWBR2"], ["s1"]))
     assert rows == [
@@ -277,7 +277,7 @@ def test_articles_by_identity_are_every_combination_by_key(store: ArangoStore) -
     ]
 
 
-def test_article_identities_and_eu_articles(store: ArangoStore) -> None:
+def test_article_identities_and_eu_articles(store: GraphStore) -> None:
     _articles(store)
     assert [r["key"] for r in normalize_bwb.article_identities(store, ["BWBR1"])] == [
         "bwbr1_1",
@@ -310,7 +310,7 @@ def test_article_identities_and_eu_articles(store: ArangoStore) -> None:
 # ── annexes ──────────────────────────────────────────────────────────────────
 
 
-def test_annexes_and_the_articles_that_name_them(store: ArangoStore) -> None:
+def test_annexes_and_the_articles_that_name_them(store: GraphStore) -> None:
     _articles(store)
     store.bulk_insert_or_update_nodes(
         "annexes",
@@ -359,7 +359,7 @@ def test_annexes_and_the_articles_that_name_them(store: ArangoStore) -> None:
 # ── article versions ─────────────────────────────────────────────────────────
 
 
-def _versions(store: ArangoStore) -> None:
+def _versions(store: GraphStore) -> None:
     origin = {"id": "stb-2020-1", "date": "2020-01-01"}
     store.bulk_insert_or_update_nodes(
         "article_versions",
@@ -426,7 +426,7 @@ def _versions(store: ArangoStore) -> None:
     )
 
 
-def test_amending_versions_by_article_identity(store: ArangoStore) -> None:
+def test_amending_versions_by_article_identity(store: GraphStore) -> None:
     _versions(store)
     rows = list(semantic_bwb.amending_article_versions(store))
     # an origin and a stam id; by bwb_id, stam_id, key
@@ -444,7 +444,7 @@ def test_amending_versions_by_article_identity(store: ArangoStore) -> None:
     assert rows[3]["source_publication"] is None
 
 
-def test_article_versions_of_the_laws(store: ArangoStore) -> None:
+def test_article_versions_of_the_laws(store: GraphStore) -> None:
     _versions(store)
     rows = list(normalize_bwb.article_versions(store, ["BWBR1"]))
     assert [r["key"] for r in rows] == ["v0", "v1", "v3", "v4", "v5", "v6"]
@@ -470,7 +470,7 @@ def test_article_versions_of_the_laws(store: ArangoStore) -> None:
     assert rows[0]["text_start"] == ""  # SUBSTRING of a missing text
 
 
-def test_stored_places_by_position_then_without(store: ArangoStore) -> None:
+def test_stored_places_by_position_then_without(store: GraphStore) -> None:
     _versions(store)
     rows = list(normalize_bwb.stored_places(store, "BWBR1"))
     # v1 and v4 share position 1 (the key settles it); v0 (null), v5, v6 have none
@@ -482,7 +482,7 @@ def test_stored_places_by_position_then_without(store: ArangoStore) -> None:
     }
 
 
-def test_article_version_starts_of_the_versions_with_one(store: ArangoStore) -> None:
+def test_article_version_starts_of_the_versions_with_one(store: GraphStore) -> None:
     _versions(store)
     assert normalize_bwb.article_version_starts(store, ["v0", "v1", "v2", "nope"]) == {
         "v1": "2020-01-01",
@@ -490,7 +490,7 @@ def test_article_version_starts_of_the_versions_with_one(store: ArangoStore) -> 
     }
 
 
-def test_toestand_starts_oldest_first_per_law(store: ArangoStore) -> None:
+def test_toestand_starts_oldest_first_per_law(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instrument_versions",
         [
@@ -509,7 +509,7 @@ def test_toestand_starts_oldest_first_per_law(store: ArangoStore) -> None:
 # ── classifications ──────────────────────────────────────────────────────────
 
 
-def test_classifiable_edges_per_article(store: ArangoStore) -> None:
+def test_classifiable_edges_per_article(store: GraphStore) -> None:
     _articles(store)
     store.bulk_insert_or_update_edges(
         [
@@ -541,7 +541,7 @@ def test_classifiable_edges_per_article(store: ArangoStore) -> None:
     ]
 
 
-def test_update_edge_classifications_writes_what_differs(store: ArangoStore) -> None:
+def test_update_edge_classifications_writes_what_differs(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(
         [
             _edge("e1", "articles/a", "articles/b", meta={"start": 1, "end": 5}),
@@ -625,7 +625,7 @@ def test_update_edge_classifications_writes_what_differs(store: ArangoStore) -> 
 _LONG = "Nota van toelichting. " * 10
 
 
-def _publications(store: ArangoStore) -> None:
+def _publications(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -720,7 +720,7 @@ def _publications(store: ArangoStore) -> None:
 
 
 def test_staatsblad_matches_by_bwb_id_then_by_the_longest_title(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _publications(store)
     assert semantic_bwb.staatsblad_instrument_matches(store) == [
@@ -748,7 +748,7 @@ def test_staatsblad_matches_by_bwb_id_then_by_the_longest_title(
     ]
 
 
-def test_staatscourant_matches_and_texts_since_a_date(store: ArangoStore) -> None:
+def test_staatscourant_matches_and_texts_since_a_date(store: GraphStore) -> None:
     _publications(store)
     rows = semantic_bwb.staatscourant_instrument_matches(store, None)
     assert [(r["pub_key"], r["inst_key"], r["match_type"]) for r in rows] == [
@@ -776,7 +776,7 @@ def test_staatscourant_matches_and_texts_since_a_date(store: ArangoStore) -> Non
 # ── EUR-Lex ──────────────────────────────────────────────────────────────────
 
 
-def test_eu_references_of_bwb_regulations(store: ArangoStore) -> None:
+def test_eu_references_of_bwb_regulations(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -800,7 +800,7 @@ def test_eu_references_of_bwb_regulations(store: ArangoStore) -> None:
     ]
 
 
-def test_national_measures_are_the_payloads(store: ArangoStore) -> None:
+def test_national_measures_are_the_payloads(store: GraphStore) -> None:
     store.insert_raw_sources(
         [
             raw_source_doc(
@@ -832,7 +832,7 @@ def test_national_measures_are_the_payloads(store: ArangoStore) -> None:
     assert list(payload) == ["celex", "z", "a"]  # as retrieved
 
 
-def test_regulations_of_publications_once_each(store: ArangoStore) -> None:
+def test_regulations_of_publications_once_each(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -883,7 +883,7 @@ def test_regulations_of_publications_once_each(store: ArangoStore) -> None:
 # ── short titles ─────────────────────────────────────────────────────────────
 
 
-def test_update_abbreviations_sets_and_removes(store: ArangoStore) -> None:
+def test_update_abbreviations_sets_and_removes(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -914,3 +914,45 @@ def test_update_abbreviations_sets_and_removes(store: ArangoStore) -> None:
     assert list(d.items()) == [("short_title", "D"), ("title", "D"), ("zeta", 1)]
     assert normalize_bwb.update_abbreviations(store, rows) == 0
     assert normalize_bwb.update_abbreviations(store, []) == 0
+
+
+def test_the_abbreviation_goes_to_the_instrument_and_its_articles(
+    store: GraphStore,
+) -> None:
+    """BE-8: EVRM (a treaty of the BWB, by bwb_id) and AVG (an EU act, by celex): the same
+    value on the law (``abbreviation``) and its articles (``instrument_abbreviation``)."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                "bwbv0001000", "instrument", bwb_id="BWBV0001000", short_title="EVRM"
+            ),
+            _node("32016r0679", "instrument", celex="32016R0679", title="AVG-titel"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("bwbv0001000_8", "article", bwb_id="BWBV0001000", article_number="8"),
+            _node("32016r0679_6", "article", celex="32016R0679", article_number="6"),
+            _node("other_1", "article", bwb_id="BWBR0001854", article_number="1"),
+        ],
+    )
+    rows = [
+        {"key": "bwbv0001000", "abbreviation": "EVRM"},
+        {"key": "32016r0679", "abbreviation": "AVG"},
+    ]
+    assert normalize_bwb.update_instrument_abbreviations(store, rows) == 4
+    assert _props(store, "instruments", "bwbv0001000")["abbreviation"] == "EVRM"
+    assert _props(store, "instruments", "32016r0679")["abbreviation"] == "AVG"
+    art8 = _props(store, "articles", "bwbv0001000_8")
+    assert art8["instrument_abbreviation"] == "EVRM"
+    assert list(art8) == sorted(art8)  # D11
+    assert _props(store, "articles", "32016r0679_6")["instrument_abbreviation"] == "AVG"
+    assert "instrument_abbreviation" not in _props(store, "articles", "other_1")
+    assert normalize_bwb.update_instrument_abbreviations(store, rows) == 0
+    # an abbreviation that is gone goes from the law and its articles
+    gone = [{"key": "bwbv0001000", "abbreviation": None}]
+    assert normalize_bwb.update_instrument_abbreviations(store, gone) == 2
+    assert "abbreviation" not in _props(store, "instruments", "bwbv0001000")
+    assert "instrument_abbreviation" not in _props(store, "articles", "bwbv0001000_8")

@@ -37,7 +37,7 @@ logger = get_logger(__name__)
 # The most gaps of one kind a run fetches; the rest is said out loud and comes next time.
 MAX_GAPS_PER_RUN = 50_000
 
-# Keys looked up in one query (as ``ArangoStore.existing_keys``).
+# Keys looked up in one query (as ``GraphStore.existing_keys``).
 _KEY_CHUNK = 5000
 
 # A law is fetched when at least this many of its articles are referred to.

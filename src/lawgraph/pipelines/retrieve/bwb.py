@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import clean_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
@@ -55,7 +55,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
 
     def __init__(
         self,
-        store: ArangoStore,
+        store: GraphStore,
         client: BWBClient | None = None,
     ) -> None:
         super().__init__(store)

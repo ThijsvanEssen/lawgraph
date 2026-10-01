@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.resolve import ResolveResponse
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.resolve import resolve as resolve_query
 
 router = APIRouter()
@@ -30,6 +30,6 @@ def resolve(
     q: Annotated[
         str, Query(min_length=1, max_length=200, description="Citation or name")
     ],
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> ResolveResponse:
     return ResolveResponse(q=q, **resolve_query(store, q))

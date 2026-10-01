@@ -9,7 +9,7 @@ import sys
 import time
 from typing import Any
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from tests.integration.conftest import ROOT, TEST_SERVER
 from tests.integration.seed import seed
 from tests.integration.test_chain import _counts, _edge_keys
@@ -37,7 +37,7 @@ def _start(database: str, payload_store: str, *args: str) -> subprocess.Popen[st
 
 
 def _wait_until_halfway(
-    run: subprocess.Popen[str], store: ArangoStore, documents: int
+    run: subprocess.Popen[str], store: GraphStore, documents: int
 ) -> None:
     """Return when the run has written part of its documents (and is still running)."""
     deadline = time.monotonic() + 300
@@ -56,7 +56,7 @@ def _wait_until_halfway(
     raise AssertionError("the run did not get going")
 
 
-def _reference(cli: Any, store: ArangoStore) -> tuple[dict[str, int], set[str]]:
+def _reference(cli: Any, store: GraphStore) -> tuple[dict[str, int], set[str]]:
     cli("normalize", "all")
     return _counts(store), _edge_keys(store)
 
@@ -64,7 +64,7 @@ def _reference(cli: Any, store: ArangoStore) -> tuple[dict[str, int], set[str]]:
 def test_a_run_that_is_killed_is_completed_by_the_next_run(
     database: str, payload_store: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=DOCUMENTS, judgments=50, regulations=10)
 
     run = _start(database, payload_store, "normalize", "tk-dossiers")

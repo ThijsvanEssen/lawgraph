@@ -63,7 +63,7 @@ def phase(monkeypatch) -> dict[str, Any]:
         seen["argv"] = [argv_of(pipeline) for pipeline in pipelines]
         return seen["outcomes"]
 
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: seen["store"])
+    monkeypatch.setattr(orchestration, "GraphStore", lambda: seen["store"])
     monkeypatch.setattr(orchestration, "run_pipelines", run_pipelines)
     return seen
 

@@ -94,6 +94,13 @@ class JudgmentDTO(BaseNodeDTO):
         "surname (`Wattel`) where the kop gives no more. Null for a judgment, and for a "
         "conclusion whose kop names no one.",
     )
+    advocate_general_role: str | None = Field(
+        default=None,
+        description="For a conclusion, the role it is signed in, read from its signature: "
+        "`advocaat-generaal`, `waarnemend advocaat-generaal`, `plaatsvervangend "
+        "procureur-generaal` or `plaatsvervangend advocaat-generaal`. Null for a "
+        "judgment, and for a conclusion that writes none or one that is not clear.",
+    )
     unresolved_appeal_targets: list["AppealTarget"] = Field(
         default_factory=list,
         description='The decisions an appeal says in its text it appeals ("tegen de '
@@ -156,6 +163,7 @@ class JudgmentDTO(BaseNodeDTO):
             same_as=props.get("same_as"),
             replaced_by=props.get("replaced_by"),
             advocate_general=props.get("advocate_general"),
+            advocate_general_role=props.get("advocate_general_role"),
             unresolved_appeal_targets=[
                 AppealTarget(**t) for t in props.get("unresolved_appeal_targets") or []
             ],

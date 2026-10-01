@@ -9,17 +9,17 @@ from __future__ import annotations
 
 import json
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 
-def _props(store: ArangoStore, key: str) -> dict[str, object]:
+def _props(store: GraphStore, key: str) -> dict[str, object]:
     return next(
         store.query("SELECT props FROM dossiers WHERE key = %(key)s", {"key": key})
     )
 
 
 def test_an_update_writes_the_props_in_the_order_of_their_keys(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     first = {
         "_key": "1",
         "type": "dossier",
@@ -47,7 +47,7 @@ def test_an_update_writes_the_props_in_the_order_of_their_keys(database: str) ->
 def test_a_single_upsert_and_edge_meta_are_sorted_too(database: str) -> None:
     from lawgraph.core.models import Node, NodeType
 
-    store = ArangoStore()
+    store = GraphStore()
     node = Node(
         collection="dossiers", type=NodeType.DOSSIER, key="2", props={"title": "x"}
     )

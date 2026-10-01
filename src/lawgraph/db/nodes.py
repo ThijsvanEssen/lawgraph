@@ -19,7 +19,7 @@ MAX_BATCH_BYTES = 16_000_000
 class NodeWriter:
     """Collect nodes and upsert them in bulk, grouped by collection.
 
-    Same merge semantics as ``ArangoStore.insert_or_update`` (props merged,
+    Same merge semantics as ``GraphStore.insert_or_update`` (props merged,
     labels unioned) but one round-trip per ``batch_size`` nodes. Nodes with the
     same collection and key are de-duplicated (last wins). Because the stored
     document is not returned, keep working from the in-memory node.

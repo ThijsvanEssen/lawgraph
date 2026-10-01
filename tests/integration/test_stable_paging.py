@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
 )
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, NodeWriter
+from lawgraph.db import GraphStore, NodeWriter
 
 ROWS = 60
 
@@ -78,7 +78,7 @@ def _nodes() -> list[Node]:
     ],
 )
 def test_walking_the_pages_finds_every_row_once(database: str, path: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with NodeWriter(store) as writer:
         writer.add_all(_nodes())
     app.dependency_overrides[get_store] = lambda: store

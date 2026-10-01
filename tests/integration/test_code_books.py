@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.test_judgment_mentions import _judgment_xml
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -28,7 +28,7 @@ BW6, BW7 = "BWBR0005289", "BWBR0005290"
 ECLI = "ECLI:NL:HR:2020:1"
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     # Any toestand does as book 7: the Grondwet fixture has an article 7.
     toestand = (
         (FIXTURES / "bwb_grondwet_toestand.xml").read_text().replace("BWBR0001840", BW7)
@@ -80,7 +80,7 @@ def _seed(store: ArangoStore) -> None:
 
 
 def test_a_citation_of_a_book_lands_in_that_book(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
 
     cli("normalize", "bwb")

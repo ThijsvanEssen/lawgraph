@@ -29,9 +29,9 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import make_node_key, parse_arango_id
+from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import native_article_number
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
     get_article_cited_by,
@@ -60,7 +60,7 @@ logger = get_logger(__name__)
 def get_article_detail(
     bwb_id: str,
     article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleDetailResponse:
     """Return an article plus its instrument and mentioning judgments."""
     article_number = native_article_number(bwb_id, article_number)
@@ -138,7 +138,8 @@ def _build_relationship_dtos(
         "with the lid, onderdeel or aanhef it names, a snippet and the confidence of the "
         "detection. Newest judgment first. `court` (ECLI court code), `tier` and `lid` "
         "(a lid number the passage names) filter; `total` counts all passages that match, "
-        "`judgment_total` the judgments they are in. "
+        "`judgment_total` the judgments they are in, `echr_judgment_total` the ECHR "
+        "judgments that cite the article (no passage: HUDOC names the article). "
         "404 when the article is unknown."
     ),
     tags=["articles"],
@@ -146,7 +147,7 @@ def _build_relationship_dtos(
 def get_article_cited_by_passages(
     bwb_id: str,
     article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     court: Annotated[
@@ -168,7 +169,7 @@ def get_article_cited_by_passages(
 ) -> ArticleCitedByResponse:
     article_number = native_article_number(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
-    if not store.has_node(COLLECTION_ARTICLES, parse_arango_id(article_id)[1]):
+    if not store.has_node(COLLECTION_ARTICLES, parse_node_id(article_id)[1]):
         raise HTTPException(status_code=404, detail="Article not found")
     cited_by = get_article_cited_by(
         store,
@@ -187,6 +188,7 @@ def get_article_cited_by_passages(
         items=items,
         total=cited_by.total,
         judgment_total=cited_by.judgment_total,
+        echr_judgment_total=cited_by.echr_judgment_total,
     )
 
 
@@ -207,7 +209,7 @@ def get_article_cited_by_passages(
 def get_article_version_history(
     bwb_id: str,
     article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleHistoryResponse:
     article_number = native_article_number(bwb_id, article_number)
     try:
@@ -245,7 +247,7 @@ def get_article_version_history(
 def get_legislative_history(
     bwb_id: str,
     article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleLegislativeHistoryResponse:
     article_number = native_article_number(bwb_id, article_number)
     article_key = make_node_key(bwb_id, article_number)
@@ -283,7 +285,7 @@ def get_legislative_history(
 def get_explained_by(
     bwb_id: str,
     article_number: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ArticleExplanationsResponse:
@@ -301,7 +303,7 @@ def get_explained_by(
 
 def _build_article_citation_target(doc: dict[str, Any]) -> ArticleCitationTarget:
     props = doc.get("props") or {}
-    collection = parse_arango_id(doc["_id"])[0]
+    collection = parse_node_id(doc["_id"])[0]
     return ArticleCitationTarget(
         id=doc["_id"],
         key=doc["_key"],

@@ -11,10 +11,10 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 
-def get_in_flux_counts(store: ArangoStore) -> dict[str, int]:
+def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
     """Return a map of node_id → count of proposed edges pointing at it, by node id.
 
     The map is empty when the graph holds no proposed edges yet (e.g. before the
@@ -43,7 +43,7 @@ _ARTICLE_CITATION_RELATIONS = [
 
 
 def get_heat_counts(
-    store: ArangoStore, *, months: int = 6, min_count: int = 1
+    store: GraphStore, *, months: int = 6, min_count: int = 1
 ) -> dict[str, int]:
     """Return a map of node_id → activity count.
 

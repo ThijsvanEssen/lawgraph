@@ -58,7 +58,7 @@ from lawgraph.core.feed import (
     FeedCursor,
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 # The instruments a publication names at most.
 MAX_CHANGED_INSTRUMENTS = 10
@@ -1154,7 +1154,7 @@ def summary_query(
 
 
 def get_feed_summary(
-    store: ArangoStore,
+    store: GraphStore,
     filters: FeedFilters,
     *,
     margin: int = 10,
@@ -1172,7 +1172,7 @@ def get_feed_summary(
 
 
 def get_feed(
-    store: ArangoStore,
+    store: GraphStore,
     filters: FeedFilters,
     *,
     cursor: FeedCursor | None = None,

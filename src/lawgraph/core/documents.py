@@ -13,15 +13,22 @@ from collections.abc import Iterable
 from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK, EXPLANATORY_KIND_MARKER
 from lawgraph.core.tk_records import dossier_label
 
+# The chambers in the order a node's labels are read: the first it carries is its chamber.
+# One definition for the API (``chamber_of``) and the SQL built from it
+# (``db/queries/_helpers.chamber_sql``). A node carries the label of each chamber whose
+# source wrote it (labels are merged): of a paper both wrote, the Eerste Kamer's counts,
+# as /api/documents always read it. No document carries both (lawgraph_small, 2026-10-02).
+CHAMBERS: tuple[str, ...] = (CHAMBER_EK, CHAMBER_TK)
+
 
 def chamber_of(labels: Iterable[str] | None) -> str | None:
-    """The chamber a node belongs to, read from its labels.
+    """The chamber a node belongs to, read from its labels (``CHAMBERS``).
 
     ``"TK"`` (Tweede Kamer) or ``"EK"`` (Eerste Kamer); ``None`` for a node that belongs
     to neither, such as a Staatsblad or Staatscourant publication.
     """
     found = set(labels or ())
-    for chamber in (CHAMBER_TK, CHAMBER_EK):
+    for chamber in CHAMBERS:
         if chamber in found:
             return chamber
     return None
