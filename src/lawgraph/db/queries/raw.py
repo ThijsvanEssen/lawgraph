@@ -34,10 +34,12 @@ _SINCE = "(%(since)s::text IS NULL OR fetched_at >= %(since)s)"
 _ORDER = "ORDER BY source, kind, key"
 # The toestanden of each law from the oldest to the newest: what normalize bwb-history makes
 # of them (the place of each version, the version a later toestand merges into) depends on
-# the order it reads them in.
+# the order it reads them in. Nulls first, as ArangoDB's SORT puts them: retrieve bwb-history
+# writes both into every toestand's meta (all 813 of the parity build have them), so a null is
+# only a record written otherwise.
 _CHRONOLOGICAL = (
-    "ORDER BY lg_str(doc -> 'meta' -> 'bwb_id') NULLS LAST,"
-    " lg_str(doc -> 'meta' -> 'start_date') NULLS LAST, key"
+    "ORDER BY lg_str(doc -> 'meta' -> 'bwb_id') NULLS FIRST,"
+    " lg_str(doc -> 'meta' -> 'start_date') NULLS FIRST, key"
 )
 
 
