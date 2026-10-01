@@ -51,10 +51,9 @@ INSTRUMENT_SORTS = ("title", "article_count")
 
 def _document_order(table: str) -> str:
     """The order of the document (``props.position``, a number); a historical article or
-    a stub has none: last. The key settles ties."""
-    position = (
-        f"{table}.position"  # a column: the props of a law's articles are not read
-    )
+    a stub has none: last. The key settles ties. ``position`` is a column, so the props of
+    a law's articles are not read for it."""
+    position = f"{table}.position"
     return f"{position} IS NULL, {position} NULLS FIRST, {table}.key"
 
 
