@@ -261,6 +261,8 @@ class JudgmentProps(_CommonProps):
     # a conclusion: the advocate-general who wrote it, as its kop names them
     # (``core.judgments.advocate_general``)
     advocate_general: str | None = None
+    # and the role they sign in (``core.judgments.advocate_general_role``)
+    advocate_general_role: str | None = None
     court: str | None = None
     case_number: str | None = None
     # ``case_number`` split and written as compared (``core.judgments.case_number_keys``)
