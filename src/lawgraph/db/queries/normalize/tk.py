@@ -1,11 +1,15 @@
 """The graph reads of the normalize phase for the Tweede and Eerste Kamer and the
 government: stored cases, dossiers and members, the signals of a dossier, the
-government signatures and the composition of the Eerste Kamer."""
+government signatures and the composition of the Eerste Kamer.
+
+A read whose order ArangoDB left open comes in the byte order of the keys."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
 from typing import Any
+
+from psycopg import sql
 
 from lawgraph.config.constants import (
     CHAMBER_TK,
@@ -26,16 +30,38 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
 from lawgraph.db.counting import Store
+from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries.semantic import absent_sql, present_sql
+
+# ``dossier_numbers`` read once per case (a case holds its API payload).
+_CASE_NUMBERS_SQL = f"""
+SELECT c.id, x.numbers AS dossier_numbers
+FROM {COLLECTION_CASES} c
+CROSS JOIN LATERAL (SELECT c.props -> 'dossier_numbers' AS numbers OFFSET 0) x
+WHERE {present_sql("x.numbers")}
+ORDER BY c.key COLLATE "C"
+"""
 
 
 def case_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
     """``{id, dossier_numbers}`` of every case that names a dossier."""
-    aql = f"""
-    FOR case IN {COLLECTION_CASES}
-        FILTER case.props.dossier_numbers != null
-        RETURN {{id: case._id, dossier_numbers: case.props.dossier_numbers}}
-    """
-    return store.query(aql)
+    return store.query(_CASE_NUMBERS_SQL)
+
+
+# One pass over the props of each node: its ``external_id`` and the props kept, in the
+# byte order of their names as ``KEEP`` gave them.
+_BY_EXTERNAL_ID_SQL = """
+SELECT n.key, x.external_id AS id, x.props
+FROM {} n
+CROSS JOIN LATERAL (
+    SELECT (array_agg(j.value) FILTER (WHERE j.key = 'external_id'))[1] AS external_id,
+           coalesce(json_object_agg(j.key, j.value ORDER BY j.key COLLATE "C")
+                        FILTER (WHERE j.key = ANY(%(names)s::text[])), '{{}}') AS props
+    FROM json_each(n.props) AS j(key, value)
+) x
+WHERE {}
+ORDER BY n.key COLLATE "C"
+"""
 
 
 def nodes_by_external_id(
@@ -43,35 +69,37 @@ def nodes_by_external_id(
 ) -> Iterator[dict[str, Any]]:
     """``{key, id, props}`` of the nodes of *collection* with a TK ``Id``; the props only
     *names*."""
-    aql = f"""
-        FOR d IN {collection}
-            FILTER d.props.external_id != null
-            RETURN {{
-                key: d._key,
-                id: d.props.external_id,
-                props: KEEP(d.props, @names)
-            }}
-        """
-    return store.query(aql, {"names": names})
+    statement = sql.SQL(_BY_EXTERNAL_ID_SQL).format(
+        sql.Identifier(collection), sql.SQL(present_sql("x.external_id"))
+    )
+    return store.query(statement, {"names": names})
 
 
 def faction_aliases(store: Store) -> Iterator[Any]:
     """Every alias a stored faction carries."""
-    aql = f"""
-        FOR faction IN {COLLECTION_FACTIONS}
-            FOR alias IN faction.props.aliases || []
-                RETURN DISTINCT alias
-        """
-    return store.query(aql)
+    aliases = "f.props -> 'aliases'"
+    statement = f"""
+    SELECT a.v::json
+    FROM (
+        SELECT DISTINCT x.v::jsonb AS v
+        FROM {COLLECTION_FACTIONS} f
+        CROSS JOIN LATERAL json_array_elements(
+            CASE WHEN lg_truthy({aliases}) THEN {aliases} ELSE '[]'::json END
+        ) AS x(v)
+    ) a
+    ORDER BY {_json_keys("a.v::json")}
+    """
+    return store.query(statement)
 
 
 def dossier_case_kinds(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
     """``{key, case_kinds}`` of the dossiers with these *keys*."""
     lookup = f"""
-        FOR dossier IN {COLLECTION_DOSSIERS}
-            FILTER dossier._key IN @keys
-            RETURN {{key: dossier._key, case_kinds: dossier.props.case_kinds}}
-        """
+    SELECT key, props -> 'case_kinds' AS case_kinds
+    FROM {COLLECTION_DOSSIERS}
+    WHERE key = ANY(%(keys)s::text[])
+    ORDER BY key COLLATE "C"
+    """
     return store.query(lookup, {"keys": keys})
 
 
@@ -318,108 +346,179 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
 
 def dossiers_of_numbers(store: Store, numbers: list[str]) -> Iterator[dict[str, Any]]:
     """``{key, number, same_number_count}`` of every dossier with one of these *numbers*."""
-    aql = f"""
-        FOR dossier IN {COLLECTION_DOSSIERS}
-            FILTER dossier.props.number IN @numbers
-            RETURN {{
-                key: dossier._key,
-                number: dossier.props.number,
-                same_number_count: dossier.props.same_number_count
-            }}
-        """
-    return store.query(aql, {"numbers": numbers})
+    statement = f"""
+    SELECT key, number, props -> 'same_number_count' AS same_number_count
+    FROM {COLLECTION_DOSSIERS}
+    WHERE number = ANY(%(numbers)s::text[])
+    ORDER BY key COLLATE "C"
+    """
+    return store.query(statement, {"numbers": numbers})
+
+
+_MEMBER_CUT = _cut("m", "fields")
+_FACTION_KEY_ORDER = _json_keys("k.v::json")
+
+# ``name``: ``full_name OR name``; ``factions``: ``SORTED_UNIQUE`` of the ``faction_key``
+# of every membership (null for one without; none when the memberships are no array),
+# sorted as ArangoDB sorts values.
+_IDENTITIES_SQL = f"""
+SELECT c.key,
+       c.p -> 'family_name' AS family_name,
+       CASE WHEN lg_truthy(c.p -> 'full_name') THEN c.p -> 'full_name'
+            ELSE c.p -> 'name' END AS name,
+       c.p -> 'initials' AS initials,
+       c.p -> 'birth_date' AS birth_date,
+       (
+           SELECT coalesce(json_agg(k.v::json ORDER BY {_FACTION_KEY_ORDER}), '[]'::json)
+           FROM (
+               SELECT DISTINCT coalesce((f.x -> 'faction_key')::jsonb, 'null') AS v
+               FROM json_array_elements(
+                   CASE WHEN json_typeof(c.memberships) = 'array'
+                        THEN c.memberships ELSE '[]'::json END
+               ) AS f(x)
+           ) k
+       ) AS factions
+FROM (
+    SELECT m.key, m.pj_faction_memberships AS memberships, {_MEMBER_CUT} AS p
+    FROM {COLLECTION_MEMBERS} m
+    WHERE %(tk)s = ANY(m.labels)
+    OFFSET 0
+) c
+WHERE {present_sql("c.p -> 'family_name'")}
+ORDER BY c.key COLLATE "C"
+"""
 
 
 def member_identities(store: Store) -> Iterator[dict[str, Any]]:
     """``{key, family_name, name, initials, birth_date, factions}`` of every Tweede Kamer
     person with a surname (``normalize rijksoverheid`` matches the bewindspersonen to them):
     ``name`` the full name, ``factions`` the keys of the factions they sat in."""
-    aql = f"""
-    FOR m IN {COLLECTION_MEMBERS}
-        FILTER @tk IN m.labels AND m.props.family_name != null
-        RETURN {{
-            key: m._key,
-            family_name: m.props.family_name,
-            name: m.props.full_name OR m.props.name,
-            initials: m.props.initials,
-            birth_date: m.props.birth_date,
-            factions: SORTED_UNIQUE(m.props.faction_memberships[*].faction_key)
-        }}
-    """
-    return store.query(aql, {"tk": CHAMBER_TK})
+    bind = {
+        "tk": CHAMBER_TK,
+        "fields": ["family_name", "full_name", "name", "initials", "birth_date"],
+    }
+    return store.query(_IDENTITIES_SQL, bind)
+
+
+# ``MIN`` and ``MAX`` of the dates of a group as ArangoDB orders values: a boolean before a
+# number before a string before an array before an object. ``x.date`` is the date when it
+# is a string, ``x.other`` the date of another type (the props are read for it alone).
+_FIRST = """coalesce(
+    to_json(bool_and(lg_bool(x.other))), to_json(min(lg_num(x.other))),
+    to_json(min(x.date)),
+    (array_agg(x.other) FILTER (WHERE json_typeof(x.other) = 'array'))[1],
+    (array_agg(x.other) FILTER (WHERE json_typeof(x.other) = 'object'))[1]
+)"""
+_LAST = """coalesce(
+    (array_agg(x.other) FILTER (WHERE json_typeof(x.other) = 'object'))[1],
+    (array_agg(x.other) FILTER (WHERE json_typeof(x.other) = 'array'))[1],
+    to_json(max(x.date)), to_json(max(lg_num(x.other))),
+    to_json(bool_or(lg_bool(x.other)))
+)"""
+
+# The government signatures: the AUTHORED edges in that capacity from a Tweede Kamer person
+# (``m``, its props cut down to *fields*) to a document with a date. ``function`` null when
+# the edge has none.
+_SIGNED = f"""
+tk_members AS MATERIALIZED (
+    SELECT m.id, m.key, {_MEMBER_CUT} AS p
+    FROM {COLLECTION_MEMBERS} m
+    WHERE %(tk)s = ANY(m.labels)
+),
+signed AS (
+    SELECT m.key, m.p, d.pj_actors AS actors, x.date, x.other,
+           coalesce((e.doc -> 'meta' -> 'function')::jsonb, 'null') AS function
+    FROM {COLLECTION_EDGES} e
+    JOIN tk_members m ON m.id = e.from_id
+    JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.to_id
+    CROSS JOIN LATERAL (
+        SELECT d.date, CASE WHEN d.date IS NULL THEN d.props -> 'date' END AS other
+        OFFSET 0
+    ) x
+    WHERE e.relation = %(authored)s
+      AND e.from_collection = '{COLLECTION_MEMBERS}'
+      AND lg_str(e.doc -> 'meta' -> 'capacity') = %(government)s
+      AND (x.date IS NOT NULL OR {present_sql("x.other")})
+)"""
+
+# Per signature, every actor of the document that is the person (``person_id`` equal to
+# their ``external_id``, null equal to null) with a name.
+_SIGNATURES_SQL = f"""
+WITH {_SIGNED}
+SELECT x.key, x.name::json AS name, x.function::json AS function,
+       {_FIRST} AS first, {_LAST} AS last
+FROM (
+    SELECT s.key, s.function, s.date, s.other, (a.v -> 'name')::jsonb AS name
+    FROM signed s
+    CROSS JOIN LATERAL json_array_elements(
+        CASE WHEN lg_truthy(s.actors) THEN s.actors ELSE '[]'::json END
+    ) AS a(v)
+    WHERE {absent_sql("s.p -> 'family_name'")}
+      AND coalesce((a.v -> 'person_id')::jsonb, 'null')
+          = coalesce((s.p -> 'external_id')::jsonb, 'null')
+      AND {present_sql("a.v -> 'name'")}
+) x
+GROUP BY x.key, x.name, x.function
+ORDER BY x.key ASC, {_json_keys("x.name::json")}, {_json_keys("x.function::json")}
+"""
+
+
+def _signature_bind() -> dict[str, Any]:
+    return {
+        "authored": RELATION_AUTHORED,
+        "government": CAPACITY_GOVERNMENT,
+        "tk": CHAMBER_TK,
+        "fields": ["family_name", "external_id"],
+    }
 
 
 def government_signatures(store: Store) -> Iterator[dict[str, Any]]:
     """The signatures as a minister or state secretary of the Tweede Kamer persons without a
     name of their own (a minister who never sat in parliament): ``{key, name, function,
     first, last}`` per person, signed name and function, with the first and last date."""
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation == @authored AND e.meta.capacity == @government
-        LET m = DOCUMENT(e._from)
-        FILTER m.props.family_name == null AND @tk IN m.labels
-        LET d = DOCUMENT(e._to)
-        FILTER d.props.date != null
-        FOR a IN (d.props.actors OR [])
-            FILTER a.person_id == m.props.external_id AND a.name != null
-            COLLECT key = m._key, name = a.name, function = e.meta.function
-                AGGREGATE first = MIN(d.props.date), last = MAX(d.props.date)
-            RETURN {{key, name, function, first, last}}
-    """
-    return store.query(
-        aql,
-        {
-            "authored": RELATION_AUTHORED,
-            "government": CAPACITY_GOVERNMENT,
-            "tk": CHAMBER_TK,
-        },
-    )
+    return store.query(_SIGNATURES_SQL, _signature_bind())
+
+
+# ``month``: the first seven characters of the date, of the text of a date of another type
+# (``SUBSTRING`` of a number or a boolean).
+_BY_MONTH_SQL = f"""
+WITH {_SIGNED}
+SELECT x.key, x.function::json AS function, {_FIRST} AS first, {_LAST} AS last
+FROM (
+    SELECT s.key, s.function, s.date, s.other,
+           left(coalesce(s.date, s.other #>> '{{}}'), 7) AS month
+    FROM signed s
+) x
+GROUP BY x.key, x.function, x.month
+ORDER BY x.key ASC, {_json_keys("x.function::json")}, x.month ASC NULLS FIRST
+"""
 
 
 def government_signatures_by_month(store: Store) -> Iterator[dict[str, Any]]:
     """The signatures as a minister or state secretary of every Tweede Kamer person:
     ``{key, function, first, last}`` per person, function and month."""
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation == @authored AND e.meta.capacity == @government
-        LET m = DOCUMENT(e._from)
-        FILTER @tk IN m.labels
-        LET d = DOCUMENT(e._to)
-        FILTER d.props.date != null
-        COLLECT key = m._key, function = e.meta.function,
-                month = SUBSTRING(d.props.date, 0, 7)
-            AGGREGATE first = MIN(d.props.date), last = MAX(d.props.date)
-        RETURN {{key, function, first, last}}
-    """
-    return store.query(
-        aql,
-        {
-            "authored": RELATION_AUTHORED,
-            "government": CAPACITY_GOVERNMENT,
-            "tk": CHAMBER_TK,
-        },
-    )
+    return store.query(_BY_MONTH_SQL, _signature_bind())
 
 
 def labelled_members(store: Store, label: str) -> Iterator[str]:
     """The keys of the members with *label* (``Rijksoverheid``: a bewindspersoon only
     Rijksoverheid knows)."""
-    aql = f"""
-    FOR m IN {COLLECTION_MEMBERS}
-        FILTER @label IN m.labels
-        RETURN m._key
+    statement = f"""
+    SELECT key FROM {COLLECTION_MEMBERS}
+    WHERE %(label)s = ANY(labels)
+    ORDER BY key COLLATE "C"
     """
-    return store.query(aql, {"label": label})
+    return store.query(statement, {"label": label})
 
 
 def government_members(store: Store) -> Iterator[str]:
     """The keys of the members that have ``government_functions``."""
-    aql = f"""
-    FOR m IN {COLLECTION_MEMBERS}
-        FILTER m.props.government_functions != null
-        RETURN m._key
+    statement = f"""
+    SELECT key FROM {COLLECTION_MEMBERS}
+    WHERE {present_sql("props -> 'government_functions'")}
+    ORDER BY key COLLATE "C"
     """
-    return store.query(aql)
+    return store.query(statement)
 
 
 def decisions_of_vote_records(
@@ -427,93 +526,96 @@ def decisions_of_vote_records(
 ) -> Iterator[dict[str, Any]]:
     """``{key, decision_id}`` of the decisions the Stemming records *record_ids* voted on,
     by the VOTED edges they made: a vote the Kamer deleted names no decision any more."""
-    aql = f"""
-    FOR id IN @ids
-        FOR e IN {COLLECTION_EDGES}
-            FILTER id IN e.meta.record_ids[*] AND e.relation == @voted
-            LET decision = DOCUMENT(e._to)
-            FILTER decision != null
-            RETURN DISTINCT {{key: decision._key, decision_id: decision.props.decision_id}}
+    statement = f"""
+    SELECT d.key, d.props -> 'decision_id' AS decision_id
+    FROM {COLLECTION_DECISIONS} d
+    WHERE d.id IN (
+        SELECT e.to_id FROM {COLLECTION_EDGES} e
+        WHERE e.record_ids && %(ids)s::text[] AND e.relation = %(voted)s
+    )
+    ORDER BY d.key COLLATE "C"
     """
-    return store.query(aql, {"ids": record_ids, "voted": RELATION_VOTED})
+    return store.query(statement, {"ids": record_ids, "voted": RELATION_VOTED})
 
 
 def remove_members(store: Store, keys: list[str]) -> int:
     """Remove the members *keys* with every edge at them; how many members went."""
-    ids = [f"{COLLECTION_MEMBERS}/{key}" for key in keys]
-    edges = f"""
-    FOR id IN @ids
-        FOR key IN UNION_DISTINCT(
-            (FOR e IN {COLLECTION_EDGES} FILTER e._from == id RETURN e._key),
-            (FOR e IN {COLLECTION_EDGES} FILTER e._to == id RETURN e._key)
-        )
-            REMOVE key IN {COLLECTION_EDGES}
-    """
-    list(store.query(edges, {"ids": ids}))
-    members = f"""
-    FOR key IN @keys
-        REMOVE key IN {COLLECTION_MEMBERS} OPTIONS {{ ignoreErrors: true }}
-        RETURN 1
-    """
-    return sum(store.query(members, {"keys": keys}))
+    return normalize_edges.remove_nodes(store, COLLECTION_MEMBERS, keys)
 
 
 def faction_names(store: Store) -> Iterator[dict[str, Any]]:
     """``{key, name, abbreviation, aliases}`` of every faction (``normalize rijksoverheid``
     finds the faction of a bewindspersoon's party by them)."""
-    aql = f"""
-    FOR f IN {COLLECTION_FACTIONS}
-        FILTER f.props.chamber != "EK"
-        RETURN {{
-            key: f._key,
-            name: f.props.name,
-            abbreviation: f.props.abbreviation,
-            aliases: f.props.aliases
-        }}
+    statement = f"""
+    SELECT key, props -> 'name' AS name, props -> 'abbreviation' AS abbreviation,
+           props -> 'aliases' AS aliases
+    FROM {COLLECTION_FACTIONS}
+    WHERE lg_str(props -> 'chamber') IS DISTINCT FROM 'EK'
+    ORDER BY key COLLATE "C"
     """
-    return store.query(aql)
+    return store.query(statement)
+
+
+# The factions and committees of the Eerste Kamer, its members, and the MEMBER_OF edges
+# into those factions and committees: per target (the factions, then the committees), by
+# edge key.
+_EK_COMPOSITION_SQL = f"""
+WITH ek_factions AS (
+    SELECT key, props FROM {COLLECTION_FACTIONS} WHERE lg_str(props -> 'chamber') = 'EK'
+),
+ek_committees AS (
+    SELECT key, props FROM {COLLECTION_COMMITTEES} WHERE lg_str(props -> 'chamber') = 'EK'
+),
+targets AS (
+    SELECT '{COLLECTION_FACTIONS}/' || key AS id, 0 AS part, key FROM ek_factions
+    UNION ALL
+    SELECT '{COLLECTION_COMMITTEES}/' || key, 1, key FROM ek_committees
+)
+SELECT
+    coalesce((
+        SELECT json_agg(json_build_object('key', key, 'props', props)
+                        ORDER BY key COLLATE "C")
+        FROM ek_factions
+    ), '[]'::json) AS factions,
+    coalesce((
+        SELECT json_agg(json_build_object('key', key, 'props', props)
+                        ORDER BY key COLLATE "C")
+        FROM ek_committees
+    ), '[]'::json) AS committees,
+    coalesce((
+        SELECT json_agg(json_build_object('key', m.key, 'ek', m.props -> 'ek')
+                        ORDER BY m.key COLLATE "C")
+        FROM {COLLECTION_MEMBERS} m
+        WHERE m.in_ek
+    ), '[]'::json) AS members,
+    coalesce((
+        SELECT json_agg(
+            json_build_object('from', e.from_id, 'to', e.to_id, 'meta', e.doc -> 'meta')
+            ORDER BY t.part, t.key COLLATE "C", e.key COLLATE "C"
+        )
+        FROM targets t
+        JOIN {COLLECTION_EDGES} e ON e.to_id = t.id AND e.relation = %(member_of)s
+    ), '[]'::json) AS edges
+"""
 
 
 def ek_composition(store: Store) -> dict[str, Any]:
     """What the graph holds of the composition of the Eerste Kamer: its factions and
     committees (``chamber`` ``EK``) with their props, the members with an ``ek`` prop, and
     the ``MEMBER_OF`` edges into those factions and committees."""
-    aql = f"""
-    LET factions = (
-        FOR f IN {COLLECTION_FACTIONS} FILTER f.props.chamber == "EK"
-            RETURN {{ key: f._key, props: f.props }}
-    )
-    LET committees = (
-        FOR c IN {COLLECTION_COMMITTEES} FILTER c.props.chamber == "EK"
-            RETURN {{ key: c._key, props: c.props }}
-    )
-    LET members = (
-        FOR m IN {COLLECTION_MEMBERS} FILTER m.props.ek != null
-            RETURN {{ key: m._key, ek: m.props.ek }}
-    )
-    LET targets = APPEND(
-        factions[* RETURN CONCAT("{COLLECTION_FACTIONS}/", CURRENT.key)],
-        committees[* RETURN CONCAT("{COLLECTION_COMMITTEES}/", CURRENT.key)]
-    )
-    LET edges = (
-        FOR id IN targets
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == id AND e.relation == @member_of
-                RETURN {{ from: e._from, to: e._to, meta: e.meta }}
-    )
-    RETURN {{ factions, committees, members, edges }}
-    """
-    row = next(iter(store.query(aql, {"member_of": RELATION_MEMBER_OF})), None)
-    return row or {"factions": [], "committees": [], "members": [], "edges": []}
+    rows = store.query(_EK_COMPOSITION_SQL, {"member_of": RELATION_MEMBER_OF})
+    return dict(next(iter(rows)))
 
 
 def members_born_on(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
     """``{key, family_name, birth_date}`` of the members born on one of *dates*."""
-    aql = f"""
-    FOR m IN {COLLECTION_MEMBERS}
-        FILTER m.props.birth_date IN @dates
-        RETURN {{
-            key: m._key, family_name: m.props.family_name, birth_date: m.props.birth_date
-        }}
+    statement = f"""
+    SELECT c.key, c.p -> 'family_name' AS family_name, c.p -> 'birth_date' AS birth_date
+    FROM (
+        SELECT m.key, {_MEMBER_CUT} AS p FROM {COLLECTION_MEMBERS} m OFFSET 0
+    ) c
+    WHERE lg_str(c.p -> 'birth_date') = ANY(%(dates)s::text[])
+    ORDER BY c.key COLLATE "C"
     """
-    return store.query(aql, {"dates": dates})
+    bind = {"dates": dates, "fields": ["family_name", "birth_date"]}
+    return store.query(statement, bind)

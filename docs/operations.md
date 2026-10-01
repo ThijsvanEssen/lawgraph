@@ -85,8 +85,8 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_LOG_FILE` | unset | every log line is also written to this file (plain lines; the terminal keeps its live progress) |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
-| `ALLOW_DB_TESTS` | unset | `1` runs `tests/test_aql_validity.py` (every static AQL query explained by a real ArangoDB in a scratch database) and everything under `tests/integration/`; shell only |
-| `LAWGRAPH_TEST_ARANGO_URL` | `http://localhost:8530` | server `tests/integration/` talks to (`docker-compose.test.yml`); `tests/test_aql_validity.py` does not read this and uses `ARANGO_URL` instead (a scratch database of its own, so never real data either way); shell only |
+| `ALLOW_DB_TESTS` | unset | `1` runs everything under `tests/pg/` (among it `test_sql_validity.py`: every static SQL statement planned by a real PostgreSQL in a scratch database) and `tests/integration/`; shell only |
+| `LAWGRAPH_TEST_ARANGO_URL` | `http://localhost:8530` | server `tests/integration/` talks to (`docker-compose.test.yml`); shell only |
 
 ## CLI
 
@@ -406,10 +406,8 @@ mypy                                  # src, configured in pyproject.toml
 The suite uses real XML fixtures (`tests/fixtures/`) and replaces the database by patching the
 functions of `db/queries/` the code calls (a fake store keeps only the bulk writes and lookups);
 no unit test runs or reads a query (`tests/test_conventions.py`), what a query does is tested in
-`tests/integration`. One file, `tests/test_aql_validity.py`, is different: `ALLOW_DB_TESTS=1` has a
-real ArangoDB validate every static query (a scratch database of its own; it defaults to
-`ARANGO_URL` from `.env`, so normally your local dev server, unless you export
-`LAWGRAPH_TEST_ARANGO_URL`).
+`tests/integration`; `tests/pg/test_sql_validity.py` has a real PostgreSQL plan every static SQL
+statement (`ALLOW_DB_TESTS=1`, a scratch database of its own).
 
 What only a server shows under real load is in `tests/integration`: the real code and the real CLI against a
 second, deliberately small ArangoDB (`docker-compose.test.yml`, a compose project of its own: port 8530, 1 GB
