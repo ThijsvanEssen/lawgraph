@@ -8,7 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
-from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.api.schemas.documents import (
+    DocumentOrigin,
+    origin_fields,
+    paper_number,
+)
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.documents import numbered_in
 from lawgraph.core.dossier_numbers import short_title
@@ -168,6 +172,11 @@ class TimelineDocumentBody(DocumentOrigin):
     sequence: int | None = Field(
         None, description="The number of the paper in ``dossier_number``."
     )
+    number: str | None = Field(
+        None,
+        description="Its number in the dossier: of the Tweede Kamer the nr. (``5``), of "
+        "the Eerste Kamer the letter (``C``); null for none.",
+    )
     dossier_number: str | None = Field(
         None,
         description="The dossier the paper is numbered in (``31058``, ``37020-XV``): a "
@@ -324,14 +333,16 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
         "planned": bool(row.get("planned")),
     }
     if node_type == "document":
+        origin = origin_fields(row.get("labels"), body.get("source"), body.get("kind"))
         common["body"] = {
             **{f: body.get(f) for f in ("kind", "title", "sequence", "session_year")},
+            "number": paper_number(origin["chamber"], body),
             "dossier_number": numbered_in(
                 body.get("dossier_number"), body.get("dossier_suffix")
             ),
             "tk_url": link,
             "url": body.get("url"),
-            **origin_fields(row.get("labels"), body.get("source"), body.get("kind")),
+            **origin,
         }
     elif node_type == "decision":
         common["body"] = {

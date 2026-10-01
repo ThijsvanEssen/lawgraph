@@ -149,6 +149,7 @@ def _build(store: ArangoStore) -> None:
             display_name="EK 36000, nr. 1: Nota EK",
             date="2025-03-01",
             dossier_number="36000",
+            number="C",
             url="https://ek.example/1",
         ),
         # a document of another dossier
@@ -386,6 +387,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "kind": "Memorie van toelichting",
         "title": "Memorie van toelichting mvt",
         "sequence": 3,
+        "number": "3",
         # the dossier its sequence is a number of: this seed stores none
         "dossier_number": None,
         "session_year": "2024-2025",
@@ -396,6 +398,8 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
     }
     ek = entries["ek_1"].model_dump()["body"]
     assert ek["chamber"] == "EK" and ek["url"] == "https://ek.example/1"
+    # the letter of an Eerste Kamer paper, which has no sequence: Kamerstukken I, 36000, C
+    assert ek["number"] == "C" and ek["sequence"] is None
     assert ek["is_explanatory"] is False
 
     committee = entries["act_committee"].model_dump()
