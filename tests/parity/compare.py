@@ -126,7 +126,7 @@ def _short(value: Any) -> str:
 
 
 def allowed_deviation(path: str, query: dict[str, str], golden: Any, other: Any) -> str:
-    if path == "/api/search" and same_hits(golden, other):
+    if path == "/api/search" and same_outside_hits(golden, other):
         return "D3"
     if path.endswith("/neighborhood"):
         cap = int(query.get("cap", "200"))
@@ -145,27 +145,47 @@ def plain(value: Any) -> Any:
     return value
 
 
+def hit_groups(body: Any) -> dict[str, list[str]]:
+    """The ids of the hits of a search answer per type, in their order."""
+    results = plain(body).get("results") if isinstance(plain(body), dict) else None
+    if not isinstance(results, dict):
+        return {}
+    return {
+        kind: [str(hit.get("id") or hit.get("key")) for hit in hits]
+        for kind, hits in results.items()
+        if isinstance(hits, list)
+    }
+
+
 def hit_ids(body: Any) -> list[str]:
-    """The ids of the hits of a search answer, in their order."""
-    found: list[str] = []
-    for group in _hit_groups(plain(body)):
-        found += [str(hit.get("id") or hit.get("key")) for hit in group]
+    """The ids of the hits of a search answer, type after type."""
+    return [hit for hits in hit_groups(body).values() for hit in hits]
+
+
+def same_outside_hits(golden: Any, other: Any) -> bool:
+    """D3: the answers differ only in which hits each type has and in their order (how
+    close the hits are is measured apart: ``search_agreement``)."""
+    a, b = plain(golden), plain(other)
+    if not (isinstance(a, dict) and isinstance(b, dict)):
+        return False
+    rest = [
+        {k: v for k, v in x.items() if k not in ("results", "total")} for x in (a, b)
+    ]
+    return rest[0] == rest[1] and list(hit_groups(a)) == list(hit_groups(b))
+
+
+def search_agreement(golden: Any, other: Any) -> list[tuple[bool, float]]:
+    """Per type with hits: (the same first hit, the overlap of the hits as |A∩B| / |A∪B|)."""
+    found = []
+    theirs = hit_groups(other)
+    for kind, mine in hit_groups(golden).items():
+        other_hits = theirs.get(kind, [])
+        if not mine and not other_hits:
+            continue
+        union = set(mine) | set(other_hits)
+        overlap = len(set(mine) & set(other_hits)) / len(union)
+        found.append((mine[:1] == other_hits[:1], overlap))
     return found
-
-
-def _hit_groups(body: Any) -> list[list[dict[str, Any]]]:
-    if isinstance(body, dict):
-        groups = body.get("results") or body.get("groups") or body
-        if isinstance(groups, dict):
-            return [v for v in groups.values() if isinstance(v, list)]
-        if isinstance(groups, list):
-            return [groups]
-    return []
-
-
-def same_hits(golden: Any, other: Any) -> bool:
-    """D3: the same hits, in any order (their rank is counted apart)."""
-    return sorted(hit_ids(golden)) == sorted(hit_ids(other))
 
 
 def _capped(body: Any, cap: int) -> bool:

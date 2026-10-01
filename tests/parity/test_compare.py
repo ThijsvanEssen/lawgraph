@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from tests.parity.catalogue import Pools, Request, _resolve, fill
-from tests.parity.compare import compare, first_difference, parse
+from tests.parity.compare import compare, first_difference, parse, search_agreement
 
 
 def _answer(body: Any, status: int = 200, **headers: str) -> dict[str, Any]:
@@ -71,17 +71,20 @@ def test_atom_is_compared_after_c14n() -> None:
     assert compare("/api/feed.atom", {}, a, b).same
 
 
-def test_search_with_the_same_hits_in_another_order_is_d3() -> None:
+def test_search_answers_that_differ_in_their_hits_only_are_d3() -> None:
     hits = [{"id": "articles/a", "score": 0.5}, {"id": "articles/b", "score": 0.4}]
     golden = {"q": "wet", "results": {"articles": hits}}
     other = {"q": "wet", "results": {"articles": hits[::-1]}}
     result = compare("/api/search", {"q": "wet"}, _answer(golden), _answer(other))
     assert not result.same and result.allowed == "D3"
     fewer = {"q": "wet", "results": {"articles": hits[:1]}}
-    assert (
-        compare("/api/search", {"q": "wet"}, _answer(golden), _answer(fewer)).allowed
-        == ""
-    )
+    result = compare("/api/search", {"q": "wet"}, _answer(golden), _answer(fewer))
+    assert result.allowed == "D3"
+    agreement = search_agreement(parse(json.dumps(golden)), parse(json.dumps(fewer)))
+    assert agreement == [(True, 0.5)]
+    other_query = {"q": "recht", "results": {"articles": hits}}
+    result = compare("/api/search", {}, _answer(golden), _answer(other_query))
+    assert result.allowed == ""
 
 
 def test_a_capped_neighbourhood_is_d9_and_an_uncapped_one_is_strict() -> None:

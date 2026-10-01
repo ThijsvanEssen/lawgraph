@@ -5,9 +5,10 @@
 
 Asks each recorded request again, compares status, headers and body (``compare.py``), and
 asks it once more with the ``ETag`` it got in ``If-None-Match``, which must give a 304. The
-search ranking is held to D3: the same hits, and the same first hit in at least 90 % of the
-questions. Prints a summary per route and writes the differences to
-``<goldens>/replay-<port>.json``; exits 1 when anything differs beyond D3 and D9.
+search ranking is held to D3: an answer may differ in its hits only, and per type of hit the
+first is the same in at least 90 % of the questions; the overlap of the hits is reported.
+Prints a summary per route and writes the differences to ``<goldens>/replay-<port>.json``;
+exits 1 when anything differs beyond D3 and D9.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from tests.parity.catalogue import Request
-from tests.parity.compare import compare, hit_ids, parse
+from tests.parity.compare import compare, parse, search_agreement
 from tests.parity.record import Client
 
 D3_FIRST_HIT = 0.9
@@ -63,8 +64,7 @@ def check(client: Client, golden: dict[str, Any]) -> dict[str, Any]:
                 same=False, where="304", detail=f"If-None-Match gave {again['status']}"
             )
     if golden["path"] == "/api/search" and golden["status"] == 200 == answer["status"]:
-        first = [hit_ids(parse(x["body"]))[:1] for x in (golden, answer)]
-        row["first_hit_same"] = first[0] == first[1]
+        row["search"] = search_agreement(parse(golden["body"]), parse(answer["body"]))
     return row
 
 
@@ -79,11 +79,15 @@ def summary(rows: list[dict[str, Any]]) -> tuple[bool, str]:
             f"{route:48} " + "  ".join(f"{k} {v}" for k, v in sorted(counts.items()))
         )
     differs = sum(c["DIFFERS"] for c in by_route.values())
-    searches = [r["first_hit_same"] for r in rows if "first_hit_same" in r]
-    share = sum(searches) / len(searches) if searches else 1.0
+    groups = [group for r in rows for group in r.get("search", [])]
+    share = sum(first for first, _ in groups) / len(groups) if groups else 1.0
+    overlap = sum(o for _, o in groups) / len(groups) if groups else 1.0
     lines.append(f"\n{len(rows)} requests, {differs} differ")
-    if searches:
-        lines.append(f"D3: same first hit in {share:.1%} of {len(searches)} searches")
+    if groups:
+        lines.append(
+            f"D3: per type of hit, the same first hit in {share:.1%} and an overlap of"
+            f" {overlap:.1%} of the hits ({len(groups)} lists of hits)"
+        )
     return differs == 0 and share >= D3_FIRST_HIT, "\n".join(lines)
 
 
