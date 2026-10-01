@@ -341,9 +341,9 @@ day or more; a backup is back in minutes to hours. `scripts/backup.sh` writes a 
 database with `pg_dump` (directory format, four jobs, zstd) to `LAWGRAPH_BACKUP_DIR`
 (`./backups`, mounted by `docker-compose.yml` at `/backups` in the container, where the dump
 runs), with a `counts` file next to it (`scripts/_counts.sql`: the rows of every table, the
-edges per relation, and the columns, indexes and functions of the schema), and keeps the newest
-`LAWGRAPH_BACKUP_KEEP` (7). A dump is written as `<name>.partial` and renamed when it is
-complete. `LAWGRAPH_BACKUP_UPLOAD_COMMAND` gets each new dump off the machine (`sh -c`, the
+edges per relation, and the columns, indexes, functions and triggers of the schema), and keeps
+the newest `LAWGRAPH_BACKUP_KEEP` (7). A dump is written as `<name>.partial` and renamed when
+it is complete. `LAWGRAPH_BACKUP_UPLOAD_COMMAND` gets each new dump off the machine (`sh -c`, the
 path in `LAWGRAPH_BACKUP_PATH`), for example
 `rclone copy "$LAWGRAPH_BACKUP_PATH" leafcloud:lawgraph-backups/$(basename "$LAWGRAPH_BACKUP_PATH")`;
 let a lifecycle rule of the bucket remove old ones. `scripts/restore-test.sh` restores the
