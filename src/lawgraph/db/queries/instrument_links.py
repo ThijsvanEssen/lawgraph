@@ -95,7 +95,7 @@ def _eu_side(name: str, end: str, other: str, relation: str) -> str:
     )
     LET {name} = (
         FOR r IN {name}_all
-            SORT r.edge.confidence DESC, r.instrument._key ASC
+            SORT r.edge.confidence DESC, r.instrument._key ASC, r.edge._key ASC
             LIMIT @limit
             RETURN {{ instrument: r.instrument, edge: {_EDGE_OF_ROW} }}
     )
@@ -188,6 +188,7 @@ def get_international_links(
                 ? FIRST(
                     FOR i IN {COLLECTION_INSTRUMENTS}
                         FILTER i.props.bwb_id != null AND i.props.bwb_id == target.props.bwb_id
+                        SORT i._key
                         LIMIT 1 RETURN i)
                 : target
             FILTER treaty != null
@@ -197,7 +198,8 @@ def get_international_links(
                 instrument: treaty,
                 own_article: {_article_ref("own")},
                 counterpart_article: is_article ? {_article_ref("target")} : null,
-                edge: {_EDGE_OF_E}
+                edge: {_EDGE_OF_E},
+                edge_key: e._key
             }}
     )
     // Only the sort keys are read for every judgment; the page is read whole.
@@ -213,9 +215,11 @@ def get_international_links(
         treaties_total: LENGTH(treaty_rows),
         treaties: (
             FOR r IN treaty_rows
-                SORT r.edge.confidence DESC, r.instrument._key ASC, r.own_article.key ASC
+                SORT r.edge.confidence DESC, r.instrument._key ASC, r.own_article.key ASC,
+                     r.counterpart_article.key ASC, r.edge_key ASC
                 LIMIT @limit
-                RETURN r
+                // The edge key only settles ties; the answer does not carry it.
+                RETURN UNSET(r, 'edge_key')
         ),
         judgments_total: LENGTH(judgment_edges),
         judgments: (

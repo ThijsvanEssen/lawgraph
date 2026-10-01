@@ -199,6 +199,8 @@ def get_article_citations(
     FOR edge IN {COLLECTION_EDGES}
         FILTER edge._from == @article_id
         FILTER edge.relation == @relation
+        // In text order; the key settles which of two equal spans is kept.
+        SORT edge.meta.start, edge._key
         RETURN edge
     """
     for edge in store.query(
@@ -269,6 +271,8 @@ def get_article_legislative_history(
     FOR edge IN {COLLECTION_EDGES}
         FILTER edge._to == @article_id
         FILTER edge.relation IN @changes
+        // The sorts in Python are stable: the edge key and the sorted dossier keys settle ties.
+        SORT edge._key
         LET source = DOCUMENT(edge._from)
         FILTER source != null
         LET direct = (
@@ -288,7 +292,7 @@ def get_article_legislative_history(
                     RETURN PARSE_IDENTIFIER(e3._to).key
         )
         RETURN {{
-            dossier_keys: UNION_DISTINCT(direct, through_case),
+            dossier_keys: SORTED(UNION_DISTINCT(direct, through_case)),
             numbers: IS_SAME_COLLECTION('{COLLECTION_INSTRUMENTS}', source)
                 ? (source.props.dossier_numbers OR []) : [],
             date: NOT_NULL(

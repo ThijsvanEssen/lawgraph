@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
 )
 from lawgraph.db.counting import Store
+from lawgraph.db.store import sorted_merge
 
 
 def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
@@ -26,9 +27,16 @@ def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
                 LET aliases = LENGTH(row.aliases) > 0 ? row.aliases : null
                 FILTER inst.props.short_title != row.short_title
                     OR inst.props.aliases != aliases
-                UPDATE inst WITH {{
-                    props: {{ short_title: row.short_title, aliases: aliases }}
-                }} IN {COLLECTION_INSTRUMENTS} OPTIONS {{ keepNull: false }}
+                LET cleared = APPEND(
+                    row.short_title == null ? ["short_title"] : [],
+                    aliases == null ? ["aliases"] : []
+                )
+                LET props = UNSET(
+                    MERGE(inst.props, {{ short_title: row.short_title, aliases: aliases }}),
+                    cleared
+                )
+                UPDATE inst WITH {{ props: {sorted_merge("props", "{}")} }}
+                IN {COLLECTION_INSTRUMENTS} OPTIONS {{ mergeObjects: false }}
                 RETURN 1
         """
     return len(list(store.query(aql, {"rows": rows})))
@@ -104,7 +112,8 @@ def toestand_starts(store: Store, bwb_ids: list[str]) -> dict[str, list[str]]:
     aql = f"""
     FOR v IN {COLLECTION_INSTRUMENT_VERSIONS}
         FILTER v.props.bwb_id IN @ids
-        SORT v.props.valid_from
+        // COLLECT sorts on the id; sorting on it first keeps the dates in order inside it.
+        SORT v.props.bwb_id, v.props.valid_from, v._key
         COLLECT bwb_id = v.props.bwb_id INTO starts = v.props.valid_from
         RETURN {{ bwb_id, starts }}
     """

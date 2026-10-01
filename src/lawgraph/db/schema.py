@@ -404,7 +404,8 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         # sparse since they only serve equality filters.
         (COLLECTION_INSTRUMENTS, ["props.jurisdiction"], False, False),
         (COLLECTION_INSTRUMENTS, ["props.kind"], False, False),
-        (COLLECTION_INSTRUMENTS, ["props.article_count"], False, False),
+        # A list sort is on the field and then the key, which settles ties.
+        (COLLECTION_INSTRUMENTS, ["props.article_count", "_key"], False, False),
         # `/api/judgments` counts per tier, per kind of court, per source and per year of
         # `date_eff` under the filters (`queries/judgments.py`): each filter's index holds
         # all four, `stub` and `same_as` (the list leaves the stubs and the replaced
@@ -464,13 +465,20 @@ def _ensure_indexes(db: StandardDatabase) -> None:
         ),
         # `/api/judgments?subject=`: `@subject IN doc.props.subjects[*]`
         (COLLECTION_JUDGMENTS, ["props.subjects[*]"], False),
-        (COLLECTION_JUDGMENTS, ["props.inbound_citation_count"], False, False),
+        (COLLECTION_JUDGMENTS, ["props.inbound_citation_count", "_key"], False, False),
+        # `/api/judgments` by date: the date and then the key, with the filters every list has
+        (
+            COLLECTION_JUDGMENTS,
+            ["props.date_eff", "_key", "props.stub", "props.same_as"],
+            False,
+            False,
+        ),
         (COLLECTION_ARTICLES, ["props.inbound_citation_count"], False, False),
         # `/api/stats` counts the stubs (the judgments count them from the coverage index)
         (COLLECTION_ARTICLES, ["props.stub"], False, True),
         (COLLECTION_INSTRUMENTS, ["props.stub"], False, True),
-        # Title-sort key for /api/instruments default list.
-        (COLLECTION_INSTRUMENTS, ["props.citation_title"], False, False),
+        # Title-sort key for /api/instruments default list (the key settles ties).
+        (COLLECTION_INSTRUMENTS, ["props.citation_title", "_key"], False, False),
         # one treaty in the BWB and in the Verdragenbank (`same_treaty` of an instrument)
         (COLLECTION_INSTRUMENTS, ["props.treaty_number"], False),
         (COLLECTION_DOCUMENTS, ["props.kind"], False),

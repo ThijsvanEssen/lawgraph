@@ -262,13 +262,15 @@ def get_dossier_timeline(
         FILTER entry.date != null
         FILTER @include_planned OR NOT entry.planned
         {kind_clause}
-        SORT entry.date {"DESC" if order == "desc" else "ASC"}
+        SORT entry.date {"DESC" if order == "desc" else "ASC"},
+             node._id {"DESC" if order == "desc" else "ASC"}
         LIMIT @limit
         LET committee = node.type == 'activity' ? FIRST(
             FOR led IN {COLLECTION_EDGES}
                 FILTER led._from == node._id AND led.relation == @led_by
                 LET lead = DOCUMENT(led._to)
                 FILTER lead != null
+                SORT led._to
                 LIMIT 1
                 RETURN {{
                     key: lead._key,
@@ -329,6 +331,9 @@ def _documents_by_case(
                 RETURN document
     )
     FOR document IN UNIQUE(APPEND(direct, via_case))
+        // The oldest document of a case is the one kept for it (the key settles a tie),
+        // as ``get_decision_document`` picks it.
+        SORT document.props.date, document._key
         FOR case_id IN (document.props.case_ids != null ? document.props.case_ids : [])
             RETURN {{ case_id: case_id, document: document }}
     """
@@ -559,12 +564,14 @@ _DOSSIER_HUB_BODY = f"""
                 }}
     )
 
-    LET kinds = MERGE(
+    // ZIP, not MERGE: the kinds in their order, not in the order of a hash map (D11)
+    LET kind_counts = (
         FOR document IN all_documents
             FILTER document.props.kind != null AND document.props.kind != ''
             COLLECT kind = document.props.kind WITH COUNT INTO total
-            RETURN {{ [kind]: total }}
+            RETURN [kind, total]
     )
+    LET kinds = ZIP(kind_counts[*][0], kind_counts[*][1])
     LET senate_dates = (
         FOR document IN all_documents
             FILTER '{CHAMBER_EK}' IN document.labels
@@ -630,6 +637,7 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
         FILTER e._from IN member_ids
         FILTER e.status == @proposed OR e.relation IN @relations
         FILTER STARTS_WITH(e._to, "{COLLECTION_ARTICLES}/")
+        SORT e._key
         RETURN {{ edge: e, from_node: DOCUMENT(e._from), to_node: DOCUMENT(e._to) }}
     """
     relations = list(MUTATION_RELATIONS) + list(EXPLANATION_RELATIONS)
@@ -660,9 +668,8 @@ def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]
         FOR e IN {COLLECTION_EDGES}
             FILTER e._from == document._id AND e.relation IN @relations
             FILTER STARTS_WITH(e._to, "{COLLECTION_ARTICLES}/")
-            RETURN DISTINCT {{
-                edge: e, from_node: document, to_node: DOCUMENT(e._to)
-            }}
+            SORT document._key, e._key
+            RETURN {{ edge: e, from_node: document, to_node: DOCUMENT(e._to) }}
     """
     for row in store.query(fallback, {"number": number, "relations": relations}):
         graph.add(row["edge"], row.get("from_node"), row.get("to_node"))

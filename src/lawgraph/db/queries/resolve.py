@@ -157,7 +157,7 @@ def _articles_without_law(
             LIMIT @pool
             RETURN hit
     )
-        SORT doc.props.inbound_citation_count DESC, doc.props.bwb_id ASC
+        SORT doc.props.inbound_citation_count DESC, doc.props.bwb_id ASC, doc._key ASC
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,
@@ -191,6 +191,7 @@ def _headed_article(
                 FILTER law_id != null AND (doc.props.bwb_id == law_id OR doc.props.celex == law_id)
                 FILTER doc.props.article_number == null AND doc.props.label != null
                 FILTER LOWER(doc.props.label) == @heading
+                SORT POSITION(@law_ids, law_id, true), doc._key
                 RETURN {{
                     id: doc._id, key: doc._key,
                     display_name: {_DEFAULT_NAME}
@@ -210,7 +211,7 @@ def _dossiers(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
     aql = f"""
     FOR doc IN {COLLECTION_DOSSIERS}
         FILTER doc.props.number == @number
-        SORT doc.props.suffix ASC
+        SORT doc.props.suffix ASC, doc._key ASC
         RETURN {{
             id: doc._id, key: doc._key,
             display_name: {_DEFAULT_NAME},
@@ -267,6 +268,7 @@ def _document(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
                     AND TO_STRING(document.props.dossier_number) == dossier.number
                     AND (document.props.dossier_suffix || "") == (dossier.suffix || ""))
                 OR UPPER(document.props.number) == @text
+            SORT POSITION(@ids, dossier_id, true), document._key
             LIMIT @limit
             RETURN {
                 id: document._id, key: document._key,

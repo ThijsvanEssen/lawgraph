@@ -33,6 +33,7 @@ def get_annex_referenced_by(
         FILTER edge.relation == '{RELATION_SCOPED_BY}'
         LET article = DOCUMENT(edge._from)
         FILTER article != null
+        SORT edge._from, edge._key
         RETURN {{ edge: edge, article: article }}
     """
     return list(store.query(aql, {"annex_id": annex_id}))

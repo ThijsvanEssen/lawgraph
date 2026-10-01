@@ -90,6 +90,8 @@ def get_committee_detail(
     aql = f"""
     FOR committee IN {COLLECTION_COMMITTEES}
         FILTER committee.props.slug == @slug OR LOWER(committee._key) == @slug
+        // A slug that is also another committee's key: the key picks one every time.
+        SORT committee._key
         LIMIT 1
 
         LET members = (
@@ -98,7 +100,7 @@ def get_committee_detail(
                 {_CURRENT_MEMBERSHIP if current_only else ""}
                 LET member = DOCUMENT(e._from)
                 FILTER member != null
-                SORT member.props.name ASC
+                SORT member.props.name ASC, member._key ASC, e._key ASC
                 RETURN MERGE(member, {{
                     from_date: e.meta.from_date,
                     to_date: e.meta.to_date,
@@ -167,6 +169,8 @@ def get_committee_activities(
     aql = f"""
     FOR committee IN {COLLECTION_COMMITTEES}
         FILTER committee.props.slug == @slug OR LOWER(committee._key) == @slug
+        // A slug that is also another committee's key: the key picks one every time.
+        SORT committee._key
         LIMIT 1
         LET led_activities = (
             FOR led IN {COLLECTION_EDGES}
@@ -341,7 +345,7 @@ def get_factions(
     FOR faction IN {COLLECTION_FACTIONS}
         {chr(10).join(f"        FILTER {f}" for f in filters)}
         SORT faction.props.active DESC, faction.props.abbreviation ASC,
-             faction.props.name ASC
+             faction.props.name ASC, faction._key ASC
         RETURN MERGE(faction, {{
             member_count: counts[faction._id] != null ? counts[faction._id] : 0
         }})
@@ -411,7 +415,7 @@ def get_member_votes(
                 }}
     )
     FOR row IN APPEND(own, by_faction)
-        SORT row.decision.props.date DESC
+        SORT row.decision.props.date DESC, row.decision._key, row.faction_key
         LIMIT @limit
         RETURN {{
             decision_id: row.decision._id,
@@ -457,7 +461,7 @@ def get_actor_touched_instruments(
                 FILTER STARTS_WITH(part._to, "{COLLECTION_INSTRUMENTS}/")
                 COLLECT instrument_id = part._to INTO touching = document_id
                 LET document_count = LENGTH(UNIQUE(touching))
-                SORT document_count DESC
+                SORT document_count DESC, instrument_id
                 LIMIT @limit
                 LET instrument = DOCUMENT(instrument_id)
                 FILTER instrument != null
@@ -636,11 +640,13 @@ def get_ek_faction_votes(
             FILTER choice != null
             RETURN {{ d, choice }}
     )
-    LET counts = MERGE(
+    // ZIP, not MERGE: the choices in their order, not in the order of a hash map (D11)
+    LET choice_counts = (
         FOR v IN voted
             COLLECT choice = v.choice WITH COUNT INTO n
-            RETURN {{ [choice]: n }}
+            RETURN [choice, n]
     )
+    LET counts = ZIP(choice_counts[*][0], choice_counts[*][1])
     LET items = (
         FOR v IN voted
             SORT v.d.props.date DESC, v.d._key

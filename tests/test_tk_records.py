@@ -506,6 +506,21 @@ def test_a_faction_decision_tallies_seats() -> None:
     assert props["passed"] is True
 
 
+def test_a_tally_reads_for_against_and_the_rest_whatever_came_first() -> None:
+    """The rows of a decision come in no fixed order; its tally does (``props.tally`` is
+    served as it is, key order included)."""
+    rows = [
+        _vote(Id="s-3", Soort="Niet deelgenomen", FractieGrootte=1, Fractie_Id="f-a"),
+        _vote(Id="s-2", Soort="Tegen", FractieGrootte=74, Fractie_Id="f-pvv"),
+        _vote(Id="s-1", Soort="Voor", FractieGrootte=75),
+    ]
+    for order in (rows, rows[::-1]):
+        votes = [tk_records.vote(row) for row in order]
+        _, props = tk_records.decision("b-1", {}, votes)
+        assert list(props["tally"]) == ["Voor", "Tegen", "Niet deelgenomen"]
+        assert list(props["voters"]) == ["Voor", "Tegen", "Niet deelgenomen"]
+
+
 def test_a_roll_call_counts_members_not_faction_sizes() -> None:
     votes = [
         tk_records.vote(_vote(Soort="Voor", FractieGrootte=34, Persoon_Id="p-1")),

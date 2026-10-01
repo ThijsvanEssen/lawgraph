@@ -286,6 +286,8 @@ _DIMENSIONS = ("kind", "ministry", "faction", "cabinet", "chamber")
 _PREAMBLE = f"""
     LET faction_pairs = (
         FOR f IN {COLLECTION_FACTIONS}
+            // An id two factions claim goes to the same one every time.
+            SORT f._key
             FOR id IN UNIQUE(APPEND(f.props.external_ids OR [], [f.props.external_id]))
                 FILTER id != null
                 RETURN [id, {{ key: f._key, short: f.props.abbreviation OR f.props.name }}]
@@ -294,7 +296,7 @@ _PREAMBLE = f"""
     LET cabinet_starts = (
         FOR c IN {COLLECTION_CABINETS}
             FILTER c.props.from_date != null
-            SORT c.props.from_date DESC
+            SORT c.props.from_date DESC, c._key DESC
             RETURN {{ key: c._key, from: c.props.from_date }}
     )
 """
@@ -323,6 +325,7 @@ _MEMBER_PERSON = f"""
 _FIRST_DOSSIER = f"""FIRST(
                 FOR d IN {COLLECTION_DOSSIERS}
                     FILTER labels[0] != null AND d.props.label != null AND d.props.label == labels[0]
+                    SORT d._key
                     LIMIT 1
                     RETURN {{ ministry: d.props.ministry, title: d.props.title }}
             )"""
@@ -628,6 +631,7 @@ _ITEMS = f"""
             LET dossier = FIRST(
                 FOR d IN {COLLECTION_DOSSIERS}
                     FILTER d.props.label != null AND d.props.label == row.dossier
+                    SORT d._key
                     LIMIT 1
                     RETURN {{
                         key: d._key,
@@ -810,10 +814,11 @@ _SUMMARY = f"""
             }}
     )
     LET dossier_titles = (
-        FOR number IN UNIQUE(matching[* FILTER CURRENT.dossier != null].dossier)
+        FOR number IN SORTED_UNIQUE(matching[* FILTER CURRENT.dossier != null].dossier)
             LET d = FIRST(
                 FOR x IN {COLLECTION_DOSSIERS}
                     FILTER x.props.label != null AND x.props.label == number
+                    SORT x._key
                     LIMIT 1
                     RETURN x
             )

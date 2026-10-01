@@ -59,9 +59,11 @@ def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetail
         FILTER STARTS_WITH(edge._to, '{COLLECTION_ARTICLES}/')
         LET article = DOCUMENT(edge._to)
         FILTER article != null
+        SORT edge._to, edge._key
         LET instrument = FIRST(
             FOR ie IN {COLLECTION_EDGES}
                 FILTER ie._from == article._id AND ie.relation == @part_of
+                SORT ie._to
                 LIMIT 1
                 RETURN DOCUMENT(ie._to)
         )
@@ -136,7 +138,7 @@ def _linked_judgments(
     FOR id IN UNION_DISTINCT(targets, sources)
         FOR j IN {COLLECTION_JUDGMENTS}
             FILTER j._id == id
-            SORT j.props.date_eff DESC, j.props.ecli
+            SORT j.props.date_eff DESC, j.props.ecli, j._key
             RETURN {{
                 _id: j._id,
                 _key: j._key,
@@ -154,7 +156,7 @@ def get_series_members(store: ArangoStore, series_id: str) -> list[dict[str, Any
     aql = f"""
     FOR j IN {COLLECTION_JUDGMENTS}
         FILTER j.props.series_id == @series_id
-        SORT LENGTH(j.props.ecli), j.props.ecli
+        SORT LENGTH(j.props.ecli), j.props.ecli, j._key
         RETURN {{
             _id: j._id,
             _key: j._key,
@@ -284,18 +286,15 @@ def get_judgments_list(
         else ("true", {})
     )
 
-    # Single-key SORT so the planner places LIMIT *before* the materialise
-    # step. Adding a secondary tiebreak (e.g. ``ecli ASC``) forces a
-    # SortNode because the single-field index can't serve both keys.
-    # The trade-off — non-deterministic order among rows with identical
-    # sort keys — is acceptable for a catalogue list.
+    # The key settles ties. Each sort is one index (``[field, _key]``, non-sparse) read
+    # in one direction, so the planner places LIMIT *before* the materialise step.
     # The inbound count lives on the indexed ``props.inbound_citation_count``,
     # so SORT/FILTER on citation count are served by the persistent index —
     # no per-row edge subquery on the list path.
     sort_clause = {
-        "date_desc": "SORT doc.props.date_eff DESC",
-        "date_asc": "SORT doc.props.date_eff ASC",
-        "citation_count": "SORT doc.props.inbound_citation_count DESC",
+        "date_desc": "SORT doc.props.date_eff DESC, doc._key DESC",
+        "date_asc": "SORT doc.props.date_eff ASC, doc._key ASC",
+        "citation_count": "SORT doc.props.inbound_citation_count DESC, doc._key DESC",
     }[sort]
 
     bind_vars: dict[str, Any] = {"limit": limit, "offset": offset, **tok_bind}

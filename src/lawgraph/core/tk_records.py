@@ -942,6 +942,9 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         or f"Besluit {decision_id[:8]}"
     )
 
+    # The rows of a decision come in no fixed order: in that of their ids, the first vote
+    # (whose date stands in for a missing one) is the same on every run.
+    votes = sorted(votes, key=lambda cast: (cast.record_id or "", cast.person_id or ""))
     tally: dict[str, int] = {}
     voters: dict[str, int] = {}
     for cast in votes:
@@ -955,6 +958,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         # the whole faction for every one of them.
         tally = dict(voters)
 
+    tally, voters = _in_vote_order(tally), _in_vote_order(voters)
     return make_node_key("decision", decision_id), {
         "decision_id": decision_id,
         "agenda_item_id": str(decision.get("Agendapunt_Id") or ""),
@@ -980,6 +984,15 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "passed": decision_passed(decision, tally),
         "display_name": decision_display_name(primary, order, len(listed), subject),
     }
+
+
+def _in_vote_order(counts: dict[str, int]) -> dict[str, int]:
+    """*counts* per choice as a tally is read: for, against, then the others in alphabetical
+    order (``Niet deelgenomen``)."""
+    order = {VOTE_FOR: 0, VOTE_AGAINST: 1}
+    return dict(
+        sorted(counts.items(), key=lambda item: (order.get(item[0], 2), item[0]))
+    )
 
 
 def decision_kind(primary: Payload | None, listed: list[Payload]) -> str | None:
