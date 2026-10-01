@@ -6,8 +6,8 @@
 # mounted by docker-compose.yml. Every file operation on it runs in the container too. Next
 # to the dump, `counts` holds what scripts/restore-test.sh compares a restore with: the rows
 # of every table, the edges per relation, and the shape of the schema (the columns of every
-# table, the indexes, the functions). A dump is written as `<name>.partial` and renamed when
-# it is complete, so an interrupted one is never taken for a backup.
+# table, the indexes, the functions, the triggers). A dump is written as `<name>.partial`
+# and renamed when it is complete, so an interrupted one is never taken for a backup.
 #
 # LAWGRAPH_BACKUP_UPLOAD_COMMAND, when set, gets the new dump off this machine: it is run by
 # `sh -c` with its path in LAWGRAPH_BACKUP_PATH, for example
