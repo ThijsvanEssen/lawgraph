@@ -513,6 +513,8 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("court_kind"),
         _str("court_code"),
         _str("court"),
+        # the procedure (psi:procedure) as the source gives it: "Hoger beroep", "Cassatie"
+        Column("procedure", "text", "lg_str(props -> 'judgment_metadata' -> 'type')"),
         _bool("stub"),
         _strings("subjects"),
         _num("inbound_citation_count"),
@@ -687,6 +689,7 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
         (("series_id",), False),
         (("replaced_by",), False),
         (("same_as",), False),
+        (("procedure",), False),
         (("source", "date_eff", "tier", "court_kind", "stub", "same_as"), False),
         (("stub", "source", "tier", "court_code", "court", "date_eff"), False),
         (("tier", "court_kind", "date_eff", "stub", "source", "same_as"), False),

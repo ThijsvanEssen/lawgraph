@@ -275,6 +275,11 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         "court_kind": [{"value": "ambtenarengerecht", "count": 7}],
         "source": [{"value": "rechtspraak", "count": 8}, {"value": "echr", "count": 2}],
         "year": [{"value": None, "count": 1}, {"value": "2020", "count": 7}],
+        "subjects": [
+            {"value": "Strafrecht", "count": 5},
+            {"value": "Bestuursrecht; Belastingrecht", "count": 3},
+        ],
+        "procedure": [{"value": "Cassatie", "count": 6}, {"value": None, "count": 2}],
     }
 
     def fake(store, filters, **kwargs):
@@ -289,6 +294,7 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
             "tier": "andere_instantie",
             "court_kind": "ambtenarengerecht",
             "from": "2020-01-01",
+            "procedure": " Cassatie ",
         },
     ).json()
 
@@ -296,6 +302,7 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         tier="andere_instantie",
         court_kind="ambtenarengerecht",
         subject="Strafrecht",
+        procedure="Cassatie",
         date_from="2020-01-01",
     )
     assert asked[0][1] == {"sort": "date_desc", "limit": 50, "offset": 0}
@@ -317,6 +324,8 @@ def test_a_judgment_without_subjects_lists_none(monkeypatch):
         "court_kind": [],
         "source": [],
         "year": [],
+        "subjects": [],
+        "procedure": [],
     }
 
 
