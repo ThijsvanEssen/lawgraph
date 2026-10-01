@@ -482,6 +482,9 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("date"),
         _str("dossier_number"),
         _strings("dossier_numbers"),
+        # what the feed reads of every paper (``queries/feed.py``): its props hold the
+        # whole record of the source
+        *(_json(field) for field in ("actors", "dossier_numbers", "subject", "title")),
     ),
     COLLECTION_DOSSIERS: (
         _str("number"),

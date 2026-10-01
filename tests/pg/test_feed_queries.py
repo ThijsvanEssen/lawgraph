@@ -1,10 +1,12 @@
-"""``GET /api/feed`` on a small graph that has one event of every kind: what each item shows,
-every filter, the facets under the other filters, and pages that neither repeat nor skip."""
+"""The feed queries on a real PostgreSQL, through ``GET /api/feed``, its summary and
+``feed.atom`` on a small graph that has one event of every kind (what each item shows, every
+filter, the facets under the other filters, pages that neither repeat nor skip), and through
+``get_feed`` and ``get_feed_summary`` on the edges of their order, types and shapes."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 from xml.etree import ElementTree
 
 import pytest
@@ -30,8 +32,15 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.config.settings import API_ALLOWED_ORIGINS, SITE_URL
+from lawgraph.core.feed import FeedCursor
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db.queries.feed import (
+    FeedFilters,
+    feed_query,
+    get_feed,
+    get_feed_summary,
+)
 
 # TK GUIDs: a member's key is its GUID made a node key.
 AALDERS = "11111111-1111-1111-1111-111111111111"
@@ -319,11 +328,16 @@ def _test_client() -> TestClient:
     return TestClient(app, headers={"Origin": API_ALLOWED_ORIGINS[0]})
 
 
-@pytest.fixture()
-def client(database: str) -> Iterator[TestClient]:
-    store = ArangoStore()
-    _seed(store)
+def _serve(store: ArangoStore) -> None:
+    """The routes on *store* (``data_as_of`` is cached per database, and every test has a
+    database of its own)."""
     app.dependency_overrides[get_store] = lambda: store
+
+
+@pytest.fixture()
+def client(store: ArangoStore) -> Iterator[TestClient]:
+    _seed(store)
+    _serve(store)
     try:
         yield _test_client()
     finally:
@@ -638,8 +652,9 @@ def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     following = {
         link.get("rel"): link.get("href") for link in root.findall("a:link", ns)
     }
-    assert "kind=Motie%2Cstemming" in following["next"]
-    assert "cursor=" in following["next"]
+    following_page = following["next"] or ""
+    assert "kind=Motie%2Cstemming" in following_page
+    assert "cursor=" in following_page
     assert following["alternate"] == f"{SITE_URL}/actueel?soort=Motie%2Cstemming"
     entry = {
         link.get("rel"): link.get("href") for link in entries[0].findall("a:link", ns)
@@ -703,15 +718,14 @@ def _busy_days() -> list[Node]:
 
 @pytest.mark.parametrize("facets", [False, True])
 def test_busy_days_are_paged_whole_by_day_kind_and_id(
-    database: str, facets: bool
+    store: ArangoStore, facets: bool
 ) -> None:
     """Pages end inside a day and inside a kind; each event is on one page, in the order of
     the feed: the day, newest first, then the kind (a vote before a commitment before a
     publication), then the id."""
-    store = ArangoStore()
     with NodeWriter(store) as writer:
         writer.add_all(_busy_days())
-    app.dependency_overrides[get_store] = lambda: store
+    _serve(store)
     try:
         client = _test_client()
         seen: list[dict[str, Any]] = []
@@ -801,7 +815,7 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
     assert client.get("/api/feed/summary?days=0").status_code == 422
 
 
-def test_a_bill_goes_by_the_name_official_data_give_it(database: str) -> None:
+def test_a_bill_goes_by_the_name_official_data_give_it(store: ArangoStore) -> None:
     """The citation title in the bill itself, else of its case, else of the one Dutch law
     it changes; nothing when there is none of them (a law of the EU is no name)."""
     case = "55555555-5555-5555-5555-555555555555"
@@ -851,7 +865,6 @@ def test_a_bill_goes_by_the_name_official_data_give_it(database: str) -> None:
             labels=["EU"],
         ),
     ]
-    store = ArangoStore()
     with NodeWriter(store) as writer:
         writer.add_all(nodes)
     with EdgeWriter(store, what=None) as edges:
@@ -863,7 +876,7 @@ def test_a_bill_goes_by_the_name_official_data_give_it(database: str) -> None:
                 source="t",
                 status="voorgesteld",
             )
-    app.dependency_overrides[get_store] = lambda: store
+    _serve(store)
     try:
         items = _feed(_test_client(), kind="Voorstel van wet")["items"]
     finally:
@@ -918,3 +931,519 @@ def test_a_summary_counts_what_the_feed_lists_under_the_same_filters(
     assert response.status_code == 200, response.text
     counted = sum(day["total"] for day in response.json()["days"])
     assert counted == len(listed["items"]) > 0
+
+
+# ── get_feed and get_feed_summary: order, types and shapes ───────────────────
+
+
+def _raw(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
+    return {"_key": key, "type": "t", "labels": labels or [], "props": props}
+
+
+def _raw_edge(source: str, target: str, relation: str) -> dict[str, Any]:
+    key = f"{source}_{relation}_{target}".replace("/", "_")
+    return {"_key": key, "_from": source, "_to": target, "relation": relation}
+
+
+def _load(store: ArangoStore, nodes: dict[str, list[dict[str, Any]]]) -> None:
+    for collection, docs in nodes.items():
+        store.bulk_insert_or_update_nodes(collection, docs)
+
+
+ITEM_KEYS = [
+    "kind",
+    "id",
+    "date",
+    "ministry",
+    "cabinet",
+    "dossier",
+    "props",
+    "text",
+    "persons",
+    "instrument",
+    "changed_articles",
+    "changed_instruments",
+]
+
+
+def test_the_answer_and_its_items_keep_their_keys_in_order(store: ArangoStore) -> None:
+    _seed(store)
+    raw = get_feed(store, FeedFilters())
+    assert list(raw) == ["items", "total", "facets"]
+    assert isinstance(raw["total"], int) and raw["total"] == len(ALL)
+    assert list(raw["facets"]) == ["kind", "ministry", "faction", "cabinet", "chamber"]
+    for facet in raw["facets"].values():
+        for row in facet:
+            assert list(row) == ["value", "count"]
+            assert isinstance(row["count"], int)
+    assert [item["id"] for item in raw["items"]] == ALL
+    items = {item["kind"]: item for item in raw["items"]}
+    for item in raw["items"]:
+        assert list(item) == ITEM_KEYS
+        assert isinstance(item["changed_articles"], int)
+    assert list(items["Amendement"]["dossier"]) == [
+        "key",
+        "number",
+        "title",
+        "official_short",
+    ]
+    # the props the item shows, in the byte order of their names (as KEEP gave them)
+    assert list(items["stemming"]["props"]) == [
+        "decision_text",
+        "kind",
+        "passed",
+        "subject",
+        "tally",
+        "vote_kind",
+    ]
+    assert list(items["stemming"]["props"]["tally"]) == ["Voor", "Tegen"]
+    commencement = items["inwerkingtreding"]
+    assert commencement["changed_articles"] == 2
+    assert list(commencement["instrument"]) == [
+        "key",
+        "title",
+        "bwb_id",
+        "article_count",
+    ]
+    assert commencement["instrument"]["article_count"] == 12
+    assert list(items["publicatie"]["changed_instruments"][0]) == [
+        "key",
+        "title",
+        "bwb_id",
+    ]
+    person = items["Amendement"]["persons"][0]
+    assert {"member_key", "member_name", "faction"} <= set(person)
+    assert person["faction"] == {"key": "vvd", "short": "VVD"}
+    assert items["toezegging"]["text"].startswith("De minister")
+    assert items["Motie"]["text"] is None
+
+    without = get_feed(store, FeedFilters(), facets=False)
+    assert list(without) == ["items", "total", "facets"]
+    assert (without["total"], without["facets"]) == (None, None)
+    assert without["items"] == raw["items"]
+
+
+def test_a_summary_keeps_its_keys_in_order(store: ArangoStore) -> None:
+    _seed(store)
+    summary = get_feed_summary(
+        store, FeedFilters(since="2026-03-01", until="2026-05-12")
+    )
+    assert list(summary) == ["days", "dossiers", "items"]
+    assert [day["date"] for day in summary["days"]] == [
+        "2026-05-12",
+        "2026-05-01",
+        "2026-04-01",
+        "2026-03-01",
+    ]
+    for day in summary["days"]:
+        assert list(day) == ["date", "total", "kinds", "dossiers", "votes"]
+        assert isinstance(day["total"], int)
+        for row in day["dossiers"]:
+            assert list(row) == ["kind", "number", "count"]
+        for row in day["votes"]:
+            assert list(row) == ["chamber", "subkind", "passed", "count"]
+    assert [d["number"] for d in summary["dossiers"]] == ["37000", "37001-VII"]
+    for row in summary["dossiers"]:
+        assert list(row) == ["number", "key", "title", "official_short"]
+    for item in summary["items"]:
+        assert list(item) == ITEM_KEYS
+
+
+def test_an_empty_graph_has_no_events(store: ArangoStore) -> None:
+    raw = get_feed(store, FeedFilters())
+    assert raw == {
+        "items": [],
+        "total": 0,
+        "facets": {
+            "kind": [],
+            "ministry": [],
+            "faction": [],
+            "cabinet": [],
+            "chamber": [],
+        },
+    }
+    assert get_feed(store, FeedFilters(), facets=False) == {
+        "items": [],
+        "total": None,
+        "facets": None,
+    }
+    assert get_feed_summary(store, FeedFilters(since="2026-01-01")) == {
+        "days": [],
+        "dossiers": [],
+        "items": [],
+    }
+    # a filter no kind can meet reads no kind at all
+    nothing = get_feed(
+        store, FeedFilters(kinds=("toezegging",), faction="x"), facets=False
+    )
+    assert nothing["items"] == []
+
+
+def _same_day(store: ArangoStore) -> None:
+    _load(
+        store,
+        {
+            COLLECTION_DOCUMENTS: [
+                _raw(key, ["TK"], kind="Motie", date="2026-05-01", subject=key)
+                for key in ("motion_C", "Motion_b", "motion_a")
+            ]
+            + [_raw("bill", ["TK"], kind="Voorstel van wet", date="2026-05-01")],
+        },
+    )
+
+
+@pytest.mark.parametrize("facets", [True, False])
+def test_events_of_a_day_and_kind_go_by_id_in_the_collation(
+    store: ArangoStore, facets: bool
+) -> None:
+    """The ids of one day and kind sort as ArangoDB sorted them, case after letter, and a
+    cursor between two of them goes on with the next."""
+    _same_day(store)
+    expected = [
+        "documents/bill",
+        "documents/motion_a",
+        "documents/Motion_b",
+        "documents/motion_C",
+    ]
+    assert _ids(get_feed(store, FeedFilters(), facets=facets)) == expected
+    seen: list[str] = []
+    cursor = None
+    for _ in range(10):
+        raw = get_feed(store, FeedFilters(), cursor=cursor, limit=1, facets=facets)
+        seen.append(raw["items"][0]["id"])
+        if len(raw["items"]) == 1:
+            break
+        last = raw["items"][0]
+        cursor = FeedCursor(date=last["date"], kind=last["kind"], id=last["id"])
+    assert seen == expected
+
+
+def test_a_page_as_long_as_the_events_has_no_next(store: ArangoStore) -> None:
+    _same_day(store)
+    assert len(get_feed(store, FeedFilters(), limit=4)["items"]) == 4
+    assert len(get_feed(store, FeedFilters(), limit=3)["items"]) == 4
+    assert len(get_feed(store, FeedFilters(), limit=3, facets=False)["items"]) == 4
+
+
+def test_one_statement_reads_a_page_whatever_its_size(
+    store: ArangoStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(store)
+    statements: list[str] = []
+    query = store.query
+
+    def counted(sql: Any, params: Any = None, **kwargs: Any) -> Any:
+        statements.append(sql)
+        return query(sql, params, **kwargs)
+
+    monkeypatch.setattr(store, "query", counted)
+    for limit in (1, 50):
+        for facets in (True, False):
+            get_feed(store, FeedFilters(), limit=limit, facets=facets)
+    get_feed_summary(store, FeedFilters(since="2026-01-01"))
+    assert len(statements) == 5
+
+
+def test_props_of_another_type_are_no_event_or_no_dossier(store: ArangoStore) -> None:
+    """A decision whose ``passed`` is no boolean is no vote; dossier numbers that are no
+    list give no dossier; a commitment's first dossier is the one whose label sorts first,
+    a dossier without a label before all (null sorts first)."""
+    _load(
+        store,
+        {
+            COLLECTION_DECISIONS: [
+                _raw("vote_str", date="2026-05-01", passed="true"),
+                _raw("vote", date="2026-05-01", passed=False, dossier_numbers="37000"),
+            ],
+            COLLECTION_DOSSIERS: [
+                _raw("37000", label="37000", ministry="fin"),
+                _raw("unlabelled", ministry="bzk"),
+            ],
+            COLLECTION_COMMITMENTS: [_raw("c1", made_on="2026-05-01", text="t")],
+        },
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _raw_edge("commitments/c1", "dossiers/37000", RELATION_ABOUT),
+            _raw_edge("commitments/c1", "dossiers/unlabelled", RELATION_ABOUT),
+        ]
+    )
+    raw = get_feed(store, FeedFilters())
+    assert _ids(raw) == ["decisions/vote", "commitments/c1"]
+    assert [item["dossier"] for item in raw["items"]] == [None, None]
+    # the dossier filter reads every label, not only the first
+    assert _ids(get_feed(store, FeedFilters(dossier="37000"))) == ["commitments/c1"]
+
+
+def test_a_cabinet_starts_on_its_day_the_later_key_first(store: ArangoStore) -> None:
+    _load(
+        store,
+        {
+            COLLECTION_CABINETS: [
+                _raw("a", from_date="2024-07-02"),
+                _raw("b", from_date="2024-07-02"),
+                _raw("undated"),
+            ],
+            COLLECTION_COMMITMENTS: [
+                _raw("before", made_on="2024-07-01", text="t"),
+                _raw("on", made_on="2024-07-02", text="t"),
+            ],
+        },
+    )
+    raw = get_feed(store, FeedFilters())
+    assert [item["cabinet"] for item in raw["items"]] == ["b", None]
+    assert raw["facets"]["cabinet"] == [
+        {"value": None, "count": 1},
+        {"value": "b", "count": 1},
+    ]
+    assert _ids(get_feed(store, FeedFilters(cabinet="a"))) == ["commitments/on"]
+    assert _ids(get_feed(store, FeedFilters(cabinet="undated"))) == []
+
+
+def test_an_id_two_factions_claim_goes_to_the_first_by_key(store: ArangoStore) -> None:
+    signer = {"person_id": "p", "faction_id": "f-shared", "capacity": "kamerlid"}
+    _load(
+        store,
+        {
+            COLLECTION_FACTIONS: [
+                _raw("zeta", abbreviation="Z", external_id="f-shared"),
+                _raw("alfa", abbreviation="", name="Alfa", external_ids=["f-shared"]),
+            ],
+            COLLECTION_DOCUMENTS: [
+                _raw("m", ["TK"], kind="Motie", date="2026-05-01", actors=[signer]),
+            ],
+        },
+    )
+    raw = get_feed(store, FeedFilters())
+    assert raw["items"][0]["persons"][0]["faction"] == {"key": "alfa", "short": "Alfa"}
+    assert raw["facets"]["faction"] == [{"value": "alfa", "count": 1}]
+    assert _ids(get_feed(store, FeedFilters(faction="zeta"), facets=False)) == []
+
+
+def test_a_summary_orders_the_counts_of_a_day(store: ArangoStore) -> None:
+    day = "2026-05-12"
+    _load(
+        store,
+        {
+            COLLECTION_DECISIONS: [
+                _raw("v1", date=day, passed=True, kind="Motie", dossier_numbers=["2"]),
+                _raw("v2", date=day, passed=False, kind="Motie", dossier_numbers=["1"]),
+                _raw("v3", date=day, passed=True, kind="Motie", dossier_numbers=["2"]),
+                _raw("v4", date=day, passed=True, dossier_numbers=["1"]),
+                _raw("v5", date=day, passed=True, chamber="EK", bill_decision=True),
+            ],
+            COLLECTION_DOCUMENTS: [
+                _raw("m1", ["TK"], kind="Motie", date=day, dossier_numbers=["1"]),
+            ],
+        },
+    )
+    summary = get_feed_summary(store, FeedFilters(since=day, until=day), few=0)
+    (counted,) = summary["days"]
+    assert counted["kinds"] == [
+        {"value": "stemming", "count": 5},
+        {"value": "Motie", "count": 1},
+    ]
+    # by the rank of the kind, then the count, then the number
+    assert counted["dossiers"] == [
+        {"kind": "stemming", "number": "1", "count": 2},
+        {"kind": "stemming", "number": "2", "count": 2},
+        {"kind": "Motie", "number": "1", "count": 1},
+    ]
+    assert counted["votes"] == [
+        {"chamber": "TK", "subkind": "Motie", "passed": True, "count": 2},
+        {"chamber": "EK", "subkind": None, "passed": True, "count": 1},
+        {"chamber": "TK", "subkind": None, "passed": True, "count": 1},
+        {"chamber": "TK", "subkind": "Motie", "passed": False, "count": 1},
+    ]
+    # the vote of the Eerste Kamer and those decided by at most 10 seats (no tally: 0)
+    assert [item["id"] for item in summary["items"]] == [
+        "decisions/v1",
+        "decisions/v2",
+        "decisions/v3",
+        "decisions/v4",
+        "decisions/v5",
+    ]
+
+
+# ── a cursor in a busy day: the page is bounded and read through indexes ─────
+
+BUSY_DAY = "2026-09-29"
+FILLER = 10_000
+# The tables a page must never read whole.
+LARGE = ("documents", "edges", "decisions", "activities", "commitments", "dossiers")
+
+
+def _uuid_key(n: int) -> str:
+    """A key as a TK GUID makes it: the same length and ``_`` at the same places, so that
+    their order in Python is their order in the collation."""
+    return f"{n:08x}_441c_42c2_b6c9_{n * 7919:012x}"
+
+
+def _busy(store: ArangoStore) -> None:
+    """A busy day of motions (and a few of another ``Motie (…)``), votes and commitments
+    among other days, and many rows of the tables that no page asks for."""
+    motions = [
+        _raw(
+            _uuid_key(n),
+            ["TK"],
+            kind="Motie" if n % 10 else "Motie (gewijzigd/nader)",
+            date=BUSY_DAY if n < 240 else f"2026-09-{1 + n % 28:02d}",
+            dossier_numbers=["37000"],
+            subject=f"Motie {n}",
+        )
+        for n in range(300)
+    ]
+    _load(
+        store,
+        {
+            COLLECTION_DOCUMENTS: motions,
+            COLLECTION_DECISIONS: [
+                _raw(f"vote_{n:03d}", date=BUSY_DAY, passed=n % 2 == 0, kind="Motie")
+                for n in range(40)
+            ],
+            COLLECTION_COMMITMENTS: [
+                _raw(f"c_{n:03d}", made_on=BUSY_DAY, text="t") for n in range(20)
+            ],
+            COLLECTION_DOSSIERS: [_raw("37000", label="37000", ministry="fin")],
+        },
+    )
+    day = "to_char(date '2000-01-01' + n % 9000, 'YYYY-MM-DD')"
+    for table, props in (
+        ("documents", f"json_build_object('kind', 'Verslag', 'date', {day})"),
+        ("decisions", f"json_build_object('date', {day})"),
+        ("commitments", "'{}'::json"),
+        ("dossiers", "json_build_object('label', 'x' || n)"),
+        ("activities", f"json_build_object('date', {day})"),
+        ("instruments", "'{}'::json"),
+        ("instrument_versions", "'{}'::json"),
+        ("article_versions", "'{}'::json"),
+    ):
+        store.execute(
+            f"INSERT INTO {table} (id, type, props)"
+            f" SELECT '{table}/filler_' || n, 'filler', {props}"
+            f" FROM generate_series(1, {FILLER}) n"
+        )
+    store.execute(
+        "INSERT INTO edges (key, from_id, to_id, doc)"
+        " SELECT 'filler_' || n, 'documents/filler_' || n % 9973,"
+        " 'cases/filler_' || n % 9967, json_build_object('relation', 'PART_OF')"
+        f" FROM generate_series(1, {FILLER * 5}) n"
+    )
+    store.vacuum_analyze()
+
+
+def _crowd(store: ArangoStore) -> None:
+    """Many motions and votes of the days before: what a page after the cursor must not
+    read whole."""
+    day = "to_char(date '2000-01-01' + n % 9000, 'YYYY-MM-DD')"
+    store.execute(
+        "INSERT INTO documents (id, type, labels, props)"
+        " SELECT 'documents/crowd_' || n, 'filler', '{TK}',"
+        f" json_build_object('kind', 'Motie', 'date', {day})"
+        f" FROM generate_series(1, {FILLER}) n"
+    )
+    store.execute(
+        "INSERT INTO decisions (id, type, props)"
+        " SELECT 'decisions/crowd_' || n, 'filler',"
+        f" json_build_object('passed', true, 'date', {day})"
+        f" FROM generate_series(1, {FILLER}) n"
+    )
+    store.vacuum_analyze()
+
+
+def _walk(
+    store: ArangoStore, cursor: FeedCursor | None, facets: bool, limit: int = 50
+) -> list[str]:
+    seen: list[str] = []
+    for _ in range(50):
+        rows = get_feed(store, FeedFilters(), cursor=cursor, limit=limit, facets=facets)
+        seen += [row["id"] for row in rows["items"][:limit]]
+        if len(rows["items"]) <= limit:
+            return seen
+        last = rows["items"][limit - 1]
+        cursor = FeedCursor(date=last["date"], kind=last["kind"], id=last["id"])
+    raise AssertionError("the pages do not end")
+
+
+@pytest.mark.parametrize("facets", [True, False])
+def test_the_pages_of_a_busy_day_neither_repeat_nor_skip(
+    store: ArangoStore, facets: bool
+) -> None:
+    """The cursor ``["2026-09-29", "Motie", "documents/…"]`` of the request that hung on
+    ArangoDB: the pages after it hold every later event once, in the order of the feed."""
+    _busy(store)
+    everything = _walk(store, None, facets, limit=1000)
+    assert len(everything) == len(set(everything)) == 300 + 40 + 20
+    # by day, then a vote before a commitment before a motion, then by id
+    busy = everything[: 240 + 40 + 20]
+    assert busy[:40] == [f"decisions/vote_{n:03d}" for n in range(40)]
+    assert busy[40:60] == [f"commitments/c_{n:03d}" for n in range(20)]
+    assert busy[60:] == sorted(busy[60:])
+    assert _walk(store, None, facets) == everything
+    middle = everything.index(f"documents/{_uuid_key(120)}")
+    cursor = FeedCursor(date=BUSY_DAY, kind="Motie", id=everything[middle])
+    assert _walk(store, cursor, facets) == everything[middle + 1 :]
+
+
+def _plan(store: ArangoStore, sql: str, bind: dict[str, Any]) -> dict[str, Any]:
+    with store.pool.connection() as conn:
+        (plan,) = conn.execute(f"EXPLAIN (FORMAT JSON) {sql}", bind).fetchone()  # type: ignore[misc]
+    return cast(dict[str, Any], plan[0]["Plan"])
+
+
+def _plan_nodes(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    yield node
+    for child in node.get("Plans", []):
+        yield from _plan_nodes(child)
+
+
+def _seq_scans(plan: dict[str, Any]) -> list[str]:
+    return [
+        node["Relation Name"]
+        for node in _plan_nodes(plan)
+        if node["Node Type"] == "Seq Scan" and node["Relation Name"] in LARGE
+    ]
+
+
+_INDEX_SCANS = ("Index Scan", "Index Only Scan", "Index Scan Backward")
+
+
+def _limit_over_index(plan: dict[str, Any], table: str) -> bool:
+    """A limit whose input reads *table* in the order of an index: no sort, no bitmap
+    between them, so the scan stops after the page."""
+
+    def ordered(node: dict[str, Any]) -> bool:
+        if node["Node Type"] in _INDEX_SCANS:
+            return bool(node.get("Relation Name") == table)
+        # an incremental sort orders what the index gives in date order, by id within a
+        # day: it reads one day at a time
+        if node["Node Type"] in ("Sort", "Bitmap Heap Scan", "Hash", "Aggregate"):
+            return False
+        return any(ordered(child) for child in node.get("Plans", []))
+
+    return any(
+        node["Node Type"] == "Limit" and ordered(node) for node in _plan_nodes(plan)
+    )
+
+
+@pytest.mark.parametrize("facets", [False, True])
+def test_a_cursor_page_of_a_busy_day_reads_through_indexes(
+    store: ArangoStore, facets: bool
+) -> None:
+    """The planner as it is (no ``enable_seqscan`` off). Without facets (the Atom feed,
+    ``facets=false``) no large table is read whole: each kind reads its page in the order
+    of an index on its date and stops (``Limit`` above the scan). With facets every event
+    is read for the counts; its dossier and signatures are looked up by index."""
+    _busy(store)
+    _crowd(store)
+    cursor = FeedCursor(date=BUSY_DAY, kind="Motie", id=f"documents/{_uuid_key(120)}")
+    sql, bind = feed_query(FeedFilters(), cursor=cursor, limit=50, facets=facets)
+    plan = _plan(store, sql, bind)
+    if facets:
+        # the facets count every event, so every event is read (the rows of a kind whole
+        # where they are most of a table); what each row looks up goes by index
+        assert [t for t in _seq_scans(plan) if t in ("edges", "dossiers")] == []
+    else:
+        assert _seq_scans(plan) == []
+        assert _limit_over_index(plan, "documents")
+        assert _limit_over_index(plan, "decisions")
