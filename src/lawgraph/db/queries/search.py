@@ -687,6 +687,42 @@ def _search_commitments(
     return list(store.query(statement, {**params, "limit": limit}))
 
 
+# Words that name the type of a vote rather than what it was on: "stemming abortus" asks
+# for the votes on abortion, and no subject holds "stemming".
+_VOTE_WORDS = frozenset({"stemming", "stemmingen", "besluit", "besluiten"})
+
+
+def _search_decisions(
+    store: GraphStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    """Every word (but those of ``_VOTE_WORDS``) in the subject or the kind of a vote,
+    newest first; nothing when only such words are asked."""
+    words = [t for t in tokens if t not in _VOTE_WORDS]
+    if not words:
+        return []
+    condition, params = _all_words(words, search_words("decisions", "doc"))
+    statement = f"""
+        SELECT json_build_object(
+            'id', doc.id, 'key', doc.key,
+            'collection', 'decisions', 'type', doc.type,
+            'display_name', doc.props -> 'display_name',
+            'snippet', doc.props -> 'subject',
+            'extra', json_build_object(
+                'date', doc.props -> 'date',
+                'kind', doc.props -> 'kind',
+                'passed', doc.props -> 'passed',
+                'chamber', doc.props -> 'chamber',
+                'dossier_numbers', doc.props -> 'dossier_numbers'
+            )
+        )
+        FROM decisions doc
+        WHERE {condition}
+        ORDER BY doc.date DESC NULLS LAST, doc.key
+        LIMIT %(limit)s
+        """
+    return list(store.query(statement, {**params, "limit": limit}))
+
+
 # ── Ranking ───────────────────────────────────────────────────────────────────
 
 # What identifies a hit, besides its key: the fields of ``extra`` that are identifiers.
@@ -801,6 +837,7 @@ def search_all(
         "documents": lambda: _search_documents(store, tokens, kinds, limit),
         "cabinets": lambda: _search_cabinets(store, tokens, limit),
         "commitments": lambda: _search_commitments(store, tokens, limit),
+        "decisions": lambda: _search_decisions(store, tokens, limit),
     }
     wanted = [t for t in types if t in searches]
     # The types are searched side by side, each on a connection of its own: the answer

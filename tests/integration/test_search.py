@@ -149,3 +149,33 @@ def test_a_commitment_is_found_by_its_words_or_its_number(store: GraphStore) -> 
     )
     by_number = search_all(store, q="tz202609-011", types=["commitments"])
     assert [h["key"] for h in by_number["commitments"]] == ["tz1"]
+
+
+def test_a_vote_is_found_by_its_subject(store: GraphStore) -> None:
+    """BE-46: "stemming abortus" finds the votes on abortion; "stemming" names the type,
+    not what was voted on."""
+    _put(
+        store,
+        "decisions",
+        "d_old",
+        subject="Motie over de abortuswet en de beraadtermijn",
+        kind="Motie",
+        date="2023-02-14",
+        passed=False,
+    )
+    _put(
+        store,
+        "decisions",
+        "d_new",
+        subject="Wijziging van de Wet afbreking zwangerschap (abortuswet)",
+        kind="Wetgeving",
+        date="2025-06-03",
+        passed=True,
+    )
+    _put(store, "decisions", "d_other", subject="Wet huurcommissie", kind="Wetgeving")
+    hits = search_all(store, q="stemming abortuswet", types=["decisions"])["decisions"]
+    assert [h["key"] for h in hits] == ["d_new", "d_old"]  # newest first
+    assert (hits[0]["extra"]["kind"], hits[0]["extra"]["passed"]) == ("Wetgeving", True)
+    motie = search_all(store, q="motie abortuswet", types=["decisions"])["decisions"]
+    assert [h["key"] for h in motie] == ["d_old"]
+    assert search_all(store, q="stemming", types=["decisions"])["decisions"] == []
