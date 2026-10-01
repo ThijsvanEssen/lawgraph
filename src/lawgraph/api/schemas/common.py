@@ -96,6 +96,12 @@ class InstrumentSummaryDTO(BaseModel):
     title: str | None = None
     citation_title: str | None = None
     short_title: str | None = None
+    abbreviation: str | None = Field(
+        None,
+        description="The abbreviation it is cited by: its WTI short title (EVRM), else "
+        "the one kept by hand for it (AVG); the same as `instrument_abbreviation` on its "
+        "articles.",
+    )
     display_name: str | None
     official_url: str | None = Field(None, description=OFFICIAL_URL)
     article_count: int = Field(0, description="The articles of the instrument.")
@@ -121,6 +127,7 @@ class InstrumentSummaryDTO(BaseModel):
             title=props.get("title"),
             citation_title=props.get("citation_title"),
             short_title=props.get("short_title"),
+            abbreviation=props.get("abbreviation"),
             display_name=props.get("display_name"),
             official_url=instrument_url(props),
             article_count=int(props.get("article_count") or 0),

@@ -215,6 +215,12 @@ class _WtiStore(RawSourcesFake):
             changed += 1
         return changed
 
+    def update_instrument_abbreviations(self, rows: list[dict[str, Any]]) -> int:
+        """Records what the pipeline asks to write; the query itself is tested on
+        PostgreSQL (``tests/pg/test_bwb_pipeline_queries.py``)."""
+        self.abbreviations = {row["key"]: row["abbreviation"] for row in rows}
+        return 0
+
     def short_title(self, bwb_id: str) -> str | None:
         return self.nodes["instruments"][make_node_key(bwb_id)]["props"].get(
             "short_title"
@@ -236,6 +242,11 @@ def _wti_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         normalize_bwb,
         "update_abbreviations",
         lambda store, rows: store.update_abbreviations(rows),
+    )
+    monkeypatch.setattr(
+        normalize_bwb,
+        "update_instrument_abbreviations",
+        lambda store, rows: store.update_instrument_abbreviations(rows),
     )
 
 
@@ -312,3 +323,12 @@ def test_the_toestand_stream_does_not_read_wti_records(
     list(BWBNormalizePipeline(store=_WtiStore({}, {})).fetch_raw())  # type: ignore[arg-type]
 
     assert seen and RAW_KIND_BWB_WTI_GENERAL not in seen[0]
+
+
+def test_the_abbreviation_is_the_wti_short_title_else_the_curated_one() -> None:
+    """BE-8: one field for law and article. A BWB regulation gets its WTI short title
+    (Sr), an EU act the abbreviation kept by hand (AVG for 32016R0679)."""
+    store = _WtiStore({SR: SR_GENERAL}, {SR: {"title": "Wetboek van Strafrecht"}})
+    _normalize(store)
+    assert store.abbreviations[make_node_key(SR)] == store.short_title(SR) == "Sr"
+    assert store.abbreviations[make_node_key("32016R0679")] == "AVG"
