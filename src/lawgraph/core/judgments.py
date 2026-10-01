@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import itertools
 import json
 import re
@@ -980,16 +981,24 @@ def _mark_signature(entries: list[dict[str, Any]]) -> None:
         tail.append(entry)
 
 
+def text_id(text: str) -> str:
+    """The id of a paragraph without a number: ``p-`` and the first 8 hex of the SHA-1 of
+    its text, its whitespace collapsed. It follows the text, not the position, so a
+    paragraph keeps its deep link when another one before it comes or goes."""
+    digest = hashlib.sha1(" ".join(text.split()).encode(), usedforsecurity=False)
+    return f"p-{digest.hexdigest()[:8]}"
+
+
 def _name(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """*entries* with their ``id`` (see ``extract_sections``)."""
     seen: dict[str, int] = {}
     named = []
-    for position, entry in enumerate(entries, start=1):
+    for entry in entries:
         number = entry["number"]
         if number:
             base = f"{'rov' if entry['kind'] == KIND_BODY else 'kop'}-{_slug(number)}"
         else:
-            base = f"p-{position}"
+            base = text_id(entry["text"])
         seen[base] = seen.get(base, 0) + 1
         paragraph_id = base if seen[base] == 1 else f"{base}_{seen[base]}"
         named.append({"id": paragraph_id, **entry})
@@ -1010,10 +1019,10 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     and is not part of ``text``.
 
     ``id`` names a paragraph in a deep link and is unique in the judgment: ``rov-5.3`` for
-    a numbered ``body`` paragraph, ``kop-5`` for a numbered heading, ``p-<n>`` (its
-    position) for a paragraph without a number. A number that repeats one before it gets
-    ``_<n>``, its occurrence (``rov-1_2``: the judgments of some courts number their
-    procedure and their considerations from 1 each).
+    a numbered ``body`` paragraph, ``kop-5`` for a numbered heading, ``p-3f2a9c1e``
+    (``text_id``: from its text, not its position) for a paragraph without a number. An id
+    that repeats one before it gets ``_<n>``, its occurrence (``rov-1_2``: the judgments of
+    some courts number their procedure and their considerations from 1 each).
     """
     uitspraak = next(iter(_bodies(root)), None)
     if uitspraak is None:

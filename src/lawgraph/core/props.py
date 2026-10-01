@@ -192,7 +192,7 @@ class ArticleVersionProps(_CommonProps):
 class JudgmentParagraphProps(_StrictBase):
     """One paragraph of a judgment (``core.judgments.extract_sections``)."""
 
-    id: str  # ``rov-5.3``, ``kop-5``, ``p-12``: unique in the judgment, for deep links
+    id: str  # ``rov-5.3``, ``kop-5``, ``p-3f2a9c1e``: unique in the judgment, for deep links
     number: str | None = None  # as printed, without its closing dot: "5.3"
     kind: Literal["heading", "subheading", "body", "signature"]
     text: str

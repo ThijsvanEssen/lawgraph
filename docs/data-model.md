@@ -282,8 +282,9 @@ out. A paragraph of the Court opens with its number ("12.  The applicant …"), 
 `id` `par-12`, `number` `12`, the number not in `text` (not for a quotation or a point of the
 operative part). A heading's number is read only where it is text ("I.  THE CIRCUMSTANCES",
 `kop-i`); newer templates number headings by Word's list numbering, which the body does not
-hold. A separate opinion numbers from 1 again (`par-1_2`). `text` is every paragraph as printed,
-a blank line between.
+hold. A separate opinion numbers from 1 again (`par-1_2`). A paragraph without a number is
+named by its text, as for a Rechtspraak judgment (`p-3f2a9c1e`). `text` is every paragraph as
+printed, a blank line between.
 
 `summary` is the inhoudsindicatie, in Dutch; null for a placeholder ("kopje volgt", "-", empty). The Rechtspraak publishes a few judgments in an
 English translation too, under an ECLI of their own (ECLI:NL:HR:2019:2007 beside
@@ -353,8 +354,10 @@ its own text: the text of `5.3` does not hold `5.3.1`. Where the XML has no such
 number. `number` is the number as printed without its closing dot (`5.3`), null when there is
 none, and is not part of `text`. `id` names the paragraph in deep links and mentions and is
 unique in the judgment: `rov-5.3` for a numbered `body` paragraph (a consideration, cited as
-"rov. 5.3"), `kop-5` for a numbered heading, `p-<n>` (its position) for a paragraph without a
-number; a number that repeats one before it gets `_<n>`, its occurrence (`rov-1_2`).
+"rov. 5.3"), `kop-5` for a numbered heading, `p-3f2a9c1e` for a paragraph without a number: the first
+8 hex of the SHA-1 of its text, whitespace collapsed (`core.judgments.text_id`), so it follows
+the text and not the position. An id that repeats one before it gets `_<n>`, its occurrence
+(`rov-1_2`, or the same text twice).
 
 `advocate_general` is, for a conclusion, who wrote it, as the lines before its parties name them
 (`core.judgments.advocate_general`): a line of initials and a surname (`T. Hartlief`), or a name
