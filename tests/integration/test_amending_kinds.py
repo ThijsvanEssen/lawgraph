@@ -89,9 +89,8 @@ def _write(store: ArangoStore) -> None:
 def _amending_kinds(store: ArangoStore) -> list[str]:
     rows = store.query(
         """
-        FOR e IN edges
-            FILTER e.relation == @relation AND e.source == @source
-            RETURN DOCUMENT(e._from).props.kind
+        SELECT n.props ->> 'kind' FROM edges e LEFT JOIN nodes n ON n.id = e.from_id
+        WHERE e.relation = %(relation)s AND e.source = %(source)s
         """,
         {"relation": RELATION_AMENDS, "source": SEMANTIC_SOURCE_AMENDS},
     )

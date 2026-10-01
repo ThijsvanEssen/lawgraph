@@ -87,7 +87,7 @@ def test_nr_1_opens_the_dossier_not_an_older_paper_of_another(
             )
     cli("normalize", "tk-dossiers")
 
-    props = store.db.collection("dossiers").get(str(BILL))["props"]
+    props = store.get_document("dossiers", str(BILL))["props"]
     assert (props["opened_on"], props["opened_on_basis"]) == (
         "2025-06-25",
         "first_paper",

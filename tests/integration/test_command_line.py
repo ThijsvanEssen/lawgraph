@@ -10,6 +10,7 @@ import os
 from typing import Any
 
 from lawgraph.db import ArangoStore
+from lawgraph.db.queries.state import covered_until
 from tests.integration.seed import seed
 
 
@@ -52,7 +53,7 @@ def test_a_phase_lists_every_step_with_how_it_ended(
     assert sum(line.rstrip().endswith(" ok") for line in table) >= 8
     assert "LAWGRAPH_NORMALIZE_SKIP_BWB" in done.stderr
     # a skipped step is a hole: the mark of `--since last` stays where it was
-    assert ArangoStore().db.collection("pipeline_state").get("normalize") is None
+    assert covered_until(ArangoStore(), "normalize") is None
 
 
 def test_a_judgment_that_is_no_xml_is_left_out_and_named(
@@ -75,6 +76,6 @@ def test_a_judgment_that_is_no_xml_is_left_out_and_named(
             )
         )
     done = cli("normalize", "rechtspraak")
-    assert store.db.collection("judgments").count() == 2
+    assert store.count("judgments") == 2
     assert "1 judgment(s) whose stored XML cannot be read" in done.stderr
     assert "ECLI:NL:HR:2020:999" in done.stderr and "1 skipped" in done.stderr

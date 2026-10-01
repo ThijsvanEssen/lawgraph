@@ -140,11 +140,17 @@ JUDGMENTS = {
 
 
 def _edges(store: ArangoStore, relation: str) -> set[tuple[str, str, str]]:
-    aql = """
-    FOR e IN edges FILTER e.relation == @relation
-        RETURN [DOCUMENT(e._from).props.ecli, DOCUMENT(e._to).props.ecli, e.meta.basis]
+    sql = """
+    SELECT f.ecli AS from_ecli, t.ecli AS to_ecli, e.doc -> 'meta' ->> 'basis' AS basis
+    FROM edges e
+    LEFT JOIN judgments f ON f.id = e.from_id
+    LEFT JOIN judgments t ON t.id = e.to_id
+    WHERE e.relation = %(relation)s
     """
-    return {tuple(row) for row in store.query(aql, {"relation": relation})}
+    return {
+        (row["from_ecli"], row["to_ecli"], row["basis"])
+        for row in store.query(sql, {"relation": relation})
+    }
 
 
 def test_conclusions_and_referrals_tie_the_judgments_of_a_case(
@@ -200,25 +206,3 @@ def test_conclusions_and_referrals_tie_the_judgments_of_a_case(
     assert [
         (b["relation"], b["direction"]) for b in conclusion["neighbors"]["buckets"]
     ] == [("ADVISES_ON", "outbound")]
-
-
-def test_the_lookup_by_case_number_walks_the_index(database: str) -> None:
-    """A sparse array index is not used for a loop variable: the lookup of a few hundred
-    case numbers read every judgment once per number (minutes on 33,000 judgments)."""
-    store = ArangoStore()
-    asked: list[tuple[str, dict[str, Any]]] = []
-    real_query = store.query
-
-    def recording(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        asked.append((aql, bind_vars or {}))
-        return real_query(aql, bind_vars, **kw)
-
-    store.query = recording  # type: ignore[method-assign]
-    from lawgraph.db.queries.semantic.rechtspraak import judgments_by_case_keys
-
-    list(judgments_by_case_keys(store, ["18/04298"]))
-    ((aql, bind),) = asked
-    kinds = [
-        node["type"] for node in store.db.aql.explain(aql, bind_vars=bind)["nodes"]
-    ]
-    assert "IndexNode" in kinds and "EnumerateCollectionNode" not in kinds, kinds

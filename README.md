@@ -1,6 +1,6 @@
 # LawGraph
 
-LawGraph turns Dutch and EU legal sources into one queryable knowledge graph in ArangoDB:
+LawGraph turns Dutch and EU legal sources into one queryable knowledge graph in PostgreSQL:
 legislation and its amendment history, case law, and the parliamentary process behind
 laws. The graph is the product; a FastAPI service exposes it.
 
@@ -20,38 +20,40 @@ read, not guessed.
 
 ## Quick start
 
-Requires Python 3.11+ and ArangoDB 3.12 (a `docker-compose.yml` is included).
+Requires Python 3.11+ and PostgreSQL 18 (a `docker-compose.yml` is included).
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env            # set ARANGO_PASSWORD and ARANGO_ROOT_PASSWORD
+cp .env.example .env            # set LAWGRAPH_DB_PASSWORD
 ```
 
 ### Database: development or test
 
-Either server works with the same `.venv`; `ArangoStore()` creates the database and its
-schema (collections, indexes, search views) on first use, so nothing more is needed to start
-the API against an empty one.
+Either server works with the same `.venv`; the store creates the database and its schema
+(tables, indexes, functions) on first use, so nothing more is needed to start the API against
+an empty one.
 
-**Development** (`docker-compose.yml`, port 8529): keeps its data in a named volume across
-restarts. This is the one `.env`'s `ARANGO_URL` points at by default, and the one `lawgraph
+**Development** (`docker-compose.yml`, port 5432 on this machine only): keeps its data in an
+external volume across restarts, sized for 8 GB (`LAWGRAPH_PG_*` in `.env` for more). This is
+the one `LAWGRAPH_DB_URL` points at by default, and the one `lawgraph
 bootstrap`/`retrieve`/`normalize`/`semantic` load real data into.
 
 ```bash
-docker compose up -d arangodb
-lawgraph-api                              # http://localhost:8000/docs, ARANGO_URL from .env
+docker volume create lawgraph_pgdata      # once
+docker compose up -d postgres
+lawgraph-api                              # http://localhost:8000/docs
 ```
 
-**Test** (`docker-compose.test.yml`, port 8530): a second, deliberately small server (1 GB,
-256 MiB per query) in its own compose project, so it can never reach the volumes above; its
-data is thrown away with the container. It backs `tests/integration/` (see
-`docs/operations.md`, "Tests and CI"), and doubles as a fast way to click against a running
-API without waiting for a real retrieve:
+**Test** (`docker-compose.test.yml`, port 5433): a second, deliberately small server (1 GB) in
+its own compose project, so it can never reach the volume above; its data is thrown away with
+the container. It backs `tests/pg/` and `tests/integration/` (see `docs/operations.md`, "Tests
+and CI"), and doubles as a fast way to click against a running API without waiting for a real
+retrieve:
 
 ```bash
 docker compose -f docker-compose.test.yml up -d
-ARANGO_URL=http://localhost:8530 lawgraph-api    # same port 8000, empty database
+LAWGRAPH_DB_URL=postgresql://lawgraph:lawgraph-test@localhost:5433 lawgraph-api   # empty database
 docker compose -f docker-compose.test.yml down   # discards it
 ```
 
@@ -63,9 +65,9 @@ history and dossiers, two weeks of case law and parliament, a little of every ot
 about half an hour and a few hundred MB. Every relation of the model occurs in it.
 
 ```bash
-docker compose up -d arangodb
+docker compose up -d postgres
 scripts/test-database.sh
-ARANGO_DB_NAME=lawgraph_small lawgraph-api
+LAWGRAPH_DB_NAME=lawgraph_small lawgraph-api
 ```
 
 ### Loading data
@@ -90,7 +92,7 @@ lawgraph semantic all --since 7d
 | `src/lawgraph/pipelines/` | `retrieve/`, `normalize/`, `semantic/` pipelines, the command layer (`command.py`), orchestration |
 | `src/lawgraph/sources/` | source registry: single definition of CLI commands and their order |
 | `src/lawgraph/core/` | pure logic and shared definitions (models, props, relation catalogue, BWB XML, citations) |
-| `src/lawgraph/db/` | `ArangoStore`, bulk `NodeWriter` / `EdgeWriter`, schema, indexes, search views |
+| `src/lawgraph/db/` | the PostgreSQL store (`ArangoStore`), bulk `NodeWriter` / `EdgeWriter`, schema, queries |
 | `src/lawgraph/api/` | FastAPI app: `routes/`, `queries/`, `schemas/` |
 | `src/lawgraph/commands/` | sequences of phases (`bootstrap`, `expand-graph`), reports (`check`, `gaps`, `verify`) `ministries`, `courts` and `code-families` (build the ministry, court and code tables) and `curated` (the lists kept by hand) |
 | `src/lawgraph/data/` | tables built from official sources and committed (`ministries.json`, `courts.json`, `code_families.json`); `curated/` what no source gives, kept with `lawgraph curated` (party colours, the seating plan, judgment names, decision kinds, courts outside the value list, ministry keys, order, successions and aliases) |
@@ -120,9 +122,9 @@ Environment variables, loaded from `.env` by `config/settings.py`:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `ARANGO_URL` | `http://localhost:8529` | database host |
-| `ARANGO_DB_NAME` | `lawgraph` | database name; created when missing |
-| `ARANGO_USER` / `ARANGO_PASSWORD` | `root` / empty | credentials |
+| `LAWGRAPH_DB_PASSWORD` | none | password of the server of `docker-compose.yml` |
+| `LAWGRAPH_DB_URL` | `postgresql://lawgraph:<password>@localhost:5432` | database server |
+| `LAWGRAPH_DB_NAME` | `lawgraph` | database name; created when missing |
 | `LAWGRAPH_ALLOWED_ORIGINS` | localhost:5173/5174 | CORS allow-list of the API |
 
 External base URLs default to the public endpoints. All variables are listed in

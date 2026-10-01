@@ -1,271 +1,312 @@
 """The reads and updates of the semantic phase for BWB: the aliases and articles of the
 instruments, the annexes, the amending versions and the Staatsblad and Staatscourant
-publications a step resolves against them."""
+publications a step resolves against them.
+
+A read whose order ArangoDB left open comes in the order of the keys, so a run reads the same
+rows in the same order every time.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
 from typing import Any
 
+from psycopg import sql
+from psycopg.types.json import Json
+
 from lawgraph.config.constants import (
-    COLLECTION_ANNEXES,
-    COLLECTION_ARTICLE_VERSIONS,
-    COLLECTION_ARTICLES,
-    COLLECTION_DOCUMENTS,
-    COLLECTION_EDGES,
-    COLLECTION_INSTRUMENTS,
     RELATION_REFERS_TO,
     SOURCE_BWB,
     SOURCE_STAATSBLAD,
     SOURCE_STAATSCOURANT,
 )
 from lawgraph.db.counting import Store
-from lawgraph.db.queries.semantic import slim
-from lawgraph.db.store import sorted_merge
+from lawgraph.db.queries.semantic import (
+    absent_sql,
+    differs_sql,
+    nonempty_sql,
+    present_sql,
+    slim_sql,
+)
+from lawgraph.db.store import _rounds
+
+# The fields an article is filtered on by law: generated columns of ``articles``.
+_LAW_FIELDS = ("bwb_id", "celex")
 
 
 def law_articles(store: Store, field: str, law_id: str) -> Iterator[dict[str, Any]]:
     """``{key, number, last_number, stub}`` of every article of one law; *field* is
     ``bwb_id`` or ``celex``. A historical article has only ``last_number``."""
-    aql = f"""
-FOR a IN {COLLECTION_ARTICLES}
-  FILTER a.props.@field == @law_id
-  RETURN {{
-    key: a._key,
-    number: a.props.article_number,
-    last_number: a.props.last_article_number,
-    stub: a.props.stub == true
-  }}
-"""
-    return store.query(aql, {"field": field, "law_id": law_id})
+    if field not in _LAW_FIELDS:
+        raise ValueError(f"Unknown law field: {field!r}")
+    statement = sql.SQL(
+        """
+        SELECT key, props -> 'article_number' AS number,
+               props -> 'last_article_number' AS last_number,
+               stub IS TRUE AS stub
+        FROM articles
+        WHERE {field} = %(law_id)s
+        ORDER BY key
+        """
+    ).format(field=sql.Identifier(field))
+    return store.query(statement, {"law_id": law_id})
 
 
 # The abbreviations of the instruments: ``core.aliases.code_aliases`` reads them.
-CODE_ALIAS_AQL = f"""
-    FOR inst IN {COLLECTION_INSTRUMENTS}
-        FILTER inst.props.bwb_id != null OR inst.props.celex != null
-        RETURN {{
-            short_title: inst.props.short_title,
-            aliases: inst.props.aliases,
-            bwb_id: inst.props.bwb_id,
-            celex: inst.props.celex
-        }}
-    """
-
-
 def code_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
     """``{short_title, aliases, bwb_id, celex}`` of the instruments with a BWB id or a
-    CELEX number."""
-    return store.query(CODE_ALIAS_AQL)
+    CELEX number, in the order of their keys."""
+    return store.query(
+        """
+        SELECT props -> 'short_title' AS short_title, props -> 'aliases' AS aliases,
+               props -> 'bwb_id' AS bwb_id, props -> 'celex' AS celex
+        FROM instruments
+        WHERE bwb_id IS NOT NULL OR celex IS NOT NULL
+        ORDER BY key
+        """
+    )
 
 
 def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
     """``{bwb_id, celex, title, citation_title}`` of the instruments with a BWB id or a
-    CELEX number."""
-    aql = f"""
-        FOR inst IN {COLLECTION_INSTRUMENTS}
-            FILTER inst.props.bwb_id != null OR inst.props.celex != null
-            RETURN {{
-                bwb_id: inst.props.bwb_id,
-                celex: inst.props.celex,
-                title: inst.props.title,
-                citation_title: inst.props.citation_title
-            }}
+    CELEX number, in the order of their keys."""
+    return store.query(
         """
-    return store.query(aql)
+        SELECT props -> 'bwb_id' AS bwb_id, props -> 'celex' AS celex,
+               props -> 'title' AS title, props -> 'citation_title' AS citation_title
+        FROM instruments
+        WHERE bwb_id IS NOT NULL OR celex IS NOT NULL
+        ORDER BY key
+        """
+    )
 
 
-_BASIS_AQL = f"""
-FOR regulation IN {COLLECTION_INSTRUMENTS}
-  FILTER regulation.props.source == @source
-  FILTER LENGTH(regulation.props.basis) > 0
-  RETURN {{
-    key: regulation._key,
-    bwb_id: regulation.props.bwb_id,
-    basis: regulation.props.basis
-  }}
+_BASIS_SQL = f"""
+SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'basis' AS basis
+FROM instruments
+WHERE lg_str(props -> 'source') = %(source)s AND {nonempty_sql("props -> 'basis'")}
+ORDER BY key
 """
 
 
 def regulations_with_basis(store: Store) -> Iterator[dict[str, Any]]:
     """``{key, bwb_id, basis}`` of the BWB regulations that state a legal basis."""
-    return store.query(_BASIS_AQL, {"source": SOURCE_BWB})
+    return store.query(_BASIS_SQL, {"source": SOURCE_BWB})
 
 
 def instrument_keys_by_bwb_id(
     store: Store, bwb_ids: list[str]
 ) -> Iterator[dict[str, Any]]:
     """``{_key, props: {bwb_id}}`` of the instruments with these *bwb_ids*."""
-    batch_aql = f"""
-FOR inst IN {COLLECTION_INSTRUMENTS}
-  FILTER inst.props.bwb_id IN @bwb_ids
-  RETURN {{_key: inst._key, props: {{bwb_id: inst.props.bwb_id}}}}
-"""
-    bind = {"bwb_ids": bwb_ids}
-    return store.query(batch_aql, bind)
+    return store.query(
+        """
+        SELECT json_build_object(
+            '_key', key, 'props', json_build_object('bwb_id', props -> 'bwb_id')
+        )
+        FROM instruments
+        WHERE bwb_id = ANY(%(bwb_ids)s)
+        ORDER BY key
+        """,
+        {"bwb_ids": bwb_ids},
+    )
 
 
 def instrument_ids_by_bwb_id(store: Store, bwb_ids: list[str]) -> Iterator[Any]:
     """``{bwb_id, inst_id, inst_key}`` of the instruments with these *bwb_ids*."""
-    inst_aql = f"""
-FOR inst IN {COLLECTION_INSTRUMENTS}
-  FILTER inst.props.bwb_id IN @bwb_ids
-  RETURN {{ bwb_id: inst.props.bwb_id, inst_id: inst._id, inst_key: inst._key }}
-"""
-    return store.query(inst_aql, {"bwb_ids": bwb_ids})
+    return store.query(
+        """
+        SELECT props -> 'bwb_id' AS bwb_id, id AS inst_id, key AS inst_key
+        FROM instruments
+        WHERE bwb_id = ANY(%(bwb_ids)s)
+        ORDER BY key
+        """,
+        {"bwb_ids": bwb_ids},
+    )
 
 
 def article_bwb_ids(store: Store) -> Iterator[Any]:
-    """Every distinct BWB id that has article nodes in the graph."""
-    aql = f"""
-        FOR doc IN {COLLECTION_ARTICLES}
-            FILTER doc.props.bwb_id != null
-            RETURN DISTINCT doc.props.bwb_id
-        """
-    return store.query(aql)
+    """Every distinct BWB id that has article nodes in the graph, in order."""
+    return store.query(
+        "SELECT DISTINCT bwb_id FROM articles WHERE bwb_id IS NOT NULL ORDER BY bwb_id"
+    )
+
+
+_WITH_REFERENCES_SQL = f"""
+SELECT {slim_sql("a", "bwb_id", "article_number", "references")}
+FROM articles a
+WHERE a.bwb_id = ANY(%(bwb_ids)s) AND {present_sql("a.props -> 'references'")}
+ORDER BY a.key
+"""
 
 
 def articles_with_references(
     store: Store, bwb_ids: list[str]
 ) -> Iterator[dict[str, Any]]:
     """The articles of *bwb_ids* that carry structured references."""
-    aql = f"""
-        FOR doc IN {COLLECTION_ARTICLES}
-            FILTER doc.props.bwb_id IN @bwb_ids
-            FILTER doc.props.references != null
-        RETURN {slim("doc", "bwb_id", "article_number", "references")}
-        """
-    return store.query(aql, bind_vars={"bwb_ids": bwb_ids})
+    return store.query(_WITH_REFERENCES_SQL, {"bwb_ids": bwb_ids})
 
 
 def annex_keys(store: Store) -> Iterator[Any]:
     """The key of every annex."""
-    return store.query(f"FOR a IN {COLLECTION_ANNEXES} RETURN a._key")
+    return store.query("SELECT key FROM annexes ORDER BY key")
+
+
+_TITLED_ANNEXES_SQL = f"""
+SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'label' AS label,
+       props -> 'title' AS title
+FROM annexes
+WHERE {present_sql("props -> 'title'")} AND {present_sql("props -> 'bwb_id'")}
+ORDER BY key
+"""
 
 
 def titled_annexes(store: Store) -> Iterator[dict[str, Any]]:
     """``{key, bwb_id, label, title}`` of every annex with a title, by key."""
-    aql = f"""
-        FOR annex IN {COLLECTION_ANNEXES}
-            FILTER annex.props.title != null AND annex.props.bwb_id != null
-            SORT annex._key
-            RETURN {{
-                key: annex._key,
-                bwb_id: annex.props.bwb_id,
-                label: annex.props.label,
-                title: annex.props.title
-            }}
-        """
-    return store.query(aql)
+    return store.query(_TITLED_ANNEXES_SQL)
+
+
+_NAMING_ANNEXES_SQL = f"""
+SELECT json_build_object(
+    'annex', n.value -> 'key',
+    'article', {slim_sql("a", "bwb_id", "text", "article_number")}
+)
+FROM json_array_elements(%(names)s::json) WITH ORDINALITY AS n(value, ord)
+JOIN articles a ON a.bwb_id = lg_str(n.value -> 'bwb_id')
+WHERE strpos(lg_str(a.props -> 'text'), coalesce(n.value ->> 'name', '')) > 0
+ORDER BY n.ord, a.key
+"""
 
 
 def articles_naming_annexes(
     store: Store, names: list[dict[str, Any]]
 ) -> Iterator[dict[str, Any]]:
     """Per ``{key, bwb_id, name}`` of *names*: the articles of that regulation whose text
-    contains the name, as ``{annex, article}``."""
-    aql = f"""
-        FOR n IN @names
-            FOR doc IN {COLLECTION_ARTICLES}
-                FILTER doc.props.bwb_id == n.bwb_id AND doc.props.bwb_id != null
-                FILTER doc.props.text != null AND CONTAINS(doc.props.text, n.name)
-                RETURN {{
-                    annex: n.key,
-                    article: {slim("doc", "bwb_id", "text", "article_number")}
-                }}
-        """
-    return store.query(aql, {"names": names})
+    contains the name, as ``{annex, article}``; in the order of *names*, then by key."""
+    return store.query(_NAMING_ANNEXES_SQL, {"names": Json(names)})
+
+
+_MENTIONING_ANNEX_SQL = f"""
+SELECT {slim_sql("a", "bwb_id", "text")}
+FROM articles a
+WHERE strpos(lower(lg_str(a.props -> 'text')), 'bijlage') > 0
+ORDER BY a.key
+"""
 
 
 def articles_mentioning_annex(store: Store) -> Iterator[dict[str, Any]]:
     """The articles whose text contains the word "bijlage"."""
-    aql = f"""
-        FOR doc IN {COLLECTION_ARTICLES}
-            FILTER doc.props.text != null
-            FILTER CONTAINS(LOWER(doc.props.text), 'bijlage')
-            RETURN {slim("doc", "bwb_id", "text")}
-        """
-    return store.query(aql)
+    return store.query(_MENTIONING_ANNEX_SQL)
 
 
 # Sorted by article identity so that all versions of one article end up in the
 # same chunk (needed to keep the earliest effective date per publication).
-_AMENDING_VERSIONS_AQL = f"""
-FOR v IN {COLLECTION_ARTICLE_VERSIONS}
-  FILTER v.props.origin_publication != null AND v.props.stam_id != null
-  SORT v.props.bwb_id, v.props.stam_id, v._key
-  RETURN {{
-    key: v._key,
-    bwb_id: v.props.bwb_id,
-    stam_id: v.props.stam_id,
-    effect: v.props.effect,
-    valid_from: v.props.valid_from,
-    source_publication: v.props.source_publication,
-    origin: v.props.origin_publication,
-    commencement: v.props.commencement_publication
-  }}
+_AMENDING_VERSIONS_SQL = f"""
+SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'stam_id' AS stam_id,
+       props -> 'effect' AS effect, props -> 'valid_from' AS valid_from,
+       props -> 'source_publication' AS source_publication,
+       props -> 'origin_publication' AS origin,
+       props -> 'commencement_publication' AS commencement
+FROM article_versions v
+WHERE {present_sql("props -> 'origin_publication'")} AND v.stam_id IS NOT NULL
+ORDER BY v.bwb_id NULLS FIRST, v.stam_id NULLS FIRST, v.key
 """
 
 
 # One row per stored article; matched to the wanted (bwb_id, stam_id) pairs in Python.
-_ARTICLES_BY_IDENTITY_AQL = f"""
-FOR a IN {COLLECTION_ARTICLES}
-  FILTER a.props.bwb_id IN @bwb_ids AND a.props.stam_id IN @stam_ids
-  RETURN {{key: a._key, bwb_id: a.props.bwb_id, stam_id: a.props.stam_id}}
+_ARTICLES_BY_IDENTITY_SQL = """
+SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'stam_id' AS stam_id
+FROM articles
+WHERE bwb_id = ANY(%(bwb_ids)s) AND stam_id = ANY(%(stam_ids)s)
+ORDER BY key
 """
 
 
-_REGULATION_DOSSIERS_AQL = f"""
-FOR i IN {COLLECTION_INSTRUMENTS}
-  FILTER i.props.bwb_id != null
-  SORT i._key
-  RETURN {{
-    key: i._key,
-    dossiers: IS_ARRAY(i.props.dossier_numbers) ? i.props.dossier_numbers : []
-  }}
+_REGULATION_DOSSIERS_SQL = """
+SELECT key,
+       CASE WHEN json_typeof(props -> 'dossier_numbers') = 'array'
+            THEN props -> 'dossier_numbers' ELSE '[]'::json END AS dossiers
+FROM instruments
+WHERE bwb_id IS NOT NULL
+ORDER BY key
 """
 
 
 def amending_article_versions(store: Store) -> Iterator[dict[str, Any]]:
     """The article versions that name the publication they came from, sorted by article
     identity."""
-    return store.query(_AMENDING_VERSIONS_AQL)
+    return store.query(_AMENDING_VERSIONS_SQL)
 
 
 def articles_by_identity(
     store: Store, bwb_ids: list[str], stam_ids: list[str]
 ) -> Iterator[dict[str, Any]]:
     """``{key, bwb_id, stam_id}`` of the articles with a BWB id in *bwb_ids* and a stam id in
-    *stam_ids*: every combination, not only the wanted pairs."""
+    *stam_ids*: every combination, not only the wanted pairs, by key."""
     return store.query(
-        _ARTICLES_BY_IDENTITY_AQL, {"bwb_ids": bwb_ids, "stam_ids": stam_ids}
+        _ARTICLES_BY_IDENTITY_SQL, {"bwb_ids": bwb_ids, "stam_ids": stam_ids}
     )
 
 
 def regulation_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
     """``{key, dossiers}`` of every BWB regulation, with the parliamentary dossiers it
     lists (none too: its edges to dossiers it no longer lists go)."""
-    return store.query(_REGULATION_DOSSIERS_AQL)
+    return store.query(_REGULATION_DOSSIERS_SQL)
+
+
+_CLASSIFIABLE_SQL = f"""
+SELECT json_build_object('text', a.props -> 'text', 'edges', es.edges)
+FROM articles a
+JOIN (
+    SELECT e.from_id, json_agg(json_build_object(
+        'key', e.key,
+        'start', e.doc -> 'meta' -> 'start',
+        'end', e.doc -> 'meta' -> 'end'
+    ) ORDER BY e.key) AS edges
+    FROM edges e
+    WHERE e.relation = %(relation)s AND e.from_collection = 'articles'
+    GROUP BY e.from_id
+) es ON es.from_id = a.id
+WHERE {present_sql("a.props -> 'text'")}
+ORDER BY a.key
+"""
 
 
 def articles_with_classifiable_edges(store: Store) -> Iterator[dict[str, Any]]:
-    """Articles with their classifiable outgoing reference edges.
+    """Articles with their classifiable outgoing reference edges, articles and edges by
+    key.
 
     Grouped per article so each article text crosses the wire once.
     """
-    aql = f"""
-        FOR art IN {COLLECTION_ARTICLES}
-            FILTER art.props.text != null
-            LET es = (
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._from == art._id
-                    FILTER e.relation == @relation
-                    RETURN {{ key: e._key, start: e.meta.start, end: e.meta.end }}
-            )
-            FILTER LENGTH(es) > 0
-            RETURN {{ text: art.props.text, edges: es }}
-        """
-    return store.query(aql, {"relation": RELATION_REFERS_TO})
+    return store.query(_CLASSIFIABLE_SQL, {"relation": RELATION_REFERS_TO})
+
+
+_CLASSIFICATION_DIFFERS = " OR ".join(
+    differs_sql(stored, wanted)
+    for stored, wanted in (
+        ("t.doc -> 'semantic_type'", "u.value -> 'semantic_type'"),
+        ("t.doc -> 'explanation'", "u.value -> 'explanation'"),
+        ("t.doc -> 'meta' -> 'semantic_pattern'", "u.value -> 'pattern'"),
+        (
+            "t.doc -> 'meta' -> 'semantic_confidence'",
+            "u.value -> 'semantic_confidence'",
+        ),
+    )
+)
+
+_CLASSIFICATIONS_SQL = f"""
+UPDATE edges t SET doc = lg_merge(t.doc, json_build_object(
+    'semantic_type', u.value -> 'semantic_type',
+    'explanation', u.value -> 'explanation',
+    'updated_at', %(now)s::text,
+    'meta', lg_update(t.doc -> 'meta', json_build_object(
+        'semantic_pattern', u.value -> 'pattern',
+        'semantic_confidence', u.value -> 'semantic_confidence'
+    ))
+))
+FROM json_array_elements(%(updates)s::json) AS u(value)
+WHERE t.key = u.value ->> 'key' AND ({_CLASSIFICATION_DIFFERS})
+RETURNING 1
+"""
 
 
 def update_edge_classifications(
@@ -274,81 +315,86 @@ def update_edge_classifications(
     """Write the classifications of *batch* that differ from the stored ones; how many.
 
     ``updated_at`` says when a classification changed. Set on every run it made every
-    edge differ from itself: 330,000 edges written again each time.
+    edge differ from itself: 330,000 edges written again each time. The attributes merge
+    into the edge (those it did not have after the others), its ``meta`` keeps its keys in
+    order (D11). An edge twice in *batch* is written in rounds, in the order of *batch*.
     """
-    aql = f"""
-        FOR u IN @updates
-            LET stored = DOCUMENT({COLLECTION_EDGES}, u.key)
-            FILTER stored != null
-            FILTER stored.semantic_type != u.semantic_type
-                OR stored.explanation != u.explanation
-                OR stored.meta.semantic_pattern != u.pattern
-                OR stored.meta.semantic_confidence != u.semantic_confidence
-            UPDATE u.key WITH {{
-                semantic_type: u.semantic_type,
-                explanation: u.explanation,
-                updated_at: @now,
-                meta: {
-        sorted_merge(
-            "stored.meta",
-            "{semantic_pattern: u.pattern, semantic_confidence: u.semantic_confidence}",
+    updated = 0
+    for round_ in _rounds(batch, "key"):
+        rows = store.execute(
+            _CLASSIFICATIONS_SQL, {"updates": Json(round_), "now": now}
         )
-    }
-            }} IN {COLLECTION_EDGES} OPTIONS {{ mergeObjects: false }}
-            RETURN 1
-        """
-    bind = {"updates": batch, "now": now}
-    return len(list(store.query(aql, bind)))
+        updated += len(rows)
+    return updated
 
 
-# Strategy 1: publications with explicit bwb_id stored during normalization
-_STAATSBLAD_BY_BWB_ID_AQL = f"""
-FOR pub IN {COLLECTION_DOCUMENTS}
-  FILTER pub.props.source == @source
-  FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
-  FILTER pub.props.bwb_id != null
-  LET inst = (
-    FOR i IN {COLLECTION_INSTRUMENTS}
-      // != null lets the sparse index on props.bwb_id serve the join (else: a full scan)
-      FILTER i.props.bwb_id != null AND i.props.bwb_id == pub.props.bwb_id
-      SORT i._key
-      LIMIT 1
-      RETURN i
-  )[0]
-  FILTER inst != null
-  RETURN {{ pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
-           match_type: 'bwb_id' }}
+_HAS_BWB_ID = present_sql("pub.props -> 'bwb_id'")
+_NO_BWB_ID = absent_sql("pub.props -> 'bwb_id'")
+
+
+def _text_longer_than(n: int) -> str:
+    """A publication with a text of more than *n* characters."""
+    return f"length(lg_str(pub.props -> 'text')) > {n}"
+
+
+# The publications of a date or later when it is given; a publication without a date is
+# before every date (as ArangoDB compared null with a string).
+_SINCE = "(%(since_iso)s::text IS NULL OR pub.date >= %(since_iso)s)"
+
+# Strategy 1: the instrument of the BWB id stored during normalization (the key settles two
+# with one id).
+_BY_BWB_ID = """
+SELECT pub.id AS pub_id, pub.key AS pub_key, inst.id AS inst_id, inst.key AS inst_key,
+       'bwb_id' AS match_type
+FROM documents pub
+CROSS JOIN LATERAL (
+    SELECT i.id, i.key FROM instruments i
+    WHERE i.bwb_id = lg_str(pub.props -> 'bwb_id')
+    ORDER BY i.key
+    LIMIT 1
+) inst
+WHERE pub.source = %(source)s AND {filters}
+ORDER BY pub.key
 """
 
-
-# Strategy 2: title matching for publications without bwb_id
-_STAATSBLAD_BY_TITLE_AQL = f"""
-FOR pub IN {COLLECTION_DOCUMENTS}
-  FILTER pub.props.source == @source
-  FILTER pub.props.text != null AND LENGTH(pub.props.text) > 50
-  FILTER pub.props.bwb_id == null
-  LET inst = (
-    FOR i IN {COLLECTION_INSTRUMENTS}
-      FILTER i.props.citation_title != null
-      FILTER CONTAINS(LOWER(pub.props.title), LOWER(i.props.citation_title))
-      // the longest title the publication names wins (the key settles a tie)
-      SORT LENGTH(i.props.citation_title) DESC, i._key
-      LIMIT 1
-      RETURN i
-  )[0]
-  FILTER inst != null
-  RETURN {{ pub_id: pub._id, pub_key: pub._key, inst_id: inst._id, inst_key: inst._key,
-           match_type: 'title' }}
+# Strategy 2: for a publication without a BWB id, the instrument whose citation title its
+# title contains: the longest title the publication names wins (the key settles a tie).
+_BY_TITLE = """
+SELECT pub.id AS pub_id, pub.key AS pub_key, inst.id AS inst_id, inst.key AS inst_key,
+       'title' AS match_type
+FROM documents pub
+CROSS JOIN LATERAL (
+    SELECT i.id, i.key FROM instruments i
+    WHERE i.citation_title IS NOT NULL {instruments}
+      AND strpos(lower(coalesce(lg_str(pub.props -> 'title'), '')),
+                 lower(i.citation_title)) > 0
+    ORDER BY length(i.citation_title) DESC, i.key
+    LIMIT 1
+) inst
+WHERE pub.source = %(source)s AND {filters}
+ORDER BY pub.key
 """
+
+_STAATSBLAD_BY_BWB_ID_SQL = _BY_BWB_ID.format(
+    filters=f"{_text_longer_than(50)} AND {_HAS_BWB_ID}"
+)
+_STAATSBLAD_BY_TITLE_SQL = _BY_TITLE.format(
+    instruments="", filters=f"{_text_longer_than(50)} AND {_NO_BWB_ID}"
+)
+_STAATSCOURANT_BY_BWB_ID_SQL = _BY_BWB_ID.format(filters=f"{_HAS_BWB_ID} AND {_SINCE}")
+_STAATSCOURANT_BY_TITLE_SQL = _BY_TITLE.format(
+    instruments="AND length(i.citation_title) > 5",
+    filters=(f"{_NO_BWB_ID} AND length(lg_str(pub.props -> 'title')) > 5 AND {_SINCE}"),
+)
 
 
 def staatsblad_instrument_matches(store: Store) -> list[dict[str, Any]]:
     """``{pub_id, pub_key, inst_id, inst_key, match_type}`` per Staatsblad publication and
     the instrument it explains: by its BWB id, then by title for those without one."""
-    bind_vars = {"source": SOURCE_STAATSBLAD}
+    params = {"source": SOURCE_STAATSBLAD}
     rows: list[dict[str, Any]] = []
-    rows.extend(store.query(_STAATSBLAD_BY_BWB_ID_AQL, bind_vars=bind_vars))
-    rows.extend(store.query(_STAATSBLAD_BY_TITLE_AQL, bind_vars=bind_vars))
+    rows.extend(store.query(_STAATSBLAD_BY_BWB_ID_SQL, params))
+    rows.extend(store.query(_STAATSBLAD_BY_TITLE_SQL, params))
     return rows
 
 
@@ -358,75 +404,25 @@ def staatscourant_instrument_matches(
     """``{pub_id, pub_key, inst_id, inst_key, match_type}`` per Staatscourant regulation and
     the instrument it explains: by its BWB id, then by title for those without one. With
     *since_date* only the publications of that date or later."""
-    since_filter = "FILTER pub.props.date >= @since_iso" if since_date else ""
-
-    # Strategy 1: explicit bwb_id stored during normalization
-    aql_bwb = f"""
-FOR pub IN {COLLECTION_DOCUMENTS}
-  FILTER pub.props.source == @source
-  FILTER pub.props.bwb_id != null
-  {since_filter}
-  LET inst = FIRST(
-    FOR i IN {COLLECTION_INSTRUMENTS}
-      // != null lets the sparse index on props.bwb_id serve the join (else: a full scan)
-      FILTER i.props.bwb_id != null AND i.props.bwb_id == pub.props.bwb_id
-      SORT i._key
-      LIMIT 1
-      RETURN i
-  )
-  FILTER inst != null
-  RETURN {{
-    pub_id: pub._id, pub_key: pub._key,
-    inst_id: inst._id, inst_key: inst._key,
-    match_type: 'bwb_id'
-  }}
-"""
-
-    # Strategy 2: title match against citation_title
-    aql_title = f"""
-FOR pub IN {COLLECTION_DOCUMENTS}
-  FILTER pub.props.source == @source
-  FILTER pub.props.bwb_id == null
-  FILTER pub.props.title != null AND LENGTH(pub.props.title) > 5
-  {since_filter}
-  LET inst = FIRST(
-    FOR i IN {COLLECTION_INSTRUMENTS}
-      FILTER i.props.citation_title != null AND LENGTH(i.props.citation_title) > 5
-      FILTER CONTAINS(LOWER(pub.props.title), LOWER(i.props.citation_title))
-      // the longest title the publication names wins (the key settles a tie)
-      SORT LENGTH(i.props.citation_title) DESC, i._key
-      LIMIT 1
-      RETURN i
-  )
-  FILTER inst != null
-  RETURN {{
-    pub_id: pub._id, pub_key: pub._key,
-    inst_id: inst._id, inst_key: inst._key,
-    match_type: 'title'
-  }}
-"""
-
-    bind: dict[str, Any] = {"source": SOURCE_STAATSCOURANT}
-    if since_date:
-        bind["since_iso"] = since_date
+    params = {"source": SOURCE_STAATSCOURANT, "since_iso": since_date or None}
     rows: list[dict[str, Any]] = []
-    for aql in (aql_bwb, aql_title):
-        rows.extend(store.query(aql, bind_vars=bind))
+    for statement in (_STAATSCOURANT_BY_BWB_ID_SQL, _STAATSCOURANT_BY_TITLE_SQL):
+        rows.extend(store.query(statement, params))
     return rows
+
+
+_STAATSCOURANT_TEXTS_SQL = f"""
+SELECT pub.id AS pub_id, pub.key AS pub_key, pub.props -> 'text' AS text
+FROM documents pub
+WHERE pub.source = %(source)s AND {_text_longer_than(100)} AND {_SINCE}
+ORDER BY pub.key
+"""
 
 
 def staatscourant_texts(store: Store, since_date: str | None) -> Iterator[Any]:
     """``{pub_id, pub_key, text}`` of the Staatscourant publications with a text, of
     *since_date* or later when it is given."""
-    since_filter = "FILTER pub.props.date >= @since_iso" if since_date else ""
-    aql = f"""
-FOR pub IN {COLLECTION_DOCUMENTS}
-  FILTER pub.props.source == @source
-  FILTER pub.props.text != null AND LENGTH(pub.props.text) > 100
-  {since_filter}
-  RETURN {{ pub_id: pub._id, pub_key: pub._key, text: pub.props.text }}
-"""
-    bind: dict[str, Any] = {"source": SOURCE_STAATSCOURANT}
-    if since_date:
-        bind["since_iso"] = since_date
-    return store.query(aql, bind)
+    return store.query(
+        _STAATSCOURANT_TEXTS_SQL,
+        {"source": SOURCE_STAATSCOURANT, "since_iso": since_date or None},
+    )

@@ -63,8 +63,8 @@ def _current(store: ArangoStore, *bwb_ids: str) -> None:
 
 
 def _stored(store: ArangoStore, kind: str) -> set[str]:
-    aql = "FOR r IN raw_sources FILTER r.kind == @kind RETURN r.external_id"
-    return set(store.query(aql, {"kind": kind}))
+    statement = "SELECT external_id FROM raw_sources WHERE kind = %(kind)s"
+    return set(store.query(statement, {"kind": kind}))
 
 
 def test_a_second_run_downloads_only_the_toestanden_that_are_new(

@@ -157,8 +157,8 @@ def test_an_article_that_left_the_law_ends_when_the_next_toestand_starts(
 ) -> None:
     versions = list(
         ArangoStore().query(
-            "FOR v IN article_versions FILTER v.props.article_number == '142' "
-            "RETURN [v.props.valid_until, v.props.current]"
+            "SELECT json_build_array(props -> 'valid_until', props -> 'current') "
+            "FROM article_versions WHERE props ->> 'article_number' = '142'"
         )
     )
     assert versions == [["2025-01-01", False]]

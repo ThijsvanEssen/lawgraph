@@ -26,11 +26,11 @@ COLLECTIONS = (
 
 
 def _counts(store: ArangoStore) -> dict[str, int]:
-    return {name: store.db.collection(name).count() for name in COLLECTIONS}
+    return {name: store.count(name) for name in COLLECTIONS}
 
 
 def _edge_keys(store: ArangoStore) -> set[str]:
-    return set(store.query("FOR e IN edges RETURN e._key"))
+    return set(store.query("SELECT key FROM edges"))
 
 
 def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
@@ -50,11 +50,13 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
 
     # The ECLI linker reads the XML from raw_sources (it is not kept on the node), the article
     # linker the paragraphs of the node: every judgment cites the next one and two articles.
-    linked = "FOR e IN edges FILTER STARTS_WITH(e._from, 'judgments/') RETURN e._to"
+    linked = "SELECT to_id FROM edges WHERE from_collection = 'judgments'"
     targets = list(store.query(linked))
     assert sum(t.startswith("judgments/") for t in targets) >= 100
     assert any(t.startswith("articles/") for t in targets)
-    sample = store.db.collection("judgments").random()
+    sample = next(
+        store.query("SELECT key, props FROM judgments ORDER BY random() LIMIT 1")
+    )
     assert "raw_xml" not in sample["props"]
 
     # Idempotent: the same input again is the same graph, not a second copy of it.
@@ -105,9 +107,9 @@ def test_check_finds_an_edge_without_its_node(database: str, cli: Any) -> None:
     cli("normalize", "all")
     assert not [p for p in check(store).problems if p.startswith("edges")]
 
-    victim = next(iter(store.query("FOR e IN edges LIMIT 1 RETURN e._to")))
+    victim = next(store.query("SELECT to_id FROM edges LIMIT 1"))
     collection, key = victim.split("/")
-    store.db.collection(collection).delete(key)
+    store.execute(f"DELETE FROM {collection} WHERE key = %(key)s", {"key": key})
     assert [p for p in check(store).problems if p.startswith("edges")]
 
 
@@ -158,14 +160,13 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
     cli("semantic", "bwb-grondslagen")
     cli("semantic", "bwb-implements")
 
-    aql = """
-    FOR e IN edges
-        FILTER e._from == "instruments/bwbr0001950"
-        FILTER e.relation IN ["BASED_ON", "IMPLEMENTS", "REFERS_TO"]
-        RETURN [e.relation, e._to]
+    statement = """
+    SELECT json_build_array(relation, to_id) FROM edges
+    WHERE from_id = 'instruments/bwbr0001950'
+        AND relation IN ('BASED_ON', 'IMPLEMENTS', 'REFERS_TO')
     """
     # the text names the GDPR, and nothing says it implements it: a reference
-    assert sorted(store.query(aql)) == [
+    assert sorted(store.query(statement)) == [
         ["BASED_ON", "articles/bwbr0001947_125"],
         ["BASED_ON", "articles/bwbr0001947_133"],
         ["REFERS_TO", "instruments/32016r0679"],
@@ -181,9 +182,9 @@ def test_check_says_when_a_regulation_lacks_what_the_semantic_steps_read(
     cli("normalize", "bwb")
     assert not [p for p in check(store, edges=False).problems if "basis" in p]
 
-    store.query(  # a regulation as a `normalize bwb` from before the props were kept left it
-        "FOR i IN instruments FILTER i.props.source == 'bwb' LIMIT 1 "
-        "UPDATE i WITH {props: {basis: null}} IN instruments OPTIONS {keepNull: false}"
+    store.execute(  # a regulation as a `normalize bwb` from before the props were kept left it
+        "UPDATE instruments SET props = lg_unset(props, ARRAY['basis']) WHERE id = "
+        "(SELECT id FROM instruments WHERE props ->> 'source' = 'bwb' LIMIT 1)"
     )
     problems = [p for p in check(store, edges=False).problems if "basis" in p]
     assert problems and "1 BWB regulations" in problems[0]
@@ -198,9 +199,8 @@ def test_check_says_when_no_case_names_a_dossier(database: str, cli: Any) -> Non
     cli("normalize", "tk")
     assert not [p for p in check(store, edges=False).problems if "names a dossier" in p]
 
-    store.query(
-        "FOR c IN cases UPDATE c WITH {props: {dossier_numbers: []}} IN cases "
-        "OPTIONS {mergeObjects: true}"
+    store.execute(
+        """UPDATE cases SET props = lg_update(props, '{"dossier_numbers": []}')"""
     )
     problems = [p for p in check(store, edges=False).problems if "names a dossier" in p]
     assert problems and "retrieve tk" in problems[0]
@@ -236,11 +236,11 @@ def test_an_annex_is_a_node_of_normalize_and_a_link_of_semantic(
             )
         )
     cli("normalize", "bwb")
-    annex = store.db.collection("annexes").get("bwbr9200001_annex_i")
+    annex = store.get_document("annexes", "bwbr9200001_annex_i")
     assert annex["props"]["title"] == "Sectoren" and not annex["props"].get("stub")
     edges = (
-        "FOR e IN edges FILTER e._from == @a OR e._to == @a "
-        "RETURN [e.relation, e._from, e._to]"
+        "SELECT json_build_array(relation, from_id, to_id) FROM edges "
+        "WHERE from_id = %(a)s OR to_id = %(a)s"
     )
     assert list(store.query(edges, {"a": annex["_id"]})) == [
         ["PART_OF", annex["_id"], "instruments/bwbr9200001"]

@@ -271,7 +271,9 @@ def test_the_dossier_titles_are_looked_up_at_once(
     """Two rows that each name a dossier: a lookup per row would be a third query."""
     calls = _count_queries(store, monkeypatch)
     assert len(get_article_history(store, LAW, "287").versions) == 2
-    assert len(calls) == 2  # the versions, then every dossier title at once
+    assert (
+        len(calls) == 3
+    )  # the article, its versions, then every dossier title at once
 
     calls.clear()
     assert len(get_instrument_amended_by(store, LAW).items) == 2
@@ -287,4 +289,4 @@ def test_a_history_that_names_no_dossier_skips_the_title_lookup(
 ) -> None:
     calls = _count_queries(store, monkeypatch)
     get_article_history(store, LAW, "400")
-    assert len(calls) == 1
+    assert len(calls) == 2  # the article and its versions

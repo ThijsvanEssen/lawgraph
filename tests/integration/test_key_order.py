@@ -13,7 +13,9 @@ from lawgraph.db import ArangoStore
 
 
 def _props(store: ArangoStore, key: str) -> dict[str, object]:
-    return next(store.query("RETURN DOCUMENT('dossiers', @key).props", {"key": key}))
+    return next(
+        store.query("SELECT props FROM dossiers WHERE key = %(key)s", {"key": key})
+    )
 
 
 def test_an_update_writes_the_props_in_the_order_of_their_keys(database: str) -> None:
@@ -71,5 +73,5 @@ def test_a_single_upsert_and_edge_meta_are_sorted_too(database: str) -> None:
     }
     store.bulk_insert_or_update_edges([edge])
     store.bulk_insert_or_update_edges([{**edge, "meta": {"m": 1, "b": 2, "a": 3}}])
-    meta = next(store.query("RETURN DOCUMENT('edges/e').meta"))
+    meta = next(store.query("SELECT doc -> 'meta' FROM edges WHERE key = 'e'"))
     assert json.dumps(meta) == json.dumps({"a": 3, "b": 2, "m": 1, "z": 1})

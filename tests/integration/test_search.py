@@ -19,7 +19,6 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries.search import search_all
-from tests.integration.seed import wait_for_views
 
 BW7 = "BWBR0005290"
 
@@ -57,9 +56,6 @@ def store(database: str) -> ArangoStore:
         kind="Amendement",
         sequence=12,
         dossier_numbers=["36000"],
-    )
-    wait_for_views(
-        store, {"search_articles": 1, "search_judgments": 1, "search_documents": 1}
     )
     return store
 

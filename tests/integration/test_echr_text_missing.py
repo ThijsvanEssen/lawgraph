@@ -75,8 +75,8 @@ def test_a_text_hudoc_cannot_convert_is_skipped_and_not_asked_for_again(
     kinds = {
         row["external_id"]: row["kind"]
         for row in store.query(
-            "FOR r IN raw_sources FILTER r.source == @s AND r.kind LIKE 'echr-judgment-docx%' "
-            "RETURN r",
+            "SELECT external_id, kind FROM raw_sources "
+            "WHERE source = %(s)s AND kind LIKE 'echr-judgment-docx%%'",
             {"s": SOURCE_ECHR},
         )
     }

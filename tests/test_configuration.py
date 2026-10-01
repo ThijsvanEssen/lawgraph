@@ -7,8 +7,11 @@
 
 from __future__ import annotations
 
+import importlib
 import pathlib
 import re
+
+import pytest
 
 from lawgraph.config.constants import COLLECTION_EDGES, DOCUMENT_COLLECTIONS
 
@@ -68,7 +71,7 @@ def test_env_example_lists_only_variables_that_are_read() -> None:
 
 
 def test_view_comparison_ignores_server_defaults_and_analyzer_order() -> None:
-    from lawgraph.db.schema import _indexed_fields
+    from lawgraph.db.schema_arango import _indexed_fields
 
     def link(analyzers: list[str], **server_defaults: object) -> dict:
         fields = {"props": {"fields": {"name": {"analyzers": analyzers}}}}
@@ -82,7 +85,7 @@ def test_view_comparison_ignores_server_defaults_and_analyzer_order() -> None:
 
 
 def test_a_dotted_view_field_indexes_a_field_of_every_element_of_an_array() -> None:
-    from lawgraph.db.schema import _indexed_fields, _nested_fields
+    from lawgraph.db.schema_arango import _indexed_fields, _nested_fields
 
     spec = {"heading": ["text_nl"], "breadcrumb.title": ["text_nl"]}
     nested = _nested_fields(spec)
@@ -94,3 +97,23 @@ def test_a_dotted_view_field_indexes_a_field_of_every_element_of_an_array() -> N
     assert _indexed_fields(link) == {
         "articles": {k: frozenset(v) for k, v in spec.items()}
     }
+
+
+def test_the_default_database_url_carries_the_password_of_compose(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without LAWGRAPH_DB_URL the store reaches the server of docker-compose.yml with the
+    password compose gave it, quoted for a URL."""
+    from lawgraph.config import settings
+
+    monkeypatch.delenv("LAWGRAPH_DB_URL", raising=False)
+    monkeypatch.setenv("LAWGRAPH_DB_PASSWORD", "p@ss/w")
+    try:
+        assert importlib.reload(settings).DB_URL == (
+            "postgresql://lawgraph:p%40ss%2Fw@localhost:5432"
+        )
+        monkeypatch.setenv("LAWGRAPH_DB_URL", "postgresql://u:x@db:5433")
+        assert importlib.reload(settings).DB_URL == "postgresql://u:x@db:5433"
+    finally:
+        monkeypatch.undo()
+        importlib.reload(settings)

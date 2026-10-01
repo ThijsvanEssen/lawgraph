@@ -18,13 +18,11 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.db import ArangoStore, make_edge_doc
-from lawgraph.db.queries.instrument_links import get_international_links
 from lawgraph.db.queries.instrument_scope import (
     resolve_instrument,
     scope_of,
     scope_of_node,
 )
-from lawgraph.db.queries.instruments import get_articles
 
 REGULATION = "BWBR0009001"
 OTHER_REGULATION = "BWBR0009002"
@@ -377,49 +375,3 @@ def test_international_links_hold_treaties_and_echr_judgments(
     # an instrument without articles has an empty answer, not an error
     loose = client.get("/api/instruments/verdrag_77/eu-links").json()
     assert loose["international"] == [] and loose["implements"] == []
-
-
-def test_the_articles_of_an_instrument_are_read_through_an_index(
-    store: ArangoStore,
-) -> None:
-    """Both identifying props are indexed: no scan of the articles, for either kind.
-
-    The compound indexes on (bwb_id, article_number) are sparse and cannot answer a filter
-    on the first field alone; with a few thousand articles around, that was a full scan.
-    """
-    fillers = [
-        _node(
-            "articles",
-            f"bwbr{9100000 + n // 20}_{n % 20}",
-            bwb_id=f"BWBR{9100000 + n // 20}",
-            article_number=str(n % 20),
-        )
-        for n in range(3000)
-    ] + [
-        _node(
-            "articles",
-            f"3{2000 + n // 10}l{n % 10:04d}_1",
-            celex=f"3{2000 + n // 10}L{n % 10:04d}",
-            article_number="1",
-        )
-        for n in range(2000)
-    ]
-    store.bulk_insert_or_update_nodes("articles", fillers)
-    asked: list[tuple[str, dict[str, Any]]] = []
-    run = store.query
-
-    def recording(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        asked.append((aql, bind_vars or {}))
-        return run(aql, bind_vars, **kw)
-
-    store.query = recording  # type: ignore[method-assign]
-    for identifier in (REGULATION, DIRECTIVE):
-        get_articles(store, identifier)
-        scope = scope_of(identifier)
-        get_international_links(store, "instruments/x", scope)
-
-    assert len(asked) == 4
-    for aql, bind_vars in asked:
-        nodes = store.db.aql.explain(aql, bind_vars=bind_vars)["nodes"]
-        scanned = [n for n in nodes if n["type"] == "EnumerateCollectionNode"]
-        assert all(n["collection"] != "articles" for n in scanned), aql

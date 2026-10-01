@@ -123,8 +123,9 @@ def client(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore]]:
 def _targets(store: ArangoStore, law: str, number: str) -> list[dict[str, Any]]:
     return list(
         store.query(
-            "FOR e IN edges FILTER e._from == @a AND e.relation == @r "
-            "RETURN {to: PARSE_IDENTIFIER(e._to).key, linked: e.meta.linked_article}",
+            "SELECT split_part(to_id, '/', 2) AS \"to\", "
+            "doc -> 'meta' -> 'linked_article' AS linked "
+            "FROM edges WHERE from_id = %(a)s AND relation = %(r)s",
             {"a": f"articles/{make_node_key(law, number)}", "r": RELATION_REFERS_TO},
         )
     )

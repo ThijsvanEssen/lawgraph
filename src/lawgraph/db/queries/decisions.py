@@ -9,15 +9,14 @@ from lawgraph.config.constants import (
     CHAMBER_EK,
     CHAMBER_TK,
     COLLECTION_CASES,
-    COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
-    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     RELATION_PART_OF,
     RELATION_VOTED,
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore
+from lawgraph.db._rows import node_doc
 
 
 @dataclass(frozen=True)
@@ -44,63 +43,117 @@ class DecisionFilters:
 EMPTY_FACETS: dict[str, list[Any]] = {"kind": [], "passed": [], "days": []}
 
 
-def _common_filters(
-    filters: DecisionFilters, bind: dict[str, Any]
-) -> tuple[str, list[str]]:
-    """The AQL before the loop, and the filters on ``decision`` but for kind and outcome."""
+def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
+    """The conditions on the decision ``d`` but for kind and outcome."""
     clauses: list[str] = []
     if filters.chamber is not None:
         # TK decisions carry the label "TK", EK ones "EK".
-        clauses.append("FILTER @chamber IN decision.labels")
+        clauses.append("%(chamber)s = ANY(d.labels)")
         bind["chamber"] = filters.chamber.upper()
     if filters.dossier:
-        # Served by the array index on ``props.dossier_numbers``.
-        clauses.append("FILTER @dossier IN decision.props.dossier_numbers")
+        # Served by the array index on ``dossier_numbers``.
+        clauses.append("d.dossier_numbers @> ARRAY[%(dossier)s]::text[]")
         bind["dossier"] = filters.dossier
     if filters.date_from:
-        clauses.append("FILTER decision.props.date >= @date_from")
+        clauses.append("d.date >= %(date_from)s")
         bind["date_from"] = filters.date_from
     if filters.date_to:
-        clauses.append(
-            "FILTER decision.props.date != null AND decision.props.date <= @date_to"
-        )
+        clauses.append("d.date <= %(date_to)s")
         bind["date_to"] = filters.date_to
     if filters.q:
-        clauses.append("FILTER CONTAINS(LOWER(decision.props.subject), @q)")
+        # AQL LOWER of a missing subject is "", of a number its digits.
+        clauses.append("strpos(lower(coalesce(d.props ->> 'subject', '')), %(q)s) > 0")
         bind["q"] = filters.q.lower()
-    if not filters.party:
-        return "", clauses
-    clauses.append("FILTER decision._id IN voted_on")
-    bind["faction_id"] = f"{COLLECTION_FACTIONS}/{make_node_key(filters.party.strip())}"
-    bind["voted"] = RELATION_VOTED
-    choice = ""
-    if filters.choice:
-        choice = "FILTER e.meta.choice == @choice"
-        bind["choice"] = filters.choice
-    # Start from the faction's own edges rather than scanning every vote.
-    pre = f"""
-    LET voted_on = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from == @faction_id AND e.relation == @voted
-            {choice}
-            RETURN e._to
-    )
-    """
-    return pre, clauses
+    if filters.party:
+        # Start from the faction's own edges rather than scanning every vote.
+        choice = ""
+        if filters.choice:
+            choice = "AND lg_str(e.doc -> 'meta' -> 'choice') = %(choice)s"
+            bind["choice"] = filters.choice
+        clauses.append(
+            f"""d.id IN (
+                SELECT e.to_id FROM edges e
+                WHERE e.from_id = %(faction_id)s AND e.relation = %(voted)s {choice}
+            )"""
+        )
+        bind["faction_id"] = (
+            f"{COLLECTION_FACTIONS}/{make_node_key(filters.party.strip())}"
+        )
+        bind["voted"] = RELATION_VOTED
+    return clauses
 
 
-def _kind_filter(filters: DecisionFilters, var: str, bind: dict[str, Any]) -> str:
+def _kind_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
     if not filters.kinds:
-        return ""
+        return []
     bind["kinds"] = list(filters.kinds)
-    return f"FILTER {var}.kind IN @kinds"
+    return ["r.kind = ANY(%(kinds)s)"]
 
 
-def _passed_filter(filters: DecisionFilters, var: str, bind: dict[str, Any]) -> str:
+def _passed_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
     if filters.passed is None:
-        return ""
+        return []
     bind["passed"] = filters.passed
-    return f"FILTER {var}.passed == @passed"
+    return ["r.passed = %(passed)s"]
+
+
+def _where(clauses: list[str]) -> str:
+    return f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+
+def _object_or_empty(value: str) -> str:
+    """SQL: AQL ``value != null ? value : {}``."""
+    return (
+        f"CASE WHEN coalesce(json_typeof({value}), 'null') <> 'null'"
+        f" THEN {value} ELSE '{{}}'::json END"
+    )
+
+
+# A row of the list, in the order of its keys. ``chamber`` is the stored one when it is
+# set (AQL ``||``), else the first of the chambers whose label the decision carries.
+_ITEM = f"""json_build_object(
+    'id', d.id,
+    'key', d.key,
+    'date', d.props -> 'date',
+    'subject', d.props -> 'subject',
+    'external_id', d.props -> 'decision_id',
+    'dossier_numbers', d.props -> 'dossier_numbers',
+    'kind', d.props -> 'kind',
+    'decision_kind', d.props -> 'decision_kind',
+    'passed', d.props -> 'passed',
+    'chamber', CASE
+        WHEN lg_truthy(d.props -> 'chamber') THEN d.props -> 'chamber'
+        ELSE to_json((
+            SELECT c FROM unnest(%(chambers)s::text[]) WITH ORDINALITY AS u(c, n)
+            WHERE c = ANY(d.labels) ORDER BY n LIMIT 1
+        ))
+    END,
+    'result', d.props -> 'result',
+    'method', d.props -> 'method',
+    'bill_decision', d.props -> 'bill_decision',
+    'vote_kind', d.props -> 'vote_kind',
+    'tally', {_object_or_empty("d.props -> 'tally'")},
+    'voters', {_object_or_empty("d.props -> 'voters'")}
+)"""
+
+# The order of the list: newest first, the key settling a day.
+_ORDER = "r.date DESC NULLS LAST, r.key ASC"
+
+
+def _facet(value: str, rows: str, where: list[str]) -> str:
+    """SQL: the JSON array ``[{value, count}]`` of *rows* per *value*, most first, then
+    by value."""
+    return f"""(
+        SELECT coalesce(json_agg(
+            json_build_object('value', value, 'count', count)
+            ORDER BY count DESC, value ASC NULLS FIRST
+        ), '[]'::json)
+        FROM (
+            SELECT {value} AS value, count(*)::int AS count
+            FROM {rows} r {_where(where)}
+            GROUP BY 1
+        ) facet
+    )"""
 
 
 def get_decisions(
@@ -126,86 +179,48 @@ def get_decisions(
         "offset": offset,
         "chambers": [CHAMBER_TK, CHAMBER_EK],
     }
-    pre, common = _common_filters(filters, bind)
-    where = "\n            ".join(common)
-    kind_on_row = _kind_filter(filters, "row", bind)
-    passed_on_row = _passed_filter(filters, "row", bind)
-    kind_on_decision = _kind_filter(filters, "decision.props", bind)
-    passed_on_decision = _passed_filter(filters, "decision.props", bind)
-    aql = f"""
-    {pre}
-    LET rows = (
-        FOR decision IN {COLLECTION_DECISIONS}
-            {where}
-            RETURN {{
-                kind: decision.props.kind,
-                passed: decision.props.passed,
-                date: decision.props.date
-            }}
+    common = _common_filters(filters, bind)
+    kind = _kind_filter(filters, bind)
+    passed = _passed_filter(filters, bind)
+    statement = f"""
+    WITH filtered AS MATERIALIZED (
+        SELECT d.id, d.key, lg_str(d.props -> 'kind') AS kind, d.passed, d.date
+        FROM decisions d {_where(common)}
+    ),
+    matching AS MATERIALIZED (
+        SELECT * FROM filtered r {_where(kind + passed)}
     )
-    LET by_kind = (
-        FOR row IN rows
-            {passed_on_row}
-            COLLECT value = row.kind WITH COUNT INTO count
-            SORT count DESC, value
-            RETURN {{ value, count }}
+    SELECT json_build_object(
+        'total', (SELECT count(*)::int FROM matching),
+        'items', (
+            SELECT coalesce(json_agg({_ITEM} ORDER BY page.n), '[]'::json)
+            FROM (
+                SELECT r.id, row_number() OVER (ORDER BY {_ORDER}) AS n
+                FROM matching r
+                ORDER BY {_ORDER}
+                LIMIT %(limit)s OFFSET %(offset)s
+            ) page
+            JOIN decisions d ON d.id = page.id
+        ),
+        'facets', json_build_object(
+            'kind', {_facet("r.kind", "filtered", passed)},
+            'passed', {_facet("r.passed", "filtered", kind)},
+            'days', (
+                SELECT coalesce(json_agg(
+                    json_build_object('date', date, 'count', count, 'passed', passed)
+                    ORDER BY date ASC NULLS FIRST
+                ), '[]'::json)
+                FROM (
+                    SELECT r.date, count(*)::int AS count,
+                           (count(*) FILTER (WHERE r.passed IS TRUE))::int AS passed
+                    FROM matching r
+                    GROUP BY r.date
+                ) day
+            )
+        )
     )
-    LET by_outcome = (
-        FOR row IN rows
-            {kind_on_row}
-            COLLECT value = row.passed WITH COUNT INTO count
-            SORT count DESC, value
-            RETURN {{ value, count }}
-    )
-    LET matching = (
-        FOR row IN rows
-            {kind_on_row}
-            {passed_on_row}
-            RETURN row
-    )
-    LET days = (
-        FOR row IN matching
-            COLLECT date = row.date
-            AGGREGATE count = LENGTH(1), passed = SUM(row.passed == true ? 1 : 0)
-            SORT date
-            RETURN {{ date, count, passed }}
-    )
-    LET items = (
-        FOR decision IN {COLLECTION_DECISIONS}
-            {where}
-            {kind_on_decision}
-            {passed_on_decision}
-            SORT decision.props.date DESC, decision._key
-            LIMIT @offset, @limit
-            LET tally = decision.props.tally != null ? decision.props.tally : {{}}
-            LET voters = decision.props.voters != null ? decision.props.voters : {{}}
-            RETURN {{
-                id: decision._id,
-                key: decision._key,
-                date: decision.props.date,
-                subject: decision.props.subject,
-                external_id: decision.props.decision_id,
-                dossier_numbers: decision.props.dossier_numbers,
-                kind: decision.props.kind,
-                decision_kind: decision.props.decision_kind,
-                passed: decision.props.passed,
-                chamber: decision.props.chamber
-                    || FIRST(FOR chamber IN @chambers FILTER chamber IN decision.labels RETURN chamber),
-                result: decision.props.result,
-                method: decision.props.method,
-                bill_decision: decision.props.bill_decision,
-                vote_kind: decision.props.vote_kind,
-                tally: tally,
-                voters: voters
-            }}
-    )
-    RETURN {{
-        total: LENGTH(matching),
-        items: items,
-        facets: {{ kind: by_kind, passed: by_outcome, days: days }}
-    }}
     """
-    rows = list(store.query(aql, bind))
+    rows = list(store.query(statement, bind))
     return rows[0] if rows else {"total": 0, "items": [], "facets": EMPTY_FACETS}
 
 
@@ -213,31 +228,52 @@ def get_decision_detail(store: ArangoStore, key: str) -> dict[str, Any] | None:
     """One decision with every vote cast on it.
 
     Each vote is a VOTED edge — from a member on a roll-call, from a faction
-    otherwise — so the voter's node carries the name to show.
+    otherwise — so the voter's node carries the name to show. The most seats first, then
+    by the voter's name and key.
     """
-    aql = f"""
-    LET decision = DOCUMENT(CONCAT('{COLLECTION_DECISIONS}/', @key))
-    FILTER decision != null
-    LET votes = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to == decision._id AND e.relation == @voted
-            LET voter = DOCUMENT(e._from)
-            FILTER voter != null
-            SORT e.meta.seats DESC, voter.props.name ASC, voter._key ASC
-            RETURN {{
-                voter_id: voter._id,
-                voter_key: voter._key,
-                name: voter.props.abbreviation != null
-                    ? voter.props.abbreviation : voter.props.name,
-                choice: e.meta.choice,
-                seats: e.meta.seats
-            }}
+    rows = store.query(
+        """
+        SELECT d.id, d.key, d.type, d.labels, d.props, (
+            SELECT coalesce(json_agg(
+                json_build_object(
+                    'voter_id', v.id,
+                    'voter_key', v.key,
+                    'name', CASE
+                        WHEN coalesce(json_typeof(v.props -> 'abbreviation'), 'null')
+                             <> 'null'
+                        THEN v.props -> 'abbreviation' ELSE v.props -> 'name' END,
+                    'choice', e.doc -> 'meta' -> 'choice',
+                    'seats', e.doc -> 'meta' -> 'seats'
+                )
+                ORDER BY lg_num(e.doc -> 'meta' -> 'seats') DESC NULLS LAST,
+                         v.name ASC NULLS FIRST, v.key ASC
+            ), '[]'::json)
+            FROM edges e
+            JOIN LATERAL (
+                SELECT id, key, props, name FROM members WHERE id = e.from_id
+                UNION ALL
+                SELECT id, key, props, name FROM factions WHERE id = e.from_id
+            ) v ON true
+            WHERE e.to_id = d.id AND e.relation = %(voted)s
+        ) AS votes
+        FROM decisions d
+        WHERE d.key = %(key)s
+        """,
+        {"key": key, "voted": RELATION_VOTED},
     )
-    RETURN MERGE(decision, {{ votes: votes }})
-    """
-    for row in store.query(aql, {"key": key, "voted": RELATION_VOTED}):
-        return row
-    return None
+    row = next(rows, None)
+    if row is None:
+        return None
+    # MERGE(decision, {votes}): the keys of the document in byte order, then ``votes``.
+    doc = node_doc(row)
+    return {
+        "_id": doc["_id"],
+        "_key": doc["_key"],
+        "labels": doc["labels"],
+        "props": doc["props"],
+        "type": doc["type"],
+        "votes": row["votes"],
+    }
 
 
 def get_decision_document(
@@ -256,23 +292,25 @@ def get_decision_document(
     if not candidates:
         return None
 
-    aql = f"""
-    FOR case_id IN @case_ids
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to == case_id AND e.relation == @part_of
-            FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
-            LET document = DOCUMENT(e._from)
-            FILTER document != null
-            // The candidates in their order; within a case the oldest document, as
-            // ``_documents_by_case`` picks it (the key settles a tie).
-            SORT POSITION(@case_ids, case_id, true), document.props.date, document._key
-            LIMIT 1
-            RETURN document
-    """
-    bind = {
-        "case_ids": [f"{COLLECTION_CASES}/{make_node_key(str(c))}" for c in candidates],
-        "part_of": RELATION_PART_OF,
-    }
-    for row in store.query(aql, bind):
-        return row
-    return None
+    # The candidates in their order; within a case the oldest document, as
+    # ``_documents_by_case`` picks it (the key settles a tie).
+    rows = store.query(
+        f"""
+        SELECT d.id, d.key, d.type, d.labels, d.props
+        FROM edges e
+        JOIN documents d ON d.id = e.from_id
+        WHERE e.to_id = ANY(%(case_ids)s) AND e.relation = %(part_of)s
+          AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+        ORDER BY array_position(%(case_ids)s::text[], e.to_id),
+                 d.date ASC NULLS FIRST, d.key ASC
+        LIMIT 1
+        """,
+        {
+            "case_ids": [
+                f"{COLLECTION_CASES}/{make_node_key(str(c))}" for c in candidates
+            ],
+            "part_of": RELATION_PART_OF,
+        },
+    )
+    row = next(rows, None)
+    return node_doc(row) if row else None

@@ -33,7 +33,12 @@ XML = "<open-rechtspraak><uitspraak>Tekst</uitspraak></open-rechtspraak>"
 
 
 def _raw(store: ArangoStore, key: str) -> dict[str, Any]:
-    return store.raw_sources.get(key)
+    return next(
+        store.query(
+            f"SELECT doc FROM {COLLECTION_RAW_SOURCES} WHERE key = %(key)s",
+            {"key": key},
+        )
+    )
 
 
 def test_a_text_payload_is_an_object_and_not_in_the_database(database: str) -> None:
@@ -77,12 +82,12 @@ def test_the_whole_chain_reads_its_payloads_from_the_store(
     store = ArangoStore()
     seed(store, documents=0, judgments=5, regulations=0)
     in_database = store.query(
-        f"FOR r IN {COLLECTION_RAW_SOURCES} FILTER r.payload_text != null RETURN 1"
+        f"SELECT 1 FROM {COLLECTION_RAW_SOURCES} WHERE doc ->> 'payload_text' IS NOT NULL"
     )
     assert list(in_database) == []
     cli("normalize", "rechtspraak")
     judgments = store.query(
-        f"FOR j IN {COLLECTION_JUDGMENTS} FILTER j.props.text != null RETURN 1"
+        f"SELECT 1 FROM {COLLECTION_JUDGMENTS} WHERE props ->> 'text' IS NOT NULL"
     )
     assert len(list(judgments)) == 5
     assert check(
@@ -99,8 +104,8 @@ def test_a_payload_that_is_lost_is_skipped_and_reported(
     first = next(
         iter(
             store.query(
-                f"FOR r IN {COLLECTION_RAW_SOURCES} FILTER r.payload_ref != null "
-                "SORT r.external_id LIMIT 1 RETURN r.payload_ref"
+                f"SELECT doc ->> 'payload_ref' FROM {COLLECTION_RAW_SOURCES} "
+                "WHERE doc ->> 'payload_ref' IS NOT NULL ORDER BY external_id LIMIT 1"
             )
         )
     )
@@ -108,7 +113,7 @@ def test_a_payload_that_is_lost_is_skipped_and_reported(
     done = cli("normalize", "rechtspraak", check=False)
     assert "is missing in" in done.stderr
     judgments = store.query(
-        f"FOR j IN {COLLECTION_JUDGMENTS} FILTER j.props.text != null RETURN 1"
+        f"SELECT 1 FROM {COLLECTION_JUDGMENTS} WHERE props ->> 'text' IS NOT NULL"
     )
     assert len(list(judgments)) == 2
     problems = check(store, edges=False).problems
@@ -176,7 +181,8 @@ def test_the_chain_runs_on_an_s3_store(
     rows = list(
         store.with_payloads(
             store.query(
-                f"FOR r IN {COLLECTION_RAW_SOURCES} FILTER r.payload_ref != null RETURN r"
+                f"SELECT doc FROM {COLLECTION_RAW_SOURCES} "
+                "WHERE doc ->> 'payload_ref' IS NOT NULL"
             )
         )
     )
@@ -208,4 +214,4 @@ def test_a_payload_store_that_fails_stops_the_step_and_keeps_the_buffer(
     with pytest.raises(StoreUnavailable, match="No space left"):
         writer.flush()
     assert len(writer) == 1  # kept for a retry
-    assert list(store.query(f"FOR r IN {COLLECTION_RAW_SOURCES} RETURN 1")) == []
+    assert list(store.query(f"SELECT 1 FROM {COLLECTION_RAW_SOURCES}")) == []

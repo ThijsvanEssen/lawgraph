@@ -1,4 +1,62 @@
 services:
+  # The database of LawGraph. Its settings are sized for a machine of 8 GB (the server once
+  # built, and a laptop); for a build on a larger one raise them through the LAWGRAPH_PG_*
+  # variables of .env. Only this machine reaches it (127.0.0.1).
+  postgres:
+    image: postgres:18
+    container_name: lawgraph-postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      - POSTGRES_USER=lawgraph
+      - POSTGRES_PASSWORD=${LAWGRAPH_DB_PASSWORD}
+      - POSTGRES_DB=${LAWGRAPH_DB_NAME:-lawgraph}
+    mem_limit: ${LAWGRAPH_PG_MEMORY:-4g}
+    # parallel workers share their rows through /dev/shm; Docker gives it 64 MB
+    shm_size: 1g
+    command:
+      - postgres
+      # no JIT compilation: for these statements it costs more than it gains (the store
+      # turns it off on its connections too)
+      - -c
+      - jit=off
+      - -c
+      - shared_buffers=${LAWGRAPH_PG_SHARED_BUFFERS:-1GB}
+      # what the planner may count on in the page cache: the rest of mem_limit
+      - -c
+      - effective_cache_size=${LAWGRAPH_PG_CACHE:-3GB}
+      - -c
+      - work_mem=${LAWGRAPH_PG_WORK_MEM:-32MB}
+      - -c
+      - maintenance_work_mem=${LAWGRAPH_PG_MAINTENANCE_WORK_MEM:-512MB}
+      # SSD: an index read costs little more than a sequential one
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      # a build writes gigabytes: fewer checkpoints, and the WAL compressed
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - wal_compression=zstd
+      # props and the text of judgments and articles are TOASTed: lz4 is faster than pglz
+      - -c
+      - default_toast_compression=lz4
+      # each process of the API and of the pipelines opens LAWGRAPH_DB_POOL_SIZE (8)
+      - -c
+      - max_connections=100
+    volumes:
+      - pg_data:/var/lib/postgresql
+      # scripts/backup.sh writes its dumps here (pg_dump runs in this container)
+      - ${LAWGRAPH_BACKUP_DIR:-./backups}:/backups
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "lawgraph"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ArangoDB stays next to PostgreSQL until the rollback window has closed (plan, PR 5.4).
   arangodb:
     image: arangodb:3.12
     container_name: arango-lawgraph
@@ -22,13 +80,15 @@ services:
     volumes:
       - arango_data:/var/lib/arangodb3
       - arango_apps:/var/lib/arangodb3-apps
-      # scripts/backup.sh writes its dumps here (arangodump runs in this container)
-      - ${LAWGRAPH_BACKUP_DIR:-./backups}:/backups
 
 # The data lives in volumes that compose does not own: `docker compose down -v` removes the
-# volumes of a project, and that is how this database was lost once. Create them once:
+# volumes of a project, and that is how a database was lost once. Create them once:
+#   docker volume create lawgraph_pgdata
 #   docker volume create lawgraph_arango_data && docker volume create lawgraph_arango_apps
 volumes:
+  pg_data:
+    external: true
+    name: lawgraph_pgdata
   arango_data:
     external: true
     name: lawgraph_arango_data

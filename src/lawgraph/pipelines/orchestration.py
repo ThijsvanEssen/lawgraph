@@ -182,6 +182,9 @@ def _run_phase(
     outcomes = run_pipelines(
         _pipelines_of(phase, args), argv_of(args), strict=strict, jobs=jobs
     )
+    if phase != "retrieve":
+        # what normalize and semantic wrote, known to the planner before the API reads it
+        store.vacuum_analyze()
     filling_gaps = getattr(args, "mode", None) == GAPS  # says nothing about a date
     if not filling_gaps and all(outcome.state is State.OK for outcome in outcomes):
         watermark.advance(store, phase, began=began, since=read_since(args))

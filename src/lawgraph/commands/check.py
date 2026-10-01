@@ -55,7 +55,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries import checks
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.schema import SEARCH_VIEWS
+from lawgraph.db.schema_arango import SEARCH_VIEWS
 
 logger = get_logger(__name__)
 

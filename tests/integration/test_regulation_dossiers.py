@@ -69,13 +69,12 @@ def _seed(store: ArangoStore) -> None:
 
 
 def _legislated_in(store: ArangoStore) -> set[tuple[str, str]]:
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e._from == @awb AND e.relation == @relation
-        RETURN [e._to, e.source]
+    statement = f"""
+    SELECT to_id, source FROM {COLLECTION_EDGES}
+    WHERE from_id = %(awb)s AND relation = %(relation)s
     """
-    rows = store.query(aql, {"awb": AWB, "relation": RELATION_LEGISLATED_IN})
-    return {(to, source) for to, source in rows}
+    rows = store.query(statement, {"awb": AWB, "relation": RELATION_LEGISLATED_IN})
+    return {(row["to_id"], row["source"]) for row in rows}
 
 
 def test_a_regulation_is_legislated_in_the_dossier_that_enacted_it(
