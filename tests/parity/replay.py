@@ -8,7 +8,8 @@ asks it once more with the ``ETag`` it got in ``If-None-Match``, which must give
 search ranking is held to D3: an answer may differ in its hits only, and per type of hit the
 first is the same in at least 90 % of the questions; the overlap of the hits is reported.
 Prints a summary per route and writes the differences to ``<goldens>/replay-<port>.json``;
-exits 1 when anything differs beyond D3 and D9.
+exits 1 when anything differs beyond D3 and D9. With ``--latency-against`` every request is
+timed on that API too: p50 and p95 per route, side by side.
 """
 
 from __future__ import annotations
@@ -44,7 +45,9 @@ def route_of(path: str) -> str:
     return "/".join(parts[:3] + ["…"] * (len(parts) > 3))
 
 
-def check(client: Client, golden: dict[str, Any]) -> dict[str, Any]:
+def check(
+    client: Client, golden: dict[str, Any], reference: Client | None = None
+) -> dict[str, Any]:
     request = Request.from_json(golden)
     answer = client.fetch(request)
     result = compare(golden["path"], dict(request.query), golden, answer)
@@ -55,7 +58,10 @@ def check(client: Client, golden: dict[str, Any]) -> dict[str, Any]:
         "allowed": result.allowed,
         "where": result.where,
         "detail": result.detail,
+        "ms": answer["ms"],
     }
+    if reference is not None:
+        row["ms_reference"] = reference.fetch(request)["ms"]
     etag = answer["headers"].get("etag")
     if etag and answer["status"] == 200:
         again = client.fetch(request, {"If-None-Match": etag})
@@ -88,7 +94,34 @@ def summary(rows: list[dict[str, Any]]) -> tuple[bool, str]:
             f"D3: per type of hit, the same first hit in {share:.1%} and an overlap of"
             f" {overlap:.1%} of the hits ({len(groups)} lists of hits)"
         )
+    lines += latency(rows)
     return differs == 0 and share >= D3_FIRST_HIT, "\n".join(lines)
+
+
+def _percentile(values: list[float], share: float) -> float:
+    ordered = sorted(values)
+    return ordered[min(len(ordered) - 1, int(share * len(ordered)))]
+
+
+def latency(rows: list[dict[str, Any]]) -> list[str]:
+    """p50 and p95 per route (ms), and of the reference API when it was timed too; a route
+    whose p95 is more than 10 % slower than the reference's is marked."""
+    by_route: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_route.setdefault(row["route"], []).append(row)
+    lines = [
+        "\nlatency (ms)                                     p50     p95   ref p50  ref p95"
+    ]
+    for route, found in sorted(by_route.items()):
+        ms = [r["ms"] for r in found]
+        line = f"{route:44} {_percentile(ms, 0.5):7.1f} {_percentile(ms, 0.95):7.1f}"
+        ref = [r["ms_reference"] for r in found if "ms_reference" in r]
+        if ref:
+            p95, ref95 = _percentile(ms, 0.95), _percentile(ref, 0.95)
+            line += f"  {_percentile(ref, 0.5):7.1f}  {ref95:7.1f}"
+            line += "  SLOWER" if p95 > ref95 * 1.1 else ""
+        lines.append(line)
+    return lines
 
 
 def main() -> None:
@@ -99,11 +132,20 @@ def main() -> None:
         "--only", action="append", default=[], help="path prefix to replay"
     )
     parser.add_argument("--jobs", type=int, default=2)
+    parser.add_argument(
+        "--latency-against",
+        help="an API to time every request against (the Arango one)",
+    )
     args = parser.parse_args()
     directory: pathlib.Path = args.goldens.expanduser()
     client = Client(args.base)
+    reference = Client(args.latency_against) if args.latency_against else None
     with ThreadPoolExecutor(args.jobs) as pool:
-        rows = list(pool.map(lambda g: check(client, g), goldens(directory, args.only)))
+        rows = list(
+            pool.map(
+                lambda g: check(client, g, reference), goldens(directory, args.only)
+            )
+        )
     ok, text = summary(rows)
     print(text)
     port = urlparse(args.base).port

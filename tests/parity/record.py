@@ -47,6 +47,7 @@ class Client:
                 k: answer.headers[k] for k in KEEP_HEADERS if k in answer.headers
             },
             "body": answer.content.decode("utf-8", errors="replace"),
+            "ms": answer.elapsed.total_seconds() * 1000,
         }
 
     def get_json(self, url: str) -> Any:
