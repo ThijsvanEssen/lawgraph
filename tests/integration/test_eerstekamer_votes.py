@@ -92,7 +92,7 @@ def store(database: str, cli: Any) -> Iterator[ArangoStore]:
 
 
 def _props(store: ArangoStore, number: str) -> dict[str, Any]:
-    return store.db.collection(COLLECTION_DOSSIERS).get(number)["props"]
+    return store.get_document(COLLECTION_DOSSIERS, number)["props"]
 
 
 def test_the_eerste_kamer_decides_the_bill(store: ArangoStore, cli: Any) -> None:

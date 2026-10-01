@@ -11,7 +11,7 @@ from tests.integration.seed import judgment_xml, seed
 
 
 def _stub_flag(store: ArangoStore, ecli: str) -> Any:
-    node = store.db.collection("judgments").get(make_node_key(ecli))
+    node = store.get_document("judgments", make_node_key(ecli))
     return None if node is None else node["props"].get("stub")
 
 

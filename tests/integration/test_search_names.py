@@ -28,7 +28,6 @@ from lawgraph.db.queries.search import (
     search_all,
 )
 from lawgraph.db.schema_arango import _VIEW_SPECS, _indexed_fields, _nested_fields
-from tests.integration.seed import wait_for_views
 
 SR = "BWBR0001854"
 UAVG = "BWBR0040940"
@@ -119,9 +118,6 @@ def store(database: str) -> ArangoStore:
         summary="De definities van de wet en de uitsluiting van aansprakelijkheid.",
     )
     _put_instruments(store)
-    wait_for_views(
-        store, {"search_articles": 2, "search_judgments": 1, "search_instruments": 3}
-    )
     return store
 
 
@@ -221,7 +217,6 @@ def test_a_word_in_the_heading_outweighs_the_same_word_in_the_text(
             display_name=f"Artikel {number} Uitvoeringswet AVG",
             text="De definities van artikel 1. " + "Definities. " * 20,
         )
-    wait_for_views(store, {"search_articles": 5})
 
     hits = search_all(store, q="definities", types=["articles"], limit=1)
     assert [h["key"] for h in hits["articles"]] == [make_node_key(UAVG, "1")]

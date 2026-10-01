@@ -181,6 +181,8 @@ def test_a_paper_whose_document_does_not_exist_yet_is_left_alone(
     store.db.collection("documents").delete(victim)
 
     result = cli("normalize", "tk-content")
-    assert not store.db.collection("documents").has(victim)  # no bare node was made
+    assert not (
+        store.get_document("documents", victim) is not None
+    )  # no bare node was made
     assert "1 updated, 1 skipped" in result.stderr
     assert _mvt_documents(store)[1]["props"]["structure_quality"] == "explicit"

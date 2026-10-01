@@ -26,7 +26,7 @@ COLLECTIONS = (
 
 
 def _counts(store: ArangoStore) -> dict[str, int]:
-    return {name: store.db.collection(name).count() for name in COLLECTIONS}
+    return {name: store.count(name) for name in COLLECTIONS}
 
 
 def _edge_keys(store: ArangoStore) -> set[str]:
@@ -236,7 +236,7 @@ def test_an_annex_is_a_node_of_normalize_and_a_link_of_semantic(
             )
         )
     cli("normalize", "bwb")
-    annex = store.db.collection("annexes").get("bwbr9200001_annex_i")
+    annex = store.get_document("annexes", "bwbr9200001_annex_i")
     assert annex["props"]["title"] == "Sectoren" and not annex["props"].get("stub")
     edges = (
         "FOR e IN edges FILTER e._from == @a OR e._to == @a "

@@ -93,7 +93,7 @@ def _members(store: ArangoStore) -> dict[str, dict[str, Any]]:
 def test_a_snapshot_makes_the_factions_committees_and_members(
     store: ArangoStore, cli: Any
 ) -> None:
-    faction = store.db.collection("factions").get("ek_democraten_1966")["props"]
+    faction = store.get_document("factions", "ek_democraten_1966")["props"]
     assert (faction["chamber"], faction["abbreviation"], faction["seats"]) == (
         "EK",
         "D66",
@@ -114,7 +114,7 @@ def test_a_snapshot_makes_the_factions_committees_and_members(
     assert members["/persoon/mr_b_o_dittrich_d66"]["key"] == "dittrich"
     assert members[CROLL]["key"] == "ek_mr_r_s_croll_d66"
     assert members[CROLL]["ek"]["seniority_days"] == 1205
-    committee = store.db.collection("committees").get("ek_fin")["props"]
+    committee = store.get_document("committees", "ek_fin")["props"]
     assert (committee["slug"], committee["abbreviation"]) == ("ek-fin", "FIN")
 
     # a week later Croll is no longer shown: observed until that day, the others unchanged
@@ -127,7 +127,7 @@ def test_a_snapshot_makes_the_factions_committees_and_members(
     members = _members(store)
     assert members[CROLL]["ek"]["observed_until"] == "2026-10-07"
     # the first snapshot stays the start of what is known
-    faction = store.db.collection("factions").get("ek_democraten_1966")["props"]
+    faction = store.get_document("factions", "ek_democraten_1966")["props"]
     assert (faction["retrieved_on"], faction["data_since"]) == (
         "2026-10-07",
         "2026-09-30",

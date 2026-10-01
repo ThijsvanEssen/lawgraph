@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid, wait_for_views
+from tests.integration.seed import uid
 
 CHAPTER = {"Id": uid(2, 3), "Nummer": 37020, "Toevoeging": "XV"}
 ZAAK = {
@@ -138,7 +138,6 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
     try:
         client = TestClient(app)
         _senate_papers(store, cli)
-        wait_for_views(store, {"search_dossiers": 4, "search_documents": 3})
         _api_names_the_chapter_by_its_label(client)
     finally:
         app.dependency_overrides.pop(get_store, None)

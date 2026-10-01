@@ -7,7 +7,6 @@ with suffixes, a Tweede Kamer and an Eerste Kamer paper.
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import pytest
@@ -132,21 +131,7 @@ def store(database: str) -> ArangoStore:
             ),
         ]
     )
-    _wait_for_views(store, {"search_articles": 8, "search_documents": 2})
     return store
-
-
-def _wait_for_views(store: ArangoStore, sizes: dict[str, int]) -> None:
-    """The search views fill asynchronously: wait until they hold what was written."""
-    deadline = time.monotonic() + 20
-    while time.monotonic() < deadline:
-        if all(
-            next(iter(store.query(f"RETURN LENGTH(FOR d IN {view} RETURN 1)"))) >= size
-            for view, size in sizes.items()
-        ):
-            return
-        time.sleep(0.2)
-    raise AssertionError(f"views not filled: {sizes}")
 
 
 def _keys(answer: dict[str, Any]) -> list[str]:

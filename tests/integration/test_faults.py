@@ -58,7 +58,7 @@ def _wait_until_halfway(
     """Return when the run has written part of its documents (and is still running)."""
     deadline = time.monotonic() + 300
     while time.monotonic() < deadline:
-        written = store.db.collection("documents").count()
+        written = store.count("documents")
         if written >= documents // 4:
             assert run.poll() is None, (
                 "the run ended before the fault could be injected"

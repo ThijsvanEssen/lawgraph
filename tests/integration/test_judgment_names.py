@@ -27,7 +27,6 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries.search import SCORE_IDENTIFIER, search_all
-from tests.integration.seed import wait_for_views
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 URGENDA = "ECLI:NL:HR:2019:2006"
@@ -66,7 +65,6 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
     )
     cli("normalize", "rechtspraak")
     cli("semantic", "graph-list-stats")
-    wait_for_views(store, {"search_judgments": len(JUDGMENTS) + 1})
     # the names graph-list-stats gave the stub: an update the view commits later
     list(store.query("FOR d IN search_judgments OPTIONS {waitForSync: true} RETURN 1"))
     app.dependency_overrides[get_store] = lambda: store

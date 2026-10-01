@@ -75,6 +75,6 @@ def test_a_judgment_that_is_no_xml_is_left_out_and_named(
             )
         )
     done = cli("normalize", "rechtspraak")
-    assert store.db.collection("judgments").count() == 2
+    assert store.count("judgments") == 2
     assert "1 judgment(s) whose stored XML cannot be read" in done.stderr
     assert "ECLI:NL:HR:2020:999" in done.stderr and "1 skipped" in done.stderr
