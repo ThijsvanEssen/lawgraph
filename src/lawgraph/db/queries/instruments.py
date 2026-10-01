@@ -167,7 +167,9 @@ def get_instrument_judgments(
                 '_id', j.id,
                 '_key', j.key,
                 'props', json_build_object(
-                    'ecli', j.pj_ecli, 'display_name', j.pj_display_name
+                    'ecli', j.pj_ecli, 'display_name', j.pj_display_name,
+                    'court_code', j.pj_court_code, 'tier', j.pj_tier,
+                    'court_kind', j.pj_court_kind, 'date_eff', j.pj_date_eff
                 )
             ),
             'cited_articles', coalesce(cited.articles, '[]')

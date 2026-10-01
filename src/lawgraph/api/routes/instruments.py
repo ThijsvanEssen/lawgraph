@@ -66,6 +66,10 @@ def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
         key=judgment.get("_key") or "",
         ecli=props.get("ecli"),
         display_name=props.get("display_name"),
+        court=props.get("court_code"),
+        tier=props.get("tier"),
+        court_kind=props.get("court_kind"),
+        date=props.get("date_eff"),
         cited_articles=[
             CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
         ],
