@@ -143,3 +143,32 @@ def test_a_column_the_schema_lacks_stops_the_start(conn: psycopg.Connection) -> 
     conn.execute("ALTER TABLE edges ADD COLUMN weight int")
     with pytest.raises(SchemaOutdated, match=r"edges\.weight staat niet in het schema"):
         ensure_schema(conn)
+
+
+@pytest.mark.parametrize(
+    ("value", "truthy"),
+    [
+        ("null", False),
+        ("false", False),
+        ("0", False),
+        ("0.0", False),
+        ('""', False),
+        ("true", True),
+        ("1", True),
+        ("-0.5", True),
+        ('"0"', True),  # a string with a character, whatever it says
+        ('" "', True),
+        ("[]", True),
+        ("{}", True),
+    ],
+)
+def test_truthiness_is_that_of_aql(
+    conn: psycopg.Connection, value: str, truthy: bool
+) -> None:
+    (found,) = conn.execute("SELECT lg_truthy(%s::json)", (value,)).fetchone()  # type: ignore[misc]
+    assert found is truthy
+
+
+def test_a_missing_value_is_not_truthy(conn: psycopg.Connection) -> None:
+    (found,) = conn.execute("SELECT lg_truthy(NULL::json)").fetchone()  # type: ignore[misc]
+    assert found is False

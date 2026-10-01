@@ -122,3 +122,26 @@ def test_catalogue_helpers() -> None:
     schemas = {"Tier": {"enum": ["hoge_raad"], "type": "string"}}
     nullable = {"anyOf": [{"$ref": "#/components/schemas/Tier"}, {"type": "null"}]}
     assert _resolve(nullable, schemas)["enum"] == ["hoge_raad"]
+
+
+def test_an_empty_last_page_of_arango_is_its_defect_and_only_that() -> None:
+    def page(items: list[str], total: int = 10) -> dict[str, Any]:
+        return {"items": [{"key": k} for k in items], "total": total, "facets": None}
+
+    last = {"limit": "5", "offset": "9"}
+    defect = compare("/api/documents", last, _answer(page([])), _answer(page(["j"])))
+    assert defect.allowed == "ARANGO-LAST-PAGE"
+    strict = [
+        # not on the last page, or past the end
+        ("/api/documents", {"limit": "5", "offset": "3"}, page([]), page(["d"])),
+        ("/api/documents", {"limit": "5", "offset": "10"}, page([]), page(["k"])),
+        # another number of items than the page holds, another total, another route
+        ("/api/documents", last, page([]), page(["j", "k"])),
+        ("/api/documents", last, page([]), page(["j"], total=11)),
+        ("/api/decisions", last, page([]), page(["j"])),
+        # Arango listed something: an ordinary difference
+        ("/api/documents", last, page(["i"]), page(["j"])),
+    ]
+    for path, query, golden, other in strict:
+        result = compare(path, query, _answer(golden), _answer(other))
+        assert not result.same and result.allowed == "", (path, query, other)
