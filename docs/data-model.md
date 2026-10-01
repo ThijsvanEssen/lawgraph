@@ -524,40 +524,56 @@ kind `<kind>-missing` (`eu-celex-html-missing`, `rs-content-missing`, ...); the 
 pipelines do not ask for it again for 30 days (3 days for a Kamerstuk of the last week, whose
 XML is still to be published) and no other phase reads it.
 
-## Indexes and search views
+## Tables, indexes and search
 
-Defined in `db/schema.py`, created when `ArangoStore` starts.
+Defined in `db/schema.py` and created when the store starts (`ensure_schema`); a database whose
+tables differ from it is refused at the start and built again.
 
-| Collection | Indexes |
-|------------|---------|
-| `instruments` | unique sparse `props.bwb_id`, `props.celex`; `props.jurisdiction`, `props.kind`, `props.article_count`, `props.citation_title`; sparse `props.treaty_number` |
-| `articles` | unique sparse `(props.bwb_id, props.article_number)` and `(props.celex, props.article_number)`; sparse `props.bwb_id` and `props.celex` (a compound sparse index cannot answer the first field alone: an article without a number is not in it); `(props.bwb_id, props.stam_id)`; `props.inbound_citation_count`; `labels[*]` |
-| `instrument_versions`, `article_versions` | `(bwb_id, valid_from)`, `(bwb_id, current)`, `(bwb_id, stam_id)`, `(bwb_id, article_number, valid_from)`, `(bwb_id, article_number, current)` |
-| `judgments` | unique sparse `props.ecli`; sparse `props.appno`; `props.case_number_keys[*]` (not sparse: a sparse index is not used for a value that is a loop variable); sparse `props.series_id`; sparse `props.replaced_by` and `props.same_as`; sparse `props.subjects[*]`; `props.inbound_citation_count`; `(source, date_eff, tier, court_kind, stub, same_as)`, `(court_code, date_eff, tier, court_kind, stub, source, same_as)`, `(tier, court_kind, date_eff, stub, source, same_as)`, `(court_kind, date_eff, stub, source, same_as)` and `(date_eff, tier, court_kind, stub, source, same_as)`: the index of each filter of `/api/judgments` holds the tier, the kind of court, the source, the date, `stub` and `same_as` (the list leaves stubs and replaced publications out), so its facets count from the index alone; `(stub, source, tier, court_code, court, date_eff)`, which answers the coverage of `/api/stats/coverage` alone; `labels[*]` |
-| `documents`, `dossiers`, `activities`, `decisions`, `commitments`, `annexes` | the fields the list endpoints filter and sort on (`dossiers` `props.order`, `props.label` (a number prefix as a range), `props.opened_on`; `dossiers` and `commitments` also `props.cabinet`, `props.ministry`; `commitments` `props.member_key`); the date of each kind of event of `/api/feed`, not sparse, so a page is read newest first from the index: `documents` `(props.kind, props.date)` and `props.dossier_numbers[*]` (the memorie van toelichting of a bill's dossier), `commitments` `props.made_on`, `instruments` `(props.kind, props.date_published)`, `instrument_versions` `props.valid_from` |
-| `members` | `props.government_functions[*].cabinet_key` (`GET /api/members?cabinet=`) |
-| `raw_sources` | `(source, kind)` |
-| `edges` | `relation`; `(_from, relation)`; `(_to, relation)`; `status`; `(status, relation)`; `confidence`; `semantic_type`; `(_from, semantic_type)` |
+**Tables.** Every node collection is a table of the same shape: `id` (`collection/key`),
+`key`, `type`, `labels` and `props` (`json`, so the API serves the keys in their stored
+order). `edges` holds `key`, `from_id`, `to_id` and the rest of the edge as `doc`;
+`raw_sources` and `pipeline_state` hold their documents as `doc`. The view `nodes` unions the
+node tables for a lookup by id.
 
-An index that is sorted on (`SORT ... LIMIT`) or counted per value (`edges.relation`,
-`props.source`, `props.kind`, `props.jurisdiction`, `raw_sources (source, kind)`) is not
-sparse: a sparse index leaves out documents without a value, so the optimiser may not use
-it for a sort or a count and reads every document instead. `created_at` on edges is
-deliberately not indexed.
+**Derived columns.** What a query filters, sorts or counts on is a column of its own: a
+string, number, boolean or list of strings from one prop, or a prop as stored (`pj_<prop>`)
+where the props are large (a judgment's text). A trigger of the table (`<table>_derive`) fills
+them from `props` when a row is written, reading the props once. Of an edge, `relation`,
+`source`, `status`, `confidence`, `semantic_type`, `meta.record_ids` and `created_at`, and the
+collections of both ends, are generated columns of `doc`.
 
-ArangoSearch views back `/api/search`: `search_articles`, `search_instruments`,
-`search_judgments`, `search_dossiers`, `search_documents`, `search_committees`, using the
-analyzers `lawgraph_ngram_v2` (lower-cased 3-12 character n-grams, so `vordering` finds
-`Strafvordering`) and `lawgraph_norm` (lower-cased identity for identifiers), plus `identity`
-and the Dutch `text_nl` (`TEXT_ANALYZER`: a word is stemmed, so `uitspraken` finds `uitspraak`;
-English texts such as ECHR summaries are stemmed as Dutch too). `search_judgments` indexes each
-of the `names` of a judgment as a word (`text_nl`), a whole (`identity`, `lawgraph_norm`) and in
-n-grams. Views fill asynchronously; a
-fresh insert may be missing briefly. `members` and `factions` have no view: they are small
-enough to scan.
-`search_articles` indexes the `display_name`, `heading`, the `title` of every division in the
-`breadcrumb` (`breadcrumb.title`), `text`, `article_number` and `bwb_id` of an article;
-`search_instruments` the titles, `short_title`, `aliases` and `bwb_id` of an instrument.
+**Indexes.** B-tree indexes on those columns, as `INDEXES` in `db/schema.py` lists them per
+table: the identifiers (unique where they are: `bwb_id`, `celex`, `ecli`), the fields the
+lists filter and sort on, and for `/api/judgments` one index per filter that holds the tier,
+the kind of court, the source, the date, `stub` and `same_as`, so its facets count from the
+index alone. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
+`dossier_numbers`). Ordered indexes for the instruments list (partial: without the
+publications), the documents newest first, and the member lists in name order. `edges`:
+`(from_id, relation, to_collection)`, `(to_id, relation, from_collection)`, `relation`,
+`(status, relation)`, `confidence`, `created_at`, `semantic_type`, and a GIN index on
+`record_ids`.
+
+**Search.** `/api/search` reads search columns of `articles`, `instruments`, `judgments`,
+`dossiers`, `documents` and `committees`, a few per field, each for one way of matching
+(`s_<field>_<suffix>`):
+
+| Suffix | Holds | Finds |
+|---|---|---|
+| `t` | the words, folded and stemmed as the Dutch `text_nl` (`lg_tokens`: `uitspraken` → `uitspraak`; English texts such as ECHR summaries are stemmed as Dutch too) | a word |
+| `v` | the values whole | an identifier as written |
+| `n` | the values lower-cased, without accents | an identifier in any case |
+| `g` | the values folded, joined | a part of a word (`vordering` finds `Strafvordering`), through a trigram index |
+| `p` | every value after a separator | a value by its beginning |
+
+GIN indexes back the `t` and `n` columns, trigram indexes the `g` and `p` columns. A hit is
+ranked by BM25 over the words it matches (`queries/_bm25.py`, with the weights of
+`search_tsv`), as ArangoSearch ranked it. The columns are written with the row, so a fresh
+insert is found at once. `members` and `factions` are searched by their names
+(`search_names`, a trigram index).
+`articles` are searched by their `display_name`, `heading`, the `title` of every division in
+the `breadcrumb` (`breadcrumb.title`), `text`, `article_number` and `bwb_id`; `instruments`
+by their titles, `short_title`, `aliases` and `bwb_id`; `judgments` by each of their `names`
+as words, whole and in parts, besides their `display_name`, `summary`, `ecli` and `appno`.
 
 An instrument's `aliases` are every name it is cited by: the official WTI abbreviations
 (`Sr`, `WvS`, `WvSr`) and, for a book of a code in `core/code_families.CODE_FAMILIES` (from the WTI), `Boek 6 BW`, `6 BW`,

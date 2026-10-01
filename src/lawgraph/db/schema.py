@@ -3,8 +3,8 @@
 Every node collection is a table of the same shape: ``id`` (``collection/key``, the key of the
 graph), ``key``, ``type``, ``labels`` and ``props``. ``props`` is ``json``, not ``jsonb``: the
 API serves props as they are, and ``jsonb`` sorts the keys of an object (probe P1). What the
-queries filter, sort or count on is a STORED generated column of its own, with the indexes
-the ArangoDB schema had on it.
+queries filter, sort or count on is a column of its own (a derived column, which a trigger of
+the table fills from ``props``: ``_derive``), with the indexes the ArangoDB schema had on it.
 
 Strings sort and compare as in ArangoDB: the database is created with the ICU root collation
 with upper case first (``und-u-kf-upper``, probe P2); ``lg_tokens`` cuts and stems words as

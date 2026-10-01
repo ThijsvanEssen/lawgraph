@@ -92,7 +92,7 @@ lawgraph semantic all --since 7d
 | `src/lawgraph/pipelines/` | `retrieve/`, `normalize/`, `semantic/` pipelines, the command layer (`command.py`), orchestration |
 | `src/lawgraph/sources/` | source registry: single definition of CLI commands and their order |
 | `src/lawgraph/core/` | pure logic and shared definitions (models, props, relation catalogue, BWB XML, citations) |
-| `src/lawgraph/db/` | `ArangoStore`, bulk `NodeWriter` / `EdgeWriter`, schema, indexes, search views |
+| `src/lawgraph/db/` | the PostgreSQL store (`ArangoStore`), bulk `NodeWriter` / `EdgeWriter`, schema, queries |
 | `src/lawgraph/api/` | FastAPI app: `routes/`, `queries/`, `schemas/` |
 | `src/lawgraph/commands/` | sequences of phases (`bootstrap`, `expand-graph`), reports (`check`, `gaps`, `verify`) `ministries`, `courts` and `code-families` (build the ministry, court and code tables) and `curated` (the lists kept by hand) |
 | `src/lawgraph/data/` | tables built from official sources and committed (`ministries.json`, `courts.json`, `code_families.json`); `curated/` what no source gives, kept with `lawgraph curated` (party colours, the seating plan, judgment names, decision kinds, courts outside the value list, ministry keys, order, successions and aliases) |
