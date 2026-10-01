@@ -334,6 +334,8 @@ FOR dossier_id IN @dossier_ids
       LET decision = DOCUMENT(e._from)
       FILTER decision != null
       FILTER decision.props.primary_case_kind IN @bill_case_kinds
+      // the caller keeps the first of equal decisions: by id, it is the same one every time
+      SORT decision._id
       RETURN KEEP(
         decision.props, "date", "passed", "decision_kind", "decision_text"
       )
@@ -344,6 +346,8 @@ FOR dossier_id IN @dossier_ids
       FILTER STARTS_WITH(e._from, '{COLLECTION_DECISIONS}/')
       LET decision = DOCUMENT(e._from)
       FILTER decision != null AND decision.props.chamber == "EK"
+      // the caller takes the first vote of a day: by id, it is the same one every time
+      SORT decision._id
       RETURN MERGE(
         {{ id: decision._id }},
         KEEP(

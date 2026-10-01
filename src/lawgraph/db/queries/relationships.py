@@ -30,6 +30,7 @@ _INSTRUMENT_FOR = f"""
             FILTER pe._from == {{target}} AND pe.relation == '{RELATION_PART_OF}'
             LET inst = DOCUMENT(pe._to)
             FILTER inst != null
+            SORT pe._to
             LIMIT 1
             RETURN inst
     )
@@ -60,6 +61,7 @@ def get_article_relationship_data(
             FILTER STARTS_WITH(edge._to, '{COLLECTION_ARTICLES}/')
             LET target = DOCUMENT(edge._to)
             FILTER target != null
+            SORT edge._key
             RETURN {{ edge: edge, target: target, instrument: {instrument_for_target} }}
     )
     LET downstream = (
@@ -69,6 +71,7 @@ def get_article_relationship_data(
             FILTER STARTS_WITH(edge._from, '{COLLECTION_ARTICLES}/')
             LET target = DOCUMENT(edge._from)
             FILTER target != null
+            SORT edge._key
             RETURN {{ edge: edge, target: target, instrument: {instrument_for_source} }}
     )
     LET scope = (
@@ -78,6 +81,7 @@ def get_article_relationship_data(
             FILTER STARTS_WITH(edge._to, '{COLLECTION_ANNEXES}/')
             LET annex = DOCUMENT(edge._to)
             FILTER annex != null
+            SORT edge._key
             RETURN {{ edge: edge, annex: annex }}
     )
     RETURN {{ upstream: upstream, downstream: downstream, scope: scope }}

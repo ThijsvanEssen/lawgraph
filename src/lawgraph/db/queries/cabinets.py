@@ -56,7 +56,7 @@ def get_cabinets(store: ArangoStore) -> list[dict[str, Any]]:
             RETURN {{ [cabinet]: n }}
     )
     FOR cabinet IN {COLLECTION_CABINETS}
-        SORT cabinet.props.from_date DESC
+        SORT cabinet.props.from_date DESC, cabinet._key
         LET served = LENGTH(
             FOR e IN {COLLECTION_EDGES}
                 FILTER e._to == cabinet._id AND e.relation == @served_in
@@ -101,6 +101,7 @@ def get_cabinet(store: ArangoStore, key: str) -> dict[str, Any] | None:
     LET posts = (
         FOR e IN {COLLECTION_EDGES}
             FILTER e._to == cabinet._id AND e.relation == @served_in
+            SORT e._key
             LET member = DOCUMENT(e._from)
             FILTER member != null
             LET signed = UNIQUE(
@@ -177,13 +178,14 @@ _COMMITMENT_ITEM = f"""{{
             FILTER STARTS_WITH(e._to, "{COLLECTION_DOSSIERS}/")
             LET d = DOCUMENT(e._to)
             FILTER d != null
-            SORT d.props.label
+            SORT d.props.label, d._key
             RETURN {{ key: d._key, number: d.props.label, title: d.props.title }}
     ),
     activity: FIRST(
         FOR e IN {COLLECTION_EDGES}
             FILTER e._from == c._id AND e.relation == @made_in
             FILTER STARTS_WITH(e._to, "{COLLECTION_ACTIVITIES}/")
+            SORT e._to
             LET a = DOCUMENT(e._to)
             FILTER a != null
             RETURN {{ key: a._key, date: a.props.date, number: a.props.number }}
@@ -346,6 +348,7 @@ def cabinets_with_posts(store: ArangoStore) -> list[dict[str, Any]]:
             posts: (
                 FOR e IN {COLLECTION_EDGES}
                     FILTER e._to == cabinet._id AND e.relation == @served_in
+                    SORT e._key
                     LET member = DOCUMENT(e._from)
                     FOR post IN e.meta.posts OR []
                         RETURN MERGE(post, {{

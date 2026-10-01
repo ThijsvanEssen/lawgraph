@@ -10,6 +10,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
 )
 from lawgraph.db.counting import Store
+from lawgraph.db.store import sorted_merge
 
 
 def translated_judgments(
@@ -43,8 +44,8 @@ def update_judgment_props(store: Store, rows: list[dict[str, Any]]) -> int:
         FOR j IN {COLLECTION_JUDGMENTS}
             FILTER j._key == row.key
             FILTER NOT MATCHES(j.props, row.props)
-            UPDATE j WITH {{ props: row.props }} IN {COLLECTION_JUDGMENTS}
-                OPTIONS {{ mergeObjects: true }}
+            UPDATE j WITH {{ props: {sorted_merge("j.props", "row.props")} }}
+                IN {COLLECTION_JUDGMENTS} OPTIONS {{ mergeObjects: false }}
             RETURN 1
     """
     return sum(store.query(aql, {"rows": rows}))

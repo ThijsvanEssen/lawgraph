@@ -36,7 +36,7 @@ def basis_bwb_ids(store: Store) -> Iterator[Any]:
       FOR basis IN regulation.props.basis
         FILTER basis.bwb_id != null
         COLLECT bwb_id = UPPER(basis.bwb_id) WITH COUNT INTO named
-        SORT named DESC
+        SORT named DESC, bwb_id
         RETURN bwb_id
     """
     return store.query(aql, {"source": SOURCE_BWB})
@@ -59,7 +59,7 @@ def stub_article_counts(store: Store) -> Iterator[dict[str, Any]]:
     FOR doc IN {COLLECTION_ARTICLES}
       FILTER doc.props.stub == true AND doc.props.bwb_id != null
       COLLECT bwb_id = doc.props.bwb_id WITH COUNT INTO cnt
-      SORT cnt DESC
+      SORT cnt DESC, bwb_id
       RETURN {{ bwb_id, count: cnt }}
     """
     return store.query(aql)
@@ -169,6 +169,7 @@ def stub_treaty_ids(store: Store) -> Iterator[Any]:
     FOR inst IN {COLLECTION_INSTRUMENTS}
       FILTER inst.props.stub == true
         AND inst.props.kind IN ["verdrag", "bilateraalverdrag", "multilateraalverdrag"]
+      SORT inst._key
       RETURN inst.props.external_id
     """
     return store.query(aql)
@@ -187,6 +188,7 @@ def papers_with_dossier(store: Store, kinds: list[str]) -> Iterator[dict[str, An
       FILTER pub.props.dossier_number != null AND pub.props.sequence != null
       LET kind = LOWER(pub.props.kind || "")
       FILTER LENGTH(FOR word IN @kinds FILTER CONTAINS(kind, word) LIMIT 1 RETURN 1) > 0
+      SORT pub._key
       RETURN {{
         key: pub._key,
         title: pub.props.title || pub.props.display_name || pub._key,

@@ -38,6 +38,7 @@ _ARTICLE_HIT = f"""
     LET instrument = FIRST(
         FOR i IN {COLLECTION_INSTRUMENTS}
             FILTER doc.props.bwb_id != null AND i.props.bwb_id == doc.props.bwb_id
+            SORT i._key
             LIMIT 1
             RETURN {{
                 title: i.props.title,
@@ -47,6 +48,7 @@ _ARTICLE_HIT = f"""
     ) OR FIRST(
         FOR i IN {COLLECTION_INSTRUMENTS}
             FILTER doc.props.celex != null AND i.props.celex == doc.props.celex
+            SORT i._key
             LIMIT 1
             RETURN {{
                 title: i.props.title,
@@ -176,6 +178,8 @@ def _load_law_names(store: ArangoStore) -> dict[str, list[str]]:
     FOR i IN {COLLECTION_INSTRUMENTS}
         LET law_id = NOT_NULL(i.props.bwb_id, i.props.celex)
         FILTER law_id != null
+        // The ids that share a name are listed in one order every time.
+        SORT law_id
         RETURN {{
             law_id: law_id,
             names: [i.props.short_title, i.props.citation_title, i.props.title]
@@ -286,7 +290,7 @@ def _search_articles(
     text_aql = f"""
     FOR doc IN search_articles
         SEARCH {clause} {SEARCH_OPTIONS}
-        SORT BM25(doc) DESC
+        SORT BM25(doc) DESC, doc._key
         LIMIT @limit
         {_ARTICLE_HIT}
     """
@@ -301,6 +305,7 @@ def _search_articles(
         precise_aql = f"""
         FOR doc IN {COLLECTION_ARTICLES}
             FILTER doc._key IN @keys
+            SORT POSITION(@keys, doc._key, true)
             LIMIT @limit
             {_ARTICLE_HIT}
         """
@@ -309,7 +314,7 @@ def _search_articles(
         precise_aql = f"""
         FOR doc IN {COLLECTION_ARTICLES}
             FILTER doc.props.article_number IN @numbers
-            SORT doc.props.bwb_id ASC
+            SORT doc.props.bwb_id ASC, doc._key ASC
             LIMIT @limit
             {_ARTICLE_HIT}
         """
@@ -344,14 +349,14 @@ def _search_instruments(
     FOR doc IN search_instruments
         SEARCH ANALYZER(doc.props.aliases == @name OR doc.props.short_title == @name,
                         'lawgraph_norm')
-        SORT doc.props.citation_title ASC
+        SORT doc.props.citation_title ASC, doc._key ASC
         LIMIT @limit
         {_INSTRUMENT_HIT}
     """
     text_aql = f"""
     FOR doc IN search_instruments
         SEARCH {clause} {SEARCH_OPTIONS}
-        SORT BM25(doc) DESC
+        SORT BM25(doc) DESC, doc._key
         LIMIT @limit
         {_INSTRUMENT_HIT}
     """
@@ -390,7 +395,7 @@ def _search_judgments(
     text_aql = f"""
     FOR doc IN search_judgments
         SEARCH {clause} {SEARCH_OPTIONS}
-        SORT BM25(doc) DESC
+        SORT BM25(doc) DESC, doc._key
         LIMIT @limit
         {_JUDGMENT_HIT}
     """
@@ -399,6 +404,7 @@ def _search_judgments(
         ecli_aql = f"""
         FOR doc IN {COLLECTION_JUDGMENTS}
             FILTER doc.props.ecli == @ecli
+            SORT doc._key
             LIMIT @limit
             RETURN {{
                 id: doc._id, key: doc._key,
@@ -423,7 +429,7 @@ def _search_judgments(
         SEARCH ANALYZER(doc.props.names IN TOKENS(@name, 'lawgraph_norm'), 'lawgraph_norm')
         // the latest decision first (of one case: the highest court), a translation after
         // the judgment it translates
-        SORT doc.props.date_eff DESC, doc.props.translation_of != null
+        SORT doc.props.date_eff DESC, doc.props.translation_of != null, doc._key
         LIMIT @limit
         {_JUDGMENT_HIT}
     """
@@ -453,7 +459,7 @@ def _search_dossiers(
     FOR doc IN search_dossiers
         SEARCH {clause} {SEARCH_OPTIONS}
         {kind_clause}
-        SORT BM25(doc) DESC
+        SORT BM25(doc) DESC, doc._key
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,
@@ -479,7 +485,7 @@ def _search_committees(
     aql = f"""
     FOR doc IN search_committees
         SEARCH {clause} {SEARCH_OPTIONS}
-        SORT BM25(doc) DESC
+        SORT BM25(doc) DESC, doc._key
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,
@@ -511,7 +517,7 @@ def _search_members(
             CONCAT_SEPARATOR(" ", membership_labels)
         ))
         FILTER LENGTH(FOR t IN @tokens FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0
-        SORT doc.props.active DESC, doc.props.name ASC
+        SORT doc.props.active DESC, doc.props.name ASC, doc._key ASC
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,
@@ -537,7 +543,7 @@ def _search_factions(
         FILTER LENGTH(FOR t IN @tokens FILTER NOT CONTAINS(haystack, t) LIMIT 1 RETURN 1) == 0
         SORT doc.props.active DESC,
              (doc.props.seats != null ? doc.props.seats : 0) DESC,
-             doc.props.name ASC
+             doc.props.name ASC, doc._key ASC
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,
@@ -575,7 +581,7 @@ def _search_documents(
     FOR doc IN search_documents
         SEARCH {clause} {SEARCH_OPTIONS}
         {kind_clause}
-        SORT BM25(doc) DESC
+        SORT BM25(doc) DESC, doc._key
         LIMIT @limit
         RETURN {{
             id: doc._id, key: doc._key,

@@ -90,7 +90,7 @@ FOR dossier IN {COLLECTION_DOSSIERS}
         FILTER a.meta.role == @first_role AND a.meta.capacity IN @capacities
         LET date = DOCUMENT(document_id).props.date
         FILTER date != null
-        SORT date ASC, document_id ASC
+        SORT date ASC, document_id ASC, a._key ASC
         LIMIT 1
         RETURN {{
           date: date,
