@@ -175,3 +175,10 @@ def test_indexes_only_holds_for_its_own_statement(store: ArangoStore) -> None:
     # SET LOCAL ends with the statement's transaction: the connection goes back as it was
     for _ in range(3):
         assert list(store.query(setting)) == ["on"]
+
+
+def test_the_connections_of_the_pool_run_without_jit(store: ArangoStore) -> None:
+    with store.pool.connection() as conn:
+        assert conn.execute("SHOW jit").fetchone() == ("off",)
+    # and so do the reads of the store, on whichever connection they get
+    assert list(store.query("SELECT current_setting('jit')")) == ["off"]
