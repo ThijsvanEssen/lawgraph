@@ -2,6 +2,8 @@
 
     python -m tests.parity.copy_graph --arango-db lawgraph_parity --pg-db lawgraph_parity
 
+With ``--raw-only`` only the raw records go over, for a build of the graph in PostgreSQL
+itself (``normalize all``, ``semantic all``) that ``graph_equal.py`` compares with ArangoDB's.
 The API modules are ported before the pipelines are: with the same graph in both databases,
 each module's routes can be replayed against the goldens (``replay.py --only``) without a
 PostgreSQL build. Documents keep their key order (``json``); the edges keep their key, raw
@@ -64,13 +66,19 @@ _COLUMNS = {
 }
 
 
-def copy(db: StandardDatabase, conn: psycopg.Connection) -> dict[str, int]:
+def copy(
+    db: StandardDatabase, conn: psycopg.Connection, *, raw_only: bool = False
+) -> dict[str, int]:
     counts = {}
     tables = (
-        *NODE_COLLECTIONS,
-        COLLECTION_EDGES,
-        COLLECTION_RAW_SOURCES,
-        COLLECTION_PIPELINE_STATE,
+        (COLLECTION_RAW_SOURCES,)
+        if raw_only
+        else (
+            *NODE_COLLECTIONS,
+            COLLECTION_EDGES,
+            COLLECTION_RAW_SOURCES,
+            COLLECTION_PIPELINE_STATE,
+        )
     )
     with conn.transaction():
         conn.execute(f"TRUNCATE {', '.join(tables)}".encode())
@@ -96,6 +104,11 @@ def main() -> None:
         "--pg-url", default=os.environ.get("LAWGRAPH_DB_URL", settings.DB_URL)
     )
     parser.add_argument("--pg-db", required=True)
+    parser.add_argument(
+        "--raw-only",
+        action="store_true",
+        help="copy the raw records only, to build the graph from them",
+    )
     args = parser.parse_args()
     if args.arango_db in ("lawgraph", "lawgraph_small"):
         raise SystemExit(
@@ -113,7 +126,7 @@ def main() -> None:
 
     with psycopg.connect(f"{server}/{args.pg_db}", autocommit=True) as conn:
         ensure_schema(conn)
-        copy(arango, conn)
+        copy(arango, conn, raw_only=args.raw_only)
         conn.execute("ANALYZE")
 
 
