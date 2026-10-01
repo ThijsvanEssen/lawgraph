@@ -16,7 +16,6 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
-from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from tests.integration.seed import seed
 
 
@@ -307,52 +306,3 @@ def test_the_judgments_are_counted_per_source_without_the_source_filter(
     # the facet keeps the other filters
     in_2024 = _get(store, "/api/judgments", **{"from": "2024-01-01"})
     assert _counts(in_2024["facets"]["source"]) == {"rechtspraak": 3, "echr": 1}
-
-
-def _plans(store: ArangoStore, filters: JudgmentFilters) -> dict[str, list[dict]]:
-    """The plan of every count of the list query, by the name of its LET."""
-    captured: list[tuple[str, dict[str, Any]]] = []
-
-    class Capture:
-        def query(self, aql: str, bind_vars: dict[str, Any]) -> list[Any]:
-            captured.append((aql, bind_vars))
-            return []
-
-    get_judgments_list(Capture(), filters)  # type: ignore[arg-type]
-    aql, bind_vars = captured[0]
-    # each facet on its own: the same loop, returning its count
-    plans: dict[str, list[dict]] = {}
-    for name in ("by_tier", "by_court_kind", "by_source", "by_year"):
-        body = aql.split(f"LET {name} = (", 1)[1].split("\n    )", 1)[0]
-        used = {k: v for k, v in bind_vars.items() if f"@{k}" in body}
-        plans[name] = store.db.aql.explain(body, bind_vars=used)["nodes"]
-    return plans
-
-
-def test_the_judgment_facets_read_an_index_and_no_judgment(database: str) -> None:
-    """On the full database there are millions of judgments, each with its text: a facet
-    that reads them takes minutes; one that walks an index, seconds at most."""
-    store = ArangoStore()
-    _build_judgments(store)
-
-    for filters in (
-        JudgmentFilters(),
-        JudgmentFilters(tier="rechtbank"),
-        JudgmentFilters(court_kind="ambtenarengerecht"),
-        JudgmentFilters(tier="andere_instantie", court_kind="ambtenarengerecht"),
-        JudgmentFilters(date_from="2024-01-01", date_to="2024-12-31"),
-        JudgmentFilters(court="RBAMS"),
-        JudgmentFilters(court="RBAMS", tier="rechtbank", date_from="2024-01-01"),
-        JudgmentFilters(source="rechtspraak"),
-    ):
-        for name, nodes in _plans(store, filters).items():
-            kinds = [node["type"] for node in nodes]
-            assert "EnumerateCollectionNode" not in kinds, (filters, name, kinds)
-            assert "MaterializeNode" not in kinds, (filters, name, kinds)
-            index = next(node for node in nodes if node["type"] == "IndexNode")
-            assert index.get("indexCoversProjections"), (filters, name, index)
-
-    # an area of law is found through its array index, not by reading every judgment
-    for name, nodes in _plans(store, JudgmentFilters(subject="Strafrecht")).items():
-        kinds = [node["type"] for node in nodes]
-        assert "EnumerateCollectionNode" not in kinds, (name, kinds)

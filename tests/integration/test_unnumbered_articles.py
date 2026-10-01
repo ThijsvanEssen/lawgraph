@@ -22,12 +22,12 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
-    DOCUMENT_COLLECTIONS,
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
 from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db.schema import NODE_COLLECTIONS
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "BWBR0001840"
@@ -156,14 +156,12 @@ def test_a_repealed_identity_is_listed_only_when_asked_for(client: TestClient) -
 
 def test_no_node_is_named_after_a_missing_number(client: TestClient) -> None:
     store = ArangoStore()
-    for collection in DOCUMENT_COLLECTIONS:
-        if collection == "raw_sources":
-            continue
+    for collection in NODE_COLLECTIONS:
         rows = list(
             store.query(
-                f"FOR d IN {collection} FILTER CONTAINS(d.props.display_name, 'None') "
-                "OR d.props.last_article_number == 'None' OR d.props.label == 'None' "
-                "RETURN d._key"
+                f"SELECT key FROM {collection} "
+                "WHERE strpos(props ->> 'display_name', 'None') > 0 "
+                "OR props ->> 'last_article_number' = 'None' OR props ->> 'label' = 'None'"
             )
         )
         assert rows == [], collection

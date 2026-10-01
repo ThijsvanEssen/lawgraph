@@ -88,8 +88,8 @@ def client(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore, A
 def _cited(store: ArangoStore) -> set[str]:
     return set(
         store.query(
-            "FOR e IN edges FILTER e._from == @j AND e.relation == 'REFERS_TO' "
-            "RETURN PARSE_IDENTIFIER(e._to).key",
+            "SELECT split_part(to_id, '/', 2) FROM edges "
+            "WHERE from_id = %(j)s AND relation = 'REFERS_TO'",
             {"j": "judgments/ecli_nl_hr_2019_1278"},
         )
     )
@@ -155,6 +155,7 @@ def test_a_law_that_is_loaded_later_takes_its_citations_over(
 
     assert f"{RV.lower()}_392" in _cited(store)
     (props,) = store.query(
-        "RETURN DOCUMENT('judgments/ecli_nl_hr_2019_1278').props.unresolved_citations"
+        "SELECT props -> 'unresolved_citations' FROM judgments "
+        "WHERE key = 'ecli_nl_hr_2019_1278'"
     )
     assert [(c["law"], c["article_number"]) for c in props] == [("Sv", "350")]

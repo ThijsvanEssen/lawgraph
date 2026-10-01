@@ -7,7 +7,6 @@ with suffixes, a Tweede Kamer and an Eerste Kamer paper.
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import pytest
@@ -26,6 +25,7 @@ from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries import search as search_module
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
 from lawgraph.db.queries.search import SCORE_IDENTIFIER, SCORE_WORDS, search_all
+from lawgraph.db.store import _text
 
 SR, GW, AWB, BW6 = "BWBR0001854", "BWBR0001840", "BWBR0005537", "BWBR0005289"
 GDPR = "32016R0679"
@@ -132,21 +132,7 @@ def store(database: str) -> ArangoStore:
             ),
         ]
     )
-    _wait_for_views(store, {"search_articles": 8, "search_documents": 2})
     return store
-
-
-def _wait_for_views(store: ArangoStore, sizes: dict[str, int]) -> None:
-    """The search views fill asynchronously: wait until they hold what was written."""
-    deadline = time.monotonic() + 20
-    while time.monotonic() < deadline:
-        if all(
-            next(iter(store.query(f"RETURN LENGTH(FOR d IN {view} RETURN 1)"))) >= size
-            for view, size in sizes.items()
-        ):
-            return
-        time.sleep(0.2)
-    raise AssertionError(f"views not filled: {sizes}")
 
 
 def _keys(answer: dict[str, Any]) -> list[str]:
@@ -415,43 +401,6 @@ def test_an_exact_name_comes_before_names_that_start_with_it(
     assert [answer["confidence"], answer["alternatives"][0]["confidence"]] == [0.9, 0.6]
 
 
-# ── what it costs ─────────────────────────────────────────────────────────────
-
-
-def test_resolving_reads_by_key_or_index_never_every_document(
-    store: ArangoStore,
-) -> None:
-    """Only the reading of the laws (once a minute, cached) may walk a collection."""
-    queries: list[tuple[str, dict[str, Any]]] = []
-    run = store.query
-
-    def recording(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        queries.append((aql, bind_vars or {}))
-        return run(aql, bind_vars, **kw)
-
-    store.query = recording  # type: ignore[method-assign]
-    for q in (
-        ECLI,
-        "BWBR0001854",
-        "art. 6:162 BW",
-        "artikel 1",
-        "36327",
-        "Kamerstuk 36327 nr. 3",
-        "Wetboek van Strafrecht",
-    ):
-        resolve(store, q)
-    asked = [
-        (aql, bind)
-        for aql, bind in queries
-        if "names: [" not in aql and "aliases: inst.props.aliases" not in aql
-    ]
-    assert len(asked) >= 6
-    for aql, bind in asked:
-        plan = store.db.aql.explain(aql, bind_vars=bind)
-        kinds = {node["type"] for node in plan["nodes"]}
-        assert "EnumerateCollectionNode" not in kinds, aql
-
-
 # ── search: rank, parent title, dossier number ────────────────────────────────
 
 
@@ -528,14 +477,16 @@ def test_search_one_article_hit_costs_no_query_of_its_own(store: ArangoStore) ->
     queries: list[str] = []
     run = store.query
 
-    def recording(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        queries.append(aql)
-        return run(aql, bind_vars, **kw)
+    def recording(statement: Any, params: Any = None, **kw: Any) -> Any:
+        queries.append(_text(statement))
+        return iter(list(run(statement, params, **kw)))
 
     store.query = recording  # type: ignore[method-assign]
     search_all(store, q="Tekst artikel", types=["articles"], limit=10)
-    article_queries = [q for q in queries if "search_articles" in q or "articles" in q]
-    assert len(article_queries) <= 2
+    article_queries = [q for q in queries if "articles" in q]
+    # the mean field lengths (once a minute), the document frequencies of the words and
+    # the search itself, with the titles of the laws
+    assert len(article_queries) <= 3
 
 
 def _evrm(store: ArangoStore) -> None:

@@ -254,12 +254,13 @@ def _document(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
             FROM unnest(%(ids)s::text[]) WITH ORDINALITY AS d(id, n)
             JOIN dossiers ds ON ds.id = d.id
         ),
+        -- each paper once per dossier, by ids alone (json has no equality to dedupe on)
         papers AS (
-            SELECT a.dossier_id, a.n, a.dossier, e.from_id AS document_id
+            SELECT a.dossier_id, a.n, e.from_id AS document_id
             FROM asked a JOIN edges e ON e.to_id = a.dossier_id AND e.relation = %(part_of)s
             WHERE e.from_collection = 'documents'
             UNION
-            SELECT a.dossier_id, a.n, a.dossier, e2.from_id
+            SELECT a.dossier_id, a.n, e2.from_id
             FROM asked a
             JOIN edges e1 ON e1.to_id = a.dossier_id AND e1.relation = %(part_of)s
                 AND e1.from_collection = 'cases'
@@ -267,12 +268,14 @@ def _document(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
                 AND e2.from_collection = 'documents'
         )
         SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
-        FROM papers p JOIN documents doc ON doc.id = p.document_id
+        FROM papers p
+        JOIN asked a ON a.dossier_id = p.dossier_id AND a.n = p.n
+        JOIN documents doc ON doc.id = p.document_id
         WHERE (%(sequence)s::int IS NOT NULL
                AND lg_num(doc.props -> 'sequence') = %(sequence)s
-               AND doc.props ->> 'dossier_number' = p.dossier ->> 'number'
+               AND doc.props ->> 'dossier_number' = a.dossier ->> 'number'
                AND coalesce(doc.props ->> 'dossier_suffix', '')
-                   = coalesce(p.dossier ->> 'suffix', ''))
+                   = coalesce(a.dossier ->> 'suffix', ''))
            OR upper(coalesce(doc.props ->> 'number', '')) = %(text)s
         ORDER BY p.n, doc.key
         LIMIT %(limit)s

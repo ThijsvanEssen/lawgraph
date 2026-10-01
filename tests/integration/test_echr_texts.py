@@ -78,7 +78,7 @@ def test_a_judgment_has_the_text_of_its_english_item(
     paragraphs = {p["id"]: p for p in props["paragraphs"]}
     assert paragraphs["par-1"]["number"] == "1"
     assert paragraphs["kop-i"]["kind"] == "subheading"
-    assert store.collection(COLLECTION_JUDGMENTS).count() == 1
+    assert store.count(COLLECTION_JUDGMENTS) == 1
 
 
 def test_a_normalize_again_keeps_the_text_and_the_title(

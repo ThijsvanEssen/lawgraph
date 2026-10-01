@@ -229,7 +229,7 @@ def test_the_gaps_are_the_missing_papers_and_the_dossiers_named(
     # 31058 is complete now; 31746 and 36996 are what the Kamer has.
     assert _gaps.tk_dossier_gaps(store) == []
     numbers = store.query(
-        """FOR d IN documents FILTER d.props.dossier_number == "31058"
-           RETURN d.props.sequence"""
+        """SELECT props -> 'sequence' FROM documents
+           WHERE lg_str(props -> 'dossier_number') = '31058'"""
     )
     assert sorted(numbers) == list(range(1, 12))

@@ -11,7 +11,7 @@ from tests.integration.seed import judgment_xml, seed
 
 
 def _stub_flag(store: ArangoStore, ecli: str) -> Any:
-    node = store.db.collection("judgments").get(make_node_key(ecli))
+    node = store.get_document("judgments", make_node_key(ecli))
     return None if node is None else node["props"].get("stub")
 
 
@@ -39,9 +39,5 @@ def test_a_cited_judgment_is_a_stub_until_it_is_loaded(database: str, cli: Any) 
     # Upserts merge props: without a word from the normalizer the flag would stay, the API
     # would go on hiding the judgment and expand-graph would never see a gap close.
     assert _stub_flag(store, cited) is False
-    stubs = list(
-        store.query(
-            "FOR j IN judgments FILTER j.props.stub == true RETURN j.props.ecli"
-        )
-    )
+    stubs = list(store.query("SELECT ecli FROM judgments WHERE stub"))
     assert stubs == []

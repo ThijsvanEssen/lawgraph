@@ -26,7 +26,9 @@ def _zaak(number: int, kind: str, dossier: int) -> dict[str, Any]:
 
 
 def _dossier(store: ArangoStore, number: int) -> dict[str, Any]:
-    return store.db.collection("dossiers").get(make_node_key(str(number)))["props"]
+    doc = store.get_document("dossiers", make_node_key(str(number)))
+    assert doc is not None
+    return doc["props"]
 
 
 def test_a_vote_on_many_dossiers_gives_each_only_the_kinds_of_its_own_cases(

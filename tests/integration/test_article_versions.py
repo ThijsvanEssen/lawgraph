@@ -116,8 +116,9 @@ def test_every_article_version_is_current_only_when_nothing_follows_it(
     store = ArangoStore()
     rows = list(
         store.query(
-            "FOR v IN article_versions RETURN "
-            "{current: v.props.current, open: v.props.valid_until == null}"
+            "SELECT props -> 'current' AS current, "
+            "coalesce(json_typeof(props -> 'valid_until'), 'null') = 'null' AS open "
+            "FROM article_versions"
         )
     )
     assert rows and all(row["current"] == row["open"] for row in rows)

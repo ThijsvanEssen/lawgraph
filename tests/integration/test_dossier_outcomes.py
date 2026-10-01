@@ -264,13 +264,13 @@ def store(database: str, cli: Any) -> Iterator[ArangoStore]:
 
 
 def _dossier_props(store: ArangoStore) -> dict[str, dict[str, Any]]:
+    kept = (
+        "number", "closed", "outcome", "closed_on", "opened_on", "kind", "kind_basis",
+        "phases", "current_phase", "tk_decision",
+    )  # fmt: skip
     return {
-        row["number"]: row
-        for row in store.query(
-            "FOR d IN dossiers RETURN MERGE(KEEP(d.props, 'number', 'closed', 'outcome', "
-            "'closed_on', 'opened_on', 'kind', 'kind_basis', 'phases', 'current_phase', "
-            "'tk_decision'), {})"
-        )
+        props["number"]: {k: v for k, v in props.items() if k in kept}
+        for props in store.query("SELECT props FROM dossiers")
     }
 
 

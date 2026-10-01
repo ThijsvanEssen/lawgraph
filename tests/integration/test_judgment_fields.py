@@ -160,10 +160,12 @@ def test_the_publications_of_one_decision_are_linked_and_counted_once(
 ) -> None:
     store = ArangoStore()
     same_as = {
-        tuple(row)
+        (row["from_ecli"], row["to_ecli"])
         for row in store.query(
-            "FOR e IN edges FILTER e.relation == 'SAME_AS' "
-            "RETURN [DOCUMENT(e._from).props.ecli, DOCUMENT(e._to).props.ecli]"
+            "SELECT f.ecli AS from_ecli, t.ecli AS to_ecli FROM edges e"
+            " LEFT JOIN judgments f ON f.id = e.from_id"
+            " LEFT JOIN judgments t ON t.id = e.to_id"
+            " WHERE e.relation = 'SAME_AS'"
         )
     }
     assert same_as == {(ecli, KEPT) for ecli in REPLACED}

@@ -214,12 +214,12 @@ def _seed(store: ArangoStore) -> None:
 
 
 def _explains(store: ArangoStore) -> dict[str, Any]:
-    aql = """
-    FOR e IN edges FILTER e.relation == 'EXPLAINS'
-        RETURN {key: e._key, from: e._from, to: e._to, source: e.source,
-                confidence: e.confidence, meta: e.meta}
+    sql = """
+    SELECT key, from_id AS "from", to_id AS "to", source, doc -> 'confidence' AS confidence,
+           doc -> 'meta' AS meta
+    FROM edges WHERE relation = 'EXPLAINS'
     """
-    return {row["key"]: row for row in store.query(aql)}
+    return {row["key"]: row for row in store.query(sql)}
 
 
 @pytest.fixture()

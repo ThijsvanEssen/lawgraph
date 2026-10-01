@@ -91,9 +91,9 @@ def _load_the_treaty(store: ArangoStore) -> None:
 
 def _cited(store: ArangoStore, judgment_key: str) -> dict[str, dict[str, Any]]:
     rows = store.query(
-        "FOR e IN edges FILTER e._from == @j AND e.relation == @r "
-        "LET a = DOCUMENT(e._to) "
-        "RETURN {key: a._key, stub: a.props.stub == true, meta: e.meta}",
+        "SELECT a.key, coalesce(a.stub, false) AS stub, e.doc -> 'meta' AS meta "
+        "FROM edges e LEFT JOIN articles a ON a.id = e.to_id "
+        "WHERE e.from_id = %(j)s AND e.relation = %(r)s",
         {"j": f"judgments/{judgment_key}", "r": RELATION_REFERS_TO},
     )
     return {row["key"]: row for row in rows}
@@ -125,14 +125,13 @@ def test_the_articles_an_echr_judgment_applies_are_stubs_of_the_treaty_not_loade
     assert cited["bwbv0001000_8"]["stub"] is True
     assert cited["bwbv0001000_8"]["meta"]["leden"] == ["1", "2"]
     (stub,) = store.query(
-        "RETURN KEEP(DOCUMENT('articles/bwbv0001000_8').props, 'bwb_id', "
-        "'article_number')"
+        "SELECT json_build_object('bwb_id', props -> 'bwb_id', "
+        "'article_number', props -> 'article_number') "
+        "FROM articles WHERE key = 'bwbv0001000_8'"
     )
     assert stub == {"bwb_id": EVRM, "article_number": "8"}
     assert not list(
-        store.query(
-            "FOR i IN instruments FILTER i._key == 'echr_convention' RETURN i._key"
-        )
+        store.query("SELECT key FROM instruments WHERE key = 'echr_convention'")
     )
 
 
@@ -173,9 +172,7 @@ def test_the_echr_and_a_dutch_judgment_cite_one_article_of_the_loaded_treaty(
     assert set(echr) == {"bwbv0001000_8", "bwbv0001000_41"}
     assert not any(row["stub"] for row in echr.values())
     assert "bwbv0001000_8" in _cited(store, make_node_key(NL_ECLI))
-    assert not list(
-        store.query("FOR a IN articles FILTER a.props.stub == true RETURN a._key")
-    )
+    assert not list(store.query("SELECT key FROM articles WHERE stub"))
 
 
 def test_an_echr_judgment_links_to_hudoc(

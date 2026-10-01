@@ -107,13 +107,18 @@ def _records(today: dt.date) -> list[tuple[str, dict[str, Any]]]:
 
 
 def _relation_edges(store: ArangoStore) -> list[tuple[str, str, str, Any]]:
-    aql = """
-    FOR e IN edges
-        FILTER e.source == "tk-dossier-relations"
-        SORT e._key
-        RETURN [e.relation, e._from, e._to, e.meta]
+    statement = """
+    SELECT relation, from_id, to_id, doc -> 'meta' AS meta FROM edges
+    WHERE source = 'tk-dossier-relations'
+    ORDER BY key
     """
-    return [tuple(row) for row in store.query(aql)]
+    return [tuple(row.values()) for row in store.query(statement)]
+
+
+def _props(store: ArangoStore, key: str) -> dict[str, Any]:
+    doc = store.get_document("dossiers", key)
+    assert doc is not None
+    return doc["props"]
 
 
 def test_the_dossiers_around_prinsjesdag_are_related_and_linked(
@@ -149,9 +154,8 @@ def test_the_dossiers_around_prinsjesdag_are_related_and_linked(
     cli("semantic", "tk-dossier-relations")
     assert _relation_edges(store) == edges  # the same keys and meta, nothing added
 
-    dossiers = store.db.collection("dossiers")
-    assert dossiers.get("37035_xxii")["props"]["same_number_count"] == 2
-    assert dossiers.get("21501_02")["props"]["same_number_count"] == 0
+    assert _props(store, "37035_xxii")["same_number_count"] == 2
+    assert _props(store, "21501_02")["same_number_count"] == 0
 
     app.dependency_overrides[get_store] = lambda: store
     try:

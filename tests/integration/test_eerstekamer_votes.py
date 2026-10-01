@@ -92,7 +92,7 @@ def store(database: str, cli: Any) -> Iterator[ArangoStore]:
 
 
 def _props(store: ArangoStore, number: str) -> dict[str, Any]:
-    return store.db.collection(COLLECTION_DOSSIERS).get(number)["props"]
+    return store.get_document(COLLECTION_DOSSIERS, number)["props"]
 
 
 def test_the_eerste_kamer_decides_the_bill(store: ArangoStore, cli: Any) -> None:
@@ -118,8 +118,9 @@ def test_the_eerste_kamer_decides_the_bill(store: ArangoStore, cli: Any) -> None
 
     decisions = list(
         store.query(
-            "FOR d IN decisions FILTER d.props.chamber == 'EK' "
-            "RETURN [d.props.dossier_numbers[0], d.props.bill_decision]"
+            "SELECT json_build_array(props -> 'dossier_numbers' -> 0,"
+            " props -> 'bill_decision') FROM decisions"
+            " WHERE lg_str(props -> 'chamber') = 'EK'"
         )
     )
     assert len(decisions) == 5  # the votes of 29 September 2026

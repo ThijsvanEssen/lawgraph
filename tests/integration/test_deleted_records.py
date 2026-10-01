@@ -133,7 +133,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
 def _edges_at(store: ArangoStore, node_id: str) -> list[str]:
     return list(
         store.query(
-            "FOR e IN edges FILTER e._from == @id OR e._to == @id RETURN e.relation",
+            "SELECT relation FROM edges WHERE from_id = %(id)s OR to_id = %(id)s",
             {"id": node_id},
         )
     )
@@ -143,10 +143,9 @@ def _seats(store: ArangoStore, person: str) -> list[str]:
     return sorted(
         store.query(
             """
-            FOR e IN edges
-                FILTER e._from == @id AND e.relation == "MEMBER_OF"
-                FILTER STARTS_WITH(e._to, "factions/")
-                RETURN e._to
+            SELECT to_id FROM edges
+            WHERE from_id = %(id)s AND relation = 'MEMBER_OF'
+              AND to_collection = 'factions'
             """,
             {"id": f"members/{make_node_key(person)}"},
         )
@@ -197,7 +196,7 @@ def test_what_the_kamer_deleted_leaves_the_graph(database: str, cli: Any) -> Non
         ("factions", ["50plus", "vvd"]),
         ("members", sorted(make_node_key(p) for p in (FABER, ELLIAN))),
     ):
-        stored = store.query(f"FOR n IN {collection} SORT n._key RETURN n._key")
+        stored = store.query(f"SELECT key FROM {collection} ORDER BY key")
         assert list(stored) == keys, collection
 
 
@@ -268,7 +267,7 @@ def _deletions() -> list[tuple[str, dict[str, Any]]]:
 def _voters(store: ArangoStore, decision: str) -> list[str]:
     return sorted(
         store.query(
-            'FOR e IN edges FILTER e._to == @id AND e.relation == "VOTED" RETURN e._from',
+            "SELECT from_id FROM edges WHERE to_id = %(id)s AND relation = 'VOTED'",
             {"id": f"decisions/{make_node_key('decision', decision)}"},
         )
     )

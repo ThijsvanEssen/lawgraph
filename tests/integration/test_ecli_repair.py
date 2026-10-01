@@ -45,10 +45,7 @@ APPEALED = "ECLI:NL:GHDHA:2020:7"
 
 
 def _stub_eclis(store: ArangoStore) -> set[str]:
-    aql = f"""
-    FOR j IN {COLLECTION_JUDGMENTS} FILTER j.props.stub == true RETURN j.props.ecli
-    """
-    return set(store.query(aql))
+    return set(store.query(f"SELECT ecli FROM {COLLECTION_JUDGMENTS} WHERE stub"))
 
 
 def test_malformed_eclis_are_repaired_or_dropped(database: str, cli: Any) -> None:

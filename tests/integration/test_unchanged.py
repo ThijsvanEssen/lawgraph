@@ -9,9 +9,12 @@ from lawgraph.db import ArangoStore
 from tests.integration.seed import seed
 
 
-def _revisions(store: ArangoStore, collection: str) -> dict[str, str]:
-    aql = f"FOR d IN {collection} RETURN [d._key, d._rev]"
-    return dict(store.query(aql))
+def _revisions(
+    store: ArangoStore, collection: str, where: str = "true"
+) -> dict[str, str]:
+    """The key of every row with its ``xmin``: the transaction that wrote it last."""
+    statement = f"SELECT key, xmin::text AS rev FROM {collection} WHERE {where}"
+    return {row["key"]: row["rev"] for row in store.query(statement)}
 
 
 def test_a_second_run_writes_nothing_and_says_so(database: str, cli: Any) -> None:
@@ -53,7 +56,7 @@ def test_a_changed_document_is_written_and_the_rest_is_left_alone(
     after = _revisions(store, "cases")
     assert after["n0"] == before["n0"] and after["n2"] == before["n2"]
     assert after["n1"] != before["n1"]
-    assert store.db.collection("cases").get("n1")["props"]["title"] == "b"
+    assert store.get_document("cases", "n1")["props"]["title"] == "b"
 
     # The same key twice in one batch: the lookup does not see the write before it.
     new_and_twice = [
@@ -61,7 +64,7 @@ def test_a_changed_document_is_written_and_the_rest_is_left_alone(
         {"_key": "n9", "type": "case", "labels": [], "props": {"title": "y"}},
     ]
     store.bulk_insert_or_update_nodes("cases", new_and_twice)
-    assert store.db.collection("cases").get("n9")["props"]["title"] == "y"
+    assert store.get_document("cases", "n9")["props"]["title"] == "y"
 
 
 _LAW = """<toestand bwb-id="BWBR9100001"><wetgeving soort="wet"><citeertitel>Testwet</citeertitel>
@@ -94,12 +97,12 @@ def test_classifying_relations_again_writes_only_what_changed(
     cli("normalize", "bwb")
     cli("semantic", "bwb")
     first = cli("semantic", "bwb-relation-types")
-    classified = "FOR e IN edges FILTER e.semantic_type != null RETURN [e._key, e._rev]"
-    before = dict(store.query(classified))
+    classified = "semantic_type IS NOT NULL"
+    before = _revisions(store, "edges", classified)
     assert before, first.stderr[-600:]
 
     again = cli("semantic", "bwb-relation-types")
-    assert dict(store.query(classified)) == before
+    assert _revisions(store, "edges", classified) == before
     assert re.search(r"Done in \S+: [\d,]+ unchanged", again.stderr), again.stderr[
         -300:
     ]
