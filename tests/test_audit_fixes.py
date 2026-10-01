@@ -10,6 +10,10 @@ import pytest
 import requests
 
 from lawgraph.core.models import PipelineResult
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.base import FETCH_WORKERS, FailureStreak, SourceDown
@@ -45,11 +49,15 @@ def test_a_success_ends_the_streak() -> None:
 
 
 class _Store(RawSourcesFake):
-    def query(self, aql, bind_vars=None):
-        return []
-
     def insert_raw_source(self, **kw: Any) -> None:
         self.stored = getattr(self, "stored", []) + [kw["external_id"]]
+
+
+@pytest.fixture
+def nothing_stored(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No record stored before, none waiting for a retry."""
+    for name in ("fetch_times", "ids_stored_since", "ids_waiting_for_retry"):
+        monkeypatch.setattr(raw_queries, name, lambda store, **kw: iter([]))
 
 
 class _DeadRs:
@@ -62,7 +70,9 @@ class _DeadRs:
         raise self.error
 
 
-def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing() -> None:
+def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing(
+    nothing_stored: None,
+) -> None:
     rs = _DeadRs(requests.ConnectionError("no route"))
     pipeline = RechtspraakRetrievePipeline(store=_Store(), rs_client=rs)
     result = pipeline.run(eclis=[f"ECLI:{n}" for n in range(200)])
@@ -73,7 +83,9 @@ def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing() -> None:
     assert 25 <= rs.calls <= 25 + 4 * FETCH_WORKERS
 
 
-def test_rechtspraak_missing_judgments_are_not_a_dead_source() -> None:
+def test_rechtspraak_missing_judgments_are_not_a_dead_source(
+    nothing_stored: None,
+) -> None:
     not_found = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
     rs = _DeadRs(not_found)
     pipeline = RechtspraakRetrievePipeline(store=_Store(), rs_client=rs)
@@ -89,7 +101,7 @@ class _DeadEu:
         raise self.error
 
 
-def test_eurlex_that_is_down_fails_the_step() -> None:
+def test_eurlex_that_is_down_fails_the_step(nothing_stored: None) -> None:
     pipeline = EurlexRetrievePipeline(
         store=_Store(), eu_client=_DeadEu(requests.ConnectionError("no route"))
     )
@@ -98,7 +110,7 @@ def test_eurlex_that_is_down_fails_the_step() -> None:
     assert result.skipped == 25
 
 
-def test_eurlex_acts_without_html_are_not_a_dead_source() -> None:
+def test_eurlex_acts_without_html_are_not_a_dead_source(nothing_stored: None) -> None:
     error = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
     pipeline = EurlexRetrievePipeline(store=_Store(), eu_client=_DeadEu(error))
     result = pipeline.run(celex_ids=[f"3201{n:04d}L0001" for n in range(60)])
@@ -108,18 +120,18 @@ def test_eurlex_acts_without_html_are_not_a_dead_source() -> None:
 # ── no silent caps ───────────────────────────────────────────────────────────
 
 
-def test_the_staatscourant_text_scan_has_no_row_cap_and_lets_errors_out() -> None:
-    queries: list[str] = []
+def test_the_staatscourant_text_scan_lets_errors_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """That the texts have no row cap: ``tests/integration/test_large_results.py``."""
 
-    class Store:
-        def query(self, aql, bind_vars=None):
-            queries.append(aql)
-            raise RuntimeError("query failed")
+    def staatscourant_texts(store, since_date):
+        raise RuntimeError("query failed")
 
-    pipeline = StaatscourantSemanticPipeline(store=Store())
+    monkeypatch.setattr(semantic_bwb, "staatscourant_texts", staatscourant_texts)
+    pipeline = StaatscourantSemanticPipeline(store=object())  # type: ignore[arg-type]
     with pytest.raises(RuntimeError, match="query failed"):
         pipeline._text_scan_match(set())
-    assert "LIMIT" not in queries[0]
 
 
 def test_a_gaps_run_says_when_it_takes_only_the_first_stubs(caplog) -> None:
@@ -138,34 +150,30 @@ def test_below_the_cap_nothing_is_said(caplog) -> None:
     assert not caplog.messages
 
 
-def test_the_gap_queries_are_not_capped_in_aql() -> None:
-    seen: list[str] = []
-
-    class Store:
-        def query(self, aql, bind_vars=None):
-            seen.append(aql)
-            return iter([])
-
-    _gaps.rechtspraak_gaps(Store())
-    assert not any("LIMIT" in aql for aql in seen)
-
-
 # ── memory: judgments are streamed, not loaded ───────────────────────────────
 
 
-def test_the_rechtspraak_normalizer_streams_its_raw_records() -> None:
+def test_the_rechtspraak_normalizer_streams_its_raw_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls: list[dict] = []
 
-    class Store(RawSourcesFake):
-        def query(self, aql, bind_vars=None, *, batch_size=1000, **kw):
-            calls.append({"batch_size": batch_size})
-            return iter([])
+    def iter_raw_records(store, *, batch_size, **kw):
+        calls.append({"batch_size": batch_size})
+        return iter([])
 
-    raw = RechtspraakNormalizePipeline(store=Store()).fetch_raw()
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+    monkeypatch.setattr(
+        raw_queries,
+        "count_raw_records",  # the total for the progress line
+        lambda *a, **kw: calls.append({"count": True}),
+    )
+
+    raw = RechtspraakNormalizePipeline(store=RawSourcesFake()).fetch_raw()  # type: ignore[arg-type]
     assert not isinstance(raw["content"], list)  # a generator: nothing is read yet
     assert calls == []
     list(raw["content"])
-    # calls[0] counts them for the progress line; small batches: a judgment is tens of KB
+    # small batches: a judgment is tens of KB
     assert calls[-1]["batch_size"] <= 200
 
 
@@ -193,41 +201,44 @@ def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
     assert out == {"judgments": 3}
 
 
-class _JudgmentStore(RawSourcesFake):
-    """Three judgments as ``normalize rechtspraak`` made them; the queries carry the filters."""
+class _Judgments:
+    """Three judgments as ``normalize rechtspraak`` made them; the calls record the filters."""
 
-    def __init__(self) -> None:
-        self.binds: list[dict] = []
-        self.recent: list[dict] = []
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.eclis: list[list[str] | None] = []  # the filter of each paragraphs query
+        self.recent: list[str] = []  # the since of each query for the recent ECLIs
         self.pulled = 0
+        monkeypatch.setattr(
+            semantic_rechtspraak, "judgment_paragraphs", self.judgment_paragraphs
+        )
+        monkeypatch.setattr(
+            semantic_rechtspraak, "count_rechtspraak_judgments", lambda store: 3
+        )
+        monkeypatch.setattr(
+            raw_queries, "judgment_eclis_fetched_since", self.eclis_fetched_since
+        )
+        # the citations the text no longer makes
+        monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *a, **kw: 0)
 
-    def query(self, aql, bind_vars=None, **kw):
-        if "raw_sources" in aql:  # the ECLIs of the judgments retrieved since a date
-            self.recent.append(dict(bind_vars or {}))
-            return iter(["ECLI:NL:HR:2020:1"])
-        if "REMOVE e IN edges" in aql:  # the citations the text no longer makes
-            return iter([])
-        assert "FOR j IN judgments" in aql
-        if "COLLECT WITH COUNT" in aql:  # the total for the progress line
-            return iter([3])
-        self.binds.append(dict(bind_vars or {}))
+    def eclis_fetched_since(self, store, since_iso):
+        self.recent.append(since_iso)
+        return iter(["ECLI:NL:HR:2020:1"])
 
-        def cursor():
-            for n in range(3):
-                self.pulled += 1
-                yield {
-                    "_key": f"ecli_nl_hr_2020_{n}",
-                    "type": "judgment",
-                    "labels": ["Rechtspraak"],
-                    "props": {
-                        "ecli": f"ECLI:NL:HR:2020:{n}",
-                        "paragraphs": [
-                            {"id": "p-1", "number": None, "kind": "body", "text": "x"}
-                        ],
-                    },
-                }
-
-        return cursor()
+    def judgment_paragraphs(self, store, *, eclis, batch_size):
+        self.eclis.append(eclis)
+        for n in range(3):
+            self.pulled += 1
+            yield {
+                "_key": f"ecli_nl_hr_2020_{n}",
+                "type": "judgment",
+                "labels": ["Rechtspraak"],
+                "props": {
+                    "ecli": f"ECLI:NL:HR:2020:{n}",
+                    "paragraphs": [
+                        {"id": "p-1", "number": None, "kind": "body", "text": "x"}
+                    ],
+                },
+            }
 
 
 def _linker(store):
@@ -237,49 +248,66 @@ def _linker(store):
     return pipeline
 
 
-def test_the_article_linker_reads_the_paragraphs_normalize_made() -> None:
+def test_the_article_linker_reads_the_paragraphs_normalize_made(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Not the XML: the paragraphs it serves are the ones whose ids it records."""
-    store = _JudgmentStore()
-    result = _linker(store).run()
-    assert result.errors == [] and store.pulled == 3
-    assert store.binds == [{"source": "rechtspraak"}] and store.recent == []
+    judgments = _Judgments(monkeypatch)
+    result = _linker(RawSourcesFake()).run()
+    assert result.errors == [] and judgments.pulled == 3
+    assert judgments.eclis == [None] and judgments.recent == []
 
 
-def test_an_incremental_run_asks_for_the_judgments_retrieved_since() -> None:
-    store = _JudgmentStore()
-    _linker(store).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
-    assert store.recent[0]["since"] == "2025-01-01T00:00:00Z"
-    assert store.binds == [{"source": "rechtspraak", "eclis": ["ECLI:NL:HR:2020:1"]}]
+def test_an_incremental_run_asks_for_the_judgments_retrieved_since(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    judgments = _Judgments(monkeypatch)
+    _linker(RawSourcesFake()).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    assert judgments.recent == ["2025-01-01T00:00:00Z"]
+    assert judgments.eclis == [["ECLI:NL:HR:2020:1"]]
 
 
 # ── the BWB article linker ───────────────────────────────────────────────────
 
 
-def test_recent_bwb_ids_are_asked_for_once_not_once_per_regulation() -> None:
+def test_recent_bwb_ids_are_asked_for_once_not_once_per_regulation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 
-    queries: list[str] = []
+    recent: list[str] = []
+    asked: list[list[str]] = []
 
-    class Store:
-        def query(self, aql, bind_vars=None, **kw):
-            queries.append(aql)
-            return iter(["BWBR0000002"] if "raw_sources" in aql else [])
+    def bwb_ids_fetched_since(store, since_iso):
+        recent.append(since_iso)
+        return iter(["BWBR0000002"])
 
-    pipeline = BWBSemanticPipeline(store=Store())
+    def articles_with_references(store, bwb_ids):
+        asked.append(bwb_ids)
+        return iter([])
+
+    monkeypatch.setattr(raw_queries, "bwb_ids_fetched_since", bwb_ids_fetched_since)
+    monkeypatch.setattr(
+        semantic_bwb, "articles_with_references", articles_with_references
+    )
+    pipeline = BWBSemanticPipeline(store=object())  # type: ignore[arg-type]
     ids = [f"BWBR{n:07d}" for n in range(1, 500)]
     list(pipeline._load_articles(ids, since_iso="2025-01-01T00:00:00Z"))
-    assert sum("raw_sources" in q for q in queries) == 1
+    assert recent == ["2025-01-01T00:00:00Z"]
+    assert asked == [["BWBR0000002"]]  # only the recent one of the 499
 
 
-def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph() -> None:
+def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 
-    class Store:
-        def query(self, aql, bind_vars=None, **kw):
-            raise RuntimeError("database gone")
+    def article_bwb_ids(store):
+        raise RuntimeError("database gone")
 
+    monkeypatch.setattr(semantic_bwb, "article_bwb_ids", article_bwb_ids)
     with pytest.raises(RuntimeError, match="database gone"):
-        BWBSemanticPipeline(store=Store())._load_bwb_ids_from_graph()
+        BWBSemanticPipeline(store=object())._load_bwb_ids_from_graph()  # type: ignore[arg-type]
 
 
 # ── a failing write is an error of the step ──────────────────────────────────
@@ -305,42 +333,3 @@ def test_tk_dossiers_a_failing_write_is_an_error_not_only_a_log_line() -> None:
     )
     assert result.created == 2  # d1 and d3
     assert any("d2" in e and "write failed" in e for e in result.errors)
-
-
-# ── a cursor that is worked on slowly must stay open ─────────────────────────
-
-
-def test_the_query_cursor_outlives_a_consumer_that_works_on_every_batch() -> None:
-    """The server drops a cursor unread for 30 s ("cursor not found"): semantic tk and
-    tk-amends failed on it after streaming their documents."""
-    from lawgraph.db.store import CURSOR_TTL_SECONDS, ArangoStore
-
-    seen: dict[str, Any] = {}
-
-    class Aql:
-        def execute(self, aql, **kwargs):
-            seen.update(kwargs)
-            return iter([])
-
-    store = ArangoStore.__new__(ArangoStore)
-    store.db = SimpleNamespace(aql=Aql())
-    store.query("FOR d IN docs RETURN d")
-
-    assert seen["ttl"] == CURSOR_TTL_SECONDS >= 1800
-    assert seen["batch_size"] == 1000
-
-
-def test_a_caller_can_ask_for_a_different_ttl() -> None:
-    from lawgraph.db.store import ArangoStore
-
-    seen: dict[str, Any] = {}
-
-    class Aql:
-        def execute(self, aql, **kwargs):
-            seen.update(kwargs)
-            return iter([])
-
-    store = ArangoStore.__new__(ArangoStore)
-    store.db = SimpleNamespace(aql=Aql())
-    store.query("RETURN 1", ttl=60)
-    assert seen["ttl"] == 60

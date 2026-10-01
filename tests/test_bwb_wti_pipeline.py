@@ -5,6 +5,8 @@ from __future__ import annotations
 import pathlib
 from typing import Any
 
+import pytest
+
 from lawgraph.clients.bwb import WTI_CHUNK_SIZE, BWBClient, ToestandMeta
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
@@ -13,10 +15,11 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_wti import extract_general_info
 from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from tests.fakes import RawSourcesFake
-from tests.normalize.test_bwb import _Store
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 SR_HEAD = (FIXTURES / "bwb_wti_sr_head.xml").read_text()
@@ -99,16 +102,21 @@ def test_client_returns_nothing_without_a_wti_location_or_element() -> None:
 
 
 class _RawStore(RawSourcesFake):
-    def __init__(self, recent: list[str] | None = None) -> None:
+    def __init__(self) -> None:
         self.records: list[dict[str, Any]] = []
-        self.recent = recent or []  # stored by an interrupted run in the last 24 hours
-
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[str]:
-        return list(self.recent)
 
     def insert_raw_source(self, **record: Any) -> dict[str, Any]:
         self.records.append(record)
         return record
+
+
+@pytest.fixture
+def nothing_stored(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No record stored by an interrupted run, none waiting for a retry."""
+    monkeypatch.setattr(raw_queries, "ids_stored_since", lambda store, **kw: iter([]))
+    monkeypatch.setattr(
+        raw_queries, "ids_waiting_for_retry", lambda store, **kw: iter([])
+    )
 
 
 class _Client:
@@ -133,7 +141,9 @@ def _retrieve(general_info: str | None | Exception) -> tuple[_RawStore, Pipeline
     return store, pipeline.run(bwb_ids=[SR])
 
 
-def test_retrieve_stores_the_general_information_next_to_the_toestand() -> None:
+def test_retrieve_stores_the_general_information_next_to_the_toestand(
+    nothing_stored: None,
+) -> None:
     store, result = _retrieve(SR_GENERAL)
 
     # The toestand last: it is what a re-run takes for "this regulation is done".
@@ -148,14 +158,18 @@ def test_retrieve_stores_the_general_information_next_to_the_toestand() -> None:
     assert (result.created, result.errors) == (2, [])
 
 
-def test_retrieve_without_general_information_stores_the_toestand_only() -> None:
+def test_retrieve_without_general_information_stores_the_toestand_only(
+    nothing_stored: None,
+) -> None:
     store, result = _retrieve(None)
 
     assert [r["kind"] for r in store.records] == [RAW_KIND_BWB_TOESTAND]
     assert (result.created, result.errors) == (1, [])
 
 
-def test_a_failing_wti_download_is_an_error_but_keeps_the_toestand() -> None:
+def test_a_failing_wti_download_is_an_error_but_keeps_the_toestand(
+    nothing_stored: None,
+) -> None:
     store, result = _retrieve(RuntimeError("HTTP 500"))
 
     assert [r["kind"] for r in store.records] == [RAW_KIND_BWB_TOESTAND]
@@ -166,51 +180,63 @@ def test_a_failing_wti_download_is_an_error_but_keeps_the_toestand() -> None:
 # ── normalize ────────────────────────────────────────────────────────────────
 
 
-class _WtiStore(_Store):
-    """Serves the stored WTI records and applies the short-title UPDATE."""
+class _WtiStore(RawSourcesFake):
+    """The stored WTI records and the instruments their short titles go to."""
 
     def __init__(self, wti: dict[str, str], instruments: dict[str, dict]) -> None:
-        super().__init__(
-            {
-                "instruments": {
-                    make_node_key(b): {"props": p} for b, p in instruments.items()
-                }
-            }
-        )
         self.wti = wti
+        self.nodes: dict[str, dict[str, dict]] = {
+            "instruments": {
+                make_node_key(b): {"props": p} for b, p in instruments.items()
+            }
+        }
 
-    def query(self, aql: str, bind_vars: dict | None = None, **kw):
-        bind = bind_vars or {}
-        if bind.get("kinds") == [RAW_KIND_BWB_WTI_GENERAL]:
-            assert "since" not in bind  # the rule needs every regulation
-            return [
-                {"external_id": bwb_id, "payload_text": xml, "meta": {"bwb_id": bwb_id}}
-                for bwb_id, xml in self.wti.items()
-            ]
-        if "rows" in bind:
-            changed = []
-            for row in bind["rows"]:
-                doc = self.nodes["instruments"].get(row["key"])
-                wanted = {
-                    "short_title": row["short_title"],
-                    "aliases": row["aliases"] or None,
-                }
-                if doc is None or all(
-                    doc["props"].get(k) == v for k, v in wanted.items()
-                ):
-                    continue
-                for k, v in wanted.items():
-                    doc["props"].pop(k, None)  # keepNull: false
-                    if v is not None:
-                        doc["props"][k] = v
-                changed.append(1)
-            return changed
-        return super().query(aql, bind_vars, **kw)
+    def wti_records(self) -> list[dict[str, Any]]:
+        return [
+            {"external_id": bwb_id, "payload_text": xml, "meta": {"bwb_id": bwb_id}}
+            for bwb_id, xml in self.wti.items()
+        ]
+
+    def update_abbreviations(self, rows: list[dict[str, Any]]) -> int:
+        """Like the query: only existing instruments that differ; an empty value is removed."""
+        changed = 0
+        for row in rows:
+            doc = self.nodes["instruments"].get(row["key"])
+            wanted = {
+                "short_title": row["short_title"],
+                "aliases": row["aliases"] or None,
+            }
+            if doc is None or all(doc["props"].get(k) == v for k, v in wanted.items()):
+                continue
+            for k, v in wanted.items():
+                doc["props"].pop(k, None)
+                if v is not None:
+                    doc["props"][k] = v
+            changed += 1
+        return changed
 
     def short_title(self, bwb_id: str) -> str | None:
         return self.nodes["instruments"][make_node_key(bwb_id)]["props"].get(
             "short_title"
         )
+
+
+@pytest.fixture(autouse=True)
+def _wti_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The raw records and the short-title update, served by a ``_WtiStore``."""
+
+    def iter_raw_records(store: _WtiStore, *, kinds, since_iso, **_kw):
+        assert kinds == [RAW_KIND_BWB_WTI_GENERAL]
+        assert since_iso is None  # the rule needs every regulation
+        return iter(store.wti_records())
+
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+    monkeypatch.setattr(raw_queries, "count_raw_records", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        normalize_bwb,
+        "update_abbreviations",
+        lambda store, rows: store.update_abbreviations(rows),
+    )
 
 
 def _normalize(store: _WtiStore) -> PipelineResult:
@@ -272,13 +298,17 @@ def test_every_book_is_named_by_its_code_also_without_a_wti_record() -> None:
     assert store.short_title(BW5) is None  # a short title comes from the WTI only
 
 
-def test_the_toestand_stream_does_not_read_wti_records() -> None:
-    store = _WtiStore({}, {})
+def test_the_toestand_stream_does_not_read_wti_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     seen: list[list[str]] = []
-    store.query = lambda aql, bind_vars=None, **kw: (
-        seen.append(bind_vars["kinds"]) or []
-    )  # type: ignore[method-assign]
 
-    list(BWBNormalizePipeline(store=store).fetch_raw())  # type: ignore[arg-type]
+    def iter_raw_records(store, *, kinds, **_kw):
+        seen.append(kinds)
+        return iter([])
+
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+
+    list(BWBNormalizePipeline(store=_WtiStore({}, {})).fetch_raw())  # type: ignore[arg-type]
 
     assert seen and RAW_KIND_BWB_WTI_GENERAL not in seen[0]

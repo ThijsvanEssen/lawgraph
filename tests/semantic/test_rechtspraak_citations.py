@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
+
+import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak_citations import (
     RechtspraakCitationsSemanticPipeline,
 )
@@ -55,12 +61,8 @@ class _FakeStore(RawSourcesFake):
         self._nodes = nodes or {}
         self.edges: dict[str, dict[str, Any]] = {}
 
-    def query(
-        self, aql: str, bind_vars: dict | None = None, **_kw: Any
-    ) -> list[dict[str, Any]]:
-        # Secondary ECLI lookup and procedural edges — nothing (we populate via get_node).
-        if "props.ecli" in aql or "REMOVE" in aql or "@relations" in aql:
-            return []
+    def payload_rows(self) -> list[dict[str, Any]]:
+        """The stored judgments with their XML, as ``with_payloads`` passes them on."""
         return [
             {"ecli": d["props"]["ecli"], "payload_text": d["props"]["raw_xml"]}
             for d in self._judgment_docs
@@ -108,6 +110,35 @@ class _FakeStore(RawSourcesFake):
         return node
 
 
+@pytest.fixture()
+def reads(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
+    """The judgments come from the fake store; the ECLI lookup and the procedural edges
+    find nothing, and nothing is removed. The *since_iso* of every read of the judgments."""
+    since: list[str | None] = []
+
+    def judgment_payload_refs(
+        store: _FakeStore, *, since_iso: str | None, batch_size: int
+    ) -> Iterator[dict[str, Any]]:
+        since.append(since_iso)
+        return iter(store.payload_rows())
+
+    monkeypatch.setattr(raw_queries, "count_judgment_records", lambda store: None)
+    monkeypatch.setattr(raw_queries, "judgment_payload_refs", judgment_payload_refs)
+    monkeypatch.setattr(
+        semantic_rechtspraak, "judgment_ids_by_ecli", lambda store, eclis: iter([])
+    )
+    monkeypatch.setattr(
+        semantic_rechtspraak,
+        "procedural_neighbours",
+        lambda store, ids, relations: iter([]),
+    )
+    monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
+    monkeypatch.setattr(
+        semantic_rechtspraak, "remove_unreached_judgment_stubs", lambda store: 0
+    )
+    return since
+
+
 def _make_judgment(key: str, ecli: str, text: str, related: str = "") -> dict[str, Any]:
     """A judgment whose XML holds *text* in its uitspraak and *related* in its metadata."""
     xml = (
@@ -124,7 +155,7 @@ def _make_judgment(key: str, ecli: str, text: str, related: str = "") -> dict[st
     }
 
 
-def test_pipeline_creates_cites_judgment_edge() -> None:
+def test_pipeline_creates_cites_judgment_edge(reads: list[str | None]) -> None:
     source_ecli = "ECLI:NL:HR:2020:1234"
     target_ecli = "ECLI:NL:HR:2019:9876"
     source_doc = _make_judgment(
@@ -157,7 +188,7 @@ def test_pipeline_creates_cites_judgment_edge() -> None:
     assert edge["_to"].startswith("judgments/")
 
 
-def test_pipeline_skips_self_reference() -> None:
+def test_pipeline_skips_self_reference(reads: list[str | None]) -> None:
     ecli = "ECLI:NL:HR:2020:1234"
     doc = _make_judgment(
         make_node_key(ecli), ecli, f"Dit arrest ({ecli}) overweegt dat..."
@@ -168,17 +199,12 @@ def test_pipeline_skips_self_reference() -> None:
     assert result.created == 0
 
 
-def test_an_incremental_run_reads_the_judgments_fetched_since() -> None:
+def test_an_incremental_run_reads_the_judgments_fetched_since(
+    reads: list[str | None],
+) -> None:
     """The judgments read before have their edges; a cited judgment has the key of its stub."""
     import datetime as dt
 
-    binds: list[dict[str, Any]] = []
-
-    class Store(_FakeStore):
-        def query(self, aql: str, bind_vars: dict | None = None, **kw: Any):
-            binds.append(dict(bind_vars or {}))
-            return super().query(aql, bind_vars, **kw)
-
-    pipeline = RechtspraakCitationsSemanticPipeline(store=Store(judgment_docs=[]))
+    pipeline = RechtspraakCitationsSemanticPipeline(store=_FakeStore(judgment_docs=[]))
     pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
-    assert binds[0]["since"] == "2025-01-01T00:00:00Z"
+    assert reads == ["2025-01-01T00:00:00Z"]

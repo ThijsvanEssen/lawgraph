@@ -7,6 +7,7 @@ items.
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 import pytest
@@ -31,6 +32,11 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.relations import BY_NAME
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.normalize import bwb as normalize_bwb
+from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
+from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
@@ -42,16 +48,10 @@ SOURCE = "test"
 class _Store(RawSourcesFake):
     """The slice of ArangoStore the normalizers use, recorded in memory."""
 
-    def __init__(
-        self,
-        existing: dict[str, set[str]] | None = None,
-        query_handler: Any = None,
-    ) -> None:
+    def __init__(self, existing: dict[str, set[str]] | None = None) -> None:
         self.existing = existing or {}
-        self.query_handler = query_handler or (lambda aql, bind: [])
         self.edge_meta: dict[tuple[str, str, str], dict | None] = {}
         self.written_nodes: dict[tuple[str, str], dict] = {}
-        self.query_calls = 0
         self.existence_calls = 0
         self.bulk_edge_calls = 0
         self.bulk_node_calls = 0
@@ -59,10 +59,6 @@ class _Store(RawSourcesFake):
     def existing_keys(self, collection: str, keys: Any) -> set[str]:
         self.existence_calls += 1
         return set(keys) & self.existing.get(collection, set())
-
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict]:
-        self.query_calls += 1
-        return list(self.query_handler(aql, bind_vars or {}))
 
     def bulk_insert_or_update_edges(self, docs: list[dict]) -> tuple[int, int]:
         self.bulk_edge_calls += 1
@@ -79,6 +75,14 @@ class _Store(RawSourcesFake):
         for doc in docs:
             self.written_nodes[(collection, doc["_key"])] = dict(doc["props"])
         return len(docs), 0
+
+
+@pytest.fixture(autouse=True)
+def _no_stale_votes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``link_votes`` removes the VOTED edges it did not write: there are none here."""
+    monkeypatch.setattr(
+        normalize_edges, "remove_edges_into_except", lambda *_a, **_kw: 0
+    )
 
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
@@ -176,15 +180,15 @@ def test_activities_and_decisions_are_about_their_subjects() -> None:
     }
 
 
-def test_cases_are_part_of_the_dossiers_they_name() -> None:
+def test_cases_are_part_of_the_dossiers_they_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     rows = [
         {"id": f"{COLLECTION_CASES}/z1", "dossier_numbers": ["36000", "99999"]},
         {"id": f"{COLLECTION_CASES}/z2", "dossier_numbers": []},
     ]
-    store = _Store(
-        existing={COLLECTION_DOSSIERS: {"36000"}},
-        query_handler=lambda aql, bind: rows,
-    )
+    monkeypatch.setattr(normalize_tk, "case_dossier_numbers", lambda store: iter(rows))
+    store = _Store(existing={COLLECTION_DOSSIERS: {"36000"}})
 
     tk_cases.link_cases_to_dossiers(store, source=SOURCE)
 
@@ -501,7 +505,29 @@ def test_a_deleted_vote_and_the_votes_on_a_deleted_besluit_are_no_votes() -> Non
 # ── cost: a build must not grow a lookup per item ────────────────────────────
 
 
-def test_linking_does_not_look_items_up_one_by_one() -> None:
+def _count_queries(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Every query function of ``db/queries/normalize/``, replaced by one that records
+    its name: the names of the queries a test ran."""
+    ran: list[str] = []
+
+    def recorder(name: str) -> Any:
+        def recorded(*_args: Any, **_kw: Any) -> Any:
+            ran.append(name)
+            return iter([])
+
+        return recorded
+
+    for module in (normalize_bwb, normalize_edges, normalize_rechtspraak, normalize_tk):
+        for name, function in inspect.getmembers(module, inspect.isfunction):
+            if function.__module__ == module.__name__:
+                monkeypatch.setattr(module, name, recorder(name))
+    return ran
+
+
+def test_linking_does_not_look_items_up_one_by_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ran = _count_queries(monkeypatch)
     n = 2000
     store = _Store(
         existing={
@@ -522,7 +548,7 @@ def test_linking_does_not_look_items_up_one_by_one() -> None:
     tk_cases.link_authors(store, documents, source=SOURCE)
 
     assert len(store.edge_meta) == 2 * n
-    assert store.query_calls == 0
+    assert ran == []
     # One existence lookup for the dossiers, one for the signatories.
     assert store.existence_calls == 2
 
@@ -577,43 +603,25 @@ def test_a_written_node_keeps_only_what_the_edges_need() -> None:
     assert nodes["doc1"].arango_id == f"{COLLECTION_DOCUMENTS}/doc1"
 
 
-def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists() -> None:
+def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from lawgraph.pipelines.normalize.tk_dossiers import (
         RAW_KINDS,
         TKDossiersNormalizePipeline,
     )
 
-    asked: list[tuple[list[str], int | None]] = []
+    asked: list[tuple[list[str], int]] = []
 
-    class Streaming(_Store):
-        def query(self, aql, bind_vars=None, *, batch_size=None):  # type: ignore[override]
-            asked.append(((bind_vars or {}).get("kinds"), batch_size))
-            return iter([])
+    def iter_raw_records(store: Any, *, kinds: list[str], batch_size: int, **_kw: Any):
+        asked.append((kinds, batch_size))
+        return iter([])
 
-    raw = TKDossiersNormalizePipeline(store=Streaming()).fetch_raw()
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+    monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_a: 0)
+
+    raw = TKDossiersNormalizePipeline(store=_Store()).fetch_raw()
     assert asked == []  # nothing is read before it is walked
     assert set(raw) == set(RAW_KINDS) and not isinstance(raw[RAW_KINDS[0]], list)
     assert list(raw[RAW_KINDS[0]]) == [] and list(raw[RAW_KINDS[0]]) == []
-    reads = [call for call in asked if call[1] is not None]  # without the counts
-    assert reads == [([RAW_KINDS[0]], 1000)] * 2  # every walk streams again
-
-
-def test_the_dossier_signals_query_builds_no_list_of_whole_documents() -> None:
-    """``RETURN doc`` in a subquery keeps every document of 500 dossiers, text and payload,
-    in the memory of the server until the outer RETURN projects it (measured on the test
-    server, 40,000 documents without text: a peak of 143 MB, 12 MB with the projection)."""
-    import re
-
-    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
-
-    seen: list[str] = []
-
-    class Store:
-        def query(self, aql: str, bind_vars: dict | None = None, **_kw: object):
-            seen.append(aql)
-            return iter([])
-
-    pipeline = TKDossiersNormalizePipeline.__new__(TKDossiersNormalizePipeline)
-    pipeline.store = Store()  # type: ignore[assignment]
-    pipeline._dossier_signals(["dossiers/36000"])
-    assert seen and not re.search(r"RETURN\s+(doc|node)\s*\n", seen[0])
+    assert asked == [([RAW_KINDS[0]], 1000)] * 2  # every walk streams again

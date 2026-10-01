@@ -11,6 +11,7 @@ import requests
 
 from lawgraph.clients import _sru
 from lawgraph.clients.eerstekamer import EerstekamerClient
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
@@ -27,15 +28,24 @@ class _Store(RawSourcesFake):
         self.recent = recent or []
         self.stored_at: dict[str, str] = {}
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[Any]:
-        if "at: r.fetched_at" in aql:  # _stored_at: {id, at} of every stored record
-            return [{"id": i, "at": at} for i, at in self.stored_at.items()]
-        if "retry_after" in aql:  # _without_missing: nothing is known to be missing
-            return []
-        return list(self.recent)
-
     def insert_raw_source(self, *, external_id: str | None = None, **_kw: Any) -> None:
         self.stored.append(external_id or "")
+
+
+@pytest.fixture(autouse=True)
+def _raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The reads of raw_sources, answered from the ``_Store``."""
+
+    def fetch_times(store: _Store, **_kw: Any) -> list[dict[str, str]]:
+        # _stored_at: {id, at} of every stored record
+        return [{"id": i, "at": at} for i, at in store.stored_at.items()]
+
+    monkeypatch.setattr(raw_queries, "fetch_times", fetch_times)
+    monkeypatch.setattr(
+        raw_queries, "ids_stored_since", lambda store, **_kw: list(store.recent)
+    )
+    # _without_missing: nothing is known to be missing
+    monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", lambda *_a, **_kw: [])
 
 
 def _record(external_id: str) -> RetrieveRecord:
@@ -105,18 +115,20 @@ def test_a_list_from_fetch_still_works() -> None:
 # ── a re-run after a crash only does the rest ────────────────────────────────
 
 
-def test_recently_stored_asks_for_the_last_24_hours() -> None:
+def test_recently_stored_asks_for_the_last_24_hours(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     asked: dict[str, Any] = {}
 
-    class Recorder(_Store):
-        def query(self, aql, bind_vars=None):
-            asked.update(bind_vars or {})
-            return ["x"]
+    def ids_stored_since(store: _Store, **kwargs: Any) -> list[str]:
+        asked.update(kwargs)
+        return ["x"]
 
-    done = _Pipeline(Recorder(), iter([]))._recently_stored("src", "kind")
+    monkeypatch.setattr(raw_queries, "ids_stored_since", ids_stored_since)
+    done = _Pipeline(_Store(), iter([]))._recently_stored("src", "kind")
     assert done == {"x"}
     assert asked["source"] == "src" and asked["kind"] == "kind"
-    cutoff = dt.datetime.fromisoformat(asked["cutoff"].replace("Z", "+00:00"))
+    cutoff = dt.datetime.fromisoformat(asked["cutoff_iso"].replace("Z", "+00:00"))
     age = dt.datetime.now(dt.timezone.utc) - cutoff
     assert dt.timedelta(hours=23, minutes=59) < age < dt.timedelta(hours=24, minutes=1)
 

@@ -1,12 +1,17 @@
-"""``semantic tk-amends`` and ``semantic bwb-implements``."""
+"""``semantic tk-amends``."""
 
 from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.config.constants import EDGE_STATUS_VOORGESTELD, RELATION_AMENDS
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk_amends import (
     TKAmendsSemanticPipeline,
     detect_amends_instrument,
@@ -47,7 +52,7 @@ def test_detect_amends_instrument_none_title_returns_empty() -> None:
 
 
 class _FakeStore(ExistingKeysFake):
-    """Minimal store stub for tests of both pipelines."""
+    """Minimal store stub for the pipeline tests."""
 
     def __init__(
         self,
@@ -58,38 +63,20 @@ class _FakeStore(ExistingKeysFake):
         self._pub_docs = pub_docs or []
         self._nodes = nodes or {}
         self.edges: dict[str, dict[str, Any]] = {}
-        self._call = 0
 
-    def query(
-        self, aql: str, bind_vars: dict | None = None, **_kw: Any
-    ) -> list[dict[str, Any]]:
-        # Instrument index query — return instrument nodes so alias detection works.
-        if "FOR inst IN instruments" in aql:
-            rows = []
-            for (coll, _key), node in self._nodes.items():
-                if coll != "instruments":
-                    continue
-                rows.append(
-                    {
-                        "bwb_id": node.props.get("bwb_id"),
-                        "celex": node.props.get("celex"),
-                        "title": node.props.get("title"),
-                        "citation_title": node.props.get("citation_title"),
-                        "short_title": node.props.get("short_title"),
-                    }
-                )
-            return rows
-        assert "raw_sources" not in aql  # no toestand XML is read here
-        if "celex_refs" in aql:
-            return [
-                [node.props["bwb_id"], node.props["celex_refs"]]
-                for (coll, _key), node in self._nodes.items()
-                if coll == "instruments" and node.props.get("celex_refs")
-            ]
-        # TK documents collection query.
-        if "documents" in aql:
-            return list(self._pub_docs)
-        return []
+    def alias_rows(self) -> list[dict[str, Any]]:
+        """The names and ids of the instruments, as the alias query returns them."""
+        return [
+            {
+                "bwb_id": node.props.get("bwb_id"),
+                "celex": node.props.get("celex"),
+                "title": node.props.get("title"),
+                "citation_title": node.props.get("citation_title"),
+                "short_title": node.props.get("short_title"),
+            }
+            for (coll, _key), node in self._nodes.items()
+            if coll == "instruments"
+        ]
 
     def get_node(self, collection: str, key: str) -> Node | None:
         return self._nodes.get((collection, key))
@@ -110,6 +97,23 @@ class _FakeStore(ExistingKeysFake):
             else:
                 updated += 1
         return created, updated
+
+
+@pytest.fixture(autouse=True)
+def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The instrument names and the TK documents come from the fake store; nothing is
+    removed."""
+    monkeypatch.setattr(
+        semantic_bwb,
+        "instrument_alias_rows",
+        lambda store: iter(store.alias_rows()),
+    )
+    monkeypatch.setattr(
+        semantic_tk,
+        "tk_document_titles",
+        lambda store, since_date: iter(list(store._pub_docs)),
+    )
+    monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
 
 
 def _make_pub(

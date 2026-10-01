@@ -2,42 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
+
+import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
-from tests.conftest import _BaseFakeStore
+from tests.conftest import _BaseFakeStore, remove_edges_from
 
 
 class _FakeStore(_BaseFakeStore):
     def __init__(self, articles: dict[str, dict[str, Any]]) -> None:
         super().__init__()
         self._articles = articles
-
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
-        if "REMOVE" in aql:  # the edges a run no longer derives: none stored here
-            return []
-        if "RETURN DISTINCT" in aql and "bwb_id" in aql and not bind_vars:
-            seen = set()
-            result = []
-            for article in self._articles.values():
-                bwb_id = article.get("props", {}).get("bwb_id")
-                if bwb_id and bwb_id not in seen:
-                    seen.add(bwb_id)
-                    result.append(bwb_id)
-            return result
-        desired = []
-        bwb_ids = bind_vars.get("bwb_ids") if bind_vars else None
-        for article in self._articles.values():
-            props = article.get("props", {})
-            if bwb_ids and props.get("bwb_id") not in bwb_ids:
-                continue
-            if props.get("references") is None:
-                continue
-            desired.append(article)
-        return desired
 
     def get_node(self, collection: str, key: str) -> Node | None:
         doc = self._articles.get(key)
@@ -68,6 +50,41 @@ class _FakeStore(_BaseFakeStore):
             stored = self._articles[doc["_key"]]
             stored["props"] = {**stored["props"], **doc["props"]}
         return 0, len(docs)
+
+
+@pytest.fixture(autouse=True)
+def _article_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The queries of the pipeline, answered from the articles of the fake store."""
+
+    def article_bwb_ids(store: _FakeStore) -> Iterator[str]:
+        props = (article.get("props", {}) for article in store._articles.values())
+        return iter(dict.fromkeys(p["bwb_id"] for p in props if p.get("bwb_id")))
+
+    def articles_with_references(
+        store: _FakeStore, bwb_ids: list[str]
+    ) -> Iterator[dict[str, Any]]:
+        return iter(
+            article
+            for article in store._articles.values()
+            if article.get("props", {}).get("bwb_id") in bwb_ids
+            and article.get("props", {}).get("references") is not None
+        )
+
+    def remove_edges(
+        store: _FakeStore,
+        relation: str,
+        source: str,
+        from_ids: list[str],
+        keep: dict[str, set[str]],
+    ) -> int:
+        bind = {"ids": from_ids, "relation": relation, "source": source, "keep": keep}
+        return sum(remove_edges_from(store.edges, bind))
+
+    monkeypatch.setattr(semantic_bwb, "article_bwb_ids", article_bwb_ids)
+    monkeypatch.setattr(
+        semantic_bwb, "articles_with_references", articles_with_references
+    )
+    monkeypatch.setattr(semantic_edges, "remove_edges_from", remove_edges)
 
 
 def _make_article(

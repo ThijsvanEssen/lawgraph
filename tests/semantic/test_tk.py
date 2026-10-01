@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
+
+import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk import (
     TKSemanticPipeline,
     detect_tk_citations,
@@ -24,28 +29,6 @@ class _FakeStore(_BaseFakeStore):
         self._documents = documents
         self._instruments = instruments
         self._articles = articles
-
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
-        if "FOR doc IN documents" in aql:
-            return list(self._documents)
-        if "FOR doc IN cases" in aql:
-            return []
-        if "FOR inst IN instruments" in aql:
-            # Return alias data so _load_code_aliases / _load_instrument_aliases work.
-            rows = []
-            for doc in self._instruments.values():
-                props = doc.get("props", {})
-                rows.append(
-                    {
-                        "bwb_id": props.get("bwb_id"),
-                        "celex": props.get("celex"),
-                        "title": props.get("title"),
-                        "citation_title": props.get("citation_title"),
-                        "short_title": props.get("short_title"),
-                    }
-                )
-            return rows
-        return []
 
     def get_node(self, collection: str, key: str) -> Node | None:
         docs = self._instruments if collection == "instruments" else self._articles
@@ -77,6 +60,32 @@ class _FakeStore(_BaseFakeStore):
             else:
                 updated += 1
         return created, updated
+
+
+@pytest.fixture(autouse=True)
+def _tk_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The queries of the pipeline, answered from the documents and instruments of the
+    fake store; no law lists its articles, so a cited article resolves by its node."""
+
+    def alias_rows(store: _FakeStore) -> Iterator[dict[str, Any]]:
+        fields = ("bwb_id", "celex", "title", "citation_title", "short_title")
+        return iter(
+            {field: doc.get("props", {}).get(field) for field in fields}
+            for doc in store._instruments.values()
+        )
+
+    def tk_documents(
+        store: _FakeStore, ids: list[str] | None
+    ) -> Iterator[dict[str, Any]]:
+        assert ids is None  # a full run: every TK document
+        return iter(store._documents)
+
+    monkeypatch.setattr(semantic_tk, "tk_documents", tk_documents)
+    monkeypatch.setattr(semantic_bwb, "code_alias_rows", alias_rows)
+    monkeypatch.setattr(semantic_bwb, "instrument_alias_rows", alias_rows)
+    monkeypatch.setattr(
+        semantic_bwb, "law_articles", lambda store, field, law_id: iter([])
+    )
 
 
 def _make_tk_document(key: str, text: str) -> dict[str, Any]:

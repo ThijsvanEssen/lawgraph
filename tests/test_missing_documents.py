@@ -8,6 +8,7 @@ import pytest
 import requests
 
 from lawgraph.config.constants import RAW_KIND_EU_CELEX, RAW_KIND_MISSING_SUFFIX
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.base import FailureStreak, SourceDown
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 
@@ -21,7 +22,7 @@ def _http_error(status: int) -> requests.HTTPError:
 
 
 class _Store:
-    """raw_sources as ``{(kind, external_id): doc}``; answers the 'stored since' query."""
+    """raw_sources as ``{(kind, external_id): doc}``."""
 
     def __init__(self) -> None:
         self.docs: dict[tuple[str, str], dict[str, Any]] = {}
@@ -31,19 +32,31 @@ class _Store:
             self.docs[(doc["kind"], doc["external_id"])] = doc
         return []
 
-    def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list[str]:
-        bind = bind_vars or {}
-        if "retry_after" in aql:  # _without_missing
-            return [
-                external_id
-                for (kind, external_id), doc in self.docs.items()
-                if kind == bind["kind"] and doc["meta"]["retry_after"] > bind["now"]
-            ]
-        return [  # _recently_stored
+
+@pytest.fixture(autouse=True)
+def _raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The 'waiting for a retry' and 'stored since' reads, answered from ``_Store.docs``."""
+
+    def waiting(
+        store: _Store, *, source: str, kind: str, now_iso: str | None
+    ) -> list[str]:
+        return [
             external_id
-            for (kind, external_id), doc in self.docs.items()
-            if kind == bind["kind"] and doc["fetched_at"] >= bind["cutoff"]
+            for (k, external_id), doc in store.docs.items()
+            if k == kind and doc["meta"]["retry_after"] > now_iso
         ]
+
+    def stored_since(
+        store: _Store, *, source: str, kind: str, cutoff_iso: str | None
+    ) -> list[str]:
+        return [
+            external_id
+            for (k, external_id), doc in store.docs.items()
+            if k == kind and doc["fetched_at"] >= cutoff_iso
+        ]
+
+    monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", waiting)
+    monkeypatch.setattr(raw_queries, "ids_stored_since", stored_since)
 
 
 class _Eu:

@@ -6,7 +6,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.config.constants import RELATION_EXPLAINS
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.staatsblad import StaatsbladSemanticPipeline
 from lawgraph.pipelines.semantic.staatscourant import (
     StaatscourantSemanticPipeline,
@@ -15,17 +18,30 @@ from tests.conftest import _BaseFakeStore
 
 
 class _FakeStore(_BaseFakeStore):
-    """Generic FakeStore that returns pre-set query results."""
+    """Holds the matches the queries of both pipelines return."""
 
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         super().__init__()
-        self._rows = rows
-
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
-        return list(self._rows)
+        self.rows = rows
 
 
-# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _matches(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both strategies of the Staatscourant match the same rows; its text scan finds
+    nothing more."""
+    monkeypatch.setattr(
+        semantic_bwb,
+        "staatsblad_instrument_matches",
+        lambda store: list(store.rows),
+    )
+    monkeypatch.setattr(
+        semantic_bwb,
+        "staatscourant_instrument_matches",
+        lambda store, since_date: [*store.rows, *store.rows],
+    )
+    monkeypatch.setattr(
+        semantic_bwb, "staatscourant_texts", lambda store, since_date: iter([])
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -68,8 +84,7 @@ def test_staatscourant_regeling_creates_explains_instrument_edge() -> None:
             "match_type": "bwb_id",
         }
     ]
-    # The pipeline calls query three times: bwb query, title query, text-scan query.
-    # All return the same row — dedup ensures only 1 edge is created.
+    # The match by bwb_id and the match by title return the same row: one edge.
     store = _FakeStore(rows=rows)
     pipeline = StaatscourantSemanticPipeline(store=store)
     result = pipeline.run()
