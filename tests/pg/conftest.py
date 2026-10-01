@@ -12,10 +12,13 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Iterator
+from pathlib import Path
 
 import psycopg
 import pytest
 
+from lawgraph.db import ArangoStore
+from lawgraph.db import store as store_module
 from lawgraph.db.schema import create_database_sql, ensure_schema
 
 TEST_URL = os.environ.get(
@@ -67,3 +70,21 @@ def conn(database_url: str) -> Iterator[psycopg.Connection]:
     with psycopg.connect(database_url, autocommit=True) as connection:
         ensure_schema(connection)
         yield connection
+
+
+@pytest.fixture()
+def store(
+    database_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[ArangoStore]:
+    """The store on a fresh database, with a payload store of its own."""
+    server, name = database_url.rsplit("/", 1)
+    monkeypatch.setattr(store_module, "DB_URL", server)
+    monkeypatch.setattr(store_module, "DB_NAME", name)
+    monkeypatch.setattr(
+        store_module, "PAYLOAD_STORE", f"file://{tmp_path / 'payloads'}"
+    )
+    opened = ArangoStore()
+    try:
+        yield opened
+    finally:
+        opened.close()

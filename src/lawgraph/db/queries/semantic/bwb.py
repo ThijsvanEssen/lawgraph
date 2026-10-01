@@ -20,8 +20,8 @@ from lawgraph.config.constants import (
     SOURCE_STAATSCOURANT,
 )
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._aql import sorted_merge
 from lawgraph.db.queries.semantic import slim
-from lawgraph.db.store import sorted_merge
 
 
 def law_articles(store: Store, field: str, law_id: str) -> Iterator[dict[str, Any]]:

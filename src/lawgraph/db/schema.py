@@ -40,6 +40,7 @@ from lawgraph.config.constants import (
     COLLECTION_PIPELINE_STATE,
     COLLECTION_RAW_SOURCES,
 )
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 
 # The collation of the database: how ArangoDB sorts and compares strings (probe P2).
 COLLATION = "und-u-kf-upper"
@@ -121,6 +122,27 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     ) merged
 $$;
 
+-- An update of props or meta: *a* with the values of *b*, one level deep, every key in the
+-- order of the collation. How the store and the steps that set props in place write (D11): an
+-- order that does not depend on what was written first, or on a hash.
+CREATE OR REPLACE FUNCTION lg_update(a json, b json) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(json_object_agg(key, value ORDER BY key), '{}'::json)
+    FROM (
+        SELECT key, CASE WHEN r.value IS NOT NULL THEN r.value ELSE l.value END AS value
+        FROM json_each(coalesce(a, '{}')) AS l(key, value)
+        FULL JOIN json_each(coalesce(b, '{}')) AS r(key, value) USING (key)
+    ) merged
+$$;
+
+-- UNSET(a, keys): *a* without *keys*, the others in their order.
+CREATE OR REPLACE FUNCTION lg_unset(a json, keys text[]) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(json_object_agg(key, value ORDER BY n), '{}'::json)
+    FROM json_each(coalesce(a, '{}')) WITH ORDINALITY AS e(key, value, n)
+    WHERE key <> ALL(keys)
+$$;
+
 -- UNIQUE(APPEND(a, b)) and UNION_DISTINCT: every value once, where it first occurs.
 CREATE OR REPLACE FUNCTION lg_array_union(a text[], b text[]) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -155,6 +177,86 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
 $$;
 """
 
+SEARCH_FUNCTIONS = r"""
+-- The strings a field holds: a string, or the strings of an array (``names``, ``aliases``).
+CREATE OR REPLACE FUNCTION lg_values(v json) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE json_typeof(v)
+        WHEN 'string' THEN ARRAY[v #>> '{}']
+        WHEN 'array' THEN lg_text_array(v)
+        ELSE '{}'::text[]
+    END
+$$;
+CREATE OR REPLACE FUNCTION lg_tokens_all(vs text[]) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(t ORDER BY n, m), '{}')
+    FROM unnest(vs) WITH ORDINALITY AS v(value, n),
+         unnest(lg_tokens(value)) WITH ORDINALITY AS w(t, m)
+$$;
+CREATE OR REPLACE FUNCTION lg_fold_all(vs text[]) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(lg_fold(value) ORDER BY n), '{}')
+    FROM unnest(vs) WITH ORDINALITY AS v(value, n)
+$$;
+-- The folded values in one string, for a substring search (array_to_string is only STABLE:
+-- for the text arrays here its answer does not change).
+CREATE OR REPLACE FUNCTION lg_join(vs text[]) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT array_to_string(vs, chr(31))
+$$;
+-- BM25 of one term in one field (``queries/_bm25.py``): *tf* is evaluated once.
+CREATE OR REPLACE FUNCTION lg_bm25(tf float8, len float8, weight float8, avglen float8)
+RETURNS float8 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN tf > 0
+        THEN weight * tf * 2.2 / (tf + 1.2 * (0.25 + 0.75 * len / avglen)) ELSE 0 END
+$$;
+-- The 3- to 12-grams of a string of *l* characters.
+CREATE OR REPLACE FUNCTION lg_ngrams(l int) RETURNS int
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN l >= 12 THEN 10 * l - 75 WHEN l >= 3 THEN (l - 2) * (l - 1) / 2 ELSE 0 END
+$$;
+-- The names a member or a faction is searched by, in lower case (``queries/search.py``):
+-- its name, its party, and the abbreviation, name and aliases of every faction it was in.
+CREATE OR REPLACE FUNCTION lg_member_names(props json) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT lower(concat_ws(' ',
+        coalesce(props ->> 'name', ''),
+        coalesce(props ->> 'party', ''),
+        (SELECT string_agg(concat_ws(' ',
+                    coalesce(m ->> 'abbreviation', ''),
+                    coalesce(m ->> 'name', ''),
+                    lg_join(lg_text_array(m -> 'aliases'))
+                ), ' ' ORDER BY n)
+         FROM json_array_elements(
+             CASE WHEN json_typeof(props -> 'faction_memberships') = 'array'
+                  THEN props -> 'faction_memberships' ELSE '[]'::json END
+         ) WITH ORDINALITY AS fm(m, n))
+    ))
+$$;
+CREATE OR REPLACE FUNCTION lg_faction_names(props json) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT lower(concat_ws(' ',
+        coalesce(props ->> 'name', ''),
+        coalesce(props ->> 'abbreviation', ''),
+        lg_join(lg_text_array(props -> 'aliases'))
+    ))
+$$;
+-- A word as a LIKE pattern that matches it literally.
+CREATE OR REPLACE FUNCTION lg_like(t text) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT replace(replace(replace(t, '\', '\\'), '%', '\%'), '_', '\_')
+$$;
+-- Tokens as a tsvector of one weight, each at its position, for the rank of a hit.
+CREATE OR REPLACE FUNCTION lg_tsv(tokens text[], weight "char") RETURNS tsvector
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(
+        string_agg(quote_literal(t) || ':' || least(n, 16383) || weight::text, ' ')::tsvector,
+        ''::tsvector
+    )
+    FROM unnest(tokens) WITH ORDINALITY AS w(t, n)
+$$;
+"""
+
 DICTIONARY = """
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_ts_dict WHERE dictname = 'lawgraph_dutch') THEN
@@ -162,6 +264,9 @@ DO $$ BEGIN
     END IF;
 END $$
 """
+
+# Substring search on the ngram columns (``LIKE '%word%'`` from an index).
+TRIGRAMS = "CREATE EXTENSION IF NOT EXISTS pg_trgm"
 
 # ── node tables ──────────────────────────────────────────────────────────────
 
@@ -185,6 +290,12 @@ def _num(field: str) -> Column:
 
 def _bool(field: str) -> Column:
     return Column(field, "boolean", f"lg_bool(props -> '{field}')")
+
+
+def _json(field: str) -> Column:
+    """A prop as stored (its JSON value), for a document whose props are large: reading it
+    from ``props`` parses them whole."""
+    return Column(f"pj_{field}", "json", f"props -> '{field}'")
 
 
 def _strings(field: str) -> Column:
@@ -241,6 +352,28 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _bool("stub"),
         _strings("subjects"),
         _num("inbound_citation_count"),
+        # what the lists and the citing judgments show of a judgment (its props hold its
+        # text and paragraphs)
+        *(
+            _json(field)
+            for field in (
+                "ecli",
+                "display_name",
+                "summary",
+                "names",
+                "decision_kind",
+                "court_code",
+                "tier",
+                "court_kind",
+                "date_eff",
+                "source",
+                "subjects",
+                "inbound_citation_count",
+                "outbound_citation_count",
+                "series_id",
+                "series_size",
+            )
+        ),
     ),
     COLLECTION_DOCUMENTS: (
         _str("source"),
@@ -280,12 +413,23 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
             "text[]",
             "lg_path_array(props -> 'government_functions', 'cabinet_key')",
         ),
+        _bool("active"),
+        _str("name"),
+        Column("search_names", "text", "lg_member_names(props)"),
+    ),
+    COLLECTION_FACTIONS: (
+        _bool("active"),
+        _str("name"),
+        _num("seats"),
+        Column("search_names", "text", "lg_faction_names(props)"),
     ),
     COLLECTION_ANNEXES: (_str("bwb_id"),),
 }
 
 # collection -> indexes: the columns of each and whether it is unique. An array column
-# alone (``labels``, ``subjects``) gets a GIN index.
+# alone (``labels``, ``subjects``) gets a GIN index. A column may carry its order
+# (``date_eff DESC NULLS LAST``): an index in the order of a list serves its page without
+# sorting the list (read backwards, it serves the opposite order too).
 INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
     COLLECTION_INSTRUMENTS: (
         (("bwb_id",), True),
@@ -353,7 +497,8 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
         (("date_eff", "tier", "court_kind", "stub", "source", "same_as"), False),
         (("court_kind", "date_eff", "stub", "source", "same_as"), False),
         (("subjects",), False),
-        (("inbound_citation_count",), False),
+        (("date_eff DESC NULLS LAST", "key DESC"), False),
+        (("inbound_citation_count DESC NULLS LAST", "key DESC"), False),
     ),
     COLLECTION_DOSSIERS: (
         (("labels",), False),
@@ -386,6 +531,128 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
 }
 
 
+# ── search ───────────────────────────────────────────────────────────────────
+
+# What ArangoSearch indexed, per collection and field, with which analyzers: ``text``
+# (text_nl, stemmed words), ``identity`` (the value as is, for a prefix), ``norm``
+# (lawgraph_norm, the folded value) and ``ngram`` (lawgraph_ngram_v2, a part of the folded
+# value). Each becomes a column the search reads (``queries/search.py``).
+SEARCH_FIELDS: dict[str, dict[str, tuple[str, ...]]] = {
+    COLLECTION_ARTICLES: {
+        "display_name": ("text", "identity", "ngram"),
+        "text": ("text",),
+        "article_number": ("text", "identity", "norm"),
+        "bwb_id": ("text", "identity", "norm"),
+        "heading": ("text", "identity", "norm", "ngram"),
+        "breadcrumb.title": ("text",),
+    },
+    COLLECTION_INSTRUMENTS: {
+        "title": ("text", "ngram"),
+        "citation_title": ("text", "identity", "ngram"),
+        "official_title": ("text", "ngram"),
+        "display_name": ("text", "identity", "ngram"),
+        "short_title": ("identity", "norm"),
+        "aliases": ("text", "identity", "norm"),
+        "bwb_id": ("identity", "norm"),
+    },
+    COLLECTION_JUDGMENTS: {
+        "display_name": ("text", "identity", "ngram"),
+        "names": ("text", "identity", "norm", "ngram"),
+        "summary": ("text",),
+        "ecli": ("identity", "norm"),
+        "appno": ("identity", "norm"),
+    },
+    COLLECTION_DOSSIERS: {
+        "title": ("text", "ngram"),
+        "display_name": ("text", "ngram"),
+        "number": ("identity", "norm"),
+    },
+    COLLECTION_DOCUMENTS: {
+        "title": ("text", "ngram"),
+        "display_name": ("text", "ngram"),
+        "external_id": ("identity", "norm"),
+    },
+    COLLECTION_COMMITTEES: {
+        "name": ("text", "ngram"),
+        "abbreviation": ("text", "identity", "norm"),
+    },
+}
+
+# The weight of a field's words in the rank of a hit (``search_tsv``): the boosts of the
+# search, A the highest. A field not named weighs D.
+SEARCH_WEIGHTS: dict[str, dict[str, str]] = {
+    COLLECTION_ARTICLES: {"heading": "A", "display_name": "B", "breadcrumb.title": "C"},
+    COLLECTION_INSTRUMENTS: {"aliases": "A", "citation_title": "B"},
+}
+
+
+def search_column(field: str, analyzer: str) -> str:
+    """The column of *field* a search under *analyzer* reads."""
+    suffix = {"identity": "v", "text": "t", "norm": "n", "ngram": "g", "prefix": "p"}[
+        analyzer
+    ]
+    return f"s_{field.replace('.', '_')}_{suffix}"
+
+
+def _values_sql(field: str) -> str:
+    if "." in field:
+        parent, child = field.split(".", 1)
+        return f"coalesce(lg_path_array(props -> '{parent}', '{child}'), '{{}}')"
+    return f"lg_values(props -> '{field}')"
+
+
+def _search_columns(collection: str) -> list[Column]:
+    columns: list[Column] = []
+    weighted: list[str] = []
+    for field, analyzers in SEARCH_FIELDS.get(collection, {}).items():
+        values = _values_sql(field)
+        expressions = {
+            "identity": ("text[]", values),
+            "text": ("text[]", f"lg_tokens_all({values})"),
+            "norm": ("text[]", f"lg_fold_all({values})"),
+            "ngram": ("text", f"lg_join(lg_fold_all({values}))"),
+        }
+        for analyzer in analyzers:
+            sql_type, expression = expressions[analyzer]
+            columns.append(Column(search_column(field, analyzer), sql_type, expression))
+        if "identity" in analyzers:
+            # every value after a separator: a prefix of a value is an indexed part of it
+            columns.append(
+                Column(
+                    search_column(field, "prefix"),
+                    "text",
+                    f"chr(31) || lg_join({values})",
+                )
+            )
+        if "text" in analyzers:
+            weight = SEARCH_WEIGHTS.get(collection, {}).get(field, "D")
+            weighted.append(f"lg_tsv(lg_tokens_all({values}), '{weight}')")
+    if weighted:
+        columns.append(Column("search_tsv", "tsvector", " || ".join(weighted)))
+    return columns
+
+
+def _search_indexes(collection: str) -> list[str]:
+    statements = []
+    if collection in (COLLECTION_MEMBERS, COLLECTION_FACTIONS):
+        statements.append(
+            f"CREATE INDEX IF NOT EXISTS {collection}_search_names ON {collection}"
+            " USING gin (search_names gin_trgm_ops)"
+        )
+    for column in _search_columns(collection):
+        name = f"{collection}_{column.name}"
+        if column.name.endswith(("_t", "_n")):
+            statements.append(
+                f"CREATE INDEX IF NOT EXISTS {name} ON {collection} USING gin ({column.name})"
+            )
+        elif column.name.endswith(("_g", "_p")):
+            statements.append(
+                f"CREATE INDEX IF NOT EXISTS {name} ON {collection}"
+                f" USING gin ({column.name} gin_trgm_ops)"
+            )
+    return statements
+
+
 def _array_columns(collection: str) -> set[str]:
     arrays = {c.name for c in COLUMNS.get(collection, ()) if c.sql_type.endswith("[]")}
     return arrays | {"labels"}
@@ -394,7 +661,7 @@ def _array_columns(collection: str) -> set[str]:
 def node_table(collection: str) -> list[str]:
     columns = "".join(
         f",\n    {c.name} {c.sql_type} GENERATED ALWAYS AS ({c.expression}) STORED"
-        for c in COLUMNS.get(collection, ())
+        for c in (*COLUMNS.get(collection, ()), *_search_columns(collection))
     )
     prefix = len(collection) + 2
     statements = [
@@ -408,14 +675,31 @@ def node_table(collection: str) -> list[str]:
         f"CREATE UNIQUE INDEX IF NOT EXISTS {collection}_key ON {collection} (key)",
     ]
     for fields, unique in INDEXES.get(collection, ()):
-        name = f"{collection}_{'_'.join(fields)}"
+        name = f"{collection}_{'_'.join(f.split()[0] for f in fields)}"
         gin = len(fields) == 1 and fields[0] in _array_columns(collection)
         method = " USING gin" if gin else ""
         kind = "UNIQUE INDEX" if unique else "INDEX"
         statements.append(
             f"CREATE {kind} IF NOT EXISTS {name} ON {collection}{method} ({', '.join(fields)})"
         )
-    return statements
+    return (
+        statements
+        + list(_LIST_INDEXES.get(collection, ()))
+        + _search_indexes(collection)
+    )
+
+
+# The instruments list holds every instrument but the publications: an index per sort of
+# it over those alone, so that a page does not pass every publication on the way.
+_LISTED = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
+_LIST_INDEXES: dict[str, tuple[str, ...]] = {
+    COLLECTION_INSTRUMENTS: (
+        "CREATE INDEX IF NOT EXISTS instruments_list_title"
+        f" ON instruments (citation_title NULLS FIRST, key) WHERE {_LISTED}",
+        "CREATE INDEX IF NOT EXISTS instruments_list_article_count"
+        f" ON instruments (article_count DESC NULLS LAST, key DESC) WHERE {_LISTED}",
+    ),
+}
 
 
 # ── edges, raw records, pipeline state ───────────────────────────────────────
@@ -435,11 +719,13 @@ CREATE TABLE IF NOT EXISTS {COLLECTION_EDGES} (
     confidence double precision GENERATED ALWAYS AS (lg_num(doc -> 'confidence')) STORED,
     semantic_type text GENERATED ALWAYS AS (lg_str(doc -> 'semantic_type')) STORED,
     record_ids text[] GENERATED ALWAYS AS
-        (lg_text_array(doc -> 'meta' -> 'record_ids')) STORED
+        (lg_text_array(doc -> 'meta' -> 'record_ids')) STORED,
+    created_at text GENERATED ALWAYS AS (lg_str(doc -> 'created_at')) STORED
 );
 CREATE INDEX IF NOT EXISTS edges_from ON edges (from_id, relation, to_collection);
 CREATE INDEX IF NOT EXISTS edges_to ON edges (to_id, relation, from_collection);
 CREATE INDEX IF NOT EXISTS edges_relation ON edges (relation);
+CREATE INDEX IF NOT EXISTS edges_created_at ON edges (created_at, to_id);
 CREATE INDEX IF NOT EXISTS edges_status_relation ON edges (status, relation);
 CREATE INDEX IF NOT EXISTS edges_confidence ON edges (confidence);
 CREATE INDEX IF NOT EXISTS edges_record_ids ON edges USING gin (record_ids);
@@ -459,7 +745,8 @@ CREATE TABLE IF NOT EXISTS {COLLECTION_RAW_SOURCES} (
     external_id text GENERATED ALWAYS AS (lg_str(doc -> 'external_id')) STORED,
     fetched_at text GENERATED ALWAYS AS (lg_str(doc -> 'fetched_at')) STORED
 );
-CREATE INDEX IF NOT EXISTS raw_sources_source_kind ON raw_sources (source, kind)
+CREATE INDEX IF NOT EXISTS raw_sources_source_kind ON raw_sources (source, kind, key);
+CREATE INDEX IF NOT EXISTS raw_sources_source_fetched_at ON raw_sources (source, fetched_at)
 """
 
 PIPELINE_STATE = f"""
@@ -517,7 +804,7 @@ def nodes_view() -> str:
 
 def statements() -> list[str]:
     """The whole schema, in the order it is created."""
-    found = [DICTIONARY, FUNCTIONS, DATA_VERSION]
+    found = [DICTIONARY, FUNCTIONS, SEARCH_FUNCTIONS, DATA_VERSION, TRIGRAMS]
     for collection in NODE_COLLECTIONS:
         found += node_table(collection)
         found += data_version_triggers(collection)

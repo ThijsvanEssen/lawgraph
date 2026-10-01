@@ -1,4 +1,9 @@
-"""LawGraph ArangoDB store — connection, collection handles, and CRUD operations."""
+"""LawGraph store on PostgreSQL: the connections, the writes of every pipeline, the reads.
+
+The class keeps the name ``ArangoStore`` until the switch (D5); what it does is the same:
+queries stream, writes are upserts that can be sent again after a restart, and an upsert
+that would change nothing writes nothing.
+"""
 
 from __future__ import annotations
 
@@ -6,30 +11,27 @@ import datetime as dt
 import hashlib
 import re
 import time
-from collections.abc import Callable, Iterable, Iterator
+import uuid
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
-from typing import Any, TypeVar, cast
-from uuid import uuid4
+from typing import Any, TypeVar
 
-import requests
-from arango.client import ArangoClient
-from arango.exceptions import ArangoServerError, DocumentInsertError
+import psycopg
+from psycopg import sql
+from psycopg.rows import RowMaker
+from psycopg.types.json import Json
+from psycopg_pool import ConnectionPool
 
 from lawgraph.config.constants import (
-    COLLECTION_ARTICLES,
     COLLECTION_EDGES,
-    COLLECTION_JUDGMENTS,
     COLLECTION_PIPELINE_STATE,
     COLLECTION_RAW_SOURCES,
-    DOCUMENT_COLLECTIONS,
 )
 from lawgraph.config.settings import (
-    ARANGO_DB_NAME,
-    ARANGO_PASSWORD,
-    ARANGO_REQUEST_TIMEOUT,
-    ARANGO_URL,
-    ARANGO_USER,
+    DB_NAME,
+    DB_POOL_SIZE,
+    DB_URL,
     PAYLOAD_STORE,
     S3_ACCESS_KEY,
     S3_ENDPOINT,
@@ -39,6 +41,7 @@ from lawgraph.config.settings import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db._rows import node_doc, split_edge, split_node
 from lawgraph.db.payloads import (
     PayloadMissing,
     PayloadStore,
@@ -46,11 +49,13 @@ from lawgraph.db.payloads import (
     encode,
     open_payload_store,
 )
-from lawgraph.db.schema_arango import ensure_schema
+from lawgraph.db.schema import NODE_COLLECTIONS, create_database_sql, ensure_schema
 
 logger = get_logger(__name__)
 
 T = TypeVar("T")
+Params = dict[str, Any] | Sequence[Any] | None
+Statement = str | sql.SQL | sql.Composed
 
 
 def edge_key(from_id: str, relation: str, to_id: str) -> str:
@@ -58,61 +63,13 @@ def edge_key(from_id: str, relation: str, to_id: str) -> str:
     return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
 
 
-# AQL templates shared between single-doc and batch upsert methods. ``props`` and ``meta``
-# are merged one level deep here, and the statements say ``mergeObjects: false``: an UPDATE
-# merges nested objects by default, which kept every key a nested value ever had (a vote
-# tally showed the choice nobody made any more next to the one they changed it to).
-#
-# ``{old}`` is the stored document: ``OLD`` in the UPDATE, and the document looked up before
-# it in the bulk upsert, which leaves a document alone when the update would change nothing.
-# What the API does not serve: a write here leaves ``data_version`` as it is.
-_NOT_SERVED = frozenset({COLLECTION_RAW_SOURCES, COLLECTION_PIPELINE_STATE})
-
-
-def sorted_merge(left: str, right: str) -> str:
-    """AQL for ``MERGE(left, right)`` with every key in the order of the collation.
-
-    MERGE keeps the keys of *left* and adds those only *right* has in the order of a hash
-    map, which differs from one execution to the next: the props of a node the API serves
-    would come out in another order after every run. Sorted, they do not (D11). The names
-    of its variables are its own, so it can go into a query that has ``names``."""
-    return (
-        f"(FOR sorted_merged IN [MERGE({left}, {right})]"
-        " LET sorted_names = ATTRIBUTES(sorted_merged, false, true)"
-        " RETURN ZIP(sorted_names, sorted_names[* RETURN sorted_merged[CURRENT]]))[0]"
-    )
-
-
-_NODE_UPSERT_UPDATE = f"""
-    type: doc.type,
-    labels: UNIQUE(APPEND({{old}}.labels, doc.labels)),
-    props: {sorted_merge("{old}.props", "doc.props")}
-"""
-
-_EDGE_UPSERT_UPDATE = f"""
-    confidence: doc.confidence,
-    source: doc.source,
-    status: doc.status,
-    meta: {sorted_merge("{old}.meta", "doc.meta")}
-"""
-
-
-def _create_database_if_missing(client: ArangoClient) -> None:
-    """Create ``ARANGO_DB_NAME`` when the user may administer the server and it is absent."""
-    system = client.db("_system", username=ARANGO_USER, password=ARANGO_PASSWORD)
-    try:
-        exists = system.has_database(ARANGO_DB_NAME)
-    except ArangoServerError:
-        return  # no access to _system: the database must already exist
-    if not exists:
-        system.create_database(ARANGO_DB_NAME)
-        logger.info("Created database %s.", ARANGO_DB_NAME)
-
-
 def raw_key(source: str, kind: str, external_id: str) -> str:
-    """The ``_key`` of the raw_sources document of (source, kind, external_id)."""
+    """The key of the raw_sources document of (source, kind, external_id)."""
     return hashlib.sha1(f"{source}:{kind}:{external_id}".encode()).hexdigest()
 
+
+# What the API serves: a write to raw_sources or pipeline_state leaves ``data_version``.
+_SERVED = (*NODE_COLLECTIONS, COLLECTION_EDGES)
 
 # Payloads read or written at once (a thread and a connection each).
 PAYLOAD_THREADS = 16
@@ -122,10 +79,10 @@ def payload_name(doc: dict[str, Any]) -> str:
     """The name of the object of a raw record's text payload.
 
     It starts with the database, so two databases (a test database next to the real one)
-    never share an object; ``raw_sources`` keeps the name, so a restored dump under another
-    name still finds its objects.
+    never share an object; ``raw_sources`` keeps the name, so a copy under another name
+    still finds its objects.
     """
-    return f"{ARANGO_DB_NAME}/{doc['source']}/{doc['kind']}/{doc['_key']}.gz"
+    return f"{DB_NAME}/{doc['source']}/{doc['kind']}/{doc['_key']}.gz"
 
 
 def raw_source_doc(
@@ -145,7 +102,7 @@ def raw_source_doc(
     if external_id is not None:
         key = raw_key(source, kind, external_id)
     else:
-        key = str(uuid4())
+        key = str(uuid.uuid4())
     return {
         "_key": key,
         "source": source,
@@ -165,14 +122,14 @@ def raw_source_doc(
 # failure is real and is raised.
 WRITE_RETRY_WAITS = (2.0, 10.0, 30.0)
 
+# The server cannot be reached, is starting up or shutting down; not: it refused the query.
+_UNREACHABLE_STATES = frozenset({"57P01", "57P02", "57P03", "08000", "08003", "08006"})
+
 
 def _is_unreachable(exc: Exception) -> bool:
-    """The server cannot be reached or is starting up; not: it refused what we sent."""
-    if isinstance(exc, ArangoServerError):
-        return exc.http_code == 503
-    return isinstance(
-        exc, (ConnectionError, requests.ConnectionError, requests.Timeout)
-    )
+    if isinstance(exc, psycopg.OperationalError):
+        return exc.sqlstate is None or exc.sqlstate in _UNREACHABLE_STATES
+    return isinstance(exc, ConnectionError)
 
 
 def _retry_write(what: str, write: Callable[[], T]) -> T:
@@ -192,65 +149,66 @@ def _retry_write(what: str, write: Callable[[], T]) -> T:
     return write()
 
 
-def _closing(cursor: Any) -> Iterator[Any]:
-    """The rows of *cursor*; the cursor is closed when the reader stops, however it stops.
-
-    A reader that raises halfway would leave its query (and the snapshot it holds) open on
-    the server until the ttl of an hour has passed.
-    """
-    try:
-        yield from cursor
-    finally:
-        try:
-            cursor.close(ignore_missing=True)
-        except Exception as exc:  # the server is gone, or the cursor already is
-            logger.debug("Closing a cursor failed: %s", exc)
-
-
 def _sleep(seconds: float) -> None:
     time.sleep(seconds)
 
 
-# A query with one of these operations changes data (AQL keywords are written in capitals
-# throughout the code; ``updated_at`` and the like do not match).
-_WRITES = re.compile(r"\b(INSERT|UPDATE|REPLACE|REMOVE|UPSERT)\b")
-WRITE_MAX_RUNTIME = 600.0
+# A statement with one of these changes data (SQL keywords are written in capitals
+# throughout the code); it runs to the end at once, in a transaction of its own.
+_WRITES = re.compile(r"\b(INSERT|UPDATE|DELETE|MERGE|TRUNCATE)\b")
+WRITE_MAX_RUNTIME_MS = 600_000
 
-# How long the server keeps an AQL cursor that is not read (its default is 30 seconds).
-CURSOR_TTL_SECONDS = 3600.0
+
+def _rows(cursor: psycopg.Cursor[Any]) -> RowMaker[Any]:
+    """A row as the code reads it: the value itself when the query selects one column (a
+    document, a count, a key), otherwise a dict of the columns."""
+    names = [c.name for c in cursor.description or ()]
+    if len(names) == 1:
+        return lambda values: values[0]
+    return lambda values: dict(zip(names, values, strict=True))
+
+
+def _server_url(database: str) -> str:
+    return f"{DB_URL.rstrip('/')}/{database}"
+
+
+def _create_database_if_missing() -> None:
+    """Create ``DB_NAME`` when it is absent and the user may create databases."""
+    try:
+        with psycopg.connect(_server_url("postgres"), autocommit=True) as admin:
+            found = admin.execute(
+                "SELECT 1 FROM pg_database WHERE datname = %s", (DB_NAME,)
+            ).fetchone()
+            if found is None:
+                admin.execute(create_database_sql(DB_NAME).encode())
+                logger.info("Created database %s.", DB_NAME)
+    except psycopg.Error:
+        return  # no access to the server's own database: ours must already exist
 
 
 class ArangoStore:
-    """Encapsulation of the ArangoDB client, collections, and CRUD helpers."""
+    """The PostgreSQL database of the graph: connections, reads, upserts."""
 
     def __init__(self) -> None:
-        client = ArangoClient(hosts=ARANGO_URL, request_timeout=ARANGO_REQUEST_TIMEOUT)
+        self.name = DB_NAME
+        _create_database_if_missing()
         try:
-            _create_database_if_missing(client)
-            self.db = client.db(
-                ARANGO_DB_NAME, username=ARANGO_USER, password=ARANGO_PASSWORD
+            # Every connection is opened at the start: no request waits for a new one.
+            self.pool = ConnectionPool(
+                _server_url(DB_NAME),
+                min_size=DB_POOL_SIZE,
+                max_size=DB_POOL_SIZE,
+                open=True,
+                timeout=60,
+                name="lawgraph",
             )
-            self.db.version()
+            with self.pool.connection() as conn:
+                ensure_schema(conn)
         except Exception as exc:
             raise ConnectionError(
-                f"Cannot connect to ArangoDB at {ARANGO_URL} "
-                f"(db={ARANGO_DB_NAME}, user={ARANGO_USER}). "
+                f"Cannot connect to PostgreSQL at {DB_URL} (db={DB_NAME}). "
                 f"Original error: {exc}"
             ) from exc
-
-        ensure_schema(self.db)
-
-        self._collections = {
-            name: self.db.collection(name) for name in DOCUMENT_COLLECTIONS
-        }
-        self._collections[COLLECTION_EDGES] = self.db.collection(COLLECTION_EDGES)
-
-        # Shorthands for the collections this class and its callers reach for
-        # by name; everything else goes through ``collection()``.
-        self.articles = self._collections[COLLECTION_ARTICLES]
-        self.judgments = self._collections[COLLECTION_JUDGMENTS]
-        self.raw_sources = self._collections[COLLECTION_RAW_SOURCES]
-        self.edges = self._collections[COLLECTION_EDGES]
 
         self.payloads: PayloadStore = open_payload_store(
             PAYLOAD_STORE,
@@ -264,116 +222,181 @@ class ArangoStore:
             max_workers=PAYLOAD_THREADS, thread_name_prefix="payload"
         )
 
+    def close(self) -> None:
+        self.pool.close()
+        self._payload_io.shutdown(wait=False)
+
     def ping(self) -> None:
         """Raise when the database cannot be reached."""
-        self.db.version()
+        with self.pool.connection() as conn:
+            conn.execute("SELECT 1")
+
+    @staticmethod
+    def _node_table(collection: str) -> sql.Identifier:
+        if collection not in NODE_COLLECTIONS:
+            raise ValueError(f"Unknown collection: {collection!r}")
+        return sql.Identifier(collection)
 
     def has_node(self, collection: str, key: str) -> bool:
-        """Is *key* a document of *collection*, one of ours? A primary-index lookup."""
-        handle = self._collections.get(collection)
-        return handle is not None and bool(handle.has(key))
+        """Is *key* a document of *collection*, one of ours? A primary-key lookup."""
+        if collection not in NODE_COLLECTIONS:
+            return False
+        statement = sql.SQL("SELECT 1 FROM {} WHERE key = %(key)s").format(
+            sql.Identifier(collection)
+        )
+        return next(self.query(statement, {"key": key}), None) is not None
 
-    def collection(self, name: str) -> Any:
-        """Return the collection handle for *name*. Raises KeyError if unknown."""
-        return self._collections[name]
+    def get_document(self, collection: str, key: str) -> dict[str, Any] | None:
+        """The document of *key* in the node collection *collection*, or ``None``."""
+        statement = sql.SQL(
+            "SELECT id, key, type, labels, props FROM {} WHERE key = %(key)s"
+        ).format(self._node_table(collection))
+        rows = list(self.query(statement, {"key": key}))
+        return node_doc(rows[0]) if rows else None
+
+    def count(self, collection: str) -> int:
+        """How many documents *collection* holds (a node collection or the edges)."""
+        if collection not in _SERVED:
+            raise ValueError(f"Unknown collection: {collection!r}")
+        statement = sql.SQL("SELECT count(*)::int FROM {}").format(
+            sql.Identifier(collection)
+        )
+        return int(next(self.query(statement)))
 
     def data_version(self) -> str:
-        """A stamp of what the API serves: it changes with every write to a collection of
-        the graph (the revision ArangoDB keeps per collection), and not with a retrieve."""
+        """A stamp of what the API serves: it changes with every statement that changes a
+        table of the graph (``lg_data_version``), and not with a retrieve."""
         digest = hashlib.sha1(usedforsecurity=False)
-        for name in sorted(self._collections):
-            if name not in _NOT_SERVED:
-                digest.update(f"{name}:{self._collections[name].revision()};".encode())
+        rows = self.query(
+            "SELECT collection, version FROM lg_data_version"
+            ' WHERE collection = ANY(%(served)s) ORDER BY collection COLLATE "C"',
+            {"served": list(_SERVED)},
+        )
+        for row in rows:
+            digest.update(f"{row['collection']}:{row['version']};".encode())
         return digest.hexdigest()[:16]
+
+    def vacuum_analyze(self) -> None:
+        """``VACUUM (ANALYZE)`` of the database: after a build, so the planner knows the
+        tables and an index-only read need not visit every row (the first requests after a
+        fresh build are slow without it)."""
+        with self.pool.connection() as conn:
+            conn.autocommit = True
+            try:
+                conn.execute("VACUUM (ANALYZE)")
+            finally:
+                conn.autocommit = False
 
     # ── Size ───────────────────────────────────────────────────────────────────
 
     def disk_usage(self) -> dict[str, Any]:
-        """What the server counts against its license: ``bytesUsed``, ``bytesLimit`` (absent
-        without a limit), ``status`` (``good`` until the limit is reached) and the seconds
-        until it turns read-only and shuts down."""
-        return cast(dict[str, Any], self.db.license()).get("diskUsage") or {}
+        """``bytesUsed``: the size of the database on disk (PostgreSQL has no license
+        limit; ``lawgraph check`` alerts at ``DB_SIZE_ALERT_GIB``)."""
+        used = next(self.query("SELECT pg_database_size(current_database())"))
+        return {"bytesUsed": int(used), "status": "good"}
 
     def collection_sizes(self) -> dict[str, int]:
-        """Bytes on disk per collection: its documents and its indexes (estimates of the
-        storage engine, compressed)."""
-        sizes = {}
-        for name, collection in self._collections.items():
-            figures = cast(dict[str, Any], collection.statistics())
-            indexes = figures.get("indexes") or {}
-            sizes[name] = int(figures.get("documents_size") or 0) + int(
-                indexes.get("size") or 0
-            )
-        return sizes
+        """Bytes on disk per table: its rows, its TOAST and its indexes."""
+        tables = [*_SERVED, COLLECTION_RAW_SOURCES, COLLECTION_PIPELINE_STATE]
+        rows = self.query(
+            "SELECT t AS name, pg_total_relation_size(t::regclass) AS size"
+            " FROM unnest(%(tables)s::text[]) AS t",
+            {"tables": tables},
+        )
+        return {row["name"]: int(row["size"]) for row in rows}
 
     # ── Query ──────────────────────────────────────────────────────────────────
 
     def query(
         self,
-        aql: str,
-        bind_vars: dict | None = None,
+        statement: Statement,
+        params: Params = None,
         *,
         batch_size: int = 1000,
-        ttl: float = CURSOR_TTL_SECONDS,
+        indexes_only: bool = False,
     ) -> Iterator[Any]:
-        """Execute an AQL query; a query that only reads streams its result.
+        """Run a statement; one that only reads streams its result.
 
-        A row is whatever the query returns: a document, a projection, a count, a key.
+        A row is the value of the one column a query selects (a document, a count, a key),
+        or a dict of its columns. A read runs on a server-side cursor, so ``batch_size``
+        rows are in flight however large the result (41,000 BWB toestanden of 80 KB are
+        3 GB); its connection is held until the reader stops, however it stops. A statement
+        that writes runs to the end at once (``execute``).
 
-        Without a streaming cursor the server builds the whole result in its memory before
-        it sends the first batch: 41,000 BWB toestanden of 80 KB are 3 GB, and that query
-        killed the server. A streaming cursor computes the result while it is read, so
-        ``batch_size`` documents are in flight, whatever the size of the result.
-
-        A streamed query lives as long as its reader takes, so it gets no ``max_runtime``
-        (the server would kill a pipeline that works on every batch); ``ttl`` is how long the
-        server keeps the cursor between two batches (its default of 30 seconds answers
-        ``cursor not found`` to such a reader).
-
-        A query that writes is not streamed: streamed, it would only write as far as its
-        cursor is read. It runs to the end at once, within ``WRITE_MAX_RUNTIME`` seconds.
+        ``indexes_only`` keeps the planner from reading a whole table where an index can
+        find the rows (``SET LOCAL enable_seqscan = off``, for this statement's transaction
+        alone). An emergency brake, for one reason: the planner does not count the cost of
+        detoasting. A condition on a large column (the words of every article, a judgment's
+        summary) unpacks that column from its TOAST table for every row it tests; the
+        planner prices the test as if the value were at hand, and takes a scan of the whole
+        table for cheaper than the indexes when a word is common. The search uses it for
+        its ranking and its document frequencies; ``tests/pg/test_query_plans.py`` checks
+        that it still does.
         """
-        writes = _WRITES.search(aql) is not None
-        cursor = self.db.aql.execute(
-            aql,
-            bind_vars=bind_vars or {},
-            stream=not writes,
-            max_runtime=WRITE_MAX_RUNTIME if writes else None,  # type: ignore[arg-type]
-            batch_size=batch_size,
-            ttl=ttl,  # type: ignore[arg-type]
-        )
-        return _closing(cast(Any, cursor))
+        if _WRITES.search(_text(statement)):
+            return iter(self.execute(statement, params))
+        return self._stream(statement, params, batch_size, indexes_only)
+
+    def _stream(
+        self,
+        statement: Statement,
+        params: Params,
+        batch_size: int,
+        indexes_only: bool = False,
+    ) -> Iterator[Any]:
+        with self.pool.connection() as conn:
+            if indexes_only:
+                # The planner prices detoasting at nothing (see ``query``).
+                conn.execute("SET LOCAL enable_seqscan = off")
+            name = f"lg_{uuid.uuid4().hex}"
+            with conn.cursor(name=name, row_factory=_rows) as cursor:
+                cursor.itersize = batch_size
+                cursor.execute(_query(statement), params)
+                yield from cursor
+
+    def execute(self, statement: Statement, params: Params = None) -> list[Any]:
+        """Run a statement that writes, in a transaction of its own, sent again when the
+        database was unreachable; the rows it returns (``RETURNING``)."""
+
+        def run() -> list[Any]:
+            with self.pool.connection() as conn:
+                conn.execute(f"SET LOCAL statement_timeout = {WRITE_MAX_RUNTIME_MS}")
+                with conn.cursor(row_factory=_rows) as cursor:
+                    cursor.execute(_query(statement), params)
+                    return cursor.fetchall() if cursor.description else []
+
+        return _retry_write("a statement", run)
 
     # ── Raw sources ────────────────────────────────────────────────────────────
 
     def insert_raw_sources(
         self, docs: list[dict[str, Any]]
     ) -> list[tuple[dict[str, Any], str]]:
-        """Upsert raw source documents (see ``raw_source_doc``) in one request.
+        """Upsert raw source documents (see ``raw_source_doc``) in one statement.
 
         A text payload is written to the payload store first (``_put_payloads``). A stored
-        document with the same key is replaced. Returns the documents the server refused,
-        each with the reason; a failure of the request itself, or of the payload store,
-        raises.
+        document with the same key is replaced. Returns the documents that were refused,
+        each with the reason: none, a statement is written whole or raises (as does a
+        failure of the payload store).
         """
         if not docs:
             return []
-        docs = self._put_payloads(docs)
-        outcome = _retry_write(
-            f"{len(docs)} raw records",
-            lambda: self.raw_sources.insert_many(
-                docs,
-                overwrite=True,
-                overwrite_mode="replace",
-                return_new=False,
-                raise_on_document_error=False,
-            ),
-        )
-        return [
-            (doc, str(answer))
-            for doc, answer in zip(docs, cast(list[Any], outcome), strict=True)
-            if isinstance(answer, Exception)
+        stored = _last_per_key(self._put_payloads(docs))
+        rows = [
+            {"key": d["_key"], "doc": {k: v for k, v in d.items() if k != "_key"}}
+            for d in stored
         ]
+        self.execute(
+            f"""
+            INSERT INTO {COLLECTION_RAW_SOURCES} (key, doc)
+            SELECT r.key, r.doc
+            FROM json_to_recordset(%(rows)s::json) AS r(key text, doc json)
+            ORDER BY r.key
+            ON CONFLICT (key) DO UPDATE SET doc = EXCLUDED.doc
+            """,
+            {"rows": Json(rows)},
+        )
+        return []
 
     def _put_payloads(self, docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Write the text payload of every document to the payload store, and return the
@@ -434,109 +457,72 @@ class ArangoStore:
         """
         if node.key is None:
             raise ValueError("Node must have a deterministic key.")
-
-        if node.collection not in DOCUMENT_COLLECTIONS:
-            raise ValueError(f"Unknown collection: {node.collection!r}")
-
-        doc = node.to_document()
-        props = doc.get("props") or {}
-        labels = doc.get("labels") or []
-        node_type = doc.get("type", "")
-
-        aql = f"""
-        UPSERT {{ _key: @key }}
-        INSERT @insert_doc
-        UPDATE {{
-            type: @type,
-            labels: UNIQUE(APPEND(OLD.labels, @labels)),
-            props: {sorted_merge("OLD.props", "@props")}
-        }}
-        IN {node.collection} OPTIONS {{ mergeObjects: false }}
-        RETURN {{doc: NEW, was_new: OLD == null}}
-        """
-        bind_vars: dict[str, Any] = {
-            "key": node.key,
-            "insert_doc": doc,
-            "type": node_type,
-            "labels": labels,
-            "props": props,
-        }
-        rows = list(
-            cast(
-                Iterable[dict[str, Any]], self.db.aql.execute(aql, bind_vars=bind_vars)
-            )
-        )
-        if rows:
-            row = rows[0]
-            return Node.from_document(node.collection, row["doc"]), bool(row["was_new"])
-        return node, False
-
-    def _bulk_upsert(
-        self,
-        collection: str,
-        docs: list[dict[str, Any]],
-        update_clause: str,
-    ) -> tuple[int, int]:
-        """Execute a single AQL UPSERT loop for *docs* into *collection*.
-
-        Returns (created_count, updated_count). The *update_clause* string is
-        interpolated verbatim — callers must pass one of the module-level
-        ``_NODE_UPSERT_UPDATE`` or ``_EDGE_UPSERT_UPDATE`` constants.
-
-        A document the update would not change is not written and not counted: a run over
-        records that did not change costs a lookup per document, not a write, a WAL entry
-        and a pass of the search view (measured: `normalize tk-dossiers` over 40,000 votes
-        a second time, 27 s -> 8.5 s).
-        """
-        if not docs:
-            return 0, 0
-
-        if collection not in DOCUMENT_COLLECTIONS and collection != COLLECTION_EDGES:
-            raise ValueError(f"Unknown collection: {collection!r}")
-
-        unchanged = update_clause.format(old="stored")
-        update = update_clause.format(old="OLD")
-        aql = f"""
-        LET results = (
-            FOR doc IN @docs
-                LET stored = DOCUMENT({collection}, doc._key)
-                FILTER stored == null OR NOT MATCHES(stored, {{{unchanged}}})
-                UPSERT {{_key: doc._key}}
-                INSERT doc
-                UPDATE {{{update}}}
-                IN {collection} OPTIONS {{ mergeObjects: false }}
-                RETURN {{was_new: OLD == null}}
-        )
-        RETURN {{
-            created: LENGTH(FOR r IN results FILTER r.was_new RETURN 1),
-            updated: LENGTH(FOR r IN results FILTER NOT r.was_new RETURN 1)
-        }}
-        """
-        rows = _retry_write(
-            f"{len(docs)} documents of {collection}",
-            lambda: list(
-                cast(
-                    Iterable[dict[str, Any]],
-                    self.db.aql.execute(aql, bind_vars={"docs": docs}),
-                )
-            ),
-        )
-        if rows:
-            row = rows[0]
-            return int(row.get("created", 0)), int(row.get("updated", 0))
-        return 0, 0
+        table = self._node_table(node.collection)
+        row = split_node(node.to_document(), node.collection)
+        statement = sql.SQL(
+            """
+            INSERT INTO {table} AS t (id, type, labels, props)
+            VALUES (%(id)s, %(type)s, %(labels)s, %(props)s)
+            ON CONFLICT (id) DO UPDATE SET
+                type = EXCLUDED.type,
+                labels = lg_array_union(t.labels, EXCLUDED.labels),
+                props = lg_update(t.props, EXCLUDED.props)
+            RETURNING id, key, type, labels, props, (xmax = 0) AS created
+            """
+        ).format(table=table)
+        stored = self.execute(statement, {**row, "props": Json(row["props"])})[0]
+        node_stored = Node.from_document(node.collection, node_doc(stored))
+        return node_stored, bool(stored["created"])
 
     def bulk_insert_or_update_nodes(
         self,
         collection: str,
         docs: list[dict[str, Any]],
     ) -> tuple[int, int]:
-        """Batch-upsert multiple node documents. Returns (created_count, updated_count).
+        """Batch-upsert node documents. Returns (created, updated); a document the update
+        would not change is not written or counted.
 
-        Uses a single AQL UPSERT loop per collection — reduces N individual
-        round-trips to 1 for high-throughput normalize pipelines.
+        ``type`` is the new one, ``labels`` the union of both (first occurrence first),
+        ``props`` merged one level deep with its keys in order (``lg_update``, D11). A key
+        that occurs more than once is applied in its order, a statement per occurrence, as
+        ArangoDB's loop over the batch did.
         """
-        return self._bulk_upsert(collection, docs, _NODE_UPSERT_UPDATE)
+        table = self._node_table(collection)
+        statement = sql.SQL(
+            """
+            INSERT INTO {table} AS t (id, type, labels, props)
+            SELECT d.id, d.type, lg_text_array(d.labels), d.props
+            FROM json_to_recordset(%(rows)s::json)
+                AS d(id text, type text, labels json, props json)
+            ORDER BY d.id
+            ON CONFLICT (id) DO UPDATE SET
+                type = EXCLUDED.type,
+                labels = lg_array_union(t.labels, EXCLUDED.labels),
+                props = lg_update(t.props, EXCLUDED.props)
+            WHERE (t.type, t.labels, t.props::jsonb) IS DISTINCT FROM (
+                EXCLUDED.type,
+                lg_array_union(t.labels, EXCLUDED.labels),
+                lg_update(t.props, EXCLUDED.props)::jsonb
+            )
+            RETURNING (xmax = 0) AS created
+            """
+        ).format(table=table)
+        rows = [split_node(doc, collection) for doc in docs]
+        return self._upsert_rounds(f"documents of {collection}", statement, rows, "id")
+
+    def _upsert_rounds(
+        self, what: str, statement: Statement, rows: list[dict[str, Any]], key: str
+    ) -> tuple[int, int]:
+        created = updated = 0
+        for batch in _rounds(rows, key):
+            answer = _retry_write(
+                f"{len(batch)} {what}",
+                lambda batch=batch: self.execute(statement, {"rows": Json(batch)}),  # type: ignore[misc]
+            )
+            new = sum(1 for was_new in answer if was_new)
+            created += new
+            updated += len(answer) - new
+        return created, updated
 
     def existing_keys(
         self,
@@ -545,19 +531,17 @@ class ArangoStore:
         *,
         chunk_size: int = 5000,
     ) -> set[str]:
-        """Return the subset of *keys* that exist in *collection*.
-
-        One primary-index lookup per ``chunk_size`` keys — use this instead of
-        ``get_node`` in a loop when you only need to know whether nodes exist.
-        """
-        if collection not in DOCUMENT_COLLECTIONS:
-            raise ValueError(f"Unknown collection: {collection!r}")
+        """Return the subset of *keys* that exist in *collection*: one index lookup per
+        ``chunk_size`` keys."""
+        table = self._node_table(collection)
+        statement = sql.SQL("SELECT key FROM {} WHERE key = ANY(%(keys)s)").format(
+            table
+        )
         wanted = list(set(keys))
         found: set[str] = set()
-        aql = f"FOR d IN {collection} FILTER d._key IN @keys RETURN d._key"
         for start in range(0, len(wanted), chunk_size):
             chunk = wanted[start : start + chunk_size]
-            found.update(self.query(aql, {"keys": chunk}))
+            found.update(self.query(statement, {"keys": chunk}))
         return found
 
     def ensure_stub_node(
@@ -574,45 +558,32 @@ class ArangoStore:
         that isn't in the corpus). The stub carries ``props.stub=True`` so
         the frontend can surface it as a pending import.
         """
-        stub_props = dict(props)
-        stub_props["stub"] = True
+        table = self._node_table(collection)
         node_type_val = (
             node_type.value if hasattr(node_type, "value") else str(node_type)
         )
-        doc: dict[str, Any] = {
-            "_key": key,
+        statement = sql.SQL(
+            """
+            INSERT INTO {} (id, type, labels, props)
+            VALUES (%(id)s, %(type)s, '{{}}', %(props)s)
+            ON CONFLICT (id) DO NOTHING
+            RETURNING id, key, type, labels, props
+            """
+        ).format(table)
+        params = {
+            "id": f"{collection}/{key}",
             "type": node_type_val,
-            "labels": [],
-            "props": stub_props,
+            "props": Json({**props, "stub": True}),
         }
-        try:
-            coll = self.db.collection(collection)
-            result = cast(
-                dict[str, Any],
-                coll.insert(doc, overwrite=False, return_new=True),
-            )
-            raw = result.get("new") or doc
-            return Node.from_document(collection, cast(dict[str, Any], raw))
-        except DocumentInsertError:
-            # Race: another worker inserted the stub between get and insert.
-            existing = self.get_node(collection, key)
-            return existing
+        inserted = self.execute(statement, params)
+        if inserted:
+            return Node.from_document(collection, node_doc(inserted[0]))
+        return self.get_node(collection, key)
 
     def get_node(self, collection: str, key: str) -> Node | None:
-        """Fetch a Node by collection and key. Returns None if not found.
-
-        Uses a single get() call rather than has() + get() to avoid two
-        round-trips per lookup.
-        """
-        coll = self.db.collection(collection)
-        raw = coll.get(key)
-        if raw is None:
-            return None
-        if not isinstance(raw, dict):
-            raise TypeError(
-                f"ArangoDB returned {type(raw).__name__} for {collection}/{key}; expected dict"
-            )
-        return Node.from_document(collection, raw)
+        """Fetch a Node by collection and key. Returns None if not found."""
+        doc = self.get_document(collection, key)
+        return Node.from_document(collection, doc) if doc is not None else None
 
     # ── Edges ──────────────────────────────────────────────────────────────────
 
@@ -620,11 +591,70 @@ class ArangoStore:
         self,
         docs: list[dict[str, Any]],
     ) -> tuple[int, int]:
-        """Batch-upsert multiple edges. Returns (created_count, updated_count).
+        """Batch-upsert edges. Returns (created, updated).
 
-        Uses a single AQL UPSERT loop rather than N individual insert() calls,
-        giving ArangoDB the chance to optimise the batch as a transaction.
-        For semantic pipelines writing hundreds of edges per run, this reduces
-        HTTP round-trips from O(N) to 1.
+        On update ``confidence``, ``source`` and ``status`` are the new ones (``null`` when
+        the new edge has none) and ``meta`` is merged one level deep; ``created_at`` and
+        every other attribute stay. An edge the update would not change is not written or
+        counted.
         """
-        return self._bulk_upsert(COLLECTION_EDGES, docs, _EDGE_UPSERT_UPDATE)
+        statement = sql.SQL(
+            f"""
+            INSERT INTO {COLLECTION_EDGES} AS t (key, from_id, to_id, doc)
+            SELECT e.key, e.from_id, e.to_id, e.doc
+            FROM json_to_recordset(%(rows)s::json)
+                AS e(key text, from_id text, to_id text, doc json)
+            ORDER BY e.key
+            ON CONFLICT (key) DO UPDATE SET doc = lg_merge(t.doc, json_build_object(
+                'confidence', EXCLUDED.doc -> 'confidence',
+                'source', EXCLUDED.doc -> 'source',
+                'status', EXCLUDED.doc -> 'status',
+                'meta', lg_update(t.doc -> 'meta', EXCLUDED.doc -> 'meta')
+            ))
+            WHERE (
+                coalesce((t.doc -> 'confidence')::jsonb, 'null'),
+                coalesce((t.doc -> 'source')::jsonb, 'null'),
+                coalesce((t.doc -> 'status')::jsonb, 'null'),
+                coalesce((t.doc -> 'meta')::jsonb, 'null')
+            ) IS DISTINCT FROM (
+                coalesce((EXCLUDED.doc -> 'confidence')::jsonb, 'null'),
+                coalesce((EXCLUDED.doc -> 'source')::jsonb, 'null'),
+                coalesce((EXCLUDED.doc -> 'status')::jsonb, 'null'),
+                lg_update(t.doc -> 'meta', EXCLUDED.doc -> 'meta')::jsonb
+            )
+            RETURNING (xmax = 0) AS created
+            """
+        )
+        rows = [split_edge(doc) for doc in docs]
+        return self._upsert_rounds("edges", statement, rows, "key")
+
+
+def _text(statement: Statement) -> str:
+    if isinstance(statement, str):
+        return statement
+    return statement.as_string(None)
+
+
+def _query(statement: Statement) -> sql.SQL | sql.Composed:
+    if isinstance(statement, str):
+        return sql.SQL(statement)  # type: ignore[arg-type]  # the code's own text
+    return statement
+
+
+def _rounds(rows: list[dict[str, Any]], key: str) -> Iterator[list[dict[str, Any]]]:
+    """*rows* in rounds in which every key occurs once: the first occurrence of each key,
+    then the second, and so on (one statement cannot write a row twice)."""
+    rounds: list[list[dict[str, Any]]] = []
+    seen: dict[str, int] = {}
+    for row in rows:
+        n = seen.get(row[key], 0)
+        seen[row[key]] = n + 1
+        if n == len(rounds):
+            rounds.append([])
+        rounds[n].append(row)
+    yield from rounds
+
+
+def _last_per_key(docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A replace of the same key twice in one batch: the last one stays."""
+    return list({doc["_key"]: doc for doc in docs}.values())
