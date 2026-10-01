@@ -6,15 +6,15 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
-    COLLECTION_EDGES,
     RELATION_SCOPED_BY,
 )
 from lawgraph.db import ArangoStore
+from lawgraph.db._rows import edge_doc, node_doc
 
 
 def get_annex(store: ArangoStore, key: str) -> dict[str, Any] | None:
     """Return an annex document by key, or None when unknown."""
-    doc = store.collection(COLLECTION_ANNEXES).get(key)
+    doc = store.get_document(COLLECTION_ANNEXES, key)
     return doc if isinstance(doc, dict) else None
 
 
@@ -24,16 +24,20 @@ def get_annex_referenced_by(
 ) -> list[dict[str, Any]]:
     """Return articles (across all laws) linked to this annex via SCOPED_BY.
 
-    Each row: {edge, article}.
+    Each row: {edge, article}, by the id of the article and then the edge key; an edge
+    whose article is gone is left out.
     """
-    annex_id = f"{COLLECTION_ANNEXES}/{key}"
-    aql = f"""
-    FOR edge IN {COLLECTION_EDGES}
-        FILTER edge._to == @annex_id
-        FILTER edge.relation == '{RELATION_SCOPED_BY}'
-        LET article = DOCUMENT(edge._from)
-        FILTER article != null
-        SORT edge._from, edge._key
-        RETURN {{ edge: edge, article: article }}
-    """
-    return list(store.query(aql, {"annex_id": annex_id}))
+    rows = store.query(
+        """
+        SELECT e.key AS edge_key, e.from_id, e.to_id, e.doc,
+               n.id, n.key, n.type, n.labels, n.props
+        FROM edges e JOIN nodes n ON n.id = e.from_id
+        WHERE e.to_id = %(annex_id)s AND e.relation = %(scoped_by)s
+        ORDER BY e.from_id, e.key
+        """,
+        {"annex_id": f"{COLLECTION_ANNEXES}/{key}", "scoped_by": RELATION_SCOPED_BY},
+    )
+    return [
+        {"edge": edge_doc({**row, "key": row["edge_key"]}), "article": node_doc(row)}
+        for row in rows
+    ]

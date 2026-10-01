@@ -186,6 +186,15 @@ def _create_database_if_missing() -> None:
         return  # no access to the server's own database: ours must already exist
 
 
+def _configure(conn: psycopg.Connection[Any]) -> None:
+    """Every connection of the pool, as it opens: without JIT compilation. PostgreSQL 18
+    compiles a statement above ``jit_above_cost``; for the statements of this API that
+    costs more than it gains (a feed page 249 ms against 17 ms without, a page with facets
+    4.45 s against 1.31 s), whatever the server is configured with."""
+    conn.execute("SET jit = off")
+    conn.commit()
+
+
 class ArangoStore:
     """The PostgreSQL database of the graph: connections, reads, upserts."""
 
@@ -201,6 +210,7 @@ class ArangoStore:
                 open=True,
                 timeout=60,
                 name="lawgraph",
+                configure=_configure,
             )
             with self.pool.connection() as conn:
                 ensure_schema(conn)

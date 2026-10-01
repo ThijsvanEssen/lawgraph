@@ -190,6 +190,85 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
         'g'
     ) WITH ORDINALITY AS r(m, o)
 $$;
+
+-- The nodes within w_depth edges of w_focal, breadth first, at most w_cap of them (D9), in
+-- one statement: a level is read whole (the neighbours along the edges of the relations
+-- and status asked for, in the directions asked for, not seen before) and kept in id order
+-- until the cap; a node that is gone is not one; a node outside w_collections (when given)
+-- is seen but neither kept nor walked through. Whether a neighbour is there is asked of
+-- its own table only (w_tables), w_chunk at a time in id order, so a capped walk does not
+-- look up the neighbours it will never keep.
+CREATE OR REPLACE FUNCTION lg_walk(
+    w_focal text, w_depth int, w_cap int, w_relations text[], w_status text,
+    w_outbound boolean, w_inbound boolean, w_collections text[], w_tables text[],
+    w_chunk int DEFAULT 500
+) RETURNS text[]
+LANGUAGE plpgsql STABLE AS $$
+DECLARE
+    seen text[] := ARRAY[w_focal];
+    kept text[] := '{}';
+    frontier text[] := ARRAY[w_focal];
+    reached text[];
+    chunk text[];
+    present text[];
+    level text[];
+    reads text;
+    node text;
+    start int;
+BEGIN
+    FOR step IN 1..w_depth LOOP
+        reached := ARRAY(
+            SELECT f.id FROM (
+                SELECT e.to_id AS id FROM edges e
+                WHERE w_outbound AND e.from_id = ANY(frontier)
+                  AND (w_relations IS NULL OR e.relation = ANY(w_relations))
+                  AND (w_status IS NULL OR e.status = w_status)
+                UNION
+                SELECT e.from_id FROM edges e
+                WHERE w_inbound AND e.to_id = ANY(frontier)
+                  AND (w_relations IS NULL OR e.relation = ANY(w_relations))
+                  AND (w_status IS NULL OR e.status = w_status)
+                EXCEPT
+                SELECT unnest(seen)
+            ) f
+            ORDER BY f.id
+        );
+        level := '{}';
+        start := 1;
+        WHILE start <= coalesce(array_length(reached, 1), 0) LOOP
+            chunk := reached[start:start + w_chunk - 1];
+            start := start + w_chunk;
+            SELECT string_agg(
+                format('SELECT id FROM %I WHERE id = ANY($1)', c), ' UNION ALL '
+            ) INTO reads
+            FROM (
+                SELECT DISTINCT split_part(x, '/', 1) AS c FROM unnest(chunk) x
+            ) cs
+            WHERE c = ANY(w_tables);
+            IF reads IS NULL THEN
+                CONTINUE;
+            END IF;
+            EXECUTE 'SELECT coalesce(array_agg(id ORDER BY id), ''{}'') FROM ('
+                || reads || ') t' INTO present USING chunk;
+            seen := seen || present;
+            FOREACH node IN ARRAY present LOOP
+                IF w_collections IS NULL OR split_part(node, '/', 1) = ANY(w_collections) THEN
+                    level := level || node;
+                    IF coalesce(array_length(kept, 1), 0)
+                       + array_length(level, 1) = w_cap THEN
+                        RETURN kept || level;
+                    END IF;
+                END IF;
+            END LOOP;
+        END LOOP;
+        kept := kept || level;
+        frontier := level;
+        EXIT WHEN coalesce(array_length(frontier, 1), 0) = 0;
+    END LOOP;
+    RETURN kept;
+END
+$$;
+
 """
 
 SEARCH_FUNCTIONS = r"""
@@ -337,7 +416,9 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("article_number"),
         _str("stam_id"),
         _num("inbound_citation_count"),
+        _num("position"),
         _bool("stub"),
+        _bool("repealed"),
     ),
     COLLECTION_INSTRUMENT_VERSIONS: (
         _str("bwb_id"),
@@ -349,6 +430,11 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("stam_id"),
         _str("article_number"),
         _str("valid_from"),
+        _str("valid_until"),
+        # whether there is a valid_until at all, of any type (a version without one is in
+        # force still); the props of a version, its text too, need not be read for it
+        Column("valid_until_set", "boolean", "props ->> 'valid_until' IS NOT NULL"),
+        _num("position"),
         _bool("current"),
     ),
     COLLECTION_JUDGMENTS: (
@@ -733,6 +819,11 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         f" ON instruments (citation_title NULLS FIRST, key) WHERE {_LISTED}",
         "CREATE INDEX IF NOT EXISTS instruments_list_article_count"
         f" ON instruments (article_count DESC NULLS LAST, key DESC) WHERE {_LISTED}",
+    ),
+    # /api/documents, newest first: a page without a kind or dossier reads only itself.
+    COLLECTION_DOCUMENTS: (
+        "CREATE INDEX IF NOT EXISTS documents_list_date"
+        " ON documents (date DESC NULLS LAST, key)",
     ),
 }
 

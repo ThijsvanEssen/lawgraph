@@ -8,8 +8,21 @@ asks it once more with the ``ETag`` it got in ``If-None-Match``, which must give
 search ranking is held to D3: an answer may differ in its hits only, and per type of hit the
 first is the same in at least 90 % of the questions; the overlap of the hits is reported.
 Prints a summary per route and writes the differences to ``<goldens>/replay-<port>.json``;
-exits 1 when anything differs beyond D3 and D9. With ``--latency-against`` every request is
-timed on that API too: p50 and p95 per route, side by side.
+exits 1 when anything differs beyond D3 and D9.
+
+With ``--latency-against`` every request is timed against that API too, by one protocol, so
+that the two are measured alike:
+
+- the requests go one at a time (``--jobs`` is ignored): nothing runs beside them;
+- per request a warm-up on both, then three times the new API and the reference in turn,
+  and the median of each three;
+- p50 and p95 per route over those medians, against the norm of the switch: at most
+  max(10 %, 5 ms) above the reference, for both;
+- an answer of 500 or more from the reference stops the measurement: an error comes back
+  fast and would make the reference look quick.
+
+The reference API runs from a checkout that stays (develop), never from a worktree that may
+be removed: it reads data files when it first needs them, and long after it started.
 """
 
 from __future__ import annotations
@@ -18,6 +31,7 @@ import argparse
 import gzip
 import json
 import pathlib
+import statistics
 from collections import Counter
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -27,6 +41,14 @@ from urllib.parse import urlparse
 from tests.parity.catalogue import Request
 from tests.parity.compare import compare, parse, search_agreement
 from tests.parity.record import Client
+
+# Timed runs per request and API, after one warm-up; the median of them counts.
+TIMED_RUNS = 3
+
+
+class ReferenceFailed(RuntimeError):
+    """The reference API answered with an error: its timing would mean nothing."""
+
 
 D3_FIRST_HIT = 0.9
 
@@ -61,7 +83,7 @@ def check(
         "ms": answer["ms"],
     }
     if reference is not None:
-        row["ms_reference"] = reference.fetch(request)["ms"]
+        row["ms"], row["ms_reference"] = _timed(client, reference, request)
     etag = answer["headers"].get("etag")
     if etag and answer["status"] == 200:
         again = client.fetch(request, {"If-None-Match": etag})
@@ -101,6 +123,22 @@ def summary(rows: list[dict[str, Any]]) -> tuple[bool, str]:
 def _percentile(values: list[float], share: float) -> float:
     ordered = sorted(values)
     return ordered[min(len(ordered) - 1, int(share * len(ordered)))]
+
+
+def _timed(client: Client, reference: Client, request: Request) -> tuple[float, float]:
+    """The median time of *request* on the new API and on the reference, measured in
+    turn after a warm-up on both."""
+    times: tuple[list[float], list[float]] = ([], [])
+    for run in range(TIMED_RUNS + 1):
+        for api, found in ((client, times[0]), (reference, times[1])):
+            answer = api.fetch(request)
+            if api is reference and answer["status"] >= 500:
+                raise ReferenceFailed(
+                    f"{request.url}: the reference answered {answer['status']}"
+                )
+            if run:  # the first round warms up
+                found.append(answer["ms"])
+    return statistics.median(times[0]), statistics.median(times[1])
 
 
 def _over(ms: float, reference: float) -> bool:
@@ -149,7 +187,8 @@ def main() -> None:
     directory: pathlib.Path = args.goldens.expanduser()
     client = Client(args.base)
     reference = Client(args.latency_against) if args.latency_against else None
-    with ThreadPoolExecutor(args.jobs) as pool:
+    # Timed requests go one at a time, so that nothing runs beside them.
+    with ThreadPoolExecutor(1 if reference else args.jobs) as pool:
         rows = list(
             pool.map(
                 lambda g: check(client, g, reference), goldens(directory, args.only)
