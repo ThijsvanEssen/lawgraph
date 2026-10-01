@@ -1,25 +1,31 @@
 #!/bin/sh
-# Is the newest dump a backup? Restore it into a scratch database on another ArangoDB server
-# and compare what it holds with the `counts` written at dump time: the number of documents
-# of every collection and the names of the search views. The time the restore took is in
-# runs.log: that is the restore time to plan with.
+# Is the newest dump a backup? Restore it into a scratch database on another PostgreSQL
+# server and compare what it holds with the `counts` written at dump time
+# (scripts/_counts.sql): the rows of every table, the edges per relation, and the shape of
+# the schema. The time the restore took is in runs.log: that is the restore time to plan
+# with.
 #
-# The server is the test server of docker-compose.test.yml (container arango-lawgraph-test,
+# The server is the test server of docker-compose.test.yml (container lawgraph-postgres-test,
 # which mounts LAWGRAPH_BACKUP_DIR read-only at /backups), or LAWGRAPH_RESTORE_CONTAINER: a
 # dump of the full database needs a server with the memory and disk of the real one. The
-# scratch database is dropped at the end, also after a failure.
+# scratch database is made as the schema makes a database (its collation sorts as the code
+# expects) and dropped at the end, also after a failure.
 . "$(dirname "$0")/_run.sh"
 
-CONTAINER="${LAWGRAPH_RESTORE_CONTAINER:-arango-lawgraph-test}"
-# Where /backups of the container is on this machine (docker-compose.yml mounts it).
+CONTAINER="${LAWGRAPH_RESTORE_CONTAINER:-lawgraph-postgres-test}"
+# Where /backups of the container is on this machine (docker-compose.test.yml mounts it).
 BACKUP_DIR="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/backups"}}{{.Source}}{{end}}{{end}}' "$CONTAINER" 2>/dev/null | sed "s|^/host_mnt/|/|")"
-DATABASE="$(.venv/bin/python -c 'from lawgraph.config.settings import ARANGO_DB_NAME; print(ARANGO_DB_NAME)')"
+DATABASE="$(.venv/bin/python -c 'from lawgraph.config.settings import DB_NAME; print(DB_NAME)')"
 SCRATCH="lawgraph_restore_test"
 
 in_container() {
   script="$1"
   shift
   docker exec "$CONTAINER" sh -c "$script" sh "$@"
+}
+
+sql() {  # sql <database>: the statements on stdin, run in the container
+  docker exec -i "$CONTAINER" psql -U lawgraph -d "$1" -X -q -A -t -v ON_ERROR_STOP=1
 }
 
 newest() {
@@ -30,22 +36,16 @@ restore_and_compare() {
   dump="$(newest)"
   [ -n "$dump" ] || { note "no dump of $DATABASE in $BACKUP_DIR (as $CONTAINER sees it)"; return 1; }
   started=$(date +%s)
-  in_container '
-    arangorestore --server.password "$ARANGO_ROOT_PASSWORD" --server.database "$1" \
-      --create-database true --input-directory "/backups/$2" --overwrite true' \
+  printf 'DROP DATABASE IF EXISTS "%s" WITH (FORCE);\n%s;\n' "$SCRATCH" \
+    "$(.venv/bin/python -c "from lawgraph.db.schema import create_database_sql; print(create_database_sql('$SCRATCH'))")" \
+    | sql postgres >> "$LAWGRAPH_LOG_FILE" 2>&1 || return 1
+  in_container 'pg_restore -U lawgraph -d "$1" -j 4 --exit-on-error "/backups/$2"' \
     "$SCRATCH" "$dump" >> "$LAWGRAPH_LOG_FILE" 2>&1 || return 1
   seconds=$(($(date +%s) - started))
-  restored="$(in_container '
-    arangosh --server.password "$ARANGO_ROOT_PASSWORD" --server.database "$1" --quiet \
-      --log.level warning --javascript.execute-string "
-        db._collections()
-          .filter(function (c) { return c.name()[0] !== \"_\"; })
-          .map(function (c) { return c.name() + \" \" + c.count(); })
-          .concat(db._views().map(function (v) { return \"view \" + v.name(); }))
-          .sort().forEach(function (line) { print(line); });"' "$SCRATCH")"
+  restored="$(sql "$SCRATCH" < scripts/_counts.sql | LC_ALL=C sort)"
   expected="$(in_container 'cat "/backups/$1/counts"' "$dump")"
-  if [ "$restored" = "$expected" ]; then
-    note "restored $dump in $seconds s on $CONTAINER; every collection and view is as dumped"
+  if [ -n "$expected" ] && [ "$restored" = "$expected" ]; then
+    note "restored $dump in $seconds s on $CONTAINER; every table, relation, column, index and function is as dumped"
   else
     note "restored $dump on $CONTAINER, but it differs from the dump:"
     printf '%s\n' "$expected" > "$LOG_DIR/restore-expected"
@@ -56,10 +56,7 @@ restore_and_compare() {
 }
 
 drop_scratch() {
-  in_container '
-    arangosh --server.password "$ARANGO_ROOT_PASSWORD" --quiet --log.level warning \
-      --javascript.execute-string "
-        if (db._databases().indexOf(\"$1\") >= 0) { db._dropDatabase(\"$1\"); }"' "$SCRATCH"
+  printf 'DROP DATABASE IF EXISTS "%s" WITH (FORCE);\n' "$SCRATCH" | sql postgres
 }
 
 run "restore the newest dump of $DATABASE" restore_and_compare
