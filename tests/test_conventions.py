@@ -291,7 +291,7 @@ def _exempt_lines(tree: ast.AST) -> set[int]:
 def test_a_semantic_pipeline_does_not_have_whole_documents_sent_over() -> None:
     """A judgment is its XML, its text and its paragraphs; a loader asks for what it reads.
 
-    ``slim(var, *fields)`` in ``db/queries/semantic/`` projects the props in the query.
+    ``slim_sql(alias, *fields)`` in ``db/queries/semantic/`` projects the props in the query.
     """
     offenders = []
     for path in _SEMANTIC_QUERIES:
@@ -404,7 +404,7 @@ def test_pipelines_commands_and_api_do_not_use_the_driver(path: pathlib.Path) ->
 
 TESTS = SRC.parents[1] / "tests"
 # The tests of the store (``test_store_*``) and of the queries themselves.
-_READS_QUERIES = {"test_aql_validity.py", "test_conventions.py"}
+_READS_QUERIES = {"test_conventions.py"}
 
 
 def _unit_test_files() -> list[pathlib.Path]:
