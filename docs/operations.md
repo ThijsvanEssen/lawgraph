@@ -13,7 +13,7 @@ the same values; a variable already set in the process environment wins over `.e
 |----------|---------|---------|
 | `LAWGRAPH_DB_URL` | `postgresql://lawgraph@localhost:5432` | PostgreSQL server (`postgresql://user:password@host:port`) |
 | `LAWGRAPH_DB_NAME` | `lawgraph` | database; created on first use when it is missing and the user may, together with its tables, indexes and functions (`db/schema.py`) |
-| `LAWGRAPH_DB_POOL_SIZE` | `8` | connections per process, all opened at the start; a query borrows one only while it reads. N API processes open at most N × this many connections |
+| `LAWGRAPH_DB_POOL_SIZE` | `8` | connections per process, all opened at the start; a query borrows one only while it reads. N API processes open at most N × this many connections. Every connection runs without JIT compilation (`jit = off`): for the statements of the API it costs more than it gains; set it on the server too |
 | `ARANGO_URL` | `http://localhost:8529` | server |
 | `ARANGO_DB_NAME` | `lawgraph` | database; created on first use when it is missing, together with its collections, indexes and views; an index the schema (`db/schema.py`) no longer makes stays until it is dropped by hand |
 | `ARANGO_USER` | `root` | user |

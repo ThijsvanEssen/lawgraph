@@ -3,51 +3,51 @@ step no longer derives."""
 
 from __future__ import annotations
 
-from lawgraph.config.constants import (
-    COLLECTION_EDGES,
-)
+from psycopg import sql
+
 from lawgraph.db.counting import Store
+
+# The rows whose key is not in ``%(keep)s``: an anti-join, not a scan of the list per row
+# (a pipeline keeps hundreds of thousands of keys).
+_NOT_KEPT = "NOT EXISTS (SELECT 1 FROM unnest(%(keep)s::text[]) AS k WHERE k = {key})"
 
 
 def remove_nodes_except(store: Store, collection: str, keep: list[str]) -> int:
     """Remove the nodes of *collection* whose key is not in *keep*, for a collection one
-    pipeline derives in full; how many went."""
-    aql = f"""
-    FOR n IN {collection}
-        FILTER n._key NOT IN @keep
-        REMOVE n IN {collection}
-        RETURN 1
-    """
-    return sum(store.query(aql, {"keep": keep}))
+    pipeline derives in full; how many went. (The edges at them stay, as they did.)"""
+    statement = sql.SQL(
+        "DELETE FROM {} n WHERE " + _NOT_KEPT.format(key="n.key") + " RETURNING 1"
+    ).format(sql.Identifier(collection))
+    return len(store.execute(statement, {"keep": keep}))
 
 
-# Keys removed in one query.
+# Keys removed in one statement.
 _REMOVE_CHUNK = 5000
 
 
 def remove_nodes(store: Store, collection: str, keys: list[str]) -> int:
     """Remove the nodes *keys* of *collection* with every edge at them; how many nodes went.
     A key without a node is passed over."""
+    # The edges first, then the nodes, in one statement: a node never goes without its edges.
+    statement = sql.SQL(
+        """
+        WITH ids AS (
+            SELECT %(collection)s || '/' || key AS id FROM unnest(%(keys)s::text[]) AS key
+        ),
+        edges_gone AS (
+            DELETE FROM edges e
+            WHERE e.from_id IN (SELECT id FROM ids) OR e.to_id IN (SELECT id FROM ids)
+        )
+        DELETE FROM {} n WHERE n.key = ANY(%(keys)s::text[])
+        RETURNING 1
+        """
+    ).format(sql.Identifier(collection))
     removed = 0
     for start in range(0, len(keys), _REMOVE_CHUNK):
         chunk = keys[start : start + _REMOVE_CHUNK]
-        edges = f"""
-        FOR key IN @keys
-            LET id = CONCAT(@collection, "/", key)
-            FOR e IN UNION_DISTINCT(
-                (FOR out IN {COLLECTION_EDGES} FILTER out._from == id RETURN out._key),
-                (FOR inn IN {COLLECTION_EDGES} FILTER inn._to == id RETURN inn._key)
-            )
-                REMOVE e IN {COLLECTION_EDGES} OPTIONS {{ ignoreErrors: true }}
-        """
-        list(store.query(edges, {"keys": chunk, "collection": collection}))
-        nodes = f"""
-        FOR n IN {collection}
-            FILTER n._key IN @keys
-            REMOVE n IN {collection}
-            RETURN 1
-        """
-        removed += sum(store.query(nodes, {"keys": chunk}))
+        removed += len(
+            store.execute(statement, {"keys": chunk, "collection": collection})
+        )
     return removed
 
 
@@ -60,14 +60,26 @@ def remove_nodes_of_records(
     (a dossier number, a faction abbreviation) cannot be found by the record's id."""
     if not record_ids:
         return 0
-    aql = f"""
-    FOR n IN {collection}
-        FILTER n.props.external_id IN @ids
-            OR LENGTH(INTERSECTION(n.props.external_ids || [], @ids)) > 0
-        FILTER LENGTH(MINUS(n.props.external_ids || [n.props.external_id], @ids)) == 0
-        RETURN n._key
-    """
-    keys = list(store.query(aql, {"ids": record_ids}))
+    # ``external_ids || [external_id]``: the list when there is one (an array is truthy even
+    # when empty), else the one id; a value that is no string is no record id.
+    statement = sql.SQL(
+        """
+        SELECT n.key FROM {} n
+        WHERE (lg_str(n.props -> 'external_id') = ANY(%(ids)s::text[])
+               OR lg_text_array(n.props -> 'external_ids') && %(ids)s::text[])
+          AND NOT EXISTS (
+            SELECT 1
+            FROM json_array_elements(
+                CASE WHEN json_typeof(n.props -> 'external_ids') = 'array'
+                     THEN n.props -> 'external_ids'
+                     ELSE json_build_array(n.props -> 'external_id') END
+            ) AS x(v)
+            WHERE lg_str(x.v) IS NULL OR NOT lg_str(x.v) = ANY(%(ids)s::text[])
+          )
+        ORDER BY n.key
+        """
+    ).format(sql.Identifier(collection))
+    keys = list(store.query(statement, {"ids": record_ids}))
     return remove_nodes(store, collection, keys)
 
 
@@ -75,22 +87,20 @@ def remove_edges_of_records(store: Store, record_ids: list[str]) -> int:
     """Remove the edges made of the TK records *record_ids* alone (every id in
     ``meta.record_ids`` is one of them); how many went. For a record the Kamer deleted: a
     vote or a seat names nothing but its id then."""
+    # ``record_ids`` holds the strings of ``meta.record_ids``: as many as the array has
+    # elements, or one was something else, which no record id equals.
+    statement = """
+        DELETE FROM edges e
+        WHERE e.record_ids && %(ids)s::text[]
+          AND e.record_ids <@ %(all)s::text[]
+          AND cardinality(e.record_ids)
+              = json_array_length(e.doc -> 'meta' -> 'record_ids')
+        RETURNING 1
+    """
     removed = 0
     for start in range(0, len(record_ids), _REMOVE_CHUNK):
-        aql = f"""
-        LET keys = (
-            FOR id IN @ids
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER id IN e.meta.record_ids[*]
-                    FILTER LENGTH(MINUS(e.meta.record_ids, @all)) == 0
-                    RETURN DISTINCT e._key
-        )
-        FOR key IN keys
-            REMOVE key IN {COLLECTION_EDGES} OPTIONS {{ ignoreErrors: true }}
-            RETURN 1
-        """
         chunk = record_ids[start : start + _REMOVE_CHUNK]
-        removed += sum(store.query(aql, {"ids": chunk, "all": record_ids}))
+        removed += len(store.execute(statement, {"ids": chunk, "all": record_ids}))
     return removed
 
 
@@ -99,25 +109,22 @@ def remove_edges_into_except(
 ) -> int:
     """Remove the *relation* edges into *to_ids* whose key is not in *keep*; how many went.
     For the edges of a node one run derives in full (the votes on a decision)."""
-    aql = f"""
-    FOR id IN @to_ids
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to == id AND e.relation == @relation
-            FILTER e._key NOT IN @keep
-            REMOVE e IN {COLLECTION_EDGES}
-            RETURN 1
+    statement = f"""
+        DELETE FROM edges e
+        WHERE e.to_id = ANY(%(to_ids)s::text[]) AND e.relation = %(relation)s
+          AND {_NOT_KEPT.format(key="e.key")}
+        RETURNING 1
     """
     bind = {"to_ids": to_ids, "relation": relation, "keep": keep}
-    return sum(store.query(aql, bind))
+    return len(store.execute(statement, bind))
 
 
 def remove_edges_except(store: Store, relation: str, keep: list[str]) -> int:
     """Remove the edges of *relation* whose key is not in *keep*; how many went. For edges
     one pipeline derives in full on every run, so an edge it no longer derives goes."""
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation == @relation AND e._key NOT IN @keep
-        REMOVE e IN {COLLECTION_EDGES}
-        RETURN 1
+    statement = f"""
+        DELETE FROM edges e
+        WHERE e.relation = %(relation)s AND {_NOT_KEPT.format(key="e.key")}
+        RETURNING 1
     """
-    return sum(store.query(aql, {"relation": relation, "keep": keep}))
+    return len(store.execute(statement, {"relation": relation, "keep": keep}))

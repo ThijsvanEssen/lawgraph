@@ -431,10 +431,11 @@ SELECT
         SELECT coalesce(json_agg(json_build_object(
             'document_id', r.document_id,
             'key', r.key,
-            'kind', d.props -> 'kind',
+            -- columns where there are, so the props (the whole text) are read once
+            'kind', to_json(d.kind),
             'title', d.props -> 'title',
-            'date', d.props -> 'date',
-            'source', d.props -> 'source',
+            'date', to_json(d.date),
+            'source', to_json(d.source),
             'labels', to_json(d.labels),
             'dossier_number', (
                 SELECT ds.label
