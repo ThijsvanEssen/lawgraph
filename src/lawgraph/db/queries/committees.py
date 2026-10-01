@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, cast
+from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
     COLLECTION_CASES,
     COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
@@ -26,49 +28,145 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import ArangoStore
+from lawgraph.db._rows import node_doc
 
 # A committee whose name is just a GUID carries no usable identity.
 _GUID_NAME = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-
-_CURRENT_MEMBERSHIP = (
-    "FILTER NOT HAS(e.meta, 'to_date') OR e.meta.to_date == null"
-    " OR e.meta.to_date >= @today"
-    # a seat of the Eerste Kamer ends where a snapshot no longer shows it
-    "\n                FILTER e.meta.observed_until == null"
-)
 
 # The chamber a faction, committee or member list is of: the Eerste Kamer's carry
 # ``chamber`` ``EK`` (``normalize eerstekamer-composition``), the Tweede Kamer's none.
 CHAMBER_EK = "EK"
 
+# The columns of a node row (``node_doc``) of the table named ``{t}``.
+_NODE = "{t}.id, {t}.key, {t}.type, {t}.labels, {t}.props"
 
-def _chamber(var: str, chamber: str) -> str:
-    """AQL: *var* (a faction or committee) is of *chamber* (``TK`` or ``EK``)."""
+
+def _is_null(value: str) -> str:
+    """SQL: the JSON *value* is null or missing (AQL ``== null``)."""
+    return f"coalesce(json_typeof({value}), 'null') = 'null'"
+
+
+def _or_empty(value: str) -> str:
+    """SQL: AQL ``value OR []``."""
+    return f"CASE WHEN lg_truthy({value}) THEN {value} ELSE '[]'::json END"
+
+
+def _array(value: str) -> str:
+    """SQL: the JSON *value* when it is an array, else ``[]``: what a FOR walks."""
+    return f"CASE WHEN json_typeof({value}) = 'array' THEN {value} ELSE '[]'::json END"
+
+
+def _nonempty(value: str) -> str:
+    """SQL: AQL ``LENGTH(value) > 0`` of a list."""
     return (
-        f'{var}.props.chamber {"==" if chamber == CHAMBER_EK else "!="} "{CHAMBER_EK}"'
+        f"(CASE WHEN json_typeof({value}) = 'array'"
+        f" THEN json_array_length({value}) > 0 ELSE false END)"
     )
+
+
+def _contains(text: str) -> str:
+    """SQL: AQL ``CONTAINS(LOWER(text), %(q)s)``: ``LOWER(null)`` is ``""``, and nothing
+    contains ``""``."""
+    return f"(%(q)s <> '' AND strpos(lower(coalesce({text}, '')), %(q)s) > 0)"
+
+
+def _chamber(table: str, chamber: str) -> str:
+    """SQL: *table* (a faction or committee) is of *chamber* (``TK`` or ``EK``)."""
+    test = "=" if chamber == CHAMBER_EK else "IS DISTINCT FROM"
+    return f"lg_str({table}.props -> 'chamber') {test} '{CHAMBER_EK}'"
+
+
+def _page(source: str, *order: str) -> str:
+    """SQL: how many rows *source* has (``total``) beside a page of them (``page.*``) in
+    *order*; one row with ``total`` alone when the page is empty."""
+    return f"""
+    SELECT counted.total, page.*
+    FROM (SELECT count(*)::int AS total FROM {source}) counted
+    LEFT JOIN LATERAL (
+        SELECT * FROM {source} ORDER BY {", ".join(order)}
+        LIMIT %(limit)s OFFSET %(offset)s
+    ) page ON true
+    ORDER BY {", ".join(f"page.{term}" for term in order)}
+    """
 
 
 def get_committees(store: ArangoStore, *, chamber: str = "TK") -> list[dict[str, Any]]:
     """Every committee of *chamber* with a name, by name; of the Eerste Kamer only those
     the last snapshot shows. ``props.active_dossier_count`` is what ``semantic
     graph-list-stats`` counted."""
-    aql = f"""
-    FOR committee IN {COLLECTION_COMMITTEES}
-        FILTER {_chamber("committee", chamber)}
-        FILTER committee.props.observed_until == null
-        LET name = committee.props.name
-        FILTER name != null AND name != ""
-        FILTER NOT REGEX_TEST(name, "{_GUID_NAME}", true)
-        SORT name ASC, committee._key ASC
-        RETURN committee
-    """
-    return list(store.query(aql))
+    rows = store.query(
+        f"""
+        SELECT {_NODE.format(t="c")}
+        FROM {COLLECTION_COMMITTEES} c
+        WHERE {_chamber("c", chamber)}
+          AND {_is_null("c.props -> 'observed_until'")}
+          AND c.props ->> 'name' <> ''
+          AND c.props ->> 'name' !~* %(guid)s
+        ORDER BY c.props ->> 'name' ASC NULLS FIRST, c.key ASC
+        """,
+        {"guid": _GUID_NAME},
+    )
+    return [node_doc(row) for row in rows]
 
 
-# A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as
-# ``/dossiers?status=open``).
-_DOSSIER_CLOSED = "dossier.props.closed == true"
+def _committee(store: ArangoStore, slug: str) -> dict[str, Any] | None:
+    """The committee of the slug or the key *slug*. A slug that is also another
+    committee's key: the key picks one every time."""
+    rows = store.query(
+        f"""
+        SELECT {_NODE.format(t="c")}
+        FROM {COLLECTION_COMMITTEES} c
+        WHERE lg_str(c.props -> 'slug') = %(slug)s OR lower(c.key) = %(slug)s
+        ORDER BY c.key ASC
+        LIMIT 1
+        """,
+        {"slug": slug.lower()},
+    )
+    row = next(rows, None)
+    return node_doc(row) if row else None
+
+
+# A seat with no end date or one still ahead; a seat of the Eerste Kamer ends where a
+# snapshot no longer shows it.
+_CURRENT_MEMBERSHIP = f"""
+    AND ({_is_null("e.doc -> 'meta' -> 'to_date'")}
+         OR lg_str(e.doc -> 'meta' -> 'to_date') >= %(today)s)
+    AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}
+"""
+
+# What a seat on a committee adds to its member.
+_SEAT_FIELDS = ("from_date", "to_date", "role", "observed_from", "observed_until")
+
+
+def _committee_members(
+    store: ArangoStore, committee_id: str, *, current_only: bool
+) -> list[dict[str, Any]]:
+    """The members of a committee by name, each with its seat (``_SEAT_FIELDS``)."""
+    bind: dict[str, Any] = {
+        "committee_id": committee_id,
+        "member_of": RELATION_MEMBER_OF,
+    }
+    if current_only:
+        bind["today"] = dt.date.today().isoformat()
+    rows = store.query(
+        f"""
+        SELECT {_NODE.format(t="m")}, e.doc -> 'meta' AS meta
+        FROM {COLLECTION_EDGES} e
+        JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
+        WHERE e.to_id = %(committee_id)s AND e.relation = %(member_of)s
+          AND e.from_collection = '{COLLECTION_MEMBERS}'
+          {_CURRENT_MEMBERSHIP if current_only else ""}
+        ORDER BY m.name ASC NULLS FIRST, m.key ASC, e.key ASC
+        """,
+        bind,
+    )
+    members = []
+    for row in rows:
+        meta = row["meta"] if isinstance(row["meta"], dict) else {}
+        members.append(
+            {**node_doc(row), **{field: meta.get(field) for field in _SEAT_FIELDS}}
+        )
+    return members
 
 
 def get_committee_detail(
@@ -87,76 +185,52 @@ def get_committee_detail(
     *status* (``open`` or ``closed``) keeps the dossiers of that state, newest
     first; ``dossier_total`` counts them all.
     """
-    aql = f"""
-    FOR committee IN {COLLECTION_COMMITTEES}
-        FILTER committee.props.slug == @slug OR LOWER(committee._key) == @slug
-        // A slug that is also another committee's key: the key picks one every time.
-        SORT committee._key
-        LIMIT 1
-
-        LET members = (
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == committee._id AND e.relation == @member_of
-                {_CURRENT_MEMBERSHIP if current_only else ""}
-                LET member = DOCUMENT(e._from)
-                FILTER member != null
-                SORT member.props.name ASC, member._key ASC, e._key ASC
-                RETURN MERGE(member, {{
-                    from_date: e.meta.from_date,
-                    to_date: e.meta.to_date,
-                    role: e.meta.role,
-                    observed_from: e.meta.observed_from,
-                    observed_until: e.meta.observed_until
-                }})
+    committee = _committee(store, slug)
+    if committee is None:
+        return None
+    # A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as
+    # ``/dossiers?status=open``).
+    by_status = {
+        None: "",
+        "closed": "AND d.closed IS TRUE",
+    }.get(status, "AND d.closed IS NOT TRUE")
+    rows = store.query(
+        f"""
+        WITH matching AS (
+            SELECT {_NODE.format(t="d")}, d.opened_on
+            FROM {COLLECTION_DOSSIERS} d
+            WHERE d.id IN (
+                SELECT subject.to_id
+                FROM {COLLECTION_EDGES} led
+                JOIN {COLLECTION_EDGES} subject ON subject.from_id = led.from_id
+                WHERE led.to_id = %(committee_id)s AND led.relation = %(led_by)s
+                  AND subject.relation = %(about)s
+                  AND subject.to_collection = '{COLLECTION_DOSSIERS}'
+            ) {by_status}
         )
-
-        LET dossier_ids = UNIQUE(
-            FOR led IN {COLLECTION_EDGES}
-                FILTER led._to == committee._id AND led.relation == @led_by
-                FOR subject IN {COLLECTION_EDGES}
-                    FILTER subject._from == led._from
-                        AND subject.relation == @about
-                    FILTER STARTS_WITH(subject._to, "{COLLECTION_DOSSIERS}/")
-                    RETURN subject._to
-        )
-        LET led_dossiers = (
-            FOR dossier_id IN dossier_ids
-                LET dossier = DOCUMENT(dossier_id)
-                FILTER dossier != null
-                RETURN {{ dossier: dossier, closed: {_DOSSIER_CLOSED} }}
-        )
-        LET matching = (
-            FOR row IN led_dossiers
-                FILTER @status == null OR (@status == "closed") == row.closed
-                RETURN row.dossier
-        )
-        LET dossiers = (
-            FOR dossier IN matching
-                SORT dossier.props.opened_on DESC, dossier._key ASC
-                LIMIT @offset, @limit
-                RETURN dossier
-        )
-
-        RETURN MERGE(committee, {{
-            members: members,
-            dossiers: dossiers,
-            dossier_total: LENGTH(matching)
-        }})
-    """
-    bind: dict[str, Any] = {
-        "slug": slug.lower(),
-        "status": status,
-        "limit": limit,
-        "offset": offset,
-        "member_of": RELATION_MEMBER_OF,
-        "led_by": RELATION_LED_BY,
-        "about": RELATION_ABOUT,
+        {_page("matching", "opened_on DESC NULLS LAST", "key ASC")}
+        """,
+        {
+            "committee_id": committee["_id"],
+            "led_by": RELATION_LED_BY,
+            "about": RELATION_ABOUT,
+            "limit": limit,
+            "offset": offset,
+        },
+    )
+    total, dossiers = 0, []
+    for row in rows:
+        total = row["total"]
+        if row["id"] is not None:
+            dossiers.append(node_doc(row))
+    return {
+        **committee,
+        "members": _committee_members(
+            store, committee["_id"], current_only=current_only
+        ),
+        "dossiers": dossiers,
+        "dossier_total": total,
     }
-    if current_only:
-        bind["today"] = dt.date.today().isoformat()
-    for doc in store.query(aql, bind):
-        return doc
-    return None
 
 
 def get_committee_activities(
@@ -166,52 +240,99 @@ def get_committee_activities(
 
     Accepts the committee's ``slug`` or its ``_key``. Returns ``{total, items}``.
     """
-    aql = f"""
-    FOR committee IN {COLLECTION_COMMITTEES}
-        FILTER committee.props.slug == @slug OR LOWER(committee._key) == @slug
-        // A slug that is also another committee's key: the key picks one every time.
-        SORT committee._key
-        LIMIT 1
-        LET led_activities = (
-            FOR led IN {COLLECTION_EDGES}
-                FILTER led._to == committee._id AND led.relation == @led_by
-                LET activity = DOCUMENT(led._from)
-                FILTER activity != null
-                RETURN activity
-        )
-        RETURN {{
-            total: LENGTH(led_activities),
-            items: (
-                FOR activity IN led_activities
-                    SORT activity.props.date DESC, activity._key ASC
-                    LIMIT @offset, @limit
-                    RETURN {{
-                        id: activity._id,
-                        key: activity._key,
-                        date: activity.props.date,
-                        kind: activity.props.kind,
-                        agenda_title: activity.props.agenda_title,
-                        status: activity.props.status,
-                        dossier_numbers: activity.props.dossier_numbers OR []
-                    }}
-            )
-        }}
-    """
-    bind = {
-        "slug": slug.lower(),
-        "limit": limit,
-        "offset": offset,
-        "led_by": RELATION_LED_BY,
-    }
-    for row in store.query(aql, bind):
-        return cast(dict[str, Any], row)
-    return None
+    committee = _committee(store, slug)
+    if committee is None:
+        return None
+    rows = store.query(
+        f"""
+        WITH led AS (
+            SELECT a.id, a.key, a.date
+            FROM {COLLECTION_EDGES} e
+            JOIN {COLLECTION_ACTIVITIES} a ON a.id = e.from_id
+            WHERE e.to_id = %(committee_id)s AND e.relation = %(led_by)s
+              AND e.from_collection = '{COLLECTION_ACTIVITIES}'
+        ),
+        listed AS ({_page("led", "date DESC NULLS LAST", "key ASC")})
+        SELECT listed.total, a.id, json_build_object(
+            'id', a.id,
+            'key', a.key,
+            'date', a.props -> 'date',
+            'kind', a.props -> 'kind',
+            'agenda_title', a.props -> 'agenda_title',
+            'status', a.props -> 'status',
+            'dossier_numbers', {_or_empty("a.props -> 'dossier_numbers'")}
+        ) AS item
+        FROM listed
+        LEFT JOIN {COLLECTION_ACTIVITIES} a ON a.id = listed.id
+        ORDER BY listed.date DESC NULLS LAST, listed.key ASC
+        """,
+        {
+            "committee_id": committee["_id"],
+            "led_by": RELATION_LED_BY,
+            "limit": limit,
+            "offset": offset,
+        },
+    )
+    total, items = 0, []
+    for row in rows:
+        total = row["total"]
+        if row["id"] is not None:
+            items.append(row["item"])
+    return {"total": total, "items": items}
 
 
-# The name a member goes by; a TK person without one: the name Rijksoverheid gives.
-_MEMBER_NAME = (
-    "member.props.name OR member.props.known_as OR member.props.government_name"
-)
+def _member_name(table: str) -> str:
+    """SQL: the name a member goes by (AQL ``name OR known_as OR government_name``); a TK
+    person without one: the name Rijksoverheid gives."""
+    name, known_as = (f"{table}.props -> '{f}'" for f in ("name", "known_as"))
+    return (
+        f"CASE WHEN lg_truthy({name}) THEN {table}.props ->> 'name'"
+        f" WHEN lg_truthy({known_as}) THEN {table}.props ->> 'known_as'"
+        f" ELSE {table}.props ->> 'government_name' END"
+    )
+
+
+# A member who is seated: one of their faction memberships has no end date.
+_SEATED = f"""EXISTS (
+    SELECT 1 FROM json_array_elements({_array("m.props -> 'faction_memberships'")}) AS f(period)
+    WHERE {_is_null("f.period -> 'to_date'")}
+)"""
+
+# The member's party, or an abbreviation, name or alias in their faction timeline (AQL
+# ``LOWER(null)`` is ``""``).
+_PARTY = f"""
+    lower(coalesce(m.props ->> 'party', '')) = %(party)s
+    OR EXISTS (
+        SELECT 1
+        FROM json_array_elements({_array("m.props -> 'faction_memberships'")}) AS f(period)
+        WHERE lower(coalesce(f.period ->> 'abbreviation', '')) = %(party)s
+           OR lower(coalesce(f.period ->> 'name', '')) = %(party)s
+           OR EXISTS (
+               SELECT 1 FROM json_array_elements({_array("f.period -> 'aliases'")}) AS a(alias)
+               WHERE lower(coalesce(a.alias #>> '{{}}', '')) = %(party)s
+           )
+    )
+"""
+
+
+def _members_page(
+    store: ArangoStore, filters: list[str], bind: dict[str, Any], seated: str
+) -> list[dict[str, Any]]:
+    """A page of the members *filters* keep (on ``m`` and its name ``n.name``), with
+    ``%(active)s`` only those *seated* (or not), in name order."""
+    rows = store.query(
+        f"""
+        SELECT {_NODE.format(t="m")}
+        FROM {COLLECTION_MEMBERS} m
+        CROSS JOIN LATERAL (SELECT m.list_name AS name) n
+        WHERE {" AND ".join(f"({f})" for f in filters)}
+          AND (%(active)s::boolean IS NULL OR ({seated}) = %(active)s::boolean)
+        ORDER BY n.name ASC NULLS FIRST, m.key ASC
+        LIMIT %(limit)s OFFSET %(offset)s
+        """,
+        bind,
+    )
+    return [node_doc(row) for row in rows]
 
 
 def get_members(
@@ -234,45 +355,29 @@ def get_members(
     (both whether they sat in parliament or not). *party* matches the current party or
     any abbreviation, name or alias in the member's faction timeline.
     """
-    filters: list[str] = [f"({_MEMBER_NAME}) NOT IN [null, '']"]
+    # ``list_name``, ``in_parliament`` and ``seated`` are columns of the members table:
+    # with them a page of the list is read from an index in name order
+    filters: list[str] = ["m.list_name <> ''"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
 
     if government:
-        filters.append("LENGTH(member.props.government_functions) > 0")
+        filters.append(_nonempty("m.props -> 'government_functions'"))
     if cabinet:
-        filters.append("@cabinet IN member.props.government_functions[*].cabinet_key")
+        filters.append("m.cabinet_keys @> ARRAY[%(cabinet)s]::text[]")
         bind["cabinet"] = cabinet
     if not (include_all or government or cabinet):
-        filters.append("LENGTH(member.props.faction_memberships) > 0")
+        filters.append("m.in_parliament")
     if party:
-        filters.append(
-            "(LOWER(member.props.party) == @party"
-            " OR LENGTH(FOR m IN (member.props.faction_memberships OR [])"
-            "    FILTER LOWER(m.abbreviation) == @party"
-            "        OR LOWER(m.name) == @party"
-            "        OR @party IN (FOR a IN (m.aliases OR []) RETURN LOWER(a))"
-            "    LIMIT 1 RETURN 1) > 0)"
-        )
+        filters.append(_PARTY)
         bind["party"] = party.strip().lower()
     if q:
-        filters.append(f"CONTAINS(LOWER({_MEMBER_NAME}), @q)")
+        filters.append(_contains("n.name"))
         bind["q"] = q.strip().lower()
+    return _members_page(store, filters, bind, "m.seated")
 
-    where = ("FILTER " + " AND ".join(filters)) if filters else ""
-    aql = f"""
-    FOR member IN {COLLECTION_MEMBERS}
-        {where}
-        LET seated = LENGTH(
-            FOR m IN (member.props.faction_memberships OR [])
-                FILTER m.to_date == null
-                LIMIT 1 RETURN 1
-        ) > 0
-        FILTER @active == null OR seated == @active
-        SORT {_MEMBER_NAME} ASC, member._key
-        LIMIT @offset, @limit
-        RETURN member
-    """
-    return list(store.query(aql, bind))
+
+# The name a member has in the Eerste Kamer.
+_EK_NAME = "m.props -> 'ek' ->> 'name'"
 
 
 def get_ek_members(
@@ -287,26 +392,23 @@ def get_ek_members(
     """The members of the Eerste Kamer (``props.ek``), in name order: those the last
     snapshot shows (*active*), those it no longer does, or both. *party* matches the
     abbreviation of their faction."""
-    filters = ["member.props.ek != null"]
+    filters = ["m.in_ek"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
     if party:
-        filters.append("LOWER(member.props.ek.abbreviation) == @party")
+        filters.append(
+            "lower(coalesce(m.props -> 'ek' ->> 'abbreviation', '')) = %(party)s"
+        )
         bind["party"] = party.strip().lower()
     if q:
-        filters.append(
-            f"CONTAINS(LOWER({_MEMBER_NAME}), @q) OR CONTAINS(LOWER(member.props.ek.name), @q)"
-        )
+        filters.append(f"{_contains('n.name')} OR {_contains(_EK_NAME)}")
         bind["q"] = q.strip().lower()
-    aql = f"""
-    FOR member IN {COLLECTION_MEMBERS}
-        FILTER {" AND ".join(f"({f})" for f in filters)}
-        LET seated = member.props.ek.observed_until == null
-        FILTER @active == null OR seated == @active
-        SORT {_MEMBER_NAME} ASC, member._key
-        LIMIT @offset, @limit
-        RETURN member
-    """
-    return list(store.query(aql, bind))
+    seated = _is_null("m.props -> 'ek' -> 'observed_until'")
+    return _members_page(store, filters, bind, seated)
+
+
+# What a faction is searched by.
+_FACTION_NAME = "f.props ->> 'name'"
+_FACTION_ABBREVIATION = "f.props ->> 'abbreviation'"
 
 
 def get_factions(
@@ -319,52 +421,66 @@ def get_factions(
     """Every parliamentary party of *chamber* with its member count (of the Eerste Kamer:
     the members the last snapshot shows), seated ones first."""
     bind: dict[str, Any] = {"member_of": RELATION_MEMBER_OF}
-    filters = [
-        "faction.props.name != null AND faction.props.name != ''",
-        _chamber("faction", chamber),
-    ]
+    filters = ["f.props ->> 'name' <> ''", _chamber("f", chamber)]
     if active is not None:
-        filters.append("faction.props.active == @active")
+        filters.append("f.active = %(active)s")
         bind["active"] = active
     if q:
         filters.append(
-            "CONTAINS(LOWER(faction.props.name), @q) OR CONTAINS("
-            "LOWER(faction.props.abbreviation != null ? faction.props.abbreviation : ''), @q)"
+            f"{_contains(_FACTION_NAME)} OR {_contains(_FACTION_ABBREVIATION)}"
         )
         bind["q"] = q.strip().lower()
-
-    aql = f"""
-    LET counts = MERGE(
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.relation == @member_of
-            FILTER STARTS_WITH(e._to, "{COLLECTION_FACTIONS}/")
-            FILTER e.meta.observed_until == null
-            COLLECT faction_id = e._to WITH COUNT INTO total
-            RETURN {{ [faction_id]: total }}
+    rows = store.query(
+        f"""
+        SELECT {_NODE.format(t="f")}, coalesce(counted.n, 0) AS member_count
+        FROM {COLLECTION_FACTIONS} f
+        LEFT JOIN (
+            -- looked up per faction: its order does not reach the answer
+            SELECT e.to_id, count(*)::int AS n
+            FROM {COLLECTION_EDGES} e
+            WHERE e.relation = %(member_of)s
+              AND e.to_collection = '{COLLECTION_FACTIONS}'
+              AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}
+            GROUP BY e.to_id
+        ) counted ON counted.to_id = f.id
+        WHERE {" AND ".join(f"({f})" for f in filters)}
+        ORDER BY f.active DESC NULLS LAST,
+                 lg_str(f.props -> 'abbreviation') ASC NULLS FIRST,
+                 f.name ASC NULLS FIRST, f.key ASC
+        """,
+        bind,
     )
-    FOR faction IN {COLLECTION_FACTIONS}
-        {chr(10).join(f"        FILTER {f}" for f in filters)}
-        SORT faction.props.active DESC, faction.props.abbreviation ASC,
-             faction.props.name ASC, faction._key ASC
-        RETURN MERGE(faction, {{
-            member_count: counts[faction._id] != null ? counts[faction._id] : 0
-        }})
-    """
-    return list(store.query(aql, bind))
+    return [{**node_doc(row), "member_count": row["member_count"]} for row in rows]
 
 
 def get_seats_on(store: ArangoStore, day: str) -> dict[str, int]:
     """Faction key -> the seats its members held on *day* (YYYY-MM-DD), from their
     ``faction_memberships``: a member is one seat of a faction, whatever their role."""
-    aql = f"""
-    FOR member IN {COLLECTION_MEMBERS}
-        FOR m IN (member.props.faction_memberships OR [])
-            FILTER m.from_date != null AND m.from_date <= @day
-            FILTER m.to_date == null OR m.to_date >= @day
-            COLLECT faction = m.faction_key INTO held = member._key
-            RETURN {{faction, seats: COUNT_DISTINCT(held)}}
-    """
-    return {row["faction"]: row["seats"] for row in store.query(aql, {"day": day})}
+    rows = store.query(
+        f"""
+        SELECT f.period ->> 'faction_key' AS faction, count(DISTINCT m.key)::int AS seats
+        FROM {COLLECTION_MEMBERS} m
+        CROSS JOIN LATERAL json_array_elements(
+            {_array("m.pj_faction_memberships")}
+        ) AS f(period)
+        -- only a member with faction memberships has any (``in_parliament``); the list is
+        -- a column of its own, read without the rest of the props
+        WHERE m.in_parliament
+          AND lg_str(f.period -> 'from_date') <= %(day)s
+          AND ({_is_null("f.period -> 'to_date'")} OR lg_str(f.period -> 'to_date') >= %(day)s)
+        GROUP BY 1
+        ORDER BY 1 ASC NULLS FIRST
+        """,
+        {"day": day},
+    )
+    return {row["faction"]: row["seats"] for row in rows}
+
+
+# The membership ``f.period`` held on the day ``d.date``.
+_IN_MEMBERSHIP = f"""
+    ({_is_null("f.period -> 'from_date'")} OR lg_str(f.period -> 'from_date') <= d.date)
+    AND ({_is_null("f.period -> 'to_date'")} OR lg_str(f.period -> 'to_date') >= d.date)
+"""
 
 
 def get_member_votes(
@@ -378,65 +494,64 @@ def get_member_votes(
     ``faction_memberships`` dates. ``party`` is the party they sat for at the
     time, so historic votes keep their colour after a switch.
     """
-    aql = f"""
-    LET member = DOCUMENT(@member_id)
-    FILTER member != null
-    LET memberships = member.props.faction_memberships != null
-        ? member.props.faction_memberships : []
-
-    LET own = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from == @member_id AND e.relation == @voted
-            LET decision = DOCUMENT(e._to)
-            FILTER decision != null
-            RETURN {{
-                decision: decision,
-                choice: e.meta.choice,
-                seats: e.meta.seats,
-                party: member.props.party,
-                faction_key: null
-            }}
+    rows = store.query(
+        f"""
+        WITH member AS (
+            SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
+        ),
+        voted AS (
+            SELECT e.to_id AS decision_id, e.doc -> 'meta' AS meta,
+                   member.props -> 'party' AS party,
+                   NULL::json AS faction_key, NULL::text AS faction_order
+            FROM member
+            JOIN {COLLECTION_EDGES} e
+              ON e.from_id = %(member_id)s AND e.relation = %(voted)s
+            UNION ALL
+            SELECT e.to_id, e.doc -> 'meta',
+                   CASE WHEN {_is_null("f.period -> 'abbreviation'")}
+                        THEN f.period -> 'name' ELSE f.period -> 'abbreviation' END,
+                   f.period -> 'faction_key', f.period ->> 'faction_key'
+            FROM member
+            CROSS JOIN LATERAL json_array_elements(
+                {_array("member.props -> 'faction_memberships'")}
+            ) AS f(period)
+            JOIN {COLLECTION_EDGES} e
+              ON e.from_id = f.period ->> 'faction_id' AND e.relation = %(voted)s
+            JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
+            WHERE d.date IS NOT NULL
+              AND lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
+              AND {_IN_MEMBERSHIP}
+        ),
+        page AS (
+            SELECT v.*, d.key, d.date
+            FROM voted v JOIN {COLLECTION_DECISIONS} d ON d.id = v.decision_id
+            ORDER BY d.date DESC NULLS LAST, d.key ASC, v.faction_order ASC NULLS FIRST
+            LIMIT %(limit)s
+        )
+        SELECT json_build_object(
+            'decision_id', d.id,
+            'decision_key', d.key,
+            'external_id', d.props -> 'decision_id',
+            'date', d.props -> 'date',
+            'subject', d.props -> 'subject',
+            'passed', d.props -> 'passed',
+            'choice', page.meta -> 'choice',
+            'seats', page.meta -> 'seats',
+            'party', page.party,
+            'faction_key', page.faction_key
+        )
+        FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
+        ORDER BY page.date DESC NULLS LAST, page.key ASC,
+                 page.faction_order ASC NULLS FIRST
+        """,
+        {
+            "member_id": member_id,
+            "limit": limit,
+            "voted": RELATION_VOTED,
+            "roll_call": VOTE_KIND_MEMBER,
+        },
     )
-    LET by_faction = (
-        FOR m IN memberships
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._from == m.faction_id AND e.relation == @voted
-                LET decision = DOCUMENT(e._to)
-                FILTER decision != null AND decision.props.date != null
-                FILTER decision.props.vote_kind != @roll_call
-                FILTER (m.from_date == null OR m.from_date <= decision.props.date)
-                   AND (m.to_date == null OR m.to_date >= decision.props.date)
-                RETURN {{
-                    decision: decision,
-                    choice: e.meta.choice,
-                    seats: e.meta.seats,
-                    party: m.abbreviation != null ? m.abbreviation : m.name,
-                    faction_key: m.faction_key
-                }}
-    )
-    FOR row IN APPEND(own, by_faction)
-        SORT row.decision.props.date DESC, row.decision._key, row.faction_key
-        LIMIT @limit
-        RETURN {{
-            decision_id: row.decision._id,
-            decision_key: row.decision._key,
-            external_id: row.decision.props.decision_id,
-            date: row.decision.props.date,
-            subject: row.decision.props.subject,
-            passed: row.decision.props.passed,
-            choice: row.choice,
-            seats: row.seats,
-            party: row.party,
-            faction_key: row.faction_key
-        }}
-    """
-    bind = {
-        "member_id": member_id,
-        "limit": limit,
-        "voted": RELATION_VOTED,
-        "roll_call": VOTE_KIND_MEMBER,
-    }
-    return list(store.query(aql, bind))
+    return list(rows)
 
 
 def get_actor_touched_instruments(
@@ -449,42 +564,85 @@ def get_actor_touched_instruments(
     The instrument document is only fetched for the rows that survive the
     limit.
     """
-    aql = f"""
-    FOR authored IN {COLLECTION_EDGES}
-        FILTER authored._from == @actor_id AND authored.relation == @authored
-        LET document_id = authored._to
-        FOR change IN {COLLECTION_EDGES}
-            FILTER change._from == document_id
-                AND change.relation IN @changes
-            FOR part IN {COLLECTION_EDGES}
-                FILTER part._from == change._to AND part.relation == @part_of
-                FILTER STARTS_WITH(part._to, "{COLLECTION_INSTRUMENTS}/")
-                COLLECT instrument_id = part._to INTO touching = document_id
-                LET document_count = LENGTH(UNIQUE(touching))
-                SORT document_count DESC, instrument_id
-                LIMIT @limit
-                LET instrument = DOCUMENT(instrument_id)
-                FILTER instrument != null
-                RETURN {{
-                    id: instrument_id,
-                    key: instrument._key,
-                    display_name: instrument.props.display_name,
-                    title: instrument.props.title,
-                    short_title: instrument.props.short_title,
-                    citation_title: instrument.props.citation_title,
-                    bwb_id: instrument.props.bwb_id,
-                    celex: instrument.props.celex,
-                    count: document_count
-                }}
-    """
-    bind = {
-        "actor_id": actor_id,
-        "limit": limit,
-        "authored": RELATION_AUTHORED,
-        "part_of": RELATION_PART_OF,
-        "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
-    }
-    return list(store.query(aql, bind))
+    rows = store.query(
+        f"""
+        SELECT json_build_object(
+            'id', top.instrument_id,
+            'key', i.key,
+            'display_name', i.props -> 'display_name',
+            'title', i.props -> 'title',
+            'short_title', i.props -> 'short_title',
+            'citation_title', i.props -> 'citation_title',
+            'bwb_id', i.props -> 'bwb_id',
+            'celex', i.props -> 'celex',
+            'count', top.document_count
+        )
+        FROM (
+            SELECT part.to_id AS instrument_id,
+                   count(DISTINCT authored.to_id)::int AS document_count
+            FROM {COLLECTION_EDGES} authored
+            JOIN {COLLECTION_EDGES} change
+              ON change.from_id = authored.to_id AND change.relation = ANY(%(changes)s)
+            JOIN {COLLECTION_EDGES} part
+              ON part.from_id = change.to_id AND part.relation = %(part_of)s
+             AND part.to_collection = '{COLLECTION_INSTRUMENTS}'
+            WHERE authored.from_id = %(actor_id)s AND authored.relation = %(authored)s
+            GROUP BY part.to_id
+            ORDER BY document_count DESC NULLS LAST, part.to_id ASC
+            LIMIT %(limit)s
+        ) top
+        JOIN {COLLECTION_INSTRUMENTS} i ON i.id = top.instrument_id
+        ORDER BY top.document_count DESC NULLS LAST, top.instrument_id ASC
+        """,
+        {
+            "actor_id": actor_id,
+            "limit": limit,
+            "authored": RELATION_AUTHORED,
+            "part_of": RELATION_PART_OF,
+            "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
+        },
+    )
+    return list(rows)
+
+
+# The AUTHORED edges of a member: the document (or case) each is of, and its meta.
+_MEMBER_AUTHORED = f"""
+    SELECT a.to_id AS document_id, a.doc -> 'meta' AS meta
+    FROM {COLLECTION_EDGES} a
+    WHERE a.from_id = %(actor_id)s AND a.relation = %(authored)s
+"""
+
+# The AUTHORED edges of a faction's members, each signed while the member belonged to it
+# (``faction_memberships``, as for their votes): on the day of the document (or case).
+_FACTION_AUTHORED = f"""
+    SELECT a.to_id AS document_id, a.doc -> 'meta' AS meta
+    FROM {COLLECTION_EDGES} seat
+    JOIN {COLLECTION_MEMBERS} m ON m.id = seat.from_id
+    JOIN {COLLECTION_EDGES} a ON a.from_id = m.id AND a.relation = %(authored)s
+    CROSS JOIN LATERAL (
+        SELECT CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}'
+            THEN (SELECT x.date FROM {COLLECTION_DOCUMENTS} x WHERE x.id = a.to_id)
+            ELSE (SELECT lg_str(x.props -> 'date') FROM nodes x WHERE x.id = a.to_id)
+        END AS date
+    ) d
+    WHERE seat.to_id = %(actor_id)s AND seat.relation = %(member_of)s
+      AND d.date IS NOT NULL
+      AND EXISTS (
+          SELECT 1
+          FROM json_array_elements({_array("m.props -> 'faction_memberships'")}) AS f(period)
+          WHERE f.period ->> 'faction_id' = %(actor_id)s AND {_IN_MEMBERSHIP}
+      )
+"""
+
+
+def _distinct(field: str, condition: str) -> str:
+    """SQL: the distinct values of *field* of the meta of the rows ``r`` that meet
+    *condition*, in order."""
+    value = f"r.meta ->> '{field}'"
+    return (
+        f"coalesce(array_agg(DISTINCT {value} ORDER BY {value} ASC NULLS FIRST)"
+        f" FILTER (WHERE {value} {condition}), '{{}}')"
+    )
 
 
 def get_actor_dossiers(
@@ -503,116 +661,66 @@ def get_actor_dossiers(
     of documents; newest opened first. Returns ``{total, items}``.
     """
     is_faction = actor_id.startswith(f"{COLLECTION_FACTIONS}/")
-    if is_faction:
-        head = f"""
-        FOR seat IN {COLLECTION_EDGES}
-            FILTER seat._to == @actor_id AND seat.relation == @member_of
-            LET member = DOCUMENT(seat._from)
-            FILTER member != null
-            LET periods = (
-                FOR m IN (member.props.faction_memberships OR [])
-                    FILTER m.faction_id == @actor_id
-                    RETURN m
-            )
-            FOR authored IN {COLLECTION_EDGES}
-                FILTER authored._from == member._id AND authored.relation == @authored
-        """
-        in_period = """
-            FILTER LENGTH(
-                FOR m IN periods
-                    LET date = DOCUMENT(authored._to).props.date
-                    FILTER date != null
-                    FILTER (m.from_date == null OR m.from_date <= date)
-                        AND (m.to_date == null OR m.to_date >= date)
-                    LIMIT 1 RETURN 1
-            ) > 0
-        """
-    else:
-        head = f"""
-        FOR authored IN {COLLECTION_EDGES}
-            FILTER authored._from == @actor_id AND authored.relation == @authored
-        """
-        in_period = ""
-
-    aql = f"""
-    LET rows = (
-        {head}
-            LET direct = (
-                FOR p IN {COLLECTION_EDGES}
-                    FILTER p._from == authored._to AND p.relation == @part_of
-                    FILTER STARTS_WITH(p._to, "{COLLECTION_DOSSIERS}/")
-                    RETURN p._to
-            )
-            LET via_case = (
-                FOR p1 IN {COLLECTION_EDGES}
-                    FILTER p1._from == authored._to AND p1.relation == @part_of
-                    FILTER STARTS_WITH(p1._to, "{COLLECTION_CASES}/")
-                    FOR p2 IN {COLLECTION_EDGES}
-                        FILTER p2._from == p1._to AND p2.relation == @part_of
-                        FILTER STARTS_WITH(p2._to, "{COLLECTION_DOSSIERS}/")
-                        RETURN p2._to
-            )
-            LET dossier_ids = UNIQUE(APPEND(direct, via_case))
-            FILTER LENGTH(dossier_ids) > 0
-            {in_period}
-            FOR dossier_id IN dossier_ids
-                RETURN {{
-                    dossier_id: dossier_id,
-                    document_id: authored._to,
-                    role: authored.meta.role,
-                    function: authored.meta.function,
-                    capacity: authored.meta.capacity
-                }}
-    )
-    LET grouped = (
-        FOR row IN rows
-            COLLECT dossier_id = row.dossier_id INTO group = row
-            LET dossier = DOCUMENT(dossier_id)
-            FILTER dossier != null
-            RETURN {{
-                dossier: dossier,
-                roles: (
-                    FOR role IN UNIQUE(group[*].role)
-                        FILTER role != null AND role != ""
-                        SORT role
-                        RETURN role
-                ),
-                functions: (
-                    FOR function IN UNIQUE(group[*].function)
-                        FILTER function != null AND function != ""
-                        SORT function
-                        RETURN function
-                ),
-                capacities: (
-                    FOR capacity IN UNIQUE(group[*].capacity)
-                        FILTER capacity != null
-                        SORT capacity
-                        RETURN capacity
-                ),
-                document_count: LENGTH(UNIQUE(group[*].document_id))
-            }}
-    )
-    RETURN {{
-        total: LENGTH(grouped),
-        items: (
-            FOR row IN grouped
-                SORT row.dossier.props.opened_on DESC, row.dossier._key ASC
-                LIMIT @offset, @limit
-                RETURN row
+    rows = store.query(
+        f"""
+        WITH authored AS ({_FACTION_AUTHORED if is_faction else _MEMBER_AUTHORED}),
+        found AS (
+            SELECT ids.dossier_id, a.document_id, a.meta
+            FROM authored a
+            CROSS JOIN LATERAL (
+                SELECT p.to_id AS dossier_id
+                FROM {COLLECTION_EDGES} p
+                WHERE p.from_id = a.document_id AND p.relation = %(part_of)s
+                  AND p.to_collection = '{COLLECTION_DOSSIERS}'
+                UNION
+                SELECT p2.to_id
+                FROM {COLLECTION_EDGES} p1
+                JOIN {COLLECTION_EDGES} p2
+                  ON p2.from_id = p1.to_id AND p2.relation = %(part_of)s
+                 AND p2.to_collection = '{COLLECTION_DOSSIERS}'
+                WHERE p1.from_id = a.document_id AND p1.relation = %(part_of)s
+                  AND p1.to_collection = '{COLLECTION_CASES}'
+            ) ids
+        ),
+        grouped AS (
+            SELECT {_NODE.format(t="d")}, d.opened_on,
+                   {_distinct("role", "<> ''")} AS roles,
+                   {_distinct("function", "<> ''")} AS functions,
+                   {_distinct("capacity", "IS NOT NULL")} AS capacities,
+                   count(DISTINCT r.document_id)::int AS document_count
+            FROM found r JOIN {COLLECTION_DOSSIERS} d ON d.id = r.dossier_id
+            GROUP BY d.id
         )
-    }}
-    """
-    bind: dict[str, Any] = {
-        "actor_id": actor_id,
-        "limit": limit,
-        "offset": offset,
-        "authored": RELATION_AUTHORED,
-        "part_of": RELATION_PART_OF,
-    }
-    if is_faction:
-        bind["member_of"] = RELATION_MEMBER_OF
-    rows = list(store.query(aql, bind))
-    return cast(dict[str, Any], rows[0]) if rows else {"total": 0, "items": []}
+        {_page("grouped", "opened_on DESC NULLS LAST", "key ASC")}
+        """,
+        {
+            "actor_id": actor_id,
+            "limit": limit,
+            "offset": offset,
+            "authored": RELATION_AUTHORED,
+            "part_of": RELATION_PART_OF,
+            "member_of": RELATION_MEMBER_OF,
+        },
+    )
+    total, items = 0, []
+    for row in rows:
+        total = row["total"]
+        if row["id"] is None:
+            continue
+        items.append(
+            {
+                "dossier": node_doc(row),
+                "roles": list(row["roles"]),
+                "functions": list(row["functions"]),
+                "capacities": list(row["capacities"]),
+                "document_count": row["document_count"],
+            }
+        )
+    return {"total": total, "items": items}
+
+
+# The decision names the faction ``%(name)s`` in its list ``{}``.
+_NAMES = "lg_text_array(d.props -> '{}') @> ARRAY[%(name)s]::text[]"
 
 
 def get_ek_faction_votes(
@@ -627,51 +735,68 @@ def get_ek_faction_votes(
     """How a faction of the Eerste Kamer voted, by its name as the list of votes writes it
     (*abbreviation*): ``{total, counts, items}``, newest first. ``counts`` per choice
     (``voor``, ``tegen``, ``aantekening gevraagd``) over every vote that names it."""
-    aql = f"""
-    LET voted = (
-        FOR d IN {COLLECTION_DECISIONS}
-            FILTER d.props.chamber == @ek
-            FILTER @from == null OR d.props.date >= @from
-            FILTER @to == null OR d.props.date <= @to
-            LET choice = @name IN (d.props.factions_for OR []) ? "voor"
-                : @name IN (d.props.factions_against OR []) ? "tegen"
-                : @name IN (d.props.factions_noted OR []) ? "aantekening gevraagd"
-                : null
-            FILTER choice != null
-            RETURN {{ d, choice }}
+    by_date = ""
+    if date_from is not None:
+        by_date += " AND d.date >= %(from)s"
+    if date_to is not None:
+        # a decision without a date is before every day, as AQL compares null
+        by_date += (
+            " AND (d.date <= %(to)s OR coalesce(json_typeof(d.props -> 'date'), 'null')"
+            " IN ('null', 'number', 'boolean'))"
+        )
+    rows = store.query(
+        f"""
+        WITH named AS (
+            SELECT * FROM (
+                SELECT d.id, d.key, d.date, CASE
+                    WHEN {_NAMES.format("factions_for")} THEN 'voor'
+                    WHEN {_NAMES.format("factions_against")} THEN 'tegen'
+                    WHEN {_NAMES.format("factions_noted")} THEN 'aantekening gevraagd'
+                END AS choice
+                FROM {COLLECTION_DECISIONS} d
+                WHERE lg_str(d.props -> 'chamber') = %(ek)s {by_date}
+            ) voted
+            WHERE choice IS NOT NULL
+        ),
+        page AS (
+            SELECT * FROM named
+            ORDER BY date DESC NULLS LAST, key ASC
+            LIMIT %(limit)s OFFSET %(offset)s
+        )
+        SELECT json_build_object(
+            'total', (SELECT count(*)::int FROM named),
+            -- the choices in their order, as AQL's COLLECT gives them (D11)
+            'counts', (
+                SELECT coalesce(
+                    json_object_agg(choice, n ORDER BY choice ASC NULLS FIRST),
+                    '{{}}'::json
+                )
+                FROM (SELECT choice, count(*)::int AS n FROM named GROUP BY choice) c
+            ),
+            'items', (
+                SELECT coalesce(json_agg(json_build_object(
+                    'decision_id', d.id,
+                    'decision_key', d.key,
+                    'date', d.props -> 'date',
+                    'subject', d.props -> 'subject',
+                    'dossier_numbers', {_or_empty("d.props -> 'dossier_numbers'")},
+                    'result', d.props -> 'result',
+                    'method', d.props -> 'method',
+                    'bill_decision', d.props -> 'bill_decision',
+                    'choice', page.choice
+                ) ORDER BY page.date DESC NULLS LAST, page.key ASC), '[]'::json)
+                FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.id
+            )
+        )
+        """,
+        {
+            "ek": CHAMBER_EK,
+            "name": abbreviation,
+            "from": date_from,
+            "to": date_to,
+            "limit": limit,
+            "offset": offset,
+        },
     )
-    // ZIP, not MERGE: the choices in their order, not in the order of a hash map (D11)
-    LET choice_counts = (
-        FOR v IN voted
-            COLLECT choice = v.choice WITH COUNT INTO n
-            RETURN [choice, n]
-    )
-    LET counts = ZIP(choice_counts[*][0], choice_counts[*][1])
-    LET items = (
-        FOR v IN voted
-            SORT v.d.props.date DESC, v.d._key
-            LIMIT @offset, @limit
-            RETURN {{
-                decision_id: v.d._id,
-                decision_key: v.d._key,
-                date: v.d.props.date,
-                subject: v.d.props.subject,
-                dossier_numbers: v.d.props.dossier_numbers OR [],
-                result: v.d.props.result,
-                method: v.d.props.method,
-                bill_decision: v.d.props.bill_decision,
-                choice: v.choice
-            }}
-    )
-    RETURN {{ total: LENGTH(voted), counts, items }}
-    """
-    bind = {
-        "ek": CHAMBER_EK,
-        "name": abbreviation,
-        "from": date_from,
-        "to": date_to,
-        "limit": limit,
-        "offset": offset,
-    }
-    row = next(iter(store.query(aql, bind)), None)
+    row = next(rows, None)
     return row or {"total": 0, "counts": {}, "items": []}
