@@ -70,6 +70,11 @@ NODE_COLLECTIONS: tuple[str, ...] = (
 # ── SQL helpers ──────────────────────────────────────────────────────────────
 
 FUNCTIONS = r"""
+-- Inside a body every function, table and dictionary of this schema is named with its
+-- schema, ``public.``: a restore (pg_restore) runs with an empty search_path, and builds the
+-- generated columns, which inline these functions, and fires the data version trigger.
+-- (A ``SET search_path`` on the function would keep the planner from inlining it.)
+
 -- The value of a props field, only when it has the type the column holds: a string, a
 -- number or a boolean; anything else is NULL, as ArangoDB compares values of another type
 -- unequal.
@@ -119,14 +124,14 @@ BEGIN
     IF jsonb_typeof(stripped) = 'object' THEN
         FOR name, value IN SELECT e.key, e.value FROM jsonb_each(stripped) AS e LOOP
             IF jsonb_typeof(value) IN ('object', 'array') THEN
-                stripped := jsonb_set(stripped, ARRAY[name], lg_strip_nulls(value));
+                stripped := jsonb_set(stripped, ARRAY[name], public.lg_strip_nulls(value));
             END IF;
         END LOOP;
     ELSIF jsonb_typeof(stripped) = 'array' THEN
         FOR value, n IN SELECT e.value, e.n - 1
                         FROM jsonb_array_elements(stripped) WITH ORDINALITY AS e(value, n) LOOP
             IF jsonb_typeof(value) IN ('object', 'array') THEN
-                stripped := jsonb_set(stripped, ARRAY[n::text], lg_strip_nulls(value));
+                stripped := jsonb_set(stripped, ARRAY[n::text], public.lg_strip_nulls(value));
             END IF;
         END LOOP;
         WHILE jsonb_typeof(stripped -> -1) = 'null' LOOP
@@ -142,7 +147,7 @@ $$;
 CREATE OR REPLACE FUNCTION lg_same(a jsonb, b jsonb) RETURNS boolean
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT CASE WHEN a IS NOT DISTINCT FROM b THEN true
-                ELSE lg_strip_nulls(a) IS NOT DISTINCT FROM lg_strip_nulls(b) END
+                ELSE public.lg_strip_nulls(a) IS NOT DISTINCT FROM public.lg_strip_nulls(b) END
 $$;
 
 -- The strings of a JSON array, in order (``doc.props.subjects[*]``); NULL for another type.
@@ -239,9 +244,9 @@ $$;
 CREATE OR REPLACE FUNCTION lg_tokens(t text) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT coalesce(
-        array_agg(coalesce((ts_lexize('lawgraph_dutch', m[1]))[1], m[1]) ORDER BY o), '{}')
+        array_agg(coalesce((ts_lexize('public.lawgraph_dutch', m[1]))[1], m[1]) ORDER BY o), '{}')
     FROM regexp_matches(
-        lg_fold(t),
+        public.lg_fold(t),
         '([[:alnum:]_]+(?:(?:(?<=[[:alpha:]])[:''’](?=[[:alpha:]])'
         '|(?<=[[:digit:]])[.,](?=[[:digit:]]))[[:alnum:]_]+)*)',
         'g'
@@ -276,12 +281,12 @@ BEGIN
     FOR step IN 1..w_depth LOOP
         reached := ARRAY(
             SELECT f.id FROM (
-                SELECT e.to_id AS id FROM edges e
+                SELECT e.to_id AS id FROM public.edges e
                 WHERE w_outbound AND e.from_id = ANY(frontier)
                   AND (w_relations IS NULL OR e.relation = ANY(w_relations))
                   AND (w_status IS NULL OR e.status = w_status)
                 UNION
-                SELECT e.from_id FROM edges e
+                SELECT e.from_id FROM public.edges e
                 WHERE w_inbound AND e.to_id = ANY(frontier)
                   AND (w_relations IS NULL OR e.relation = ANY(w_relations))
                   AND (w_status IS NULL OR e.status = w_status)
@@ -296,7 +301,7 @@ BEGIN
             chunk := reached[start:start + w_chunk - 1];
             start := start + w_chunk;
             SELECT string_agg(
-                format('SELECT id FROM %I WHERE id = ANY($1)', c), ' UNION ALL '
+                format('SELECT id FROM public.%I WHERE id = ANY($1)', c), ' UNION ALL '
             ) INTO reads
             FROM (
                 SELECT DISTINCT split_part(x, '/', 1) AS c FROM unnest(chunk) x
@@ -334,7 +339,7 @@ CREATE OR REPLACE FUNCTION lg_values(v json) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT CASE json_typeof(v)
         WHEN 'string' THEN ARRAY[v #>> '{}']
-        WHEN 'array' THEN lg_text_array(v)
+        WHEN 'array' THEN public.lg_text_array(v)
         ELSE '{}'::text[]
     END
 $$;
@@ -342,11 +347,11 @@ CREATE OR REPLACE FUNCTION lg_tokens_all(vs text[]) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT coalesce(array_agg(t ORDER BY n, m), '{}')
     FROM unnest(vs) WITH ORDINALITY AS v(value, n),
-         unnest(lg_tokens(value)) WITH ORDINALITY AS w(t, m)
+         unnest(public.lg_tokens(value)) WITH ORDINALITY AS w(t, m)
 $$;
 CREATE OR REPLACE FUNCTION lg_fold_all(vs text[]) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-    SELECT coalesce(array_agg(lg_fold(value) ORDER BY n), '{}')
+    SELECT coalesce(array_agg(public.lg_fold(value) ORDER BY n), '{}')
     FROM unnest(vs) WITH ORDINALITY AS v(value, n)
 $$;
 -- The folded values in one string, for a substring search (array_to_string is only STABLE:
@@ -376,7 +381,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
         (SELECT string_agg(concat_ws(' ',
                     coalesce(m ->> 'abbreviation', ''),
                     coalesce(m ->> 'name', ''),
-                    lg_join(lg_text_array(m -> 'aliases'))
+                    public.lg_join(public.lg_text_array(m -> 'aliases'))
                 ), ' ' ORDER BY n)
          FROM json_array_elements(
              CASE WHEN json_typeof(props -> 'faction_memberships') = 'array'
@@ -389,7 +394,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT lower(concat_ws(' ',
         coalesce(props ->> 'name', ''),
         coalesce(props ->> 'abbreviation', ''),
-        lg_join(lg_text_array(props -> 'aliases'))
+        public.lg_join(public.lg_text_array(props -> 'aliases'))
     ))
 $$;
 -- A word as a LIKE pattern that matches it literally.
@@ -984,7 +989,7 @@ CREATE OR REPLACE FUNCTION lg_bump_data_version() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
     IF EXISTS (SELECT 1 FROM changed) THEN
-        UPDATE lg_data_version SET version = version + 1 WHERE collection = TG_TABLE_NAME;
+        UPDATE public.lg_data_version SET version = version + 1 WHERE collection = TG_TABLE_NAME;
     END IF;
     RETURN NULL;
 END $$

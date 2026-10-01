@@ -191,3 +191,33 @@ def test_truthiness_is_that_of_aql(
 def test_a_missing_value_is_not_truthy(conn: psycopg.Connection) -> None:
     (found,) = conn.execute("SELECT lg_truthy(NULL::json)").fetchone()  # type: ignore[misc]
     assert found is False
+
+
+def test_the_schema_works_without_a_search_path(conn: psycopg.Connection) -> None:
+    """What a restore (pg_restore) does with an empty search_path: build a generated column
+    that inlines the functions, load rows (the generated columns and the data version
+    trigger run), and the functions call each other by their schema."""
+    conn.execute(b"SET search_path = ''")
+    conn.execute(
+        b"CREATE TABLE public.restored (v json, words text[] GENERATED ALWAYS AS"
+        b" (public.lg_tokens_all(public.lg_values(v))) STORED)"
+    )
+    conn.execute(b"""INSERT INTO public.restored (v) VALUES ('["Wetten", "regels"]')""")
+    assert _one(conn, "SELECT words FROM public.restored") == ["wet", "regel"]
+    conn.execute(
+        b"INSERT INTO public.dossiers (id, type, props)"
+        b""" VALUES ('dossiers/1', 'dossier', '{"name": "x"}')"""
+    )
+    assert _one(
+        conn, "SELECT version FROM public.lg_data_version WHERE collection = 'dossiers'"
+    )
+    calls = {
+        "public.lg_fold_all(ARRAY['Één'])": ["een"],
+        'public.lg_member_names(\'{"name": "A", "party": "B"}\')': "a b",
+        'public.lg_faction_names(\'{"name": "A", "aliases": ["C"]}\')': "a  c",
+        "public.lg_same('{\"a\": [1, null]}', '{\"a\": [1]}')": True,
+        "public.lg_walk('dossiers/1', 1, 10, NULL, NULL, true, true, NULL,"
+        " ARRAY['dossiers'])": [],
+    }
+    for call, expected in calls.items():
+        assert _one(conn, f"SELECT {call}") == expected, call
