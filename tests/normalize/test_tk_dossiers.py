@@ -257,6 +257,72 @@ def test_a_commitment_is_made_in_an_activity_and_about_its_dossiers() -> None:
     }
 
 
+def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replacement() -> (
+    None
+):
+    # 2026A04251 (Wetgevingsoverleg 36835, Verplaatst) kept no agenda; the Kamer replaced
+    # it by 2026A06208 (VervangenDoor), whose agenda holds the cases of 36835
+    store = _Store(existing={COLLECTION_DOSSIERS: {"36835"}})
+    activities = {
+        "moved": _node(
+            COLLECTION_ACTIVITIES,
+            NodeType.ACTIVITY,
+            "moved",
+            number="2026A04251",
+            dossier_numbers=[],
+            replaced_by=["2026A06208"],
+        ),
+        "held": _node(
+            COLLECTION_ACTIVITIES,
+            NodeType.ACTIVITY,
+            "held",
+            number="2026A06208",
+            dossier_numbers=["36835"],
+            replaced_by=[],
+        ),
+        # replaced by each other: no endless walk
+        "loop": _node(
+            COLLECTION_ACTIVITIES,
+            NodeType.ACTIVITY,
+            "loop",
+            number="L1",
+            replaced_by=["L1"],
+        ),
+    }
+    commitments = {
+        "t1": _node(
+            COLLECTION_COMMITMENTS,
+            NodeType.COMMITMENT,
+            "t1",
+            activity_number="2026A04251",
+        ),
+        "t2": _node(
+            COLLECTION_COMMITMENTS, NodeType.COMMITMENT, "t2", activity_number="L1"
+        ),
+    }
+
+    tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
+
+    assert set(store.edge_meta) == {
+        # made in the activity it names, about what the replacement discussed
+        (
+            f"{COLLECTION_COMMITMENTS}/t1",
+            RELATION_MADE_IN,
+            f"{COLLECTION_ACTIVITIES}/moved",
+        ),
+        (
+            f"{COLLECTION_COMMITMENTS}/t1",
+            RELATION_ABOUT,
+            f"{COLLECTION_DOSSIERS}/36835",
+        ),
+        (
+            f"{COLLECTION_COMMITMENTS}/t2",
+            RELATION_MADE_IN,
+            f"{COLLECTION_ACTIVITIES}/loop",
+        ),
+    }
+
+
 # ── authorship ───────────────────────────────────────────────────────────────
 
 

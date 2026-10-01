@@ -430,6 +430,47 @@ def test_members_who_held_a_seat_by_name_then_key(store: GraphStore) -> None:
     assert get_members(store, include_all=True, offset=100) == []
 
 
+def test_members_by_surname_then_tussenvoegsel(store: GraphStore) -> None:
+    g = Graph(store)
+    seat = [{**VVD, "to_date": None}]
+    g.node(
+        "members",
+        "a",
+        name="Ard van der Steur",
+        family_name="Steur",
+        name_prefix="van der",
+        faction_memberships=seat,
+    )
+    g.node(
+        "members", "b", name="Bas Steur", family_name="Steur", faction_memberships=seat
+    )
+    g.node(
+        "members",
+        "c",
+        name="Cees de Aa",
+        family_name="Aa",
+        name_prefix="de",
+        faction_memberships=seat,
+    )
+    g.node(
+        "members",
+        "d",
+        name="Dirk Yeşilgöz",
+        family_name="Yeşilgöz",
+        faction_memberships=seat,
+    )
+    # a name without its parts (a member the Kamer names by roll calls only): last
+    g.node("members", "e", name="Anna", faction_memberships=seat)
+    g.write()
+    assert _keys(get_members(store)) == ["e", "a", "b", "c", "d"]
+    by_surname = get_members(store, sort="family_name")
+    assert _keys(by_surname) == ["c", "b", "a", "d", "e"]
+    assert _keys(get_members(store, sort="family_name", limit=2, offset=1)) == [
+        "b",
+        "a",
+    ]
+
+
 def test_members_by_party_name_and_seat(store: GraphStore) -> None:
     _people(store)
     # the party, or an abbreviation, name or alias in the timeline, in any case

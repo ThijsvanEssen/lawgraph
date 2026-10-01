@@ -7,6 +7,11 @@
   and where given the place of residence and the date of birth.
 * ``/commissies`` lists every committee (``Financiën (FIN)``), linking ``/commissies/<slug>``:
   its members, each with the faction and, where it has one, the role (``voorzitter``).
+* ``/wie_zit_waar`` draws the plenary hall: two blocks of benches facing each other, row by
+  row from the government to the chair, each place a member (``data-fractie``, the id of
+  their biography, which links ``/persoon/<slug>``) or empty (``l-virt``), and the seat of
+  the Voorzitter between them; its list of factions links each ``data-fractie`` to the
+  faction's page (``/fractie/<slug>``).
 
 The site gives no start or end of a membership as data (only in sentences), so none is read:
 what is read is who sits where on the day of reading. Only the page structure and its
@@ -23,6 +28,7 @@ from lawgraph.core.rijksoverheid import parse_date
 
 FACTIONS_PATH = "/fracties"
 COMMITTEES_PATH = "/commissies"
+HALL_PATH = "/wie_zit_waar"
 
 _MAIN = re.compile(r"<main.*?</main>", re.S)
 _FACTION = re.compile(r'<a href="(/fractie/[^"#?]+)"[^>]*>(.*?)</a>', re.S)
@@ -41,6 +47,23 @@ _CAPTION = re.compile(r'<div class="persoon_bijschrift">(.*?)<div class="cell', 
 _PLAIN_DIV = re.compile(r"<div>([^<:]+)</div>")
 _DAYS = re.compile(r"^(\d+) dagen$")
 _BIRTH = re.compile(r"^(\d{2})-(\d{2})-(\d{4})$")
+
+# the hall: its blocks, a row of a block, a place in a row (a member or an empty one), the
+# biography of a member, and a faction of its list with the link to its page
+_HALL_LEFT = '<div class="left bankjes">'
+_HALL_MIDDLE = '<div class="middle'
+_HALL_RIGHT = '<div class="right bankjes">'
+_HALL_ROW = '<div class="d-flex">'
+_HALL_PLACE = re.compile(
+    r'<div data-fractie="([^"]+)" class="[^"]*\blid\b[^"]*">\s*<button[^>]*'
+    r'data-a11y-toggle="([^"]+)"|<div class="l-virt\b'
+)
+_BIO = re.compile(r'<div id="([^"]+)" class="bio">')
+_BIO_PAGE = re.compile(r'href="(/persoon/[^"#?]+)"')
+_HALL_FACTION = re.compile(
+    r'<li data-fractie="([^"]+)" class="fractie[^"]*">.*?href="(/fractie/[^"#?]+)"',
+    re.S,
+)
 
 LABEL_SENIORITY = "Anciënniteit"
 LABEL_RESIDENCE = "Woonplaats"
@@ -167,3 +190,56 @@ def page(html: str) -> Page:
             for function, path, name, since in _BOARD.findall(main)
         ],
     )
+
+
+@dataclass(frozen=True)
+class HallSeat:
+    """A place in the plenary hall of the Eerste Kamer, as ``/wie_zit_waar`` draws it.
+
+    *block* ``left`` or ``right`` (from the government, looking at the chair), *row* from
+    the government (0) to the chair, *column* from the outer wall (0) to the aisle; the
+    seat of the Voorzitter is *block* ``chair``, row and column 0."""
+
+    block: str
+    row: int
+    column: int
+    faction: str  # the path of the faction's page: /fractie/democraten_1966
+    person: str | None  # the path of the member's page: /persoon/mr_b_o_dittrich_d66
+
+
+def _hall_rows(block: str) -> list[list[tuple[str, str] | None]]:
+    """The places of each row of a block: ``(data-fractie, id)``, None for an empty one."""
+    return [
+        [(m[1], m[2]) if m[1] else None for m in _HALL_PLACE.finditer(row)]
+        for row in block.split(_HALL_ROW)[1:]
+    ]
+
+
+def hall(page: str) -> list[HallSeat]:
+    """Every seat of the hall that a member holds, block by block and row by row; ``[]``
+    for a page without the plan. A place whose faction or member the page does not link
+    keeps None (the member) or is left out (the faction)."""
+    start, middle = page.find(_HALL_LEFT), page.find(_HALL_MIDDLE)
+    right = page.find(_HALL_RIGHT)
+    if min(start, middle, right) < 0:
+        return []
+    end = page.find("<ul", right)
+    bios = _BIO.split(page)
+    people = {
+        bios[i]: (link[1] if (link := _BIO_PAGE.search(bios[i + 1])) else None)
+        for i in range(1, len(bios) - 1, 2)
+    }
+    pages = dict(_HALL_FACTION.findall(page))
+    blocks = {
+        "left": _hall_rows(page[start:middle]),
+        # the seat of the Voorzitter, between the blocks: one row of one place
+        "chair": _hall_rows(_HALL_ROW + page[middle:right]),
+        "right": _hall_rows(page[right : end if end > 0 else len(page)]),
+    }
+    return [
+        HallSeat(block, r, c, pages[place[0]], people.get(place[1]))
+        for block, rows in blocks.items()
+        for r, row in enumerate(rows)
+        for c, place in enumerate(row)
+        if place is not None and place[0] in pages
+    ]

@@ -145,6 +145,24 @@ def link_activities_to_committees(
     logger.info("Linked %d activities to their lead committee.", writer.added)
 
 
+def _dossiers_of(activity: Node, activity_by_number: dict[str, Node]) -> list[str]:
+    """The dossiers of *activity*, or of the first activity that replaced it
+    (``replaced_by``, Activiteit.VervangenDoor) that names any: a moved activity keeps no
+    agenda, its commitments are about what the activity that replaced it discussed."""
+    seen: set[str] = set()
+    queue = [activity]
+    while queue:
+        current = queue.pop(0)
+        numbers = current.props.get("dossier_numbers") or []
+        if numbers:
+            return list(numbers)
+        for number in current.props.get("replaced_by") or []:
+            if number not in seen and number in activity_by_number:
+                seen.add(number)
+                queue.append(activity_by_number[number])
+    return []
+
+
 def link_commitments(
     store: Store,
     commitment_nodes: dict[str, Node],
@@ -154,7 +172,9 @@ def link_commitments(
 ) -> None:
     """MADE_IN edges to the activity, and ABOUT edges to that activity's dossiers.
 
-    A Toezegging names no dossier of its own; the activity it was made in does.
+    A Toezegging names no dossier of its own; the activity it was made in does, or, when
+    that one was moved and kept no agenda, the activity that replaced it
+    (``_dossiers_of``).
     """
     activity_by_number = {
         number: node
@@ -171,7 +191,7 @@ def link_commitments(
         writer.add(node.node_id, activity.node_id, RELATION_MADE_IN, source=source)
         dossier_pairs += [
             (node.node_id, COLLECTION_DOSSIERS, make_node_key(str(number)))
-            for number in activity.props.get("dossier_numbers") or []
+            for number in _dossiers_of(activity, activity_by_number)
         ]
     _queue_existing(store, dossier_pairs, RELATION_ABOUT, writer, source=source)
     writer.flush()
