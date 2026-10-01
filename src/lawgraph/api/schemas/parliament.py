@@ -19,7 +19,17 @@ class FactionSeatsDTO(BaseModel):
     abbreviation: str | None
     name: str | None
     seats: int
-    color: str | None
+    color: str | None = Field(
+        None,
+        description="The colour this Kamer draws the faction in (the first of `colors`), "
+        "else the party's house colour; null for none.",
+    )
+    colors: list[str] = Field(
+        default_factory=list,
+        description="Every colour this Kamer draws the faction in, as it draws them: two "
+        "for a faction drawn in stripes (PRO in the Tweede Kamer); empty when it draws none "
+        "the list knows.",
+    )
     order: int = Field(..., description="Left-to-right position in the chamber.")
 
 
@@ -82,6 +92,29 @@ class ParliamentSeatsResponse(BaseModel):
     )
 
 
+class ColorSourceDTO(BaseModel):
+    """Where the colours of a Kamer were read."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    what: str
+    read_on: str = Field(..., description="YYYY-MM-DD.")
+
+
+class ChamberColorsDTO(BaseModel):
+    """The colours a Kamer draws its factions in."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    colors: dict[str, list[str]] = Field(
+        ...,
+        description="Faction to its colours (two for one drawn in stripes), by every name "
+        "and alias.",
+    )
+    source: ColorSourceDTO
+
+
 class PartyColorsResponse(BaseModel):
     """Party to hex colour, by every name and alias; and the aliases."""
 
@@ -91,4 +124,10 @@ class PartyColorsResponse(BaseModel):
     aliases: dict[str, str] = Field(
         default_factory=dict,
         description="Another name of a party (`GL-PvdA`, `CU`) -> its name in `colors`.",
+    )
+    chambers: dict[str, ChamberColorsDTO] = Field(
+        default_factory=dict,
+        description="Per Kamer the colours it draws the factions in, and where they were "
+        "read: the Tweede Kamer in the legend of its seat distribution, the Eerste Kamer in "
+        "Wie zit waar.",
     )

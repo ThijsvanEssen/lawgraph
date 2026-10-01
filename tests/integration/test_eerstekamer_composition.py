@@ -194,6 +194,8 @@ def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: ArangoStore) ->
         )
         assert seats["seating_plan"] is None
         assert seats["source"]["data_since"] == "2026-09-30"
+        # the colour the Eerste Kamer draws D66 in (Wie zit waar)
+        assert seats["factions"][0]["colors"] == ["#00D84B"]
         # the hall: the seats of the members this snapshot knows, in the order of the plan
         hall = seats["hall"]
         assert hall["url"] == "https://www.eerstekamer.nl/wie_zit_waar"

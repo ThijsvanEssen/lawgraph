@@ -130,12 +130,30 @@ _COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 _ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9.]{1,7}:\d{4}:[A-Z0-9.]{1,25}$")
 
 
+CHAMBERS = ("TK", "EK")
+
+
 def _party_colors(entries: Entries) -> list[str]:
     found = []
     seen: dict[str, str] = {}
     for name, value in entries.items():
-        if not _COLOR.match(str(value.get("color"))):
+        chambers = value.get("chambers") or {}
+        # a faction only one Kamer draws (``Fractie-Walenkamp``) has no house colour
+        if (chambers and "color" not in value) or _COLOR.match(str(value.get("color"))):
+            pass
+        else:
             found.append(f"{name}: color {value.get('color')!r} is no #rrggbb")
+        found += [
+            f"{name}: {chamber} is no Kamer ({', '.join(CHAMBERS)})"
+            for chamber in chambers
+            if chamber not in CHAMBERS
+        ]
+        found += [
+            f"{name}: {chamber} colour {color!r} is no #rrggbb"
+            for chamber, colors in chambers.items()
+            for color in (colors if isinstance(colors, list) and colors else [None])
+            if not _COLOR.match(str(color))
+        ]
         for label in (name, *(value.get("aliases") or [])):
             other = seen.setdefault(label.lower(), name)
             if other != name:
@@ -325,7 +343,8 @@ LISTS: dict[str, CuratedList] = {
         _list(
             "party-colors",
             "party_colors.json",
-            "party -> {color, aliases}: the house colour of a party and its other names",
+            "party -> {color, aliases, chambers}: the house colour of a party, its other "
+            "names and the colours each Kamer draws it in",
             _records("parties", "name"),
             _party_colors,
         ),
