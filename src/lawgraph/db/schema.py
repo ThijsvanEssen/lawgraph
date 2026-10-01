@@ -101,6 +101,50 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     END
 $$;
 
+-- A value without the attributes that are null, at every depth, objects inside arrays too,
+-- and without the nulls an array ends in. What AQL compares: an object with an attribute set
+-- to null equals one without it, and an array compares position by position with what the
+-- shorter one lacks as null (``[1] == [1, null]``); a null between elements stays
+-- (``jsonb_strip_nulls`` with ``strip_in_arrays`` would drop those as well).
+CREATE OR REPLACE FUNCTION lg_strip_nulls(v jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+DECLARE
+    stripped jsonb := CASE jsonb_typeof(v) WHEN 'object' THEN jsonb_strip_nulls(v) ELSE v END;
+    name text;
+    value jsonb;
+    n bigint;
+BEGIN
+    -- jsonb_strip_nulls strips nested objects, not the objects inside an array: each
+    -- array (and an object that may hold one) is stripped in its place
+    IF jsonb_typeof(stripped) = 'object' THEN
+        FOR name, value IN SELECT e.key, e.value FROM jsonb_each(stripped) AS e LOOP
+            IF jsonb_typeof(value) IN ('object', 'array') THEN
+                stripped := jsonb_set(stripped, ARRAY[name], lg_strip_nulls(value));
+            END IF;
+        END LOOP;
+    ELSIF jsonb_typeof(stripped) = 'array' THEN
+        FOR value, n IN SELECT e.value, e.n - 1
+                        FROM jsonb_array_elements(stripped) WITH ORDINALITY AS e(value, n) LOOP
+            IF jsonb_typeof(value) IN ('object', 'array') THEN
+                stripped := jsonb_set(stripped, ARRAY[n::text], lg_strip_nulls(value));
+            END IF;
+        END LOOP;
+        WHILE jsonb_typeof(stripped -> -1) = 'null' LOOP
+            stripped := stripped - -1;
+        END LOOP;
+    END IF;
+    RETURN stripped;
+END
+$$;
+
+-- Whether two values are equal as AQL compares them (``==``, ``MATCHES``): an attribute
+-- set to null is the same as a missing one. Equal values are not stripped.
+CREATE OR REPLACE FUNCTION lg_same(a jsonb, b jsonb) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN a IS NOT DISTINCT FROM b THEN true
+                ELSE lg_strip_nulls(a) IS NOT DISTINCT FROM lg_strip_nulls(b) END
+$$;
+
 -- The strings of a JSON array, in order (``doc.props.subjects[*]``); NULL for another type.
 CREATE OR REPLACE FUNCTION lg_text_array(v json) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$

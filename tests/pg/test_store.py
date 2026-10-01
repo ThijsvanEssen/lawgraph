@@ -105,6 +105,77 @@ def test_an_edge_update_keeps_created_at_and_merges_meta(store: ArangoStore) -> 
     assert row["doc"]["confidence"] is None
 
 
+def test_an_update_that_only_adds_nulls_is_not_written(store: ArangoStore) -> None:
+    """As ArangoDB compared: a prop set to null is the same as a missing one. A step that
+    writes ``None`` for what a node lacks (``semantic tk-government`` on a dossier nobody
+    signed) leaves it as it is; graph_equal round 1 found 169 dossiers with null props."""
+    store.bulk_insert_or_update_nodes("dossiers", [_node("1", title="a")])
+    version = store.data_version()
+    nulls = _node("1", ministry=None, initiative=None, cabinet=None)
+    assert store.bulk_insert_or_update_nodes("dossiers", [nulls]) == (0, 0)
+    doc = store.get_document("dossiers", "1")
+    assert doc is not None and doc["props"] == {"title": "a"}
+    assert store.data_version() == version
+    # a null inside an object, inside an array too, is the same as a missing one ...
+    nested = {"a": {"b": 1}, "list": [{"c": 1}]}
+    store.bulk_insert_or_update_nodes("dossiers", [_node("2", **nested)])
+    same = {"a": {"b": 1, "x": None}, "list": [{"c": 1, "x": None}]}
+    assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **same)]) == (0, 0)
+    # ... and so is a null an array ends in (AQL compares what the shorter lacks as null),
+    # but not one before an element
+    ending = {"list": [{"c": 1}, None]}
+    assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **ending)]) == (
+        0,
+        0,
+    )
+    before = {"list": [None, {"c": 1}]}
+    assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **before)]) == (
+        0,
+        1,
+    )
+
+
+def test_a_real_change_is_written_whole_nulls_included(store: ArangoStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "dossiers", [_node("1", title="a", ministry="bz")]
+    )
+    change = _node("1", title="b", ministry=None, cabinet=None)
+    assert store.bulk_insert_or_update_nodes("dossiers", [change]) == (0, 1)
+    doc = store.get_document("dossiers", "1")
+    assert doc is not None
+    # ArangoDB kept the nulls of a written update (keepNull) and so does this
+    assert doc["props"] == {"cabinet": None, "ministry": None, "title": "b"}
+    # a value set to null where there was one is a change
+    assert store.bulk_insert_or_update_nodes("dossiers", [_node("1", title=None)]) == (
+        0,
+        1,
+    )
+
+
+def test_an_edge_whose_meta_only_gains_nulls_is_not_written(store: ArangoStore) -> None:
+    edge = {
+        "_key": "e1",
+        "_from": "members/m",
+        "_to": "factions/f",
+        "relation": "MEMBER_OF",
+        "source": "tk",
+        "meta": {"from_date": "2020-01-01"},
+    }
+    assert store.bulk_insert_or_update_edges([edge]) == (1, 0)
+    nulls = {**edge, "meta": {"to_date": None, "role": None}}
+    assert store.bulk_insert_or_update_edges([nulls]) == (0, 0)
+    row = next(store.query("SELECT doc FROM edges"))
+    assert row["meta"] == {"from_date": "2020-01-01"}
+    later = {**edge, "meta": {"to_date": "2021-01-01", "role": None}}
+    assert store.bulk_insert_or_update_edges([later]) == (0, 1)
+    row = next(store.query("SELECT doc FROM edges"))
+    assert row["meta"] == {
+        "from_date": "2020-01-01",
+        "role": None,
+        "to_date": "2021-01-01",
+    }
+
+
 def test_the_data_version_follows_what_the_api_serves(store: ArangoStore) -> None:
     first = store.data_version()
     assert len(first) == 16
