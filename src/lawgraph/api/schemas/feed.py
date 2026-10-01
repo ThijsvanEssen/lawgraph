@@ -129,6 +129,18 @@ class FeedVoteDTO(BaseModel):
         description="Seats per choice as the source writes it (``Voor``, ``Tegen``, "
         "``Niet deelgenomen``); members per choice on a roll-call.",
     )
+    method: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: how it was decided, as its report names it "
+        "(``Hamerstuk``, ``Stemming bij zitten en opstaan, aangenomen``, ``Hoofdelijke "
+        "stemming, verworpen``).",
+    )
+    decision_kind: str | None = Field(
+        None,
+        description="Of the Tweede Kamer: its ``BesluitSoort`` as the Kamer writes it "
+        "(``Stemmen - aangenomen``, ``Stemmen - zonder stemming aannemen``: a hamerstuk, "
+        "no votes).",
+    )
 
 
 class FeedCommitmentDTO(BaseModel):
@@ -423,6 +435,8 @@ def _vote(props: dict[str, Any]) -> FeedVoteDTO:
         outcome=_OUTCOME.get(passed) if isinstance(passed, bool) else None,  # type: ignore[arg-type]
         vote_kind=props.get("vote_kind"),
         tally=props.get("tally") or {},
+        method=props.get("method"),
+        decision_kind=props.get("decision_kind"),
     )
 
 

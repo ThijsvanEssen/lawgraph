@@ -78,6 +78,8 @@ _ITEM_PROPS = (
     "passed",
     "tally",
     "vote_kind",
+    "method",
+    "decision_kind",
     "chamber",
     "citation_title",
     "publication_kind",
