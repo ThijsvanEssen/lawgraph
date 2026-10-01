@@ -28,7 +28,6 @@ from lawgraph.db.queries.committees import (
     get_committee_activities,
     get_committee_detail,
 )
-from lawgraph.db.queries.dossiers import get_dossier_hub
 
 
 class Graph:
@@ -214,128 +213,6 @@ def _hub_graph(store: ArangoStore) -> None:
     g.edge(both, RELATION_ABOUT, case)
     g.edge(both, RELATION_LED_BY, lead_a)
     g.write()
-
-
-def test_the_hub_gathers_instruments_committees_and_documents_in_one_query(
-    database: str,
-) -> None:
-    store = ArangoStore()
-    _hub_graph(store)
-
-    asked: list[str] = []
-    real = store.query
-
-    def recording(aql: str, *args: Any, **kwargs: Any) -> Any:
-        asked.append(aql)
-        return real(aql, *args, **kwargs)
-
-    store.query = recording  # type: ignore[method-assign]
-    hub = get_dossier_hub(store, "dossiers/36001")
-    assert len(asked) == 1
-
-    rows = [(i["display_name"], i["relation"], i["status"]) for i in hub["instruments"]]
-    assert rows == [
-        ("Wet A", "legislated_in", "canoniek"),
-        ("Wet A", "amends", "canoniek"),
-        ("Wet B", "amends", "canoniek"),
-        ("Wet B", "amends", "voorgesteld"),
-        ("Wet C", "amends", "voorgesteld"),
-        ("Wet B", "introduces", "canoniek"),
-        ("Wet C", "introduces", "voorgesteld"),
-        ("Richtlijn X", "repeals", "canoniek"),
-    ]
-    by_key = {(i["key"], i["relation"]): i for i in hub["instruments"]}
-    assert by_key[("bwbr0000001", "legislated_in")]["bwb_id"] == "BWBR0000001"
-    assert by_key[("bwbr0000001", "legislated_in")]["jurisdiction"] == "nl"
-    assert by_key[("32016l0680", "repeals")]["celex"] == "32016L0680"
-    assert by_key[("32016l0680", "repeals")]["bwb_id"] is None
-    assert not any(key == "bwbr0000009" for key, _ in by_key)  # another dossier's
-    assert len(rows) == len(set(rows))  # one item per (instrument, relation, status)
-
-    assert [c["slug"] for c in hub["committees"]] == [
-        "a",
-        "b",
-    ]  # once, plenary and other left out
-    assert hub["committees"][0]["abbreviation"] == "CA"
-
-    assert hub["documents_by_kind"] == {
-        "Motie": 1,
-        "Amendement": 1,
-        "Brief": 2,
-    }  # the case's document counts, the untyped one and another dossier's do not
-    assert hub["senate"] == {"document_count": 2, "first_date": "2024-04-01"}
-
-
-def test_a_dossier_without_links_has_an_empty_hub(database: str) -> None:
-    store = ArangoStore()
-    g = Graph(store)
-    g.node("dossiers", "36003", number="36003", label="36003")
-    g.write()
-
-    hub = get_dossier_hub(store, "dossiers/36003")
-
-    assert hub == {
-        "instruments": [],
-        "committees": [],
-        "documents_by_kind": {},
-        "senate": {"document_count": 0, "first_date": None},
-    }
-
-
-def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
-    database: str,
-) -> None:
-    """One publication that amends 3,000 articles of 300 laws, and 600 documents."""
-    store = ArangoStore()
-    g = Graph(store)
-    dossier = g.node("dossiers", "36004", number="36004", label="36004")
-    publication = g.node("instruments", "stb_2021_9", publication_kind="Stb")
-    g.edge(publication, RELATION_LEGISLATED_IN, dossier)
-    for law in range(300):
-        instrument = g.node(
-            "instruments",
-            f"bwbr{law:07d}",
-            bwb_id=f"BWBR{law:07d}",
-            display_name=f"Wet {law}",
-        )
-        for number in range(10):
-            article = g.node("articles", f"bwbr{law:07d}_{number}")
-            g.edge(article, RELATION_PART_OF, instrument)
-            g.edge(publication, RELATION_AMENDS, article)
-    for number in range(600):
-        document = g.node(
-            "documents", f"doc{number}", ["TK"], kind="Motie", date="2024-01-01"
-        )
-        g.edge(document, RELATION_PART_OF, dossier)
-    g.write()
-
-    started = time.monotonic()
-    hub = get_dossier_hub(store, "dossiers/36004")
-    elapsed = time.monotonic() - started
-
-    assert len(hub["instruments"]) == 300
-    assert hub["documents_by_kind"] == {"Motie": 600}
-    assert elapsed < 2.0, elapsed
-
-    from lawgraph.db.queries import dossiers
-
-    body = dossiers._dossier_documents_aql(dossiers._DOSSIER_HUB_BODY)
-    aql = f"LET dossier_id = @dossier_id\n{body}"
-    plan = store.db.aql.explain(
-        aql,
-        bind_vars={
-            "dossier_id": "dossiers/36004",
-            "part_of": RELATION_PART_OF,
-            "about": RELATION_ABOUT,
-            "led_by": RELATION_LED_BY,
-            "legislated_in": RELATION_LEGISLATED_IN,
-            "changes": [RELATION_AMENDS],
-            "canonical": "canoniek",
-            "relation_order": ["legislated_in", "amends"],
-        },
-    )
-    kinds = {node["type"] for node in plan["nodes"]}
-    assert "EnumerateCollectionNode" not in kinds
 
 
 def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(

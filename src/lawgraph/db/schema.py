@@ -409,6 +409,23 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         # a government bill: ``kind`` and not ``initiative`` (the counts per cabinet)
         _str("kind"),
         _bool("initiative"),
+        # what the dossier lists filter, sort and count on, as stored (any type, as
+        # ArangoDB compared it): read without the rest of the props
+        *(
+            _json(field)
+            for field in (
+                "outcome",
+                "kind",
+                "current_phase",
+                "ministry",
+                "order",
+                "opened_on",
+                "closed_on",
+                "title",
+                "phases",
+                "initiative",
+            )
+        ),
     ),
     COLLECTION_ACTIVITIES: (_str("date"),),
     COLLECTION_DECISIONS: (

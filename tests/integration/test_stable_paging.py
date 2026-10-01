@@ -14,7 +14,6 @@ from lawgraph.config.constants import (
     COLLECTION_COMMITMENTS,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
-    COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
@@ -47,11 +46,6 @@ def _nodes() -> list[Node]:
                     NodeType.DOCUMENT,
                     {"title": "Brief", "date": "2026-09-22"},
                 ),
-                (
-                    COLLECTION_DOSSIERS,
-                    NodeType.DOSSIER,
-                    {"label": str(37000 + ROWS), "opened_on": "2026-09-22"},
-                ),
                 (COLLECTION_MEMBERS, NodeType.MEMBER, {"name": "Jansen"}),
                 (
                     COLLECTION_JUDGMENTS,
@@ -77,9 +71,6 @@ def _nodes() -> list[Node]:
     "path",
     [
         "/api/decisions",
-        "/api/dossiers?status=open",
-        "/api/dossiers",
-        "/api/dossiers?sort=title",
         "/api/members?include_all=true",
         "/api/judgments",
         "/api/judgments?sort=date_asc",

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.api.schemas.dossiers import timeline_entry
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLE_VERSIONS,
@@ -32,7 +31,6 @@ from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
 from lawgraph.db.queries.decisions import DecisionFilters, get_decisions
 from lawgraph.db.queries.documents import get_document_links, get_document_passages
-from lawgraph.db.queries.dossiers import get_dossier_documents, get_dossier_timeline
 
 DOSSIER = f"{COLLECTION_DOSSIERS}/36000"
 LONG_TEXT = "Artikel 5 wordt gewijzigd. " * 400
@@ -307,24 +305,6 @@ def _build(store: ArangoStore) -> None:
     edges.flush()
 
 
-def _keys(page: dict[str, Any]) -> list[str]:
-    return [row["key"] for row in page["items"]]
-
-
-def test_the_documents_of_a_dossier_are_direct_and_through_a_case(
-    database: str,
-) -> None:
-    store = ArangoStore()
-    _build(store)
-
-    page = get_dossier_documents(store, DOSSIER, limit=2, offset=0)
-    assert page["total"] == 3  # the memorandum, the motion via its case, the EK paper
-    assert _keys(page) == ["ek_1", "motie"]  # newest first, two of three
-    rest = get_dossier_documents(store, DOSSIER, limit=2, offset=2)
-    assert _keys(rest) == ["mvt"] and rest["total"] == 3
-    assert get_dossier_documents(store, f"{COLLECTION_DOSSIERS}/36001")["total"] == 1
-
-
 def test_a_document_links_to_its_dossiers_and_what_it_explains(
     database: str,
 ) -> None:
@@ -389,93 +369,6 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(database: str) -> Non
     assert any(
         "dossier_numbers[*]" in ".".join(i["fields"]) for i in index["indexes"]
     ), index["indexes"]
-
-
-def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
-    database: str,
-) -> None:
-    store = ArangoStore()
-    _build(store)
-
-    rows = get_dossier_timeline(store, DOSSIER, order="asc", limit=50)
-    entries = {row["node_id"].split("/")[1]: timeline_entry(row) for row in rows}
-    # the motion is PART_OF a case only: it is on the timeline as the document of its decision
-    assert list(entries) == [
-        "mvt",
-        "ek_1",
-        "act_committee",
-        "act_plenary",
-        "stemming_1",
-        "toez_1",
-    ]
-
-    for name, entry in entries.items():  # no document text, no payload
-        dumped = entry.model_dump_json()
-        assert '"raw"' not in dumped and len(dumped) < 2000, name
-        assert ("wordt gewijzigd" in dumped) == (name == "stemming_1"), (
-            name
-        )  # its excerpt
-
-    mvt = entries["mvt"].model_dump()
-    assert mvt["node_type"] == "document"
-    assert mvt["body"] == {
-        "chamber": "TK",
-        "source": "tk",
-        "is_explanatory": True,
-        "kind": "Memorie van toelichting",
-        "title": "Memorie van toelichting mvt",
-        "sequence": 3,
-        # the dossier its sequence is a number of: this seed stores none
-        "dossier_number": None,
-        "session_year": "2024-2025",
-        # made from the document number, never stored
-        "tk_url": "https://www.tweedekamer.nl/kamerstukken/detail"
-        "?id=2025D00003&did=2025D00003",
-        "url": None,
-    }
-    ek = entries["ek_1"].model_dump()["body"]
-    assert ek["chamber"] == "EK" and ek["url"] == "https://ek.example/1"
-    assert ek["is_explanatory"] is False
-
-    committee = entries["act_committee"].model_dump()
-    assert committee["committee"] == {
-        "key": "c1",
-        "slug": "ienw",
-        "name": "Vaste commissie voor Infrastructuur",
-    }
-    assert committee["body"] == {
-        "kind": "Commissiedebat",
-        "agenda_title": "2025-03-06 - Debat",
-        "number": "2025A1",
-        "status": None,
-    }
-    assert entries["act_plenary"].committee is None  # type: ignore[union-attr]
-
-    decision = entries["stemming_1"].model_dump()["body"]
-    assert decision["tally"] == {"Voor": 80, "Tegen": 70}
-    assert decision["passed"] is True and decision["external_id"] == "b1"
-    document = decision["document"]
-    assert document["key"] == "motie" and document["chamber"] == "TK"
-    assert document["dictum_excerpt"].startswith("Artikel 5 wordt gewijzigd.")
-    assert len(document["dictum_excerpt"]) <= 280
-    assert [s["role"] for s in document["signatories"]] == ["indiener", "mede-indiener"]
-
-    commitment = entries["toez_1"].model_dump()["body"]
-    assert commitment["minister_name"] == "Minister X"
-    assert commitment["status"] == "Openstaand"
-
-
-def test_only_an_activity_entry_has_a_committee(database: str) -> None:
-    store = ArangoStore()
-    _build(store)
-
-    rows = get_dossier_timeline(store, DOSSIER, order="asc", limit=2)
-    assert [row["node_type"] for row in rows] == ["document"] * 2
-    assert all(row["committee"] is None for row in rows)
-    kind_filtered = get_dossier_timeline(
-        store, DOSSIER, kind_filter=["commissiedebat"], limit=10
-    )
-    assert [row["committee"]["slug"] for row in kind_filtered] == ["ienw"]
 
 
 def _passage(anchor: str, confidence: float) -> dict[str, Any]:
