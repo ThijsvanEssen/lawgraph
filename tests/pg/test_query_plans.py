@@ -81,6 +81,7 @@ URLS = [
     f"/api/nodes/articles/{BWB.lower()}_1",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood?depth=2",
+    f"/api/paths?ids=articles/{BWB.lower()}_1,instruments/{BWB.lower()}",
     "/api/nodes/heat",
     "/api/nodes/in-flux",
     "/api/annexes/a1",
