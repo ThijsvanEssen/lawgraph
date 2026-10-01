@@ -404,6 +404,66 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
     ]
 
 
+def test_a_member_who_rejoined_has_one_edge_with_the_latest_period_in_any_order() -> (
+    None
+):
+    """Two periods of one member in one faction share an edge key: the edge carries the
+    latest, whatever order the seat records are read in (D4), and the ids of both."""
+    faction = _node(
+        COLLECTION_FACTIONS, NodeType.FACTION, "sp", name="SP", abbreviation="SP"
+    )
+    member = _node(COLLECTION_MEMBERS, NodeType.MEMBER, "p1", name="Jan")
+    first = {
+        "Id": "s1",
+        "Persoon_Id": "p1",
+        "FractieZetel": {"Fractie_Id": "f-sp"},
+        "Van": "2006-11-30",
+        "TotEnMet": "2010-03-04",
+        "Functie": "Lid",
+    }
+    second = {
+        "Id": "s2",
+        "Persoon_Id": "p1",
+        "FractieZetel": {"Fractie_Id": "f-sp"},
+        "Van": "2010-03-05",
+        "TotEnMet": "2017-12-12",
+        "Functie": "Fractievoorzitter",
+    }
+    metas = []
+    for order in ([first, second], [second, first]):
+        store = _Store()
+        tk_members.link_members_to_factions(
+            store,
+            [_raw(payload) for payload in order],
+            {"p1": member},
+            {"f-sp": faction},
+            source=SOURCE,
+        )
+        metas.append(store.edge_meta)
+    assert (
+        metas[0]
+        == metas[1]
+        == {
+            (
+                f"{COLLECTION_MEMBERS}/p1",
+                RELATION_MEMBER_OF,
+                f"{COLLECTION_FACTIONS}/sp",
+            ): {
+                "from_date": "2010-03-05",
+                "to_date": "2017-12-12",
+                "role": "Fractievoorzitter",
+                "record_ids": ["s1", "s2"],
+            }
+        }
+    )
+
+
+def test_of_two_periods_starting_the_same_day_the_open_one_is_the_latest() -> None:
+    assert tk_members._recency({"from_date": "2020-01-01", "to_date": None}, "a") > (
+        tk_members._recency({"from_date": "2020-01-01", "to_date": "2021-01-01"}, "z")
+    )
+
+
 # ── votes ────────────────────────────────────────────────────────────────────
 
 
