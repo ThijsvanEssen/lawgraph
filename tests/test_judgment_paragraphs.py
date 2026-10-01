@@ -10,6 +10,7 @@ import pytest
 
 from lawgraph.core.judgments import (
     advocate_general,
+    advocate_general_role,
     extract_judgment_text,
     extract_sections,
     parse_judgment,
@@ -384,3 +385,43 @@ def test_the_advocate_general_of_a_real_conclusion() -> None:
     root = parse_judgment((FIXTURES / "rechtspraak_phr_2020_453.xml").read_text())
 
     assert advocate_general(root) == "T. Hartlief"
+
+
+_OFFICE_HEADING = (
+    "PROCUREUR-GENERAAL\n\nBIJ DE\n\nHOGE RAAD DER NEDERLANDEN\n\nNummer 24/04280\n"
+)
+_SIGNED = (
+    "\n\nConclusie: verwerping van het beroep.\n\n\n"
+    "De Procureur-Generaal bij de\n   Hoge Raad der Nederlanden,\n\n\n   {role}\n\n\n"
+    "\tZie rov 1.2 van het bestreden arrest.\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("role", "expected"),
+    [
+        ("A-G", "advocaat-generaal"),
+        ("AG", "advocaat-generaal"),
+        ("Advocaat-Generaal", "advocaat-generaal"),
+        ("(a.-g.)", "advocaat-generaal"),
+        ("a. – g.", "advocaat-generaal"),
+        ("A-G i.b.d.", "advocaat-generaal"),
+        ("Wnd. A-G.", "waarnemend advocaat-generaal"),
+        ("Waarnemend Advocaat-Generaal", "waarnemend advocaat-generaal"),
+        ("Plv.", "plaatsvervangend procureur-generaal"),
+        ("plv", "plaatsvervangend procureur-generaal"),
+        # not clear: no role (an A-G signs so too), and "plv. AG"
+        ("", None),
+        ("plv. AG", None),
+        ("MR. R.L.H. IJZERMAN", None),
+    ],
+)
+def test_the_role_a_conclusion_is_signed_in(role: str, expected: str | None) -> None:
+    """BE-36: from the signature, not from the heading of the office at the top."""
+    text = _OFFICE_HEADING + "CONCLUSIE\n\nB.F. Keulen\n" + _SIGNED.format(role=role)
+    assert advocate_general_role(text) == expected
+
+
+def test_the_heading_of_the_office_alone_is_no_role() -> None:
+    assert advocate_general_role(_OFFICE_HEADING + "CONCLUSIE\n\nB.F. Keulen\n") is None
+    assert advocate_general_role(None) is None
