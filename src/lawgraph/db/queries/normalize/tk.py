@@ -75,99 +75,245 @@ def dossier_case_kinds(store: Store, keys: list[str]) -> Iterator[dict[str, Any]
     return store.query(lookup, {"keys": keys})
 
 
+def _cut(alias: str, fields: str) -> str:
+    """The props of *alias* cut down to *fields* (a bind of names) in one pass: a TK
+    document holds its whole payload, and every ``->`` on it parses it again."""
+    return f"""(
+        SELECT json_object_agg(j.key, j.value)
+        FROM json_each({alias}.props) AS j(key, value)
+        WHERE j.key = ANY(%({fields})s::text[])
+    )"""
+
+
+def _spliced(value: str) -> str:
+    """The values of *value* as ``FLATTEN`` splices it: its elements when it is an array,
+    else itself."""
+    return (
+        f"json_array_elements(CASE WHEN json_typeof({value}) = 'array'"
+        f" THEN {value} ELSE json_build_array({value}) END)"
+    )
+
+
+def _json_keys(value: str) -> str:
+    """ORDER BY items that sort a json value as ArangoDB does: by its type (null, boolean,
+    number, string, array, object), then a string by the collation, a number, a boolean."""
+    rank = (
+        f"CASE coalesce(json_typeof({value}), 'null') WHEN 'null' THEN 0"
+        " WHEN 'boolean' THEN 1 WHEN 'number' THEN 2 WHEN 'string' THEN 3"
+        " WHEN 'array' THEN 4 ELSE 5 END"
+    )
+    keys = [f"{f}({value}) ASC NULLS FIRST" for f in ("lg_str", "lg_num", "lg_bool")]
+    return ", ".join([f"{rank} ASC", *keys])
+
+
+def _length(value: str) -> str:
+    """``LENGTH(value)`` of a json value as ArangoDB counts it."""
+    text = f"({value} #>> '{{}}')"
+    return f"""CASE json_typeof({value})
+        WHEN 'array' THEN json_array_length({value})
+        WHEN 'string' THEN char_length{text}
+        WHEN 'number' THEN char_length{text}
+        WHEN 'object' THEN (SELECT count(*) FROM json_each({value}))::int
+        WHEN 'boolean' THEN CASE WHEN {text}::boolean THEN 1 ELSE 0 END
+        ELSE 0 END"""
+
+
+def _present(value: str) -> str:
+    """``value != null`` of a json value."""
+    return f"coalesce(json_typeof({value}), 'null') <> 'null'"
+
+
+def _first_present(*values: str) -> str:
+    """``NOT_NULL(a, b, ...)`` of json values."""
+    cases = " ".join(f"WHEN {_present(v)} THEN {v}" for v in values)
+    return f"CASE {cases} END"
+
+
+_SIGNAL_TITLE = _first_present(
+    "c.p -> 'dossier_title'", "c.p -> 'title'", "c.p -> 'display_name'"
+)
+_SIGNAL_NUMBERS = _length("c.p -> 'dossier_numbers'")
+_OWN_NUMBER = _present("c.p -> 'dossier_number'")
+_DOC_CUT = _cut("d", "doc_fields")
+_SUBJECT_CUT = _cut("t", "subject_fields")
+_STORED_KINDS = _spliced("ds.props -> 'case_kinds'")
+_STORED_KIND_PARTS = _spliced("e.v")
+_CASE_KIND = _spliced("cs.props -> 'kind'")
+_DOC_KINDS = _spliced("s.signal -> 'case_kinds'")
+_KIND_ORDER = _json_keys("k.v::json")
+_DOC_ORDER = _json_keys("s.date")
+_SUBJECT_ORDER = _json_keys("n.p -> 'date'")
+
+# ``asked``: the dossiers in their order; ``member_docs``: the documents PART_OF each,
+# directly or through one of its cases, once per edge; ``signals``: the few fields of each
+# document, from its props cut down once (``cut``); ``subjects``: the activities and
+# decisions ABOUT each, from their props cut down once. A doc and a decision come out
+# with their keys in byte order, as ``UNSET`` gave them.
+_DOSSIER_SIGNALS_SQL = f"""
+WITH asked AS (
+    SELECT a.dossier_id, a.ord
+    FROM unnest(%(dossier_ids)s::text[]) WITH ORDINALITY AS a(dossier_id, ord)
+),
+own_cases AS (
+    SELECT a.ord, e.from_id AS case_id
+    FROM asked a
+    JOIN {COLLECTION_EDGES} e
+      ON e.to_id = a.dossier_id AND e.relation = %(part_of)s
+     AND e.from_collection = '{COLLECTION_CASES}'
+),
+member_docs AS (
+    SELECT a.ord, e.from_id AS doc_id
+    FROM asked a
+    JOIN {COLLECTION_EDGES} e
+      ON e.to_id = a.dossier_id AND e.relation = %(part_of)s
+     AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+    UNION ALL
+    SELECT o.ord, e2.from_id
+    FROM own_cases o
+    JOIN {COLLECTION_EDGES} e2
+      ON e2.to_id = o.case_id AND e2.relation = %(part_of)s
+     AND e2.from_collection = '{COLLECTION_DOCUMENTS}'
+),
+cut AS MATERIALIZED (
+    SELECT d.id, {_DOC_CUT} AS p
+    FROM {COLLECTION_DOCUMENTS} d
+    WHERE d.id IN (SELECT doc_id FROM member_docs)
+),
+signals AS MATERIALIZED (
+    SELECT c.id, c.p -> 'date' AS date, json_build_object(
+        'id', c.id,
+        'kind', c.p -> 'kind',
+        'date', c.p -> 'date',
+        'title', {_SIGNAL_TITLE},
+        'case_kinds', CASE WHEN ({_SIGNAL_NUMBERS}) = 1
+            THEN c.p -> 'case_kinds' ELSE '[]'::json END,
+        'own', CASE WHEN {_OWN_NUMBER}
+            THEN json_build_array(c.p -> 'dossier_number', c.p -> 'dossier_suffix') END,
+        'sequence', c.p -> 'sequence'
+    ) AS signal
+    FROM cut c
+),
+subjects AS MATERIALIZED (
+    SELECT a.ord, t.id, '{COLLECTION_ACTIVITIES}' AS collection, {_SUBJECT_CUT} AS p
+    FROM asked a
+    JOIN {COLLECTION_EDGES} e
+      ON e.to_id = a.dossier_id AND e.relation = %(about)s
+     AND e.from_collection = '{COLLECTION_ACTIVITIES}'
+    JOIN {COLLECTION_ACTIVITIES} t ON t.id = e.from_id
+    UNION ALL
+    SELECT a.ord, t.id, '{COLLECTION_DECISIONS}', {_SUBJECT_CUT}
+    FROM asked a
+    JOIN {COLLECTION_EDGES} e
+      ON e.to_id = a.dossier_id AND e.relation = %(about)s
+     AND e.from_collection = '{COLLECTION_DECISIONS}'
+    JOIN {COLLECTION_DECISIONS} t ON t.id = e.from_id
+)
+SELECT
+    a.dossier_id,
+    (SELECT ds.pj_opened_on FROM {COLLECTION_DOSSIERS} ds WHERE ds.id = a.dossier_id)
+        AS opened_on,
+    (
+        SELECT coalesce(json_agg(k.v::json ORDER BY {_KIND_ORDER}), '[]'::json)
+        FROM (
+            SELECT DISTINCT flat.x::jsonb AS v
+            FROM (
+                SELECT f AS x
+                FROM {COLLECTION_DOSSIERS} ds
+                CROSS JOIN LATERAL {_STORED_KINDS} AS e(v)
+                CROSS JOIN LATERAL {_STORED_KIND_PARTS} AS f
+                WHERE ds.id = a.dossier_id AND lg_truthy(ds.props -> 'case_kinds')
+                UNION ALL
+                SELECT f
+                FROM own_cases o
+                LEFT JOIN {COLLECTION_CASES} cs ON cs.id = o.case_id
+                CROSS JOIN LATERAL {_CASE_KIND} AS f
+                WHERE o.ord = a.ord
+                UNION ALL
+                SELECT f
+                FROM member_docs m
+                JOIN signals s ON s.id = m.doc_id
+                CROSS JOIN LATERAL {_DOC_KINDS} AS f
+                WHERE m.ord = a.ord
+            ) flat
+            WHERE {_present("flat.x")}
+        ) k
+    ) AS case_kinds,
+    (
+        SELECT coalesce(json_agg(
+            json_build_object(
+                'date', s.signal -> 'date',
+                'kind', s.signal -> 'kind',
+                'own', s.signal -> 'own',
+                'sequence', s.signal -> 'sequence',
+                'title', s.signal -> 'title'
+            ) ORDER BY {_DOC_ORDER}, s.id ASC
+        ), '[]'::json)
+        FROM signals s
+        WHERE s.id IN (SELECT m.doc_id FROM member_docs m WHERE m.ord = a.ord)
+    ) AS docs,
+    (
+        SELECT coalesce(json_agg(json_build_object(
+            'kind', n.p -> 'kind',
+            'date', n.p -> 'date',
+            'status', n.p -> 'status'
+        ) ORDER BY {_SUBJECT_ORDER}, n.id ASC), '[]'::json)
+        FROM subjects n
+        WHERE n.ord = a.ord AND n.collection = '{COLLECTION_ACTIVITIES}'
+    ) AS activities,
+    (
+        SELECT coalesce(json_agg(json_build_object(
+            'case_kind', n.p -> 'primary_case_kind',
+            'date', n.p -> 'date',
+            'decision_kind', n.p -> 'decision_kind',
+            'decision_text', n.p -> 'decision_text',
+            'kind', n.p -> 'kind',
+            'passed', n.p -> 'passed'
+        ) ORDER BY {_SUBJECT_ORDER}, n.id ASC), '[]'::json)
+        FROM subjects n
+        WHERE n.ord = a.ord AND n.collection = '{COLLECTION_DECISIONS}'
+    ) AS decisions
+FROM asked a
+ORDER BY a.ord
+"""
+
+
 def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, Any]]:
     """Documents, activities and decisions per dossier of *dossier_ids*; its case kinds
     (the ``Zaak.Soort`` of its own zaken: those ``PART_OF`` it, those of its papers that
     belong to it alone, and those rolled up from its activities); and the ``opened_on`` it
     holds.
 
-    Every subquery returns the few fields that are used: a list of whole documents (their
-    text, their payload) is built in the memory of the server before it is projected.
+    Only the few fields that are used are read, from props cut down once per node: a TK
+    document holds its text and its payload. ``case_kinds`` is a set to its readers;
+    sorted, it is the same list every time.
     """
-    signal = """{
-                            id: doc._id,
-                            kind: doc.props.kind,
-                            date: doc.props.date,
-                            title: NOT_NULL(doc.props.dossier_title, doc.props.title,
-                                            doc.props.display_name),
-                            case_kinds: LENGTH(doc.props.dossier_numbers) == 1
-                                ? doc.props.case_kinds : [],
-                            own: doc.props.dossier_number != null
-                                ? [doc.props.dossier_number, doc.props.dossier_suffix]
-                                : null,
-                            sequence: doc.props.sequence
-                        }"""
-    aql = f"""
-        FOR dossier_id IN @dossier_ids
-            LET direct = (
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._to == dossier_id AND e.relation == @part_of
-                    FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
-                    LET doc = DOCUMENT(e._from)
-                    FILTER doc != null
-                    RETURN {signal}
-            )
-            LET own_cases = (
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._to == dossier_id AND e.relation == @part_of
-                    FILTER STARTS_WITH(e._from, '{COLLECTION_CASES}/')
-                    RETURN e._from
-            )
-            LET via_case = (
-                FOR case_id IN own_cases
-                    FOR e2 IN {COLLECTION_EDGES}
-                        FILTER e2._to == case_id AND e2.relation == @part_of
-                        FILTER STARTS_WITH(e2._from, '{COLLECTION_DOCUMENTS}/')
-                        LET doc = DOCUMENT(e2._from)
-                        FILTER doc != null
-                        RETURN {signal}
-            )
-            LET subjects = (
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._to == dossier_id AND e.relation == @about
-                    LET node = DOCUMENT(e._from)
-                    FILTER node != null
-                    SORT node.props.date, node._id
-                    RETURN {{
-                        id: node._id,
-                        kind: node.props.kind,
-                        date: node.props.date,
-                        status: node.props.status,
-                        passed: node.props.passed,
-                        decision_kind: node.props.decision_kind,
-                        decision_text: node.props.decision_text,
-                        case_kind: node.props.primary_case_kind
-                    }}
-            )
-            LET stored = DOCUMENT(dossier_id).props
-            RETURN {{
-                dossier_id: dossier_id,
-                opened_on: stored.opened_on,
-                // A set to its readers; sorted, it is the same list every time.
-                case_kinds: SORTED_UNIQUE(FLATTEN([
-                    stored.case_kinds OR [],
-                    own_cases[* RETURN DOCUMENT(CURRENT).props.kind],
-                    APPEND(direct, via_case)[*].case_kinds
-                ], 2)[* FILTER CURRENT != null]),
-                docs: (
-                    FOR doc IN UNIQUE(APPEND(direct, via_case))
-                        SORT doc.date, doc.id
-                        RETURN UNSET(doc, "id", "case_kinds")
-                ),
-                activities: (
-                    FOR node IN subjects
-                        FILTER STARTS_WITH(node.id, '{COLLECTION_ACTIVITIES}/')
-                        RETURN {{kind: node.kind, date: node.date, status: node.status}}
-                ),
-                decisions: (
-                    FOR node IN subjects
-                        FILTER STARTS_WITH(node.id, '{COLLECTION_DECISIONS}/')
-                        RETURN UNSET(node, "id", "status")
-                )
-            }}
-        """
-    bind = {"part_of": RELATION_PART_OF, "about": RELATION_ABOUT}
-    return store.query(aql, {**bind, "dossier_ids": dossier_ids})
+    bind = {
+        "part_of": RELATION_PART_OF,
+        "about": RELATION_ABOUT,
+        "dossier_ids": dossier_ids,
+        "doc_fields": [
+            "kind",
+            "date",
+            "dossier_title",
+            "title",
+            "display_name",
+            "dossier_numbers",
+            "case_kinds",
+            "dossier_number",
+            "dossier_suffix",
+            "sequence",
+        ],
+        "subject_fields": [
+            "kind",
+            "date",
+            "status",
+            "passed",
+            "decision_kind",
+            "decision_text",
+            "primary_case_kind",
+        ],
+    }
+    return store.query(_DOSSIER_SIGNALS_SQL, bind)
 
 
 def dossiers_of_numbers(store: Store, numbers: list[str]) -> Iterator[dict[str, Any]]:
