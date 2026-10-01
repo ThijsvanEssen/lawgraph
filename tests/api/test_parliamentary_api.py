@@ -284,6 +284,7 @@ def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
         "kind": "Memorie van toelichting",
         "title": "MvT",
         "sequence": 3,
+        "number": "3",
         "dossier_number": "36000",
         "session_year": "2024-2025",
         "tk_url": _MVT_PAGE,
