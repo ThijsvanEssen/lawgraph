@@ -85,6 +85,21 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT CASE WHEN json_typeof(v) = 'boolean' THEN (v #>> '{}')::boolean END
 $$;
 
+-- AQL's truthiness of a json value (``x ? a : b``, ``x || y``, ``FILTER x``): null or a
+-- missing value, false, 0 and "" are false; anything else is true, an empty array or
+-- object too.
+CREATE OR REPLACE FUNCTION lg_truthy(v json) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE json_typeof(v)
+        WHEN 'boolean' THEN (v #>> '{}')::boolean
+        WHEN 'number' THEN (v #>> '{}')::numeric <> 0
+        WHEN 'string' THEN v #>> '{}' <> ''
+        WHEN 'array' THEN true
+        WHEN 'object' THEN true
+        ELSE false
+    END
+$$;
+
 -- The strings of a JSON array, in order (``doc.props.subjects[*]``); NULL for another type.
 CREATE OR REPLACE FUNCTION lg_text_array(v json) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
