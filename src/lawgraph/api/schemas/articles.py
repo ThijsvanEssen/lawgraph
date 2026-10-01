@@ -335,6 +335,15 @@ class CitedByJudgment(BaseModel):
     )
     date: str | None = Field(description="Date of the judgment, YYYY-MM-DD.")
     display_name: str | None
+    inbound_citation_count: int | None = Field(
+        default=None,
+        description="The judgments that cite it, or another publication of the same "
+        "decision, each once (as in `/api/judgments`): a standard judgment has many.",
+    )
+
+
+def _count(value: Any) -> int | None:
+    return int(value) if isinstance(value, int | float) else None
 
 
 class ArticleCitedByItem(QualifierFields):
@@ -377,6 +386,7 @@ class ArticleCitedByItem(QualifierFields):
                 court_kind=props.get("court_kind"),
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
+                inbound_citation_count=_count(props.get("inbound_citation_count")),
             ),
             paragraph_id=mention.paragraph_id,
             paragraph_number=mention.paragraph_number,

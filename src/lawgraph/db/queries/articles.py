@@ -513,70 +513,84 @@ class CitedBy:
 # ``hits``: per edge of a judgment to the article, one row per mention that passes the
 # filters, with only what sorts it; ``ranked``: their order, newest first; the mentions of
 # the page are read whole after the cut.
-_CITED_BY_SQL = f"""
-WITH hits AS (
-    SELECT e.key AS edge, m.position - 1 AS position, j.date_eff AS date, j.ecli
-    FROM {COLLECTION_EDGES} e
-    JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
-    CROSS JOIN LATERAL json_array_elements(
-        CASE WHEN json_typeof(e.doc -> 'meta' -> 'mentions') = 'array'
-            THEN e.doc -> 'meta' -> 'mentions' END
-    ) WITH ORDINALITY AS m(mention, position)
-    WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
-      AND e.from_collection = '{COLLECTION_JUDGMENTS}'
-      AND (%(court)s::text IS NULL OR j.court_code = %(court)s::text)
-      AND (%(tier)s::text IS NULL OR j.tier = %(tier)s::text)
-      AND (
-          %(lid)s::text IS NULL
-          OR %(lid)s::text = ANY(lg_text_array(m.mention -> 'leden'))
-      )
-),
-ranked AS (
-    SELECT h.*, row_number() OVER (
-        ORDER BY h.date DESC NULLS LAST, h.ecli NULLS FIRST, h.edge, h.position
-    ) AS n
-    FROM hits h
-)
-SELECT
-    (SELECT count(*)::int FROM hits) AS total,
-    -- one edge per judgment and article
-    (SELECT count(DISTINCT edge)::int FROM hits) AS judgment_total,
-    -- the ECHR judgments that cite it: HUDOC names the article (and its leden), no passage
-    (
-        SELECT count(DISTINCT e.from_id)::int
+def _cited_by_sql(order: str) -> str:
+    """The statement of ``get_article_cited_by``, its passages in *order*."""
+    return f"""
+    WITH hits AS (
+        SELECT e.key AS edge, m.position - 1 AS position, j.date_eff AS date, j.ecli,
+               j.inbound_citation_count AS cited
         FROM {COLLECTION_EDGES} e
         JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+        CROSS JOIN LATERAL json_array_elements(
+            CASE WHEN json_typeof(e.doc -> 'meta' -> 'mentions') = 'array'
+                THEN e.doc -> 'meta' -> 'mentions' END
+        ) WITH ORDINALITY AS m(mention, position)
         WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
-          AND e.from_collection = '{COLLECTION_JUDGMENTS}' AND j.court_code = 'ECHR'
-    ) AS echr_judgment_total,
-    (
-        SELECT coalesce(json_agg(json_build_object(
-            'judgment', json_build_object(
-                '_id', j.id,
-                '_key', j.key,
-                'props', json_build_object(
-                    'ecli', j.pj_ecli,
-                    'display_name', j.pj_display_name,
-                    'court_code', j.pj_court_code,
-                    'tier', j.pj_tier,
-                    'court_kind', j.pj_court_kind,
-                    'date_eff', j.pj_date_eff
-                )
-            ),
-            'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
-        ) ORDER BY r.n), '[]'::json)
-        FROM ranked r
-        JOIN {COLLECTION_EDGES} e ON e.key = r.edge
-        JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
-        WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
-    ) AS items
-"""
+          AND e.from_collection = '{COLLECTION_JUDGMENTS}'
+          AND (%(court)s::text IS NULL OR j.court_code = %(court)s::text)
+          AND (%(tier)s::text IS NULL OR j.tier = %(tier)s::text)
+          AND (
+              %(lid)s::text IS NULL
+              OR %(lid)s::text = ANY(lg_text_array(m.mention -> 'leden'))
+          )
+    ),
+    ranked AS (
+        SELECT h.*, row_number() OVER (ORDER BY {order}) AS n
+        FROM hits h
+    )
+    SELECT
+        (SELECT count(*)::int FROM hits) AS total,
+        -- one edge per judgment and article
+        (SELECT count(DISTINCT edge)::int FROM hits) AS judgment_total,
+        -- the ECHR judgments that cite it: HUDOC names the article (and its leden), no passage
+        (
+            SELECT count(DISTINCT e.from_id)::int
+            FROM {COLLECTION_EDGES} e
+            JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+            WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
+              AND e.from_collection = '{COLLECTION_JUDGMENTS}' AND j.court_code = 'ECHR'
+        ) AS echr_judgment_total,
+        (
+            SELECT coalesce(json_agg(json_build_object(
+                'judgment', json_build_object(
+                    '_id', j.id,
+                    '_key', j.key,
+                    'props', json_build_object(
+                        'ecli', j.pj_ecli,
+                        'display_name', j.pj_display_name,
+                        'court_code', j.pj_court_code,
+                        'tier', j.pj_tier,
+                        'court_kind', j.pj_court_kind,
+                        'date_eff', j.pj_date_eff,
+                        'inbound_citation_count', j.pj_inbound_citation_count
+                    )
+                ),
+                'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
+            ) ORDER BY r.n), '[]'::json)
+            FROM ranked r
+            JOIN {COLLECTION_EDGES} e ON e.key = r.edge
+            JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+            WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
+        ) AS items
+    """
+
+
+# The orders of the passages: the newest judgment first, or the most cited one (a
+# standard judgment) first and then the newest.
+CITED_BY_SORTS: dict[str, str] = {
+    "date_desc": "h.date DESC NULLS LAST, h.ecli NULLS FIRST, h.edge, h.position",
+    "citation_count": (
+        "h.cited DESC NULLS LAST, h.date DESC NULLS LAST, h.ecli NULLS FIRST, h.edge,"
+        " h.position"
+    ),
+}
 
 
 def get_article_cited_by(
     store: GraphStore,
     article_id: str,
     *,
+    sort: str = "date_desc",
     court: str | None = None,
     tier: str | None = None,
     lid: str | None = None,
@@ -589,7 +603,8 @@ def get_article_cited_by(
     ``judgment_total`` the judgments they are in; ``echr_judgment_total`` the ECHR
     judgments that cite the article, whatever the filters: HUDOC names the article they
     apply, not a passage, so they have no row. Filters: the ``court`` (ECLI court code) and
-    ``tier`` of the judgment, and a ``lid`` number that the mention names.
+    ``tier`` of the judgment, and a ``lid`` number that the mention names. ``sort``
+    (``CITED_BY_SORTS``): the newest judgment first, or the most cited first.
 
     A much cited article has thousands of judgments (Sr 287, Awb 6:2) and a judgment is
     its text and its paragraphs. The first pass reads the edges of the article by
@@ -607,7 +622,9 @@ def get_article_cited_by(
         "limit": limit,
         "offset": offset,
     }
-    answer = next(iter(store.query(_CITED_BY_SQL, bind)), None) or {}
+    answer = (
+        next(iter(store.query(_cited_by_sql(CITED_BY_SORTS[sort]), bind)), None) or {}
+    )
     return CitedBy(
         rows=list(answer.get("items") or []),
         total=int(answer.get("total") or 0),
