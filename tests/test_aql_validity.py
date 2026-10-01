@@ -105,8 +105,11 @@ QUERIES = _whole_queries()
 
 
 def test_the_queries_are_found() -> None:
-    """The collection above must not silently find nothing (a moved constant, a new style)."""
-    assert len(QUERIES) > 80
+    """The collection above must not silently find nothing (a moved constant, a new style).
+
+    The count shrinks as modules move to SQL; the file goes when the last AQL does.
+    """
+    assert len(QUERIES) > 0
 
 
 def test_the_helper_reads_constants_and_skips_run_time_parts() -> None:
