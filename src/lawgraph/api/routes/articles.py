@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -166,6 +166,13 @@ def get_article_cited_by_passages(
             description="A lid number the passage names: '3', '2a'",
         ),
     ] = None,
+    sort: Annotated[
+        Literal["date_desc", "citation_count"],
+        Query(
+            description="`date_desc`: the newest judgment first; `citation_count`: the "
+            "most cited judgment first (a standard judgment), then the newest."
+        ),
+    ] = "date_desc",
 ) -> ArticleCitedByResponse:
     article_number = native_article_number(bwb_id, article_number)
     article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
@@ -177,6 +184,7 @@ def get_article_cited_by_passages(
         court=court,
         tier=tier.value if tier else None,
         lid=lid,
+        sort=sort,
         limit=limit,
         offset=offset,
     )

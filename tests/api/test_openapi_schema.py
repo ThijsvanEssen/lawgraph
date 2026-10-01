@@ -255,4 +255,5 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "court_kind",
         "date",
         "display_name",
+        "inbound_citation_count",
     } == _properties("CitedByJudgment")

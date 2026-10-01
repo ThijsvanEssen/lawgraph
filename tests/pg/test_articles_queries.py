@@ -725,6 +725,7 @@ def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> No
                 "tier": "appeal",
                 "court_kind": "x",
                 "date_eff": "2021-01-01",
+                "inbound_citation_count": None,
             },
         },
         "mention": {"snippet": "d"},
@@ -737,6 +738,7 @@ def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> No
         "tier",
         "court_kind",
         "date_eff",
+        "inbound_citation_count",
     ]
     assert cited.rows[-1]["judgment"]["props"]["date_eff"] is None
 
@@ -792,3 +794,28 @@ def test_the_echr_judgments_that_cite_an_article_are_counted_apart(
     assert cited.echr_judgment_total == 2
     assert get_article_cited_by(store, CITED, court="hr").echr_judgment_total == 2
     assert get_article_cited_by(store, "articles/none").echr_judgment_total == 0
+
+
+def test_the_most_cited_judgment_comes_first_when_asked(store: GraphStore) -> None:
+    """BE-42: ``sort=citation_count`` puts a standard judgment on top; ties by date."""
+    _seed_cited_by(store)
+    counts = {"j1": 40, "j4": 7, "j2": 7, "j3": None}  # j3 not counted yet: last
+    for key, count in counts.items():
+        if count is not None:
+            store.execute(
+                "UPDATE judgments SET props = lg_update(props, json_build_object("
+                "'inbound_citation_count', %(n)s::int)) WHERE key = %(k)s",
+                {"n": count, "k": key},
+            )
+    by_count = get_article_cited_by(store, CITED, sort="citation_count")
+    assert _snippets(by_count.rows) == [
+        ("j1", "a"),  # 40
+        ("j1", "b"),
+        ("j2", "c"),  # 7, newer than j4
+        ("j4", "e"),  # 7, no date
+        ("j3", "d"),  # no count
+    ]
+    assert by_count.rows[0]["judgment"]["props"]["inbound_citation_count"] == 40
+    assert (by_count.total, by_count.judgment_total) == (5, 4)
+    newest = get_article_cited_by(store, CITED)  # the default stays newest first
+    assert _snippets(newest.rows)[0] == ("j3", "d")

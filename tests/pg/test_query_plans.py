@@ -70,6 +70,7 @@ URLS = [
     f"/api/articles/{BWB}/1",
     f"/api/articles/{BWB}/1/cited-by",
     f"/api/articles/{BWB}/1/cited-by?tier=hoge_raad",
+    f"/api/articles/{BWB}/1/cited-by?sort=citation_count",
     f"/api/articles/{BWB}/1/explained-by",
     f"/api/articles/{BWB}/1/history",
     f"/api/articles/{BWB}/1/legislative-history",
