@@ -45,7 +45,7 @@ restore_and_compare() {
   restored="$(sql "$SCRATCH" < scripts/_counts.sql | LC_ALL=C sort)"
   expected="$(in_container 'cat "/backups/$1/counts"' "$dump")"
   if [ -n "$expected" ] && [ "$restored" = "$expected" ]; then
-    note "restored $dump in $seconds s on $CONTAINER; every table, relation, column, index and function is as dumped"
+    note "restored $dump in $seconds s on $CONTAINER; every table, relation, column, index, function and trigger is as dumped"
   else
     note "restored $dump on $CONTAINER, but it differs from the dump:"
     printf '%s\n' "$expected" > "$LOG_DIR/restore-expected"
