@@ -34,14 +34,21 @@ def iter_raw_records(
     kinds: list[str],
     since_iso: str | None,
     batch_size: int,
+    chronological: bool = False,
 ) -> Iterator[dict[str, Any]]:
-    """The records of *kinds*, those fetched at or after *since_iso* when it is given."""
+    """The records of *kinds*, those fetched at or after *since_iso* when it is given;
+    *chronological*: the toestanden of each law in the order of their start. What normalize
+    bwb-history makes of them (the place of each version, the version a later toestand
+    merges into) depends on the order it reads them in; without a SORT that is the order
+    they were fetched in."""
     since_filter = "FILTER r.fetched_at >= @since" if since_iso else ""
+    sort = "SORT r.meta.bwb_id, r.meta.start_date, r._key" if chronological else ""
     aql = f"""
         FOR r IN {COLLECTION_RAW_SOURCES}
             FILTER r.source == @source
             FILTER r.kind IN @kinds
             {since_filter}
+            {sort}
             RETURN r
         """
     bind_vars: dict[str, Any] = {"source": source, "kinds": kinds}
