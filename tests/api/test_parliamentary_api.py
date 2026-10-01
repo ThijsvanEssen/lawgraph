@@ -150,6 +150,30 @@ def test_a_dossier_reports_what_is_attached_to_it(monkeypatch) -> None:
 def test_party_colors_are_served_under_parties() -> None:
     body = client.get("/api/parties/colors").json()
     assert body["colors"]["VVD"].startswith("#")
+    # each Kamer draws in colours of its own, by name and alias: PRO in stripes in the TK
+    tk, ek = body["chambers"]["TK"], body["chambers"]["EK"]
+    assert len(tk["colors"]["PRO"]) == 2
+    assert tk["colors"]["GroenLinks-PvdA"] == tk["colors"]["PRO"]
+    assert ek["colors"]["PRO"] != tk["colors"]["PRO"]
+    assert (
+        ek["colors"]["Fractie-Walenkamp"] and "Fractie-Walenkamp" not in body["colors"]
+    )
+    assert ek["source"]["url"] == "https://www.eerstekamer.nl/wie_zit_waar"
+    assert tk["source"]["read_on"]
+
+
+def test_a_faction_takes_the_colour_its_kamer_draws_it_in() -> None:
+    from lawgraph.core.parties import PARTY_COLORS, chamber_colors, party_color
+
+    pro_tk = chamber_colors("TK", "GL-PvdA")
+    assert len(pro_tk) == 2 and party_color("PRO", chamber="TK") == pro_tk[0]
+    assert party_color("pro", chamber="EK") == chamber_colors("EK", "PRO")[0]
+    # no chamber, or one that does not draw it: the house colour
+    assert party_color("PRO") == PARTY_COLORS["GroenLinks-PvdA"]
+    assert party_color("NSC", chamber="EK") == PARTY_COLORS["NSC"]
+    assert chamber_colors("EK", "NSC") == []
+    assert party_color("Fractie-Walenkamp") is None
+    assert party_color("Fractie-Walenkamp", chamber="EK") == "#C18F32"
 
 
 _DOCUMENT_ROW = {
@@ -284,6 +308,7 @@ def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
         "kind": "Memorie van toelichting",
         "title": "MvT",
         "sequence": 3,
+        "number": "3",
         "dossier_number": "36000",
         "session_year": "2024-2025",
         "tk_url": _MVT_PAGE,
@@ -557,7 +582,11 @@ def test_seats_are_reported_per_faction(monkeypatch) -> None:
     assert body["assigned_seats"] == 24
     assert body["factions"][0]["abbreviation"] == "VVD"
     assert body["factions"][0]["seats"] == 24
-    assert body["factions"][0]["color"].startswith("#")
+    # the colour the Tweede Kamer draws the VVD in, not its house colour
+    from lawgraph.core.parties import CHAMBER_COLORS
+
+    assert body["factions"][0]["colors"] == CHAMBER_COLORS["TK"]["VVD"]
+    assert body["factions"][0]["color"] == CHAMBER_COLORS["TK"]["VVD"][0]
     # the order follows the plan of the Tweede Kamer, which the answer names
     assert body["seating_plan"]["dated"] == "2026-06-01"
     assert "wie-zit-waar" in body["seating_plan"]["page"]

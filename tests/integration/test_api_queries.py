@@ -38,7 +38,14 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
 
     items, total = get_instrument_judgments(store, GRONDWET, limit=10)
     assert total == 60 and len(items) == 10
-    assert set(items[0]["judgment"]["props"]) == {"ecli", "display_name"}
+    assert set(items[0]["judgment"]["props"]) == {
+        "ecli",
+        "display_name",
+        "court_code",
+        "tier",
+        "court_kind",
+        "date_eff",
+    }
     assert items[0]["cited_articles"][0]["article_number"] == "1"
 
 

@@ -118,7 +118,15 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
             _doc("j_new", "judgment", ecli="ECLI:N", date_eff="2020-01-01"),
             _doc("j_b", "judgment", ecli="ECLI:B", display_name="B"),
             _doc("j_a", "judgment", ecli="ECLI:A"),
-            _doc("j_many", "judgment", ecli="ECLI:M", date_eff="1990-01-01"),
+            _doc(
+                "j_many",
+                "judgment",
+                ecli="ECLI:M",
+                date_eff="1990-01-01",
+                court_code="HR",
+                tier="hoge_raad",
+                court_kind="hoge_raad",
+            ),
         ],
     )
     store.bulk_insert_or_update_edges(
@@ -156,7 +164,14 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     assert many["judgment"] == {
         "_id": "judgments/j_many",
         "_key": "j_many",
-        "props": {"ecli": "ECLI:M", "display_name": None},
+        "props": {
+            "ecli": "ECLI:M",
+            "display_name": None,
+            "court_code": "HR",
+            "tier": "hoge_raad",
+            "court_kind": "hoge_raad",
+            "date_eff": "1990-01-01",
+        },
     }
     assert many["cited_articles"] == [
         {"id": "articles/a1", "key": "a1", "article_number": "1", "display_name": None},
@@ -175,7 +190,14 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "display_name",
     ]
     assert [a["key"] for a in items[1]["cited_articles"]] == ["a1", "stub"]
-    assert items[4]["judgment"]["props"] == {"ecli": "ECLI:B", "display_name": "B"}
+    assert items[4]["judgment"]["props"] == {
+        "ecli": "ECLI:B",
+        "display_name": "B",
+        "court_code": None,
+        "tier": None,
+        "court_kind": None,
+        "date_eff": None,
+    }
 
     items, total = instruments.get_instrument_judgments(store, BWB, limit=1)
     assert (total, [i["judgment"]["_key"] for i in items]) == (6, ["j_many"])

@@ -75,6 +75,8 @@ def test_member_joins_the_name_parts() -> None:
     )
     assert props["name"] == "Mark van der Berg"
     assert props["display_name"] == "Mark van der Berg"
+    # the parts as the Kamer gives them, for a list by surname: Berg, van der
+    assert (props["family_name"], props["name_prefix"]) == ("Berg", "van der")
     # Party is not read here: it comes from the dated seat timeline.
     assert "party" not in props
 
@@ -284,6 +286,20 @@ def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:
     assert props["case_kinds_by_dossier"] == {"36000": ["Wetgeving"]}
     assert props["committee_id"] == "c-1"
     assert props["date"] == "2024-01-02"
+
+
+def test_a_moved_activity_names_the_activities_that_replaced_it() -> None:
+    _, props = tk_records.activity(
+        {
+            "Id": "a-1",
+            "Nummer": "2026A04251",
+            "Status": "Verplaatst",
+            "VervangenDoor": [{"Id": "a-2", "Nummer": "2026A06208"}],
+        }
+    )
+    assert props["replaced_by"] == ["2026A06208"]
+    _, props = tk_records.activity({"Id": "a-3", "Nummer": "2026A1"})
+    assert props["replaced_by"] == []
 
 
 def test_a_plenary_activity_has_no_lead_committee() -> None:

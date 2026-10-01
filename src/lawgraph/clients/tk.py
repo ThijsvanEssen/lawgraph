@@ -139,8 +139,9 @@ class TKClient(BaseClient):
         """Fetch Activiteit (debate/hearing) records.
 
         Uses a 3-level nested expand to resolve dossier links via the chain
-        Agendapunt → Zaak → Kamerstukdossier. Skip-based pagination is used
-        because the TK API does not emit nextLink.
+        Agendapunt → Zaak → Kamerstukdossier, and the activities that replace a moved
+        one (VervangenDoor). Skip-based pagination is used because the TK API does not
+        emit nextLink.
         """
         params: dict[str, Any] = {
             "$expand": (
@@ -148,7 +149,8 @@ class TKClient(BaseClient):
                 "$expand=Zaak("
                 "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
                 "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)"
-                "))"
+                ")),"
+                "VervangenDoor($select=Id,Nummer)"
             ),
         }
         if since is not None:
