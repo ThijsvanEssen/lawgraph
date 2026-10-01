@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -36,6 +36,9 @@ _EDGE_SIDES: dict[Direction, tuple[str, str, str]] = {
 }
 
 _NODE_COLUMNS = "n.id, n.key, n.type, n.labels, n.props"
+# The columns of a node and an edge as the neighbourhood statement gives them, in order.
+_NODE_FIELDS = ("id", "key", "type", "labels", "props")
+_EDGE_FIELDS = ("key", "from_id", "to_id", "doc")
 
 
 @dataclass(frozen=True)
@@ -275,87 +278,28 @@ def _read_pages(
     return pages
 
 
-def _from_their_tables(ids: Iterable[str], columns: str) -> tuple[str, dict[str, Any]]:
-    """A read of *columns* (of ``n``) of the nodes *ids* name, each from its own table: the
-    ``nodes`` view would look every id up in every table. Empty when no id names a node
-    table."""
-    tables: dict[str, list[str]] = {}
-    for node_id in ids:
-        collection = node_id.split("/", 1)[0]
-        if collection in _ALLOWED_NODE_COLLECTIONS:
-            tables.setdefault(collection, []).append(node_id)
-    parts = [
-        f"SELECT {columns} FROM {collection} n WHERE n.id = ANY(%(ids_{n})s)"
-        for n, collection in enumerate(sorted(tables))
-    ]
-    params = {f"ids_{n}": tables[c] for n, c in enumerate(sorted(tables))}
-    return " UNION ALL ".join(parts), params
-
-
-# How many neighbours are looked up at a time: a capped walk stops reading them once the
-# cap is reached.
+# How many neighbours ``lg_walk`` looks up at a time: a capped walk stops looking them up
+# once the cap is reached.
 _NEIGHBOUR_CHUNK = 500
 
 
-def _neighbours(
-    store: ArangoStore, frontier: list[str], filters: NeighborFilter
-) -> Iterator[dict[str, Any]]:
-    """``{id, type}`` of every node one edge away from *frontier* along the edges the filters
-    let through, each once, by id; a node that is gone is not one."""
-    parts = []
-    for direction in filters.directions:
-        own, other, _ = _EDGE_SIDES[direction]
-        parts.append(
-            f"SELECT e.{other} AS id FROM edges e"
-            f" WHERE e.{own} = ANY(%(frontier)s) {filters.edge_sql('e')}"
-        )
-    found = list(
-        store.query(
-            f"SELECT DISTINCT id FROM ({' UNION ALL '.join(parts)}) found ORDER BY id",
-            {"frontier": frontier, **filters.edge_params()},
-        )
-    )
-    for start in range(0, len(found), _NEIGHBOUR_CHUNK):
-        chunk = found[start : start + _NEIGHBOUR_CHUNK]
-        # Each table answers for its own ids from its primary key.
-        read, params = _from_their_tables(chunk, "n.id")
-        existing = set(store.query(read, params)) if read else set()
-        for node_id in chunk:
-            if node_id in existing:
-                collection = node_id.split("/", 1)[0]
-                yield {"id": node_id, "type": TYPE_OF_COLLECTION[collection].value}
-
-
-def _walk(
-    store: ArangoStore, focal_id: str, depth: int, cap: int, filters: NeighborFilter
-) -> list[str]:
-    """The nodes within *depth* edges of *focal_id*, breadth first, at most *cap* (D9).
-
-    A level is read whole and kept in id order until the cap is reached: what a capped walk
-    keeps is a valid prefix of the breadth-first order. A node of a type the filter leaves
-    out is seen (it is not reached again) but neither kept nor walked through."""
-    seen = {focal_id}
-    kept: list[str] = []
-    frontier = [focal_id]
-    for _ in range(depth):
-        level = []
-        for node in _neighbours(store, frontier, filters):
-            if node["id"] in seen:
-                continue
-            seen.add(node["id"])
-            if (
-                filters.node_types is not None
-                and node["type"] not in filters.node_types
-            ):
-                continue
-            level.append(node["id"])
-            if len(kept) + len(level) == cap:
-                return kept + level
-        kept += level
-        frontier = level
-        if not frontier:
-            break
-    return kept
+def _walk_params(
+    focal_id: str, depth: int, cap: int, filters: NeighborFilter
+) -> dict[str, Any]:
+    """The arguments of ``lg_walk`` (``db/schema.py``) for a walk from *focal_id*."""
+    return {
+        "focal": focal_id,
+        "depth": depth,
+        "cap": cap,
+        "relations": list(filters.relations) if filters.relations is not None else None,
+        "status": filters.status,
+        "outbound": "outbound" in filters.directions,
+        "inbound": "inbound" in filters.directions,
+        "collections": filters.collections,
+        "tables": sorted(_ALLOWED_NODE_COLLECTIONS),
+        "chunk": _NEIGHBOUR_CHUNK,
+        **filters.edge_params(),
+    }
 
 
 def get_node_neighborhood(
@@ -378,18 +322,40 @@ def get_node_neighborhood(
     focal = _load_node(store, collection, key)
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, 1000))
-    kept = _walk(store, focal["_id"], depth, cap, filters)
-    ids = [*kept, focal["_id"]]
-    read, params = _from_their_tables(kept, _NODE_COLUMNS)
-    nodes = store.query(f"{read} ORDER BY id", params) if read else iter(())
-    edges = store.query(
-        f"""
-        SELECT e.key, e.from_id, e.to_id, e.doc FROM edges e
-        WHERE e.from_id = ANY(%(ids)s) AND e.to_id = ANY(%(ids)s) {filters.edge_sql("e")}
-        ORDER BY e.key
-        """,
-        {"ids": ids, **filters.edge_params()},
+    # One statement: the walk in the database (breadth first, D9: a level is kept in id
+    # order until the cap; a node of a type the filter leaves out is seen but neither kept
+    # nor walked through), the nodes it kept, and the edges between them and the focal
+    # node.
+    found = next(
+        store.query(
+            f"""
+            WITH walked AS (
+                SELECT lg_walk(%(focal)s, %(depth)s, %(cap)s, %(relations)s, %(status)s,
+                               %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,
+                               %(chunk)s) AS ids
+            )
+            SELECT
+                (SELECT coalesce(json_agg(json_build_array(
+                     n.id, n.key, n.type, n.labels, n.props) ORDER BY n.id), '[]')
+                 FROM walked w, nodes n
+                 WHERE n.id = ANY(w.ids)
+                   -- only the tables of the collections walked to are asked
+                   AND n.collection = ANY(ARRAY(
+                       SELECT DISTINCT split_part(x, '/', 1) FROM unnest(w.ids) x))
+                ) AS nodes,
+                (SELECT coalesce(json_agg(json_build_array(
+                     e.key, e.from_id, e.to_id, e.doc) ORDER BY e.key), '[]')
+                 FROM walked w, edges e
+                 WHERE e.from_id = ANY(w.ids || %(focal)s::text)
+                   AND e.to_id = ANY(w.ids || %(focal)s::text) {filters.edge_sql("e")})
+                    AS edges
+            FROM walked
+            """,
+            _walk_params(focal["_id"], depth, cap, filters),
+        )
     )
+    nodes = [dict(zip(_NODE_FIELDS, row, strict=True)) for row in found["nodes"]]
+    edges = [dict(zip(_EDGE_FIELDS, row, strict=True)) for row in found["edges"]]
     return {
         "focal": focal,
         "nodes": [node_doc(row) for row in nodes],

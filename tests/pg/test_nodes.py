@@ -155,3 +155,9 @@ def test_the_neighbours_looked_up_a_few_at_a_time(
         graph, "dossiers", "1", depth=2, cap=cap
     )
     assert chunked == whole
+
+
+def test_no_relation_asked_for_walks_nowhere(graph: ArangoStore) -> None:
+    nothing = node_queries.NeighborFilter(relations=())
+    hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", filters=nothing)
+    assert hood["nodes"] == [] and hood["edges"] == []
