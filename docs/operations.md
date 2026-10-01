@@ -11,14 +11,16 @@ the same values; a variable already set in the process environment wins over `.e
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `LAWGRAPH_DB_URL` | `postgresql://lawgraph@localhost:5432` | PostgreSQL server (`postgresql://user:password@host:port`) |
+| `LAWGRAPH_DB_URL` | `postgresql://lawgraph:<LAWGRAPH_DB_PASSWORD>@localhost:5432` | PostgreSQL server (`postgresql://user:password@host:port`); without it, the server of `docker-compose.yml` with `LAWGRAPH_DB_PASSWORD` |
+| `LAWGRAPH_DB_PASSWORD` | none | password of the user `lawgraph`; `docker-compose.yml` gives the server this password |
 | `LAWGRAPH_DB_NAME` | `lawgraph` | database; created on first use when it is missing and the user may, together with its tables, indexes and functions (`db/schema.py`). A database whose tables lack a column of the schema, or have one it no longer has, is refused at the start ("schema verouderd: herbouw nodig"): build it again |
 | `LAWGRAPH_DB_POOL_SIZE` | `8` | connections per process, all opened at the start; a query borrows one only while it reads. N API processes open at most N × this many connections. Every connection runs without JIT compilation (`jit = off`): for the statements of the API it costs more than it gains; set it on the server too |
-| `ARANGO_URL` | `http://localhost:8529` | server |
-| `ARANGO_DB_NAME` | `lawgraph` | database; created on first use when it is missing, together with its collections, indexes and views; an index the schema (`db/schema.py`) no longer makes stays until it is dropped by hand |
-| `ARANGO_USER` | `root` | user |
-| `ARANGO_PASSWORD` | empty | password |
-| `ARANGO_ROOT_PASSWORD` | none | read by `docker-compose.yml` for the root password of the container; set it equal to `ARANGO_PASSWORD` |
+| `LAWGRAPH_PG_MEMORY` | `4g` | memory limit of the server's container (`mem_limit`); `8g` on a 16 GB machine |
+| `LAWGRAPH_PG_SHARED_BUFFERS` | `1GB` | `shared_buffers`, the server's own cache; `4GB` on 16 GB |
+| `LAWGRAPH_PG_CACHE` | `3GB` | `effective_cache_size`, what the planner may count on the operating system to cache; `6GB` on 16 GB |
+| `LAWGRAPH_PG_WORK_MEM` | `32MB` | `work_mem`, per sort or hash of a statement; `64MB` on 16 GB |
+| `LAWGRAPH_PG_MAINTENANCE_WORK_MEM` | `512MB` | `maintenance_work_mem`, for an index build and `VACUUM`; `1GB` on 16 GB |
+| `ARANGO_URL`, `ARANGO_DB_NAME`, `ARANGO_USER`, `ARANGO_PASSWORD` | | the ArangoDB the parity harness (`tests/parity/`) copies and compares with |
 | `LAWGRAPH_DB_SIZE_ALERT_GIB` | `70` | `lawgraph check` fails from this database size on (see Database size) |
 
 ### Payload store
@@ -86,7 +88,7 @@ All default to the public endpoints; no key is required.
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
 | `ALLOW_DB_TESTS` | unset | `1` runs everything under `tests/pg/` (among it `test_sql_validity.py`: every static SQL statement planned by a real PostgreSQL in a scratch database) and `tests/integration/`; shell only |
-| `LAWGRAPH_TEST_ARANGO_URL` | `http://localhost:8530` | server `tests/integration/` talks to (`docker-compose.test.yml`); shell only |
+| `LAWGRAPH_TEST_DB_URL` | `postgresql://lawgraph:lawgraph-test@localhost:5433/lawgraph` | server `tests/pg/` and `tests/integration/` talk to (`docker-compose.test.yml`); each test makes a database `lawgraph_it_...` there and drops it; shell only |
 
 ## CLI
 
@@ -268,26 +270,25 @@ host holds a lock file for it (in `~/.cache/lawgraph`); a second `lawgraph` proc
 it taken, says so once and paces that host at half speed, so two commands started side by
 side stay under the limit together.
 
-**Database volumes.** The data is in two Docker volumes that `docker-compose.yml` declares
-`external`: compose uses them and cannot remove them. Create them once
-(`docker volume create lawgraph_arango_data && docker volume create lawgraph_arango_apps`),
-then `docker compose up -d`. `docker compose down -v` removes every volume a project owns,
+**Database volumes.** The data is in a Docker volume that `docker-compose.yml` declares
+`external`: compose uses it and cannot remove it. Create it once
+(`docker volume create lawgraph_pgdata`), then `docker compose up -d`. The server
+(service `postgres`, container `lawgraph-postgres`, `127.0.0.1:5432`, user `lawgraph`)
+keeps its data in it under `/var/lib/postgresql/18/docker`. `docker compose down -v` removes every volume a project owns,
 also with `--profile`, and that is how this database was lost once; the test database is a
 compose project of its own for the same reason.
 
-**Database memory.** ArangoDB sizes its caches from the memory it sees and has no limit of
-its own. In Docker that is the whole VM: on an 8 GB VM it grew until the kernel killed it (exit
-137, `OOMKilled`) in the middle of a load, which also left a search view out of sync.
-`docker-compose.yml` bounds the block cache, the write buffers, the edge cache and the query
-memory, sets `mem_limit: 5g` and restarts the server when it stops. A bulk write is sent again
-(after 2, 10 and 30 seconds) while the database is unreachable, so a restart costs a run
-nothing; when it stays away the step ends there instead of fetching on. A view the server
-log reports as `out of sync` is rebuilt by dropping it and starting any command
-(`ArangoStore()` creates what is missing).
-Measured on the full database (165,000 judgments, 2.8 million edges, 937,000
-documents in the search views): ArangoSearch holds about 0.7 GB (mapped 276 MB, readers 63
-MB, writers 366 MB; 3.0 GB of index on disk), the server 2.1 GB resident, the container 2.7
-of its 5 GB.
+**Database memory.** PostgreSQL takes what it is told: `docker-compose.yml` sets the
+container's limit (`LAWGRAPH_PG_MEMORY`) and the server's caches and work memory from the
+`LAWGRAPH_PG_*` variables (see Database; the defaults are for a machine of 8 GB, the values
+for 16 GB are given next to them), and `shm_size` 1 GB for parallel workers. It runs with
+`jit = off` (for these statements a compilation costs more than it gains; the store turns it
+off on its own connections too), `random_page_cost` 1.1 and `effective_io_concurrency` 200
+(an SSD), `max_wal_size` 4 GB and `wal_compression` zstd (a load writes a lot at once),
+`default_toast_compression` lz4 (the large props), and at most 100 connections. The container
+restarts when the server stops and reports itself healthy when `pg_isready` answers. A bulk
+write is sent again (after 2, 10 and 30 seconds) while the database is unreachable, so a
+restart costs a run nothing; when it stays away the step ends there instead of fetching on.
 
 **Interruptions.** A retrieve stores its records while it fetches, a buffer at a time
 (`RawSourceWriter`: 500 records, 8 MB of text or 5 seconds, whichever comes first). An
@@ -330,31 +331,33 @@ gaps of minutes. Keep it on power, or the lid open.
 Before the first scheduled run one complete run has to be on record (`bootstrap`, or each
 `<phase> all` once with a date), or `--since last` is refused.
 
-**Database size.** ArangoDB Community counts the size of the dataset against a limit of 100
-GiB: over it, the server warns for two days, is read-only for two more and then shuts down.
-`lawgraph check` (daily, in `daily.sh`) logs the size the server counts (`GET /_admin/license`,
-the compressed storage of the documents, about a third of their size as JSON), the three
-largest collections, and fails from `LAWGRAPH_DB_SIZE_ALERT_GIB` (70 GiB) on, or as soon as the
-server reports its license status as other than `good`. With the alert command set, that
-failure reaches you the same morning.
+**Database size.** `lawgraph check` (daily, in `daily.sh`) logs the size of the database on
+disk (`pg_database_size`), the three largest tables (rows, TOAST and indexes together), and
+fails from `LAWGRAPH_DB_SIZE_ALERT_GIB` (70 GiB) on. With the alert command set, that failure
+reaches you the same morning.
 
 **Backups.** Everything in the database can be built again from the sources, but that takes a
-day or more; a backup is back in minutes to hours. `scripts/backup.sh` writes a compressed `arangodump` of the database to
-`LAWGRAPH_BACKUP_DIR` (`./backups`, mounted by `docker-compose.yml` at `/backups` in the
-container, where the dump runs), with a `counts` file of the documents per collection and the
-search views, and keeps the newest `LAWGRAPH_BACKUP_KEEP` (7). `LAWGRAPH_BACKUP_UPLOAD_COMMAND`
-gets each new dump off the machine (`sh -c`, the path in `LAWGRAPH_BACKUP_PATH`), for example
+day or more; a backup is back in minutes to hours. `scripts/backup.sh` writes a dump of the
+database with `pg_dump` (directory format, four jobs, zstd) to `LAWGRAPH_BACKUP_DIR`
+(`./backups`, mounted by `docker-compose.yml` at `/backups` in the container, where the dump
+runs), with a `counts` file next to it (`scripts/_counts.sql`: the rows of every table, the
+edges per relation, and the columns, indexes and functions of the schema), and keeps the newest
+`LAWGRAPH_BACKUP_KEEP` (7). A dump is written as `<name>.partial` and renamed when it is
+complete. `LAWGRAPH_BACKUP_UPLOAD_COMMAND` gets each new dump off the machine (`sh -c`, the
+path in `LAWGRAPH_BACKUP_PATH`), for example
 `rclone copy "$LAWGRAPH_BACKUP_PATH" leafcloud:lawgraph-backups/$(basename "$LAWGRAPH_BACKUP_PATH")`;
 let a lifecycle rule of the bucket remove old ones. `scripts/restore-test.sh` restores the
-newest dump into a scratch database on the test server (`docker-compose.test.yml`, which mounts
-the same directory read-only; `LAWGRAPH_RESTORE_CONTAINER` for another server, which a dump of
-the full database needs) and compares every collection and view with `counts`; `runs.log`
-says how long the restore took. Both run under the lock of the scheduled runs, so a dump never
-reads a database that a load is writing. Measured on a database of 1.2 GB: a dump of 333 MB in
-30 s, a restore in 38 s. The dump holds the metadata of the raw records, not their payloads:
-those are in the payload store, which is backed up on its own. A directory store goes with the
-backups of the machine; in a bucket, versioning (or a replica in a second bucket) protects
-against a deleted or overwritten object.
+newest dump with `pg_restore` (four jobs) into a scratch database on the test server
+(`docker-compose.test.yml`, which mounts the same directory read-only;
+`LAWGRAPH_RESTORE_CONTAINER` for another server, which a dump of the full database needs),
+made as the schema makes a database (its collation), compares it line by line with `counts`,
+and drops it; `runs.log` says how long the restore took. On a laptop a database of 1 GB on
+disk dumped to 212 MB in 8 s and restored in 82 s, most of it spent rebuilding the indexes:
+plan with about a minute and a half per GB. Both run under the lock of the
+scheduled runs, so a dump never reads a database that a load is writing. The dump holds the
+metadata of the raw records, not their payloads: those are in the payload store, which is
+backed up on its own. A directory store goes with the backups of the machine; in a bucket,
+versioning (or a replica in a second bucket) protects against a deleted or overwritten object.
 
 ```
 0  3 * * *   /path/to/lawgraph/scripts/backup.sh
@@ -409,9 +412,9 @@ no unit test runs or reads a query (`tests/test_conventions.py`), what a query d
 `tests/integration`; `tests/pg/test_sql_validity.py` has a real PostgreSQL plan every static SQL
 statement (`ALLOW_DB_TESTS=1`, a scratch database of its own).
 
-What only a server shows under real load is in `tests/integration`: the real code and the real CLI against a
-second, deliberately small ArangoDB (`docker-compose.test.yml`, a compose project of its own: port 8530, 1 GB
-of memory, 256 MiB per query, a throw-away volume; never the database of `.env`), next to an
+What only a server shows under real load is in `tests/integration` and `tests/pg`: the real code and the real
+CLI against a second, deliberately small PostgreSQL (`docker-compose.test.yml`, a compose project of its own:
+port 5433, 1 GB of memory, a throw-away volume; never the database of `.env`), next to an
 S3 server for the payload store in a bucket (versitygw, port 8531, `LAWGRAPH_TEST_S3_URL`;
 without it those tests are skipped). Each test has a payload directory of its own.
 
