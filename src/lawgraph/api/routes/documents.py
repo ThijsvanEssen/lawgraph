@@ -23,6 +23,7 @@ from lawgraph.api.schemas.documents import (
     readable_sections,
 )
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.decisions import get_document_decisions
 from lawgraph.db.queries.documents import (
     get_document,
     get_document_links,
@@ -98,7 +99,8 @@ def list_chamber_documents(
         "One document with its text, read from the XML of the paper, its "
         "`sections` (the headings of the paper with their offsets into `text`), "
         "the dossiers it belongs to and, for an explanatory document, the "
-        "articles and laws it explains. "
+        "articles and laws it explains, and the votes taken on it (`decisions`, with the "
+        "vote of every faction). "
         "`text` is null when `normalize tk-content` has not reached it."
     ),
     tags=["documents"],
@@ -111,7 +113,9 @@ def get_document_text(
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Document '{key}' not found.")
     return DocumentTextResponse.from_document(
-        doc, get_document_links(store, doc["_id"])
+        doc,
+        get_document_links(store, doc["_id"]),
+        get_document_decisions(store, doc["_id"]),
     )
 
 
