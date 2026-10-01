@@ -177,6 +177,21 @@ class InstrumentJudgmentItem(BaseModel):
     key: str
     ecli: str | None = None
     display_name: str | None = None
+    court: str | None = Field(
+        default=None, description="ECLI court code, `HR`, `RBAMS`."
+    )
+    tier: str | None = Field(
+        default=None,
+        description="The tier, the Type of the court in the Instanties value list: "
+        "`hoge_raad`, `raad_van_state`, `gerechtshof`, `rechtbank`, … (as in "
+        "`/api/judgments`).",
+    )
+    court_kind: str | None = Field(
+        default=None, description="The kind of court within the tier."
+    )
+    date: str | None = Field(
+        default=None, description="Date of the judgment, YYYY-MM-DD."
+    )
     cited_articles: list[CitedArticleRef] = Field(
         default_factory=list,
         description="Articles of the focal instrument that this judgment cites.",

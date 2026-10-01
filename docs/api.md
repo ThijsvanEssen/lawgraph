@@ -65,7 +65,7 @@ zoek.officielebekendmakingen.nl (`stb-2019-33`; null before 1995, where that sit
 | `.../versions` | every toestand the source gives, newest first, `current` flagged |
 | `.../amended-by` | amending publications (Staatsblad, Tractatenblad, ...) with edge counts per kind, articles affected, first effective date and dossiers; `limit`, `offset` |
 | `.../dossiers` | dossiers through `LEGISLATED_IN` from the regulation itself (`via: instrument`) and from its amending publications (`via: amending_publication`, `publication` = newest) |
-| `.../judgments` | citing judgments with the cited articles |
+| `.../judgments` | citing judgments with the cited articles, each with its `court` (ECLI court code), `tier`, `court_kind` and `date`, as in `/api/judgments` |
 | `.../related-instruments` | per related instrument, inbound and outbound article-level `REFERS_TO` counts |
 | `/api/annexes/{key}` | one annex with its entries (`index`, `name`, `heading`: the law the entry falls under, `parent_index`: the entry it is nested in) and `referenced_by`: the articles that name it (by label or by name) |
 
