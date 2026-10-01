@@ -5,7 +5,9 @@
 Per node collection the ids, per relation the edge keys, and per document all of it: type,
 labels and props of a node; ``_from``, ``_to`` and the fields of an edge. Strict, with the
 keys of an object in order; ``1`` and ``1.0`` are equal (D6). Only the time of writing
-(``VOLATILE``) is left out.
+(``VOLATILE``) is left out, and the order of an edge's own fields: the API never serves an
+edge whole but picks its fields by name (``api/schemas``), and ArangoDB adds the fields an
+update gives in the order of a hash map. Its ``meta`` is served whole, in order.
 
 A difference that a port chose on purpose, where the AQL left a tie open, is a ``CHOICE``
 when its entry in ``KNOWN_CHOICES`` matches it; each entry carries its reason. Any other
@@ -79,7 +81,8 @@ def _node_text(doc: dict[str, Any]) -> str:
 
 
 def _edge_text(doc: dict[str, Any]) -> str:
-    return json.dumps(_volatile_free(doc), ensure_ascii=False)
+    fields = _volatile_free(doc)
+    return json.dumps(dict(sorted(fields.items())), ensure_ascii=False)
 
 
 def _canonical(value: Any) -> Any:
@@ -140,7 +143,12 @@ def _pg_edge(key: str, from_id: str, to_id: str, doc: str) -> tuple[str, str, st
     fields = parse(doc)
     pairs = [("_from", from_id), ("_to", to_id), *fields.items]
     text = json.dumps(
-        {k: _plain(v) for k, v in pairs if k not in VOLATILE}, ensure_ascii=False
+        {
+            k: _plain(v)
+            for k, v in sorted(pairs, key=lambda kv: kv[0])
+            if k not in VOLATILE
+        },
+        ensure_ascii=False,
     )
     relation = next((v for k, v in fields.items if k == "relation"), "")
     return relation, key, text

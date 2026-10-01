@@ -100,3 +100,28 @@ def test_a_known_choice_is_counted_apart_and_the_rest_fails(
     assert "FAIL   edges/PART_OF" in text
     assert "CHOICE first-dossier: 1" in text
     assert text.endswith("2 parts: 1 FAIL, 0 CHOICE, 1 OK")
+
+
+def test_an_edge_s_own_fields_are_compared_in_any_order_its_meta_in_order() -> None:
+    arango = {
+        "_key": "k",
+        "_from": "a",
+        "_to": "b",
+        "relation": "REFERS_TO",
+        "confidence": 1,
+        "meta": {"x": 1, "y": 2},
+    }
+    same = _pg_edge(
+        "k",
+        "a",
+        "b",
+        '{"confidence": 1, "relation": "REFERS_TO", "meta": {"x": 1, "y": 2}}',
+    )
+    other = _pg_edge(
+        "k",
+        "a",
+        "b",
+        '{"relation": "REFERS_TO", "confidence": 1, "meta": {"y": 2, "x": 1}}',
+    )
+    assert digest(_edge_text(arango)) == digest(same[2])
+    assert digest(_edge_text(arango)) != digest(other[2])
