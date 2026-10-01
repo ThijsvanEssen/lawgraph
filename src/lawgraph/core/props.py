@@ -64,6 +64,8 @@ class InstrumentProps(_CommonProps):
     official_title: str | None = None
     citation_title: str | None = None
     short_title: str | None = None
+    # the abbreviation it is cited by (``core.aliases.abbreviation_of``): EVRM, AVG
+    abbreviation: str | None = None
     # every name it is cited by: the WTI abbreviations and, for a book of a code, the forms
     # "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW"
     aliases: list[str] | None = None
@@ -120,6 +122,8 @@ class ArticleProps(_CommonProps):
     title: str | None = None
     text: str | None = None
     instrument_citation_title: str | None = None
+    # the ``abbreviation`` of its instrument: "art. 8 EVRM"
+    instrument_abbreviation: str | None = None
     instrument_id: str | None = None
     # BWB identity and provenance of the current version
     stam_id: str | None = None

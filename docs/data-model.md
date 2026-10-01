@@ -179,6 +179,11 @@ statutes made by the legislator:
   (`Datagovernanceverordening`), `display_name` the citation title.
 - The Convention of the ECHR is the BWB treaty `BWBV0001000` (`bwbv0001000`, articles
   `bwbv0001000_<n>`), abbreviated `EVRM` in its WTI; ECHR judgments cite its articles.
+- `abbreviation` of an instrument is the abbreviation it is cited by
+  (`core.aliases.abbreviation_of`): the WTI short title of a BWB regulation or treaty
+  (`EVRM`), else the first one kept by hand (`curated instrument-abbreviations`: `AVG` for
+  `32016R0679`). Its articles carry it as `instrument_abbreviation` (`art. 8 EVRM`). Written
+  by `normalize bwb`.
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`
   `publicatie` (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
   `date_published`, `dossier_numbers`; `citation_title` is their name, `Stb. 2019, 33`); they
