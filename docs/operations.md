@@ -351,7 +351,9 @@ newest dump with `pg_restore` (four jobs) into a scratch database on the test se
 (`docker-compose.test.yml`, which mounts the same directory read-only;
 `LAWGRAPH_RESTORE_CONTAINER` for another server, which a dump of the full database needs),
 made as the schema makes a database (its collation), compares it line by line with `counts`,
-and drops it; `runs.log` says how long the restore took. Both run under the lock of the
+and drops it; `runs.log` says how long the restore took. On a laptop a database of 1 GB on
+disk dumped to 212 MB in 8 s and restored in 82 s, most of it spent rebuilding the indexes:
+plan with about a minute and a half per GB. Both run under the lock of the
 scheduled runs, so a dump never reads a database that a load is writing. The dump holds the
 metadata of the raw records, not their payloads: those are in the payload store, which is
 backed up on its own. A directory store goes with the backups of the machine; in a bucket,
