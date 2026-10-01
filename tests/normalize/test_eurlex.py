@@ -58,7 +58,10 @@ def test_the_acts_are_streamed_twenty_at_a_time(
     # the count for the progress line, then the acts
     assert asked == [
         ("count", acts),
-        ("records", {**acts, "since_iso": None, "batch_size": 20}),
+        (
+            "records",
+            {**acts, "since_iso": None, "batch_size": 20, "chronological": False},
+        ),
     ]
 
 
