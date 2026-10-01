@@ -3,9 +3,8 @@ removes those it no longer derives."""
 
 from __future__ import annotations
 
-from lawgraph.config.constants import (
-    COLLECTION_EDGES,
-)
+from psycopg.types.json import Jsonb
+
 from lawgraph.db.counting import Store
 
 
@@ -14,15 +13,20 @@ def remove_edges_of_source_except(
 ) -> int:
     """Remove the edges of *relation* made by *source* whose key is not in *keep*: for edges
     one pipeline derives in full on every run. How many went."""
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation == @relation AND e.source == @source
-        FILTER e._key NOT IN @keep
-        REMOVE e IN {COLLECTION_EDGES}
-        RETURN 1
-    """
-    bind = {"relation": relation, "source": source, "keep": keep}
-    return sum(store.query(aql, bind))
+    rows = store.execute(
+        """
+        DELETE FROM edges e
+        WHERE e.relation = %(relation)s AND e.source = %(source)s
+          AND NOT EXISTS (SELECT 1 FROM unnest(%(keep)s::text[]) AS k WHERE k = e.key)
+        RETURNING 1
+        """,
+        {"relation": relation, "source": source, "keep": keep},
+    )
+    return len(rows)
+
+
+# The edges of a node that *keep* (``{node id: [edge key, ...]}``, as jsonb) does not name.
+_NOT_KEPT = "NOT coalesce((%(keep)s::jsonb -> e.{end}) ? e.key, false)"
 
 
 def remove_edges_from(
@@ -37,26 +41,24 @@ def remove_edges_from(
     """Remove the edges of *relation* made by *source* from any of *from_ids* whose key is
     not in *keep* (per node id): a pipeline that derives the edges of a node in full removes
     those it no longer derives. How many went."""
-    aql = f"""
-    FOR id IN @ids
-        LET kept = @keep[id] OR []
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from == id AND e.relation == @relation AND e.source == @source
-            FILTER e._key NOT IN kept
-            REMOVE e IN {COLLECTION_EDGES}
-            RETURN 1
+    statement = f"""
+        DELETE FROM edges e
+        WHERE e.from_id = ANY(%(ids)s::text[])
+          AND e.relation = %(relation)s AND e.source = %(source)s
+          AND {_NOT_KEPT.format(end="from_id")}
+        RETURNING 1
     """
     removed = 0
     for start in range(0, len(from_ids), chunk):
         ids = from_ids[start : start + chunk]
-        removed += sum(
-            store.query(
-                aql,
+        removed += len(
+            store.execute(
+                statement,
                 {
                     "ids": ids,
                     "relation": relation,
                     "source": source,
-                    "keep": {i: sorted(keep[i]) for i in ids if i in keep},
+                    "keep": Jsonb({i: sorted(keep[i]) for i in ids if i in keep}),
                 },
             )
         )
@@ -75,26 +77,24 @@ def remove_edges_to(
     """Remove the edges of *relations* made by *source* into any of *to_ids* whose key is
     not in *keep* (per node id): the counterpart of ``remove_edges_from`` for a pipeline that
     derives the edges into a node in full. How many went."""
-    aql = f"""
-    FOR id IN @ids
-        LET kept = @keep[id] OR []
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to == id AND e.relation IN @relations AND e.source == @source
-            FILTER e._key NOT IN kept
-            REMOVE e IN {COLLECTION_EDGES}
-            RETURN 1
+    statement = f"""
+        DELETE FROM edges e
+        WHERE e.to_id = ANY(%(ids)s::text[])
+          AND e.relation = ANY(%(relations)s::text[]) AND e.source = %(source)s
+          AND {_NOT_KEPT.format(end="to_id")}
+        RETURNING 1
     """
     removed = 0
     for start in range(0, len(to_ids), chunk):
         ids = to_ids[start : start + chunk]
-        removed += sum(
-            store.query(
-                aql,
+        removed += len(
+            store.execute(
+                statement,
                 {
                     "ids": ids,
                     "relations": relations,
                     "source": source,
-                    "keep": {i: sorted(keep[i]) for i in ids if i in keep},
+                    "keep": Jsonb({i: sorted(keep[i]) for i in ids if i in keep}),
                 },
             )
         )
