@@ -1,7 +1,9 @@
 """Strict comparison of two API responses, and the named deviations the plan allows.
 
 A JSON body is compared as parsed with its object keys in order: the same keys in another
-order is a difference. ``1`` and ``1.0`` are equal (D6). An Atom body is compared after C14N.
+order is a difference. ``1`` and ``1.0`` are equal (D6). An Atom body is compared after C14N,
+with the origin of a local API (``http://localhost:8002``) as one placeholder: the feed
+names its own URL, and the recording and the replay run on different ports.
 Headers: the same status, content type and ``Cache-Control``; an ``ETag`` on both or on
 neither, of the form ``W/"<api version>-<data version>"``.
 
@@ -73,8 +75,12 @@ def _headers(golden: dict[str, str], other: dict[str, str]) -> str:
     return ""
 
 
+# The origin of an API on this machine, whatever its port.
+LOCAL_ORIGIN = re.compile(r"https?://(?:localhost|127\.0\.0\.1|\[::1\]):\d+")
+
+
 def _c14n(text: str) -> str:
-    return ET.canonicalize(text, strip_text=True)
+    return ET.canonicalize(LOCAL_ORIGIN.sub("http://api", text), strip_text=True)
 
 
 def _json(

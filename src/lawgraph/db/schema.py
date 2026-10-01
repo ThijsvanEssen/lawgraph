@@ -428,7 +428,9 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("article_number"),
         _str("stam_id"),
         _num("inbound_citation_count"),
+        _num("position"),
         _bool("stub"),
+        _bool("repealed"),
     ),
     COLLECTION_INSTRUMENT_VERSIONS: (
         _str("bwb_id"),
@@ -440,6 +442,11 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("stam_id"),
         _str("article_number"),
         _str("valid_from"),
+        _str("valid_until"),
+        # whether there is a valid_until at all, of any type (a version without one is in
+        # force still); the props of a version, its text too, need not be read for it
+        Column("valid_until_set", "boolean", "props ->> 'valid_until' IS NOT NULL"),
+        _num("position"),
         _bool("current"),
     ),
     COLLECTION_JUDGMENTS: (
@@ -487,6 +494,9 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("date"),
         _str("dossier_number"),
         _strings("dossier_numbers"),
+        # what the feed reads of every paper (``queries/feed.py``): its props hold the
+        # whole record of the source
+        *(_json(field) for field in ("actors", "dossier_numbers", "subject", "title")),
     ),
     COLLECTION_DOSSIERS: (
         _str("number"),

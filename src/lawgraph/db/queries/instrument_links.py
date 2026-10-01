@@ -240,8 +240,7 @@ SELECT
                 '_id', j.id,
                 '_key', j.key,
                 'props', json_build_object(
-                    'ecli', j.props -> 'ecli',
-                    'display_name', j.props -> 'display_name'
+                    'ecli', j.pj_ecli, 'display_name', j.pj_display_name
                 )
             ),
             'own_article', CASE WHEN e.to_collection = '{COLLECTION_ARTICLES}'

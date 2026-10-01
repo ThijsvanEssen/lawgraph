@@ -145,3 +145,22 @@ def test_an_empty_last_page_of_arango_is_its_defect_and_only_that() -> None:
     for path, query, golden, other in strict:
         result = compare(path, query, _answer(golden), _answer(other))
         assert not result.same and result.allowed == "", (path, query, other)
+
+
+def test_atom_names_its_own_url_on_any_local_port() -> None:
+    atom = {"content-type": "application/atom+xml", "cache-control": "max-age=60"}
+
+    def feed(origin: str) -> dict:
+        body = f'<feed><id>{origin}/api/feed.atom</id><link href="{origin}/x"/></feed>'
+        return {"status": 200, "headers": atom, "body": body}
+
+    assert compare(
+        "/api/feed.atom",
+        {},
+        feed("http://localhost:8002"),
+        feed("http://127.0.0.1:8004"),
+    ).same
+    # another host is a difference still
+    assert not compare(
+        "/api/feed.atom", {}, feed("http://localhost:8002"), feed("https://example.org")
+    ).same
