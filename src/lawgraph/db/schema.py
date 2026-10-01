@@ -109,6 +109,18 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     ) END
 $$;
 
+-- A member is seated: one of their faction memberships has no end date.
+CREATE OR REPLACE FUNCTION lg_member_seated(props json) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM json_array_elements(
+            CASE WHEN json_typeof(props -> 'faction_memberships') = 'array'
+                 THEN props -> 'faction_memberships' ELSE '[]'::json END
+        ) AS f(period)
+        WHERE coalesce(json_typeof(period -> 'to_date'), 'null') = 'null'
+    )
+$$;
+
 -- The string *field* of every object of a JSON array (``[*].cabinet_key``).
 CREATE OR REPLACE FUNCTION lg_path_array(v json, field text) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -482,6 +494,9 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("date"),
         _str("dossier_number"),
         _strings("dossier_numbers"),
+        # what the feed reads of every paper (``queries/feed.py``): its props hold the
+        # whole record of the source
+        *(_json(field) for field in ("actors", "dossier_numbers", "subject", "title")),
     ),
     COLLECTION_DOSSIERS: (
         _str("number"),
@@ -537,6 +552,27 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _bool("active"),
         _str("name"),
         Column("search_names", "text", "lg_member_names(props)"),
+        # what the member lists filter and sort on (``queries/committees.py``): the name a
+        # member goes by (``name OR known_as OR government_name``), whether they ever held
+        # a seat, hold one now, and are in the Eerste Kamer list
+        Column(
+            "list_name",
+            "text",
+            "CASE WHEN lg_truthy(props -> 'name') THEN props ->> 'name'"
+            " WHEN lg_truthy(props -> 'known_as') THEN props ->> 'known_as'"
+            " ELSE props ->> 'government_name' END",
+        ),
+        Column(
+            "in_parliament",
+            "boolean",
+            "CASE WHEN json_typeof(props -> 'faction_memberships') = 'array'"
+            " THEN json_array_length(props -> 'faction_memberships') > 0 ELSE false END",
+        ),
+        Column("seated", "boolean", "lg_member_seated(props)"),
+        _json("faction_memberships"),
+        Column(
+            "in_ek", "boolean", "coalesce(json_typeof(props -> 'ek'), 'null') <> 'null'"
+        ),
     ),
     COLLECTION_FACTIONS: (
         _bool("active"),
@@ -824,6 +860,13 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
     COLLECTION_DOCUMENTS: (
         "CREATE INDEX IF NOT EXISTS documents_list_date"
         " ON documents (date DESC NULLS LAST, key)",
+    ),
+    # the member lists in name order: those who held a seat, and the Eerste Kamer's
+    COLLECTION_MEMBERS: (
+        "CREATE INDEX IF NOT EXISTS members_list_name ON members"
+        " (list_name NULLS FIRST, key) WHERE in_parliament AND list_name <> ''",
+        "CREATE INDEX IF NOT EXISTS members_list_ek ON members"
+        " (list_name NULLS FIRST, key) WHERE in_ek",
     ),
 }
 

@@ -16,7 +16,6 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    COLLECTION_MEMBERS,
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, NodeWriter
@@ -46,7 +45,6 @@ def _nodes() -> list[Node]:
                     NodeType.DOCUMENT,
                     {"title": "Brief", "date": "2026-09-22"},
                 ),
-                (COLLECTION_MEMBERS, NodeType.MEMBER, {"name": "Jansen"}),
                 (
                     COLLECTION_JUDGMENTS,
                     NodeType.JUDGMENT,
@@ -71,7 +69,6 @@ def _nodes() -> list[Node]:
     "path",
     [
         "/api/decisions",
-        "/api/members?include_all=true",
         "/api/judgments",
         "/api/judgments?sort=date_asc",
         "/api/judgments?sort=citation_count",
