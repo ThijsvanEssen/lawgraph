@@ -26,7 +26,7 @@ from lawgraph.api.schemas.government import (
     MinistryPeriodDTO,
 )
 from lawgraph.core.ministries import MINISTRIES
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.cabinets import (
     get_cabinet,
     get_cabinets,
@@ -89,7 +89,7 @@ def list_ministries() -> list[MinistryDTO]:
     tags=["government"],
 )
 def list_cabinets(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> list[CabinetSummaryDTO]:
     return [CabinetSummaryDTO.from_row(row) for row in get_cabinets(store)]
 
@@ -110,7 +110,7 @@ def list_cabinets(
 )
 def get_cabinet_detail(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> CabinetDetailDTO:
     row = get_cabinet(store, key)
     if row is None:
@@ -133,7 +133,7 @@ def get_cabinet_detail(
     tags=["government"],
 )
 def list_commitments(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     status: Annotated[
         str | None,
         Query(
@@ -187,7 +187,7 @@ def list_commitments(
 )
 def get_commitment_detail(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> CommitmentDTO:
     row = get_commitment(store, key)
     if row is None:

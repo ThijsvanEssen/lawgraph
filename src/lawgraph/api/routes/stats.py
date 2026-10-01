@@ -15,7 +15,7 @@ from lawgraph.api.schemas.stats import (
     StatsResponse,
 )
 from lawgraph.core.courts import TIERS, court_of
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.stats import (
     cached_data_as_of,
     get_db_stats,
@@ -37,7 +37,7 @@ router = APIRouter()
     ),
     tags=["stats"],
 )
-def get_stats(store: Annotated[ArangoStore, Depends(get_store)]) -> StatsResponse:
+def get_stats(store: Annotated[GraphStore, Depends(get_store)]) -> StatsResponse:
     data = get_db_stats(store)
     return StatsResponse(
         nodes=data["nodes"],
@@ -96,7 +96,7 @@ def _kind(row: dict) -> str | None:
     tags=["stats"],
 )
 def get_coverage(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> JudgmentCoverageResponse:
     data = get_judgment_coverage(store)
     courts = sorted(

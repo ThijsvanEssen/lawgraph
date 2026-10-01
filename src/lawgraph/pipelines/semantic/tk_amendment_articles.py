@@ -248,7 +248,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                 bwb_ids.append(stripped)
 
         # Edge-based resolution — the common path for hydrated TK documents.
-        for edge_bwb_id in amends_index.get(document.arango_id or "", []):
+        for edge_bwb_id in amends_index.get(document.node_id or "", []):
             if edge_bwb_id not in bwb_ids:
                 bwb_ids.append(edge_bwb_id)
 

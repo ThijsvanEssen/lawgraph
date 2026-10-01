@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 MVT = "Memorie van toelichting"
@@ -45,18 +45,18 @@ def _edge(src: str, dst: str, relation: str, key: str, **doc: Any) -> dict:
     }
 
 
-def _seed(store: ArangoStore, collection: str, *docs: dict[str, Any]) -> None:
+def _seed(store: GraphStore, collection: str, *docs: dict[str, Any]) -> None:
     store.bulk_insert_or_update_nodes(collection, list(docs))
 
 
-def _edges(store: ArangoStore, *edges: dict[str, Any]) -> None:
+def _edges(store: GraphStore, *edges: dict[str, Any]) -> None:
     store.bulk_insert_or_update_edges(list(edges))
 
 
 # ── the Eerste Kamer papers and their dossiers (moved from tests/integration) ──
 
 
-def _dossiers(store: ArangoStore) -> None:
+def _dossiers(store: GraphStore) -> None:
     _seed(
         store,
         COLLECTION_DOSSIERS,
@@ -73,7 +73,7 @@ def _paper(key: str, number: Any, suffix: Any = None, **props: Any) -> dict:
 
 
 def test_a_paper_belongs_to_the_dossier_with_its_number_and_addition(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _dossiers(store)
     _seed(
@@ -91,7 +91,7 @@ def test_a_paper_belongs_to_the_dossier_with_its_number_and_addition(
     ]
 
 
-def test_every_paper_is_linked_not_the_first_ten_thousand(store: ArangoStore) -> None:
+def test_every_paper_is_linked_not_the_first_ten_thousand(store: GraphStore) -> None:
     _dossiers(store)
     papers = [_paper(f"ek_{n}", "37020") for n in range(10_001)]
     for start in range(0, len(papers), 2_000):
@@ -99,7 +99,7 @@ def test_every_paper_is_linked_not_the_first_ten_thousand(store: ArangoStore) ->
     assert sum(1 for _ in semantic_tk.ek_papers_in_tk_dossiers(store)) == 10_001
 
 
-def test_a_paper_number_of_another_type_is_read_as_its_text(store: ArangoStore) -> None:
+def test_a_paper_number_of_another_type_is_read_as_its_text(store: GraphStore) -> None:
     _dossiers(store)
     _seed(
         store,
@@ -176,7 +176,7 @@ def _writer_node(collection: str, node_type: NodeType, key: str, **props: Any) -
 
 
 def test_the_memorandum_of_the_first_reading_explains_what_the_second_made_law(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     article = f"{COLLECTION_ARTICLES}/bwbr0001840_13"
     first, second = f"{COLLECTION_DOSSIERS}/35418", f"{COLLECTION_DOSSIERS}/35785"
@@ -247,7 +247,7 @@ def test_the_memorandum_of_the_first_reading_explains_what_the_second_made_law(
 # ── a graph of memoranda, dossiers, instruments and articles ──────────────────
 
 
-def _graph(store: ArangoStore) -> None:
+def _graph(store: GraphStore) -> None:
     _seed(
         store,
         COLLECTION_DOCUMENTS,
@@ -333,7 +333,7 @@ def _graph(store: ArangoStore) -> None:
 
 
 def test_second_reading_memoranda_are_tk_memoranda_with_their_dossier_labels(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _graph(store)
     rows = list(semantic_tk.second_reading_memoranda(store))
@@ -348,7 +348,7 @@ def test_second_reading_memoranda_are_tk_memoranda_with_their_dossier_labels(
     assert [list(row) for row in rows] == [["labels", "text"]] * 4
 
 
-def test_memorandum_targets_less_what_the_sections_explain(store: ArangoStore) -> None:
+def test_memorandum_targets_less_what_the_sections_explain(store: GraphStore) -> None:
     _graph(store)
     rows = list(semantic_tk.memorandum_targets(store, sections_source=LINKER))
     stb1 = [
@@ -379,7 +379,7 @@ def test_memorandum_targets_less_what_the_sections_explain(store: ArangoStore) -
 
 
 def test_memorandum_targets_are_the_instruments_without_a_change(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed(store, COLLECTION_DOCUMENTS, _node("m", "document", kind=MVT))
     _edges(
@@ -394,7 +394,7 @@ def test_memorandum_targets_are_the_instruments_without_a_change(
     assert rows == [{"document": "documents/m", "targets": ["instruments/b"]}]
 
 
-def test_memoranda_with_sections(store: ArangoStore) -> None:
+def test_memoranda_with_sections(store: GraphStore) -> None:
     _graph(store)
     rows = list(
         semantic_tk.memoranda_with_sections(
@@ -434,7 +434,7 @@ def test_memoranda_with_sections(store: ArangoStore) -> None:
 
 
 def test_memoranda_with_sections_change_once_where_first_seen(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed(
         store,
@@ -487,7 +487,7 @@ def test_memoranda_with_sections_change_once_where_first_seen(
 # ── the Tweede Kamer papers ───────────────────────────────────────────────────
 
 
-def _papers(store: ArangoStore) -> None:
+def _papers(store: GraphStore) -> None:
     _seed(
         store,
         COLLECTION_DOCUMENTS,
@@ -502,7 +502,7 @@ def _papers(store: ArangoStore) -> None:
     )  # fmt: skip
 
 
-def test_tk_documents_whole_by_key(store: ArangoStore) -> None:
+def test_tk_documents_whole_by_key(store: GraphStore) -> None:
     _papers(store)
     rows = list(semantic_tk.tk_documents(store, None))
     assert [row["_key"] for row in rows] == ["A", "a", "b", "c", "d"]
@@ -527,7 +527,7 @@ def test_tk_documents_whole_by_key(store: ArangoStore) -> None:
     assert list(semantic_tk.tk_documents(store, [])) == []
 
 
-def test_tk_document_titles_since_a_date(store: ArangoStore) -> None:
+def test_tk_document_titles_since_a_date(store: GraphStore) -> None:
     _papers(store)
     rows = list(semantic_tk.tk_document_titles(store, None))
     assert [row["_key"] for row in rows] == ["A", "a", "b", "c", "d"]
@@ -545,7 +545,7 @@ def test_tk_document_titles_since_a_date(store: ArangoStore) -> None:
     assert [r["_key"] for r in semantic_tk.tk_document_titles(store, "9999")] == ["A"]
 
 
-def test_tk_documents_to_scan_for_amendments(store: ArangoStore) -> None:
+def test_tk_documents_to_scan_for_amendments(store: GraphStore) -> None:
     _papers(store)
     rows = list(semantic_tk.tk_documents_to_scan_for_amendments(store, []))
     assert rows == [
@@ -566,7 +566,7 @@ def test_tk_documents_to_scan_for_amendments(store: ArangoStore) -> None:
     ]
 
 
-def test_amended_instruments_by_edge_key(store: ArangoStore) -> None:
+def test_amended_instruments_by_edge_key(store: GraphStore) -> None:
     _seed(
         store,
         COLLECTION_INSTRUMENTS,
@@ -594,7 +594,7 @@ def test_amended_instruments_by_edge_key(store: ArangoStore) -> None:
 # ── dossiers and cases ────────────────────────────────────────────────────────
 
 
-def test_dossier_ids_and_refs_by_key(store: ArangoStore) -> None:
+def test_dossier_ids_and_refs_by_key(store: GraphStore) -> None:
     _seed(
         store,
         COLLECTION_DOSSIERS,
@@ -616,7 +616,7 @@ def test_dossier_ids_and_refs_by_key(store: ArangoStore) -> None:
     assert list(refs[2]) == ["label", "number", "suffix", "title"]
 
 
-def test_dossier_outcome_signals(store: ArangoStore) -> None:
+def test_dossier_outcome_signals(store: GraphStore) -> None:
     _seed(
         store,
         COLLECTION_DOSSIERS,
@@ -703,7 +703,7 @@ def test_dossier_outcome_signals(store: ArangoStore) -> None:
     )
 
 
-def test_related_cases_with_a_length(store: ArangoStore) -> None:
+def test_related_cases_with_a_length(store: GraphStore) -> None:
     _seed(
         store,
         "cases",

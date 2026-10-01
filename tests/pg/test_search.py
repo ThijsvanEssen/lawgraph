@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import resolve as resolve_queries
 from lawgraph.db.queries import search as search_queries
 
@@ -16,7 +16,7 @@ def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
 
 
 @pytest.fixture()
-def graph(store: ArangoStore) -> ArangoStore:
+def graph(store: GraphStore) -> GraphStore:
     search_queries._law_cache.clear()
     store.bulk_insert_or_update_nodes(
         "instruments",
@@ -100,7 +100,7 @@ def _ids(hits: list[dict[str, Any]]) -> list[str]:
     return [h["id"] for h in hits]
 
 
-def test_words_match_by_stem_prefix_identifier_or_part(graph: ArangoStore) -> None:
+def test_words_match_by_stem_prefix_identifier_or_part(graph: GraphStore) -> None:
     search = search_queries.search_all
     # stems: "strafbaar" and "strafbepaling" are words of the text
     assert _ids(search(graph, q="strafbaar", types=["articles"])["articles"]) == [
@@ -118,7 +118,7 @@ def test_words_match_by_stem_prefix_identifier_or_part(graph: ArangoStore) -> No
     assert search(graph, q="strafbaar vordering", types=["articles"])["articles"] == []
 
 
-def test_a_hit_has_the_shape_of_before(graph: ArangoStore) -> None:
+def test_a_hit_has_the_shape_of_before(graph: GraphStore) -> None:
     hits = search_queries.search_all(graph, q="strafbaar", types=["articles"])[
         "articles"
     ]
@@ -146,7 +146,7 @@ def test_a_hit_has_the_shape_of_before(graph: ArangoStore) -> None:
     ]
 
 
-def test_a_name_an_alias_and_an_ecli(graph: ArangoStore) -> None:
+def test_a_name_an_alias_and_an_ecli(graph: GraphStore) -> None:
     found = search_queries.search_all(graph, q="Lindenbaum/Cohen", types=["judgments"])
     assert _ids(found["judgments"]) == ["judgments/ecli_nl_hr_1919_1"]
     assert found["judgments"][0]["score"] == search_queries.SCORE_IDENTIFIER  # precise
@@ -156,7 +156,7 @@ def test_a_name_an_alias_and_an_ecli(graph: ArangoStore) -> None:
     assert _ids(found["instruments"]) == ["instruments/bwbr0001854"]
 
 
-def test_members_by_every_word_of_their_names(graph: ArangoStore) -> None:
+def test_members_by_every_word_of_their_names(graph: GraphStore) -> None:
     found = search_queries.search_all(graph, q="de vries", types=["members"])["members"]
     assert _ids(found) == ["members/m1", "members/m2"]  # the active first
     found = search_queries.search_all(graph, q="volkspartij", types=["members"])[
@@ -165,7 +165,7 @@ def test_members_by_every_word_of_their_names(graph: ArangoStore) -> None:
     assert _ids(found) == ["members/m1"]
 
 
-def test_resolve_an_article_without_its_law(graph: ArangoStore) -> None:
+def test_resolve_an_article_without_its_law(graph: GraphStore) -> None:
     answer = resolve_queries.resolve(graph, "art. 1")
     assert answer["kind"] == "article"
     # the most cited first
@@ -175,14 +175,14 @@ def test_resolve_an_article_without_its_law(graph: ArangoStore) -> None:
     ]
 
 
-def test_resolve_a_law_by_its_abbreviation(graph: ArangoStore) -> None:
+def test_resolve_a_law_by_its_abbreviation(graph: GraphStore) -> None:
     answer = resolve_queries.resolve(graph, "Sr")
     assert answer["match"]["id"] == "instruments/bwbr0001854"
     assert answer["match"]["display_name"] == "Wetboek van Strafrecht"
 
 
 def test_resolve_a_paper_of_a_dossier_directly_or_through_a_case(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         "dossiers", [_node("31746", "dossier", number="31746", title="Wet x")]

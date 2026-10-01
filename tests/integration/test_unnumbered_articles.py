@@ -26,7 +26,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.schema import NODE_COLLECTIONS
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -42,7 +42,7 @@ NEW = re.sub(
 ADDRESS = "stam_16464063"
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     records = [
         (RAW_KIND_BWB_TOESTAND, LAW, NEW, "2025-01-01", None),
         (
@@ -80,7 +80,7 @@ def _seed(store: ArangoStore) -> None:
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     for _ in range(2):
         cli("normalize", "bwb")
@@ -155,7 +155,7 @@ def test_a_repealed_identity_is_listed_only_when_asked_for(client: TestClient) -
 
 
 def test_no_node_is_named_after_a_missing_number(client: TestClient) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     for collection in NODE_COLLECTIONS:
         rows = list(
             store.query(

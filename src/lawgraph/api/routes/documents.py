@@ -22,7 +22,7 @@ from lawgraph.api.schemas.documents import (
     PassageDTO,
     readable_sections,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import get_document_decisions
 from lawgraph.db.queries.documents import (
     get_document,
@@ -48,7 +48,7 @@ router = APIRouter()
     tags=["documents"],
 )
 def list_chamber_documents(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     chamber: Annotated[
         Literal["TK", "EK"] | None, Query(description="One chamber; both by default.")
     ] = None,
@@ -107,7 +107,7 @@ def list_chamber_documents(
 )
 def get_document_text(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> DocumentTextResponse:
     doc = get_document(store, key)
     if doc is None:
@@ -134,7 +134,7 @@ def get_document_text(
 )
 def get_document_article_passages(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     bwb_id: Annotated[
         str, Query(min_length=1, max_length=64, description="BWB id of the law.")
     ],

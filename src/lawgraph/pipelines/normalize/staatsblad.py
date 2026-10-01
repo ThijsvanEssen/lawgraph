@@ -18,7 +18,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.publication_xml import publication_title
 from lawgraph.core.xml import extract_section_text, find_text
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 class StaatsbladNormalizePipeline(NormalizePipelineBase):
     """Normalize Staatsblad AMvB XML into Publication nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(

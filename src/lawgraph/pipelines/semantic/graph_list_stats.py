@@ -45,7 +45,7 @@ import argparse
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import graph_stats
 
 logger = get_logger(__name__)
@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     )
     args = parser.parse_args(argv)
 
-    store = ArangoStore()
+    store = GraphStore()
     selected = [name for name, _ in _REFRESHERS if getattr(args, f"{name}_only")]
     result = PipelineResult()
     todo = [(n, r) for n, r in _REFRESHERS if not selected or n in selected]

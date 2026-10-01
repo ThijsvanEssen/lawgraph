@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.api.schemas.committees import EkSourceDTO
+from lawgraph.api.schemas.committees import EkSourceDTO, HallSeatDTO
 
 
 class FactionSeatsDTO(BaseModel):
@@ -44,6 +44,29 @@ class SeatingPlanDTO(BaseModel):
     page: str | None = Field(None, description="The page that links it.")
 
 
+class HallPlaceDTO(HallSeatDTO):
+    """A seat of the hall and who holds it."""
+
+    faction: str = Field(..., description="The key of the faction (``ek_…``).")
+    abbreviation: str | None = None
+    member: str = Field(..., description="The key of the member.")
+    name: str | None = Field(None, description="As the Kamer writes it.")
+
+
+class HallDTO(BaseModel):
+    """The plenary hall of the Eerste Kamer as Wie zit waar on eerstekamer.nl draws it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    seats: list[HallPlaceDTO] = Field(
+        ...,
+        description="Every seat a member holds: the left block, the chair, the right "
+        "block, each row by row and place by place. A place no one holds is not listed: "
+        "a row has as many places as its highest column.",
+    )
+
+
 class ParliamentSeatsResponse(BaseModel):
     """The seat composition of the Tweede Kamer or the Eerste Kamer."""
 
@@ -61,6 +84,11 @@ class ParliamentSeatsResponse(BaseModel):
     )
     source: EkSourceDTO | None = Field(
         None, description="Of the Eerste Kamer: the page the seats were read from."
+    )
+    hall: HallDTO | None = Field(
+        None,
+        description="Of the Eerste Kamer: who sits where in its plenary hall; null for "
+        "the Tweede Kamer, and when no plan was read.",
     )
 
 

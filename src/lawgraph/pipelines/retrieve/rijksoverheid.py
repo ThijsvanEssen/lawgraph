@@ -10,7 +10,7 @@ from lawgraph.config.constants import (
     RAW_KIND_RIJKSOVERHEID_CABINET,
     SOURCE_RIJKSOVERHEID,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -20,7 +20,7 @@ class RijksoverheidRetrievePipeline(RetrievePipelineBase):
     with the URL and the day it was read."""
 
     def __init__(
-        self, store: ArangoStore, client: RijksoverheidClient | None = None
+        self, store: GraphStore, client: RijksoverheidClient | None = None
     ) -> None:
         super().__init__(store)
         self.client = client or RijksoverheidClient()

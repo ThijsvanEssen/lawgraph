@@ -9,7 +9,7 @@ from typing import Any
 import psycopg
 import pytest
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
     get_decision_detail,
@@ -49,7 +49,7 @@ def _keys(page: dict[str, Any]) -> list[str]:
 
 
 def test_the_decisions_of_a_dossier_are_read_from_an_index(
-    store: ArangoStore, conn: psycopg.Connection
+    store: GraphStore, conn: psycopg.Connection
 ) -> None:
     """From ``tests/integration/test_api_documents.py``."""
     store.bulk_insert_or_update_nodes(
@@ -105,7 +105,7 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
 
 
 @pytest.fixture()
-def votes(store: ArangoStore) -> ArangoStore:
+def votes(store: GraphStore) -> GraphStore:
     store.bulk_insert_or_update_nodes(
         "decisions",
         [
@@ -187,7 +187,7 @@ def votes(store: ArangoStore) -> ArangoStore:
 
 
 def test_the_list_newest_first_the_key_settling_a_day_undated_last(
-    votes: ArangoStore,
+    votes: GraphStore,
 ) -> None:
     page = get_decisions(votes)
     assert list(page) == ["total", "items", "facets"]
@@ -221,7 +221,7 @@ def test_the_list_newest_first_the_key_settling_a_day_undated_last(
     assert page["items"][4]["chamber"] is None
 
 
-def test_the_facets_count_without_their_own_filter(votes: ArangoStore) -> None:
+def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
     facets = get_decisions(votes)["facets"]
     assert list(facets) == ["kind", "passed", "days"]
     # by count, most first, then by value (null first)
@@ -276,14 +276,14 @@ def test_the_facets_count_without_their_own_filter(votes: ArangoStore) -> None:
     ],
 )
 def test_the_filters(
-    votes: ArangoStore, filters: DecisionFilters, keys: list[str]
+    votes: GraphStore, filters: DecisionFilters, keys: list[str]
 ) -> None:
     page = get_decisions(votes, filters)
     assert _keys(page) == keys
     assert page["total"] == len(keys)
 
 
-def test_the_pages(votes: ArangoStore) -> None:
+def test_the_pages(votes: GraphStore) -> None:
     assert _keys(get_decisions(votes, limit=2)) == ["s0", "s1"]
     second = get_decisions(votes, limit=2, offset=2)
     assert _keys(second) == ["s2", "s4"] and second["total"] == 5
@@ -293,7 +293,7 @@ def test_the_pages(votes: ArangoStore) -> None:
     assert beyond["facets"]["kind"][0] == {"value": "Motie", "count": 3}
 
 
-def test_a_decision_with_its_votes(votes: ArangoStore) -> None:
+def test_a_decision_with_its_votes(votes: GraphStore) -> None:
     detail = get_decision_detail(votes, "s1")
     assert detail is not None
     # MERGE(decision, {votes}): the keys of the document in byte order, then votes
@@ -338,7 +338,7 @@ def test_a_decision_with_its_votes(votes: ArangoStore) -> None:
     assert get_decision_detail(votes, "nope") is None
 
 
-def test_the_document_a_decision_was_about(store: ArangoStore) -> None:
+def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [
@@ -387,7 +387,7 @@ def test_the_document_a_decision_was_about(store: ArangoStore) -> None:
     }
 
 
-def test_the_votes_taken_on_a_document(store: ArangoStore) -> None:
+def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
     # cases keyed as normalize keys them (make_node_key of the Zaak id); a motion (its own
     # case), a bill with a later paper of the same case, and a case
     # the decision does not name (another motion on the same agenda item)

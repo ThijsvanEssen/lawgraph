@@ -23,7 +23,7 @@ from lawgraph.core.feed import (
     ROLE_SUBMITTER,
     person_role,
 )
-from lawgraph.core.models import parse_arango_id
+from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import instrument_url
 from lawgraph.core.tk_links import document_page
 from lawgraph.core.tk_records import CAPACITY_MEMBER, NO_DUE_DATE
@@ -128,6 +128,18 @@ class FeedVoteDTO(BaseModel):
         default_factory=dict,
         description="Seats per choice as the source writes it (``Voor``, ``Tegen``, "
         "``Niet deelgenomen``); members per choice on a roll-call.",
+    )
+    method: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: how it was decided, as its report names it "
+        "(``Hamerstuk``, ``Stemming bij zitten en opstaan, aangenomen``, ``Hoofdelijke "
+        "stemming, verworpen``).",
+    )
+    decision_kind: str | None = Field(
+        None,
+        description="Of the Tweede Kamer: its ``BesluitSoort`` as the Kamer writes it "
+        "(``Stemmen - aangenomen``, ``Stemmen - zonder stemming aannemen``: a hamerstuk, "
+        "no votes).",
     )
 
 
@@ -253,7 +265,7 @@ class FeedItemDTO(BaseModel):
     def from_row(cls, row: dict[str, Any]) -> FeedItemDTO:
         kind = row["kind"]
         props = row.get("props") or {}
-        collection, key = parse_arango_id(row["id"])
+        collection, key = parse_node_id(row["id"])
         dossier = row.get("dossier")
         title = _title(kind, props, row)
         persons = _persons(kind, row)
@@ -423,6 +435,8 @@ def _vote(props: dict[str, Any]) -> FeedVoteDTO:
         outcome=_OUTCOME.get(passed) if isinstance(passed, bool) else None,  # type: ignore[arg-type]
         vote_kind=props.get("vote_kind"),
         tally=props.get("tally") or {},
+        method=props.get("method"),
+        decision_kind=props.get("decision_kind"),
     )
 
 

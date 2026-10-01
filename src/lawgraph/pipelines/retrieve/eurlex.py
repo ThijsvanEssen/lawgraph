@@ -6,7 +6,7 @@ from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import (
     FailureStreak,
@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 class EurlexRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for EUR-Lex CELEX html dumps."""
 
-    def __init__(self, store: ArangoStore, eu_client: EUClient | None = None) -> None:
+    def __init__(self, store: GraphStore, eu_client: EUClient | None = None) -> None:
         super().__init__(store)
         self.eu = eu_client or EUClient()
 

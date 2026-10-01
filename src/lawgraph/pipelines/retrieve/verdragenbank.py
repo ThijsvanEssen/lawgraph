@@ -5,7 +5,7 @@ from __future__ import annotations
 from lawgraph.clients.verdragenbank import VerdragenbankClient
 from lawgraph.config.constants import RAW_KIND_VERDRAG, SOURCE_VERDRAGENBANK
 from lawgraph.core.logging import get_logger
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -16,7 +16,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
     """Retrieve treaty metadata from the Verdragenbank SPARQL endpoint."""
 
     def __init__(
-        self, store: ArangoStore, client: VerdragenbankClient | None = None
+        self, store: GraphStore, client: VerdragenbankClient | None = None
     ) -> None:
         super().__init__(store)
         self.client = client or VerdragenbankClient()

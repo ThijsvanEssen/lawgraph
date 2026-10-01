@@ -41,7 +41,7 @@ from lawgraph.config.settings import (
     API_TRUSTED_PROXIES,
 )
 from lawgraph.core.logging import setup_logging
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 setup_logging()
 
@@ -56,10 +56,10 @@ DATA_VERSION_TTL = 15.0
 
 
 class _DataVersion:
-    """``ArangoStore.data_version``, read at most every ``DATA_VERSION_TTL`` seconds; None
+    """``GraphStore.data_version``, read at most every ``DATA_VERSION_TTL`` seconds; None
     while the database cannot be reached."""
 
-    def __init__(self, store: Callable[[], ArangoStore]) -> None:
+    def __init__(self, store: Callable[[], GraphStore]) -> None:
         self._store = store
         self._value: str | None = None
         self._read_at = float("-inf")
@@ -88,7 +88,7 @@ class _CacheControlMiddleware:
 
     _PUBLIC = ("/api/articles/", "/api/judgments/", "/api/stats")
 
-    def __init__(self, app, store: Callable[[], ArangoStore], api_version: str) -> None:
+    def __init__(self, app, store: Callable[[], GraphStore], api_version: str) -> None:
         self._app = app
         self._version = _DataVersion(store)
         self._api_version = api_version
@@ -326,7 +326,7 @@ async def root() -> dict[str, str]:
 
 @app.get("/api/health", tags=["root"])
 async def health(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> dict[str, str]:
     """Health check — verifies database connectivity."""
     try:

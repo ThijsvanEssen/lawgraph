@@ -17,7 +17,7 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db import store as store_module
 from lawgraph.db.schema import create_database_sql, ensure_schema
 
@@ -75,7 +75,7 @@ def conn(database_url: str) -> Iterator[psycopg.Connection]:
 @pytest.fixture()
 def store(
     database_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[ArangoStore]:
+) -> Iterator[GraphStore]:
     """The store on a fresh database, with a payload store of its own."""
     server, name = database_url.rsplit("/", 1)
     monkeypatch.setattr(store_module, "DB_URL", server)
@@ -83,7 +83,7 @@ def store(
     monkeypatch.setattr(
         store_module, "PAYLOAD_STORE", f"file://{tmp_path / 'payloads'}"
     )
-    opened = ArangoStore()
+    opened = GraphStore()
     try:
         yield opened
     finally:

@@ -22,7 +22,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
     SOURCE_VERDRAGENBANK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 
 def _toestand(bwb_id: str, number: str | None, title: str) -> str:
@@ -64,8 +64,8 @@ def _verdrag(number: str, title: str) -> dict[str, Any]:
 
 
 @pytest.fixture()
-def store(database: str, cli: Callable[..., Any]) -> Iterator[ArangoStore]:
-    store = ArangoStore()
+def store(database: str, cli: Callable[..., Any]) -> Iterator[GraphStore]:
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for bwb_id, number, title in BWB_TREATIES:
             writer.add(
@@ -101,7 +101,7 @@ def store(database: str, cli: Callable[..., Any]) -> Iterator[ArangoStore]:
 
 
 def test_a_bwb_treaty_and_its_verdragenbank_record_name_each_other(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     client = TestClient(app)
     bwb = client.get("/api/instruments/BWBV0001000").json()
@@ -113,7 +113,7 @@ def test_a_bwb_treaty_and_its_verdragenbank_record_name_each_other(
     assert [other["bwb_id"] for other in record["same_treaty"]] == ["BWBV0001000"]
 
 
-def test_a_treaty_without_a_counterpart_has_none(store: ArangoStore) -> None:
+def test_a_treaty_without_a_counterpart_has_none(store: GraphStore) -> None:
     client = TestClient(app)
     assert client.get("/api/instruments/BWBV0002060").json()["same_treaty"] == []
     assert client.get("/api/instruments/verdrag_001610").json()["same_treaty"] == []
@@ -121,7 +121,7 @@ def test_a_treaty_without_a_counterpart_has_none(store: ArangoStore) -> None:
     assert unnumbered["treaty_number"] is None and unnumbered["same_treaty"] == []
 
 
-def test_the_check_counts_what_the_numbers_match(store: ArangoStore) -> None:
+def test_the_check_counts_what_the_numbers_match(store: GraphStore) -> None:
     notes = check(store, edges=False).notes
     assert (
         "treaties: 1 of 3 BWB treaties have a Verdragenbank record, 1 name a number it "

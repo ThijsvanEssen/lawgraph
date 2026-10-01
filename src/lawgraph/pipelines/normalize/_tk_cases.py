@@ -98,12 +98,12 @@ def link_subjects(
     pairs: list[tuple[str, str, str]] = [
         (node_id, COLLECTION_CASES, make_node_key(case_id))
         for node in nodes
-        if (node_id := node.arango_id)
+        if (node_id := node.node_id)
         for case_id in node.props.get("case_ids") or []
     ] + [
         (node_id, COLLECTION_DOSSIERS, make_node_key(str(number)))
         for node in nodes
-        if (node_id := node.arango_id)
+        if (node_id := node.node_id)
         for number in node.props.get("dossier_numbers") or []
     ]
 
@@ -135,14 +135,32 @@ def link_activities_to_committees(
 ) -> None:
     """LED_BY edges from an activity to its voortouwcommissie (absent: plenary)."""
     pairs = [
-        (node.arango_id, COLLECTION_COMMITTEES, make_node_key(committee_id))
+        (node.node_id, COLLECTION_COMMITTEES, make_node_key(committee_id))
         for node in activity_nodes.values()
-        if node.arango_id and (committee_id := node.props.get("committee_id"))
+        if node.node_id and (committee_id := node.props.get("committee_id"))
     ]
     writer = EdgeWriter(store, what="committee edges")
     _queue_existing(store, pairs, RELATION_LED_BY, writer, source=source)
     writer.flush()
     logger.info("Linked %d activities to their lead committee.", writer.added)
+
+
+def _dossiers_of(activity: Node, activity_by_number: dict[str, Node]) -> list[str]:
+    """The dossiers of *activity*, or of the first activity that replaced it
+    (``replaced_by``, Activiteit.VervangenDoor) that names any: a moved activity keeps no
+    agenda, its commitments are about what the activity that replaced it discussed."""
+    seen: set[str] = set()
+    queue = [activity]
+    while queue:
+        current = queue.pop(0)
+        numbers = current.props.get("dossier_numbers") or []
+        if numbers:
+            return list(numbers)
+        for number in current.props.get("replaced_by") or []:
+            if number not in seen and number in activity_by_number:
+                seen.add(number)
+                queue.append(activity_by_number[number])
+    return []
 
 
 def link_commitments(
@@ -154,7 +172,9 @@ def link_commitments(
 ) -> None:
     """MADE_IN edges to the activity, and ABOUT edges to that activity's dossiers.
 
-    A Toezegging names no dossier of its own; the activity it was made in does.
+    A Toezegging names no dossier of its own; the activity it was made in does, or, when
+    that one was moved and kept no agenda, the activity that replaced it
+    (``_dossiers_of``).
     """
     activity_by_number = {
         number: node
@@ -166,12 +186,12 @@ def link_commitments(
     dossier_pairs: list[tuple[str, str, str]] = []
     for node in commitment_nodes.values():
         activity = activity_by_number.get(node.props.get("activity_number"))
-        if activity is None or not node.arango_id:
+        if activity is None or not node.node_id:
             continue
-        writer.add(node.arango_id, activity.arango_id, RELATION_MADE_IN, source=source)
+        writer.add(node.node_id, activity.node_id, RELATION_MADE_IN, source=source)
         dossier_pairs += [
-            (node.arango_id, COLLECTION_DOSSIERS, make_node_key(str(number)))
-            for number in activity.props.get("dossier_numbers") or []
+            (node.node_id, COLLECTION_DOSSIERS, make_node_key(str(number)))
+            for number in _dossiers_of(activity, activity_by_number)
         ]
     _queue_existing(store, dossier_pairs, RELATION_ABOUT, writer, source=source)
     writer.flush()
@@ -184,7 +204,7 @@ def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) 
     Only people are stored: which faction signed follows from the signatory's
     faction membership at the time.
     """
-    documents = [node for node in document_nodes.values() if node.arango_id]
+    documents = [node for node in document_nodes.values() if node.node_id]
     known_members = store.existing_keys(
         COLLECTION_MEMBERS,
         {
@@ -206,7 +226,7 @@ def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) 
                 continue
             writer.add(
                 f"{COLLECTION_MEMBERS}/{member_key}",
-                node.arango_id,
+                node.node_id,
                 RELATION_AUTHORED,
                 source=source,
                 meta={

@@ -1,9 +1,10 @@
 """Retrieve pipeline for the composition of the Eerste Kamer (eerstekamer.nl).
 
 One record per page (``ek-composition-html``, external id its path): the lists of factions
-(``/fracties``) and committees (``/commissies``) and the page of each faction and committee
-they name, about 40 pages. The site gives the composition of today only, so every run reads
-it all again: a snapshot, dated by ``read_on``.
+(``/fracties``) and committees (``/commissies``), the page of each faction and committee
+they name, and the plan of the hall (``/wie_zit_waar``), about 40 pages. The site gives
+the composition of today only, so every run reads it all again: a snapshot, dated by
+``read_on``.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import RAW_KIND_EK_COMPOSITION, SOURCE_EERSTEKAMER
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -23,7 +24,7 @@ class EerstekamerCompositionRetrievePipeline(RetrievePipelineBase):
     today."""
 
     def __init__(
-        self, store: ArangoStore, client: EerstekamerSiteClient | None = None
+        self, store: GraphStore, client: EerstekamerSiteClient | None = None
     ) -> None:
         super().__init__(store)
         self.client = client or EerstekamerSiteClient()

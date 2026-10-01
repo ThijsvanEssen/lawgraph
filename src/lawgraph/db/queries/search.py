@@ -19,10 +19,11 @@ from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import bm25_sql
+from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
-from lawgraph.db.schema import SEARCH_FIELDS, search_column
+from lawgraph.db.schema import SEARCH_FIELDS, search_column, search_words
 
 _law_cache: TTLCache[str, Any] = TTLCache(maxsize=4, ttl=60.0)
 
@@ -121,7 +122,7 @@ def tokenize_search_query(q: str) -> list[str]:
 # ── Intent-aware search parser ────────────────────────────────────────────────
 
 
-def load_code_aliases(store: ArangoStore) -> dict[str, str]:
+def load_code_aliases(store: GraphStore) -> dict[str, str]:
     """Law abbreviation (``Sr``, ``AVG``) → BWB id or CELEX number, cached for 60 s
     (``core.aliases.code_aliases``)."""
     cached = _law_cache.get("codes")
@@ -132,7 +133,7 @@ def load_code_aliases(store: ArangoStore) -> dict[str, str]:
     return codes
 
 
-def _load_law_names(store: ArangoStore) -> dict[str, list[str]]:
+def _load_law_names(store: GraphStore) -> dict[str, list[str]]:
     """Lower-case law name → the BWB or CELEX ids that carry it (a name may be shared); the
     ids of one name are listed in one order every time."""
     rows = store.query(
@@ -156,7 +157,7 @@ def _load_law_names(store: ArangoStore) -> dict[str, list[str]]:
     return names
 
 
-def load_notation_parser(store: ArangoStore) -> NotationParser:
+def load_notation_parser(store: GraphStore) -> NotationParser:
     """The parser of typed citations over the laws in the graph, cached for 60 s.
 
     Every search and every resolve shares one read of the instruments per minute instead of
@@ -174,7 +175,7 @@ def load_notation_parser(store: ArangoStore) -> NotationParser:
 
 
 def _two_phase_search(
-    store: ArangoStore,
+    store: GraphStore,
     precise: Query,
     text: Query,
     limit: int,
@@ -212,7 +213,7 @@ _BOOSTS: dict[str, dict[str, float]] = {
 
 
 def _text_query(
-    store: ArangoStore,
+    store: GraphStore,
     table: str,
     hit: str,
     tokens: list[str],
@@ -309,7 +310,7 @@ _ARTICLE_HIT = f"""
 
 
 def _search_articles(
-    store: ArangoStore,
+    store: GraphStore,
     tokens: list[str],
     notation: Notation | None,
     limit: int,
@@ -385,7 +386,7 @@ _INSTRUMENT_HIT = f"""
 
 
 def _search_instruments(
-    store: ArangoStore, q: str, tokens: list[str], limit: int
+    store: GraphStore, q: str, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     """Instruments whose alias or short title is the whole query first (``Boek 6 BW``,
     ``BW``), then those that hold its words."""
@@ -433,7 +434,7 @@ _ECLI_HIT = """
 
 
 def _search_judgments(
-    store: ArangoStore,
+    store: GraphStore,
     tokens: list[str],
     notation: Notation | None,
     limit: int,
@@ -474,10 +475,13 @@ def _search_judgments(
 # ── dossiers, committees, documents ──────────────────────────────────────────
 
 _KIND = "AND lower(doc.props ->> 'kind') = ANY(%(kind_filter)s)"
+# The chamber of a document from its labels, as everywhere (``chamber_sql``): null for a
+# Staatsblad or Staatscourant publication.
+_CHAMBER = chamber_sql("doc")
 
 
 def _search_dossiers(
-    store: ArangoStore,
+    store: GraphStore,
     tokens: list[str],
     kinds: list[str] | None,
     limit: int,
@@ -511,7 +515,7 @@ def _search_dossiers(
 
 
 def _search_committees(
-    store: ArangoStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     hit = """
         json_build_object(
@@ -531,7 +535,7 @@ def _search_committees(
 
 
 def _search_documents(
-    store: ArangoStore,
+    store: GraphStore,
     tokens: list[str],
     kinds: list[str] | None,
     limit: int,
@@ -549,7 +553,9 @@ def _search_documents(
                 'external_id', doc.props -> 'external_id',
                 'dossier_number', CASE WHEN json_typeof(doc.props -> 'dossier_numbers') = 'array'
                                        THEN doc.props -> 'dossier_numbers' -> 0 END,
-                'sequence', doc.props -> 'sequence'
+                'sequence', doc.props -> 'sequence',
+                'date', doc.props -> 'date',
+                'chamber', {_CHAMBER}
             )
         )
     """
@@ -569,18 +575,20 @@ def _search_documents(
 # ── members and factions: every word in their names ─────────────────────────
 
 
-def _all_words(tokens: list[str]) -> tuple[str, dict[str, Any]]:
-    """Every token is a part of the names (``search_names``, lower case): a trigram lookup
-    each."""
+def _all_words(
+    tokens: list[str], words: str = "doc.search_names"
+) -> tuple[str, dict[str, Any]]:
+    """Every token is a part of *words* (the names of a member or faction, the words of a
+    cabinet or commitment: lower case): a trigram lookup each."""
     params = {f"_word_{i}": token for i, token in enumerate(tokens)}
     condition = " AND ".join(
-        f"doc.search_names LIKE '%%' || lg_like(%({name})s) || '%%'" for name in params
+        f"{words} LIKE '%%' || lg_like(%({name})s) || '%%'" for name in params
     )
     return condition, params
 
 
 def _search_members(
-    store: ArangoStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     condition, params = _all_words(tokens)
     statement = f"""
@@ -602,7 +610,7 @@ def _search_members(
 
 
 def _search_factions(
-    store: ArangoStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     condition, params = _all_words(tokens)
     statement = f"""
@@ -621,6 +629,59 @@ def _search_factions(
         WHERE {condition}
         ORDER BY doc.active DESC NULLS LAST, coalesce(doc.seats, 0) DESC,
                  doc.name NULLS FIRST, doc.key
+        LIMIT %(limit)s
+        """
+    return list(store.query(statement, {**params, "limit": limit}))
+
+
+def _search_cabinets(
+    store: GraphStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    """Every word in the name of the cabinet (``kabinet-Schoof``), newest first."""
+    condition, params = _all_words(tokens, search_words("cabinets", "doc"))
+    statement = f"""
+        SELECT json_build_object(
+            'id', doc.id, 'key', doc.key,
+            'collection', 'cabinets', 'type', doc.type,
+            'display_name', doc.props -> 'name',
+            'snippet', doc.props -> 'from_date',
+            'extra', json_build_object(
+                'from_date', doc.props -> 'from_date',
+                'to_date', doc.props -> 'to_date'
+            )
+        )
+        FROM cabinets doc
+        WHERE {condition}
+        ORDER BY lg_str(doc.props -> 'from_date') DESC NULLS LAST, doc.key
+        LIMIT %(limit)s
+        """
+    return list(store.query(statement, {**params, "limit": limit}))
+
+
+def _search_commitments(
+    store: GraphStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    """Every word in the text or the number of the commitment (``TZ202609-011``), newest
+    first."""
+    condition, params = _all_words(tokens, search_words("commitments", "doc"))
+    statement = f"""
+        SELECT json_build_object(
+            'id', doc.id, 'key', doc.key,
+            'collection', 'commitments', 'type', doc.type,
+            'display_name', doc.props -> 'display_name',
+            'snippet', doc.props -> 'number',
+            'extra', json_build_object(
+                'number', doc.props -> 'number',
+                'made_on', doc.props -> 'made_on',
+                'status', doc.props -> 'status',
+                'minister_name', doc.props -> 'minister_name',
+                'cabinet', doc.props -> 'cabinet',
+                'ministry', doc.props -> 'ministry'
+            )
+        )
+        FROM commitments doc
+        WHERE {condition}
+        ORDER BY doc.made_on DESC NULLS LAST, doc.key
         LIMIT %(limit)s
         """
     return list(store.query(statement, {**params, "limit": limit}))
@@ -705,7 +766,7 @@ def rank_hits(query: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def search_all(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     q: str,
     types: list[str],
@@ -738,6 +799,8 @@ def search_all(
         "members": lambda: _search_members(store, tokens, limit),
         "factions": lambda: _search_factions(store, tokens, limit),
         "documents": lambda: _search_documents(store, tokens, kinds, limit),
+        "cabinets": lambda: _search_cabinets(store, tokens, limit),
+        "commitments": lambda: _search_commitments(store, tokens, limit),
     }
     wanted = [t for t in types if t in searches]
     # The types are searched side by side, each on a connection of its own: the answer

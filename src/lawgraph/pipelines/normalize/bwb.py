@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     SOURCE_BWB,
 )
+from lawgraph.core.aliases import abbreviation_of, curated_abbreviations
 from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key, annex_props
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_wti import (
@@ -30,7 +31,7 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -46,7 +47,7 @@ SHORT_TITLE_BATCH_SIZE = 1000
 class BWBNormalizePipeline(NormalizePipelineBase):
     """Normalize BWB XML into Instrument and Article nodes, with their short titles."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(
@@ -176,20 +177,44 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         for bwb_id, instrument in instruments.items():
             for article in articles.get(bwb_id, []):
                 writer.add(
-                    article.arango_id,
-                    instrument.arango_id,
+                    article.node_id,
+                    instrument.node_id,
                     RELATION_PART_OF,
                     source=EDGE_SOURCE,
                 )
             for annex_key in normalized.get("annexes_by_bwb", {}).get(bwb_id, []):
                 writer.add(
                     f"{COLLECTION_ANNEXES}/{annex_key}",
-                    instrument.arango_id,
+                    instrument.node_id,
                     RELATION_PART_OF,
                     source=ANNEX_EDGE_SOURCE,
                     confidence=1.0,
                 )
         writer.flush()
+
+    def _write_instrument_abbreviations(
+        self,
+        abbreviations_by_bwb: dict[str, list[str]],
+        short_titles: Mapping[str, str | None],
+    ) -> int:
+        """``abbreviation`` on every instrument the WTI or the curated list names
+        (``abbreviation_of``: the WTI short title, else the first curated one: EVRM, AVG),
+        and on their articles as ``instrument_abbreviation``; how many nodes changed."""
+        curated = curated_abbreviations()
+        laws = {law_id.upper() for law_id in (*abbreviations_by_bwb, *curated)}
+        rows = [
+            {
+                "key": make_node_key(law_id),
+                "abbreviation": abbreviation_of(
+                    law_id, short_titles.get(law_id), curated
+                ),
+            }
+            for law_id in sorted(laws)
+        ]
+        return sum(
+            normalize_bwb.update_instrument_abbreviations(self.store, batch)
+            for batch in chunked(rows, SHORT_TITLE_BATCH_SIZE)
+        )
 
     def _write_abbreviations(self, result: PipelineResult) -> None:
         """Set ``short_title`` and ``aliases`` on the instruments from the official WTI
@@ -226,6 +251,9 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         changed = 0
         for batch in chunked(rows, SHORT_TITLE_BATCH_SIZE):
             changed += normalize_bwb.update_abbreviations(self.store, batch)
+        changed += self._write_instrument_abbreviations(
+            abbreviations_by_bwb, short_titles
+        )
         # The AQL update bypasses the counting store's upsert methods, so add it here.
         result.updated += changed
         logger.info(

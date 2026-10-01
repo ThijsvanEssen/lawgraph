@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 
 
@@ -158,7 +158,7 @@ def _facet(value: str, rows: str, where: list[str]) -> str:
 
 
 def get_decisions(
-    store: ArangoStore,
+    store: GraphStore,
     filters: DecisionFilters | None = None,
     *,
     limit: int = 50,
@@ -225,7 +225,7 @@ def get_decisions(
     return rows[0] if rows else {"total": 0, "items": [], "facets": EMPTY_FACETS}
 
 
-def get_decision_detail(store: ArangoStore, key: str) -> dict[str, Any] | None:
+def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
     """One decision with every vote cast on it.
 
     Each vote is a VOTED edge — from a member on a roll-call, from a faction
@@ -278,7 +278,7 @@ def get_decision_detail(store: ArangoStore, key: str) -> dict[str, Any] | None:
 
 
 def get_decision_document(
-    store: ArangoStore, decision: dict[str, Any]
+    store: GraphStore, decision: dict[str, Any]
 ) -> dict[str, Any] | None:
     """The document (motion, amendment, bill) the decision was about.
 
@@ -317,9 +317,7 @@ def get_decision_document(
     return node_doc(row) if row else None
 
 
-def get_document_decisions(
-    store: ArangoStore, document_id: str
-) -> list[dict[str, Any]]:
+def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str, Any]]:
     """The decisions taken on a document (the votes on a motion, an amendment, a bill),
     oldest first, each with its votes as ``get_decision_detail`` gives them.
 

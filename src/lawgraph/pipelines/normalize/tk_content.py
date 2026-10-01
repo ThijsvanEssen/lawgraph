@@ -22,7 +22,7 @@ from lawgraph.core.kamerstuk_xml import TEXT_SOURCE, ParsedKamerstuk, parse_kame
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -34,7 +34,7 @@ _BATCH = 20
 class TKContentNormalizePipeline(NormalizePipelineBase):
     """Write the text and the sections of Kamerstuk XML on the Document nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(

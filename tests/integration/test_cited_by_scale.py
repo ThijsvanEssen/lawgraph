@@ -11,7 +11,7 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import get_article_cited_by
 
 JUDGMENTS = 5_000
@@ -96,7 +96,7 @@ def _edge(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     for batch in _judgments():
         store.bulk_insert_or_update_nodes("judgments", batch)
         store.bulk_insert_or_update_edges([_edge(doc) for doc in batch])
@@ -116,7 +116,7 @@ def _seed(store: ArangoStore) -> None:
 
 
 def test_a_much_cited_article_lists_its_passages_in_time(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
 
     started = time.monotonic()

@@ -22,7 +22,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import NodeType
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.test_judgment_mentions import _judgment_xml
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -43,7 +43,7 @@ TEXT = (
 )
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     records = [
         (RAW_KIND_BWB_TOESTAND, LAW, NEW, "2025-01-01", None),
         (
@@ -91,7 +91,7 @@ def _seed(store: ArangoStore) -> None:
 def test_a_citation_of_a_loaded_law_goes_to_an_article_it_has_or_had(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")

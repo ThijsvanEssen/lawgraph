@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
     SOURCE_ECHR,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 FIXTURES = pathlib.Path(__file__).parents[1] / "fixtures"
 ECLI = "ECLI:CE:ECHR:2003:0729JUD004808699"
@@ -37,7 +37,7 @@ def _judgment(item_id: str, language: str) -> dict[str, Any]:
     }
 
 
-def _store(store: ArangoStore, *, text_first: bool) -> None:
+def _store(store: GraphStore, *, text_first: bool) -> None:
     text = raw_source_doc(
         source=SOURCE_ECHR,
         kind=RAW_KIND_ECHR_TEXT,
@@ -59,7 +59,7 @@ def _store(store: ArangoStore, *, text_first: bool) -> None:
             writer.add(doc)
 
 
-def _node(store: ArangoStore) -> dict[str, Any]:
+def _node(store: GraphStore) -> dict[str, Any]:
     node = store.get_node(COLLECTION_JUDGMENTS, make_node_key(ECLI))
     assert node is not None
     return node.props
@@ -68,7 +68,7 @@ def _node(store: ArangoStore) -> dict[str, Any]:
 def test_a_judgment_has_the_text_of_its_english_item(
     database: str, cli: Callable[..., Any]
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store(store, text_first=True)
     cli("normalize", "echr")
 
@@ -84,7 +84,7 @@ def test_a_judgment_has_the_text_of_its_english_item(
 def test_a_normalize_again_keeps_the_text_and_the_title(
     database: str, cli: Callable[..., Any]
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store(store, text_first=False)
     cli("normalize", "echr")
     cli("normalize", "echr")

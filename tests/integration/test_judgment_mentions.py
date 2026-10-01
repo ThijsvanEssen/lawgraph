@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import ArangoStore, EdgeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.rechtspraak import (
     SEMANTIC_SOURCE as RECHTSPRAAK_LINKER,
 )
@@ -67,7 +67,7 @@ JUDGMENTS = {
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=0, judgments=0, regulations=1)
     with RawSourceWriter(store) as writer:
         for ecli, xml in JUDGMENTS.items():
@@ -90,7 +90,7 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
         app.dependency_overrides.pop(get_store, None)
 
 
-def _edge_to_grondwet_1(store: ArangoStore, ecli_key: str) -> dict[str, Any]:
+def _edge_to_grondwet_1(store: GraphStore, ecli_key: str) -> dict[str, Any]:
     sql = (
         "SELECT doc FROM edges WHERE from_id = %(from)s AND to_id = %(to)s "
         "AND relation = 'REFERS_TO'"
@@ -103,7 +103,7 @@ def _edge_to_grondwet_1(store: ArangoStore, ecli_key: str) -> dict[str, Any]:
 def test_the_edge_of_a_judgment_keeps_every_mention_with_its_paragraph_and_span(
     client: TestClient,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     edge = _edge_to_grondwet_1(store, "ecli_nl_hr_2020_1")
     judgment = store.get_document("judgments", "ecli_nl_hr_2020_1")
     paragraphs = {p["id"]: p for p in judgment["props"]["paragraphs"]}
@@ -232,7 +232,7 @@ def test_an_unknown_article_is_a_404_and_a_bad_filter_a_422(
 def test_a_citation_the_text_no_longer_makes_goes(client: Any, cli: Any) -> None:
     """An edge an earlier run made (to the wrong article, with the paragraph number of
     then) goes when the judgment is linked again."""
-    store = ArangoStore()
+    store = GraphStore()
     with EdgeWriter(store, what=None) as edges:
         edges.add(
             "judgments/ecli_nl_hr_2020_1",

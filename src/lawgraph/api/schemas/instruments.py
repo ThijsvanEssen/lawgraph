@@ -177,6 +177,21 @@ class InstrumentJudgmentItem(BaseModel):
     key: str
     ecli: str | None = None
     display_name: str | None = None
+    court: str | None = Field(
+        default=None, description="ECLI court code, `HR`, `RBAMS`."
+    )
+    tier: str | None = Field(
+        default=None,
+        description="The tier, the Type of the court in the Instanties value list: "
+        "`hoge_raad`, `raad_van_state`, `gerechtshof`, `rechtbank`, … (as in "
+        "`/api/judgments`).",
+    )
+    court_kind: str | None = Field(
+        default=None, description="The kind of court within the tier."
+    )
+    date: str | None = Field(
+        default=None, description="Date of the judgment, YYYY-MM-DD."
+    )
     cited_articles: list[CitedArticleRef] = Field(
         default_factory=list,
         description="Articles of the focal instrument that this judgment cites.",
@@ -572,6 +587,12 @@ class InstrumentDetailDTO(BaseModel):
     official_title: str | None
     citation_title: str | None
     short_title: str | None
+    abbreviation: str | None = Field(
+        None,
+        description="The abbreviation it is cited by: its WTI short title (EVRM), else "
+        "the one kept by hand for it (AVG); the same as `instrument_abbreviation` on its "
+        "articles.",
+    )
     aliases: list[str] = Field(
         default_factory=list,
         description="Every name it is cited by: the official abbreviations and, for a "
@@ -637,6 +658,7 @@ class InstrumentDetailDTO(BaseModel):
             official_title=props.get("official_title"),
             citation_title=props.get("citation_title"),
             short_title=props.get("short_title"),
+            abbreviation=props.get("abbreviation"),
             aliases=list(props.get("aliases") or []),
             display_name=props.get("display_name"),
             jurisdiction=props.get("jurisdiction") or None,

@@ -34,7 +34,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import API_ALLOWED_ORIGINS, SITE_URL
 from lawgraph.core.feed import FeedCursor
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.feed import (
     FeedFilters,
     feed_query,
@@ -219,6 +219,7 @@ def _nodes() -> list[Node]:
             primary_case_id=MOTION_CASE,
             dossier_numbers=["37001-VII"],
             kind="Motie",
+            decision_kind="Stemmen - aangenomen",
             vote_kind="faction",
             tally={"Voor": 80, "Tegen": 70},
             passed=True,
@@ -298,7 +299,7 @@ def _nodes() -> list[Node]:
     ]
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(_nodes())
     with EdgeWriter(store, what=None) as edges:
@@ -328,14 +329,14 @@ def _test_client() -> TestClient:
     return TestClient(app, headers={"Origin": API_ALLOWED_ORIGINS[0]})
 
 
-def _serve(store: ArangoStore) -> None:
+def _serve(store: GraphStore) -> None:
     """The routes on *store* (``data_as_of`` is cached per database, and every test has a
     database of its own)."""
     app.dependency_overrides[get_store] = lambda: store
 
 
 @pytest.fixture()
-def client(store: ArangoStore) -> Iterator[TestClient]:
+def client(store: GraphStore) -> Iterator[TestClient]:
     _seed(store)
     _serve(store)
     try:
@@ -480,6 +481,9 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "outcome": "aangenomen",
         "vote_kind": "faction",
         "tally": {"Voor": 80, "Tegen": 70},
+        # how it was decided, as the Kamer writes it
+        "method": None,
+        "decision_kind": "Stemmen - aangenomen",
     }
     assert vote["subkind"] == "Motie"
     assert vote["summary"] == "Aangenomen."
@@ -718,7 +722,7 @@ def _busy_days() -> list[Node]:
 
 @pytest.mark.parametrize("facets", [False, True])
 def test_busy_days_are_paged_whole_by_day_kind_and_id(
-    store: ArangoStore, facets: bool
+    store: GraphStore, facets: bool
 ) -> None:
     """Pages end inside a day and inside a kind; each event is on one page, in the order of
     the feed: the day, newest first, then the kind (a vote before a commitment before a
@@ -815,7 +819,7 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
     assert client.get("/api/feed/summary?days=0").status_code == 422
 
 
-def test_a_bill_goes_by_the_name_official_data_give_it(store: ArangoStore) -> None:
+def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> None:
     """The citation title in the bill itself, else of its case, else of the one Dutch law
     it changes; nothing when there is none of them (a law of the EU is no name)."""
     case = "55555555-5555-5555-5555-555555555555"
@@ -945,7 +949,7 @@ def _raw_edge(source: str, target: str, relation: str) -> dict[str, Any]:
     return {"_key": key, "_from": source, "_to": target, "relation": relation}
 
 
-def _load(store: ArangoStore, nodes: dict[str, list[dict[str, Any]]]) -> None:
+def _load(store: GraphStore, nodes: dict[str, list[dict[str, Any]]]) -> None:
     for collection, docs in nodes.items():
         store.bulk_insert_or_update_nodes(collection, docs)
 
@@ -966,7 +970,7 @@ ITEM_KEYS = [
 ]
 
 
-def test_the_answer_and_its_items_keep_their_keys_in_order(store: ArangoStore) -> None:
+def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) -> None:
     _seed(store)
     raw = get_feed(store, FeedFilters())
     assert list(raw) == ["items", "total", "facets"]
@@ -989,6 +993,7 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: ArangoStore) -
     ]
     # the props the item shows, in the byte order of their names (as KEEP gave them)
     assert list(items["stemming"]["props"]) == [
+        "decision_kind",
         "decision_text",
         "kind",
         "passed",
@@ -1023,7 +1028,7 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: ArangoStore) -
     assert without["items"] == raw["items"]
 
 
-def test_a_summary_keeps_its_keys_in_order(store: ArangoStore) -> None:
+def test_a_summary_keeps_its_keys_in_order(store: GraphStore) -> None:
     _seed(store)
     summary = get_feed_summary(
         store, FeedFilters(since="2026-03-01", until="2026-05-12")
@@ -1049,7 +1054,7 @@ def test_a_summary_keeps_its_keys_in_order(store: ArangoStore) -> None:
         assert list(item) == ITEM_KEYS
 
 
-def test_an_empty_graph_has_no_events(store: ArangoStore) -> None:
+def test_an_empty_graph_has_no_events(store: GraphStore) -> None:
     raw = get_feed(store, FeedFilters())
     assert raw == {
         "items": [],
@@ -1079,7 +1084,7 @@ def test_an_empty_graph_has_no_events(store: ArangoStore) -> None:
     assert nothing["items"] == []
 
 
-def _same_day(store: ArangoStore) -> None:
+def _same_day(store: GraphStore) -> None:
     _load(
         store,
         {
@@ -1094,7 +1099,7 @@ def _same_day(store: ArangoStore) -> None:
 
 @pytest.mark.parametrize("facets", [True, False])
 def test_events_of_a_day_and_kind_go_by_id_in_the_collation(
-    store: ArangoStore, facets: bool
+    store: GraphStore, facets: bool
 ) -> None:
     """The ids of one day and kind sort as ArangoDB sorted them, case after letter, and a
     cursor between two of them goes on with the next."""
@@ -1118,7 +1123,7 @@ def test_events_of_a_day_and_kind_go_by_id_in_the_collation(
     assert seen == expected
 
 
-def test_a_page_as_long_as_the_events_has_no_next(store: ArangoStore) -> None:
+def test_a_page_as_long_as_the_events_has_no_next(store: GraphStore) -> None:
     _same_day(store)
     assert len(get_feed(store, FeedFilters(), limit=4)["items"]) == 4
     assert len(get_feed(store, FeedFilters(), limit=3)["items"]) == 4
@@ -1126,7 +1131,7 @@ def test_a_page_as_long_as_the_events_has_no_next(store: ArangoStore) -> None:
 
 
 def test_one_statement_reads_a_page_whatever_its_size(
-    store: ArangoStore, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _seed(store)
     statements: list[str] = []
@@ -1144,7 +1149,7 @@ def test_one_statement_reads_a_page_whatever_its_size(
     assert len(statements) == 5
 
 
-def test_props_of_another_type_are_no_event_or_no_dossier(store: ArangoStore) -> None:
+def test_props_of_another_type_are_no_event_or_no_dossier(store: GraphStore) -> None:
     """A decision whose ``passed`` is no boolean is no vote; dossier numbers that are no
     list give no dossier; a commitment's first dossier is the one whose label sorts first,
     a dossier without a label before all (null sorts first)."""
@@ -1175,7 +1180,7 @@ def test_props_of_another_type_are_no_event_or_no_dossier(store: ArangoStore) ->
     assert _ids(get_feed(store, FeedFilters(dossier="37000"))) == ["commitments/c1"]
 
 
-def test_a_cabinet_starts_on_its_day_the_later_key_first(store: ArangoStore) -> None:
+def test_a_cabinet_starts_on_its_day_the_later_key_first(store: GraphStore) -> None:
     _load(
         store,
         {
@@ -1200,7 +1205,7 @@ def test_a_cabinet_starts_on_its_day_the_later_key_first(store: ArangoStore) -> 
     assert _ids(get_feed(store, FeedFilters(cabinet="undated"))) == []
 
 
-def test_an_id_two_factions_claim_goes_to_the_first_by_key(store: ArangoStore) -> None:
+def test_an_id_two_factions_claim_goes_to_the_first_by_key(store: GraphStore) -> None:
     signer = {"person_id": "p", "faction_id": "f-shared", "capacity": "kamerlid"}
     _load(
         store,
@@ -1220,7 +1225,7 @@ def test_an_id_two_factions_claim_goes_to_the_first_by_key(store: ArangoStore) -
     assert _ids(get_feed(store, FeedFilters(faction="zeta"), facets=False)) == []
 
 
-def test_a_summary_orders_the_counts_of_a_day(store: ArangoStore) -> None:
+def test_a_summary_orders_the_counts_of_a_day(store: GraphStore) -> None:
     day = "2026-05-12"
     _load(
         store,
@@ -1279,7 +1284,7 @@ def _uuid_key(n: int) -> str:
     return f"{n:08x}_441c_42c2_b6c9_{n * 7919:012x}"
 
 
-def _busy(store: ArangoStore) -> None:
+def _busy(store: GraphStore) -> None:
     """A busy day of motions (and a few of another ``Motie (…)``), votes and commitments
     among other days, and many rows of the tables that no page asks for."""
     motions = [
@@ -1332,7 +1337,7 @@ def _busy(store: ArangoStore) -> None:
     store.vacuum_analyze()
 
 
-def _crowd(store: ArangoStore) -> None:
+def _crowd(store: GraphStore) -> None:
     """Many motions and votes of the days before: what a page after the cursor must not
     read whole."""
     day = "to_char(date '2000-01-01' + n % 9000, 'YYYY-MM-DD')"
@@ -1352,7 +1357,7 @@ def _crowd(store: ArangoStore) -> None:
 
 
 def _walk(
-    store: ArangoStore, cursor: FeedCursor | None, facets: bool, limit: int = 50
+    store: GraphStore, cursor: FeedCursor | None, facets: bool, limit: int = 50
 ) -> list[str]:
     seen: list[str] = []
     for _ in range(50):
@@ -1367,7 +1372,7 @@ def _walk(
 
 @pytest.mark.parametrize("facets", [True, False])
 def test_the_pages_of_a_busy_day_neither_repeat_nor_skip(
-    store: ArangoStore, facets: bool
+    store: GraphStore, facets: bool
 ) -> None:
     """The cursor ``["2026-09-29", "Motie", "documents/…"]`` of the request that hung on
     ArangoDB: the pages after it hold every later event once, in the order of the feed."""
@@ -1385,7 +1390,7 @@ def test_the_pages_of_a_busy_day_neither_repeat_nor_skip(
     assert _walk(store, cursor, facets) == everything[middle + 1 :]
 
 
-def _plan(store: ArangoStore, sql: str, bind: dict[str, Any]) -> dict[str, Any]:
+def _plan(store: GraphStore, sql: str, bind: dict[str, Any]) -> dict[str, Any]:
     with store.pool.connection() as conn:
         (plan,) = conn.execute(f"EXPLAIN (FORMAT JSON) {sql}", bind).fetchone()  # type: ignore[misc]
     return cast(dict[str, Any], plan[0]["Plan"])
@@ -1428,7 +1433,7 @@ def _limit_over_index(plan: dict[str, Any], table: str) -> bool:
 
 @pytest.mark.parametrize("facets", [False, True])
 def test_a_cursor_page_of_a_busy_day_reads_through_indexes(
-    store: ArangoStore, facets: bool
+    store: GraphStore, facets: bool
 ) -> None:
     """The planner as it is (no ``enable_seqscan`` off). Without facets (the Atom feed,
     ``facets=false``) no large table is read whole: each kind reads its page in the order

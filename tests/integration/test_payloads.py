@@ -25,14 +25,14 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.payloads import S3PayloadStore, decode
 from tests.integration.seed import seed
 
 XML = "<open-rechtspraak><uitspraak>Tekst</uitspraak></open-rechtspraak>"
 
 
-def _raw(store: ArangoStore, key: str) -> dict[str, Any]:
+def _raw(store: GraphStore, key: str) -> dict[str, Any]:
     return next(
         store.query(
             f"SELECT doc FROM {COLLECTION_RAW_SOURCES} WHERE key = %(key)s",
@@ -42,7 +42,7 @@ def _raw(store: ArangoStore, key: str) -> dict[str, Any]:
 
 
 def test_a_text_payload_is_an_object_and_not_in_the_database(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     doc = raw_source_doc(
         source=SOURCE_RECHTSPRAAK,
         kind=RAW_KIND_RS_CONTENT,
@@ -61,7 +61,7 @@ def test_a_text_payload_is_an_object_and_not_in_the_database(database: str) -> N
 
 
 def test_a_json_payload_stays_in_the_database(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     doc = raw_source_doc(
         source=SOURCE_TK,
         kind=RAW_KIND_TK_ZAAK,
@@ -79,7 +79,7 @@ def test_the_whole_chain_reads_its_payloads_from_the_store(
     database: str, cli: Callable[..., CompletedProcess[str]]
 ) -> None:
     """Seeded through the real writer, normalized and linked by the real CLI."""
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=0, judgments=5, regulations=0)
     in_database = store.query(
         f"SELECT 1 FROM {COLLECTION_RAW_SOURCES} WHERE doc ->> 'payload_text' IS NOT NULL"
@@ -99,7 +99,7 @@ def test_the_whole_chain_reads_its_payloads_from_the_store(
 def test_a_payload_that_is_lost_is_skipped_and_reported(
     database: str, cli: Callable[..., CompletedProcess[str]]
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=0, judgments=3, regulations=0)
     first = next(
         iter(
@@ -176,7 +176,7 @@ def test_the_chain_runs_on_an_s3_store(
     monkeypatch.setattr(store_module, "S3_REGION", "us-east-1")
     monkeypatch.setattr(store_module, "S3_ACCESS_KEY", "lawgraph")
     monkeypatch.setattr(store_module, "S3_SECRET_KEY", "lawgraph-test-secret")
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=0, judgments=4, regulations=0)
     rows = list(
         store.with_payloads(
@@ -196,7 +196,7 @@ def test_a_payload_store_that_fails_stops_the_step_and_keeps_the_buffer(
     """Like a database that cannot be reached: fetching on would store nothing."""
     from lawgraph.db.raw import StoreUnavailable
 
-    store = ArangoStore()
+    store = GraphStore()
 
     def full(name: str, data: bytes) -> None:
         raise OSError(28, "No space left on device")

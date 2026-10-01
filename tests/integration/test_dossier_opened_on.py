@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     SOURCE_TK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import uid
 
 BILL, OTHER = 37500, 36000
@@ -51,7 +51,7 @@ def _paper(
 def test_nr_1_opens_the_dossier_not_an_older_paper_of_another(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     case = {
         "Id": uid(BILL, 2),
         "Soort": "Wetgeving",

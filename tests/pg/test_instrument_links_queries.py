@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import EDGE_SOURCE_BWB_IMPLEMENTS, SOURCE_ECHR
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_links import get_eu_links, get_international_links
 from lawgraph.db.queries.instrument_scope import InstrumentScope
 
@@ -49,7 +49,7 @@ def _edge(
     }
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -164,7 +164,7 @@ def _instrument_keys(rows: list[dict[str, Any]]) -> list[str]:
     return [r["instrument"]["_key"] for r in rows]
 
 
-def test_eu_links_in_both_directions_most_confident_first(store: ArangoStore) -> None:
+def test_eu_links_in_both_directions_most_confident_first(store: GraphStore) -> None:
     _seed(store)
 
     links = get_eu_links(store, REGULATION)
@@ -219,7 +219,7 @@ def test_eu_links_in_both_directions_most_confident_first(store: ArangoStore) ->
     ]
 
 
-def test_eu_links_are_cut_and_their_totals_are_not(store: ArangoStore) -> None:
+def test_eu_links_are_cut_and_their_totals_are_not(store: GraphStore) -> None:
     _seed(store)
 
     links = get_eu_links(store, REGULATION, limit=2)
@@ -240,7 +240,7 @@ def _ref(article_id: str, number: str) -> dict[str, Any]:
 
 
 def test_the_treaties_the_articles_of_an_instrument_refer_to(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed(store)
 
@@ -285,7 +285,7 @@ def test_the_treaties_the_articles_of_an_instrument_refer_to(
     ]
 
 
-def test_the_echr_judgments_that_refer_to_an_instrument(store: ArangoStore) -> None:
+def test_the_echr_judgments_that_refer_to_an_instrument(store: GraphStore) -> None:
     _seed(store)
 
     links = get_international_links(
@@ -313,7 +313,7 @@ def test_the_echr_judgments_that_refer_to_an_instrument(store: ArangoStore) -> N
     assert links.judgments[1]["own_article"] is None
 
 
-def test_international_links_are_cut_and_scoped(store: ArangoStore) -> None:
+def test_international_links_are_cut_and_scoped(store: GraphStore) -> None:
     _seed(store)
     scope = InstrumentScope("bwb_id", "BWBR0009001")
 

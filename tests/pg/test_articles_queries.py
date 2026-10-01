@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.core.qualifiers import Qualifier
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import articles
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -80,7 +80,7 @@ def _version(
 # ── detail ───────────────────────────────────────────────────────────────────
 
 
-def test_an_article_with_its_instrument_and_judgments(store: ArangoStore) -> None:
+def test_an_article_with_its_instrument_and_judgments(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes("instruments", [_node("bwbr0002", "instrument")])
     store.bulk_insert_or_update_nodes("articles", [_article("bwbr0002_5", "5")])
     store.bulk_insert_or_update_nodes(
@@ -117,7 +117,7 @@ def test_an_article_with_its_instrument_and_judgments(store: ArangoStore) -> Non
 # ── versions ─────────────────────────────────────────────────────────────────
 
 
-def _seed_versions(store: ArangoStore) -> None:
+def _seed_versions(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         [
@@ -140,7 +140,7 @@ def _seed_versions(store: ArangoStore) -> None:
     )
 
 
-def test_the_versions_of_an_article_identity_oldest_first(store: ArangoStore) -> None:
+def test_the_versions_of_an_article_identity_oldest_first(store: GraphStore) -> None:
     _seed_versions(store)
 
     data = get_article_history(store, BWB, "5")
@@ -170,7 +170,7 @@ def test_the_versions_of_an_article_identity_oldest_first(store: ArangoStore) ->
 
 
 def test_the_versions_name_the_dossiers_of_their_publications(
-    store: ArangoStore, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store.bulk_insert_or_update_nodes(
         "articles", [_article("bwbr0002_5", "5", stam_id="S5")]
@@ -206,7 +206,7 @@ def test_the_versions_name_the_dossiers_of_their_publications(
 
 
 def test_the_citations_of_an_article_in_text_order_once_per_span(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
@@ -306,7 +306,7 @@ def test_the_citations_of_an_article_in_text_order_once_per_span(
 # ── legislative history ──────────────────────────────────────────────────────
 
 
-def _seed_history(store: ArangoStore) -> None:
+def _seed_history(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles", [_article("bwbr0002_5", "5", stam_id="S5")]
     )
@@ -374,7 +374,7 @@ def _seed_history(store: ArangoStore) -> None:
 
 
 def test_the_legislative_history_is_the_dossiers_that_changed_the_article(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed_history(store)
 
@@ -455,7 +455,7 @@ def _document(key: str, date: str | None, labels: list[str] | None = None) -> An
     )
 
 
-def _seed_explanations(store: ArangoStore) -> None:
+def _seed_explanations(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "dossiers",
         [
@@ -548,7 +548,7 @@ def _seed_explanations(store: ArangoStore) -> None:
     store.bulk_insert_or_update_edges(edges)
 
 
-def _explanations(store: ArangoStore, **page: int) -> dict[str, Any]:
+def _explanations(store: GraphStore, **page: int) -> dict[str, Any]:
     page = {"limit": 100, "offset": 0, **page}
     return get_article_explanations(store, BWB, "5", **page)
 
@@ -560,7 +560,7 @@ def _summary(page: dict[str, Any]) -> list[tuple[str, str, str | None]]:
 
 
 def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed_explanations(store)
 
@@ -615,7 +615,7 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
 
 
 def test_the_page_of_explanations_is_cut_and_the_total_is_not(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed_explanations(store)
     everything = _summary(_explanations(store))
@@ -629,7 +629,7 @@ def test_the_page_of_explanations_is_cut_and_the_total_is_not(
     assert _explanations(store, limit=0) == {"total": 7, "items": []}
 
 
-def test_explanations_of_another_or_an_unknown_article(store: ArangoStore) -> None:
+def test_explanations_of_another_or_an_unknown_article(store: GraphStore) -> None:
     _seed_explanations(store)
 
     other = get_article_explanations(store, BWB, "6", limit=10, offset=0)
@@ -661,7 +661,7 @@ def _judgment(key: str, ecli: str, court: str, tier: str, date: str | None) -> A
     return _node(key, "judgment", ["Rechtspraak"], **props)
 
 
-def _seed_cited_by(store: ArangoStore) -> None:
+def _seed_cited_by(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes("articles", [_node("sr_287", "article")])
     store.bulk_insert_or_update_nodes(
         "judgments",
@@ -701,7 +701,7 @@ def _snippets(rows: list[dict[str, Any]]) -> list[tuple[str, str]]:
     return [(r["judgment"]["_key"], r["mention"]["snippet"]) for r in rows]
 
 
-def test_the_passages_that_cite_an_article_newest_first(store: ArangoStore) -> None:
+def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> None:
     _seed_cited_by(store)
 
     cited = get_article_cited_by(store, CITED)
@@ -741,7 +741,7 @@ def test_the_passages_that_cite_an_article_newest_first(store: ArangoStore) -> N
     assert cited.rows[-1]["judgment"]["props"]["date_eff"] is None
 
 
-def test_the_passages_are_filtered_and_paged(store: ArangoStore) -> None:
+def test_the_passages_are_filtered_and_paged(store: GraphStore) -> None:
     _seed_cited_by(store)
 
     by_lid = get_article_cited_by(store, CITED, lid="2")
@@ -764,3 +764,31 @@ def test_the_passages_are_filtered_and_paged(store: ArangoStore) -> None:
 
     nothing = get_article_cited_by(store, "articles/none")
     assert (nothing.rows, nothing.total, nothing.judgment_total) == ([], 0, 0)
+
+
+def test_the_echr_judgments_that_cite_an_article_are_counted_apart(
+    store: GraphStore,
+) -> None:
+    """BE-9: HUDOC names the article an ECHR judgment applies (and its leden), no passage:
+    such a judgment is no row, but counted, whatever the filters."""
+    _seed_cited_by(store)
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment("h1", "ECLI:CE:ECHR:2021:1", "ECHR", "ehrm", "2021-02-09"),
+            _judgment("h2", "ECLI:CE:ECHR:2024:2", "ECHR", "ehrm", "2024-12-10"),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("x1", "judgments/h1", CITED, "REFERS_TO", meta={"leden": ["1"]}),
+            _edge("x2", "judgments/h2", CITED, "REFERS_TO", meta={"leden": ["1", "2"]}),
+            # an ECHR judgment that cites another article is not counted
+            _edge("x3", "judgments/h2", "articles/other", "REFERS_TO", meta={}),
+        ]
+    )
+    cited = get_article_cited_by(store, CITED)
+    assert (cited.total, cited.judgment_total) == (5, 4)  # the passages as before
+    assert cited.echr_judgment_total == 2
+    assert get_article_cited_by(store, CITED, court="hr").echr_judgment_total == 2
+    assert get_article_cited_by(store, "articles/none").echr_judgment_total == 0

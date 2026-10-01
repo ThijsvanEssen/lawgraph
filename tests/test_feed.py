@@ -377,3 +377,32 @@ def test_a_person_the_paper_lists_twice_is_one_person() -> None:
     }
     item = FeedItemDTO.from_row(row)
     assert [p.key for p in item.persons] == ["cf4c4d24_798d_4bbe_bf06_23ca674f0d28"]
+
+
+def test_a_vote_says_how_it_was_decided_as_the_kamer_writes_it() -> None:
+    hamer = FeedItemDTO.from_row(
+        {
+            **VOTE_ROW,
+            "props": {
+                **VOTE_ROW["props"],
+                "decision_kind": "Stemmen - zonder stemming aannemen",
+                "vote_kind": None,
+                "tally": {},
+            },
+        }
+    )
+    assert hamer.vote is not None
+    assert hamer.vote.decision_kind == "Stemmen - zonder stemming aannemen"
+    assert hamer.vote.method is None
+    ek = FeedItemDTO.from_row(
+        {
+            **VOTE_ROW,
+            "props": {
+                **VOTE_ROW["props"],
+                "chamber": "EK",
+                "method": "Stemming bij zitten en opstaan, aangenomen",
+            },
+        }
+    )
+    assert ek.vote is not None
+    assert ek.vote.method == "Stemming bij zitten en opstaan, aangenomen"

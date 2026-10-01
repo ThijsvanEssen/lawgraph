@@ -29,7 +29,7 @@ from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.config.constants import RAW_KIND_TK_KAMERSTUK_XML, SOURCE_TK
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.base import (
     FailureStreak,
@@ -66,7 +66,7 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
     def __init__(
         self,
         *,
-        store: ArangoStore,
+        store: GraphStore,
         client: KamerstukClient | None = None,
     ) -> None:
         super().__init__(store)

@@ -29,7 +29,7 @@ from psycopg import sql
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.db.store import _query, _text
 
@@ -44,6 +44,8 @@ URLS = [
     "/api/search?q=6:162",
     f"/api/search?q={ECLI}",
     "/api/search?q=Hoge+Raad&types=judgments",
+    "/api/search?q=kabinet+schoof&types=cabinets",
+    "/api/search?q=statusbrief&types=commitments",
     "/api/resolve?q=art.+1+BWBR0001",
     "/api/judgments",
     "/api/judgments?sort=date_asc",
@@ -132,7 +134,7 @@ def _edge(
     }
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -236,7 +238,7 @@ def _seed(store: ArangoStore) -> None:
     store.vacuum_analyze()
 
 
-def _fill(store: ArangoStore) -> None:
+def _fill(store: GraphStore) -> None:
     """Rows that no route asks for: on tables of one or two rows the planner reads them
     whole whatever indexes there are; on a thousand, as on the real ones, it does not."""
     statements = [
@@ -255,7 +257,7 @@ def _fill(store: ArangoStore) -> None:
 
 
 @pytest.fixture()
-def statements(store: ArangoStore) -> Iterator[list[tuple[str, Any, Any]]]:
+def statements(store: GraphStore) -> Iterator[list[tuple[str, Any, Any]]]:
     """``(url, statement, params)`` of every read the routes run."""
     _seed(store)
     captured: list[tuple[str, Any, Any]] = []
@@ -342,7 +344,7 @@ def _outline(node: dict[str, Any], depth: int = 0) -> list[str]:
 
 
 def test_the_routes_read_through_indexes(
-    store: ArangoStore, statements: list[tuple[str, Any, Any]]
+    store: GraphStore, statements: list[tuple[str, Any, Any]]
 ) -> None:
     assert len(statements) > 60  # the routes ran their queries
     faults = []

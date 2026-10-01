@@ -23,8 +23,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import (
-    ArangoStore,
     EdgeWriter,
+    GraphStore,
     NodeWriter,
     RawSourceWriter,
     raw_source_doc,
@@ -52,7 +52,7 @@ COMMITTEES = [
 ]
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         for payload in COMMITTEES:
             writer.add(
@@ -119,7 +119,7 @@ def _get(client: TestClient, path: str) -> Any:
 def test_committees_that_share_an_abbreviation_are_each_reachable(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     cli("normalize", "tk-dossiers")
     cli("semantic", "graph-list-stats")

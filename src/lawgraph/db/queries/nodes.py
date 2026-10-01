@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries._helpers import _extract_confidence
 
@@ -132,7 +132,7 @@ class NodeGraphData:
     buckets: list[NeighborBucket]
 
 
-def _load_node(store: ArangoStore, collection: str, key: str) -> dict[str, Any]:
+def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
     if collection not in _ALLOWED_NODE_COLLECTIONS:
         raise UnsupportedCollectionError("unsupported collection")
     node = store.get_document(collection, key)
@@ -142,7 +142,7 @@ def _load_node(store: ArangoStore, collection: str, key: str) -> dict[str, Any]:
 
 
 def get_node_with_neighbors(
-    store: ArangoStore,
+    store: GraphStore,
     collection: str,
     key: str,
     *,
@@ -171,7 +171,7 @@ def get_node_with_neighbors(
 
 
 def _count_facets(
-    store: ArangoStore, node_id: str, filters: NeighborFilter
+    store: GraphStore, node_id: str, filters: NeighborFilter
 ) -> list[NeighborFacet]:
     """Count the edges of a node per (relation, direction, neighbour collection).
 
@@ -216,7 +216,7 @@ def _count_facets(
 
 
 def _read_pages(
-    store: ArangoStore,
+    store: GraphStore,
     node_id: str,
     filters: NeighborFilter,
     facets: Iterable[NeighborFacet],
@@ -303,7 +303,7 @@ def _walk_params(
 
 
 def get_node_neighborhood(
-    store: ArangoStore,
+    store: GraphStore,
     collection: str,
     key: str,
     *,

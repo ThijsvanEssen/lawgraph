@@ -30,7 +30,7 @@ def _own_pacer_locks(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> N
 
 @pytest.fixture()
 def patch_route_stores(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stub get_store in route modules to prevent opening a real ArangoStore."""
+    """Stub get_store in route modules to prevent opening a real GraphStore."""
     store_stub = object()
     for module_name in (
         "lawgraph.api.routes.articles",
@@ -63,7 +63,7 @@ def remove_edges_from(edges: dict[str, dict], bind: dict) -> Iterator[int]:
 
 
 class _BaseFakeStore:
-    """In-memory upserts that report created versus updated like ``ArangoStore``."""
+    """In-memory upserts that report created versus updated like ``GraphStore``."""
 
     def __init__(self) -> None:
         self.edges: dict[str, dict] = {}

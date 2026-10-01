@@ -382,6 +382,23 @@ def government_functions_of(props: dict[str, Any]) -> list[GovernmentFunctionDTO
     ]
 
 
+class HallSeatDTO(BaseModel):
+    """A place in the plenary hall of the Eerste Kamer: two blocks of benches facing each
+    other, rows from the government to the chair, and the seat of the Voorzitter."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    block: Literal["left", "right", "chair"] = Field(
+        ...,
+        description="``left`` or ``right`` seen from the government, looking at the "
+        "chair; ``chair`` the seat of the Voorzitter.",
+    )
+    row: int = Field(..., description="From the government (0) to the chair.")
+    column: int = Field(
+        ..., description="From the outer wall (0) to the aisle; 0 for the chair."
+    )
+
+
 class EkMembershipDTO(BaseModel):
     """A member's seat in the Eerste Kamer, as eerstekamer.nl shows it."""
 
@@ -398,6 +415,11 @@ class EkMembershipDTO(BaseModel):
         "included; no start date.",
     )
     residence: str | None = None
+    seat: HallSeatDTO | None = Field(
+        None,
+        description="Where they sit in the plenary hall, as Wie zit waar on "
+        "eerstekamer.nl draws it; null when it places them nowhere.",
+    )
     observed_from: str | None = Field(None, description=_OBSERVED_FROM)
     observed_until: str | None = Field(None, description=_OBSERVED_UNTIL)
     source: EkSourceDTO

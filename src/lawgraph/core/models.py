@@ -163,7 +163,7 @@ class Node:
             ) from exc
 
     @property
-    def arango_id(self) -> str | None:
+    def node_id(self) -> str | None:
         if self.key is None:
             return None
         return f"{self.collection}/{self.key}"
@@ -248,14 +248,14 @@ def collection_from_id(node_id: str, fallback: str) -> str:
     return node_id.split("/")[0] if "/" in node_id else fallback
 
 
-def parse_arango_id(arango_id: str) -> tuple[str, str]:
+def parse_node_id(node_id: str) -> tuple[str, str]:
     """Split an ArangoDB document ID into (collection, key).
 
     Raises ValueError if the ID does not contain a '/'.
     """
-    if "/" not in arango_id:
-        raise ValueError(f"Not a valid ArangoDB document ID: {arango_id!r}")
-    collection, key = arango_id.split("/", 1)
+    if "/" not in node_id:
+        raise ValueError(f"Not a valid ArangoDB document ID: {node_id!r}")
+    collection, key = node_id.split("/", 1)
     return collection, key
 
 

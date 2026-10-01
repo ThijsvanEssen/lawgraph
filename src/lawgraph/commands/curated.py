@@ -78,9 +78,9 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
     database."""
     found = [p for p in problems() if name is None or p.startswith(f"{name}: ")]
     if db and name in (None, "seating", "phases", "instrument-abbreviations"):
-        from lawgraph.db import ArangoStore
+        from lawgraph.db import GraphStore
 
-        store = ArangoStore()
+        store = GraphStore()
         found += [
             p for p in database_problems(store) if name is None or p.startswith(name)
         ]

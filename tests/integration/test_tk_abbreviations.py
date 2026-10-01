@@ -15,11 +15,11 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     RELATION_REFERS_TO,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 
 def _put(
-    store: ArangoStore, collection: str, key: str, labels: list[str], **props: Any
+    store: GraphStore, collection: str, key: str, labels: list[str], **props: Any
 ) -> None:
     doc = {
         "_key": key,
@@ -30,7 +30,7 @@ def _put(
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
-def _cited(store: ArangoStore, document: str) -> set[str]:
+def _cited(store: GraphStore, document: str) -> set[str]:
     return set(
         store.query(
             "SELECT split_part(to_id, '/', 2) FROM edges"
@@ -43,7 +43,7 @@ def _cited(store: ArangoStore, document: str) -> set[str]:
 def test_a_paper_that_names_the_evrm_and_the_avg_cites_them(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _put(
         store,
         COLLECTION_INSTRUMENTS,

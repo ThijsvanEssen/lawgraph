@@ -840,8 +840,29 @@ def _search_columns(collection: str) -> list[Column]:
     return columns
 
 
+# The words a cabinet and a commitment are searched by, lower case, as ``search_names`` of
+# members and factions: a trigram index on the expression serves "every word in it". An
+# expression, not a column: the tables keep their columns (no rebuild).
+SEARCH_WORDS: dict[str, str] = {
+    COLLECTION_CABINETS: "lower(coalesce({p}props ->> 'name', ''))",
+    COLLECTION_COMMITMENTS: (
+        "lower(coalesce({p}props ->> 'text', '') || ' ' || coalesce({p}props ->> 'number', ''))"
+    ),
+}
+
+
+def search_words(collection: str, alias: str = "") -> str:
+    """The expression of ``SEARCH_WORDS`` over the props of the row *alias*."""
+    return SEARCH_WORDS[collection].format(p=f"{alias}." if alias else "")
+
+
 def _search_indexes(collection: str) -> list[str]:
     statements = []
+    if collection in SEARCH_WORDS:
+        statements.append(
+            f"CREATE INDEX IF NOT EXISTS {collection}_search_words ON {collection}"
+            f" USING gin (({search_words(collection)}) gin_trgm_ops)"
+        )
     if collection in (COLLECTION_MEMBERS, COLLECTION_FACTIONS):
         statements.append(
             f"CREATE INDEX IF NOT EXISTS {collection}_search_names ON {collection}"

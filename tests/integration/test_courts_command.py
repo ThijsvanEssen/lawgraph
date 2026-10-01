@@ -8,7 +8,7 @@ from pathlib import Path
 
 from lawgraph.commands import courts
 from lawgraph.core.courts import DATA
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.rechtspraak_instanties import (
     RechtspraakInstantiesRetrievePipeline,
 )
@@ -26,7 +26,7 @@ class _Client:
 def test_the_stored_list_builds_the_table_of_the_repository(
     database: str, tmp_path: Path
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     result = RechtspraakInstantiesRetrievePipeline(store, client=_Client()).run()  # type: ignore[arg-type]
     assert not result.errors, result.errors
 
@@ -48,5 +48,5 @@ def test_a_court_the_list_changed_fails_the_check(database: str) -> None:
         def instanties(self) -> tuple[str, str]:
             return "u", changed
 
-    RechtspraakInstantiesRetrievePipeline(ArangoStore(), client=Changed()).run()  # type: ignore[arg-type]
+    RechtspraakInstantiesRetrievePipeline(GraphStore(), client=Changed()).run()  # type: ignore[arg-type]
     assert courts.main(["check"]).errors

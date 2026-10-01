@@ -67,7 +67,7 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.db.queries.normalize import edges as normalize_edges
@@ -252,7 +252,7 @@ def exclusive_end(end_date: str | None) -> str | None:
 class BWBHistoryNormalizePipeline(NormalizePipelineBase):
     """Normalize all historical BWB toestanden into instrument and article versions."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
         self._incremental = False  # a run with --since: it adds to what is stored
 

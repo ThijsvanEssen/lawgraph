@@ -10,7 +10,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
-from lawgraph.db import ArangoStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import state as state_queries
 
@@ -20,7 +20,7 @@ def _raw(source: str, kind: str, external_id: str, at: str, **fields: object) ->
     return {**doc, "fetched_at": at}
 
 
-def _fill(store: ArangoStore) -> None:
+def _fill(store: GraphStore) -> None:
     store.insert_raw_sources(
         [
             _raw(
@@ -64,7 +64,7 @@ def _fill(store: ArangoStore) -> None:
     )
 
 
-def test_records_of_a_kind_since_a_moment(store: ArangoStore) -> None:
+def test_records_of_a_kind_since_a_moment(store: GraphStore) -> None:
     _fill(store)
     rows = list(
         raw_queries.iter_raw_records(
@@ -90,7 +90,7 @@ def test_records_of_a_kind_since_a_moment(store: ArangoStore) -> None:
 
 
 def test_the_toestanden_of_each_law_are_read_from_the_oldest(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """What bwb-history makes of the toestanden depends on the order it reads them in:
     each law's from the oldest, not in the order of the keys (a hash) or of fetching."""
@@ -131,7 +131,7 @@ def test_the_toestanden_of_each_law_are_read_from_the_oldest(
     ]
 
 
-def test_votes_and_deletions(store: ArangoStore) -> None:
+def test_votes_and_deletions(store: GraphStore) -> None:
     _fill(store)
     assert raw_queries.decisions_voted_since(store, None) == ["b1", "b2"]
     assert raw_queries.decisions_voted_since(store, "2026-01-15") == ["b2"]
@@ -145,7 +145,7 @@ def test_votes_and_deletions(store: ArangoStore) -> None:
     ] == ["v1"]
 
 
-def test_judgments_with_payloads(store: ArangoStore) -> None:
+def test_judgments_with_payloads(store: GraphStore) -> None:
     _fill(store)
     refs = list(raw_queries.judgment_payload_refs(store, since_iso=None, batch_size=10))
     assert sorted(r["ecli"] for r in refs) == ["ECLI:A", "ECLI:B"]
@@ -156,7 +156,7 @@ def test_judgments_with_payloads(store: ArangoStore) -> None:
     ]
 
 
-def test_what_was_stored_when(store: ArangoStore) -> None:
+def test_what_was_stored_when(store: GraphStore) -> None:
     _fill(store)
     waiting = raw_queries.ids_waiting_for_retry(
         store, source=SOURCE_BWB, kind="bwb-x-missing", now_iso="2026-04-15"
@@ -173,7 +173,7 @@ def test_what_was_stored_when(store: ArangoStore) -> None:
     assert {t["id"]: t["at"] for t in times}["v1"] == "2026-01-01T00:00:00Z"
 
 
-def test_counts(store: ArangoStore) -> None:
+def test_counts(store: GraphStore) -> None:
     _fill(store)
     counts = {(r["source"], r["kind"]): r["n"] for r in raw_queries.raw_counts(store)}
     assert counts[(SOURCE_TK, RAW_KIND_TK_STEMMING)] == 2
@@ -186,7 +186,7 @@ def test_counts(store: ArangoStore) -> None:
     assert len(sample) == 1
 
 
-def test_pipeline_state(store: ArangoStore) -> None:
+def test_pipeline_state(store: GraphStore) -> None:
     assert state_queries.covered_until(store, "normalize") is None
     state_queries.set_covered_until(store, "normalize", "2026-10-01T00:00:00Z")
     state_queries.set_covered_until(store, "normalize", "2026-10-02T00:00:00Z")

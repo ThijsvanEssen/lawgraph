@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 
 BW6 = "BWBR0005289"
 
@@ -27,7 +27,7 @@ def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
 
 
 def test_the_instrument_of_an_article_has_its_counts(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     articles = ["162", "163"]
     with NodeWriter(store) as writer:
         writer.add_all(

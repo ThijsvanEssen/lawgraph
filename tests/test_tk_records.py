@@ -288,6 +288,20 @@ def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:
     assert props["date"] == "2024-01-02"
 
 
+def test_a_moved_activity_names_the_activities_that_replaced_it() -> None:
+    _, props = tk_records.activity(
+        {
+            "Id": "a-1",
+            "Nummer": "2026A04251",
+            "Status": "Verplaatst",
+            "VervangenDoor": [{"Id": "a-2", "Nummer": "2026A06208"}],
+        }
+    )
+    assert props["replaced_by"] == ["2026A06208"]
+    _, props = tk_records.activity({"Id": "a-3", "Nummer": "2026A1"})
+    assert props["replaced_by"] == []
+
+
 def test_a_plenary_activity_has_no_lead_committee() -> None:
     _, props = tk_records.activity({"Id": "a-1", "Soort": "Plenaire vergadering"})
     assert props["committee_id"] is None

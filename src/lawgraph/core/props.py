@@ -64,6 +64,8 @@ class InstrumentProps(_CommonProps):
     official_title: str | None = None
     citation_title: str | None = None
     short_title: str | None = None
+    # the abbreviation it is cited by (``core.aliases.abbreviation_of``): EVRM, AVG
+    abbreviation: str | None = None
     # every name it is cited by: the WTI abbreviations and, for a book of a code, the forms
     # "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW"
     aliases: list[str] | None = None
@@ -120,6 +122,8 @@ class ArticleProps(_CommonProps):
     title: str | None = None
     text: str | None = None
     instrument_citation_title: str | None = None
+    # the ``abbreviation`` of its instrument: "art. 8 EVRM"
+    instrument_abbreviation: str | None = None
     instrument_id: str | None = None
     # BWB identity and provenance of the current version
     stam_id: str | None = None
@@ -257,6 +261,8 @@ class JudgmentProps(_CommonProps):
     # a conclusion: the advocate-general who wrote it, as its kop names them
     # (``core.judgments.advocate_general``)
     advocate_general: str | None = None
+    # and the role they sign in (``core.judgments.advocate_general_role``)
+    advocate_general_role: str | None = None
     court: str | None = None
     case_number: str | None = None
     # ``case_number`` split and written as compared (``core.judgments.case_number_keys``)
@@ -411,6 +417,7 @@ class ActivityProps(_CommonProps):
     dossier_numbers: list[str] | None = None
     case_kinds_by_dossier: dict[str, list[str]] | None = None
     number: str | None = None
+    replaced_by: list[str] | None = None  # Activiteit.VervangenDoor: their numbers
 
 
 # ---------------------------------------------------------------------------

@@ -28,7 +28,7 @@ from lawgraph.config.constants import (
     SOURCE_ECHR,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_scope import InstrumentScope
 
 # The keys of the articles of a treaty: BWB treaties, the ECHR Convention among them, by their
@@ -122,7 +122,7 @@ def _eu_side(name: str, end: str, other: str, relation: str) -> str:
 
 
 def get_eu_links(
-    store: ArangoStore, instrument_id: str, *, limit: int = 500
+    store: GraphStore, instrument_id: str, *, limit: int = 500
 ) -> EuLinksData:
     """The `IMPLEMENTS` edges out of and into an instrument, and the `REFERS_TO` edges of
     `semantic bwb-implements` (the EU acts a regulation names), one query.
@@ -262,7 +262,7 @@ SELECT
 
 
 def get_international_links(
-    store: ArangoStore,
+    store: GraphStore,
     instrument_id: str,
     scope: InstrumentScope | None,
     *,

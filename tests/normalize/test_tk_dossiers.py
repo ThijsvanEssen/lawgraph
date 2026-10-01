@@ -46,7 +46,7 @@ SOURCE = "test"
 
 
 class _Store(RawSourcesFake):
-    """The slice of ArangoStore the normalizers use, recorded in memory."""
+    """The slice of GraphStore the normalizers use, recorded in memory."""
 
     def __init__(self, existing: dict[str, set[str]] | None = None) -> None:
         self.existing = existing or {}
@@ -253,6 +253,72 @@ def test_a_commitment_is_made_in_an_activity_and_about_its_dossiers() -> None:
             f"{COLLECTION_COMMITMENTS}/t1",
             RELATION_ABOUT,
             f"{COLLECTION_DOSSIERS}/36000",
+        ),
+    }
+
+
+def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replacement() -> (
+    None
+):
+    # 2026A04251 (Wetgevingsoverleg 36835, Verplaatst) kept no agenda; the Kamer replaced
+    # it by 2026A06208 (VervangenDoor), whose agenda holds the cases of 36835
+    store = _Store(existing={COLLECTION_DOSSIERS: {"36835"}})
+    activities = {
+        "moved": _node(
+            COLLECTION_ACTIVITIES,
+            NodeType.ACTIVITY,
+            "moved",
+            number="2026A04251",
+            dossier_numbers=[],
+            replaced_by=["2026A06208"],
+        ),
+        "held": _node(
+            COLLECTION_ACTIVITIES,
+            NodeType.ACTIVITY,
+            "held",
+            number="2026A06208",
+            dossier_numbers=["36835"],
+            replaced_by=[],
+        ),
+        # replaced by each other: no endless walk
+        "loop": _node(
+            COLLECTION_ACTIVITIES,
+            NodeType.ACTIVITY,
+            "loop",
+            number="L1",
+            replaced_by=["L1"],
+        ),
+    }
+    commitments = {
+        "t1": _node(
+            COLLECTION_COMMITMENTS,
+            NodeType.COMMITMENT,
+            "t1",
+            activity_number="2026A04251",
+        ),
+        "t2": _node(
+            COLLECTION_COMMITMENTS, NodeType.COMMITMENT, "t2", activity_number="L1"
+        ),
+    }
+
+    tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
+
+    assert set(store.edge_meta) == {
+        # made in the activity it names, about what the replacement discussed
+        (
+            f"{COLLECTION_COMMITMENTS}/t1",
+            RELATION_MADE_IN,
+            f"{COLLECTION_ACTIVITIES}/moved",
+        ),
+        (
+            f"{COLLECTION_COMMITMENTS}/t1",
+            RELATION_ABOUT,
+            f"{COLLECTION_DOSSIERS}/36835",
+        ),
+        (
+            f"{COLLECTION_COMMITMENTS}/t2",
+            RELATION_MADE_IN,
+            f"{COLLECTION_ACTIVITIES}/loop",
         ),
     }
 
@@ -641,7 +707,7 @@ def test_normalizing_activities_writes_nodes_in_bulk() -> None:
     nodes = tk_cases.normalize_activities(store, raws)
 
     assert len(nodes) == 700
-    assert nodes["act1"].arango_id == f"{COLLECTION_ACTIVITIES}/act1"
+    assert nodes["act1"].node_id == f"{COLLECTION_ACTIVITIES}/act1"
     assert nodes["act1"].props["dossier_numbers"] == ["36000"]
     assert store.bulk_node_calls == 2  # 500 + 200, not 700 single upserts
 
@@ -660,7 +726,7 @@ def test_a_written_node_keeps_only_what_the_edges_need() -> None:
     assert written["title"].startswith("Motie") and "raw" in written
     assert set(nodes) == {"doc0", "doc1", "doc2"}
     assert set(nodes["doc1"].props) <= set(tk_cases.LINK_PROPS)
-    assert nodes["doc1"].arango_id == f"{COLLECTION_DOCUMENTS}/doc1"
+    assert nodes["doc1"].node_id == f"{COLLECTION_DOCUMENTS}/doc1"
 
 
 def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(
