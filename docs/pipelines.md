@@ -354,7 +354,7 @@ heading, subheading, body; see the paragraph props in the data model), `isReplac
 as `replaced_by`, the parties its kop names as `parties`, and of a conclusion the
 advocate-general its opening lines name as `advocate_general` (data model, Judgment). Every judgment normalized before `parties` existed gets them from a run of
 `normalize rechtspraak` without `--since`; run `semantic rechtspraak` after it, since the kop is
-one paragraph now and the `p-<n>` ids after it moved. The XML itself stays in the payload store. `court_code` is the ECLI court
+one paragraph now. The XML itself stays in the payload store. `court_code` is the ECLI court
 segment. The court table (`src/lawgraph/data/courts.json`, `core/courts.court_of`, whose table
 `graph-list-stats` reads too; see [Courts](#courts)) gives a judgment two levels: `tier`, the
 `Type` of its court in the Instanties value list of the Rechtspraak, and `court_kind`, the kind

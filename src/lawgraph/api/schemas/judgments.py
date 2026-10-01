@@ -263,8 +263,9 @@ class JudgmentParagraph(BaseModel):
 
     paragraph_id: str = Field(
         description="Names the paragraph in the judgment, for a deep link: `rov-5.3` for "
-        "the numbered consideration 5.3, `kop-5` for a numbered heading, `p-12` (its "
-        "position) for a paragraph without a number. Unique in the judgment."
+        "the numbered consideration 5.3, `kop-5` for a numbered heading, `p-3f2a9c1e` "
+        "(from its text, not its position: it stays when another paragraph comes or goes) "
+        "for a paragraph without a number. Unique in the judgment."
     )
     number: str | None = Field(
         default=None,

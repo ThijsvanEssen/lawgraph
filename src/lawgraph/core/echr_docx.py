@@ -19,7 +19,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.core.judgments import KIND_BODY, KIND_HEADING, KIND_SUBHEADING
+from lawgraph.core.judgments import KIND_BODY, KIND_HEADING, KIND_SUBHEADING, text_id
 from lawgraph.core.xml import local_name
 
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -99,7 +99,7 @@ class _Numbering:
             slug = re.sub(r"[^0-9a-z]", "", number.lower())
             base = f"{'par' if kind == KIND_BODY else 'kop'}-{slug}"
         else:
-            base = f"p-{len(self.entries) + 1}"
+            base = text_id(text)
         self._seen[base] = self._seen.get(base, 0) + 1
         seen = self._seen[base]
         self.entries.append(
@@ -127,8 +127,9 @@ def read_judgment(xml_text: str) -> tuple[str | None, list[dict[str, Any]]]:
     ``paragraphs`` is the body in reading order, each ``{id, number, kind, text}`` as for a
     Rechtspraak judgment: ``kind`` ``heading``, ``subheading`` or ``body``; ``number`` as
     printed without its dot, and not in ``text``; ``id`` ``par-12`` for paragraph 12,
-    ``kop-i`` for a numbered heading, ``p-<n>`` (its position) for the rest. ``text`` is every
-    paragraph as printed, a blank line between; ``None`` for a document without any.
+    ``kop-i`` for a numbered heading, ``p-3f2a9c1e`` (from its text, ``text_id``) for the
+    rest. ``text`` is every paragraph as printed, a blank line between; ``None`` for a
+    document without any.
     ``ValueError`` when *xml_text* is not XML.
     """
     try:

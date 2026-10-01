@@ -14,6 +14,7 @@ from lawgraph.core.judgments import (
     extract_judgment_text,
     extract_sections,
     parse_judgment,
+    text_id,
 )
 from lawgraph.core.props import JudgmentProps
 
@@ -48,8 +49,9 @@ def test_a_numbered_unit_of_the_hoge_raad_is_a_paragraph_with_its_printed_number
         ("rov-2.3", "2.3", "body", "Ingevolge ar"),
         ("rov-2.4", "2.4", "body", "De faxbrief "),
     ]
-    # Without a number the position names it; the number is no part of the text.
-    assert paragraphs[0]["id"] == "p-1" and paragraphs[0]["kind"] == "subheading"
+    # Without a number its text names it; the number is no part of the text.
+    assert paragraphs[0]["id"] == text_id(paragraphs[0]["text"])
+    assert paragraphs[0]["kind"] == "subheading"
     assert not paragraphs[2]["text"].startswith("1.1")
 
 
@@ -204,6 +206,26 @@ def test_a_line_break_parts_the_lines_of_the_kop_and_is_a_newline_in_the_text() 
         in extract_sections(root)[0]["text"]
     )
     assert "[eiseres 1] ,\n" in (extract_judgment_text(root)[1] or "")
+
+
+def test_a_paragraph_without_a_number_keeps_its_id_when_another_comes_or_goes() -> None:
+    """The id follows the text: a paragraph added before it moves no deep link."""
+    before = _paragraphs(
+        "<uitspraak><para>Het hof overweegt.</para><para>Zo is het.</para>"
+        "<para>Zo is het.</para></uitspraak>"
+    )
+    after = _paragraphs(
+        "<uitspraak><para>Een nieuwe alinea.</para><para>Het hof  overweegt.</para>"
+        "<para>Zo is het.</para><para>Zo is het.</para></uitspraak>"
+    )
+
+    assert [p["id"] for p in before] == [
+        text_id("Het hof overweegt."),
+        text_id("Zo is het."),
+        f"{text_id('Zo is het.')}_2",  # the same text twice: its occurrence
+    ]
+    assert [p["id"] for p in after][1:] == [p["id"] for p in before]
+    assert text_id("Zo is het.") == text_id(" Zo  is\nhet. ")  # whitespace collapsed
 
 
 def test_text_before_a_late_first_heading_is_no_kop() -> None:
