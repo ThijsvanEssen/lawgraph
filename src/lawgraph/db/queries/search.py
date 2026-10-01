@@ -474,6 +474,9 @@ def _search_judgments(
 # ── dossiers, committees, documents ──────────────────────────────────────────
 
 _KIND = "AND lower(doc.props ->> 'kind') = ANY(%(kind_filter)s)"
+# The chamber of a document from its labels, as ``/api/documents`` reads it
+# (``queries/documents._CHAMBER_OF``): null for a Staatsblad or Staatscourant publication.
+_CHAMBER = "CASE WHEN 'EK' = ANY(doc.labels) THEN 'EK' WHEN 'TK' = ANY(doc.labels) THEN 'TK' END"
 
 
 def _search_dossiers(
@@ -549,7 +552,9 @@ def _search_documents(
                 'external_id', doc.props -> 'external_id',
                 'dossier_number', CASE WHEN json_typeof(doc.props -> 'dossier_numbers') = 'array'
                                        THEN doc.props -> 'dossier_numbers' -> 0 END,
-                'sequence', doc.props -> 'sequence'
+                'sequence', doc.props -> 'sequence',
+                'date', doc.props -> 'date',
+                'chamber', {_CHAMBER}
             )
         )
     """

@@ -23,8 +23,19 @@ from lawgraph.db.queries.search import search_all
 BW7 = "BWBR0005290"
 
 
-def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
-    doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
+def _put(
+    store: GraphStore,
+    collection: str,
+    key: str,
+    labels: list[str] | None = None,
+    **props: Any,
+) -> None:
+    doc = {
+        "_key": key,
+        "type": collection.rstrip("s"),
+        "labels": labels or [],
+        "props": props,
+    }
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
@@ -52,10 +63,12 @@ def store(database: str) -> GraphStore:
         store,
         COLLECTION_DOCUMENTS,
         "amendement_36000_12",
+        labels=["TK"],
         title="Amendement van het lid Jansen over de huurovereenkomst",
         kind="Amendement",
         sequence=12,
         dossier_numbers=["36000"],
+        date="2025-11-04",
     )
     return store
 
@@ -87,3 +100,10 @@ def test_a_word_that_is_not_there_finds_nothing(store: GraphStore) -> None:
 def test_a_document_hit_has_its_number_in_the_dossier(store: GraphStore) -> None:
     (hit,) = search_all(store, q="huurovereenkomst", types=["documents"])["documents"]
     assert (hit["extra"]["dossier_number"], hit["extra"]["sequence"]) == ("36000", 12)
+
+
+def test_a_document_hit_has_its_date_and_chamber(store: GraphStore) -> None:
+    """Four debates on one subject are told apart by their day (BE-1), and the chamber
+    is read as /api/documents reads it (BE-39)."""
+    (hit,) = search_all(store, q="huurovereenkomst", types=["documents"])["documents"]
+    assert (hit["extra"]["date"], hit["extra"]["chamber"]) == ("2025-11-04", "TK")
