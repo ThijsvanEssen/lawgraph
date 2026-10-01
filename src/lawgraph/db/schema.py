@@ -429,7 +429,8 @@ TRIGRAMS = "CREATE EXTENSION IF NOT EXISTS pg_trgm"
 
 @dataclass(frozen=True)
 class Column:
-    """A generated column of a node table: *name*, its SQL type and the props it holds."""
+    """A derived column of a node table: *name*, its SQL type and the props it holds
+    (*expression*, over ``props``). The trigger of the table computes it (``_derive``)."""
 
     name: str
     sql_type: str
@@ -865,11 +866,60 @@ def _array_columns(collection: str) -> set[str]:
     return arrays | {"labels"}
 
 
-def node_table(collection: str) -> list[str]:
-    columns = "".join(
-        f",\n    {c.name} {c.sql_type} GENERATED ALWAYS AS ({c.expression}) STORED"
-        for c in (*COLUMNS.get(collection, ()), *_search_columns(collection))
+def _derived(collection: str) -> list[Column]:
+    return [*COLUMNS.get(collection, ()), *_search_columns(collection)]
+
+
+_PROP = re.compile(r"props -> '(\w+)'")
+_FUNCTION_CALL = re.compile(r"(?<![\w.])(lg_\w+)\(")
+_WHOLE_PROPS = re.compile(r"(?<![\w.\"])props\b")
+
+
+def _derive(collection: str) -> list[str]:
+    """The trigger that fills the derived columns of *collection* from ``props`` when a row
+    is written, its function and the trigger itself.
+
+    Generated columns would each read their prop with ``props -> 'x'``, and on ``json`` that
+    parses the whole document: a judgment (its text, some 20 KB) was parsed 48 times a row.
+    The trigger parses it once (``json_each``, which keeps every value as written, key order
+    of a nested object included) and evaluates the same expressions on those values. Of a
+    key that occurs twice the last one counts, as with ``->``. The names are qualified: a
+    restore runs without a search path."""
+    columns = _derived(collection)
+    keys = sorted({k for c in columns for k in _PROP.findall(c.expression)})
+    values = ", ".join(
+        f"(array_agg(value ORDER BY n) FILTER (WHERE key = '{k}'))"
+        f"[count(*) FILTER (WHERE key = '{k}')] AS \"p_{k}\""
+        for k in keys
     )
+
+    def over_values(expression: str) -> str:
+        expression = _PROP.sub(lambda m: f'v."p_{m.group(1)}"', expression)
+        # what reads the props whole (lg_member_names, ->>) reads the row's own
+        expression = _WHOLE_PROPS.sub("NEW.props", expression)
+        return _FUNCTION_CALL.sub(r"public.\1(", expression)
+
+    targets = ", ".join(f"NEW.{c.name}" for c in columns)
+    expressions = ",\n        ".join(over_values(c.expression) for c in columns)
+    return [
+        f"""CREATE OR REPLACE FUNCTION public.lg_derive_{collection}() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    SELECT {expressions}
+    INTO {targets}
+    FROM (SELECT {values}
+          FROM json_each(NEW.props) WITH ORDINALITY AS e(key, value, n)) v;
+    RETURN NEW;
+END $$""",
+        f"CREATE OR REPLACE TRIGGER {collection}_derive"
+        f" BEFORE INSERT OR UPDATE OF props ON {collection}"
+        f" FOR EACH ROW EXECUTE FUNCTION public.lg_derive_{collection}()",
+    ]
+
+
+def node_table(collection: str) -> list[str]:
+    derived = _derived(collection)
+    columns = "".join(f",\n    {c.name} {c.sql_type}" for c in derived)
     prefix = len(collection) + 2
     statements = [
         f"""CREATE TABLE IF NOT EXISTS {collection} (
@@ -891,6 +941,7 @@ def node_table(collection: str) -> list[str]:
         )
     return (
         statements
+        + (_derive(collection) if derived else [])
         + list(_LIST_INDEXES.get(collection, ()))
         + _search_indexes(collection)
     )
@@ -1060,9 +1111,7 @@ def _definitions(text: str, start: int) -> list[str]:
     raise ValueError("a CREATE TABLE without its closing parenthesis")
 
 
-def expected_columns() -> dict[str, set[str]]:
-    """table -> the names of its columns, read from the schema's own CREATE TABLE
-    statements."""
+def _columns(generated: bool) -> dict[str, set[str]]:
     found: dict[str, set[str]] = {}
     for statement in statements():
         text = _COMMENT.sub("", statement)
@@ -1070,23 +1119,42 @@ def expected_columns() -> dict[str, set[str]]:
             found[match.group(1)] = {
                 words[0]
                 for part in _definitions(text, match.end() - 1)
-                if (words := part.split()) and words[0].upper() not in _NOT_A_COLUMN
+                if (words := part.split())
+                and words[0].upper() not in _NOT_A_COLUMN
+                and (not generated or "GENERATED ALWAYS" in part)
             }
     return found
 
 
+def expected_columns() -> dict[str, set[str]]:
+    """table -> the names of its columns, read from the schema's own CREATE TABLE
+    statements."""
+    return _columns(generated=False)
+
+
+def expected_generated() -> dict[str, set[str]]:
+    """table -> the names of its generated columns. The derived columns of a node table are
+    no generated columns: its trigger fills them (``_derive``)."""
+    return _columns(generated=True)
+
+
 def schema_drift(conn: psycopg.Connection) -> list[str]:
     """What differs between the tables of the database and those of the schema: a column
-    the schema has and the table lacks, or the other way round. A table that is not there
-    yet differs in nothing."""
-    expected = expected_columns()
+    the schema has and the table lacks, or the other way round, and a column that is
+    generated in one and not in the other. A table that is not there yet differs in
+    nothing."""
+    expected, generated = expected_columns(), expected_generated()
     actual: dict[str, set[str]] = {}
-    for table, column in conn.execute(
-        "SELECT table_name, column_name FROM information_schema.columns"
+    actual_generated: dict[str, set[str]] = {}
+    for table, column, is_generated in conn.execute(
+        "SELECT table_name, column_name, is_generated = 'ALWAYS'"
+        " FROM information_schema.columns"
         " WHERE table_schema = current_schema() AND table_name = ANY(%s)",
         (list(expected),),
     ):
         actual.setdefault(table, set()).add(column)
+        if is_generated:
+            actual_generated.setdefault(table, set()).add(column)
     differences = []
     for table, columns in sorted(expected.items()):
         present = actual.get(table)
@@ -1095,6 +1163,14 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
         differences += [f"{table}.{c} ontbreekt" for c in sorted(columns - present)]
         differences += [
             f"{table}.{c} staat niet in het schema" for c in sorted(present - columns)
+        ]
+        was, wanted = actual_generated.get(table, set()), generated.get(table, set())
+        differences += [
+            f"{table}.{c} is gegenereerd, het schema vult hem met een trigger"
+            for c in sorted((was - wanted) & columns)
+        ]
+        differences += [
+            f"{table}.{c} is niet gegenereerd" for c in sorted((wanted - was) & present)
         ]
     return differences
 
@@ -1107,7 +1183,9 @@ def ensure_schema(conn: psycopg.Connection) -> None:
     they are not those of the schema any more (a column added to or dropped from the schema
     since the database was built), this stops with ``SchemaOutdated`` before anything is
     created, instead of letting queries fail later: the database is built again, there is
-    no migration (clean slate). A changed expression of a generated column is not seen."""
+    no migration (clean slate). A changed expression is not seen: of a generated column, nor
+    of a derived column of a node table (its trigger is replaced here, but rows written
+    before keep what the old one computed)."""
     with conn.transaction():
         conn.execute("SELECT pg_advisory_xact_lock(hashtext('lawgraph_schema'))")
         # before anything is created: an index on a column the table lacks would fail first
