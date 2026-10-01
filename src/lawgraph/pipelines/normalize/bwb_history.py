@@ -264,7 +264,10 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         """Stream the raw historical toestanden (each is a large XML document)."""
         self._incremental = since is not None
         return self._iter_raw_sources(
-            source=SOURCE_BWB, kinds=[RAW_KIND_BWB_TOESTAND_ALL], since=since
+            source=SOURCE_BWB,
+            kinds=[RAW_KIND_BWB_TOESTAND_ALL],
+            since=since,
+            chronological=True,
         )
 
     # ── phase 1: stream nodes ────────────────────────────────────────────────
