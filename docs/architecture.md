@@ -168,7 +168,7 @@ document; keep working from the in-memory node. Node upserts merge `props` (shal
 union `labels`. Edge upserts overwrite `confidence`, `source`, `status`, merge `meta`, and
 leave `created_at` and all curated fields untouched. An insert keeps the order of the keys;
 an update, here or where a step sets props or `meta` in place, writes them in alphabetical
-order (`sorted_merge`), so the API serves them in one order whatever ran first.
+order (`lg_update`), so the API serves them in one order whatever ran first.
 
 `ArangoStore.query` streams every query that reads (the server would otherwise build the
 whole result in its memory first: 44,000 toestanden are 3.5 GB) and closes its cursor when

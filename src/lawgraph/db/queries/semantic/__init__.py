@@ -1,27 +1,13 @@
-"""The reads and updates of the semantic phase, one module per source domain. ``slim``
-(AQL) and ``slim_sql`` (SQL) project a node onto the props a step reads; the other helpers
-are the SQL of AQL's comparisons of a json value with null and of ``LENGTH(x) > 0``."""
+"""The reads and updates of the semantic phase, one module per source domain. ``slim_sql``
+projects a node onto the props a step reads; the other helpers are the SQL of AQL's
+comparisons of a json value with null and of ``LENGTH(x) > 0``."""
 
 from __future__ import annotations
 
 
-def slim(var: str, *fields: str) -> str:
-    """AQL for the document *var* with only *fields* of its props.
-
-    A judgment carries its XML, its text and its paragraphs, a TK document the whole API
-    payload; a pipeline that reads one of them must not have the rest sent over. The result
-    has the shape of a document, so ``Node.from_document`` reads it.
-    """
-    names = ", ".join(f'"{field}"' for field in fields)
-    return (
-        f"{{_key: {var}._key, type: {var}.type, labels: {var}.labels, "
-        f"props: KEEP({var}.props, {names})}}"
-    )
-
-
 def slim_sql(alias: str, *fields: str) -> str:
     """SQL for the document of the node row *alias* with only *fields* of its props, as one
-    json value: ``{_key, type, labels, props}`` as ``slim`` gave it.
+    json value: ``{_key, type, labels, props}``, the shape of a document.
 
     ``KEEP`` returned the props it kept in the byte order of their names (probe P1), a prop
     the node does not have left out and one set to null kept; so does this.

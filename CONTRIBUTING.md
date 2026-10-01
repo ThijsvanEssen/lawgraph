@@ -32,13 +32,10 @@ ALLOW_DB_TESTS=1 pytest tests/integration     # a couple of minutes
 docker compose -f docker-compose.test.yml down
 ```
 
-A different, single file, `tests/test_aql_validity.py`, also needs `ALLOW_DB_TESTS=1` and a
-real server, but is collected by `pytest tests` (not `pytest tests/integration`) and, unless you
-export `LAWGRAPH_TEST_ARANGO_URL`, defaults to whatever `ARANGO_URL` your `.env` names — normally
-your local dev server, not the test one above. It never reads or writes real data either way: it
-creates its own scratch database there and asks the server to `explain` every static AQL query in
-`src/lawgraph`, so a query the server rejects (an operator it does not know, a misspelt function)
-fails here instead of in a real run.
+`tests/pg/test_sql_validity.py` (with `ALLOW_DB_TESTS=1`) asks a real PostgreSQL to plan every
+static SQL statement in `src/lawgraph`, in a scratch database of its own, so a statement the
+server rejects (a function it does not know, a column that is not there) fails here instead of in
+a real run.
 
 Details, including what `seed.py` can build and at what scale: `docs/operations.md`,
 "Tests and CI".

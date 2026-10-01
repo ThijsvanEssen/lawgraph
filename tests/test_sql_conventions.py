@@ -159,7 +159,7 @@ def _named_orders(tree: ast.Module) -> Iterator[tuple[int, str]]:
 def _modules() -> Iterator[tuple[str, list[tuple[int, str]]]]:
     for path in sorted(SRC.rglob("*.py")):
         relative = str(path.relative_to(SRC))
-        if relative in ("db/schema_arango.py", "db/queries/_aql.py"):
+        if relative == "db/schema_arango.py":
             continue  # ArangoDB's, until it goes
         tree = ast.parse(path.read_text())
         yield relative, [*_strings(tree), *_named_orders(tree)]
