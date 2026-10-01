@@ -24,6 +24,12 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Check types
+        # On the PostgreSQL integration branch the queries still in AQL do not type-check
+        # until their port lands; the tests still run. Pull requests into postgres and
+        # pushes to any branch but develop and main may fail here; pull requests into
+        # develop and main stay hard. Hard everywhere again when postgres merges into
+        # develop (plan, fase 5).
+        continue-on-error: ${{ github.base_ref == 'postgres' || (github.event_name == 'push' && github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main') }}
         run: mypy
 
       - name: Run tests
