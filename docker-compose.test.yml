@@ -34,6 +34,9 @@ services:
   postgres-test:
     image: postgres:18
     container_name: lawgraph-postgres-test
+    # no JIT compilation: for these statements it costs more than it gains (the store
+    # turns it off on its connections too)
+    command: ["postgres", "-c", "jit=off"]
     ports:
       - "5433:5432"
     environment:
