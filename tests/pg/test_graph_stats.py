@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
+
+from psycopg import sql
 
 from lawgraph.core.courts import COURT_BY_CODE
 from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db import ArangoStore
 from lawgraph.db.queries import graph_stats
+from lawgraph.db.store import _query
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
@@ -139,3 +143,55 @@ def test_articles_count_what_refers_to_and_explains_them(store: ArangoStore) -> 
     )
     assert graph_stats.refresh_articles(store, dry_run=False) == 1
     assert _props(store, "articles", "a") == {"inbound_citation_count": 2}
+
+
+def _scans(node: dict[str, Any]) -> Iterator[tuple[str, str, str]]:
+    cond = node.get("Index Cond") or node.get("Recheck Cond") or ""
+    yield node["Node Type"], node.get("Relation Name", ""), cond
+    for child in node.get("Plans", []):
+        yield from _scans(child)
+
+
+def test_the_citations_of_a_judgment_are_counted_through_the_edge_index(
+    store: ArangoStore,
+) -> None:
+    """Per judgment the edges to it and to what is the same decision as it: one ``= ANY``
+    of ids. An OR of the two read every edge for every judgment (the parity build stopped
+    after ten minutes on 32,000 judgments)."""
+    store.bulk_insert_or_update_nodes(
+        "judgments", [_node("a", "judgment", ecli="ECLI:NL:HR:2020:1")]
+    )
+    # Citations as many as on the real graph: on a few edges the planner reads them whole
+    # whatever the query.
+    store.execute(
+        "INSERT INTO judgments (id, type) SELECT 'judgments/filler_' || n, 'judgment'"
+        " FROM generate_series(1, 2000) n"
+    )
+    store.execute(
+        "INSERT INTO edges (key, from_id, to_id, doc)"
+        " SELECT 'filler_' || n, 'judgments/filler_' || n % 1999,"
+        " 'judgments/filler_' || n % 1997,"
+        " json_build_object('relation', CASE WHEN n % 20 = 0 THEN 'SAME_AS'"
+        " ELSE 'REFERS_TO' END)"
+        " FROM generate_series(1, 20000) n"
+    )
+    store.vacuum_analyze()
+    asked: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        asked.append((statement, params))
+        return query(statement, params, **options)
+
+    store.query = recording  # type: ignore[method-assign]
+    graph_stats.refresh_judgments(store, dry_run=True)
+    store.query = query  # type: ignore[method-assign]
+    statement, params = asked[-1]
+    with store.pool.connection() as conn, conn.transaction():
+        conn.execute("SET LOCAL enable_seqscan = off")
+        explain = sql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
+        (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
+    scans = list(_scans(plan[0]["Plan"]))
+    # every read of the edges finds them by the judgment (``edges_to``, ``edges_from``)
+    edges = [cond for _, table, cond in scans if table == "edges"]
+    assert edges and all("to_id =" in c or "from_id =" in c for c in edges), scans
