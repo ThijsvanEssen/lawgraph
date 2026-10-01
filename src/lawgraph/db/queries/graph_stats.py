@@ -25,6 +25,7 @@ from lawgraph.core.courts import COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
 from lawgraph.core.judgment_names import CURATED_NAMES
 from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db.counting import Store
+from lawgraph.db.store import sorted_merge
 
 # Each entry below is one query body that selects the stale documents, plus a
 # tail that either counts them (--dry-run) or writes the computed values.
@@ -32,9 +33,10 @@ _COUNT_TAIL = "    COLLECT WITH COUNT INTO n\n    RETURN n"
 
 
 def _update_tail(collection: str, variable: str, assignments: str) -> str:
+    props = sorted_merge(f"{variable}.props", f"{{{assignments}}}")
     return (
-        f"    UPDATE {variable} WITH {{ props: {{{assignments}}} }}\n"
-        f"    IN {collection} OPTIONS {{ mergeObjects: true }}\n"
+        f"    UPDATE {variable} WITH {{ props: {props} }}\n"
+        f"    IN {collection} OPTIONS {{ mergeObjects: false }}\n"
         "    RETURN 1"
     )
 

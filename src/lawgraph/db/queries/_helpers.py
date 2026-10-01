@@ -40,6 +40,8 @@ def _find_judgments_for_article(
         FILTER STARTS_WITH(edge._from, '{COLLECTION_JUDGMENTS}/')
         LET j = DOCUMENT(edge._from)
         FILTER j != null
+        // Newest first; the id settles judgments of the same day.
+        SORT j.props.date_eff DESC, j._id
         // What the response shows of a judgment. A much cited article has thousands of
         // them, and whole judgments (text, paragraphs) pass the memory a query may use.
         RETURN {{
@@ -67,6 +69,8 @@ def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
     aql = f"""
     FOR candidate IN {COLLECTION_JUDGMENTS}
         FILTER candidate.props.appno != null AND candidate.props.appno == @appno
+        // Several decisions can share an appno; the key picks the same one every time.
+        SORT candidate._key
         LIMIT 1
         RETURN candidate
     """

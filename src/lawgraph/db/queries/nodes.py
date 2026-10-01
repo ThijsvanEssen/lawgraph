@@ -353,11 +353,13 @@ def get_node_neighborhood(
         FOR e IN {COLLECTION_EDGES}
             FILTER e._from IN node_id_set AND e._to IN node_id_set
             {filters.edge_aql("e")}
+            SORT e._key
             RETURN e
     )
+    // Which vertices the cap keeps is the walk's; the answer lists them by id.
     RETURN {{
         focal: focal,
-        nodes: visited,
+        nodes: (FOR v IN visited SORT v._id RETURN v),
         edges: edges_between
     }}
     """

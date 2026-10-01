@@ -52,6 +52,7 @@ def get_document_links(store: ArangoStore, document_id: str) -> dict[str, Any]:
                 FOR v IN {COLLECTION_EDGES}
                     FILTER v._from == e._to AND v.relation == @version_of
                     FILTER STARTS_WITH(v._to, '{COLLECTION_ARTICLES}/')
+                    SORT v._to
                     LIMIT 1
                     RETURN DOCUMENT(v._to)
             ) : DOCUMENT(e._to)
@@ -114,6 +115,8 @@ def get_document_passages(
             FILTER e._from == @document_id AND e.relation == @explains
             FILTER e._to IN @targets
             FILTER IS_ARRAY(e.meta.sections)
+            // Of equally confident sections the first edge's is kept.
+            SORT e._key
             RETURN e.meta.sections
         """,
         bind_vars={

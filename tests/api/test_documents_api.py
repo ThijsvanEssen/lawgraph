@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 
 _DOCUMENT = {
     "_id": "documents/abc123",
@@ -45,43 +43,33 @@ _LINKS = {
 }
 
 
-class _Collection:
-    def __init__(self, doc: dict | None) -> None:
-        self._doc = doc
-
-    def get(self, key: str) -> dict | None:
-        return self._doc
+_ROUTES = "lawgraph.api.routes.documents"
 
 
-class _Store:
-    def __init__(self, doc: dict | None = None) -> None:
-        self._doc = doc
+def _client(monkeypatch, doc: dict | None) -> tuple[TestClient, list[tuple[str, str]]]:
+    """A client whose document lookups answer ``doc``; records the keys and ids asked."""
+    calls: list[tuple[str, str]] = []
 
-    def collection(self, name: str) -> _Collection:
-        return _Collection(self._doc)
+    def get_document(store, key: str) -> dict | None:
+        calls.append(("document", key))
+        return doc
 
-    def query(self, aql, bind_vars=None):
-        return [_LINKS]
+    def get_document_links(store, document_id: str) -> dict:
+        calls.append(("links", document_id))
+        return _LINKS
 
-
-def _client(store: _Store) -> TestClient:
-    app.dependency_overrides[get_store] = lambda: store
-    return TestClient(app)
-
-
-@pytest.fixture(autouse=True)
-def _clear_override():
-    yield
-    app.dependency_overrides.pop(get_store, None)
+    monkeypatch.setattr(f"{_ROUTES}.get_document", get_document)
+    monkeypatch.setattr(f"{_ROUTES}.get_document_links", get_document_links)
+    return TestClient(app), calls
 
 
-def test_an_unknown_document_is_a_404() -> None:
-    response = _client(_Store(None)).get("/api/documents/nonexistent-key")
+def test_an_unknown_document_is_a_404(monkeypatch) -> None:
+    response = _client(monkeypatch, None)[0].get("/api/documents/nonexistent-key")
     assert response.status_code == 404
 
 
-def test_a_known_document_carries_its_text_its_page_and_its_file() -> None:
-    body = _client(_Store(_DOCUMENT)).get("/api/documents/abc123").json()
+def test_a_known_document_carries_its_text_its_page_and_its_file(monkeypatch) -> None:
+    body = _client(monkeypatch, _DOCUMENT)[0].get("/api/documents/abc123").json()
     assert body["key"] == "abc123"
     assert body["title"] == "Memorie van Toelichting"
     assert body["kind"] == "Memorie van toelichting"
@@ -93,9 +81,13 @@ def test_a_known_document_carries_its_text_its_page_and_its_file() -> None:
     assert body["file_url"].endswith("/Document(some-uuid)/resource")
 
 
-def test_a_document_says_its_chamber_source_dossiers_and_what_it_explains() -> None:
+def test_a_document_says_its_chamber_source_dossiers_and_what_it_explains(
+    monkeypatch,
+) -> None:
     doc = {**_DOCUMENT, "props": {**_DOCUMENT["props"], "raw": {"Datum": "2024-03-01"}}}
-    body = _client(_Store(doc)).get("/api/documents/abc123").json()
+    client, calls = _client(monkeypatch, doc)
+    body = client.get("/api/documents/abc123").json()
+    assert calls == [("document", "abc123"), ("links", "documents/abc123")]
     assert body["chamber"] == "TK" and body["source"] == "tk"
     assert body["is_explanatory"] is True
     assert body["dossier_numbers"] == ["36000"]
@@ -104,7 +96,9 @@ def test_a_document_says_its_chamber_source_dossiers_and_what_it_explains() -> N
     assert body["explains"][1]["article_number"] is None
 
 
-def test_an_eerste_kamer_document_is_not_explanatory_and_has_no_tk_url() -> None:
+def test_an_eerste_kamer_document_is_not_explanatory_and_has_no_tk_url(
+    monkeypatch,
+) -> None:
     ek = {
         "_id": "documents/ek_1",
         "_key": "ek_1",
@@ -115,7 +109,7 @@ def test_an_eerste_kamer_document_is_not_explanatory_and_has_no_tk_url() -> None
             "external_id": "ek-uuid",
         },
     }
-    body = _client(_Store(ek)).get("/api/documents/ek_1").json()
+    body = _client(monkeypatch, ek)[0].get("/api/documents/ek_1").json()
     assert body["chamber"] == "EK" and body["source"] == "eerstekamer"
     assert body["is_explanatory"] is False and body["tk_url"] is None
     assert body["file_url"] is None

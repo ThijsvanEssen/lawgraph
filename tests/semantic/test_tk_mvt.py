@@ -2,28 +2,42 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
+
+import pytest
 
 from lawgraph.config.constants import RELATION_EXPLAINS
 from lawgraph.core.relations import BY_NAME
+from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
+    SEMANTIC_SOURCE_SECTIONS,
     TKMvtSemanticPipeline,
 )
 from tests.conftest import _BaseFakeStore
 
 
 class _FakeStore(_BaseFakeStore):
-    """Returns the rows the single targets query would produce."""
+    """Holds the rows the single targets query would produce."""
 
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         super().__init__()
-        self._rows = rows
-        self.queries: list[str] = []
+        self.rows = rows
+        self.reads: list[str] = []
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict[str, Any]]:
-        self.queries.append(aql)
-        return list(self._rows)
+
+@pytest.fixture(autouse=True)
+def _targets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``memorandum_targets`` answers with the rows of the store, and records the read."""
+
+    def memorandum_targets(
+        store: _FakeStore, *, sections_source: str
+    ) -> Iterator[dict[str, Any]]:
+        store.reads.append(sections_source)
+        return iter(list(store.rows))
+
+    monkeypatch.setattr(semantic_tk, "memorandum_targets", memorandum_targets)
 
 
 def test_pipeline_explains_the_article_versions_the_instrument_changed() -> None:
@@ -74,7 +88,8 @@ def test_pipeline_reads_the_graph_in_a_single_pass() -> None:
     result = TKMvtSemanticPipeline(store=store).run()
 
     assert result.created == 50
-    assert len(store.queries) == 1
+    # one read, less what the sections pipeline explains already
+    assert store.reads == [SEMANTIC_SOURCE_SECTIONS]
 
 
 def test_pipeline_returns_empty_when_no_documents() -> None:

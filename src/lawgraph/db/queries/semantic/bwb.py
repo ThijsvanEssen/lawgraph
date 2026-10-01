@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import slim
+from lawgraph.db.store import sorted_merge
 
 
 def law_articles(store: Store, field: str, law_id: str) -> Iterator[dict[str, Any]]:
@@ -192,7 +193,7 @@ def articles_mentioning_annex(store: Store) -> Iterator[dict[str, Any]]:
 _AMENDING_VERSIONS_AQL = f"""
 FOR v IN {COLLECTION_ARTICLE_VERSIONS}
   FILTER v.props.origin_publication != null AND v.props.stam_id != null
-  SORT v.props.bwb_id, v.props.stam_id
+  SORT v.props.bwb_id, v.props.stam_id, v._key
   RETURN {{
     key: v._key,
     bwb_id: v.props.bwb_id,
@@ -287,11 +288,13 @@ def update_edge_classifications(
                 semantic_type: u.semantic_type,
                 explanation: u.explanation,
                 updated_at: @now,
-                meta: {{
-                    semantic_pattern: u.pattern,
-                    semantic_confidence: u.semantic_confidence
-                }}
-            }} IN {COLLECTION_EDGES} OPTIONS {{ mergeObjects: true }}
+                meta: {
+        sorted_merge(
+            "stored.meta",
+            "{semantic_pattern: u.pattern, semantic_confidence: u.semantic_confidence}",
+        )
+    }
+            }} IN {COLLECTION_EDGES} OPTIONS {{ mergeObjects: false }}
             RETURN 1
         """
     bind = {"updates": batch, "now": now}
@@ -308,6 +311,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
     FOR i IN {COLLECTION_INSTRUMENTS}
       // != null lets the sparse index on props.bwb_id serve the join (else: a full scan)
       FILTER i.props.bwb_id != null AND i.props.bwb_id == pub.props.bwb_id
+      SORT i._key
       LIMIT 1
       RETURN i
   )[0]
@@ -327,6 +331,8 @@ FOR pub IN {COLLECTION_DOCUMENTS}
     FOR i IN {COLLECTION_INSTRUMENTS}
       FILTER i.props.citation_title != null
       FILTER CONTAINS(LOWER(pub.props.title), LOWER(i.props.citation_title))
+      // the longest title the publication names wins (the key settles a tie)
+      SORT LENGTH(i.props.citation_title) DESC, i._key
       LIMIT 1
       RETURN i
   )[0]
@@ -364,6 +370,7 @@ FOR pub IN {COLLECTION_DOCUMENTS}
     FOR i IN {COLLECTION_INSTRUMENTS}
       // != null lets the sparse index on props.bwb_id serve the join (else: a full scan)
       FILTER i.props.bwb_id != null AND i.props.bwb_id == pub.props.bwb_id
+      SORT i._key
       LIMIT 1
       RETURN i
   )
@@ -386,6 +393,8 @@ FOR pub IN {COLLECTION_DOCUMENTS}
     FOR i IN {COLLECTION_INSTRUMENTS}
       FILTER i.props.citation_title != null AND LENGTH(i.props.citation_title) > 5
       FILTER CONTAINS(LOWER(pub.props.title), LOWER(i.props.citation_title))
+      // the longest title the publication names wins (the key settles a tie)
+      SORT LENGTH(i.props.citation_title) DESC, i._key
       LIMIT 1
       RETURN i
   )

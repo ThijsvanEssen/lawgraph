@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import CountingStore, EdgeWriter, NodeWriter
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from tests.conftest import _BaseFakeStore
@@ -149,11 +151,16 @@ class _RawSourceStore(RawSourcesFake, _BaseFakeStore):
         super().__init__()
         self._raw = raw
 
-    def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list[dict]:
-        return self._raw
 
+def test_echr_pipeline_summary_tells_new_judgments_from_known_ones(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def iter_raw_records(store: _RawSourceStore, **_: Any) -> Iterator[dict[str, Any]]:
+        return iter(list(store._raw))
 
-def test_echr_pipeline_summary_tells_new_judgments_from_known_ones() -> None:
+    monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_: None)
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+
     def record(item_id: str) -> dict[str, Any]:
         return {"external_id": item_id, "payload_json": {"itemid": item_id}}
 

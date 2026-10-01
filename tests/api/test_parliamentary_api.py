@@ -73,13 +73,10 @@ _DECISION = {
 
 
 class _MockStore:
-    """Answers nothing; every route under test has its query monkeypatched."""
+    """Knows no node; every route under test has its query functions monkeypatched."""
 
     def get_node(self, collection: str, key: str):
         return None
-
-    def query(self, aql: str, bind_vars: dict | None = None):
-        return iter([])
 
 
 @pytest.fixture(autouse=True)
@@ -127,6 +124,21 @@ def test_a_dossier_reports_what_is_attached_to_it(monkeypatch) -> None:
     monkeypatch.setattr(
         "lawgraph.api.routes.dossiers.count_dossier_members",
         lambda store, dossier_id: {"documents": 4, "decisions": 2},
+    )
+    # what the detail links to is empty: the hub is shaped in test_dossier_hub_api.py
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.enrich_dossier_docs",
+        lambda store, dossiers: dossiers,
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_relations",
+        lambda store, dossier_id: [],
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_hub", lambda store, dossier_id: {}
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_laws_named", lambda store, names: []
     )
     body = client.get("/api/dossiers/36000").json()
     assert body["number"] == "36000"

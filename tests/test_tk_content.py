@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 from lawgraph.db import raw_key
+from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from tests.fakes import FakeResponse, RawSourcesFake
 
@@ -106,18 +107,30 @@ class _Store(RawSourcesFake):
     def __init__(self, papers: list[dict], have: set[str] | None = None) -> None:
         self.papers = papers
         self.have = have or set()  # raw keys that exist (whatever their kind)
-        self.queries: list[tuple[str, dict]] = []
+        self.kinds: list[list[str]] = []  # the kinds the papers were asked for by
+        self.lookups: list[tuple[list[str], str | None]] = []  # (keys, retry_after_iso)
         self.stored: list[dict[str, Any]] = []
-
-    def query(self, aql: str, bind_vars: dict | None = None, **kw: Any):
-        bind = dict(bind_vars or {})
-        self.queries.append((aql, bind))
-        if "kinds" in bind:
-            return iter([dict(p) for p in self.papers])
-        return iter([key for key in bind["keys"] if key in self.have])
 
     def insert_raw_source(self, **fields: Any) -> None:
         self.stored.append(fields)
+
+
+@pytest.fixture(autouse=True)
+def _gap_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The papers of the graph and the raw keys that exist, answered from the ``_Store``."""
+
+    def papers_with_dossier(store: _Store, kinds: list[str]) -> Any:
+        store.kinds.append(kinds)
+        return iter([dict(p) for p in store.papers])
+
+    def existing_raw_keys(
+        store: _Store, keys: list[str], *, retry_after_iso: str | None = None
+    ) -> Any:
+        store.lookups.append((keys, retry_after_iso))
+        return iter([key for key in keys if key in store.have])
+
+    monkeypatch.setattr(gap_queries, "papers_with_dossier", papers_with_dossier)
+    monkeypatch.setattr(gap_queries, "existing_raw_keys", existing_raw_keys)
 
 
 class _Client:
@@ -174,15 +187,9 @@ def test_each_paper_is_fetched_by_its_identifier_and_its_xml_stored_unchanged() 
     assert store.stored[0]["meta"] == {"document": "doc-37020-1"}
 
 
-def test_the_query_asks_for_tk_papers_of_the_kind_in_their_own_dossier() -> None:
+def test_the_papers_are_asked_for_by_their_kinds_in_lower_case() -> None:
     _, store, _ = _run([_paper("36867", 3)], kinds=["Toelichting", "Motie"])
-    aql, bind = store.queries[0]
-    assert '"TK" IN pub.labels' in aql and "pub.props.dossier_number" in aql
-    assert "pub.props.dossier_suffix" in aql and bind["kinds"] == [
-        "toelichting",
-        "motie",
-    ]
-    assert "kind || " in aql  # not the ``??`` AQL does not have
+    assert store.kinds == [["toelichting", "motie"]]
 
 
 def test_a_paper_with_its_xml_stored_is_not_fetched_again() -> None:
@@ -195,15 +202,16 @@ def test_a_paper_with_its_xml_stored_is_not_fetched_again() -> None:
 def test_a_paper_that_answered_404_lately_waits_and_one_whose_wait_is_over_is_asked() -> (
     None
 ):
-    """The wait is the ``retry_after`` of the record: the query filters on it."""
+    """The wait is the ``retry_after`` of the record: the lookup of the missing records
+    filters on it, the lookup of the XML itself does not."""
     missing = raw_key(
         SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX, "kst-1-1"
     )
     result, store, client = _run([_paper("1", 1), _paper("2", 2)], have={missing})
     assert client.fetched == ["kst-2-2"]
-    lookups = [aql for aql, bind in store.queries if "keys" in bind]
-    assert any("r.meta.retry_after > @now" in aql for aql in lookups)
-    assert any("retry_after" not in aql for aql in lookups)  # the XML itself: no filter
+    (xml_keys, xml_retry), (missing_keys, missing_retry) = store.lookups
+    assert _xml_key("kst-1-1") in xml_keys and xml_retry is None
+    assert missing in missing_keys and missing_retry is not None
 
 
 def test_a_paper_the_repository_does_not_have_becomes_a_missing_record() -> None:

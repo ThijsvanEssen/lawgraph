@@ -882,3 +882,39 @@ def test_a_bill_goes_by_the_name_official_data_give_it(database: str) -> None:
         "38003": ("Archiefwet 1995", "amended_law", "Archiefwet 1995"),
         "38004": (None, None, None),
     }
+
+
+def test_a_page_after_a_cursor_counts_the_whole_window(client: TestClient) -> None:
+    """The facets and the total are those of every event under the filters, also on the
+    pages after the first; the items continue after the cursor."""
+    first = _feed(client, limit=2)
+    second = _feed(client, limit=2, cursor=first["next_cursor"])
+    assert _ids(second) == ALL[2:4]
+    assert second["total"] == first["total"] == len(ALL)
+    assert second["facets"] == first["facets"]
+
+
+def test_q_is_matched_as_lower_case_words(client: TestClient) -> None:
+    expected = ["documents/amendment_004", "commitments/commitment_1"]
+    assert _ids(_feed(client, q="  Grens ")) == expected
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"kind": "Motie,stemming"},
+        {"kind": "Motie", "q": "binnenlandse"},
+        {"member": BAKKER_KEY, "cabinet": "jetten"},
+    ],
+)
+def test_a_summary_counts_what_the_feed_lists_under_the_same_filters(
+    client: TestClient, params: dict[str, str]
+) -> None:
+    window = {"since": "2026-05-01", "until": "2026-05-12"}
+    listed = _feed(client, **window, **params)
+    response = client.get(
+        "/api/feed/summary", params={"until": "2026-05-12", "days": 12, **params}
+    )
+    assert response.status_code == 200, response.text
+    counted = sum(day["total"] for day in response.json()["days"])
+    assert counted == len(listed["items"]) > 0

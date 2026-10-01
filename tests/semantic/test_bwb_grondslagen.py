@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import pathlib
+from collections.abc import Iterator
 from typing import Any
+
+import pytest
 
 from lawgraph.config.constants import RELATION_BASED_ON
 from lawgraph.core.bwb_xml import instrument_props, parse_toestand
 from lawgraph.core.models import make_node_key
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from tests.conftest import _BaseFakeStore
 
@@ -30,23 +34,28 @@ class _FakeStore(_BaseFakeStore):
         self.raw_rows = raw_rows
         self.instruments = instruments if instruments is not None else set()
         self.articles = articles if articles is not None else set()
-        self.query_calls = 0
+        self.reads = 0
         self.existence_calls: list[str] = []
 
-    def query(self, aql: str, bind_vars: dict | None = None, **_: Any):
-        self.query_calls += 1
-        assert (
-            "raw_sources" not in aql
-        )  # the basis is on the regulation, not parsed again
-        known = [
+    def regulations(self) -> Iterator[dict[str, Any]]:
+        """What the query returns: the regulations in the graph that state a basis. It
+        reads them from the regulation; the XML is not parsed again."""
+        self.reads += 1
+        return iter(
             r for r in self.raw_rows if r["key"] in self.instruments and r["basis"]
-        ]
-        return iter(known)
+        )
 
     def existing_keys(self, collection: str, keys) -> set[str]:
         self.existence_calls.append(collection)
         known = {"instruments": self.instruments, "articles": self.articles}
         return set(keys) & known[collection]
+
+
+@pytest.fixture(autouse=True)
+def _regulations(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        semantic_bwb, "regulations_with_basis", lambda store: store.regulations()
+    )
 
 
 def _run(store: _FakeStore):
@@ -180,8 +189,8 @@ def test_store_calls_do_not_grow_with_the_number_of_regulations() -> None:
     _run(large)
 
     assert len(large.edges) == 80
-    assert (large.query_calls, len(large.existence_calls)) == (
-        small.query_calls,
+    assert (large.reads, len(large.existence_calls)) == (
+        small.reads,
         len(small.existence_calls),
     )
     assert large.existence_calls == ["articles"]

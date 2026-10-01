@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import pathlib
+from collections.abc import Iterator
 from typing import Any
+
+import pytest
 
 from lawgraph.config.constants import (
     RAW_KIND_TK_KAMERSTUK_XML,
@@ -11,6 +14,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.props import DocumentProps
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
 from tests.fakes import RawSourcesFake
 
@@ -24,11 +28,6 @@ class _Store(RawSourcesFake):
         self.documents = documents
         self.upserted: list[Node] = []
         self.lookups: list[list[str]] = []
-        self.queries: list[tuple[str, dict]] = []
-
-    def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list[Any]:
-        self.queries.append((aql, dict(bind_vars or {})))
-        return []
 
     def existing_keys(self, collection: str, keys: Any) -> set[str]:
         self.lookups.append(sorted(keys))
@@ -136,12 +135,19 @@ def test_documents_are_looked_up_a_batch_at_a_time_not_one_by_one() -> None:
     assert count == 45 and len(store.lookups) == 3  # 20 + 20 + 5
 
 
-def test_reading_asks_for_the_xml_records_of_tk_only() -> None:
-    store = _Store(set())
-    pipeline = TKContentNormalizePipeline(store=store)  # type: ignore[arg-type]
+def test_reading_asks_for_the_xml_records_of_tk_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[dict[str, Any]] = []
+
+    def iter_raw_records(store: Any, **kwargs: Any) -> Iterator[dict[str, Any]]:
+        asked.append(kwargs)
+        return iter([])
+
+    monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_: 0)
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+    pipeline = TKContentNormalizePipeline(store=_Store(set()))  # type: ignore[arg-type]
     list(pipeline.fetch_raw())
-    assert any(
-        bind.get("source") == SOURCE_TK
-        and bind.get("kinds") == [RAW_KIND_TK_KAMERSTUK_XML]
-        for _, bind in store.queries
-    )
+    assert [(a["source"], a["kinds"]) for a in asked] == [
+        (SOURCE_TK, [RAW_KIND_TK_KAMERSTUK_XML])
+    ]

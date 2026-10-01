@@ -68,17 +68,32 @@ def edge_key(from_id: str, relation: str, to_id: str) -> str:
 # What the API does not serve: a write here leaves ``data_version`` as it is.
 _NOT_SERVED = frozenset({COLLECTION_RAW_SOURCES, COLLECTION_PIPELINE_STATE})
 
-_NODE_UPSERT_UPDATE = """
+
+def sorted_merge(left: str, right: str) -> str:
+    """AQL for ``MERGE(left, right)`` with every key in the order of the collation.
+
+    MERGE keeps the keys of *left* and adds those only *right* has in the order of a hash
+    map, which differs from one execution to the next: the props of a node the API serves
+    would come out in another order after every run. Sorted, they do not (D11). The names
+    of its variables are its own, so it can go into a query that has ``names``."""
+    return (
+        f"(FOR sorted_merged IN [MERGE({left}, {right})]"
+        " LET sorted_names = ATTRIBUTES(sorted_merged, false, true)"
+        " RETURN ZIP(sorted_names, sorted_names[* RETURN sorted_merged[CURRENT]]))[0]"
+    )
+
+
+_NODE_UPSERT_UPDATE = f"""
     type: doc.type,
-    labels: UNIQUE(APPEND({old}.labels, doc.labels)),
-    props: MERGE({old}.props, doc.props)
+    labels: UNIQUE(APPEND({{old}}.labels, doc.labels)),
+    props: {sorted_merge("{old}.props", "doc.props")}
 """
 
-_EDGE_UPSERT_UPDATE = """
+_EDGE_UPSERT_UPDATE = f"""
     confidence: doc.confidence,
     source: doc.source,
     status: doc.status,
-    meta: MERGE({old}.meta, doc.meta)
+    meta: {sorted_merge("{old}.meta", "doc.meta")}
 """
 
 
@@ -434,7 +449,7 @@ class ArangoStore:
         UPDATE {{
             type: @type,
             labels: UNIQUE(APPEND(OLD.labels, @labels)),
-            props: MERGE(OLD.props, @props)
+            props: {sorted_merge("OLD.props", "@props")}
         }}
         IN {node.collection} OPTIONS {{ mergeObjects: false }}
         RETURN {{doc: NEW, was_new: OLD == null}}

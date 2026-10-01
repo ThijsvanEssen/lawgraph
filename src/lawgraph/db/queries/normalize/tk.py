@@ -127,6 +127,7 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
                     FILTER e._to == dossier_id AND e.relation == @about
                     LET node = DOCUMENT(e._from)
                     FILTER node != null
+                    SORT node.props.date, node._id
                     RETURN {{
                         id: node._id,
                         kind: node.props.kind,
@@ -142,13 +143,15 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
             RETURN {{
                 dossier_id: dossier_id,
                 opened_on: stored.opened_on,
-                case_kinds: UNIQUE(FLATTEN([
+                // A set to its readers; sorted, it is the same list every time.
+                case_kinds: SORTED_UNIQUE(FLATTEN([
                     stored.case_kinds OR [],
                     own_cases[* RETURN DOCUMENT(CURRENT).props.kind],
                     APPEND(direct, via_case)[*].case_kinds
                 ], 2)[* FILTER CURRENT != null]),
                 docs: (
                     FOR doc IN UNIQUE(APPEND(direct, via_case))
+                        SORT doc.date, doc.id
                         RETURN UNSET(doc, "id", "case_kinds")
                 ),
                 activities: (
@@ -194,7 +197,7 @@ def member_identities(store: Store) -> Iterator[dict[str, Any]]:
             name: m.props.full_name OR m.props.name,
             initials: m.props.initials,
             birth_date: m.props.birth_date,
-            factions: UNIQUE(m.props.faction_memberships[*].faction_key)
+            factions: SORTED_UNIQUE(m.props.faction_memberships[*].faction_key)
         }}
     """
     return store.query(aql, {"tk": CHAMBER_TK})

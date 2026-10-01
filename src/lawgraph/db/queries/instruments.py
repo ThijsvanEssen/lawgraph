@@ -133,7 +133,7 @@ def get_instrument_judgments(
             FILTER found != null
             LET date_eff = found.props.date_eff
             LET cited_count = LENGTH(UNIQUE(row.arts))
-            SORT cited_count DESC, date_eff DESC
+            SORT cited_count DESC, date_eff DESC, row.judgment_id
             LIMIT @limit
             RETURN {{
                 judgment: {{
@@ -145,6 +145,7 @@ def get_instrument_judgments(
                     FOR aid IN UNIQUE(row.arts)
                         LET a = DOCUMENT(aid)
                         FILTER a != null
+                        SORT a.props.position == null, a.props.position, a._key
                         RETURN {{
                             id: a._id,
                             key: a._key,
@@ -219,7 +220,8 @@ def get_instrument_dossiers(
     LET total = LENGTH(grouped)
     LET items = (
         FOR g IN grouped
-            SORT g.dossier.props.opened_on DESC, g.dossier.props.number ASC
+            SORT g.dossier.props.opened_on DESC, g.dossier.props.number ASC,
+                 g.dossier._key ASC
             LIMIT @limit
             RETURN g
     )
@@ -415,6 +417,7 @@ def get_instrument_related_instruments(
             LET inst = FIRST(
                 FOR i IN {COLLECTION_INSTRUMENTS}
                     {find}
+                    SORT i._key
                     LIMIT 1 RETURN i
             )
             FILTER inst != null
@@ -423,7 +426,7 @@ def get_instrument_related_instruments(
     LET total = LENGTH(resolved)
     LET items = (
         FOR r IN resolved
-            SORT (r.outbound_count + r.inbound_count) DESC
+            SORT (r.outbound_count + r.inbound_count) DESC, r.instrument._key
             LIMIT @limit
             RETURN r
     )
@@ -486,12 +489,11 @@ def get_instruments_list(
         else ("true", {})
     )
 
-    # Single-key SORT against indexed props — keeps LIMIT before
-    # materialise. citation_title is indexed (non-sparse) so the title sort
-    # plan is now IndexNode → Limit → Materialise.
+    # The key settles ties. Each sort is one index (``[field, _key]``, non-sparse) read
+    # in one direction, so the plan stays IndexNode → Limit → Materialise.
     sort_clause = {
-        "title": "SORT doc.props.citation_title ASC",
-        "article_count": "SORT doc.props.article_count DESC",
+        "title": "SORT doc.props.citation_title ASC, doc._key ASC",
+        "article_count": "SORT doc.props.article_count DESC, doc._key DESC",
     }[sort]
 
     bind_vars: dict[str, Any] = {
@@ -592,7 +594,7 @@ def get_instrument_versions(
     aql = f"""
     FOR doc IN {COLLECTION_INSTRUMENT_VERSIONS}
         FILTER doc.props.bwb_id == @bwb_id
-        SORT doc.props.valid_from DESC
+        SORT doc.props.valid_from DESC, doc._key DESC
         RETURN doc
     """
     return list(store.query(aql, {"bwb_id": bwb_id.upper()}))

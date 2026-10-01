@@ -11,7 +11,9 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_BWB_WTI_GENERAL,
+    SOURCE_BWB,
 )
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve import bwb
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from tests.fakes import RawSourcesFake
@@ -68,21 +70,50 @@ class _Store(RawSourcesFake):
     def insert_raw_source(self, *, kind: str, external_id: str, **fields: Any) -> None:
         self.docs[(kind, external_id)] = {"external_id": external_id, **fields}
 
-    def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list[Any]:
-        bind = bind_vars or {}
-        rows = [d for (kind, _), d in self.docs.items() if kind == bind["kind"]]
-        if "now" in bind:  # remembered as missing: every such record is a fresh one
-            return [d["external_id"] for d in rows]
-        if "cutoff" in bind:  # stored since: everything here was stored just now
-            return [d["external_id"] for d in rows if not d.get("old")]
-        return [  # the state urls and the fetch times
-            {
-                "id": d["external_id"],
-                "url": d["meta"].get("state_url"),
-                "at": "2026-01-01T00:00:00Z",
-            }
-            for d in rows
+    def _of(self, source: str, kind: str) -> list[dict[str, Any]]:
+        assert source == SOURCE_BWB
+        return [d for (k, _), d in self.docs.items() if k == kind]
+
+    def waiting_for_retry(self, *, source: str, kind: str, **_kw: Any) -> list[str]:
+        # Remembered as missing: every such record is a fresh one.
+        return [d["external_id"] for d in self._of(source, kind)]
+
+    def stored_since(self, *, source: str, kind: str, **_kw: Any) -> list[str]:
+        # Everything here was stored just now, unless a test made it old.
+        return [d["external_id"] for d in self._of(source, kind) if not d.get("old")]
+
+    def fetch_times(self, *, source: str, kind: str) -> list[dict[str, Any]]:
+        return [
+            {"id": d["external_id"], "at": "2026-01-01T00:00:00Z"}
+            for d in self._of(source, kind)
         ]
+
+    def state_urls(self) -> list[dict[str, Any]]:
+        return [
+            {"id": d["external_id"], "url": d["meta"].get("state_url")}
+            for d in self._of(SOURCE_BWB, RAW_KIND_BWB_TOESTAND)
+        ]
+
+
+@pytest.fixture(autouse=True)
+def _raw_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The raw_sources queries of the pipeline, answered by the ``_Store``."""
+    monkeypatch.setattr(
+        raw_queries,
+        "ids_waiting_for_retry",
+        lambda store, **kw: iter(store.waiting_for_retry(**kw)),
+    )
+    monkeypatch.setattr(
+        raw_queries,
+        "ids_stored_since",
+        lambda store, **kw: iter(store.stored_since(**kw)),
+    )
+    monkeypatch.setattr(
+        raw_queries, "fetch_times", lambda store, **kw: iter(store.fetch_times(**kw))
+    )
+    monkeypatch.setattr(
+        raw_queries, "toestand_state_urls", lambda store: iter(store.state_urls())
+    )
 
 
 def test_the_current_toestand_is_the_one_in_force_today() -> None:

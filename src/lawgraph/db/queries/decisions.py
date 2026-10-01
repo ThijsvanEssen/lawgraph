@@ -223,7 +223,7 @@ def get_decision_detail(store: ArangoStore, key: str) -> dict[str, Any] | None:
             FILTER e._to == decision._id AND e.relation == @voted
             LET voter = DOCUMENT(e._from)
             FILTER voter != null
-            SORT e.meta.seats DESC, voter.props.name ASC
+            SORT e.meta.seats DESC, voter.props.name ASC, voter._key ASC
             RETURN {{
                 voter_id: voter._id,
                 voter_key: voter._key,
@@ -263,6 +263,9 @@ def get_decision_document(
             FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
             LET document = DOCUMENT(e._from)
             FILTER document != null
+            // The candidates in their order; within a case the oldest document, as
+            // ``_documents_by_case`` picks it (the key settles a tie).
+            SORT POSITION(@case_ids, case_id, true), document.props.date, document._key
             LIMIT 1
             RETURN document
     """
