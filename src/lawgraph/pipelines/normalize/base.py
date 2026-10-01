@@ -103,6 +103,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
         kinds: list[str],
         since: dt.datetime | None = None,
         batch_size: int = 20,
+        chronological: bool = False,
     ) -> Iterator[dict[str, Any]]:
         """Stream raw_sources rows in small batches, each with its text payload."""
         since_iso = iso_timestamp(since)
@@ -116,6 +117,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
             kinds=kinds,
             since_iso=since_iso,
             batch_size=batch_size,
+            chronological=chronological,
         )
         yield from progress.track(self.store.with_payloads(rows))
 

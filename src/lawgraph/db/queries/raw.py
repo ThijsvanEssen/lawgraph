@@ -32,6 +32,13 @@ from lawgraph.db.counting import Store
 # string with null).
 _SINCE = "(%(since)s::text IS NULL OR fetched_at >= %(since)s)"
 _ORDER = "ORDER BY source, kind, key"
+# The toestanden of each law from the oldest to the newest: what normalize bwb-history makes
+# of them (the place of each version, the version a later toestand merges into) depends on
+# the order it reads them in.
+_CHRONOLOGICAL = (
+    "ORDER BY lg_str(doc -> 'meta' -> 'bwb_id') NULLS LAST,"
+    " lg_str(doc -> 'meta' -> 'start_date') NULLS LAST, key"
+)
 
 
 def _records(rows: Iterator[dict[str, Any]]) -> Iterator[dict[str, Any]]:
@@ -48,13 +55,15 @@ def iter_raw_records(
     kinds: list[str],
     since_iso: str | None,
     batch_size: int,
+    chronological: bool = False,
 ) -> Iterator[dict[str, Any]]:
-    """The records of *kinds*, those fetched at or after *since_iso* when it is given."""
+    """The records of *kinds*, those fetched at or after *since_iso* when it is given;
+    *chronological*: the toestanden of each law in the order of their start."""
     rows = store.query(
         f"""
         SELECT key, doc FROM raw_sources
         WHERE source = %(source)s AND kind = ANY(%(kinds)s) AND {_SINCE}
-        {_ORDER}
+        {_CHRONOLOGICAL if chronological else _ORDER}
         """,
         {"source": source, "kinds": kinds, "since": since_iso},
         batch_size=batch_size,
