@@ -125,7 +125,7 @@ def scratch_db():
     from arango import ArangoClient
 
     from lawgraph.config.settings import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USER
-    from lawgraph.db.schema import ensure_schema
+    from lawgraph.db.schema_arango import ensure_schema
 
     client = ArangoClient(hosts=ARANGO_URL)
     system = client.db("_system", username=ARANGO_USER, password=ARANGO_PASSWORD)

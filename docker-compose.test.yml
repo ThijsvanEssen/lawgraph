@@ -30,6 +30,17 @@ services:
   # An S3 server for the payload store in an S3 bucket (tests/integration/test_payloads.py):
   # what LeafCloud's object storage is to the real deployment. Its objects live in the
   # container and go with it.
+  # The PostgreSQL the port is tested on: databases lawgraph_it_... come and go here.
+  postgres-test:
+    image: postgres:18
+    container_name: lawgraph-postgres-test
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=lawgraph
+      - POSTGRES_PASSWORD=lawgraph-test
+    mem_limit: 1g
+
   s3-test:
     image: versity/versitygw:latest
     container_name: lawgraph-s3-test
