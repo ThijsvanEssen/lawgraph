@@ -219,6 +219,7 @@ def _nodes() -> list[Node]:
             primary_case_id=MOTION_CASE,
             dossier_numbers=["37001-VII"],
             kind="Motie",
+            decision_kind="Stemmen - aangenomen",
             vote_kind="faction",
             tally={"Voor": 80, "Tegen": 70},
             passed=True,
@@ -480,6 +481,9 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "outcome": "aangenomen",
         "vote_kind": "faction",
         "tally": {"Voor": 80, "Tegen": 70},
+        # how it was decided, as the Kamer writes it
+        "method": None,
+        "decision_kind": "Stemmen - aangenomen",
     }
     assert vote["subkind"] == "Motie"
     assert vote["summary"] == "Aangenomen."
@@ -989,6 +993,7 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) ->
     ]
     # the props the item shows, in the byte order of their names (as KEEP gave them)
     assert list(items["stemming"]["props"]) == [
+        "decision_kind",
         "decision_text",
         "kind",
         "passed",

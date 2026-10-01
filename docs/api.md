@@ -245,7 +245,9 @@ the griffier and other signatures that are neither are left out), `ministry` (of
 the `ministry` of its first dossier: who brought the dossier in), `cabinet` (in office on
 `date`), `official_url` (a publication, a version of a law), `tk_url` (a paper), and by kind:
 `vote` (`chamber` `TK`/`EK`, `passed`, `outcome` `aangenomen`/`verworpen`, `vote_kind` `member`/`faction`, `tally`
-as the source writes it), `commitment` (`status`, `expected_resolution`), `publication`
+as the source writes it, and how it was decided as the Kamer writes it: `method` of the Eerste Kamer, `Hamerstuk`,
+`Stemming bij zitten en opstaan, aangenomen`, and `decision_kind` of the Tweede Kamer, its `BesluitSoort`,
+`Stemmen - zonder stemming aannemen` for a hamerstuk), `commitment` (`status`, `expected_resolution`), `publication`
 (`series` `stb`/`stcrt`/`trb`, `year`, `number`, `instruments`: the laws it amends,
 introduces or repeals, up to ten, `key`, `title`, `official_url`), `commencement`
 (`instrument`, `article_count` of the law, `changed_articles`: the articles with a version
