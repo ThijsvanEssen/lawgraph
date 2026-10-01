@@ -73,6 +73,22 @@ def test_merge_keeps_the_order_arangodb_gives(conn: psycopg.Connection) -> None:
     assert json.loads(str(got))["b"] == 5
 
 
+def test_same_is_the_equality_of_aql(conn: psycopg.Connection) -> None:
+    """An attribute set to null equals a missing one, at every depth and in an object inside
+    an array; a null element of an array is an element."""
+    cases = [
+        ('{"a": 1}', '{"a": 1, "b": null}', True),
+        ('{"a": {"b": 1}}', '{"a": {"b": 1, "c": null}}', True),
+        ('{"l": [{"c": 1}]}', '{"l": [{"c": 1, "x": null}]}', True),
+        ('{"l": [1]}', '{"l": [1, null]}', False),
+        ('{"a": 1}', '{"a": 2}', False),
+        ('{"a": 1}', '{"a": null}', False),
+        ("null", "{}", False),
+    ]
+    for a, b, same in cases:
+        assert _one(conn, f"SELECT lg_same('{a}'::jsonb, '{b}'::jsonb)") is same, (a, b)
+
+
 def test_array_union_keeps_the_first_occurrence(conn: psycopg.Connection) -> None:
     assert _one(conn, "SELECT lg_array_union('{TK,b}', '{c,TK,b,d}')") == [
         "TK",
