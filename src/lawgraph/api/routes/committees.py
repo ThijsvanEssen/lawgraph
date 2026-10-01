@@ -193,6 +193,14 @@ def list_members(
         str | None,
         Query(description="Only those who held a post in this cabinet (key)."),
     ] = None,
+    sort: Annotated[
+        Literal["name", "family_name"],
+        Query(
+            description="``name`` (default): by the name they go by. ``family_name``: "
+            "by surname, then tussenvoegsel, as the Kamer lists its members (Steur, van "
+            "der); those without a surname in the source last."
+        ),
+    ] = "name",
     limit: Annotated[int, Query(ge=1, le=1000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
     chamber: Annotated[
@@ -205,7 +213,13 @@ def list_members(
 ) -> list[MemberDTO]:
     if chamber == "EK":
         ek = get_ek_members(
-            store, party=party, active=active, q=q, limit=limit, offset=offset
+            store,
+            party=party,
+            active=active,
+            q=q,
+            sort=sort,
+            limit=limit,
+            offset=offset,
         )
         return [_as_ek_member(MemberDTO.from_document(d)) for d in ek]
     docs = get_members(
@@ -216,6 +230,7 @@ def list_members(
         include_all=include_all,
         government=capacity == "bewindspersoon",
         cabinet=cabinet,
+        sort=sort,
         limit=limit,
         offset=offset,
     )

@@ -191,6 +191,8 @@ def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: ArangoStore) ->
         )
         assert seats["seating_plan"] is None
         assert seats["source"]["data_since"] == "2026-09-30"
+        # the colour the Eerste Kamer draws D66 in (Wie zit waar)
+        assert seats["factions"][0]["colors"] == ["#00D84B"]
         assert (
             client.get(
                 "/api/parliament/seats", params={"chamber": "EK", "date": "2026-01-01"}

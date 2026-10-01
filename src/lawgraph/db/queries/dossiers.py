@@ -79,6 +79,7 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "kind",
         "title",
         "sequence",
+        "number",
         "dossier_number",
         "dossier_suffix",
         "session_year",

@@ -436,6 +436,7 @@ def member(payload: Payload) -> Record | None:
         "full_name": full_name or None,
         # what another source knows a person by (``core.government.match_holder``)
         "family_name": _text(payload, "Achternaam") or None,
+        "name_prefix": _text(payload, "Tussenvoegsel") or None,
         "initials": _text(payload, "Initialen") or None,
         "birth_date": iso_date(payload.get("Geboortedatum")),
     }
