@@ -32,6 +32,15 @@ LOG_NO_COLOR = os.getenv("NO_COLOR") is not None
 # live progress of a terminal go together: piped into `tee`, stderr is no terminal any more.
 LOG_FILE = os.getenv("LAWGRAPH_LOG_FILE")
 
+# ── PostgreSQL connection ─────────────────────────────────────────────────────
+
+# The server (``postgresql://user:password@host:port``) and the database on it; the store
+# creates the database when it is missing and the user may.
+DB_URL = os.getenv("LAWGRAPH_DB_URL", "postgresql://lawgraph@localhost:5432")
+DB_NAME = os.getenv("LAWGRAPH_DB_NAME", "lawgraph")
+# Connections of one process: the API serves this many requests at once.
+DB_POOL_SIZE = int(os.getenv("LAWGRAPH_DB_POOL_SIZE", "8"))
+
 # ── ArangoDB connection ───────────────────────────────────────────────────────
 
 ARANGO_URL = os.getenv("ARANGO_URL", "http://localhost:8529")

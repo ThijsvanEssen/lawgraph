@@ -25,7 +25,7 @@ from lawgraph.core.courts import COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
 from lawgraph.core.judgment_names import CURATED_NAMES
 from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db.counting import Store
-from lawgraph.db.store import sorted_merge
+from lawgraph.db.queries._aql import sorted_merge
 
 # Each entry below is one query body that selects the stale documents, plus a
 # tail that either counts them (--dry-run) or writes the computed values.

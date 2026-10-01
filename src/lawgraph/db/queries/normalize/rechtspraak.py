@@ -10,7 +10,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
 )
 from lawgraph.db.counting import Store
-from lawgraph.db.store import sorted_merge
+from lawgraph.db.queries._aql import sorted_merge
 
 
 def translated_judgments(

@@ -69,3 +69,6 @@ class PipelineStateFake:
     def insert(self, doc: dict[str, Any], overwrite: bool = False) -> None:
         assert overwrite
         self.state[doc["_key"]] = doc
+
+    def vacuum_analyze(self) -> None:
+        """What the phases after retrieve ask of the database when they are done."""
