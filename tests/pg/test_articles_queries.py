@@ -764,3 +764,31 @@ def test_the_passages_are_filtered_and_paged(store: GraphStore) -> None:
 
     nothing = get_article_cited_by(store, "articles/none")
     assert (nothing.rows, nothing.total, nothing.judgment_total) == ([], 0, 0)
+
+
+def test_the_echr_judgments_that_cite_an_article_are_counted_apart(
+    store: GraphStore,
+) -> None:
+    """BE-9: HUDOC names the article an ECHR judgment applies (and its leden), no passage:
+    such a judgment is no row, but counted, whatever the filters."""
+    _seed_cited_by(store)
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment("h1", "ECLI:CE:ECHR:2021:1", "ECHR", "ehrm", "2021-02-09"),
+            _judgment("h2", "ECLI:CE:ECHR:2024:2", "ECHR", "ehrm", "2024-12-10"),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("x1", "judgments/h1", CITED, "REFERS_TO", meta={"leden": ["1"]}),
+            _edge("x2", "judgments/h2", CITED, "REFERS_TO", meta={"leden": ["1", "2"]}),
+            # an ECHR judgment that cites another article is not counted
+            _edge("x3", "judgments/h2", "articles/other", "REFERS_TO", meta={}),
+        ]
+    )
+    cited = get_article_cited_by(store, CITED)
+    assert (cited.total, cited.judgment_total) == (5, 4)  # the passages as before
+    assert cited.echr_judgment_total == 2
+    assert get_article_cited_by(store, CITED, court="hr").echr_judgment_total == 2
+    assert get_article_cited_by(store, "articles/none").echr_judgment_total == 0

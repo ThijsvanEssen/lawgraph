@@ -404,6 +404,13 @@ class ArticleCitedByResponse(BaseModel):
         description="The judgments those passages are in: a judgment that cites the "
         "article in three places is three passages and one judgment."
     )
+    echr_judgment_total: int = Field(
+        default=0,
+        description="The ECHR judgments that cite the article, whatever the filters. "
+        "HUDOC names the articles a judgment applies, not the passage, so they are no "
+        "row of `items`; `GET /api/instruments/{identifier}/eu-links` lists them "
+        "(`international`).",
+    )
 
 
 class LegislativeHistoryEntry(BaseModel):

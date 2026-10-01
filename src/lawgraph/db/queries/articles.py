@@ -507,6 +507,7 @@ class CitedBy:
     rows: list[dict[str, Any]]
     total: int
     judgment_total: int
+    echr_judgment_total: int = 0
 
 
 # ``hits``: per edge of a judgment to the article, one row per mention that passes the
@@ -540,6 +541,14 @@ SELECT
     (SELECT count(*)::int FROM hits) AS total,
     -- one edge per judgment and article
     (SELECT count(DISTINCT edge)::int FROM hits) AS judgment_total,
+    -- the ECHR judgments that cite it: HUDOC names the article (and its leden), no passage
+    (
+        SELECT count(DISTINCT e.from_id)::int
+        FROM {COLLECTION_EDGES} e
+        JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+        WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
+          AND e.from_collection = '{COLLECTION_JUDGMENTS}' AND j.court_code = 'ECHR'
+    ) AS echr_judgment_total,
     (
         SELECT coalesce(json_agg(json_build_object(
             'judgment', json_build_object(
@@ -577,7 +586,9 @@ def get_article_cited_by(
     """The passages of judgments that cite an article: one row per mention, newest first.
 
     ``total`` counts every mention that passes the filters, whatever the page, and
-    ``judgment_total`` the judgments they are in. Filters: the ``court`` (ECLI court code) and
+    ``judgment_total`` the judgments they are in; ``echr_judgment_total`` the ECHR
+    judgments that cite the article, whatever the filters: HUDOC names the article they
+    apply, not a passage, so they have no row. Filters: the ``court`` (ECLI court code) and
     ``tier`` of the judgment, and a ``lid`` number that the mention names.
 
     A much cited article has thousands of judgments (Sr 287, Awb 6:2) and a judgment is
@@ -601,4 +612,5 @@ def get_article_cited_by(
         rows=list(answer.get("items") or []),
         total=int(answer.get("total") or 0),
         judgment_total=int(answer.get("judgment_total") or 0),
+        echr_judgment_total=int(answer.get("echr_judgment_total") or 0),
     )
