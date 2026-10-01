@@ -16,6 +16,8 @@ SEARCH_TYPES = frozenset(
         "documents",
         "committees",
         "members",
+        "cabinets",
+        "commitments",
         "factions",
     }
 )

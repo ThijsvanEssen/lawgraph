@@ -44,6 +44,8 @@ URLS = [
     "/api/search?q=6:162",
     f"/api/search?q={ECLI}",
     "/api/search?q=Hoge+Raad&types=judgments",
+    "/api/search?q=kabinet+schoof&types=cabinets",
+    "/api/search?q=statusbrief&types=commitments",
     "/api/resolve?q=art.+1+BWBR0001",
     "/api/judgments",
     "/api/judgments?sort=date_asc",
