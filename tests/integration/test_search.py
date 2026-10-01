@@ -56,6 +56,7 @@ def store(database: str) -> GraphStore:
         kind="Amendement",
         sequence=12,
         dossier_numbers=["36000"],
+        date="2025-11-04",
     )
     return store
 
@@ -87,3 +88,9 @@ def test_a_word_that_is_not_there_finds_nothing(store: GraphStore) -> None:
 def test_a_document_hit_has_its_number_in_the_dossier(store: GraphStore) -> None:
     (hit,) = search_all(store, q="huurovereenkomst", types=["documents"])["documents"]
     assert (hit["extra"]["dossier_number"], hit["extra"]["sequence"]) == ("36000", 12)
+
+
+def test_a_document_hit_has_its_date(store: GraphStore) -> None:
+    """Four debates on one subject are told apart by their day (BE-1)."""
+    (hit,) = search_all(store, q="huurovereenkomst", types=["documents"])["documents"]
+    assert hit["extra"]["date"] == "2025-11-04"

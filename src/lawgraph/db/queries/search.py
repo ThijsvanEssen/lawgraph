@@ -549,7 +549,8 @@ def _search_documents(
                 'external_id', doc.props -> 'external_id',
                 'dossier_number', CASE WHEN json_typeof(doc.props -> 'dossier_numbers') = 'array'
                                        THEN doc.props -> 'dossier_numbers' -> 0 END,
-                'sequence', doc.props -> 'sequence'
+                'sequence', doc.props -> 'sequence',
+                'date', doc.props -> 'date'
             )
         )
     """
