@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
+from lawgraph.db.queries._helpers import chamber_sql
 
 
 def get_document(store: GraphStore, key: str) -> dict[str, Any] | None:
@@ -152,9 +153,7 @@ def get_document_passages(
 
 # The chambers a paper can be of: its label (``TK``; ``EK`` with ``EersteKamer``).
 _CHAMBERS = ("TK", "EK")
-_CHAMBER_OF = (
-    "CASE WHEN 'EK' = ANY(d.labels) THEN 'EK' WHEN 'TK' = ANY(d.labels) THEN 'TK' END"
-)
+_CHAMBER_OF = chamber_sql("d")
 
 # ``props.dossier_numbers OR []``: the value when AQL holds it true, else [].
 _NUMBERS = "d.props -> 'dossier_numbers'"

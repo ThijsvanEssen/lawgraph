@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.documents import CHAMBERS
 from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
@@ -198,3 +199,9 @@ _TOGETHER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="query")
 def run_together(*calls: Callable[[], T]) -> list[T]:
     """The results of *calls*, run at the same time, in their order."""
     return list(_TOGETHER.map(lambda call: call(), calls))
+
+
+def chamber_sql(alias: str) -> str:
+    """``core.documents.chamber_of`` in SQL, over the labels of the row *alias*."""
+    whens = " ".join(f"WHEN '{c}' = ANY({alias}.labels) THEN '{c}'" for c in CHAMBERS)
+    return f"CASE {whens} END"

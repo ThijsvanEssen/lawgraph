@@ -21,6 +21,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import bm25_sql
+from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import SEARCH_FIELDS, search_column
 
@@ -474,9 +475,9 @@ def _search_judgments(
 # ── dossiers, committees, documents ──────────────────────────────────────────
 
 _KIND = "AND lower(doc.props ->> 'kind') = ANY(%(kind_filter)s)"
-# The chamber of a document from its labels, as ``/api/documents`` reads it
-# (``queries/documents._CHAMBER_OF``): null for a Staatsblad or Staatscourant publication.
-_CHAMBER = "CASE WHEN 'EK' = ANY(doc.labels) THEN 'EK' WHEN 'TK' = ANY(doc.labels) THEN 'TK' END"
+# The chamber of a document from its labels, as everywhere (``chamber_sql``): null for a
+# Staatsblad or Staatscourant publication.
+_CHAMBER = chamber_sql("doc")
 
 
 def _search_dossiers(
