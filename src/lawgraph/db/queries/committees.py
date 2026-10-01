@@ -324,7 +324,7 @@ def _members_page(
         f"""
         SELECT {_NODE.format(t="m")}
         FROM {COLLECTION_MEMBERS} m
-        CROSS JOIN LATERAL (SELECT {_member_name("m")} AS name) n
+        CROSS JOIN LATERAL (SELECT m.list_name AS name) n
         WHERE {" AND ".join(f"({f})" for f in filters)}
           AND (%(active)s::boolean IS NULL OR ({seated}) = %(active)s::boolean)
         ORDER BY n.name ASC NULLS FIRST, m.key ASC
@@ -355,7 +355,9 @@ def get_members(
     (both whether they sat in parliament or not). *party* matches the current party or
     any abbreviation, name or alias in the member's faction timeline.
     """
-    filters: list[str] = ["n.name <> ''"]
+    # ``list_name``, ``in_parliament`` and ``seated`` are columns of the members table:
+    # with them a page of the list is read from an index in name order
+    filters: list[str] = ["m.list_name <> ''"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
 
     if government:
@@ -364,14 +366,14 @@ def get_members(
         filters.append("m.cabinet_keys @> ARRAY[%(cabinet)s]::text[]")
         bind["cabinet"] = cabinet
     if not (include_all or government or cabinet):
-        filters.append(_nonempty("m.props -> 'faction_memberships'"))
+        filters.append("m.in_parliament")
     if party:
         filters.append(_PARTY)
         bind["party"] = party.strip().lower()
     if q:
         filters.append(_contains("n.name"))
         bind["q"] = q.strip().lower()
-    return _members_page(store, filters, bind, _SEATED)
+    return _members_page(store, filters, bind, "m.seated")
 
 
 # The name a member has in the Eerste Kamer.
@@ -390,7 +392,7 @@ def get_ek_members(
     """The members of the Eerste Kamer (``props.ek``), in name order: those the last
     snapshot shows (*active*), those it no longer does, or both. *party* matches the
     abbreviation of their faction."""
-    filters = ["NOT " + _is_null("m.props -> 'ek'")]
+    filters = ["m.in_ek"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
     if party:
         filters.append(
@@ -459,9 +461,12 @@ def get_seats_on(store: ArangoStore, day: str) -> dict[str, int]:
         SELECT f.period ->> 'faction_key' AS faction, count(DISTINCT m.key)::int AS seats
         FROM {COLLECTION_MEMBERS} m
         CROSS JOIN LATERAL json_array_elements(
-            {_array("m.props -> 'faction_memberships'")}
+            {_array("m.pj_faction_memberships")}
         ) AS f(period)
-        WHERE lg_str(f.period -> 'from_date') <= %(day)s
+        -- only a member with faction memberships has any (``in_parliament``); the list is
+        -- a column of its own, read without the rest of the props
+        WHERE m.in_parliament
+          AND lg_str(f.period -> 'from_date') <= %(day)s
           AND ({_is_null("f.period -> 'to_date'")} OR lg_str(f.period -> 'to_date') >= %(day)s)
         GROUP BY 1
         ORDER BY 1 ASC NULLS FIRST

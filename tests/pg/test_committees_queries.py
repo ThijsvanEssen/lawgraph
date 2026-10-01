@@ -459,6 +459,44 @@ def test_the_members_of_the_eerste_kamer(store: ArangoStore) -> None:
     assert _keys(get_ek_members(store, limit=1, offset=1)) == ["m6"]
 
 
+def _plan(store: ArangoStore, call: Any) -> str:
+    """The plan PostgreSQL makes for the one statement *call* runs on *store*."""
+    seen: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def spy(statement: Any, params: Any = None, **kw: Any) -> Any:
+        seen.append((statement, params))
+        return query(statement, params, **kw)
+
+    store.query = spy  # type: ignore[method-assign]
+    try:
+        call()
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    [(statement, params)] = seen
+    with store.pool.connection() as conn:
+        conn.execute(b"ANALYZE members")
+        rows = conn.execute(("EXPLAIN " + statement).encode(), params).fetchall()
+    return "\n".join(row[0] for row in rows)
+
+
+def test_a_page_of_members_is_read_from_an_index_in_name_order(
+    store: ArangoStore,
+) -> None:
+    """The lists filter and sort on columns (``list_name``, ``in_parliament``, ``in_ek``):
+    a page is read from a partial index in name order, not from every member's props."""
+    _people(store)
+    g = Graph(store)
+    for n in range(3000):  # people who never held a seat: what the TK lists most
+        g.node("members", f"filler{n:04d}", name=f"Iemand {n}")
+    g.write()
+    tk = _plan(store, lambda: get_members(store, limit=5))
+    assert "members_list_name" in tk and "Seq Scan" not in tk
+    ek = _plan(store, lambda: get_ek_members(store, limit=5))
+    assert "members_list_ek" in ek and "Seq Scan" not in ek
+    assert _keys(get_members(store, limit=2)) == ["m1", "m2"]
+
+
 def _factions(store: ArangoStore) -> None:
     g = Graph(store)
     g.node("factions", "vvd", name="VVD", abbreviation="VVD", active=True, seats=24)
