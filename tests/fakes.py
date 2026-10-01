@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import Any
 
+import pytest
+
+from lawgraph.db.queries import state as state_queries
+
 
 class RawSourcesFake:
     """``insert_raw_sources`` of the store, on top of the ``insert_raw_source`` of a fake.
@@ -54,21 +58,24 @@ class FakeResponse:
 
 
 class PipelineStateFake:
-    """A store as ``pipelines/watermark`` sees it: the ``pipeline_state`` collection."""
+    """A store as ``pipelines/watermark`` sees it: until when each phase is covered, in
+    ``state`` (phase -> moment). ``patch_pipeline_state`` points the state queries at it."""
 
     def __init__(self) -> None:
-        self.state: dict[str, dict[str, Any]] = {}
-
-    def collection(self, name: str) -> PipelineStateFake:
-        assert name == "pipeline_state"
-        return self
-
-    def get(self, key: str) -> dict[str, Any] | None:
-        return self.state.get(key)
-
-    def insert(self, doc: dict[str, Any], overwrite: bool = False) -> None:
-        assert overwrite
-        self.state[doc["_key"]] = doc
+        self.state: dict[str, str] = {}
 
     def vacuum_analyze(self) -> None:
         """What the phases after retrieve ask of the database when they are done."""
+
+
+def patch_pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The queries of ``db/queries/state.py``, answered from a ``PipelineStateFake``."""
+
+    def covered_until(store: PipelineStateFake, phase: str) -> str | None:
+        return store.state.get(phase)
+
+    def set_covered_until(store: PipelineStateFake, phase: str, began_iso: str) -> None:
+        store.state[phase] = began_iso
+
+    monkeypatch.setattr(state_queries, "covered_until", covered_until)
+    monkeypatch.setattr(state_queries, "set_covered_until", set_covered_until)
