@@ -485,37 +485,6 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _dossier_documents_aql(body: str) -> str:
-    """The documents of one dossier — directly PART_OF it, or via a case — in AQL.
-
-    Only ``resolve.py`` reads it, until its own port.
-    """
-    return f"""
-        LET direct = (
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == dossier_id AND e.relation == @part_of
-                FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
-                LET document = DOCUMENT(e._from)
-                FILTER document != null
-                RETURN document
-        )
-        LET via_case = (
-            FOR e1 IN {COLLECTION_EDGES}
-                FILTER e1._to == dossier_id AND e1.relation == @part_of
-                FILTER STARTS_WITH(e1._from, '{COLLECTION_CASES}/')
-                FOR e2 IN {COLLECTION_EDGES}
-                    FILTER e2._to == e1._from AND e2.relation == @part_of
-                    FILTER STARTS_WITH(e2._from, '{COLLECTION_DOCUMENTS}/')
-                    LET document = DOCUMENT(e2._from)
-                    FILTER document != null
-                    RETURN document
-        )
-        LET all_documents = UNIQUE(APPEND(direct, via_case))
-        {body}
-    """
-
-
-# A document row of the dossier documents, in the order of the answer.
 # The props a row of a dossier's documents shows, read from the document's props in one
 # pass (a TK document carries its whole API payload, which every ``props -> 'x'`` would
 # parse again).
@@ -532,6 +501,7 @@ _DOSSIER_DOCUMENT_KEYS = [
     "title",
 ]
 
+# A document row of the dossier documents, in the order of the answer.
 _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'id', d.id,
             'key', d.key,
