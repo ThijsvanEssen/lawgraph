@@ -35,6 +35,7 @@ def _pages() -> dict[str, str]:
         "/fractie/democraten_1966": (FIXTURES / "ek_faction_d66.html").read_text(),
         "/commissies": (FIXTURES / "ek_committees.html").read_text(),
         "/commissies/fin": (FIXTURES / "ek_committee_fin.html").read_text(),
+        "/wie_zit_waar": (FIXTURES / "ek_wie_zit_waar.html").read_text(),
     }
 
 
@@ -180,6 +181,8 @@ def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: ArangoStore) ->
         dittrich = next(m for m in members if m["key"] == "dittrich")
         assert dittrich["ek"]["abbreviation"] == "D66"
         assert dittrich["ek"]["observed_from"] == "2026-09-30"
+        # where Wie zit waar seats him: the right block, third row, by the aisle but one
+        assert dittrich["ek"]["seat"] == {"block": "right", "row": 2, "column": 2}
         # in the list of the Eerste Kamer, its party and whether it sits there now
         assert {(m["party"], m["active"]) for m in members} == {("D66", True)}
 
@@ -193,6 +196,27 @@ def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: ArangoStore) ->
         assert seats["source"]["data_since"] == "2026-09-30"
         # the colour the Eerste Kamer draws D66 in (Wie zit waar)
         assert seats["factions"][0]["colors"] == ["#00D84B"]
+        # the hall: the seats of the members this snapshot knows, in the order of the plan
+        hall = seats["hall"]
+        assert hall["url"] == "https://www.eerstekamer.nl/wie_zit_waar"
+        assert [(p["block"], p["row"], p["column"]) for p in hall["seats"]] == [
+            ("right", 1, 1),
+            ("right", 1, 2),
+            ("right", 1, 3),
+            ("right", 2, 0),
+            ("right", 2, 1),
+            ("right", 2, 2),
+            ("right", 2, 3),
+        ]
+        assert hall["seats"][5] == {
+            "block": "right",
+            "row": 2,
+            "column": 2,
+            "faction": "ek_democraten_1966",
+            "abbreviation": "D66",
+            "member": "dittrich",
+            "name": "mr. B.O. Dittrich",
+        }
         assert (
             client.get(
                 "/api/parliament/seats", params={"chamber": "EK", "date": "2026-01-01"}

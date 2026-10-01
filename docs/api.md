@@ -155,7 +155,12 @@ the first that no longer did (null while it is shown); neither is the day it beg
 and nothing before the first snapshot is known. A member's `ek` holds `name` (as the Kamer
 writes it, `mr. B.O. Dittrich`), `faction` (key) and `abbreviation`, `seniority_days`
 (`Anciënniteit`: the days served, earlier terms included; no start date), `residence`,
-`observed_from`, `observed_until` and `source`. Everything taken over from eerstekamer.nl
+`seat` (where Wie zit waar seats them: `block` `left` or `right` seen from the government, or
+`chair` for the Voorzitter, `row` from the government, `column` from the outer wall; null for
+nowhere), `observed_from`, `observed_until` and `source`. The seats of the Eerste Kamer
+(`/api/parliament/seats?chamber=EK`) carry `hall`: its `url` and every seat a member holds
+(`block`, `row`, `column`, `faction`, `abbreviation`, `member`, `name`), the left block, the
+chair and the right block row by row; a place no one holds is not listed. Everything taken over from eerstekamer.nl
 carries `source` (`url`, `retrieved_on`, `composition_date`: the day of the composition shown,
 `data_since`: the day of the first snapshot, before which nothing is known, and `attribution`:
 `EK_ATTRIBUTION`, to name with it).
