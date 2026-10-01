@@ -69,3 +69,30 @@ def test_a_committee_page_gives_its_members_with_faction_and_role() -> None:
     ]
     assert page.members[0].faction == "SP" and page.members[0].role is None
     assert page.board == []
+
+
+def test_the_hall_seats_every_member_where_wie_zit_waar_draws_them() -> None:
+    seats = ec.hall(_read("ek_wie_zit_waar.html"))
+    assert len(seats) == 75
+    blocks = {
+        block: [s for s in seats if s.block == block] for block in ("left", "right")
+    }
+    assert (len(blocks["left"]), len(blocks["right"])) == (38, 36)
+    # the Voorzitter, between the blocks
+    (chair,) = [s for s in seats if s.block == "chair"]
+    assert chair == ec.HallSeat(
+        "chair", 0, 0, "/fractie/progressief_nederland_pro", "/persoon/dr_m_l_vos_pro"
+    )
+    # the first row of the left block: three of the SP and an empty place by the aisle
+    first = [s for s in blocks["left"] if s.row == 0]
+    assert [s.column for s in first] == [0, 1, 2]
+    assert {s.faction for s in first} == {"/fractie/socialistische_partij"}
+    # the first row of the right block: an empty place by the wall, then the FVD
+    assert [s.column for s in blocks["right"] if s.row == 0] == [1, 2, 3]
+    # every member is linked to their page
+    assert all(s.person and s.person.startswith("/persoon/") for s in seats)
+    assert len({s.person for s in seats}) == 75
+
+
+def test_a_page_without_the_plan_seats_no_one() -> None:
+    assert ec.hall(_read("ek_factions.html")) == []

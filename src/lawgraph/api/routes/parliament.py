@@ -11,12 +11,14 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.committees import EkSourceDTO
 from lawgraph.api.schemas.parliament import (
     FactionSeatsDTO,
+    HallDTO,
+    HallPlaceDTO,
     ParliamentSeatsResponse,
     PartyColorsResponse,
     SeatingPlanDTO,
 )
 from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
-from lawgraph.core.eerstekamer_composition import FACTIONS_PATH
+from lawgraph.core.eerstekamer_composition import FACTIONS_PATH, HALL_PATH
 from lawgraph.core.parties import (
     PARTY_ALIASES,
     PARTY_COLORS,
@@ -25,7 +27,7 @@ from lawgraph.core.parties import (
     party_color,
 )
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries.committees import get_factions, get_seats_on
+from lawgraph.db.queries.committees import get_ek_members, get_factions, get_seats_on
 
 router = APIRouter()
 
@@ -116,6 +118,7 @@ def get_seats(
             **{k: SEATING_SOURCE[k] for k in ("title", "dated", "url", "page")}
         ),
         source=None,
+        hall=None,
     )
 
 
@@ -165,7 +168,31 @@ def _ek_seats(store: ArangoStore) -> ParliamentSeatsResponse:
             ),
             attribution=EK_ATTRIBUTION,
         ),
+        hall=_hall(store),
     )
+
+
+# The order of the blocks of the hall of the Eerste Kamer in its plan.
+_BLOCKS = {"left": 0, "chair": 1, "right": 2}
+
+
+def _hall(store: ArangoStore) -> HallDTO | None:
+    """Who sits where in the hall of the Eerste Kamer, from the seats of its members."""
+    places = [
+        HallPlaceDTO(
+            **ek["seat"],
+            faction=ek.get("faction") or "",
+            abbreviation=ek.get("abbreviation"),
+            member=doc["_key"],
+            name=ek.get("name"),
+        )
+        for doc in get_ek_members(store, active=True, limit=1000)
+        if (ek := (doc.get("props") or {}).get("ek") or {}).get("seat")
+    ]
+    if not places:
+        return None
+    places.sort(key=lambda p: (_BLOCKS[p.block], p.row, p.column))
+    return HallDTO(url=EERSTEKAMER_SITE.rstrip("/") + HALL_PATH, seats=places)
 
 
 party_router = APIRouter()

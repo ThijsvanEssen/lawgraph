@@ -8,7 +8,9 @@ The pages (``ek-composition-html``) show who sits where on the day they were rea
 * a member for every person on a faction page: the member of the Tweede Kamer whose date of
   birth is theirs and whose surname ends their name, when exactly one is; else a member of
   their own, ``ek_<slug>``. Its ``ek`` prop holds what the page gives (the name as the Kamer
-  writes it, the days served, the place of residence) and its faction;
+  writes it, the days served, the place of residence), its faction and its seat in the hall
+  (``seat``: ``block``, ``row``, ``column`` as ``/wie_zit_waar`` draws it; null when the plan
+  places them nowhere);
 * ``MEMBER_OF`` from the member to the faction and to every committee it sits in (with the
   role the committee page gives), ``meta.chamber`` ``EK``.
 
@@ -61,6 +63,13 @@ def _surname_ends(name: str, family_name: str | None) -> bool:
     return bool(family_name) and name.casefold().endswith(str(family_name).casefold())
 
 
+def _seat(seat: ec.HallSeat | None) -> dict[str, Any] | None:
+    """Where a member sits: ``{block, row, column}`` of the plan, None for nowhere."""
+    if seat is None:
+        return None
+    return {"block": seat.block, "row": seat.row, "column": seat.column}
+
+
 @dataclass
 class Snapshot:
     """What the pages show on *day*."""
@@ -70,6 +79,8 @@ class Snapshot:
     since: str = ""
     factions: list[tuple[ec.Listed, ec.Page]] = field(default_factory=list)
     committees: list[tuple[ec.Listed, ec.Page]] = field(default_factory=list)
+    # the seat of each member in the hall, by the path of their page
+    seats: dict[str, ec.HallSeat] = field(default_factory=dict)
 
 
 def snapshot(pages: dict[str, tuple[str, dict[str, Any]]]) -> Snapshot | None:
@@ -85,6 +96,10 @@ def snapshot(pages: dict[str, tuple[str, dict[str, Any]]]) -> Snapshot | None:
     for entry in ec.committees(committees[0]) if committees else []:
         if entry.path in pages:
             shot.committees.append((entry, ec.page(pages[entry.path][0])))
+    hall = pages.get(ec.HALL_PATH)
+    shot.seats = {
+        seat.person: seat for seat in ec.hall(hall[0] if hall else "") if seat.person
+    }
     return shot
 
 
@@ -169,6 +184,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 "abbreviation": listed.abbreviation,
                 "seniority_days": person.seniority_days,
                 "residence": person.residence,
+                "seat": _seat(shot.seats.get(person.path)),
                 "observed_from": before.get("observed_from") if same else shot.day,
                 "observed_until": None,
                 "retrieved_on": shot.day,
