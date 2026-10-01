@@ -793,6 +793,11 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         "CREATE INDEX IF NOT EXISTS instruments_list_article_count"
         f" ON instruments (article_count DESC NULLS LAST, key DESC) WHERE {_LISTED}",
     ),
+    # /api/documents, newest first: a page without a kind or dossier reads only itself.
+    COLLECTION_DOCUMENTS: (
+        "CREATE INDEX IF NOT EXISTS documents_list_date"
+        " ON documents (date DESC NULLS LAST, key)",
+    ),
 }
 
 
